@@ -350,6 +350,7 @@ class OllamaViewModel(
                             model = finalChunk?.model ?: model,
                             modelLabel = finalChunk?.model ?: model,
                             completionTokens = outputTokens,
+                            assistantUpdateCount = streamingResult.assistantUpdateCount,
                         )
                         _uiState.value = UiState.Success(finalText)
                     }
@@ -392,6 +393,7 @@ class OllamaViewModel(
             var latestFlushedLength = 0
             var finalChunk: StreamChunk? = null
             var timeToFirstTokenMs: Long? = null
+            var assistantUpdateCount = 0
 
             body.charStream().buffered().use { reader ->
                 while (true) {
@@ -416,6 +418,7 @@ class OllamaViewModel(
                         if (isIntervalElapsed || endsWithPriorityChar) {
                             onResponseReceived(currentText.length)
                             _uiState.value = UiState.Streaming(currentText)
+                            assistantUpdateCount += 1
                             lastUiUpdateAtMs = nowMs
                             latestFlushedLength = currentText.length
                         }
@@ -426,6 +429,7 @@ class OllamaViewModel(
                         if (currentText.isNotEmpty() && latestFlushedLength != currentText.length) {
                             onResponseReceived(currentText.length)
                             _uiState.value = UiState.Streaming(currentText)
+                            assistantUpdateCount += 1
                             latestFlushedLength = currentText.length
                         }
                         doneReceived = true
@@ -443,6 +447,7 @@ class OllamaViewModel(
                 text = resultBuilder.toString(),
                 finalChunk = finalChunk,
                 timeToFirstTokenMs = timeToFirstTokenMs,
+                assistantUpdateCount = assistantUpdateCount,
             )
         } finally {
             if (activeRemoteCall === call) {
@@ -486,6 +491,7 @@ class OllamaViewModel(
         val text: String,
         val finalChunk: StreamChunk? = null,
         val timeToFirstTokenMs: Long? = null,
+        val assistantUpdateCount: Int = 0,
     )
 
     private data class StreamChunk(

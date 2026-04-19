@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import android.content.Context
 import android.os.SystemClock
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
@@ -14,11 +15,17 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
+
+private const val TOKENIZER_COUNT_UNAVAILABLE_NOTE =
+    "このビルドの LiteRT API では tokenizer-based token count を取得できませんでした。"
+private const val MEDIAPIPE_TOKEN_COUNT_MODE = "mediapipe_tokenizer_recount"
+private const val LITERT_TOKEN_COUNT_MODE = "tokenizer_recount"
 
 internal interface LocalStreamingRunner<T> {
     suspend fun run(
@@ -27,6 +34,7 @@ internal interface LocalStreamingRunner<T> {
         localBaseModelDisplayName: String?,
         resolvedModelPath: String? = null,
         cacheDirPath: String? = null,
+        mediaPipeProbeContext: Context? = null,
         onPartial: (String) -> Unit = {},
     ): T?
 }
@@ -39,6 +47,7 @@ internal class DefaultLocalStreamingRunner<T>(
         localBaseModelDisplayName: String?,
         resolvedModelPath: String?,
         cacheDirPath: String?,
+        mediaPipeProbeContext: Context?,
         onPartial: (String) -> Unit,
     ) -> T,
 ) : LocalStreamingRunner<T> {
@@ -48,6 +57,7 @@ internal class DefaultLocalStreamingRunner<T>(
         localBaseModelDisplayName: String?,
         resolvedModelPath: String?,
         cacheDirPath: String?,
+        mediaPipeProbeContext: Context?,
         onPartial: (String) -> Unit,
     ): T? = withContext(Dispatchers.IO) {
         withTimeoutOrNull(timeoutMs) {
@@ -57,6 +67,7 @@ internal class DefaultLocalStreamingRunner<T>(
                 localBaseModelDisplayName,
                 resolvedModelPath,
                 cacheDirPath,
+                mediaPipeProbeContext,
                 onPartial,
             )
         }
@@ -109,6 +120,8 @@ internal suspend fun runWithHeldEngine(
     chatId: Int,
     prompt: String,
     localModelDisplayName: String?,
+    mediaPipeProbeModelPath: String? = null,
+    mediaPipeProbeContext: Context? = null,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
 ): HeldEngineRunResult? {
@@ -118,6 +131,7 @@ internal suspend fun runWithHeldEngine(
     var conversationOutcome: RunCloseTargetOutcome? = null
     var heldFlowPartialCount = 0
     var heldFlowFirstPartialElapsedRealtimeMs: Long? = null
+    var heldFlowLastChunkElapsedRealtimeMs: Long? = null
     var officialFlowUsed = false
     var closeSummaryPath = "held-official-flow"
     var measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null
@@ -156,6 +170,7 @@ internal suspend fun runWithHeldEngine(
                     if (heldFlowFirstPartialElapsedRealtimeMs == null) {
                         heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     }
+                    heldFlowLastChunkElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     builder.append(extracted)
                     onPartial(builder.toString())
                 }
@@ -185,6 +200,22 @@ internal suspend fun runWithHeldEngine(
                     )
                 }
                 measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+                measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
+                    base = measuredTokenSnapshot,
+                    conversation = conversation,
+                    tokenizerSessionSource = heldEngine.engineInstance,
+                    mediaPipeProbeModelPath = mediaPipeProbeModelPath,
+                    mediaPipeProbeContext = mediaPipeProbeContext,
+                    promptText = prompt,
+                    fullResponseText = flowResponse,
+                    timing = LocalLiteRtTimingSnapshot(
+                        startedAtMs = startElapsedRealtimeMs,
+                        firstNonEmptyChunkAtMs = heldFlowFirstPartialElapsedRealtimeMs,
+                        lastChunkAtMs = heldFlowLastChunkElapsedRealtimeMs,
+                        endedAtMs = SystemClock.elapsedRealtime(),
+                    ),
+                    appendTrace = appendTrace,
+                )
                 measuredCollector.emitAdoptedTrace()
                 return@runWithConversation flowResponse
             }
@@ -230,6 +261,23 @@ internal suspend fun runWithHeldEngine(
                     )
                 }
                 measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+                val completedAtMs = SystemClock.elapsedRealtime()
+                measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
+                    base = measuredTokenSnapshot,
+                    conversation = conversation,
+                    tokenizerSessionSource = heldEngine.engineInstance,
+                    mediaPipeProbeModelPath = mediaPipeProbeModelPath,
+                    mediaPipeProbeContext = mediaPipeProbeContext,
+                    promptText = prompt,
+                    fullResponseText = blockingResponse,
+                    timing = LocalLiteRtTimingSnapshot(
+                        startedAtMs = startElapsedRealtimeMs,
+                        firstNonEmptyChunkAtMs = completedAtMs,
+                        lastChunkAtMs = completedAtMs,
+                        endedAtMs = completedAtMs,
+                    ),
+                    appendTrace = appendTrace,
+                )
                 measuredCollector.emitAdoptedTrace()
                 onPartial(blockingResponse)
             }
@@ -433,6 +481,2028 @@ private class MeasuredTokenTimingCollector(
     }
 }
 
+private data class LocalLiteRtTimingSnapshot(
+    val startedAtMs: Long,
+    val firstNonEmptyChunkAtMs: Long?,
+    val lastChunkAtMs: Long?,
+    val endedAtMs: Long,
+)
+
+private fun mergeTokenizerRecountSnapshot(
+    base: LocalInferenceMeasuredTokenSnapshot?,
+    conversation: Any?,
+    tokenizerSessionSource: Any? = null,
+    mediaPipeProbeModelPath: String? = null,
+    mediaPipeProbeContext: Context? = null,
+    promptText: String,
+    fullResponseText: String?,
+    timing: LocalLiteRtTimingSnapshot,
+    appendTrace: (String) -> Unit,
+): LocalInferenceMeasuredTokenSnapshot? {
+    val sanitizedPrompt = promptText
+    val sanitizedResponse = fullResponseText.orEmpty()
+    val tokenizerSnapshot = readTokenizerRecountSnapshotFromConversation(
+        conversation = conversation,
+        tokenizerSessionSource = tokenizerSessionSource,
+        mediaPipeProbeModelPath = mediaPipeProbeModelPath,
+        mediaPipeProbeContext = mediaPipeProbeContext,
+        promptText = sanitizedPrompt,
+        fullResponseText = sanitizedResponse,
+        timing = timing,
+        appendTrace = appendTrace,
+    ) ?: return base
+    return if (base == null) {
+        tokenizerSnapshot
+    } else {
+        base.copy(
+            inputTokens = tokenizerSnapshot.inputTokens ?: base.inputTokens,
+            outputTokens = tokenizerSnapshot.outputTokens ?: base.outputTokens,
+            totalTokens = tokenizerSnapshot.totalTokens ?: base.totalTokens,
+            tokenizerSourceTraceSummary = tokenizerSnapshot.tokenizerSourceTraceSummary ?: base.tokenizerSourceTraceSummary,
+            mediaPipeTokenizerStatus = tokenizerSnapshot.mediaPipeTokenizerStatus ?: base.mediaPipeTokenizerStatus,
+            mediaPipeTokenizerSummary = tokenizerSnapshot.mediaPipeTokenizerSummary ?: base.mediaPipeTokenizerSummary,
+            mediaPipeInputTokens = tokenizerSnapshot.mediaPipeInputTokens ?: base.mediaPipeInputTokens,
+            mediaPipeOutputTokens = tokenizerSnapshot.mediaPipeOutputTokens ?: base.mediaPipeOutputTokens,
+            mediaPipeTotalTokens = tokenizerSnapshot.mediaPipeTotalTokens ?: base.mediaPipeTotalTokens,
+            tokenCountMode = tokenizerSnapshot.tokenCountMode ?: base.tokenCountMode,
+            notes = tokenizerSnapshot.notes ?: base.notes,
+            tokensPerSecond = tokenizerSnapshot.tokensPerSecond ?: base.tokensPerSecond,
+            charsPerSecond = tokenizerSnapshot.charsPerSecond ?: base.charsPerSecond,
+            ttftMs = tokenizerSnapshot.ttftMs ?: base.ttftMs,
+            decodeDurationMs = tokenizerSnapshot.decodeDurationMs ?: base.decodeDurationMs,
+            totalDurationMs = tokenizerSnapshot.totalDurationMs ?: base.totalDurationMs,
+        )
+    }
+}
+
+private fun readTokenizerRecountSnapshotFromConversation(
+    conversation: Any?,
+    tokenizerSessionSource: Any?,
+    mediaPipeProbeModelPath: String?,
+    mediaPipeProbeContext: Context?,
+    promptText: String,
+    fullResponseText: String,
+    timing: LocalLiteRtTimingSnapshot,
+    appendTrace: (String) -> Unit,
+): LocalInferenceMeasuredTokenSnapshot? {
+    if (conversation !is Conversation) return null
+    return runCatching {
+        if (BuildConfig.DEBUG && promptText.isBlank()) {
+            safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped-empty-prompt")
+        }
+        val ttftMs = timing.firstNonEmptyChunkAtMs?.let { (it - timing.startedAtMs).coerceAtLeast(0L) }
+        val decodeDurationMs = if (timing.firstNonEmptyChunkAtMs != null && timing.lastChunkAtMs != null) {
+            (timing.lastChunkAtMs - timing.firstNonEmptyChunkAtMs).coerceAtLeast(0L)
+        } else {
+            null
+        }
+        val totalDurationMs = (timing.endedAtMs - timing.startedAtMs).coerceAtLeast(0L)
+        val charsPerSecond = if (decodeDurationMs != null && decodeDurationMs > 0L) {
+            val responseChars = fullResponseText.length
+            responseChars / (decodeDurationMs / 1000.0)
+        } else {
+            null
+        }?.takeIf { it.isFinite() }
+
+        val tokenizerRecountOutcome = tryReadTokenizerRecountViaReflection(
+            conversation = conversation,
+            tokenizerSessionSource = tokenizerSessionSource,
+            promptText = promptText,
+            fullResponseText = fullResponseText,
+            appendTrace = appendTrace,
+        )
+        val mediaPipeProbeOutcome = tryReadMediaPipeTokenizerProbeViaReflection(
+            tokenizerSessionSource = tokenizerSessionSource,
+            preferredModelPath = mediaPipeProbeModelPath,
+            mediaPipeProbeContext = mediaPipeProbeContext,
+            promptText = promptText,
+            fullResponseText = fullResponseText,
+        )
+        val tokenizerRecount = tokenizerRecountOutcome.result
+
+        val inputTokenCount = mediaPipeProbeOutcome.promptTokens ?: tokenizerRecount?.promptTokens
+        val outputTokenCount = mediaPipeProbeOutcome.responseTokens ?: tokenizerRecount?.responseTokens
+        val totalTokenCount = mediaPipeProbeOutcome.totalTokens ?: tokenizerRecount?.totalTokens
+        val tokenCountMode = if (
+            mediaPipeProbeOutcome.succeeded &&
+            inputTokenCount != null &&
+            outputTokenCount != null
+        ) {
+            MEDIAPIPE_TOKEN_COUNT_MODE
+        } else if (
+            tokenizerRecount != null &&
+            inputTokenCount != null &&
+            outputTokenCount != null
+        ) {
+            LITERT_TOKEN_COUNT_MODE
+        } else {
+            null
+        }
+        val notes = if (tokenizerRecount == null && !mediaPipeProbeOutcome.succeeded) {
+            TOKENIZER_COUNT_UNAVAILABLE_NOTE
+        } else {
+            null
+        }
+        val tokensPerSecond = if (
+            outputTokenCount != null && decodeDurationMs != null && decodeDurationMs > 0L
+        ) {
+            outputTokenCount / (decodeDurationMs / 1000.0)
+        } else {
+            null
+        }?.takeIf { it.isFinite() }
+
+        LocalInferenceMeasuredTokenSnapshot(
+            inputTokens = inputTokenCount,
+            outputTokens = outputTokenCount,
+            totalTokens = totalTokenCount,
+            tokenizerRecountStatus = tokenizerRecountOutcome.status,
+            tokenizerSourceTraceSummary = tokenizerRecountOutcome.sourceTraceSummary,
+            mediaPipeTokenizerStatus = mediaPipeProbeOutcome.status,
+            mediaPipeTokenizerSummary = mediaPipeProbeOutcome.summary,
+            mediaPipeInputTokens = mediaPipeProbeOutcome.promptTokens,
+            mediaPipeOutputTokens = mediaPipeProbeOutcome.responseTokens,
+            mediaPipeTotalTokens = mediaPipeProbeOutcome.totalTokens,
+            tokenCountMode = tokenCountMode,
+            notes = notes,
+            tokensPerSecond = tokensPerSecond,
+            charsPerSecond = charsPerSecond,
+            ttftMs = ttftMs,
+            decodeDurationMs = decodeDurationMs,
+            totalDurationMs = totalDurationMs,
+        )
+    }.onFailure { throwable ->
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM tokenizer-recount failed ${throwable.javaClass.simpleName}:${throwable.message}",
+        )
+    }.getOrNull()
+}
+
+private data class TokenizerRecountResult(
+    val promptTokens: Int,
+    val responseTokens: Int,
+) {
+    val totalTokens: Int = promptTokens + responseTokens
+}
+
+private data class TokenizerRecountOutcome(
+    val result: TokenizerRecountResult? = null,
+    val status: String,
+    val sourceTraceSummary: String? = null,
+)
+
+private data class MediaPipeTokenizerProbeOutcome(
+    val attempted: Boolean,
+    val succeeded: Boolean,
+    val promptTokens: Int? = null,
+    val responseTokens: Int? = null,
+    val totalTokens: Int? = null,
+    val status: String,
+    val summary: String,
+)
+
+private data class MediaPipeTokenizerModelPathResolution(
+    val rawCandidate: String?,
+    val adoptedPath: String?,
+    val source: String,
+    val exists: Boolean,
+    val isFile: Boolean,
+    val readable: Boolean,
+    val status: String,
+)
+
+private data class ExistingTokenizerSessionResolution(
+    val sourceKind: String,
+    val path: String,
+    val sourceObject: Any?,
+    val sessionInstance: Any,
+    val sessionClassName: String,
+    val sizeInTokensMethod: Method?,
+)
+
+private data class ConversationTokenizerResolution(
+    val path: String,
+    val sourceObject: Any,
+    val className: String,
+    val sizeInTokensMethod: Method?,
+)
+
+private data class EngineCreateSessionAttempt(
+    val session: Any? = null,
+    val attempted: Boolean = false,
+    val status: String = "engine-createSession-not-attempted",
+    val createdSessionPath: String? = null,
+    val sessionConfigProbe: SessionConfigProbeSummary? = null,
+    val samplerConfigProbe: SamplerConfigProbeSummary? = null,
+    val failureSummary: EngineCreateSessionFailureSummary? = null,
+)
+
+private data class EngineCreateSessionFailureSummary(
+    val path: String,
+    val exceptionClass: String,
+    val exceptionMessage: String?,
+    val causeClass: String?,
+    val causeMessage: String?,
+)
+
+private data class EngineCreateSessionInvokeResult(
+    val session: Any? = null,
+    val failureSummary: EngineCreateSessionFailureSummary? = null,
+)
+
+private data class SessionConfigProbeSummary(
+    val classStatus: String,
+    val factorySignatures: List<String> = emptyList(),
+    val constructorSignatures: List<String> = emptyList(),
+    val triedPaths: List<String> = emptyList(),
+    val selectedPath: String? = null,
+)
+
+private data class SamplerConfigProbeSummary(
+    val classStatus: String,
+    val factorySignatures: List<String> = emptyList(),
+    val constructorSignatures: List<String> = emptyList(),
+    val triedPaths: List<String> = emptyList(),
+    val defaultAttempt: String = "not-attempted",
+    val selectedPath: String? = null,
+)
+
+private data class TokenizerSourceTraceSummary(
+    val kind: String,
+    val className: String,
+    val methodsSummary: String,
+    val fieldsSummary: String,
+    val createSessionSignatures: List<String> = emptyList(),
+    val engineCreateSessionStatus: String? = null,
+    val engineCreateSessionFailureSummary: EngineCreateSessionFailureSummary? = null,
+    val sessionConfigProbe: SessionConfigProbeSummary? = null,
+    val samplerConfigProbe: SamplerConfigProbeSummary? = null,
+    val existingSessionPath: String? = null,
+    val existingSessionClass: String? = null,
+    val existingSessionSizeInTokensStatus: String = "not-found",
+    val createdSessionPath: String? = null,
+    val createdSessionClass: String? = null,
+    val createdSessionSizeInTokensStatus: String = "not-found",
+    val conversationTokenizerPath: String? = null,
+    val conversationTokenizerClass: String? = null,
+) {
+    fun toMeasuredTokenSummary(): String {
+        return buildString {
+            engineCreateSessionStatus?.takeIf { it.isNotBlank() }?.let {
+                appendLine("engine-createSession status: $it")
+            }
+            engineCreateSessionFailureSummary?.let { failure ->
+                appendLine("engine-createSession failure-path: ${failure.path}")
+                appendLine("engine-createSession exception: ${failure.exceptionClass}")
+                appendLine("engine-createSession exception-message: ${failure.exceptionMessage ?: "none"}")
+                appendLine("engine-createSession cause: ${failure.causeClass ?: "none"}")
+                appendLine("engine-createSession cause-message: ${failure.causeMessage ?: "none"}")
+            }
+            appendLine("tokenizer-source kind: $kind")
+            appendLine("tokenizer-source class: $className")
+            appendLine("tokenizer-source methods: $methodsSummary")
+            appendLine("tokenizer-source fields: $fieldsSummary")
+            appendLine("createSession signatures:")
+            createSessionSignatures.ifEmpty { listOf("none") }.forEach { signature ->
+                appendLine("- $signature")
+            }
+            sessionConfigProbe?.let { probe ->
+                appendLine("SessionConfig class: ${probe.classStatus}")
+                appendLine("SessionConfig factories:")
+                probe.factorySignatures.ifEmpty { listOf("none") }.forEach { signature ->
+                    appendLine("- $signature")
+                }
+                appendLine("SessionConfig constructors:")
+                probe.constructorSignatures.ifEmpty { listOf("none") }.forEach { signature ->
+                    appendLine("- $signature")
+                }
+                appendLine("SessionConfig tried-paths:")
+                probe.triedPaths.ifEmpty { listOf("none") }.forEach { path ->
+                    appendLine("- $path")
+                }
+                appendLine("SessionConfig selected-path: ${probe.selectedPath ?: "none"}")
+            }
+            samplerConfigProbe?.let { probe ->
+                appendLine("SamplerConfig class: ${probe.classStatus}")
+                appendLine("SamplerConfig factories:")
+                probe.factorySignatures.ifEmpty { listOf("none") }.forEach { signature ->
+                    appendLine("- $signature")
+                }
+                appendLine("SamplerConfig constructors:")
+                probe.constructorSignatures.ifEmpty { listOf("none") }.forEach { signature ->
+                    appendLine("- $signature")
+                }
+                appendLine("SamplerConfig tried-paths:")
+                probe.triedPaths.ifEmpty { listOf("none") }.forEach { path ->
+                    appendLine("- $path")
+                }
+                appendLine("SamplerConfig default-attempt: ${probe.defaultAttempt}")
+                appendLine("SamplerConfig selected-path: ${probe.selectedPath ?: "none"}")
+            }
+            appendLine("existing-session path: ${existingSessionPath ?: "none"}")
+            appendLine("existing-session class: ${existingSessionClass ?: "none"}")
+            appendLine("existing-session sizeInTokens: $existingSessionSizeInTokensStatus")
+            appendLine("created-session path: ${createdSessionPath ?: "none"}")
+            appendLine("created-session class: ${createdSessionClass ?: "none"}")
+            appendLine("created-session sizeInTokens: $createdSessionSizeInTokensStatus")
+            appendLine("conversation-tokenizer path: ${conversationTokenizerPath ?: "none"}")
+            appendLine("conversation-tokenizer class: ${conversationTokenizerClass ?: "none"}")
+        }.trimEnd()
+    }
+}
+
+private data class CreatedTokenizerSessionResolution(
+    val path: String,
+    val sessionClassName: String,
+    val sizeInTokensMethod: Method?,
+)
+
+private fun tryReadTokenizerRecountViaReflection(
+    conversation: Conversation,
+    tokenizerSessionSource: Any?,
+    promptText: String,
+    fullResponseText: String,
+    appendTrace: (String) -> Unit,
+): TokenizerRecountOutcome {
+    val conversationResolution = tryResolveTokenizerFromConversation(
+        conversation = conversation,
+        appendTrace = appendTrace,
+    )
+    if (conversationResolution != null) {
+        val sizeMethod = conversationResolution.sizeInTokensMethod
+            ?: return TokenizerRecountOutcome(
+                status = "conversation-tokenizer-size-method-not-found",
+            )
+        val promptTokens = invokeSizeInTokens(
+            sessionInstance = conversationResolution.sourceObject,
+            sizeMethod = sizeMethod,
+            input = promptText,
+        )
+        val responseTokens = invokeSizeInTokens(
+            sessionInstance = conversationResolution.sourceObject,
+            sizeMethod = sizeMethod,
+            input = fullResponseText,
+        )
+        if (promptTokens != null && responseTokens != null) {
+            val sourceTraceSummary = if (BuildConfig.DEBUG) {
+                emitTokenizerSessionSourceTrace(
+                    appendTrace = appendTrace,
+                    tokenizerSessionSource = tokenizerSessionSource,
+                    conversation = conversation,
+                    existingSessionResolution = null,
+                    conversationTokenizerResolution = conversationResolution,
+                ).toMeasuredTokenSummary()
+            } else {
+                null
+            }
+            return TokenizerRecountOutcome(
+                result = TokenizerRecountResult(
+                    promptTokens = promptTokens,
+                    responseTokens = responseTokens,
+                ),
+                status = "success(conversation-tokenizer)",
+                sourceTraceSummary = sourceTraceSummary,
+            )
+        }
+    }
+    val engineSessionAttempt = tryCreateTokenizerSessionFromEngineViaReflection(
+        tokenizerSessionSource = tokenizerSessionSource,
+        appendTrace = appendTrace,
+    )
+    val createdSessionResolution = inspectCreatedSessionForTokenizer(
+        createdSession = engineSessionAttempt.session,
+        createdSessionPath = engineSessionAttempt.createdSessionPath,
+    )
+    if (engineSessionAttempt.session != null) {
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount session-created-but-not-used path=engine-createSession")
+        tryCloseTokenizerSession(engineSessionAttempt.session, appendTrace)
+    }
+    val existingSessionResolution = tryResolveExistingSessionForTokenizer(
+        conversation = conversation,
+        tokenizerSessionSource = tokenizerSessionSource,
+        appendTrace = appendTrace,
+    )
+    val sourceTraceSummary = if (BuildConfig.DEBUG) {
+        emitTokenizerSessionSourceTrace(
+            appendTrace = appendTrace,
+            tokenizerSessionSource = tokenizerSessionSource,
+            conversation = conversation,
+            engineCreateSessionStatus = engineSessionAttempt.status,
+            sessionConfigProbe = engineSessionAttempt.sessionConfigProbe,
+            samplerConfigProbe = engineSessionAttempt.samplerConfigProbe,
+            engineCreateSessionFailureSummary = engineSessionAttempt.failureSummary,
+            existingSessionResolution = existingSessionResolution,
+            createdSessionResolution = createdSessionResolution,
+        )
+    } else {
+        null
+    }
+    val activeSession = existingSessionResolution?.sessionInstance
+        ?: return TokenizerRecountOutcome(
+            status = if (engineSessionAttempt.attempted) {
+                engineSessionAttempt.status
+            } else {
+                "fallback-existing-session-not-found"
+            },
+            sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
+        ).also {
+            safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=existing-session-not-found")
+        }
+    return try {
+        val sizeMethod = existingSessionResolution.sizeInTokensMethod
+            ?: return TokenizerRecountOutcome(
+                status = "existing-session-size-method-not-found",
+                sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
+            ).also {
+                safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=size-method-not-found")
+            }
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM tokenizer-recount existing-session-found path=${existingSessionResolution.path} class=${existingSessionResolution.sessionClassName}",
+        )
+        val promptTokens = invokeSizeInTokens(activeSession, sizeMethod, promptText)
+            ?: return TokenizerRecountOutcome(
+                status = "existing-session-prompt-token-failed",
+                sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
+            ).also {
+                safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=prompt-token-failed")
+            }
+        val responseTokens = invokeSizeInTokens(activeSession, sizeMethod, fullResponseText)
+            ?: return TokenizerRecountOutcome(
+                status = "existing-session-response-token-failed",
+                sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
+            ).also {
+                safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=response-token-failed")
+            }
+        TokenizerRecountOutcome(
+            result = TokenizerRecountResult(promptTokens = promptTokens, responseTokens = responseTokens),
+            status = "success",
+            sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
+        )
+    } catch (throwable: Throwable) {
+        val status = "reflection-failed ${throwable.javaClass.simpleName}:${throwable.message}"
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM tokenizer-recount $status",
+        )
+        TokenizerRecountOutcome(
+            status = status,
+            sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
+        )
+    }
+}
+
+private fun tryReadMediaPipeTokenizerProbeViaReflection(
+    tokenizerSessionSource: Any?,
+    preferredModelPath: String?,
+    mediaPipeProbeContext: Context?,
+    promptText: String,
+    fullResponseText: String,
+): MediaPipeTokenizerProbeOutcome {
+    val llmInferenceClassName = "com.google.mediapipe.tasks.genai.llminference.LlmInference"
+    val llmSessionClassName = "com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession"
+    val llmSessionOptionsClassName =
+        "com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession\$LlmInferenceSessionOptions"
+
+    val llmInferenceClass = runCatching { Class.forName(llmInferenceClassName) }.getOrNull()
+    val llmSessionClass = runCatching { Class.forName(llmSessionClassName) }.getOrNull()
+    val llmSessionOptionsClass = runCatching { Class.forName(llmSessionOptionsClassName) }.getOrNull()
+    val classAvailability = listOf(
+        "LlmInference=${if (llmInferenceClass != null) "available" else "missing"}",
+        "LlmInferenceSession=${if (llmSessionClass != null) "available" else "missing"}",
+        "SessionOptions=${if (llmSessionOptionsClass != null) "available" else "missing"}",
+    ).joinToString(", ")
+    if (llmInferenceClass == null || llmSessionClass == null || llmSessionOptionsClass == null) {
+        return MediaPipeTokenizerProbeOutcome(
+            attempted = false,
+            succeeded = false,
+            status = "unavailable(class-not-found)",
+            summary = buildString {
+                appendLine("MediaPipe tokenizer: unavailable")
+                appendLine("MediaPipe class availability: $classAvailability")
+            }.trimEnd(),
+        )
+    }
+
+    val modelPathResolution = resolveMediaPipeTokenizerModelPath(
+        preferredModelPath = preferredModelPath,
+        tokenizerSessionSource = tokenizerSessionSource,
+    )
+    val explicitContext = mediaPipeProbeContext
+    val fallbackContext = resolveMediaPipeContext(tokenizerSessionSource)
+    val mediaPipeContext = explicitContext?.applicationContext ?: explicitContext ?: fallbackContext?.applicationContext ?: fallbackContext
+    val mediaPipeContextSource = when {
+        explicitContext != null -> "explicit-application-context"
+        fallbackContext != null -> "tokenizer-source"
+        else -> "none"
+    }
+
+    val baseSummary = buildString {
+        appendLine("MediaPipe tokenizer: failed")
+        appendLine("MediaPipe class availability: $classAvailability")
+        appendLine("MediaPipe model path source: ${modelPathResolution.source}")
+        appendLine("MediaPipe model path: ${modelPathResolution.adoptedPath ?: "null"}")
+        appendLine("MediaPipe model path exists: ${modelPathResolution.exists}")
+        appendLine("MediaPipe model path isFile: ${modelPathResolution.isFile}")
+        appendLine("MediaPipe model path readable: ${modelPathResolution.readable}")
+    }
+
+    if (modelPathResolution.status != "model-path-resolved") {
+        return MediaPipeTokenizerProbeOutcome(
+            attempted = true,
+            succeeded = false,
+            status = "failed(${modelPathResolution.status})",
+            summary = buildString {
+                append(baseSummary)
+                appendLine("MediaPipe model path status: ${modelPathResolution.status}")
+                appendLine("MediaPipe context source: $mediaPipeContextSource")
+                appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                appendLine(
+                    "MediaPipe context hasCacheDir: ${
+                        runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                    }",
+                )
+                appendLine("MediaPipe session create: skipped")
+                appendLine("MediaPipe sizeInTokens: not-found")
+                append("MediaPipe failure: ${modelPathResolution.status}")
+            }.trimEnd(),
+        )
+    }
+    val modelPath = modelPathResolution.adoptedPath ?: return MediaPipeTokenizerProbeOutcome(
+        attempted = true,
+        succeeded = false,
+        status = "failed(model-path-missing)",
+        summary = buildString {
+            append(baseSummary)
+            appendLine("MediaPipe model path status: model-path-missing")
+            appendLine("MediaPipe context source: $mediaPipeContextSource")
+            appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+            appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+            appendLine(
+                "MediaPipe context hasCacheDir: ${
+                    runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                }",
+            )
+            appendLine("MediaPipe session create: skipped")
+            appendLine("MediaPipe sizeInTokens: not-found")
+            append("MediaPipe failure: model-path-missing")
+        }.trimEnd(),
+    )
+
+    return runCatching {
+        val inferenceOutcome = createMediaPipeLlmInferenceInstance(
+            llmInferenceClass = llmInferenceClass,
+            modelPath = modelPath,
+            context = mediaPipeContext,
+            contextSource = mediaPipeContextSource,
+        )
+        if (inferenceOutcome.instance == null) {
+            return@runCatching MediaPipeTokenizerProbeOutcome(
+                attempted = true,
+                succeeded = false,
+                status = "failed(createFromOptions)",
+                summary = buildString {
+                    append(baseSummary)
+                    appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                    appendLine("MediaPipe context source: $mediaPipeContextSource")
+                    appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                    appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                    appendLine(
+                        "MediaPipe context hasCacheDir: ${
+                            runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                        }",
+                    )
+                    inferenceOutcome.debugSummaryLines.forEach { appendLine(it) }
+                    appendLine("MediaPipe session create: failed")
+                    appendLine("MediaPipe sizeInTokens: not-found")
+                    append("MediaPipe failure: ${inferenceOutcome.failureSummary ?: "createFromOptions-failed"}")
+                }.trimEnd(),
+            )
+        }
+        var session: Any? = null
+        try {
+            val sessionCreationOutcome = createMediaPipeLlmSession(
+                llmSessionClass = llmSessionClass,
+                llmSessionOptionsClass = llmSessionOptionsClass,
+                llmInferenceInstance = inferenceOutcome.instance,
+            )
+            session = sessionCreationOutcome.session
+            val sizeMethod = sessionCreationOutcome.sizeInTokensMethod
+            if (session == null || sizeMethod == null) {
+                return@runCatching MediaPipeTokenizerProbeOutcome(
+                    attempted = true,
+                    succeeded = false,
+                    status = if (session == null) "failed(session-create)" else "failed(sizeInTokens-not-found)",
+                    summary = buildString {
+                        append(baseSummary)
+                        appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        appendLine("MediaPipe context source: $mediaPipeContextSource")
+                        appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                        appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                        appendLine(
+                            "MediaPipe context hasCacheDir: ${
+                                runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                            }",
+                        )
+                        sessionCreationOutcome.debugSummaryLines.forEach { appendLine(it) }
+                        appendLine("MediaPipe session create: ${if (session != null) "success" else "failed"}")
+                        appendLine("MediaPipe sizeInTokens: ${if (sizeMethod != null) "found" else "not-found"}")
+                        append(
+                            "MediaPipe failure: ${
+                                sessionCreationOutcome.failureSummary
+                                    ?: if (session == null) "session-create-failed" else "sizeInTokens-not-found"
+                            }",
+                        )
+                    }.trimEnd(),
+                )
+            }
+            val promptTokens = invokeSizeInTokens(session, sizeMethod, promptText)
+            val responseTokens = invokeSizeInTokens(session, sizeMethod, fullResponseText)
+            val totalTokens = if (promptTokens != null && responseTokens != null) promptTokens + responseTokens else null
+            if (promptTokens != null && responseTokens != null && totalTokens != null) {
+                MediaPipeTokenizerProbeOutcome(
+                    attempted = true,
+                    succeeded = true,
+                    promptTokens = promptTokens,
+                    responseTokens = responseTokens,
+                    totalTokens = totalTokens,
+                    status = "success",
+                    summary = buildString {
+                        appendLine("MediaPipe tokenizer: success")
+                        appendLine("MediaPipe class availability: $classAvailability")
+                        appendLine("MediaPipe model path source: ${modelPathResolution.source}")
+                        appendLine("MediaPipe model path: $modelPath")
+                        appendLine("MediaPipe model path exists: ${modelPathResolution.exists}")
+                        appendLine("MediaPipe model path isFile: ${modelPathResolution.isFile}")
+                        appendLine("MediaPipe model path readable: ${modelPathResolution.readable}")
+                        appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        appendLine("MediaPipe context source: $mediaPipeContextSource")
+                        appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                        appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                        appendLine(
+                            "MediaPipe context hasCacheDir: ${
+                                runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                            }",
+                        )
+                        appendLine("MediaPipe session create: success")
+                        appendLine("MediaPipe sizeInTokens: found")
+                        appendLine("MediaPipe prompt tokens: $promptTokens")
+                        appendLine("MediaPipe response tokens: $responseTokens")
+                        append("MediaPipe total tokens: $totalTokens")
+                    }.trimEnd(),
+                )
+            } else {
+                MediaPipeTokenizerProbeOutcome(
+                    attempted = true,
+                    succeeded = false,
+                    status = "failed(sizeInTokens-invoke)",
+                    summary = buildString {
+                        append(baseSummary)
+                        appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        appendLine("MediaPipe context source: $mediaPipeContextSource")
+                        appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                        appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                        appendLine(
+                            "MediaPipe context hasCacheDir: ${
+                                runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                            }",
+                        )
+                        appendLine("MediaPipe session create: success")
+                        appendLine("MediaPipe sizeInTokens: found")
+                        append("MediaPipe failure: invoke-sizeInTokens-failed")
+                    }.trimEnd(),
+                )
+            }
+        } finally {
+            runCatching { tryCloseTokenizerSession(session, appendTrace = {}) }
+            runCatching { tryCloseTokenizerSession(inferenceOutcome.instance, appendTrace = {}) }
+        }
+    }.getOrElse { throwable ->
+        MediaPipeTokenizerProbeOutcome(
+            attempted = true,
+            succeeded = false,
+            status = "failed(${throwable.javaClass.simpleName})",
+            summary = buildString {
+                append(baseSummary)
+                appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                appendLine("MediaPipe context source: $mediaPipeContextSource")
+                appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                appendLine(
+                    "MediaPipe context hasCacheDir: ${
+                        runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                    }",
+                )
+                buildMediaPipeThrowableSummaryLines(throwable).forEach { appendLine(it) }
+                appendLine("MediaPipe session create: failed")
+                appendLine("MediaPipe sizeInTokens: not-found")
+                append("MediaPipe failure: ${throwable.javaClass.simpleName}:${throwable.message}")
+            }.trimEnd(),
+        )
+    }
+}
+
+private data class MediaPipeInferenceCreateOutcome(
+    val instance: Any? = null,
+    val failureSummary: String? = null,
+    val debugSummaryLines: List<String> = emptyList(),
+)
+
+private data class MediaPipeSessionCreateOutcome(
+    val session: Any? = null,
+    val sizeInTokensMethod: Method? = null,
+    val failureSummary: String? = null,
+    val debugSummaryLines: List<String> = emptyList(),
+)
+
+private data class MediaPipeSessionOptionsCreateOutcome(
+    val options: Any? = null,
+    val buildStatus: String,
+    val debugSummaryLines: List<String> = emptyList(),
+)
+
+private fun createMediaPipeLlmInferenceInstance(
+    llmInferenceClass: Class<*>,
+    modelPath: String,
+    context: android.content.Context?,
+    contextSource: String,
+): MediaPipeInferenceCreateOutcome {
+    val debugLines = mutableListOf<String>()
+    val candidateMethods = llmInferenceClass.methods.filter { method ->
+        method.name == "createFromOptions" && java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+    if (candidateMethods.isEmpty()) {
+        return MediaPipeInferenceCreateOutcome(failureSummary = "createFromOptions-not-found")
+    }
+    candidateMethods.forEach { method ->
+        debugLines += "MediaPipe createFromOptions signature: ${method.toGenericString()}"
+        val params = method.parameterTypes
+        val optionsClass = params.lastOrNull() ?: return@forEach
+        debugLines += "MediaPipe options class: ${optionsClass.name}"
+        val options = buildOptionsObject(optionClass = optionsClass, modelPath = modelPath)
+        if (options == null) {
+            debugLines += "MediaPipe options build: failed"
+            return@forEach
+        }
+        debugLines += "MediaPipe options build: success"
+        val args = when {
+            params.size == 1 -> arrayOf(options)
+            params.size == 2 && isAndroidContextClass(params[0]) -> {
+                val safeContext = context?.applicationContext ?: context
+                debugLines += "MediaPipe context prepared: ${safeContext != null}"
+                debugLines += "MediaPipe context source: $contextSource"
+                debugLines += "MediaPipe context type: applicationContext"
+                if (safeContext == null) {
+                    debugLines += "MediaPipe failure: context-null"
+                    return MediaPipeInferenceCreateOutcome(
+                        failureSummary = "context-null",
+                        debugSummaryLines = debugLines.toList(),
+                    )
+                }
+                arrayOf<Any?>(safeContext, options)
+            }
+            else -> return@forEach
+        }
+        val instance = runCatching { method.invoke(null, *args) }
+            .onFailure { throwable -> debugLines += buildMediaPipeThrowableSummaryLines(throwable) }
+            .getOrNull()
+        if (instance != null) {
+            return MediaPipeInferenceCreateOutcome(
+                instance = instance,
+                debugSummaryLines = debugLines.toList(),
+            )
+        }
+    }
+    return MediaPipeInferenceCreateOutcome(
+        failureSummary = "createFromOptions-invoke-failed",
+        debugSummaryLines = debugLines.toList(),
+    )
+}
+
+private fun createMediaPipeLlmSession(
+    llmSessionClass: Class<*>,
+    llmSessionOptionsClass: Class<*>,
+    llmInferenceInstance: Any,
+): MediaPipeSessionCreateOutcome {
+    val debugLines = mutableListOf<String>()
+    debugLines += "MediaPipe sessionOptions class: ${llmSessionOptionsClass.name}"
+    val sessionOptionsOutcome = createMediaPipeLlmSessionOptions(llmSessionOptionsClass)
+    debugLines += "MediaPipe sessionOptions build: ${sessionOptionsOutcome.buildStatus}"
+    debugLines += sessionOptionsOutcome.debugSummaryLines
+    val options = sessionOptionsOutcome.options
+        ?: return MediaPipeSessionCreateOutcome(
+            failureSummary = "session-options-build-failed",
+            debugSummaryLines = debugLines.toList(),
+        )
+    val createMethods = llmSessionClass.methods.filter { method ->
+        method.name == "createFromOptions" && java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+    for (method in createMethods) {
+        debugLines += "MediaPipe session createFromOptions signature: ${method.toGenericString()}"
+        val params = method.parameterTypes
+        if (params.size != 2) continue
+        val supportsInference = params[0].isAssignableFrom(llmInferenceInstance.javaClass)
+        if (!supportsInference) continue
+        val supportsOptions = params[1].isAssignableFrom(options.javaClass)
+        if (!supportsOptions) continue
+        val session = runCatching { method.invoke(null, llmInferenceInstance, options) }
+            .onFailure { throwable -> debugLines += buildMediaPipeThrowableSummaryLines(throwable) }
+            .getOrNull()
+        if (session != null) {
+            return MediaPipeSessionCreateOutcome(
+                session = session,
+                sizeInTokensMethod = findSizeInTokensMethod(session),
+                debugSummaryLines = debugLines.toList(),
+            )
+        }
+    }
+    return MediaPipeSessionCreateOutcome(
+        failureSummary = "session-createFromOptions-not-found-or-failed",
+        debugSummaryLines = debugLines.toList(),
+    )
+}
+
+private fun createMediaPipeLlmSessionOptions(
+    llmSessionOptionsClass: Class<*>,
+): MediaPipeSessionOptionsCreateOutcome {
+    val builderFactory = llmSessionOptionsClass.methods.firstOrNull { method ->
+        method.name == "builder" &&
+            method.parameterTypes.isEmpty() &&
+            java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+    val builderResult = if (builderFactory != null) {
+        runCatching { builderFactory.invoke(null) }
+    } else {
+        Result.failure(NoSuchMethodException("SessionOptions.builder() not found"))
+    }
+    val builder = builderResult
+        .onFailure { throwable ->
+            return MediaPipeSessionOptionsCreateOutcome(
+                buildStatus = "failed",
+                debugSummaryLines = buildMediaPipeThrowableSummaryLines(throwable),
+            )
+        }
+        .getOrNull()
+        ?: return MediaPipeSessionOptionsCreateOutcome(buildStatus = "failed")
+    val buildMethod = builder.javaClass.methods.firstOrNull { method ->
+        method.name == "build" && method.parameterTypes.isEmpty()
+    } ?: return MediaPipeSessionOptionsCreateOutcome(
+        buildStatus = "failed",
+        debugSummaryLines = listOf("MediaPipe sessionOptions build method: not-found"),
+    )
+    val optionsResult = runCatching { buildMethod.invoke(builder) }
+    return optionsResult
+        .map { options ->
+            MediaPipeSessionOptionsCreateOutcome(
+                options = options,
+                buildStatus = if (options != null) "success" else "failed",
+            )
+        }
+        .getOrElse { throwable ->
+            MediaPipeSessionOptionsCreateOutcome(
+                buildStatus = "failed",
+                debugSummaryLines = buildMediaPipeThrowableSummaryLines(throwable),
+            )
+        }
+}
+
+private fun buildMediaPipeThrowableSummaryLines(throwable: Throwable): List<String> {
+    val rootCause = throwable.cause?.cause
+    val targetThrowable = (throwable as? java.lang.reflect.InvocationTargetException)?.targetException
+    return buildList {
+        add("MediaPipe exception: ${throwable.javaClass.name}")
+        add("MediaPipe exception-message: ${throwable.message ?: "none"}")
+        add("MediaPipe cause: ${throwable.cause?.javaClass?.name ?: "none"}")
+        add("MediaPipe cause-message: ${throwable.cause?.message ?: "none"}")
+        if (targetThrowable != null) {
+            add("MediaPipe target-exception: ${targetThrowable.javaClass.name}")
+            add("MediaPipe target-exception-message: ${targetThrowable.message ?: "none"}")
+        }
+        if (rootCause != null) {
+            add("MediaPipe root-cause: ${rootCause.javaClass.name}")
+            add("MediaPipe root-cause-message: ${rootCause.message ?: "none"}")
+        }
+    }
+}
+
+private fun resolveMediaPipeTokenizerModelPath(
+    preferredModelPath: String?,
+    tokenizerSessionSource: Any?,
+): MediaPipeTokenizerModelPathResolution {
+    fun buildResolution(source: String, candidate: String?): MediaPipeTokenizerModelPathResolution {
+        val normalizedCandidate = candidate?.trim()?.takeIf { it.isNotEmpty() }
+        if (normalizedCandidate == null) {
+            return MediaPipeTokenizerModelPathResolution(
+                rawCandidate = candidate,
+                adoptedPath = null,
+                source = source,
+                exists = false,
+                isFile = false,
+                readable = false,
+                status = "model-path-missing",
+            )
+        }
+        val modelFile = runCatching { File(normalizedCandidate) }.getOrNull()
+        val exists = runCatching { modelFile?.exists() == true }.getOrDefault(false)
+        val isFile = runCatching { modelFile?.isFile == true }.getOrDefault(false)
+        val readable = runCatching { modelFile?.canRead() == true }.getOrDefault(false)
+        val status = when {
+            !exists -> "model-path-not-found"
+            !isFile -> "model-path-not-file"
+            !readable -> "model-path-not-readable"
+            else -> "model-path-resolved"
+        }
+        return MediaPipeTokenizerModelPathResolution(
+            rawCandidate = candidate,
+            adoptedPath = normalizedCandidate,
+            source = source,
+            exists = exists,
+            isFile = isFile,
+            readable = readable,
+            status = status,
+        )
+    }
+
+    val candidates = buildList<Pair<String, String?>>() {
+        add("trace-resolved-model" to preferredModelPath)
+        val source = tokenizerSessionSource
+        if (source != null) {
+            val heldEngine = readNamedMemberValue(source, "heldEngine")
+            val modelPathFromHeldEngine = (heldEngine?.let { readNamedMemberValue(it, "modelPath") }) as? String
+            add("held-engine" to modelPathFromHeldEngine)
+            val engineKey = readNamedMemberValue(source, "engineKey")
+            val modelPathFromEngineKey = (engineKey?.let { readNamedMemberValue(it, "modelPath") }) as? String
+            add("engine-key" to modelPathFromEngineKey)
+            val modelPathFromSource = readNamedMemberValue(source, "modelPath") as? String
+            add("source-model-path" to modelPathFromSource)
+            val directModelPath = readNamedMemberValue(source, "getModelPath") as? String
+            add("direct-model-path-getter" to directModelPath)
+        }
+    }
+
+    var lastResolution = MediaPipeTokenizerModelPathResolution(
+        rawCandidate = null,
+        adoptedPath = null,
+        source = "none",
+        exists = false,
+        isFile = false,
+        readable = false,
+        status = "model-path-missing",
+    )
+    for ((source, candidate) in candidates) {
+        val resolution = buildResolution(source = source, candidate = candidate)
+        lastResolution = resolution
+        if (resolution.status == "model-path-resolved") {
+            return resolution
+        }
+    }
+    return lastResolution
+}
+
+private fun isAndroidContextClass(clazz: Class<*>): Boolean {
+    return clazz.name == "android.content.Context"
+}
+
+private fun resolveMediaPipeContext(tokenizerSessionSource: Any?): android.content.Context? {
+    if (tokenizerSessionSource == null) return null
+    val candidates = buildList {
+        add(tokenizerSessionSource)
+        add(readNamedMemberValue(tokenizerSessionSource, "context"))
+        add(readNamedMemberValue(tokenizerSessionSource, "appContext"))
+        val heldEngine = readNamedMemberValue(tokenizerSessionSource, "heldEngine")
+        add(heldEngine)
+        if (heldEngine != null) {
+            add(readNamedMemberValue(heldEngine, "context"))
+            add(readNamedMemberValue(heldEngine, "appContext"))
+            val engineInstance = readNamedMemberValue(heldEngine, "engineInstance")
+            add(engineInstance)
+            if (engineInstance != null) {
+                add(readNamedMemberValue(engineInstance, "context"))
+                add(readNamedMemberValue(engineInstance, "appContext"))
+            }
+        }
+    }
+    return candidates.firstNotNullOfOrNull { candidate ->
+        (candidate as? android.content.Context)?.applicationContext ?: (candidate as? android.content.Context)
+    }
+}
+
+private fun tryCreateTokenizerSessionFromEngineViaReflection(
+    tokenizerSessionSource: Any?,
+    appendTrace: (String) -> Unit,
+): EngineCreateSessionAttempt {
+    val engine = tokenizerSessionSource ?: return EngineCreateSessionAttempt()
+    if (!isLiteRtEngineInstance(engine)) return EngineCreateSessionAttempt()
+    safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount try=engine-createSession")
+    val samplerConfigProbe = probeSamplerConfigCreationPaths()
+    samplerConfigProbe.factorySignatures.forEach { signature ->
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source SamplerConfig factory signature: $signature")
+    }
+    samplerConfigProbe.constructorSignatures.forEach { signature ->
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source SamplerConfig constructor signature: $signature")
+    }
+    val sessionConfigProbe = probeSessionConfigCreationPaths(samplerConfigProbe)
+    sessionConfigProbe.factorySignatures.forEach { signature ->
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source SessionConfig factory signature: $signature")
+    }
+    sessionConfigProbe.constructorSignatures.forEach { signature ->
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source SessionConfig constructor signature: $signature")
+    }
+    var methodFound = false
+    var lastFailureSummary: EngineCreateSessionFailureSummary? = null
+    tryInvokeEngineCreateSessionNoArgs(engine)?.let {
+        methodFound = true
+        return EngineCreateSessionAttempt(
+            session = it,
+            attempted = true,
+            status = "engine-createSession-success",
+            createdSessionPath = "engine-createSession",
+            sessionConfigProbe = sessionConfigProbe,
+            samplerConfigProbe = samplerConfigProbe,
+        )
+    }
+    if (hasEngineCreateSessionNoArgsMethod(engine)) methodFound = true
+    val sessionConfigInvokeResult = tryInvokeEngineCreateSessionWithSessionConfig(
+        engine = engine,
+        sessionConfigProbe = sessionConfigProbe,
+        samplerConfigProbe = samplerConfigProbe,
+        appendTrace = appendTrace,
+    )
+    sessionConfigInvokeResult.failureSummary?.let {
+        if (lastFailureSummary == null) {
+            lastFailureSummary = it
+        }
+    }
+    sessionConfigInvokeResult.session?.let {
+        methodFound = true
+        return EngineCreateSessionAttempt(
+            session = it,
+            attempted = true,
+            status = "engine-createSession-success",
+            createdSessionPath = "engine-createSession",
+            sessionConfigProbe = sessionConfigProbe,
+            samplerConfigProbe = samplerConfigProbe,
+        )
+    }
+    if (hasEngineCreateSessionSessionConfigMethod(engine)) methodFound = true
+    tryInvokeEngineCreateSessionNullableArgs(engine)?.let {
+        methodFound = true
+        return EngineCreateSessionAttempt(
+            session = it,
+            attempted = true,
+            status = "engine-createSession-success",
+            createdSessionPath = "engine-createSession",
+            sessionConfigProbe = sessionConfigProbe,
+            samplerConfigProbe = samplerConfigProbe,
+        )
+    }
+    if (hasEngineCreateSessionNullableArgsMethod(engine)) methodFound = true
+    val defaultBridgeInvokeResult = tryInvokeEngineCreateSessionDefaultBridge(
+        engine = engine,
+        sessionConfigProbe = sessionConfigProbe,
+        appendTrace = appendTrace,
+    )
+    defaultBridgeInvokeResult.failureSummary?.let {
+        if (lastFailureSummary == null) {
+            lastFailureSummary = it
+        }
+    }
+    defaultBridgeInvokeResult.session?.let {
+        methodFound = true
+        return EngineCreateSessionAttempt(
+            session = it,
+            attempted = true,
+            status = "engine-createSession-success",
+            createdSessionPath = "engine-createSession",
+            sessionConfigProbe = sessionConfigProbe,
+            samplerConfigProbe = samplerConfigProbe,
+        )
+    }
+    if (hasEngineCreateSessionDefaultBridgeMethod(engine)) methodFound = true
+    val status = if (methodFound) "engine-createSession-failed" else "engine-createSession-method-not-found"
+    safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount $status")
+    return EngineCreateSessionAttempt(
+        attempted = true,
+        status = status,
+        sessionConfigProbe = sessionConfigProbe,
+        samplerConfigProbe = samplerConfigProbe,
+        failureSummary = lastFailureSummary,
+    )
+}
+
+private fun probeSamplerConfigCreationPaths(): SamplerConfigProbeSummary {
+    val samplerConfigClass = runCatching {
+        Class.forName("com.google.ai.edge.litertlm.SamplerConfig")
+    }.getOrNull()
+    if (samplerConfigClass == null) {
+        return SamplerConfigProbeSummary(classStatus = "not-found")
+    }
+    val factoryMethods = samplerConfigClass.methods.filter { method ->
+        method.parameterTypes.isEmpty() &&
+            (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
+    }
+    val companionOrObject = samplerConfigClass.declaredFields.firstOrNull { field ->
+        field.name == "Companion" || field.name == "INSTANCE"
+    }?.let { field ->
+        runCatching {
+            field.isAccessible = true
+            field.get(null)
+        }.getOrNull()
+    }
+    val companionMethods = companionOrObject
+        ?.javaClass
+        ?.methods
+        ?.filter { method ->
+            method.parameterTypes.isEmpty() &&
+                (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
+        }
+        .orEmpty()
+    val constructors = samplerConfigClass.declaredConstructors.sortedBy { it.parameterTypes.size }
+    val triedPaths = mutableListOf<String>()
+    val candidates = mutableListOf<Pair<String, Any>>()
+
+    fun addCandidate(path: String, value: Any?) {
+        if (value == null) return
+        candidates += path to value
+        val buildMethod = value.javaClass.methods.firstOrNull { method ->
+            method.name == "build" && method.parameterTypes.isEmpty()
+        }
+        if (buildMethod != null) {
+            triedPaths += "$path.build()"
+            runCatching { buildMethod.invoke(value) }.getOrNull()?.let { built ->
+                candidates += "$path.build()" to built
+            }
+        }
+    }
+
+    factoryMethods.forEach { method ->
+        val path = "SamplerConfig.${method.name}()"
+        triedPaths += path
+        addCandidate(path, runCatching { method.invoke(null) }.getOrNull())
+    }
+    companionMethods.forEach { method ->
+        val receiver = companionOrObject ?: return@forEach
+        val path = "SamplerConfig.${receiver.javaClass.simpleName}.${method.name}()"
+        triedPaths += path
+        addCandidate(path, runCatching { method.invoke(receiver) }.getOrNull())
+    }
+    val intDoubleDoubleIntConstructor = constructors.firstOrNull { constructor ->
+        val parameterTypes = constructor.parameterTypes
+        parameterTypes.size == 4 &&
+            parameterTypes[0] == Int::class.javaPrimitiveType &&
+            parameterTypes[1] == Double::class.javaPrimitiveType &&
+            parameterTypes[2] == Double::class.javaPrimitiveType &&
+            parameterTypes[3] == Int::class.javaPrimitiveType
+    }
+    var defaultAttempt = "not-attempted"
+    intDoubleDoubleIntConstructor?.let { constructor ->
+        val path = "SamplerConfig.<init>(int,double,double,int)"
+        triedPaths += path
+        val value = runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance(10, 0.95, 0.8, 1)
+        }.getOrNull()
+        defaultAttempt = if (value != null) "success" else "failed"
+        addCandidate(path, value)
+    }
+    constructors.firstOrNull { it.parameterTypes.isEmpty() }?.let { constructor ->
+        val path = "SamplerConfig.<init>()"
+        triedPaths += path
+        addCandidate(path, runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance()
+        }.getOrNull())
+    }
+
+    val selected = candidates.firstOrNull { (_, value) -> samplerConfigClass.isInstance(value) }
+    return SamplerConfigProbeSummary(
+        classStatus = "found:${samplerConfigClass.name}",
+        factorySignatures = (factoryMethods + companionMethods)
+            .distinctBy { it.toGenericString() }
+            .sortedBy { it.toGenericString() }
+            .map { it.toGenericString() },
+        constructorSignatures = constructors.map { constructor ->
+            val params = constructor.parameterTypes.joinToString(",") { it.name }.ifBlank { "none" }
+            "${constructor.name}(params=$params)"
+        },
+        triedPaths = triedPaths,
+        defaultAttempt = defaultAttempt,
+        selectedPath = selected?.first,
+    )
+}
+
+private fun probeSessionConfigCreationPaths(samplerConfigProbe: SamplerConfigProbeSummary): SessionConfigProbeSummary {
+    val sessionConfigClass = runCatching {
+        Class.forName("com.google.ai.edge.litertlm.SessionConfig")
+    }.getOrNull()
+    if (sessionConfigClass == null) {
+        return SessionConfigProbeSummary(classStatus = "not-found")
+    }
+    val factoryMethods = sessionConfigClass.methods.filter { method ->
+        method.parameterTypes.isEmpty() &&
+            (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
+    }
+    val companionOrObject = sessionConfigClass.declaredFields.firstOrNull { field ->
+        field.name == "Companion" || field.name == "INSTANCE"
+    }?.let { field ->
+        runCatching {
+            field.isAccessible = true
+            field.get(null)
+        }.getOrNull()
+    }
+    val companionMethods = companionOrObject
+        ?.javaClass
+        ?.methods
+        ?.filter { method ->
+            method.parameterTypes.isEmpty() &&
+                (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
+        }
+        .orEmpty()
+    val constructors = sessionConfigClass.declaredConstructors.sortedBy { it.parameterTypes.size }
+
+    val triedPaths = mutableListOf<String>()
+    val candidates = mutableListOf<Pair<String, Any>>()
+
+    fun addCandidate(path: String, value: Any?) {
+        if (value == null) return
+        candidates += path to value
+        val buildMethod = value.javaClass.methods.firstOrNull { method ->
+            method.name == "build" && method.parameterTypes.isEmpty()
+        }
+        if (buildMethod != null) {
+            triedPaths += "$path.build()"
+            runCatching { buildMethod.invoke(value) }.getOrNull()?.let { built ->
+                candidates += "$path.build()" to built
+            }
+        }
+    }
+
+    factoryMethods.forEach { method ->
+        val path = "SessionConfig.${method.name}()"
+        triedPaths += path
+        addCandidate(path, runCatching { method.invoke(null) }.getOrNull())
+    }
+    companionMethods.forEach { method ->
+        val receiver = companionOrObject ?: return@forEach
+        val path = "SessionConfig.${receiver.javaClass.simpleName}.${method.name}()"
+        triedPaths += path
+        addCandidate(path, runCatching { method.invoke(receiver) }.getOrNull())
+    }
+    val samplerConfigClass = if (samplerConfigProbe.classStatus.startsWith("found:")) {
+        runCatching { Class.forName(samplerConfigProbe.classStatus.removePrefix("found:")) }.getOrNull()
+    } else {
+        null
+    }
+    val samplerConfigInstance = samplerConfigClass?.let { samplerClass ->
+        samplerConfigProbe.selectedPath?.let { createSamplerConfigFromPath(samplerClass, it) }
+            ?: createDefaultSamplerConfig(samplerClass)
+    }
+    constructors.filter { it.parameterTypes.size == 1 }.forEach { constructor ->
+        if (samplerConfigClass == null || samplerConfigInstance == null) return@forEach
+        val parameterClass = constructor.parameterTypes.first()
+        if (!parameterClass.isAssignableFrom(samplerConfigClass)) return@forEach
+        val parameterLabel = parameterClass.simpleName.ifBlank { parameterClass.name.substringAfterLast('.') }
+        val path = "SessionConfig.<init>($parameterLabel via ${samplerConfigProbe.selectedPath ?: "SamplerConfig.default"})"
+        triedPaths += path
+        addCandidate(path, runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance(samplerConfigInstance)
+        }.getOrNull())
+    }
+    constructors.firstOrNull { it.parameterTypes.isEmpty() }?.let { constructor ->
+        val path = "SessionConfig.<init>()"
+        triedPaths += path
+        addCandidate(path, runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance()
+        }.getOrNull())
+    }
+
+    val selected = candidates.firstOrNull { (_, value) -> sessionConfigClass.isInstance(value) }
+    return SessionConfigProbeSummary(
+        classStatus = "found:${sessionConfigClass.name}",
+        factorySignatures = (factoryMethods + companionMethods)
+            .distinctBy { it.toGenericString() }
+            .sortedBy { it.toGenericString() }
+            .map { it.toGenericString() },
+        constructorSignatures = constructors.map { constructor ->
+            val params = constructor.parameterTypes.joinToString(",") { it.name }.ifBlank { "none" }
+            "${constructor.name}(params=$params)"
+        },
+        triedPaths = triedPaths,
+        selectedPath = selected?.first,
+    )
+}
+
+private fun tryInvokeEngineCreateSessionWithSessionConfig(
+    engine: Any,
+    sessionConfigProbe: SessionConfigProbeSummary,
+    samplerConfigProbe: SamplerConfigProbeSummary,
+    appendTrace: (String) -> Unit = {},
+): EngineCreateSessionInvokeResult {
+    val invokePath = "createSession(SessionConfig)"
+    val sessionConfigClassName = sessionConfigProbe.classStatus.removePrefix("found:")
+    if (!sessionConfigProbe.classStatus.startsWith("found:")) return EngineCreateSessionInvokeResult()
+    val sessionConfigClass = runCatching { Class.forName(sessionConfigClassName) }.getOrNull()
+        ?: return EngineCreateSessionInvokeResult()
+    val sessionConfigInstance = sessionConfigProbe.selectedPath?.let {
+        // 生成経路の優先順を維持するため、再度同じルールで生成する。
+        createSessionConfigFromPath(sessionConfigClass, samplerConfigProbe, it)
+    } ?: createDefaultSessionConfig(
+        sessionConfigClass = sessionConfigClass,
+        samplerConfigProbe = samplerConfigProbe,
+        appendTrace = appendTrace,
+    )
+    val createMethod = engine.javaClass.methods.firstOrNull { method ->
+        method.name == "createSession" &&
+            method.parameterTypes.size == 1 &&
+            method.parameterTypes[0].isAssignableFrom(sessionConfigClass)
+    } ?: return EngineCreateSessionInvokeResult()
+    return runCatching { createMethod.invoke(engine, sessionConfigInstance) }
+        .fold(
+            onSuccess = { session -> EngineCreateSessionInvokeResult(session = session) },
+            onFailure = { throwable ->
+                safeAppendTrace(
+                    appendTrace,
+                    "UPSTREAM tokenizer-recount $invokePath invoke-failed ${throwable.javaClass.name}:${throwable.message}",
+                )
+                EngineCreateSessionInvokeResult(
+                    failureSummary = buildEngineCreateSessionFailureSummary(
+                        path = invokePath,
+                        throwable = throwable,
+                    ),
+                )
+            },
+        )
+}
+
+private fun createDefaultSamplerConfig(samplerConfigClass: Class<*>): Any? {
+    tryCreateDefaultSamplerConfig(samplerConfigClass)?.let { return it }
+    val factoryMethods = samplerConfigClass.methods.filter { method ->
+        method.parameterTypes.isEmpty() &&
+            (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
+    }
+    factoryMethods.forEach { method ->
+        val value = runCatching { method.invoke(null) }.getOrNull() ?: return@forEach
+        if (samplerConfigClass.isInstance(value)) return value
+        val buildMethod = value.javaClass.methods.firstOrNull { it.name == "build" && it.parameterTypes.isEmpty() }
+        if (buildMethod != null) {
+            runCatching { buildMethod.invoke(value) }.getOrNull()?.let { built ->
+                if (samplerConfigClass.isInstance(built)) return built
+            }
+        }
+    }
+    val constructor = samplerConfigClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() } ?: return null
+    return runCatching {
+        constructor.isAccessible = true
+        constructor.newInstance()
+    }.getOrNull()
+}
+
+private fun tryCreateDefaultSamplerConfig(): Any? {
+    val clazz = runCatching {
+        Class.forName("com.google.ai.edge.litertlm.SamplerConfig")
+    }.getOrNull() ?: return null
+    return tryCreateDefaultSamplerConfig(clazz)
+}
+
+private fun tryCreateDefaultSamplerConfig(samplerConfigClass: Class<*>): Any? {
+    val constructor = samplerConfigClass.declaredConstructors.firstOrNull { target ->
+        val parameterTypes = target.parameterTypes
+        parameterTypes.size == 4 &&
+            parameterTypes[0] == Int::class.javaPrimitiveType &&
+            parameterTypes[1] == Double::class.javaPrimitiveType &&
+            parameterTypes[2] == Double::class.javaPrimitiveType &&
+            parameterTypes[3] == Int::class.javaPrimitiveType
+    } ?: return null
+    return runCatching {
+        constructor.isAccessible = true
+        val topK = 10
+        val topP = 0.95
+        val temperature = 0.8
+        val extra = 1
+        constructor.newInstance(topK, topP, temperature, extra)
+    }.getOrNull()
+}
+
+private fun createSamplerConfigFromPath(samplerConfigClass: Class<*>, path: String): Any? {
+    if (path == "SamplerConfig.<init>(int,double,double,int)") {
+        return tryCreateDefaultSamplerConfig(samplerConfigClass)
+    }
+    if (path == "SamplerConfig.<init>()") {
+        val constructor = samplerConfigClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() } ?: return null
+        return runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance()
+        }.getOrNull()
+    }
+    if (!path.startsWith("SamplerConfig.")) return null
+    val needsBuild = path.endsWith(".build()")
+    val methodPath = path.removeSuffix(".build()")
+    val methodName = methodPath.removePrefix("SamplerConfig.").substringBefore("(").substringAfterLast('.')
+    val staticMethod = samplerConfigClass.methods.firstOrNull { it.name == methodName && it.parameterTypes.isEmpty() }
+    val baseValue = if (staticMethod != null) {
+        runCatching { staticMethod.invoke(null) }.getOrNull()
+    } else {
+        val receiverField = samplerConfigClass.declaredFields.firstOrNull { it.name == "Companion" || it.name == "INSTANCE" }
+        val receiver = receiverField?.let {
+            runCatching {
+                it.isAccessible = true
+                it.get(null)
+            }.getOrNull()
+        }
+        val receiverMethod = receiver?.javaClass?.methods?.firstOrNull {
+            it.name == methodName && it.parameterTypes.isEmpty()
+        }
+        if (receiver != null && receiverMethod != null) {
+            runCatching { receiverMethod.invoke(receiver) }.getOrNull()
+        } else {
+            null
+        }
+    } ?: return null
+    if (!needsBuild) return baseValue
+    val buildMethod = baseValue.javaClass.methods.firstOrNull { it.name == "build" && it.parameterTypes.isEmpty() } ?: return null
+    return runCatching { buildMethod.invoke(baseValue) }.getOrNull()
+}
+
+private fun createDefaultSessionConfig(
+    sessionConfigClass: Class<*>,
+    samplerConfigProbe: SamplerConfigProbeSummary,
+    appendTrace: (String) -> Unit = {},
+): Any? {
+    val samplerConfigClass = if (samplerConfigProbe.classStatus.startsWith("found:")) {
+        runCatching { Class.forName(samplerConfigProbe.classStatus.removePrefix("found:")) }.getOrNull()
+    } else {
+        null
+    }
+    val samplerConfigInstance = samplerConfigClass?.let { samplerClass ->
+        val defaultSamplerConfig = tryCreateDefaultSamplerConfig(samplerClass)
+        if (defaultSamplerConfig != null) {
+            defaultSamplerConfig
+        } else {
+            samplerConfigProbe.selectedPath?.let { createSamplerConfigFromPath(samplerClass, it) }
+                ?: createDefaultSamplerConfig(samplerClass)
+        }
+    }
+    if (samplerConfigClass != null && samplerConfigInstance != null) {
+        val samplerConstructor = sessionConfigClass.declaredConstructors.firstOrNull { constructor ->
+            constructor.parameterTypes.size == 1 &&
+                constructor.parameterTypes[0].name == "com.google.ai.edge.litertlm.SamplerConfig"
+        }
+        if (samplerConstructor != null) {
+            val instance = runCatching {
+                samplerConstructor.isAccessible = true
+                samplerConstructor.newInstance(samplerConfigInstance)
+            }.getOrNull()
+            if (instance != null) {
+                safeAppendTrace(appendTrace, "UPSTREAM SessionConfig path=SamplerConfig constructor success")
+                return instance
+            } else {
+                safeAppendTrace(appendTrace, "UPSTREAM SessionConfig path=SamplerConfig constructor failed")
+            }
+        }
+    }
+    val factoryMethods = sessionConfigClass.methods.filter { method ->
+        method.parameterTypes.isEmpty() &&
+            (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
+    }
+    factoryMethods.forEach { method ->
+        val value = runCatching { method.invoke(null) }.getOrNull() ?: return@forEach
+        if (sessionConfigClass.isInstance(value)) return value
+        val buildMethod = value.javaClass.methods.firstOrNull { it.name == "build" && it.parameterTypes.isEmpty() }
+        if (buildMethod != null) {
+            runCatching { buildMethod.invoke(value) }.getOrNull()?.let { built ->
+                if (sessionConfigClass.isInstance(built)) return built
+            }
+        }
+    }
+    val constructor = sessionConfigClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() } ?: return null
+    safeAppendTrace(appendTrace, "UPSTREAM SessionConfig path=SessionConfig.<init>() fallback")
+    return runCatching {
+        constructor.isAccessible = true
+        constructor.newInstance()
+    }.getOrNull()
+}
+
+private fun createSessionConfigFromPath(
+    sessionConfigClass: Class<*>,
+    samplerConfigProbe: SamplerConfigProbeSummary,
+    path: String,
+): Any? {
+    if (path == "SessionConfig.<init>()") {
+        val constructor = sessionConfigClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() } ?: return null
+        return runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance()
+        }.getOrNull()
+    }
+    if (path.startsWith("SessionConfig.<init>(")) {
+        val samplerConfigClass = if (samplerConfigProbe.classStatus.startsWith("found:")) {
+            runCatching { Class.forName(samplerConfigProbe.classStatus.removePrefix("found:")) }.getOrNull()
+        } else {
+            null
+        } ?: return null
+        val samplerConfigInstance = samplerConfigProbe.selectedPath?.let {
+            createSamplerConfigFromPath(samplerConfigClass, it)
+        } ?: createDefaultSamplerConfig(samplerConfigClass) ?: return null
+        val constructor = sessionConfigClass.declaredConstructors.firstOrNull { target ->
+            target.parameterTypes.size == 1 &&
+                target.parameterTypes[0].isAssignableFrom(samplerConfigClass)
+        } ?: return null
+        return runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance(samplerConfigInstance)
+        }.getOrNull()
+    }
+    if (!path.startsWith("SessionConfig.")) return null
+    val needsBuild = path.endsWith(".build()")
+    val methodPath = path.removeSuffix(".build()")
+    val methodName = methodPath.removePrefix("SessionConfig.").substringBefore("(").substringAfterLast('.')
+    val staticMethod = sessionConfigClass.methods.firstOrNull { it.name == methodName && it.parameterTypes.isEmpty() }
+    val baseValue = if (staticMethod != null) {
+        runCatching { staticMethod.invoke(null) }.getOrNull()
+    } else {
+        val receiverField = sessionConfigClass.declaredFields.firstOrNull { it.name == "Companion" || it.name == "INSTANCE" }
+        val receiver = receiverField?.let {
+            runCatching {
+                it.isAccessible = true
+                it.get(null)
+            }.getOrNull()
+        }
+        val receiverMethod = receiver?.javaClass?.methods?.firstOrNull {
+            it.name == methodName && it.parameterTypes.isEmpty()
+        }
+        if (receiver != null && receiverMethod != null) {
+            runCatching { receiverMethod.invoke(receiver) }.getOrNull()
+        } else {
+            null
+        }
+    } ?: return null
+    if (!needsBuild) return baseValue
+    val buildMethod = baseValue.javaClass.methods.firstOrNull { it.name == "build" && it.parameterTypes.isEmpty() } ?: return null
+    return runCatching { buildMethod.invoke(baseValue) }.getOrNull()
+}
+
+
+private fun isLiteRtEngineInstance(instance: Any): Boolean {
+    val className = instance.javaClass.name
+    return className == "com.google.ai.edge.litertlm.Engine" ||
+        className.endsWith(".Engine") && className.contains("litertlm", ignoreCase = true)
+}
+
+private fun tryInvokeEngineCreateSessionNoArgs(engine: Any): Any? {
+    val createMethod = engine.javaClass.methods.firstOrNull { method ->
+        method.name == "createSession" && method.parameterTypes.isEmpty()
+    } ?: return null
+    return runCatching { createMethod.invoke(engine) }.getOrNull()
+}
+
+private fun hasEngineCreateSessionNoArgsMethod(engine: Any): Boolean {
+    return engine.javaClass.methods.any { method ->
+        method.name == "createSession" && method.parameterTypes.isEmpty()
+    }
+}
+
+private fun tryInvokeEngineCreateSessionNullableArgs(engine: Any): Any? {
+    val createMethods = engine.javaClass.methods.filter { method ->
+        method.name == "createSession" && method.parameterTypes.isNotEmpty()
+    }
+    createMethods.forEach { method ->
+        val parameterTypes = method.parameterTypes
+        if (parameterTypes.any { it.isPrimitive }) return@forEach
+        val args: Array<Any?> = arrayOfNulls(parameterTypes.size)
+        runCatching { method.invoke(engine, *args) }.getOrNull()?.let { return it }
+    }
+    return null
+}
+
+private fun hasEngineCreateSessionNullableArgsMethod(engine: Any): Boolean {
+    return engine.javaClass.methods.any { method ->
+        method.name == "createSession" && method.parameterTypes.isNotEmpty()
+    }
+}
+
+private fun hasEngineCreateSessionSessionConfigMethod(engine: Any): Boolean {
+    return engine.javaClass.methods.any { method ->
+        method.name == "createSession" &&
+            method.parameterTypes.size == 1 &&
+            method.parameterTypes[0].name == "com.google.ai.edge.litertlm.SessionConfig"
+    }
+}
+
+private fun tryInvokeEngineCreateSessionDefaultBridge(
+    engine: Any,
+    sessionConfigProbe: SessionConfigProbeSummary,
+    appendTrace: (String) -> Unit = {},
+): EngineCreateSessionInvokeResult {
+    val invokePath = "createSession\$default(...)"
+    val defaultMethod = engine.javaClass.methods.firstOrNull { method ->
+        method.name == "createSession\$default" && java.lang.reflect.Modifier.isStatic(method.modifiers)
+    } ?: return EngineCreateSessionInvokeResult()
+    val parameterTypes = defaultMethod.parameterTypes
+    val sessionConfigClassName = sessionConfigProbe.classStatus.removePrefix("found:")
+    val sessionConfigClass = if (sessionConfigProbe.classStatus.startsWith("found:")) {
+        runCatching { Class.forName(sessionConfigClassName) }.getOrNull()
+    } else {
+        null
+    }
+    val samplerConfigProbe = probeSamplerConfigCreationPaths()
+    val sessionConfigInstance = sessionConfigClass?.let { createDefaultSessionConfig(it, samplerConfigProbe) }
+    val args = Array<Any?>(parameterTypes.size) { index ->
+        val type = parameterTypes[index]
+        when {
+            index == 0 && type.isAssignableFrom(engine.javaClass) -> engine
+            sessionConfigClass != null && sessionConfigInstance != null && type.isAssignableFrom(sessionConfigClass) -> sessionConfigInstance
+            type == Int::class.javaPrimitiveType -> 0
+            type == Boolean::class.javaPrimitiveType -> false
+            else -> null
+        }
+    }
+    return runCatching { defaultMethod.invoke(null, *args) }
+        .fold(
+            onSuccess = { session -> EngineCreateSessionInvokeResult(session = session) },
+            onFailure = { throwable ->
+                safeAppendTrace(
+                    appendTrace,
+                    "UPSTREAM tokenizer-recount $invokePath invoke-failed ${throwable.javaClass.name}:${throwable.message}",
+                )
+                EngineCreateSessionInvokeResult(
+                    failureSummary = buildEngineCreateSessionFailureSummary(
+                        path = invokePath,
+                        throwable = throwable,
+                    ),
+                )
+            },
+        )
+}
+
+private fun buildEngineCreateSessionFailureSummary(
+    path: String,
+    throwable: Throwable,
+): EngineCreateSessionFailureSummary {
+    val cause = throwable.cause
+    return EngineCreateSessionFailureSummary(
+        path = path,
+        exceptionClass = throwable.javaClass.name,
+        exceptionMessage = throwable.message,
+        causeClass = cause?.javaClass?.name,
+        causeMessage = cause?.message,
+    )
+}
+
+private fun hasEngineCreateSessionDefaultBridgeMethod(engine: Any): Boolean {
+    return engine.javaClass.methods.any { method ->
+        method.name == "createSession\$default" && java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+}
+
+private val TOKENIZER_SOURCE_CANDIDATE_KEYWORDS =
+    listOf("inference", "llm", "session", "token", "size", "engine")
+private val EXISTING_SESSION_MEMBER_CANDIDATES =
+    listOf("getSession", "session", "currentSession", "activeSession", "llmSession")
+
+private fun emitTokenizerSessionSourceTrace(
+    appendTrace: (String) -> Unit,
+    tokenizerSessionSource: Any?,
+    conversation: Conversation,
+    engineCreateSessionStatus: String? = null,
+    engineCreateSessionFailureSummary: EngineCreateSessionFailureSummary? = null,
+    sessionConfigProbe: SessionConfigProbeSummary? = null,
+    samplerConfigProbe: SamplerConfigProbeSummary? = null,
+    existingSessionResolution: ExistingTokenizerSessionResolution? = null,
+    createdSessionResolution: CreatedTokenizerSessionResolution? = null,
+    conversationTokenizerResolution: ConversationTokenizerResolution? = null,
+): TokenizerSourceTraceSummary {
+    val resolvedSourceObject = tokenizerSessionSource ?: conversation
+    val sourceClassName = resolvedSourceObject.javaClass.name
+    val sourceKind = if (tokenizerSessionSource != null) {
+        "engine-backed(unresolved)"
+    } else {
+        "conversation-fallback(unresolved)"
+    }
+    safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source kind: $sourceKind")
+    safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source class: $sourceClassName")
+    val methodCandidates = resolvedSourceObject
+        .javaClass
+        .methods
+        .map { it.name }
+        .orEmpty()
+    val fieldCandidates = resolvedSourceObject
+        .javaClass
+        .declaredFields
+        .map { it.name }
+        .orEmpty()
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM tokenizer-source methods: ${summarizeTokenizerSourceCandidates(methodCandidates)}",
+    )
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM tokenizer-source fields: ${summarizeTokenizerSourceCandidates(fieldCandidates)}",
+    )
+    val createSessionSignatures = buildCreateSessionMethodSignatures(resolvedSourceObject)
+    createSessionSignatures.forEach { signature ->
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source createSession signature: $signature")
+    }
+    return TokenizerSourceTraceSummary(
+        kind = sourceKind,
+        className = sourceClassName,
+        methodsSummary = summarizeTokenizerSourceCandidates(methodCandidates),
+        fieldsSummary = summarizeTokenizerSourceCandidates(fieldCandidates),
+        createSessionSignatures = createSessionSignatures,
+        engineCreateSessionStatus = engineCreateSessionStatus,
+        engineCreateSessionFailureSummary = engineCreateSessionFailureSummary,
+        sessionConfigProbe = sessionConfigProbe,
+        samplerConfigProbe = samplerConfigProbe,
+        existingSessionPath = existingSessionResolution?.path,
+        existingSessionClass = existingSessionResolution?.sessionClassName,
+        existingSessionSizeInTokensStatus = if (existingSessionResolution?.sizeInTokensMethod != null) "found" else "not-found",
+        createdSessionPath = createdSessionResolution?.path,
+        createdSessionClass = createdSessionResolution?.sessionClassName,
+        createdSessionSizeInTokensStatus = if (createdSessionResolution?.sizeInTokensMethod != null) "found" else "not-found",
+        conversationTokenizerPath = conversationTokenizerResolution?.path,
+        conversationTokenizerClass = conversationTokenizerResolution?.className,
+    )
+}
+
+private fun inspectCreatedSessionForTokenizer(
+    createdSession: Any?,
+    createdSessionPath: String?,
+): CreatedTokenizerSessionResolution? {
+    if (createdSession == null || createdSessionPath.isNullOrBlank()) return null
+    return runCatching {
+        CreatedTokenizerSessionResolution(
+            path = createdSessionPath,
+            sessionClassName = createdSession.javaClass.name,
+            sizeInTokensMethod = findSizeInTokensMethod(createdSession),
+        )
+    }.getOrNull()
+}
+
+private fun buildCreateSessionMethodSignatures(source: Any?): List<String> {
+    val methods = source
+        ?.javaClass
+        ?.methods
+        ?.filter { method ->
+            method.name == "createSession" || method.name.startsWith("createSession$")
+        }
+        .orEmpty()
+        .sortedWith(
+            compareBy<java.lang.reflect.Method>({ it.name }, { it.parameterTypes.size }, { it.toGenericString() }),
+        )
+    if (methods.isEmpty()) return listOf("none")
+    return methods.map { method ->
+        val parameterTypes = method.parameterTypes
+            .joinToString(",") { parameterType ->
+                parameterType.name
+            }
+            .ifBlank { "none" }
+        val returnType = method.returnType.name
+        val staticOrInstance =
+            if (java.lang.reflect.Modifier.isStatic(method.modifiers)) "static" else "instance"
+        "${method.name}(params=$parameterTypes) : $returnType [$staticOrInstance, paramCount=${method.parameterTypes.size}]"
+    }
+}
+
+private fun summarizeTokenizerSourceCandidates(names: List<String>): String {
+    val candidates = names
+        .filter { name ->
+            val lower = name.lowercase(Locale.ROOT)
+            TOKENIZER_SOURCE_CANDIDATE_KEYWORDS.any { keyword -> lower.contains(keyword) }
+        }
+        .distinct()
+        .sorted()
+    if (candidates.isEmpty()) return "none"
+    val maxItems = 12
+    val visible = candidates.take(maxItems)
+    val moreCount = (candidates.size - visible.size).coerceAtLeast(0)
+    return buildString {
+        append(visible.joinToString(","))
+        if (moreCount > 0) {
+            append(",...(+")
+            append(moreCount)
+            append(")")
+        }
+        append(" [count=")
+        append(candidates.size)
+        append("]")
+    }
+}
+
+private fun tryResolveExistingSessionForTokenizer(
+    conversation: Conversation,
+    tokenizerSessionSource: Any?,
+    appendTrace: (String) -> Unit,
+): ExistingTokenizerSessionResolution? {
+    val sourceCandidates = buildList {
+        add(Triple("conversation", conversation as Any, "conversation"))
+        tokenizerSessionSource?.let { source ->
+            add(Triple("tokenizerSessionSource", source, "tokenizerSessionSource"))
+            readNamedMemberValue(source, "heldEngine")?.let { held ->
+                add(Triple("held-engine", held, "tokenizerSessionSource.heldEngine"))
+                readNamedMemberValue(held, "engineInstance")?.let { engine ->
+                    add(Triple("held-engine-engine-instance", engine, "tokenizerSessionSource.heldEngine.engineInstance"))
+                }
+            }
+            readNamedMemberValue(source, "engine")?.let { engine ->
+                add(Triple("engine-member", engine, "tokenizerSessionSource.engine"))
+            }
+            add(Triple("engine", source, "engine"))
+        }
+    }
+    sourceCandidates.forEach { (sourceKind, sourceObject, sourcePath) ->
+        resolveExistingSessionFromObject(
+            sourceKind = sourceKind,
+            sourcePath = sourcePath,
+            sourceObject = sourceObject,
+        )?.let { resolved ->
+            safeAppendTrace(
+                appendTrace,
+                "UPSTREAM tokenizer-recount existing-session found path=${resolved.path} class=${resolved.sessionClassName}",
+            )
+            return resolved
+        }
+    }
+    safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount existing-session path=none")
+    return null
+}
+
+private fun tryResolveTokenizerFromConversation(
+    conversation: Any,
+    appendTrace: (String) -> Unit,
+): ConversationTokenizerResolution? {
+    val visited = mutableSetOf<Any>()
+    val queue = ArrayDeque<Pair<String, Any>>()
+    queue.add("conversation" to conversation)
+    while (queue.isNotEmpty()) {
+        val (path, obj) = queue.removeFirst()
+        if (obj in visited) continue
+        visited.add(obj)
+        val clazz = obj.javaClass
+        val sizeMethod = findSizeInTokensMethod(obj)
+        if (sizeMethod != null) {
+            safeAppendTrace(appendTrace, "UPSTREAM tokenizer found at $path class=${clazz.name}")
+            return ConversationTokenizerResolution(
+                path = path,
+                sourceObject = obj,
+                className = clazz.name,
+                sizeInTokensMethod = sizeMethod,
+            )
+        }
+        clazz.methods
+            .filter { it.parameterTypes.isEmpty() }
+            .forEach { method ->
+                runCatching {
+                    val result = method.invoke(obj) ?: return@forEach
+                    if (result.javaClass.name.startsWith("java")) return@forEach
+                    queue.add("$path.${method.name}()" to result)
+                }
+            }
+        clazz.declaredFields.forEach { field ->
+            runCatching {
+                field.isAccessible = true
+                val value = field.get(obj) ?: return@forEach
+                if (value.javaClass.name.startsWith("java")) return@forEach
+                queue.add("$path.${field.name}" to value)
+            }
+        }
+    }
+    safeAppendTrace(appendTrace, "UPSTREAM tokenizer not found from conversation")
+    return null
+}
+
+private fun resolveExistingSessionFromObject(
+    sourceKind: String,
+    sourcePath: String,
+    sourceObject: Any,
+): ExistingTokenizerSessionResolution? {
+    findExistingSessionCandidateFromMembers(
+        sourceKind = sourceKind,
+        sourcePath = sourcePath,
+        sourceObject = sourceObject,
+        preferredOnly = true,
+    )?.let { return it }
+    return findExistingSessionCandidateFromMembers(
+        sourceKind = sourceKind,
+        sourcePath = sourcePath,
+        sourceObject = sourceObject,
+        preferredOnly = false,
+    )
+}
+
+private fun findExistingSessionCandidateFromMembers(
+    sourceKind: String,
+    sourcePath: String,
+    sourceObject: Any,
+    preferredOnly: Boolean,
+): ExistingTokenizerSessionResolution? {
+    val methods = sourceObject.javaClass.methods
+        .filter { method -> method.parameterTypes.isEmpty() }
+        .sortedBy { it.name }
+    methods.forEach { method ->
+        val isPreferred = EXISTING_SESSION_MEMBER_CANDIDATES.contains(method.name)
+        val isGeneric = method.name.contains("session", ignoreCase = true)
+        if ((preferredOnly && !isPreferred) || (!preferredOnly && !isGeneric)) return@forEach
+        runCatching { method.invoke(sourceObject) }.getOrNull()?.let { candidate ->
+            buildExistingSessionResolution(
+                sourceKind = sourceKind,
+                path = "$sourcePath.${method.name}()",
+                sourceObject = sourceObject,
+                candidate = candidate,
+            )?.let { return it }
+        }
+    }
+    val fields = sourceObject.javaClass.declaredFields.sortedBy { it.name }
+    fields.forEach { field ->
+        val isPreferred = EXISTING_SESSION_MEMBER_CANDIDATES.contains(field.name)
+        val isGeneric = field.name.contains("session", ignoreCase = true)
+        if ((preferredOnly && !isPreferred) || (!preferredOnly && !isGeneric)) return@forEach
+        runCatching {
+            field.isAccessible = true
+            field.get(sourceObject)
+        }.getOrNull()?.let { candidate ->
+            buildExistingSessionResolution(
+                sourceKind = sourceKind,
+                path = "$sourcePath.${field.name}",
+                sourceObject = sourceObject,
+                candidate = candidate,
+            )?.let { return it }
+        }
+    }
+    return null
+}
+
+private fun buildExistingSessionResolution(
+    sourceKind: String,
+    path: String,
+    sourceObject: Any,
+    candidate: Any,
+): ExistingTokenizerSessionResolution? {
+    val candidateClass = candidate.javaClass
+    val looksLikeSession = candidateClass.name.contains("session", ignoreCase = true)
+    val sizeMethod = findSizeInTokensMethod(candidate)
+    if (!looksLikeSession && sizeMethod == null) return null
+    return ExistingTokenizerSessionResolution(
+        sourceKind = sourceKind,
+        path = path,
+        sourceObject = sourceObject,
+        sessionInstance = candidate,
+        sessionClassName = candidateClass.name,
+        sizeInTokensMethod = sizeMethod,
+    )
+}
+
+private fun readNamedMemberValue(source: Any, memberName: String): Any? {
+    val getterName = "get${memberName.replaceFirstChar { it.uppercaseChar() }}"
+    val method = source.javaClass.methods.firstOrNull { candidate ->
+        candidate.parameterTypes.isEmpty() && (candidate.name == memberName || candidate.name == getterName)
+    }
+    if (method != null) {
+        runCatching { method.invoke(source) }.getOrNull()?.let { return it }
+    }
+    val field = source.javaClass.declaredFields.firstOrNull { it.name == memberName } ?: return null
+    return runCatching {
+        field.isAccessible = true
+        field.get(source)
+    }.getOrNull()
+}
+
+private fun findSizeInTokensMethod(sessionInstance: Any): Method? {
+    return sessionInstance.javaClass.methods.firstOrNull { method ->
+        method.name == "sizeInTokens" &&
+            method.parameterTypes.size == 1 &&
+            method.parameterTypes[0] == String::class.java
+    }
+}
+
+private fun invokeSizeInTokens(
+    sessionInstance: Any,
+    sizeMethod: Method,
+    input: String,
+): Int? {
+    val result = runCatching { sizeMethod.invoke(sessionInstance, input) }.getOrNull() ?: return null
+    return (result as? Number)?.toInt()
+}
+
+private fun tryCloseTokenizerSession(
+    sessionInstance: Any?,
+    appendTrace: (String) -> Unit,
+) {
+    if (sessionInstance == null) return
+    val closeMethod = sessionInstance.javaClass.methods.firstOrNull { method ->
+        method.name == "close" && method.parameterTypes.isEmpty()
+    } ?: return
+    runCatching {
+        closeMethod.invoke(sessionInstance)
+    }.onFailure { throwable ->
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM tokenizer-recount close-failed ${throwable.javaClass.simpleName}:${throwable.message}",
+        )
+    }
+}
+
 @OptIn(ExperimentalApi::class)
 private fun readMeasuredTokenSnapshotFromConversation(
     conversation: Any?,
@@ -442,20 +2512,58 @@ private fun readMeasuredTokenSnapshotFromConversation(
     val liteRtConversation = conversation as? Conversation ?: return null
     return runCatching {
         val benchmarkInfo = liteRtConversation.getBenchmarkInfo()
-        val inputTokens = benchmarkInfo.lastPrefillTokenCount.takeIf { it >= 0 }
-        val outputTokens = benchmarkInfo.lastDecodeTokenCount.takeIf { it >= 0 }
+        val lastPrefillTokenCount = benchmarkInfo.lastPrefillTokenCount.takeIf { it >= 0 }
+        val lastDecodeTokenCount = benchmarkInfo.lastDecodeTokenCount.takeIf { it >= 0 }
+        val benchmarkPrefillTokenCount = benchmarkInfo.readBenchmarkInfoRawValue(
+            candidates = listOf("prefillTokenCount", "lastPrefillTokenCount"),
+        )
+        val benchmarkDecodeTokenCount = benchmarkInfo.readBenchmarkInfoRawValue(
+            candidates = listOf("decodeTokenCount", "lastDecodeTokenCount"),
+        )
+        val benchmarkPrefillTokensPerSecond = benchmarkInfo.readBenchmarkInfoRawValue(
+            candidates = listOf("prefillTokensPerSecond", "lastPrefillTokensPerSecond"),
+        )
+        val benchmarkDecodeTokensPerSecond = benchmarkInfo.readBenchmarkInfoRawValue(
+            candidates = listOf("decodeTokensPerSecond", "lastDecodeTokensPerSecond"),
+        )
+        val benchmarkTimeToFirstTokenMs = benchmarkInfo.readBenchmarkInfoRawValue(
+            candidates = listOf("timeToFirstTokenMs", "lastTimeToFirstTokenMs"),
+        )
+        val benchmarkModelInitMs = benchmarkInfo.readBenchmarkInfoRawValue(
+            candidates = listOf("modelInitMs", "lastModelInitMs"),
+        )
+        val inputTokens = lastPrefillTokenCount
+        val outputTokens = lastDecodeTokenCount
         val totalTokens = if (inputTokens != null && outputTokens != null) {
             inputTokens + outputTokens
         } else {
             null
         }
-        val snapshot = if (inputTokens == null && outputTokens == null && totalTokens == null) {
+        val snapshot = if (
+            inputTokens == null &&
+            outputTokens == null &&
+            totalTokens == null &&
+            benchmarkPrefillTokenCount == null &&
+            benchmarkDecodeTokenCount == null &&
+            benchmarkPrefillTokensPerSecond == null &&
+            benchmarkDecodeTokensPerSecond == null &&
+            benchmarkTimeToFirstTokenMs == null &&
+            benchmarkModelInitMs == null
+        ) {
             null
         } else {
             LocalInferenceMeasuredTokenSnapshot(
                 inputTokens = inputTokens,
                 outputTokens = outputTokens,
                 totalTokens = totalTokens,
+                lastPrefillTokenCount = lastPrefillTokenCount,
+                lastDecodeTokenCount = lastDecodeTokenCount,
+                rawPrefillTokenCount = benchmarkPrefillTokenCount,
+                rawDecodeTokenCount = benchmarkDecodeTokenCount,
+                rawPrefillTokensPerSecond = benchmarkPrefillTokensPerSecond,
+                rawDecodeTokensPerSecond = benchmarkDecodeTokensPerSecond,
+                rawTimeToFirstTokenMs = benchmarkTimeToFirstTokenMs,
+                rawModelInitMs = benchmarkModelInitMs,
             )
         }
         if (BuildConfig.DEBUG) {
@@ -470,6 +2578,25 @@ private fun readMeasuredTokenSnapshotFromConversation(
             appendTrace,
             "UPSTREAM $path benchmarkInfo failed ${throwable.javaClass.simpleName}:${throwable.message}",
         )
+    }.getOrNull()
+}
+
+private fun Any.readBenchmarkInfoRawValue(candidates: List<String>): String? {
+    for (name in candidates) {
+        readBenchmarkInfoRawValue(name)?.let { return it }
+    }
+    return null
+}
+
+private fun Any.readBenchmarkInfoRawValue(name: String): String? {
+    val methodSuffix = name.replaceFirstChar { char ->
+        if (char.isLowerCase()) char.titlecase() else char.toString()
+    }
+    return runCatching {
+        javaClass.methods.firstOrNull { method ->
+            method.parameterCount == 0 &&
+                (method.name == name || method.name == "get$methodSuffix")
+        }?.invoke(this)?.toString()
     }.getOrNull()
 }
 
@@ -491,6 +2618,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     prompt: String,
     modelPath: String,
     cacheDirPath: String,
+    mediaPipeProbeContext: Context? = null,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
     onFallbackReason: (String) -> Unit = {},
@@ -522,6 +2650,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
                 prompt = prompt,
                 modelPath = modelPath,
                 cacheDirPath = cacheDirPath,
+                mediaPipeProbeContext = mediaPipeProbeContext,
                 startElapsedMs = startElapsedMs,
                 onPartial = onPartial,
                 appendTrace = appendTrace,
@@ -560,6 +2689,7 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
     prompt: String,
     modelPath: String,
     cacheDirPath: String,
+    mediaPipeProbeContext: Context? = null,
     appendTrace: (String) -> Unit = {},
     onFallbackReason: (String) -> Unit = {},
 ): LocalOfficialBlockingResult? {
@@ -588,6 +2718,7 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
                 prompt = prompt,
                 modelPath = modelPath,
                 cacheDirPath = cacheDirPath,
+                mediaPipeProbeContext = mediaPipeProbeContext,
                 appendTrace = appendTrace,
             )
         }.onFailure { throwable ->
@@ -870,6 +3001,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     prompt: String,
     modelPath: String,
     cacheDirPath: String,
+    mediaPipeProbeContext: Context?,
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
@@ -879,6 +3011,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             prompt = prompt,
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            mediaPipeProbeContext = mediaPipeProbeContext,
             startElapsedMs = startElapsedMs,
             onPartial = onPartial,
             appendTrace = appendTrace,
@@ -967,6 +3100,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         var partialCount = 0
         var extractFailureCount = 0
         var firstPartialMs: Long? = null
+        var lastNonEmptyChunkAtMs: Long? = null
         var lastPartial: String? = null
         runCatching {
             flow.collect { message ->
@@ -992,6 +3126,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
                 if (firstPartialMs == null) {
                     firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
                 }
+                lastNonEmptyChunkAtMs = SystemClock.elapsedRealtime()
                 onPartial(builder.toString())
             }
         }.getOrElse { throwable ->
@@ -1016,6 +3151,22 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         }
         successReached = true
         measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+        measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
+            base = measuredTokenSnapshot,
+            conversation = conversation,
+            tokenizerSessionSource = engine,
+            mediaPipeProbeModelPath = modelPath,
+            mediaPipeProbeContext = mediaPipeProbeContext,
+            promptText = prompt,
+            fullResponseText = response,
+            timing = LocalLiteRtTimingSnapshot(
+                startedAtMs = startElapsedMs,
+                firstNonEmptyChunkAtMs = firstPartialMs?.let { startElapsedMs + it },
+                lastChunkAtMs = lastNonEmptyChunkAtMs,
+                endedAtMs = SystemClock.elapsedRealtime(),
+            ),
+            appendTrace = appendTrace,
+        )
         measuredCollector.emitAdoptedTrace()
         finalResult = LocalOfficialFlowStreamingResult(
             response = response,
@@ -1076,6 +3227,7 @@ private fun runOfficialBlockingConversationSingleNamespace(
     prompt: String,
     modelPath: String,
     cacheDirPath: String,
+    mediaPipeProbeContext: Context?,
     appendTrace: (String) -> Unit,
 ): LocalOfficialBlockingResult? {
     if (spec.namespace == "com.google.ai.edge.litertlm") {
@@ -1083,6 +3235,7 @@ private fun runOfficialBlockingConversationSingleNamespace(
             prompt = prompt,
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            mediaPipeProbeContext = mediaPipeProbeContext,
             appendTrace = appendTrace,
         )
         return LocalOfficialBlockingResult(
@@ -1244,6 +3397,7 @@ private suspend fun runOfficialLiteRtLmDirect(
     prompt: String,
     modelPath: String,
     cacheDirPath: String,
+    mediaPipeProbeContext: Context?,
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
@@ -1282,6 +3436,7 @@ private suspend fun runOfficialLiteRtLmDirect(
             var lastChunk: String? = null
             var partialCount = 0
             var firstPartialMs: Long? = null
+            var lastNonEmptyChunkAtMs: Long? = null
             conversation.sendMessageAsync(prompt).collect { message ->
                 val extractedText = message.contents.toString().trim()
                     .ifBlank { message.toString().trim() }
@@ -1292,6 +3447,7 @@ private suspend fun runOfficialLiteRtLmDirect(
                     if (firstPartialMs == null) {
                         firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
                     }
+                    lastNonEmptyChunkAtMs = SystemClock.elapsedRealtime()
                     partialCount += 1
                     onPartial(builder.toString())
                 }
@@ -1312,6 +3468,22 @@ private suspend fun runOfficialLiteRtLmDirect(
             }
             successReached = true
             measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+            measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
+                base = measuredTokenSnapshot,
+                conversation = conversation,
+                tokenizerSessionSource = engine,
+                mediaPipeProbeModelPath = modelPath,
+                mediaPipeProbeContext = mediaPipeProbeContext,
+                promptText = prompt,
+                fullResponseText = response,
+                timing = LocalLiteRtTimingSnapshot(
+                    startedAtMs = startElapsedMs,
+                    firstNonEmptyChunkAtMs = firstPartialMs?.let { startElapsedMs + it },
+                    lastChunkAtMs = lastNonEmptyChunkAtMs,
+                    endedAtMs = SystemClock.elapsedRealtime(),
+                ),
+                appendTrace = appendTrace,
+            )
             measuredCollector.emitAdoptedTrace()
             result = LocalOfficialFlowStreamingResult(
                 response = response,
@@ -1378,6 +3550,7 @@ private fun runOfficialLiteRtLmBlocking(
     prompt: String,
     modelPath: String,
     cacheDirPath: String,
+    mediaPipeProbeContext: Context?,
     appendTrace: (String) -> Unit,
 ): LocalOfficialDirectBlockingResult {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct blockingStart")
@@ -1411,6 +3584,7 @@ private fun runOfficialLiteRtLmBlocking(
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-success")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
+            val startedAtMs = SystemClock.elapsedRealtime()
             val message = conversation.sendMessage(prompt)
             val response = message.contents.toString().trim()
                 .ifBlank { message.toString().trim() }
@@ -1418,6 +3592,7 @@ private fun runOfficialLiteRtLmBlocking(
             safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
             responseText = response.takeIf { it.isNotBlank() }
             if (!responseText.isNullOrBlank()) {
+                val completedAtMs = SystemClock.elapsedRealtime()
                 measuredCollector.observe(
                     timing = "after-response",
                     conversation = conversation,
@@ -1429,6 +3604,22 @@ private fun runOfficialLiteRtLmBlocking(
                     )
                 }
                 measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+                measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
+                    base = measuredTokenSnapshot,
+                    conversation = conversation,
+                    tokenizerSessionSource = engine,
+                    mediaPipeProbeModelPath = modelPath,
+                    mediaPipeProbeContext = mediaPipeProbeContext,
+                    promptText = prompt,
+                    fullResponseText = responseText,
+                    timing = LocalLiteRtTimingSnapshot(
+                        startedAtMs = startedAtMs,
+                        firstNonEmptyChunkAtMs = completedAtMs,
+                        lastChunkAtMs = completedAtMs,
+                        endedAtMs = completedAtMs,
+                    ),
+                    appendTrace = appendTrace,
+                )
                 measuredCollector.emitAdoptedTrace()
             }
             successReached = !responseText.isNullOrBlank()

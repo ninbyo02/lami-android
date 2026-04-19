@@ -77,6 +77,17 @@ class InferenceStatsFormatterTest {
     }
 
     @Test
+    fun `formatInferenceTime prioritizes totalDurationMs over inferenceTimeSec`() {
+        val stats = InferenceStats(
+            totalDurationMs = 3_400L,
+            inferenceTimeSec = 9.9,
+            generationTimeMs = 20_000L,
+        )
+
+        assertEquals("3.4 s", formatInferenceTime(stats))
+    }
+
+    @Test
     fun `duration detail formatters convert ns to seconds safely`() {
         val stats = InferenceStats(
             modelLoadDurationNs = 2_345_000_000L,

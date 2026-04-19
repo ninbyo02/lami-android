@@ -143,6 +143,7 @@ import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import io.github.ninbyo02.lami.ui.components.HeaderAvatar
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
+import io.github.ninbyo02.lami.ui.components.InferenceTargetIcon
 import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
 import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
@@ -352,6 +353,7 @@ internal data class LocalInferenceTrace(
     val generateMethodSignature: String? = null,
     val streamingCandidateDetected: Boolean? = null,
     val localModelDisplayName: String? = null,
+    val mediaPipeProbeModelPath: String? = null,
     val modelNameProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val finishReasonProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val outputTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
@@ -474,6 +476,7 @@ fun Home(
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val mediaPipeProbeContext = context.applicationContext ?: context
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
     }
@@ -483,7 +486,7 @@ fun Home(
     val localStreamingRunner = remember(context.applicationContext, settingsPreferences) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
-        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, onPartial ->
+        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, runMediaPipeProbeContext, onPartial ->
             appendLocalReflectionTrace(
                 context = context.applicationContext,
                 message = "UPSTREAM before-runLocalInferenceOnceEntry",
@@ -495,6 +498,7 @@ fun Home(
                 localBaseModelDisplayName = runLocalBaseModelDisplayName,
                 resolvedModelPath = runResolvedModelPath,
                 resolvedCacheDirPath = runCacheDirPath,
+                mediaPipeProbeContext = runMediaPipeProbeContext,
                 prompt = runPrompt,
                 onPartial = onPartial,
             )
@@ -684,6 +688,8 @@ fun Home(
     var streamingGuardEpoch by remember(effectiveChatId) { mutableStateOf(0L) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
+    var selectedAssistantMessageTextForStatsSheet by remember { mutableStateOf<String?>(null) }
+    var selectedPromptMessageTextForStatsSheet by remember { mutableStateOf<String?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var showInferenceStatsSheet by remember { mutableStateOf(false) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
@@ -1910,6 +1916,7 @@ fun Home(
                                                                 context = context.applicationContext,
                                                                 message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
                                                             )
+                                                            var mediaPipeProbeModelPathForRun: String? = null
                                                             val modelResolution = resolveLocalModelResolutionOrNull(
                                                                 context = context.applicationContext,
                                                                 settingsPreferences = settingsPreferences,
@@ -1940,6 +1947,7 @@ fun Home(
                                                                 }
                                                             } else {
                                                                 val resolvedModelPath = modelResolution.modelPath
+                                                                mediaPipeProbeModelPathForRun = resolvedModelPath
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
                                                                 var legacyFallbackReason: String? = null
                                                                 var heldAcquireFailureStage: String? = null
@@ -2041,6 +2049,8 @@ fun Home(
                                                                         chatId = currentChatId,
                                                                         prompt = requestPrompt,
                                                                         localModelDisplayName = modelResolution.displayName,
+                                                                        mediaPipeProbeModelPath = mediaPipeProbeModelPathForRun,
+                                                                        mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         onPartial = { partial ->
                                                                             if (localStopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = partial.trim()
@@ -2105,6 +2115,7 @@ fun Home(
                                                                                 localBaseModelDisplayName = modelResolution.displayName,
                                                                                 resolvedModelPath = modelResolution.modelPath,
                                                                                 cacheDirPath = modelResolution.cacheDirPath,
+                                                                                mediaPipeProbeContext = mediaPipeProbeContext,
                                                                                 onPartial = legacyPartial@{ partial ->
                                                                                     if (localStopRequested) return@legacyPartial
                                                                                     val normalizedPartial = partial.trim()
@@ -2167,6 +2178,7 @@ fun Home(
                                                                         localBaseModelDisplayName = modelResolution.displayName,
                                                                         resolvedModelPath = modelResolution.modelPath,
                                                                         cacheDirPath = modelResolution.cacheDirPath,
+                                                                        mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         onPartial = legacyPartial@{ partial ->
                                                                             if (localStopRequested) return@legacyPartial
                                                                             val normalizedPartial = partial.trim()
@@ -2198,6 +2210,8 @@ fun Home(
                                                             val runResultWithUiTrace = normalizeLocalInferenceRunResult(
                                                                 runResult?.copy(
                                                                     trace = runResult.trace.copy(
+                                                                        mediaPipeProbeModelPath = runResult.trace.mediaPipeProbeModelPath
+                                                                            ?: mediaPipeProbeModelPathForRun,
                                                                         assistantUpdateCount = assistantUpdateCountForDev,
                                                                         firstNonEmptyAssistantChunkSeen = firstNonEmptyAssistantChunkSeenForDev,
                                                                         assistantStreamedToUi = assistantUpdateCountForDev >= 2,
@@ -2962,6 +2976,11 @@ fun Home(
                                                     {
                                                         selectedInferenceStats = it
                                                         selectedLocalTraceForDevSheet = latestLocalTraceForDev
+                                                        selectedAssistantMessageTextForStatsSheet = message.message
+                                                        selectedPromptMessageTextForStatsSheet =
+                                                            messagesForList.getOrNull(index - 1)
+                                                                ?.takeIf { it.isSendbyMe }
+                                                                ?.message
                                                         showInferenceStatsSheet = true
                                                     }
                                                 },
@@ -3083,12 +3102,16 @@ fun Home(
                 showInferenceStatsSheet = false
                 selectedInferenceStats = null
                 selectedLocalTraceForDevSheet = null
+                selectedAssistantMessageTextForStatsSheet = null
+                selectedPromptMessageTextForStatsSheet = null
             },
         ) {
             stats?.let {
                 InferenceStatsSheetContent(
                     stats = it,
                     localTraceForDev = selectedLocalTraceForDevSheet,
+                    assistantText = selectedAssistantMessageTextForStatsSheet,
+                    promptText = selectedPromptMessageTextForStatsSheet,
                     devHeldStateText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devHeldStateText else null,
                     devCloseLifecycleText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devCloseLifecycleText else null,
                     devDebugText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devDebugText else null,
@@ -3173,6 +3196,7 @@ private suspend fun runLocalInferenceOnceEntry(
     localBaseModelDisplayName: String?,
     resolvedModelPath: String? = null,
     resolvedCacheDirPath: String? = null,
+    mediaPipeProbeContext: Context? = null,
     prompt: String,
     onPartial: (String) -> Unit = {},
 ): LocalInferenceRunResult {
@@ -3233,6 +3257,7 @@ private suspend fun runLocalInferenceOnceEntry(
             prompt = prompt,
             modelPath = modelPath,
             cacheDirPath = modelResolution.cacheDirPath,
+            mediaPipeProbeContext = mediaPipeProbeContext,
             onPartial = { partial ->
                 officialFlowObservedPartialCount += 1
                 onPartial(partial)
@@ -3340,6 +3365,7 @@ private suspend fun runLocalInferenceOnceEntry(
             prompt = prompt,
             modelPath = modelPath,
             cacheDirPath = modelResolution.cacheDirPath,
+            mediaPipeProbeContext = mediaPipeProbeContext,
             appendTrace = { traceMessage ->
                 appendLocalReflectionTrace(context = context, message = traceMessage)
             },
@@ -5263,12 +5289,16 @@ internal fun LocalStatsCandidateProbe.stringValueOrNull(): String? {
 internal fun createLocalInferenceStatsUiModel(
     trace: LocalInferenceTrace,
     stats: InferenceStats,
+    assistantText: String? = null,
+    promptText: String? = null,
 ): LocalInferenceStatsUiModel {
     return buildLocalInferenceStatsUiModel(
         trace = trace,
         resolved = resolveLocalInferenceStats(trace),
         stats = stats,
         measuredSnapshot = trace.measuredTokenSnapshot,
+        assistantText = assistantText,
+        promptText = promptText,
         selectedAssistantResponseSource = trace.selectedAssistantResponseSource,
     )
 }
@@ -5279,7 +5309,44 @@ private fun buildMeasuredTokenSnapshotSummary(trace: LocalInferenceTrace?): Stri
     val inputTokens = measuredSnapshot?.inputTokens
     val outputTokens = measuredSnapshot?.outputTokens
     val totalTokens = measuredSnapshot?.totalTokens
-    return "in=$inputTokens / out=$outputTokens / total=$totalTokens"
+    fun rawValueOrUnavailable(rawValue: String?): String = rawValue?.takeIf { it.isNotBlank() } ?: "unavailable"
+    return buildString {
+        append("in=$inputTokens / out=$outputTokens / total=$totalTokens")
+        measuredSnapshot?.mediaPipeTokenizerSummary
+            ?.takeIf { it.isNotBlank() }
+            ?.let { mediaPipeSummary ->
+                appendLine()
+                append(mediaPipeSummary)
+            }
+        measuredSnapshot?.tokenizerRecountStatus?.takeIf { it.isNotBlank() }?.let { status ->
+            appendLine()
+            append("tokenizer-recount status: $status")
+            measuredSnapshot.tokenizerSourceTraceSummary
+                ?.takeIf { it.isNotBlank() }
+                ?.let { sourceTraceSummary ->
+                    appendLine()
+                    append(sourceTraceSummary)
+                }
+            if (status == "success" || measuredSnapshot.mediaPipeTokenizerStatus == "success") {
+                appendLine()
+                append("tokenizer-recount tokens: in=$inputTokens / out=$outputTokens / total=$totalTokens")
+            }
+        }
+        appendLine()
+        append("[BenchmarkInfo raw]")
+        appendLine()
+        append("prefillTokenCount: ${rawValueOrUnavailable(measuredSnapshot?.rawPrefillTokenCount)}")
+        appendLine()
+        append("decodeTokenCount: ${rawValueOrUnavailable(measuredSnapshot?.rawDecodeTokenCount)}")
+        appendLine()
+        append("prefillTokensPerSecond: ${rawValueOrUnavailable(measuredSnapshot?.rawPrefillTokensPerSecond)}")
+        appendLine()
+        append("decodeTokensPerSecond: ${rawValueOrUnavailable(measuredSnapshot?.rawDecodeTokensPerSecond)}")
+        appendLine()
+        append("timeToFirstTokenMs: ${rawValueOrUnavailable(measuredSnapshot?.rawTimeToFirstTokenMs)}")
+        appendLine()
+        append("modelInitMs: ${rawValueOrUnavailable(measuredSnapshot?.rawModelInitMs)}")
+    }
 }
 
 
@@ -5300,6 +5367,7 @@ private fun buildLocalInferenceStatsFromTrace(
     fallbackTimeToFirstTokenMs: Long? = null,
 ): InferenceStats? {
     val resolvedStats = resolveLocalInferenceStats(trace)
+    val measuredSnapshot = trace.measuredTokenSnapshot
     val existingInputTokens: Int? = null
     val existingOutputTokens = resolvedStats.outputTokens.value
     val existingTotalTokens = resolvedStats.totalTokens.value
@@ -5326,11 +5394,12 @@ private fun buildLocalInferenceStatsFromTrace(
                 null
             }
         }
-    val inputTokens = existingInputTokens ?: trace.sessionPromptTokens
-    val outputTokens = existingOutputTokens ?: trace.sessionResponseTokens
-    val totalTokens = existingTotalTokens ?: trace.sessionTotalTokens
+    val inputTokens = measuredSnapshot?.inputTokens ?: existingInputTokens ?: trace.sessionPromptTokens
+    val outputTokens = measuredSnapshot?.outputTokens ?: existingOutputTokens ?: trace.sessionResponseTokens
+    val totalTokens = measuredSnapshot?.totalTokens ?: existingTotalTokens ?: trace.sessionTotalTokens
     val existingTokensPerSecond: Double? = null
-    val tokensPerSecond = existingTokensPerSecond
+    val tokensPerSecond = measuredSnapshot?.tokensPerSecond
+        ?: existingTokensPerSecond
         ?: buildLocalTokensPerSecondOrNull(
             outputTokens = outputTokens,
             generationTimeMs = generationTimeMs,
@@ -5353,14 +5422,19 @@ private fun buildLocalInferenceStatsFromTrace(
         outputTokens = outputTokens,
         totalTokens = totalTokens,
         tokensPerSecond = tokensPerSecond,
+        charsPerSecond = measuredSnapshot?.charsPerSecond,
+        tokenCountMode = measuredSnapshot?.tokenCountMode,
+        notes = measuredSnapshot?.notes,
         completionTokens = outputTokens,
         finishReason = finishReason,
         generationTimeMs = generationTimeMs,
+        decodeDurationMs = measuredSnapshot?.decodeDurationMs,
+        totalDurationMs = measuredSnapshot?.totalDurationMs,
         generationDurationNs = existingGenerationDurationNs ?: fallbackGenerationDurationNs,
         evalDurationNs = totalInferenceDurationNs,
         modelLoadDurationNs = existingLoadDurationNs,
         promptEvalDurationNs = fallbackPromptEvalNs,
-        timeToFirstTokenMs = timeToFirstTokenMs,
+        timeToFirstTokenMs = measuredSnapshot?.ttftMs ?: timeToFirstTokenMs,
         responseCharCount = responseCharCount,
     )
 }
@@ -5402,7 +5476,12 @@ internal fun createAssistantMessage(
         inputTokens = inputTokens,
         totalTokens = persistedTotalTokens,
         tokensPerSecond = latestInferenceStats?.tokensPerSecond,
+        charsPerSecond = latestInferenceStats?.charsPerSecond,
+        tokenCountMode = latestInferenceStats?.tokenCountMode,
+        inferenceNotes = latestInferenceStats?.notes,
         inferenceTimeSec = latestInferenceStats?.inferenceTimeSec,
+        decodeDurationMs = latestInferenceStats?.decodeDurationMs,
+        totalDurationMs = latestInferenceStats?.totalDurationMs,
         finishReason = latestInferenceStats?.finishReason,
         localSourceSummary = localSourceSummary,
         timeToFirstTokenMs = latestInferenceStats?.timeToFirstTokenMs,
@@ -5415,6 +5494,8 @@ internal fun createAssistantMessage(
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
     localTraceForDev: LocalInferenceTrace? = null,
+    assistantText: String? = null,
+    promptText: String? = null,
     devHeldStateText: String? = null,
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
@@ -5428,6 +5509,8 @@ private fun InferenceStatsSheetContent(
     val sections = buildInferenceSummarySections(
         stats = stats,
         localTraceForDev = localTraceForDev,
+        assistantText = assistantText,
+        promptText = promptText,
         enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
     )
     val measuredTokenSnapshotSummary = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
@@ -5438,6 +5521,8 @@ private fun InferenceStatsSheetContent(
     val detailSections = buildInferenceDetailSections(
         stats = stats,
         localTraceForDev = localTraceForDev,
+        assistantText = assistantText,
+        promptText = promptText,
         devHeldStateText = devHeldStateText,
         devCloseLifecycleText = devCloseLifecycleText,
         devDebugText = devDebugText,
@@ -5470,8 +5555,20 @@ private fun InferenceStatsSheetContent(
 
             InferenceModelInfoRow(
                 stats = stats,
-                onCopyModelName = { modelName ->
-                    clipboardManager.setText(AnnotatedString(modelName))
+                inferenceTarget = resolveInferenceTargetForStats(
+                    stats = stats,
+                    localTraceForDev = localTraceForDev,
+                ),
+                onCopyInferenceStats = {
+                    clipboardManager.setText(
+                        AnnotatedString(
+                            buildInferenceStatsFullCopyText(
+                                stats = stats,
+                                sections = sections,
+                                detailSections = detailSections,
+                            ),
+                        ),
+                    )
                 },
             )
 
@@ -5524,7 +5621,8 @@ private fun InferenceStatsSheetContent(
 @Composable
 private fun InferenceModelInfoRow(
     stats: InferenceStats,
-    onCopyModelName: (String) -> Unit,
+    inferenceTarget: InferenceTarget,
+    onCopyInferenceStats: () -> Unit,
 ) {
     val modelName = formatModelName(stats)
     InferenceStatsSection(title = "モデル情報") {
@@ -5542,26 +5640,120 @@ private fun InferenceModelInfoRow(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text(
-                    text = modelName ?: "—",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-            if (!modelName.isNullOrBlank()) {
-                IconButton(
-                    onClick = { onCopyModelName(modelName) },
-                    modifier = Modifier.semantics { contentDescription = "モデル名をコピー" },
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ContentCopy,
-                        contentDescription = "モデル名をコピー",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    InferenceTargetIcon(
+                        target = inferenceTarget,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = modelName ?: "—",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
+            IconButton(
+                onClick = onCopyInferenceStats,
+                modifier = Modifier.semantics { contentDescription = "推論統計をコピー" },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = "推論統計をコピー",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
+    }
+}
+
+private fun resolveInferenceTargetForStats(
+    stats: InferenceStats,
+    localTraceForDev: LocalInferenceTrace?,
+): InferenceTarget {
+    if (localTraceForDev != null) return InferenceTarget.LOCAL
+    val localSourceSummary = stats.localSourceSummary?.trim().orEmpty()
+    return if (localSourceSummary.isNotBlank()) InferenceTarget.LOCAL else InferenceTarget.SERVER
+}
+
+internal fun buildInferenceStatsFullCopyText(
+    stats: InferenceStats,
+    sections: List<InferenceStatsSectionUi>,
+    detailSections: List<InferenceStatsSectionUi>,
+): String {
+    return buildString {
+        appendLine("推論統計")
+        appendLine()
+        appendLine("[モデル情報]")
+        appendLine("使用モデル: ${formatModelName(stats) ?: "—"}")
+        appendLine()
+
+        sections.forEachIndexed { index, section ->
+            appendSectionAsPlainText(
+                sectionTitle = section.title,
+                items = section.items,
+            )
+            if (index != sections.lastIndex) appendLine()
+        }
+
+        appendLine()
+        appendLine("[推論時間内訳]")
+        val breakdown = buildInferenceTimeBreakdown(stats)
+        if (breakdown == null) {
+            appendLine("—")
+        } else {
+            breakdown.segments.forEach { segment ->
+                appendLine("${segment.label}: ${segment.durationText} / ${segment.percent}%")
+            }
+        }
+
+        appendLine()
+        appendLine("[コンテキスト使用量]")
+        when (val usage = buildContextUsageUi(stats)) {
+            null -> appendLine("—")
+            is ContextUsageUi.WithMax -> appendLine("${usage.used} / ${usage.max} tokens (${usage.percent}%)")
+            is ContextUsageUi.Loading -> {
+                appendLine("使用トークン ${usage.used}")
+                appendLine("上限取得中…")
+            }
+
+            is ContextUsageUi.WithoutMax -> {
+                appendLine("使用トークン ${usage.used}")
+                appendLine("上限未取得")
+            }
+        }
+
+        appendLine()
+        appendLine("[詳細]")
+        if (detailSections.isEmpty()) {
+            appendLine("—")
+        } else {
+            detailSections.forEachIndexed { index, section ->
+                appendSectionAsPlainText(
+                    sectionTitle = section.title,
+                    items = section.items,
+                )
+                if (index != detailSections.lastIndex) appendLine()
+            }
+        }
+
+    }.trimEnd()
+}
+
+private fun StringBuilder.appendSectionAsPlainText(
+    sectionTitle: String,
+    items: List<InferenceStatItemUi>,
+) {
+    appendLine("[$sectionTitle]")
+    if (items.isEmpty()) {
+        appendLine("—")
+        return
+    }
+    items.forEach { item ->
+        appendLine("${item.label}: ${item.value}")
     }
 }
 
