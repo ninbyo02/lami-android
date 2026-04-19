@@ -173,11 +173,6 @@ internal fun buildInferenceDetailSections(
     } else {
         "合計トークン"
     }
-    val tokenizerDiagnosticsItems = buildTokenizerDiagnosticsItems(
-        stats = stats,
-        trace = localTraceForDev,
-        tokenizerSucceeded = tokenizerSucceeded,
-    )
     val detailedItems = buildList {
         if (localTraceForDev != null) {
             val lamiSpeedText = localStatsUiModel?.resolvedLamiTokensPerSecond?.let {
@@ -188,18 +183,11 @@ internal fun buildInferenceDetailSections(
             lamiSpeedText?.let {
                 add(
                     InferenceStatItemUi(
-                        label = "Lami基準速度",
+                        label = "生成速度",
                         value = it,
                     ),
                 )
             }
-            localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond?.let {
-                add(InferenceStatItemUi(label = "Lami体感速度", value = String.format(Locale.US, "%.1f token/s", it)))
-            }
-            val backendSpeedText = localStatsUiModel?.resolvedBackendTokensPerSecond?.let {
-                String.format(Locale.US, "%.1f token/s", it)
-            } ?: "—"
-            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendSpeedText))
             add(
                 InferenceStatItemUi(
                     label = "速度取得元",
@@ -211,6 +199,13 @@ internal fun buildInferenceDetailSections(
                         ),
                 ),
             )
+            val backendSpeedText = localStatsUiModel?.resolvedBackendTokensPerSecond?.let {
+                String.format(Locale.US, "%.1f token/s", it)
+            } ?: "—"
+            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendSpeedText))
+            localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond?.let {
+                add(InferenceStatItemUi(label = "体感速度", value = String.format(Locale.US, "%.1f token/s", it)))
+            }
             add(
                 InferenceStatItemUi(
                     label = "Lami基準TTFT",
@@ -231,11 +226,7 @@ internal fun buildInferenceDetailSections(
             }
         }
         if (showOllamaPerceivedTokensPerSecond) {
-            add(InferenceStatItemUi(label = "Lami基準TTFT", value = stats.timeToFirstTokenMs?.let { formatMillisToCompactText(it) } ?: "—"))
-            add(InferenceStatItemUi(label = "バックエンド基準TTFT", value = stats.timeToFirstTokenMs?.let { formatMillisToCompactText(it) } ?: "—"))
-            add(InferenceStatItemUi(label = "Lami基準速度", value = lamiTokensPerSecondText ?: "—"))
-            add(InferenceStatItemUi(label = "Lami体感速度", value = perceivedTokensPerSecondText ?: "—"))
-            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
+            add(InferenceStatItemUi(label = "生成速度", value = lamiTokensPerSecondText ?: "—"))
             add(
                 InferenceStatItemUi(
                     label = "速度取得元",
@@ -246,6 +237,12 @@ internal fun buildInferenceDetailSections(
                     ),
                 ),
             )
+            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
+            perceivedTokensPerSecondText?.let {
+                add(InferenceStatItemUi(label = "体感速度", value = it))
+            }
+            add(InferenceStatItemUi(label = "Lami基準TTFT", value = stats.timeToFirstTokenMs?.let { formatMillisToCompactText(it) } ?: "—"))
+            add(InferenceStatItemUi(label = "バックエンド基準TTFT", value = stats.timeToFirstTokenMs?.let { formatMillisToCompactText(it) } ?: "—"))
         }
         localSourceSummaryText?.let {
             add(InferenceStatItemUi(label = "採用元", value = it))
@@ -372,7 +369,6 @@ internal fun buildInferenceDetailSections(
                         ),
                     )
                 }
-                addAll(tokenizerDiagnosticsItems)
                 if (localTraceForDev != null && enableDevLlmSessionAsyncPoc) {
                     add(InferenceStatItemUi(label = "evalTime", value = localTraceForDev.evalTimeProbe.availability.name))
                     add(InferenceStatItemUi(label = "evalTimeSignature", value = localTraceForDev.evalTimeProbe.signature ?: "—"))
@@ -839,59 +835,6 @@ private fun buildTokenizerTokenLabel(
     }
 }
 
-private fun buildTokenizerDiagnosticsItems(
-    stats: InferenceStats,
-    trace: LocalInferenceTrace?,
-    tokenizerSucceeded: Boolean,
-): List<InferenceStatItemUi> {
-    if (trace == null || !tokenizerSucceeded && stats.outputTokens == null && stats.completionTokens == null) {
-        return emptyList()
-    }
-    // measuredTokens 長文に tokenizer 診断詳細を集約したため、ここは重複表示を避ける目的で空にする。
-    return emptyList()
-}
-
-private fun String.extractTokenizerSourceValue(key: String): String? {
-    if (isBlank()) return null
-    return lineSequence()
-        .map { it.trim() }
-        .firstOrNull { it.startsWith("$key:") }
-        ?.substringAfter(':')
-        ?.trim()
-        ?.takeIf { it.isNotBlank() }
-}
-
-private fun String?.toUiStatusForCreateSession(): String {
-    val normalized = this?.trim().orEmpty()
-    return when {
-        normalized == "engine-createSession-success" -> "成功"
-        normalized.endsWith("method-not-found") -> "未発見"
-        normalized.endsWith("not-attempted") -> "未実行"
-        normalized.endsWith("failed") -> "失敗"
-        normalized.isBlank() -> "未実行"
-        else -> normalized
-    }
-}
-
-private fun String?.toUiStatusForFoundOrNotFound(): String {
-    val normalized = this?.trim().orEmpty()
-    return when (normalized) {
-        "found" -> "成功"
-        "not-found" -> "未発見"
-        "" -> "未取得"
-        else -> normalized
-    }
-}
-
-private fun String?.toUiStatusForConversationTokenizerPath(): String {
-    val normalized = this?.trim().orEmpty()
-    return when {
-        normalized.isBlank() -> "未取得"
-        normalized == "none" -> "未発見"
-        else -> "成功"
-    }
-}
-
 private fun String.toUiStatusForMediaPipeTokenizer(): String {
     val normalized = trim()
     return when {
@@ -899,16 +842,6 @@ private fun String.toUiStatusForMediaPipeTokenizer(): String {
         normalized.startsWith("failed") -> "失敗"
         normalized.startsWith("unavailable") -> "未対応"
         normalized.isBlank() -> "未実行"
-        else -> normalized
-    }
-}
-
-private fun String.toUiStatusForMediaPipeSessionCreate(): String {
-    val normalized = trim()
-    return when (normalized) {
-        "success" -> "成功"
-        "failed" -> "失敗"
-        "unavailable" -> "未対応"
         else -> normalized
     }
 }
