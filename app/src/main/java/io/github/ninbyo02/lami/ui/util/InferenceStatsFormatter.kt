@@ -63,7 +63,16 @@ fun formatTimeToFirstToken(stats: InferenceStats): String? {
 }
 
 fun formatInferenceTime(stats: InferenceStats): String? {
-    val seconds = stats.inferenceTimeSec ?: return formatGenerationTime(stats)?.replace("s", " s")
+    // canonical priority（総応答時間）:
+    // 1. totalDurationMs(request start ～ response complete)
+    // 2. inferenceTimeSec(persisted)
+    // 3. generationTimeMs(legacy fallback)
+    val seconds = when {
+        stats.totalDurationMs != null && stats.totalDurationMs >= 0L -> stats.totalDurationMs / 1000.0
+        stats.inferenceTimeSec != null -> stats.inferenceTimeSec
+        stats.generationTimeMs != null && stats.generationTimeMs >= 0L -> stats.generationTimeMs / 1000.0
+        else -> null
+    } ?: return null
     if (!seconds.isFinite() || seconds < 0.0) return null
     if (seconds > 0.0 && seconds < 0.1) return "<0.1 s"
     return String.format(Locale.US, "%.1f s", seconds)

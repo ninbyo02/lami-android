@@ -172,10 +172,10 @@ class InferenceStatsSheetContentTest {
 
         assertEquals(listOf("トークン", "バックエンド時間詳細", "補足"), sections.map { it.title })
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン", "Tokenizer状態"),
+            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元", "速度取得元", "Tokenizer状態"),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("100（推定）", "240（推定）", "340（推定）", "未実行"), sections[0].items.map { it.value })
+        assertEquals(listOf("100（推定）", "240（推定）", "340（推定）", "Ollama", "推定", "未実行"), sections[0].items.map { it.value })
         assertEquals(listOf("モデルロード時間", "入力評価時間", "生成時間", "推論時間"), sections[1].items.map { it.label })
         assertEquals(
             listOf("2.0 s（取得済み）", "1.5 s（取得済み）", "3.0 s（取得済み）", "—（未取得）"),
@@ -198,11 +198,11 @@ class InferenceStatsSheetContentTest {
         val sections = buildInferenceDetailSections(stats)
 
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン", "実測生成速度", "体感生成速度", "Tokenizer状態"),
+            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元", "実測生成速度", "体感生成速度", "速度取得元", "Tokenizer状態"),
             sections[0].items.map { it.label },
         )
-        assertEquals("32.4 token/s", sections[0].items[3].value)
-        assertEquals("21.8 token/s", sections[0].items[4].value)
+        assertEquals("32.4 token/s", sections[0].items[4].value)
+        assertEquals("21.8 token/s", sections[0].items[5].value)
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals(
             "semi-measured:assistantUpdateCount / generationTimeMs",
@@ -221,7 +221,7 @@ class InferenceStatsSheetContentTest {
         val sections = buildInferenceDetailSections(stats)
 
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン", "実測生成速度", "Tokenizer状態"),
+            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元", "実測生成速度", "速度取得元", "Tokenizer状態"),
             sections[0].items.map { it.label },
         )
     }
@@ -251,10 +251,10 @@ class InferenceStatsSheetContentTest {
         )
 
         assertEquals(
-            listOf("入力トークン数（未取得）", "出力トークン数（未取得）", "合計トークン（未取得）", "直近 Prefill Token", "直近 Decode Token", "Tokenizer状態"),
+            listOf("入力トークン数（未取得）", "出力トークン数（未取得）", "合計トークン（未取得）", "トークン取得元", "速度取得元", "直近 Prefill Token", "直近 Decode Token", "Tokenizer状態"),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "0", "42", "未実行"), sections[0].items.map { it.value })
+        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "未取得", "未取得", "0", "42", "未実行"), sections[0].items.map { it.value })
     }
 
     @Test
@@ -275,7 +275,9 @@ class InferenceStatsSheetContentTest {
                 "入力トークン数（未取得）",
                 "出力トークン数（未取得）",
                 "合計トークン（未取得）",
+                "トークン取得元",
                 "実測生成速度",
+                "速度取得元",
                 "TTFT",
                 "Decode時間",
                 "総応答時間",
@@ -283,7 +285,7 @@ class InferenceStatsSheetContentTest {
             ),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("21.5 token/s（fallback）", "0.4 s", "2.8 s", "3.4 s", "未実行"), sections[0].items.takeLast(5).map { it.value })
+        assertEquals(listOf("21.5 token/s（推定）", "推定", "0.4 s", "2.8 s", "3.4 s", "未実行"), sections[0].items.takeLast(6).map { it.value })
         assertEquals("tokenizer note", sections[2].items.first { it.label == "注記" }.value)
     }
 

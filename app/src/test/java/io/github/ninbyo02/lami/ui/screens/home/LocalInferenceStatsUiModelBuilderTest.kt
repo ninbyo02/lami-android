@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.ui.model.InferenceStats
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -25,5 +26,28 @@ class LocalInferenceStatsUiModelBuilderTest {
         )
 
         assertNull(actual)
+    }
+
+    @Test
+    fun `LiteRT tokenizer実測を token source として採用する`() {
+        val uiModel = createLocalInferenceStatsUiModel(
+            trace = LocalInferenceTrace(
+                measuredTokenSnapshot = LocalInferenceMeasuredTokenSnapshot(
+                    inputTokens = 1,
+                    outputTokens = 65,
+                    totalTokens = 66,
+                    tokenCountMode = "mediapipe_tokenizer_recount",
+                ),
+            ),
+            stats = InferenceStats(
+                tokenCountMode = "mediapipe_tokenizer_recount",
+                decodeDurationMs = 1_000L,
+            ),
+        )
+
+        assertEquals(1, uiModel.resolvedInputTokens)
+        assertEquals(65, uiModel.resolvedOutputTokens)
+        assertEquals(66, uiModel.resolvedTotalTokens)
+        assertEquals("Tokenizer", uiModel.resolvedTokenSourceLabel)
     }
 }
