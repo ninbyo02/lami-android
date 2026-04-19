@@ -475,6 +475,7 @@ fun Home(
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val mediaPipeProbeContext = context.applicationContext ?: context
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
     }
@@ -484,7 +485,7 @@ fun Home(
     val localStreamingRunner = remember(context.applicationContext, settingsPreferences) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
-        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, onPartial ->
+        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, runMediaPipeProbeContext, onPartial ->
             appendLocalReflectionTrace(
                 context = context.applicationContext,
                 message = "UPSTREAM before-runLocalInferenceOnceEntry",
@@ -496,6 +497,7 @@ fun Home(
                 localBaseModelDisplayName = runLocalBaseModelDisplayName,
                 resolvedModelPath = runResolvedModelPath,
                 resolvedCacheDirPath = runCacheDirPath,
+                mediaPipeProbeContext = runMediaPipeProbeContext,
                 prompt = runPrompt,
                 onPartial = onPartial,
             )
@@ -2047,6 +2049,7 @@ fun Home(
                                                                         prompt = requestPrompt,
                                                                         localModelDisplayName = modelResolution.displayName,
                                                                         mediaPipeProbeModelPath = mediaPipeProbeModelPathForRun,
+                                                                        mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         onPartial = { partial ->
                                                                             if (localStopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = partial.trim()
@@ -2111,6 +2114,7 @@ fun Home(
                                                                                 localBaseModelDisplayName = modelResolution.displayName,
                                                                                 resolvedModelPath = modelResolution.modelPath,
                                                                                 cacheDirPath = modelResolution.cacheDirPath,
+                                                                                mediaPipeProbeContext = mediaPipeProbeContext,
                                                                                 onPartial = legacyPartial@{ partial ->
                                                                                     if (localStopRequested) return@legacyPartial
                                                                                     val normalizedPartial = partial.trim()
@@ -2173,6 +2177,7 @@ fun Home(
                                                                         localBaseModelDisplayName = modelResolution.displayName,
                                                                         resolvedModelPath = modelResolution.modelPath,
                                                                         cacheDirPath = modelResolution.cacheDirPath,
+                                                                        mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         onPartial = legacyPartial@{ partial ->
                                                                             if (localStopRequested) return@legacyPartial
                                                                             val normalizedPartial = partial.trim()
@@ -3190,6 +3195,7 @@ private suspend fun runLocalInferenceOnceEntry(
     localBaseModelDisplayName: String?,
     resolvedModelPath: String? = null,
     resolvedCacheDirPath: String? = null,
+    mediaPipeProbeContext: Context? = null,
     prompt: String,
     onPartial: (String) -> Unit = {},
 ): LocalInferenceRunResult {
@@ -3250,6 +3256,7 @@ private suspend fun runLocalInferenceOnceEntry(
             prompt = prompt,
             modelPath = modelPath,
             cacheDirPath = modelResolution.cacheDirPath,
+            mediaPipeProbeContext = mediaPipeProbeContext,
             onPartial = { partial ->
                 officialFlowObservedPartialCount += 1
                 onPartial(partial)
@@ -3357,6 +3364,7 @@ private suspend fun runLocalInferenceOnceEntry(
             prompt = prompt,
             modelPath = modelPath,
             cacheDirPath = modelResolution.cacheDirPath,
+            mediaPipeProbeContext = mediaPipeProbeContext,
             appendTrace = { traceMessage ->
                 appendLocalReflectionTrace(context = context, message = traceMessage)
             },
