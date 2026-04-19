@@ -1879,10 +1879,22 @@ fun Home(
 
                                                 InferenceTarget.LOCAL -> {
                                                     if (isLocalInferenceRunning) return@IconButton
-                                                    val currentChatId = effectiveChatId
+                                                    var currentChatId = effectiveChatId
                                                     if (currentChatId == null) {
-                                                        placeholder = "Setting up a new chat ..."
-                                                        return@IconButton
+                                                        isCreatingChat = true
+                                                        try {
+                                                            val newChatId = viewModel.insertChatAndReturnId(
+                                                                Chat(
+                                                                    title = prompt,
+                                                                    timestamp = Date(),
+                                                                )
+                                                            )
+                                                            effectiveChatId = newChatId
+                                                            pendingNavigateChatId = newChatId
+                                                            currentChatId = newChatId
+                                                        } finally {
+                                                            isCreatingChat = false
+                                                        }
                                                     }
                                                     if (selectedImageUriStrings.isNotEmpty()) {
                                                         coroutineScope.launch {
@@ -1896,15 +1908,9 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
-                                                    val baselineMatchCount =
-                                                        allChatsOrNull?.count {
-                                                            it.chatId == currentChatId &&
-                                                                it.isSendbyMe &&
-                                                                it.message == requestPrompt
-                                                        } ?: 0
-                                                    pendingLocalUserMessageText = requestPrompt
-                                                    pendingLocalUserMessageCreatedAtMs = System.currentTimeMillis()
-                                                    pendingLocalUserMessageBaselineMatchCount = baselineMatchCount
+                                                    pendingLocalUserMessageText = null
+                                                    pendingLocalUserMessageCreatedAtMs = null
+                                                    pendingLocalUserMessageBaselineMatchCount = null
                                                     viewModel.insert(
                                                         Message(
                                                             chatId = currentChatId,
@@ -2652,39 +2658,13 @@ fun Home(
             } else {
                 val currentChatId = effectiveChatId
                 val messagesForListBase: List<Message> = allChatsOrNull
-                val pendingLocalUserText = pendingLocalUserMessageText?.takeIf { it.isNotBlank() }
-                val pendingLocalUserBaselineMatchCount = pendingLocalUserMessageBaselineMatchCount
-                val hasDbReflectedPendingLocalUser = currentChatId != null &&
-                    pendingLocalUserText != null &&
-                    messagesForListBase.count {
-                        it.chatId == currentChatId &&
-                            it.isSendbyMe &&
-                            it.message == pendingLocalUserText
-                    } > (pendingLocalUserBaselineMatchCount ?: 0)
-                val pendingLocalUserMessageForUi = if (
-                    currentChatId != null &&
-                    pendingLocalUserText != null &&
-                    !hasDbReflectedPendingLocalUser
-                ) {
-                    Message(
-                        messageID = -((pendingLocalUserMessageCreatedAtMs ?: 1L).rem(Int.MAX_VALUE.toLong()).toInt() + 1),
-                        chatId = currentChatId,
-                        message = pendingLocalUserText,
-                        isSendbyMe = true,
-                    )
-                } else {
-                    null
-                }
-                val messagesWithPendingLocalUser: List<Message> = pendingLocalUserMessageForUi?.let {
-                    messagesForListBase + it
-                } ?: messagesForListBase
                 val messagesForList: List<Message> = if (
                     currentChatId != null &&
                     streamingAssistantMessageId == null &&
                     !streamingResponseText.isNullOrBlank()
                 ) {
                     logStreamTrace("STREAM ui transient row enabled")
-                    messagesWithPendingLocalUser + Message(
+                    messagesForListBase + Message(
                         chatId = currentChatId,
                         message = streamingResponseText,
                         isSendbyMe = false,
@@ -2696,27 +2676,7 @@ fun Home(
                             "STREAM ui transient row suppressed placeholderId=$streamingAssistantMessageId",
                         )
                     }
-                    messagesWithPendingLocalUser
-                }
-                LaunchedEffect(
-                    effectiveChatId,
-                    messagesForListBase,
-                    pendingLocalUserMessageText,
-                    pendingLocalUserMessageBaselineMatchCount,
-                ) {
-                    val currentChatId = effectiveChatId ?: return@LaunchedEffect
-                    val pendingText = pendingLocalUserMessageText ?: return@LaunchedEffect
-                    val baselineCount = pendingLocalUserMessageBaselineMatchCount ?: 0
-                    val reflectedCount = messagesForListBase.count {
-                        it.chatId == currentChatId &&
-                            it.isSendbyMe &&
-                            it.message == pendingText
-                    }
-                    if (reflectedCount > baselineCount) {
-                        pendingLocalUserMessageText = null
-                        pendingLocalUserMessageCreatedAtMs = null
-                        pendingLocalUserMessageBaselineMatchCount = null
-                    }
+                    messagesForListBase
                 }
                 LaunchedEffect(effectiveChatId, messagesForList.size, messagesForList.lastOrNull()?.messageID) {
                     if (!BuildConfig.DEBUG) return@LaunchedEffect
