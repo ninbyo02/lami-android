@@ -589,6 +589,10 @@ fun Home(
     var didReceiveRealLocalPartial by remember(effectiveChatId) { mutableStateOf(false) }
     var realLocalPartialChunkCount by remember(effectiveChatId) { mutableStateOf(0) }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var pendingLocalUserMessageText by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingLocalUserMessageCreatedAtMs by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingLocalUserMessageChatId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var pendingLocalUserMessageVisible by rememberSaveable { mutableStateOf(false) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
@@ -726,6 +730,13 @@ fun Home(
     fun logStreamTrace(message: String) {
         Log.i("ChatScreen", message)
         appendLocalReflectionTrace(context, message)
+    }
+
+    fun clearPendingLocalUserMessage() {
+        pendingLocalUserMessageVisible = false
+        pendingLocalUserMessageText = null
+        pendingLocalUserMessageCreatedAtMs = null
+        pendingLocalUserMessageChatId = null
     }
 
     fun resetStreamingSpeechState(clearPlaybackFlag: Boolean = true) {
@@ -1078,6 +1089,7 @@ fun Home(
             suppressAutoNewChat = false
             suppressChatContentWhileClosingDrawer = false
         }
+        clearPendingLocalUserMessage()
     }
 
     LaunchedEffect(pendingNavigateChatId) {
@@ -1762,6 +1774,7 @@ fun Home(
                                                 if (isInferenceRunningUi) {
                                                     if (isLocalRunningRaw) {
                                                         localStopRequested = true
+                                                        clearPendingLocalUserMessage()
                                                         localInferenceJob?.cancel()
                                                         localInferenceJob = null
                                                         effectiveChatId?.let { currentChatId ->
@@ -1885,6 +1898,10 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
+                                                    pendingLocalUserMessageText = requestPrompt
+                                                    pendingLocalUserMessageCreatedAtMs = System.currentTimeMillis()
+                                                    pendingLocalUserMessageChatId = effectiveChatId
+                                                    pendingLocalUserMessageVisible = true
                                                     prompt = ""
                                                     userPrompt = ""
                                                     selectedImageUriStrings = emptyList()
@@ -1906,6 +1923,7 @@ fun Home(
                                                                 )
                                                                 effectiveChatId = newChatId
                                                                 pendingNavigateChatId = newChatId
+                                                                pendingLocalUserMessageChatId = newChatId
                                                                 currentChatId = newChatId
                                                             } finally {
                                                                 isCreatingChat = false
@@ -2445,6 +2463,7 @@ fun Home(
                                                             }
                                                             localStreamingResponseText = null
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
+                                                            clearPendingLocalUserMessage()
                                                             isLocalInferenceRunning = false
                                                             localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
@@ -2474,6 +2493,7 @@ fun Home(
                                                             localStreamingResponseText = null
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
+                                                            clearPendingLocalUserMessage()
                                                             effectiveChatId?.let { chatId ->
                                                                 localInferenceEngineHolder.resetConversation(
                                                                     chatId = chatId,
@@ -2634,6 +2654,12 @@ fun Home(
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    if (pendingLocalUserMessageVisible && !pendingLocalUserMessageText.isNullOrBlank()) {
+                        ChatBubble(
+                            message = pendingLocalUserMessageText.orEmpty(),
+                            isSentByMe = true,
+                        )
+                    }
                     Text(if (isCreatingChat) "Creating new chat..." else "Preparing chat...")
                 }
             } else if (allChatsOrNull == null) {
@@ -2641,13 +2667,32 @@ fun Home(
             } else {
                 val currentChatId = effectiveChatId
                 val messagesForListBase: List<Message> = allChatsOrNull
+                val shouldMergePendingLocalUserMessage =
+                    pendingLocalUserMessageVisible &&
+                        !pendingLocalUserMessageText.isNullOrBlank() &&
+                        currentChatId != null &&
+                        pendingLocalUserMessageChatId == currentChatId &&
+                        messagesForListBase.none { message ->
+                            message.chatId == currentChatId &&
+                                message.isSendbyMe &&
+                                message.message == pendingLocalUserMessageText
+                        }
+                val messagesForListWithPendingBase: List<Message> = if (shouldMergePendingLocalUserMessage) {
+                    messagesForListBase + Message(
+                        chatId = currentChatId!!,
+                        message = pendingLocalUserMessageText.orEmpty(),
+                        isSendbyMe = true,
+                    )
+                } else {
+                    messagesForListBase
+                }
                 val messagesForList: List<Message> = if (
                     currentChatId != null &&
                     streamingAssistantMessageId == null &&
                     !streamingResponseText.isNullOrBlank()
                 ) {
                     logStreamTrace("STREAM ui transient row enabled")
-                    messagesForListBase + Message(
+                    messagesForListWithPendingBase + Message(
                         chatId = currentChatId,
                         message = streamingResponseText,
                         isSendbyMe = false,
@@ -2659,7 +2704,26 @@ fun Home(
                             "STREAM ui transient row suppressed placeholderId=$streamingAssistantMessageId",
                         )
                     }
-                    messagesForListBase
+                    messagesForListWithPendingBase
+                }
+                LaunchedEffect(
+                    effectiveChatId,
+                    messagesForListBase,
+                    pendingLocalUserMessageText,
+                    pendingLocalUserMessageChatId,
+                    pendingLocalUserMessageVisible,
+                ) {
+                    if (!pendingLocalUserMessageVisible) return@LaunchedEffect
+                    val pendingText = pendingLocalUserMessageText?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+                    val pendingChatId = pendingLocalUserMessageChatId ?: return@LaunchedEffect
+                    val isMatched = messagesForListBase.any { message ->
+                        message.chatId == pendingChatId &&
+                            message.isSendbyMe &&
+                            message.message == pendingText
+                    }
+                    if (isMatched) {
+                        clearPendingLocalUserMessage()
+                    }
                 }
                 LaunchedEffect(effectiveChatId, messagesForList.size, messagesForList.lastOrNull()?.messageID) {
                     if (!BuildConfig.DEBUG) return@LaunchedEffect
