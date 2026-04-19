@@ -844,51 +844,11 @@ private fun buildTokenizerDiagnosticsItems(
     trace: LocalInferenceTrace?,
     tokenizerSucceeded: Boolean,
 ): List<InferenceStatItemUi> {
-    if (trace == null) return emptyList()
-    val measuredSnapshot = trace.measuredTokenSnapshot
-    val sourceTraceSummary = measuredSnapshot?.tokenizerSourceTraceSummary.orEmpty()
-    val mediaPipeSummary = measuredSnapshot?.mediaPipeTokenizerSummary.orEmpty()
-    val mediaPipeSessionCreateStatus = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe session create")
-        ?.toUiStatusForMediaPipeSessionCreate()
-        ?: "未取得"
-    val mediaPipeModelPathSource = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe model path source") ?: "未取得"
-    val mediaPipeModelPath = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe model path") ?: "未取得"
-    val mediaPipeModelPathExists = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe model path exists") ?: "未取得"
-    val mediaPipeModelPathIsFile = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe model path isFile") ?: "未取得"
-    val mediaPipeModelPathReadable = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe model path readable") ?: "未取得"
-    val mediaPipeModelPathStatus = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe model path status") ?: "未取得"
-    val mediaPipeSizeInTokensStatus = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe sizeInTokens")
-        ?.toUiStatusForFoundOrNotFound()
-        ?: "未取得"
-    val mediaPipePromptTokens = measuredSnapshot?.mediaPipeInputTokens?.toString() ?: "—"
-    val mediaPipeResponseTokens = measuredSnapshot?.mediaPipeOutputTokens?.toString() ?: "—"
-    val mediaPipeTotalTokens = measuredSnapshot?.mediaPipeTotalTokens?.toString() ?: "—"
-    val createSessionStatus = sourceTraceSummary.extractTokenizerSourceValue("engine-createSession status")
-        ?.toUiStatusForCreateSession()
-        ?: "未実行"
-    val createdSessionSizeInTokensStatus = sourceTraceSummary.extractTokenizerSourceValue("created-session sizeInTokens")
-        .toUiStatusForFoundOrNotFound()
-    val existingSessionSizeInTokensStatus = sourceTraceSummary.extractTokenizerSourceValue("existing-session sizeInTokens")
-        .toUiStatusForFoundOrNotFound()
-    val conversationTokenizerStatus = sourceTraceSummary.extractTokenizerSourceValue("conversation-tokenizer path")
-        .toUiStatusForConversationTokenizerPath()
-    return listOf(
-        InferenceStatItemUi(label = "MediaPipe model path source", value = mediaPipeModelPathSource),
-        InferenceStatItemUi(label = "MediaPipe model path", value = mediaPipeModelPath),
-        InferenceStatItemUi(label = "MediaPipe model path exists", value = mediaPipeModelPathExists),
-        InferenceStatItemUi(label = "MediaPipe model path isFile", value = mediaPipeModelPathIsFile),
-        InferenceStatItemUi(label = "MediaPipe model path readable", value = mediaPipeModelPathReadable),
-        InferenceStatItemUi(label = "MediaPipe model path status", value = mediaPipeModelPathStatus),
-        InferenceStatItemUi(label = "MediaPipe session create", value = mediaPipeSessionCreateStatus),
-        InferenceStatItemUi(label = "MediaPipe sizeInTokens", value = mediaPipeSizeInTokensStatus),
-        InferenceStatItemUi(label = "MediaPipe prompt tokens", value = mediaPipePromptTokens),
-        InferenceStatItemUi(label = "MediaPipe response tokens", value = mediaPipeResponseTokens),
-        InferenceStatItemUi(label = "MediaPipe total tokens", value = mediaPipeTotalTokens),
-        InferenceStatItemUi(label = "createSession", value = createSessionStatus),
-        InferenceStatItemUi(label = "created-session sizeInTokens", value = createdSessionSizeInTokensStatus),
-        InferenceStatItemUi(label = "existing-session sizeInTokens", value = existingSessionSizeInTokensStatus),
-        InferenceStatItemUi(label = "conversation tokenizer", value = conversationTokenizerStatus),
-    )
+    if (trace == null || !tokenizerSucceeded && stats.outputTokens == null && stats.completionTokens == null) {
+        return emptyList()
+    }
+    // measuredTokens 長文に tokenizer 診断詳細を集約したため、ここは重複表示を避ける目的で空にする。
+    return emptyList()
 }
 
 private fun String.extractTokenizerSourceValue(key: String): String? {
