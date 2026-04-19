@@ -645,6 +645,7 @@ fun Home(
     val lamiHeaderStateForChatUi = if (isHeaderRunningUi) lamiUiState.state else LamiState.Idle
     val effectiveLamiStatusForChatUi = when {
         isStopRequested -> LamiStatus.READY
+        isLocalTtsPlayingUi -> LamiStatus.TALKING
         isServerRunningUi -> lamiStatusForChatUi
         isLocalRunningUi -> when (lamiStatusForChatUi) {
             LamiStatus.READY,
@@ -655,17 +656,16 @@ fun Home(
             -> LamiStatus.CONNECTING
             else -> lamiStatusForChatUi
         }
-        isLocalTtsPlayingUi -> LamiStatus.TALKING
         else -> LamiStatus.READY
     }
     val effectiveLamiHeaderStateForChatUi = when {
         isStopRequested -> LamiState.Idle
-        isServerRunningUi -> lamiHeaderStateForChatUi
-        isLocalRunningUi -> if (lamiHeaderStateForChatUi == LamiState.Idle) LamiState.Thinking else lamiHeaderStateForChatUi
         isLocalTtsPlayingUi -> {
             val textLength = (lamiHeaderStateForChatUi as? LamiState.Speaking)?.textLength ?: 0
             LamiState.Speaking(textLength)
         }
+        isServerRunningUi -> lamiHeaderStateForChatUi
+        isLocalRunningUi -> if (lamiHeaderStateForChatUi == LamiState.Idle) LamiState.Thinking else lamiHeaderStateForChatUi
         else -> LamiState.Idle
     }
     // NOTE: debug-only top gradient adjustments. Default OFF.
