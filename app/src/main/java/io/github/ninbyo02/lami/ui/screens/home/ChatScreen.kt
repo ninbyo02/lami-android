@@ -661,8 +661,7 @@ fun Home(
     val effectiveLamiHeaderStateForChatUi = when {
         isStopRequested -> LamiState.Idle
         isLocalTtsPlayingUi -> {
-            val textLength = (lamiHeaderStateForChatUi as? LamiState.Speaking)?.textLength ?: 0
-            LamiState.Speaking(textLength)
+            LamiState.Speaking(1)
         }
         isServerRunningUi -> lamiHeaderStateForChatUi
         isLocalRunningUi -> if (lamiHeaderStateForChatUi == LamiState.Idle) LamiState.Thinking else lamiHeaderStateForChatUi
