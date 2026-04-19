@@ -67,7 +67,6 @@ internal fun buildInferenceSummarySections(
                                 statValue = localStatsUiModel?.tokensPerSecond,
                                 fallbackValue = buildLamiTokensPerSecondText(stats),
                             )
-                            ?: "—"
                     },
                     emphasizeValue = true,
                 )
