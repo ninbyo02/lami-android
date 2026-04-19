@@ -625,6 +625,10 @@ fun Home(
         else -> null
     }
     val showLocalRespondingAssistantRow = isLocalRunningUi && streamingAssistantMessageId == null
+    val shouldClearPendingLocalUserOnAssistantStart =
+        streamingAssistantMessageId != null ||
+            !localStreamingResponseText.isNullOrBlank() ||
+            showLocalRespondingAssistantRow
     val localRespondingAssistantRowMessage = if (
         localInferenceEngineState == LocalInferenceEngineState.PREPARING &&
         localStreamingResponseText.isNullOrBlank()
@@ -2799,8 +2803,21 @@ fun Home(
                             label = "LOCAL_UI_PENDING_MATCHED_IN_DB",
                             extra = "pendingChatId=$pendingChatId pendingTextLength=${pendingText.length} messagesForListBaseSize=${messagesForListBase.size}",
                         )
-                        clearPendingLocalUserMessage(reason = "db-matched")
+                        debugLocalUiTrace(
+                            label = "LOCAL_UI_PENDING_KEPT_AFTER_DB_MATCH",
+                            extra = "pendingChatId=$pendingChatId pendingTextLength=${pendingText.length}",
+                        )
                     }
+                }
+                LaunchedEffect(
+                    shouldClearPendingLocalUserOnAssistantStart,
+                    pendingLocalUserMessageVisible,
+                    pendingLocalUserMessageText,
+                    pendingLocalUserMessageChatId,
+                ) {
+                    if (!pendingLocalUserMessageVisible) return@LaunchedEffect
+                    if (!shouldClearPendingLocalUserOnAssistantStart) return@LaunchedEffect
+                    clearPendingLocalUserMessage(reason = "assistant-started")
                 }
                 LaunchedEffect(effectiveChatId, messagesForList.size, messagesForList.lastOrNull()?.messageID) {
                     if (!BuildConfig.DEBUG) return@LaunchedEffect
