@@ -62,7 +62,7 @@ import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.ViewAgenda
-import androidx.compose.material.icons.outlined.ViewList
+import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material3.Card
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ElevatedButton
@@ -5818,7 +5818,7 @@ private fun InferenceStatsModeSelector(
         ),
         Triple(
             InferenceStatsDisplayMode.DETAILED,
-            Icons.Outlined.ViewList,
+            Icons.AutoMirrored.Outlined.ViewList,
             "詳細表示",
         ),
         Triple(
