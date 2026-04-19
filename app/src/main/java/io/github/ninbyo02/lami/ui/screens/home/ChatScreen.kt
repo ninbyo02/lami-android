@@ -5619,7 +5619,7 @@ private fun InferenceStatsSheetContent(
                 )
             }
 
-            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE) {
+            if (selectedDisplayMode == InferenceStatsDisplayMode.DETAILED) {
                 InferenceStatsCollapsibleSectionHeader(
                     expanded = isDetailExpanded,
                     onToggle = { isDetailExpanded = !isDetailExpanded },
@@ -5639,6 +5639,24 @@ private fun InferenceStatsSheetContent(
                                         emphasizeValue = item.emphasizeValue,
                                     )
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+            if (selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
+                Column(
+                    modifier = Modifier.testTag("inferenceStatsDetailContent"),
+                    verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                ) {
+                    detailSections.forEach { section ->
+                        InferenceStatsSection(title = section.title) {
+                            section.items.forEach { item ->
+                                InferenceStatRow(
+                                    label = item.label,
+                                    value = item.value,
+                                    emphasizeValue = item.emphasizeValue,
+                                )
                             }
                         }
                     }
@@ -5760,7 +5778,7 @@ internal fun buildInferenceStatsFullCopyText(
 
         if (displayMode != InferenceStatsDisplayMode.SIMPLE) {
             appendLine()
-            appendLine("[詳細]")
+            appendLine("[追加情報]")
             if (detailSections.isEmpty()) {
                 appendLine("—")
             } else {
@@ -5947,7 +5965,7 @@ private fun InferenceStatsCollapsibleSectionHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "詳細",
+            text = "追加情報",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -5971,7 +5989,7 @@ private fun InferenceStatsCollapsibleSectionHeader(
 
 internal fun inferenceStatsDetailToggleActionLabel(expanded: Boolean): String = if (expanded) "閉じる" else "表示"
 
-internal fun inferenceStatsDetailToggleAccessibilityLabel(expanded: Boolean): String = if (expanded) "詳細を閉じる" else "詳細を表示"
+internal fun inferenceStatsDetailToggleAccessibilityLabel(expanded: Boolean): String = if (expanded) "追加情報を閉じる" else "追加情報を表示"
 
 internal fun inferenceTimingNoteText(): String =
     "初回受信までは端末側の受信タイミング、全体完了までは推論統計の完了タイミングを示します。"
