@@ -45,6 +45,13 @@ internal data class LocalInferenceStatsUiModel(
     val resolvedTokensPerSecond: Double? = null,
     val resolvedTokenSourceLabel: String = "未取得",
     val resolvedSpeedSourceLabel: String = "未取得",
+    val resolvedLamiTtftMs: Long? = null,
+    val resolvedBackendTtftMs: Long? = null,
+    val resolvedLamiTokensPerSecond: Double? = null,
+    val resolvedLamiPerceivedTokensPerSecond: Double? = null,
+    val resolvedBackendTokensPerSecond: Double? = null,
+    val resolvedPrimarySpeedValue: Double? = null,
+    val resolvedPrimarySpeedSourceLabel: String = "未取得",
 )
 
 internal fun StatsValueSource.toUiSource(): StatsUiValueSource = when (this) {
@@ -138,6 +145,9 @@ internal fun buildLocalInferenceStatsUiModel(
             ?: stats.generationDurationNs
             ?: trace.evalTimeProbe.durationNsOrNull()
     )?.div(1_000_000L)
+    val totalDurationMsForLami = stats.totalDurationMs?.takeIf { it > 0L } ?: stats.generationTimeMs?.takeIf { it > 0L }
+    val lamiTtftMs = stats.timeToFirstTokenMs?.takeIf { it >= 0L }
+    val backendTtftMs = measuredSnapshot?.ttftMs?.takeIf { it >= 0L }
     val tokenizerOutputTokensForTps = outputTokens.rawValueInt
         ?.takeIf { outputTokens.source == StatsUiValueSource.MEASURED || outputTokens.source == StatsUiValueSource.DERIVED }
     val tokenizerTokensPerSecond = stats.decodeDurationMs
@@ -165,15 +175,25 @@ internal fun buildLocalInferenceStatsUiModel(
     val fallbackTokensPerSecond = generationMsForTps?.let {
         buildLocalTokensPerSecondOrNull(outputTokens = outputTokensForTps, generationTimeMs = it)
     }
-    val tokensPerSecondValue = tokenizerTokensPerSecond ?: stats.tokensPerSecond ?: assistantUpdateBasedTokensPerSecond ?: fallbackTokensPerSecond
+    val lamiGenerationDurationMs = when {
+        totalDurationMsForLami != null && lamiTtftMs != null -> (totalDurationMsForLami - lamiTtftMs).coerceAtLeast(1L)
+        else -> generationMsForTps
+    }
+    val lamiTokensPerSecond = lamiGenerationDurationMs?.let {
+        buildLocalTokensPerSecondOrNull(outputTokens = outputTokensForTps, generationTimeMs = it)
+    }
+    val lamiPerceivedTokensPerSecond = totalDurationMsForLami?.let {
+        buildLocalTokensPerSecondOrNull(outputTokens = outputTokensForTps, generationTimeMs = it)
+    }
+    val backendTokensPerSecond = tokenizerTokensPerSecond ?: stats.tokensPerSecond ?: assistantUpdateBasedTokensPerSecond ?: fallbackTokensPerSecond
+    val tokensPerSecondValue = lamiTokensPerSecond ?: lamiPerceivedTokensPerSecond ?: backendTokensPerSecond
     val usedAssistantUpdateBasedTps = assistantUpdateBasedTokensPerSecond != null
     val usedTokenizerBasedTps = tokenizerTokensPerSecond != null
     val tokensPerSecondSource = when {
         tokensPerSecondValue == null -> StatsUiValueSource.UNAVAILABLE
+        lamiTokensPerSecond != null || lamiPerceivedTokensPerSecond != null -> StatsUiValueSource.MEASURED
         usedTokenizerBasedTps -> StatsUiValueSource.TOKENIZER_BASED
         usedAssistantUpdateBasedTps -> StatsUiValueSource.SEMI_MEASURED
-        outputTokens.source == StatsUiValueSource.MEASURED -> StatsUiValueSource.DERIVED
-        outputTokens.source == StatsUiValueSource.DERIVED -> StatsUiValueSource.DERIVED
         outputTokens.source == StatsUiValueSource.ESTIMATED -> StatsUiValueSource.ESTIMATED
         else -> StatsUiValueSource.UNAVAILABLE
     }
@@ -187,15 +207,22 @@ internal fun buildLocalInferenceStatsUiModel(
         else -> "未取得"
     }
     val resolvedSpeedSourceLabel = when (tokensPerSecondSource) {
+        StatsUiValueSource.MEASURED -> "Lami基準"
         StatsUiValueSource.TOKENIZER_BASED -> "Tokenizer"
         StatsUiValueSource.SEMI_MEASURED -> "準実測"
         StatsUiValueSource.ESTIMATED,
         StatsUiValueSource.DERIVED,
-        StatsUiValueSource.MEASURED,
         -> "推定"
         StatsUiValueSource.API_CANDIDATE_ONLY,
         StatsUiValueSource.UNAVAILABLE,
         -> "未取得"
+    }
+    val backendSpeedSourceLabel = when {
+        usedTokenizerBasedTps -> "バックエンド基準（Decode時間）"
+        stats.tokensPerSecond != null -> "バックエンド基準（サーバー統計）"
+        usedAssistantUpdateBasedTps -> "バックエンド基準（準実測fallback）"
+        fallbackTokensPerSecond != null -> "バックエンド基準（generation時間fallback）"
+        else -> "未取得"
     }
 
     return LocalInferenceStatsUiModel(
@@ -234,7 +261,14 @@ internal fun buildLocalInferenceStatsUiModel(
         resolvedTotalTokens = totalTokens.rawValueInt,
         resolvedTokensPerSecond = tokensPerSecondValue,
         resolvedTokenSourceLabel = resolvedTokenSourceLabel,
-        resolvedSpeedSourceLabel = resolvedSpeedSourceLabel,
+        resolvedSpeedSourceLabel = "$resolvedSpeedSourceLabel / $backendSpeedSourceLabel",
+        resolvedLamiTtftMs = lamiTtftMs,
+        resolvedBackendTtftMs = backendTtftMs,
+        resolvedLamiTokensPerSecond = lamiTokensPerSecond,
+        resolvedLamiPerceivedTokensPerSecond = lamiPerceivedTokensPerSecond,
+        resolvedBackendTokensPerSecond = backendTokensPerSecond,
+        resolvedPrimarySpeedValue = tokensPerSecondValue,
+        resolvedPrimarySpeedSourceLabel = "Lami基準",
     )
 }
 

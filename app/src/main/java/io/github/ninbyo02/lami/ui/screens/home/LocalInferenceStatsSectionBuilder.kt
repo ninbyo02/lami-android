@@ -8,7 +8,6 @@ import io.github.ninbyo02.lami.ui.util.formatModelLoadDuration
 import io.github.ninbyo02.lami.ui.util.formatOutputTokens
 import io.github.ninbyo02.lami.ui.util.formatPromptEvalDuration
 import io.github.ninbyo02.lami.ui.util.formatTimeToFirstToken
-import io.github.ninbyo02.lami.ui.util.formatTokenPerSec
 import io.github.ninbyo02.lami.ui.util.formatTotalTokens
 import java.util.Locale
 
@@ -47,12 +46,12 @@ internal fun buildInferenceSummarySections(
                 InferenceStatItemUi(
                     label = "生成速度",
                     value = if (localTraceForDev == null) {
-                        // Ollama 主表示は実測 token/sec を優先して表示する。
-                        formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—"
+                        // 主表示はバックエンド種別に関わらず Lami基準速度を優先する。
+                        buildLamiTokensPerSecondText(stats) ?: "—"
                     } else {
                         formatRegularTokensPerSecondValue(
                             statValue = localStatsUiModel?.tokensPerSecond,
-                            fallbackValue = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim(),
+                            fallbackValue = buildLamiTokensPerSecondText(stats),
                         )
                     },
                     emphasizeValue = true,
@@ -98,8 +97,9 @@ internal fun buildInferenceDetailSections(
             promptText = promptText,
         )
     }
-    val measuredTokensPerSecondText = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim()
-    val perceivedTokensPerSecondText = buildPerceivedTokensPerSecondText(stats)
+    val backendTokensPerSecondText = buildBackendTokensPerSecondText(stats)
+    val lamiTokensPerSecondText = buildLamiTokensPerSecondText(stats)
+    val perceivedTokensPerSecondText = buildLamiPerceivedTokensPerSecondText(stats)
     val showOllamaPerceivedTokensPerSecond = localTraceForDev == null
     val perceivedTokensPerSecondSourceText = if (showOllamaPerceivedTokensPerSecond && perceivedTokensPerSecondText != null) {
         "semi-measured:assistantUpdateCount / generationTimeMs"
@@ -220,28 +220,44 @@ internal fun buildInferenceDetailSections(
                     ),
                 )
                 if (localTraceForDev != null) {
-                    localStatsUiModel?.tokensPerSecond?.let {
+                    val lamiSpeedText = localStatsUiModel?.resolvedLamiTokensPerSecond?.let {
+                        String.format(Locale.US, "%.1f token/s", it)
+                    } ?: localStatsUiModel?.resolvedPrimarySpeedValue?.let {
+                        String.format(Locale.US, "%.1f token/s", it)
+                    }
+                    lamiSpeedText?.let {
                         add(
                             InferenceStatItemUi(
-                                label = "実測生成速度",
-                                value = formatRegularTokensPerSecondValue(
-                                    statValue = it,
-                                    fallbackValue = stats.tokensPerSecond?.let { tokenPerSec ->
-                                        String.format(Locale.US, "%.1f token/s", tokenPerSec)
-                                    },
-                                ),
+                                label = "Lami基準速度",
+                                value = it,
                             ),
                         )
                     }
+                    localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond?.let {
+                        add(InferenceStatItemUi(label = "Lami体感速度", value = String.format(Locale.US, "%.1f token/s", it)))
+                    }
+                    val backendSpeedText = localStatsUiModel?.resolvedBackendTokensPerSecond?.let {
+                        String.format(Locale.US, "%.1f token/s", it)
+                    } ?: "—"
+                    add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendSpeedText))
                     add(
                         InferenceStatItemUi(
                             label = "速度取得元",
                             value = localStatsUiModel?.resolvedSpeedSourceLabel ?: "—",
                         ),
                     )
-                    stats.timeToFirstTokenMs?.let {
-                        add(InferenceStatItemUi(label = "TTFT", value = formatMillisToCompactText(it)))
-                    }
+                    add(
+                        InferenceStatItemUi(
+                            label = "Lami基準TTFT",
+                            value = localStatsUiModel?.resolvedLamiTtftMs?.let { formatMillisToCompactText(it) } ?: "—",
+                        ),
+                    )
+                    add(
+                        InferenceStatItemUi(
+                            label = "バックエンド基準TTFT",
+                            value = localStatsUiModel?.resolvedBackendTtftMs?.let { formatMillisToCompactText(it) } ?: "—",
+                        ),
+                    )
                     stats.decodeDurationMs?.let {
                         add(InferenceStatItemUi(label = "Decode時間", value = formatMillisToCompactText(it)))
                     }
@@ -250,16 +266,15 @@ internal fun buildInferenceDetailSections(
                     }
                 }
                 if (showOllamaPerceivedTokensPerSecond) {
-                    measuredTokensPerSecondText?.let {
-                        add(InferenceStatItemUi(label = "実測生成速度", value = it))
-                    }
-                    perceivedTokensPerSecondText?.let {
-                        add(InferenceStatItemUi(label = "体感生成速度", value = it))
-                    }
+                    add(InferenceStatItemUi(label = "Lami基準TTFT", value = stats.timeToFirstTokenMs?.let { formatMillisToCompactText(it) } ?: "—"))
+                    add(InferenceStatItemUi(label = "バックエンド基準TTFT", value = stats.timeToFirstTokenMs?.let { formatMillisToCompactText(it) } ?: "—"))
+                    add(InferenceStatItemUi(label = "Lami基準速度", value = lamiTokensPerSecondText ?: "—"))
+                    add(InferenceStatItemUi(label = "Lami体感速度", value = perceivedTokensPerSecondText ?: "—"))
+                    add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
                     add(
                         InferenceStatItemUi(
                             label = "速度取得元",
-                            value = resolveOllamaSpeedSourceLabel(stats = stats, hasPerceived = perceivedTokensPerSecondText != null),
+                            value = resolveBackendSpeedSourceLabel(stats = stats, hasPerceived = perceivedTokensPerSecondText != null),
                         ),
                     )
                 }
@@ -687,13 +702,6 @@ private fun buildLocalInventorySectionForDev(
 }
 
 
-private fun buildPerceivedTokensPerSecondText(stats: InferenceStats): String? {
-    val assistantUpdateCount = stats.assistantUpdateCount?.takeIf { it > 0 } ?: return null
-    val generationTimeMs = stats.generationTimeMs?.takeIf { it > 0L } ?: return null
-    val perceivedTokensPerSecond = assistantUpdateCount * 1000.0 / generationTimeMs
-    return String.format(Locale.US, "%.1f token/s", perceivedTokensPerSecond)
-}
-
 private fun formatRegularTokenValue(
     statValue: UiStatValue?,
     fallbackValue: String?,
@@ -720,9 +728,8 @@ private fun formatRegularTokensPerSecondValue(statValue: UiStatValue?, fallbackV
     if (statValue == null) return fallbackValue?.let { "${it}（推定）" } ?: "—"
     val valueText = statValue.valueText.takeIf { it.isNotBlank() } ?: return "—"
     return when (statValue.source) {
-        StatsUiValueSource.DERIVED,
-        StatsUiValueSource.MEASURED,
-        -> "${valueText}（推定）"
+        StatsUiValueSource.MEASURED -> "${valueText}（Lami基準）"
+        StatsUiValueSource.DERIVED -> "${valueText}（推定）"
         StatsUiValueSource.TOKENIZER_BASED -> "${valueText}（Tokenizer）"
         StatsUiValueSource.SEMI_MEASURED -> "${valueText}（準実測）"
         StatsUiValueSource.ESTIMATED -> "${valueText}（推定）"
@@ -734,20 +741,45 @@ private fun formatRegularTokensPerSecondValue(statValue: UiStatValue?, fallbackV
 
 private fun resolveOllamaTokenSourceLabel(stats: InferenceStats): String {
     return if (stats.inputTokens != null || stats.outputTokens != null || stats.completionTokens != null || stats.totalTokens != null) {
-        "Ollama"
+        "バックエンド"
     } else {
         "未取得"
     }
 }
 
-private fun resolveOllamaSpeedSourceLabel(stats: InferenceStats, hasPerceived: Boolean): String {
+private fun resolveBackendSpeedSourceLabel(stats: InferenceStats, hasPerceived: Boolean): String {
     return when {
-        stats.tokensPerSecond != null -> "Ollama"
-        hasPerceived -> "準実測"
+        stats.tokensPerSecond != null -> "Lami基準 / バックエンド基準（サーバー統計）"
+        hasPerceived -> "Lami基準 / バックエンド基準（推定）"
         (stats.outputTokens ?: stats.completionTokens) != null &&
             (stats.generationDurationNs ?: stats.generationTimeMs) != null -> "推定"
         else -> "未取得"
     }
+}
+
+private fun buildLamiTokensPerSecondText(stats: InferenceStats): String? {
+    val outputTokens = (stats.outputTokens ?: stats.completionTokens)?.takeIf { it >= 0 } ?: return null
+    val totalDurationMs = stats.totalDurationMs?.takeIf { it > 0L } ?: stats.generationTimeMs?.takeIf { it > 0L } ?: return null
+    val ttftMs = stats.timeToFirstTokenMs?.takeIf { it >= 0L }
+    val generationOnlyMs = if (ttftMs != null) (totalDurationMs - ttftMs).coerceAtLeast(1L) else totalDurationMs
+    val value = outputTokens * 1000.0 / generationOnlyMs
+    return value.takeIf { it.isFinite() }?.let { String.format(Locale.US, "%.1f token/s", it) }
+}
+
+private fun buildLamiPerceivedTokensPerSecondText(stats: InferenceStats): String? {
+    val outputTokens = (stats.outputTokens ?: stats.completionTokens)?.takeIf { it >= 0 } ?: return null
+    val totalDurationMs = stats.totalDurationMs?.takeIf { it > 0L } ?: stats.generationTimeMs?.takeIf { it > 0L } ?: return null
+    val value = outputTokens * 1000.0 / totalDurationMs
+    return value.takeIf { it.isFinite() }?.let { String.format(Locale.US, "%.1f token/s", it) }
+}
+
+private fun buildBackendTokensPerSecondText(stats: InferenceStats): String? {
+    val backendValue = stats.tokensPerSecond ?: run {
+        val outputTokens = (stats.outputTokens ?: stats.completionTokens)?.takeIf { it >= 0 } ?: return null
+        val evalDurationNs = stats.evalDurationNs?.takeIf { it > 0L } ?: return null
+        outputTokens / (evalDurationNs / 1_000_000_000.0)
+    }
+    return backendValue.takeIf { it.isFinite() && it >= 0.0 }?.let { String.format(Locale.US, "%.1f token/s", it) }
 }
 
 private fun buildTokenizerTokenLabel(
