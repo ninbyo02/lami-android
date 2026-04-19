@@ -90,7 +90,6 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.Dialog
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -5520,7 +5519,6 @@ private fun InferenceStatsSheetContent(
     LaunchedEffect(initialDisplayMode) {
         selectedDisplayMode = initialDisplayMode
     }
-    var isDetailExpanded by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val clipboardManager = LocalClipboardManager.current
     val sheetContentPadding = 14.dp
@@ -5629,32 +5627,7 @@ private fun InferenceStatsSheetContent(
                 )
             }
 
-            if (selectedDisplayMode == InferenceStatsDisplayMode.DETAILED) {
-                InferenceStatsCollapsibleSectionHeader(
-                    expanded = isDetailExpanded,
-                    onToggle = { isDetailExpanded = !isDetailExpanded },
-                )
-
-                AnimatedVisibility(visible = isDetailExpanded) {
-                    Column(
-                        modifier = Modifier.testTag("inferenceStatsDetailContent"),
-                        verticalArrangement = Arrangement.spacedBy(sectionSpacing),
-                    ) {
-                        detailSections.forEach { section ->
-                            InferenceStatsSection(title = section.title) {
-                                section.items.forEach { item ->
-                                    InferenceStatRow(
-                                        label = item.label,
-                                        value = item.value,
-                                        emphasizeValue = item.emphasizeValue,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if (selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
+            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE) {
                 Column(
                     modifier = Modifier.testTag("inferenceStatsDetailContent"),
                     verticalArrangement = Arrangement.spacedBy(sectionSpacing),
@@ -5993,52 +5966,6 @@ private fun InferenceContextUsageSection(stats: InferenceStats) {
         }
     }
 }
-
-@Composable
-private fun InferenceStatsCollapsibleSectionHeader(
-    expanded: Boolean,
-    onToggle: () -> Unit,
-) {
-    val actionLabel = inferenceStatsDetailToggleActionLabel(expanded)
-    val accessibilityLabel = inferenceStatsDetailToggleAccessibilityLabel(expanded)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onToggle)
-            .semantics { contentDescription = accessibilityLabel }
-            .testTag("inferenceStatsDetailToggle")
-            // 見出し行全体のタップしやすさを維持するため、最小限の縦余白を確保する。
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "追加情報",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = actionLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Icon(
-                imageVector = if (expanded) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
-                contentDescription = accessibilityLabel,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-internal fun inferenceStatsDetailToggleActionLabel(expanded: Boolean): String = if (expanded) "閉じる" else "表示"
-
-internal fun inferenceStatsDetailToggleAccessibilityLabel(expanded: Boolean): String = if (expanded) "追加情報を閉じる" else "追加情報を表示"
 
 internal fun inferenceTimingNoteText(): String =
     "初回受信までは端末側の受信タイミング、全体完了までは推論統計の完了タイミングを示します。"
