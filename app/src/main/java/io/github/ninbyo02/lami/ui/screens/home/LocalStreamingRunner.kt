@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import android.content.Context
 import android.os.SystemClock
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
@@ -33,6 +34,7 @@ internal interface LocalStreamingRunner<T> {
         localBaseModelDisplayName: String?,
         resolvedModelPath: String? = null,
         cacheDirPath: String? = null,
+        mediaPipeProbeContext: Context? = null,
         onPartial: (String) -> Unit = {},
     ): T?
 }
@@ -45,6 +47,7 @@ internal class DefaultLocalStreamingRunner<T>(
         localBaseModelDisplayName: String?,
         resolvedModelPath: String?,
         cacheDirPath: String?,
+        mediaPipeProbeContext: Context?,
         onPartial: (String) -> Unit,
     ) -> T,
 ) : LocalStreamingRunner<T> {
@@ -54,6 +57,7 @@ internal class DefaultLocalStreamingRunner<T>(
         localBaseModelDisplayName: String?,
         resolvedModelPath: String?,
         cacheDirPath: String?,
+        mediaPipeProbeContext: Context?,
         onPartial: (String) -> Unit,
     ): T? = withContext(Dispatchers.IO) {
         withTimeoutOrNull(timeoutMs) {
@@ -63,6 +67,7 @@ internal class DefaultLocalStreamingRunner<T>(
                 localBaseModelDisplayName,
                 resolvedModelPath,
                 cacheDirPath,
+                mediaPipeProbeContext,
                 onPartial,
             )
         }
@@ -116,6 +121,7 @@ internal suspend fun runWithHeldEngine(
     prompt: String,
     localModelDisplayName: String?,
     mediaPipeProbeModelPath: String? = null,
+    mediaPipeProbeContext: Context? = null,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
 ): HeldEngineRunResult? {
@@ -199,6 +205,7 @@ internal suspend fun runWithHeldEngine(
                     conversation = conversation,
                     tokenizerSessionSource = heldEngine.engineInstance,
                     mediaPipeProbeModelPath = mediaPipeProbeModelPath,
+                    mediaPipeProbeContext = mediaPipeProbeContext,
                     promptText = prompt,
                     fullResponseText = flowResponse,
                     timing = LocalLiteRtTimingSnapshot(
@@ -260,6 +267,7 @@ internal suspend fun runWithHeldEngine(
                     conversation = conversation,
                     tokenizerSessionSource = heldEngine.engineInstance,
                     mediaPipeProbeModelPath = mediaPipeProbeModelPath,
+                    mediaPipeProbeContext = mediaPipeProbeContext,
                     promptText = prompt,
                     fullResponseText = blockingResponse,
                     timing = LocalLiteRtTimingSnapshot(
@@ -485,6 +493,7 @@ private fun mergeTokenizerRecountSnapshot(
     conversation: Any?,
     tokenizerSessionSource: Any? = null,
     mediaPipeProbeModelPath: String? = null,
+    mediaPipeProbeContext: Context? = null,
     promptText: String,
     fullResponseText: String?,
     timing: LocalLiteRtTimingSnapshot,
@@ -496,6 +505,7 @@ private fun mergeTokenizerRecountSnapshot(
         conversation = conversation,
         tokenizerSessionSource = tokenizerSessionSource,
         mediaPipeProbeModelPath = mediaPipeProbeModelPath,
+        mediaPipeProbeContext = mediaPipeProbeContext,
         promptText = sanitizedPrompt,
         fullResponseText = sanitizedResponse,
         timing = timing,
@@ -529,6 +539,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
     conversation: Any?,
     tokenizerSessionSource: Any?,
     mediaPipeProbeModelPath: String?,
+    mediaPipeProbeContext: Context?,
     promptText: String,
     fullResponseText: String,
     timing: LocalLiteRtTimingSnapshot,
@@ -563,6 +574,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
         val mediaPipeProbeOutcome = tryReadMediaPipeTokenizerProbeViaReflection(
             tokenizerSessionSource = tokenizerSessionSource,
             preferredModelPath = mediaPipeProbeModelPath,
+            mediaPipeProbeContext = mediaPipeProbeContext,
             promptText = promptText,
             fullResponseText = fullResponseText,
         )
@@ -943,6 +955,7 @@ private fun tryReadTokenizerRecountViaReflection(
 private fun tryReadMediaPipeTokenizerProbeViaReflection(
     tokenizerSessionSource: Any?,
     preferredModelPath: String?,
+    mediaPipeProbeContext: Context?,
     promptText: String,
     fullResponseText: String,
 ): MediaPipeTokenizerProbeOutcome {
@@ -975,7 +988,14 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
         preferredModelPath = preferredModelPath,
         tokenizerSessionSource = tokenizerSessionSource,
     )
-    val mediaPipeContext = resolveMediaPipeContext(tokenizerSessionSource)
+    val explicitContext = mediaPipeProbeContext
+    val fallbackContext = resolveMediaPipeContext(tokenizerSessionSource)
+    val mediaPipeContext = explicitContext?.applicationContext ?: explicitContext ?: fallbackContext?.applicationContext ?: fallbackContext
+    val mediaPipeContextSource = when {
+        explicitContext != null -> "explicit-application-context"
+        fallbackContext != null -> "tokenizer-source"
+        else -> "none"
+    }
 
     val baseSummary = buildString {
         appendLine("MediaPipe tokenizer: failed")
@@ -995,6 +1015,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
             summary = buildString {
                 append(baseSummary)
                 appendLine("MediaPipe model path status: ${modelPathResolution.status}")
+                appendLine("MediaPipe context source: $mediaPipeContextSource")
                 appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
                 appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
                 appendLine(
@@ -1015,6 +1036,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
         summary = buildString {
             append(baseSummary)
             appendLine("MediaPipe model path status: model-path-missing")
+            appendLine("MediaPipe context source: $mediaPipeContextSource")
             appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
             appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
             appendLine(
@@ -1033,6 +1055,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
             llmInferenceClass = llmInferenceClass,
             modelPath = modelPath,
             context = mediaPipeContext,
+            contextSource = mediaPipeContextSource,
         )
         if (inferenceOutcome.instance == null) {
             return@runCatching MediaPipeTokenizerProbeOutcome(
@@ -1042,6 +1065,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                 summary = buildString {
                     append(baseSummary)
                     appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                    appendLine("MediaPipe context source: $mediaPipeContextSource")
                     appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
                     appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
                     appendLine(
@@ -1073,6 +1097,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                     summary = buildString {
                         append(baseSummary)
                         appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        appendLine("MediaPipe context source: $mediaPipeContextSource")
                         appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
                         appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
                         appendLine(
@@ -1112,6 +1137,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                         appendLine("MediaPipe model path isFile: ${modelPathResolution.isFile}")
                         appendLine("MediaPipe model path readable: ${modelPathResolution.readable}")
                         appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        appendLine("MediaPipe context source: $mediaPipeContextSource")
                         appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
                         appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
                         appendLine(
@@ -1134,6 +1160,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                     summary = buildString {
                         append(baseSummary)
                         appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        appendLine("MediaPipe context source: $mediaPipeContextSource")
                         appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
                         appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
                         appendLine(
@@ -1159,6 +1186,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
             summary = buildString {
                 append(baseSummary)
                 appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                appendLine("MediaPipe context source: $mediaPipeContextSource")
                 appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
                 appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
                 appendLine(
@@ -1198,6 +1226,7 @@ private fun createMediaPipeLlmInferenceInstance(
     llmInferenceClass: Class<*>,
     modelPath: String,
     context: android.content.Context?,
+    contextSource: String,
 ): MediaPipeInferenceCreateOutcome {
     val debugLines = mutableListOf<String>()
     val candidateMethods = llmInferenceClass.methods.filter { method ->
@@ -1222,6 +1251,7 @@ private fun createMediaPipeLlmInferenceInstance(
             params.size == 2 && isAndroidContextClass(params[0]) -> {
                 val safeContext = context?.applicationContext ?: context
                 debugLines += "MediaPipe context prepared: ${safeContext != null}"
+                debugLines += "MediaPipe context source: $contextSource"
                 debugLines += "MediaPipe context type: applicationContext"
                 if (safeContext == null) {
                     debugLines += "MediaPipe failure: context-null"
@@ -2588,6 +2618,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     prompt: String,
     modelPath: String,
     cacheDirPath: String,
+    mediaPipeProbeContext: Context? = null,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
     onFallbackReason: (String) -> Unit = {},
@@ -2619,6 +2650,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
                 prompt = prompt,
                 modelPath = modelPath,
                 cacheDirPath = cacheDirPath,
+                mediaPipeProbeContext = mediaPipeProbeContext,
                 startElapsedMs = startElapsedMs,
                 onPartial = onPartial,
                 appendTrace = appendTrace,
@@ -2657,6 +2689,7 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
     prompt: String,
     modelPath: String,
     cacheDirPath: String,
+    mediaPipeProbeContext: Context? = null,
     appendTrace: (String) -> Unit = {},
     onFallbackReason: (String) -> Unit = {},
 ): LocalOfficialBlockingResult? {
@@ -2685,6 +2718,7 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
                 prompt = prompt,
                 modelPath = modelPath,
                 cacheDirPath = cacheDirPath,
+                mediaPipeProbeContext = mediaPipeProbeContext,
                 appendTrace = appendTrace,
             )
         }.onFailure { throwable ->
@@ -2967,6 +3001,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     prompt: String,
     modelPath: String,
     cacheDirPath: String,
+    mediaPipeProbeContext: Context?,
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
@@ -2976,6 +3011,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             prompt = prompt,
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            mediaPipeProbeContext = mediaPipeProbeContext,
             startElapsedMs = startElapsedMs,
             onPartial = onPartial,
             appendTrace = appendTrace,
@@ -3120,6 +3156,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             conversation = conversation,
             tokenizerSessionSource = engine,
             mediaPipeProbeModelPath = modelPath,
+            mediaPipeProbeContext = mediaPipeProbeContext,
             promptText = prompt,
             fullResponseText = response,
             timing = LocalLiteRtTimingSnapshot(
@@ -3190,6 +3227,7 @@ private fun runOfficialBlockingConversationSingleNamespace(
     prompt: String,
     modelPath: String,
     cacheDirPath: String,
+    mediaPipeProbeContext: Context?,
     appendTrace: (String) -> Unit,
 ): LocalOfficialBlockingResult? {
     if (spec.namespace == "com.google.ai.edge.litertlm") {
@@ -3197,6 +3235,7 @@ private fun runOfficialBlockingConversationSingleNamespace(
             prompt = prompt,
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            mediaPipeProbeContext = mediaPipeProbeContext,
             appendTrace = appendTrace,
         )
         return LocalOfficialBlockingResult(
@@ -3358,6 +3397,7 @@ private suspend fun runOfficialLiteRtLmDirect(
     prompt: String,
     modelPath: String,
     cacheDirPath: String,
+    mediaPipeProbeContext: Context?,
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
@@ -3433,6 +3473,7 @@ private suspend fun runOfficialLiteRtLmDirect(
                 conversation = conversation,
                 tokenizerSessionSource = engine,
                 mediaPipeProbeModelPath = modelPath,
+                mediaPipeProbeContext = mediaPipeProbeContext,
                 promptText = prompt,
                 fullResponseText = response,
                 timing = LocalLiteRtTimingSnapshot(
@@ -3509,6 +3550,7 @@ private fun runOfficialLiteRtLmBlocking(
     prompt: String,
     modelPath: String,
     cacheDirPath: String,
+    mediaPipeProbeContext: Context?,
     appendTrace: (String) -> Unit,
 ): LocalOfficialDirectBlockingResult {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct blockingStart")
@@ -3567,6 +3609,7 @@ private fun runOfficialLiteRtLmBlocking(
                     conversation = conversation,
                     tokenizerSessionSource = engine,
                     mediaPipeProbeModelPath = modelPath,
+                    mediaPipeProbeContext = mediaPipeProbeContext,
                     promptText = prompt,
                     fullResponseText = responseText,
                     timing = LocalLiteRtTimingSnapshot(
