@@ -143,6 +143,7 @@ import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import io.github.ninbyo02.lami.ui.components.HeaderAvatar
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
+import io.github.ninbyo02.lami.ui.components.InferenceTargetIcon
 import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
 import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
@@ -5554,6 +5555,10 @@ private fun InferenceStatsSheetContent(
 
             InferenceModelInfoRow(
                 stats = stats,
+                inferenceTarget = resolveInferenceTargetForStats(
+                    stats = stats,
+                    localTraceForDev = localTraceForDev,
+                ),
                 onCopyInferenceStats = {
                     clipboardManager.setText(
                         AnnotatedString(
@@ -5617,6 +5622,7 @@ private fun InferenceStatsSheetContent(
 @Composable
 private fun InferenceModelInfoRow(
     stats: InferenceStats,
+    inferenceTarget: InferenceTarget,
     onCopyInferenceStats: () -> Unit,
 ) {
     val modelName = formatModelName(stats)
@@ -5635,12 +5641,21 @@ private fun InferenceModelInfoRow(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text(
-                    text = modelName ?: "—",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    InferenceTargetIcon(
+                        target = inferenceTarget,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = modelName ?: "—",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
             }
             IconButton(
                 onClick = onCopyInferenceStats,
@@ -5654,6 +5669,15 @@ private fun InferenceModelInfoRow(
             }
         }
     }
+}
+
+private fun resolveInferenceTargetForStats(
+    stats: InferenceStats,
+    localTraceForDev: LocalInferenceTrace?,
+): InferenceTarget {
+    if (localTraceForDev != null) return InferenceTarget.LOCAL
+    val localSourceSummary = stats.localSourceSummary?.trim().orEmpty()
+    return if (localSourceSummary.isNotBlank()) InferenceTarget.LOCAL else InferenceTarget.SERVER
 }
 
 internal fun buildInferenceStatsFullCopyText(

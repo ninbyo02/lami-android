@@ -11,6 +11,11 @@ import io.github.ninbyo02.lami.ui.util.formatTimeToFirstToken
 import io.github.ninbyo02.lami.ui.util.formatTotalTokens
 import java.util.Locale
 
+private enum class InferenceBackendKind {
+    LITERT,
+    OLLAMA,
+}
+
 internal fun buildInferenceSummarySections(
     stats: InferenceStats,
     localTraceForDev: LocalInferenceTrace? = null,
@@ -243,7 +248,12 @@ internal fun buildInferenceDetailSections(
                     add(
                         InferenceStatItemUi(
                             label = "速度取得元",
-                            value = localStatsUiModel?.resolvedSpeedSourceLabel ?: "—",
+                            value = localStatsUiModel?.resolvedSpeedSourceLabel
+                                ?: resolveBackendSpeedSourceLabel(
+                                    stats = stats,
+                                    hasPerceived = localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond != null,
+                                    backendKind = InferenceBackendKind.LITERT,
+                                ),
                         ),
                     )
                     add(
@@ -274,7 +284,11 @@ internal fun buildInferenceDetailSections(
                     add(
                         InferenceStatItemUi(
                             label = "速度取得元",
-                            value = resolveBackendSpeedSourceLabel(stats = stats, hasPerceived = perceivedTokensPerSecondText != null),
+                            value = resolveBackendSpeedSourceLabel(
+                                stats = stats,
+                                hasPerceived = perceivedTokensPerSecondText != null,
+                                backendKind = InferenceBackendKind.OLLAMA,
+                            ),
                         ),
                     )
                 }
@@ -725,14 +739,15 @@ private fun formatRegularTokenValue(
 }
 
 private fun formatRegularTokensPerSecondValue(statValue: UiStatValue?, fallbackValue: String?): String {
-    if (statValue == null) return fallbackValue?.let { "${it}（推定）" } ?: "—"
+    if (statValue == null) return fallbackValue ?: "—"
     val valueText = statValue.valueText.takeIf { it.isNotBlank() } ?: return "—"
     return when (statValue.source) {
-        StatsUiValueSource.MEASURED -> "${valueText}（Lami基準）"
-        StatsUiValueSource.DERIVED -> "${valueText}（推定）"
-        StatsUiValueSource.TOKENIZER_BASED -> "${valueText}（Tokenizer）"
-        StatsUiValueSource.SEMI_MEASURED -> "${valueText}（準実測）"
-        StatsUiValueSource.ESTIMATED -> "${valueText}（推定）"
+        StatsUiValueSource.MEASURED,
+        StatsUiValueSource.DERIVED,
+        StatsUiValueSource.TOKENIZER_BASED,
+        StatsUiValueSource.SEMI_MEASURED,
+        StatsUiValueSource.ESTIMATED,
+        -> valueText
         StatsUiValueSource.API_CANDIDATE_ONLY,
         StatsUiValueSource.UNAVAILABLE,
         -> "—"
@@ -747,13 +762,27 @@ private fun resolveOllamaTokenSourceLabel(stats: InferenceStats): String {
     }
 }
 
-private fun resolveBackendSpeedSourceLabel(stats: InferenceStats, hasPerceived: Boolean): String {
-    return when {
-        stats.tokensPerSecond != null -> "Lami基準 / バックエンド基準（サーバー統計）"
-        hasPerceived -> "Lami基準 / バックエンド基準（推定）"
-        (stats.outputTokens ?: stats.completionTokens) != null &&
-            (stats.generationDurationNs ?: stats.generationTimeMs) != null -> "推定"
-        else -> "未取得"
+private fun resolveBackendSpeedSourceLabel(
+    stats: InferenceStats,
+    hasPerceived: Boolean,
+    backendKind: InferenceBackendKind,
+): String {
+    return when (backendKind) {
+        InferenceBackendKind.LITERT -> when {
+            stats.decodeDurationMs?.let { it > 0L } == true -> "Lami基準 / バックエンド基準（Decode時間）"
+            stats.generationDurationNs?.let { it > 0L } == true || stats.generationTimeMs?.let { it > 0L } == true ->
+                "Lami基準 / バックエンド基準（generation時間）"
+            stats.tokensPerSecond != null -> "Lami基準 / バックエンド基準（Engine時間）"
+            hasPerceived -> "Lami基準 / バックエンド基準（fallback）"
+            else -> "未取得"
+        }
+        InferenceBackendKind.OLLAMA -> when {
+            stats.tokensPerSecond != null -> "Lami基準 / バックエンド基準（サーバー統計）"
+            hasPerceived -> "Lami基準 / バックエンド基準（fallback）"
+            (stats.outputTokens ?: stats.completionTokens) != null &&
+                (stats.generationDurationNs ?: stats.generationTimeMs) != null -> "推定"
+            else -> "未取得"
+        }
     }
 }
 

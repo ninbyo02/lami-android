@@ -219,9 +219,9 @@ internal fun buildLocalInferenceStatsUiModel(
     }
     val backendSpeedSourceLabel = when {
         usedTokenizerBasedTps -> "バックエンド基準（Decode時間）"
-        stats.tokensPerSecond != null -> "バックエンド基準（サーバー統計）"
-        usedAssistantUpdateBasedTps -> "バックエンド基準（準実測fallback）"
-        fallbackTokensPerSecond != null -> "バックエンド基準（generation時間fallback）"
+        stats.tokensPerSecond != null -> "バックエンド基準（Engine時間）"
+        usedAssistantUpdateBasedTps -> "バックエンド基準（generation時間）"
+        fallbackTokensPerSecond != null -> "バックエンド基準（fallback）"
         else -> "未取得"
     }
 
