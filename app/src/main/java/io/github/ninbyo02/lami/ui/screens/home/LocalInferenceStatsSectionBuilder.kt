@@ -96,7 +96,6 @@ internal fun buildInferenceDetailSections(
         )
     }
     val backendTokensPerSecondText = buildBackendTokensPerSecondText(stats)
-    val lamiTokensPerSecondText = buildLamiTokensPerSecondText(stats)
     val perceivedTokensPerSecondText = buildLamiPerceivedTokensPerSecondText(stats)
     val showOllamaPerceivedTokensPerSecond = localTraceForDev == null
     val localSourceSummaryText = stats.localSourceSummary
@@ -175,19 +174,6 @@ internal fun buildInferenceDetailSections(
     }
     val detailedItems = buildList {
         if (localTraceForDev != null) {
-            val lamiSpeedText = localStatsUiModel?.resolvedLamiTokensPerSecond?.let {
-                String.format(Locale.US, "%.1f token/s", it)
-            } ?: localStatsUiModel?.resolvedPrimarySpeedValue?.let {
-                String.format(Locale.US, "%.1f token/s", it)
-            }
-            lamiSpeedText?.let {
-                add(
-                    InferenceStatItemUi(
-                        label = "生成速度",
-                        value = it,
-                    ),
-                )
-            }
             add(
                 InferenceStatItemUi(
                     label = "速度取得元",
@@ -226,7 +212,6 @@ internal fun buildInferenceDetailSections(
             }
         }
         if (showOllamaPerceivedTokensPerSecond) {
-            add(InferenceStatItemUi(label = "生成速度", value = lamiTokensPerSecondText ?: "—"))
             add(
                 InferenceStatItemUi(
                     label = "速度取得元",
