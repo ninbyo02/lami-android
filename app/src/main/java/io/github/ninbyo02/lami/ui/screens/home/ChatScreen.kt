@@ -1089,7 +1089,13 @@ fun Home(
             suppressAutoNewChat = false
             suppressChatContentWhileClosingDrawer = false
         }
-        clearPendingLocalUserMessage()
+        val shouldKeepPendingLocalUserMessage =
+            pendingLocalUserMessageVisible &&
+                pendingNavigateChatId != null &&
+                (chatId == null || chatId == pendingLocalUserMessageChatId)
+        if (!shouldKeepPendingLocalUserMessage) {
+            clearPendingLocalUserMessage()
+        }
     }
 
     LaunchedEffect(pendingNavigateChatId) {
@@ -1110,11 +1116,17 @@ fun Home(
         }
     }
 
-    LaunchedEffect(chatId, chats) {
+    LaunchedEffect(chatId, chats, pendingNavigateChatId, pendingLocalUserMessageVisible) {
         val resolvedChatId = resolveDefaultChatId(chatId, chats)
-        effectiveChatId = resolvedChatId
+        if (pendingNavigateChatId == null) {
+            effectiveChatId = resolvedChatId
+        }
 
-        if (shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)) {
+        if (
+            pendingNavigateChatId == null &&
+            !pendingLocalUserMessageVisible &&
+            shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)
+        ) {
             isCreatingChat = true
             val newChatId = viewModel.insertChatAndReturnId(
                 Chat(title = "New chat", titleSource = TitleSource.TEMP)
