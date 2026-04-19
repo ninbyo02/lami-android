@@ -15,8 +15,8 @@ class InferenceStatsSheetContentTest {
 
     @Test
     fun `inferenceStatsDetailToggleAccessibilityLabel keeps full meaning by expanded state`() {
-        assertEquals("詳細を表示", inferenceStatsDetailToggleAccessibilityLabel(expanded = false))
-        assertEquals("詳細を閉じる", inferenceStatsDetailToggleAccessibilityLabel(expanded = true))
+        assertEquals("追加情報を表示", inferenceStatsDetailToggleAccessibilityLabel(expanded = false))
+        assertEquals("追加情報を閉じる", inferenceStatsDetailToggleAccessibilityLabel(expanded = true))
     }
 
 
@@ -403,7 +403,7 @@ class InferenceStatsSheetContentTest {
         assertTrue(text.contains("[概要]"))
         assertTrue(text.contains("[推論時間内訳]"))
         assertTrue(text.contains("[コンテキスト使用量]"))
-        assertTrue(text.contains("[詳細]"))
+        assertTrue(text.contains("[追加情報]"))
         assertTrue(text.contains("[DEV診断サマリー]"))
         assertTrue(text.contains("[measuredTokens]"))
         assertTrue(text.contains("[BenchmarkInfo raw]"))
