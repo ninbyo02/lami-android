@@ -732,7 +732,19 @@ fun Home(
         appendLocalReflectionTrace(context, message)
     }
 
+    fun debugLocalUiTrace(label: String, extra: String = "") {
+        if (!BuildConfig.DEBUG) return
+        val suffix = if (extra.isNotBlank()) " $extra" else ""
+        val message = "[LOCAL_UI] $label$suffix"
+        Log.i("ChatScreen", message)
+        appendLocalReflectionTrace(context.applicationContext, message)
+    }
+
     fun clearPendingLocalUserMessage() {
+        debugLocalUiTrace(
+            label = "LOCAL_UI_PENDING_CLEAR",
+            extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} isCreatingChat=$isCreatingChat",
+        )
         pendingLocalUserMessageVisible = false
         pendingLocalUserMessageText = null
         pendingLocalUserMessageCreatedAtMs = null
@@ -1096,10 +1108,18 @@ fun Home(
         if (!shouldKeepPendingLocalUserMessage) {
             clearPendingLocalUserMessage()
         }
+        debugLocalUiTrace(
+            label = "LOCAL_UI_EFFECT_CHATID",
+            extra = "chatId=$chatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId shouldKeepPendingLocalUserMessage=$shouldKeepPendingLocalUserMessage",
+        )
     }
 
     LaunchedEffect(pendingNavigateChatId) {
         val targetChatId = pendingNavigateChatId ?: return@LaunchedEffect
+        debugLocalUiTrace(
+            label = "LOCAL_UI_EFFECT_NAVIGATE_START",
+            extra = "targetChatId=$targetChatId effectiveChatId=$effectiveChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId",
+        )
         try {
             if (drawerState.isOpen) {
                 runCatching { drawerState.close() }
@@ -1111,6 +1131,10 @@ fun Home(
                 launchSingleTop = true
             }
         } finally {
+            debugLocalUiTrace(
+                label = "LOCAL_UI_EFFECT_NAVIGATE_END",
+                extra = "targetChatId=$targetChatId effectiveChatId=$effectiveChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId",
+            )
             pendingNavigateChatId = null
             suppressChatContentWhileClosingDrawer = false
         }
@@ -1118,6 +1142,10 @@ fun Home(
 
     LaunchedEffect(chatId, chats, pendingNavigateChatId, pendingLocalUserMessageVisible) {
         val resolvedChatId = resolveDefaultChatId(chatId, chats)
+        debugLocalUiTrace(
+            label = "LOCAL_UI_EFFECT_RESOLVE_START",
+            extra = "chatId=$chatId resolvedChatId=$resolvedChatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible isCreatingChat=$isCreatingChat suppressAutoNewChat=$suppressAutoNewChat",
+        )
         if (pendingNavigateChatId == null) {
             effectiveChatId = resolvedChatId
         }
@@ -1139,6 +1167,10 @@ fun Home(
             isCreatingChat = false
             suppressAutoNewChat = false
         }
+        debugLocalUiTrace(
+            label = "LOCAL_UI_EFFECT_RESOLVE_END",
+            extra = "chatId=$chatId resolvedChatId=$resolvedChatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible isCreatingChat=$isCreatingChat suppressAutoNewChat=$suppressAutoNewChat",
+        )
     }
 
     LaunchedEffect(sortedChats) {
@@ -1910,13 +1942,25 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
+                                                    debugLocalUiTrace(
+                                                        label = "LOCAL_UI_SEND_TAP",
+                                                        extra = "requestPromptLength=${requestPrompt.length} effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId isCreatingChat=$isCreatingChat userPromptLength=${userPrompt.length} selectedImageUriStringsSize=${selectedImageUriStrings.size}",
+                                                    )
                                                     pendingLocalUserMessageText = requestPrompt
                                                     pendingLocalUserMessageCreatedAtMs = System.currentTimeMillis()
                                                     pendingLocalUserMessageChatId = effectiveChatId
                                                     pendingLocalUserMessageVisible = true
+                                                    debugLocalUiTrace(
+                                                        label = "LOCAL_UI_PENDING_SET",
+                                                        extra = "pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} userPromptLength=${userPrompt.length}",
+                                                    )
                                                     prompt = ""
                                                     userPrompt = ""
                                                     selectedImageUriStrings = emptyList()
+                                                    debugLocalUiTrace(
+                                                        label = "LOCAL_UI_INPUT_CLEARED",
+                                                        extra = "userPromptLength=${userPrompt.length} promptLength=${prompt.length}",
+                                                    )
                                                     stopTtsWithCleanup(
                                                         suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                             ?: currentSpeakingAssistantMessageId
@@ -1926,8 +1970,16 @@ fun Home(
                                                     localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                     localStopRequested = false
                                                     localInferenceJob = coroutineScope.launch {
+                                                        debugLocalUiTrace(
+                                                            label = "LOCAL_UI_LAUNCH_ENTER",
+                                                            extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId isCreatingChat=$isCreatingChat",
+                                                        )
                                                         var currentChatId = effectiveChatId
                                                         if (currentChatId == null) {
+                                                            debugLocalUiTrace(
+                                                                label = "LOCAL_UI_CREATE_CHAT_START",
+                                                                extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId isCreatingChat=$isCreatingChat",
+                                                            )
                                                             isCreatingChat = true
                                                             try {
                                                                 val newChatId = viewModel.insertChatAndReturnId(
@@ -1936,18 +1988,30 @@ fun Home(
                                                                 effectiveChatId = newChatId
                                                                 pendingNavigateChatId = newChatId
                                                                 pendingLocalUserMessageChatId = newChatId
+                                                                debugLocalUiTrace(
+                                                                    label = "LOCAL_UI_CREATE_CHAT_DONE",
+                                                                    extra = "newChatId=$newChatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId",
+                                                                )
                                                                 currentChatId = newChatId
                                                             } finally {
                                                                 isCreatingChat = false
                                                             }
                                                         }
                                                         val resolvedChatId = currentChatId
+                                                        debugLocalUiTrace(
+                                                            label = "LOCAL_UI_USER_INSERT_START",
+                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId",
+                                                        )
                                                         viewModel.insert(
                                                             Message(
                                                                 chatId = resolvedChatId,
                                                                 message = requestPrompt,
                                                                 isSendbyMe = true,
                                                             )
+                                                        )
+                                                        debugLocalUiTrace(
+                                                            label = "LOCAL_UI_USER_INSERT_DONE",
+                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId",
                                                         )
                                                         appendLocalReflectionTrace(
                                                             context = context.applicationContext,
@@ -2661,6 +2725,19 @@ fun Home(
                 .fillMaxSize()
 
             if (effectiveChatId == null) {
+                LaunchedEffect(
+                    effectiveChatId,
+                    pendingNavigateChatId,
+                    pendingLocalUserMessageVisible,
+                    pendingLocalUserMessageChatId,
+                    pendingLocalUserMessageText,
+                    isCreatingChat,
+                ) {
+                    debugLocalUiTrace(
+                        label = "LOCAL_UI_RENDER_PREPARING",
+                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} shouldShowPendingLocalUserBubble=${pendingLocalUserMessageVisible && !pendingLocalUserMessageText.isNullOrBlank()}",
+                    )
+                }
                 Column(
                     modifier = contentModifier.padding(top = effectiveTopGradientBottomDp),
                     verticalArrangement = Arrangement.Top,
@@ -2677,6 +2754,19 @@ fun Home(
             } else if (allChatsOrNull == null) {
                 val shouldShowPendingLocalUserBubble =
                     pendingLocalUserMessageVisible && !pendingLocalUserMessageText.isNullOrBlank()
+                LaunchedEffect(
+                    effectiveChatId,
+                    pendingNavigateChatId,
+                    pendingLocalUserMessageVisible,
+                    pendingLocalUserMessageChatId,
+                    pendingLocalUserMessageText,
+                    shouldShowPendingLocalUserBubble,
+                ) {
+                    debugLocalUiTrace(
+                        label = "LOCAL_UI_RENDER_LOADING",
+                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} shouldShowPendingLocalUserBubble=$shouldShowPendingLocalUserBubble",
+                    )
+                }
                 if (shouldShowPendingLocalUserBubble) {
                     Log.i("ChatScreen", "LOCAL pending bubble bridge visible while chat list is loading")
                     Column(
@@ -2706,6 +2796,20 @@ fun Home(
                                 message.isSendbyMe &&
                                 message.message == pendingLocalUserMessageText
                         }
+                LaunchedEffect(
+                    effectiveChatId,
+                    pendingNavigateChatId,
+                    pendingLocalUserMessageVisible,
+                    pendingLocalUserMessageChatId,
+                    pendingLocalUserMessageText,
+                    shouldMergePendingLocalUserMessage,
+                    messagesForListBase.size,
+                ) {
+                    debugLocalUiTrace(
+                        label = "LOCAL_UI_RENDER_LIST",
+                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} shouldMergePendingLocalUserMessage=$shouldMergePendingLocalUserMessage messagesForListBaseSize=${messagesForListBase.size}",
+                    )
+                }
                 val messagesForListWithPendingBase: List<Message> = if (shouldMergePendingLocalUserMessage) {
                     messagesForListBase + Message(
                         chatId = requireNotNull(currentChatId),
