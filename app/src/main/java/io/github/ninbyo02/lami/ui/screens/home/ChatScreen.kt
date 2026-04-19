@@ -1929,7 +1929,7 @@ fun Home(
                                                                 isCreatingChat = false
                                                             }
                                                         }
-                                                        val resolvedChatId = currentChatId ?: return@launch
+                                                        val resolvedChatId = currentChatId
                                                         viewModel.insert(
                                                             Message(
                                                                 chatId = resolvedChatId,
@@ -2679,7 +2679,7 @@ fun Home(
                         }
                 val messagesForListWithPendingBase: List<Message> = if (shouldMergePendingLocalUserMessage) {
                     messagesForListBase + Message(
-                        chatId = currentChatId!!,
+                        chatId = requireNotNull(currentChatId),
                         message = pendingLocalUserMessageText.orEmpty(),
                         isSendbyMe = true,
                     )
