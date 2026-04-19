@@ -1043,6 +1043,18 @@ fun mapToLamiSpriteStatus(
             talkingTextLength = talkingTextLength,
         )
 
+    val speakingFromLamiState = (lamiState as? LamiState.Speaking)?.let { speakingState ->
+        when (bucket(speakingState.textLength)) {
+            1 -> LamiSpriteStatus.TalkShort
+            2 -> LamiSpriteStatus.TalkLong
+            3 -> LamiSpriteStatus.TalkCalm
+            else -> null
+        }
+    }
+    if (speakingFromLamiState != null) {
+        return speakingFromLamiState
+    }
+
     if (resolvedAnimationStatus != null) {
         return resolvedAnimationStatus.toSpriteStatus()
     }
