@@ -589,6 +589,9 @@ fun Home(
     var didReceiveRealLocalPartial by remember(effectiveChatId) { mutableStateOf(false) }
     var realLocalPartialChunkCount by remember(effectiveChatId) { mutableStateOf(0) }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var pendingLocalUserMessageText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var pendingLocalUserMessageCreatedAtMs by remember(effectiveChatId) { mutableStateOf<Long?>(null) }
+    var pendingLocalUserMessageBaselineMatchCount by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
@@ -1759,14 +1762,17 @@ fun Home(
                                         },
                                         onClick = {
                                             viewModel.onUserInteraction()
-                                            if (isInferenceRunningUi) {
-                                                if (isLocalRunningRaw) {
-                                                    localStopRequested = true
-                                                    localInferenceJob?.cancel()
-                                                    localInferenceJob = null
-                                                    effectiveChatId?.let { currentChatId ->
-                                                        coroutineScope.launch {
-                                                            localInferenceEngineHolder.resetConversation(
+                                                if (isInferenceRunningUi) {
+                                                    if (isLocalRunningRaw) {
+                                                        localStopRequested = true
+                                                        localInferenceJob?.cancel()
+                                                        localInferenceJob = null
+                                                        pendingLocalUserMessageText = null
+                                                        pendingLocalUserMessageCreatedAtMs = null
+                                                        pendingLocalUserMessageBaselineMatchCount = null
+                                                        effectiveChatId?.let { currentChatId ->
+                                                            coroutineScope.launch {
+                                                                localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
                                                                 reason = "stop",
                                                             )
@@ -1890,6 +1896,15 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
+                                                    val baselineMatchCount =
+                                                        allChatsOrNull?.count {
+                                                            it.chatId == currentChatId &&
+                                                                it.isSendbyMe &&
+                                                                it.message == requestPrompt
+                                                        } ?: 0
+                                                    pendingLocalUserMessageText = requestPrompt
+                                                    pendingLocalUserMessageCreatedAtMs = System.currentTimeMillis()
+                                                    pendingLocalUserMessageBaselineMatchCount = baselineMatchCount
                                                     viewModel.insert(
                                                         Message(
                                                             chatId = currentChatId,
@@ -2436,6 +2451,9 @@ fun Home(
                                                             localStreamingResponseText = null
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
                                                             isLocalInferenceRunning = false
+                                                            pendingLocalUserMessageText = null
+                                                            pendingLocalUserMessageCreatedAtMs = null
+                                                            pendingLocalUserMessageBaselineMatchCount = null
                                                             localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
                                                                 reason = "error",
@@ -2473,6 +2491,9 @@ fun Home(
                                                             didReceiveRealLocalPartial = false
                                                             realLocalPartialChunkCount = 0
                                                             isLocalInferenceRunning = false
+                                                            pendingLocalUserMessageText = null
+                                                            pendingLocalUserMessageCreatedAtMs = null
+                                                            pendingLocalUserMessageBaselineMatchCount = null
                                                             Log.e(
                                                                 "ChatScreen",
                                                                 "LOCAL inference execution failed",
@@ -2631,13 +2652,39 @@ fun Home(
             } else {
                 val currentChatId = effectiveChatId
                 val messagesForListBase: List<Message> = allChatsOrNull
+                val pendingLocalUserText = pendingLocalUserMessageText?.takeIf { it.isNotBlank() }
+                val pendingLocalUserBaselineMatchCount = pendingLocalUserMessageBaselineMatchCount
+                val hasDbReflectedPendingLocalUser = currentChatId != null &&
+                    pendingLocalUserText != null &&
+                    messagesForListBase.count {
+                        it.chatId == currentChatId &&
+                            it.isSendbyMe &&
+                            it.message == pendingLocalUserText
+                    } > (pendingLocalUserBaselineMatchCount ?: 0)
+                val pendingLocalUserMessageForUi = if (
+                    currentChatId != null &&
+                    pendingLocalUserText != null &&
+                    !hasDbReflectedPendingLocalUser
+                ) {
+                    Message(
+                        messageID = -((pendingLocalUserMessageCreatedAtMs ?: 1L).rem(Int.MAX_VALUE.toLong()).toInt() + 1),
+                        chatId = currentChatId,
+                        message = pendingLocalUserText,
+                        isSendbyMe = true,
+                    )
+                } else {
+                    null
+                }
+                val messagesWithPendingLocalUser: List<Message> = pendingLocalUserMessageForUi?.let {
+                    messagesForListBase + it
+                } ?: messagesForListBase
                 val messagesForList: List<Message> = if (
                     currentChatId != null &&
                     streamingAssistantMessageId == null &&
                     !streamingResponseText.isNullOrBlank()
                 ) {
                     logStreamTrace("STREAM ui transient row enabled")
-                    messagesForListBase + Message(
+                    messagesWithPendingLocalUser + Message(
                         chatId = currentChatId,
                         message = streamingResponseText,
                         isSendbyMe = false,
@@ -2649,7 +2696,27 @@ fun Home(
                             "STREAM ui transient row suppressed placeholderId=$streamingAssistantMessageId",
                         )
                     }
-                    messagesForListBase
+                    messagesWithPendingLocalUser
+                }
+                LaunchedEffect(
+                    effectiveChatId,
+                    messagesForListBase,
+                    pendingLocalUserMessageText,
+                    pendingLocalUserMessageBaselineMatchCount,
+                ) {
+                    val currentChatId = effectiveChatId ?: return@LaunchedEffect
+                    val pendingText = pendingLocalUserMessageText ?: return@LaunchedEffect
+                    val baselineCount = pendingLocalUserMessageBaselineMatchCount ?: 0
+                    val reflectedCount = messagesForListBase.count {
+                        it.chatId == currentChatId &&
+                            it.isSendbyMe &&
+                            it.message == pendingText
+                    }
+                    if (reflectedCount > baselineCount) {
+                        pendingLocalUserMessageText = null
+                        pendingLocalUserMessageCreatedAtMs = null
+                        pendingLocalUserMessageBaselineMatchCount = null
+                    }
                 }
                 LaunchedEffect(effectiveChatId, messagesForList.size, messagesForList.lastOrNull()?.messageID) {
                     if (!BuildConfig.DEBUG) return@LaunchedEffect
