@@ -39,9 +39,6 @@ internal fun buildInferenceSummarySections(
         buildList {
             add(InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"))
             add(InferenceStatItemUi(label = "応答文字数", value = stats.responseCharCount?.toString() ?: "—"))
-            if (localSourceSummaryText != null) {
-                add(InferenceStatItemUi(label = "採用元", value = localSourceSummaryText))
-            }
         }
     } else {
         buildList {
@@ -63,10 +60,6 @@ internal fun buildInferenceSummarySections(
                 )
             )
             add(InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"))
-
-            if (localSourceSummaryText != null) {
-                add(InferenceStatItemUi(label = "採用元", value = localSourceSummaryText))
-            }
         }
     }
     val summarySection = InferenceStatsSectionUi(
@@ -106,6 +99,9 @@ internal fun buildInferenceDetailSections(
     val lamiTokensPerSecondText = buildLamiTokensPerSecondText(stats)
     val perceivedTokensPerSecondText = buildLamiPerceivedTokensPerSecondText(stats)
     val showOllamaPerceivedTokensPerSecond = localTraceForDev == null
+    val localSourceSummaryText = stats.localSourceSummary
+        ?.takeIf { it.isNotBlank() }
+        ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
     val perceivedTokensPerSecondSourceText = if (showOllamaPerceivedTokensPerSecond && perceivedTokensPerSecondText != null) {
         "semi-measured:assistantUpdateCount / generationTimeMs"
     } else {
@@ -182,9 +178,122 @@ internal fun buildInferenceDetailSections(
         trace = localTraceForDev,
         tokenizerSucceeded = tokenizerSucceeded,
     )
+    val detailedItems = buildList {
+        if (localTraceForDev != null) {
+            val lamiSpeedText = localStatsUiModel?.resolvedLamiTokensPerSecond?.let {
+                String.format(Locale.US, "%.1f token/s", it)
+            } ?: localStatsUiModel?.resolvedPrimarySpeedValue?.let {
+                String.format(Locale.US, "%.1f token/s", it)
+            }
+            lamiSpeedText?.let {
+                add(
+                    InferenceStatItemUi(
+                        label = "Lami基準速度",
+                        value = it,
+                    ),
+                )
+            }
+            localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond?.let {
+                add(InferenceStatItemUi(label = "Lami体感速度", value = String.format(Locale.US, "%.1f token/s", it)))
+            }
+            val backendSpeedText = localStatsUiModel?.resolvedBackendTokensPerSecond?.let {
+                String.format(Locale.US, "%.1f token/s", it)
+            } ?: "—"
+            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendSpeedText))
+            add(
+                InferenceStatItemUi(
+                    label = "速度取得元",
+                    value = localStatsUiModel?.resolvedSpeedSourceLabel
+                        ?: resolveBackendSpeedSourceLabel(
+                            stats = stats,
+                            hasPerceived = localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond != null,
+                            backendKind = InferenceBackendKind.LITERT,
+                        ),
+                ),
+            )
+            add(
+                InferenceStatItemUi(
+                    label = "Lami基準TTFT",
+                    value = localStatsUiModel?.resolvedLamiTtftMs?.let { formatMillisToCompactText(it) } ?: "—",
+                ),
+            )
+            add(
+                InferenceStatItemUi(
+                    label = "バックエンド基準TTFT",
+                    value = localStatsUiModel?.resolvedBackendTtftMs?.let { formatMillisToCompactText(it) } ?: "—",
+                ),
+            )
+            stats.decodeDurationMs?.let {
+                add(InferenceStatItemUi(label = "Decode時間", value = formatMillisToCompactText(it)))
+            }
+            stats.totalDurationMs?.let {
+                add(InferenceStatItemUi(label = "総応答時間", value = formatMillisToCompactText(it)))
+            }
+        }
+        if (showOllamaPerceivedTokensPerSecond) {
+            add(InferenceStatItemUi(label = "Lami基準TTFT", value = stats.timeToFirstTokenMs?.let { formatMillisToCompactText(it) } ?: "—"))
+            add(InferenceStatItemUi(label = "バックエンド基準TTFT", value = stats.timeToFirstTokenMs?.let { formatMillisToCompactText(it) } ?: "—"))
+            add(InferenceStatItemUi(label = "Lami基準速度", value = lamiTokensPerSecondText ?: "—"))
+            add(InferenceStatItemUi(label = "Lami体感速度", value = perceivedTokensPerSecondText ?: "—"))
+            add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
+            add(
+                InferenceStatItemUi(
+                    label = "速度取得元",
+                    value = resolveBackendSpeedSourceLabel(
+                        stats = stats,
+                        hasPerceived = perceivedTokensPerSecondText != null,
+                        backendKind = InferenceBackendKind.OLLAMA,
+                    ),
+                ),
+            )
+        }
+        localSourceSummaryText?.let {
+            add(InferenceStatItemUi(label = "採用元", value = it))
+        }
+        add(
+            InferenceStatItemUi(
+                label = "モデルロード時間",
+                value = withProbeStateLabel(
+                    value = localStatsUiModel?.modelLoadTime?.valueText ?: formatModelLoadDuration(stats),
+                    state = localStatsUiModel?.modelLoadTime?.source?.toUiStateLabel()
+                        ?: if (stats.modelLoadDurationNs != null) "取得済み" else "未取得",
+                ),
+            ),
+        )
+        add(
+            InferenceStatItemUi(
+                label = "入力評価時間",
+                value = withProbeStateLabel(
+                    value = localStatsUiModel?.promptEvalTime?.valueText ?: formatPromptEvalDuration(stats),
+                    state = localStatsUiModel?.promptEvalTime?.source?.toUiStateLabel()
+                        ?: if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
+                ),
+            ),
+        )
+        add(
+            InferenceStatItemUi(
+                label = "生成時間",
+                value = withProbeStateLabel(
+                    value = localStatsUiModel?.generationTime?.valueText
+                        ?: if (hasRealGenerationDuration) formatProbeDurationForUi(stats.generationDurationNs) else null,
+                    state = localStatsUiModel?.generationTime?.source?.toUiStateLabel()
+                        ?: if (hasRealGenerationDuration) "取得済み" else "未取得",
+                ),
+            ),
+        )
+        add(
+            InferenceStatItemUi(
+                label = "推論時間",
+                value = withProbeStateLabel(
+                    value = localStatsUiModel?.totalTime?.valueText ?: formatProbeDurationForUi(stats.evalDurationNs),
+                    state = localStatsUiModel?.totalTime?.source?.toUiStateLabel()
+                        ?: if (stats.evalDurationNs != null) "取得済み" else "未取得",
+                ),
+            ),
+        )
+    }
 
     return listOfNotNull(
-        devDiagnosticSummarySection,
         InferenceStatsSectionUi(
             title = "トークン",
             items = buildList {
@@ -224,130 +333,11 @@ internal fun buildInferenceDetailSections(
                         value = localStatsUiModel?.resolvedTokenSourceLabel ?: resolveOllamaTokenSourceLabel(stats),
                     ),
                 )
-                if (localTraceForDev != null) {
-                    val lamiSpeedText = localStatsUiModel?.resolvedLamiTokensPerSecond?.let {
-                        String.format(Locale.US, "%.1f token/s", it)
-                    } ?: localStatsUiModel?.resolvedPrimarySpeedValue?.let {
-                        String.format(Locale.US, "%.1f token/s", it)
-                    }
-                    lamiSpeedText?.let {
-                        add(
-                            InferenceStatItemUi(
-                                label = "Lami基準速度",
-                                value = it,
-                            ),
-                        )
-                    }
-                    localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond?.let {
-                        add(InferenceStatItemUi(label = "Lami体感速度", value = String.format(Locale.US, "%.1f token/s", it)))
-                    }
-                    val backendSpeedText = localStatsUiModel?.resolvedBackendTokensPerSecond?.let {
-                        String.format(Locale.US, "%.1f token/s", it)
-                    } ?: "—"
-                    add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendSpeedText))
-                    add(
-                        InferenceStatItemUi(
-                            label = "速度取得元",
-                            value = localStatsUiModel?.resolvedSpeedSourceLabel
-                                ?: resolveBackendSpeedSourceLabel(
-                                    stats = stats,
-                                    hasPerceived = localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond != null,
-                                    backendKind = InferenceBackendKind.LITERT,
-                                ),
-                        ),
-                    )
-                    add(
-                        InferenceStatItemUi(
-                            label = "Lami基準TTFT",
-                            value = localStatsUiModel?.resolvedLamiTtftMs?.let { formatMillisToCompactText(it) } ?: "—",
-                        ),
-                    )
-                    add(
-                        InferenceStatItemUi(
-                            label = "バックエンド基準TTFT",
-                            value = localStatsUiModel?.resolvedBackendTtftMs?.let { formatMillisToCompactText(it) } ?: "—",
-                        ),
-                    )
-                    stats.decodeDurationMs?.let {
-                        add(InferenceStatItemUi(label = "Decode時間", value = formatMillisToCompactText(it)))
-                    }
-                    stats.totalDurationMs?.let {
-                        add(InferenceStatItemUi(label = "総応答時間", value = formatMillisToCompactText(it)))
-                    }
-                }
-                if (showOllamaPerceivedTokensPerSecond) {
-                    add(InferenceStatItemUi(label = "Lami基準TTFT", value = stats.timeToFirstTokenMs?.let { formatMillisToCompactText(it) } ?: "—"))
-                    add(InferenceStatItemUi(label = "バックエンド基準TTFT", value = stats.timeToFirstTokenMs?.let { formatMillisToCompactText(it) } ?: "—"))
-                    add(InferenceStatItemUi(label = "Lami基準速度", value = lamiTokensPerSecondText ?: "—"))
-                    add(InferenceStatItemUi(label = "Lami体感速度", value = perceivedTokensPerSecondText ?: "—"))
-                    add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
-                    add(
-                        InferenceStatItemUi(
-                            label = "速度取得元",
-                            value = resolveBackendSpeedSourceLabel(
-                                stats = stats,
-                                hasPerceived = perceivedTokensPerSecondText != null,
-                                backendKind = InferenceBackendKind.OLLAMA,
-                            ),
-                        ),
-                    )
-                }
-                localTraceForDev?.measuredTokenSnapshot?.lastPrefillTokenCount?.takeIf { it >= 0 }?.let {
-                    add(
-                        InferenceStatItemUi(
-                            label = "直近 Prefill Token",
-                            value = it.toString(),
-                        ),
-                    )
-                }
-                localTraceForDev?.measuredTokenSnapshot?.lastDecodeTokenCount?.takeIf { it >= 0 }?.let {
-                    add(
-                        InferenceStatItemUi(
-                            label = "直近 Decode Token",
-                            value = it.toString(),
-                        ),
-                    )
-                }
-                addAll(tokenizerDiagnosticsItems)
             },
         ),
         InferenceStatsSectionUi(
-            title = "バックエンド時間詳細",
-            items = listOfNotNull(
-                InferenceStatItemUi(
-                    label = "モデルロード時間",
-                    value = withProbeStateLabel(
-                        value = localStatsUiModel?.modelLoadTime?.valueText ?: formatModelLoadDuration(stats),
-                        state = localStatsUiModel?.modelLoadTime?.source?.toUiStateLabel()
-                            ?: if (stats.modelLoadDurationNs != null) "取得済み" else "未取得",
-                    ),
-                ),
-                InferenceStatItemUi(
-                    label = "入力評価時間",
-                    value = withProbeStateLabel(
-                        value = localStatsUiModel?.promptEvalTime?.valueText ?: formatPromptEvalDuration(stats),
-                        state = localStatsUiModel?.promptEvalTime?.source?.toUiStateLabel()
-                            ?: if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
-                    ),
-                ),
-                InferenceStatItemUi(
-                    label = "生成時間",
-                    value = withProbeStateLabel(
-                        value = localStatsUiModel?.generationTime?.valueText
-                            ?: if (hasRealGenerationDuration) formatProbeDurationForUi(stats.generationDurationNs) else null,
-                        state = localStatsUiModel?.generationTime?.source?.toUiStateLabel()
-                            ?: if (hasRealGenerationDuration) "取得済み" else "未取得",
-                    ),
-                ),
-                InferenceStatItemUi(
-                    label = "推論時間",
-                    value = withProbeStateLabel(
-                        value = localStatsUiModel?.totalTime?.valueText ?: formatProbeDurationForUi(stats.evalDurationNs),
-                        state = localStatsUiModel?.totalTime?.source?.toUiStateLabel()
-                            ?: if (stats.evalDurationNs != null) "取得済み" else "未取得",
-                    ),
-                ),
-            ),
+            title = "詳細",
+            items = detailedItems,
         ),
         InferenceStatsSectionUi(
             title = "補足",
@@ -384,8 +374,31 @@ internal fun buildInferenceDetailSections(
         ),
         InferenceStatsSectionUi(
             title = "DEV診断",
-            items = devSectionItems,
+            items = buildList {
+                addAll(devSectionItems)
+                localTraceForDev?.measuredTokenSnapshot?.lastPrefillTokenCount?.takeIf { it >= 0 }?.let {
+                    add(
+                        InferenceStatItemUi(
+                            label = "直近 Prefill Token",
+                            value = it.toString(),
+                        ),
+                    )
+                }
+                localTraceForDev?.measuredTokenSnapshot?.lastDecodeTokenCount?.takeIf { it >= 0 }?.let {
+                    add(
+                        InferenceStatItemUi(
+                            label = "直近 Decode Token",
+                            value = it.toString(),
+                        ),
+                    )
+                }
+                addAll(tokenizerDiagnosticsItems)
+                measuredTokenSnapshotSummary?.takeIf { it.isNotBlank() }?.let {
+                    add(InferenceStatItemUi(label = "measuredTokens", value = it))
+                }
+            },
         ).takeIf { it.items.isNotEmpty() },
+        devDiagnosticSummarySection,
     )
 }
 
