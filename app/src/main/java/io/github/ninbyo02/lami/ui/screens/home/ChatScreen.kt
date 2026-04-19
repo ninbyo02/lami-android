@@ -589,9 +589,6 @@ fun Home(
     var didReceiveRealLocalPartial by remember(effectiveChatId) { mutableStateOf(false) }
     var realLocalPartialChunkCount by remember(effectiveChatId) { mutableStateOf(0) }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
-    var pendingLocalUserMessageText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
-    var pendingLocalUserMessageCreatedAtMs by remember(effectiveChatId) { mutableStateOf<Long?>(null) }
-    var pendingLocalUserMessageBaselineMatchCount by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
@@ -1767,9 +1764,6 @@ fun Home(
                                                         localStopRequested = true
                                                         localInferenceJob?.cancel()
                                                         localInferenceJob = null
-                                                        pendingLocalUserMessageText = null
-                                                        pendingLocalUserMessageCreatedAtMs = null
-                                                        pendingLocalUserMessageBaselineMatchCount = null
                                                         effectiveChatId?.let { currentChatId ->
                                                             coroutineScope.launch {
                                                                 localInferenceEngineHolder.resetConversation(
@@ -1879,23 +1873,6 @@ fun Home(
 
                                                 InferenceTarget.LOCAL -> {
                                                     if (isLocalInferenceRunning) return@IconButton
-                                                    var currentChatId = effectiveChatId
-                                                    if (currentChatId == null) {
-                                                        isCreatingChat = true
-                                                        try {
-                                                            val newChatId = viewModel.insertChatAndReturnId(
-                                                                Chat(
-                                                                    title = prompt,
-                                                                    timestamp = Date(),
-                                                                )
-                                                            )
-                                                            effectiveChatId = newChatId
-                                                            pendingNavigateChatId = newChatId
-                                                            currentChatId = newChatId
-                                                        } finally {
-                                                            isCreatingChat = false
-                                                        }
-                                                    }
                                                     if (selectedImageUriStrings.isNotEmpty()) {
                                                         coroutineScope.launch {
                                                             snackbarHostState.currentSnackbarData?.dismiss()
@@ -1908,16 +1885,6 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
-                                                    pendingLocalUserMessageText = null
-                                                    pendingLocalUserMessageCreatedAtMs = null
-                                                    pendingLocalUserMessageBaselineMatchCount = null
-                                                    viewModel.insert(
-                                                        Message(
-                                                            chatId = currentChatId,
-                                                            message = requestPrompt,
-                                                            isSendbyMe = true,
-                                                        )
-                                                    )
                                                     prompt = ""
                                                     userPrompt = ""
                                                     selectedImageUriStrings = emptyList()
@@ -1930,6 +1897,28 @@ fun Home(
                                                     localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                     localStopRequested = false
                                                     localInferenceJob = coroutineScope.launch {
+                                                        var currentChatId = effectiveChatId
+                                                        if (currentChatId == null) {
+                                                            isCreatingChat = true
+                                                            try {
+                                                                val newChatId = viewModel.insertChatAndReturnId(
+                                                                    Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                                                                )
+                                                                effectiveChatId = newChatId
+                                                                pendingNavigateChatId = newChatId
+                                                                currentChatId = newChatId
+                                                            } finally {
+                                                                isCreatingChat = false
+                                                            }
+                                                        }
+                                                        val resolvedChatId = currentChatId ?: return@launch
+                                                        viewModel.insert(
+                                                            Message(
+                                                                chatId = resolvedChatId,
+                                                                message = requestPrompt,
+                                                                isSendbyMe = true,
+                                                            )
+                                                        )
                                                         appendLocalReflectionTrace(
                                                             context = context.applicationContext,
                                                             message = "UPSTREAM local-branch-enter selectedTarget=LOCAL",
@@ -2457,9 +2446,6 @@ fun Home(
                                                             localStreamingResponseText = null
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
                                                             isLocalInferenceRunning = false
-                                                            pendingLocalUserMessageText = null
-                                                            pendingLocalUserMessageCreatedAtMs = null
-                                                            pendingLocalUserMessageBaselineMatchCount = null
                                                             localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
                                                                 reason = "error",
@@ -2497,9 +2483,6 @@ fun Home(
                                                             didReceiveRealLocalPartial = false
                                                             realLocalPartialChunkCount = 0
                                                             isLocalInferenceRunning = false
-                                                            pendingLocalUserMessageText = null
-                                                            pendingLocalUserMessageCreatedAtMs = null
-                                                            pendingLocalUserMessageBaselineMatchCount = null
                                                             Log.e(
                                                                 "ChatScreen",
                                                                 "LOCAL inference execution failed",
