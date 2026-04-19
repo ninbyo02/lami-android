@@ -517,6 +517,70 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         }
                     )
                 }
+
+                // 表示設定カード同士の視認性を保つため、最小限の間隔を確保する
+                Spacer(modifier = Modifier.height(2.dp))
+                Card {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "推論統計表示モード",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "シンプル / 詳細 / 開発者向け から表示量を選べます",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        val currentMode = settingsData.inferenceStatsDisplayMode
+                        InferenceStatsDisplayMode.entries.forEach { mode ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        scope.launch {
+                                            settingsPreferences.saveInferenceStatsDisplayMode(mode)
+                                        }
+                                    }
+                                    .padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = currentMode == mode,
+                                    onClick = {
+                                        scope.launch {
+                                            settingsPreferences.saveInferenceStatsDisplayMode(mode)
+                                        }
+                                    },
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = when (mode) {
+                                            InferenceStatsDisplayMode.SIMPLE -> "シンプル"
+                                            InferenceStatsDisplayMode.DETAILED -> "詳細"
+                                            InferenceStatsDisplayMode.DEVELOPER -> "開発者向け"
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    Text(
+                                        text = when (mode) {
+                                            InferenceStatsDisplayMode.SIMPLE -> "主要な統計のみを表示"
+                                            InferenceStatsDisplayMode.DETAILED -> "通常の詳細統計を表示"
+                                            InferenceStatsDisplayMode.DEVELOPER -> "DEV診断を含む全情報を表示"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
             item {
                 CardSectionHeader(

@@ -147,6 +147,7 @@ import io.github.ninbyo02.lami.ui.components.InferenceTargetIcon
 import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
 import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
+import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
@@ -519,6 +520,9 @@ fun Home(
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
     val savedInferenceTarget by settingsPreferences.inferenceTargetFlow.collectAsState(initial = InferenceTarget.LOCAL)
+    val savedInferenceStatsDisplayMode by settingsPreferences.inferenceStatsDisplayModeFlow.collectAsState(
+        initial = InferenceStatsDisplayMode.SIMPLE,
+    )
     var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.LOCAL) }
     var isLocalInferenceRunning by rememberSaveable { mutableStateOf(false) }
     val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
@@ -3109,6 +3113,12 @@ fun Home(
             stats?.let {
                 InferenceStatsSheetContent(
                     stats = it,
+                    initialDisplayMode = savedInferenceStatsDisplayMode,
+                    onDisplayModeChange = { mode ->
+                        coroutineScope.launch {
+                            settingsPreferences.saveInferenceStatsDisplayMode(mode)
+                        }
+                    },
                     localTraceForDev = selectedLocalTraceForDevSheet,
                     assistantText = selectedAssistantMessageTextForStatsSheet,
                     promptText = selectedPromptMessageTextForStatsSheet,
@@ -5493,6 +5503,8 @@ internal fun createAssistantMessage(
 @Composable
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
+    initialDisplayMode: InferenceStatsDisplayMode,
+    onDisplayModeChange: (InferenceStatsDisplayMode) -> Unit,
     localTraceForDev: LocalInferenceTrace? = null,
     assistantText: String? = null,
     promptText: String? = null,
@@ -5500,6 +5512,10 @@ private fun InferenceStatsSheetContent(
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
 ) {
+    var selectedDisplayMode by rememberSaveable { mutableStateOf(initialDisplayMode) }
+    LaunchedEffect(initialDisplayMode) {
+        selectedDisplayMode = initialDisplayMode
+    }
     var isDetailExpanded by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val clipboardManager = LocalClipboardManager.current
@@ -5508,6 +5524,7 @@ private fun InferenceStatsSheetContent(
 
     val sections = buildInferenceSummarySections(
         stats = stats,
+        displayMode = selectedDisplayMode,
         localTraceForDev = localTraceForDev,
         assistantText = assistantText,
         promptText = promptText,
@@ -5520,6 +5537,7 @@ private fun InferenceStatsSheetContent(
     }
     val detailSections = buildInferenceDetailSections(
         stats = stats,
+        displayMode = selectedDisplayMode,
         localTraceForDev = localTraceForDev,
         assistantText = assistantText,
         promptText = promptText,
@@ -5552,6 +5570,13 @@ private fun InferenceStatsSheetContent(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
+            InferenceStatsModeSelector(
+                selectedMode = selectedDisplayMode,
+                onModeSelected = { mode ->
+                    selectedDisplayMode = mode
+                    onDisplayModeChange(mode)
+                },
+            )
 
             InferenceModelInfoRow(
                 stats = stats,
@@ -5564,6 +5589,7 @@ private fun InferenceStatsSheetContent(
                         AnnotatedString(
                             buildInferenceStatsFullCopyText(
                                 stats = stats,
+                                displayMode = selectedDisplayMode,
                                 sections = sections,
                                 detailSections = detailSections,
                             ),
@@ -5580,10 +5606,12 @@ private fun InferenceStatsSheetContent(
                 }
             }
 
-            InferenceTimingBreakdownSection(stats)
-            InferenceContextUsageSection(stats)
+            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE) {
+                InferenceTimingBreakdownSection(stats)
+                InferenceContextUsageSection(stats)
+            }
 
-            if (shouldShowInferenceTimingNote(stats)) {
+            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE && shouldShowInferenceTimingNote(stats)) {
                 Text(
                     text = inferenceTimingNoteText(),
                     style = MaterialTheme.typography.bodySmall,
@@ -5591,24 +5619,26 @@ private fun InferenceStatsSheetContent(
                 )
             }
 
-            InferenceStatsCollapsibleSectionHeader(
-                expanded = isDetailExpanded,
-                onToggle = { isDetailExpanded = !isDetailExpanded },
-            )
+            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE) {
+                InferenceStatsCollapsibleSectionHeader(
+                    expanded = isDetailExpanded,
+                    onToggle = { isDetailExpanded = !isDetailExpanded },
+                )
 
-            AnimatedVisibility(visible = isDetailExpanded) {
-                Column(
-                    modifier = Modifier.testTag("inferenceStatsDetailContent"),
-                    verticalArrangement = Arrangement.spacedBy(sectionSpacing),
-                ) {
-                    detailSections.forEach { section ->
-                        InferenceStatsSection(title = section.title) {
-                            section.items.forEach { item ->
-                                InferenceStatRow(
-                                    label = item.label,
-                                    value = item.value,
-                                    emphasizeValue = item.emphasizeValue,
-                                )
+                AnimatedVisibility(visible = isDetailExpanded) {
+                    Column(
+                        modifier = Modifier.testTag("inferenceStatsDetailContent"),
+                        verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                    ) {
+                        detailSections.forEach { section ->
+                            InferenceStatsSection(title = section.title) {
+                                section.items.forEach { item ->
+                                    InferenceStatRow(
+                                        label = item.label,
+                                        value = item.value,
+                                        emphasizeValue = item.emphasizeValue,
+                                    )
+                                }
                             }
                         }
                     }
@@ -5681,6 +5711,7 @@ private fun resolveInferenceTargetForStats(
 
 internal fun buildInferenceStatsFullCopyText(
     stats: InferenceStats,
+    displayMode: InferenceStatsDisplayMode,
     sections: List<InferenceStatsSectionUi>,
     detailSections: List<InferenceStatsSectionUi>,
 ): String {
@@ -5699,48 +5730,83 @@ internal fun buildInferenceStatsFullCopyText(
             if (index != sections.lastIndex) appendLine()
         }
 
-        appendLine()
-        appendLine("[推論時間内訳]")
-        val breakdown = buildInferenceTimeBreakdown(stats)
-        if (breakdown == null) {
-            appendLine("—")
-        } else {
-            breakdown.segments.forEach { segment ->
-                appendLine("${segment.label}: ${segment.durationText} / ${segment.percent}%")
+        if (displayMode != InferenceStatsDisplayMode.SIMPLE) {
+            appendLine()
+            appendLine("[推論時間内訳]")
+            val breakdown = buildInferenceTimeBreakdown(stats)
+            if (breakdown == null) {
+                appendLine("—")
+            } else {
+                breakdown.segments.forEach { segment ->
+                    appendLine("${segment.label}: ${segment.durationText} / ${segment.percent}%")
+                }
+            }
+            appendLine()
+            appendLine("[コンテキスト使用量]")
+            when (val usage = buildContextUsageUi(stats)) {
+                null -> appendLine("—")
+                is ContextUsageUi.WithMax -> appendLine("${usage.used} / ${usage.max} tokens (${usage.percent}%)")
+                is ContextUsageUi.Loading -> {
+                    appendLine("使用トークン ${usage.used}")
+                    appendLine("上限取得中…")
+                }
+
+                is ContextUsageUi.WithoutMax -> {
+                    appendLine("使用トークン ${usage.used}")
+                    appendLine("上限未取得")
+                }
             }
         }
 
-        appendLine()
-        appendLine("[コンテキスト使用量]")
-        when (val usage = buildContextUsageUi(stats)) {
-            null -> appendLine("—")
-            is ContextUsageUi.WithMax -> appendLine("${usage.used} / ${usage.max} tokens (${usage.percent}%)")
-            is ContextUsageUi.Loading -> {
-                appendLine("使用トークン ${usage.used}")
-                appendLine("上限取得中…")
-            }
-
-            is ContextUsageUi.WithoutMax -> {
-                appendLine("使用トークン ${usage.used}")
-                appendLine("上限未取得")
-            }
-        }
-
-        appendLine()
-        appendLine("[詳細]")
-        if (detailSections.isEmpty()) {
-            appendLine("—")
-        } else {
-            detailSections.forEachIndexed { index, section ->
-                appendSectionAsPlainText(
-                    sectionTitle = section.title,
-                    items = section.items,
-                )
-                if (index != detailSections.lastIndex) appendLine()
+        if (displayMode != InferenceStatsDisplayMode.SIMPLE) {
+            appendLine()
+            appendLine("[詳細]")
+            if (detailSections.isEmpty()) {
+                appendLine("—")
+            } else {
+                detailSections.forEachIndexed { index, section ->
+                    appendSectionAsPlainText(
+                        sectionTitle = section.title,
+                        items = section.items,
+                    )
+                    if (index != detailSections.lastIndex) appendLine()
+                }
             }
         }
 
     }.trimEnd()
+}
+
+@Composable
+private fun InferenceStatsModeSelector(
+    selectedMode: InferenceStatsDisplayMode,
+    onModeSelected: (InferenceStatsDisplayMode) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        InferenceStatsDisplayMode.entries.forEach { mode ->
+            val isSelected = mode == selectedMode
+            TextButton(
+                onClick = { onModeSelected(mode) },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(
+                    text = when (mode) {
+                        InferenceStatsDisplayMode.SIMPLE -> "シンプル"
+                        InferenceStatsDisplayMode.DETAILED -> "詳細"
+                        InferenceStatsDisplayMode.DEVELOPER -> "DEV"
+                    },
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        }
+    }
 }
 
 private fun StringBuilder.appendSectionAsPlainText(
