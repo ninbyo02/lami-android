@@ -60,6 +60,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Card
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ElevatedButton
@@ -85,6 +88,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.DrawerValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.Dialog
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.runtime.Composable
@@ -5565,18 +5569,24 @@ private fun InferenceStatsSheetContent(
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(sectionSpacing),
         ) {
-            Text(
-                text = "推論統計",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            InferenceStatsModeSelector(
-                selectedMode = selectedDisplayMode,
-                onModeSelected = { mode ->
-                    selectedDisplayMode = mode
-                    onDisplayModeChange(mode)
-                },
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "推論統計",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                InferenceStatsModeSelector(
+                    selectedMode = selectedDisplayMode,
+                    onModeSelected = { mode ->
+                        selectedDisplayMode = mode
+                        onDisplayModeChange(mode)
+                    },
+                )
+            }
 
             InferenceModelInfoRow(
                 stats = stats,
@@ -5800,29 +5810,68 @@ private fun InferenceStatsModeSelector(
     selectedMode: InferenceStatsDisplayMode,
     onModeSelected: (InferenceStatsDisplayMode) -> Unit,
 ) {
+    val modeButtons = listOf(
+        Triple(
+            InferenceStatsDisplayMode.SIMPLE,
+            Icons.Outlined.Visibility,
+            "推論統計表示モード: シンプル",
+        ),
+        Triple(
+            InferenceStatsDisplayMode.DETAILED,
+            Icons.Outlined.Tune,
+            "推論統計表示モード: 詳細",
+        ),
+        Triple(
+            InferenceStatsDisplayMode.DEVELOPER,
+            Icons.Outlined.Code,
+            "推論統計表示モード: DEV",
+        ),
+    )
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        InferenceStatsDisplayMode.entries.forEach { mode ->
-            val isSelected = mode == selectedMode
-            TextButton(
+        modeButtons.forEach { (mode, icon, description) ->
+            InferenceStatsModeIconButton(
+                icon = icon,
+                contentDescription = description,
+                selected = mode == selectedMode,
                 onClick = { onModeSelected(mode) },
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(
-                    text = when (mode) {
-                        InferenceStatsDisplayMode.SIMPLE -> "シンプル"
-                        InferenceStatsDisplayMode.DETAILED -> "詳細"
-                        InferenceStatsDisplayMode.DEVELOPER -> "DEV"
-                    },
-                    color = if (isSelected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-            }
+            )
+        }
+    }
+}
+
+@Composable
+private fun InferenceStatsModeIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            Color.Transparent
+        },
+    ) {
+        Box(
+            modifier = Modifier.size(32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
         }
     }
 }
