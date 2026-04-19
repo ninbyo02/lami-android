@@ -589,10 +589,10 @@ fun Home(
     var didReceiveRealLocalPartial by remember(effectiveChatId) { mutableStateOf(false) }
     var realLocalPartialChunkCount by remember(effectiveChatId) { mutableStateOf(0) }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
-    var pendingLocalUserMessageText by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingLocalUserMessageCreatedAtMs by rememberSaveable { mutableStateOf<Long?>(null) }
-    var pendingLocalUserMessageChatId by rememberSaveable { mutableStateOf<Int?>(null) }
-    var pendingLocalUserMessageVisible by rememberSaveable { mutableStateOf(false) }
+    var pendingLocalOverlayText by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingLocalOverlaySendEpoch by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingLocalOverlayResolvedChatId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var pendingLocalOverlayVisible by rememberSaveable { mutableStateOf(false) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
@@ -625,7 +625,7 @@ fun Home(
         else -> null
     }
     val showLocalRespondingAssistantRow = isLocalRunningUi && streamingAssistantMessageId == null
-    val shouldClearPendingLocalUserOnAssistantStart =
+    val shouldClearPendingLocalOverlayOnAssistantStart =
         streamingAssistantMessageId != null ||
             !localStreamingResponseText.isNullOrBlank() ||
             showLocalRespondingAssistantRow
@@ -744,15 +744,15 @@ fun Home(
         appendLocalReflectionTrace(context.applicationContext, message)
     }
 
-    fun clearPendingLocalUserMessage(reason: String) {
+    fun clearPendingLocalOverlay(reason: String) {
         debugLocalUiTrace(
             label = "LOCAL_UI_PENDING_CLEAR",
-            extra = "reason=$reason effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} isCreatingChat=$isCreatingChat",
+            extra = "reason=$reason effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId pendingLocalOverlayTextLength=${pendingLocalOverlayText?.length ?: 0} isCreatingChat=$isCreatingChat",
         )
-        pendingLocalUserMessageVisible = false
-        pendingLocalUserMessageText = null
-        pendingLocalUserMessageCreatedAtMs = null
-        pendingLocalUserMessageChatId = null
+        pendingLocalOverlayVisible = false
+        pendingLocalOverlayText = null
+        pendingLocalOverlaySendEpoch = null
+        pendingLocalOverlayResolvedChatId = null
     }
 
     fun resetStreamingSpeechState(clearPlaybackFlag: Boolean = true) {
@@ -1107,7 +1107,7 @@ fun Home(
         }
         debugLocalUiTrace(
             label = "LOCAL_UI_EFFECT_CHATID",
-            extra = "chatId=$chatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId",
+            extra = "chatId=$chatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId",
         )
     }
 
@@ -1115,7 +1115,7 @@ fun Home(
         val targetChatId = pendingNavigateChatId ?: return@LaunchedEffect
         debugLocalUiTrace(
             label = "LOCAL_UI_EFFECT_NAVIGATE_START",
-            extra = "targetChatId=$targetChatId effectiveChatId=$effectiveChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId",
+            extra = "targetChatId=$targetChatId effectiveChatId=$effectiveChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId",
         )
         try {
             if (drawerState.isOpen) {
@@ -1130,18 +1130,18 @@ fun Home(
         } finally {
             debugLocalUiTrace(
                 label = "LOCAL_UI_EFFECT_NAVIGATE_END",
-                extra = "targetChatId=$targetChatId effectiveChatId=$effectiveChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId",
+                extra = "targetChatId=$targetChatId effectiveChatId=$effectiveChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId",
             )
             pendingNavigateChatId = null
             suppressChatContentWhileClosingDrawer = false
         }
     }
 
-    LaunchedEffect(chatId, chats, pendingNavigateChatId, pendingLocalUserMessageVisible) {
+    LaunchedEffect(chatId, chats, pendingNavigateChatId, pendingLocalOverlayVisible) {
         val resolvedChatId = resolveDefaultChatId(chatId, chats)
         debugLocalUiTrace(
             label = "LOCAL_UI_EFFECT_RESOLVE_START",
-            extra = "chatId=$chatId resolvedChatId=$resolvedChatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible isCreatingChat=$isCreatingChat suppressAutoNewChat=$suppressAutoNewChat",
+            extra = "chatId=$chatId resolvedChatId=$resolvedChatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible isCreatingChat=$isCreatingChat suppressAutoNewChat=$suppressAutoNewChat",
         )
         if (pendingNavigateChatId == null) {
             effectiveChatId = resolvedChatId
@@ -1149,7 +1149,7 @@ fun Home(
 
         if (
             pendingNavigateChatId == null &&
-            !pendingLocalUserMessageVisible &&
+            !pendingLocalOverlayVisible &&
             shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)
         ) {
             isCreatingChat = true
@@ -1166,8 +1166,17 @@ fun Home(
         }
         debugLocalUiTrace(
             label = "LOCAL_UI_EFFECT_RESOLVE_END",
-            extra = "chatId=$chatId resolvedChatId=$resolvedChatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible isCreatingChat=$isCreatingChat suppressAutoNewChat=$suppressAutoNewChat",
+            extra = "chatId=$chatId resolvedChatId=$resolvedChatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible isCreatingChat=$isCreatingChat suppressAutoNewChat=$suppressAutoNewChat",
         )
+    }
+
+    LaunchedEffect(chatId, pendingLocalOverlayVisible, pendingLocalOverlayResolvedChatId) {
+        val pendingChatId = pendingLocalOverlayResolvedChatId ?: return@LaunchedEffect
+        val currentChatId = chatId ?: return@LaunchedEffect
+        if (!pendingLocalOverlayVisible) return@LaunchedEffect
+        if (currentChatId != pendingChatId) {
+            clearPendingLocalOverlay(reason = "chat-switched")
+        }
     }
 
     LaunchedEffect(sortedChats) {
@@ -1815,7 +1824,7 @@ fun Home(
                                                 if (isInferenceRunningUi) {
                                                     if (isLocalRunningRaw) {
                                                         localStopRequested = true
-                                                        clearPendingLocalUserMessage(reason = "stop")
+                                                        clearPendingLocalOverlay(reason = "stop")
                                                         localInferenceJob?.cancel()
                                                         localInferenceJob = null
                                                         effectiveChatId?.let { currentChatId ->
@@ -1941,20 +1950,24 @@ fun Home(
                                                     if (requestPrompt.isBlank()) return@IconButton
                                                     debugLocalUiTrace(
                                                         label = "LOCAL_UI_SEND_TAPPED",
-                                                        extra = "selectedInferenceTarget=$selectedInferenceTarget effectiveChatId=$effectiveChatId userPromptLength=${userPrompt.length} pendingVisibleBefore=$pendingLocalUserMessageVisible",
+                                                        extra = "selectedInferenceTarget=$selectedInferenceTarget effectiveChatId=$effectiveChatId userPromptLength=${userPrompt.length} pendingVisibleBefore=$pendingLocalOverlayVisible",
                                                     )
-                                                    pendingLocalUserMessageText = requestPrompt
-                                                    pendingLocalUserMessageCreatedAtMs = System.currentTimeMillis()
-                                                    pendingLocalUserMessageChatId = effectiveChatId
-                                                    pendingLocalUserMessageVisible = true
+                                                    pendingLocalOverlayText = requestPrompt
+                                                    pendingLocalOverlaySendEpoch = SystemClock.elapsedRealtime()
+                                                    pendingLocalOverlayResolvedChatId = effectiveChatId
+                                                    pendingLocalOverlayVisible = true
                                                     prompt = ""
                                                     userPrompt = ""
                                                     selectedImageUriStrings = emptyList()
                                                     localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                     localStopRequested = false
                                                     debugLocalUiTrace(
+                                                        label = "LOCAL_UI_INPUT_CLEARED",
+                                                        extra = "userPromptLengthAfterClear=${userPrompt.length} selectedImageCount=${selectedImageUriStrings.size}",
+                                                    )
+                                                    debugLocalUiTrace(
                                                         label = "LOCAL_UI_PENDING_ARMED",
-                                                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} userPromptLengthAfterClear=${userPrompt.length}",
+                                                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId pendingLocalOverlayTextLength=${pendingLocalOverlayText?.length ?: 0} userPromptLengthAfterClear=${userPrompt.length}",
                                                     )
                                                     stopTtsWithCleanup(
                                                         suppressedMessageId = stopButtonOwnerAssistantMessageId
@@ -1964,26 +1977,32 @@ fun Home(
                                                     )
                                                     localInferenceJob = coroutineScope.launch {
                                                         debugLocalUiTrace(
+                                                            label = "LOCAL_UI_BG_WORK_START",
+                                                            extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId",
+                                                        )
+                                                        debugLocalUiTrace(
                                                             label = "LOCAL_UI_LAUNCH_ENTER",
-                                                            extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId isCreatingChat=$isCreatingChat",
+                                                            extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId isCreatingChat=$isCreatingChat",
                                                         )
                                                         var currentChatId = effectiveChatId
                                                         if (currentChatId == null) {
                                                             debugLocalUiTrace(
-                                                                label = "LOCAL_UI_CREATE_CHAT_START",
+                                                                label = "LOCAL_UI_CHAT_CREATE_START",
                                                                 extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId isCreatingChat=$isCreatingChat",
                                                             )
                                                             isCreatingChat = true
                                                             try {
-                                                                val newChatId = viewModel.insertChatAndReturnId(
-                                                                    Chat(title = "New chat", titleSource = TitleSource.TEMP)
-                                                                )
+                                                                val newChatId = withContext(Dispatchers.IO) {
+                                                                    viewModel.insertChatAndReturnId(
+                                                                        Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                                                                    )
+                                                                }
                                                                 effectiveChatId = newChatId
                                                                 pendingNavigateChatId = newChatId
-                                                                pendingLocalUserMessageChatId = newChatId
+                                                                pendingLocalOverlayResolvedChatId = newChatId
                                                                 debugLocalUiTrace(
-                                                                    label = "LOCAL_UI_CREATE_CHAT_DONE",
-                                                                    extra = "newChatId=$newChatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId",
+                                                                    label = "LOCAL_UI_CHAT_CREATE_DONE",
+                                                                    extra = "newChatId=$newChatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId",
                                                                 )
                                                                 currentChatId = newChatId
                                                             } finally {
@@ -1993,18 +2012,20 @@ fun Home(
                                                         val resolvedChatId = currentChatId
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_USER_INSERT_START",
-                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId",
+                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId",
                                                         )
-                                                        viewModel.insert(
-                                                            Message(
-                                                                chatId = resolvedChatId,
-                                                                message = requestPrompt,
-                                                                isSendbyMe = true,
+                                                        withContext(Dispatchers.IO) {
+                                                            viewModel.insert(
+                                                                Message(
+                                                                    chatId = resolvedChatId,
+                                                                    message = requestPrompt,
+                                                                    isSendbyMe = true,
+                                                                )
                                                             )
-                                                        )
+                                                        }
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_USER_INSERT_DONE",
-                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId",
+                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId",
                                                         )
                                                         appendLocalReflectionTrace(
                                                             context = context.applicationContext,
@@ -2033,36 +2054,41 @@ fun Home(
                                                                 message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
                                                             )
                                                             var mediaPipeProbeModelPathForRun: String? = null
-                                                            val modelResolution = resolveLocalModelResolutionOrNull(
-                                                                context = context.applicationContext,
-                                                                settingsPreferences = settingsPreferences,
-                                                                localBaseModelFilePath = localBaseModelFilePath,
-                                                                localBaseModelDisplayName = localBaseModelDisplayName,
+                                                            debugLocalUiTrace(
+                                                                label = "LOCAL_UI_ENGINE_INIT_START",
+                                                                extra = "chatId=$currentChatId",
                                                             )
-                                                            val useHeldPathOnlyForDev = BuildConfig.DEBUG && DEV_USE_HELD_PATH_ONLY
-                                                            appendLocalReflectionTrace(
-                                                                context = context.applicationContext,
-                                                                message = "UPSTREAM held-only mode enabled=$useHeldPathOnlyForDev",
-                                                            )
-                                                            val runResult = if (modelResolution == null) {
+                                                            val runResult = withContext(Dispatchers.Default) {
+                                                                val modelResolution = resolveLocalModelResolutionOrNull(
+                                                                    context = context.applicationContext,
+                                                                    settingsPreferences = settingsPreferences,
+                                                                    localBaseModelFilePath = localBaseModelFilePath,
+                                                                    localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                )
+                                                                val useHeldPathOnlyForDev = BuildConfig.DEBUG && DEV_USE_HELD_PATH_ONLY
                                                                 appendLocalReflectionTrace(
                                                                     context = context.applicationContext,
-                                                                    message = "UPSTREAM held-skip reason=model-path-unresolved",
+                                                                    message = "UPSTREAM held-only mode enabled=$useHeldPathOnlyForDev",
                                                                 )
-                                                                if (useHeldPathOnlyForDev) {
+                                                                if (modelResolution == null) {
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
-                                                                        message = "UPSTREAM held-only fail reason=resolved-model-path-null",
+                                                                        message = "UPSTREAM held-skip reason=model-path-unresolved",
                                                                     )
-                                                                    LocalInferenceRunResult(
-                                                                        state = LocalInferenceEngineState.ERROR,
-                                                                        response = "DEV held path failure: model path unresolved",
-                                                                    )
+                                                                    if (useHeldPathOnlyForDev) {
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM held-only fail reason=resolved-model-path-null",
+                                                                        )
+                                                                        LocalInferenceRunResult(
+                                                                            state = LocalInferenceEngineState.ERROR,
+                                                                            response = "DEV held path failure: model path unresolved",
+                                                                        )
+                                                                    } else {
+                                                                        LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
+                                                                    }
                                                                 } else {
-                                                                    LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
-                                                                }
-                                                            } else {
-                                                                val resolvedModelPath = modelResolution.modelPath
+                                                                    val resolvedModelPath = modelResolution.modelPath
                                                                 mediaPipeProbeModelPathForRun = resolvedModelPath
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
                                                                 var legacyFallbackReason: String? = null
@@ -2126,27 +2152,31 @@ fun Home(
                                                                     }
                                                                 }
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine == null) {
-                                                                    devDebugText = buildString {
-                                                                        append("DEV HELD FAILURE\n")
-                                                                        append("modelPath=").append(resolvedModelPath).append("\n")
-                                                                        append("held=").append(false).append("\n")
-                                                                        append("heldHash=").append(-1).append("\n")
-                                                                        append("useCount=").append(-1).append("\n")
-                                                                        append("stage=").append(heldAcquireFailureStage ?: "unknown").append("\n")
-                                                                        append("class=").append(heldAcquireFailureClassName ?: "unknown").append("\n")
-                                                                        append("message=").append(heldAcquireFailureMessage ?: "no message").append("\n")
-                                                                        append("helper=").append(heldOfficialHelperProgress ?: "not-started").append("\n")
+                                                                    coroutineScope.launch {
+                                                                        devDebugText = buildString {
+                                                                            append("DEV HELD FAILURE\n")
+                                                                            append("modelPath=").append(resolvedModelPath).append("\n")
+                                                                            append("held=").append(false).append("\n")
+                                                                            append("heldHash=").append(-1).append("\n")
+                                                                            append("useCount=").append(-1).append("\n")
+                                                                            append("stage=").append(heldAcquireFailureStage ?: "unknown").append("\n")
+                                                                            append("class=").append(heldAcquireFailureClassName ?: "unknown").append("\n")
+                                                                            append("message=").append(heldAcquireFailureMessage ?: "no message").append("\n")
+                                                                            append("helper=").append(heldOfficialHelperProgress ?: "not-started").append("\n")
+                                                                        }
                                                                     }
                                                                 }
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
-                                                                    devHeldStateText = buildString {
-                                                                        append("HELD ENGINE STATE\n")
-                                                                        append("modelPath=").append(resolvedModelPath).append("\n")
-                                                                        append("backendKey=").append(modelResolution.backendKey).append("\n")
-                                                                        append("cacheDirPath=").append(modelResolution.cacheDirPath).append("\n")
-                                                                        append("heldExists=").append(heldEngine != null).append("\n")
-                                                                        append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
-                                                                        append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
+                                                                    coroutineScope.launch {
+                                                                        devHeldStateText = buildString {
+                                                                            append("HELD ENGINE STATE\n")
+                                                                            append("modelPath=").append(resolvedModelPath).append("\n")
+                                                                            append("backendKey=").append(modelResolution.backendKey).append("\n")
+                                                                            append("cacheDirPath=").append(modelResolution.cacheDirPath).append("\n")
+                                                                            append("heldExists=").append(heldEngine != null).append("\n")
+                                                                            append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
+                                                                            append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
+                                                                        }
                                                                     }
                                                                 }
                                                                 heldEngine?.let { held ->
@@ -2157,7 +2187,7 @@ fun Home(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-acquire success namespace=${held.namespace} modelPathTail=$modelPathTail engineClass=${held::class.java.name}",
                                                                     )
-                                                                    devDebugText = null
+                                                                    coroutineScope.launch { devDebugText = null }
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-run start modelPathTail=$modelPathTail",
@@ -2174,12 +2204,12 @@ fun Home(
                                                                             if (localStopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = partial.trim()
                                                                             if (normalizedPartial.isBlank()) return@runWithHeldEngine
-                                                                            didReceiveRealLocalPartial = true
-                                                                            realLocalPartialChunkCount += 1
-                                                                            localStreamingResponseText = normalizedPartial
                                                                             coroutineScope.launch {
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                 if (localStopRequested) return@launch
+                                                                                didReceiveRealLocalPartial = true
+                                                                                realLocalPartialChunkCount += 1
+                                                                                localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
                                                                                     response = normalizedPartial,
@@ -2198,7 +2228,7 @@ fun Home(
                                                                             context = context.applicationContext,
                                                                             message = "UPSTREAM held-run success responseLength=${heldRunResult.responseText.length} partialCount=${heldRunResult.partialCount} officialFlowUsed=${heldRunResult.officialFlowUsed} namespace=${heldRunResult.namespace}",
                                                                         )
-                                                                        devDebugText = null
+                                                                        coroutineScope.launch { devDebugText = null }
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
                                                                             message = "UPSTREAM held-run final source=${if (heldRunResult.officialFlowUsed) "held-official-flow" else "held-official-blocking"} closePath=${heldRunResult.closeLifecycleSummary?.path ?: "none"}",
@@ -2239,12 +2269,12 @@ fun Home(
                                                                                     if (localStopRequested) return@legacyPartial
                                                                                     val normalizedPartial = partial.trim()
                                                                                     if (normalizedPartial.isBlank()) return@legacyPartial
-                                                                                    didReceiveRealLocalPartial = true
-                                                                                    realLocalPartialChunkCount += 1
-                                                                                    localStreamingResponseText = normalizedPartial
                                                                                     coroutineScope.launch {
                                                                                         if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                         if (localStopRequested) return@launch
+                                                                                        didReceiveRealLocalPartial = true
+                                                                                        realLocalPartialChunkCount += 1
+                                                                                        localStreamingResponseText = normalizedPartial
                                                                                         upsertStreamingAssistantPlaceholderSerialized(
                                                                                             chatId = currentChatId,
                                                                                             response = normalizedPartial,
@@ -2273,7 +2303,7 @@ fun Home(
                                                                                 append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
                                                                                 append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
                                                                             }
-                                                                            devDebugText = failReason
+                                                                            coroutineScope.launch { devDebugText = failReason }
                                                                         }
                                                                         return@run LocalInferenceRunResult(
                                                                             state = LocalInferenceEngineState.ERROR,
@@ -2302,12 +2332,12 @@ fun Home(
                                                                             if (localStopRequested) return@legacyPartial
                                                                             val normalizedPartial = partial.trim()
                                                                             if (normalizedPartial.isBlank()) return@legacyPartial
-                                                                            didReceiveRealLocalPartial = true
-                                                                            realLocalPartialChunkCount += 1
-                                                                            localStreamingResponseText = normalizedPartial
                                                                             coroutineScope.launch {
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                 if (localStopRequested) return@launch
+                                                                                didReceiveRealLocalPartial = true
+                                                                                realLocalPartialChunkCount += 1
+                                                                                localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
                                                                                     response = normalizedPartial,
@@ -2321,7 +2351,12 @@ fun Home(
                                                                     )
                                                                     legacyRunResult
                                                                 }
+                                                                }
                                                             }
+                                                            debugLocalUiTrace(
+                                                                label = "LOCAL_UI_ENGINE_INIT_DONE",
+                                                                extra = "chatId=$currentChatId state=${runResult?.state}",
+                                                            )
                                                             localInferenceEngineState = runResult?.state
                                                                 ?: LocalInferenceEngineState.ERROR
                                                             val localGenerationTimeMs =
@@ -2532,7 +2567,7 @@ fun Home(
                                                             }
                                                             localStreamingResponseText = null
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
-                                                            clearPendingLocalUserMessage(reason = "error")
+                                                            clearPendingLocalOverlay(reason = "error")
                                                             isLocalInferenceRunning = false
                                                             localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
@@ -2562,7 +2597,7 @@ fun Home(
                                                             localStreamingResponseText = null
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
-                                                            clearPendingLocalUserMessage(reason = "error")
+                                                            clearPendingLocalOverlay(reason = "error")
                                                             effectiveChatId?.let { chatId ->
                                                                 localInferenceEngineHolder.resetConversation(
                                                                     chatId = chatId,
@@ -2716,32 +2751,37 @@ fun Home(
         ) {
             val contentModifier = Modifier
                 .fillMaxSize()
-            val pendingLocalUserMessageTextValue = pendingLocalUserMessageText.orEmpty()
-            val shouldShowPendingLocalUserOverlay =
-                pendingLocalUserMessageVisible && pendingLocalUserMessageTextValue.isNotBlank()
-            val isPendingLocalUserMessageMatchedInDb = run {
-                val pendingText = pendingLocalUserMessageText?.takeIf { it.isNotBlank() } ?: return@run false
-                val pendingChatId = pendingLocalUserMessageChatId ?: return@run false
-                allChatsOrNull?.any { message ->
-                    message.chatId == pendingChatId &&
-                        message.isSendbyMe &&
-                        message.message == pendingText
-                } == true
-            }
+            val pendingLocalOverlayTextValue = pendingLocalOverlayText.orEmpty()
+            val shouldShowPendingLocalOverlay =
+                pendingLocalOverlayVisible && pendingLocalOverlayTextValue.isNotBlank()
             LaunchedEffect(
-                shouldShowPendingLocalUserOverlay,
-                pendingLocalUserMessageTextValue,
-                pendingLocalUserMessageVisible,
+                shouldShowPendingLocalOverlay,
+                pendingLocalOverlayTextValue,
+                pendingLocalOverlayVisible,
+                pendingLocalOverlaySendEpoch,
                 pendingNavigateChatId,
                 effectiveChatId,
                 allChatsOrNull == null,
                 isCreatingChat,
-                isPendingLocalUserMessageMatchedInDb,
             ) {
                 debugLocalUiTrace(
                     label = "LOCAL_UI_OVERLAY_RENDER",
-                    extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingVisible=$pendingLocalUserMessageVisible pendingTextLength=${pendingLocalUserMessageTextValue.length} allChatsNull=${allChatsOrNull == null} isCreatingChat=$isCreatingChat matchedInDb=$isPendingLocalUserMessageMatchedInDb",
+                    extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingVisible=$pendingLocalOverlayVisible pendingTextLength=${pendingLocalOverlayTextValue.length} pendingSendEpoch=$pendingLocalOverlaySendEpoch allChatsNull=${allChatsOrNull == null} isCreatingChat=$isCreatingChat",
                 )
+            }
+            LaunchedEffect(
+                shouldClearPendingLocalOverlayOnAssistantStart,
+                pendingLocalOverlayVisible,
+                pendingLocalOverlayText,
+                pendingLocalOverlayResolvedChatId,
+            ) {
+                if (!pendingLocalOverlayVisible) return@LaunchedEffect
+                if (!shouldClearPendingLocalOverlayOnAssistantStart) return@LaunchedEffect
+                debugLocalUiTrace(
+                    label = "LOCAL_UI_ASSISTANT_START",
+                    extra = "effectiveChatId=$effectiveChatId showLocalRespondingAssistantRow=$showLocalRespondingAssistantRow localStreamingBlank=${localStreamingResponseText.isNullOrBlank()} streamingAssistantMessageId=$streamingAssistantMessageId",
+                )
+                clearPendingLocalOverlay(reason = "assistant-started")
             }
 
             if (effectiveChatId == null) {
@@ -2782,42 +2822,6 @@ fun Home(
                         )
                     }
                     messagesForListBase
-                }
-                LaunchedEffect(
-                    effectiveChatId,
-                    messagesForListBase,
-                    pendingLocalUserMessageText,
-                    pendingLocalUserMessageChatId,
-                    pendingLocalUserMessageVisible,
-                ) {
-                    if (!pendingLocalUserMessageVisible) return@LaunchedEffect
-                    val pendingText = pendingLocalUserMessageText?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
-                    val pendingChatId = pendingLocalUserMessageChatId ?: return@LaunchedEffect
-                    val isMatched = messagesForListBase.any { message ->
-                        message.chatId == pendingChatId &&
-                            message.isSendbyMe &&
-                            message.message == pendingText
-                    }
-                    if (isMatched) {
-                        debugLocalUiTrace(
-                            label = "LOCAL_UI_PENDING_MATCHED_IN_DB",
-                            extra = "pendingChatId=$pendingChatId pendingTextLength=${pendingText.length} messagesForListBaseSize=${messagesForListBase.size}",
-                        )
-                        debugLocalUiTrace(
-                            label = "LOCAL_UI_PENDING_KEPT_AFTER_DB_MATCH",
-                            extra = "pendingChatId=$pendingChatId pendingTextLength=${pendingText.length}",
-                        )
-                    }
-                }
-                LaunchedEffect(
-                    shouldClearPendingLocalUserOnAssistantStart,
-                    pendingLocalUserMessageVisible,
-                    pendingLocalUserMessageText,
-                    pendingLocalUserMessageChatId,
-                ) {
-                    if (!pendingLocalUserMessageVisible) return@LaunchedEffect
-                    if (!shouldClearPendingLocalUserOnAssistantStart) return@LaunchedEffect
-                    clearPendingLocalUserMessage(reason = "assistant-started")
                 }
                 LaunchedEffect(effectiveChatId, messagesForList.size, messagesForList.lastOrNull()?.messageID) {
                     if (!BuildConfig.DEBUG) return@LaunchedEffect
@@ -3224,7 +3228,7 @@ fun Home(
                     }
                 }
             }
-            if (shouldShowPendingLocalUserOverlay && !isPendingLocalUserMessageMatchedInDb) {
+            if (shouldShowPendingLocalOverlay) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -3232,7 +3236,7 @@ fun Home(
                     contentAlignment = Alignment.TopEnd,
                 ) {
                     ChatBubble(
-                        message = pendingLocalUserMessageTextValue,
+                        message = pendingLocalOverlayTextValue,
                         isSentByMe = true,
                         attachmentUriString = null,
                         attachmentUriStringsJson = null,
