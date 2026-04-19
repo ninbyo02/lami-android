@@ -2675,7 +2675,24 @@ fun Home(
                     Text(if (isCreatingChat) "Creating new chat..." else "Preparing chat...")
                 }
             } else if (allChatsOrNull == null) {
-                Box(modifier = contentModifier)
+                val shouldShowPendingLocalUserBubble =
+                    pendingLocalUserMessageVisible && !pendingLocalUserMessageText.isNullOrBlank()
+                if (shouldShowPendingLocalUserBubble) {
+                    Log.i("ChatScreen", "LOCAL pending bubble bridge visible while chat list is loading")
+                    Column(
+                        modifier = contentModifier.padding(top = effectiveTopGradientBottomDp),
+                        verticalArrangement = Arrangement.Top,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        ChatBubble(
+                            message = pendingLocalUserMessageText.orEmpty(),
+                            isSentByMe = true,
+                        )
+                        Text("Loading messages...")
+                    }
+                } else {
+                    Box(modifier = contentModifier)
+                }
             } else {
                 val currentChatId = effectiveChatId
                 val messagesForListBase: List<Message> = allChatsOrNull
