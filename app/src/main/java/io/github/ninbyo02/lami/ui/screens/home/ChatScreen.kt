@@ -3212,11 +3212,13 @@ fun Home(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = effectiveTopGradientBottomDp),
+                    contentAlignment = Alignment.TopEnd,
                 ) {
                     ChatBubble(
                         message = pendingLocalUserMessageTextValue,
                         isSentByMe = true,
-                        modifier = Modifier.align(Alignment.TopEnd),
+                        attachmentUriString = null,
+                        attachmentUriStringsJson = null,
                     )
                 }
             }
