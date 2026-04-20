@@ -75,7 +75,7 @@ private fun parseOpeningFence(line: String): OpeningFence? {
     if (!trimmed.startsWith("```")) {
         return null
     }
-    val suffix = trimmed.removePrefix("```")
+    val suffix = trimmed.removePrefix("```").trim()
     if (suffix.contains("`") || suffix.contains(' ')) {
         return null
     }

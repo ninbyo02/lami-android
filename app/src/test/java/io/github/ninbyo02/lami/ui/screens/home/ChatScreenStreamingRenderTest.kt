@@ -1,0 +1,37 @@
+package io.github.ninbyo02.lami.ui.screens.home
+
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class ChatScreenStreamingRenderTest {
+
+    @Test
+    fun shouldRefreshRender_shortDeltaWithoutNewline_returnsFalse() {
+        assertFalse(
+            shouldRefreshRender(
+                prev = "hello",
+                next = "hello world",
+                isStreaming = true,
+            )
+        )
+    }
+
+    @Test
+    fun shouldRefreshRender_newlineOrLongDelta_returnsTrue() {
+        assertTrue(
+            shouldRefreshRender(
+                prev = "hello",
+                next = "hello\nworld",
+                isStreaming = true,
+            )
+        )
+        assertTrue(
+            shouldRefreshRender(
+                prev = "hello",
+                next = "hello 12345678901234567890123456789012",
+                isStreaming = true,
+            )
+        )
+    }
+}

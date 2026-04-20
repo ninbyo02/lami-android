@@ -625,6 +625,7 @@ private fun decodeAttachmentUriStrings(attachmentUriStringsJson: String?): List<
 fun PlainAssistantMessage(
     message: String,
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+    isStreaming: Boolean = false,
     showMessageActions: Boolean = false,
     isReplaying: Boolean = false,
     onReplayClick: (() -> Unit)? = null,
@@ -633,7 +634,13 @@ fun PlainAssistantMessage(
     inferenceStats: InferenceStats? = null,
     onInferenceStatsClick: (() -> Unit)? = null,
 ) {
-    val segments = remember(message) { parseFencedCodeSegments(message) }
+    val streamingSplit = remember(message, isStreaming) {
+        if (isStreaming) splitStreamingText(message) else StreamingSplit(stable = message, unstable = "")
+    }
+    val segments = remember(streamingSplit.stable) { parseFencedCodeSegments(streamingSplit.stable) }
+    val shouldRenderUnstableAsCode = remember(streamingSplit.unstable, isStreaming) {
+        isStreaming && shouldTreatAsProvisionalCode(streamingSplit.unstable)
+    }
     val inferenceSummary = remember(inferenceStats) { inferenceStats?.let(::buildInferenceSummary) }
 
     Column(
@@ -646,6 +653,23 @@ fun PlainAssistantMessage(
             segments = segments,
             enableTextSelection = true,
         )
+        val unstableTail = streamingSplit.unstable
+        if (unstableTail.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            if (shouldRenderUnstableAsCode) {
+                CodeBlockCard(
+                    lang = detectProvisionalLanguage(unstableTail),
+                    code = unstableTail,
+                    isClosed = false,
+                )
+            } else {
+                Text(
+                    text = unstableTail,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
         if (showMessageActions) {
             Row(
                 modifier = Modifier
@@ -701,6 +725,60 @@ fun PlainAssistantMessage(
                 }
             }
         }
+    }
+}
+
+data class StreamingSplit(
+    val stable: String,
+    val unstable: String,
+)
+
+fun splitStreamingText(text: String): StreamingSplit {
+    if (text.isEmpty()) return StreamingSplit(stable = "", unstable = "")
+    val lines = text.lines()
+    val trailingLine = lines.lastOrNull().orEmpty()
+    val hasTrailingNewLine = text.endsWith("\n")
+    val unclosedFence = text.split("```").size % 2 == 0
+    val shortTail = trailingLine.length in 1..31
+    val codeLikeTail = shouldTreatAsProvisionalCode(trailingLine)
+    val shouldSplitTail = !hasTrailingNewLine && trailingLine.isNotBlank() && (unclosedFence || codeLikeTail || shortTail)
+    if (!shouldSplitTail) {
+        return StreamingSplit(stable = text, unstable = "")
+    }
+
+    val stablePart = text.removeSuffix(trailingLine).removeSuffix("\n")
+    return StreamingSplit(stable = stablePart, unstable = trailingLine)
+}
+
+fun isPythonFusionStart(text: String): Boolean {
+    val normalized = text.trimStart()
+    if (!normalized.startsWith("python")) return false
+    val tail = normalized.removePrefix("python").trimStart()
+    return tail.startsWith("import") || tail.startsWith("def") || tail.startsWith("class") || tail.startsWith("for")
+}
+
+fun shouldTreatAsProvisionalCode(text: String): Boolean {
+    val trimmed = text.trim()
+    if (trimmed.isBlank()) return false
+    if (trimmed in setOf("python", "kotlin", "bash", "json")) return true
+    if (isPythonFusionStart(trimmed)) return true
+
+    var score = 0
+    val tokens = listOf("import", "=", "()", ":", "{}", "for ", "while ")
+    score += tokens.count { token -> trimmed.contains(token) }
+    if (trimmed.contains('{') || trimmed.contains('}')) score += 1
+    if (text.startsWith("    ") || text.startsWith("\t")) score += 1
+    return score >= 2
+}
+
+private fun detectProvisionalLanguage(text: String): String? {
+    val trimmed = text.trimStart()
+    return when {
+        trimmed.startsWith("python") -> "python"
+        trimmed.startsWith("fun ") || trimmed.startsWith("val ") || trimmed.startsWith("class ") -> "kotlin"
+        trimmed.startsWith("{") || trimmed.startsWith("[") -> "json"
+        trimmed.startsWith("$") || trimmed.startsWith("#!/bin/bash") -> "bash"
+        else -> null
     }
 }
 
@@ -968,7 +1046,8 @@ private fun CodeBlockCard(
                             modifier = Modifier.horizontalScroll(rememberScrollState()),
                             fontFamily = FontFamily.Monospace,
                             style = codeTextStyle,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            softWrap = false,
                         )
                     }
                 }
