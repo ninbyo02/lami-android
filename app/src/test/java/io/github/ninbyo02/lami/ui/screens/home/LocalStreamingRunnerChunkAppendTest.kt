@@ -486,6 +486,39 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `fenced python でコメント行の後に assignment が来たら新しい論理行に分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "# ブロックの色", "blocked_colors = COLORS[:6]", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\n# ブロックの色\nblocked_colors = COLORS[:6]\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python でコメント行の後に def が来たら新しい論理行に分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "# 初期化", "def build():", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\n# 初期化\ndef build():\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python でコメント continuation は維持しつつ次の assignment を分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "# ブロック", "の色", "blocked_colors = COLORS[:6]", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\n# ブロックの色\nblocked_colors = COLORS[:6]\n```", builder.toString())
+    }
+
+    @Test
     fun `prose lane の C sharp と日本語は従来どおり連結する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
