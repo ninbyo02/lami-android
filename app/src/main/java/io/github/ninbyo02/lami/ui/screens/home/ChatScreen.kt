@@ -3356,6 +3356,8 @@ fun Home(
         }
     }
 }
+}
+}
 
 fun shouldRefreshRender(
     prev: String,
