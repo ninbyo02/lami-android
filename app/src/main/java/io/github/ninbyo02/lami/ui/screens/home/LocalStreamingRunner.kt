@@ -4113,6 +4113,7 @@ internal fun appendStreamingChunk(
         return appendStreamingChunkForCode(
             builder = builder,
             extractedRaw = extractedRaw,
+            context = context,
             appendTrace = appendTrace,
         )
     }
@@ -4134,15 +4135,59 @@ internal fun appendStreamingChunk(
 private fun appendStreamingChunkForCode(
     builder: StringBuilder,
     extractedRaw: String,
+    context: StreamingAppendContext,
     appendTrace: ((String) -> Unit)? = null,
 ): String {
+    val pendingTag = context.pendingCodeLanguageTag
+    var insertedNewline = false
+    if (pendingTag != null && isStrongCodeLikeChunk(extractedRaw)) {
+        if (builder.isNotEmpty() && !builder.last().isWhitespace()) {
+            builder.append('\n')
+            insertedNewline = true
+        }
+        builder.append(pendingTag)
+        builder.append('\n')
+        builder.append(extractedRaw)
+        context.pendingCodeLanguageTag = null
+        context.lastCodeChunkEndedWithNewline = extractedRaw.endsWith('\n')
+        appendTrace?.let { trace ->
+            safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(pendingTag)}")
+            safeAppendTrace(trace, "UPSTREAM [code.insertedNewline]=$insertedNewline")
+            safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.CODE.label}")
+            safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
+            safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
+        }
+        return ""
+    }
+    if (pendingTag != null) {
+        builder.append(pendingTag)
+        context.pendingCodeLanguageTag = null
+    }
+    if (isStandaloneLanguageTag(extractedRaw)) {
+        context.pendingCodeLanguageTag = extractedRaw.trim()
+        appendTrace?.let { trace ->
+            safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(context.pendingCodeLanguageTag)}")
+            safeAppendTrace(trace, "UPSTREAM [code.insertedNewline]=false")
+            safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.CODE.label}")
+            safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
+            safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
+        }
+        return ""
+    }
+    if (shouldInsertCodeNewlineBefore(builder, extractedRaw, context)) {
+        builder.append('\n')
+        insertedNewline = true
+    }
     appendTrace?.let { trace ->
         safeAppendTrace(trace, "UPSTREAM append-chunk previousTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
         safeAppendTrace(trace, "UPSTREAM append-chunk extracted=${summarizeWhitespaceForUi(extractedRaw.take(64))}")
         safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.CODE.label}")
         safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
+        safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(context.pendingCodeLanguageTag)}")
+        safeAppendTrace(trace, "UPSTREAM [code.insertedNewline]=$insertedNewline")
     }
     builder.append(extractedRaw)
+    context.lastCodeChunkEndedWithNewline = extractedRaw.endsWith('\n')
     appendTrace?.let { trace ->
         safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
     }
@@ -4156,6 +4201,8 @@ internal enum class StreamingLane(val label: String) {
 
 internal data class StreamingAppendContext(
     var lane: StreamingLane = StreamingLane.PROSE,
+    var pendingCodeLanguageTag: String? = null,
+    var lastCodeChunkEndedWithNewline: Boolean = false,
 )
 
 private fun shouldEnterCodeLane(previous: String, next: String): Boolean {
@@ -4187,6 +4234,51 @@ private fun shouldEnterCodeLane(previous: String, next: String): Boolean {
 }
 
 private val STREAMING_CODE_LANGUAGE_TAGS = setOf("python", "kotlin", "bash", "json")
+
+private fun isStandaloneLanguageTag(text: String): Boolean {
+    val normalized = text.trim().lowercase(Locale.ROOT)
+    return normalized in STREAMING_CODE_LANGUAGE_TAGS
+}
+
+private fun isStrongCodeLineStart(text: String): Boolean {
+    val trimmedStart = text.trimStart()
+    if (trimmedStart.isEmpty()) return false
+    val lower = trimmedStart.lowercase(Locale.ROOT)
+    val keywords = listOf(
+        "import ",
+        "from ",
+        "def ",
+        "class ",
+        "for ",
+        "while ",
+        "return ",
+        "print(",
+        "if ",
+        "elif ",
+        "else",
+        "try",
+        "except",
+    )
+    if (keywords.any { lower.startsWith(it) }) return true
+    val assignmentPattern = Regex("^[A-Za-z_][A-Za-z0-9_\\.\\[\\]]*\\s*=.+")
+    return assignmentPattern.containsMatchIn(trimmedStart)
+}
+
+private fun isStrongCodeLikeChunk(text: String): Boolean =
+    isStrongCodeLineStart(text) || text.startsWith("    ")
+
+private fun shouldInsertCodeNewlineBefore(
+    builder: StringBuilder,
+    nextChunk: String,
+    context: StreamingAppendContext,
+): Boolean {
+    if (builder.isEmpty()) return false
+    if (builder.last() == '\n') return false
+    if (nextChunk.isEmpty()) return false
+    if (!isStrongCodeLineStart(nextChunk)) return false
+    if (context.lastCodeChunkEndedWithNewline) return false
+    return true
+}
 
 private val STREAMING_STRONG_CODE_SIGNALS = listOf(
     "import ",
