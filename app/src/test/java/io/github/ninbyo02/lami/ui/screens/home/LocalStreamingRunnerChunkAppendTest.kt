@@ -497,14 +497,28 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
-    fun `fenced python で single chunk 内の comment と assignment を分離する`() {
+    fun `fenced python で import 直後の random と続く assignment を single chunk でも分離する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
-        val chunks = listOf("```python", "(0,25,25)# ブロックの色blocked_colors = COLORS[:6]", "```")
+        val chunks = listOf("```python", "import pygame", " randomWIDTH, HEIGHT =80,60GRID_SIZE =30", "```")
 
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
 
-        assertEquals("```python\n(0,25,25)# ブロックの色\nblocked_colors = COLORS[:6]\n```", builder.toString())
+        assertEquals("```python\nimport pygame\nrandom\nWIDTH, HEIGHT =80,60\nGRID_SIZE =30\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で single chunk 内の comment と assignment を分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "(0,25,25)# ブロックの色blocked_colors = COLORS[:6] # ブロックの色リストを初期化", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals(
+            "```python\n(0,25,25)# ブロックの色\nblocked_colors = COLORS[:6] # ブロックの色リストを初期化\n```",
+            builder.toString(),
+        )
     }
 
     @Test
@@ -527,6 +541,17 @@ class LocalStreamingRunnerChunkAppendTest {
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
 
         assertEquals("```python\nprint(\"Hello, World!\")\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で single chunk 内の assignment と assignment を連続分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "ball_color = COLORS[0]running = True", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nball_color = COLORS[0]\nrunning = True\n```", builder.toString())
     }
 
     @Test
@@ -616,6 +641,17 @@ class LocalStreamingRunnerChunkAppendTest {
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
 
         assertEquals("```bash\necho if true\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced bash の single chunk は python 専用 pre split を適用しない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```bash", "echo helloecho world", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```bash\necho helloecho world\n```", builder.toString())
     }
 
     @Test
