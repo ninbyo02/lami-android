@@ -28,6 +28,12 @@ private const val TOKENIZER_COUNT_UNAVAILABLE_NOTE =
 private const val MEDIAPIPE_TOKEN_COUNT_MODE = "mediapipe_tokenizer_recount"
 private const val LITERT_TOKEN_COUNT_MODE = "tokenizer_recount"
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
+private val STREAMING_NO_JOIN_PREVIOUS_CHARS = setOf(
+    '(', '[', '{', '"', '\'', '`', '/', '\\', '.', ',', ':', ';', '!', '?',
+)
+private val STREAMING_NO_JOIN_NEXT_CHARS = setOf(
+    ')', ']', '}', '"', '\'', '`', '.', ',', ':', ';', '!', '?', '/', '\\',
+)
 
 internal interface LocalStreamingRunner<T> {
     suspend fun run(
@@ -177,30 +183,31 @@ internal suspend fun runWithHeldEngine(
                         value = message,
                         appendTrace = appendTrace,
                     )
-                    val extracted = extractedText?.trim().orEmpty()
+                    val extracted = extractedText.orEmpty()
                     appendRunnerWhitespaceStage("message.contents", messageContentsRaw)
                     appendRunnerWhitespaceStage("extract.raw", extractedText)
                     appendRunnerWhitespaceStage("extract.trimmed", extractedText?.trim())
                     logLocalStreamingWhitespace(
                         stage = "LocalStreamingRunner#held.flow.extract",
                         raw = extractedText,
-                        normalized = extracted,
+                        normalized = extractedText?.trim(),
                     )
-                    if (extracted.isBlank() || extracted == lastPartial) return@collect
+                    if (!isViableStreamingChunk(extracted) || extracted == lastPartial) return@collect
                     lastPartial = extracted
                     heldFlowPartialCount += 1
                     if (heldFlowFirstPartialElapsedRealtimeMs == null) {
                         heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     }
                     heldFlowLastChunkElapsedRealtimeMs = SystemClock.elapsedRealtime()
-                    appendRunnerWhitespaceStage(
-                        "append.boundary",
-                        buildAppendBoundaryTrace(
-                            previousBuilderTail = builder.toString().takeLast(64),
-                            extractedHead = extracted.take(64),
-                        ),
+                    appendRunnerWhitespaceStage("append.boundary.before", builder.toString().takeLast(64))
+                    appendRunnerWhitespaceStage("append.boundary.extracted", extracted)
+                    val joinApplied = appendStreamingChunk(
+                        builder = builder,
+                        extractedRaw = extracted,
+                        appendTrace = appendTrace,
                     )
-                    builder.append(extracted)
+                    appendRunnerWhitespaceStage("append.boundary.join", joinApplied)
+                    appendRunnerWhitespaceStage("append.boundary.after", builder.toString().takeLast(64))
                     onPartial(builder.toString())
                 }
                 val built = builder.toString()
@@ -3163,19 +3170,23 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
                     value = message,
                     appendTrace = appendTrace,
                 )
-                val extracted = extractedText?.trim().orEmpty()
+                val extracted = extractedText.orEmpty()
                 logLocalStreamingWhitespace(
                     stage = "LocalStreamingRunner#official.flow.extract",
                     raw = extractedText,
-                    normalized = extracted,
+                    normalized = extractedText?.trim(),
                 )
-                if (extracted.isBlank()) {
+                if (!isViableStreamingChunk(extracted)) {
                     extractFailureCount += 1
                     return@collect
                 }
-                if (extracted.isBlank() || extracted == lastPartial) return@collect
+                if (extracted == lastPartial) return@collect
                 lastPartial = extracted
-                builder.append(extracted)
+                appendStreamingChunk(
+                    builder = builder,
+                    extractedRaw = extracted,
+                    appendTrace = appendTrace,
+                )
                 partialCount += 1
                 if (firstPartialMs == null) {
                     firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
@@ -3520,12 +3531,17 @@ private suspend fun runOfficialLiteRtLmDirect(
                     raw = rawMessage,
                     normalized = normalizedMessage,
                 )
-                val extractedText = normalizedContents
-                    .ifBlank { normalizedMessage }
-                if (extractedText.isNotBlank()) {
+                val extractedText = rawContents
+                    .takeIf { isViableStreamingChunk(it) }
+                    ?: rawMessage.takeIf { isViableStreamingChunk(it) }
+                if (!extractedText.isNullOrEmpty()) {
                     if (extractedText == lastChunk) return@collect
                     lastChunk = extractedText
-                    builder.append(extractedText)
+                    appendStreamingChunk(
+                        builder = builder,
+                        extractedRaw = extractedText,
+                        appendTrace = appendTrace,
+                    )
                     if (firstPartialMs == null) {
                         firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
                     }
@@ -3933,28 +3949,28 @@ private fun extractOfficialMessageText(value: Any?): String? {
         is CharSequence -> return value.toString()
         is Iterable<*> -> {
             value.forEach { nested ->
-                extractOfficialMessageText(nested)?.takeIf { it.isNotBlank() }?.let { return it }
+                extractOfficialMessageText(nested)?.takeIf { isViableStreamingChunk(it) }?.let { return it }
             }
             return null
         }
     }
     if (value.javaClass.isArray) {
         (value as? Array<*>)?.forEach { nested ->
-            extractOfficialMessageText(nested)?.takeIf { it.isNotBlank() }?.let { return it }
+            extractOfficialMessageText(nested)?.takeIf { isViableStreamingChunk(it) }?.let { return it }
         }
     }
     val getterNames = OFFICIAL_TEXT_CANDIDATES.filterNot { it == "toString" }
     getterNames.forEach { getterName ->
         val method = value.javaClass.methods.firstOrNull { it.name == getterName && it.parameterTypes.isEmpty() } ?: return@forEach
         val extracted = runCatching { extractOfficialMessageText(method.invoke(value)) }.getOrNull()
-        if (!extracted.isNullOrBlank()) return extracted
+        if (!extracted.isNullOrEmpty() && isViableStreamingChunk(extracted)) return extracted
     }
     val loweredMethods = value.javaClass.methods.filter { it.parameterTypes.isEmpty() }.sortedBy { it.name }
     loweredMethods.forEach { method ->
         val lowerName = method.name.lowercase(Locale.ROOT)
         if (!lowerName.contains("text") && !lowerName.contains("content") && !lowerName.contains("part")) return@forEach
         val extracted = runCatching { extractOfficialMessageText(method.invoke(value)) }.getOrNull()
-        if (!extracted.isNullOrBlank()) return extracted
+        if (!extracted.isNullOrEmpty() && isViableStreamingChunk(extracted)) return extracted
     }
     val toStringValue = value.toString()
     return toStringValue.takeIf { isMeaningfulToStringFallback(value, it) }
@@ -3977,20 +3993,24 @@ private fun extractOfficialMessageTextWithTrace(
             }
         }
         val extractedRaw = runCatching { extractOfficialMessageText(candidateValue) }.getOrNull()
-        val extracted = extractedRaw?.trim()
+        val normalizedForBlankCheck = extractedRaw?.trim()
         logLocalStreamingWhitespace(
             stage = "LocalStreamingRunner#extractOfficialMessageTextWithTrace.$candidate",
             raw = extractedRaw,
-            normalized = extracted,
+            normalized = normalizedForBlankCheck,
         )
-        if (!extracted.isNullOrBlank()) {
-            if (candidate == "toString" && value != null && !isMeaningfulToStringFallback(value, extracted)) {
+        if (!extractedRaw.isNullOrEmpty() && isViableStreamingChunk(extractedRaw)) {
+            if (candidate == "toString" && value != null && !isMeaningfulToStringFallback(value, extractedRaw)) {
                 safeAppendTrace(appendTrace, "UPSTREAM extract-text candidate=$candidate result=blank")
                 return@forEach
             }
-            safeAppendTrace(appendTrace, "UPSTREAM extract-text candidate=$candidate result=nonBlank length=${extracted.length}")
-            safeAppendTrace(appendTrace, "UPSTREAM $path extracted length=${extracted.length}")
-            return extracted
+            val resultType = if (normalizedForBlankCheck.isNullOrBlank()) "whitespaceOnly" else "nonBlank"
+            safeAppendTrace(
+                appendTrace,
+                "UPSTREAM extract-text candidate=$candidate result=$resultType length=${extractedRaw.length}",
+            )
+            safeAppendTrace(appendTrace, "UPSTREAM $path extracted length=${extractedRaw.length}")
+            return extractedRaw
         }
         val resultLabel = if (candidateValue == null) "null" else "blank"
         safeAppendTrace(appendTrace, "UPSTREAM extract-text candidate=$candidate result=$resultLabel")
@@ -4048,19 +4068,78 @@ private fun extractMessageContentsForTrace(message: Any?): String? {
     }
 }
 
-private fun buildAppendBoundaryTrace(
-    previousBuilderTail: String,
-    extractedHead: String,
+internal fun shouldPreserveWhitespaceChunk(text: String): Boolean =
+    text.isNotEmpty() && text.all { it.isWhitespace() }
+
+internal fun isViableStreamingChunk(text: String): Boolean =
+    text.isNotEmpty() && (text.isNotBlank() || shouldPreserveWhitespaceChunk(text))
+
+internal fun shouldInsertMinimalJoinBetween(
+    previous: String,
+    next: String,
+): Boolean {
+    if (previous.isEmpty() || next.isEmpty()) return false
+    if (next.first().isWhitespace()) return false
+    if (previous.last().isWhitespace()) return false
+    val previousLast = previous.last()
+    val nextFirst = next.first()
+    if (!previousLast.isAsciiWordLike() || !nextFirst.isAsciiWordLike()) return false
+    if (previousLast in STREAMING_NO_JOIN_PREVIOUS_CHARS) return false
+    if (nextFirst in STREAMING_NO_JOIN_NEXT_CHARS) return false
+    if (isLikelyCodeJoinContext(previous, next)) return false
+    return true
+}
+
+internal fun appendStreamingChunk(
+    builder: StringBuilder,
+    extractedRaw: String,
+    appendTrace: ((String) -> Unit)? = null,
 ): String {
-    val previousVisualized = previousBuilderTail
-        .replace(" ", "␠")
-        .replace("\n", "\\n")
-        .replace("\t", "\\t")
-    val extractedVisualized = extractedHead
-        .replace(" ", "␠")
-        .replace("\n", "\\n")
-        .replace("\t", "\\t")
-    return "previousBuilderTail=\"$previousVisualized\" extractedHead=\"$extractedVisualized\""
+    if (extractedRaw.isEmpty()) return ""
+    val previousText = builder.toString()
+    val join = if (shouldInsertMinimalJoinBetween(previousText, extractedRaw)) " " else ""
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "UPSTREAM append-chunk previousTail=${summarizeWhitespaceForUi(previousText.takeLast(64))}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk extracted=${summarizeWhitespaceForUi(extractedRaw.take(64))}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi(join)}")
+    }
+    if (join.isNotEmpty()) builder.append(join)
+    builder.append(extractedRaw)
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
+    }
+    return join
+}
+
+private fun Char.isAsciiWordLike(): Boolean =
+    (this in 'a'..'z') || (this in 'A'..'Z') || (this in '0'..'9') || this == '_' || this == '-'
+
+private fun isLikelyCodeJoinContext(previous: String, next: String): Boolean {
+    val previousTail = previous.takeLast(48)
+    val nextHead = next.take(48)
+    val lowerPreviousTail = previousTail.lowercase(Locale.ROOT)
+    val lowerNextHead = nextHead.lowercase(Locale.ROOT)
+    val codeHints = listOf(
+        "print(",
+        "def ",
+        "class ",
+        "import ",
+        "from ",
+        "return ",
+        "if ",
+        "for ",
+        "while ",
+        "grid_",
+        "self.",
+        "np.",
+        "```",
+        "=",
+        "):",
+        "->",
+    )
+    return codeHints.any { hint ->
+        lowerPreviousTail.contains(hint) || lowerNextHead.contains(hint)
+    }
 }
 
 private fun buildRunnerWhitespaceTraceBlock(
