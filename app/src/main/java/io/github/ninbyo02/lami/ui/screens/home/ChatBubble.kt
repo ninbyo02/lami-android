@@ -764,32 +764,54 @@ fun isPythonFusionStart(text: String): Boolean {
     if (!normalized.startsWith("python")) return false
     val tail = normalized.removePrefix("python").trimStart()
     if (tail.isBlank()) return false
+    val strongFusionPrefixes = listOf(
+        "import",
+        "def",
+        "class",
+        "for",
+        "while",
+        "print(",
+        "return",
+        "from",
+        "self.",
+        "GRID_",
+    )
+    if (strongFusionPrefixes.any { prefix -> tail.startsWith(prefix) }) {
+        return true
+    }
     if (
-        tail.startsWith("import") ||
-        tail.startsWith("def") ||
-        tail.startsWith("class") ||
-        tail.startsWith("for") ||
-        tail.startsWith("while")
+        Regex("^[A-Za-z_][A-Za-z0-9_]{2,}\\s*[(:=\\[]").containsMatchIn(tail) ||
+            Regex("^np\\.").containsMatchIn(tail)
     ) {
         return true
     }
-    return Regex("^[A-Za-z_][A-Za-z0-9_]{2,}\\s*[(:=\\[]").containsMatchIn(tail)
+    return false
 }
 
 fun shouldTreatAsProvisionalCode(text: String): Boolean {
     val trimmed = text.trim()
     if (trimmed.isBlank()) return false
     if (trimmed in setOf("python", "kotlin", "bash", "json")) return true
-    if (isPythonFusionStart(trimmed)) return true
+    val hasPythonFusion = isPythonFusionStart(trimmed)
+    if (hasPythonFusion) return true
+    val hasPythonLanguageTag = trimmed.equals("python", ignoreCase = true)
+    val pythonContext = hasPythonLanguageTag || hasPythonFusion
 
     val assignmentLike = Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*[^=]")
     val signals = listOf(
         Regex("\\bimport\\b"),
+        Regex("\\bfrom\\s+"),
         Regex("\\bdef\\b"),
         Regex("\\bclass\\b"),
         Regex("\\bfor\\b"),
         Regex("\\bwhile\\b"),
+        Regex("\\belif\\b"),
+        Regex("\\bexcept\\b"),
         Regex("\\breturn\\b"),
+        Regex("lambda"),
+        Regex("self\\."),
+        Regex("np\\."),
+        Regex("GRID_[A-Za-z0-9_]*"),
         Regex("print\\("),
         assignmentLike,
         Regex("->"),
@@ -798,6 +820,9 @@ fun shouldTreatAsProvisionalCode(text: String): Boolean {
         Regex(";"),
     )
     var score = signals.count { signal -> signal.containsMatchIn(trimmed) }
+    if (pythonContext && (trimmed.startsWith("from ") || trimmed.startsWith("self.") || trimmed.startsWith("print("))) {
+        score += 1
+    }
     if (text.startsWith("    ") || text.startsWith("\t")) score += 1
     return score >= 3
 }
@@ -813,7 +838,14 @@ private fun findProvisionalUnstableStartLine(
         val line = lines[index].trim()
         if (line.isBlank()) continue
         candidateIndices += index
-        if (line in setOf("python", "kotlin", "bash", "json")) return index
+        if (
+            line == "python" &&
+            index < lines.lastIndex &&
+            shouldTreatAsProvisionalCode(lines[index + 1])
+        ) {
+            return index
+        }
+        if (line in setOf("kotlin", "bash", "json")) return index
         if (isPythonFusionStart(line)) return index
     }
     if (candidateIndices.size < 2) return null
