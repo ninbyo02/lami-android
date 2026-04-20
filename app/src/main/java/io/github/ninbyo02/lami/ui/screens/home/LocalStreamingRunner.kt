@@ -4425,9 +4425,8 @@ private fun shouldStartNewFencedPythonLogicalLine(
 ): Boolean {
     if (!isFencedPythonCodeContext(context)) return false
     if (pendingLine.isEmpty() || nextChunk.isEmpty()) return false
-    if (nextChunk.first().isWhitespace()) return false
     if (nextChunk.trimStart().startsWith("```")) return false
-    if (!isPythonLogicalLineStarter(nextChunk)) return false
+    if (!isFencedPythonLogicalLineStarter(nextChunk)) return false
     if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
     return !isQuoteOrBracketCarryOverLine(pendingLine)
 }
@@ -4464,8 +4463,11 @@ private fun isPythonLogicalLineStarter(chunk: String): Boolean {
         "raise",
         "yield",
     )
-    return wordKeywords.any { matchesPythonKeywordStart(trimmed, it) }
+    if (wordKeywords.any { matchesPythonKeywordStart(trimmed, it) }) return true
+    return IDENTIFIER_CALL_START_REGEX.containsMatchIn(trimmed)
 }
+
+private fun isFencedPythonLogicalLineStarter(chunk: String): Boolean = isPythonLogicalLineStarter(chunk)
 
 private fun matchesPythonKeywordStart(text: String, keyword: String): Boolean {
     if (!text.startsWith(keyword)) return false
@@ -4473,6 +4475,8 @@ private fun matchesPythonKeywordStart(text: String, keyword: String): Boolean {
     val next = text[keyword.length]
     return next.isWhitespace() || next == ':'
 }
+
+private val IDENTIFIER_CALL_START_REGEX = Regex("^[A-Za-z_][A-Za-z0-9_]*\\s*\\(")
 
 private fun isQuoteOrBracketCarryOverLine(pendingLine: String): Boolean {
     val trimmedEnd = pendingLine.trimEnd()
