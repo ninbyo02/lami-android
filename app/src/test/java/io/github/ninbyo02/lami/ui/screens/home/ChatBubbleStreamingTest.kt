@@ -1,0 +1,31 @@
+package io.github.ninbyo02.lami.ui.screens.home
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class ChatBubbleStreamingTest {
+
+    @Test
+    fun splitStreamingText_pythonFusionTail_isSeparated() {
+        val split = splitStreamingText("説明です\npythonimport random")
+
+        assertEquals("説明です", split.stable)
+        assertEquals("pythonimport random", split.unstable)
+    }
+
+    @Test
+    fun isPythonFusionStart_detectsFusedPattern() {
+        assertTrue(isPythonFusionStart("pythonimport os"))
+        assertTrue(isPythonFusionStart("python def main():"))
+        assertFalse(isPythonFusionStart("text pythonimport os"))
+    }
+
+    @Test
+    fun provisionalCodeDetection_handlesLanguageTagAndDenseCode() {
+        assertTrue(shouldTreatAsProvisionalCode("python"))
+        assertTrue(shouldTreatAsProvisionalCode("for i in range(3):"))
+        assertFalse(shouldTreatAsProvisionalCode("これは通常の文章です"))
+    }
+}

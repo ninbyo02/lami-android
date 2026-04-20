@@ -747,12 +747,11 @@ fun Home(
         } else {
             latestText
         }
-        val shouldRefreshRenderText =
-            previousRendered.isEmpty() ||
-                appendedDelta.contains('\n') ||
-                appendedDelta.contains("```") ||
-                appendedDelta.length >= 48 ||
-                !isInferenceRunningUi
+        val shouldRefreshRenderText = shouldRefreshRender(
+            prev = previousRendered,
+            next = latestText,
+            isStreaming = isInferenceRunningUi,
+        )
 
         if (shouldRefreshRenderText) {
             streamingResponseTextForRender = latestText
@@ -3089,6 +3088,10 @@ fun Home(
                                             val canShowTtsActions = ttsEnabled
                                             PlainAssistantMessage(
                                                 message = message.message,
+                                                isStreaming =
+                                                    isInferenceRunningUi &&
+                                                        streamingAssistantMessageId == null &&
+                                                        index == messagesForList.lastIndex,
                                                 showMessageActions = true,
                                                 isReplaying =
                                                     canShowTtsActions &&
@@ -3353,7 +3356,21 @@ fun Home(
         }
     }
 }
-}
+
+fun shouldRefreshRender(
+    prev: String,
+    next: String,
+    isStreaming: Boolean,
+): Boolean {
+    if (next.isEmpty()) return true
+    if (!isStreaming) return true
+    if (prev.isEmpty()) return true
+    val appendedDelta = if (next.startsWith(prev)) {
+        next.substring(prev.length)
+    } else {
+        next
+    }
+    return appendedDelta.contains('\n') || appendedDelta.length >= 32
 }
 
 private suspend fun initializeLocalInferenceEngineEntry(
