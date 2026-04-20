@@ -3281,21 +3281,37 @@ fun Home(
                                 }
                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && devWhitespaceTraceText != null) {
                                     item(key = "dev_whitespace_trace") {
-                                        Text(
-                                            text = devWhitespaceTraceText!!,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color.Red,
-                                            modifier = Modifier.padding(8.dp),
+                                        val whitespaceTraceText = devWhitespaceTraceText!!
+                                        CopyableDebugBlock(
+                                            text = whitespaceTraceText,
+                                            onCopy = {
+                                                clipboardManager.setText(AnnotatedString(whitespaceTraceText))
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "WS TRACE をコピーしました",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                         )
                                     }
                                 }
                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && devRunnerWhitespaceTraceText != null) {
                                     item(key = "dev_runner_whitespace_trace") {
-                                        Text(
-                                            text = devRunnerWhitespaceTraceText!!,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color.Red,
-                                            modifier = Modifier.padding(8.dp),
+                                        val runnerWhitespaceTraceText = devRunnerWhitespaceTraceText!!
+                                        CopyableDebugBlock(
+                                            text = runnerWhitespaceTraceText,
+                                            onCopy = {
+                                                clipboardManager.setText(AnnotatedString(runnerWhitespaceTraceText))
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "RUNNER WS TRACE をコピーしました",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                         )
                                     }
                                 }
@@ -6065,6 +6081,48 @@ private fun InferenceModelInfoRow(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CopyableDebugBlock(
+    text: String,
+    title: String? = null,
+    onCopy: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (!title.isNullOrBlank()) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Red,
+                )
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Red,
+            )
+        }
+        IconButton(
+            onClick = onCopy,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .semantics { contentDescription = "デバッグテキストをコピー" },
+        ) {
+            Icon(
+                imageVector = Icons.Default.ContentCopy,
+                contentDescription = "デバッグテキストをコピー",
+                tint = Color.Red,
+            )
         }
     }
 }
