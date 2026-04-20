@@ -354,6 +354,62 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `fenced python で import 行はキーワード境界で論理行を分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "import pygame", "import random", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nimport pygame\nimport random\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で class と def を別論理行に分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "class Block:", "def __init__(self):", "self.x = 1", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nclass Block:\ndef __init__(self):\nself.x = 1\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python でも print の文字列断片は 1 行維持する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "print", "(\"", "Hello,", " World", "!\")", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nprint(\"Hello, World!\")\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced bash は python 専用ルールで誤改行しない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```bash", "echo", " hello", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```bash\necho hello\n```", builder.toString())
+    }
+
+    @Test
+    fun `prose lane の Python 説明文は従来どおり連結する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("Python", "の基本", "構造")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("Pythonの基本構造", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
     fun `language tag の後に prose が来たら prose lane を維持する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
