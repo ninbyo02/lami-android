@@ -4222,6 +4222,36 @@ private fun appendStreamingChunkForCode(
         }
     }
 
+    preSplitFencedPythonChunk(context, extractedRaw).forEach { chunkPart ->
+        appendStreamingCodeChunkBody(
+            builder = builder,
+            extractedRaw = chunkPart,
+            context = context,
+            appendTrace = appendTrace,
+        )
+    }
+
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "UPSTREAM append-chunk previousTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk extracted=${summarizeWhitespaceForUi(extractedRaw.take(64))}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.CODE.label}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
+        safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(context.pendingCodeLanguageTag)}")
+        safeAppendTrace(trace, "[code.pending.after]=${summarizeWhitespaceForUi(context.pendingCodeLineBuffer?.toString())}")
+        safeAppendTrace(trace, "UPSTREAM [code.insertedNewline]=$insertedNewline")
+    }
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
+    }
+    return ""
+}
+
+private fun appendStreamingCodeChunkBody(
+    builder: StringBuilder,
+    extractedRaw: String,
+    context: StreamingAppendContext,
+    appendTrace: ((String) -> Unit)? = null,
+) {
     appendTrace?.let { trace ->
         safeAppendTrace(trace, "[code.pending.before]=${summarizeWhitespaceForUi(context.pendingCodeLineBuffer?.toString())}")
     }
@@ -4241,20 +4271,6 @@ private fun appendStreamingChunkForCode(
     if (shouldCommitPendingCodeLine(context, context.pendingCodeLineBuffer?.toString().orEmpty(), null)) {
         commitPendingCodeLine(builder, context, appendTrace)
     }
-
-    appendTrace?.let { trace ->
-        safeAppendTrace(trace, "UPSTREAM append-chunk previousTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
-        safeAppendTrace(trace, "UPSTREAM append-chunk extracted=${summarizeWhitespaceForUi(extractedRaw.take(64))}")
-        safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.CODE.label}")
-        safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
-        safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(context.pendingCodeLanguageTag)}")
-        safeAppendTrace(trace, "[code.pending.after]=${summarizeWhitespaceForUi(context.pendingCodeLineBuffer?.toString())}")
-        safeAppendTrace(trace, "UPSTREAM [code.insertedNewline]=$insertedNewline")
-    }
-    appendTrace?.let { trace ->
-        safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
-    }
-    return ""
 }
 
 private fun isFenceBoundaryChunk(chunk: String): Boolean {
@@ -4367,6 +4383,116 @@ private fun flushPendingCodeLanguageTagAsProse(
 private val STREAMING_CODE_LANGUAGE_TAGS = setOf("python", "kotlin", "bash", "json")
 private val FENCED_MARKER_REGEX = Regex("```")
 private val FENCED_PYTHON_ASSIGNMENT_STARTER_REGEX = Regex("^[A-Za-z_][A-Za-z0-9_]*\\s*(?:[+\\-*/%:]?=)")
+private val FENCED_PYTHON_STRONG_STARTERS = listOf(
+    "import ",
+    "from ",
+    "class ",
+    "def ",
+    "if ",
+    "elif ",
+    "for ",
+    "while ",
+    "return ",
+)
+private val FENCED_PYTHON_STRONG_STARTER_WITH_COLON = listOf("else:", "finally:", "try:", "except")
+
+private fun preSplitFencedPythonChunk(context: StreamingAppendContext, raw: String): List<String> {
+    if (!isFencedPythonCodeContext(context)) return listOf(raw)
+    if (raw.isEmpty() || raw.contains('\n')) return listOf(raw)
+    if (isFenceBoundaryChunk(raw)) return listOf(raw)
+    val pendingLine = context.pendingCodeLineBuffer?.toString().orEmpty()
+    if (pendingLine.isNotEmpty() && (isQuoteOrBracketCarryOverLine(pendingLine) || isFencedPythonCommentCarryOverLine(context, pendingLine))) {
+        return listOf(raw)
+    }
+    val splitPoints = findFencedPythonChunkSplitPoints(raw)
+    if (splitPoints.isEmpty()) return listOf(raw)
+    val sortedPoints = splitPoints.distinct().sorted().filter { it in 1 until raw.length }
+    if (sortedPoints.isEmpty()) return listOf(raw)
+    val chunks = mutableListOf<String>()
+    var start = 0
+    sortedPoints.forEach { index ->
+        chunks += raw.substring(start, index)
+        start = index
+    }
+    chunks += raw.substring(start)
+    return chunks.filter { it.isNotEmpty() }
+}
+
+private fun findFencedPythonChunkSplitPoints(raw: String): List<Int> {
+    val points = mutableListOf<Int>()
+    for (index in 1 until raw.length) {
+        if (isInsideQuotedString(raw, index)) continue
+        if (isStrongFencedPythonStarterAt(raw, index)) {
+            points += index
+            continue
+        }
+        if (isFencedPythonAssignmentStarterAt(raw, index)) {
+            points += index
+            continue
+        }
+        if (isFencedPythonCommentBoundaryBeforeAssignmentOrClassDef(raw, index)) {
+            points += index
+        }
+    }
+    return points
+}
+
+private fun isStrongFencedPythonStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    val before = text[index - 1]
+    val prevPrev = text.getOrNull(index - 2)
+    val hasWordBoundary = before == '\n' || (!before.isLetterOrDigit() && before != '_') || (before.isLowerCase() && text[index].isUpperCase())
+    if (!hasWordBoundary) return false
+    if (prevPrev == '#' || before == '#') return false
+    return FENCED_PYTHON_STRONG_STARTERS.any { text.regionMatches(index, it, 0, it.length) } ||
+        FENCED_PYTHON_STRONG_STARTER_WITH_COLON.any { keyword ->
+            if (!text.regionMatches(index, keyword, 0, keyword.length)) return@any false
+            val next = text.getOrNull(index + keyword.length) ?: return@any true
+            next.isWhitespace() || next == ':'
+        }
+}
+
+private fun isFencedPythonAssignmentStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isIdentifierStart(text[index])) return false
+    val before = text[index - 1]
+    if (before == '#') return false
+    val boundary = before == '\n' || !isIdentifierPart(before) || (text[index].isUpperCase() && (before.isLowerCase() || before.isDigit()))
+    if (!boundary) return false
+    var cursor = index + 1
+    while (cursor < text.length && isIdentifierPart(text[cursor])) cursor += 1
+    while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+    if (cursor >= text.length) return false
+    if (text[cursor] == '=') return true
+    if (cursor + 1 >= text.length) return false
+    val op = text[cursor]
+    val eq = text[cursor + 1]
+    return op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '='
+}
+
+private fun isFencedPythonCommentBoundaryBeforeAssignmentOrClassDef(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    val before = text[index - 1]
+    if (before == '\n') return false
+    if (!isFencedPythonAssignmentStarterAt(text, index) && !isFencedPythonClassOrDefStarterAt(text, index)) return false
+    val commentHashIndex = findPythonCommentHashIndex(text.substring(0, index))
+    return commentHashIndex >= 0
+}
+
+private fun isFencedPythonClassOrDefStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    return text.regionMatches(index, "class ", 0, "class ".length) ||
+        text.regionMatches(index, "def ", 0, "def ".length)
+}
+
+private fun isInsideQuotedString(text: String, targetIndex: Int): Boolean {
+    if (targetIndex <= 0 || targetIndex >= text.length) return false
+    return hasUnclosedQuotedString(text.substring(0, targetIndex))
+}
+
+private fun isIdentifierStart(ch: Char): Boolean = ch == '_' || ch.isLetter()
+
+private fun isIdentifierPart(ch: Char): Boolean = isIdentifierStart(ch) || ch.isDigit()
 
 private fun isStandaloneLanguageTag(text: String): Boolean {
     val normalized = text.trim()

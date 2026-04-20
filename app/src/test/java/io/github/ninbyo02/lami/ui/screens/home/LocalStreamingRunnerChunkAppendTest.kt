@@ -475,6 +475,61 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `fenced python で single chunk 内の import と assignment を分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "import pygame randomWIDTH = 1", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nimport pygame\nrandomWIDTH = 1\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で single chunk 内の assignment と assignment を分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "WIDTH =80,60GRID_SIZE =30", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nWIDTH =80,60\nGRID_SIZE =30\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で single chunk 内の comment と assignment を分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "(0,25,25)# ブロックの色blocked_colors = COLORS[:6]", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\n(0,25,25)# ブロックの色\nblocked_colors = COLORS[:6]\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で single chunk 内の comment と class を分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "# 初期化class Block:", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\n# 初期化\nclass Block:\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で single chunk の print 文字列はそのまま維持する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "print(\"Hello, World!\")", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nprint(\"Hello, World!\")\n```", builder.toString())
+    }
+
+    @Test
     fun `fenced python でコメント行の後に class が来たら新しい論理行に分離する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
@@ -564,12 +619,34 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `fenced bash の single chunk 混在は python 専用 pre split を適用しない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```bash", "echo helloecho world", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```bash\necho helloecho world\n```", builder.toString())
+    }
+
+    @Test
     fun `prose lane の Python 説明文は従来どおり連結する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
         val chunks = listOf("Python", "の基本", "構造")
 
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("Pythonの基本構造", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
+    fun `prose lane の single chunk は python 専用 pre split の対象外`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "Pythonの基本構造", context)
 
         assertEquals("Pythonの基本構造", builder.toString())
         assertEquals(StreamingLane.PROSE, context.lane)
