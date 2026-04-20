@@ -4430,27 +4430,26 @@ private fun preSplitFencedPythonChunk(context: StreamingAppendContext, raw: Stri
 private fun findFencedPythonChunkSplitPoints(raw: String): List<Int> {
     val points = mutableListOf<Int>()
     for (index in 1 until raw.length) {
-        if (isInsideQuotedString(raw, index)) continue
-        if (isInsidePythonComment(raw, index)) {
-            if (isFencedPythonCommentBoundaryBeforeStrongStarter(raw, index)) {
-                points += index
-            }
-            continue
-        }
-        if (hasUnclosedBrackets(raw.substring(0, index))) continue
-        if (isFencedPythonIdentifierToStrongStarterBoundaryAt(raw, index)) {
-            points += index
-            continue
-        }
-        if (isFencedPythonLiteralToAssignmentBoundaryAt(raw, index)) {
-            points += index
-            continue
-        }
-        if (isFencedPythonCommentBoundaryBeforeStrongStarter(raw, index)) {
-            points += index
-        }
+        if (shouldSplitAtFencedPythonIndex(raw, index)) points += index
     }
     return points
+}
+
+private fun shouldSplitAtFencedPythonIndex(raw: String, index: Int): Boolean {
+    if (index !in 1 until raw.length) return false
+    if (isInsideQuotedString(raw, index)) return false
+    if (isInsidePythonComment(raw, index)) return isFencedPythonCommentBoundaryAt(raw, index)
+    if (hasUnclosedBrackets(raw.substring(0, index))) return false
+    if (isFencedPythonTailToStrongStarterBoundaryAt(raw, index)) return true
+    return isFencedPythonLiteralToAssignmentBoundaryAt(raw, index)
+}
+
+private fun isFencedPythonTailToStrongStarterBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isFencedPythonStrongStarterAt(text, index)) return false
+    val before = text[index - 1]
+    if (before == '\n' || before.isWhitespace() || before == '#') return false
+    return true
 }
 
 private fun isFencedPythonIdentifierToStrongStarterBoundaryAt(text: String, index: Int): Boolean {
@@ -4458,7 +4457,7 @@ private fun isFencedPythonIdentifierToStrongStarterBoundaryAt(text: String, inde
     val before = text[index - 1]
     if (!isIdentifierPart(before)) return false
     if (!isIdentifierStart(text[index])) return false
-    if (isStrongFencedPythonStarterAt(text, index)) return true
+    if (isFencedPythonStrongStarterAt(text, index)) return true
     return isFencedPythonAssignmentTargetListStarterAt(text, index)
 }
 
@@ -4469,7 +4468,7 @@ private fun isFencedPythonLiteralToAssignmentBoundaryAt(text: String, index: Int
     return before.isDigit() || before in listOf(']', ')', '}', '"', '\'')
 }
 
-private fun isStrongFencedPythonStarterAt(text: String, index: Int): Boolean {
+private fun isFencedPythonStrongStarterAt(text: String, index: Int): Boolean {
     if (index !in 1 until text.length) return false
     val before = text[index - 1]
     val prevPrev = text.getOrNull(index - 2)
@@ -4513,11 +4512,12 @@ private fun isFencedPythonAssignmentTargetListStarterAt(text: String, index: Int
     return op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '='
 }
 
-private fun isFencedPythonCommentBoundaryBeforeStrongStarter(text: String, index: Int): Boolean {
+private fun isFencedPythonCommentBoundaryAt(text: String, index: Int): Boolean {
     if (index !in 1 until text.length) return false
     val before = text[index - 1]
     if (before == '\n') return false
     if (!isInsidePythonComment(text, index)) return false
+    if (text[index] == '#') return true
     if (isFencedPythonAssignmentTargetListStarterAt(text, index)) return true
     return matchesFencedPythonStrongStarterAt(text, index, requireBoundary = false)
 }
