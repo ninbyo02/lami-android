@@ -261,6 +261,21 @@ private fun selectInsertionSettingsForStatus(
         -> null
     }
 
+private fun resolveAnimationKeyForTrace(perStateAnimJson: String?): String {
+    if (perStateAnimJson.isNullOrBlank()) return "fallback"
+    return runCatching {
+        val root = JSONObject(perStateAnimJson)
+        val directAnimationKey = root.optString("animationKey").takeIf { it.isNotBlank() }
+        val directKey = root.optString("key").takeIf { it.isNotBlank() }
+        val metaAnimationKey = root.optJSONObject("meta")
+            ?.optString("animationKey")
+            ?.takeIf { it.isNotBlank() }
+        directAnimationKey ?: directKey ?: metaAnimationKey ?: "per-state-json(no-key-extracted)"
+    }.getOrElse {
+        "per-state-json(no-key-extracted)"
+    }
+}
+
 private fun selectWeightedInsertionPattern(
     patterns: List<InsertionPattern>,
     random: Random,
@@ -380,6 +395,10 @@ fun LamiStatusSprite(
     resolvedErrorKey: String? = null,
     syncEpochMs: Long = 0L,
     debugOverloadLabel: String = "core(status: LamiSpriteStatus)",
+    traceLamiStatus: LamiStatus? = null,
+    traceLamiState: LamiState? = null,
+    traceResolvedAnimationStatus: LamiAnimationStatus? = null,
+    traceIsSpeaking: Boolean = false,
 ) {
     val overlayOn = DEBUG_OVERLAY_ENABLED && debugOverlayEnabled
     val constrainedSize = remember(sizeDp, maxSizeDp) { sizeDp.coerceIn(32.dp, maxSizeDp) }
@@ -468,6 +487,9 @@ fun LamiStatusSprite(
             readySettings = readyInsertionSettings,
             talkingSettings = talkingInsertionSettings,
         )
+    }
+    val resolvedAnimationKeyForTrace = remember(perStateAnimJson) {
+        resolveAnimationKeyForTrace(perStateAnimJson)
     }
     // 挿入設定の変更検知用キー（null は 0 固定）
     val insertionKey = remember(insertionSettings) {
@@ -598,6 +620,34 @@ fun LamiStatusSprite(
                     "json=${json?.take(80)}",
             )
         }
+    }
+    val tracePayload = remember(
+        traceLamiStatus,
+        traceLamiState,
+        traceResolvedAnimationStatus,
+        resolvedStatus,
+        spriteStateForAnim,
+        resolvedAnimationKeyForTrace,
+        animSpec.frames,
+        animSpec.frameDuration.minMs,
+        traceIsSpeaking,
+    ) {
+        "lamiStatus=$traceLamiStatus " +
+            "lamiState=$traceLamiState " +
+            "resolvedAnimationStatus=$traceResolvedAnimationStatus " +
+            "resolvedSpriteStatus=$resolvedStatus " +
+            "spriteStateForAnim=$spriteStateForAnim " +
+            "animationKey=$resolvedAnimationKeyForTrace " +
+            "frameSequence=${animSpec.frames} " +
+            "intervalMs=${animSpec.frameDuration.minMs} " +
+            "isSpeaking=$traceIsSpeaking"
+    }
+    val lastTracePayload = remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(BuildConfig.DEBUG, tracePayload) {
+        if (!BuildConfig.DEBUG) return@LaunchedEffect
+        if (lastTracePayload.value == tracePayload) return@LaunchedEffect
+        Log.d("LamiSpriteTrace", tracePayload)
+        lastTracePayload.value = tracePayload
     }
 
     var currentFrameIndex by remember(resolvedStatus, maxFrameIndex) {
@@ -915,6 +965,10 @@ fun LamiStatusSprite(
     resolvedErrorKey: String? = null,
     syncEpochMs: Long = 0L,
 ) {
+    val resolvedAnimationStatusForTrace = remember(status.value) {
+        status.value.toAnimationStatus()
+    }
+    val isSpeakingForTrace = lamiState is LamiState.Speaking
     val spriteStatus = remember(status.value, lamiState) {
         mapToLamiSpriteStatus(
             lamiStatus = status.value,
@@ -940,6 +994,10 @@ fun LamiStatusSprite(
         resolvedErrorKey = resolvedErrorKey,
         syncEpochMs = syncEpochMs,
         debugOverloadLabel = "wrapper(status: State<LamiStatus>)",
+        traceLamiStatus = status.value,
+        traceLamiState = lamiState,
+        traceResolvedAnimationStatus = resolvedAnimationStatusForTrace,
+        traceIsSpeaking = isSpeakingForTrace,
     )
 }
 
