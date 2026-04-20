@@ -4106,16 +4106,28 @@ internal fun appendStreamingChunk(
     if (extractedRaw.isEmpty()) return ""
     val previousText = builder.toString()
     val lane = context?.lane ?: StreamingLane.PROSE
-    if (lane == StreamingLane.PROSE && shouldEnterCodeLane(previousText, extractedRaw)) {
+    if (lane == StreamingLane.PROSE && shouldEnterCodeLane(extractedRaw, context)) {
         context?.lane = StreamingLane.CODE
+        appendTrace?.let { trace ->
+            safeAppendTrace(trace, "[lane.switch]=prose->code reason=${codeLaneReason(extractedRaw, context)}")
+        }
     }
     if (context?.lane == StreamingLane.CODE) {
-        return appendStreamingChunkForCode(
-            builder = builder,
-            extractedRaw = extractedRaw,
-            context = context,
-            appendTrace = appendTrace,
-        )
+        if (shouldLeaveCodeLane(extractedRaw, context)) {
+            commitPendingCodeLine(builder, context, appendTrace)
+            flushPendingCodeLanguageTag(builder, context, appendTrace)
+            context.lane = StreamingLane.PROSE
+            appendTrace?.let { trace ->
+                safeAppendTrace(trace, "[lane.switch]=code->prose reason=prose_like_chunk")
+            }
+        } else {
+            return appendStreamingChunkForCode(
+                builder = builder,
+                extractedRaw = extractedRaw,
+                context = context,
+                appendTrace = appendTrace,
+            )
+        }
     }
     val join = if (shouldInsertMinimalJoinBetween(previousText, extractedRaw)) " " else ""
     appendTrace?.let { trace ->
@@ -4138,6 +4150,8 @@ private fun appendStreamingChunkForCode(
     context: StreamingAppendContext,
     appendTrace: ((String) -> Unit)? = null,
 ): String {
+    context.inFencedCodeBlock = updateFencedCodeState(context.inFencedCodeBlock, extractedRaw)
+
     if (isStandaloneCodeLanguageTag(extractedRaw)) {
         commitPendingCodeLine(builder, context, appendTrace)
         context.pendingCodeLanguageTag = extractedRaw.trim()
@@ -4207,37 +4221,86 @@ internal data class StreamingAppendContext(
     var pendingCodeLanguageTag: String? = null,
     var pendingCodeLineBuffer: StringBuilder? = null,
     var lastCodeChunkEndedWithNewline: Boolean = false,
+    var inFencedCodeBlock: Boolean = false,
 )
 
-private fun shouldEnterCodeLane(previous: String, next: String): Boolean {
+
+private fun updateFencedCodeState(current: Boolean, chunk: String): Boolean {
+    val fenceCount = FENCED_MARKER_REGEX.findAll(chunk).count()
+    if (fenceCount == 0) return current
+    return if (fenceCount % 2 == 0) current else !current
+}
+
+private fun shouldEnterCodeLane(next: String, context: StreamingAppendContext?): Boolean {
     if (next.isEmpty()) return false
+    if (context?.inFencedCodeBlock == true) return true
     val nextTrimmedStart = next.trimStart()
     if (nextTrimmedStart.startsWith("```")) return true
+    if (isStandaloneCodeLanguageTag(next)) return true
+    return isStrongCodeLikeChunk(next)
+}
 
-    val nextLines = next.lineSequence().toList()
-    if (nextLines.any { line ->
-            val normalized = line.trim().lowercase(Locale.ROOT)
-            normalized in STREAMING_CODE_LANGUAGE_TAGS
-        }) {
-        return true
-    }
+private fun codeLaneReason(next: String, context: StreamingAppendContext?): String = when {
+    context?.inFencedCodeBlock == true -> "fenced_block"
+    next.trimStart().startsWith("```") -> "fenced_chunk"
+    isStandaloneCodeLanguageTag(next) -> "language_tag"
+    isStrongCodeLikeChunk(next) -> "strong_code_chunk"
+    else -> "unknown"
+}
 
-    val previousTail = previous.takeLast(48).lowercase(Locale.ROOT)
-    val nextHead = next.take(64).lowercase(Locale.ROOT)
-    val fused = (previous.takeLast(16) + next.take(64)).lowercase(Locale.ROOT)
-    if (fused.contains("pythonimport") ||
-        fused.contains("python\nimport") ||
-        fused.contains("python def") ||
-        fused.contains("pythonclass")
-    ) {
-        return true
+private fun shouldLeaveCodeLane(next: String, context: StreamingAppendContext): Boolean {
+    if (context.inFencedCodeBlock) return false
+    if (context.pendingCodeLanguageTag != null) return false
+    return isProseLikeChunk(next)
+}
+
+
+private fun isProseLikeChunk(text: String): Boolean {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) return false
+    if (trimmed.startsWith("```")) return false
+    if (isStandaloneCodeLanguageTag(trimmed)) return false
+    if (isStrongCodeLikeChunk(trimmed)) return false
+    if (isCommandLikeCodeChunk(trimmed)) return false
+    if (isCodeArtifactLikeChunk(trimmed)) return false
+
+    val hasJapanese = JAPANESE_TEXT_REGEX.containsMatchIn(trimmed)
+    val hasSentencePunctuation = JAPANESE_SENTENCE_PUNCTUATION.any { punctuation ->
+        trimmed.contains(punctuation)
     }
-    return STREAMING_STRONG_CODE_SIGNALS.any { signal ->
-        previousTail.contains(signal) || nextHead.contains(signal)
+    val isQuotedNaturalText = trimmed.length >= 3 &&
+        ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+            (trimmed.startsWith('“') && trimmed.endsWith('”'))) &&
+        trimmed.any { it.isLetter() }
+
+    return hasJapanese || hasSentencePunctuation || isQuotedNaturalText
+}
+
+private fun isCommandLikeCodeChunk(text: String): Boolean =
+    CODE_COMMAND_CHUNK_REGEX.containsMatchIn(text)
+
+private fun isCodeArtifactLikeChunk(text: String): Boolean =
+    CODE_ARTIFACT_CHUNK_REGEX.containsMatchIn(text)
+
+private fun flushPendingCodeLanguageTag(
+    builder: StringBuilder,
+    context: StreamingAppendContext,
+    appendTrace: ((String) -> Unit)? = null,
+) {
+    val pendingTag = context.pendingCodeLanguageTag ?: return
+    if (builder.isNotEmpty() && builder.last().isWhitespace().not()) {
+        builder.append('\n')
+    }
+    builder.append(pendingTag)
+    if (builder.lastOrNull() != '\n') builder.append('\n')
+    context.pendingCodeLanguageTag = null
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "[code.flushLanguageTag.beforeProse]")
     }
 }
 
 private val STREAMING_CODE_LANGUAGE_TAGS = setOf("python", "kotlin", "bash", "json")
+private val FENCED_MARKER_REGEX = Regex("```")
 
 private fun isStandaloneLanguageTag(text: String): Boolean {
     val normalized = text.trim().lowercase(Locale.ROOT)
@@ -4312,6 +4375,12 @@ private fun commitPendingCodeLine(
         safeAppendTrace(trace, "[code.commit]=${summarizeWhitespaceForUi(pending)}")
     }
 }
+
+
+private val JAPANESE_TEXT_REGEX = Regex("[\\p{IsHiragana}\\p{IsKatakana}\\p{IsHan}]")
+private val JAPANESE_SENTENCE_PUNCTUATION = listOf("。", "、", "！", "？")
+private val CODE_COMMAND_CHUNK_REGEX = Regex("^(python|python3|bash|sh|node|ruby|java|kotlinc)\\b", RegexOption.IGNORE_CASE)
+private val CODE_ARTIFACT_CHUNK_REGEX = Regex("^[A-Za-z0-9_./-]+\\.(py|kt|kts|sh|json|yaml|yml|xml|txt|md)$", RegexOption.IGNORE_CASE)
 
 private val STREAMING_STRONG_CODE_SIGNALS = listOf(
     "import ",

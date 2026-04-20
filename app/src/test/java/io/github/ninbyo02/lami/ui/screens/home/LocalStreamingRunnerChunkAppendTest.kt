@@ -258,6 +258,67 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `prose と code の後に prose が来たら prose lane に戻る`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "以下に", context)
+        appendStreamingChunk(builder, "python", context)
+        appendStreamingChunk(builder, "print(\"Hello, World!\")", context)
+        appendStreamingChunk(builder, "このコードを実行すると", context)
+
+        assertEquals("以下に\npython\nprint(\"Hello, World!\") このコードを実行すると", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
+    fun `python のコード後に日本語 prose chunk が来たら code lane 固定を解除する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "python", context)
+        appendStreamingChunk(builder, "print(\"Hello, World!\")", context)
+        appendStreamingChunk(builder, "このコードは非常にシンプルです", context)
+
+        assertEquals("python\nprint(\"Hello, World!\")\nこのコードは非常にシンプルです", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
+    fun `hello dot py と prose は不自然な改行を入れない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "hello.py", context)
+        appendStreamingChunk(builder, "というファイル", context)
+
+        assertEquals("hello.pyというファイル", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
+    fun `python hello dot py は command 風 chunk でも文字単位分解しない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "python hello.py", context)
+
+        assertEquals("python hello.py", builder.toString())
+    }
+
+    @Test
+    fun `引用風 inline chunk は prose lane を維持する`() {
+        val builder = StringBuilder("説明: ")
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "\"Hello, World!\"", context)
+        appendStreamingChunk(builder, "です。", context)
+
+        assertEquals("説明: \"Hello, World!\"です。", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
     fun `language tag の直後に fenced code 風 chunk が来ても python と連結しない`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
