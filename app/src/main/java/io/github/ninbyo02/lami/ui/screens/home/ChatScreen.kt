@@ -600,6 +600,7 @@ fun Home(
     var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
+    var streamingResponseTextForRender by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val isLocalRunningRaw = isLocalInferenceRunning
     val isServerRunning =
         !remoteStopRequested &&
@@ -731,6 +732,30 @@ fun Home(
             assistantUpdateCountForDev += 1
             firstNonEmptyAssistantChunkSeenForDev = true
             lastStreamingAssistantChunkForDev = currentChunk
+        }
+    }
+    LaunchedEffect(streamingResponseText, isInferenceRunningUi) {
+        val latestText = streamingResponseText
+        if (latestText.isNullOrEmpty()) {
+            streamingResponseTextForRender = latestText
+            return@LaunchedEffect
+        }
+
+        val previousRendered = streamingResponseTextForRender.orEmpty()
+        val appendedDelta = if (latestText.startsWith(previousRendered)) {
+            latestText.substring(previousRendered.length)
+        } else {
+            latestText
+        }
+        val shouldRefreshRenderText =
+            previousRendered.isEmpty() ||
+                appendedDelta.contains('\n') ||
+                appendedDelta.contains("```") ||
+                appendedDelta.length >= 48 ||
+                !isInferenceRunningUi
+
+        if (shouldRefreshRenderText) {
+            streamingResponseTextForRender = latestText
         }
     }
 
@@ -2750,19 +2775,21 @@ fun Home(
             } else {
                 val currentChatId = effectiveChatId
                 val messagesForListBase: List<Message> = allChatsOrNull
+                val streamingResponseTextForRenderValue =
+                    streamingResponseTextForRender ?: streamingResponseText
                 val messagesForList: List<Message> = if (
                     currentChatId != null &&
                     streamingAssistantMessageId == null &&
-                    !streamingResponseText.isNullOrBlank()
+                    !streamingResponseTextForRenderValue.isNullOrBlank()
                 ) {
                     logStreamTrace("STREAM ui transient row enabled")
                     messagesForListBase + Message(
                         chatId = currentChatId,
-                        message = streamingResponseText,
+                        message = streamingResponseTextForRenderValue,
                         isSendbyMe = false,
                     )
                 } else {
-                    if (streamingAssistantMessageId != null && !streamingResponseText.isNullOrBlank()) {
+                    if (streamingAssistantMessageId != null && !streamingResponseTextForRenderValue.isNullOrBlank()) {
                         Log.i(
                             "ChatScreen",
                             "STREAM ui transient row suppressed placeholderId=$streamingAssistantMessageId",
