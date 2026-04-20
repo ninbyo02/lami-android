@@ -4430,7 +4430,14 @@ private fun preSplitFencedPythonChunk(context: StreamingAppendContext, raw: Stri
 private fun findFencedPythonChunkSplitPoints(raw: String): List<Int> {
     val points = mutableListOf<Int>()
     for (index in 1 until raw.length) {
-        if (!isSafeFencedPythonSplitContext(raw, index)) continue
+        if (isInsideQuotedString(raw, index)) continue
+        if (isInsidePythonComment(raw, index)) {
+            if (isFencedPythonCommentBoundaryBeforeStrongStarter(raw, index)) {
+                points += index
+            }
+            continue
+        }
+        if (hasUnclosedBrackets(raw.substring(0, index))) continue
         if (isFencedPythonIdentifierToStrongStarterBoundaryAt(raw, index)) {
             points += index
             continue
@@ -4444,13 +4451,6 @@ private fun findFencedPythonChunkSplitPoints(raw: String): List<Int> {
         }
     }
     return points
-}
-
-private fun isSafeFencedPythonSplitContext(text: String, index: Int): Boolean {
-    if (isInsideQuotedString(text, index)) return false
-    if (hasUnclosedBrackets(text.substring(0, index))) return false
-    if (isInsidePythonComment(text, index)) return false
-    return true
 }
 
 private fun isFencedPythonIdentifierToStrongStarterBoundaryAt(text: String, index: Int): Boolean {
