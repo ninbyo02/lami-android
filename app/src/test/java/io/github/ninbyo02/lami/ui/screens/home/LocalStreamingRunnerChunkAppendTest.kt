@@ -533,6 +533,39 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `fenced python で single chunk 内の comment と assignment を分離する 先頭コメント版`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "# ブロックの色blocked_colors = COLORS[:6]", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\n# ブロックの色\nblocked_colors = COLORS[:6]\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で single chunk 内の comment と def を分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "# 初期化def build():", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\n# 初期化\ndef build():\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で identifier tail の後ろに assignment starter が来たら分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "randomWIDTH, HEIGHT =80,60", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nrandom\nWIDTH, HEIGHT =80,60\n```", builder.toString())
+    }
+
+    @Test
     fun `fenced python で single chunk の print 文字列はそのまま維持する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
@@ -663,6 +696,17 @@ class LocalStreamingRunnerChunkAppendTest {
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
 
         assertEquals("```bash\necho helloecho world\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced bash には python の single chunk 分離を適用しない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```bash", "echo hello#noteVALUE=1", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```bash\necho hello#noteVALUE=1\n```", builder.toString())
     }
 
     @Test
