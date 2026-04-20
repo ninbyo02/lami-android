@@ -6,4 +6,5 @@ data class SettingsData(
     val logo: Int = 0,
     val useDynamicColor: Boolean = false,
     val characterAnimationEnabled: Boolean = true,
+    val inferenceStatsDisplayMode: InferenceStatsDisplayMode = InferenceStatsDisplayMode.SIMPLE,
 )

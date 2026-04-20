@@ -8,19 +8,6 @@ import org.junit.Test
 
 class InferenceStatsSheetContentTest {
     @Test
-    fun `inferenceStatsDetailToggleActionLabel returns short action text by expanded state`() {
-        assertEquals("表示", inferenceStatsDetailToggleActionLabel(expanded = false))
-        assertEquals("閉じる", inferenceStatsDetailToggleActionLabel(expanded = true))
-    }
-
-    @Test
-    fun `inferenceStatsDetailToggleAccessibilityLabel keeps full meaning by expanded state`() {
-        assertEquals("詳細を表示", inferenceStatsDetailToggleAccessibilityLabel(expanded = false))
-        assertEquals("詳細を閉じる", inferenceStatsDetailToggleAccessibilityLabel(expanded = true))
-    }
-
-
-    @Test
     fun `buildInferenceSummarySections returns model and overview sections in expected order`() {
         val stats = InferenceStats(
             modelName = "qwen2.5",
@@ -403,7 +390,7 @@ class InferenceStatsSheetContentTest {
         assertTrue(text.contains("[概要]"))
         assertTrue(text.contains("[推論時間内訳]"))
         assertTrue(text.contains("[コンテキスト使用量]"))
-        assertTrue(text.contains("[詳細]"))
+        assertTrue(text.contains("[追加情報]"))
         assertTrue(text.contains("[DEV診断サマリー]"))
         assertTrue(text.contains("[measuredTokens]"))
         assertTrue(text.contains("[BenchmarkInfo raw]"))

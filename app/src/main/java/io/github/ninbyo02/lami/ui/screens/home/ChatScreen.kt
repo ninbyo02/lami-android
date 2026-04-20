@@ -60,6 +60,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material3.Card
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ElevatedButton
@@ -85,8 +88,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.DrawerValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.Dialog
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -147,6 +150,7 @@ import io.github.ninbyo02.lami.ui.components.InferenceTargetIcon
 import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
 import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
+import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
@@ -519,6 +523,9 @@ fun Home(
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
     val savedInferenceTarget by settingsPreferences.inferenceTargetFlow.collectAsState(initial = InferenceTarget.LOCAL)
+    val savedInferenceStatsDisplayMode by settingsPreferences.inferenceStatsDisplayModeFlow.collectAsState(
+        initial = InferenceStatsDisplayMode.SIMPLE,
+    )
     var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.LOCAL) }
     var isLocalInferenceRunning by rememberSaveable { mutableStateOf(false) }
     val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
@@ -582,6 +589,10 @@ fun Home(
     var didReceiveRealLocalPartial by remember(effectiveChatId) { mutableStateOf(false) }
     var realLocalPartialChunkCount by remember(effectiveChatId) { mutableStateOf(0) }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var pendingLocalOverlayText by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingLocalOverlaySendEpoch by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingLocalOverlayResolvedChatId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var pendingLocalOverlayVisible by rememberSaveable { mutableStateOf(false) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
@@ -614,11 +625,27 @@ fun Home(
         else -> null
     }
     val showLocalRespondingAssistantRow = isLocalRunningUi && streamingAssistantMessageId == null
+    val shouldClearPendingLocalOverlayOnAssistantStart =
+        streamingAssistantMessageId != null ||
+            !localStreamingResponseText.isNullOrBlank() ||
+            showLocalRespondingAssistantRow
+    val pendingLocalOverlayTextValue = pendingLocalOverlayText.orEmpty()
+    val hasPendingLocalOverlay = pendingLocalOverlayTextValue.isNotBlank()
+    val shouldShowPendingLocalOverlay = pendingLocalOverlayVisible && hasPendingLocalOverlay
+    val localRespondingAssistantRowMessage = if (
+        localInferenceEngineState == LocalInferenceEngineState.PREPARING &&
+        localStreamingResponseText.isNullOrBlank()
+    ) {
+        "モデルを読み込み中…"
+    } else {
+        "応答中..."
+    }
     val lamiStatusForChatUi = if (isHeaderRunningUi) lamiAnimationStatus else LamiStatus.READY
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val lamiHeaderStateForChatUi = if (isHeaderRunningUi) lamiUiState.state else LamiState.Idle
     val effectiveLamiStatusForChatUi = when {
         isStopRequested -> LamiStatus.READY
+        isLocalTtsPlayingUi -> LamiStatus.TALKING
         isServerRunningUi -> lamiStatusForChatUi
         isLocalRunningUi -> when (lamiStatusForChatUi) {
             LamiStatus.READY,
@@ -629,17 +656,15 @@ fun Home(
             -> LamiStatus.CONNECTING
             else -> lamiStatusForChatUi
         }
-        isLocalTtsPlayingUi -> LamiStatus.TALKING
         else -> LamiStatus.READY
     }
     val effectiveLamiHeaderStateForChatUi = when {
         isStopRequested -> LamiState.Idle
+        isLocalTtsPlayingUi -> {
+            LamiState.Speaking(1)
+        }
         isServerRunningUi -> lamiHeaderStateForChatUi
         isLocalRunningUi -> if (lamiHeaderStateForChatUi == LamiState.Idle) LamiState.Thinking else lamiHeaderStateForChatUi
-        isLocalTtsPlayingUi -> {
-            val textLength = (lamiHeaderStateForChatUi as? LamiState.Speaking)?.textLength ?: 0
-            LamiState.Speaking(textLength)
-        }
         else -> LamiState.Idle
     }
     // NOTE: debug-only top gradient adjustments. Default OFF.
@@ -711,6 +736,32 @@ fun Home(
     fun logStreamTrace(message: String) {
         Log.i("ChatScreen", message)
         appendLocalReflectionTrace(context, message)
+    }
+
+    fun debugLocalUiTrace(label: String, extra: String = "") {
+        if (!BuildConfig.DEBUG) return
+        val suffix = if (extra.isNotBlank()) " $extra" else ""
+        val message = "[LOCAL_UI] $label$suffix"
+        Log.i("ChatScreen", message)
+        appendLocalReflectionTrace(context.applicationContext, message)
+    }
+
+    fun armPendingLocalOverlay(requestPrompt: String, resolvedChatId: Int?) {
+        pendingLocalOverlayText = requestPrompt
+        pendingLocalOverlaySendEpoch = SystemClock.elapsedRealtime()
+        pendingLocalOverlayResolvedChatId = resolvedChatId
+        pendingLocalOverlayVisible = true
+    }
+
+    fun clearPendingLocalOverlay(reason: String) {
+        debugLocalUiTrace(
+            label = "LOCAL_UI_PENDING_CLEAR",
+            extra = "reason=$reason effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId pendingLocalOverlayTextLength=${pendingLocalOverlayText?.length ?: 0} isCreatingChat=$isCreatingChat",
+        )
+        pendingLocalOverlayVisible = false
+        pendingLocalOverlayText = null
+        pendingLocalOverlaySendEpoch = null
+        pendingLocalOverlayResolvedChatId = null
     }
 
     fun resetStreamingSpeechState(clearPlaybackFlag: Boolean = true) {
@@ -1083,11 +1134,17 @@ fun Home(
         }
     }
 
-    LaunchedEffect(chatId, chats) {
+    LaunchedEffect(chatId, chats, pendingNavigateChatId, pendingLocalOverlayVisible) {
         val resolvedChatId = resolveDefaultChatId(chatId, chats)
-        effectiveChatId = resolvedChatId
+        if (pendingNavigateChatId == null) {
+            effectiveChatId = resolvedChatId
+        }
 
-        if (shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)) {
+        if (
+            pendingNavigateChatId == null &&
+            !pendingLocalOverlayVisible &&
+            shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)
+        ) {
             isCreatingChat = true
             val newChatId = viewModel.insertChatAndReturnId(
                 Chat(title = "New chat", titleSource = TitleSource.TEMP)
@@ -1099,6 +1156,15 @@ fun Home(
         if (resolvedChatId != null) {
             isCreatingChat = false
             suppressAutoNewChat = false
+        }
+    }
+
+    LaunchedEffect(chatId, pendingLocalOverlayVisible, pendingLocalOverlayResolvedChatId) {
+        val pendingChatId = pendingLocalOverlayResolvedChatId ?: return@LaunchedEffect
+        val currentChatId = chatId ?: return@LaunchedEffect
+        if (!pendingLocalOverlayVisible) return@LaunchedEffect
+        if (currentChatId != pendingChatId) {
+            clearPendingLocalOverlay(reason = "chat-switched")
         }
     }
 
@@ -1744,14 +1810,15 @@ fun Home(
                                         },
                                         onClick = {
                                             viewModel.onUserInteraction()
-                                            if (isInferenceRunningUi) {
-                                                if (isLocalRunningRaw) {
-                                                    localStopRequested = true
-                                                    localInferenceJob?.cancel()
-                                                    localInferenceJob = null
-                                                    effectiveChatId?.let { currentChatId ->
-                                                        coroutineScope.launch {
-                                                            localInferenceEngineHolder.resetConversation(
+                                                if (isInferenceRunningUi) {
+                                                    if (isLocalRunningRaw) {
+                                                        localStopRequested = true
+                                                        clearPendingLocalOverlay(reason = "stop")
+                                                        localInferenceJob?.cancel()
+                                                        localInferenceJob = null
+                                                        effectiveChatId?.let { currentChatId ->
+                                                            coroutineScope.launch {
+                                                                localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
                                                                 reason = "stop",
                                                             )
@@ -1857,8 +1924,82 @@ fun Home(
                                                 }
 
                                                 InferenceTarget.LOCAL -> {
+                                                    if (isLocalInferenceRunning) return@IconButton
+                                                    if (selectedImageUriStrings.isNotEmpty()) {
+                                                        coroutineScope.launch {
+                                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                                            snackbarHostState.showSnackbar(
+                                                                message = "ローカル推論では画像入力はまだ未対応です",
+                                                                duration = SnackbarDuration.Short,
+                                                            )
+                                                        }
+                                                        return@IconButton
+                                                    }
+                                                    val requestPrompt = userPrompt
+                                                    if (requestPrompt.isBlank()) return@IconButton
+                                                    debugLocalUiTrace(
+                                                        label = "LOCAL_UI_SEND_TAPPED",
+                                                        extra = "selectedInferenceTarget=$selectedInferenceTarget effectiveChatId=$effectiveChatId userPromptLength=${userPrompt.length} pendingVisibleBefore=$pendingLocalOverlayVisible",
+                                                    )
+                                                    armPendingLocalOverlay(
+                                                        requestPrompt = requestPrompt,
+                                                        resolvedChatId = effectiveChatId,
+                                                    )
+                                                    prompt = ""
+                                                    userPrompt = ""
+                                                    selectedImageUriStrings = emptyList()
+                                                    localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                     localStopRequested = false
+                                                    debugLocalUiTrace(
+                                                        label = "LOCAL_UI_PENDING_ARMED",
+                                                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId pendingLocalOverlayTextLength=${pendingLocalOverlayText?.length ?: 0} userPromptLengthAfterClear=${userPrompt.length}",
+                                                    )
+                                                    stopTtsWithCleanup(
+                                                        suppressedMessageId = stopButtonOwnerAssistantMessageId
+                                                            ?: currentSpeakingAssistantMessageId
+                                                            ?: streamingSpeechStartedForMessageId,
+                                                        armTapGuards = false,
+                                                    )
                                                     localInferenceJob = coroutineScope.launch {
+                                                        debugLocalUiTrace(
+                                                            label = "LOCAL_UI_LAUNCH_ENTER",
+                                                            extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId isCreatingChat=$isCreatingChat",
+                                                        )
+                                                        var currentChatId = effectiveChatId
+                                                        if (currentChatId == null) {
+                                                            isCreatingChat = true
+                                                            try {
+                                                                val newChatId = withContext(Dispatchers.IO) {
+                                                                    viewModel.insertChatAndReturnId(
+                                                                        Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                                                                    )
+                                                                }
+                                                                effectiveChatId = newChatId
+                                                                pendingNavigateChatId = newChatId
+                                                                pendingLocalOverlayResolvedChatId = newChatId
+                                                                currentChatId = newChatId
+                                                            } finally {
+                                                                isCreatingChat = false
+                                                            }
+                                                        }
+                                                        val resolvedChatId = currentChatId
+                                                        debugLocalUiTrace(
+                                                            label = "LOCAL_UI_USER_INSERT_START",
+                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId",
+                                                        )
+                                                        withContext(Dispatchers.IO) {
+                                                            viewModel.insert(
+                                                                Message(
+                                                                    chatId = resolvedChatId,
+                                                                    message = requestPrompt,
+                                                                    isSendbyMe = true,
+                                                                )
+                                                            )
+                                                        }
+                                                        debugLocalUiTrace(
+                                                            label = "LOCAL_UI_USER_INSERT_DONE",
+                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId",
+                                                        )
                                                         appendLocalReflectionTrace(
                                                             context = context.applicationContext,
                                                             message = "UPSTREAM local-branch-enter selectedTarget=LOCAL",
@@ -1870,39 +2011,6 @@ fun Home(
                                                         localStreamingResponseText = null
                                                         isLocalInferenceRunning = true
                                                         try {
-                                                            val currentChatId = effectiveChatId
-                                                            if (currentChatId == null) {
-                                                                placeholder = "Setting up a new chat ..."
-                                                                return@launch
-                                                            }
-                                                            if (selectedImageUriStrings.isNotEmpty()) {
-                                                                snackbarHostState.currentSnackbarData?.dismiss()
-                                                                snackbarHostState.showSnackbar(
-                                                                    message = "ローカル推論では画像入力はまだ未対応です",
-                                                                    duration = SnackbarDuration.Short,
-                                                                )
-                                                                return@launch
-                                                            }
-                                                            val requestPrompt = userPrompt
-                                                            if (requestPrompt.isBlank()) {
-                                                                return@launch
-                                                            }
-                                                            viewModel.insert(
-                                                                Message(
-                                                                    chatId = currentChatId,
-                                                                    message = requestPrompt,
-                                                                    isSendbyMe = true,
-                                                                )
-                                                            )
-                                                            prompt = ""
-                                                            userPrompt = ""
-                                                            selectedImageUriStrings = emptyList()
-                                                            stopTtsWithCleanup(
-                                                                suppressedMessageId = stopButtonOwnerAssistantMessageId
-                                                                    ?: currentSpeakingAssistantMessageId
-                                                                    ?: streamingSpeechStartedForMessageId,
-                                                                armTapGuards = false,
-                                                            )
                                                             localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                             localStreamingResponseText = null
                                                             didReceiveRealLocalPartial = false
@@ -1912,41 +2020,44 @@ fun Home(
                                                             lastStreamingAssistantChunkForDev = null
                                                             val localRunGuardEpoch = streamingGuardEpoch
                                                             val localRunStartedAtMs = SystemClock.elapsedRealtime()
+                                                            val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
+                                                            var measuredModelLoadDurationNs: Long? = null
                                                             appendLocalReflectionTrace(
                                                                 context = context.applicationContext,
                                                                 message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
                                                             )
                                                             var mediaPipeProbeModelPathForRun: String? = null
-                                                            val modelResolution = resolveLocalModelResolutionOrNull(
-                                                                context = context.applicationContext,
-                                                                settingsPreferences = settingsPreferences,
-                                                                localBaseModelFilePath = localBaseModelFilePath,
-                                                                localBaseModelDisplayName = localBaseModelDisplayName,
-                                                            )
-                                                            val useHeldPathOnlyForDev = BuildConfig.DEBUG && DEV_USE_HELD_PATH_ONLY
-                                                            appendLocalReflectionTrace(
-                                                                context = context.applicationContext,
-                                                                message = "UPSTREAM held-only mode enabled=$useHeldPathOnlyForDev",
-                                                            )
-                                                            val runResult = if (modelResolution == null) {
+                                                            val runResult = withContext(Dispatchers.Default) {
+                                                                val modelResolution = resolveLocalModelResolutionOrNull(
+                                                                    context = context.applicationContext,
+                                                                    settingsPreferences = settingsPreferences,
+                                                                    localBaseModelFilePath = localBaseModelFilePath,
+                                                                    localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                )
+                                                                val useHeldPathOnlyForDev = BuildConfig.DEBUG && DEV_USE_HELD_PATH_ONLY
                                                                 appendLocalReflectionTrace(
                                                                     context = context.applicationContext,
-                                                                    message = "UPSTREAM held-skip reason=model-path-unresolved",
+                                                                    message = "UPSTREAM held-only mode enabled=$useHeldPathOnlyForDev",
                                                                 )
-                                                                if (useHeldPathOnlyForDev) {
+                                                                if (modelResolution == null) {
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
-                                                                        message = "UPSTREAM held-only fail reason=resolved-model-path-null",
+                                                                        message = "UPSTREAM held-skip reason=model-path-unresolved",
                                                                     )
-                                                                    LocalInferenceRunResult(
-                                                                        state = LocalInferenceEngineState.ERROR,
-                                                                        response = "DEV held path failure: model path unresolved",
-                                                                    )
+                                                                    if (useHeldPathOnlyForDev) {
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM held-only fail reason=resolved-model-path-null",
+                                                                        )
+                                                                        LocalInferenceRunResult(
+                                                                            state = LocalInferenceEngineState.ERROR,
+                                                                            response = "DEV held path failure: model path unresolved",
+                                                                        )
+                                                                    } else {
+                                                                        LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
+                                                                    }
                                                                 } else {
-                                                                    LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
-                                                                }
-                                                            } else {
-                                                                val resolvedModelPath = modelResolution.modelPath
+                                                                    val resolvedModelPath = modelResolution.modelPath
                                                                 mediaPipeProbeModelPathForRun = resolvedModelPath
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
                                                                 var legacyFallbackReason: String? = null
@@ -2010,35 +2121,42 @@ fun Home(
                                                                     }
                                                                 }
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine == null) {
-                                                                    devDebugText = buildString {
-                                                                        append("DEV HELD FAILURE\n")
-                                                                        append("modelPath=").append(resolvedModelPath).append("\n")
-                                                                        append("held=").append(false).append("\n")
-                                                                        append("heldHash=").append(-1).append("\n")
-                                                                        append("useCount=").append(-1).append("\n")
-                                                                        append("stage=").append(heldAcquireFailureStage ?: "unknown").append("\n")
-                                                                        append("class=").append(heldAcquireFailureClassName ?: "unknown").append("\n")
-                                                                        append("message=").append(heldAcquireFailureMessage ?: "no message").append("\n")
-                                                                        append("helper=").append(heldOfficialHelperProgress ?: "not-started").append("\n")
+                                                                    coroutineScope.launch {
+                                                                        devDebugText = buildString {
+                                                                            append("DEV HELD FAILURE\n")
+                                                                            append("modelPath=").append(resolvedModelPath).append("\n")
+                                                                            append("held=").append(false).append("\n")
+                                                                            append("heldHash=").append(-1).append("\n")
+                                                                            append("useCount=").append(-1).append("\n")
+                                                                            append("stage=").append(heldAcquireFailureStage ?: "unknown").append("\n")
+                                                                            append("class=").append(heldAcquireFailureClassName ?: "unknown").append("\n")
+                                                                            append("message=").append(heldAcquireFailureMessage ?: "no message").append("\n")
+                                                                            append("helper=").append(heldOfficialHelperProgress ?: "not-started").append("\n")
+                                                                        }
                                                                     }
                                                                 }
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
-                                                                    devHeldStateText = buildString {
-                                                                        append("HELD ENGINE STATE\n")
-                                                                        append("modelPath=").append(resolvedModelPath).append("\n")
-                                                                        append("backendKey=").append(modelResolution.backendKey).append("\n")
-                                                                        append("cacheDirPath=").append(modelResolution.cacheDirPath).append("\n")
-                                                                        append("heldExists=").append(heldEngine != null).append("\n")
-                                                                        append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
-                                                                        append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
+                                                                    coroutineScope.launch {
+                                                                        devHeldStateText = buildString {
+                                                                            append("HELD ENGINE STATE\n")
+                                                                            append("modelPath=").append(resolvedModelPath).append("\n")
+                                                                            append("backendKey=").append(modelResolution.backendKey).append("\n")
+                                                                            append("cacheDirPath=").append(modelResolution.cacheDirPath).append("\n")
+                                                                            append("heldExists=").append(heldEngine != null).append("\n")
+                                                                            append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
+                                                                            append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
+                                                                        }
                                                                     }
                                                                 }
                                                                 heldEngine?.let { held ->
+                                                                    measuredModelLoadDurationNs =
+                                                                        (SystemClock.elapsedRealtimeNanos() - localRunStartedAtNs)
+                                                                            .coerceAtLeast(0L)
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-acquire success namespace=${held.namespace} modelPathTail=$modelPathTail engineClass=${held::class.java.name}",
                                                                     )
-                                                                    devDebugText = null
+                                                                    coroutineScope.launch { devDebugText = null }
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-run start modelPathTail=$modelPathTail",
@@ -2055,12 +2173,12 @@ fun Home(
                                                                             if (localStopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = partial.trim()
                                                                             if (normalizedPartial.isBlank()) return@runWithHeldEngine
-                                                                            didReceiveRealLocalPartial = true
-                                                                            realLocalPartialChunkCount += 1
-                                                                            localStreamingResponseText = normalizedPartial
                                                                             coroutineScope.launch {
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                 if (localStopRequested) return@launch
+                                                                                didReceiveRealLocalPartial = true
+                                                                                realLocalPartialChunkCount += 1
+                                                                                localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
                                                                                     response = normalizedPartial,
@@ -2079,7 +2197,7 @@ fun Home(
                                                                             context = context.applicationContext,
                                                                             message = "UPSTREAM held-run success responseLength=${heldRunResult.responseText.length} partialCount=${heldRunResult.partialCount} officialFlowUsed=${heldRunResult.officialFlowUsed} namespace=${heldRunResult.namespace}",
                                                                         )
-                                                                        devDebugText = null
+                                                                        coroutineScope.launch { devDebugText = null }
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
                                                                             message = "UPSTREAM held-run final source=${if (heldRunResult.officialFlowUsed) "held-official-flow" else "held-official-blocking"} closePath=${heldRunResult.closeLifecycleSummary?.path ?: "none"}",
@@ -2120,12 +2238,12 @@ fun Home(
                                                                                     if (localStopRequested) return@legacyPartial
                                                                                     val normalizedPartial = partial.trim()
                                                                                     if (normalizedPartial.isBlank()) return@legacyPartial
-                                                                                    didReceiveRealLocalPartial = true
-                                                                                    realLocalPartialChunkCount += 1
-                                                                                    localStreamingResponseText = normalizedPartial
                                                                                     coroutineScope.launch {
                                                                                         if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                         if (localStopRequested) return@launch
+                                                                                        didReceiveRealLocalPartial = true
+                                                                                        realLocalPartialChunkCount += 1
+                                                                                        localStreamingResponseText = normalizedPartial
                                                                                         upsertStreamingAssistantPlaceholderSerialized(
                                                                                             chatId = currentChatId,
                                                                                             response = normalizedPartial,
@@ -2154,7 +2272,7 @@ fun Home(
                                                                                 append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
                                                                                 append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
                                                                             }
-                                                                            devDebugText = failReason
+                                                                            coroutineScope.launch { devDebugText = failReason }
                                                                         }
                                                                         return@run LocalInferenceRunResult(
                                                                             state = LocalInferenceEngineState.ERROR,
@@ -2183,12 +2301,12 @@ fun Home(
                                                                             if (localStopRequested) return@legacyPartial
                                                                             val normalizedPartial = partial.trim()
                                                                             if (normalizedPartial.isBlank()) return@legacyPartial
-                                                                            didReceiveRealLocalPartial = true
-                                                                            realLocalPartialChunkCount += 1
-                                                                            localStreamingResponseText = normalizedPartial
                                                                             coroutineScope.launch {
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                 if (localStopRequested) return@launch
+                                                                                didReceiveRealLocalPartial = true
+                                                                                realLocalPartialChunkCount += 1
+                                                                                localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
                                                                                     response = normalizedPartial,
@@ -2202,6 +2320,7 @@ fun Home(
                                                                     )
                                                                     legacyRunResult
                                                                 }
+                                                                }
                                                             }
                                                             localInferenceEngineState = runResult?.state
                                                                 ?: LocalInferenceEngineState.ERROR
@@ -2210,6 +2329,8 @@ fun Home(
                                                             val runResultWithUiTrace = normalizeLocalInferenceRunResult(
                                                                 runResult?.copy(
                                                                     trace = runResult.trace.copy(
+                                                                        wallClockLoadDurationNs = runResult.trace.wallClockLoadDurationNs
+                                                                            ?: measuredModelLoadDurationNs,
                                                                         mediaPipeProbeModelPath = runResult.trace.mediaPipeProbeModelPath
                                                                             ?: mediaPipeProbeModelPathForRun,
                                                                         assistantUpdateCount = assistantUpdateCountForDev,
@@ -2411,6 +2532,7 @@ fun Home(
                                                             }
                                                             localStreamingResponseText = null
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
+                                                            clearPendingLocalOverlay(reason = "error")
                                                             isLocalInferenceRunning = false
                                                             localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
@@ -2440,6 +2562,7 @@ fun Home(
                                                             localStreamingResponseText = null
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
+                                                            clearPendingLocalOverlay(reason = "error")
                                                             effectiveChatId?.let { chatId ->
                                                                 localInferenceEngineHolder.resetConversation(
                                                                     chatId = chatId,
@@ -2593,6 +2716,16 @@ fun Home(
         ) {
             val contentModifier = Modifier
                 .fillMaxSize()
+            LaunchedEffect(
+                shouldClearPendingLocalOverlayOnAssistantStart,
+                pendingLocalOverlayVisible,
+                pendingLocalOverlayText,
+                pendingLocalOverlayResolvedChatId,
+            ) {
+                if (!pendingLocalOverlayVisible) return@LaunchedEffect
+                if (!shouldClearPendingLocalOverlayOnAssistantStart) return@LaunchedEffect
+                clearPendingLocalOverlay(reason = "assistant-started")
+            }
 
             if (effectiveChatId == null) {
                 Column(
@@ -2603,7 +2736,13 @@ fun Home(
                     Text(if (isCreatingChat) "Creating new chat..." else "Preparing chat...")
                 }
             } else if (allChatsOrNull == null) {
-                Box(modifier = contentModifier)
+                Column(
+                    modifier = contentModifier.padding(top = effectiveTopGradientBottomDp),
+                    verticalArrangement = Arrangement.Top,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text("Loading messages...")
+                }
             } else {
                 val currentChatId = effectiveChatId
                 val messagesForListBase: List<Message> = allChatsOrNull
@@ -2991,7 +3130,7 @@ fun Home(
                                 if (showLocalRespondingAssistantRow) {
                                     item(key = "local_responding_indicator") {
                                         PlainAssistantMessage(
-                                            message = "応答中...",
+                                            message = localRespondingAssistantRowMessage,
                                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
                                         )
                                     }
@@ -3030,6 +3169,21 @@ fun Home(
                             }
                         }
                     }
+                }
+            }
+            if (shouldShowPendingLocalOverlay) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = effectiveTopGradientBottomDp),
+                    contentAlignment = Alignment.TopEnd,
+                ) {
+                    ChatBubble(
+                        message = pendingLocalOverlayTextValue,
+                        isSentByMe = true,
+                        attachmentUriString = null,
+                        attachmentUriStringsJson = null,
+                    )
                 }
             }
         }
@@ -3109,6 +3263,12 @@ fun Home(
             stats?.let {
                 InferenceStatsSheetContent(
                     stats = it,
+                    initialDisplayMode = savedInferenceStatsDisplayMode,
+                    onDisplayModeChange = { mode ->
+                        coroutineScope.launch {
+                            settingsPreferences.saveInferenceStatsDisplayMode(mode)
+                        }
+                    },
                     localTraceForDev = selectedLocalTraceForDevSheet,
                     assistantText = selectedAssistantMessageTextForStatsSheet,
                     promptText = selectedPromptMessageTextForStatsSheet,
@@ -5493,6 +5653,8 @@ internal fun createAssistantMessage(
 @Composable
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
+    initialDisplayMode: InferenceStatsDisplayMode,
+    onDisplayModeChange: (InferenceStatsDisplayMode) -> Unit,
     localTraceForDev: LocalInferenceTrace? = null,
     assistantText: String? = null,
     promptText: String? = null,
@@ -5500,7 +5662,10 @@ private fun InferenceStatsSheetContent(
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
 ) {
-    var isDetailExpanded by rememberSaveable { mutableStateOf(false) }
+    var selectedDisplayMode by rememberSaveable { mutableStateOf(initialDisplayMode) }
+    LaunchedEffect(initialDisplayMode) {
+        selectedDisplayMode = initialDisplayMode
+    }
     val scrollState = rememberScrollState()
     val clipboardManager = LocalClipboardManager.current
     val sheetContentPadding = 14.dp
@@ -5508,6 +5673,7 @@ private fun InferenceStatsSheetContent(
 
     val sections = buildInferenceSummarySections(
         stats = stats,
+        displayMode = selectedDisplayMode,
         localTraceForDev = localTraceForDev,
         assistantText = assistantText,
         promptText = promptText,
@@ -5520,6 +5686,7 @@ private fun InferenceStatsSheetContent(
     }
     val detailSections = buildInferenceDetailSections(
         stats = stats,
+        displayMode = selectedDisplayMode,
         localTraceForDev = localTraceForDev,
         assistantText = assistantText,
         promptText = promptText,
@@ -5547,11 +5714,24 @@ private fun InferenceStatsSheetContent(
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(sectionSpacing),
         ) {
-            Text(
-                text = "推論統計",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "推論統計",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                InferenceStatsModeSelector(
+                    selectedMode = selectedDisplayMode,
+                    onModeSelected = { mode ->
+                        selectedDisplayMode = mode
+                        onDisplayModeChange(mode)
+                    },
+                )
+            }
 
             InferenceModelInfoRow(
                 stats = stats,
@@ -5564,6 +5744,7 @@ private fun InferenceStatsSheetContent(
                         AnnotatedString(
                             buildInferenceStatsFullCopyText(
                                 stats = stats,
+                                displayMode = selectedDisplayMode,
                                 sections = sections,
                                 detailSections = detailSections,
                             ),
@@ -5580,10 +5761,12 @@ private fun InferenceStatsSheetContent(
                 }
             }
 
-            InferenceTimingBreakdownSection(stats)
-            InferenceContextUsageSection(stats)
+            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE) {
+                InferenceTimingBreakdownSection(stats)
+                InferenceContextUsageSection(stats)
+            }
 
-            if (shouldShowInferenceTimingNote(stats)) {
+            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE && shouldShowInferenceTimingNote(stats)) {
                 Text(
                     text = inferenceTimingNoteText(),
                     style = MaterialTheme.typography.bodySmall,
@@ -5591,12 +5774,7 @@ private fun InferenceStatsSheetContent(
                 )
             }
 
-            InferenceStatsCollapsibleSectionHeader(
-                expanded = isDetailExpanded,
-                onToggle = { isDetailExpanded = !isDetailExpanded },
-            )
-
-            AnimatedVisibility(visible = isDetailExpanded) {
+            if (selectedDisplayMode != InferenceStatsDisplayMode.SIMPLE) {
                 Column(
                     modifier = Modifier.testTag("inferenceStatsDetailContent"),
                     verticalArrangement = Arrangement.spacedBy(sectionSpacing),
@@ -5681,6 +5859,7 @@ private fun resolveInferenceTargetForStats(
 
 internal fun buildInferenceStatsFullCopyText(
     stats: InferenceStats,
+    displayMode: InferenceStatsDisplayMode,
     sections: List<InferenceStatsSectionUi>,
     detailSections: List<InferenceStatsSectionUi>,
 ): String {
@@ -5699,48 +5878,122 @@ internal fun buildInferenceStatsFullCopyText(
             if (index != sections.lastIndex) appendLine()
         }
 
-        appendLine()
-        appendLine("[推論時間内訳]")
-        val breakdown = buildInferenceTimeBreakdown(stats)
-        if (breakdown == null) {
-            appendLine("—")
-        } else {
-            breakdown.segments.forEach { segment ->
-                appendLine("${segment.label}: ${segment.durationText} / ${segment.percent}%")
+        if (displayMode != InferenceStatsDisplayMode.SIMPLE) {
+            appendLine()
+            appendLine("[推論時間内訳]")
+            val breakdown = buildInferenceTimeBreakdown(stats)
+            if (breakdown == null) {
+                appendLine("—")
+            } else {
+                breakdown.segments.forEach { segment ->
+                    appendLine("${segment.label}: ${segment.durationText} / ${segment.percent}%")
+                }
+            }
+            appendLine()
+            appendLine("[コンテキスト使用量]")
+            when (val usage = buildContextUsageUi(stats)) {
+                null -> appendLine("—")
+                is ContextUsageUi.WithMax -> appendLine("${usage.used} / ${usage.max} tokens (${usage.percent}%)")
+                is ContextUsageUi.Loading -> {
+                    appendLine("使用トークン ${usage.used}")
+                    appendLine("上限取得中…")
+                }
+
+                is ContextUsageUi.WithoutMax -> {
+                    appendLine("使用トークン ${usage.used}")
+                    appendLine("上限未取得")
+                }
             }
         }
 
-        appendLine()
-        appendLine("[コンテキスト使用量]")
-        when (val usage = buildContextUsageUi(stats)) {
-            null -> appendLine("—")
-            is ContextUsageUi.WithMax -> appendLine("${usage.used} / ${usage.max} tokens (${usage.percent}%)")
-            is ContextUsageUi.Loading -> {
-                appendLine("使用トークン ${usage.used}")
-                appendLine("上限取得中…")
-            }
-
-            is ContextUsageUi.WithoutMax -> {
-                appendLine("使用トークン ${usage.used}")
-                appendLine("上限未取得")
-            }
-        }
-
-        appendLine()
-        appendLine("[詳細]")
-        if (detailSections.isEmpty()) {
-            appendLine("—")
-        } else {
-            detailSections.forEachIndexed { index, section ->
-                appendSectionAsPlainText(
-                    sectionTitle = section.title,
-                    items = section.items,
-                )
-                if (index != detailSections.lastIndex) appendLine()
+        if (displayMode != InferenceStatsDisplayMode.SIMPLE) {
+            appendLine()
+            appendLine("[追加情報]")
+            if (detailSections.isEmpty()) {
+                appendLine("—")
+            } else {
+                detailSections.forEachIndexed { index, section ->
+                    appendSectionAsPlainText(
+                        sectionTitle = section.title,
+                        items = section.items,
+                    )
+                    if (index != detailSections.lastIndex) appendLine()
+                }
             }
         }
 
     }.trimEnd()
+}
+
+@Composable
+private fun InferenceStatsModeSelector(
+    selectedMode: InferenceStatsDisplayMode,
+    onModeSelected: (InferenceStatsDisplayMode) -> Unit,
+) {
+    val modeButtons = listOf(
+        Triple(
+            InferenceStatsDisplayMode.SIMPLE,
+            Icons.Outlined.ViewAgenda,
+            "シンプル表示",
+        ),
+        Triple(
+            InferenceStatsDisplayMode.DETAILED,
+            Icons.AutoMirrored.Outlined.ViewList,
+            "詳細表示",
+        ),
+        Triple(
+            InferenceStatsDisplayMode.DEVELOPER,
+            Icons.Outlined.Code,
+            "開発者表示",
+        ),
+    )
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        modeButtons.forEach { (mode, icon, description) ->
+            InferenceStatsModeIconButton(
+                icon = icon,
+                contentDescription = description,
+                selected = mode == selectedMode,
+                onClick = { onModeSelected(mode) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun InferenceStatsModeIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            Color.Transparent
+        },
+    ) {
+        Box(
+            modifier = Modifier.size(32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
+    }
 }
 
 private fun StringBuilder.appendSectionAsPlainText(
@@ -5860,52 +6113,6 @@ private fun InferenceContextUsageSection(stats: InferenceStats) {
         }
     }
 }
-
-@Composable
-private fun InferenceStatsCollapsibleSectionHeader(
-    expanded: Boolean,
-    onToggle: () -> Unit,
-) {
-    val actionLabel = inferenceStatsDetailToggleActionLabel(expanded)
-    val accessibilityLabel = inferenceStatsDetailToggleAccessibilityLabel(expanded)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onToggle)
-            .semantics { contentDescription = accessibilityLabel }
-            .testTag("inferenceStatsDetailToggle")
-            // 見出し行全体のタップしやすさを維持するため、最小限の縦余白を確保する。
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "詳細",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = actionLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Icon(
-                imageVector = if (expanded) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
-                contentDescription = accessibilityLabel,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-internal fun inferenceStatsDetailToggleActionLabel(expanded: Boolean): String = if (expanded) "閉じる" else "表示"
-
-internal fun inferenceStatsDetailToggleAccessibilityLabel(expanded: Boolean): String = if (expanded) "詳細を閉じる" else "詳細を表示"
 
 internal fun inferenceTimingNoteText(): String =
     "初回受信までは端末側の受信タイミング、全体完了までは推論統計の完了タイミングを示します。"

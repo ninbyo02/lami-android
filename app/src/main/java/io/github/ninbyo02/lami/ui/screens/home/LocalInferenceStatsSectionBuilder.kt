@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import io.github.ninbyo02.lami.ui.util.formatFinishReason
 import io.github.ninbyo02.lami.ui.util.formatImageInputCount
 import io.github.ninbyo02.lami.ui.util.formatInferenceTime
@@ -18,11 +19,20 @@ private enum class InferenceBackendKind {
 
 internal fun buildInferenceSummarySections(
     stats: InferenceStats,
+    displayMode: InferenceStatsDisplayMode,
     localTraceForDev: LocalInferenceTrace? = null,
     assistantText: String? = null,
     promptText: String? = null,
     enableDevLlmSessionAsyncPoc: Boolean = false,
 ): List<InferenceStatsSectionUi> {
+    if (displayMode == InferenceStatsDisplayMode.SIMPLE) {
+        return buildInferenceSimpleSections(
+            stats = stats,
+            localTraceForDev = localTraceForDev,
+            assistantText = assistantText,
+            promptText = promptText,
+        )
+    }
     val isLocalMinimal = isLocalMinimalInferenceStats(stats)
     val localStatsUiModel = localTraceForDev?.let {
         createLocalInferenceStatsUiModel(
@@ -48,13 +58,15 @@ internal fun buildInferenceSummarySections(
                 InferenceStatItemUi(
                     label = "生成速度",
                     value = if (localTraceForDev == null) {
-                        // 主表示はバックエンド種別に関わらず Lami基準速度を優先する。
-                        buildLamiTokensPerSecondText(stats) ?: "—"
+                        buildBackendTokensPerSecondText(stats)
+                            ?: buildLamiTokensPerSecondText(stats)
+                            ?: "—"
                     } else {
-                        formatRegularTokensPerSecondValue(
-                            statValue = localStatsUiModel?.tokensPerSecond,
-                            fallbackValue = buildLamiTokensPerSecondText(stats),
-                        )
+                        buildBackendTokensPerSecondText(stats)
+                            ?: formatRegularTokensPerSecondValue(
+                                statValue = localStatsUiModel?.tokensPerSecond,
+                                fallbackValue = buildLamiTokensPerSecondText(stats),
+                            )
                     },
                     emphasizeValue = true,
                 )
@@ -66,17 +78,22 @@ internal fun buildInferenceSummarySections(
         title = "概要",
         items = summaryItems,
     )
-    val localInventorySection = buildLocalInventorySectionForDev(
-        isLocalMinimal = isLocalMinimal,
-        trace = localTraceForDev,
-        stats = stats,
-        enableDevLlmSessionAsyncPoc = enableDevLlmSessionAsyncPoc,
-    )
+    val localInventorySection = if (displayMode == InferenceStatsDisplayMode.DEVELOPER) {
+        buildLocalInventorySectionForDev(
+            isLocalMinimal = isLocalMinimal,
+            trace = localTraceForDev,
+            stats = stats,
+            enableDevLlmSessionAsyncPoc = enableDevLlmSessionAsyncPoc,
+        )
+    } else {
+        null
+    }
     return listOfNotNull(summarySection, localInventorySection)
 }
 
 internal fun buildInferenceDetailSections(
     stats: InferenceStats,
+    displayMode: InferenceStatsDisplayMode,
     localTraceForDev: LocalInferenceTrace? = null,
     assistantText: String? = null,
     promptText: String? = null,
@@ -86,6 +103,7 @@ internal fun buildInferenceDetailSections(
     measuredTokenSnapshotSummary: String? = null,
     enableDevLlmSessionAsyncPoc: Boolean = false,
 ): List<InferenceStatsSectionUi> {
+    if (displayMode == InferenceStatsDisplayMode.SIMPLE) return emptyList()
     val hasRealGenerationDuration = stats.generationDurationNs?.let { it > 0L } == true
     val localStatsUiModel = localTraceForDev?.let {
         createLocalInferenceStatsUiModel(
@@ -97,6 +115,14 @@ internal fun buildInferenceDetailSections(
     }
     val backendTokensPerSecondText = buildBackendTokensPerSecondText(stats)
     val perceivedTokensPerSecondText = buildLamiPerceivedTokensPerSecondText(stats)
+    val displayTokensPerSecondText = if (localTraceForDev == null) {
+        buildLamiTokensPerSecondText(stats)
+    } else {
+        formatRegularTokensPerSecondValue(
+            statValue = localStatsUiModel?.tokensPerSecond,
+            fallbackValue = buildLamiTokensPerSecondText(stats),
+        )
+    }
     val showOllamaPerceivedTokensPerSecond = localTraceForDev == null
     val localSourceSummaryText = stats.localSourceSummary
         ?.takeIf { it.isNotBlank() }
@@ -185,6 +211,7 @@ internal fun buildInferenceDetailSections(
                         ),
                 ),
             )
+            add(InferenceStatItemUi(label = "表示速度", value = displayTokensPerSecondText ?: "—"))
             val backendSpeedText = localStatsUiModel?.resolvedBackendTokensPerSecond?.let {
                 String.format(Locale.US, "%.1f token/s", it)
             } ?: "—"
@@ -192,16 +219,10 @@ internal fun buildInferenceDetailSections(
             localStatsUiModel?.resolvedLamiPerceivedTokensPerSecond?.let {
                 add(InferenceStatItemUi(label = "体感速度", value = String.format(Locale.US, "%.1f token/s", it)))
             }
-            add(
-                InferenceStatItemUi(
-                    label = "Lami基準TTFT",
-                    value = localStatsUiModel?.resolvedLamiTtftMs?.let { formatMillisToCompactText(it) } ?: "—",
-                ),
-            )
-            add(
-                InferenceStatItemUi(
-                    label = "バックエンド基準TTFT",
-                    value = localStatsUiModel?.resolvedBackendTtftMs?.let { formatMillisToCompactText(it) } ?: "—",
+            addAll(
+                buildUnifiedTtftItems(
+                    lamiTtftMs = localStatsUiModel?.resolvedLamiTtftMs,
+                    backendTtftMs = localStatsUiModel?.resolvedBackendTtftMs,
                 ),
             )
             stats.decodeDurationMs?.let {
@@ -222,12 +243,17 @@ internal fun buildInferenceDetailSections(
                     ),
                 ),
             )
+            add(InferenceStatItemUi(label = "表示速度", value = displayTokensPerSecondText ?: "—"))
             add(InferenceStatItemUi(label = "バックエンド基準速度", value = backendTokensPerSecondText ?: "—"))
             perceivedTokensPerSecondText?.let {
                 add(InferenceStatItemUi(label = "体感速度", value = it))
             }
-            add(InferenceStatItemUi(label = "Lami基準TTFT", value = stats.timeToFirstTokenMs?.let { formatMillisToCompactText(it) } ?: "—"))
-            add(InferenceStatItemUi(label = "バックエンド基準TTFT", value = stats.timeToFirstTokenMs?.let { formatMillisToCompactText(it) } ?: "—"))
+            addAll(
+                buildUnifiedTtftItems(
+                    lamiTtftMs = stats.timeToFirstTokenMs,
+                    backendTtftMs = stats.timeToFirstTokenMs,
+                ),
+            )
         }
         localSourceSummaryText?.let {
             add(InferenceStatItemUi(label = "採用元", value = it))
@@ -330,7 +356,7 @@ internal fun buildInferenceDetailSections(
                 }
             },
         ),
-        devDiagnosticSummarySection,
+        devDiagnosticSummarySection.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER },
         InferenceStatsSectionUi(
             title = "DEV診断",
             items = buildList {
@@ -379,7 +405,71 @@ internal fun buildInferenceDetailSections(
                     add(InferenceStatItemUi(label = "officialFlowChunkCount", value = localTraceForDev.officialFlowChunkCount.toString()))
                 }
             },
-        ).takeIf { it.items.isNotEmpty() },
+        ).takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.items.isNotEmpty() },
+    )
+}
+
+private fun buildInferenceSimpleSections(
+    stats: InferenceStats,
+    localTraceForDev: LocalInferenceTrace?,
+    assistantText: String?,
+    promptText: String?,
+): List<InferenceStatsSectionUi> {
+    val localStatsUiModel = localTraceForDev?.let {
+        createLocalInferenceStatsUiModel(
+            trace = it,
+            stats = stats,
+            assistantText = assistantText,
+            promptText = promptText,
+        )
+    }
+    val generationSpeedText = if (localTraceForDev == null) {
+        buildBackendTokensPerSecondText(stats)
+            ?: buildLamiTokensPerSecondText(stats)
+    } else {
+        buildBackendTokensPerSecondText(stats)
+            ?: formatRegularTokensPerSecondValue(
+                statValue = localStatsUiModel?.tokensPerSecond,
+                fallbackValue = buildLamiTokensPerSecondText(stats),
+            )
+    }
+    val ttftItems = if (localTraceForDev == null) {
+        buildUnifiedTtftItems(
+            lamiTtftMs = stats.timeToFirstTokenMs,
+            backendTtftMs = stats.timeToFirstTokenMs,
+        )
+    } else {
+        buildUnifiedTtftItems(
+            lamiTtftMs = localStatsUiModel?.resolvedLamiTtftMs,
+            backendTtftMs = localStatsUiModel?.resolvedBackendTtftMs,
+        )
+    }
+    return listOf(
+        InferenceStatsSectionUi(
+            title = "概要",
+            items = buildList {
+                add(InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"))
+                add(InferenceStatItemUi(label = "生成速度", value = generationSpeedText ?: "—", emphasizeValue = true))
+                addAll(ttftItems)
+                add(InferenceStatItemUi(label = "使用トークン", value = formatTotalTokens(stats) ?: "—"))
+                add(InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"))
+            },
+        ),
+    )
+}
+
+private fun buildUnifiedTtftItems(
+    lamiTtftMs: Long?,
+    backendTtftMs: Long?,
+): List<InferenceStatItemUi> {
+    val lamiText = lamiTtftMs?.let { formatMillisToCompactText(it) }
+    val backendText = backendTtftMs?.let { formatMillisToCompactText(it) }
+    if (lamiText != null && backendText != null && lamiText == backendText) {
+        return listOf(InferenceStatItemUi(label = "TTFT", value = lamiText))
+    }
+    return listOf(
+        InferenceStatItemUi(label = "Lami基準TTFT", value = lamiText ?: "—"),
+        InferenceStatItemUi(label = "バックエンド基準TTFT", value = backendText ?: "—"),
     )
 }
 
