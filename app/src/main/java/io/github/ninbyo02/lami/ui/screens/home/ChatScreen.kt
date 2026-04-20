@@ -617,7 +617,8 @@ fun Home(
         selectedInferenceTarget == InferenceTarget.LOCAL &&
             isTtsPlaying &&
             !isStopRequested
-    val isHeaderRunningUi = isInferenceRunningUi || isLocalTtsPlayingUi
+    val isTtsPlayingForHeaderUi = isTtsSpeaking || isLocalTtsPlayingUi
+    val isHeaderRunningUi = isInferenceRunningUi || isTtsPlayingForHeaderUi
     val isServerLoadingUi = uiState is UiState.Loading && isServerRunningUi
     val headerStatusTitleOverride = when {
         isHeaderRunningUi -> "Responding..."
@@ -645,7 +646,7 @@ fun Home(
     val lamiHeaderStateForChatUi = if (isHeaderRunningUi) lamiUiState.state else LamiState.Idle
     val effectiveLamiStatusForChatUi = when {
         isStopRequested -> LamiStatus.READY
-        isLocalTtsPlayingUi -> LamiStatus.TALKING
+        isTtsPlayingForHeaderUi -> LamiStatus.TALKING
         isServerRunningUi -> lamiStatusForChatUi
         isLocalRunningUi -> when (lamiStatusForChatUi) {
             LamiStatus.READY,
@@ -660,7 +661,7 @@ fun Home(
     }
     val effectiveLamiHeaderStateForChatUi = when {
         isStopRequested -> LamiState.Idle
-        isLocalTtsPlayingUi -> {
+        isTtsPlayingForHeaderUi -> {
             LamiState.Speaking(1)
         }
         isServerRunningUi -> lamiHeaderStateForChatUi
