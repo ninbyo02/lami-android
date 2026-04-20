@@ -4104,7 +4104,19 @@ internal fun appendStreamingChunk(
     appendTrace: ((String) -> Unit)? = null,
 ): String {
     if (extractedRaw.isEmpty()) return ""
-    val previousText = builder.toString()
+    var previousText = builder.toString()
+    if (context?.lane == StreamingLane.PROSE &&
+        isStandaloneCodeLanguageTag(extractedRaw) &&
+        context.pendingCodeLanguageTag == null
+    ) {
+        context.pendingCodeLanguageTag = extractedRaw.trim()
+        appendTrace?.let { trace ->
+            safeAppendTrace(trace, "[code.pendingLanguageTag.prose]=${summarizeWhitespaceForUi(context.pendingCodeLanguageTag)}")
+            safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.PROSE.label}")
+            safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
+        }
+        return ""
+    }
     val lane = context?.lane ?: StreamingLane.PROSE
     if (lane == StreamingLane.PROSE && shouldEnterCodeLane(extractedRaw, context)) {
         context?.lane = StreamingLane.CODE
@@ -4112,10 +4124,14 @@ internal fun appendStreamingChunk(
             safeAppendTrace(trace, "[lane.switch]=prose->code reason=${codeLaneReason(extractedRaw, context)}")
         }
     }
+    if (context?.lane == StreamingLane.PROSE && context.pendingCodeLanguageTag != null && !isStrongCodeLikeChunk(extractedRaw)) {
+        flushPendingCodeLanguageTagAsProse(builder, context, appendTrace)
+        previousText = builder.toString()
+    }
     if (context?.lane == StreamingLane.CODE) {
         if (shouldLeaveCodeLane(extractedRaw, context)) {
             commitPendingCodeLine(builder, context, appendTrace)
-            flushPendingCodeLanguageTag(builder, context, appendTrace)
+            flushPendingCodeLanguageTagAsProse(builder, context, appendTrace)
             context.lane = StreamingLane.PROSE
             appendTrace?.let { trace ->
                 safeAppendTrace(trace, "[lane.switch]=code->prose reason=prose_like_chunk")
@@ -4236,21 +4252,20 @@ private fun shouldEnterCodeLane(next: String, context: StreamingAppendContext?):
     if (context?.inFencedCodeBlock == true) return true
     val nextTrimmedStart = next.trimStart()
     if (nextTrimmedStart.startsWith("```")) return true
-    if (isStandaloneCodeLanguageTag(next)) return true
+    if (context?.pendingCodeLanguageTag != null && isStrongCodeLikeChunk(next)) return true
     return isStrongCodeLikeChunk(next)
 }
 
 private fun codeLaneReason(next: String, context: StreamingAppendContext?): String = when {
     context?.inFencedCodeBlock == true -> "fenced_block"
     next.trimStart().startsWith("```") -> "fenced_chunk"
-    isStandaloneCodeLanguageTag(next) -> "language_tag"
+    context?.pendingCodeLanguageTag != null && isStrongCodeLikeChunk(next) -> "language_tag_and_strong_code"
     isStrongCodeLikeChunk(next) -> "strong_code_chunk"
     else -> "unknown"
 }
 
 private fun shouldLeaveCodeLane(next: String, context: StreamingAppendContext): Boolean {
     if (context.inFencedCodeBlock) return false
-    if (context.pendingCodeLanguageTag != null) return false
     return isProseLikeChunk(next)
 }
 
@@ -4282,20 +4297,18 @@ private fun isCommandLikeCodeChunk(text: String): Boolean =
 private fun isCodeArtifactLikeChunk(text: String): Boolean =
     CODE_ARTIFACT_CHUNK_REGEX.containsMatchIn(text)
 
-private fun flushPendingCodeLanguageTag(
+private fun flushPendingCodeLanguageTagAsProse(
     builder: StringBuilder,
     context: StreamingAppendContext,
     appendTrace: ((String) -> Unit)? = null,
 ) {
     val pendingTag = context.pendingCodeLanguageTag ?: return
-    if (builder.isNotEmpty() && builder.last().isWhitespace().not()) {
-        builder.append('\n')
-    }
+    val join = if (shouldInsertMinimalJoinBetween(builder.toString(), pendingTag)) " " else ""
+    if (join.isNotEmpty()) builder.append(join)
     builder.append(pendingTag)
-    if (builder.lastOrNull() != '\n') builder.append('\n')
     context.pendingCodeLanguageTag = null
     appendTrace?.let { trace ->
-        safeAppendTrace(trace, "[code.flushLanguageTag.beforeProse]")
+        safeAppendTrace(trace, "[code.flushLanguageTag.asProse]")
     }
 }
 
@@ -4303,7 +4316,7 @@ private val STREAMING_CODE_LANGUAGE_TAGS = setOf("python", "kotlin", "bash", "js
 private val FENCED_MARKER_REGEX = Regex("```")
 
 private fun isStandaloneLanguageTag(text: String): Boolean {
-    val normalized = text.trim().lowercase(Locale.ROOT)
+    val normalized = text.trim()
     return normalized in STREAMING_CODE_LANGUAGE_TAGS
 }
 
