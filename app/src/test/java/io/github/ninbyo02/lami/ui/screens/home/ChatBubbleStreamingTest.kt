@@ -38,4 +38,20 @@ class ChatBubbleStreamingTest {
         assertEquals("説明です", split.stable)
         assertEquals("python\nimport random", split.unstable)
     }
+
+    @Test
+    fun splitStreamingText_shortGreeting_doesNotSplit() {
+        val split = splitStreamingText("こんにちは！")
+
+        assertEquals("こんにちは！", split.stable)
+        assertTrue(split.unstable.isEmpty())
+    }
+
+    @Test
+    fun splitStreamingText_shortConversation_doesNotSplit() {
+        val split = splitStreamingText("こんにちは！何かお手伝いできますか？")
+
+        assertEquals("こんにちは！何かお手伝いできますか？", split.stable)
+        assertTrue(split.unstable.isEmpty())
+    }
 }
