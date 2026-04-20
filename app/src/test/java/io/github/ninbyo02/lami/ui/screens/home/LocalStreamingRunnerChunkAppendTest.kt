@@ -402,4 +402,41 @@ class LocalStreamingRunnerChunkAppendTest {
         assertEquals("Hello, World", builder.toString())
         assertEquals(StreamingLane.PROSE, context.lane)
     }
+
+    @Test
+    fun `code lane で print 文字列断片を 1 行に再構成する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext(lane = StreamingLane.CODE)
+        val chunks = listOf("print", "(\"", "Hello", ",", " World", "!\")")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+        commitPendingCodeLine(builder, context)
+
+        assertEquals("print(\"Hello, World!\")", builder.toString())
+    }
+
+    @Test
+    fun `code lane で items と閉じ括弧は改行せず連結する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext(lane = StreamingLane.CODE)
+
+        appendStreamingChunk(builder, "items", context)
+        appendStreamingChunk(builder, ")", context)
+        commitPendingCodeLine(builder, context)
+
+        assertEquals("items)", builder.toString())
+    }
+
+    @Test
+    fun `language tag 後の print 分割でも 1 行に再構成する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "python", context)
+        appendStreamingChunk(builder, "print", context)
+        appendStreamingChunk(builder, "(\"x\")", context)
+        commitPendingCodeLine(builder, context)
+
+        assertEquals("python\nprint(\"x\")", builder.toString())
+    }
 }

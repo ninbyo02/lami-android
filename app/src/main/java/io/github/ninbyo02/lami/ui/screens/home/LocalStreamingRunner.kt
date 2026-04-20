@@ -4357,6 +4357,7 @@ private fun shouldCommitPendingCodeLine(
     if (pendingLine.contains('\n')) return true
     if (nextChunk == null) return !shouldHoldPendingCodeLine(pendingLine)
     if (nextChunk.startsWith("```")) return true
+    if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
     if (!isStrongCodeLikeChunk(nextChunk)) return false
     if (pendingLine.endsWith(" ") || pendingLine.endsWith("(") || pendingLine.endsWith("=")) return false
     return pendingLine.trimStart().startsWith("{") ||
@@ -4368,7 +4369,45 @@ private fun shouldCommitPendingCodeLine(
 private fun shouldHoldPendingCodeLine(pendingLine: String): Boolean {
     val trimmedEnd = pendingLine.trimEnd()
     if (trimmedEnd.isEmpty()) return false
-    return trimmedEnd.endsWith("(") || trimmedEnd.endsWith("=") || trimmedEnd.endsWith(":")
+    return trimmedEnd.endsWith("(") ||
+        trimmedEnd.endsWith("=") ||
+        trimmedEnd.endsWith(":") ||
+        trimmedEnd.matches(Regex(".*[A-Za-z0-9_\\]\"')]$"))
+}
+
+private fun shouldAppendToCurrentCodeLine(
+    pendingLine: String,
+    nextChunk: String,
+): Boolean {
+    if (nextChunk.isEmpty()) return true
+    if (nextChunk.contains('\n')) return false
+    if (nextChunk.trimStart().startsWith("```")) return false
+
+    val previous = pendingLine.trimEnd()
+    if (previous.isEmpty()) return true
+    val nextTrimmedStart = nextChunk.trimStart()
+    if (nextTrimmedStart.isEmpty()) return true
+
+    if (nextChunk.first().isWhitespace()) return true
+
+    val previousLast = previous.last()
+    val nextFirst = nextTrimmedStart.first()
+
+    val inlinePair = (previousLast.isLetterOrDigit() || previousLast == '_') &&
+        (nextFirst == '(' || nextFirst == ',' || nextFirst == ')' || nextFirst == '!' || nextFirst == ']' || nextFirst == '}')
+    if (inlinePair) return true
+
+    if ((previousLast == '(' || previousLast == '[' || previousLast == '{') &&
+        (nextFirst.isLetterOrDigit() || nextFirst == '"' || nextFirst == '\'')
+    ) return true
+
+    if ((previousLast == '"' || previousLast == '\'') && (nextFirst == '"' || nextFirst == '\'' || nextFirst.isLetterOrDigit())) {
+        return true
+    }
+
+    if (previousLast == ',' && nextChunk.first().isWhitespace()) return true
+
+    return false
 }
 
 private fun commitPendingCodeLine(
