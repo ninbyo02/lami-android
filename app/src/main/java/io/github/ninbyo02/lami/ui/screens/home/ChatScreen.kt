@@ -2776,11 +2776,12 @@ fun Home(
                 val messagesForListBase: List<Message> = allChatsOrNull
                 val streamingResponseTextForRenderValue =
                     streamingResponseTextForRender ?: streamingResponseText
-                val messagesForList: List<Message> = if (
+                val shouldShowTransientAssistantRow =
                     currentChatId != null &&
-                    streamingAssistantMessageId == null &&
-                    !streamingResponseTextForRenderValue.isNullOrBlank()
-                ) {
+                        streamingAssistantMessageId == null &&
+                        !streamingResponseTextForRenderValue.isNullOrBlank() &&
+                        streamingResponseTextForRenderValue.trim() != lastPersistedStreamingAssistantText
+                val messagesForList: List<Message> = if (shouldShowTransientAssistantRow) {
                     logStreamTrace("STREAM ui transient row enabled")
                     messagesForListBase + Message(
                         chatId = currentChatId,
@@ -2788,11 +2789,22 @@ fun Home(
                         isSendbyMe = false,
                     )
                 } else {
-                    if (streamingAssistantMessageId != null && !streamingResponseTextForRenderValue.isNullOrBlank()) {
-                        Log.i(
-                            "ChatScreen",
-                            "STREAM ui transient row suppressed placeholderId=$streamingAssistantMessageId",
-                        )
+                    if (!streamingResponseTextForRenderValue.isNullOrBlank()) {
+                        when {
+                            streamingAssistantMessageId != null -> {
+                                Log.i(
+                                    "ChatScreen",
+                                    "STREAM ui transient row suppressed placeholderId=$streamingAssistantMessageId",
+                                )
+                            }
+
+                            streamingResponseTextForRenderValue.trim() == lastPersistedStreamingAssistantText -> {
+                                Log.i(
+                                    "ChatScreen",
+                                    "STREAM ui transient row suppressed persistedTextMatched",
+                                )
+                            }
+                        }
                     }
                     messagesForListBase
                 }
