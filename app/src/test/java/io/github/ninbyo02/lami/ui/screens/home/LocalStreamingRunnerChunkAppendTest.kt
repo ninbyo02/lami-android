@@ -416,28 +416,55 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
-    fun `code lane で items と閉じ括弧は改行せず連結する`() {
+    fun `code lane で未閉じ double quote は commit しない`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext(lane = StreamingLane.CODE)
 
-        appendStreamingChunk(builder, "items", context)
-        appendStreamingChunk(builder, ")", context)
+        appendStreamingChunk(builder, "print(\"Hello,", context)
+        appendStreamingChunk(builder, " World!\")", context)
         commitPendingCodeLine(builder, context)
 
-        assertEquals("items)", builder.toString())
+        assertEquals("print(\"Hello, World!\")", builder.toString())
     }
 
     @Test
-    fun `language tag 後の print 分割でも 1 行に再構成する`() {
+    fun `code lane で未閉じ single quote は commit しない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext(lane = StreamingLane.CODE)
+
+        appendStreamingChunk(builder, "msg = 'abc", context)
+        appendStreamingChunk(builder, " def'", context)
+        commitPendingCodeLine(builder, context)
+
+        assertEquals("msg = 'abc def'", builder.toString())
+    }
+
+    @Test
+    fun `code lane で開き括弧継続中は commit しない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext(lane = StreamingLane.CODE)
+
+        appendStreamingChunk(builder, "print(", context)
+        appendStreamingChunk(builder, "\"x\")", context)
+        commitPendingCodeLine(builder, context)
+
+        assertEquals("print(\"x\")", builder.toString())
+    }
+
+    @Test
+    fun `code lane で language tag 後の print 文字列断片を 1 行に再構成する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
 
         appendStreamingChunk(builder, "python", context)
         appendStreamingChunk(builder, "print", context)
-        appendStreamingChunk(builder, "(\"x\")", context)
+        appendStreamingChunk(builder, "(\"", context)
+        appendStreamingChunk(builder, "Hello,", context)
+        appendStreamingChunk(builder, " World", context)
+        appendStreamingChunk(builder, "!\")", context)
         commitPendingCodeLine(builder, context)
 
-        assertEquals("python\nprint(\"x\")", builder.toString())
+        assertEquals("python\nprint(\"Hello, World!\")", builder.toString())
     }
 
     @Test
@@ -454,14 +481,14 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
-    fun `closing fence の前に pending code line を flush する`() {
+    fun `closing fence の前に未閉じ quote 行を flush しても 1 行を維持する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
-        val chunks = listOf("```python", "print", "(\"x\")", "```")
+        val chunks = listOf("```python", "print", "(\"", "Hello,", " World", "!\")", "```")
 
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
 
-        assertEquals("```python\nprint(\"x\")\n```", builder.toString())
+        assertEquals("```python\nprint(\"Hello, World!\")\n```", builder.toString())
         assertEquals(StreamingLane.PROSE, context.lane)
     }
 
