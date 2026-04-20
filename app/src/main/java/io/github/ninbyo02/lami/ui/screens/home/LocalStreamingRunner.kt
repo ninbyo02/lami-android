@@ -4366,6 +4366,7 @@ private fun flushPendingCodeLanguageTagAsProse(
 
 private val STREAMING_CODE_LANGUAGE_TAGS = setOf("python", "kotlin", "bash", "json")
 private val FENCED_MARKER_REGEX = Regex("```")
+private val FENCED_PYTHON_ASSIGNMENT_STARTER_REGEX = Regex("^[A-Za-z_][A-Za-z0-9_]*\\s*(?:[+\\-*/%:]?=)")
 
 private fun isStandaloneLanguageTag(text: String): Boolean {
     val normalized = text.trim()
@@ -4472,9 +4473,37 @@ private fun shouldStartNewFencedPythonLogicalLine(
     if (pendingLine.isEmpty() || nextChunk.isEmpty()) return false
     if (nextChunk.trimStart().startsWith("```")) return false
     if (shouldKeepPythonCommentOnSameLogicalLine(context, pendingLine, nextChunk)) return false
+    if (shouldCommitAfterFencedPythonComment(context, pendingLine, nextChunk)) return true
     if (!isFencedPythonLogicalLineStarter(nextChunk)) return false
     if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
     return !isQuoteOrBracketCarryOverLine(pendingLine)
+}
+
+private fun shouldCommitAfterFencedPythonComment(
+    context: StreamingAppendContext,
+    pendingLine: String,
+    nextChunk: String,
+): Boolean {
+    if (!isFencedPythonCodeContext(context)) return false
+    if (!isFencedPythonCommentLine(pendingLine)) return false
+    if (pendingLine.contains('\n')) return false
+    if (nextChunk.isEmpty() || nextChunk.contains('\n')) return false
+    if (nextChunk.trimStart().startsWith("```")) return false
+    if (isQuoteOrBracketCarryOverLine(pendingLine)) return false
+    if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
+    return isFencedPythonAssignmentStarter(nextChunk) || isFencedPythonClassOrDefStarter(nextChunk)
+}
+
+private fun isFencedPythonCommentLine(line: String): Boolean = line.trimStart().startsWith("#")
+
+private fun isFencedPythonAssignmentStarter(chunk: String): Boolean {
+    val trimmedStart = chunk.trimStart()
+    return FENCED_PYTHON_ASSIGNMENT_STARTER_REGEX.containsMatchIn(trimmedStart)
+}
+
+private fun isFencedPythonClassOrDefStarter(chunk: String): Boolean {
+    val trimmedStart = chunk.trimStart()
+    return trimmedStart.startsWith("class ") || trimmedStart.startsWith("def ")
 }
 
 private fun isFencedPythonCodeContext(context: StreamingAppendContext): Boolean {
