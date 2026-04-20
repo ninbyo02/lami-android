@@ -6246,17 +6246,6 @@ internal fun buildContextUsageUi(stats: InferenceStats): ContextUsageUi? {
     }
 }
 
-internal data class InferenceStatsSectionUi(
-    val title: String,
-    val items: List<InferenceStatItemUi>,
-)
-
-internal data class InferenceStatItemUi(
-    val label: String,
-    val value: String,
-    val emphasizeValue: Boolean = false,
-)
-
 @Composable
 private fun DrawerSearchPill(
     value: String,
