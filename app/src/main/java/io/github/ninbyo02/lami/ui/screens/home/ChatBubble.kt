@@ -743,7 +743,11 @@ private fun MessageSegments(
                 }
 
                 is Segment.Code -> {
-                    CodeBlockCard(lang = segment.lang, code = segment.code)
+                    CodeBlockCard(
+                        lang = segment.lang,
+                        code = segment.code,
+                        isClosed = segment.isClosed,
+                    )
                 }
             }
         }
@@ -872,6 +876,7 @@ private class InlineCodeChipSpan(
 private fun CodeBlockCard(
     lang: String?,
     code: String,
+    isClosed: Boolean = true,
 ) {
     val clipboardManager = LocalClipboardManager.current
     val colorScheme = MaterialTheme.colorScheme
@@ -920,15 +925,27 @@ private fun CodeBlockCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = lang?.takeIf { it.isNotBlank() } ?: "Code",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = lerp(
-                                MaterialTheme.colorScheme.onSurfaceVariant,
-                                MaterialTheme.colorScheme.primary,
-                                0.18f,
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = lang?.takeIf { it.isNotBlank() } ?: "Code",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = lerp(
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                    MaterialTheme.colorScheme.primary,
+                                    0.18f,
+                                )
                             )
-                        )
+                            if (!isClosed) {
+                                Text(
+                                    text = "生成中…",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .clickable { clipboardManager.setText(AnnotatedString(code)) }
