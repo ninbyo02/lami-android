@@ -409,6 +409,17 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `fenced python で while は強い開始子として新しい論理行に分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "running = True", "while running:", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nrunning = True\nwhile running:\n```", builder.toString())
+    }
+
+    @Test
     fun `fenced python で未閉じ quote 継続中は空白付き chunk でも分離しない`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()

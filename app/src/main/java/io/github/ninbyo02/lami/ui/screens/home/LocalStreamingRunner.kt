@@ -4483,46 +4483,38 @@ private fun isFencedPythonCodeContext(context: StreamingAppendContext): Boolean 
     return normalized == "python" || normalized == "py"
 }
 
-private fun isPythonLogicalLineStarter(chunk: String): Boolean {
+private fun isStrongFencedPythonLogicalLineStarter(chunk: String): Boolean {
     val trimmed = chunk.trimStart()
     if (trimmed.isEmpty()) return false
-    if (trimmed.startsWith("@")) return true
-    if (matchesPythonKeywordStart(trimmed, "else:")) return true
-    if (matchesPythonKeywordStart(trimmed, "try:")) return true
-    if (matchesPythonKeywordStart(trimmed, "finally:")) return true
-
-    val wordKeywords = listOf(
+    val strongKeywords = listOf(
         "import",
         "from",
         "class",
         "def",
         "if",
         "elif",
+        "else",
         "for",
         "while",
+        "try",
         "except",
+        "finally",
         "with",
         "return",
-        "break",
-        "continue",
-        "pass",
         "raise",
         "yield",
     )
-    if (wordKeywords.any { matchesPythonKeywordStart(trimmed, it) }) return true
-    return IDENTIFIER_CALL_START_REGEX.containsMatchIn(trimmed)
+    return strongKeywords.any { matchesFencedPythonStarterKeyword(trimmed, it) }
 }
 
-private fun isFencedPythonLogicalLineStarter(chunk: String): Boolean = isPythonLogicalLineStarter(chunk)
+private fun isFencedPythonLogicalLineStarter(chunk: String): Boolean = isStrongFencedPythonLogicalLineStarter(chunk)
 
-private fun matchesPythonKeywordStart(text: String, keyword: String): Boolean {
+private fun matchesFencedPythonStarterKeyword(text: String, keyword: String): Boolean {
     if (!text.startsWith(keyword)) return false
     if (text.length == keyword.length) return true
     val next = text[keyword.length]
     return next.isWhitespace() || next == ':'
 }
-
-private val IDENTIFIER_CALL_START_REGEX = Regex("^[A-Za-z_][A-Za-z0-9_]*\\s*\\(")
 
 private fun isQuoteOrBracketCarryOverLine(pendingLine: String): Boolean {
     val trimmedEnd = pendingLine.trimEnd()
