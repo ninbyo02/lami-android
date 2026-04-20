@@ -310,6 +310,7 @@ private data class LocalInferenceRunResult(
     val response: String? = null,
     val trace: LocalInferenceTrace = LocalInferenceTrace(),
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
+    val runnerWhitespaceTraceText: String? = null,
 )
 
 private data class LocalModelResolution(
@@ -601,6 +602,7 @@ fun Home(
     var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var devRunnerWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     var streamingResponseTextForRender by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val isLocalRunningRaw = isLocalInferenceRunning
@@ -2048,6 +2050,9 @@ fun Home(
                                                             assistantUpdateCountForDev = 0
                                                             firstNonEmptyAssistantChunkSeenForDev = false
                                                             lastStreamingAssistantChunkForDev = null
+                                                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                devRunnerWhitespaceTraceText = null
+                                                            }
                                                             val localRunGuardEpoch = streamingGuardEpoch
                                                             val localRunStartedAtMs = SystemClock.elapsedRealtime()
                                                             val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
@@ -2455,6 +2460,7 @@ fun Home(
                                                             if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && runResultWithUiTrace != null) {
                                                                 devCloseLifecycleText = buildCloseLifecycleText(runResultWithUiTrace.closeLifecycleSummary)
                                                                     ?: "CLOSE LIFECYCLE\nsummary=none"
+                                                                devRunnerWhitespaceTraceText = runResultWithUiTrace.runnerWhitespaceTraceText
                                                             }
                                                             val inventoryState = runResultWithUiTrace?.state ?: LocalInferenceEngineState.ERROR
                                                             val inventoryResponseChars = runResultWithUiTrace?.response?.length ?: -1
@@ -3283,6 +3289,16 @@ fun Home(
                                         )
                                     }
                                 }
+                                if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && devRunnerWhitespaceTraceText != null) {
+                                    item(key = "dev_runner_whitespace_trace") {
+                                        Text(
+                                            text = devRunnerWhitespaceTraceText!!,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.Red,
+                                            modifier = Modifier.padding(8.dp),
+                                        )
+                                    }
+                                }
                                 if (isServerLoadingUi) {
                                     item(key = "assistant_streaming_indicator") {
                                         AssistantStreamingIndicator()
@@ -3828,6 +3844,7 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
         } else {
             closeLifecycleSummary
         },
+        runnerWhitespaceTraceText = runnerWhitespaceTraceText,
     )
 }
 
