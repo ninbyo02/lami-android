@@ -4138,7 +4138,8 @@ private fun appendStreamingChunkForCode(
     context: StreamingAppendContext,
     appendTrace: ((String) -> Unit)? = null,
 ): String {
-    if (isStandaloneLanguageTag(extractedRaw)) {
+    if (isStandaloneCodeLanguageTag(extractedRaw)) {
+        commitPendingCodeLine(builder, context, appendTrace)
         context.pendingCodeLanguageTag = extractedRaw.trim()
         appendTrace?.let { trace ->
             safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(context.pendingCodeLanguageTag)}")
@@ -4153,42 +4154,43 @@ private fun appendStreamingChunkForCode(
     val pendingTag = context.pendingCodeLanguageTag
     var insertedNewline = false
     if (pendingTag != null) {
-        val isCode = isStrongCodeLikeChunk(extractedRaw)
-        if (isCode) {
-            if (builder.isNotEmpty() && !builder.last().isWhitespace()) {
-                builder.append('\n')
-                insertedNewline = true
-            }
-            builder.append(pendingTag)
+        if (builder.isNotEmpty() && !builder.last().isWhitespace()) {
             builder.append('\n')
-            builder.append(extractedRaw)
-            context.pendingCodeLanguageTag = null
-            context.lastCodeChunkEndedWithNewline = extractedRaw.endsWith('\n')
-            appendTrace?.let { trace ->
-                safeAppendTrace(trace, "[code.flushLanguageTag]")
-                safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(pendingTag)}")
-                safeAppendTrace(trace, "UPSTREAM [code.insertedNewline]=$insertedNewline")
-                safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.CODE.label}")
-                safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
-                safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
-            }
-            return ""
+            insertedNewline = true
+        }
+        builder.append(pendingTag)
+        context.pendingCodeLanguageTag = null
+        if (builder.lastOrNull() != '\n') builder.append('\n')
+        appendTrace?.let { trace ->
+            safeAppendTrace(trace, "[code.flushLanguageTag]")
+            safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(pendingTag)}")
         }
     }
-    if (shouldInsertCodeNewlineBefore(builder, extractedRaw, context)) {
-        builder.append('\n')
-        insertedNewline = true
+
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "[code.pending.before]=${summarizeWhitespaceForUi(context.pendingCodeLineBuffer?.toString())}")
     }
+
+    val pendingBuffer = context.pendingCodeLineBuffer ?: StringBuilder().also {
+        context.pendingCodeLineBuffer = it
+    }
+    if (pendingBuffer.isNotEmpty() && shouldCommitPendingCodeLine(pendingBuffer.toString(), extractedRaw)) {
+        commitPendingCodeLine(builder, context, appendTrace)
+    }
+    context.pendingCodeLineBuffer?.append(extractedRaw)
+    if (shouldCommitPendingCodeLine(context.pendingCodeLineBuffer?.toString().orEmpty(), null)) {
+        commitPendingCodeLine(builder, context, appendTrace)
+    }
+
     appendTrace?.let { trace ->
         safeAppendTrace(trace, "UPSTREAM append-chunk previousTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
         safeAppendTrace(trace, "UPSTREAM append-chunk extracted=${summarizeWhitespaceForUi(extractedRaw.take(64))}")
         safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.CODE.label}")
         safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
         safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(context.pendingCodeLanguageTag)}")
+        safeAppendTrace(trace, "[code.pending.after]=${summarizeWhitespaceForUi(context.pendingCodeLineBuffer?.toString())}")
         safeAppendTrace(trace, "UPSTREAM [code.insertedNewline]=$insertedNewline")
     }
-    builder.append(extractedRaw)
-    context.lastCodeChunkEndedWithNewline = extractedRaw.endsWith('\n')
     appendTrace?.let { trace ->
         safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
     }
@@ -4203,6 +4205,7 @@ internal enum class StreamingLane(val label: String) {
 internal data class StreamingAppendContext(
     var lane: StreamingLane = StreamingLane.PROSE,
     var pendingCodeLanguageTag: String? = null,
+    var pendingCodeLineBuffer: StringBuilder? = null,
     var lastCodeChunkEndedWithNewline: Boolean = false,
 )
 
@@ -4241,6 +4244,8 @@ private fun isStandaloneLanguageTag(text: String): Boolean {
     return normalized in STREAMING_CODE_LANGUAGE_TAGS
 }
 
+private fun isStandaloneCodeLanguageTag(text: String): Boolean = isStandaloneLanguageTag(text)
+
 private fun isStrongCodeLineStart(text: String): Boolean {
     val trimmedStart = text.trimStart()
     if (trimmedStart.isEmpty()) return false
@@ -4268,17 +4273,44 @@ private fun isStrongCodeLineStart(text: String): Boolean {
 private fun isStrongCodeLikeChunk(text: String): Boolean =
     isStrongCodeLineStart(text) || text.startsWith("    ")
 
-private fun shouldInsertCodeNewlineBefore(
-    builder: StringBuilder,
-    nextChunk: String,
-    context: StreamingAppendContext,
+private fun shouldCommitPendingCodeLine(
+    pendingLine: String,
+    nextChunk: String?,
 ): Boolean {
-    if (builder.isEmpty()) return false
-    if (builder.last() == '\n') return false
-    if (nextChunk.isEmpty()) return false
-    if (!isStrongCodeLineStart(nextChunk)) return false
-    if (context.lastCodeChunkEndedWithNewline) return false
-    return true
+    if (pendingLine.isEmpty()) return false
+    if (pendingLine.contains('\n')) return true
+    if (nextChunk == null) return !shouldHoldPendingCodeLine(pendingLine)
+    if (nextChunk.startsWith("```")) return true
+    if (!isStrongCodeLikeChunk(nextChunk)) return false
+    if (pendingLine.endsWith(" ") || pendingLine.endsWith("(") || pendingLine.endsWith("=")) return false
+    return pendingLine.trimStart().startsWith("{") ||
+        pendingLine.trimStart().startsWith("}") ||
+        pendingLine.trimEnd().endsWith(":") ||
+        isStrongCodeLikeChunk(pendingLine)
+}
+
+private fun shouldHoldPendingCodeLine(pendingLine: String): Boolean {
+    val trimmedEnd = pendingLine.trimEnd()
+    if (trimmedEnd.isEmpty()) return false
+    return trimmedEnd.endsWith("(") || trimmedEnd.endsWith("=") || trimmedEnd.endsWith(":")
+}
+
+private fun commitPendingCodeLine(
+    builder: StringBuilder,
+    context: StreamingAppendContext,
+    appendTrace: ((String) -> Unit)? = null,
+) {
+    val pending = context.pendingCodeLineBuffer?.toString().orEmpty()
+    if (pending.isEmpty()) return
+    if (builder.isNotEmpty() && builder.last() != '\n' && !pending.startsWith("\n")) {
+        builder.append('\n')
+    }
+    builder.append(pending)
+    context.lastCodeChunkEndedWithNewline = pending.endsWith('\n')
+    context.pendingCodeLineBuffer = null
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "[code.commit]=${summarizeWhitespaceForUi(pending)}")
+    }
 }
 
 private val STREAMING_STRONG_CODE_SIGNALS = listOf(

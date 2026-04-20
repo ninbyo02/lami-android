@@ -244,4 +244,27 @@ class LocalStreamingRunnerChunkAppendTest {
 
         assertEquals("if x > 0:\nprint(x)", builder.toString())
     }
+
+    @Test
+    fun `python の次に改行付き import が来ても line reassembler で維持する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "python", context)
+        appendStreamingChunk(builder, "import os\n", context)
+        appendStreamingChunk(builder, "print(os.getcwd())", context)
+
+        assertEquals("python\nimport os\nprint(os.getcwd())", builder.toString())
+    }
+
+    @Test
+    fun `language tag の直後に fenced code 風 chunk が来ても python と連結しない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "python", context)
+        appendStreamingChunk(builder, "```print(\"x\")", context)
+
+        assertEquals("python\n```print(\"x\")", builder.toString())
+    }
 }
