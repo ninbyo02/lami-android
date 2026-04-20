@@ -522,6 +522,24 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `fenced python で single chunk 内の comment と assignment と class を順次分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf(
+            "```python",
+            "(0,25,25)# ブロックの色blocked_colors = COLORS[:6] # ブロックの色リストを初期化class Block:",
+            "```",
+        )
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals(
+            "```python\n(0,25,25)# ブロックの色\nblocked_colors = COLORS[:6] # ブロックの色リストを初期化\nclass Block:\n```",
+            builder.toString(),
+        )
+    }
+
+    @Test
     fun `fenced python で single chunk 内の comment と class を分離する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
@@ -585,6 +603,50 @@ class LocalStreamingRunnerChunkAppendTest {
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
 
         assertEquals("```python\nball_color = COLORS[0]\nrunning = True\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で single chunk 内の assignment 連鎖と while 開始を順次分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "ball_color = COLORS[0]running = Truewhile running:", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nball_color = COLORS[0]\nrunning = True\nwhile running:\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で single chunk 内の call tail と class starter を分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "pygame.quit()class Block:", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\npygame.quit()\nclass Block:\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で single chunk 内の連続コメントを順次分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "# ブロックの色# 次のコメント", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\n# ブロックの色\n# 次のコメント\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で quoted string 内の class キーワードは分離しない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "print(\"class Block:\")", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nprint(\"class Block:\")\n```", builder.toString())
     }
 
     @Test
