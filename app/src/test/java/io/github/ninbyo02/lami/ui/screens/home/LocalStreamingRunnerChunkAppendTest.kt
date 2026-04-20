@@ -508,6 +508,17 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `fenced python で import tail の後ろに identifier が fused したら分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "import pygame random", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nimport pygame\nrandom\n```", builder.toString())
+    }
+
+    @Test
     fun `fenced python で single chunk 内の comment と assignment を分離する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
@@ -559,6 +570,17 @@ class LocalStreamingRunnerChunkAppendTest {
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
 
         assertEquals("```python\n# ブロックの色\nblocked_colors = COLORS[:6]\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で closing bracket tail の後ろに comment が来たら分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "(0,25,25)# ブロックの色", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\n(0,25,25)\n# ブロックの色\n```", builder.toString())
     }
 
     @Test
@@ -747,6 +769,17 @@ class LocalStreamingRunnerChunkAppendTest {
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
 
         assertEquals("```bash\necho helloecho world\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced bash では hash と assignment fused でも python 専用分離はしない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```bash", "echo hello#noteVALUE=1", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```bash\necho hello#noteVALUE=1\n```", builder.toString())
     }
 
     @Test

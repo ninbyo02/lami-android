@@ -4438,9 +4438,12 @@ private fun findFencedPythonChunkSplitPoints(raw: String): List<Int> {
 private fun shouldSplitAtFencedPythonIndex(raw: String, index: Int): Boolean {
     if (index !in 1 until raw.length) return false
     if (isInsideQuotedString(raw, index)) return false
-    if (isInsidePythonComment(raw, index)) return isFencedPythonCommentBoundaryAt(raw, index)
+    if (isInsidePythonComment(raw, index)) return isFencedPythonCommentTailBoundaryAt(raw, index)
     if (hasUnclosedBrackets(raw.substring(0, index))) return false
+    if (isFencedPythonClosingBracketTailBoundaryAt(raw, index)) return true
+    if (isFencedPythonImportTailBoundaryAt(raw, index)) return true
     if (isFencedPythonTailToStrongStarterBoundaryAt(raw, index)) return true
+    if (isFencedPythonNumericLiteralTailBoundaryAt(raw, index)) return true
     return isFencedPythonLiteralToAssignmentBoundaryAt(raw, index)
 }
 
@@ -4466,6 +4469,34 @@ private fun isFencedPythonLiteralToAssignmentBoundaryAt(text: String, index: Int
     if (!isFencedPythonAssignmentTargetListStarterAt(text, index)) return false
     val before = text[index - 1]
     return before.isDigit() || before in listOf(']', ')', '}', '"', '\'')
+}
+
+private fun isFencedPythonImportTailBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    val before = text[index - 1]
+    if (!before.isWhitespace()) return false
+    if (!isAsciiIdentifierStart(text[index]) && !isFencedPythonStrongStarterAt(text, index)) return false
+    val trimmed = text.trimStart()
+    if (trimmed.startsWith("import ")) {
+        val importTokenEnd = text.indexOf("import ") + "import ".length
+        if (index <= importTokenEnd) return false
+        val previousWord = text.substring(0, index).trimEnd().takeLastWhile { isAsciiIdentifierPart(it) }
+        if (previousWord == "as") return false
+        return true
+    }
+    if (!trimmed.startsWith("from ")) return false
+    val importIndex = text.indexOf(" import ")
+    if (importIndex < 0 || index <= importIndex + " import ".length) return false
+    val previousWord = text.substring(0, index).trimEnd().takeLastWhile { isAsciiIdentifierPart(it) }
+    if (previousWord == "as") return false
+    return isAsciiIdentifierStart(text[index]) || isFencedPythonStrongStarterAt(text, index)
+}
+
+private fun isFencedPythonNumericLiteralTailBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isUpperSnakeAssignmentStarterAt(text, index)) return false
+    val before = text[index - 1]
+    return before.isDigit() || before in listOf(']', ')', '}')
 }
 
 private fun isFencedPythonStrongStarterAt(text: String, index: Int): Boolean {
@@ -4512,14 +4543,23 @@ private fun isFencedPythonAssignmentTargetListStarterAt(text: String, index: Int
     return op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '='
 }
 
-private fun isFencedPythonCommentBoundaryAt(text: String, index: Int): Boolean {
+private fun isFencedPythonCommentTailBoundaryAt(text: String, index: Int): Boolean {
     if (index !in 1 until text.length) return false
     val before = text[index - 1]
     if (before == '\n') return false
     if (!isInsidePythonComment(text, index)) return false
     if (text[index] == '#') return true
-    if (isFencedPythonAssignmentTargetListStarterAt(text, index)) return true
-    return matchesFencedPythonStrongStarterAt(text, index, requireBoundary = false)
+    if (isAsciiAssignmentStarterAt(text, index)) return true
+    return isCommentStrongStarterAt(text, index)
+}
+
+private fun isFencedPythonClosingBracketTailBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    val before = text[index - 1]
+    if (before !in listOf(')', ']', '}')) return false
+    if (isCommentStarterAt(text, index)) return true
+    if (isFencedPythonStrongStarterAt(text, index)) return true
+    return isAsciiAssignmentStarterAt(text, index)
 }
 
 private fun isFencedPythonClassOrDefStarterAt(text: String, index: Int): Boolean {
@@ -4577,6 +4617,50 @@ private fun isIdentifierStart(ch: Char): Boolean = ch == '_' || ch.isLetter()
 private fun isIdentifierPart(ch: Char): Boolean = isIdentifierStart(ch) || ch.isDigit()
 
 private fun isAsciiIdentifierPart(ch: Char): Boolean = ch == '_' || ch.isDigit() || ch in 'a'..'z' || ch in 'A'..'Z'
+
+private fun isAsciiIdentifierStart(ch: Char): Boolean = ch == '_' || ch in 'a'..'z' || ch in 'A'..'Z'
+
+private fun isCommentStrongStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    return text.regionMatches(index, "class ", 0, "class ".length) ||
+        text.regionMatches(index, "def ", 0, "def ".length) ||
+        text.regionMatches(index, "import ", 0, "import ".length) ||
+        text.regionMatches(index, "from ", 0, "from ".length)
+}
+
+private fun isCommentStarterAt(text: String, index: Int): Boolean =
+    index in 1 until text.length && text[index] == '#'
+
+private fun isUpperSnakeAssignmentStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!text[index].isUpperCase()) return false
+    var cursor = index
+    while (cursor < text.length && (text[cursor].isUpperCase() || text[cursor].isDigit() || text[cursor] == '_')) {
+        cursor += 1
+    }
+    if (cursor == index) return false
+    while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+    if (cursor >= text.length) return false
+    if (text[cursor] == '=') return text.getOrNull(cursor + 1) != '='
+    if (cursor + 1 >= text.length) return false
+    val op = text[cursor]
+    val eq = text[cursor + 1]
+    return op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '='
+}
+
+private fun isAsciiAssignmentStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isAsciiIdentifierStart(text[index])) return false
+    var cursor = index + 1
+    while (cursor < text.length && isAsciiIdentifierPart(text[cursor])) cursor += 1
+    while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+    if (cursor >= text.length) return false
+    if (text[cursor] == '=') return text.getOrNull(cursor + 1) != '='
+    if (cursor + 1 >= text.length) return false
+    val op = text[cursor]
+    val eq = text[cursor + 1]
+    return op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '='
+}
 
 private fun isStandaloneLanguageTag(text: String): Boolean {
     val normalized = text.trim()
