@@ -62,4 +62,12 @@ class ChatBubbleStreamingTest {
         assertEquals("こんにちは！何かお手伝いできますか？", split.stable)
         assertTrue(split.unstable.isEmpty())
     }
+
+    @Test
+    fun splitStreamingText_multilineConversationTail_doesNotSplit() {
+        val split = splitStreamingText("説明です\nもう少し詳しく教えてください")
+
+        assertEquals("説明です\nもう少し詳しく教えてください", split.stable)
+        assertTrue(split.unstable.isEmpty())
+    }
 }
