@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.SystemClock
+import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.Engine
@@ -26,6 +27,7 @@ private const val TOKENIZER_COUNT_UNAVAILABLE_NOTE =
     "このビルドの LiteRT API では tokenizer-based token count を取得できませんでした。"
 private const val MEDIAPIPE_TOKEN_COUNT_MODE = "mediapipe_tokenizer_recount"
 private const val LITERT_TOKEN_COUNT_MODE = "tokenizer_recount"
+private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
 
 internal interface LocalStreamingRunner<T> {
     suspend fun run(
@@ -159,11 +161,17 @@ internal suspend fun runWithHeldEngine(
                 var lastPartial: String? = null
                 flow.collect { message ->
                     if (!currentCoroutineContext().isActive) return@collect
-                    val extracted = extractOfficialMessageTextWithTrace(
+                    val extractedText = extractOfficialMessageTextWithTrace(
                         path = "held-engine-flow",
                         value = message,
                         appendTrace = appendTrace,
-                    )?.trim().orEmpty()
+                    )
+                    val extracted = extractedText?.trim().orEmpty()
+                    logLocalStreamingWhitespace(
+                        stage = "LocalStreamingRunner#held.flow.extract",
+                        raw = extractedText,
+                        normalized = extracted,
+                    )
                     if (extracted.isBlank() || extracted == lastPartial) return@collect
                     lastPartial = extracted
                     heldFlowPartialCount += 1
@@ -174,7 +182,14 @@ internal suspend fun runWithHeldEngine(
                     builder.append(extracted)
                     onPartial(builder.toString())
                 }
-                builder.toString().trim().takeIf { it.isNotBlank() }
+                val built = builder.toString()
+                val trimmedBuilt = built.trim()
+                logLocalStreamingWhitespace(
+                    stage = "LocalStreamingRunner#held.flow.builder",
+                    raw = built,
+                    normalized = trimmedBuilt,
+                )
+                trimmedBuilt.takeIf { it.isNotBlank() }
             }.getOrElse { throwable ->
                 safeAppendTrace(
                     appendTrace,
@@ -3115,6 +3130,11 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
                     appendTrace = appendTrace,
                 )
                 val extracted = extractedText?.trim().orEmpty()
+                logLocalStreamingWhitespace(
+                    stage = "LocalStreamingRunner#official.flow.extract",
+                    raw = extractedText,
+                    normalized = extracted,
+                )
                 if (extracted.isBlank()) {
                     extractFailureCount += 1
                     return@collect
@@ -3136,7 +3156,13 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         if (partialCount <= 0) {
             throw OfficialFlowFallbackException(if (extractFailureCount > 0) "message_extract_failed" else "no_partial_emitted")
         }
-        val response = builder.toString().trim()
+        val built = builder.toString()
+        val response = built.trim()
+        logLocalStreamingWhitespace(
+            stage = "LocalStreamingRunner#official.flow.builder",
+            raw = built,
+            normalized = response,
+        )
         if (response.isBlank()) throw OfficialFlowFallbackException("blank_response")
         measuredCollector.observe(
             timing = "after-response",
@@ -3324,16 +3350,24 @@ private fun runOfficialBlockingConversationSingleNamespace(
             }
         }
         safeAppendTrace(appendTrace, "UPSTREAM official-blocking returnClass=${responseValue?.javaClass?.name ?: "null"}")
-        val responseText = extractOfficialMessageTextWithTrace(
+        val extractedText = extractOfficialMessageTextWithTrace(
             path = "official-blocking",
             value = responseValue,
             appendTrace = appendTrace,
-        )?.trim()?.takeIf { it.isNotBlank() } ?: throw OfficialFlowFallbackException("message_extract_failed")
+        )
+        val responseText = extractedText?.trim()
+        logLocalStreamingWhitespace(
+            stage = "LocalStreamingRunner#official.blocking.extract",
+            raw = extractedText,
+            normalized = responseText,
+        )
+        val nonBlankResponseText = responseText?.takeIf { it.isNotBlank() }
+            ?: throw OfficialFlowFallbackException("message_extract_failed")
         measuredCollector.observe(
             timing = "after-response",
             conversation = conversation,
         )
-        safeAppendTrace(appendTrace, "UPSTREAM official-blocking success responseLength=${responseText.length}")
+        safeAppendTrace(appendTrace, "UPSTREAM official-blocking success responseLength=${nonBlankResponseText.length}")
         if (BuildConfig.DEBUG) {
             measuredCollector.observe(
                 timing = "around-success-reached",
@@ -3343,7 +3377,7 @@ private fun runOfficialBlockingConversationSingleNamespace(
         successReached = true
         measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
         measuredCollector.emitAdoptedTrace()
-        finalResponse = responseText
+        finalResponse = nonBlankResponseText
     } finally {
         if (BuildConfig.DEBUG) {
             measuredCollector.observe(
@@ -3438,8 +3472,22 @@ private suspend fun runOfficialLiteRtLmDirect(
             var firstPartialMs: Long? = null
             var lastNonEmptyChunkAtMs: Long? = null
             conversation.sendMessageAsync(prompt).collect { message ->
-                val extractedText = message.contents.toString().trim()
-                    .ifBlank { message.toString().trim() }
+                val rawContents = message.contents.toString()
+                val normalizedContents = rawContents.trim()
+                val rawMessage = message.toString()
+                val normalizedMessage = rawMessage.trim()
+                logLocalStreamingWhitespace(
+                    stage = "LocalStreamingRunner#official.direct.flow.contents",
+                    raw = rawContents,
+                    normalized = normalizedContents,
+                )
+                logLocalStreamingWhitespace(
+                    stage = "LocalStreamingRunner#official.direct.flow.message",
+                    raw = rawMessage,
+                    normalized = normalizedMessage,
+                )
+                val extractedText = normalizedContents
+                    .ifBlank { normalizedMessage }
                 if (extractedText.isNotBlank()) {
                     if (extractedText == lastChunk) return@collect
                     lastChunk = extractedText
@@ -3453,7 +3501,13 @@ private suspend fun runOfficialLiteRtLmDirect(
                 }
             }
 
-            val response = builder.toString().trim()
+            val built = builder.toString()
+            val response = built.trim()
+            logLocalStreamingWhitespace(
+                stage = "LocalStreamingRunner#official.direct.flow.builder",
+                raw = built,
+                normalized = response,
+            )
             safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
             if (response.isBlank()) throw OfficialFlowFallbackException("blank_response")
             measuredCollector.observe(
@@ -3586,8 +3640,22 @@ private fun runOfficialLiteRtLmBlocking(
 
             val startedAtMs = SystemClock.elapsedRealtime()
             val message = conversation.sendMessage(prompt)
-            val response = message.contents.toString().trim()
-                .ifBlank { message.toString().trim() }
+            val rawContents = message.contents.toString()
+            val normalizedContents = rawContents.trim()
+            val rawMessage = message.toString()
+            val normalizedMessage = rawMessage.trim()
+            logLocalStreamingWhitespace(
+                stage = "LocalStreamingRunner#official.direct.blocking.contents",
+                raw = rawContents,
+                normalized = normalizedContents,
+            )
+            logLocalStreamingWhitespace(
+                stage = "LocalStreamingRunner#official.direct.blocking.message",
+                raw = rawMessage,
+                normalized = normalizedMessage,
+            )
+            val response = normalizedContents
+                .ifBlank { normalizedMessage }
 
             safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
             responseText = response.takeIf { it.isNotBlank() }
@@ -3874,7 +3942,13 @@ private fun extractOfficialMessageTextWithTrace(
                 runCatching { method.invoke(value) }.getOrNull()
             }
         }
-        val extracted = runCatching { extractOfficialMessageText(candidateValue) }.getOrNull()?.trim()
+        val extractedRaw = runCatching { extractOfficialMessageText(candidateValue) }.getOrNull()
+        val extracted = extractedRaw?.trim()
+        logLocalStreamingWhitespace(
+            stage = "LocalStreamingRunner#extractOfficialMessageTextWithTrace.$candidate",
+            raw = extractedRaw,
+            normalized = extracted,
+        )
         if (!extracted.isNullOrBlank()) {
             if (candidate == "toString" && value != null && !isMeaningfulToStringFallback(value, extracted)) {
                 safeAppendTrace(appendTrace, "UPSTREAM extract-text candidate=$candidate result=blank")
@@ -3889,6 +3963,45 @@ private fun extractOfficialMessageTextWithTrace(
     }
     safeAppendTrace(appendTrace, "UPSTREAM $path extracted length=0")
     return null
+}
+
+private fun logLocalStreamingWhitespace(
+    stage: String,
+    raw: String?,
+    normalized: String? = null,
+) {
+    if (!BuildConfig.DEBUG) return
+    val rawSummary = summarizeWhitespaceForDebug(raw)
+    val normalizedSummary = summarizeWhitespaceForDebug(normalized)
+    if (normalized == null) {
+        Log.d(LOCAL_STREAMING_WHITESPACE_LOG_TAG, "$stage raw=$rawSummary")
+    } else {
+        Log.d(
+            LOCAL_STREAMING_WHITESPACE_LOG_TAG,
+            "$stage raw=$rawSummary normalized=$normalizedSummary delta=${buildWhitespaceDeltaForDebug(raw, normalized)}",
+        )
+    }
+}
+
+private fun summarizeWhitespaceForDebug(text: String?): String {
+    if (text == null) return "null"
+    val spaces = text.count { it == ' ' }
+    val newlines = text.count { it == '\n' }
+    val tabs = text.count { it == '\t' }
+    val carriageReturns = text.count { it == '\r' }
+    val visualized = text
+        .replace(" ", "␠")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    val head = visualized.take(60)
+    val tail = if (visualized.length > 60) visualized.takeLast(60) else visualized
+    return "len=${text.length},spaces=$spaces,newlines=$newlines,tabs=$tabs,cr=$carriageReturns,head=\"$head\",tail=\"$tail\""
+}
+
+private fun buildWhitespaceDeltaForDebug(raw: String?, normalized: String?): String {
+    if (raw == null || normalized == null) return "n/a"
+    return "len=${raw.length - normalized.length},spaces=${raw.count { it == ' ' } - normalized.count { it == ' ' }},newlines=${raw.count { it == '\n' } - normalized.count { it == '\n' }}"
 }
 
 private fun isMeaningfulToStringFallback(source: Any, value: String): Boolean {
