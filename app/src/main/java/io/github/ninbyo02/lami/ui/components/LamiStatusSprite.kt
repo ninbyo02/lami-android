@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.components
 
+import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.background
@@ -49,6 +50,7 @@ import io.github.ninbyo02.lami.viewmodels.resolveErrorKey
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import org.json.JSONObject
+import java.io.File
 import kotlin.random.Random
 
 enum class LamiSpriteStatus {
@@ -64,6 +66,16 @@ enum class LamiSpriteStatus {
 }
 
 private val DEBUG_OVERLAY_ENABLED: Boolean = BuildConfig.DEBUG
+
+private fun appendSpriteTraceToFile(context: Context, line: String) {
+    if (!BuildConfig.DEBUG) return
+    runCatching {
+        val dir = File(context.filesDir, "debug")
+        if (!dir.exists()) dir.mkdirs()
+        val file = File(dir, "local_reflection_trace.log")
+        file.appendText("[LAMI_SPRITE_TRACE] " + line + "\n")
+    }
+}
 
 // 96x96 各フレームの不透明バウンディングボックス下端（顎先基準想定）は
 // 0:95, 1:95, 2:95, 3:94, 4:94, 5:94, 6:90, 7:90, 8:90。
@@ -261,6 +273,21 @@ private fun selectInsertionSettingsForStatus(
         -> null
     }
 
+private fun resolveAnimationKeyForTrace(perStateAnimJson: String?): String {
+    if (perStateAnimJson.isNullOrBlank()) return "fallback"
+    return runCatching {
+        val root = JSONObject(perStateAnimJson)
+        val directAnimationKey = root.optString("animationKey").takeIf { it.isNotBlank() }
+        val directKey = root.optString("key").takeIf { it.isNotBlank() }
+        val metaAnimationKey = root.optJSONObject("meta")
+            ?.optString("animationKey")
+            ?.takeIf { it.isNotBlank() }
+        directAnimationKey ?: directKey ?: metaAnimationKey ?: "per-state-json(no-key-extracted)"
+    }.getOrElse {
+        "per-state-json(no-key-extracted)"
+    }
+}
+
 private fun selectWeightedInsertionPattern(
     patterns: List<InsertionPattern>,
     random: Random,
@@ -380,6 +407,10 @@ fun LamiStatusSprite(
     resolvedErrorKey: String? = null,
     syncEpochMs: Long = 0L,
     debugOverloadLabel: String = "core(status: LamiSpriteStatus)",
+    traceLamiStatus: LamiStatus? = null,
+    traceLamiState: LamiState? = null,
+    traceResolvedAnimationStatus: LamiAnimationStatus? = null,
+    traceIsSpeaking: Boolean = false,
 ) {
     val overlayOn = DEBUG_OVERLAY_ENABLED && debugOverlayEnabled
     val constrainedSize = remember(sizeDp, maxSizeDp) { sizeDp.coerceIn(32.dp, maxSizeDp) }
@@ -468,6 +499,9 @@ fun LamiStatusSprite(
             readySettings = readyInsertionSettings,
             talkingSettings = talkingInsertionSettings,
         )
+    }
+    val resolvedAnimationKeyForTrace = remember(perStateAnimJson) {
+        resolveAnimationKeyForTrace(perStateAnimJson)
     }
     // 挿入設定の変更検知用キー（null は 0 固定）
     val insertionKey = remember(insertionSettings) {
@@ -598,6 +632,38 @@ fun LamiStatusSprite(
                     "json=${json?.take(80)}",
             )
         }
+    }
+    val tracePayload = remember(
+        traceLamiStatus,
+        traceLamiState,
+        traceResolvedAnimationStatus,
+        resolvedStatus,
+        spriteStateForAnim,
+        resolvedAnimationKeyForTrace,
+        animSpec.frames,
+        animSpec.frameDuration.minMs,
+        traceIsSpeaking,
+    ) {
+        "lamiStatus=$traceLamiStatus " +
+            "lamiState=$traceLamiState " +
+            "resolvedAnimationStatus=$traceResolvedAnimationStatus " +
+            "resolvedSpriteStatus=$resolvedStatus " +
+            "spriteStateForAnim=$spriteStateForAnim " +
+            "animationKey=$resolvedAnimationKeyForTrace " +
+            "frameSequence=${animSpec.frames} " +
+            "intervalMs=${animSpec.frameDuration.minMs} " +
+            "isSpeaking=$traceIsSpeaking"
+    }
+    val lastTracePayload = remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(BuildConfig.DEBUG, tracePayload) {
+        if (!BuildConfig.DEBUG) return@LaunchedEffect
+        if (lastTracePayload.value == tracePayload) return@LaunchedEffect
+        Log.d("LamiSpriteTrace", tracePayload)
+        appendSpriteTraceToFile(
+            context = context,
+            line = tracePayload,
+        )
+        lastTracePayload.value = tracePayload
     }
 
     var currentFrameIndex by remember(resolvedStatus, maxFrameIndex) {
@@ -915,6 +981,10 @@ fun LamiStatusSprite(
     resolvedErrorKey: String? = null,
     syncEpochMs: Long = 0L,
 ) {
+    val resolvedAnimationStatusForTrace = remember(status.value) {
+        status.value.toAnimationStatus()
+    }
+    val isSpeakingForTrace = lamiState is LamiState.Speaking
     val spriteStatus = remember(status.value, lamiState) {
         mapToLamiSpriteStatus(
             lamiStatus = status.value,
@@ -940,6 +1010,10 @@ fun LamiStatusSprite(
         resolvedErrorKey = resolvedErrorKey,
         syncEpochMs = syncEpochMs,
         debugOverloadLabel = "wrapper(status: State<LamiStatus>)",
+        traceLamiStatus = status.value,
+        traceLamiState = lamiState,
+        traceResolvedAnimationStatus = resolvedAnimationStatusForTrace,
+        traceIsSpeaking = isSpeakingForTrace,
     )
 }
 
