@@ -376,6 +376,50 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `fenced python で class の次に空白付き __init__ 開始を別論理行に分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "class Block:", " __init__(self, x, y)", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nclass Block:\n __init__(self, x, y)\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で空白付き draw 開始を別論理行に分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "class Block:", " draw(self, screen)", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nclass Block:\n draw(self, screen)\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で空白付き if と for と return を別論理行に分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "value = 1", " if value > 0:", " for x in items:", " return x", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nvalue = 1\n if value > 0:\n for x in items:\n return x\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で未閉じ quote 継続中は空白付き chunk でも分離しない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "print(\"Hello,", " World\")", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nprint(\"Hello, World\")\n```", builder.toString())
+    }
+
+    @Test
     fun `fenced python でも print の文字列断片は 1 行維持する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
@@ -398,6 +442,17 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `fenced bash の空白付き if 風 chunk でも python 専用分離はしない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```bash", "echo", " if true", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```bash\necho if true\n```", builder.toString())
+    }
+
+    @Test
     fun `prose lane の Python 説明文は従来どおり連結する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
@@ -406,6 +461,18 @@ class LocalStreamingRunnerChunkAppendTest {
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
 
         assertEquals("Pythonの基本構造", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
+    fun `prose lane の先頭空白付き if は従来どおり prose 連結する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("Python の基本", " 構造", " は", " 大事")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("Python の基本 構造 は 大事", builder.toString())
         assertEquals(StreamingLane.PROSE, context.lane)
     }
 
