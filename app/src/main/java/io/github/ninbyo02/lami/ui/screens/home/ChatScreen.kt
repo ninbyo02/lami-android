@@ -600,6 +600,7 @@ fun Home(
     var devDebugText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     var streamingResponseTextForRender by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val isLocalRunningRaw = isLocalInferenceRunning
@@ -2201,6 +2202,23 @@ fun Home(
                                                                         onPartial = { partial ->
                                                                             if (localStopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = partial.trim()
+                                                                            val debugText = buildString {
+                                                                                appendLine("=== WS TRACE ===")
+                                                                                appendLine("RAW:")
+                                                                                appendLine(partial.replace(" ", "␠").replace("\n", "\\n"))
+                                                                                appendLine("----")
+                                                                                appendLine("NORMALIZED:")
+                                                                                appendLine(normalizedPartial.replace(" ", "␠").replace("\n", "\\n"))
+                                                                                appendLine("----")
+                                                                                appendLine("LEN: ${partial.length} -> ${normalizedPartial.length}")
+                                                                                appendLine("SPACES: ${partial.count { it == ' ' }} -> ${normalizedPartial.count { it == ' ' }}")
+                                                                                appendLine("NL: ${partial.count { it == '\n' }} -> ${normalizedPartial.count { it == '\n' }}")
+                                                                            }
+                                                                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                                coroutineScope.launch {
+                                                                                    devWhitespaceTraceText = debugText
+                                                                                }
+                                                                            }
                                                                             logLocalStreamingWhitespace(
                                                                                 stage = "ChatScreen#held.onPartial",
                                                                                 raw = partial,
@@ -2276,6 +2294,23 @@ fun Home(
                                                                                 onPartial = legacyPartial@{ partial ->
                                                                                     if (localStopRequested) return@legacyPartial
                                                                                     val normalizedPartial = partial.trim()
+                                                                                    val debugText = buildString {
+                                                                                        appendLine("=== WS TRACE ===")
+                                                                                        appendLine("RAW:")
+                                                                                        appendLine(partial.replace(" ", "␠").replace("\n", "\\n"))
+                                                                                        appendLine("----")
+                                                                                        appendLine("NORMALIZED:")
+                                                                                        appendLine(normalizedPartial.replace(" ", "␠").replace("\n", "\\n"))
+                                                                                        appendLine("----")
+                                                                                        appendLine("LEN: ${partial.length} -> ${normalizedPartial.length}")
+                                                                                        appendLine("SPACES: ${partial.count { it == ' ' }} -> ${normalizedPartial.count { it == ' ' }}")
+                                                                                        appendLine("NL: ${partial.count { it == '\n' }} -> ${normalizedPartial.count { it == '\n' }}")
+                                                                                    }
+                                                                                    if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                                        coroutineScope.launch {
+                                                                                            devWhitespaceTraceText = debugText
+                                                                                        }
+                                                                                    }
                                                                                     logLocalStreamingWhitespace(
                                                                                         stage = "ChatScreen#legacy.onPartial",
                                                                                         raw = partial,
@@ -2349,6 +2384,23 @@ fun Home(
                                                                         onPartial = legacyPartial@{ partial ->
                                                                             if (localStopRequested) return@legacyPartial
                                                                             val normalizedPartial = partial.trim()
+                                                                            val debugText = buildString {
+                                                                                appendLine("=== WS TRACE ===")
+                                                                                appendLine("RAW:")
+                                                                                appendLine(partial.replace(" ", "␠").replace("\n", "\\n"))
+                                                                                appendLine("----")
+                                                                                appendLine("NORMALIZED:")
+                                                                                appendLine(normalizedPartial.replace(" ", "␠").replace("\n", "\\n"))
+                                                                                appendLine("----")
+                                                                                appendLine("LEN: ${partial.length} -> ${normalizedPartial.length}")
+                                                                                appendLine("SPACES: ${partial.count { it == ' ' }} -> ${normalizedPartial.count { it == ' ' }}")
+                                                                                appendLine("NL: ${partial.count { it == '\n' }} -> ${normalizedPartial.count { it == '\n' }}")
+                                                                            }
+                                                                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                                coroutineScope.launch {
+                                                                                    devWhitespaceTraceText = debugText
+                                                                                }
+                                                                            }
                                                                             logLocalStreamingWhitespace(
                                                                                 stage = "ChatScreen#legacyDirect.onPartial",
                                                                                 raw = partial,
@@ -3218,6 +3270,16 @@ fun Home(
                                         PlainAssistantMessage(
                                             message = localRespondingAssistantRowMessage,
                                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                        )
+                                    }
+                                }
+                                if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && devWhitespaceTraceText != null) {
+                                    item(key = "dev_whitespace_trace") {
+                                        Text(
+                                            text = devWhitespaceTraceText!!,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.Red,
+                                            modifier = Modifier.padding(8.dp),
                                         )
                                     }
                                 }
