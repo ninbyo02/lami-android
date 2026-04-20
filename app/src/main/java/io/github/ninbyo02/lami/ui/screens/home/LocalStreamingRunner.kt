@@ -95,6 +95,7 @@ internal data class HeldEngineRunResult(
     val localModelDisplayName: String?,
     val measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null,
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
+    val runnerWhitespaceTraceText: String? = null,
 )
 
 internal data class RunCloseTargetOutcome(
@@ -137,6 +138,15 @@ internal suspend fun runWithHeldEngine(
     var officialFlowUsed = false
     var closeSummaryPath = "held-official-flow"
     var measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null
+    val runnerWhitespaceTraceEntries = mutableListOf<Pair<String, String?>>()
+
+    fun appendRunnerWhitespaceStage(
+        stage: String,
+        text: String?,
+    ) {
+        if (!BuildConfig.DEBUG) return
+        runnerWhitespaceTraceEntries += stage to text
+    }
 
     val response = runCatching {
         runWithConversation(
@@ -161,12 +171,16 @@ internal suspend fun runWithHeldEngine(
                 var lastPartial: String? = null
                 flow.collect { message ->
                     if (!currentCoroutineContext().isActive) return@collect
+                    val messageContentsRaw = extractMessageContentsForTrace(message)
                     val extractedText = extractOfficialMessageTextWithTrace(
                         path = "held-engine-flow",
                         value = message,
                         appendTrace = appendTrace,
                     )
                     val extracted = extractedText?.trim().orEmpty()
+                    appendRunnerWhitespaceStage("message.contents", messageContentsRaw)
+                    appendRunnerWhitespaceStage("extract.raw", extractedText)
+                    appendRunnerWhitespaceStage("extract.trimmed", extractedText?.trim())
                     logLocalStreamingWhitespace(
                         stage = "LocalStreamingRunner#held.flow.extract",
                         raw = extractedText,
@@ -179,11 +193,22 @@ internal suspend fun runWithHeldEngine(
                         heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     }
                     heldFlowLastChunkElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                    appendRunnerWhitespaceStage(
+                        "append.boundary",
+                        buildAppendBoundaryTrace(
+                            previousBuilderTail = builder.toString().takeLast(64),
+                            extractedHead = extracted.take(64),
+                        ),
+                    )
                     builder.append(extracted)
                     onPartial(builder.toString())
                 }
                 val built = builder.toString()
                 val trimmedBuilt = built.trim()
+                appendRunnerWhitespaceStage("builder.raw", built)
+                appendRunnerWhitespaceStage("builder.trimmed", trimmedBuilt)
+                appendRunnerWhitespaceStage("responseText.raw", built)
+                appendRunnerWhitespaceStage("responseText.trimmed", trimmedBuilt)
                 logLocalStreamingWhitespace(
                     stage = "LocalStreamingRunner#held.flow.builder",
                     raw = built,
@@ -246,11 +271,19 @@ internal suspend fun runWithHeldEngine(
                     namespace = namespace,
                     prompt = prompt,
                 ) ?: return@runCatching null
-                extractOfficialMessageTextWithTrace(
+                appendRunnerWhitespaceStage("message.contents", extractMessageContentsForTrace(value))
+                val extractedText = extractOfficialMessageTextWithTrace(
                     path = "held-engine-blocking",
                     value = value,
                     appendTrace = appendTrace,
-                )?.trim()?.takeIf { it.isNotBlank() }
+                )
+                val responseRaw = extractedText
+                val responseTrimmed = extractedText?.trim()
+                appendRunnerWhitespaceStage("extract.raw", responseRaw)
+                appendRunnerWhitespaceStage("extract.trimmed", responseTrimmed)
+                appendRunnerWhitespaceStage("responseText.raw", responseRaw)
+                appendRunnerWhitespaceStage("responseText.trimmed", responseTrimmed)
+                responseTrimmed?.takeIf { it.isNotBlank() }
             }.getOrElse { throwable ->
                 safeAppendTrace(
                     appendTrace,
@@ -349,6 +382,7 @@ internal suspend fun runWithHeldEngine(
         localModelDisplayName = localModelDisplayName,
         measuredTokenSnapshot = measuredTokenSnapshot,
         closeLifecycleSummary = closeSummary,
+        runnerWhitespaceTraceText = buildRunnerWhitespaceTraceBlock(runnerWhitespaceTraceEntries),
     )
 }
 internal data class LocalOfficialConversationApiProbeResult(
@@ -3997,6 +4031,67 @@ private fun summarizeWhitespaceForDebug(text: String?): String {
     val head = visualized.take(60)
     val tail = if (visualized.length > 60) visualized.takeLast(60) else visualized
     return "len=${text.length},spaces=$spaces,newlines=$newlines,tabs=$tabs,cr=$carriageReturns,head=\"$head\",tail=\"$tail\""
+}
+
+private fun extractMessageContentsForTrace(message: Any?): String? {
+    if (message == null) return null
+    val contentsValue = runCatching {
+        message.javaClass.methods.firstOrNull {
+            it.name == "getContents" && it.parameterTypes.isEmpty()
+        }?.invoke(message)
+    }.getOrNull()
+    return when (contentsValue) {
+        null -> null
+        is String -> contentsValue
+        is CharSequence -> contentsValue.toString()
+        else -> contentsValue.toString()
+    }
+}
+
+private fun buildAppendBoundaryTrace(
+    previousBuilderTail: String,
+    extractedHead: String,
+): String {
+    val previousVisualized = previousBuilderTail
+        .replace(" ", "␠")
+        .replace("\n", "\\n")
+        .replace("\t", "\\t")
+    val extractedVisualized = extractedHead
+        .replace(" ", "␠")
+        .replace("\n", "\\n")
+        .replace("\t", "\\t")
+    return "previousBuilderTail=\"$previousVisualized\" extractedHead=\"$extractedVisualized\""
+}
+
+private fun buildRunnerWhitespaceTraceBlock(
+    stages: List<Pair<String, String?>>,
+): String? {
+    if (!BuildConfig.DEBUG || stages.isEmpty()) return null
+    return buildString {
+        appendLine("=== RUNNER WS TRACE ===")
+        stages.forEach { (stage, text) ->
+            append('[').append(stage).appendLine("]")
+            appendLine(summarizeWhitespaceForUi(text))
+            appendLine()
+        }
+    }
+}
+
+private fun summarizeWhitespaceForUi(text: String?): String {
+    if (text == null) return "len=null\nspaces=0\nnewlines=0\ntabs=0\ntext=\"null\""
+    val spaces = text.count { it == ' ' }
+    val newlines = text.count { it == '\n' }
+    val tabs = text.count { it == '\t' }
+    val visualized = text
+        .replace(" ", "␠")
+        .replace("\n", "\\n")
+        .replace("\t", "\\t")
+    val limited = if (visualized.length > 1200) {
+        visualized.take(1200) + "…(truncated)"
+    } else {
+        visualized
+    }
+    return "len=${text.length}\nspaces=$spaces\nnewlines=$newlines\ntabs=$tabs\ntext=\"$limited\""
 }
 
 private fun buildWhitespaceDeltaForDebug(raw: String?, normalized: String?): String {
