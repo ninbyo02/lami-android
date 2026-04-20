@@ -18,6 +18,17 @@ class ChatScreenStreamingRenderTest {
     }
 
     @Test
+    fun shouldRefreshRender_shortJapaneseConversationDelta_returnsFalse() {
+        assertFalse(
+            shouldRefreshRender(
+                prev = "こんにちは！",
+                next = "こんにちは！何かお手伝いできますか？",
+                isStreaming = true,
+            )
+        )
+    }
+
+    @Test
     fun shouldRefreshRender_newlineOrLongDelta_returnsTrue() {
         assertTrue(
             shouldRefreshRender(

@@ -739,14 +739,16 @@ fun splitStreamingText(text: String): StreamingSplit {
     val trailingLine = lines.lastOrNull().orEmpty()
     val hasTrailingNewLine = text.endsWith("\n")
     val unclosedFence = text.split("```").size % 2 == 0
-    val shortTail = trailingLine.length in 1..31
     val codeLikeTail = shouldTreatAsProvisionalCode(trailingLine)
-    val shouldSplitTail = !hasTrailingNewLine && trailingLine.isNotBlank() && (unclosedFence || codeLikeTail || shortTail)
+    val unstableStartLine = findProvisionalUnstableStartLine(lines, hasTrailingNewLine)
+    val shouldSplitTail =
+        !hasTrailingNewLine &&
+            trailingLine.isNotBlank() &&
+            (unclosedFence || codeLikeTail || unstableStartLine != null)
     if (!shouldSplitTail) {
         return StreamingSplit(stable = text, unstable = "")
     }
 
-    val unstableStartLine = findProvisionalUnstableStartLine(lines, hasTrailingNewLine)
     if (unstableStartLine != null) {
         val stablePart = lines.take(unstableStartLine).joinToString("\n")
         val unstablePart = lines.drop(unstableStartLine).joinToString("\n")
@@ -780,6 +782,7 @@ fun shouldTreatAsProvisionalCode(text: String): Boolean {
     if (trimmed in setOf("python", "kotlin", "bash", "json")) return true
     if (isPythonFusionStart(trimmed)) return true
 
+    val assignmentLike = Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*[^=]")
     val signals = listOf(
         Regex("\\bimport\\b"),
         Regex("\\bdef\\b"),
@@ -788,11 +791,11 @@ fun shouldTreatAsProvisionalCode(text: String): Boolean {
         Regex("\\bwhile\\b"),
         Regex("\\breturn\\b"),
         Regex("print\\("),
-        Regex("="),
-        Regex(":"),
+        assignmentLike,
+        Regex("->"),
         Regex("[{}]"),
         Regex("[\\[\\]]"),
-        Regex("#"),
+        Regex(";"),
     )
     var score = signals.count { signal -> signal.containsMatchIn(trimmed) }
     if (text.startsWith("    ") || text.startsWith("\t")) score += 1
@@ -804,12 +807,30 @@ private fun findProvisionalUnstableStartLine(
     hasTrailingNewLine: Boolean,
 ): Int? {
     if (hasTrailingNewLine || lines.isEmpty()) return null
-    val windowStart = (lines.lastIndex - 2).coerceAtLeast(0)
+    val windowStart = (lines.lastIndex - 3).coerceAtLeast(0)
+    val candidateIndices = mutableListOf<Int>()
     for (index in windowStart..lines.lastIndex) {
         val line = lines[index].trim()
         if (line.isBlank()) continue
+        candidateIndices += index
         if (line in setOf("python", "kotlin", "bash", "json")) return index
         if (isPythonFusionStart(line)) return index
+    }
+    if (candidateIndices.size < 2) return null
+
+    var streakStart: Int? = null
+    var previousIndex: Int? = null
+    for (index in candidateIndices) {
+        val codeLike = shouldTreatAsProvisionalCode(lines[index])
+        if (codeLike && previousIndex != null && index == previousIndex + 1 && streakStart != null) {
+            return streakStart
+        }
+        if (codeLike) {
+            streakStart = index
+        } else {
+            streakStart = null
+        }
+        previousIndex = index
     }
     return null
 }
