@@ -34,4 +34,22 @@ class ChatScreenStreamingRenderTest {
             )
         )
     }
+
+    @Test
+    fun shouldRefreshRender_fenceOrPythonFusion_returnsTrue() {
+        assertTrue(
+            shouldRefreshRender(
+                prev = "説明",
+                next = "説明```python",
+                isStreaming = true,
+            )
+        )
+        assertTrue(
+            shouldRefreshRender(
+                prev = "説明\n",
+                next = "説明\npythonimport random",
+                isStreaming = true,
+            )
+        )
+    }
 }

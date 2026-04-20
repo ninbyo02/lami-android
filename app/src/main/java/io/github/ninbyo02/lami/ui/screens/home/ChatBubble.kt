@@ -746,6 +746,13 @@ fun splitStreamingText(text: String): StreamingSplit {
         return StreamingSplit(stable = text, unstable = "")
     }
 
+    val unstableStartLine = findProvisionalUnstableStartLine(lines, hasTrailingNewLine)
+    if (unstableStartLine != null) {
+        val stablePart = lines.take(unstableStartLine).joinToString("\n")
+        val unstablePart = lines.drop(unstableStartLine).joinToString("\n")
+        return StreamingSplit(stable = stablePart, unstable = unstablePart)
+    }
+
     val stablePart = text.removeSuffix(trailingLine).removeSuffix("\n")
     return StreamingSplit(stable = stablePart, unstable = trailingLine)
 }
@@ -754,7 +761,17 @@ fun isPythonFusionStart(text: String): Boolean {
     val normalized = text.trimStart()
     if (!normalized.startsWith("python")) return false
     val tail = normalized.removePrefix("python").trimStart()
-    return tail.startsWith("import") || tail.startsWith("def") || tail.startsWith("class") || tail.startsWith("for")
+    if (tail.isBlank()) return false
+    if (
+        tail.startsWith("import") ||
+        tail.startsWith("def") ||
+        tail.startsWith("class") ||
+        tail.startsWith("for") ||
+        tail.startsWith("while")
+    ) {
+        return true
+    }
+    return Regex("^[A-Za-z_][A-Za-z0-9_]{2,}\\s*[(:=\\[]").containsMatchIn(tail)
 }
 
 fun shouldTreatAsProvisionalCode(text: String): Boolean {
@@ -763,12 +780,38 @@ fun shouldTreatAsProvisionalCode(text: String): Boolean {
     if (trimmed in setOf("python", "kotlin", "bash", "json")) return true
     if (isPythonFusionStart(trimmed)) return true
 
-    var score = 0
-    val tokens = listOf("import", "=", "()", ":", "{}", "for ", "while ")
-    score += tokens.count { token -> trimmed.contains(token) }
-    if (trimmed.contains('{') || trimmed.contains('}')) score += 1
+    val signals = listOf(
+        Regex("\\bimport\\b"),
+        Regex("\\bdef\\b"),
+        Regex("\\bclass\\b"),
+        Regex("\\bfor\\b"),
+        Regex("\\bwhile\\b"),
+        Regex("\\breturn\\b"),
+        Regex("print\\("),
+        Regex("="),
+        Regex(":"),
+        Regex("[{}]"),
+        Regex("[\\[\\]]"),
+        Regex("#"),
+    )
+    var score = signals.count { signal -> signal.containsMatchIn(trimmed) }
     if (text.startsWith("    ") || text.startsWith("\t")) score += 1
-    return score >= 2
+    return score >= 3
+}
+
+private fun findProvisionalUnstableStartLine(
+    lines: List<String>,
+    hasTrailingNewLine: Boolean,
+): Int? {
+    if (hasTrailingNewLine || lines.isEmpty()) return null
+    val windowStart = (lines.lastIndex - 2).coerceAtLeast(0)
+    for (index in windowStart..lines.lastIndex) {
+        val line = lines[index].trim()
+        if (line.isBlank()) continue
+        if (line in setOf("python", "kotlin", "bash", "json")) return index
+        if (isPythonFusionStart(line)) return index
+    }
+    return null
 }
 
 private fun detectProvisionalLanguage(text: String): String? {
