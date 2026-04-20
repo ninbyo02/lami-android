@@ -328,4 +328,78 @@ class LocalStreamingRunnerChunkAppendTest {
 
         assertEquals("python\n```print(\"x\")", builder.toString())
     }
+
+    @Test
+    fun `prose 中の Python と Hello comma は code lane に入らない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("はい、以下に", "Python", "で", "「", "Hello", ",", " World", "！」")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("はい、以下にPythonで「Hello, World！」", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
+    fun `fenced code chunk は code lane で連結する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "print(", "\"Hello, World!\"", ")", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nprint(\"Hello, World!\")\n```", builder.toString())
+        assertEquals(StreamingLane.CODE, context.lane)
+    }
+
+    @Test
+    fun `language tag の後に prose が来たら prose lane を維持する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "python", context)
+        appendStreamingChunk(builder, "このコードは", context)
+
+        assertEquals("pythonこのコードは", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
+    fun `language tag と strong code で code lane に入る`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "python", context)
+        appendStreamingChunk(builder, "print(\"x\")", context)
+
+        assertEquals("python\nprint(\"x\")", builder.toString())
+        assertEquals(StreamingLane.CODE, context.lane)
+    }
+
+    @Test
+    fun `code lane 中に prose like chunk が来たら prose lane に戻る`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "def main():", context)
+        appendStreamingChunk(builder, "print(\"x\")", context)
+        appendStreamingChunk(builder, "このコードは", context)
+
+        assertEquals("def main():\nprint(\"x\") このコードは", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
+    fun `Hello comma World は prose lane で改行しない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "Hello", context)
+        appendStreamingChunk(builder, ",", context)
+        appendStreamingChunk(builder, " World", context)
+
+        assertEquals("Hello, World", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
 }
