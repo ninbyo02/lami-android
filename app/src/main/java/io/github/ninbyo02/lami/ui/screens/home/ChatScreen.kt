@@ -972,9 +972,12 @@ fun Home(
         }
     }
 
-    fun normalizeStreamingSpeakText(rawText: String): String {
-        val normalized = rawText
+    fun sanitizeTextForTts(text: String): String {
+        val normalized = text
+            .replace("☺", "")
+            .replace("☻", "")
             .replace("*", "")
+            .replace("```", "")
             .replace("`", "")
             .replace(Regex("\\s+"), " ")
             .trim()
@@ -996,7 +999,7 @@ fun Home(
         val sentenceBreakIndex = remaining.lastIndexOfAny(charArrayOf('。', '！', '？', '\n'))
         if (sentenceBreakIndex < 0) return
         val speakTarget = remaining.substring(0, sentenceBreakIndex + 1)
-        val normalized = normalizeStreamingSpeakText(speakTarget)
+        val normalized = sanitizeTextForTts(speakTarget)
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
             streamingSpeechStartedForMessageId?.let { messageId ->
                 currentSpeakingAssistantMessageId = messageId
@@ -1016,7 +1019,7 @@ fun Home(
         if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
         val safeConsumed = streamingSpeechLastConsumedLength.coerceIn(0, fullText.length)
         val remaining = fullText.substring(safeConsumed)
-        val normalized = normalizeStreamingSpeakText(remaining)
+        val normalized = sanitizeTextForTts(remaining)
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
             streamingSpeechStartedForMessageId?.let { messageId ->
                 currentSpeakingAssistantMessageId = messageId
@@ -1231,7 +1234,7 @@ fun Home(
                         suppressedTtsAssistantMessageId != assistantId &&
                         !ttsController.isInCooldown()
                     ) {
-                        ttsController.speak(response)
+                        sanitizeTextForTts(response).takeIf { it.isNotEmpty() }?.let(ttsController::speak)
                     }
                     placeholder = "Enter your prompt..."
                     pendingAssistantImageInputCount = null
@@ -2525,7 +2528,7 @@ fun Home(
                                                                         suppressedTtsAssistantMessageId != assistantId &&
                                                                         !ttsController.isInCooldown()
                                                                     ) {
-                                                                        ttsController.speak(resolvedAssistantResponse)
+                                                                        sanitizeTextForTts(resolvedAssistantResponse).takeIf { it.isNotEmpty() }?.let(ttsController::speak)
                                                                     }
                                                                     localStreamingResponseText = null
                                                                     resetStreamingAssistantPlaceholderId(reason = "success")
@@ -3093,7 +3096,7 @@ fun Home(
                                                     isStreamingSentencePlaybackActive = false
                                                     currentSpeakingAssistantMessageId = message.messageID
                                                     stopButtonOwnerAssistantMessageId = message.messageID
-                                                    ttsController.speak(message.message)
+                                                    sanitizeTextForTts(message.message).takeIf { it.isNotEmpty() }?.let(ttsController::speak)
                                                 }
                                                 } else {
                                                     null
