@@ -165,6 +165,41 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `python tag は必ず改行でコードと分離される`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "python", context)
+        appendStreamingChunk(builder, "print(\"Hello\")", context)
+
+        assertEquals("python\nprint(\"Hello\")", builder.toString())
+    }
+
+    @Test
+    fun `prose の後に python が来た場合も改行される`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "以下に", context)
+        appendStreamingChunk(builder, "python", context)
+        appendStreamingChunk(builder, "print(\"x\")", context)
+
+        assertEquals("以下に\npython\nprint(\"x\")", builder.toString())
+    }
+
+    @Test
+    fun `pythonprint には絶対にならない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "python", context)
+        appendStreamingChunk(builder, "print(", context)
+        appendStreamingChunk(builder, "\"x\")", context)
+
+        assertEquals("python\nprint(\"x\")", builder.toString())
+    }
+
+    @Test
     fun `python タグと複数行コードを再構成する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()

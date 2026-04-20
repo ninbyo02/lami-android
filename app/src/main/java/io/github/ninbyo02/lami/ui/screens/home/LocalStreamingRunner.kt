@@ -4138,31 +4138,6 @@ private fun appendStreamingChunkForCode(
     context: StreamingAppendContext,
     appendTrace: ((String) -> Unit)? = null,
 ): String {
-    val pendingTag = context.pendingCodeLanguageTag
-    var insertedNewline = false
-    if (pendingTag != null && isStrongCodeLikeChunk(extractedRaw)) {
-        if (builder.isNotEmpty() && !builder.last().isWhitespace()) {
-            builder.append('\n')
-            insertedNewline = true
-        }
-        builder.append(pendingTag)
-        builder.append('\n')
-        builder.append(extractedRaw)
-        context.pendingCodeLanguageTag = null
-        context.lastCodeChunkEndedWithNewline = extractedRaw.endsWith('\n')
-        appendTrace?.let { trace ->
-            safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(pendingTag)}")
-            safeAppendTrace(trace, "UPSTREAM [code.insertedNewline]=$insertedNewline")
-            safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.CODE.label}")
-            safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
-            safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
-        }
-        return ""
-    }
-    if (pendingTag != null) {
-        builder.append(pendingTag)
-        context.pendingCodeLanguageTag = null
-    }
     if (isStandaloneLanguageTag(extractedRaw)) {
         context.pendingCodeLanguageTag = extractedRaw.trim()
         appendTrace?.let { trace ->
@@ -4173,6 +4148,32 @@ private fun appendStreamingChunkForCode(
             safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
         }
         return ""
+    }
+
+    val pendingTag = context.pendingCodeLanguageTag
+    var insertedNewline = false
+    if (pendingTag != null) {
+        val isCode = isStrongCodeLikeChunk(extractedRaw)
+        if (isCode) {
+            if (builder.isNotEmpty() && !builder.last().isWhitespace()) {
+                builder.append('\n')
+                insertedNewline = true
+            }
+            builder.append(pendingTag)
+            builder.append('\n')
+            builder.append(extractedRaw)
+            context.pendingCodeLanguageTag = null
+            context.lastCodeChunkEndedWithNewline = extractedRaw.endsWith('\n')
+            appendTrace?.let { trace ->
+                safeAppendTrace(trace, "[code.flushLanguageTag]")
+                safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(pendingTag)}")
+                safeAppendTrace(trace, "UPSTREAM [code.insertedNewline]=$insertedNewline")
+                safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.CODE.label}")
+                safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
+                safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
+            }
+            return ""
+        }
     }
     if (shouldInsertCodeNewlineBefore(builder, extractedRaw, context)) {
         builder.append('\n')
