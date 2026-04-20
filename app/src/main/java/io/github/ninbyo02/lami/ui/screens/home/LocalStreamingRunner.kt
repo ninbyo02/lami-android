@@ -4166,7 +4166,30 @@ private fun appendStreamingChunkForCode(
     context: StreamingAppendContext,
     appendTrace: ((String) -> Unit)? = null,
 ): String {
-    context.inFencedCodeBlock = updateFencedCodeState(context.inFencedCodeBlock, extractedRaw)
+    val wasInFencedCodeBlock = context.inFencedCodeBlock
+    val isFenceBoundaryChunk = isFenceBoundaryChunk(extractedRaw)
+    if (isFenceBoundaryChunk) {
+        if (wasInFencedCodeBlock) {
+            commitPendingCodeLine(builder, context, appendTrace)
+            appendFenceChunk(builder, extractedRaw)
+            context.lane = StreamingLane.PROSE
+            clearCodeLanePendingState(context)
+            context.inFencedCodeBlock = updateFencedCodeState(wasInFencedCodeBlock, extractedRaw)
+            appendTrace?.let { trace ->
+                safeAppendTrace(trace, "[lane.switch]=code->prose reason=fence_close")
+            }
+            return ""
+        }
+        commitPendingCodeLine(builder, context, appendTrace)
+        appendFenceChunk(builder, extractedRaw)
+        clearCodeLanePendingState(context)
+        context.inFencedCodeBlock = updateFencedCodeState(wasInFencedCodeBlock, extractedRaw)
+        appendTrace?.let { trace ->
+            safeAppendTrace(trace, "[lane.switch]=code->code reason=fence_open")
+        }
+        return ""
+    }
+    context.inFencedCodeBlock = updateFencedCodeState(wasInFencedCodeBlock, extractedRaw)
 
     if (isStandaloneCodeLanguageTag(extractedRaw)) {
         commitPendingCodeLine(builder, context, appendTrace)
@@ -4225,6 +4248,27 @@ private fun appendStreamingChunkForCode(
         safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
     }
     return ""
+}
+
+private fun isFenceBoundaryChunk(chunk: String): Boolean {
+    val trimmed = chunk.trim()
+    return trimmed.startsWith("```")
+}
+
+private fun appendFenceChunk(builder: StringBuilder, fenceChunk: String) {
+    if (builder.isNotEmpty() && builder.last() != '\n') {
+        builder.append('\n')
+    }
+    builder.append(fenceChunk.trimEnd())
+    if (builder.lastOrNull() != '\n') {
+        builder.append('\n')
+    }
+}
+
+private fun clearCodeLanePendingState(context: StreamingAppendContext) {
+    context.pendingCodeLanguageTag = null
+    context.pendingCodeLineBuffer = null
+    context.lastCodeChunkEndedWithNewline = false
 }
 
 internal enum class StreamingLane(val label: String) {
