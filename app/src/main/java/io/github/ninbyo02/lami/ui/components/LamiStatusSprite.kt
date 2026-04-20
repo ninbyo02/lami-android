@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.components
 
+import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.background
@@ -49,6 +50,7 @@ import io.github.ninbyo02.lami.viewmodels.resolveErrorKey
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import org.json.JSONObject
+import java.io.File
 import kotlin.random.Random
 
 enum class LamiSpriteStatus {
@@ -64,6 +66,16 @@ enum class LamiSpriteStatus {
 }
 
 private val DEBUG_OVERLAY_ENABLED: Boolean = BuildConfig.DEBUG
+
+private fun appendSpriteTraceToFile(context: Context, line: String) {
+    if (!BuildConfig.DEBUG) return
+    runCatching {
+        val dir = File(context.filesDir, "debug")
+        if (!dir.exists()) dir.mkdirs()
+        val file = File(dir, "local_reflection_trace.log")
+        file.appendText("[LAMI_SPRITE_TRACE] " + line + "\n")
+    }
+}
 
 // 96x96 各フレームの不透明バウンディングボックス下端（顎先基準想定）は
 // 0:95, 1:95, 2:95, 3:94, 4:94, 5:94, 6:90, 7:90, 8:90。
@@ -647,6 +659,10 @@ fun LamiStatusSprite(
         if (!BuildConfig.DEBUG) return@LaunchedEffect
         if (lastTracePayload.value == tracePayload) return@LaunchedEffect
         Log.d("LamiSpriteTrace", tracePayload)
+        appendSpriteTraceToFile(
+            context = context,
+            line = tracePayload,
+        )
         lastTracePayload.value = tracePayload
     }
 
