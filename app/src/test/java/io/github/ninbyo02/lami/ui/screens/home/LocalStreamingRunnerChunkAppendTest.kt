@@ -102,7 +102,7 @@ class LocalStreamingRunnerChunkAppendTest {
         )
 
         assertEquals("", join)
-        assertEquals("以下にpythonimport turtle", builder.toString())
+        assertEquals("以下に\npython\nimport turtle", builder.toString())
         assertEquals(StreamingLane.CODE, context.lane)
     }
 
@@ -149,7 +149,64 @@ class LocalStreamingRunnerChunkAppendTest {
         )
 
         assertEquals("", join)
-        assertEquals("以下にpythonprint(\"x\")", builder.toString())
+        assertEquals("以下に\npython\nprint(\"x\")", builder.toString())
         assertEquals(StreamingLane.CODE, context.lane)
+    }
+
+    @Test
+    fun `python 単独タグの後に import が来たら改行で再構成する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "python", context)
+        appendStreamingChunk(builder, "import os", context)
+
+        assertEquals("python\nimport os", builder.toString())
+    }
+
+    @Test
+    fun `python タグと複数行コードを再構成する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "python", context)
+        appendStreamingChunk(builder, "def main():", context)
+        appendStreamingChunk(builder, "    print(\"x\")", context)
+
+        assertEquals("python\ndef main():\n    print(\"x\")", builder.toString())
+    }
+
+    @Test
+    fun `prose lane は従来どおり自然文を連結する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(builder, "こんにちは、", context)
+        appendStreamingChunk(builder, "承知しました。", context)
+
+        assertEquals("こんにちは、承知しました。", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
+    fun `x equal と空白付き値は 1 行のまま連結する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext(lane = StreamingLane.CODE)
+
+        appendStreamingChunk(builder, "x =", context)
+        appendStreamingChunk(builder, " 1", context)
+
+        assertEquals("x = 1", builder.toString())
+    }
+
+    @Test
+    fun `if の次の print は必要に応じて改行する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext(lane = StreamingLane.CODE)
+
+        appendStreamingChunk(builder, "if x > 0:", context)
+        appendStreamingChunk(builder, "print(x)", context)
+
+        assertEquals("if x > 0:\nprint(x)", builder.toString())
     }
 }
