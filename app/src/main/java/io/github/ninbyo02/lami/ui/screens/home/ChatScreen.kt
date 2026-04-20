@@ -226,6 +226,7 @@ private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
 private const val DEV_UI_DEBUG_MODE = true
 private const val DEV_USE_HELD_PATH_ONLY = false
+private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
 
 private enum class LocalExecutionPath(
     val sourceLabel: String,
@@ -2200,12 +2201,22 @@ fun Home(
                                                                         onPartial = { partial ->
                                                                             if (localStopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = partial.trim()
+                                                                            logLocalStreamingWhitespace(
+                                                                                stage = "ChatScreen#held.onPartial",
+                                                                                raw = partial,
+                                                                                normalized = normalizedPartial,
+                                                                            )
                                                                             if (normalizedPartial.isBlank()) return@runWithHeldEngine
                                                                             coroutineScope.launch {
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                 if (localStopRequested) return@launch
                                                                                 didReceiveRealLocalPartial = true
                                                                                 realLocalPartialChunkCount += 1
+                                                                                logLocalStreamingWhitespace(
+                                                                                    stage = "ChatScreen#held.localStreamingResponseText",
+                                                                                    raw = partial,
+                                                                                    normalized = normalizedPartial,
+                                                                                )
                                                                                 localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
@@ -2265,12 +2276,22 @@ fun Home(
                                                                                 onPartial = legacyPartial@{ partial ->
                                                                                     if (localStopRequested) return@legacyPartial
                                                                                     val normalizedPartial = partial.trim()
+                                                                                    logLocalStreamingWhitespace(
+                                                                                        stage = "ChatScreen#legacy.onPartial",
+                                                                                        raw = partial,
+                                                                                        normalized = normalizedPartial,
+                                                                                    )
                                                                                     if (normalizedPartial.isBlank()) return@legacyPartial
                                                                                     coroutineScope.launch {
                                                                                         if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                         if (localStopRequested) return@launch
                                                                                         didReceiveRealLocalPartial = true
                                                                                         realLocalPartialChunkCount += 1
+                                                                                        logLocalStreamingWhitespace(
+                                                                                            stage = "ChatScreen#legacy.localStreamingResponseText",
+                                                                                            raw = partial,
+                                                                                            normalized = normalizedPartial,
+                                                                                        )
                                                                                         localStreamingResponseText = normalizedPartial
                                                                                         upsertStreamingAssistantPlaceholderSerialized(
                                                                                             chatId = currentChatId,
@@ -2328,12 +2349,22 @@ fun Home(
                                                                         onPartial = legacyPartial@{ partial ->
                                                                             if (localStopRequested) return@legacyPartial
                                                                             val normalizedPartial = partial.trim()
+                                                                            logLocalStreamingWhitespace(
+                                                                                stage = "ChatScreen#legacyDirect.onPartial",
+                                                                                raw = partial,
+                                                                                normalized = normalizedPartial,
+                                                                            )
                                                                             if (normalizedPartial.isBlank()) return@legacyPartial
                                                                             coroutineScope.launch {
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                 if (localStopRequested) return@launch
                                                                                 didReceiveRealLocalPartial = true
                                                                                 realLocalPartialChunkCount += 1
+                                                                                logLocalStreamingWhitespace(
+                                                                                    stage = "ChatScreen#legacyDirect.localStreamingResponseText",
+                                                                                    raw = partial,
+                                                                                    normalized = normalizedPartial,
+                                                                                )
                                                                                 localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
@@ -2501,8 +2532,17 @@ fun Home(
                                                                             responseText = resolvedAssistantResponse,
                                                                             onChunk = { chunk ->
                                                                                 if (localStopRequested) return@streamLocalAssistantPreviewTextToUi
+                                                                                logLocalStreamingWhitespace(
+                                                                                    stage = "ChatScreen#preview.onChunk.raw",
+                                                                                    raw = chunk,
+                                                                                )
                                                                                 localStreamingResponseText = chunk
                                                                                 val normalizedChunk = chunk.trim()
+                                                                                logLocalStreamingWhitespace(
+                                                                                    stage = "ChatScreen#preview.onChunk.trim",
+                                                                                    raw = chunk,
+                                                                                    normalized = normalizedChunk,
+                                                                                )
                                                                                 if (normalizedChunk.isBlank()) return@streamLocalAssistantPreviewTextToUi
                                                                                 coroutineScope.launch {
                                                                                     if (localRunGuardEpoch != streamingGuardEpoch) return@launch
@@ -4686,6 +4726,11 @@ private suspend fun streamLocalAssistantPreviewTextToUi(
     onChunk: (String) -> Unit,
 ) {
     val trimmed = responseText.trim()
+    logLocalStreamingWhitespace(
+        stage = "ChatScreen#preview.input",
+        raw = responseText,
+        normalized = trimmed,
+    )
     if (trimmed.isEmpty()) return
     var previousChunk: String? = null
     var emittedChunkCount = 0
@@ -4694,6 +4739,10 @@ private suspend fun streamLocalAssistantPreviewTextToUi(
     while (endIndex <= trimmed.length) {
         val chunk = trimmed.substring(0, endIndex)
         if (chunk.isNotEmpty() && chunk != previousChunk) {
+            logLocalStreamingWhitespace(
+                stage = "ChatScreen#preview.emitChunk",
+                raw = chunk,
+            )
             withContext(Dispatchers.Main.immediate) {
                 onChunk(chunk)
             }
@@ -4706,6 +4755,10 @@ private suspend fun streamLocalAssistantPreviewTextToUi(
         endIndex += step
     }
     if (previousChunk != trimmed) {
+        logLocalStreamingWhitespace(
+            stage = "ChatScreen#preview.emitFinal",
+            raw = trimmed,
+        )
         withContext(Dispatchers.Main.immediate) {
             onChunk(trimmed)
         }
@@ -5498,13 +5551,58 @@ private fun InferenceStatsSection(
 }
 
 private fun sanitizeLocalAssistantResponse(raw: String): String {
-    return raw
+    val sanitized = raw
         .replace("<end_of_turn>", "")
         .replace("<eot>", "")
         .replace("<|eot_id|>", "")
         .replace("<|end_of_text|>", "")
         .replace(Regex("\n{3,}"), "\n\n")
         .trim()
+    logLocalStreamingWhitespace(
+        stage = "ChatScreen#sanitizeLocalAssistantResponse",
+        raw = raw,
+        normalized = sanitized,
+    )
+    return sanitized
+}
+
+private fun logLocalStreamingWhitespace(
+    stage: String,
+    raw: String?,
+    normalized: String? = null,
+) {
+    if (!BuildConfig.DEBUG) return
+    val rawSummary = summarizeWhitespaceForDebug(raw)
+    val normalizedSummary = summarizeWhitespaceForDebug(normalized)
+    if (normalized == null) {
+        Log.d(LOCAL_STREAMING_WHITESPACE_LOG_TAG, "$stage raw=$rawSummary")
+    } else {
+        Log.d(
+            LOCAL_STREAMING_WHITESPACE_LOG_TAG,
+            "$stage raw=$rawSummary normalized=$normalizedSummary delta=${buildWhitespaceDeltaForDebug(raw, normalized)}",
+        )
+    }
+}
+
+private fun summarizeWhitespaceForDebug(text: String?): String {
+    if (text == null) return "null"
+    val spaces = text.count { it == ' ' }
+    val newlines = text.count { it == '\n' }
+    val tabs = text.count { it == '\t' }
+    val carriageReturns = text.count { it == '\r' }
+    val visualized = text
+        .replace(" ", "␠")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    val head = visualized.take(60)
+    val tail = if (visualized.length > 60) visualized.takeLast(60) else visualized
+    return "len=${text.length},spaces=$spaces,newlines=$newlines,tabs=$tabs,cr=$carriageReturns,head=\"$head\",tail=\"$tail\""
+}
+
+private fun buildWhitespaceDeltaForDebug(raw: String?, normalized: String?): String {
+    if (raw == null || normalized == null) return "n/a"
+    return "len=${raw.length - normalized.length},spaces=${raw.count { it == ' ' } - normalized.count { it == ' ' }},newlines=${raw.count { it == '\n' } - normalized.count { it == '\n' }}"
 }
 
 private fun buildMeasuredTokenSnapshotSummary(trace: LocalInferenceTrace?): String? {
