@@ -4175,6 +4175,7 @@ private fun appendStreamingChunkForCode(
             context.lane = StreamingLane.PROSE
             clearCodeLanePendingState(context)
             context.inFencedCodeBlock = updateFencedCodeState(wasInFencedCodeBlock, extractedRaw)
+            context.fencedCodeLanguageTag = null
             appendTrace?.let { trace ->
                 safeAppendTrace(trace, "[lane.switch]=code->prose reason=fence_close")
             }
@@ -4184,6 +4185,7 @@ private fun appendStreamingChunkForCode(
         appendFenceChunk(builder, extractedRaw)
         clearCodeLanePendingState(context)
         context.inFencedCodeBlock = updateFencedCodeState(wasInFencedCodeBlock, extractedRaw)
+        context.fencedCodeLanguageTag = extractFencedCodeLanguageTag(extractedRaw)
         appendTrace?.let { trace ->
             safeAppendTrace(trace, "[lane.switch]=code->code reason=fence_open")
         }
@@ -4227,7 +4229,12 @@ private fun appendStreamingChunkForCode(
     val pendingBuffer = context.pendingCodeLineBuffer ?: StringBuilder().also {
         context.pendingCodeLineBuffer = it
     }
-    if (pendingBuffer.isNotEmpty() && shouldCommitPendingCodeLine(pendingBuffer.toString(), extractedRaw)) {
+    if (
+        pendingBuffer.isNotEmpty() &&
+            shouldStartNewFencedPythonLogicalLine(context, pendingBuffer.toString(), extractedRaw)
+    ) {
+        commitPendingCodeLine(builder, context, appendTrace)
+    } else if (pendingBuffer.isNotEmpty() && shouldCommitPendingCodeLine(pendingBuffer.toString(), extractedRaw)) {
         commitPendingCodeLine(builder, context, appendTrace)
     }
     context.pendingCodeLineBuffer?.append(extractedRaw)
@@ -4282,6 +4289,7 @@ internal data class StreamingAppendContext(
     var pendingCodeLineBuffer: StringBuilder? = null,
     var lastCodeChunkEndedWithNewline: Boolean = false,
     var inFencedCodeBlock: Boolean = false,
+    var fencedCodeLanguageTag: String? = null,
 )
 
 
@@ -4408,6 +4416,81 @@ private fun shouldCommitPendingCodeLine(
         pendingLine.trimStart().startsWith("}") ||
         pendingLine.trimEnd().endsWith(":") ||
         isStrongCodeLikeChunk(pendingLine)
+}
+
+private fun shouldStartNewFencedPythonLogicalLine(
+    context: StreamingAppendContext,
+    pendingLine: String,
+    nextChunk: String,
+): Boolean {
+    if (!isFencedPythonCodeContext(context)) return false
+    if (pendingLine.isEmpty() || nextChunk.isEmpty()) return false
+    if (nextChunk.first().isWhitespace()) return false
+    if (nextChunk.trimStart().startsWith("```")) return false
+    if (!isPythonLogicalLineStarter(nextChunk)) return false
+    if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
+    return !isQuoteOrBracketCarryOverLine(pendingLine)
+}
+
+private fun isFencedPythonCodeContext(context: StreamingAppendContext): Boolean {
+    if (!context.inFencedCodeBlock) return false
+    val normalized = context.fencedCodeLanguageTag?.trim()?.lowercase(Locale.ROOT) ?: return false
+    return normalized == "python" || normalized == "py"
+}
+
+private fun isPythonLogicalLineStarter(chunk: String): Boolean {
+    val trimmed = chunk.trimStart()
+    if (trimmed.isEmpty()) return false
+    if (trimmed.startsWith("@")) return true
+    if (matchesPythonKeywordStart(trimmed, "else:")) return true
+    if (matchesPythonKeywordStart(trimmed, "try:")) return true
+    if (matchesPythonKeywordStart(trimmed, "finally:")) return true
+
+    val wordKeywords = listOf(
+        "import",
+        "from",
+        "class",
+        "def",
+        "if",
+        "elif",
+        "for",
+        "while",
+        "except",
+        "with",
+        "return",
+        "break",
+        "continue",
+        "pass",
+        "raise",
+        "yield",
+    )
+    return wordKeywords.any { matchesPythonKeywordStart(trimmed, it) }
+}
+
+private fun matchesPythonKeywordStart(text: String, keyword: String): Boolean {
+    if (!text.startsWith(keyword)) return false
+    if (text.length == keyword.length) return true
+    val next = text[keyword.length]
+    return next.isWhitespace() || next == ':'
+}
+
+private fun isQuoteOrBracketCarryOverLine(pendingLine: String): Boolean {
+    val trimmedEnd = pendingLine.trimEnd()
+    if (trimmedEnd.isEmpty()) return false
+    if (hasUnclosedQuotedString(trimmedEnd)) return true
+    if (hasUnclosedBrackets(trimmedEnd)) return true
+    return trimmedEnd.endsWith(",") ||
+        trimmedEnd.endsWith("(") ||
+        trimmedEnd.endsWith("[") ||
+        trimmedEnd.endsWith("{")
+}
+
+private fun extractFencedCodeLanguageTag(chunk: String): String? {
+    val trimmed = chunk.trim()
+    if (!trimmed.startsWith("```")) return null
+    val markerTail = trimmed.removePrefix("```").trim()
+    if (markerTail.isEmpty()) return null
+    return markerTail.lineSequence().first().trim().ifEmpty { null }
 }
 
 private fun shouldHoldPendingCodeLine(pendingLine: String): Boolean {
