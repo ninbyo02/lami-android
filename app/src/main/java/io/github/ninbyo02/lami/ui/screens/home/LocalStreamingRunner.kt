@@ -4390,11 +4390,20 @@ private val FENCED_PYTHON_STRONG_STARTERS = listOf(
     "def ",
     "if ",
     "elif ",
+    "else:",
     "for ",
     "while ",
+    "try:",
+    "except",
+    "finally:",
+    "with ",
     "return ",
+    "raise ",
+    "yield ",
+    "async def ",
+    "async for ",
+    "async with ",
 )
-private val FENCED_PYTHON_STRONG_STARTER_WITH_COLON = listOf("else:", "finally:", "try:", "except")
 
 private fun preSplitFencedPythonChunk(context: StreamingAppendContext, raw: String): List<String> {
     if (!isFencedPythonCodeContext(context)) return listOf(raw)
@@ -4421,62 +4430,96 @@ private fun preSplitFencedPythonChunk(context: StreamingAppendContext, raw: Stri
 private fun findFencedPythonChunkSplitPoints(raw: String): List<Int> {
     val points = mutableListOf<Int>()
     for (index in 1 until raw.length) {
-        if (isInsideQuotedString(raw, index)) continue
-        if (isStrongFencedPythonStarterAt(raw, index)) {
+        if (!isSafeFencedPythonSplitContext(raw, index)) continue
+        if (isFencedPythonIdentifierToStrongStarterBoundaryAt(raw, index)) {
             points += index
             continue
         }
-        if (isFencedPythonAssignmentStarterAt(raw, index)) {
+        if (isFencedPythonLiteralToAssignmentBoundaryAt(raw, index)) {
             points += index
             continue
         }
-        if (isFencedPythonCommentBoundaryBeforeAssignmentOrClassDef(raw, index)) {
+        if (isFencedPythonCommentBoundaryBeforeStrongStarter(raw, index)) {
             points += index
         }
     }
     return points
 }
 
+private fun isSafeFencedPythonSplitContext(text: String, index: Int): Boolean {
+    if (isInsideQuotedString(text, index)) return false
+    if (hasUnclosedBrackets(text.substring(0, index))) return false
+    if (isInsidePythonComment(text, index)) return false
+    return true
+}
+
+private fun isFencedPythonIdentifierToStrongStarterBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    val before = text[index - 1]
+    if (!isIdentifierPart(before)) return false
+    if (!isIdentifierStart(text[index])) return false
+    if (isStrongFencedPythonStarterAt(text, index)) return true
+    return isFencedPythonAssignmentTargetListStarterAt(text, index)
+}
+
+private fun isFencedPythonLiteralToAssignmentBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isFencedPythonAssignmentTargetListStarterAt(text, index)) return false
+    val before = text[index - 1]
+    return before.isDigit() || before in listOf(']', ')', '}', '"', '\'')
+}
+
 private fun isStrongFencedPythonStarterAt(text: String, index: Int): Boolean {
     if (index !in 1 until text.length) return false
     val before = text[index - 1]
     val prevPrev = text.getOrNull(index - 2)
-    val hasWordBoundary = before == '\n' || (!before.isLetterOrDigit() && before != '_') || (before.isLowerCase() && text[index].isUpperCase())
+    val hasWordBoundary = before == '\n' || (!isAsciiIdentifierPart(before)) || (before.isLowerCase() && text[index].isUpperCase())
     if (!hasWordBoundary) return false
     if (prevPrev == '#' || before == '#') return false
-    return FENCED_PYTHON_STRONG_STARTERS.any { text.regionMatches(index, it, 0, it.length) } ||
-        FENCED_PYTHON_STRONG_STARTER_WITH_COLON.any { keyword ->
-            if (!text.regionMatches(index, keyword, 0, keyword.length)) return@any false
-            val next = text.getOrNull(index + keyword.length) ?: return@any true
-            next.isWhitespace() || next == ':'
-        }
+    return matchesFencedPythonStrongStarterAt(text, index)
 }
 
 private fun isFencedPythonAssignmentStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    return isFencedPythonAssignmentTargetListStarterAt(text, index)
+}
+
+private fun isFencedPythonAssignmentTargetListStarterAt(text: String, index: Int): Boolean {
     if (index !in 1 until text.length) return false
     if (!isIdentifierStart(text[index])) return false
     val before = text[index - 1]
     if (before == '#') return false
     val boundary = before == '\n' || !isIdentifierPart(before) || (text[index].isUpperCase() && (before.isLowerCase() || before.isDigit()))
     if (!boundary) return false
-    var cursor = index + 1
-    while (cursor < text.length && isIdentifierPart(text[cursor])) cursor += 1
+    var cursor = index
+    while (true) {
+        if (cursor >= text.length || !isIdentifierStart(text[cursor])) return false
+        cursor += 1
+        while (cursor < text.length && isIdentifierPart(text[cursor])) cursor += 1
+        while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+        if (cursor < text.length && text[cursor] == ',') {
+            cursor += 1
+            while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+            continue
+        }
+        break
+    }
     while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
     if (cursor >= text.length) return false
-    if (text[cursor] == '=') return true
+    if (text[cursor] == '=') return text.getOrNull(cursor + 1) != '='
     if (cursor + 1 >= text.length) return false
     val op = text[cursor]
     val eq = text[cursor + 1]
     return op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '='
 }
 
-private fun isFencedPythonCommentBoundaryBeforeAssignmentOrClassDef(text: String, index: Int): Boolean {
+private fun isFencedPythonCommentBoundaryBeforeStrongStarter(text: String, index: Int): Boolean {
     if (index !in 1 until text.length) return false
     val before = text[index - 1]
     if (before == '\n') return false
-    if (!isFencedPythonAssignmentStarterAt(text, index) && !isFencedPythonClassOrDefStarterAt(text, index)) return false
-    val commentHashIndex = findPythonCommentHashIndex(text.substring(0, index))
-    return commentHashIndex >= 0
+    if (!isInsidePythonComment(text, index)) return false
+    if (isFencedPythonAssignmentTargetListStarterAt(text, index)) return true
+    return matchesFencedPythonStrongStarterAt(text, index, requireBoundary = false)
 }
 
 private fun isFencedPythonClassOrDefStarterAt(text: String, index: Int): Boolean {
@@ -4490,9 +4533,50 @@ private fun isInsideQuotedString(text: String, targetIndex: Int): Boolean {
     return hasUnclosedQuotedString(text.substring(0, targetIndex))
 }
 
+private fun isInsidePythonComment(text: String, targetIndex: Int): Boolean {
+    if (targetIndex <= 0 || targetIndex > text.length) return false
+    var inSingleQuote = false
+    var inDoubleQuote = false
+    var escaped = false
+    var inComment = false
+    for (i in 0 until targetIndex) {
+        val ch = text[i]
+        if (inComment) {
+            if (ch == '\n') inComment = false
+            continue
+        }
+        if (escaped) {
+            escaped = false
+            continue
+        }
+        when (ch) {
+            '\\' -> if (inSingleQuote || inDoubleQuote) escaped = true
+            '\'' -> if (!inDoubleQuote) inSingleQuote = !inSingleQuote
+            '"' -> if (!inSingleQuote) inDoubleQuote = !inDoubleQuote
+            '#' -> if (!inSingleQuote && !inDoubleQuote) inComment = true
+        }
+    }
+    return inComment
+}
+
+private fun matchesFencedPythonStrongStarterAt(
+    text: String,
+    index: Int,
+    requireBoundary: Boolean = true,
+): Boolean {
+    return FENCED_PYTHON_STRONG_STARTERS.any { keyword ->
+        if (!text.regionMatches(index, keyword, 0, keyword.length)) return@any false
+        if (!requireBoundary) return@any true
+        val before = text.getOrNull(index - 1) ?: return@any true
+        before == '\n' || !isAsciiIdentifierPart(before) || (before.isLowerCase() && text[index].isUpperCase())
+    }
+}
+
 private fun isIdentifierStart(ch: Char): Boolean = ch == '_' || ch.isLetter()
 
 private fun isIdentifierPart(ch: Char): Boolean = isIdentifierStart(ch) || ch.isDigit()
+
+private fun isAsciiIdentifierPart(ch: Char): Boolean = ch == '_' || ch.isDigit() || ch in 'a'..'z' || ch in 'A'..'Z'
 
 private fun isStandaloneLanguageTag(text: String): Boolean {
     val normalized = text.trim()
