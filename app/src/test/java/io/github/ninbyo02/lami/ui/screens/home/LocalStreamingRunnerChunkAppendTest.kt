@@ -68,4 +68,88 @@ class LocalStreamingRunnerChunkAppendTest {
         assertEquals("", join)
         assertEquals("Hello ", builder.toString())
     }
+
+    @Test
+    fun `prose lane は日本語の chunk を壊さず連結する`() {
+        val builder = StringBuilder("はい、")
+        val context = StreamingAppendContext()
+
+        val join = appendStreamingChunk(
+            builder = builder,
+            extractedRaw = " 以下",
+            context = context,
+        )
+
+        assertEquals("", join)
+        assertEquals("はい、 以下", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
+    fun `python と import の連結で code lane に入り不要 join を入れない`() {
+        val builder = StringBuilder("以下に")
+        val context = StreamingAppendContext()
+        appendStreamingChunk(
+            builder = builder,
+            extractedRaw = "python",
+            context = context,
+        )
+
+        val join = appendStreamingChunk(
+            builder = builder,
+            extractedRaw = "import turtle",
+            context = context,
+        )
+
+        assertEquals("", join)
+        assertEquals("以下にpythonimport turtle", builder.toString())
+        assertEquals(StreamingLane.CODE, context.lane)
+    }
+
+    @Test
+    fun `code lane の print トークン連結では join しない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(
+            builder = builder,
+            extractedRaw = "print(",
+            context = context,
+        )
+        val join = appendStreamingChunk(
+            builder = builder,
+            extractedRaw = "\"x\")",
+            context = context,
+        )
+
+        assertEquals("", join)
+        assertEquals("print(\"x\")", builder.toString())
+        assertEquals(StreamingLane.CODE, context.lane)
+    }
+
+    @Test
+    fun `prose から code へ遷移しても lane ごとの連結規則を維持する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+
+        appendStreamingChunk(
+            builder = builder,
+            extractedRaw = "以下に",
+            context = context,
+        )
+        appendStreamingChunk(
+            builder = builder,
+            extractedRaw = "python",
+            context = context,
+        )
+        val join = appendStreamingChunk(
+            builder = builder,
+            extractedRaw = "print(\"x\")",
+            context = context,
+        )
+
+        assertEquals("", join)
+        assertEquals("以下にpythonprint(\"x\")", builder.toString())
+        assertEquals(StreamingLane.CODE, context.lane)
+    }
 }

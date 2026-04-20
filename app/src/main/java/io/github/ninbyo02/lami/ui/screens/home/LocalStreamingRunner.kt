@@ -174,6 +174,7 @@ internal suspend fun runWithHeldEngine(
                 ) ?: return@runCatching null
                 val flow = flowValue as? Flow<*> ?: return@runCatching null
                 val builder = StringBuilder()
+                val appendContext = StreamingAppendContext()
                 var lastPartial: String? = null
                 flow.collect { message ->
                     if (!currentCoroutineContext().isActive) return@collect
@@ -204,8 +205,10 @@ internal suspend fun runWithHeldEngine(
                     val joinApplied = appendStreamingChunk(
                         builder = builder,
                         extractedRaw = extracted,
+                        context = appendContext,
                         appendTrace = appendTrace,
                     )
+                    appendRunnerWhitespaceStage("lane", appendContext.lane.label)
                     appendRunnerWhitespaceStage("append.boundary.join", joinApplied)
                     appendRunnerWhitespaceStage("append.boundary.after", builder.toString().takeLast(64))
                     onPartial(builder.toString())
@@ -3153,6 +3156,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         safeAppendTrace(appendTrace, "UPSTREAM official-flow flowClass=${flowValue?.javaClass?.name ?: "null"}")
         val flow = flowValue as? Flow<*> ?: throw OfficialFlowFallbackException("send_message_async_missing")
         val builder = StringBuilder()
+        val appendContext = StreamingAppendContext()
         var partialCount = 0
         var extractFailureCount = 0
         var firstPartialMs: Long? = null
@@ -3185,6 +3189,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
                 appendStreamingChunk(
                     builder = builder,
                     extractedRaw = extracted,
+                    context = appendContext,
                     appendTrace = appendTrace,
                 )
                 partialCount += 1
@@ -3512,6 +3517,7 @@ private suspend fun runOfficialLiteRtLmDirect(
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
             val builder = StringBuilder()
+            val appendContext = StreamingAppendContext()
             var lastChunk: String? = null
             var partialCount = 0
             var firstPartialMs: Long? = null
@@ -3540,6 +3546,7 @@ private suspend fun runOfficialLiteRtLmDirect(
                     appendStreamingChunk(
                         builder = builder,
                         extractedRaw = extractedText,
+                        context = appendContext,
                         appendTrace = appendTrace,
                     )
                     if (firstPartialMs == null) {
@@ -4093,14 +4100,27 @@ internal fun shouldInsertMinimalJoinBetween(
 internal fun appendStreamingChunk(
     builder: StringBuilder,
     extractedRaw: String,
+    context: StreamingAppendContext? = null,
     appendTrace: ((String) -> Unit)? = null,
 ): String {
     if (extractedRaw.isEmpty()) return ""
     val previousText = builder.toString()
+    val lane = context?.lane ?: StreamingLane.PROSE
+    if (lane == StreamingLane.PROSE && shouldEnterCodeLane(previousText, extractedRaw)) {
+        context?.lane = StreamingLane.CODE
+    }
+    if (context?.lane == StreamingLane.CODE) {
+        return appendStreamingChunkForCode(
+            builder = builder,
+            extractedRaw = extractedRaw,
+            appendTrace = appendTrace,
+        )
+    }
     val join = if (shouldInsertMinimalJoinBetween(previousText, extractedRaw)) " " else ""
     appendTrace?.let { trace ->
         safeAppendTrace(trace, "UPSTREAM append-chunk previousTail=${summarizeWhitespaceForUi(previousText.takeLast(64))}")
         safeAppendTrace(trace, "UPSTREAM append-chunk extracted=${summarizeWhitespaceForUi(extractedRaw.take(64))}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.PROSE.label}")
         safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi(join)}")
     }
     if (join.isNotEmpty()) builder.append(join)
@@ -4110,6 +4130,74 @@ internal fun appendStreamingChunk(
     }
     return join
 }
+
+private fun appendStreamingChunkForCode(
+    builder: StringBuilder,
+    extractedRaw: String,
+    appendTrace: ((String) -> Unit)? = null,
+): String {
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "UPSTREAM append-chunk previousTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk extracted=${summarizeWhitespaceForUi(extractedRaw.take(64))}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.CODE.label}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
+    }
+    builder.append(extractedRaw)
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
+    }
+    return ""
+}
+
+internal enum class StreamingLane(val label: String) {
+    PROSE("prose"),
+    CODE("code"),
+}
+
+internal data class StreamingAppendContext(
+    var lane: StreamingLane = StreamingLane.PROSE,
+)
+
+private fun shouldEnterCodeLane(previous: String, next: String): Boolean {
+    if (next.isEmpty()) return false
+    val nextTrimmedStart = next.trimStart()
+    if (nextTrimmedStart.startsWith("```")) return true
+
+    val nextLines = next.lineSequence().toList()
+    if (nextLines.any { line ->
+            val normalized = line.trim().lowercase(Locale.ROOT)
+            normalized in STREAMING_CODE_LANGUAGE_TAGS
+        }) {
+        return true
+    }
+
+    val previousTail = previous.takeLast(48).lowercase(Locale.ROOT)
+    val nextHead = next.take(64).lowercase(Locale.ROOT)
+    val fused = (previous.takeLast(16) + next.take(64)).lowercase(Locale.ROOT)
+    if (fused.contains("pythonimport") ||
+        fused.contains("python\nimport") ||
+        fused.contains("python def") ||
+        fused.contains("pythonclass")
+    ) {
+        return true
+    }
+    return STREAMING_STRONG_CODE_SIGNALS.any { signal ->
+        previousTail.contains(signal) || nextHead.contains(signal)
+    }
+}
+
+private val STREAMING_CODE_LANGUAGE_TAGS = setOf("python", "kotlin", "bash", "json")
+
+private val STREAMING_STRONG_CODE_SIGNALS = listOf(
+    "import ",
+    "from ",
+    "def ",
+    "class ",
+    "return",
+    "print(",
+    "=",
+    "self.",
+)
 
 private fun Char.isAsciiWordLike(): Boolean =
     (this in 'a'..'z') || (this in 'A'..'Z') || (this in '0'..'9') || this == '_' || this == '-'
