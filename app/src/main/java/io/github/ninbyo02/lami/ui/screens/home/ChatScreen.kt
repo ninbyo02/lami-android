@@ -3384,7 +3384,11 @@ fun shouldRefreshRender(
     } else {
         next
     }
-    return appendedDelta.contains('\n') || appendedDelta.length >= 32
+    val deltaTrimmedStart = appendedDelta.trimStart()
+    return appendedDelta.contains('\n') ||
+        appendedDelta.length >= 32 ||
+        deltaTrimmedStart.startsWith("```") ||
+        isPythonFusionStart(deltaTrimmedStart)
 }
 
 private suspend fun initializeLocalInferenceEngineEntry(

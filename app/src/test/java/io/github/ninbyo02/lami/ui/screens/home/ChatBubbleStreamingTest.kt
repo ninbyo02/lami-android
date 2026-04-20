@@ -19,6 +19,8 @@ class ChatBubbleStreamingTest {
     fun isPythonFusionStart_detectsFusedPattern() {
         assertTrue(isPythonFusionStart("pythonimport os"))
         assertTrue(isPythonFusionStart("python def main():"))
+        assertTrue(isPythonFusionStart("pythonfor i in range(3):"))
+        assertTrue(isPythonFusionStart("pythondefcreate_grid("))
         assertFalse(isPythonFusionStart("text pythonimport os"))
     }
 
@@ -27,5 +29,13 @@ class ChatBubbleStreamingTest {
         assertTrue(shouldTreatAsProvisionalCode("python"))
         assertTrue(shouldTreatAsProvisionalCode("for i in range(3):"))
         assertFalse(shouldTreatAsProvisionalCode("これは通常の文章です"))
+    }
+
+    @Test
+    fun splitStreamingText_languageTagPlusCode_keepsBothAsUnstable() {
+        val split = splitStreamingText("説明です\npython\nimport random")
+
+        assertEquals("説明です", split.stable)
+        assertEquals("python\nimport random", split.unstable)
     }
 }
