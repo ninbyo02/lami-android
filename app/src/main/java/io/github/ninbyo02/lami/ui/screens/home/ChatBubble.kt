@@ -736,27 +736,28 @@ data class StreamingSplit(
 fun splitStreamingText(text: String): StreamingSplit {
     if (text.isEmpty()) return StreamingSplit(stable = "", unstable = "")
     val lines = text.lines()
-    val trailingLine = lines.lastOrNull().orEmpty()
     val hasTrailingNewLine = text.endsWith("\n")
     val unclosedFence = text.split("```").size % 2 == 0
-    val codeLikeTail = shouldTreatAsProvisionalCode(trailingLine)
-    val unstableStartLine = findProvisionalUnstableStartLine(lines, hasTrailingNewLine)
+    val unstableStartLine = findProvisionalUnstableStartLine(
+        lines = lines,
+        hasTrailingNewLine = hasTrailingNewLine,
+        unclosedFence = unclosedFence,
+    ) ?: return StreamingSplit(stable = text, unstable = "")
+
+    val unstablePart = lines.drop(unstableStartLine).joinToString("\n")
+    val unstableFirstLine = unstablePart.lineSequence().firstOrNull().orEmpty().trim()
     val shouldSplitTail =
-        !hasTrailingNewLine &&
-            trailingLine.isNotBlank() &&
-            (unclosedFence || codeLikeTail || unstableStartLine != null)
+        shouldTreatAsProvisionalCode(unstablePart) ||
+            unstablePart.lineSequence().any { line -> isPythonFusionStart(line.trim()) } ||
+            unstableFirstLine in PROVISIONAL_LANGUAGE_TAGS ||
+            unstableFirstLine.startsWith("```")
+
     if (!shouldSplitTail) {
         return StreamingSplit(stable = text, unstable = "")
     }
 
-    if (unstableStartLine != null) {
-        val stablePart = lines.take(unstableStartLine).joinToString("\n")
-        val unstablePart = lines.drop(unstableStartLine).joinToString("\n")
-        return StreamingSplit(stable = stablePart, unstable = unstablePart)
-    }
-
-    val stablePart = text.removeSuffix(trailingLine).removeSuffix("\n")
-    return StreamingSplit(stable = stablePart, unstable = trailingLine)
+    val stablePart = lines.take(unstableStartLine).joinToString("\n")
+    return StreamingSplit(stable = stablePart, unstable = unstablePart)
 }
 
 fun isPythonFusionStart(text: String): Boolean {
@@ -830,30 +831,38 @@ fun shouldTreatAsProvisionalCode(text: String): Boolean {
 private fun findProvisionalUnstableStartLine(
     lines: List<String>,
     hasTrailingNewLine: Boolean,
+    unclosedFence: Boolean,
 ): Int? {
     if (hasTrailingNewLine || lines.isEmpty()) return null
-    val windowStart = (lines.lastIndex - 3).coerceAtLeast(0)
-    val candidateIndices = mutableListOf<Int>()
-    for (index in windowStart..lines.lastIndex) {
-        val line = lines[index].trim()
-        if (line.isBlank()) continue
-        candidateIndices += index
-        if (
-            line == "python" &&
-            index < lines.lastIndex &&
-            shouldTreatAsProvisionalCode(lines[index + 1])
-        ) {
-            return index
+    val blockEnd = lines.indexOfLast { it.isNotBlank() }
+    if (blockEnd < 0) return null
+    val blockStart =
+        lines.subList(0, blockEnd + 1).indexOfLast { it.isBlank() }.let { blankIndex ->
+            if (blankIndex >= 0) blankIndex + 1 else 0
         }
-        if (line in setOf("kotlin", "bash", "json")) return index
+
+    if (unclosedFence) {
+        val fenceStart = (0..blockEnd).lastOrNull { index -> lines[index].trimStart().startsWith("```") }
+        if (fenceStart != null) return fenceStart
+    }
+
+    for (index in blockStart..blockEnd) {
+        val line = lines[index].trim()
+        if (line in PROVISIONAL_LANGUAGE_TAGS && index < blockEnd) {
+            val activeBlock = lines.drop(index).joinToString("\n")
+            if (shouldTreatAsProvisionalCode(activeBlock) || hasStrongCodeSignal(lines[index + 1])) {
+                return index
+            }
+        }
         if (isPythonFusionStart(line)) return index
     }
-    if (candidateIndices.size < 2) return null
 
+    val candidateIndices = (blockStart..blockEnd).filter { index -> lines[index].isNotBlank() }
+    if (candidateIndices.isEmpty()) return null
     var streakStart: Int? = null
     var previousIndex: Int? = null
     for (index in candidateIndices) {
-        val codeLike = shouldTreatAsProvisionalCode(lines[index])
+        val codeLike = shouldTreatAsProvisionalCode(lines[index]) || hasStrongCodeSignal(lines[index])
         if (codeLike && previousIndex != null && index == previousIndex + 1 && streakStart != null) {
             return streakStart
         }
@@ -865,6 +874,17 @@ private fun findProvisionalUnstableStartLine(
         previousIndex = index
     }
     return null
+}
+
+private val PROVISIONAL_LANGUAGE_TAGS = setOf("python", "kotlin", "bash", "json")
+
+private fun hasStrongCodeSignal(line: String): Boolean {
+    val trimmed = line.trim()
+    if (trimmed.isBlank()) return false
+    return Regex("^\\s*(import\\s+|from\\s+|def\\s+|class\\s+|for\\s+|while\\s+|return\\b)").containsMatchIn(trimmed) ||
+        Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*[^=]").containsMatchIn(trimmed) ||
+        trimmed.startsWith("print(") ||
+        trimmed.startsWith("```")
 }
 
 private fun detectProvisionalLanguage(text: String): String? {
