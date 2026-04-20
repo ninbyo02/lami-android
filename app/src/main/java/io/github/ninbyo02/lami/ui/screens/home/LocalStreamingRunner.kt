@@ -4234,11 +4234,11 @@ private fun appendStreamingChunkForCode(
             shouldStartNewFencedPythonLogicalLine(context, pendingBuffer.toString(), extractedRaw)
     ) {
         commitPendingCodeLine(builder, context, appendTrace)
-    } else if (pendingBuffer.isNotEmpty() && shouldCommitPendingCodeLine(pendingBuffer.toString(), extractedRaw)) {
+    } else if (pendingBuffer.isNotEmpty() && shouldCommitPendingCodeLine(context, pendingBuffer.toString(), extractedRaw)) {
         commitPendingCodeLine(builder, context, appendTrace)
     }
     context.pendingCodeLineBuffer?.append(extractedRaw)
-    if (shouldCommitPendingCodeLine(context.pendingCodeLineBuffer?.toString().orEmpty(), null)) {
+    if (shouldCommitPendingCodeLine(context, context.pendingCodeLineBuffer?.toString().orEmpty(), null)) {
         commitPendingCodeLine(builder, context, appendTrace)
     }
 
@@ -4402,13 +4402,18 @@ private fun isStrongCodeLikeChunk(text: String): Boolean =
     isStrongCodeLineStart(text) || text.startsWith("    ")
 
 private fun shouldCommitPendingCodeLine(
+    context: StreamingAppendContext,
     pendingLine: String,
     nextChunk: String?,
 ): Boolean {
     if (pendingLine.isEmpty()) return false
     if (pendingLine.contains('\n')) return true
-    if (nextChunk == null) return !shouldHoldPendingCodeLine(pendingLine)
+    if (nextChunk == null) {
+        return !shouldHoldPendingCodeLine(pendingLine) &&
+            !isFencedPythonCommentCarryOverLine(context, pendingLine)
+    }
     if (nextChunk.startsWith("```")) return true
+    if (shouldKeepPythonCommentOnSameLogicalLine(context, pendingLine, nextChunk)) return false
     if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
     if (!isStrongCodeLikeChunk(nextChunk)) return false
     if (pendingLine.endsWith(" ") || pendingLine.endsWith("(") || pendingLine.endsWith("=")) return false
@@ -4416,6 +4421,46 @@ private fun shouldCommitPendingCodeLine(
         pendingLine.trimStart().startsWith("}") ||
         pendingLine.trimEnd().endsWith(":") ||
         isStrongCodeLikeChunk(pendingLine)
+}
+
+private fun shouldKeepPythonCommentOnSameLogicalLine(
+    context: StreamingAppendContext,
+    pendingLine: String,
+    nextChunk: String,
+): Boolean {
+    if (!isFencedPythonCommentCarryOverLine(context, pendingLine)) return false
+    if (nextChunk.isEmpty() || nextChunk.contains('\n')) return false
+    if (nextChunk.trimStart().startsWith("```")) return false
+    return !isFencedPythonLogicalLineStarter(nextChunk)
+}
+
+private fun isFencedPythonCommentCarryOverLine(
+    context: StreamingAppendContext,
+    pendingLine: String,
+): Boolean {
+    if (!isFencedPythonCodeContext(context)) return false
+    if (pendingLine.contains('\n')) return false
+    if (isQuoteOrBracketCarryOverLine(pendingLine)) return false
+    return findPythonCommentHashIndex(pendingLine) >= 0
+}
+
+private fun findPythonCommentHashIndex(line: String): Int {
+    var inSingleQuote = false
+    var inDoubleQuote = false
+    var escaped = false
+    line.forEachIndexed { index, ch ->
+        if (escaped) {
+            escaped = false
+            return@forEachIndexed
+        }
+        when (ch) {
+            '\\' -> if (inSingleQuote || inDoubleQuote) escaped = true
+            '\'' -> if (!inDoubleQuote) inSingleQuote = !inSingleQuote
+            '"' -> if (!inSingleQuote) inDoubleQuote = !inDoubleQuote
+            '#' -> if (!inSingleQuote && !inDoubleQuote) return index
+        }
+    }
+    return -1
 }
 
 private fun shouldStartNewFencedPythonLogicalLine(
@@ -4426,6 +4471,7 @@ private fun shouldStartNewFencedPythonLogicalLine(
     if (!isFencedPythonCodeContext(context)) return false
     if (pendingLine.isEmpty() || nextChunk.isEmpty()) return false
     if (nextChunk.trimStart().startsWith("```")) return false
+    if (shouldKeepPythonCommentOnSameLogicalLine(context, pendingLine, nextChunk)) return false
     if (!isFencedPythonLogicalLineStarter(nextChunk)) return false
     if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
     return !isQuoteOrBracketCarryOverLine(pendingLine)

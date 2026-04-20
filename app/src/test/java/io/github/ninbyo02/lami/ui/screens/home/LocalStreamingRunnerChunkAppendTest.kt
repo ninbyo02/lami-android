@@ -431,6 +431,62 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `fenced python でハッシュ記号と日本語コメント断片を 1 行維持する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "#", " ブ", "ロック", "の色", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\n# ブロックの色\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で inline comment 断片を 1 行維持する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf(
+            "```python",
+            "blocked_colors = COLORS[:6] #",
+            " ブ",
+            "ロック",
+            "の色",
+            "リスト",
+            "を",
+            "初期",
+            "化",
+            "```",
+        )
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nblocked_colors = COLORS[:6] # ブロックの色リストを初期化\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python でコメント行の後に class が来たら新しい論理行に分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "# コメント", "class Block:", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\n# コメント\nclass Block:\n```", builder.toString())
+    }
+
+    @Test
+    fun `prose lane の C sharp と日本語は従来どおり連結する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("C#", "の話")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("C#の話", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
     fun `fenced bash は python 専用ルールで誤改行しない`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
@@ -439,6 +495,17 @@ class LocalStreamingRunnerChunkAppendTest {
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
 
         assertEquals("```bash\necho hello\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced bash のコメント行は既存挙動のまま次行を分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```bash", "# hello", "echo world", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```bash\n# hello\necho world\n```", builder.toString())
     }
 
     @Test
