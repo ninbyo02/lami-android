@@ -4413,6 +4413,7 @@ private fun shouldCommitPendingCodeLine(
 private fun shouldHoldPendingCodeLine(pendingLine: String): Boolean {
     val trimmedEnd = pendingLine.trimEnd()
     if (trimmedEnd.isEmpty()) return false
+    if (isQuoteOrBracketContinuationLine(pendingLine)) return true
     return trimmedEnd.endsWith("(") ||
         trimmedEnd.endsWith("=") ||
         trimmedEnd.endsWith(":") ||
@@ -4432,7 +4433,9 @@ private fun shouldAppendToCurrentCodeLine(
     val nextTrimmedStart = nextChunk.trimStart()
     if (nextTrimmedStart.isEmpty()) return true
 
-    if (nextChunk.first().isWhitespace()) return true
+    if (nextChunk.first().isWhitespace()) {
+        return isQuoteOrBracketContinuationLine(pendingLine)
+    }
 
     val previousLast = previous.last()
     val nextFirst = nextTrimmedStart.first()
@@ -4452,6 +4455,138 @@ private fun shouldAppendToCurrentCodeLine(
     if (previousLast == ',' && nextChunk.first().isWhitespace()) return true
 
     return false
+}
+
+private fun isQuoteOrBracketContinuationLine(pendingLine: String): Boolean {
+    val trimmedEnd = pendingLine.trimEnd()
+    if (trimmedEnd.isEmpty()) return false
+    if (hasUnclosedQuotedString(trimmedEnd)) return true
+    if (hasUnclosedBrackets(trimmedEnd)) return true
+    if (trimmedEnd.endsWith(",")) return true
+    if (trimmedEnd.endsWith("(") || trimmedEnd.endsWith("[") || trimmedEnd.endsWith("{")) return true
+    return trimmedEnd.endsWith(".") ||
+        trimmedEnd.endsWith("=") ||
+        trimmedEnd.endsWith(":") ||
+        trimmedEnd.matches(Regex(".*[+\\-*/%&|^<>!]$"))
+}
+
+private fun hasUnclosedQuotedString(text: String): Boolean {
+    var index = 0
+    var single = false
+    var double = false
+    var tripleSingle = false
+    var tripleDouble = false
+    while (index < text.length) {
+        if (tripleSingle) {
+            if (text.startsWith("'''", index)) {
+                tripleSingle = false
+                index += 3
+                continue
+            }
+            index += 1
+            continue
+        }
+        if (tripleDouble) {
+            if (text.startsWith("\"\"\"", index)) {
+                tripleDouble = false
+                index += 3
+                continue
+            }
+            index += 1
+            continue
+        }
+        val ch = text[index]
+        val escaped = index > 0 && text[index - 1] == '\\' && (index < 2 || text[index - 2] != '\\')
+        if (ch == '\'' && !double && !escaped) {
+            if (!single && text.startsWith("'''", index)) {
+                tripleSingle = true
+                index += 3
+                continue
+            }
+            single = !single
+            index += 1
+            continue
+        }
+        if (ch == '"' && !single && !escaped) {
+            if (!double && text.startsWith("\"\"\"", index)) {
+                tripleDouble = true
+                index += 3
+                continue
+            }
+            double = !double
+            index += 1
+            continue
+        }
+        index += 1
+    }
+    return single || double || tripleSingle || tripleDouble
+}
+
+private fun hasUnclosedBrackets(text: String): Boolean {
+    var round = 0
+    var square = 0
+    var curly = 0
+    var index = 0
+    var single = false
+    var double = false
+    var tripleSingle = false
+    var tripleDouble = false
+    while (index < text.length) {
+        if (tripleSingle) {
+            if (text.startsWith("'''", index)) {
+                tripleSingle = false
+                index += 3
+                continue
+            }
+            index += 1
+            continue
+        }
+        if (tripleDouble) {
+            if (text.startsWith("\"\"\"", index)) {
+                tripleDouble = false
+                index += 3
+                continue
+            }
+            index += 1
+            continue
+        }
+        val ch = text[index]
+        val escaped = index > 0 && text[index - 1] == '\\' && (index < 2 || text[index - 2] != '\\')
+        if (ch == '\'' && !double && !escaped) {
+            if (!single && text.startsWith("'''", index)) {
+                tripleSingle = true
+                index += 3
+                continue
+            }
+            single = !single
+            index += 1
+            continue
+        }
+        if (ch == '"' && !single && !escaped) {
+            if (!double && text.startsWith("\"\"\"", index)) {
+                tripleDouble = true
+                index += 3
+                continue
+            }
+            double = !double
+            index += 1
+            continue
+        }
+        if (single || double) {
+            index += 1
+            continue
+        }
+        when (ch) {
+            '(' -> round += 1
+            ')' -> round = (round - 1).coerceAtLeast(0)
+            '[' -> square += 1
+            ']' -> square = (square - 1).coerceAtLeast(0)
+            '{' -> curly += 1
+            '}' -> curly = (curly - 1).coerceAtLeast(0)
+        }
+        index += 1
+    }
+    return round > 0 || square > 0 || curly > 0
 }
 
 private fun commitPendingCodeLine(
