@@ -350,7 +350,7 @@ class LocalStreamingRunnerChunkAppendTest {
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
 
         assertEquals("```python\nprint(\"Hello, World!\")\n```", builder.toString())
-        assertEquals(StreamingLane.CODE, context.lane)
+        assertEquals(StreamingLane.PROSE, context.lane)
     }
 
     @Test
@@ -438,5 +438,43 @@ class LocalStreamingRunnerChunkAppendTest {
         commitPendingCodeLine(builder, context)
 
         assertEquals("python\nprint(\"x\")", builder.toString())
+    }
+
+    @Test
+    fun `opening fence の直後は必ず改行される`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "print", "(\"x\")")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+        commitPendingCodeLine(builder, context)
+
+        assertEquals("```python\nprint(\"x\")", builder.toString())
+        assertFalse(builder.toString().contains("```pythonprint"))
+    }
+
+    @Test
+    fun `closing fence の前に pending code line を flush する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "print", "(\"x\")", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nprint(\"x\")\n```", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+    }
+
+    @Test
+    fun `closing fence の後は prose lane に戻り prose を混在させない`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "print", "(\"Hello, World!\")", "```", "このコードを実行すると")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nprint(\"Hello, World!\")\n```\nこのコードを実行すると", builder.toString())
+        assertEquals(StreamingLane.PROSE, context.lane)
+        assertFalse(builder.toString().contains("World!\")このコード"))
     }
 }
