@@ -40,6 +40,14 @@ class ChatBubbleStreamingTest {
     }
 
     @Test
+    fun splitStreamingText_languageTagPlusAssignment_keepsBothAsUnstable() {
+        val split = splitStreamingText("説明です\npython\nGRID_SIZE=8")
+
+        assertEquals("説明です", split.stable)
+        assertEquals("python\nGRID_SIZE=8", split.unstable)
+    }
+
+    @Test
     fun splitStreamingText_shortGreeting_doesNotSplit() {
         val split = splitStreamingText("こんにちは！")
 

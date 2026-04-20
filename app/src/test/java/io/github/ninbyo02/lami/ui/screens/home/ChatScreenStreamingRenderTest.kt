@@ -63,4 +63,15 @@ class ChatScreenStreamingRenderTest {
             )
         )
     }
+
+    @Test
+    fun shouldRefreshRender_pythonLanguageTagWithCode_returnsTrue() {
+        assertTrue(
+            shouldRefreshRender(
+                prev = "説明\n",
+                next = "説明\npython\nimport random",
+                isStreaming = true,
+            )
+        )
+    }
 }
