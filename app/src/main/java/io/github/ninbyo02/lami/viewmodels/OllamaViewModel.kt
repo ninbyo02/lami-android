@@ -43,6 +43,7 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 data class ModelInfo(val name: String)
 class OllamaViewModel(
     private val chatRepository: ChatRepository,
@@ -385,12 +386,12 @@ class OllamaViewModel(
             }
 
             val body = response.body() ?: throw IOException("Empty response")
-            val resultBuilder = StringBuilder()
+            val streamAssembler = SafeMarkdownStreamAssembler()
             var doneReceived = false
             val streamingUiUpdateIntervalMs = 80L
             val priorityFlushChars = setOf('。', '、', '！', '？', '\n')
             var lastUiUpdateAtMs = 0L
-            var latestFlushedLength = 0
+            var latestFlushedText: String? = null
             var finalChunk: StreamChunk? = null
             var timeToFirstTokenMs: Long? = null
             var assistantUpdateCount = 0
@@ -408,29 +409,29 @@ class OllamaViewModel(
                         timeToFirstTokenMs = (SystemClock.elapsedRealtime() - requestStartedAtMs).coerceAtLeast(0L)
                     }
                     if (!chunk.text.isNullOrBlank()) {
-                        resultBuilder.append(chunk.text)
-                        val currentText = resultBuilder.toString()
+                        streamAssembler.appendChunk(chunk.text)
+                        val currentText = streamAssembler.buildDisplayText()
                         val nowMs = System.currentTimeMillis()
                         val isIntervalElapsed = nowMs - lastUiUpdateAtMs >= streamingUiUpdateIntervalMs
                         val endsWithPriorityChar =
                             chunk.text.lastOrNull() in priorityFlushChars ||
                                 currentText.lastOrNull() in priorityFlushChars
-                        if (isIntervalElapsed || endsWithPriorityChar) {
+                        if ((isIntervalElapsed || endsWithPriorityChar) && latestFlushedText != currentText) {
                             onResponseReceived(currentText.length)
                             _uiState.value = UiState.Streaming(currentText)
                             assistantUpdateCount += 1
                             lastUiUpdateAtMs = nowMs
-                            latestFlushedLength = currentText.length
+                            latestFlushedText = currentText
                         }
                     }
                     if (chunk.done) {
                         finalChunk = chunk
-                        val currentText = resultBuilder.toString()
-                        if (currentText.isNotEmpty() && latestFlushedLength != currentText.length) {
+                        val currentText = streamAssembler.buildDisplayText()
+                        if (currentText.isNotEmpty() && latestFlushedText != currentText) {
                             onResponseReceived(currentText.length)
                             _uiState.value = UiState.Streaming(currentText)
                             assistantUpdateCount += 1
-                            latestFlushedLength = currentText.length
+                            latestFlushedText = currentText
                         }
                         doneReceived = true
                         break
@@ -440,11 +441,17 @@ class OllamaViewModel(
             if (!doneReceived) {
                 throw IOException("Streaming response ended before done=true")
             }
-            if (resultBuilder.isEmpty()) {
+            val finalText = streamAssembler.finalizeResult()
+            if (finalText.isEmpty()) {
                 throw IOException("Empty response")
             }
+            if (latestFlushedText != finalText) {
+                onResponseReceived(finalText.length)
+                _uiState.value = UiState.Streaming(finalText)
+                assistantUpdateCount += 1
+            }
             return StreamingResult(
-                text = resultBuilder.toString(),
+                text = finalText,
                 finalChunk = finalChunk,
                 timeToFirstTokenMs = timeToFirstTokenMs,
                 assistantUpdateCount = assistantUpdateCount,
@@ -453,6 +460,134 @@ class OllamaViewModel(
             if (activeRemoteCall === call) {
                 activeRemoteCall = null
             }
+        }
+    }
+
+    private class SafeMarkdownStreamAssembler(
+        private val streamingCodePlaceholder: String = "コード生成中…",
+    ) {
+        private val confirmedText = StringBuilder()
+        private val pendingCodeBlock = StringBuilder()
+        private val pendingLine = StringBuilder()
+        private var insideCodeBlock = false
+
+        fun appendChunk(rawChunk: String) {
+            val normalizedChunk = normalizeChunk(rawChunk)
+            if (normalizedChunk.isEmpty()) return
+            pendingLine.append(normalizedChunk)
+            drainCompleteLines()
+            flushSafeInlineText()
+        }
+
+        fun buildDisplayText(): String {
+            if (!insideCodeBlock) return confirmedText.toString()
+            val base = confirmedText.toString().trimEnd('\n')
+            return if (base.isEmpty()) streamingCodePlaceholder else "$base\n$streamingCodePlaceholder"
+        }
+
+        fun finalizeResult(): String {
+            if (insideCodeBlock) {
+                if (pendingLine.isNotEmpty()) {
+                    pendingCodeBlock.append(pendingLine)
+                    pendingLine.clear()
+                }
+                if (pendingCodeBlock.isNotEmpty() && !pendingCodeBlock.endsWith("\n")) {
+                    pendingCodeBlock.append('\n')
+                }
+                pendingCodeBlock.append("```")
+                confirmedText.append(pendingCodeBlock)
+                pendingCodeBlock.clear()
+                insideCodeBlock = false
+            } else if (pendingLine.isNotEmpty()) {
+                confirmedText.append(pendingLine)
+                pendingLine.clear()
+            }
+            return confirmedText.toString()
+        }
+
+        private fun drainCompleteLines() {
+            while (true) {
+                val newlineIndex = pendingLine.indexOf("\n")
+                if (newlineIndex < 0) break
+                val line = pendingLine.substring(0, newlineIndex)
+                pendingLine.delete(0, newlineIndex + 1)
+                appendLine(line, hasTrailingNewline = true)
+            }
+        }
+
+        private fun appendLine(line: String, hasTrailingNewline: Boolean) {
+            val isFence = isFenceLine(line)
+            if (!insideCodeBlock) {
+                if (isFence) {
+                    insideCodeBlock = true
+                    pendingCodeBlock.clear()
+                    pendingCodeBlock.append(normalizeOpeningFenceLine(line))
+                    if (hasTrailingNewline) pendingCodeBlock.append('\n')
+                    return
+                }
+                confirmedText.append(line)
+                if (hasTrailingNewline) confirmedText.append('\n')
+                return
+            }
+            pendingCodeBlock.append(line)
+            if (hasTrailingNewline) pendingCodeBlock.append('\n')
+            if (isFence) {
+                insideCodeBlock = false
+                confirmedText.append(pendingCodeBlock)
+                pendingCodeBlock.clear()
+            }
+        }
+
+        private fun flushSafeInlineText() {
+            if (insideCodeBlock || pendingLine.isEmpty()) return
+            val partialLine = pendingLine.toString()
+            if (isPossibleFencePrefix(partialLine)) return
+            confirmedText.append(partialLine)
+            pendingLine.clear()
+        }
+
+        private fun isFenceLine(line: String): Boolean {
+            val withoutIndent = line.trimStart(' ', '\t')
+            return withoutIndent.startsWith("```")
+        }
+
+        private fun normalizeOpeningFenceLine(line: String): String {
+            val withoutIndent = line.trimStart(' ', '\t')
+            if (!withoutIndent.startsWith("```")) return line
+            val indentLength = line.length - withoutIndent.length
+            val indent = line.substring(0, indentLength)
+            val rawSuffix = withoutIndent.removePrefix("```").trim()
+            if (rawSuffix.isEmpty()) return "${indent}```"
+            val languageToken = rawSuffix.substringBefore(' ')
+            val suffixRemainder = rawSuffix.removePrefix(languageToken).trimStart()
+            val normalizedLanguage = normalizeLanguageToken(languageToken)
+            return if (suffixRemainder.isEmpty()) {
+                "${indent}```$normalizedLanguage"
+            } else {
+                "${indent}```$normalizedLanguage $suffixRemainder"
+            }
+        }
+
+        private fun normalizeLanguageToken(token: String): String {
+            return when (token.lowercase(Locale.ROOT)) {
+                "kt" -> "kotlin"
+                "py" -> "python"
+                "js" -> "javascript"
+                "ts" -> "typescript"
+                "sh" -> "bash"
+                else -> token
+            }
+        }
+
+        private fun isPossibleFencePrefix(text: String): Boolean {
+            val trimmed = text.trimStart(' ', '\t')
+            return "```".startsWith(trimmed)
+        }
+
+        private fun normalizeChunk(chunk: String): String {
+            return chunk
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
         }
     }
 
