@@ -509,6 +509,28 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `fenced python で single chunk 内の SCREEN 系 assignment 連鎖を3行に分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "SCREEN_WIDTH =80SCREEN_HEIGHT =60FPS =60", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nSCREEN_WIDTH =80\nSCREEN_HEIGHT =60\nFPS =60\n```", builder.toString())
+    }
+
+    @Test
+    fun `fenced python で single chunk 内の True tail から assignment を分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "running = Truescore =0", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nrunning = True\nscore =0\n```", builder.toString())
+    }
+
+    @Test
     fun `fenced python で import 直後の random と続く assignment を single chunk でも分離する`() {
         val builder = StringBuilder()
         val context = StreamingAppendContext()
@@ -560,6 +582,17 @@ class LocalStreamingRunnerChunkAppendTest {
             "```python\n(0,25,25)# ブロックの色\nblocked_colors = COLORS[:6] # ブロックの色リストを初期化\nclass Block:\n```",
             builder.toString(),
         )
+    }
+
+    @Test
+    fun `fenced python で single chunk 内の closing tail と comment と class を順次分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "COLORS[:6]# コメントclass Block:", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nCOLORS[:6]\n# コメント\nclass Block:\n```", builder.toString())
     }
 
     @Test

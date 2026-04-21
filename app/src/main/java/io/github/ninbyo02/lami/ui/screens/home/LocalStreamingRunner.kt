@@ -4413,26 +4413,33 @@ private fun preSplitFencedPythonChunk(context: StreamingAppendContext, raw: Stri
     if (pendingLine.isNotEmpty() && (isQuoteOrBracketCarryOverLine(pendingLine) || isFencedPythonCommentCarryOverLine(context, pendingLine))) {
         return listOf(raw)
     }
-    val splitPoints = findFencedPythonChunkSplitPoints(raw)
-    if (splitPoints.isEmpty()) return listOf(raw)
-    val sortedPoints = splitPoints.distinct().sorted().filter { it in 1 until raw.length }
-    if (sortedPoints.isEmpty()) return listOf(raw)
+    return splitFencedPythonChunkSequentially(raw)
+}
+
+private fun splitFencedPythonChunkSequentially(raw: String): List<String> {
     val chunks = mutableListOf<String>()
-    var start = 0
-    sortedPoints.forEach { index ->
-        chunks += raw.substring(start, index)
-        start = index
+    var remainder = raw
+    while (remainder.isNotEmpty()) {
+        val splitIndex = findNextFencedPythonSplitIndex(remainder)
+        if (splitIndex == null) {
+            chunks += remainder
+            break
+        }
+        if (splitIndex !in 1 until remainder.length) {
+            chunks += remainder
+            break
+        }
+        chunks += remainder.substring(0, splitIndex)
+        remainder = remainder.substring(splitIndex)
     }
-    chunks += raw.substring(start)
     return chunks.filter { it.isNotEmpty() }
 }
 
-private fun findFencedPythonChunkSplitPoints(raw: String): List<Int> {
-    val points = mutableListOf<Int>()
-    for (index in 1 until raw.length) {
-        if (shouldSplitAtFencedPythonIndex(raw, index)) points += index
+private fun findNextFencedPythonSplitIndex(text: String): Int? {
+    for (index in 1 until text.length) {
+        if (shouldSplitAtFencedPythonIndex(text, index)) return index
     }
-    return points
+    return null
 }
 
 private fun shouldSplitAtFencedPythonIndex(raw: String, index: Int): Boolean {
