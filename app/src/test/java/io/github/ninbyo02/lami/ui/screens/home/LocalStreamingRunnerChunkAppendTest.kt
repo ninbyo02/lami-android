@@ -474,6 +474,18 @@ class LocalStreamingRunnerChunkAppendTest {
         assertEquals("```python\nblocked_colors = COLORS[:6] # ブロックの色リストを初期化\n```", builder.toString())
     }
 
+
+    @Test
+    fun `fenced python で single chunk 内の fused import を順次分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "import pygameimport randomimport sys", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\nimport pygame\nimport random\nimport sys\n```", builder.toString())
+    }
+
     @Test
     fun `fenced python で single chunk 内の import と assignment を分離する`() {
         val builder = StringBuilder()
@@ -636,6 +648,18 @@ class LocalStreamingRunnerChunkAppendTest {
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
 
         assertEquals("```python\nball_color = COLORS[0]\nrunning = True\nwhile running:\n```", builder.toString())
+    }
+
+
+    @Test
+    fun `fenced python で call tail の後ろに identifier が fused したら分離する`() {
+        val builder = StringBuilder()
+        val context = StreamingAppendContext()
+        val chunks = listOf("```python", "pygame.quit()clock = pygame.time.Clock()", "```")
+
+        chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
+
+        assertEquals("```python\npygame.quit()\nclock = pygame.time.Clock()\n```", builder.toString())
     }
 
     @Test

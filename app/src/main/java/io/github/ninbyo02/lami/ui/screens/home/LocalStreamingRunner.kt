@@ -4473,10 +4473,23 @@ private fun isFencedPythonLiteralToAssignmentBoundaryAt(text: String, index: Int
 
 private fun isFencedPythonImportTailBoundaryAt(text: String, index: Int): Boolean {
     if (index !in 1 until text.length) return false
+    val trimmed = text.trimStart()
+    if (!trimmed.startsWith("import ") && !trimmed.startsWith("from ")) return false
+
+    if (text.regionMatches(index, "import ", 0, "import ".length) ||
+        text.regionMatches(index, "from ", 0, "from ".length)
+    ) {
+        val before = text[index - 1]
+        if (!isAsciiIdentifierPart(before) && before != ')' && before != ']' && before != '}') return false
+        val previousWord = text.substring(0, index).trimEnd().takeLastWhile { isAsciiIdentifierPart(it) }
+        if (previousWord == "as") return false
+        return true
+    }
+
     val before = text[index - 1]
     if (!before.isWhitespace()) return false
     if (!isAsciiIdentifierStart(text[index]) && !isFencedPythonStrongStarterAt(text, index)) return false
-    val trimmed = text.trimStart()
+
     if (trimmed.startsWith("import ")) {
         val importTokenEnd = text.indexOf("import ") + "import ".length
         if (index <= importTokenEnd) return false
@@ -4484,7 +4497,7 @@ private fun isFencedPythonImportTailBoundaryAt(text: String, index: Int): Boolea
         if (previousWord == "as") return false
         return true
     }
-    if (!trimmed.startsWith("from ")) return false
+
     val importIndex = text.indexOf(" import ")
     if (importIndex < 0 || index <= importIndex + " import ".length) return false
     val previousWord = text.substring(0, index).trimEnd().takeLastWhile { isAsciiIdentifierPart(it) }
@@ -4494,9 +4507,10 @@ private fun isFencedPythonImportTailBoundaryAt(text: String, index: Int): Boolea
 
 private fun isFencedPythonNumericLiteralTailBoundaryAt(text: String, index: Int): Boolean {
     if (index !in 1 until text.length) return false
-    if (!isUpperSnakeAssignmentStarterAt(text, index)) return false
+    if (!isIdentifierStart(text[index])) return false
     val before = text[index - 1]
-    return before.isDigit() || before in listOf(']', ')', '}')
+    if (!before.isDigit() && before !in listOf(']', ')', '}')) return false
+    return true
 }
 
 private fun isFencedPythonStrongStarterAt(text: String, index: Int): Boolean {
