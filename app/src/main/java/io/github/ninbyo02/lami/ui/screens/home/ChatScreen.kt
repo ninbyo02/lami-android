@@ -1014,6 +1014,22 @@ fun Home(
         return normalized
     }
 
+    fun sanitizeStreamingTextForTts(text: String): String {
+        val filtered = text
+            .lineSequence()
+            .map { it.trim() }
+            .filterNot { line ->
+                line.isBlank() ||
+                    line.contains("```") ||
+                    line == "コード生成中…" ||
+                    line.matches(Regex("^[`*_#>\\-\\s]+$")) ||
+                    line.matches(Regex("^[\\p{Punct}\\s]+$")) ||
+                    line.matches(Regex(".*[{}();=<>\\[\\]].*"))
+            }
+            .joinToString(separator = " ")
+        return sanitizeTextForTts(filtered)
+    }
+
     fun consumeStreamingSentenceAndSpeak(fullText: String) {
         if (!ttsEnabled) return
         val targetMessageId = streamingSpeechStartedForMessageId
@@ -1027,7 +1043,7 @@ fun Home(
         val sentenceBreakIndex = remaining.lastIndexOfAny(charArrayOf('。', '！', '？', '\n'))
         if (sentenceBreakIndex < 0) return
         val speakTarget = remaining.substring(0, sentenceBreakIndex + 1)
-        val normalized = sanitizeTextForTts(speakTarget)
+        val normalized = sanitizeStreamingTextForTts(speakTarget)
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
             streamingSpeechStartedForMessageId?.let { messageId ->
                 currentSpeakingAssistantMessageId = messageId
@@ -1047,7 +1063,7 @@ fun Home(
         if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
         val safeConsumed = streamingSpeechLastConsumedLength.coerceIn(0, fullText.length)
         val remaining = fullText.substring(safeConsumed)
-        val normalized = sanitizeTextForTts(remaining)
+        val normalized = sanitizeStreamingTextForTts(remaining)
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
             streamingSpeechStartedForMessageId?.let { messageId ->
                 currentSpeakingAssistantMessageId = messageId
@@ -1062,9 +1078,14 @@ fun Home(
 
     val effectiveStreamingSentenceTtsEnabled = ttsEnabled && devEnableStreamingSentenceTts
 
-    LaunchedEffect(effectiveStreamingSentenceTtsEnabled, isInferenceRunningUi, streamingResponseText) {
+    LaunchedEffect(
+        effectiveStreamingSentenceTtsEnabled,
+        isInferenceRunningUi,
+        streamingResponseTextForRender,
+        streamingResponseText,
+    ) {
         if (!effectiveStreamingSentenceTtsEnabled || !isInferenceRunningUi) return@LaunchedEffect
-        val fullText = streamingResponseText ?: return@LaunchedEffect
+        val fullText = streamingResponseTextForRender ?: streamingResponseText ?: return@LaunchedEffect
         if (fullText.isBlank()) return@LaunchedEffect
         consumeStreamingSentenceAndSpeak(fullText)
     }
