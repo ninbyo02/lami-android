@@ -931,12 +931,17 @@ fun Home(
         imageInputCount: Int? = null,
         generationTimeMs: Long? = null,
     ): Int? {
-        val normalizedResponse = response.trim()
-        if (normalizedResponse.isBlank()) return streamingAssistantMessageId
+        // finalize 経路は「保存してよい最終本文」のみを受け取る想定。
+        val finalizedResponseForPersist = response.trim()
+        if (finalizedResponseForPersist.isBlank()) return streamingAssistantMessageId
+        if (isDisplayOnlyStreamingText(finalizedResponseForPersist)) {
+            logStreamTrace("STREAM final skip displayOnlyText")
+            return streamingAssistantMessageId
+        }
 
         val finalPayload = createAssistantMessage(
             chatId = chatId,
-            response = normalizedResponse,
+            response = finalizedResponseForPersist,
             latestInferenceStats = latestInferenceStats,
             localSourceSummary = localSourceSummary,
             imageInputCount = imageInputCount,
@@ -946,7 +951,7 @@ fun Home(
         logStreamTrace("STREAM final path existingId=$existingId")
         if (existingId == null) {
             val insertedId = viewModel.insertAssistantMessageAndReturnId(finalPayload).toInt()
-            lastPersistedStreamingAssistantText = normalizedResponse
+            lastPersistedStreamingAssistantText = finalizedResponseForPersist
             logStreamTrace("STREAM final insert id=$insertedId fallbackNoPlaceholder=true")
             return insertedId
         }
@@ -975,7 +980,7 @@ fun Home(
             finalPayload.copy(messageID = existingId)
         }
         viewModel.updateMessage(updatedMessage)
-        lastPersistedStreamingAssistantText = normalizedResponse
+        lastPersistedStreamingAssistantText = finalizedResponseForPersist
         logStreamTrace("STREAM final update id=$existingId")
         return existingId
     }
@@ -1028,6 +1033,10 @@ fun Home(
             }
             .joinToString(separator = " ")
         return sanitizeTextForTts(filtered)
+    }
+
+    private fun isDisplayOnlyStreamingText(text: String): Boolean {
+        return text == "コード生成中…"
     }
 
     fun consumeStreamingSentenceAndSpeak(fullText: String) {

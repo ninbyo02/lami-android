@@ -441,17 +441,18 @@ class OllamaViewModel(
             if (!doneReceived) {
                 throw IOException("Streaming response ended before done=true")
             }
-            val finalText = streamAssembler.finalizeResult()
-            if (finalText.isEmpty()) {
+            // SafeMarkdownStreamAssembler の finalizeResult() は、保存に使ってよい最終本文を返す。
+            val finalizedTextForPersist = streamAssembler.finalizeResult()
+            if (finalizedTextForPersist.isEmpty()) {
                 throw IOException("Empty response")
             }
-            if (latestFlushedText != finalText) {
-                onResponseReceived(finalText.length)
-                _uiState.value = UiState.Streaming(finalText)
+            if (latestFlushedText != finalizedTextForPersist) {
+                onResponseReceived(finalizedTextForPersist.length)
+                _uiState.value = UiState.Streaming(finalizedTextForPersist)
                 assistantUpdateCount += 1
             }
             return StreamingResult(
-                text = finalText,
+                text = finalizedTextForPersist,
                 finalChunk = finalChunk,
                 timeToFirstTokenMs = timeToFirstTokenMs,
                 assistantUpdateCount = assistantUpdateCount,
