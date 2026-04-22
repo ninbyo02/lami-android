@@ -503,7 +503,121 @@ class OllamaViewModel(
                 confirmedText.append(pendingLine)
                 pendingLine.clear()
             }
-            return confirmedText.toString()
+            return repairPythonCodeBlocks(confirmedText.toString())
+        }
+
+        private fun repairPythonCodeBlocks(markdown: String): String {
+            if (!markdown.contains("```")) return markdown
+            val lines = markdown.split('\n')
+            if (lines.isEmpty()) return markdown
+
+            val rebuilt = StringBuilder(markdown.length + 32)
+            var index = 0
+            while (index < lines.size) {
+                val currentLine = lines[index]
+                if (!isPythonFenceOpeningLine(currentLine)) {
+                    rebuilt.append(currentLine)
+                    if (index < lines.lastIndex) rebuilt.append('\n')
+                    index += 1
+                    continue
+                }
+                rebuilt.append(currentLine)
+                if (index < lines.lastIndex) rebuilt.append('\n')
+                index += 1
+
+                val bodyBuilder = StringBuilder()
+                while (index < lines.size && !isFenceLine(lines[index])) {
+                    bodyBuilder.append(lines[index])
+                    if (index < lines.lastIndex) bodyBuilder.append('\n')
+                    index += 1
+                }
+                rebuilt.append(repairPythonBlockBody(bodyBuilder.toString()))
+
+                if (index < lines.size) {
+                    rebuilt.append(lines[index])
+                    if (index < lines.lastIndex) rebuilt.append('\n')
+                    index += 1
+                }
+            }
+            return rebuilt.toString()
+        }
+
+        private fun isPythonFenceOpeningLine(line: String): Boolean {
+            val withoutIndent = line.trimStart(' ', '\t')
+            if (!withoutIndent.startsWith("```")) return false
+            val rawSuffix = withoutIndent.removePrefix("```").trim()
+            if (rawSuffix.isEmpty()) return false
+            val languageToken = rawSuffix.substringBefore(' ').lowercase(Locale.ROOT)
+            return languageToken == "python" || languageToken == "py"
+        }
+
+        private fun repairPythonBlockBody(body: String): String {
+            if (body.isEmpty()) return body
+            var repaired = body
+            repaired = normalizePythonInlineCommentSpacing(repaired)
+            repaired = splitObviouslyMergedPythonStatements(repaired)
+            repaired = normalizePythonCommentNewlines(repaired)
+            return repaired
+        }
+
+        private fun normalizePythonInlineCommentSpacing(body: String): String {
+            val mergedCommentRegex = Regex("([\\w\\)\\]\"'])#")
+            return body
+                .replace(mergedCommentRegex, "$1\n# ")
+                .replace(Regex("(?m)^(\\s*)#(\\S)"), "$1# $2")
+        }
+
+        private fun normalizePythonCommentNewlines(body: String): String {
+            val sourceLines = body.split('\n')
+            if (sourceLines.isEmpty()) return body
+            val rebuilt = mutableListOf<String>()
+            var index = 0
+            while (index < sourceLines.size) {
+                val line = sourceLines[index]
+                val trimmedStart = line.trimStart()
+                if (!trimmedStart.startsWith("#")) {
+                    rebuilt.add(line)
+                    index += 1
+                    continue
+                }
+                var normalizedLine = line.replace(Regex("^(\\s*)#(\\S)"), "$1# $2")
+                var cursor = index + 1
+                while (cursor < sourceLines.size) {
+                    val nextLine = sourceLines[cursor]
+                    val nextTrimmed = nextLine.trim()
+                    if (nextTrimmed.isEmpty() || nextTrimmed.startsWith("#")) break
+                    if (!isLikelyCommentContinuation(nextTrimmed)) break
+                    normalizedLine = normalizedLine + nextTrimmed
+                    cursor += 1
+                }
+                rebuilt.add(normalizedLine)
+                index = cursor
+            }
+            return rebuilt.joinToString("\n")
+        }
+
+        private fun isLikelyCommentContinuation(text: String): Boolean {
+            if (text.length > 12) return false
+            if (text.contains(Regex("[=()\\[\\]{}:;]"))) return false
+            if (text.contains("    ")) return false
+            return text.contains(Regex("[\\p{IsHiragana}\\p{IsKatakana}\\p{IsHan}]"))
+        }
+
+        private fun splitObviouslyMergedPythonStatements(body: String): String {
+            var repaired = body
+            repaired = repaired.replace(
+                Regex("(?<=[\\]\\)])(if|for|while|with|def|class|return|try|except|elif|else|finally|pass|break|continue)\\b"),
+                "\n$1",
+            )
+            repaired = repaired.replace(Regex("(?<=\\bTrue)(?=[A-Za-z_])"), "\n")
+            repaired = repaired.replace(Regex("(?<=\\bFalse)(?=[A-Za-z_])"), "\n")
+            repaired = repaired.replace(Regex("(?<=\\bNone)(?=[A-Za-z_])"), "\n")
+            repaired = repaired.replace(Regex("(?<=\\d)(?=[A-Za-z_])"), "\n")
+            repaired = repaired.replace(
+                Regex("(?<=[A-Za-z_\\d\\]\\)])(?=(?:for|if|while|with|try|except|elif|else|finally|return|pass|break|continue)\\b)"),
+                "\n",
+            )
+            return repaired
         }
 
         private fun drainCompleteLines() {
