@@ -934,7 +934,7 @@ fun Home(
         // finalize 経路は「保存してよい最終本文」のみを受け取る想定。
         val finalizedResponseForPersist = response.trim()
         if (finalizedResponseForPersist.isBlank()) return streamingAssistantMessageId
-        if (isDisplayOnlyStreamingText(finalizedResponseForPersist)) {
+        if (finalizedResponseForPersist == "コード生成中…") {
             logStreamTrace("STREAM final skip displayOnlyText")
             return streamingAssistantMessageId
         }
@@ -1033,10 +1033,6 @@ fun Home(
             }
             .joinToString(separator = " ")
         return sanitizeTextForTts(filtered)
-    }
-
-    private fun isDisplayOnlyStreamingText(text: String): Boolean {
-        return text == "コード生成中…"
     }
 
     fun consumeStreamingSentenceAndSpeak(fullText: String) {
