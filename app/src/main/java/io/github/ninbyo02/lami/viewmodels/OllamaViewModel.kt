@@ -514,16 +514,18 @@ class OllamaViewModel(
             val rebuilt = StringBuilder(markdown.length + 32)
             var index = 0
             while (index < lines.size) {
-                val currentLine = lines[index]
-                if (!isPythonFenceOpeningLine(currentLine)) {
+                val pythonFenceMatch = resolvePythonFenceOpening(lines, index)
+                if (pythonFenceMatch == null) {
+                    val currentLine = lines[index]
                     rebuilt.append(currentLine)
                     if (index < lines.lastIndex) rebuilt.append('\n')
                     index += 1
                     continue
                 }
+                val currentLine = lines[index]
                 rebuilt.append(currentLine)
                 if (index < lines.lastIndex) rebuilt.append('\n')
-                index += 1
+                index = pythonFenceMatch.bodyStartIndex
 
                 val bodyBuilder = StringBuilder()
                 while (index < lines.size && !isFenceLine(lines[index])) {
@@ -542,6 +544,20 @@ class OllamaViewModel(
             return rebuilt.toString()
         }
 
+        private data class PythonFenceMatch(val bodyStartIndex: Int)
+
+        private fun resolvePythonFenceOpening(lines: List<String>, index: Int): PythonFenceMatch? {
+            val currentLine = lines[index]
+            if (isPythonFenceOpeningLine(currentLine)) {
+                return PythonFenceMatch(bodyStartIndex = index + 1)
+            }
+            if (!isBareFenceLine(currentLine)) return null
+            val nextIndex = index + 1
+            if (nextIndex >= lines.size) return null
+            if (!isPythonLanguageOnlyLine(lines[nextIndex])) return null
+            return PythonFenceMatch(bodyStartIndex = nextIndex + 1)
+        }
+
         private fun isPythonFenceOpeningLine(line: String): Boolean {
             val withoutIndent = line.trimStart(' ', '\t')
             if (!withoutIndent.startsWith("```")) return false
@@ -549,6 +565,17 @@ class OllamaViewModel(
             if (rawSuffix.isEmpty()) return false
             val languageToken = rawSuffix.substringBefore(' ').lowercase(Locale.ROOT)
             return languageToken == "python" || languageToken == "py"
+        }
+
+        private fun isBareFenceLine(line: String): Boolean {
+            val withoutIndent = line.trimStart(' ', '\t')
+            if (!withoutIndent.startsWith("```")) return false
+            return withoutIndent.removePrefix("```").trim().isEmpty()
+        }
+
+        private fun isPythonLanguageOnlyLine(line: String): Boolean {
+            val trimmed = line.trim().lowercase(Locale.ROOT)
+            return trimmed == "python" || trimmed == "py"
         }
 
         private fun repairPythonBlockBody(body: String): String {
