@@ -467,6 +467,9 @@ class OllamaViewModel(
     private class SafeMarkdownStreamAssembler(
         private val streamingCodePlaceholder: String = "コード生成中…",
     ) {
+        companion object {
+            private const val PY_REPAIR_LOG_TAG = "PY_REPAIR"
+        }
         private val confirmedText = StringBuilder()
         private val pendingCodeBlock = StringBuilder()
         private val pendingLine = StringBuilder()
@@ -503,7 +506,36 @@ class OllamaViewModel(
                 confirmedText.append(pendingLine)
                 pendingLine.clear()
             }
-            return repairPythonCodeBlocks(confirmedText.toString())
+            val preRepairText = confirmedText.toString()
+            val preStats = analyzeMarkdownForRepair(preRepairText)
+            Log.d(
+                PY_REPAIR_LOG_TAG,
+                "PY_REPAIR pre: len=${preRepairText.length}, containsFence=${preStats.containsFence}, " +
+                    "containsBareFencePythonPattern=${preStats.bareFencePythonMatchCount > 0}, " +
+                    "containsPythonFenceOpening=${preStats.pythonFenceMatchCount > 0}, " +
+                    "containsPythonImport=${preRepairText.contains("python\nimport")}, " +
+                    "containsPygameMerge=${preRepairText.contains("import pygameimport sys#")}, " +
+                    "containsScreenMerge=${preRepairText.contains("SCREEN_WIDTH =80SCREEN_HEIGHT")}, " +
+                    "preview=${toSingleLinePreview(preRepairText)}",
+            )
+            val repairedText = repairPythonCodeBlocks(preRepairText)
+            val postStats = analyzeMarkdownForRepair(repairedText)
+            val changed = repairedText != preRepairText
+            Log.d(
+                PY_REPAIR_LOG_TAG,
+                "PY_REPAIR post: len=${repairedText.length}, changed=$changed, " +
+                    "pythonFenceMatchCount=${postStats.pythonFenceMatchCount}, " +
+                    "bareFencePythonMatchCount=${postStats.bareFencePythonMatchCount}, " +
+                    "containsPythonImport=${repairedText.contains("python\nimport")}, " +
+                    "containsPygameMerge=${repairedText.contains("import pygameimport sys#")}, " +
+                    "containsScreenMerge=${repairedText.contains("SCREEN_WIDTH =80SCREEN_HEIGHT")}, " +
+                    "preview=${toSingleLinePreview(repairedText)}",
+            )
+            Log.d(
+                PY_REPAIR_LOG_TAG,
+                "PY_REPAIR final: len=${repairedText.length}, changedFromPreRepair=$changed",
+            )
+            return repairedText
         }
 
         private fun repairPythonCodeBlocks(markdown: String): String {
@@ -544,18 +576,62 @@ class OllamaViewModel(
             return rebuilt.toString()
         }
 
-        private data class PythonFenceMatch(val bodyStartIndex: Int)
+        private data class RepairDetectionStats(
+            val containsFence: Boolean,
+            val pythonFenceMatchCount: Int,
+            val bareFencePythonMatchCount: Int,
+        )
+
+        private data class PythonFenceMatch(
+            val bodyStartIndex: Int,
+            val fromBareFencePattern: Boolean,
+        )
 
         private fun resolvePythonFenceOpening(lines: List<String>, index: Int): PythonFenceMatch? {
             val currentLine = lines[index]
             if (isPythonFenceOpeningLine(currentLine)) {
-                return PythonFenceMatch(bodyStartIndex = index + 1)
+                return PythonFenceMatch(bodyStartIndex = index + 1, fromBareFencePattern = false)
             }
             if (!isBareFenceLine(currentLine)) return null
             val nextIndex = index + 1
             if (nextIndex >= lines.size) return null
             if (!isPythonLanguageOnlyLine(lines[nextIndex])) return null
-            return PythonFenceMatch(bodyStartIndex = nextIndex + 1)
+            return PythonFenceMatch(bodyStartIndex = nextIndex + 1, fromBareFencePattern = true)
+        }
+
+        private fun analyzeMarkdownForRepair(markdown: String): RepairDetectionStats {
+            if (!markdown.contains("```")) {
+                return RepairDetectionStats(
+                    containsFence = false,
+                    pythonFenceMatchCount = 0,
+                    bareFencePythonMatchCount = 0,
+                )
+            }
+            val lines = markdown.split('\n')
+            var pythonFenceMatchCount = 0
+            var bareFencePythonMatchCount = 0
+            var index = 0
+            while (index < lines.size) {
+                val match = resolvePythonFenceOpening(lines, index)
+                if (match != null) {
+                    pythonFenceMatchCount += 1
+                    if (match.fromBareFencePattern) {
+                        bareFencePythonMatchCount += 1
+                    }
+                }
+                index += 1
+            }
+            return RepairDetectionStats(
+                containsFence = true,
+                pythonFenceMatchCount = pythonFenceMatchCount,
+                bareFencePythonMatchCount = bareFencePythonMatchCount,
+            )
+        }
+
+        private fun toSingleLinePreview(value: String, maxLength: Int = 320): String {
+            return value
+                .replace("\n", "\\n")
+                .take(maxLength)
         }
 
         private fun isPythonFenceOpeningLine(line: String): Boolean {
