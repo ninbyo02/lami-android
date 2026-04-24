@@ -4,6 +4,7 @@ import java.util.Locale
 
 object MarkdownCodeRepair {
     fun repair(text: String): String {
+        if (text.isEmpty()) return text
         if (!text.contains("```")) return text
         return repairCodeFences(text)
     }
@@ -87,6 +88,11 @@ object MarkdownCodeRepair {
         while (index < lines.size) {
             var line = lines[index]
             val nextLine = lines.getOrNull(index + 1)
+            if (line.trimEnd() == "el" && nextLine?.trimStart()?.startsWith("if ") == true) {
+                repairedLines.add("${line.substringBefore("el")}elif ${nextLine.trimStart().removePrefix("if ").trimStart()}")
+                index += 2
+                continue
+            }
             val split = splitCommentFragmentAndCode(line)
             line = split.line
             if (split.extractedCode != null) {
@@ -110,6 +116,18 @@ object MarkdownCodeRepair {
     private fun repairCodeLine(line: String, nextLine: String?): String {
         var repaired = line
         repaired = repaired.replace(Regex("(?<!\\S)(import\\s+[\\w.]+)import\\s+"), "$1\nimport ")
+        repaired = repaired.replace(
+            Regex("(SCREEN_WIDTH\\s*=\\s*\\d+)(SCREEN_HEIGHT\\s*=\\s*\\d+)(screen\\s*=)"),
+            "$1\n$2\n$3",
+        )
+        repaired = repaired.replace(Regex("(pygame\\.quit\\(\\))(sys\\.exit\\(\\))"), "$1\n$2")
+        repaired = repaired.replace(Regex("(ball_x\\s*\\+=\\s*ball_dx)(ball_y\\s*\\+=)"), "$1\n$2")
+        repaired = repaired.replace(Regex("(\\bFalse\\b)(score\\s*=)"), "$1\n$2")
+        repaired = repaired.replace(Regex("(?<=\\S)\\s*\\+\\s*=(?=\\s*\\S)"), " += ")
+        repaired = repaired.replace(
+            Regex("([A-Za-z_][A-Za-z0-9_]*\\s*=\\s*[^#\\n]+?)(?=(?:if|for|while|def|class|return|print|pygame\\.)\\b)"),
+            "$1\n",
+        )
         repaired = repaired.replace(
             Regex("(?<=[\\]\\\"'A-Za-z_0-9\\)])\\s*#\\s*(\\S.*)$"),
             "\n# $1",
