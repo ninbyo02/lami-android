@@ -156,6 +156,7 @@ import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.text.MarkdownCodeRepair
 import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
 import io.github.ninbyo02.lami.ui.util.formatOutputTokens
 import io.github.ninbyo02.lami.ui.util.formatInferenceTime
@@ -932,7 +933,7 @@ fun Home(
         generationTimeMs: Long? = null,
     ): Int? {
         // finalize 経路は「保存してよい最終本文」のみを受け取る想定。
-        val finalizedResponseForPersist = response.trim()
+        val finalizedResponseForPersist = MarkdownCodeRepair.repair(response).trim()
         if (finalizedResponseForPersist.isBlank()) return streamingAssistantMessageId
         if (finalizedResponseForPersist == "コード生成中…") {
             logStreamTrace("STREAM final skip displayOnlyText")
@@ -2266,10 +2267,11 @@ fun Home(
                                                                                     raw = partial,
                                                                                     normalized = normalizedPartial,
                                                                                 )
-                                                                                localStreamingResponseText = normalizedPartial
+                                                                                val repairedPartial = MarkdownCodeRepair.repair(normalizedPartial)
+                                                                                localStreamingResponseText = repairedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
-                                                                                    response = normalizedPartial,
+                                                                                    response = repairedPartial,
                                                                                 )
                                                                             }
                                                                         },
@@ -2358,10 +2360,11 @@ fun Home(
                                                                                             raw = partial,
                                                                                             normalized = normalizedPartial,
                                                                                         )
-                                                                                        localStreamingResponseText = normalizedPartial
+                                                                                        val repairedPartial = MarkdownCodeRepair.repair(normalizedPartial)
+                                                                                        localStreamingResponseText = repairedPartial
                                                                                         upsertStreamingAssistantPlaceholderSerialized(
                                                                                             chatId = currentChatId,
-                                                                                            response = normalizedPartial,
+                                                                                            response = repairedPartial,
                                                                                         )
                                                                                     }
                                                                                 },
@@ -2448,10 +2451,11 @@ fun Home(
                                                                                     raw = partial,
                                                                                     normalized = normalizedPartial,
                                                                                 )
-                                                                                localStreamingResponseText = normalizedPartial
+                                                                                val repairedPartial = MarkdownCodeRepair.repair(normalizedPartial)
+                                                                                localStreamingResponseText = repairedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
-                                                                                    response = normalizedPartial,
+                                                                                    response = repairedPartial,
                                                                                 )
                                                                             }
                                                                         },
