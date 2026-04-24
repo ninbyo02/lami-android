@@ -555,7 +555,12 @@ class OllamaViewModel(
                     continue
                 }
                 val currentLine = lines[index]
-                rebuilt.append(currentLine)
+                val openingFenceLine = if (pythonFenceMatch.fromBareFencePattern) {
+                    normalizeBarePythonFenceLine(currentLine)
+                } else {
+                    currentLine
+                }
+                rebuilt.append(openingFenceLine)
                 if (index < lines.lastIndex) rebuilt.append('\n')
                 index = pythonFenceMatch.bodyStartIndex
 
@@ -654,73 +659,202 @@ class OllamaViewModel(
             return trimmed == "python" || trimmed == "py"
         }
 
+        private fun normalizeBarePythonFenceLine(line: String): String {
+            val withoutIndent = line.trimStart(' ', '\t')
+            val indentLength = line.length - withoutIndent.length
+            val indent = line.substring(0, indentLength)
+            return "${indent}```python"
+        }
+
         private fun repairPythonBlockBody(body: String): String {
             if (body.isEmpty()) return body
-            var repaired = body
-            repaired = normalizePythonInlineCommentSpacing(repaired)
-            repaired = splitObviouslyMergedPythonStatements(repaired)
-            repaired = normalizePythonCommentNewlines(repaired)
-            return repaired
-        }
-
-        private fun normalizePythonInlineCommentSpacing(body: String): String {
-            val mergedCommentRegex = Regex("([\\w\\)\\]\"'])#")
-            return body
-                .replace(mergedCommentRegex, "$1\n# ")
-                .replace(Regex("(?m)^(\\s*)#(\\S)"), "$1# $2")
-        }
-
-        private fun normalizePythonCommentNewlines(body: String): String {
-            val sourceLines = body.split('\n')
-            if (sourceLines.isEmpty()) return body
-            val rebuilt = mutableListOf<String>()
+            val lines = body.split('\n')
+            if (lines.isEmpty()) return body
+            val repairedLines = mutableListOf<String>()
             var index = 0
-            while (index < sourceLines.size) {
-                val line = sourceLines[index]
-                val trimmedStart = line.trimStart()
-                if (!trimmedStart.startsWith("#")) {
-                    rebuilt.add(line)
+            while (index < lines.size) {
+                var line = lines[index]
+                val nextLine = lines.getOrNull(index + 1)
+                val splitResult = splitCommentFragmentAndCode(line)
+                line = splitResult.line
+                if (splitResult.extractedComment != null) {
+                    repairedLines.add(line)
+                    repairedLines.add(splitResult.extractedComment)
                     index += 1
                     continue
                 }
-                var normalizedLine = line.replace(Regex("^(\\s*)#(\\S)"), "$1# $2")
-                var cursor = index + 1
-                while (cursor < sourceLines.size) {
-                    val nextLine = sourceLines[cursor]
-                    val nextTrimmed = nextLine.trim()
-                    if (nextTrimmed.isEmpty() || nextTrimmed.startsWith("#")) break
-                    if (!isLikelyCommentContinuation(nextTrimmed)) break
-                    normalizedLine = normalizedLine + nextTrimmed
-                    cursor += 1
+                if (line.trimStart().startsWith("#")) {
+                    val merged = mergeCommentBlocks(lines, index)
+                    repairedLines.addAll(normalizeCommentLines(merged.comments))
+                    index = merged.nextIndex
+                    continue
                 }
-                rebuilt.add(normalizedLine)
-                index = cursor
+                val repairedLine = repairPythonCodeLine(line, nextLine)
+                repairedLines.add(repairedLine)
+                index += 1
             }
-            return rebuilt.joinToString("\n")
+            return repairedLines.joinToString("\n")
         }
 
-        private fun isLikelyCommentContinuation(text: String): Boolean {
-            if (text.length > 12) return false
-            if (text.contains(Regex("[=()\\[\\]{}:;]"))) return false
-            if (text.contains("    ")) return false
-            return text.contains(Regex("[\\p{IsHiragana}\\p{IsKatakana}\\p{IsHan}]"))
-        }
-
-        private fun splitObviouslyMergedPythonStatements(body: String): String {
-            var repaired = body
+        private fun repairPythonCodeLine(line: String, nextLine: String?): String {
+            var repaired = line
             repaired = repaired.replace(
-                Regex("(?<=[\\]\\)])(if|for|while|with|def|class|return|try|except|elif|else|finally|pass|break|continue)\\b"),
-                "\n$1",
+                Regex("^\\s*\\(([^)]{1,20})\\)([A-Za-z_][A-Za-z0-9_]*\\s*=.*)$"),
+                "# （$1）\n$2",
             )
-            repaired = repaired.replace(Regex("(?<=\\bTrue)(?=[A-Za-z_])"), "\n")
-            repaired = repaired.replace(Regex("(?<=\\bFalse)(?=[A-Za-z_])"), "\n")
-            repaired = repaired.replace(Regex("(?<=\\bNone)(?=[A-Za-z_])"), "\n")
-            repaired = repaired.replace(Regex("(?<=\\d)(?=[A-Za-z_])"), "\n")
+            if (repaired.trimStart().startsWith("---") && repaired.contains("pygame.")) {
+                repaired = repaired.trimStart().removePrefix("---").trimStart()
+            }
+            repaired = repaired.replace(Regex("(?<!\\S)(import\\s+[\\w.]+)import\\s+"), "$1\nimport ")
             repaired = repaired.replace(
-                Regex("(?<=[A-Za-z_\\d\\]\\)])(?=(?:for|if|while|with|try|except|elif|else|finally|return|pass|break|continue)\\b)"),
+                Regex("(?<=[\\]\"'A-Za-z_0-9\\)])\\s*#\\s*(\\S.*)$"),
+                "\n# $1",
+            )
+            repaired = repaired.replace(
+                Regex("(\\b(?:True|False|None)\\b|\\d)([A-Za-z_][A-Za-z0-9_]*\\s*=)"),
+                "$1\n$2",
+            )
+            repaired = repaired.replace(
+                Regex("(?<=\\))(?=(?:[A-Za-z_][A-Za-z0-9_]*\\s*=|pygame\\.))"),
                 "\n",
             )
+            repaired = repaired.replace(
+                Regex("(?<=\\])(for|if|while|with|return|pass|break|continue)\\b"),
+                "\n$1",
+            )
+            repaired = repaired.replace(
+                Regex("(?<=[^\\s=<>!])=(?=[^=\\s])"),
+                " = ",
+            )
+            repaired = repaired.replace(Regex("(?<=\\d),(?=\\d)"), ", ")
+            repaired = repaired.replace(Regex("(?<=\\S),(?=\\S)"), ", ")
+            if (nextLine != null && isCommentFragment(nextLine.trim())) {
+                repaired = repaired.replace(Regex("\\s+#\\s*$"), "")
+            }
             return repaired
+        }
+
+        private data class MergedCommentResult(
+            val comments: List<String>,
+            val nextIndex: Int,
+        )
+
+        private data class SplitCommentCodeResult(
+            val line: String,
+            val extractedComment: String? = null,
+        )
+
+        private fun mergeCommentBlocks(lines: List<String>, startIndex: Int): MergedCommentResult {
+            val comments = mutableListOf<String>()
+            var index = startIndex
+            while (index < lines.size) {
+                val current = lines[index]
+                val trimmed = current.trim()
+                if (trimmed.isEmpty()) break
+                if (trimmed.startsWith("#")) {
+                    comments.add(current)
+                    index += 1
+                    continue
+                }
+                if (!isCommentFragment(trimmed)) break
+                comments.add("# $trimmed")
+                index += 1
+            }
+            return MergedCommentResult(comments = comments, nextIndex = index)
+        }
+
+        private fun splitCommentFragmentAndCode(line: String): SplitCommentCodeResult {
+            val trimmed = line.trimStart()
+            if (!trimmed.startsWith("#")) return SplitCommentCodeResult(line = line)
+            val match = Regex("^(\\s*#\\s*[^=]+?)([A-Za-z_][A-Za-z0-9_]*\\s*=.*)$").find(line)
+            if (match != null) {
+                val commentLine = normalizePlainComment(match.groupValues[1])
+                val codeLine = match.groupValues[2].trimStart()
+                return SplitCommentCodeResult(line = commentLine, extractedComment = codeLine)
+            }
+            return SplitCommentCodeResult(line = line)
+        }
+
+        private fun normalizeCommentLines(lines: List<String>): List<String> {
+            if (lines.isEmpty()) return lines
+            val rebuilt = mutableListOf<String>()
+            var index = 0
+            while (index < lines.size) {
+                val current = lines[index]
+                val trimmed = current.trim()
+                if (!trimmed.startsWith("#")) {
+                    rebuilt.add(current)
+                    index += 1
+                    continue
+                }
+                val rawContent = trimmed.removePrefix("#").trim()
+                if (rawContent.replace(" ", "").contains("パラメータ---パドル")) {
+                    rebuilt.add("# --- ゲームオブジェクトのパラメータ ---")
+                    rebuilt.add("# パドル（プレイヤー）")
+                    index += 1
+                    continue
+                }
+                if (!rawContent.contains("---") && isCommentFragment(rawContent)) {
+                    val mergedContent = StringBuilder(rawContent)
+                    var cursor = index + 1
+                    while (cursor < lines.size) {
+                        val nextContent = lines[cursor].trim().removePrefix("#").trim()
+                        if (nextContent.isEmpty() || nextContent.contains("---") || !isCommentFragment(nextContent)) break
+                        mergedContent.append(nextContent)
+                        cursor += 1
+                    }
+                    rebuilt.add(normalizePlainComment("# ${mergedContent.toString()}"))
+                    index = cursor
+                    continue
+                }
+                val normalized = if (trimmed.contains("---")) normalizeDashComment(current) else normalizePlainComment(current)
+                rebuilt.add(normalized)
+                index += 1
+            }
+            return rebuilt
+        }
+
+        private fun normalizeDashComment(line: String): String {
+            var normalized = line.replace(Regex("^(\\s*)#\\s*"), "$1# ")
+            normalized = normalized.replace(Regex("\\s*---\\s*"), " --- ")
+            normalized = normalized.replace(Regex("\\s{2,}"), " ").trimEnd()
+            if (!normalized.trimStart().startsWith("#")) {
+                normalized = "# ${normalized.trim()}"
+            }
+            return normalized
+        }
+
+        private fun normalizePlainComment(line: String): String {
+            val trimmed = line.trim()
+            val content = trimmed.removePrefix("#").trim()
+            val merged = content
+                .replace(Regex("\\s+"), " ")
+                .replace(Regex("\\(\\s*"), "（")
+                .replace(Regex("\\s*\\)"), "）")
+            return "# $merged"
+        }
+
+        private fun isCommentFragment(text: String): Boolean {
+            if (text.isEmpty()) return false
+            if (looksLikeCodeLine(text)) return false
+            if (text.length > 18) return false
+            return containsJapanese(text) || text.all { it == '-' || it.isWhitespace() }
+        }
+
+        private fun containsJapanese(text: String): Boolean {
+            return text.any {
+                Character.UnicodeBlock.of(it) == Character.UnicodeBlock.HIRAGANA ||
+                    Character.UnicodeBlock.of(it) == Character.UnicodeBlock.KATAKANA ||
+                    Character.UnicodeBlock.of(it) == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS
+            }
+        }
+
+        private fun looksLikeCodeLine(text: String): Boolean {
+            if (text.contains(Regex("[=\\[\\]{}():]"))) return true
+            if (text.startsWith("import ")) return true
+            if (text.startsWith("from ")) return true
+            if (text.startsWith("for ") || text.startsWith("if ") || text.startsWith("while ")) return true
+            return false
         }
 
         private fun drainCompleteLines() {
