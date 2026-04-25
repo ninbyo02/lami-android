@@ -151,19 +151,36 @@ object MarkdownCodeRepair {
             }
 
             if (isCommentContinuationActive) {
-                val looseSplit = splitLooseCommentFragmentAndCode(trimmedLine)
-                val commentPart = looseSplit.line.trim()
-                if (commentPart.isNotBlank() && isCommentFragment(commentPart)) {
-                    commentFragments.add(commentPart)
-                    if (looseSplit.extractedCode != null) {
+                if (trimmedLine.startsWith("#")) {
+                    val split = splitCommentFragmentAndCode(trimmedLine)
+                    val content = split.line.trim().removePrefix("#").trim()
+                    if (content.isNotBlank()) {
+                        commentFragments.add(content)
+                    }
+                    if (split.extractedCode != null) {
                         flushCommentFragments()
-                        repairedLines.add(repairCodeLine(looseSplit.extractedCode))
+                        repairedLines.add(repairCodeLine(split.extractedCode))
                     }
                     index += 1
                     continue
                 }
-                if (isCommentFragment(trimmedLine) && !looksLikeCodeLine(trimmedLine)) {
+                val looseSplit = splitLooseCommentFragmentAndCode(trimmedLine)
+                val commentPart = looseSplit.line.trim()
+                if (looseSplit.extractedCode != null && commentPart.isNotBlank() && shouldCollectCommentFragment(commentPart)) {
+                    commentFragments.add(commentPart)
+                    flushCommentFragments()
+                    repairedLines.add(repairCodeLine(looseSplit.extractedCode))
+                    index += 1
+                    continue
+                }
+                if (shouldCollectCommentFragment(trimmedLine) && !looksLikeCodeLine(trimmedLine)) {
                     commentFragments.add(trimmedLine)
+                    index += 1
+                    continue
+                }
+                if (looseSplit.extractedCode != null) {
+                    flushCommentFragments()
+                    repairedLines.add(repairCodeLine(looseSplit.extractedCode))
                     index += 1
                     continue
                 }
@@ -413,11 +430,19 @@ object MarkdownCodeRepair {
     private fun normalizePlainComment(line: String): String {
         val trimmed = line.trim()
         val content = trimmed.removePrefix("#").trim()
-        val merged = content
+        var merged = content
             .replace(Regex("\\s+"), "")
             .replace("（", "(")
             .replace("）", ")")
+        merged = merged.replace(Regex("^(\\d+\\.[^()]+)\\("), "$1 (")
         return "# $merged"
+    }
+
+    private fun shouldCollectCommentFragment(text: String): Boolean {
+        if (text.isBlank()) return false
+        if (isNumberedJapaneseLine(text)) return true
+        if (text.matches(Regex("^[、。,.:：()（）\\-\\s]+$"))) return true
+        return isCommentFragment(text) || isLooseJapaneseCommentLine(text)
     }
 
     private fun isCommentFragment(text: String): Boolean {
