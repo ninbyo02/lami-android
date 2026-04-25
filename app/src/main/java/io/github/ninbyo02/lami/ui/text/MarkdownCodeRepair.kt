@@ -123,11 +123,10 @@ object MarkdownCodeRepair {
         repaired = repaired.replace(Regex("(pygame\\.quit\\(\\))(sys\\.exit\\(\\))"), "$1\n$2")
         repaired = repaired.replace(Regex("(ball_x\\s*\\+=\\s*ball_dx)(ball_y\\s*\\+=)"), "$1\n$2")
         repaired = repaired.replace(Regex("(\\bFalse\\b)(score\\s*=)"), "$1\n$2")
-        repaired = repaired.replace(Regex("(?<=\\S)\\s*\\+\\s*=(?=\\s*\\S)"), " += ")
-        repaired = repaired.replace(
-            Regex("([A-Za-z_][A-Za-z0-9_]*\\s*=\\s*[^#\\n]+?)(?=(?:if|for|while|def|class|return|print|pygame\\.)\\b)"),
-            "$1\n",
-        )
+        repaired = repaired.replace(Regex("(\\bFalse\\b)(score\\s*\\+=)"), "$1\n$2")
+        repaired = repaired.replace(Regex("\\)el\\nif\\s+"), ")\nelif ")
+        repaired = repaired.replace(Regex("\\)elif\\s+"), ")\nelif ")
+        repaired = repaired.replace(Regex("\\s*\\+=\\s*"), " += ")
         repaired = repaired.replace(
             Regex("(?<=[\\]\\\"'A-Za-z_0-9\\)])\\s*#\\s*(\\S.*)$"),
             "\n# $1",
