@@ -86,57 +86,74 @@ object MarkdownCodeRepair {
 
     private fun repairPythonBody(body: String): String {
         if (body.isEmpty()) return body
-        val lines = body.split('\n')
-        if (lines.isEmpty()) return body
+        val sourceLines = body.split('\n')
+        if (sourceLines.isEmpty()) return body
 
+        val lines = sourceLines.flatMap(::expandMergedLineHints)
         val repairedLines = mutableListOf<String>()
+        val commentFragments = mutableListOf<String>()
+
+        fun flushCommentFragments() {
+            if (commentFragments.isEmpty()) return
+            val merged = commentFragments.joinToString(separator = "") { it.trim() }.trim()
+            repairedLines.add(normalizePlainComment("# $merged"))
+            commentFragments.clear()
+        }
+
         var index = 0
         while (index < lines.size) {
-            var line = lines[index]
+            var line = sanitizeLeadingDashCodeResidue(lines[index])
             val nextLine = lines.getOrNull(index + 1)
+
             val inlineHashSplit = splitInlineHashCodeAndComment(line)
             if (inlineHashSplit != null) {
+                flushCommentFragments()
                 repairedLines.add(repairCodeLine(inlineHashSplit.code))
-                val merged = mergeCommentBlocks(lines, index + 1, inlineHashSplit.commentSeed)
-                repairedLines.addAll(normalizeCommentLines(merged.comments))
-                repairedLines.addAll(merged.extractedCodeLines.map(::repairCodeLine))
-                index = merged.nextIndex
-                continue
-            }
-            if (line.trimEnd() == "el" && nextLine?.trimStart()?.startsWith("if ") == true) {
-                repairedLines.add("${line.substringBefore("el")}elif ${nextLine.trimStart().removePrefix("if ").trimStart()}")
-                index += 2
-                continue
-            }
-            val split = splitCommentFragmentAndCode(line)
-            line = split.line
-            if (split.extractedCode != null) {
-                repairedLines.add(line)
-                repairedLines.add(repairCodeLine(split.extractedCode))
-                index += 1
-                continue
-            }
-            if (line.trimStart().startsWith("#")) {
-                val merged = mergeCommentBlocks(lines, index)
-                repairedLines.addAll(normalizeCommentLines(merged.comments))
-                repairedLines.addAll(merged.extractedCodeLines.map(::repairCodeLine))
-                index = merged.nextIndex
-                continue
-            }
-            val trimmedLine = line.trim()
-            if (isLooseJapaneseCommentLine(trimmedLine) && !looksLikeCodeLine(trimmedLine)) {
-                val lastComment = repairedLines.lastOrNull()?.takeIf { it.trimStart().startsWith("#") }
-                if (lastComment != null) {
-                    repairedLines[repairedLines.lastIndex] = mergeCommentText(lastComment, trimmedLine)
-                } else {
-                    repairedLines.add(normalizePlainComment("# $trimmedLine"))
+                if (inlineHashSplit.commentSeed.isNotBlank()) {
+                    commentFragments.add(inlineHashSplit.commentSeed)
                 }
                 index += 1
                 continue
             }
+
+            if (line.trimStart().startsWith("#")) {
+                val split = splitCommentFragmentAndCode(line)
+                val content = split.line.trim().removePrefix("#").trim()
+                if (content.isNotBlank()) {
+                    commentFragments.add(content)
+                }
+                if (split.extractedCode != null) {
+                    flushCommentFragments()
+                    repairedLines.add(repairCodeLine(split.extractedCode))
+                }
+                index += 1
+                continue
+            }
+
+            val trimmedLine = line.trim()
+            if (trimmedLine.isEmpty()) {
+                flushCommentFragments()
+                repairedLines.add("")
+                index += 1
+                continue
+            }
+
+            if (isLooseJapaneseCommentLine(trimmedLine) && !looksLikeCodeLine(trimmedLine)) {
+                commentFragments.add(trimmedLine)
+                index += 1
+                continue
+            }
+
+            flushCommentFragments()
             repairedLines.add(repairCodeLine(line, nextLine))
             index += 1
         }
+
+        if (commentFragments.isNotEmpty()) {
+            val merged = commentFragments.joinToString(separator = "") { it.trim() }.trim()
+            repairedLines.add(normalizePlainComment("# $merged"))
+        }
+
         return repairedLines.joinToString("\n")
     }
 
@@ -259,21 +276,26 @@ object MarkdownCodeRepair {
         val trimmed = line.trimStart()
         if (!trimmed.startsWith("#")) return SplitCommentCodeResult(line = line)
         val content = trimmed.removePrefix("#").trim()
+        if (content.isBlank()) return SplitCommentCodeResult(line = "#")
+
+        val headingWithCode = Regex("^---\\s*(.+?)\\s*---\\s*(.+)$").matchEntire(content)
+        if (headingWithCode != null && looksLikeCodeLine(headingWithCode.groupValues[2])) {
+            val heading = "# --- ${headingWithCode.groupValues[1].trim()} ---"
+            return SplitCommentCodeResult(
+                line = normalizeDashComment(heading),
+                extractedCode = sanitizeLeadingDashCodeResidue(headingWithCode.groupValues[2].trim()),
+            )
+        }
+
         val codeStart = findCodeStartIndex(content)
         if (codeStart != null) {
-            val commentLine = normalizePlainComment("# ${content.substring(0, codeStart)}")
-            val codeLine = content.substring(codeStart).trimStart()
+            val commentText = content.substring(0, codeStart).trim()
+            val codeLine = sanitizeLeadingDashCodeResidue(content.substring(codeStart).trimStart())
+            val commentLine = if (commentText.isBlank()) "#" else normalizePlainComment("# $commentText")
             return SplitCommentCodeResult(line = commentLine, extractedCode = codeLine)
         }
-        if (content.endsWith("})")) {
-            val commentLine = normalizePlainComment("# ${content.removeSuffix("})")}")
-            return SplitCommentCodeResult(line = commentLine, extractedCode = "})")
-        }
-        if (content.endsWith(")")) {
-            val commentLine = normalizePlainComment("# ${content.removeSuffix(")")}")
-            return SplitCommentCodeResult(line = commentLine, extractedCode = ")")
-        }
-        return SplitCommentCodeResult(line = line)
+
+        return SplitCommentCodeResult(line = normalizePlainComment("# $content"))
     }
 
     private fun splitLooseCommentFragmentAndCode(fragment: String): SplitCommentCodeResult {
@@ -380,8 +402,8 @@ object MarkdownCodeRepair {
 
     private fun isLooseJapaneseCommentLine(text: String): Boolean {
         if (text.isBlank()) return false
-        if (!containsJapanese(text)) return false
         if (text.trimStart().startsWith("#")) return false
+        if (!containsJapanese(text) && !text.matches(Regex("^[、。,.()（）「」『』!?！？:：;\\-\\s]+$"))) return false
         return isCommentFragment(text)
     }
 
@@ -397,7 +419,7 @@ object MarkdownCodeRepair {
 
     private fun looksLikeCodeLine(text: String): Boolean {
         if (text.contains(Regex("\\b(import|from|if|elif|else|for|while|def|class|return)\\b"))) return true
-        if (text.contains("pygame.") || text.contains("screen.") || text.contains("font.") || text.contains("clock.")) return true
+        if (text.contains("pygame.") || text.contains("screen.") || text.contains("font.") || text.contains("clock.") || text.contains("keys")) return true
         if (text.contains(Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*(?:=|\\+=|-=|\\*=|/=)\\s*"))) return true
         if (text.contains(Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*\\("))) return true
         if (text.contains(Regex("[\\[\\]{}:]"))) return true
@@ -421,6 +443,31 @@ object MarkdownCodeRepair {
         if (codePart.isEmpty() || codePart.trimStart().startsWith("#")) return null
         val commentSeed = line.substring(hashIndex + 1).trim()
         return InlineHashSplitResult(code = codePart, commentSeed = commentSeed)
+    }
+
+    private fun sanitizeLeadingDashCodeResidue(line: String): String {
+        val trimmed = line.trimStart()
+        if (!trimmed.startsWith("---")) return line
+        val candidate = trimmed.removePrefix("---").trimStart()
+        if (!looksLikeCodeLine(candidate)) return line
+        return candidate
+    }
+
+    private fun expandMergedLineHints(line: String): List<String> {
+        if (line.isBlank()) return listOf(line)
+        var expanded = line
+        expanded = expanded.replace("import pygameimport sys", "import pygame\nimport sys")
+        expanded = expanded.replace(Regex("(?<=\\S)(import\\s+)"), "\n$1")
+        expanded = expanded.replace(Regex("(SCREEN_WIDTH\\s*=\\s*\\d+)(SCREEN_HEIGHT\\s*=\\s*\\d+)(screen\\s*=)"), "$1\n$2\n$3")
+        expanded = expanded.replace("blocks = []for row", "blocks = []\nfor row")
+        expanded = expanded.replace("):for col", "):\nfor col")
+        expanded = expanded.replace("pygame.quit()sys.exit()", "pygame.quit()\nsys.exit()")
+        expanded = expanded.replace("sys.exit()if ", "sys.exit()\nif ")
+        expanded = expanded.replace("ball_x += ball_dxball_y += ball_dy", "ball_x += ball_dx\nball_y += ball_dy")
+        expanded = expanded.replace(Regex("(\\bFalse)(score\\s*(?:=|\\+=))"), "$1\n$2")
+        expanded = expanded.replace(Regex("(\\bFalse)(win_game\\s*=)"), "$1\n$2")
+        expanded = expanded.replace(Regex("(block\\['status']\\s*=\\s*False)(score\\s*\\+=\\s*\\d+)"), "$1\n$2")
+        return expanded.split('\n')
     }
 
     private fun splitKnownMergedStatements(line: String): String {
