@@ -860,4 +860,102 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun gameObjectParameterFragments_areMergedIntoDashHeading() {
+        val input = """
+            ```python
+            # --- ゲーム ---
+            # オブジェクト
+            # の
+            パラメータ
+            ---
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun gameOverJudgementComment_isSeparatedFromTrailingCode() {
+        val input = """
+            ```python
+            # 7.ゲーム
+            オーバー
+            # 判定
+            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:game_over = True
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 7.ゲームオーバー判定 (ボールが底に落ちた)
+                if ball_y + ball_radius > SCREEN_HEIGHT:
+                game_over = True
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun gameStateResetFragments_areMergedBeforeCode() {
+        val input = """
+            ```python
+            ゲーム
+            # 状態
+            # を
+            # リ
+            # セット
+            game_over = False
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ゲーム状態をリセット
+                game_over = False
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun paddlePlayerComment_keepsSpaceBeforeParenthesis() {
+        val input = """
+            ```python
+            # パドル
+            (プレイヤー)
+            paddle_width = 10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル (プレイヤー)
+                paddle_width = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
