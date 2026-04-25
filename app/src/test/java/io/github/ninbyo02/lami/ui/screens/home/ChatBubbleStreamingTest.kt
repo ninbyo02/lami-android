@@ -85,7 +85,7 @@ class ChatBubbleStreamingTest {
     }
 
     @Test
-    fun sanitizeAssistantMessageForDisplay_removesWsTraceLines() {
+    fun sanitizeAssistantMessageForDisplay_removesWholeWsTraceBlock() {
         val raw = """
             === WS TRACE ===
             RAW:
@@ -98,6 +98,21 @@ class ChatBubbleStreamingTest {
 
         val sanitized = sanitizeAssistantMessageForDisplay(raw)
 
-        assertEquals("a b\nc\n回答本文", sanitized)
+        assertEquals("", sanitized)
+    }
+
+    @Test
+    fun sanitizeAssistantMessageForDisplay_keepsBodyBeforeWsTraceBlock() {
+        val raw = """
+            回答本文の先頭
+            追記です
+            === WS TRACE ===
+            RAW:
+            hidden
+        """.trimIndent()
+
+        val sanitized = sanitizeAssistantMessageForDisplay(raw)
+
+        assertEquals("回答本文の先頭\n追記です", sanitized)
     }
 }

@@ -769,14 +769,15 @@ fun sanitizeAssistantMessageForDisplay(message: String): String {
         "NL:",
         "----",
     )
-    val cleanedLines = message
-        .lineSequence()
-        .filterNot { line ->
-            val trimmed = line.trim()
-            wsTraceKeywords.any { keyword -> trimmed.startsWith(keyword) }
+    val visibleLines = mutableListOf<String>()
+    for (line in message.lineSequence()) {
+        val trimmed = line.trim()
+        if (wsTraceKeywords.any { keyword -> trimmed.startsWith(keyword) }) {
+            break
         }
-        .toList()
-    return cleanedLines
+        visibleLines += line
+    }
+    return visibleLines
         .joinToString("\n")
         .replace('␠', ' ')
         .trim()
