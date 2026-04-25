@@ -500,6 +500,142 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun commentFragments_mergeUntilNextCodeLine() {
+        val input = """
+            ```python
+            #
+            衝突
+            した
+            方向
+            を
+            判定
+            し
+            、
+            ボール
+            #
+            の
+            #
+            速度
+            #
+            を
+            #
+            反
+            #
+            転
+            #
+            させる
+            if ball_dy > 0:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 衝突した方向を判定し、ボールの速度を反転させる
+                if ball_dy > 0:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun headingCommentFragments_areNormalized() {
+        val input = """
+            ```python
+            #
+            ---
+            初期
+            設定
+            ---
+            pygame.init()
+            #
+            ---
+            メ
+            イン
+            ループ
+            ---
+            clock = pygame.time.Clock()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- 初期設定 ---
+                pygame.init()
+                # --- メインループ ---
+                clock = pygame.time.Clock()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun numberedJapaneseCommentThenCode_isMerged() {
+        val input = """
+            ```python
+            7. ゲーム
+            オーバー
+            判定
+            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:game_over = True
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 7.ゲームオーバー判定 (ボールが底に落ちた)
+                if ball_y + ball_radius > SCREEN_HEIGHT:
+                game_over = True
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fragmentedRestartComment_isMerged() {
+        val input = """
+            ```python
+            #
+            リ
+            スタート
+            処理
+            keys = pygame.key.get_pressed()
+            #
+            ゲーム
+            状態
+            を
+            リ
+            セット
+            game_over = False
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # リスタート処理
+                keys = pygame.key.get_pressed()
+                # ゲーム状態をリセット
+                game_over = False
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
     fun markdownBoldBulletCollapse_isNormalizedOutsideCodeFence() {
         val input = """
             ***イベント処理**:
