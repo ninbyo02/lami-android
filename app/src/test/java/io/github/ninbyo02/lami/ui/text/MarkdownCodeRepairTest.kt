@@ -1,0 +1,131 @@
+package io.github.ninbyo02.lami.ui.text
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class MarkdownCodeRepairTest {
+
+    @Test
+    fun splitCommentLines_mergesJapaneseCommentFragments() {
+        val input = """
+            ```python
+            #
+            # 画面
+            # サイズ
+            SCREEN_WIDTH =80
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 画面サイズ
+                SCREEN_WIDTH = 80
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun splitCommentLines_doesNotMergeCode() {
+        val input = """
+            ```python
+            #
+             パ
+            ドル
+             (プレイヤー)paddle_width =10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル(プレイヤー)
+                paddle_width = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun longJapaneseComment_isOneLine() {
+        val input = """
+            ```python
+            #
+            # 衝突した位置に応じてdxを調整することで
+            、
+            より
+            リアル
+            な
+            跳
+            ね
+            返
+            りを
+            実現
+            できます
+            が
+            、
+            ここでは
+            単純
+            に
+            反
+            転
+            させ
+            ます
+            。
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun codeMerges_areSeparated() {
+        val input = """
+            ```python
+            import pygameimport sys#
+            pygame.init()#
+            SCREEN_WIDTH =80SCREEN_HEIGHT =60screen =
+            ball_x += ball_dxball_y += ball_dy
+            block['status'] = Falsescore +=10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                import pygame
+                import sys
+                #
+                pygame.init()
+                #
+                SCREEN_WIDTH = 80
+                SCREEN_HEIGHT = 60
+                screen =
+                ball_x += ball_dx
+                ball_y += ball_dy
+                block['status'] = False
+                score += 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+}

@@ -961,7 +961,7 @@ fun Home(
         generationTimeMs: Long? = null,
     ): Int? {
         // finalize 経路は「保存してよい最終本文」のみを受け取る想定。
-        val finalizedResponseForPersist = MarkdownCodeRepair.repair(response).trim()
+        val finalizedResponseForPersist = buildFinalizedStreamingResponseForPersist(response)
         if (finalizedResponseForPersist.isBlank()) return streamingAssistantMessageId
         if (finalizedResponseForPersist == "コード生成中…") {
             logStreamTrace("STREAM final skip displayOnlyText")
@@ -2261,7 +2261,7 @@ fun Home(
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         onPartial = { partial ->
                                                                             if (localStopRequested) return@runWithHeldEngine
-                                                                            val normalizedPartial = partial.trim()
+                                                                            val normalizedPartial = normalizeStreamingPartialForRender(partial)
                                                                             val debugText = buildString {
                                                                                 appendLine("=== WS TRACE ===")
                                                                                 appendLine("RAW:")
@@ -2353,7 +2353,7 @@ fun Home(
                                                                                 mediaPipeProbeContext = mediaPipeProbeContext,
                                                                                 onPartial = legacyPartial@{ partial ->
                                                                                     if (localStopRequested) return@legacyPartial
-                                                                                    val normalizedPartial = partial.trim()
+                                                                                    val normalizedPartial = normalizeStreamingPartialForRender(partial)
                                                                                     val debugText = buildString {
                                                                                         appendLine("=== WS TRACE ===")
                                                                                         appendLine("RAW:")
@@ -2443,7 +2443,7 @@ fun Home(
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         onPartial = legacyPartial@{ partial ->
                                                                             if (localStopRequested) return@legacyPartial
-                                                                            val normalizedPartial = partial.trim()
+                                                                            val normalizedPartial = normalizeStreamingPartialForRender(partial)
                                                                             val debugText = buildString {
                                                                                 appendLine("=== WS TRACE ===")
                                                                                 appendLine("RAW:")
@@ -3610,6 +3610,16 @@ fun Home(
 }
 }
 
+
+
+internal fun normalizeStreamingPartialForRender(partial: String): String {
+    return partial.trim()
+}
+
+internal fun buildFinalizedStreamingResponseForPersist(response: String): String {
+    val normalizedFinalText = response.trim()
+    return MarkdownCodeRepair.repair(normalizedFinalText).trim()
+}
 fun shouldRefreshRender(
     prev: String,
     next: String,
