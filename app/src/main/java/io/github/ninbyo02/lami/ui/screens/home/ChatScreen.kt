@@ -2267,11 +2267,10 @@ fun Home(
                                                                                     raw = partial,
                                                                                     normalized = normalizedPartial,
                                                                                 )
-                                                                                val repairedPartial = MarkdownCodeRepair.repair(normalizedPartial)
-                                                                                localStreamingResponseText = repairedPartial
+                                                                                localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
-                                                                                    response = repairedPartial,
+                                                                                    response = normalizedPartial,
                                                                                 )
                                                                             }
                                                                         },
@@ -2360,11 +2359,10 @@ fun Home(
                                                                                             raw = partial,
                                                                                             normalized = normalizedPartial,
                                                                                         )
-                                                                                        val repairedPartial = MarkdownCodeRepair.repair(normalizedPartial)
-                                                                                        localStreamingResponseText = repairedPartial
+                                                                                        localStreamingResponseText = normalizedPartial
                                                                                         upsertStreamingAssistantPlaceholderSerialized(
                                                                                             chatId = currentChatId,
-                                                                                            response = repairedPartial,
+                                                                                            response = normalizedPartial,
                                                                                         )
                                                                                     }
                                                                                 },
@@ -2451,11 +2449,10 @@ fun Home(
                                                                                     raw = partial,
                                                                                     normalized = normalizedPartial,
                                                                                 )
-                                                                                val repairedPartial = MarkdownCodeRepair.repair(normalizedPartial)
-                                                                                localStreamingResponseText = repairedPartial
+                                                                                localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
-                                                                                    response = repairedPartial,
+                                                                                    response = normalizedPartial,
                                                                                 )
                                                                             }
                                                                         },
