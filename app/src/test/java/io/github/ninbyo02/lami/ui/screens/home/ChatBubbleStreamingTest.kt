@@ -70,4 +70,34 @@ class ChatBubbleStreamingTest {
         assertEquals("説明です\nもう少し詳しく教えてください", split.stable)
         assertTrue(split.unstable.isEmpty())
     }
+
+    @Test
+    fun buildAssistantDisplayText_tailLimit_appliesNoticeAndTail() {
+        val original = "0123456789"
+        val display = buildAssistantDisplayText(
+            originalMessage = original,
+            tailLimitChars = 4,
+        )
+
+        assertTrue(display.isTrimmedForRender)
+        assertTrue(display.text.startsWith("...(前半省略 / 表示負荷軽減中)...\n"))
+        assertTrue(display.text.endsWith("6789"))
+    }
+
+    @Test
+    fun sanitizeAssistantMessageForDisplay_removesWsTraceLines() {
+        val raw = """
+            === WS TRACE ===
+            RAW:
+            a␠b
+            ----
+            NORMALIZED:
+            c
+            回答本文
+        """.trimIndent()
+
+        val sanitized = sanitizeAssistantMessageForDisplay(raw)
+
+        assertEquals("a b\nc\n回答本文", sanitized)
+    }
 }

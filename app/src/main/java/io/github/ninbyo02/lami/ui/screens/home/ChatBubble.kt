@@ -733,6 +733,55 @@ data class StreamingSplit(
     val unstable: String,
 )
 
+data class AssistantDisplayText(
+    val text: String,
+    val isTrimmedForRender: Boolean,
+)
+
+private const val ASSISTANT_RENDER_TRIM_NOTICE = "...(前半省略 / 表示負荷軽減中)..."
+
+fun buildAssistantDisplayText(
+    originalMessage: String,
+    tailLimitChars: Int,
+): AssistantDisplayText {
+    val sanitized = sanitizeAssistantMessageForDisplay(originalMessage)
+    if (tailLimitChars <= 0 || sanitized.length <= tailLimitChars) {
+        return AssistantDisplayText(
+            text = sanitized,
+            isTrimmedForRender = false,
+        )
+    }
+    return AssistantDisplayText(
+        text = "$ASSISTANT_RENDER_TRIM_NOTICE\n${sanitized.takeLast(tailLimitChars)}",
+        isTrimmedForRender = true,
+    )
+}
+
+fun sanitizeAssistantMessageForDisplay(message: String): String {
+    if (message.isBlank()) return message
+    val wsTraceKeywords = setOf(
+        "=== WS TRACE ===",
+        "=== RUNNER WS TRACE ===",
+        "RAW:",
+        "NORMALIZED:",
+        "LEN:",
+        "SPACES:",
+        "NL:",
+        "----",
+    )
+    val cleanedLines = message
+        .lineSequence()
+        .filterNot { line ->
+            val trimmed = line.trim()
+            wsTraceKeywords.any { keyword -> trimmed.startsWith(keyword) }
+        }
+        .toList()
+    return cleanedLines
+        .joinToString("\n")
+        .replace('␠', ' ')
+        .trim()
+}
+
 fun splitStreamingText(text: String): StreamingSplit {
     if (text.isEmpty()) return StreamingSplit(stable = "", unstable = "")
     val lines = text.lines()
