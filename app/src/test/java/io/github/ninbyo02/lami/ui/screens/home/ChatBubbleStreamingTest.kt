@@ -157,6 +157,36 @@ class ChatBubbleStreamingTest {
     }
 
     @Test
+    fun shouldEnableAssistantTextSelection_streaming_returnsFalse() {
+        val result = shouldEnableAssistantTextSelection(
+            message = "短い回答です",
+            isStreaming = true,
+        )
+
+        assertFalse(result)
+    }
+
+    @Test
+    fun shouldEnableAssistantTextSelection_over3000Chars_returnsFalse() {
+        val result = shouldEnableAssistantTextSelection(
+            message = "a".repeat(3001),
+            isStreaming = false,
+        )
+
+        assertFalse(result)
+    }
+
+    @Test
+    fun shouldEnableAssistantTextSelection_shortMessage_returnsTrue() {
+        val result = shouldEnableAssistantTextSelection(
+            message = "短い回答です",
+            isStreaming = false,
+        )
+
+        assertTrue(result)
+    }
+
+    @Test
     fun finalStreamingPersistence_onlyAppliesRepairAtFinal() {
         val fused = "```python\nimport pygameimport sys#\n```"
 

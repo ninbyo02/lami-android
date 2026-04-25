@@ -28,7 +28,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -93,6 +92,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.hypot
 
 private const val ZOOM_EPS = 1.01f
+private const val ASSISTANT_TEXT_SELECTION_MAX_CHARS = 3000
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -634,6 +634,13 @@ fun PlainAssistantMessage(
     inferenceStats: InferenceStats? = null,
     onInferenceStatsClick: (() -> Unit)? = null,
 ) {
+    // 長文回答ではスクロール優先のため選択を無効化する。
+    val shouldEnableAssistantTextSelection = remember(message, isStreaming) {
+        shouldEnableAssistantTextSelection(
+            message = message,
+            isStreaming = isStreaming,
+        )
+    }
     val usePlainTextDuringStreaming = remember(message, isStreaming) {
         shouldUsePlainTextForStreamingCodeFence(
             message = message,
@@ -666,17 +673,15 @@ fun PlainAssistantMessage(
             .testTag("assistantPlainMessage")
     ) {
         if (usePlainTextDuringStreaming) {
-            SelectionContainer {
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         } else {
             MessageSegments(
                 segments = segments,
-                enableTextSelection = true,
+                enableTextSelection = shouldEnableAssistantTextSelection,
                 isStreaming = isStreaming,
             )
             val unstableTail = streamingSplit.unstable
@@ -1042,6 +1047,13 @@ internal fun shouldShowCodeGeneratingState(
     isSegmentClosed: Boolean,
 ): Boolean = isStreaming && !isSegmentClosed
 
+internal fun shouldEnableAssistantTextSelection(
+    message: String,
+    isStreaming: Boolean,
+): Boolean = !isStreaming &&
+    message.length <= ASSISTANT_TEXT_SELECTION_MAX_CHARS &&
+    !message.contains("```")
+
 private fun replaceInlineCodeSpans(
     textView: TextView,
     text: Spannable,
@@ -1250,16 +1262,14 @@ private fun CodeBlockCard(
                             )
                         }
                     }
-                    SelectionContainer {
-                        Text(
-                            text = highlightedCode,
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            fontFamily = FontFamily.Monospace,
-                            style = codeTextStyle,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            softWrap = false,
-                        )
-                    }
+                    Text(
+                        text = highlightedCode,
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        fontFamily = FontFamily.Monospace,
+                        style = codeTextStyle,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        softWrap = false,
+                    )
                 }
             }
         }
