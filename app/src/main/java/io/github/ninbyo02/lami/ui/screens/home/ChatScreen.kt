@@ -226,6 +226,8 @@ private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
 private const val DEV_UI_DEBUG_MODE = true
+private const val DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED = true
+private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
 private const val DEV_USE_HELD_PATH_ONLY = false
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
 
@@ -724,6 +726,7 @@ fun Home(
     var selectedPromptMessageTextForStatsSheet by remember { mutableStateOf<String?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var showInferenceStatsSheet by remember { mutableStateOf(false) }
+    var devUiAliveSeconds by remember(effectiveChatId) { mutableStateOf(0) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
     var lastStreamingAssistantChunkForDev by remember { mutableStateOf<String?>(null) }
@@ -761,6 +764,27 @@ fun Home(
         if (shouldRefreshRenderText) {
             streamingResponseTextForRender = latestText
         }
+    }
+    LaunchedEffect(effectiveChatId, BuildConfig.DEBUG) {
+        if (!BuildConfig.DEBUG) return@LaunchedEffect
+        devUiAliveSeconds = 0
+        while (true) {
+            delay(1000)
+            devUiAliveSeconds += 1
+        }
+    }
+    val devStreamingTailLimitEnabled = BuildConfig.DEBUG && DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED
+    val streamingResponseTextForDisplay = (
+        streamingResponseTextForRender ?: streamingResponseText
+        )?.let { renderText ->
+        if (devStreamingTailLimitEnabled && renderText.length > DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS) {
+            renderText.takeLast(DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS)
+        } else {
+            renderText
+        }
+    }
+    val devStreamingDisplayLineCount = remember(streamingResponseTextForDisplay) {
+        streamingResponseTextForDisplay?.lineSequence()?.count() ?: 0
     }
 
     fun logStreamTrace(message: String) {
@@ -2899,8 +2923,7 @@ fun Home(
             } else {
                 val currentChatId = effectiveChatId
                 val messagesForListBase: List<Message> = allChatsOrNull
-                val streamingResponseTextForRenderValue =
-                    streamingResponseTextForRender ?: streamingResponseText
+                val streamingResponseTextForRenderValue = streamingResponseTextForDisplay
                 val shouldShowTransientAssistantRow =
                     currentChatId != null &&
                         streamingAssistantMessageId == null &&
@@ -3373,6 +3396,44 @@ fun Home(
                                         contentDescription = "最新へ"
                                     )
                                 }
+                            }
+                            if (BuildConfig.DEBUG) {
+                                Text(
+                                    text = buildString {
+                                        append("DEV stream")
+                                        append("\nrawLen=")
+                                        append(streamingResponseText?.length ?: 0)
+                                        append(" renderLen=")
+                                        append(streamingResponseTextForRender?.length ?: 0)
+                                        append(" localLen=")
+                                        append(localStreamingResponseText?.length ?: 0)
+                                        append("\nstreaming=")
+                                        append(isInferenceRunningUi)
+                                        append(" lines=")
+                                        append(devStreamingDisplayLineCount)
+                                        append(" alive=")
+                                        append(devUiAliveSeconds)
+                                        append("s")
+                                        append("\nuiTailLimit=")
+                                        append(devStreamingTailLimitEnabled)
+                                        append(" (")
+                                        append(DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS)
+                                        append(")")
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(
+                                            start = 8.dp,
+                                            bottom = ComposerMinHeight + ComposerBottomGapHeight + bottomDp + 8.dp,
+                                        )
+                                        .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Medium,
+                                    ),
+                                    color = Color.White.copy(alpha = 0.92f),
+                                )
                             }
                         }
                     }
