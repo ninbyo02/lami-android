@@ -155,4 +155,15 @@ class ChatBubbleStreamingTest {
 
         assertFalse(result)
     }
+
+    @Test
+    fun finalStreamingPersistence_onlyAppliesRepairAtFinal() {
+        val fused = "```python\nimport pygameimport sys#\n```"
+
+        val partial = normalizeStreamingPartialForRender(fused)
+        val final = buildFinalizedStreamingResponseForPersist(fused)
+
+        assertEquals(fused, partial)
+        assertEquals("```python\nimport pygame\nimport sys\n#\n```", final)
+    }
 }
