@@ -145,4 +145,14 @@ class ChatBubbleStreamingTest {
 
         assertFalse(result)
     }
+
+    @Test
+    fun shouldShowCodeGeneratingState_nonStreamingWithOpenCodeFence_returnsFalse() {
+        val result = shouldShowCodeGeneratingState(
+            isStreaming = false,
+            isSegmentClosed = false,
+        )
+
+        assertFalse(result)
+    }
 }
