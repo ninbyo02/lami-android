@@ -1265,6 +1265,7 @@ private fun CodeBlockCard(
                             )
                         }
                     }
+                    val codeTextColor = MaterialTheme.colorScheme.onSurface.toArgb()
                     AndroidView(
                         factory = { context ->
                             TextView(context).apply {
@@ -1289,7 +1290,7 @@ private fun CodeBlockCard(
                             textView.isFocusableInTouchMode = !disableBodyInteractions
                             textView.setHorizontallyScrolling(false)
                             textView.text = highlightedCode
-                            textView.setTextColor(MaterialTheme.colorScheme.onSurface.toArgb())
+                            textView.setTextColor(codeTextColor)
                             textView.textSize = codeTextStyle.fontSize.value
                             textView.setLineSpacing(0f, 0.94f)
                         },
