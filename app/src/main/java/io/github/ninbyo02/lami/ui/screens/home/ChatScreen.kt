@@ -774,14 +774,18 @@ fun Home(
         }
     }
     val devStreamingTailLimitEnabled = BuildConfig.DEBUG && DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED
+    val isStreamingRenderActive =
+        isInferenceRunningUi || !localStreamingResponseText.isNullOrBlank()
+    val assistantRenderTailLimitChars = DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS
     val streamingResponseTextForDisplay = (
         streamingResponseTextForRender ?: streamingResponseText
         )?.let { renderText ->
-        if (devStreamingTailLimitEnabled && renderText.length > DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS) {
-            renderText.takeLast(DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS)
-        } else {
-            renderText
-        }
+        val shouldTrimForRender = devStreamingTailLimitEnabled || isStreamingRenderActive
+        if (!shouldTrimForRender) return@let sanitizeAssistantMessageForDisplay(renderText)
+        buildAssistantDisplayText(
+            originalMessage = renderText,
+            tailLimitChars = assistantRenderTailLimitChars,
+        ).text
     }
     val devStreamingDisplayLineCount = remember(streamingResponseTextForDisplay) {
         streamingResponseTextForDisplay?.lineSequence()?.count() ?: 0
@@ -3246,12 +3250,21 @@ fun Home(
                                                 // 推論統計は保存済み assistant message の値のみを表示する。
                                                 message.toInferenceStats()
                                             val canShowTtsActions = ttsEnabled
+                                            val isStreamingMessageRow =
+                                                isInferenceRunningUi &&
+                                                    streamingAssistantMessageId == null &&
+                                                    index == messagesForList.lastIndex
+                                            val assistantDisplayMessage = buildAssistantDisplayText(
+                                                originalMessage = message.message,
+                                                tailLimitChars = if (devStreamingTailLimitEnabled || isStreamingMessageRow) {
+                                                    assistantRenderTailLimitChars
+                                                } else {
+                                                    Int.MAX_VALUE
+                                                },
+                                            ).text
                                             PlainAssistantMessage(
-                                                message = message.message,
-                                                isStreaming =
-                                                    isInferenceRunningUi &&
-                                                        streamingAssistantMessageId == null &&
-                                                        index == messagesForList.lastIndex,
+                                                message = assistantDisplayMessage,
+                                                isStreaming = isStreamingMessageRow,
                                                 showMessageActions = true,
                                                 isReplaying =
                                                     canShowTtsActions &&
@@ -3323,8 +3336,12 @@ fun Home(
                                 }
                                 if (showLocalRespondingAssistantRow) {
                                     item(key = "local_responding_indicator") {
+                                        val localRespondingMessage = buildAssistantDisplayText(
+                                            originalMessage = localRespondingAssistantRowMessage,
+                                            tailLimitChars = assistantRenderTailLimitChars,
+                                        ).text
                                         PlainAssistantMessage(
-                                            message = localRespondingAssistantRowMessage,
+                                            message = localRespondingMessage,
                                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
                                         )
                                     }
