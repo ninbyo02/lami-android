@@ -647,7 +647,7 @@ fun PlainAssistantMessage(
             StreamingSplit(stable = message, unstable = "")
         }
     }
-    val segments = remember(streamingSplit.stable, usePlainTextDuringStreaming) {
+    val segments = remember(streamingSplit.stable, isStreaming, usePlainTextDuringStreaming) {
         if (usePlainTextDuringStreaming) {
             emptyList()
         } else {
@@ -677,6 +677,7 @@ fun PlainAssistantMessage(
             MessageSegments(
                 segments = segments,
                 enableTextSelection = true,
+                isStreaming = isStreaming,
             )
             val unstableTail = streamingSplit.unstable
             if (unstableTail.isNotEmpty()) {
@@ -986,6 +987,7 @@ private fun detectProvisionalLanguage(text: String): String? {
 private fun MessageSegments(
     segments: List<Segment>,
     enableTextSelection: Boolean = false,
+    isStreaming: Boolean = false,
 ) {
     val bodyMedium = MaterialTheme.typography.bodyMedium
     val markdownTextStyle = bodyMedium.copy(
@@ -1024,13 +1026,21 @@ private fun MessageSegments(
                     CodeBlockCard(
                         lang = segment.lang,
                         code = segment.code,
-                        isClosed = segment.isClosed,
+                        isClosed = !shouldShowCodeGeneratingState(
+                            isStreaming = isStreaming,
+                            isSegmentClosed = segment.isClosed,
+                        ),
                     )
                 }
             }
         }
     }
 }
+
+internal fun shouldShowCodeGeneratingState(
+    isStreaming: Boolean,
+    isSegmentClosed: Boolean,
+): Boolean = isStreaming && !isSegmentClosed
 
 private fun replaceInlineCodeSpans(
     textView: TextView,
