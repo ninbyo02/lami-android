@@ -115,4 +115,34 @@ class ChatBubbleStreamingTest {
 
         assertEquals("回答本文の先頭\n追記です", sanitized)
     }
+
+    @Test
+    fun shouldUsePlainTextForStreamingCodeFence_streamingWithCodeFence_returnsTrue() {
+        val result = shouldUsePlainTextForStreamingCodeFence(
+            message = "説明です\n```python\nprint('ok')",
+            isStreaming = true,
+        )
+
+        assertTrue(result)
+    }
+
+    @Test
+    fun shouldUsePlainTextForStreamingCodeFence_streamingWithoutCodeFence_returnsFalse() {
+        val result = shouldUsePlainTextForStreamingCodeFence(
+            message = "説明だけです",
+            isStreaming = true,
+        )
+
+        assertFalse(result)
+    }
+
+    @Test
+    fun shouldUsePlainTextForStreamingCodeFence_nonStreamingWithCodeFence_returnsFalse() {
+        val result = shouldUsePlainTextForStreamingCodeFence(
+            message = "```python\nprint('ok')\n```",
+            isStreaming = false,
+        )
+
+        assertFalse(result)
+    }
 }
