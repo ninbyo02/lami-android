@@ -93,12 +93,21 @@ object MarkdownCodeRepair {
         val repairedLines = mutableListOf<String>()
         val commentFragments = mutableListOf<String>()
         var isCommentContinuationActive = false
+        var hasPendingEmptyCommentLine = false
 
         fun flushCommentFragments() {
-            if (commentFragments.isEmpty()) return
+            if (commentFragments.isEmpty()) {
+                if (hasPendingEmptyCommentLine) {
+                    repairedLines.add("#")
+                    hasPendingEmptyCommentLine = false
+                    isCommentContinuationActive = false
+                }
+                return
+            }
             val merged = commentFragments.joinToString(separator = "") { it.trim() }.trim()
             repairedLines.add(normalizePlainComment("# $merged"))
             commentFragments.clear()
+            hasPendingEmptyCommentLine = false
             isCommentContinuationActive = false
         }
 
@@ -114,6 +123,10 @@ object MarkdownCodeRepair {
                 if (inlineHashSplit.commentSeed.isNotBlank()) {
                     commentFragments.add(inlineHashSplit.commentSeed)
                     isCommentContinuationActive = true
+                    hasPendingEmptyCommentLine = false
+                } else {
+                    hasPendingEmptyCommentLine = true
+                    isCommentContinuationActive = true
                 }
                 index += 1
                 continue
@@ -124,11 +137,13 @@ object MarkdownCodeRepair {
                 val content = split.line.trim().removePrefix("#").trim()
                 if (content.isNotBlank() && isCommentContinuationActive) {
                     commentFragments.add(content)
+                    hasPendingEmptyCommentLine = false
                 } else if (content.isNotBlank()) {
                     flushCommentFragments()
                     repairedLines.add(normalizePlainComment("# $content"))
                 } else {
                     flushCommentFragments()
+                    hasPendingEmptyCommentLine = true
                     isCommentContinuationActive = true
                 }
                 if (split.extractedCode != null) {
@@ -164,6 +179,7 @@ object MarkdownCodeRepair {
             if (isLooseJapaneseCommentLine(trimmedLine) && !looksLikeCodeLine(trimmedLine)) {
                 if (isCommentContinuationActive) {
                     commentFragments.add(trimmedLine)
+                    hasPendingEmptyCommentLine = false
                 } else {
                     flushCommentFragments()
                     repairedLines.add(normalizePlainComment("# $trimmedLine"))
