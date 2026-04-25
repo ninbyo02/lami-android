@@ -442,4 +442,110 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun pythonCommentFragments_areMergedUntilNextCodeLine() {
+        val input = """
+            ```python
+            #
+            衝突
+            した
+            方向
+            を
+            判定
+            し
+            、
+            ボール
+            の
+            速度
+            を
+            反
+            転
+            させる
+            if ball_dy > 0:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 衝突した方向を判定し、ボールの速度を反転させる
+                if ball_dy > 0:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonLooseJapaneseFragments_doNotRemainAsCode() {
+        val input = """
+            ```python
+            ボール
+            # の
+            # 速度
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ボールの速度
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun markdownBoldBulletCollapse_isNormalizedOutsideCodeFence() {
+        val input = """
+            ***イベント処理**:
+            ***移動処理**:
+            ***衝突判定**:
+            ```python
+            print("***イベント処理**:")
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                * **イベント処理**:
+                * **移動処理**:
+                * **衝突判定**:
+                ```python
+                print("***イベント処理**:")
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun markdownHeadingWithoutSpace_isNormalizedOutsideCodeFence() {
+        val input = """
+            ###実行方法
+            ```python
+            print("###実行方法")
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ### 実行方法
+                ```python
+                print("###実行方法")
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }

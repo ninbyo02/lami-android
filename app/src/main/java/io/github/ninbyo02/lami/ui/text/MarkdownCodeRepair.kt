@@ -5,8 +5,8 @@ import java.util.Locale
 object MarkdownCodeRepair {
     fun repair(text: String): String {
         if (text.isEmpty()) return text
-        if (!text.contains("```")) return text
-        return repairCodeFences(text)
+        val repaired = if (text.contains("```")) repairCodeFences(text) else text
+        return normalizeMarkdownOutsideCodeFences(repaired)
     }
 
     private data class PythonFenceMatch(
@@ -135,6 +135,16 @@ object MarkdownCodeRepair {
             if (line.trimStart().startsWith("#")) {
                 val split = splitCommentFragmentAndCode(line)
                 val content = split.line.trim().removePrefix("#").trim()
+                val nextTrimmed = lines.getOrNull(index + 1)?.trim()
+                if (content.startsWith("---") && nextTrimmed?.startsWith("#") == true) {
+                    val nextContent = nextTrimmed.removePrefix("#").trim()
+                    if (nextContent == "設定") {
+                        flushCommentFragments()
+                        repairedLines.add("# --- 初期設定 ---")
+                        index += 2
+                        continue
+                    }
+                }
                 if (content.isNotBlank() && isCommentContinuationActive) {
                     commentFragments.add(content)
                     hasPendingEmptyCommentLine = false
@@ -177,8 +187,14 @@ object MarkdownCodeRepair {
             }
 
             if (isLooseJapaneseCommentLine(trimmedLine) && !looksLikeCodeLine(trimmedLine)) {
-                if (isCommentContinuationActive) {
+                val shouldJoinWithFollowingHashComment = lines
+                    .getOrNull(index + 1)
+                    ?.trim()
+                    ?.let { it.startsWith("#") && isCommentFragment(it.removePrefix("#").trim()) }
+                    ?: false
+                if (isCommentContinuationActive || shouldJoinWithFollowingHashComment) {
                     commentFragments.add(trimmedLine)
+                    isCommentContinuationActive = true
                     hasPendingEmptyCommentLine = false
                 } else {
                     flushCommentFragments()
@@ -570,5 +586,40 @@ object MarkdownCodeRepair {
 
     private fun isFenceLine(line: String): Boolean {
         return line.trimStart(' ', '\t').startsWith("```")
+    }
+
+    private fun normalizeMarkdownOutsideCodeFences(markdown: String): String {
+        val lines = markdown.split('\n')
+        if (lines.isEmpty()) return markdown
+
+        val rebuilt = StringBuilder(markdown.length + 32)
+        var inFence = false
+        for (index in lines.indices) {
+            val line = lines[index]
+            val normalized = if (!inFence) normalizeOutsideFenceLine(line) else line
+            rebuilt.append(normalized)
+            if (index < lines.lastIndex) rebuilt.append('\n')
+            if (isFenceLine(line)) {
+                inFence = !inFence
+            }
+        }
+        return rebuilt.toString()
+    }
+
+    private fun normalizeOutsideFenceLine(line: String): String {
+        val headingMatch = Regex("^(\\s{0,3}#{1,6})([^\\s#].*)$").matchEntire(line)
+        if (headingMatch != null) {
+            return "${headingMatch.groupValues[1]} ${headingMatch.groupValues[2]}"
+        }
+
+        val boldBulletMatch = Regex("^(\\s*)\\*\\*\\*(.+)\\*\\*:(\\s*)$").matchEntire(line)
+        if (boldBulletMatch != null) {
+            val indent = boldBulletMatch.groupValues[1]
+            val content = boldBulletMatch.groupValues[2].trim()
+            val trailing = boldBulletMatch.groupValues[3]
+            return "$indent* **$content**:$trailing"
+        }
+
+        return line
     }
 }
