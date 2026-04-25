@@ -93,68 +93,47 @@ object MarkdownCodeRepair {
         val repairedLines = mutableListOf<String>()
         val commentFragments = mutableListOf<String>()
         var isCommentContinuationActive = false
-        var hasPendingEmptyCommentLine = false
 
         fun flushCommentFragments() {
             if (commentFragments.isEmpty()) {
-                if (hasPendingEmptyCommentLine) {
-                    repairedLines.add("#")
-                    hasPendingEmptyCommentLine = false
-                    isCommentContinuationActive = false
-                }
+                isCommentContinuationActive = false
                 return
             }
             val merged = commentFragments.joinToString(separator = "") { it.trim() }.trim()
-            repairedLines.add(normalizePlainComment("# $merged"))
+            val normalized = if (merged.contains("---")) {
+                normalizeDashComment("# $merged")
+            } else {
+                normalizePlainComment("# $merged")
+            }
+            repairedLines.add(normalized)
             commentFragments.clear()
-            hasPendingEmptyCommentLine = false
             isCommentContinuationActive = false
         }
 
         var index = 0
         while (index < lines.size) {
-            var line = sanitizeLeadingDashCodeResidue(lines[index])
+            val line = sanitizeLeadingDashCodeResidue(lines[index])
             val nextLine = lines.getOrNull(index + 1)
+            val trimmedLine = line.trim()
 
             val inlineHashSplit = splitInlineHashCodeAndComment(line)
             if (inlineHashSplit != null) {
                 flushCommentFragments()
                 repairedLines.add(repairCodeLine(inlineHashSplit.code))
+                isCommentContinuationActive = true
                 if (inlineHashSplit.commentSeed.isNotBlank()) {
                     commentFragments.add(inlineHashSplit.commentSeed)
-                    isCommentContinuationActive = true
-                    hasPendingEmptyCommentLine = false
-                } else {
-                    hasPendingEmptyCommentLine = true
-                    isCommentContinuationActive = true
                 }
                 index += 1
                 continue
             }
 
-            if (line.trimStart().startsWith("#")) {
+            if (trimmedLine.startsWith("#")) {
                 val split = splitCommentFragmentAndCode(line)
                 val content = split.line.trim().removePrefix("#").trim()
-                val nextTrimmed = lines.getOrNull(index + 1)?.trim()
-                if (content.startsWith("---") && nextTrimmed?.startsWith("#") == true) {
-                    val nextContent = nextTrimmed.removePrefix("#").trim()
-                    if (nextContent == "設定") {
-                        flushCommentFragments()
-                        repairedLines.add("# --- 初期設定 ---")
-                        index += 2
-                        continue
-                    }
-                }
-                if (content.isNotBlank() && isCommentContinuationActive) {
+                isCommentContinuationActive = true
+                if (content.isNotBlank()) {
                     commentFragments.add(content)
-                    hasPendingEmptyCommentLine = false
-                } else if (content.isNotBlank()) {
-                    flushCommentFragments()
-                    repairedLines.add(normalizePlainComment("# $content"))
-                } else {
-                    flushCommentFragments()
-                    hasPendingEmptyCommentLine = true
-                    isCommentContinuationActive = true
                 }
                 if (split.extractedCode != null) {
                     flushCommentFragments()
@@ -164,7 +143,6 @@ object MarkdownCodeRepair {
                 continue
             }
 
-            val trimmedLine = line.trim()
             if (trimmedLine.isEmpty()) {
                 flushCommentFragments()
                 repairedLines.add("")
@@ -172,48 +150,49 @@ object MarkdownCodeRepair {
                 continue
             }
 
-            if (isLooseDashHeadingLine(trimmedLine)) {
+            if (isCommentContinuationActive) {
+                val looseSplit = splitLooseCommentFragmentAndCode(trimmedLine)
+                val commentPart = looseSplit.line.trim()
+                if (commentPart.isNotBlank() && isCommentFragment(commentPart)) {
+                    commentFragments.add(commentPart)
+                    if (looseSplit.extractedCode != null) {
+                        flushCommentFragments()
+                        repairedLines.add(repairCodeLine(looseSplit.extractedCode))
+                    }
+                    index += 1
+                    continue
+                }
+                if (isCommentFragment(trimmedLine) && !looksLikeCodeLine(trimmedLine)) {
+                    commentFragments.add(trimmedLine)
+                    index += 1
+                    continue
+                }
                 flushCommentFragments()
+            }
+
+            if (isLooseDashHeadingLine(trimmedLine)) {
                 repairedLines.add(normalizeDashComment("# $trimmedLine"))
                 index += 1
                 continue
             }
 
             if (isNumberedJapaneseLine(trimmedLine)) {
-                flushCommentFragments()
                 repairedLines.add(normalizePlainComment("# $trimmedLine"))
                 index += 1
                 continue
             }
 
             if (isLooseJapaneseCommentLine(trimmedLine) && !looksLikeCodeLine(trimmedLine)) {
-                val shouldJoinWithFollowingHashComment = lines
-                    .getOrNull(index + 1)
-                    ?.trim()
-                    ?.let { it.startsWith("#") && isCommentFragment(it.removePrefix("#").trim()) }
-                    ?: false
-                if (isCommentContinuationActive || shouldJoinWithFollowingHashComment) {
-                    commentFragments.add(trimmedLine)
-                    isCommentContinuationActive = true
-                    hasPendingEmptyCommentLine = false
-                } else {
-                    flushCommentFragments()
-                    repairedLines.add(normalizePlainComment("# $trimmedLine"))
-                }
+                repairedLines.add(normalizePlainComment("# $trimmedLine"))
                 index += 1
                 continue
             }
 
-            flushCommentFragments()
             repairedLines.add(repairCodeLine(line, nextLine))
             index += 1
         }
 
-        if (commentFragments.isNotEmpty()) {
-            val merged = commentFragments.joinToString(separator = "") { it.trim() }.trim()
-            repairedLines.add(normalizePlainComment("# $merged"))
-        }
-
+        flushCommentFragments()
         return repairedLines.joinToString("\n")
     }
 

@@ -421,7 +421,7 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
-    fun importSysHash_splitsImportAndEmptyComment() {
+    fun importSysHash_splitsImportAndDropsEmptyComment() {
         val input = """
             ```python
             import pygameimport sys#
@@ -435,7 +435,6 @@ class MarkdownCodeRepairTest {
                 ```python
                 import pygame
                 import sys
-                #
                 ```
             """.trimIndent(),
             repaired,
@@ -542,6 +541,183 @@ class MarkdownCodeRepairTest {
                 ### 実行方法
                 ```python
                 print("###実行方法")
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun hashStartsCommentBlockAndMergesJapaneseFragments() {
+        val input = """
+            ```python
+            #
+            衝突
+            した
+            方向
+            を
+            判定
+            し
+            、
+            ボール
+            の
+            速度
+            を
+            反
+            転
+            させる
+            if ball_dy > 0:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 衝突した方向を判定し、ボールの速度を反転させる
+                if ball_dy > 0:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun hashFragmentBeforeCodeFlushesAsOneComment() {
+        val input = """
+            ```python
+            # ボ
+            ール
+            ball_radius =10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ボール
+                ball_radius = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun dashHeaderCommentMergesAndSplitsTrailingCode() {
+        val input = """
+            ```python
+            # --- 初期
+            設定
+            ---pygame.init()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- 初期設定 ---
+                pygame.init()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun numberedJapaneseCommentMergesBeforeCode() {
+        val input = """
+            ```python
+            # 1. イベント
+            処理
+            for event in pygame.event.get():
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 1.イベント処理
+                for event in pygame.event.get():
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun noBareJapaneseFragmentsRemainInTypicalBrokenPygameTrace() {
+        val input = """
+            ```python
+            pygame.init()#
+            画面
+            サイズ
+            SCREEN_WIDTH =80SCREEN_HEIGHT =60screen =
+            #
+            衝突
+            した
+            方向
+            を
+            判定
+            し
+            、
+            ボール
+            の
+            速度
+            を
+            反
+            転
+            させる
+            block['status'] = Falsescore +=10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                pygame.init()
+                # 画面サイズ
+                SCREEN_WIDTH = 80
+                SCREEN_HEIGHT = 60
+                screen =
+                # 衝突した方向を判定し、ボールの速度を反転させる
+                block['status'] = False
+                score += 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun noRepeatedSingleHashLinesRemainAfterRepair() {
+        val input = """
+            ```python
+            #
+            #
+            #
+            衝突
+            判定
+            if ball_dy > 0:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 衝突判定
+                if ball_dy > 0:
                 ```
             """.trimIndent(),
             repaired,
