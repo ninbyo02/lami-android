@@ -128,4 +128,163 @@ class MarkdownCodeRepairTest {
             repaired,
         )
     }
+
+    @Test
+    fun inlineHash_separatesCodeAndMergesComment() {
+        val input = """
+            ```python
+            pygame.init()#
+            画面
+            サイズ
+            BLUE = (0, 0, 25)#
+             色
+            の
+            定義
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                pygame.init()
+                # 画面サイズ
+                BLUE = (0, 0, 25)
+                # 色の定義
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun brokenJapaneseCommentFragments_areMergedUntilNextCode() {
+        val input = """
+            ```python
+            #
+             パ
+            ドル
+             (プレイヤー)
+            paddle_width = 10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル(プレイヤー)
+                paddle_width = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun commentDoesNotAbsorbNextAssignment() {
+        val input = """
+            ```python
+            #
+            衝突
+            した
+            方向
+            を
+            判定
+            し
+            、
+            ボール
+            の
+            速度
+            を
+            反
+            転
+            させる
+            score = 0
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 衝突した方向を判定し、ボールの速度を反転させる
+                score = 0
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fixesBrokenPlusEquals() {
+        val input = """
+            ```python
+            score + = 10
+            paddle_x + = paddle_speed
+            paddle_x - = paddle_speed
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                score += 10
+                paddle_x += paddle_speed
+                paddle_x -= paddle_speed
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fixesFalseScoreMerge() {
+        val input = """
+            ```python
+            block['status'] = Falsescore += 10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                block['status'] = False
+                score += 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fixesWinGameFalseScoreMerge() {
+        val input = """
+            ```python
+            win_game = Falsescore =0
+            game_over = Falsewin_game = False
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                win_game = False
+                score = 0
+                game_over = False
+                win_game = False
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
 }

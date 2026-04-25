@@ -25,6 +25,11 @@ object MarkdownCodeRepair {
         val extractedCode: String? = null,
     )
 
+    private data class InlineHashSplitResult(
+        val code: String,
+        val commentSeed: String,
+    )
+
     private fun repairCodeFences(markdown: String): String {
         val lines = markdown.split('\n')
         if (lines.isEmpty()) return markdown
@@ -89,6 +94,15 @@ object MarkdownCodeRepair {
         while (index < lines.size) {
             var line = lines[index]
             val nextLine = lines.getOrNull(index + 1)
+            val inlineHashSplit = splitInlineHashCodeAndComment(line)
+            if (inlineHashSplit != null) {
+                repairedLines.add(repairCodeLine(inlineHashSplit.code))
+                val merged = mergeCommentBlocks(lines, index + 1, inlineHashSplit.commentSeed)
+                repairedLines.addAll(normalizeCommentLines(merged.comments))
+                repairedLines.addAll(merged.extractedCodeLines.map(::repairCodeLine))
+                index = merged.nextIndex
+                continue
+            }
             if (line.trimEnd() == "el" && nextLine?.trimStart()?.startsWith("if ") == true) {
                 repairedLines.add("${line.substringBefore("el")}elif ${nextLine.trimStart().removePrefix("if ").trimStart()}")
                 index += 2
@@ -132,8 +146,13 @@ object MarkdownCodeRepair {
         )
         repaired = repaired.replace(Regex("(pygame\\.quit\\(\\))(sys\\.exit\\(\\))"), "$1\n$2")
         repaired = repaired.replace(Regex("(ball_x\\s*\\+=\\s*ball_dx)(ball_y\\s*\\+=)"), "$1\n$2")
+        repaired = repaired.replace(Regex("\\s+([+\\-*/])\\s*="), " $1=")
         repaired = repaired.replace(Regex("(\\bFalse\\b)(score\\s*=)"), "$1\n$2")
         repaired = repaired.replace(Regex("(\\bFalse\\b)(score\\s*\\+=)"), "$1\n$2")
+        repaired = repaired.replace(
+            Regex("(\\bFalse\\b)(?=[A-Za-z_][A-Za-z0-9_]*\\s*(?:=|\\+=|-=|\\*=|/=))"),
+            "$1\n",
+        )
         repaired = repaired.replace("import pygameimport sys", "import pygame\nimport sys")
         repaired = repaired.replace("import sys#", "import sys\n#")
         repaired = repaired.replace("pygame.init()#", "pygame.init()\n#")
@@ -178,9 +197,16 @@ object MarkdownCodeRepair {
             .joinToString("\n")
     }
 
-    private fun mergeCommentBlocks(lines: List<String>, startIndex: Int): MergedCommentResult {
+    private fun mergeCommentBlocks(
+        lines: List<String>,
+        startIndex: Int,
+        seedComment: String? = null,
+    ): MergedCommentResult {
         val comments = mutableListOf<String>()
         val extractedCodeLines = mutableListOf<String>()
+        if (seedComment != null) {
+            comments.add("# $seedComment")
+        }
         var index = startIndex
         while (index < lines.size) {
             val current = lines[index]
@@ -262,7 +288,7 @@ object MarkdownCodeRepair {
                 index += 1
                 continue
             }
-            if (!rawContent.contains("---") && isCommentFragment(rawContent)) {
+            if (!rawContent.contains("---") && (rawContent.isEmpty() || isCommentFragment(rawContent))) {
                 val mergedContent = StringBuilder(rawContent)
                 var cursor = index + 1
                 while (cursor < lines.size) {
@@ -331,7 +357,7 @@ object MarkdownCodeRepair {
     private fun looksLikeCodeLine(text: String): Boolean {
         if (text.contains(Regex("\\b(import|from|if|elif|else|for|while|def|class|return)\\b"))) return true
         if (text.contains("pygame.") || text.contains("screen.") || text.contains("font.") || text.contains("clock.")) return true
-        if (text.contains(Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*(?:=|\\+=|-=)\\s*"))) return true
+        if (text.contains(Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*(?:=|\\+=|-=|\\*=|/=)\\s*"))) return true
         if (text.contains(Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*\\("))) return true
         if (text.contains(Regex("[\\[\\]{}:]"))) return true
         return false
@@ -341,10 +367,19 @@ object MarkdownCodeRepair {
         val codePatterns = listOf(
             Regex("\\b(?:import|from|if|elif|else|for|while|def|class|return)\\b"),
             Regex("\\b(?:pygame|screen|font|clock)\\."),
-            Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*(?:=|\\+=|-=)\\s*"),
+            Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*(?:=|\\+=|-=|\\*=|/=)\\s*"),
             Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*\\("),
         )
         return codePatterns.mapNotNull { it.find(text)?.range?.first }.minOrNull()
+    }
+
+    private fun splitInlineHashCodeAndComment(line: String): InlineHashSplitResult? {
+        val hashIndex = line.indexOf('#')
+        if (hashIndex < 0) return null
+        val codePart = line.substring(0, hashIndex).trimEnd()
+        if (codePart.isEmpty() || codePart.trimStart().startsWith("#")) return null
+        val commentSeed = line.substring(hashIndex + 1).trim()
+        return InlineHashSplitResult(code = codePart, commentSeed = commentSeed)
     }
 
     private fun splitKnownMergedStatements(line: String): String {
