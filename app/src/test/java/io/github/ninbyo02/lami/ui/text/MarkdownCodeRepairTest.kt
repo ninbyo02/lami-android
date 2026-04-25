@@ -351,4 +351,95 @@ class MarkdownCodeRepairTest {
             repaired,
         )
     }
+
+
+    @Test
+    fun bareFenceNextLinePython_isNormalizedToPythonFence() {
+        val input = """
+            ```
+            python
+            import pygame
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                import pygame
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun hashStartsCommentAndMergesJapaneseFragments() {
+        val input = """
+            ```python
+            pygame.init()#
+            画面
+            サイズ
+            SCREEN_WIDTH =80
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                pygame.init()
+                # 画面サイズ
+                SCREEN_WIDTH = 80
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun inlineHashAfterCode_splitsCodeAndComment() {
+        val input = """
+            ```python
+            pygame.init()# 画面 サイズ
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                pygame.init()
+                # 画面サイズ
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun importSysHash_splitsImportAndEmptyComment() {
+        val input = """
+            ```python
+            import pygameimport sys#
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                import pygame
+                import sys
+                #
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
