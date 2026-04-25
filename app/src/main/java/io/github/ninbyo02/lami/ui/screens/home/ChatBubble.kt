@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.net.Uri
 import android.text.Spannable
 import android.text.Spanned
@@ -19,13 +20,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -67,7 +66,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -770,22 +768,16 @@ data class AssistantDisplayText(
     val isTrimmedForRender: Boolean,
 )
 
-private const val ASSISTANT_RENDER_TRIM_NOTICE = "...(前半省略 / 表示負荷軽減中)..."
-
 fun buildAssistantDisplayText(
     originalMessage: String,
+    @Suppress("UNUSED_PARAMETER")
     tailLimitChars: Int,
 ): AssistantDisplayText {
     val sanitized = sanitizeAssistantMessageForDisplay(originalMessage)
-    if (tailLimitChars <= 0 || sanitized.length <= tailLimitChars) {
-        return AssistantDisplayText(
-            text = sanitized,
-            isTrimmedForRender = false,
-        )
-    }
+    // tail trim/前半省略は使わず、常に整形済み全文を表示する。
     return AssistantDisplayText(
-        text = "$ASSISTANT_RENDER_TRIM_NOTICE\n${sanitized.takeLast(tailLimitChars)}",
-        isTrimmedForRender = true,
+        text = sanitized,
+        isTrimmedForRender = false,
     )
 }
 
@@ -1054,6 +1046,11 @@ internal fun shouldEnableAssistantTextSelection(
     message.length <= ASSISTANT_TEXT_SELECTION_MAX_CHARS &&
     !message.contains("```")
 
+internal fun shouldDisableCodeBlockBodyInteractions(
+    code: String,
+    isStreamingCodeBlock: Boolean,
+): Boolean = isStreamingCodeBlock || code.length > ASSISTANT_TEXT_SELECTION_MAX_CHARS
+
 private fun replaceInlineCodeSpans(
     textView: TextView,
     text: Spannable,
@@ -1192,6 +1189,12 @@ private fun CodeBlockCard(
             colors = colorScheme,
         )
     }
+    val disableBodyInteractions = remember(code, isClosed) {
+        shouldDisableCodeBlockBodyInteractions(
+            code = code,
+            isStreamingCodeBlock = !isClosed,
+        )
+    }
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -1262,13 +1265,35 @@ private fun CodeBlockCard(
                             )
                         }
                     }
-                    Text(
-                        text = highlightedCode,
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        fontFamily = FontFamily.Monospace,
-                        style = codeTextStyle,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        softWrap = false,
+                    AndroidView(
+                        factory = { context ->
+                            TextView(context).apply {
+                                // コード本文は選択とクリックを無効化して親LazyColumnの縦スクロールを優先する。
+                                setTextIsSelectable(false)
+                                isClickable = false
+                                isLongClickable = false
+                                isHorizontalScrollBarEnabled = false
+                                isVerticalScrollBarEnabled = false
+                                isSingleLine = false
+                                setHorizontallyScrolling(false)
+                                typeface = Typeface.MONOSPACE
+                                includeFontPadding = false
+                            }
+                        },
+                        update = { textView ->
+                            // streaming中・長文時も含めて常に非インタラクティブ表示に固定する。
+                            textView.setTextIsSelectable(false)
+                            textView.isClickable = false
+                            textView.isLongClickable = false
+                            textView.isFocusable = !disableBodyInteractions
+                            textView.isFocusableInTouchMode = !disableBodyInteractions
+                            textView.setHorizontallyScrolling(false)
+                            textView.text = highlightedCode
+                            textView.setTextColor(MaterialTheme.colorScheme.onSurface.toArgb())
+                            textView.textSize = codeTextStyle.fontSize.value
+                            textView.setLineSpacing(0f, 0.94f)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
