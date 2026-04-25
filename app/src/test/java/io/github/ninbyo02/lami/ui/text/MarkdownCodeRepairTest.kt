@@ -287,4 +287,131 @@ class MarkdownCodeRepairTest {
             repaired,
         )
     }
+
+    @Test
+    fun hashCommentFragments_areMergedIntoOneLine() {
+        val input = """
+            ```python
+            #
+            衝突
+            した
+            方向
+            を
+            判定
+            し
+            、
+            ボール
+            の
+            速度
+            を
+            反
+            転
+            させる
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 衝突した方向を判定し、ボールの速度を反転させる
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun dashCommentWithTrailingCode_isSeparated() {
+        val input = """
+            ```python
+            #
+             --- 初期
+            設定
+             ---pygame.init()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- 初期設定 ---
+                pygame.init()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun falseScorePlusEquals_isRepaired() {
+        val input = """
+            ```python
+            block['status'] = Falsescore + = 10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                block['status'] = False
+                score += 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun falseWinGameScoreMerge_isRepaired() {
+        val input = """
+            ```python
+            game_over = Falsewin_game = False
+            win_game = Falsescore =0
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                game_over = False
+                win_game = False
+                win_game = False
+                score = 0
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun inlineIfColonStatement_isSplit() {
+        val input = """
+            ```python
+            if event.type == pygame.QUIT:pygame.quit()
+            for row in range(block_rows):for col in range(block_cols):
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if event.type == pygame.QUIT:
+                pygame.quit()
+                for row in range(block_rows):
+                for col in range(block_cols):
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
 }

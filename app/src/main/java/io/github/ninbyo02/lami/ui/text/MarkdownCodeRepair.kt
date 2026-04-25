@@ -139,6 +139,7 @@ object MarkdownCodeRepair {
 
     private fun repairCodeLine(line: String): String {
         var repaired = line
+        repaired = repaired.replace(Regex("(?<=\\S)#"), "\n#")
         repaired = repaired.replace(Regex("(?<!\\S)(import\\s+[\\w.]+)import\\s+"), "$1\nimport ")
         repaired = repaired.replace(
             Regex("(SCREEN_WIDTH\\s*=\\s*\\d+)(SCREEN_HEIGHT\\s*=\\s*\\d+)(screen\\s*=)"),
@@ -147,6 +148,7 @@ object MarkdownCodeRepair {
         repaired = repaired.replace(Regex("(pygame\\.quit\\(\\))(sys\\.exit\\(\\))"), "$1\n$2")
         repaired = repaired.replace(Regex("(ball_x\\s*\\+=\\s*ball_dx)(ball_y\\s*\\+=)"), "$1\n$2")
         repaired = repaired.replace(Regex("\\s+([+\\-*/])\\s*="), " $1=")
+        repaired = repaired.replace(Regex("(\\bFalse)(score\\s*[+\\-*/]?=)"), "$1\n$2")
         repaired = repaired.replace(Regex("(\\bFalse\\b)(score\\s*=)"), "$1\n$2")
         repaired = repaired.replace(Regex("(\\bFalse\\b)(score\\s*\\+=)"), "$1\n$2")
         repaired = repaired.replace(
@@ -161,7 +163,10 @@ object MarkdownCodeRepair {
         repaired = repaired.replace("blocks = []for row", "blocks = []\nfor row")
         repaired = repaired.replace("):for col", "):\nfor col")
         repaired = repaired.replace("game_over = Falsewin_game = False", "game_over = False\nwin_game = False")
+        repaired = repaired.replace("Falsewin_game = False", "False\nwin_game = False")
         repaired = repaired.replace("block['status'] = Falsescore += 10", "block['status'] = False\nscore += 10")
+        repaired = repaired.replace("block['status'] = Falsescore + = 10", "block['status'] = False\nscore += 10")
+        repaired = repaired.replace("win_game = Falsescore =0", "win_game = False\nscore = 0")
         repaired = repaired.replace("sys.exit()if ", "sys.exit()\nif ")
         repaired = repaired.replace(") //2for block", ") //2\nfor block")
         repaired = repaired.replace("for block in blocks:block['status'] = Trueif win_game:", "for block in blocks:block['status'] = True\nif win_game:")
@@ -182,6 +187,10 @@ object MarkdownCodeRepair {
         repaired = repaired.replace(
             Regex("(?<=\\))(?=(?:[A-Za-z_][A-Za-z0-9_]*\\s*=|pygame\\.))"),
             "\n",
+        )
+        repaired = repaired.replace(
+            Regex(":(?=(?:for|if|while|elif|else|try|except|with)\\b|pygame\\.|[A-Za-z_][A-Za-z0-9_]*\\()"),
+            ":\n",
         )
         repaired = repaired.replace(
             Regex("(?<=[^\\s=<>!])=(?=[^=\\s])"),
@@ -288,14 +297,13 @@ object MarkdownCodeRepair {
                 index += 1
                 continue
             }
-            if (!rawContent.contains("---") && (rawContent.isEmpty() || isCommentFragment(rawContent))) {
+            if (rawContent.isEmpty() || isCommentFragment(rawContent)) {
                 val mergedContent = StringBuilder(rawContent)
                 var cursor = index + 1
                 while (cursor < lines.size) {
                     val nextContent = lines[cursor].trim().removePrefix("#").trim()
                     if (
                         nextContent.isEmpty() ||
-                        nextContent.contains("---") ||
                         !isCommentFragment(nextContent) ||
                         looksLikeCodeLine(nextContent)
                     ) {
@@ -304,7 +312,8 @@ object MarkdownCodeRepair {
                     mergedContent.append(nextContent)
                     cursor += 1
                 }
-                rebuilt.add(normalizePlainComment("# ${mergedContent}"))
+                val mergedLine = "# ${mergedContent}"
+                rebuilt.add(if (mergedLine.contains("---")) normalizeDashComment(mergedLine) else normalizePlainComment(mergedLine))
                 index = cursor
                 continue
             }

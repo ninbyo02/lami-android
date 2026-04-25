@@ -72,16 +72,15 @@ class ChatBubbleStreamingTest {
     }
 
     @Test
-    fun buildAssistantDisplayText_tailLimit_appliesNoticeAndTail() {
+    fun buildAssistantDisplayText_tailLimit_doesNotTrim() {
         val original = "0123456789"
         val display = buildAssistantDisplayText(
             originalMessage = original,
             tailLimitChars = 4,
         )
 
-        assertTrue(display.isTrimmedForRender)
-        assertTrue(display.text.startsWith("...(前半省略 / 表示負荷軽減中)...\n"))
-        assertTrue(display.text.endsWith("6789"))
+        assertFalse(display.isTrimmedForRender)
+        assertEquals("0123456789", display.text)
     }
 
     @Test
@@ -195,5 +194,27 @@ class ChatBubbleStreamingTest {
 
         assertEquals(fused, partial)
         assertEquals("```python\nimport pygame\nimport sys\n#\n```", final)
+    }
+
+    @Test
+    fun codeBlockScrollSelectionDisabled() {
+        assertTrue(
+            shouldDisableCodeBlockBodyInteractions(
+                code = "print('x')",
+                isStreamingCodeBlock = true,
+            ),
+        )
+        assertTrue(
+            shouldDisableCodeBlockBodyInteractions(
+                code = "a".repeat(3001),
+                isStreamingCodeBlock = false,
+            ),
+        )
+        assertFalse(
+            shouldDisableCodeBlockBodyInteractions(
+                code = "print('x')",
+                isStreamingCodeBlock = false,
+            ),
+        )
     }
 }
