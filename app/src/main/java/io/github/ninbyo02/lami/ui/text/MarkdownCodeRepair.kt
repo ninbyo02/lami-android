@@ -435,6 +435,11 @@ object MarkdownCodeRepair {
             .replace("（", "(")
             .replace("）", ")")
         merged = merged.replace(Regex("^(\\d+\\.[^()]+)\\("), "$1 (")
+        val shortLabelWithParen = Regex("^([\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}A-Za-z0-9ー]{1,8})\\(([^()]+)\\)$")
+            .matchEntire(merged)
+        if (shortLabelWithParen != null) {
+            merged = "${shortLabelWithParen.groupValues[1]} (${shortLabelWithParen.groupValues[2]})"
+        }
         return "# $merged"
     }
 
