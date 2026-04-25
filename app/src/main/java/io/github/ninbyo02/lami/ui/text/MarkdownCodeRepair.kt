@@ -92,12 +92,14 @@ object MarkdownCodeRepair {
         val lines = sourceLines.flatMap(::expandMergedLineHints)
         val repairedLines = mutableListOf<String>()
         val commentFragments = mutableListOf<String>()
+        var isCommentContinuationActive = false
 
         fun flushCommentFragments() {
             if (commentFragments.isEmpty()) return
             val merged = commentFragments.joinToString(separator = "") { it.trim() }.trim()
             repairedLines.add(normalizePlainComment("# $merged"))
             commentFragments.clear()
+            isCommentContinuationActive = false
         }
 
         var index = 0
@@ -111,6 +113,7 @@ object MarkdownCodeRepair {
                 repairedLines.add(repairCodeLine(inlineHashSplit.code))
                 if (inlineHashSplit.commentSeed.isNotBlank()) {
                     commentFragments.add(inlineHashSplit.commentSeed)
+                    isCommentContinuationActive = true
                 }
                 index += 1
                 continue
@@ -119,8 +122,14 @@ object MarkdownCodeRepair {
             if (line.trimStart().startsWith("#")) {
                 val split = splitCommentFragmentAndCode(line)
                 val content = split.line.trim().removePrefix("#").trim()
-                if (content.isNotBlank()) {
+                if (content.isNotBlank() && isCommentContinuationActive) {
                     commentFragments.add(content)
+                } else if (content.isNotBlank()) {
+                    flushCommentFragments()
+                    repairedLines.add(normalizePlainComment("# $content"))
+                } else {
+                    flushCommentFragments()
+                    isCommentContinuationActive = true
                 }
                 if (split.extractedCode != null) {
                     flushCommentFragments()
@@ -138,8 +147,27 @@ object MarkdownCodeRepair {
                 continue
             }
 
+            if (isLooseDashHeadingLine(trimmedLine)) {
+                flushCommentFragments()
+                repairedLines.add(normalizeDashComment("# $trimmedLine"))
+                index += 1
+                continue
+            }
+
+            if (isNumberedJapaneseLine(trimmedLine)) {
+                flushCommentFragments()
+                repairedLines.add(normalizePlainComment("# $trimmedLine"))
+                index += 1
+                continue
+            }
+
             if (isLooseJapaneseCommentLine(trimmedLine) && !looksLikeCodeLine(trimmedLine)) {
-                commentFragments.add(trimmedLine)
+                if (isCommentContinuationActive) {
+                    commentFragments.add(trimmedLine)
+                } else {
+                    flushCommentFragments()
+                    repairedLines.add(normalizePlainComment("# $trimmedLine"))
+                }
                 index += 1
                 continue
             }
@@ -405,6 +433,15 @@ object MarkdownCodeRepair {
         if (text.trimStart().startsWith("#")) return false
         if (!containsJapanese(text) && !text.matches(Regex("^[、。,.()（）「」『』!?！？:：;\\-\\s]+$"))) return false
         return isCommentFragment(text)
+    }
+
+    private fun isNumberedJapaneseLine(text: String): Boolean {
+        return text.matches(Regex("^\\d+\\.\\s*[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}].*$"))
+    }
+
+    private fun isLooseDashHeadingLine(text: String): Boolean {
+        if (!text.trimStart().startsWith("---")) return false
+        return containsJapanese(text) || text.contains(Regex("[A-Za-z]"))
     }
 
     private fun mergeCommentText(commentLine: String, fragment: String): String {

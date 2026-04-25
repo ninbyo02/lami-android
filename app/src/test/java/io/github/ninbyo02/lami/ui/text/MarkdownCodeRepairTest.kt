@@ -236,4 +236,119 @@ class MarkdownCodeRepairTest {
             repaired,
         )
     }
+
+    @Test
+    fun yDirectionComment_doesNotMergeWithBlockHeading() {
+        val input = """
+            ```python
+            # 
+            Y方向の速度
+            ブロック
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # Y方向の速度
+                # ブロック
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun optionComment_doesNotMergeWithNextNumberedSection() {
+        val input = """
+            ```python
+            # パドルに当たった時の角度調整(オプション)
+            衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。
+            6.衝突判定：ブロックとの衝突
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドルに当たった時の角度調整(オプション)
+                # 衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。
+                # 6.衝突判定：ブロックとの衝突
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun looseDashHeadingFragments_areNormalizedAsComment() {
+        val input = """
+            ```python
+            --- ゲームオブジェクトのパラメータ ---
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun numberedJapaneseLine_becomesComment() {
+        val input = """
+            ```python
+            1. イベント処理
+            2. キー入力処理
+            7. ゲームオーバー判定
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 1.イベント処理
+                # 2.キー入力処理
+                # 7.ゲームオーバー判定
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun codeLineFlushesPendingCommentFragments() {
+        val input = """
+            ```python
+            #
+            画面
+            サイズ
+            import pygame
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 画面サイズ
+                import pygame
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
 }
