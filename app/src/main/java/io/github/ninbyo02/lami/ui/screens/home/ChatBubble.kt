@@ -2,7 +2,6 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Typeface
 import android.net.Uri
 import android.text.Spannable
 import android.text.Spanned
@@ -65,6 +64,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
@@ -73,7 +73,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import io.github.ninbyo02.lami.ui.common.buildHighlightedCodeAnnotatedString
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.util.buildInferenceSummary
 import io.github.ninbyo02.lami.ui.text.Segment
@@ -1176,25 +1175,6 @@ private fun CodeBlockCard(
     isClosed: Boolean = true,
 ) {
     val clipboardManager = LocalClipboardManager.current
-    val colorScheme = MaterialTheme.colorScheme
-    val bodyMedium = MaterialTheme.typography.bodyMedium
-    val codeTextStyle = bodyMedium.copy(
-        lineHeight = bodyMedium.lineHeight * 0.94f,
-        platformStyle = PlatformTextStyle(includeFontPadding = false)
-    )
-    val highlightedCode = remember(code, lang, colorScheme) {
-        buildHighlightedCodeAnnotatedString(
-            code = code,
-            language = lang,
-            colors = colorScheme,
-        )
-    }
-    val disableBodyInteractions = remember(code, isClosed) {
-        shouldDisableCodeBlockBodyInteractions(
-            code = code,
-            isStreamingCodeBlock = !isClosed,
-        )
-    }
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -1265,35 +1245,10 @@ private fun CodeBlockCard(
                             )
                         }
                     }
-                    val codeTextColor = MaterialTheme.colorScheme.onSurface.toArgb()
-                    AndroidView(
-                        factory = { context ->
-                            TextView(context).apply {
-                                // コード本文は選択とクリックを無効化して親LazyColumnの縦スクロールを優先する。
-                                setTextIsSelectable(false)
-                                isClickable = false
-                                isLongClickable = false
-                                isHorizontalScrollBarEnabled = false
-                                isVerticalScrollBarEnabled = false
-                                isSingleLine = false
-                                setHorizontallyScrolling(false)
-                                typeface = Typeface.MONOSPACE
-                                includeFontPadding = false
-                            }
-                        },
-                        update = { textView ->
-                            // streaming中・長文時も含めて常に非インタラクティブ表示に固定する。
-                            textView.setTextIsSelectable(false)
-                            textView.isClickable = false
-                            textView.isLongClickable = false
-                            textView.isFocusable = !disableBodyInteractions
-                            textView.isFocusableInTouchMode = !disableBodyInteractions
-                            textView.setHorizontallyScrolling(false)
-                            textView.text = highlightedCode
-                            textView.setTextColor(codeTextColor)
-                            textView.textSize = codeTextStyle.fontSize.value
-                            textView.setLineSpacing(0f, 0.94f)
-                        },
+                    Text(
+                        text = code,
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
