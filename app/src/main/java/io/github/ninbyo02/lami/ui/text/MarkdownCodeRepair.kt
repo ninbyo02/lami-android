@@ -123,6 +123,17 @@ object MarkdownCodeRepair {
                 index = merged.nextIndex
                 continue
             }
+            val trimmedLine = line.trim()
+            if (isLooseJapaneseCommentLine(trimmedLine) && !looksLikeCodeLine(trimmedLine)) {
+                val lastComment = repairedLines.lastOrNull()?.takeIf { it.trimStart().startsWith("#") }
+                if (lastComment != null) {
+                    repairedLines[repairedLines.lastIndex] = mergeCommentText(lastComment, trimmedLine)
+                } else {
+                    repairedLines.add(normalizePlainComment("# $trimmedLine"))
+                }
+                index += 1
+                continue
+            }
             repairedLines.add(repairCodeLine(line, nextLine))
             index += 1
         }
@@ -193,7 +204,7 @@ object MarkdownCodeRepair {
             ":\n",
         )
         repaired = repaired.replace(
-            Regex("(?<=[^\\s=<>!])=(?=[^=\\s])"),
+            Regex("(?<=[^\\s=<>!+\\-*/])=(?=[^=\\s])"),
             " = ",
         )
         repaired = repaired.replace(Regex("(?<=\\d),(?=\\d)"), ", ")
@@ -328,6 +339,10 @@ object MarkdownCodeRepair {
         var normalized = line.replace(Regex("^(\\s*)#\\s*"), "$1# ")
         normalized = normalized.replace(Regex("\\s*---\\s*"), " --- ")
         normalized = normalized.replace(Regex("\\s{2,}"), " ").trimEnd()
+        val dashContent = Regex("^#\\s*---\\s*(.+?)\\s*$").matchEntire(normalized)?.groupValues?.get(1)
+        if (!dashContent.isNullOrBlank()) {
+            normalized = "# --- ${dashContent.trim()} ---"
+        }
         if (!normalized.trimStart().startsWith("#")) {
             normalized = "# ${normalized.trim()}"
         }
@@ -360,6 +375,23 @@ object MarkdownCodeRepair {
             Character.UnicodeBlock.of(it) == Character.UnicodeBlock.HIRAGANA ||
                 Character.UnicodeBlock.of(it) == Character.UnicodeBlock.KATAKANA ||
                 Character.UnicodeBlock.of(it) == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS
+        }
+    }
+
+    private fun isLooseJapaneseCommentLine(text: String): Boolean {
+        if (text.isBlank()) return false
+        if (!containsJapanese(text)) return false
+        if (text.trimStart().startsWith("#")) return false
+        return isCommentFragment(text)
+    }
+
+    private fun mergeCommentText(commentLine: String, fragment: String): String {
+        val base = commentLine.trim().removePrefix("#").trim()
+        val merged = "$base${fragment.trim()}"
+        return if (merged.contains("---")) {
+            normalizeDashComment("# $merged")
+        } else {
+            normalizePlainComment("# $merged")
         }
     }
 

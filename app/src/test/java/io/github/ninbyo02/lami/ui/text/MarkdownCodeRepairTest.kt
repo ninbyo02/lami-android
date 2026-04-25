@@ -414,4 +414,80 @@ class MarkdownCodeRepairTest {
             repaired,
         )
     }
+
+    @Test
+    fun falseAndScoreBindings_areAlwaysSeparated() {
+        val input = """
+            ```python
+            Falsescore =0
+            Falsescore +=10
+            Falsewin_game = False
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                False
+                score = 0
+                False
+                score += 10
+                False
+                win_game = False
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun japaneseLooseLine_isMergedIntoPreviousComment() {
+        val input = """
+            ```python
+            # 衝突した方向を判定し、
+            ボール
+            の
+            速度を反転させる
+            score += 10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 衝突した方向を判定し、ボールの速度を反転させる
+                score += 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun dashCommentAndTrailingCode_areSplitAcrossLines() {
+        val input = """
+            ```python
+            # --- 初期設定 ---pygame.init()
+            # --- メインループ ---clock = pygame.time.Clock()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- 初期設定 ---
+                pygame.init()
+                # --- メインループ ---
+                clock = pygame.time.Clock()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
 }
