@@ -692,16 +692,54 @@ object MarkdownCodeRepair {
 
         val rebuilt = StringBuilder(markdown.length + 32)
         var inFence = false
+        val outsideBuffer = StringBuilder()
+
+        fun flushOutsideBuffer() {
+            if (outsideBuffer.isEmpty()) return
+            rebuilt.append(normalizeOutsideFenceText(outsideBuffer.toString()))
+            outsideBuffer.clear()
+        }
+
         for (index in lines.indices) {
             val line = lines[index]
-            val normalized = if (!inFence) normalizeOutsideFenceLine(line) else line
-            rebuilt.append(normalized)
-            if (index < lines.lastIndex) rebuilt.append('\n')
             if (isFenceLine(line)) {
+                flushOutsideBuffer()
+                rebuilt.append(line)
+                if (index < lines.lastIndex) rebuilt.append('\n')
                 inFence = !inFence
+                continue
+            }
+            if (inFence) {
+                rebuilt.append(line)
+                if (index < lines.lastIndex) rebuilt.append('\n')
+                continue
+            }
+
+            outsideBuffer.append(line)
+            if (index < lines.lastIndex) {
+                outsideBuffer.append('\n')
             }
         }
+        flushOutsideBuffer()
         return rebuilt.toString()
+    }
+
+    private fun normalizeOutsideFenceText(text: String): String {
+        if (text.isEmpty()) return text
+
+        var normalized = text
+        normalized = normalized.replace(Regex("([。．.!?！？])\\s*(\\*\\*\\*.+?\\*\\*:)"), "$1\n$2")
+        normalized = normalized.replace(Regex("([。．.!?！？])\\s*(#{1,6})"), "$1\n$2")
+        normalized = normalized.replace(Regex("(?m)^(\\s{0,3}#{1,6}\\s*[^\\n]*?)(\\d+\\.\\s*\\S.*)$"), "$1\n$2")
+        normalized = normalized.replace(
+            Regex("(?m)^(\\s{0,3}#{1,6}\\s+[^\\n]+?)(?=(この|本|上記|以下|次|また|ここ|それ)[^\\n]*[。．])"),
+            "$1\n",
+        )
+
+        return normalized
+            .lineSequence()
+            .map(::normalizeOutsideFenceLine)
+            .joinToString("\n")
     }
 
     private fun normalizeOutsideFenceLine(line: String): String {
@@ -716,6 +754,14 @@ object MarkdownCodeRepair {
             val content = boldBulletMatch.groupValues[2].trim()
             val trailing = boldBulletMatch.groupValues[3]
             return "$indent* **$content**:$trailing"
+        }
+
+        val numberedBoldBulletMatch = Regex("^(\\s*\\d+\\.)\\*\\*(.+)\\*\\*:(\\s*)$").matchEntire(line)
+        if (numberedBoldBulletMatch != null) {
+            val prefix = numberedBoldBulletMatch.groupValues[1]
+            val content = numberedBoldBulletMatch.groupValues[2].trim()
+            val trailing = numberedBoldBulletMatch.groupValues[3]
+            return "$prefix **$content**:$trailing"
         }
 
         return line

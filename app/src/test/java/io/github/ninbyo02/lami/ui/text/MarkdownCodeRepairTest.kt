@@ -1513,4 +1513,94 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun outsideFence_headingAndListAreSeparated() {
+        val input = "###コードの解説1.**初期設定 (`pygame.init()`)**:"
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ### コードの解説
+                1. **初期設定 (`pygame.init()`)**:
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun outsideFence_tripleAsteriskBulletIsNormalized() {
+        val input = """
+            ***イベント処理**:
+            ***移動処理**:
+            ***衝突判定**:
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                * **イベント処理**:
+                * **移動処理**:
+                * **衝突判定**:
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun outsideFence_headingAndNumberedBodyAreSeparated() {
+        val input = "###実行方法1.上記のコードを `pong.py`"
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ### 実行方法
+                1. 上記のコードを `pong.py`
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun outsideFence_headingAndSentenceAreSeparated() {
+        val input = "###改善点と次のステップこのコードは非常に基本的なものです。"
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ### 改善点と次のステップ
+                このコードは非常に基本的なものです。
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun outsideFence_normalizationDoesNotChangeCodeFenceBody() {
+        val input = """
+            ###実行方法1.上記のコードを `pong.py`
+            ```python
+            print("###実行方法")
+            print("***イベント処理**:")
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ### 実行方法
+                1. 上記のコードを `pong.py`
+                ```python
+                print("###実行方法")
+                print("***イベント処理**:")
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
