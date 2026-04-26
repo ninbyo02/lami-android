@@ -2002,4 +2002,234 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun regression_breakoutGameObjectComment_isMerged() {
+        val input = """
+            ```python
+            # --- ゲーム ---
+            # オブジェクトの
+            パラメータ
+            ---
+            paddle_width = 10
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                paddle_width = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_breakoutBallComment_isMerged() {
+        val input = """
+            ```python
+            # ボ
+            ール
+            ball_radius = 10
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                # ボール
+                ball_radius = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_breakoutGameOverCommentAndCode_areSplit() {
+        val input = """
+            ```python
+            # 7.ゲーム
+            オーバー
+            # 判定
+             (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:game_over = True
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                # 7.ゲームオーバー判定 (ボールが底に落ちた)
+                if ball_y + ball_radius > SCREEN_HEIGHT:
+                game_over = True
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_breakoutGameOverClearDisplayComment_isMerged() {
+        val input = """
+            ```python
+            ゲーム
+            オーバー
+            /クリア
+            # 画面
+            # の
+            # 表示
+            if game_over:msg = font.render("GAME OVER! Press R to Restart", True, WHITE)
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                # ゲームオーバー/クリア画面の表示
+                if game_over:
+                msg = font.render("GAME OVER! Press R to Restart", True, WHITE)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_breakoutRestartKeyLine_isSplit() {
+        val input = """
+            ```python
+            keys = pygame.key.get_pressed()if keys[pygame.K_r]:
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_r]:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_breakoutForBlockStatusLine_isSplit() {
+        val input = """
+            ```python
+            for block in blocks:block['status'] = True
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                for block in blocks:
+                block['status'] = True
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_breakoutScoreGameStateLine_isSplit() {
+        val input = """
+            ```python
+            score =0game_over = Falsewin_game = False
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                score = 0
+                game_over = False
+                win_game = False
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_breakoutBallParameterLine_isSplit() {
+        val input = """
+            ```python
+            ball_radius =10ball_x = SCREEN_WIDTH //2ball_y = SCREEN_HEIGHT //2ball_dx =5
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                ball_radius = 10
+                ball_x = SCREEN_WIDTH //2
+                ball_y = SCREEN_HEIGHT //2
+                ball_dx = 5
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_breakoutPaddleLongComment_isSplitIntoComments() {
+        val input = """
+            ```python
+            # パドルに当たった時の角度調整(オプション)衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。6.衝突判定：ブロックとの衝突
+            for block in blocks:
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                # パドルに当たった時の角度調整 (オプション)
+                # 衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。
+                # 6.衝突判定：ブロックとの衝突
+                for block in blocks:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun outsideFence_executionStepsAreSplit() {
+        val input = """
+            実行方法
+
+            1. 上記のコードを pong.py のような名前で保存します。2.ターミナルで python pong.py を実行します。
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                実行方法
+
+                1. 上記のコードを pong.py のような名前で保存します。
+
+                2. ターミナルで python pong.py を実行します。
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun outsideFence_nestedBoldBulletIsSplit() {
+        val input = """
+            衝突判定:*壁:
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                衝突判定:
+
+                壁:
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
