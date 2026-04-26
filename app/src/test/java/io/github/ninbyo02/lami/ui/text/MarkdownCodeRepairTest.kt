@@ -2417,11 +2417,12 @@ class MarkdownCodeRepairTest {
 
 
     @Test
-    fun finalPostProcess_mergesBallCommentFragments() {
+    fun finalPostProcess_ballMovementOrder() {
         val input = """
             ```python
             # ボ
-            ール
+            ールの
+            # 移動
             ball_radius =10
             ```
         """.trimIndent()
@@ -2431,7 +2432,7 @@ class MarkdownCodeRepairTest {
         assertEquals(
             """
                 ```python
-                # ボール
+                # ボールの移動
                 ball_radius = 10
                 ```
             """.trimIndent(),
@@ -2440,7 +2441,7 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
-    fun finalPostProcess_mergesRestartCommentFragments() {
+    fun finalPostProcess_restartOrder() {
         val input = """
             ```python
             # リ
@@ -2464,7 +2465,7 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
-    fun finalPostProcess_mergesGameStateResetFragments() {
+    fun finalPostProcess_gameStateResetOrder() {
         val input = """
             ```python
             ゲーム
@@ -2480,6 +2481,30 @@ class MarkdownCodeRepairTest {
                 ```python
                 # ゲーム状態をリセット
                 game_over = False
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_frameRateOrder() {
+        val input = """
+            ```python
+            # フレーム
+            レート
+            # 設定
+            clock.tick(60)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # フレームレート設定 (60 FPS)
+                clock.tick(60)
                 ```
             """.trimIndent(),
             repaired,
@@ -2570,6 +2595,53 @@ class MarkdownCodeRepairTest {
                 ```python
                 # 衝突した方向を判定し、ボールの速度を反転させる
                 # 上下どちらに当たったか
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_preservesCommentFragmentOrder() {
+        val input = """
+            ```python
+            # ボールの
+            移動
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ボールの移動
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_doesNotMergePaddleIntoGameHeading() {
+        val input = """
+            ```python
+            # --- ゲーム ---
+            # オブジェクトの
+            パラメータ
+            ---
+            # パドル
+            (プレイヤー)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                # パドル (プレイヤー)
                 ```
             """.trimIndent(),
             repaired,
