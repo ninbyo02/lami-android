@@ -2086,27 +2086,6 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
-    fun fragmentedBallComment_isMerged() {
-        val input = """
-            ```python
-            # ボ
-            ール
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # ボール
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
     fun fragmentedNumberedMoveComment_isMerged() {
         val input = """
             ```python

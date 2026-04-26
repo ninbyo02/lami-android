@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -17,7 +18,10 @@ class InferenceStatsSheetContentTest {
             finishReason = "stop",
         )
 
-        val sections = buildInferenceSummarySections(stats)
+        val sections = buildInferenceSummarySections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
 
         assertEquals(listOf("概要"), sections.map { it.title })
         assertEquals(
@@ -34,7 +38,10 @@ class InferenceStatsSheetContentTest {
             inferenceTimeSec = 1.8,
         )
 
-        val sections = buildInferenceSummarySections(stats)
+        val sections = buildInferenceSummarySections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
 
         assertEquals("2.0 s", sections[0].items[0].value)
         assertEquals("1.8 s", sections[0].items[1].value)
@@ -56,6 +63,7 @@ class InferenceStatsSheetContentTest {
 
         val sections = buildInferenceSummarySections(
             stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             localTraceForDev = trace,
         )
 
@@ -80,6 +88,7 @@ class InferenceStatsSheetContentTest {
 
         val sections = buildInferenceSummarySections(
             stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             localTraceForDev = trace,
         )
 
@@ -155,7 +164,10 @@ class InferenceStatsSheetContentTest {
             imageInputCount = 2,
         )
 
-        val sections = buildInferenceDetailSections(stats)
+        val sections = buildInferenceDetailSections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
 
         assertEquals(listOf("トークン", "バックエンド時間詳細", "補足"), sections.map { it.title })
         assertEquals(
@@ -182,7 +194,10 @@ class InferenceStatsSheetContentTest {
             assistantUpdateCount = 109,
         )
 
-        val sections = buildInferenceDetailSections(stats)
+        val sections = buildInferenceDetailSections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
 
         assertEquals(
             listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元", "実測生成速度", "体感生成速度", "速度取得元", "Tokenizer状態"),
@@ -205,7 +220,10 @@ class InferenceStatsSheetContentTest {
             assistantUpdateCount = 0,
         )
 
-        val sections = buildInferenceDetailSections(stats)
+        val sections = buildInferenceDetailSections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
 
         assertEquals(
             listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元", "実測生成速度", "速度取得元", "Tokenizer状態"),
@@ -215,7 +233,10 @@ class InferenceStatsSheetContentTest {
 
     @Test
     fun `buildInferenceDetailSections keeps placeholder when values are missing`() {
-        val sections = buildInferenceDetailSections(InferenceStats())
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
 
         assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）"), sections[0].items.take(3).map { it.value })
         assertEquals("未実行", sections[0].items.last { it.label == "Tokenizer状態" }.value)
@@ -234,6 +255,7 @@ class InferenceStatsSheetContentTest {
 
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             localTraceForDev = trace,
         )
 
@@ -254,6 +276,7 @@ class InferenceStatsSheetContentTest {
                 totalDurationMs = 3_400L,
                 notes = "tokenizer note",
             ),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             localTraceForDev = LocalInferenceTrace(),
         )
 
@@ -289,6 +312,7 @@ class InferenceStatsSheetContentTest {
         )
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(tokenCountMode = "tokenizer_recount"),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             localTraceForDev = trace,
         )
 
@@ -309,6 +333,7 @@ class InferenceStatsSheetContentTest {
         )
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(inputTokens = 8, outputTokens = 13, totalTokens = 21),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             localTraceForDev = trace,
         )
 
@@ -322,9 +347,10 @@ class InferenceStatsSheetContentTest {
     @Test
     fun `buildInferenceDetailSections marks generation fallback when using evalDurationNs`() {
         val sections = buildInferenceDetailSections(
-            InferenceStats(
+            stats = InferenceStats(
                 evalDurationNs = 1_200_000_000L,
             ),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
         )
 
         assertEquals("1.2 s（fallback）", sections[1].items[2].value)
@@ -335,6 +361,7 @@ class InferenceStatsSheetContentTest {
     fun `buildInferenceDetailSections does not duplicate measuredTokens in DEV diagnostics`() {
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             measuredTokenSnapshotSummary = "in=1 / out=2 / total=3",
         )
         val devSection = sections.firstOrNull { it.title == "DEV診断" }
@@ -370,6 +397,7 @@ class InferenceStatsSheetContentTest {
         )
         val text = buildInferenceStatsFullCopyText(
             stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             sections = listOf(
                 InferenceStatsSectionUi(
                     title = "概要",
@@ -382,7 +410,6 @@ class InferenceStatsSheetContentTest {
                     items = listOf(InferenceStatItemUi(label = "診断", value = "ok")),
                 ),
             ),
-            measuredTokenSnapshotSummary = "in=1 / out=2 / total=3\n[BenchmarkInfo raw]\nprefillTokenCount: 1",
         )
 
         assertTrue(text.contains("推論統計"))
@@ -392,21 +419,17 @@ class InferenceStatsSheetContentTest {
         assertTrue(text.contains("[コンテキスト使用量]"))
         assertTrue(text.contains("[追加情報]"))
         assertTrue(text.contains("[DEV診断サマリー]"))
-        assertTrue(text.contains("[measuredTokens]"))
-        assertTrue(text.contains("[BenchmarkInfo raw]"))
     }
 
     @Test
     fun `buildInferenceStatsFullCopyText keeps benchmark placeholder when measured tokens are unavailable`() {
         val text = buildInferenceStatsFullCopyText(
             stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             sections = emptyList(),
             detailSections = emptyList(),
-            measuredTokenSnapshotSummary = null,
         )
 
-        assertTrue(text.contains("[measuredTokens]"))
-        assertTrue(text.contains("unavailable"))
-        assertTrue(text.contains("[BenchmarkInfo raw]"))
+        assertTrue(text.contains("—"))
     }
 }

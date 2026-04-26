@@ -953,7 +953,6 @@ class LocalStreamingRunnerChunkAppendTest {
         val chunks = listOf("print", "(\"", "Hello", ",", " World", "!\")")
 
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
-        commitPendingCodeLine(builder, context)
 
         assertEquals("print(\"Hello, World!\")", builder.toString())
     }
@@ -965,7 +964,6 @@ class LocalStreamingRunnerChunkAppendTest {
 
         appendStreamingChunk(builder, "print(\"Hello,", context)
         appendStreamingChunk(builder, " World!\")", context)
-        commitPendingCodeLine(builder, context)
 
         assertEquals("print(\"Hello, World!\")", builder.toString())
     }
@@ -977,7 +975,6 @@ class LocalStreamingRunnerChunkAppendTest {
 
         appendStreamingChunk(builder, "msg = 'abc", context)
         appendStreamingChunk(builder, " def'", context)
-        commitPendingCodeLine(builder, context)
 
         assertEquals("msg = 'abc def'", builder.toString())
     }
@@ -989,7 +986,6 @@ class LocalStreamingRunnerChunkAppendTest {
 
         appendStreamingChunk(builder, "print(", context)
         appendStreamingChunk(builder, "\"x\")", context)
-        commitPendingCodeLine(builder, context)
 
         assertEquals("print(\"x\")", builder.toString())
     }
@@ -1005,7 +1001,6 @@ class LocalStreamingRunnerChunkAppendTest {
         appendStreamingChunk(builder, "Hello,", context)
         appendStreamingChunk(builder, " World", context)
         appendStreamingChunk(builder, "!\")", context)
-        commitPendingCodeLine(builder, context)
 
         assertEquals("python\nprint(\"Hello, World!\")", builder.toString())
     }
@@ -1017,7 +1012,6 @@ class LocalStreamingRunnerChunkAppendTest {
         val chunks = listOf("```python", "print", "(\"x\")")
 
         chunks.forEach { chunk -> appendStreamingChunk(builder, chunk, context) }
-        commitPendingCodeLine(builder, context)
 
         assertEquals("```python\nprint(\"x\")", builder.toString())
         assertFalse(builder.toString().contains("```pythonprint"))
