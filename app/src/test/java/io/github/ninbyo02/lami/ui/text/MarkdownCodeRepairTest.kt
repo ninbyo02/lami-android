@@ -1054,7 +1054,7 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
-    fun codeLinesAreNotAbsorbedAsComment() {
+    fun codeLinesAreNotAbsorbedAfterCommentFragments() {
         val input = """
             ```python
             #
@@ -1086,7 +1086,7 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
-    fun dashHeading_doesNotDuplicateTrailingDashes() {
+    fun duplicatedDashHeading_isNormalized() {
         val input = """
             ```python
             # --- 初期設定 --- ---
@@ -1106,7 +1106,7 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
-    fun gameObjectParameterDashFragments_mergeToSingleHeading() {
+    fun gameObjectParameterFragments_mergeToSingleDashHeading() {
         val input = """
             ```python
             # --- ゲーム ---
@@ -1130,7 +1130,7 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
-    fun katakanaSplitBallComment_merges() {
+    fun splitKatakanaBallComment_merges() {
         val input = """
             ```python
             # ボ
@@ -1153,7 +1153,7 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
-    fun japaneseParticleCommentFragments_merge() {
+    fun particleSpeedReverseComment_merges() {
         val input = """
             ```python
             # の
@@ -1180,6 +1180,31 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun gameOverClearDisplayComment_withoutLeadingHash_merges() {
+        val input = """
+            ```python
+            ゲーム
+            オーバー
+            /クリア
+            # 画面
+            # の
+            # 表示
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ゲームオーバー/クリア画面の表示
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
     fun restartCommentFragments_merge() {
         val input = """
             ```python
@@ -1198,38 +1223,6 @@ class MarkdownCodeRepairTest {
                 ```python
                 # リスタート処理
                 keys = pygame.key.get_pressed()
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun codeLinesAreNotAbsorbedAfterCommentFragments() {
-        val input = """
-            ```python
-            #
-            初期
-            設定
-            import pygame
-            from sys import exit
-            if True:
-            score = 0
-            pygame.init()
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # 初期設定
-                import pygame
-                from sys import exit
-                if True:
-                score = 0
-                pygame.init()
                 ```
             """.trimIndent(),
             repaired,

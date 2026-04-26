@@ -153,7 +153,7 @@ object MarkdownCodeRepair {
                     looseSplit.extractedCode != null &&
                     commentPart.isNotBlank() &&
                     shouldCollectCommentFragment(commentPart) &&
-                    !looksLikeCodeLine(commentPart)
+                    !isClearCodeLine(commentPart)
                 ) {
                     commentFragments.add(commentPart)
                     flushCommentFragments()
@@ -161,7 +161,7 @@ object MarkdownCodeRepair {
                     index += 1
                     continue
                 }
-                if (shouldCollectCommentFragment(trimmedLine) && !looksLikeCodeLine(trimmedLine)) {
+                if (shouldCollectCommentFragment(trimmedLine) && !isClearCodeLine(trimmedLine)) {
                     commentFragments.add(trimmedLine)
                     index += 1
                     continue
@@ -187,7 +187,16 @@ object MarkdownCodeRepair {
                 continue
             }
 
-            if (isLooseJapaneseCommentLine(trimmedLine) && !looksLikeCodeLine(trimmedLine)) {
+            if (isLooseJapaneseCommentLine(trimmedLine) && !isClearCodeLine(trimmedLine)) {
+                val shouldContinue =
+                    isLooseJapaneseCommentLine(nextLine?.trim().orEmpty()) ||
+                        nextLine?.trim()?.startsWith("#") == true
+                if (shouldContinue) {
+                    isCommentContinuationActive = true
+                    commentFragments.add(trimmedLine)
+                    index += 1
+                    continue
+                }
                 repairedLines.add(normalizePlainComment("# $trimmedLine"))
                 index += 1
                 continue
@@ -436,7 +445,8 @@ object MarkdownCodeRepair {
 
     private fun normalizeMergedComment(merged: String): String {
         if (!merged.contains("---")) return normalizePlainComment("# $merged")
-        val plain = normalizePlainComment("# ${merged.replace("---", " ")}")
+        val cleaned = merged.replace(Regex("---\\s*---+"), "---")
+        val plain = normalizePlainComment("# ${cleaned.replace("---", " ")}")
         val content = plain.removePrefix("#").trim()
         return normalizeDashComment("# --- $content ---")
     }
@@ -452,8 +462,8 @@ object MarkdownCodeRepair {
         if (text.isEmpty()) return false
         if (looksLikeCodeLine(text)) return false
         if (text.length > 48) return false
-        if (text.matches(Regex("^[、。,.()（）「」『』!?！？:：;\\-\\s]+$"))) return true
-        if (!text.matches(Regex("^[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}A-Za-z0-9_、。,.()（）「」『』!?！？:：;\\-\\s]+$"))) {
+        if (text.matches(Regex("^[、。,.()（）「」『』!?！？:：;\\-/／\\s]+$"))) return true
+        if (!text.matches(Regex("^[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}A-Za-z0-9_、。,.()（）「」『』!?！？:：;\\-/／\\s]+$"))) {
             return false
         }
         return containsJapanese(text) || text.length <= 12
@@ -494,11 +504,17 @@ object MarkdownCodeRepair {
     }
 
     private fun looksLikeCodeLine(text: String): Boolean {
+        if (isClearCodeLine(text)) return true
+        if (text.contains("screen.") || text.contains("font.") || text.contains("clock.") || text.contains("keys")) return true
+        if (text.contains(Regex("[\\[\\]{}:]"))) return true
+        return false
+    }
+
+    private fun isClearCodeLine(text: String): Boolean {
         if (text.contains(Regex("\\b(import|from|if|elif|else|for|while|def|class|return)\\b"))) return true
-        if (text.contains("pygame.") || text.contains("screen.") || text.contains("font.") || text.contains("clock.") || text.contains("keys")) return true
+        if (text.contains("pygame.")) return true
         if (text.contains(Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*(?:=|\\+=|-=|\\*=|/=)\\s*"))) return true
         if (text.contains(Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*\\("))) return true
-        if (text.contains(Regex("[\\[\\]{}:]"))) return true
         return false
     }
 
