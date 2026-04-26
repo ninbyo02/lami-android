@@ -335,6 +335,31 @@ object MarkdownCodeRepair {
             .flatMap(::splitKnownCompositeComment)
             .map { normalizeFinalCommentLine(it.trim()) }
             .let(::deduplicateFrameRateComments)
+            .let(::mergeResidualPaddlePlayerSupplement)
+    }
+
+    private fun mergeResidualPaddlePlayerSupplement(lines: List<String>): List<String> {
+        if (lines.isEmpty()) return lines
+        val rebuilt = mutableListOf<String>()
+        for (line in lines) {
+            val currentTrimmed = line.trim()
+            val previousTrimmed = rebuilt.lastOrNull()?.trim().orEmpty()
+            val headingTrimmed = rebuilt.getOrNull(rebuilt.lastIndex - 1)?.trim().orEmpty()
+            val isPaddleAfterGameObjectHeading =
+                previousTrimmed == "# パドル" &&
+                    headingTrimmed == "# --- ゲームオブジェクトのパラメータ ---"
+            val shouldMergeResidualSupplement =
+                currentTrimmed == "(プレイヤー)" &&
+                    (previousTrimmed == "# パドル" || isPaddleAfterGameObjectHeading)
+
+            if (shouldMergeResidualSupplement) {
+                rebuilt[rebuilt.lastIndex] = "# パドル (プレイヤー)"
+                continue
+            }
+
+            rebuilt.add(line)
+        }
+        return rebuilt
     }
 
     private fun applyDeterministicFinalCommentRepairs(lines: List<String>): List<String> {

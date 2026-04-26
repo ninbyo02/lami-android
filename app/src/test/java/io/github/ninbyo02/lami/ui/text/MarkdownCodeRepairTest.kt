@@ -3036,6 +3036,31 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun finalPostProcess_mergesResidualPaddlePlayerSupplementAfterHeading() {
+        val input = """
+            ```python
+            # --- ゲームオブジェクトのパラメータ ---
+            # パドル
+            (プレイヤー)
+            paddle_width = 10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                # パドル (プレイヤー)
+                paddle_width = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
     fun finalPostProcess_movesGameOverSupplementBeforeIfCode() {
         val input = """
             ```python
