@@ -691,6 +691,49 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun gameHeadingDoesNotAbsorbPaddleComment() {
+        val input = """
+            ```python
+            # --- ゲーム --- オブジェクトの --- パラメータ ---
+            # パドル
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                # パドル
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun barePaddleSupplementIsMergedIntoPaddleComment() {
+        val input = """
+            ```python
+            # パドル
+            (プレイヤー)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル (プレイヤー)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
     fun numberedHeadingSupplementAndIf_areSplitDeterministically() {
         val input = """
             ```python
@@ -713,6 +756,30 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun gameOverSupplementAndIfAreSplit() {
+        val input = """
+            ```python
+            7.ゲームオーバー判定
+            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:
+            game_over =True
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 7.ゲームオーバー判定 (ボールが底に落ちた)
+                if ball_y + ball_radius > SCREEN_HEIGHT:
+                game_over = True
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
     fun frameRateSupplementAndClockTick_areSplitDeterministically() {
         val input = """
             ```python
@@ -727,6 +794,71 @@ class MarkdownCodeRepairTest {
                 ```python
                 # フレームレート設定 (60 FPS)
                 clock.tick(60)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun frameRateCommentDeduplicated() {
+        val input = """
+            ```python
+            # フレームレート設定
+            (60 FPS)clock.tick(60)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # フレームレート設定 (60 FPS)
+                clock.tick(60)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun inlineHashNumberedCommentAfterLongSentenceIsSplit() {
+        val input = """
+            ```python
+            # パドルに当たった時の角度調整(オプション)衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。#6.衝突判定：ブロックとの衝突
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドルに当たった時の角度調整(オプション)衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。
+                # 6.衝突判定：ブロックとの衝突
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcessDoesNotAbsorbCodeAfterDashHeading() {
+        val input = """
+            ```python
+            # --- ゲーム --- オブジェクトの --- パラメータ ---
+            if running:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                if running:
                 ```
             """.trimIndent(),
             repaired,

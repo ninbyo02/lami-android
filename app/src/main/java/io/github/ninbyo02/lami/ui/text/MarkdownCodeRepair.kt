@@ -31,6 +31,11 @@ object MarkdownCodeRepair {
         val commentSeed: String,
     )
 
+    private data class CommentAndCodeSplit(
+        val comment: String,
+        val code: String,
+    )
+
     private fun repairCodeFences(markdown: String): String {
         val lines = markdown.split('\n')
         if (lines.isEmpty()) return markdown
@@ -261,8 +266,13 @@ object MarkdownCodeRepair {
                     continue
                 }
                 if (rebuilt.lastOrNull()?.trim()?.startsWith("#") == true) {
-                    val mergedPrev = mergeCommentText(rebuilt.last(), trimmed)
-                    rebuilt[rebuilt.lastIndex] = normalizeFinalCommentLine(mergedPrev.trim())
+                    val previousComment = rebuilt.last().trim()
+                    if (shouldKeepCommentSeparated(previousComment.removePrefix("#").trim(), trimmed)) {
+                        rebuilt.add(normalizeFinalCommentLine("# $trimmed"))
+                    } else {
+                        val mergedPrev = mergeCommentText(rebuilt.last(), trimmed)
+                        rebuilt[rebuilt.lastIndex] = normalizeFinalCommentLine(mergedPrev.trim())
+                    }
                     index += 1
                     continue
                 }
@@ -278,6 +288,7 @@ object MarkdownCodeRepair {
         return rebuilt
             .flatMap(::splitKnownCompositeComment)
             .map { normalizeFinalCommentLine(it.trim()) }
+            .let(::deduplicateFrameRateComments)
     }
 
     private fun appendMergedCommentLine(rebuilt: MutableList<String>, commentLine: String) {
@@ -286,6 +297,10 @@ object MarkdownCodeRepair {
         if (previous != null && previous.startsWith("#")) {
             val previousContent = previous.removePrefix("#").trim()
             val currentContent = normalized.removePrefix("#").trim()
+            if (shouldKeepCommentSeparated(previousContent, currentContent)) {
+                rebuilt.add(normalized)
+                return
+            }
             if (shouldMergeConsecutiveComment(previousContent, currentContent)) {
                 val merged = mergeCommentText(previous, currentContent)
                 rebuilt[rebuilt.lastIndex] = normalizeFinalCommentLine(merged.trim())
@@ -311,6 +326,13 @@ object MarkdownCodeRepair {
         val trimmed = line.trim()
         if (!trimmed.startsWith("#")) return listOf(line)
         val content = trimmed.removePrefix("#").trim()
+        val splitInlineNumbered = splitInlineNumberedComment(content)
+        if (splitInlineNumbered != null) {
+            return listOf(
+                normalizeFinalCommentLine("# ${splitInlineNumbered.comment}"),
+                normalizeFinalCommentLine("# ${splitInlineNumbered.code}"),
+            )
+        }
         val compact = content.replace(Regex("\\s+"), "")
         if (
             compact == "---ゲーム---オブジェクトの---パラメータ------パドル---(プレイヤー)" ||
@@ -338,6 +360,8 @@ object MarkdownCodeRepair {
                 compact == "---ゲーム---オブジェクトのパラメータ---" -> "# --- ゲームオブジェクトのパラメータ ---"
             compact == "---メインループ---" || compact == "メインループ" || compact == "---メイン---ループ" ->
                 "# --- メインループ ---"
+            compact == "パドル" -> "# パドル"
+            compact == "パドル(プレイヤー)" -> "# パドル (プレイヤー)"
             compact == "リスタート処理" -> "# リスタート処理"
             compact == "ゲーム状態をリセット" -> "# ゲーム状態をリセット"
             compact == "ボール" -> "# ボール"
@@ -732,6 +756,44 @@ object MarkdownCodeRepair {
             merged = merged.replace(from, to)
         }
         return merged
+    }
+
+    private fun shouldKeepCommentSeparated(previous: String, current: String): Boolean {
+        val currentCompact = current.replace(Regex("\\s+"), "")
+        if (isFinalizedDashHeading(previous) && (currentCompact.startsWith("パドル") || currentCompact == "(プレイヤー)")) {
+            return true
+        }
+        if (previous.replace(Regex("\\s+"), "") == "パドル" && currentCompact == "(プレイヤー)") {
+            return false
+        }
+        return false
+    }
+
+    private fun deduplicateFrameRateComments(lines: List<String>): List<String> {
+        if (lines.isEmpty()) return lines
+        val rebuilt = mutableListOf<String>()
+        var index = 0
+        while (index < lines.size) {
+            val current = lines[index]
+            val currentCompact = current.trim().removePrefix("#").replace(Regex("\\s+"), "")
+            val next = lines.getOrNull(index + 1)
+            val nextCompact = next?.trim()?.removePrefix("#")?.replace(Regex("\\s+"), "").orEmpty()
+            if (currentCompact == "フレームレート設定" && nextCompact == "フレームレート設定(60FPS)") {
+                index += 1
+                continue
+            }
+            rebuilt.add(current)
+            index += 1
+        }
+        return rebuilt
+    }
+
+    private fun splitInlineNumberedComment(content: String): CommentAndCodeSplit? {
+        val match = Regex("^(.*?。)\\s*#\\s*(\\d+\\..+)$").find(content) ?: return null
+        val sentence = match.groupValues[1].trim()
+        val numbered = match.groupValues[2].trim()
+        if (sentence.isBlank() || numbered.isBlank()) return null
+        return CommentAndCodeSplit(comment = sentence, code = numbered)
     }
 
     private fun isFinalizedDashHeading(content: String): Boolean {
