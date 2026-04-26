@@ -41,6 +41,12 @@ object MarkdownCodeRepair {
         val trailingComment: String,
     )
 
+    private data class ParenthesizedSupplementResult(
+        val commentPrefix: String?,
+        val supplement: String,
+        val code: String,
+    )
+
     private fun repairCodeFences(markdown: String): String {
         val lines = markdown.split('\n')
         if (lines.isEmpty()) return markdown
@@ -318,10 +324,16 @@ object MarkdownCodeRepair {
             }
 
             val supplement = extractParenthesizedSupplementAndCode(current.removePrefix("#").trim())
-            if (supplement != null && rebuilt.lastOrNull()?.trim()?.startsWith("#") == true) {
-                val merged = mergeCommentText(rebuilt.last(), " ${supplement.first}")
-                rebuilt[rebuilt.lastIndex] = normalizeFinalCommentLine(merged)
-                rebuilt.add(repairCodeLine(supplement.second))
+            if (supplement != null) {
+                if (!supplement.commentPrefix.isNullOrBlank()) {
+                    rebuilt.add(normalizeFinalCommentLine("# ${supplement.commentPrefix} ${supplement.supplement}"))
+                } else if (rebuilt.lastOrNull()?.trim()?.startsWith("#") == true) {
+                    val merged = mergeCommentText(rebuilt.last(), " ${supplement.supplement}")
+                    rebuilt[rebuilt.lastIndex] = normalizeFinalCommentLine(merged)
+                } else {
+                    rebuilt.add(normalizeFinalCommentLine("# ${supplement.supplement}"))
+                }
+                rebuilt.add(repairCodeLine(supplement.code))
                 index += 1
                 continue
             }
@@ -361,12 +373,17 @@ object MarkdownCodeRepair {
         )
     }
 
-    private fun extractParenthesizedSupplementAndCode(content: String): Pair<String, String>? {
-        val match = Regex("^(\\([^()]+\\))(\\s*(?:if|for|while)\\b.+)$").matchEntire(content) ?: return null
-        val supplement = match.groupValues[1].trim()
-        val code = match.groupValues[2].trim()
+    private fun extractParenthesizedSupplementAndCode(content: String): ParenthesizedSupplementResult? {
+        val match = Regex("^(.*?)(\\([^()]+\\))(\\s*(?:if|for|while)\\b.+)$").matchEntire(content) ?: return null
+        val commentPrefix = match.groupValues[1].trim().ifBlank { null }
+        val supplement = match.groupValues[2].trim()
+        val code = match.groupValues[3].trim()
         if (code.isBlank()) return null
-        return supplement to code
+        return ParenthesizedSupplementResult(
+            commentPrefix = commentPrefix,
+            supplement = supplement,
+            code = code,
+        )
     }
 
     private fun appendMergedCommentLine(rebuilt: MutableList<String>, commentLine: String) {

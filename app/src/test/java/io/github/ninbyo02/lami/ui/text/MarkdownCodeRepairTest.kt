@@ -329,6 +329,94 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun `paddle supplement line is merged after heading`() {
+        val input = """
+            ```python
+            # --- ゲームオブジェクトのパラメータ ---
+            # パドル
+            (プレイヤー)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                # パドル (プレイヤー)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun `game over supplement before if is merged into previous numbered comment`() {
+        val input = """
+            ```python
+            # 7.ゲームオーバー判定
+            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 7.ゲームオーバー判定 (ボールが底に落ちた)
+                if ball_y + ball_radius > SCREEN_HEIGHT:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun `heading does not absorb paddle player comment`() {
+        val input = """
+            ```python
+            # --- ゲームオブジェクトのパラメータ ---
+            # パドル (プレイヤー)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                # パドル (プレイヤー)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun `code line after supplement is preserved`() {
+        val input = """
+            ```python
+            # 7.ゲームオーバー判定(ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 7.ゲームオーバー判定 (ボールが底に落ちた)
+                if ball_y + ball_radius > SCREEN_HEIGHT:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
     fun codeLineFlushesPendingCommentFragments() {
         val input = """
             ```python
