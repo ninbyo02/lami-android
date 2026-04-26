@@ -146,24 +146,15 @@ object MarkdownCodeRepair {
                 continue
             }
 
-            val previousOutputIsComment = repairedLines.lastOrNull()?.trimStart()?.startsWith("#") == true
-            if (isCommentContinuationActive || (previousOutputIsComment && commentFragments.isNotEmpty())) {
-                if (trimmedLine.startsWith("#")) {
-                    val split = splitCommentFragmentAndCode(trimmedLine)
-                    val content = split.line.trim().removePrefix("#").trim()
-                    if (content.isNotBlank()) {
-                        commentFragments.add(content)
-                    }
-                    if (split.extractedCode != null) {
-                        flushCommentFragments()
-                        repairedLines.add(repairCodeLine(split.extractedCode))
-                    }
-                    index += 1
-                    continue
-                }
+            if (isCommentContinuationActive || commentFragments.isNotEmpty()) {
                 val looseSplit = splitLooseCommentFragmentAndCode(trimmedLine)
                 val commentPart = looseSplit.line.trim()
-                if (looseSplit.extractedCode != null && commentPart.isNotBlank() && shouldCollectCommentFragment(commentPart)) {
+                if (
+                    looseSplit.extractedCode != null &&
+                    commentPart.isNotBlank() &&
+                    shouldCollectCommentFragment(commentPart) &&
+                    !looksLikeCodeLine(commentPart)
+                ) {
                     commentFragments.add(commentPart)
                     flushCommentFragments()
                     repairedLines.add(repairCodeLine(looseSplit.extractedCode))
@@ -416,7 +407,10 @@ object MarkdownCodeRepair {
         normalized = normalized.replace(Regex("\\s{2,}"), " ").trimEnd()
         val dashContent = Regex("^#\\s*---\\s*(.+?)\\s*$").matchEntire(normalized)?.groupValues?.get(1)
         if (!dashContent.isNullOrBlank()) {
-            normalized = "# --- ${dashContent.trim()} ---"
+            val trimmedContent = dashContent
+                .replace(Regex("(\\s*---\\s*)+$"), "")
+                .trim()
+            normalized = "# --- $trimmedContent ---"
         }
         if (!normalized.trimStart().startsWith("#")) {
             normalized = "# ${normalized.trim()}"
