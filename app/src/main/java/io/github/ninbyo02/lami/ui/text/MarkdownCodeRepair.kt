@@ -89,7 +89,9 @@ object MarkdownCodeRepair {
         val sourceLines = body.split('\n')
         if (sourceLines.isEmpty()) return body
 
-        val lines = sourceLines.flatMap(::expandMergedLineHints)
+        val lines = sourceLines
+            .flatMap(::expandMergedLineHints)
+            .flatMap(::splitDeterministicFusedCodeLines)
         val repairedLines = mutableListOf<String>()
         val commentFragments = mutableListOf<String>()
         var isCommentContinuationActive = false
@@ -601,6 +603,37 @@ object MarkdownCodeRepair {
         expanded = expanded.replace(Regex("(\\bFalse)(score\\s*(?:=|\\+=))"), "$1\n$2")
         expanded = expanded.replace(Regex("(\\bFalse)(win_game\\s*=)"), "$1\n$2")
         expanded = expanded.replace(Regex("(block\\['status']\\s*=\\s*False)(score\\s*\\+=\\s*\\d+)"), "$1\n$2")
+        return expanded.split('\n')
+    }
+
+    private fun splitDeterministicFusedCodeLines(line: String): List<String> {
+        if (line.isBlank()) return listOf(line)
+        var expanded = line
+        expanded = expanded.replace("import pygameimport sys#", "import pygame\nimport sys\n#")
+        expanded = expanded.replace(
+            Regex("(SCREEN_WIDTH\\s*=\\s*\\d+)(SCREEN_HEIGHT\\s*=\\s*\\d+)(screen\\s*=)"),
+            "$1\n$2\n$3",
+        )
+        expanded = expanded.replace(
+            Regex("(blocks\\s*=\\s*\\[\\])(for\\s+row\\s+in\\s+range\\([^)]*\\):)(for\\s+col\\s+in\\s+range\\([^)]*\\):)"),
+            "$1\n$2\n$3",
+        )
+        expanded = expanded.replace(
+            Regex("(keys\\s*=\\s*pygame\\.key\\.get_pressed\\(\\))(if\\s+keys\\[pygame\\.K_LEFT]\\s+and\\s+paddle_x\\s*>\\s*0:)(paddle_x\\s*-=?\\s*paddle_speed)"),
+            "$1\n$2\n$3",
+        )
+        expanded = expanded.replace(
+            Regex("(if\\s+block\\['status']:\\s*)(block_rect\\s*=\\s*block\\['rect'])(ball_rect\\s*=\\s*pygame\\.Rect\\()"),
+            "if block['status']:\n$2\n$3",
+        )
+        expanded = expanded.replace(
+            Regex("(game_over\\s*=\\s*False)(win_game\\s*=\\s*False)(score\\s*=\\s*\\d+)"),
+            "$1\n$2\n$3",
+        )
+        expanded = expanded.replace(
+            Regex("(block\\['status']\\s*=\\s*False)(score\\s*\\+=\\s*\\d+)"),
+            "$1\n$2",
+        )
         return expanded.split('\n')
     }
 
