@@ -728,6 +728,14 @@ object MarkdownCodeRepair {
         if (text.isEmpty()) return text
 
         var normalized = text
+        normalized = normalized.replace(
+            Regex("(?<!\\n)(\\d+)\\.\\*\\*([^\\n]+?)\\*\\*:\\s*(?=\\d+\\.\\*\\*)"),
+            "$1. **$2**:\n",
+        )
+        normalized = normalized.replace(
+            Regex("(?<!\\n)(\\d+)\\.\\*\\*([^\\n]+?)\\*\\*:\\s*"),
+            "$1. **$2**: ",
+        )
         normalized = normalized.replace(Regex("([。．.!?！？])\\s*(\\*\\*\\*.+?\\*\\*:)"), "$1\n$2")
         normalized = normalized.replace(Regex("([。．.!?！？])\\s*(#{1,6})"), "$1\n$2")
         normalized = normalized.replace(Regex("(?m)^(\\s{0,3}#{1,6}\\s*[^\\n]*?)(\\d+\\.\\s*\\S.*)$"), "$1\n$2")
@@ -735,11 +743,25 @@ object MarkdownCodeRepair {
             Regex("(?m)^(\\s{0,3}#{1,6}\\s+[^\\n]+?)(?=(この|本|上記|以下|次|また|ここ|それ)[^\\n]*[。．])"),
             "$1\n",
         )
+        normalized = normalized.replace(
+            Regex("(?m)^(\\s{0,3}#{1,6}\\s*[^\\n]*?)(この[^\\n]*[。．])$"),
+            "$1\n$2",
+        )
 
         return normalized
             .lineSequence()
+            .flatMap { splitOutsideFenceInlineNumberedItems(it).lineSequence() }
             .map(::normalizeOutsideFenceLine)
             .joinToString("\n")
+    }
+
+    private fun splitOutsideFenceInlineNumberedItems(line: String): String {
+        if (!line.contains("**")) return line
+        if (line.trimStart().startsWith("```")) return line
+        return line.replace(
+            Regex("(\\d+\\.\\s*\\*\\*[^\\n]+?\\*\\*:\\s*)(?=\\d+\\.\\s*\\*\\*)"),
+            "$1\n",
+        )
     }
 
     private fun normalizeOutsideFenceLine(line: String): String {
@@ -762,6 +784,13 @@ object MarkdownCodeRepair {
             val content = numberedBoldBulletMatch.groupValues[2].trim()
             val trailing = numberedBoldBulletMatch.groupValues[3]
             return "$prefix **$content**:$trailing"
+        }
+
+        val numberedBulletMissingSpaceMatch = Regex("^(\\s*\\d+\\.)(\\S.*)$").matchEntire(line)
+        if (numberedBulletMissingSpaceMatch != null) {
+            val prefix = numberedBulletMissingSpaceMatch.groupValues[1]
+            val content = numberedBulletMissingSpaceMatch.groupValues[2]
+            return "$prefix $content"
         }
 
         return line

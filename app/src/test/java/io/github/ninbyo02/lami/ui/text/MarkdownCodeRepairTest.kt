@@ -1603,4 +1603,169 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun fragmentedGameObjectParameterComment_isMerged() {
+        val input = """
+            ```python
+            # --- ゲーム ---
+            # オブジェクト
+            # の
+            パラメータ
+            ---
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fragmentedBallComment_isMerged() {
+        val input = """
+            ```python
+            # ボ
+            ール
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ボール
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fragmentedNumberedMoveComment_isMerged() {
+        val input = """
+            ```python
+            # 3.ボ
+            ールの
+            # 移動
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 3.ボールの移動
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun looseGameOverClearDisplayComment_isMerged() {
+        val input = """
+            ```python
+            ゲーム
+            オーバー
+            /クリア
+            # 画面
+            # の
+            # 表示
+            if game_over:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ゲームオーバー/クリア画面の表示
+                if game_over:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun outsideFence_numberedBoldItems_areSplit() {
+        val input = "1.**初期設定 (`pygame.init()`)**: Pygameの機能を初期化します。2.**オブジェクトの定義**: ボールを作成します。"
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                1. **初期設定 (`pygame.init()`)**: Pygameの機能を初期化します。
+                2. **オブジェクトの定義**: ボールを作成します。
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun outsideFence_starBoldBullets_areNormalized() {
+        val input = """
+            ***イベント処理**: ウィンドウを閉じたり...
+            ***移動処理**: パドルを...
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                * **イベント処理**: ウィンドウを閉じたり...
+                * **移動処理**: パドルを...
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun outsideFence_headingAndFollowingSentence_areSplit() {
+        val input = "###改善点と次のステップこのコードは非常に基本的なものです。"
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ### 改善点と次のステップ
+                このコードは非常に基本的なものです。
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun outsideFence_normalizationDoesNotChangePythonFenceBody() {
+        val input = """
+            1.**初期設定 (`pygame.init()`)**: Pygameの機能を初期化します。2.**オブジェクトの定義**: ボールを作成します。
+            ```python
+            print("***イベント処理**:")
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                1. **初期設定 (`pygame.init()`)**: Pygameの機能を初期化します。
+                2. **オブジェクトの定義**: ボールを作成します。
+                ```python
+                print("***イベント処理**:")
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
