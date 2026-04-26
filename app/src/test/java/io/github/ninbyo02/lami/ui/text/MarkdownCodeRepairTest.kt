@@ -417,6 +417,20 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun knownPostProcessPatterns_doNotApplyOutsidePythonFence() {
+        val input = """
+            # パドル
+            (プレイヤー)
+            # 7.ゲームオーバー判定
+            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(input, repaired)
+    }
+
+    @Test
     fun codeLineFlushesPendingCommentFragments() {
         val input = """
             ```python
