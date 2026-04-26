@@ -36,6 +36,11 @@ object MarkdownCodeRepair {
         val code: String,
     )
 
+    private data class HeadingSplitResult(
+        val heading: String,
+        val trailingComment: String,
+    )
+
     private fun repairCodeFences(markdown: String): String {
         val lines = markdown.split('\n')
         if (lines.isEmpty()) return markdown
@@ -286,9 +291,82 @@ object MarkdownCodeRepair {
         }
 
         return rebuilt
+            .let(::applyDeterministicFinalCommentRepairs)
             .flatMap(::splitKnownCompositeComment)
             .map { normalizeFinalCommentLine(it.trim()) }
             .let(::deduplicateFrameRateComments)
+    }
+
+    private fun applyDeterministicFinalCommentRepairs(lines: List<String>): List<String> {
+        if (lines.isEmpty()) return lines
+        val rebuilt = mutableListOf<String>()
+        var index = 0
+        while (index < lines.size) {
+            val current = lines[index].trim()
+            if (!current.startsWith("#")) {
+                rebuilt.add(lines[index])
+                index += 1
+                continue
+            }
+
+            val splitHeading = splitKnownMixedGameHeading(current)
+            if (splitHeading != null) {
+                rebuilt.add(splitHeading.heading)
+                rebuilt.add(splitHeading.trailingComment)
+                index += 1
+                continue
+            }
+
+            val supplement = extractParenthesizedSupplementAndCode(current.removePrefix("#").trim())
+            if (supplement != null && rebuilt.lastOrNull()?.trim()?.startsWith("#") == true) {
+                val merged = mergeCommentText(rebuilt.last(), " ${supplement.first}")
+                rebuilt[rebuilt.lastIndex] = normalizeFinalCommentLine(merged)
+                rebuilt.add(repairCodeLine(supplement.second))
+                index += 1
+                continue
+            }
+
+            if (current == "# の速度を反転させる上下どちらに当たったか") {
+                val previous = rebuilt.lastOrNull()?.trim().orEmpty()
+                if (previous == "# 衝突した方向を判定し、ボール") {
+                    rebuilt[rebuilt.lastIndex] = "# 衝突した方向を判定し、ボールの速度を反転させる"
+                    rebuilt.add("# 上下どちらに当たったか")
+                    index += 1
+                    continue
+                }
+            }
+
+            rebuilt.add(lines[index])
+            index += 1
+        }
+        return rebuilt
+    }
+
+    private fun splitKnownMixedGameHeading(commentLine: String): HeadingSplitResult? {
+        val content = commentLine.removePrefix("#").trim()
+        val compact = content.replace(Regex("\\s+"), "")
+        val headingPrefix = "---ゲーム---オブジェクトの---パラメータ---"
+        if (!compact.startsWith(headingPrefix)) return null
+        var suffix = compact.removePrefix(headingPrefix)
+        if (suffix.startsWith("---")) suffix = suffix.removePrefix("---")
+        if (suffix.isBlank()) return null
+        val trailing = when (suffix) {
+            "パドル---", "パドル" -> "# パドル"
+            "パドル---(プレイヤー)", "パドル(プレイヤー)" -> "# パドル (プレイヤー)"
+            else -> return null
+        }
+        return HeadingSplitResult(
+            heading = "# --- ゲームオブジェクトのパラメータ ---",
+            trailingComment = trailing,
+        )
+    }
+
+    private fun extractParenthesizedSupplementAndCode(content: String): Pair<String, String>? {
+        val match = Regex("^(\\([^()]+\\))(\\s*(?:if|for|while)\\b.+)$").matchEntire(content) ?: return null
+        val supplement = match.groupValues[1].trim()
+        val code = match.groupValues[2].trim()
+        if (code.isBlank()) return null
+        return supplement to code
     }
 
     private fun appendMergedCommentLine(rebuilt: MutableList<String>, commentLine: String) {
@@ -354,6 +432,10 @@ object MarkdownCodeRepair {
         val trimmed = line.trim()
         if (!trimmed.startsWith("#")) return line
         val content = trimmed.removePrefix("#").trim()
+        val normalizedNumbered = Regex("^(\\d+)\\.(\\S.*)$").matchEntire(content)
+        if (normalizedNumbered != null) {
+            return normalizePlainComment("# ${normalizedNumbered.groupValues[1]}.${normalizedNumbered.groupValues[2]}")
+        }
         val compact = content.replace(Regex("\\s+"), "")
         return when {
             compact == "ゲームオブジェクトのパラメータ" || compact == "---ゲームオブジェクトのパラメータ---" ||

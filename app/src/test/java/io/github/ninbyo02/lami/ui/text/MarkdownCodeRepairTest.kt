@@ -2909,4 +2909,145 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun finalPostProcess_splitsMixedGameHeadingAndPaddleComment() {
+        val input = """
+            ```python
+            # --- ゲーム --- オブジェクトの --- パラメータ --- --- パドル ---
+            (プレイヤー)
+            paddle_width = 10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                # パドル (プレイヤー)
+                paddle_width = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_movesGameOverSupplementBeforeIfCode() {
+        val input = """
+            ```python
+            # 7.ゲームオーバー判定
+            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:
+            game_over = True
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 7.ゲームオーバー判定 (ボールが底に落ちた)
+                if ball_y + ball_radius > SCREEN_HEIGHT:
+                game_over = True
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_movesWinSupplementBeforeIfCode() {
+        val input = """
+            ```python
+            # 8.ゲームクリア判定
+            (全てのブロックが破壊された)if all(not block['status'] for block in blocks):
+            win_game = True
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 8.ゲームクリア判定 (全てのブロックが破壊された)
+                if all(not block['status'] for block in blocks):
+                win_game = True
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_splitsInlineNumberedCommentAfterSentence() {
+        val input = """
+            ```python
+            # パドルに当たった時の角度調整(オプション)衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。#6.衝突判定：ブロックとの衝突
+            for block in blocks:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドルに当たった時の角度調整(オプション)衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。
+                # 6.衝突判定：ブロックとの衝突
+                for block in blocks:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_absorbsFrameRateSupplementBeforeClockCode() {
+        val input = """
+            ```python
+            # フレームレート設定
+            (60 FPS)clock.tick(60)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # フレームレート設定 (60 FPS)
+                clock.tick(60)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_preservesCollisionCommentOrderWithLooseBallFragment() {
+        val input = """
+            ```python
+            # 衝突した方向を判定し、
+            ボール
+            # の速度を反転させる
+            # 上下どちらに当たったか
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 衝突した方向を判定し、ボールの速度を反転させる
+                # 上下どちらに当たったか
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
