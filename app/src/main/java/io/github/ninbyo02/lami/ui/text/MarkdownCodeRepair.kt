@@ -448,6 +448,23 @@ object MarkdownCodeRepair {
     }
 
     private fun normalizeMergedComment(merged: String): String {
+        if (merged.contains("。") && merged.contains(Regex("\\d+\\."))) {
+            val normalizedPieces = merged
+                .replace("（", "(")
+                .replace("）", ")")
+                .replace(Regex("。(?=\\d+\\.)"), "。\n")
+                .lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .map { piece ->
+                    val withSpacing = piece.replace(Regex("^(\\d+\\.[^()]+)\\("), "$1 (")
+                    normalizePlainComment("# $withSpacing")
+                }
+                .toList()
+            if (normalizedPieces.isNotEmpty()) {
+                return normalizedPieces.joinToString("\n")
+            }
+        }
         if (!merged.contains("---")) return normalizePlainComment("# $merged")
         val cleaned = merged
             .replace(Regex("---\\s*---+"), "---")
@@ -657,7 +674,23 @@ object MarkdownCodeRepair {
             "$1\n$2",
         )
         expanded = expanded.replace(
+            Regex("(for\\s+block\\s+in\\s+blocks:)(block\\['status']\\s*=\\s*True)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(keys\\s*=\\s*pygame\\.key\\.get_pressed\\(\\))(if\\s+keys\\[pygame\\.K_r]:)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(ball_radius\\s*=\\s*\\d+)(ball_x\\s*=\\s*SCREEN_WIDTH\\s*//\\s*\\d+)(ball_y\\s*=\\s*SCREEN_HEIGHT\\s*//\\s*\\d+)(ball_dx\\s*=\\s*\\d+)"),
+            "$1\n$2\n$3\n$4",
+        )
+        expanded = expanded.replace(
             Regex("(game_over\\s*=\\s*False)(win_game\\s*=\\s*False)(score\\s*=\\s*\\d+)"),
+            "$1\n$2\n$3",
+        )
+        expanded = expanded.replace(
+            Regex("(score\\s*=\\s*\\d+)(game_over\\s*=\\s*False)(win_game\\s*=\\s*False)"),
             "$1\n$2\n$3",
         )
         expanded = expanded.replace(
@@ -784,6 +817,14 @@ object MarkdownCodeRepair {
         normalized = normalized.replace(
             Regex("(?<!\\n)(\\d+)\\.\\*\\*([^\\n]+?)\\*\\*:\\s*"),
             "$1. **$2**: ",
+        )
+        normalized = normalized.replace(
+            Regex("([。．.!?！？])\\s*(\\d+\\.)"),
+            "$1\n\n$2 ",
+        )
+        normalized = normalized.replace(
+            Regex("(?m)^([^\\n:*]+):\\*([^\\n:*]+):\\s*$"),
+            "$1:\n\n$2:",
         )
         normalized = normalized.replace(Regex("([。．.!?！？])\\s*(\\*\\*\\*.+?\\*\\*:)"), "$1\n$2")
         normalized = normalized.replace(Regex("([。．.!?！？])\\s*(#{1,6})"), "$1\n$2")
