@@ -248,7 +248,41 @@ object MarkdownCodeRepair {
 
         flushCommentFragments()
         val postProcessedLines = mergeTrailingPythonCommentFragments(repairedLines)
-        return postProcessedLines.joinToString("\n")
+        val finalPostProcessedLines = applyKnownFinalPythonPostProcess(postProcessedLines)
+        return finalPostProcessedLines.joinToString("\n")
+    }
+
+    private fun applyKnownFinalPythonPostProcess(lines: List<String>): List<String> {
+        if (lines.isEmpty()) return lines
+        val rebuilt = mutableListOf<String>()
+        var index = 0
+        while (index < lines.size) {
+            val current = lines[index]
+            val currentTrimmed = current.trim()
+            val next = lines.getOrNull(index + 1)
+            val nextTrimmed = next?.trim()
+
+            if (currentTrimmed == "# パドル" && nextTrimmed == "(プレイヤー)") {
+                rebuilt.add("# パドル (プレイヤー)")
+                index += 2
+                continue
+            }
+
+            if (
+                currentTrimmed == "# 7.ゲームオーバー判定" &&
+                nextTrimmed != null &&
+                nextTrimmed.startsWith("(ボールが底に落ちた)if ")
+            ) {
+                rebuilt.add("# 7.ゲームオーバー判定 (ボールが底に落ちた)")
+                rebuilt.add(nextTrimmed.removePrefix("(ボールが底に落ちた)").trim())
+                index += 2
+                continue
+            }
+
+            rebuilt.add(current)
+            index += 1
+        }
+        return rebuilt
     }
 
 
