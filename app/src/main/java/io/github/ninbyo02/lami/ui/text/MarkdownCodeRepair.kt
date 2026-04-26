@@ -100,11 +100,7 @@ object MarkdownCodeRepair {
                 return
             }
             val merged = commentFragments.joinToString(separator = "") { it.trim() }.trim()
-            val normalized = if (merged.contains("---")) {
-                normalizeDashComment("# $merged")
-            } else {
-                normalizePlainComment("# $merged")
-            }
+            val normalized = normalizeMergedComment(merged)
             repairedLines.add(normalized)
             commentFragments.clear()
             isCommentContinuationActive = false
@@ -150,7 +146,8 @@ object MarkdownCodeRepair {
                 continue
             }
 
-            if (isCommentContinuationActive) {
+            val previousOutputIsComment = repairedLines.lastOrNull()?.trimStart()?.startsWith("#") == true
+            if (isCommentContinuationActive || (previousOutputIsComment && commentFragments.isNotEmpty())) {
                 if (trimmedLine.startsWith("#")) {
                     val split = splitCommentFragmentAndCode(trimmedLine)
                     val content = split.line.trim().removePrefix("#").trim()
@@ -441,6 +438,13 @@ object MarkdownCodeRepair {
             merged = "${shortLabelWithParen.groupValues[1]} (${shortLabelWithParen.groupValues[2]})"
         }
         return "# $merged"
+    }
+
+    private fun normalizeMergedComment(merged: String): String {
+        if (!merged.contains("---")) return normalizePlainComment("# $merged")
+        val plain = normalizePlainComment("# ${merged.replace("---", " ")}")
+        val content = plain.removePrefix("#").trim()
+        return normalizeDashComment("# --- $content ---")
     }
 
     private fun shouldCollectCommentFragment(text: String): Boolean {

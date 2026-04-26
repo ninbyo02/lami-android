@@ -958,4 +958,131 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun fragmentedGameObjectDashComment_isMerged() {
+        val input = """
+            ```python
+            # --- ゲーム ---
+            # オブジェクト
+            # の
+            パラメータ
+            ---
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun paddlePlayerComment_isMerged() {
+        val input = """
+            ```python
+            # パドル
+            (プレイヤー)
+            paddle_width = 10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル (プレイヤー)
+                paddle_width = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fragmentedBallComment_isMerged() {
+        val input = """
+            ```python
+            # ボ
+            ール
+            ball_radius =10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ボール
+                ball_radius = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun commentFragments_flushBeforeCodeLine() {
+        val input = """
+            ```python
+            #
+            リ
+            スタート
+            処理
+            keys = pygame.key.get_pressed()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # リスタート処理
+                keys = pygame.key.get_pressed()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun codeLinesAreNotAbsorbedAsComment() {
+        val input = """
+            ```python
+            #
+            初期
+            設定
+            import pygame
+            from sys import exit
+            if True:
+            score = 0
+            pygame.init()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 初期設定
+                import pygame
+                from sys import exit
+                if True:
+                score = 0
+                pygame.init()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
