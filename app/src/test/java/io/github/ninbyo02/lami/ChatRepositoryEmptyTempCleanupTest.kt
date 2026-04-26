@@ -137,9 +137,18 @@ private class EmptyChatCleanupFakeMessageDao(private val messages: MutableList<M
         messages += message
     }
 
+    override suspend fun insertMessageAndReturnId(message: Message): Long {
+        insertMessage(message)
+        return 1L
+    }
+
     override fun getAllMessages(chatId: Int): Flow<List<Message>> {
         return MutableStateFlow(messages.filter { it.chatId == chatId })
     }
+
+    override suspend fun getMessageById(messageId: Int): Message? = null
+
+    override suspend fun updateMessage(message: Message) = Unit
 
     override suspend fun countMessages(chatId: Int): Int {
         return messages.count { it.chatId == chatId }

@@ -149,9 +149,18 @@ private class FakeMessageDao(seed: List<Message>) : MessageDao {
         messages += message.copy(messageID = messages.size + 1)
     }
 
+    override suspend fun insertMessageAndReturnId(message: Message): Long {
+        insertMessage(message)
+        return 1L
+    }
+
     override fun getAllMessages(chatId: Int): Flow<List<Message>> {
         return MutableStateFlow(messages.filter { it.chatId == chatId })
     }
+
+    override suspend fun getMessageById(messageId: Int): Message? = null
+
+    override suspend fun updateMessage(message: Message) = Unit
 
     override suspend fun getFirstUserMessage(chatId: Int): Message? {
         return messages.firstOrNull { it.chatId == chatId && it.isSendbyMe && it.message.trim().isNotEmpty() }
