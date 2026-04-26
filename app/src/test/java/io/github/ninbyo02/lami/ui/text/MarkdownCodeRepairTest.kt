@@ -1085,4 +1085,155 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun dashHeading_doesNotDuplicateTrailingDashes() {
+        val input = """
+            ```python
+            # --- 初期設定 --- ---
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- 初期設定 ---
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun gameObjectParameterDashFragments_mergeToSingleHeading() {
+        val input = """
+            ```python
+            # --- ゲーム ---
+            # オブジェクト
+            # の
+            パラメータ
+            ---
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun katakanaSplitBallComment_merges() {
+        val input = """
+            ```python
+            # ボ
+            ール
+            ball_radius =10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ボール
+                ball_radius = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun japaneseParticleCommentFragments_merge() {
+        val input = """
+            ```python
+            # の
+            # 速度
+            # を
+            # 反
+            # 転
+            # させる
+            if ball_dy > 0:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # の速度を反転させる
+                if ball_dy > 0:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun restartCommentFragments_merge() {
+        val input = """
+            ```python
+            #
+            リ
+            スタート
+            処理
+            keys = pygame.key.get_pressed()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # リスタート処理
+                keys = pygame.key.get_pressed()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun codeLinesAreNotAbsorbedAfterCommentFragments() {
+        val input = """
+            ```python
+            #
+            初期
+            設定
+            import pygame
+            from sys import exit
+            if True:
+            score = 0
+            pygame.init()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 初期設定
+                import pygame
+                from sys import exit
+                if True:
+                score = 0
+                pygame.init()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
