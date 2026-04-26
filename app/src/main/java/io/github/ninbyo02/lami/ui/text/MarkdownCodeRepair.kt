@@ -343,23 +343,32 @@ object MarkdownCodeRepair {
         val rebuilt = mutableListOf<String>()
         for (line in lines) {
             val currentTrimmed = line.trim()
-            val previousTrimmed = rebuilt.lastOrNull()?.trim().orEmpty()
-            val headingTrimmed = rebuilt.getOrNull(rebuilt.lastIndex - 1)?.trim().orEmpty()
-            val isPaddleAfterGameObjectHeading =
-                previousTrimmed == "# パドル" &&
-                    headingTrimmed == "# --- ゲームオブジェクトのパラメータ ---"
-            val shouldMergeResidualSupplement =
-                currentTrimmed == "(プレイヤー)" &&
-                    (previousTrimmed == "# パドル" || isPaddleAfterGameObjectHeading)
-
-            if (shouldMergeResidualSupplement) {
-                rebuilt[rebuilt.lastIndex] = "# パドル (プレイヤー)"
+            val mergeTargetIndex = findRecentPaddleHeadingIndex(rebuilt)
+            if (currentTrimmed == "(プレイヤー)" && mergeTargetIndex != null) {
+                rebuilt[mergeTargetIndex] = "# パドル (プレイヤー)"
                 continue
             }
 
             rebuilt.add(line)
         }
         return rebuilt
+    }
+
+    private fun findRecentPaddleHeadingIndex(lines: List<String>): Int? {
+        val lastIndex = lines.lastIndex
+        if (lastIndex < 0) return null
+        for (offset in 1..3) {
+            val candidateIndex = lastIndex - (offset - 1)
+            if (candidateIndex < 0) break
+            val candidateTrimmed = lines[candidateIndex].trim()
+            if (candidateTrimmed == "# パドル") {
+                return candidateIndex
+            }
+            if (looksLikeCodeLine(candidateTrimmed)) {
+                return null
+            }
+        }
+        return null
     }
 
     private fun applyDeterministicFinalCommentRepairs(lines: List<String>): List<String> {

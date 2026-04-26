@@ -3271,4 +3271,77 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun `residual paddle supplement is merged when paddle heading exists within three lines`() {
+        val input = """
+            ```python
+            # パドル
+            # 実出力の残存形
+            (プレイヤー)
+            paddle_width = 100
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル (プレイヤー)
+                # 実出力の残存形
+                paddle_width = 100
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun `residual paddle supplement is not merged when code line exists before supplement`() {
+        val input = """
+            ```python
+            # パドル
+            paddle_x = 100
+            (プレイヤー)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル
+                paddle_x = 100
+                (プレイヤー)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun `outside python fence keeps paddle supplement split`() {
+        val input = """
+            # パドル
+            (プレイヤー)
+            ```python
+            score = 0
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                # パドル
+                (プレイヤー)
+                ```python
+                score = 0
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
