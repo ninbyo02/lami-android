@@ -336,6 +336,17 @@ object MarkdownCodeRepair {
         if (!trimmed.startsWith("#")) return SplitCommentCodeResult(line = line)
         val content = trimmed.removePrefix("#").trim()
         if (content.isBlank()) return SplitCommentCodeResult(line = "#")
+        val inlineCommentSplit = content.split(Regex("\\}\\)\\s*#\\s*"), limit = 2)
+        if (inlineCommentSplit.size == 2) {
+            val firstComment = inlineCommentSplit[0].trimEnd().removeSuffix("})").trimEnd()
+            val secondComment = inlineCommentSplit[1].trim()
+            if (firstComment.isNotBlank()) {
+                return SplitCommentCodeResult(
+                    line = normalizePlainComment("# $firstComment"),
+                    extractedCode = "# $secondComment",
+                )
+            }
+        }
 
         val headingWithCode = Regex("^---\\s*(.+?)\\s*---\\s*(.+)$").matchEntire(content)
         if (headingWithCode != null && looksLikeCodeLine(headingWithCode.groupValues[2])) {
@@ -684,6 +695,14 @@ object MarkdownCodeRepair {
             "$1\n$2",
         )
         expanded = expanded.replace(
+            Regex("(if\\s+win_game:)(msg\\s*=\\s*)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(if\\s+[^:\\n]+:)(\\s*[A-Za-z_][A-Za-z0-9_\\[\\]'\\\"]*\\s*=)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
             Regex("(for\\s+block\\s+in\\s+blocks:)(block\\['status']\\s*=\\s*True)"),
             "$1\n$2",
         )
@@ -725,6 +744,7 @@ object MarkdownCodeRepair {
             .replace("score_text =", "score_text =")
             .replace("text_rect =", "text_rect =")
             .replace(")screen.blit(", ")\nscreen.blit(")
+            .replace(Regex("^(#\\s*Y方向の速度)(ブロック)$"), "$1\n# $2")
     }
 
     private fun normalizeKnownSpacing(line: String): String {
