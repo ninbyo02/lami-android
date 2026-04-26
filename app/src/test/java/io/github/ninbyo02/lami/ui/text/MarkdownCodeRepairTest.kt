@@ -352,6 +352,123 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun twoLinePythonFence_isNormalized() {
+        val input = """
+            ```
+            python
+            import pygame
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                import pygame
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun realBreakoutRawCore_isRepaired() {
+        val input = """
+            ```python
+            import pygameimport sys#
+            --- 初期
+            設定
+            ---pygame.init()#
+            画面
+            サイズ
+            SCREEN_WIDTH =80SCREEN_HEIGHT =60screen =
+            #
+            ボ
+            ール
+            ball_radius =10ball_x = SCREEN_WIDTH //2ball_y = SCREEN_HEIGHT //2ball_dx =5#
+            X方向
+            の
+            速度
+            ball_dy = -5 #
+            Y方向
+            の
+            速度
+            #
+            衝突
+            した
+            方向
+            を
+            判定
+            し
+            、
+            ボール
+            の
+            速度
+            を
+            反
+            転
+            させる
+            block['status'] = Falsescore +=10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                import pygame
+                import sys
+                # --- 初期設定 ---
+                pygame.init()
+                # 画面サイズ
+                SCREEN_WIDTH = 80
+                SCREEN_HEIGHT = 60
+                screen =
+                # ボール
+                ball_radius = 10
+                ball_x = SCREEN_WIDTH //2
+                ball_y = SCREEN_HEIGHT //2
+                ball_dx = 5
+                # X方向の速度
+                ball_dy = -5
+                # Y方向の速度
+                # 衝突した方向を判定し、ボールの速度を反転させる
+                block['status'] = False
+                score += 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun outsideMarkdownListNormalization_doesNotTouchFenceBody() {
+        val input = """
+            1.初期設定: 説明。2.オブジェクトの定義: 説明。
+            
+            ```python
+            print("***イベント処理**:")
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                1. 初期設定: 説明。
+                2. オブジェクトの定義: 説明。
+                
+                ```python
+                print("***イベント処理**:")
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 
     @Test
     fun bareFenceNextLinePython_isNormalizedToPythonFence() {
