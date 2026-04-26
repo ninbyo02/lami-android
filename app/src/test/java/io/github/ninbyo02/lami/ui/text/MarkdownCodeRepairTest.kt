@@ -669,6 +669,113 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun dashHeadingAndPaddleComment_areSeparatedWithoutMixing() {
+        val input = """
+            ```python
+            # --- ゲーム --- オブジェクトの --- パラメータ --- --- パドル ---
+            (プレイヤー)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                # パドル (プレイヤー)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun numberedHeadingSupplementAndIf_areSplitDeterministically() {
+        val input = """
+            ```python
+            7.ゲームオーバー判定
+            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 7.ゲームオーバー判定 (ボールが底に落ちた)
+                if ball_y + ball_radius > SCREEN_HEIGHT:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun frameRateSupplementAndClockTick_areSplitDeterministically() {
+        val input = """
+            ```python
+            (60 FPS)clock.tick(60)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # フレームレート設定 (60 FPS)
+                clock.tick(60)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedIfConditionAndInlineAssignment_areSplitDeterministically() {
+        val input = """
+            ```python
+            if keys[pygame.K_RIGHT] and paddle_x< SCREEN_WIDTH - paddle_width:paddle_x += paddle_speed
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if keys[pygame.K_RIGHT] and paddle_x < SCREEN_WIDTH - paddle_width:
+                paddle_x += paddle_speed
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedForAndAppend_areSplitDeterministically() {
+        val input = """
+            ```python
+            for col in range(block_cols):blocks.append(block)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                for col in range(block_cols):
+                blocks.append(block)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
     fun fusedFalseAssignments_areSplitDeterministically() {
         val input = """
             ```python

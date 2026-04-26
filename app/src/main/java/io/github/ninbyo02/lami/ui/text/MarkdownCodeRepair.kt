@@ -184,6 +184,17 @@ object MarkdownCodeRepair {
             }
 
             if (isNumberedJapaneseLine(trimmedLine)) {
+                val nextTrimmed = nextLine?.trim().orEmpty()
+                val nextSplit = splitLooseCommentFragmentAndCode(nextTrimmed)
+                val shouldCarrySupplement =
+                    nextSplit.extractedCode != null &&
+                        nextSplit.line.trim().startsWith("(")
+                if (shouldCarrySupplement) {
+                    isCommentContinuationActive = true
+                    commentFragments.add(trimmedLine)
+                    index += 1
+                    continue
+                }
                 repairedLines.add(normalizePlainComment("# $trimmedLine"))
                 index += 1
                 continue
@@ -200,6 +211,17 @@ object MarkdownCodeRepair {
                     continue
                 }
                 repairedLines.add(normalizePlainComment("# $trimmedLine"))
+                index += 1
+                continue
+            }
+
+            val splitSupplementAndCode = splitLooseCommentFragmentAndCode(trimmedLine)
+            if (
+                splitSupplementAndCode.extractedCode != null &&
+                splitSupplementAndCode.line.trim() == "(60 FPS)"
+            ) {
+                repairedLines.add("# フレームレート設定 (60 FPS)")
+                repairedLines.add(repairCodeLine(splitSupplementAndCode.extractedCode))
                 index += 1
                 continue
             }
@@ -289,6 +311,14 @@ object MarkdownCodeRepair {
         val trimmed = line.trim()
         if (!trimmed.startsWith("#")) return listOf(line)
         val content = trimmed.removePrefix("#").trim()
+        val compact = content.replace(Regex("\\s+"), "")
+        if (
+            compact == "---ゲーム---オブジェクトの---パラメータ------パドル---(プレイヤー)" ||
+            compact == "---ゲーム---オブジェクトの---パラメータ---パドル(プレイヤー)" ||
+            compact == "---ゲームオブジェクトのパラメータ---パドル(プレイヤー)"
+        ) {
+            return listOf("# --- ゲームオブジェクトのパラメータ ---", "# パドル (プレイヤー)")
+        }
         return when (content) {
             "Y方向の速度ブロック" -> listOf("# Y方向の速度", "# ブロック")
             "衝突した方向を判定し、ボールの速度を反転させる上下どちらに当たったか" -> {
@@ -844,6 +874,10 @@ object MarkdownCodeRepair {
         expanded = expanded.replace(
             Regex("(if\\s+[^:\\n]+:)(\\s*[A-Za-z_][A-Za-z0-9_\\[\\]'\\\"]*\\s*=)"),
             "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(if\\s+keys\\[pygame\\.K_RIGHT]\\s+and\\s+paddle_x)\\s*<\\s*(SCREEN_WIDTH\\s*-\\s*paddle_width)\\s*:(paddle_x\\s*\\+=\\s*paddle_speed)"),
+            "$1 < $2:\n$3",
         )
         expanded = expanded.replace(
             Regex("(for\\s+block\\s+in\\s+blocks:)(block\\['status']\\s*=\\s*True)"),
