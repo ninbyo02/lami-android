@@ -249,7 +249,8 @@ object MarkdownCodeRepair {
         flushCommentFragments()
         val postProcessedLines = mergeTrailingPythonCommentFragments(repairedLines)
         val finalPostProcessedLines = applyKnownFinalPythonPostProcess(postProcessedLines)
-        return finalPostProcessedLines.joinToString("\n")
+        val safeguardedLines = applyFinalPaddlePlayerSafetyFuse(finalPostProcessedLines)
+        return safeguardedLines.joinToString("\n")
     }
 
     private fun applyKnownFinalPythonPostProcess(lines: List<String>): List<String> {
@@ -280,6 +281,24 @@ object MarkdownCodeRepair {
             }
 
             rebuilt.add(current)
+            index += 1
+        }
+        return rebuilt
+    }
+
+    private fun applyFinalPaddlePlayerSafetyFuse(lines: List<String>): List<String> {
+        if (lines.isEmpty()) return lines
+        val rebuilt = mutableListOf<String>()
+        var index = 0
+        while (index < lines.size) {
+            val currentTrimmed = lines[index].trim()
+            val nextTrimmed = lines.getOrNull(index + 1)?.trim()
+            if (currentTrimmed == "# パドル" && nextTrimmed == "(プレイヤー)") {
+                rebuilt.add("# パドル (プレイヤー)")
+                index += 2
+                continue
+            }
+            rebuilt.add(lines[index])
             index += 1
         }
         return rebuilt

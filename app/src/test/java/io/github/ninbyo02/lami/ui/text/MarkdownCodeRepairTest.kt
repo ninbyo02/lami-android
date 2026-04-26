@@ -3344,4 +3344,75 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun `final safety fuse merges paddle supplement only for consecutive lines in python fence`() {
+        val input = """
+            ```python
+            # パドル
+            (プレイヤー)
+            paddle_width = 10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル (プレイヤー)
+                paddle_width = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun `final safety fuse does not apply outside python fence`() {
+        val input = """
+            # パドル
+            (プレイヤー)
+            ```python
+            score = 0
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                # パドル
+                (プレイヤー)
+                ```python
+                score = 0
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun `final safety fuse does not merge when a code line exists between paddle lines`() {
+        val input = """
+            ```python
+            # パドル
+            paddle_x = 20
+            (プレイヤー)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル
+                paddle_x = 20
+                (プレイヤー)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
