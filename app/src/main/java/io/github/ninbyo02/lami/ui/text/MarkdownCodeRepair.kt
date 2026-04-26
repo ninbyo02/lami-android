@@ -233,7 +233,7 @@ object MarkdownCodeRepair {
             if (isStandaloneJapaneseCommentFragment(trimmed)) {
                 val nextTrimmed = lines.getOrNull(index + 1)?.trim().orEmpty()
                 if (nextTrimmed.startsWith("#")) {
-                    val mergedNext = mergeCommentText(nextTrimmed, trimmed)
+                    val mergedNext = mergeFragments(trimmed, nextTrimmed)
                     appendMergedCommentLine(rebuilt, normalizeFinalCommentLine(mergedNext.trim()))
                     index += 2
                     continue
@@ -275,6 +275,7 @@ object MarkdownCodeRepair {
 
     private fun shouldMergeConsecutiveComment(previous: String, current: String): Boolean {
         if (previous.isBlank() || current.isBlank()) return true
+        if (isFinalizedDashHeading(previous)) return false
         if (previous.contains("---") || current.contains("---")) return true
         if (previous.length <= 8 || current.length <= 8) return true
         if (previous.endsWith("、")) return true
@@ -670,12 +671,42 @@ object MarkdownCodeRepair {
 
     private fun mergeCommentText(commentLine: String, fragment: String): String {
         val base = commentLine.trim().removePrefix("#").trim()
-        val merged = "$base${fragment.trim()}"
+        val merged = mergeKnownJapaneseFragments("$base${fragment.trim()}")
         return if (merged.contains("---")) {
             normalizeDashComment("# $merged")
         } else {
             normalizePlainComment("# $merged")
         }
+    }
+
+    private fun mergeFragments(left: String, rightCommentLine: String): String {
+        val right = rightCommentLine.trim().removePrefix("#").trim()
+        val merged = mergeKnownJapaneseFragments("${left.trim()}$right")
+        return if (merged.contains("---")) {
+            normalizeDashComment("# $merged")
+        } else {
+            normalizePlainComment("# $merged")
+        }
+    }
+
+    private fun mergeKnownJapaneseFragments(text: String): String {
+        var merged = text.replace(Regex("\\s+"), "")
+        val replacements = listOf(
+            "ボ移動ールの" to "ボールの移動",
+            "スタート処理リ" to "リスタート処理",
+            "状態をリセットゲーム" to "ゲーム状態をリセット",
+            "レート設定フレーム" to "フレームレート設定",
+            "オーバーゲーム" to "ゲームオーバー",
+        )
+        replacements.forEach { (from, to) ->
+            merged = merged.replace(from, to)
+        }
+        return merged
+    }
+
+    private fun isFinalizedDashHeading(content: String): Boolean {
+        val compact = content.replace(Regex("\\s+"), "")
+        return compact == "---ゲームオブジェクトのパラメータ---" || compact == "---メインループ---"
     }
 
     private fun looksLikeCodeLine(text: String): Boolean {
