@@ -613,21 +613,48 @@ object MarkdownCodeRepair {
         if (line.isBlank()) return listOf(line)
         var expanded = line
         expanded = expanded.replace("import pygameimport sys#", "import pygame\nimport sys\n#")
+        expanded = expanded.replace("import pygameimport sys", "import pygame\nimport sys")
+        expanded = expanded.replace("import sys#", "import sys\n#")
         expanded = expanded.replace(
             Regex("(SCREEN_WIDTH\\s*=\\s*\\d+)(SCREEN_HEIGHT\\s*=\\s*\\d+)(screen\\s*=)"),
             "$1\n$2\n$3",
         )
+        expanded = expanded.replace("SCREEN_WIDTH =80SCREEN_HEIGHT =60screen =", "SCREEN_WIDTH = 80\nSCREEN_HEIGHT = 60\nscreen =")
+        expanded = expanded.replace("SCREEN_WIDTH = 80SCREEN_HEIGHT = 60screen =", "SCREEN_WIDTH = 80\nSCREEN_HEIGHT = 60\nscreen =")
+        expanded = expanded.replace("score =0game_over = Falsewin_game = False", "score = 0\ngame_over = False\nwin_game = False")
+        expanded = expanded.replace("game_over = Falsewin_game = Falsescore =0", "game_over = False\nwin_game = False\nscore = 0")
+        expanded = expanded.replace("game_over = Falsewin_game = False", "game_over = False\nwin_game = False")
         expanded = expanded.replace(
             Regex("(blocks\\s*=\\s*\\[\\])(for\\s+row\\s+in\\s+range\\([^)]*\\):)(for\\s+col\\s+in\\s+range\\([^)]*\\):)"),
             "$1\n$2\n$3",
+        )
+        expanded = expanded.replace(
+            Regex("(paddle_x\\s*-=\\s*paddle_speed)(if\\s+keys\\[pygame\\.K_[A-Z_]+]?)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(ball_x\\s*\\+=\\s*ball_dx)(ball_y\\s*\\+=\\s*ball_dy)"),
+            "$1\n$2",
         )
         expanded = expanded.replace(
             Regex("(keys\\s*=\\s*pygame\\.key\\.get_pressed\\(\\))(if\\s+keys\\[pygame\\.K_LEFT]\\s+and\\s+paddle_x\\s*>\\s*0:)(paddle_x\\s*-=?\\s*paddle_speed)"),
             "$1\n$2\n$3",
         )
         expanded = expanded.replace(
+            Regex("(keys\\s*=\\s*pygame\\.key\\.get_pressed\\(\\))(if\\s+keys\\[pygame\\.K_[A-Z_]+]:)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
             Regex("(if\\s+block\\['status']:\\s*)(block_rect\\s*=\\s*block\\['rect'])(ball_rect\\s*=\\s*pygame\\.Rect\\()"),
             "if block['status']:\n$2\n$3",
+        )
+        expanded = expanded.replace(
+            Regex("(for\\s+block\\s+in\\s+blocks:)(if\\s+block\\['status']:)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(if\\s+game_over:)(msg\\s*=\\s*)"),
+            "$1\n$2",
         )
         expanded = expanded.replace(
             Regex("(game_over\\s*=\\s*False)(win_game\\s*=\\s*False)(score\\s*=\\s*\\d+)"),
@@ -635,6 +662,14 @@ object MarkdownCodeRepair {
         )
         expanded = expanded.replace(
             Regex("(block\\['status']\\s*=\\s*False)(score\\s*\\+=\\s*\\d+)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex(":(pygame\\.quit\\(\\))(sys\\.exit\\(\\))"),
+            ":\n$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(pygame\\.display\\.[a-zA-Z_]+\\([^)]*\\))(pygame\\.display\\.[a-zA-Z_]+\\([^)]*\\))"),
             "$1\n$2",
         )
         return expanded.split('\n')
@@ -739,6 +774,10 @@ object MarkdownCodeRepair {
 
         var normalized = text
         normalized = normalized.replace(
+            Regex("(?<!\\n)(\\d+\\.\\s*\\*\\*[^\\n]+?\\*\\*:\\s*[^\\n]*?)(?=\\d+\\.\\s*\\*\\*)"),
+            "$1\n",
+        )
+        normalized = normalized.replace(
             Regex("(?<!\\n)(\\d+)\\.\\*\\*([^\\n]+?)\\*\\*:\\s*(?=\\d+\\.\\*\\*)"),
             "$1. **$2**:\n",
         )
@@ -755,6 +794,10 @@ object MarkdownCodeRepair {
         )
         normalized = normalized.replace(
             Regex("(?m)^(\\s{0,3}#{1,6}\\s*[^\\n]*?)(この[^\\n]*[。．])$"),
+            "$1\n$2",
+        )
+        normalized = normalized.replace(
+            Regex("(?m)^(\\s*\\*\\s*\\*\\*[^\\n]+\\*\\*:[^\\n]*?)(\\*\\s*\\*\\*[^\\n]+\\*\\*:)$"),
             "$1\n$2",
         )
 
