@@ -152,8 +152,7 @@ object MarkdownCodeRepair {
                 if (
                     looseSplit.extractedCode != null &&
                     commentPart.isNotBlank() &&
-                    shouldCollectCommentFragment(commentPart) &&
-                    !isClearCodeLine(commentPart)
+                    shouldAbsorbAsCommentFragment(commentPart)
                 ) {
                     commentFragments.add(commentPart)
                     flushCommentFragments()
@@ -161,7 +160,7 @@ object MarkdownCodeRepair {
                     index += 1
                     continue
                 }
-                if (shouldCollectCommentFragment(trimmedLine) && !isClearCodeLine(trimmedLine)) {
+                if (shouldAbsorbAsCommentFragment(trimmedLine)) {
                     commentFragments.add(trimmedLine)
                     index += 1
                     continue
@@ -445,16 +444,37 @@ object MarkdownCodeRepair {
 
     private fun normalizeMergedComment(merged: String): String {
         if (!merged.contains("---")) return normalizePlainComment("# $merged")
-        val cleaned = merged.replace(Regex("---\\s*---+"), "---")
+        val cleaned = merged
+            .replace(Regex("---\\s*---+"), "---")
+            .replace(Regex("^\\s*---\\s*"), "---")
+            .replace(Regex("\\s*---\\s*$"), "---")
         val plain = normalizePlainComment("# ${cleaned.replace("---", " ")}")
         val content = plain.removePrefix("#").trim()
         return normalizeDashComment("# --- $content ---")
     }
 
+    private fun isCommentFragmentContinuationLine(text: String): Boolean {
+        if (text.isBlank()) return false
+        if (text.trimStart().startsWith("#")) return false
+        if (isStrongCodeLine(text)) return false
+        if (!containsJapanese(text) && text != "---" && !text.matches(Regex("^[、。,.()（）「」『』!?！？:：;\\-/／\\s]+$"))) {
+            return false
+        }
+        return isCommentFragment(text) || isLooseJapaneseCommentLine(text) || text == "---"
+    }
+
+    private fun shouldAbsorbAsCommentFragment(text: String): Boolean {
+        if (text.isBlank()) return false
+        if (isStrongCodeLine(text)) return false
+        return shouldCollectCommentFragment(text) || isCommentFragmentContinuationLine(text)
+    }
+
     private fun shouldCollectCommentFragment(text: String): Boolean {
         if (text.isBlank()) return false
+        if (isStrongCodeLine(text)) return false
         if (isNumberedJapaneseLine(text)) return true
         if (text.matches(Regex("^[、。,.:：()（）\\-\\s]+$"))) return true
+        if (text == "---") return true
         return isCommentFragment(text) || isLooseJapaneseCommentLine(text)
     }
 
@@ -513,9 +533,31 @@ object MarkdownCodeRepair {
     private fun isClearCodeLine(text: String): Boolean {
         if (text.contains(Regex("\\b(import|from|if|elif|else|for|while|def|class|return)\\b"))) return true
         if (text.contains("pygame.")) return true
+        if (text.contains("screen.")) return true
+        if (text.contains(Regex("\\b(?:score\\s*=|blocks\\b|paddle_|ball_|block_|game_over\\b|win_game\\b)"))) return true
         if (text.contains(Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*(?:=|\\+=|-=|\\*=|/=)\\s*"))) return true
         if (text.contains(Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*\\("))) return true
         return false
+    }
+
+    private fun isStrongCodeLine(text: String): Boolean {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return false
+        if (isClearCodeLine(trimmed)) return true
+        return trimmed.startsWith("import ") ||
+            trimmed.startsWith("from ") ||
+            trimmed.startsWith("if ") ||
+            trimmed.startsWith("for ") ||
+            trimmed.startsWith("while ") ||
+            trimmed.startsWith("score =") ||
+            trimmed.startsWith("pygame.") ||
+            trimmed.startsWith("screen.") ||
+            trimmed.startsWith("blocks") ||
+            trimmed.startsWith("paddle_") ||
+            trimmed.startsWith("ball_") ||
+            trimmed.startsWith("block_") ||
+            trimmed.startsWith("game_over") ||
+            trimmed.startsWith("win_game")
     }
 
     private fun findCodeStartIndex(text: String): Int? {
