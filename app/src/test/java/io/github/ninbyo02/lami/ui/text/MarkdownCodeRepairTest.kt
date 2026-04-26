@@ -1885,4 +1885,121 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun regression_fusedControlAndAssignmentLines_areSplit() {
+        val input = """
+            ```python
+            if game_over:msg = "retry"
+            for block in blocks:if block['status']:block_rect = block['rect']
+            if running:pygame.quit()sys.exit()
+            paddle_x -= paddle_speedif keys[pygame.K_RIGHT]:
+            ball_x += ball_dxball_y += ball_dy
+            keys = pygame.key.get_pressed()if keys[pygame.K_r]:
+            block['status'] = Falsescore +=10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if game_over:
+                msg = "retry"
+                for block in blocks:
+                if block['status']:
+                block_rect = block['rect']
+                if running:
+                pygame.quit()
+                sys.exit()
+                paddle_x -= paddle_speed
+                if keys[pygame.K_RIGHT]:
+                ball_x += ball_dx
+                ball_y += ball_dy
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_r]:
+                block['status'] = False
+                score += 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_commentFragments_areMergedToSingleLines() {
+        val input = """
+            ```python
+            # --- ゲーム ---
+            # オブジェクト
+            # の
+            パラメータ
+            ---
+            # ボ
+            ール
+            # 描
+            画
+            # ゲーム
+            # 状態
+            # を
+            # リ
+            # セット
+            # 衝突した方向を判定し、
+            ボール
+            # の
+            # 速度
+            # を
+            # 反
+            # 転
+            # させる
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                # ボール
+                # 描画
+                # ゲーム状態をリセット
+                # 衝突した方向を判定し、ボールの速度を反転させる
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_outsideFenceMarkdown_isNormalizedWithoutTouchingPythonStrings() {
+        val input = """
+            1. **初期設定 (`pygame.init()`)**: 説明です。2. **オブジェクト定義**: 続きです。
+            * **衝突判定**:***壁**:
+            ### 改善点と次のステップこのコードは非常に基本的なものです。
+            ```python
+            print("***イベント処理**:")
+            print("###実行方法")
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                1. **初期設定 (`pygame.init()`)**: 説明です。
+                2. **オブジェクト定義**: 続きです。
+                * **衝突判定**:
+                * **壁**:
+                ### 改善点と次のステップ
+                このコードは非常に基本的なものです。
+                ```python
+                print("***イベント処理**:")
+                print("###実行方法")
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }

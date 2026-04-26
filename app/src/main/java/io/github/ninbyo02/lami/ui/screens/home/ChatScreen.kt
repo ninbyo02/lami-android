@@ -3618,7 +3618,12 @@ internal fun normalizeStreamingPartialForRender(partial: String): String {
 
 internal fun buildFinalizedStreamingResponseForPersist(response: String): String {
     val normalizedFinalText = response.trim()
-    return MarkdownCodeRepair.repair(normalizedFinalText).trim()
+    val repaired = MarkdownCodeRepair.repair(normalizedFinalText).trim()
+    Log.d(
+        "MarkdownCodeRepair",
+        "MarkdownCodeRepair final: len ${normalizedFinalText.length} -> ${repaired.length}, nl ${normalizedFinalText.count { it == '\n' }} -> ${repaired.count { it == '\n' }}",
+    )
+    return repaired
 }
 fun shouldRefreshRender(
     prev: String,
