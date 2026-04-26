@@ -3050,4 +3050,98 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun `paddle player supplement is merged`() {
+        val input = """
+            ```python
+            # パドル
+            (プレイヤー)
+            paddle_x = 10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル (プレイヤー)
+                paddle_x = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun `game over supplement with following if is split`() {
+        val input = """
+            ```python
+            # 7.ゲームオーバー判定
+            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:
+            game_over = True
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 7.ゲームオーバー判定 (ボールが底に落ちた)
+                if ball_y + ball_radius > SCREEN_HEIGHT:
+                game_over = True
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun `main loop dash heading is normalized`() {
+        val input = """
+            ```python
+            # --- メイン --- ループ ---
+            clock = pygame.time.Clock()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- メインループ ---
+                clock = pygame.time.Clock()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun `dash heading does not absorb paddle comment`() {
+        val input = """
+            ```python
+            # --- ゲームオブジェクトのパラメータ ---
+            # パドル
+            (プレイヤー)
+            paddle_width = 100
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                # パドル (プレイヤー)
+                paddle_width = 100
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
