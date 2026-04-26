@@ -2232,4 +2232,110 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun regression_breakoutStatusAndWinGameLine_isSplit() {
+        val input = """
+            ```python
+            block['status'] = Trueif win_game:
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                block['status'] = True
+                if win_game:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_breakoutFrameRateComment_isMergedBeforeClockTick() {
+        val input = """
+            ```python
+            # フレーム
+            / レート
+            / 設定
+            clock.tick(60)
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                # フレームレート設定 (60 FPS)
+                clock.tick(60)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_breakoutRestartCommentFragments_areMerged() {
+        val input = """
+            ```python
+            # リ
+            スタート
+            # 処理
+            if keys[pygame.K_r]:
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                # リスタート処理
+                if keys[pygame.K_r]:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_breakoutGameStateResetCommentFragments_areMerged() {
+        val input = """
+            ```python
+            ゲーム
+            # 状態をリセット
+            game_over = False
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                # ゲーム状態をリセット
+                game_over = False
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun regression_breakoutObjectParameterHeadingFragments_areMerged() {
+        val input = """
+            ```python
+            # オブジェクトの
+            パラメータ
+            ---
+            paddle_width = 100
+            ```
+        """.trimIndent()
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                paddle_width = 100
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }

@@ -251,6 +251,8 @@ object MarkdownCodeRepair {
         repaired = repaired.replace("game_over = Falsewin_game = Falsescore =0", "game_over = False\nwin_game = False\nscore = 0")
         repaired = repaired.replace("block['status'] = Falsescore += 10", "block['status'] = False\nscore += 10")
         repaired = repaired.replace("block['status'] = Falsescore + = 10", "block['status'] = False\nscore += 10")
+        repaired = repaired.replace("block['status'] = Trueif win_game:", "block['status'] = True\nif win_game:")
+        repaired = repaired.replace("keys = pygame.key.get_pressed()if keys[pygame.K_r]:", "keys = pygame.key.get_pressed()\nif keys[pygame.K_r]:")
         repaired = repaired.replace("win_game = Falsescore =0", "win_game = False\nscore = 0")
         repaired = repaired.replace("sys.exit()if ", "sys.exit()\nif ")
         repaired = repaired.replace(") //2for block", ") //2\nfor block")
@@ -448,6 +450,14 @@ object MarkdownCodeRepair {
     }
 
     private fun normalizeMergedComment(merged: String): String {
+        val compact = merged.replace(Regex("\\s+"), "")
+        when (compact) {
+            "ボール" -> return "# ボール"
+            "リスタート処理" -> return "# リスタート処理"
+            "ゲーム状態をリセット" -> return "# ゲーム状態をリセット"
+            "オブジェクトのパラメータ---" -> return "# --- ゲームオブジェクトのパラメータ ---"
+            "フレーム/レート/設定", "フレームレート設定" -> return "# フレームレート設定 (60 FPS)"
+        }
         if (merged.contains("。") && merged.contains(Regex("\\d+\\."))) {
             val normalizedPieces = merged
                 .replace("（", "(")
@@ -705,6 +715,8 @@ object MarkdownCodeRepair {
             Regex("(pygame\\.display\\.[a-zA-Z_]+\\([^)]*\\))(pygame\\.display\\.[a-zA-Z_]+\\([^)]*\\))"),
             "$1\n$2",
         )
+        expanded = expanded.replace("block['status'] = Trueif win_game:", "block['status'] = True\nif win_game:")
+        expanded = expanded.replace("keys = pygame.key.get_pressed()if keys[pygame.K_r]:", "keys = pygame.key.get_pressed()\nif keys[pygame.K_r]:")
         return expanded.split('\n')
     }
 

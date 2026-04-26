@@ -3623,7 +3623,25 @@ internal fun buildFinalizedStreamingResponseForPersist(response: String): String
         "MarkdownCodeRepair",
         "MarkdownCodeRepair final: len ${normalizedFinalText.length} -> ${repaired.length}, nl ${normalizedFinalText.count { it == '\n' }} -> ${repaired.count { it == '\n' }}",
     )
+    Log.d("MarkdownCodeRepair", "MarkdownCodeRepair final body:\n${previewForDevLog(repaired)}")
     return repaired
+}
+
+private fun previewForDevLog(
+    text: String,
+    maxLength: Int = 2000,
+): String {
+    if (text.length <= maxLength) return text
+    val headLength = maxLength / 2
+    val tailLength = maxLength - headLength
+    val omittedCount = text.length - maxLength
+    val head = text.take(headLength)
+    val tail = text.takeLast(tailLength)
+    return buildString {
+        appendLine(head)
+        appendLine("...<omitted $omittedCount chars>...")
+        append(tail)
+    }
 }
 fun shouldRefreshRender(
     prev: String,
