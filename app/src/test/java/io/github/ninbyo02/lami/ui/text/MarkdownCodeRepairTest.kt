@@ -1229,4 +1229,135 @@ class MarkdownCodeRepairTest {
         )
     }
 
+
+
+    @Test
+    fun fragmentedGameSectionComment_fromRealBreakoutSample_isMerged() {
+        val input = """
+            ```python
+            # --- ゲーム ---
+            # オブジェクト
+            # の
+            パラメータ
+            ---
+            paddle_width = 10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                paddle_width = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fragmentedBallComment_fromRealBreakoutSample_isMerged() {
+        val input = """
+            ```python
+            # ボ
+            ール
+            ball_radius =10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ボール
+                ball_radius = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fragmentedMoveComment_fromRealBreakoutSample_isMerged() {
+        val input = """
+            ```python
+            # 3.ボ
+            ールの
+            # 移動
+            ball_x += ball_dx
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 3.ボールの移動
+                ball_x += ball_dx
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fragmentedCollisionDirectionComment_fromRealBreakoutSample_isMerged() {
+        val input = """
+            ```python
+            # 衝突した方向を判定し、
+            ボール
+            # の
+            # 速度
+            # を
+            # 反
+            # 転
+            # させる
+            if ball_dy >0:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 衝突した方向を判定し、ボールの速度を反転させる
+                if ball_dy > 0:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun looseGameOverClearDisplayComment_fromRealBreakoutSample_isMerged() {
+        val input = """
+            ```python
+            ゲーム
+            オーバー
+            /クリア
+            # 画面
+            # の
+            # 表示
+            if game_over:
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ゲームオーバー/クリア画面の表示
+                if game_over:
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
