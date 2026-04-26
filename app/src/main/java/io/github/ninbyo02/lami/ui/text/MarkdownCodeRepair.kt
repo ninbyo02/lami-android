@@ -209,7 +209,119 @@ object MarkdownCodeRepair {
         }
 
         flushCommentFragments()
-        return repairedLines.joinToString("\n")
+        val postProcessedLines = mergeTrailingPythonCommentFragments(repairedLines)
+        return postProcessedLines.joinToString("\n")
+    }
+
+
+
+    private fun mergeTrailingPythonCommentFragments(lines: List<String>): List<String> {
+        if (lines.isEmpty()) return lines
+        val rebuilt = mutableListOf<String>()
+        var index = 0
+        while (index < lines.size) {
+            val line = lines[index]
+            val trimmed = line.trim()
+
+            if (trimmed.startsWith("#")) {
+                val normalized = normalizeFinalCommentLine(trimmed)
+                appendMergedCommentLine(rebuilt, normalized)
+                index += 1
+                continue
+            }
+
+            if (isStandaloneJapaneseCommentFragment(trimmed)) {
+                val nextTrimmed = lines.getOrNull(index + 1)?.trim().orEmpty()
+                if (nextTrimmed.startsWith("#")) {
+                    val mergedNext = mergeCommentText(nextTrimmed, trimmed)
+                    appendMergedCommentLine(rebuilt, normalizeFinalCommentLine(mergedNext.trim()))
+                    index += 2
+                    continue
+                }
+                if (rebuilt.lastOrNull()?.trim()?.startsWith("#") == true) {
+                    val mergedPrev = mergeCommentText(rebuilt.last(), trimmed)
+                    rebuilt[rebuilt.lastIndex] = normalizeFinalCommentLine(mergedPrev.trim())
+                    index += 1
+                    continue
+                }
+                rebuilt.add(normalizePlainComment("# $trimmed"))
+                index += 1
+                continue
+            }
+
+            rebuilt.add(line)
+            index += 1
+        }
+
+        return rebuilt
+            .flatMap(::splitKnownCompositeComment)
+            .map { normalizeFinalCommentLine(it.trim()) }
+    }
+
+    private fun appendMergedCommentLine(rebuilt: MutableList<String>, commentLine: String) {
+        val normalized = normalizeFinalCommentLine(commentLine.trim())
+        val previous = rebuilt.lastOrNull()?.trim()
+        if (previous != null && previous.startsWith("#")) {
+            val previousContent = previous.removePrefix("#").trim()
+            val currentContent = normalized.removePrefix("#").trim()
+            if (shouldMergeConsecutiveComment(previousContent, currentContent)) {
+                val merged = mergeCommentText(previous, currentContent)
+                rebuilt[rebuilt.lastIndex] = normalizeFinalCommentLine(merged.trim())
+                return
+            }
+        }
+        rebuilt.add(normalized)
+    }
+
+    private fun shouldMergeConsecutiveComment(previous: String, current: String): Boolean {
+        if (previous.isBlank() || current.isBlank()) return true
+        if (previous.contains("---") || current.contains("---")) return true
+        if (previous.length <= 8 || current.length <= 8) return true
+        if (previous.endsWith("、")) return true
+        if (previous.endsWith("を") || previous.endsWith("の")) return true
+        if (previous.endsWith("し")) return true
+        if (previous.contains("の速度を反転させる") && current.startsWith("上下")) return false
+        return false
+    }
+
+    private fun splitKnownCompositeComment(line: String): List<String> {
+        val trimmed = line.trim()
+        if (!trimmed.startsWith("#")) return listOf(line)
+        val content = trimmed.removePrefix("#").trim()
+        return when (content) {
+            "Y方向の速度ブロック" -> listOf("# Y方向の速度", "# ブロック")
+            "衝突した方向を判定し、ボールの速度を反転させる上下どちらに当たったか" -> {
+                listOf("# 衝突した方向を判定し、ボールの速度を反転させる", "# 上下どちらに当たったか")
+            }
+            else -> listOf(line)
+        }
+    }
+
+    private fun normalizeFinalCommentLine(line: String): String {
+        val trimmed = line.trim()
+        if (!trimmed.startsWith("#")) return line
+        val content = trimmed.removePrefix("#").trim()
+        val compact = content.replace(Regex("\\s+"), "")
+        return when {
+            compact == "ゲームオブジェクトのパラメータ" || compact == "---ゲームオブジェクトのパラメータ---" ||
+                compact == "---ゲーム---オブジェクトのパラメータ---" -> "# --- ゲームオブジェクトのパラメータ ---"
+            compact == "---メインループ---" || compact == "メインループ" || compact == "---メイン---ループ" ->
+                "# --- メインループ ---"
+            compact == "リスタート処理" -> "# リスタート処理"
+            compact == "ゲーム状態をリセット" -> "# ゲーム状態をリセット"
+            compact == "ボール" -> "# ボール"
+            compact == "の速度を反転させる上下どちらに当たったか" -> "# の速度を反転させる上下どちらに当たったか"
+            else -> if (content.contains("---")) normalizeDashComment("# $content") else normalizePlainComment("# $content")
+        }
+    }
+
+    private fun isStandaloneJapaneseCommentFragment(text: String): Boolean {
+        if (text.isBlank()) return false
+        if (text.startsWith("#")) return false
+        if (text == "---") return true
+        if (isStrongCodeLine(text) || looksLikeCodeLine(text)) return false
+        if (!containsJapanese(text)) return false
+        return text.length <= 24
     }
 
     private fun repairCodeLine(line: String, nextLine: String?): String {

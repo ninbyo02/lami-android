@@ -2414,4 +2414,188 @@ class MarkdownCodeRepairTest {
         assertEquals("```python\n# Trueなら存在、Falseなら破壊済み\n# スコアと\n```", repaired)
     }
 
+
+
+    @Test
+    fun finalPostProcess_mergesBallCommentFragments() {
+        val input = """
+            ```python
+            # ボ
+            ール
+            ball_radius =10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ボール
+                ball_radius = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_mergesRestartCommentFragments() {
+        val input = """
+            ```python
+            # リ
+            スタート
+            # 処理
+            keys = pygame.key.get_pressed()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # リスタート処理
+                keys = pygame.key.get_pressed()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_mergesGameStateResetFragments() {
+        val input = """
+            ```python
+            ゲーム
+            # 状態をリセット
+            game_over = False
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ゲーム状態をリセット
+                game_over = False
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_mergesMainLoopHeading() {
+        val input = """
+            ```python
+            # --- メイン ---
+            ループ
+            clock = pygame.time.Clock()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- メインループ ---
+                clock = pygame.time.Clock()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_mergesGameObjectParameterHeading() {
+        val input = """
+            ```python
+            # --- ゲーム ---
+            # オブジェクトの
+            パラメータ
+            ---
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # --- ゲームオブジェクトのパラメータ ---
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_splitsVelocityAndBlockComment() {
+        val input = """
+            ```python
+            # Y方向の速度ブロック
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # Y方向の速度
+                # ブロック
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_mergesCollisionDirectionComment() {
+        val input = """
+            ```python
+            # 衝突した方向を判定し、
+            ボール
+            # の速度を反転させる上下どちらに当たったか
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # 衝突した方向を判定し、ボールの速度を反転させる
+                # 上下どちらに当たったか
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_doesNotAbsorbCodeLines() {
+        val input = """
+            ```python
+            ループ
+            clock = pygame.time.Clock()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # ループ
+                clock = pygame.time.Clock()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
