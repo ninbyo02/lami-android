@@ -5,7 +5,8 @@ import java.util.Locale
 object MarkdownCodeRepair {
     fun repair(text: String): String {
         if (text.isEmpty()) return text
-        val repaired = if (text.contains("```")) repairCodeFences(text) else text
+        val normalizedFence = if (text.contains("```")) normalizeTwoLinePythonFence(text) else text
+        val repaired = if (normalizedFence.contains("```")) repairCodeFences(normalizedFence) else normalizedFence
         return normalizeMarkdownOutsideCodeFences(repaired)
     }
 
@@ -246,6 +247,8 @@ object MarkdownCodeRepair {
         repaired = repaired.replace("):for col", "):\nfor col")
         repaired = repaired.replace("game_over = Falsewin_game = False", "game_over = False\nwin_game = False")
         repaired = repaired.replace("Falsewin_game = False", "False\nwin_game = False")
+        repaired = repaired.replace("score =0game_over = Falsewin_game = False", "score = 0\ngame_over = False\nwin_game = False")
+        repaired = repaired.replace("game_over = Falsewin_game = Falsescore =0", "game_over = False\nwin_game = False\nscore = 0")
         repaired = repaired.replace("block['status'] = Falsescore += 10", "block['status'] = False\nscore += 10")
         repaired = repaired.replace("block['status'] = Falsescore + = 10", "block['status'] = False\nscore += 10")
         repaired = repaired.replace("win_game = Falsescore =0", "win_game = False\nscore = 0")
@@ -682,6 +685,13 @@ object MarkdownCodeRepair {
         return "${indent}```python"
     }
 
+    private fun normalizeTwoLinePythonFence(markdown: String): String {
+        return markdown.replace(
+            Regex("(?m)^([ \\t]*)```[ \\t]*\\n\\1python[ \\t]+([^\\n`][^\\n]*)$"),
+            "$1```python\n$2",
+        )
+    }
+
     private fun isFenceLine(line: String): Boolean {
         return line.trimStart(' ', '\t').startsWith("```")
     }
@@ -765,6 +775,14 @@ object MarkdownCodeRepair {
     }
 
     private fun normalizeOutsideFenceLine(line: String): String {
+        val headingAndBodyMatch = Regex("^(\\s{0,3}#{1,6})([^\\s#].*?)(このコードは.*)$").matchEntire(line)
+        if (headingAndBodyMatch != null) {
+            val marker = headingAndBodyMatch.groupValues[1]
+            val heading = headingAndBodyMatch.groupValues[2].trim()
+            val body = headingAndBodyMatch.groupValues[3].trim()
+            return "$marker $heading\n$body"
+        }
+
         val headingMatch = Regex("^(\\s{0,3}#{1,6})([^\\s#].*)$").matchEntire(line)
         if (headingMatch != null) {
             return "${headingMatch.groupValues[1]} ${headingMatch.groupValues[2]}"
@@ -790,6 +808,13 @@ object MarkdownCodeRepair {
         if (numberedBulletMissingSpaceMatch != null) {
             val prefix = numberedBulletMissingSpaceMatch.groupValues[1]
             val content = numberedBulletMissingSpaceMatch.groupValues[2]
+            return "$prefix $content"
+        }
+
+        val starBulletMissingSpaceMatch = Regex("^(\\s*\\*)(\\S.*)$").matchEntire(line)
+        if (starBulletMissingSpaceMatch != null) {
+            val prefix = starBulletMissingSpaceMatch.groupValues[1]
+            val content = starBulletMissingSpaceMatch.groupValues[2]
             return "$prefix $content"
         }
 
