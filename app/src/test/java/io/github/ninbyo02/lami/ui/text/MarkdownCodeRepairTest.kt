@@ -442,6 +442,159 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun fusedImportLines_areSplitDeterministically() {
+        val input = """
+            ```python
+            import pygameimport sys#
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                import pygame
+                import sys
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedScreenAssignments_areSplitDeterministically() {
+        val input = """
+            ```python
+            SCREEN_WIDTH =80SCREEN_HEIGHT =60screen =
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                SCREEN_WIDTH = 80
+                SCREEN_HEIGHT = 60
+                screen =
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedLoopHeaderLines_areSplitDeterministically() {
+        val input = """
+            ```python
+            blocks = []for row in range(block_rows):for col in range(block_cols):blocks.append(block)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                blocks = []
+                for row in range(block_rows):
+                for col in range(block_cols):
+                blocks.append(block)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedIfInlineActionLine_isSplitDeterministically() {
+        val input = """
+            ```python
+            keys = pygame.key.get_pressed()if keys[pygame.K_LEFT] and paddle_x >0:paddle_x -= paddle_speed
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_LEFT] and paddle_x > 0:
+                paddle_x -= paddle_speed
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedIfAndAssignments_areSplitDeterministically() {
+        val input = """
+            ```python
+            if block['status']:block_rect = block['rect']ball_rect = pygame.Rect(0, 0, 1, 1)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if block['status']:
+                block_rect = block['rect']
+                ball_rect = pygame.Rect(0, 0, 1, 1)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedFalseAssignments_areSplitDeterministically() {
+        val input = """
+            ```python
+            game_over = Falsewin_game = Falsescore =0
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                game_over = False
+                win_game = False
+                score = 0
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedFalseAndScoreIncrement_areSplitDeterministically() {
+        val input = """
+            ```python
+            block['status'] = Falsescore +=10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                block['status'] = False
+                score += 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
     fun pythonCommentFragments_areMergedUntilNextCodeLine() {
         val input = """
             ```python
