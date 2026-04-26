@@ -2338,4 +2338,80 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun fragmentedBallComment_isMergedToOneLine() {
+        val input = "```python\n# ボ\nール\n```"
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals("```python\n# ボール\n```", repaired)
+    }
+
+    @Test
+    fun fragmentedRestartComment_isMergedToOneLine() {
+        val input = "```python\n# リ\nスタート\n# 処理\n```"
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals("```python\n# リスタート処理\n```", repaired)
+    }
+
+    @Test
+    fun objectParameterHeadingFragments_areMergedToDashHeading() {
+        val input = "```python\n# オブジェクトの\nパラメータ\n---\n```"
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals("```python\n# --- ゲームオブジェクトのパラメータ ---\n```", repaired)
+    }
+
+    @Test
+    fun fusedIfWinGameMessage_isSplit() {
+        val input = "```python\nif win_game:msg = font.render(\"CLEAR\", True, WHITE)\n```"
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            "```python\nif win_game:\nmsg = font.render(\"CLEAR\", True, WHITE)\n```",
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedForBlockStatusReset_isSplit() {
+        val input = "```python\nfor block in blocks:block['status'] = True\n```"
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals("```python\nfor block in blocks:\nblock['status'] = True\n```", repaired)
+    }
+
+    @Test
+    fun fusedKeysThenIfR_isSplit() {
+        val input = "```python\nkeys = pygame.key.get_pressed()if keys[pygame.K_r]:\n```"
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals("```python\nkeys = pygame.key.get_pressed()\nif keys[pygame.K_r]:\n```", repaired)
+    }
+
+    @Test
+    fun fusedIfGameOverAssignment_isSplit() {
+        val input = "```python\nif ball_y + ball_radius > SCREEN_HEIGHT:game_over = True\n```"
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(
+            "```python\nif ball_y + ball_radius > SCREEN_HEIGHT:\ngame_over = True\n```",
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedAllBlocksWinAssignment_isSplit() {
+        val input = "```python\nif all(not b['status'] for b in blocks):win_game = True\n```"
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals("```python\nif all(not b['status'] for b in blocks):\nwin_game = True\n```", repaired)
+    }
+
+    @Test
+    fun yVelocityAndBlockComment_areSplit() {
+        val input = "```python\n# Y方向の速度ブロック\nblock_rows = 5\n```"
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals("```python\n# Y方向の速度\n# ブロック\nblock_rows = 5\n```", repaired)
+    }
+
+    @Test
+    fun inlineDestroyedCommentAndScoreComment_areSeparated() {
+        val input = "```python\n# Trueなら存在、Falseなら破壊済み})#スコアと\n```"
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals("```python\n# Trueなら存在、Falseなら破壊済み\n# スコアと\n```", repaired)
+    }
+
 }
