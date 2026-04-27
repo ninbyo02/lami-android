@@ -150,7 +150,7 @@ object MarkdownCodeRepair {
             }
 
             if (currentTrimmed == "if block['status']:" && nextTrimmed.startsWith("block_rect =")) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
+                rebuilt[index + 1] = withIndent(nextTrimmed, 8)
                 index += 1
                 continue
             }
@@ -159,6 +159,53 @@ object MarkdownCodeRepair {
                 nextTrimmed.startsWith("msg =")
             ) {
                 rebuilt[index + 1] = withIndent(nextTrimmed, 4)
+                index += 1
+                continue
+            }
+
+            if (currentTrimmed == "while True:" &&
+                (nextTrimmed == "# 1.イベント処理" || nextTrimmed == "for event in pygame.event.get():")
+            ) {
+                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
+                index += 1
+                continue
+            }
+
+            if (currentTrimmed == "for event in pygame.event.get():" &&
+                nextTrimmed == "if event.type == pygame.QUIT:"
+            ) {
+                rebuilt[index + 1] = withIndent(nextTrimmed, 8)
+                index += 1
+                continue
+            }
+
+            if (currentTrimmed == "if event.type == pygame.QUIT:" &&
+                (nextTrimmed == "pygame.quit()" || nextTrimmed == "sys.exit()")
+            ) {
+                rebuilt[index + 1] = withIndent(nextTrimmed, 12)
+                index += 1
+                continue
+            }
+
+            if (currentTrimmed == "if not game_over and not win_game:" && isGameUpdateLine(nextTrimmed)) {
+                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
+                index += 1
+                continue
+            }
+
+            if (currentTrimmed == "for block in blocks:" && nextTrimmed == "if block['status']:") {
+                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
+                index += 1
+                continue
+            }
+
+            if ((currentTrimmed == "if game_over:" || currentTrimmed == "if win_game:") &&
+                nextTrimmed.isEmpty() &&
+                index + 2 <= rebuilt.lastIndex &&
+                rebuilt[index + 2].trim().startsWith("msg =")
+            ) {
+                rebuilt.removeAt(index + 1)
+                rebuilt[index + 1] = withIndent(rebuilt[index + 1].trim(), 4)
                 index += 1
                 continue
             }
@@ -188,6 +235,20 @@ object MarkdownCodeRepair {
         return trimmedLine.matches(
             Regex("""(game_over|win_game|score|paddle_[A-Za-z0-9_]+|ball_[A-Za-z0-9_]+|blocks)\s*=.*"""),
         )
+    }
+
+    private fun isGameUpdateLine(trimmedLine: String): Boolean {
+        if (trimmedLine.isEmpty()) return false
+        return trimmedLine.startsWith("keys = pygame.key.get_pressed()") ||
+            trimmedLine.startsWith("if keys[") ||
+            trimmedLine.startsWith("paddle_x +=") ||
+            trimmedLine.startsWith("paddle_x -=") ||
+            trimmedLine.startsWith("ball_x +=") ||
+            trimmedLine.startsWith("ball_y +=") ||
+            trimmedLine.startsWith("ball_rect =") ||
+            trimmedLine.startsWith("paddle_rect =") ||
+            trimmedLine.startsWith("pygame.draw.") ||
+            trimmedLine.startsWith("screen.blit(")
     }
 
     private fun repairCodeFences(markdown: String): String {
