@@ -150,12 +150,19 @@ object MarkdownCodeRepair {
             }
 
             if (currentTrimmed == "if block['status']:" &&
-                (nextTrimmed.startsWith("block_rect =") || nextTrimmed.startsWith("pygame.draw.rect("))
+                (nextTrimmed.startsWith("block_rect =") ||
+                    nextTrimmed.startsWith("ball_rect =") ||
+                    nextTrimmed.startsWith("if ball_rect.colliderect") ||
+                    nextTrimmed.startsWith("pygame.draw.rect("))
             ) {
                 var blockLineIndex = index + 1
                 while (blockLineIndex <= rebuilt.lastIndex) {
                     val blockLine = rebuilt[blockLineIndex].trim()
-                    if (!blockLine.startsWith("block_rect =") && !blockLine.startsWith("pygame.draw.rect(")) break
+                    if (!blockLine.startsWith("block_rect =") &&
+                        !blockLine.startsWith("ball_rect =") &&
+                        !blockLine.startsWith("if ball_rect.colliderect") &&
+                        !blockLine.startsWith("pygame.draw.rect(")
+                    ) break
                     rebuilt[blockLineIndex] = withIndent(blockLine, 8)
                     blockLineIndex += 1
                 }
@@ -301,8 +308,11 @@ object MarkdownCodeRepair {
             trimmedLine.startsWith("paddle_x -=") ||
             trimmedLine.startsWith("ball_x +=") ||
             trimmedLine.startsWith("ball_y +=") ||
+            trimmedLine.startsWith("if ball_y") ||
+            trimmedLine.startsWith("if ball_x") ||
             trimmedLine.startsWith("ball_rect =") ||
             trimmedLine.startsWith("paddle_rect =") ||
+            trimmedLine.startsWith("if ball_rect.colliderect") ||
             trimmedLine.startsWith("pygame.draw.") ||
             trimmedLine.startsWith("screen.blit(")
     }
