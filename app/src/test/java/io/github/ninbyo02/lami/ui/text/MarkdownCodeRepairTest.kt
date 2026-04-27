@@ -3394,4 +3394,51 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun finalPostProcess_mergesPaddlePlayerOnlyWhenSafe() {
+        val input = """
+            ```python
+            # パドル
+            (プレイヤー)
+            paddle_width = 10
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル (プレイヤー)
+                paddle_width = 10
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun finalPostProcess_doesNotMergeWhenCodeBetween() {
+        val input = """
+            ```python
+            # パドル
+            paddle_x = 20
+            (プレイヤー)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル
+                paddle_x = 20
+                (プレイヤー)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
