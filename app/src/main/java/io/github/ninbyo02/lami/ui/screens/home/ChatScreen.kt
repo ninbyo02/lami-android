@@ -967,6 +967,8 @@ fun Home(
             logStreamTrace("STREAM final skip displayOnlyText")
             return streamingAssistantMessageId
         }
+        // finalize後の本文をUI表示系にも反映し、streaming途中本文の残留を防ぐ。
+        streamingResponseTextForRender = finalizedResponseForPersist
 
         val finalPayload = createAssistantMessage(
             chatId = chatId,
