@@ -4205,4 +4205,156 @@ class MarkdownCodeRepairTest {
         assertEquals(input, repaired)
     }
 
+    @Test
+    fun pythonIndentRepair_repairsRepresentativeEventQuitBlockIndent() {
+        val input = """
+            ```python
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            pygame.quit()
+                            sys.exit()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_repairsRepresentativeGameUpdateLinesUntilNextSectionOrDraw() {
+        val input = """
+            ```python
+            if not game_over and not win_game:
+            # 2.キー入力処理
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_LEFT]:
+            paddle_x -= paddle_speed
+            ball_x += ball_dx
+            ball_y += ball_dy
+            if ball_y <= 0:
+            if ball_x <= 0:
+            paddle_rect = pygame.Rect(paddle_x, paddle_y, paddle_width, paddle_height)
+            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+            if ball_rect.colliderect(paddle_rect):
+            # 3.描画
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if not game_over and not win_game:
+                    # 2.キー入力処理
+                    keys = pygame.key.get_pressed()
+                    if keys[pygame.K_LEFT]:
+                    paddle_x -= paddle_speed
+                    ball_x += ball_dx
+                    ball_y += ball_dy
+                    if ball_y <= 0:
+                    if ball_x <= 0:
+                    paddle_rect = pygame.Rect(paddle_x, paddle_y, paddle_width, paddle_height)
+                    ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+                    if ball_rect.colliderect(paddle_rect):
+                # 3.描画
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_repairsRepresentativeBlockStatusCollisionLines() {
+        val input = """
+            ```python
+            for block in blocks:
+            if block['status']:
+            block_rect = block['rect']
+            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+            if ball_rect.colliderect(block_rect):
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                for block in blocks:
+                    if block['status']:
+                        block_rect = block['rect']
+                        ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+                        if ball_rect.colliderect(block_rect):
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_repairsRepresentativeWinGameMessageLines() {
+        val input = """
+            ```python
+            if win_game:
+            msg = font.render("YOU WIN!", True, WHITE)
+            text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            screen.blit(msg, text_rect)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if win_game:
+                    msg = font.render("YOU WIN!", True, WHITE)
+                    text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+                    screen.blit(msg, text_rect)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_representativePatternsOutsideFence_remainUnchanged() {
+        val input = """
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            if not game_over and not win_game:
+            keys = pygame.key.get_pressed()
+            if ball_y <= 0:
+            if ball_x <= 0:
+            if ball_rect.colliderect(paddle_rect):
+            for block in blocks:
+            if block['status']:
+            block_rect = block['rect']
+            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+            if ball_rect.colliderect(block_rect):
+            if win_game:
+            msg = font.render("YOU WIN!", True, WHITE)
+            text_rect = msg.get_rect()
+            screen.blit(msg, text_rect)
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(input, repaired)
+    }
+
 }
