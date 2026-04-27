@@ -3697,4 +3697,116 @@ class MarkdownCodeRepairTest {
         assertEquals(input, repaired)
     }
 
+    @Test
+    fun pythonIndentRepair_nestedBlockGeneration() {
+        val input = """
+            ```python
+            for row in range(block_rows):
+            for col in range(block_cols):
+            blocks.append({'status': True})
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                for row in range(block_rows):
+                    for col in range(block_cols):
+                        blocks.append({'status': True})
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_removesBlankAfterIfBlock() {
+        val input = """
+            ```python
+            if block['status']:
+
+            block_rect = block['rect']
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if block['status']:
+                    block_rect = block['rect']
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_gameOverBody() {
+        val input = """
+            ```python
+            if game_over:
+            msg = font.render("GAME OVER", True, WHITE)
+            text_rect = msg.get_rect()
+            screen.blit(msg, text_rect)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if game_over:
+                    msg = font.render("GAME OVER", True, WHITE)
+                    text_rect = msg.get_rect()
+                    screen.blit(msg, text_rect)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_doesNotRunOutsideFence() {
+        val input = """
+            for row in range(block_rows):
+            for col in range(block_cols):
+            blocks.append({'status': True})
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(input, repaired)
+    }
+
+    @Test
+    fun buildFinalizedStreamingResponseForPersist_appliesIndentRepair() {
+        val input = """
+            ```python
+            if game_over:
+            msg = font.render("GAME OVER", True, WHITE)
+            text_rect = msg.get_rect()
+            screen.blit(msg, text_rect)
+            ```
+        """.trimIndent()
+
+        val repaired = buildFinalizedStreamingResponseForPersist(input)
+
+        assertEquals(
+            """
+                ```python
+                if game_over:
+                    msg = font.render("GAME OVER", True, WHITE)
+                    text_rect = msg.get_rect()
+                    screen.blit(msg, text_rect)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
