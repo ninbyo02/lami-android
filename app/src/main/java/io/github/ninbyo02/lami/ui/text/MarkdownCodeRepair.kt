@@ -183,7 +183,13 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "while True:" &&
                 (nextTrimmed == "# 1.イベント処理" || nextTrimmed == "for event in pygame.event.get():")
             ) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
+                rebuilt[index + 1] = withIndentIfNeeded(rebuilt[index + 1], 4)
+                if (nextTrimmed == "# 1.イベント処理" && index + 2 <= rebuilt.lastIndex) {
+                    val eventLoopTrimmed = rebuilt[index + 2].trim()
+                    if (eventLoopTrimmed == "for event in pygame.event.get():") {
+                        rebuilt[index + 2] = withIndentIfNeeded(rebuilt[index + 2], 4)
+                    }
+                }
                 index += 1
                 continue
             }
@@ -204,12 +210,15 @@ object MarkdownCodeRepair {
                 continue
             }
 
-            if (currentTrimmed == "if not game_over and not win_game:" && isGameUpdateLine(nextTrimmed)) {
+            if (currentTrimmed == "if not game_over and not win_game:" &&
+                (isGameUpdateLine(nextTrimmed) || isGameUpdateCommentLine(nextTrimmed))
+            ) {
                 var updateLineIndex = index + 1
                 while (updateLineIndex <= rebuilt.lastIndex) {
+                    if (isTopLevelSectionCommentLine(rebuilt[updateLineIndex])) break
                     val updateLine = rebuilt[updateLineIndex].trim()
-                    if (!isGameUpdateLine(updateLine)) break
-                    rebuilt[updateLineIndex] = withIndent(updateLine, 4)
+                    if (!isGameUpdateLine(updateLine) && !isGameUpdateCommentLine(updateLine)) break
+                    rebuilt[updateLineIndex] = withIndentIfNeeded(rebuilt[updateLineIndex], 4)
                     updateLineIndex += 1
                 }
                 index = updateLineIndex
@@ -233,12 +242,26 @@ object MarkdownCodeRepair {
                 continue
             }
 
-            if (currentTrimmed == "if keys[pygame.K_r]:" && isResetAssignmentLine(nextTrimmed)) {
+            if (currentTrimmed == "if keys[pygame.K_r]:" &&
+                (isResetAssignmentLine(nextTrimmed) || isResetCommentOrLoopLine(nextTrimmed))
+            ) {
                 var resetIndex = index + 1
                 while (resetIndex <= rebuilt.lastIndex) {
                     val resetTrimmed = rebuilt[resetIndex].trim()
+                    if (isResetCommentOrLoopLine(resetTrimmed)) {
+                        rebuilt[resetIndex] = withIndentIfNeeded(rebuilt[resetIndex], 4)
+                        if (resetTrimmed == "for block in blocks:" && resetIndex + 1 <= rebuilt.lastIndex) {
+                            val nestedResetTrimmed = rebuilt[resetIndex + 1].trim()
+                            if (nestedResetTrimmed == "block['status'] = True") {
+                                rebuilt[resetIndex + 1] = withIndentIfNeeded(rebuilt[resetIndex + 1], 8)
+                                resetIndex += 1
+                            }
+                        }
+                        resetIndex += 1
+                        continue
+                    }
                     if (!isResetAssignmentLine(resetTrimmed)) break
-                    rebuilt[resetIndex] = withIndent(resetTrimmed, 4)
+                    rebuilt[resetIndex] = withIndentIfNeeded(rebuilt[resetIndex], 4)
                     resetIndex += 1
                 }
                 index = resetIndex
@@ -254,10 +277,20 @@ object MarkdownCodeRepair {
         return "${" ".repeat(spaces)}$trimmedLine"
     }
 
+    private fun withIndentIfNeeded(line: String, spaces: Int): String {
+        val leadingSpaces = line.indexOfFirst { !it.isWhitespace() }.let { if (it == -1) line.length else it }
+        if (leadingSpaces >= spaces) return line
+        return withIndent(line.trim(), spaces)
+    }
+
     private fun isResetAssignmentLine(trimmedLine: String): Boolean {
         return trimmedLine.matches(
             Regex("""(game_over|win_game|score|paddle_[A-Za-z0-9_]+|ball_[A-Za-z0-9_]+|blocks)\s*=.*"""),
         )
+    }
+
+    private fun isResetCommentOrLoopLine(trimmedLine: String): Boolean {
+        return trimmedLine == "# ゲーム状態をリセット" || trimmedLine == "for block in blocks:"
     }
 
     private fun isGameUpdateLine(trimmedLine: String): Boolean {
@@ -272,6 +305,14 @@ object MarkdownCodeRepair {
             trimmedLine.startsWith("paddle_rect =") ||
             trimmedLine.startsWith("pygame.draw.") ||
             trimmedLine.startsWith("screen.blit(")
+    }
+
+    private fun isGameUpdateCommentLine(trimmedLine: String): Boolean =
+        trimmedLine == "# 2.キー入力処理"
+
+    private fun isTopLevelSectionCommentLine(line: String): Boolean {
+        if (line.startsWith(" ")) return false
+        return line.trim().matches(Regex("""#\s*\d+\..+"""))
     }
 
     private fun repairCodeFences(markdown: String): String {
