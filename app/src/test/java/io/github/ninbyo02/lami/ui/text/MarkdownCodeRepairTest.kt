@@ -3465,4 +3465,173 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun fusedForColAndBlocksAppend_isSplitInPythonFence() {
+        val input = """
+            ```python
+            for col in range(block_cols):blocks.append({'status': True})#スコアとゲーム状態
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                for col in range(block_cols):
+                blocks.append({'status': True})
+                # スコアとゲーム状態
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedForRowAndForCol_isSplitInPythonFence() {
+        val input = """
+            ```python
+            for row in range(block_rows):for col in range(block_cols):
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                for row in range(block_rows):
+                for col in range(block_cols):
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedTrueCommentAndAppendComment_areSeparated() {
+        val input = """
+            ```python
+            # Trueなら存在、Falseなら破壊済み})#スコアとゲーム状態
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # Trueなら存在、Falseなら破壊済み
+                # スコアとゲーム状態
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedIfAndInlineMsgAssignments_areSplit() {
+        val input = """
+            ```python
+            if game_over:msg = "Game Over"
+            if win_game:msg = "You Win!"
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if game_over:
+                msg = "Game Over"
+                if win_game:
+                msg = "You Win!"
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedIfRestartAndComment_isSplit() {
+        val input = """
+            ```python
+            if keys[pygame.K_r]:# リスタート処理
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if keys[pygame.K_r]:
+                # リスタート処理
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedForBlockAndAssignment_isSplit() {
+        val input = """
+            ```python
+            for block in blocks:block['status'] = True
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                for block in blocks:
+                block['status'] = True
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedRepairPatterns_doNotRunOutsidePythonFence() {
+        val input = """
+            for col in range(block_cols):blocks.append({'status': True})#スコアとゲーム状態
+            if game_over:msg = "Game Over"
+            for block in blocks:block['status'] = True
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(input, repaired)
+    }
+
+    @Test
+    fun buildFinalizedStreamingResponseForPersist_appliesSameFusedRepairs() {
+        val input = """
+            ```python
+            if game_over:msg = "Game Over"
+
+
+            msg_rect = msg.get_rect()
+            ```
+        """.trimIndent()
+
+        val repaired = buildFinalizedStreamingResponseForPersist(input)
+
+        assertEquals(
+            """
+                ```python
+                if game_over:
+                msg = "Game Over"
+
+                msg_rect = msg.get_rect()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
