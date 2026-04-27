@@ -210,7 +210,7 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "for event in pygame.event.get():" &&
                 nextTrimmed == "if event.type == pygame.QUIT:"
             ) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
+                rebuilt[index + 1] = withIndent(nextTrimmed, 8)
                 index += 1
                 continue
             }
@@ -218,7 +218,7 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "if event.type == pygame.QUIT:" &&
                 (nextTrimmed == "pygame.quit()" || nextTrimmed == "sys.exit()")
             ) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 8)
+                rebuilt[index + 1] = withIndent(nextTrimmed, 12)
                 index += 1
                 continue
             }
