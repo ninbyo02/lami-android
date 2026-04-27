@@ -336,10 +336,36 @@ object MarkdownCodeRepair {
                 }
             }
 
-            rebuilt.add(current)
+            splitKnownFusedJapaneseComments(current).forEach { rebuilt.add(it) }
             index += 1
         }
         return rebuilt
+    }
+
+    private fun splitKnownFusedJapaneseComments(line: String): List<String> {
+        val trimmed = line.trim()
+        if (!trimmed.startsWith("#")) return listOf(line)
+
+        val content = trimmed.removePrefix("#").trim()
+
+        val patterns = listOf(
+            "スコアとゲーム状態",
+            "ゲーム状態",
+        )
+
+        for (pattern in patterns) {
+            val idx = content.indexOf(pattern)
+            if (idx > 0) {
+                val first = content.substring(0, idx).trim()
+                val second = content.substring(idx).trim()
+                return listOf(
+                    "# $first",
+                    "# $second",
+                )
+            }
+        }
+
+        return listOf(line)
     }
 
     private fun compactConsecutiveBlankLines(lines: List<String>): List<String> {
