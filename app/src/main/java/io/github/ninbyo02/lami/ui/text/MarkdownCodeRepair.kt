@@ -127,110 +127,67 @@ object MarkdownCodeRepair {
 
     private fun repairConservativePythonIndent(lines: List<String>): List<String> {
         if (lines.isEmpty()) return lines
-        val blankRepaired = mutableListOf<String>()
+        val rebuilt = lines.toMutableList()
         var index = 0
-        while (index < lines.size) {
-            val current = lines[index]
-            val currentTrimmed = current.trim()
-            val next = lines.getOrNull(index + 1)
-            val nextTrimmed = next?.trim().orEmpty()
-            if (
-                currentTrimmed.isEmpty() &&
-                index > 0 &&
-                opensPythonBlock(lines[index - 1]) &&
-                looksLikeCodeOrComment(nextTrimmed)
+        while (index < rebuilt.lastIndex) {
+            val currentTrimmed = rebuilt[index].trim()
+            val nextTrimmed = rebuilt[index + 1].trim()
+
+            if (currentTrimmed.matches(Regex("""for row in range\(.+\):""")) &&
+                nextTrimmed.matches(Regex("""for col in range\(.+\):"""))
             ) {
+                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
                 index += 1
                 continue
             }
-            blankRepaired.add(current)
+
+            if (currentTrimmed.matches(Regex("""for col in range\(.+\):""")) &&
+                nextTrimmed.startsWith("blocks.append(")
+            ) {
+                rebuilt[index + 1] = withIndent(nextTrimmed, 8)
+                index += 1
+                continue
+            }
+
+            if (currentTrimmed == "if block['status']:" && nextTrimmed.startsWith("block_rect =")) {
+                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
+                index += 1
+                continue
+            }
+
+            if ((currentTrimmed == "if game_over:" || currentTrimmed == "if win_game:") &&
+                nextTrimmed.startsWith("msg =")
+            ) {
+                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
+                index += 1
+                continue
+            }
+
+            if (currentTrimmed == "if keys[pygame.K_r]:" && isResetAssignmentLine(nextTrimmed)) {
+                var resetIndex = index + 1
+                while (resetIndex <= rebuilt.lastIndex) {
+                    val resetTrimmed = rebuilt[resetIndex].trim()
+                    if (!isResetAssignmentLine(resetTrimmed)) break
+                    rebuilt[resetIndex] = withIndent(resetTrimmed, 4)
+                    resetIndex += 1
+                }
+                index = resetIndex
+                continue
+            }
+
             index += 1
         }
-
-        val rebuilt = mutableListOf<String>()
-        var currentIndent = 0
-        var previousOpenedBlock = false
-
-        for (line in blankRepaired) {
-            val trimmed = line.trim()
-            if (trimmed.isEmpty()) {
-                rebuilt.add("")
-                previousOpenedBlock = false
-                continue
-            }
-
-            if (!looksLikeCodeOrComment(trimmed)) {
-                rebuilt.add(line)
-                previousOpenedBlock = false
-                continue
-            }
-
-            if (trimmed.startsWith("elif ") || trimmed == "else:" || trimmed.startsWith("except ") || trimmed == "finally:") {
-                currentIndent = (currentIndent - 4).coerceAtLeast(0)
-            }
-
-            val targetIndent = if (previousOpenedBlock) currentIndent + 4 else currentIndent
-            rebuilt.add("${" ".repeat(targetIndent)}$trimmed")
-
-            if (opensPythonBlock(trimmed)) {
-                currentIndent = targetIndent
-                previousOpenedBlock = true
-            } else {
-                previousOpenedBlock = false
-            }
-        }
-        return rebuilt
+        return rebuilt.toList()
     }
 
-    private fun opensPythonBlock(line: String): Boolean {
-        val trimmed = line.trim()
-        if (!trimmed.endsWith(":")) return false
-        return trimmed.startsWith("for ") ||
-            trimmed.startsWith("if ") ||
-            trimmed.startsWith("elif ") ||
-            trimmed == "else:" ||
-            trimmed.startsWith("while ") ||
-            trimmed == "try:" ||
-            trimmed.startsWith("except ") ||
-            trimmed == "finally:"
+    private fun withIndent(trimmedLine: String, spaces: Int): String {
+        return "${" ".repeat(spaces)}$trimmedLine"
     }
 
-    private fun looksLikeCodeOrComment(line: String): Boolean {
-        val trimmed = line.trim()
-        if (trimmed.isEmpty()) return false
-        if (trimmed.startsWith("```")) return false
-        if (trimmed.startsWith("#")) return true
-        if (trimmed.startsWith("import ") || trimmed.startsWith("from ")) return true
-
-        val codeSignals = listOf(
-            "=",
-            "(",
-            ")",
-            ".",
-            "[",
-            "]",
-            "return",
-            "break",
-            "continue",
-            "for ",
-            "if ",
-            "elif ",
-            "else:",
-            "while ",
-            "pygame.",
-            "screen.",
-            "blocks.",
-            "block_",
-            "ball_",
-            "paddle_",
-            "score",
-            "game_over",
-            "win_game",
-            "msg",
-            "text_rect",
-            "keys",
+    private fun isResetAssignmentLine(trimmedLine: String): Boolean {
+        return trimmedLine.matches(
+            Regex("""(game_over|win_game|score|paddle_[A-Za-z0-9_]+|ball_[A-Za-z0-9_]+|blocks)\s*=.*"""),
         )
-        return codeSignals.any { trimmed.contains(it) }
     }
 
     private fun repairCodeFences(markdown: String): String {

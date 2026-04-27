@@ -3722,7 +3722,7 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
-    fun pythonIndentRepair_removesBlankAfterIfBlock() {
+    fun pythonIndentRepair_doesNotRemoveBlankAfterIfBlock() {
         val input = """
             ```python
             if block['status']:
@@ -3737,7 +3737,8 @@ class MarkdownCodeRepairTest {
             """
                 ```python
                 if block['status']:
-                    block_rect = block['rect']
+
+                block_rect = block['rect']
                 ```
             """.trimIndent(),
             repaired,
@@ -3762,8 +3763,8 @@ class MarkdownCodeRepairTest {
                 ```python
                 if game_over:
                     msg = font.render("GAME OVER", True, WHITE)
-                    text_rect = msg.get_rect()
-                    screen.blit(msg, text_rect)
+                text_rect = msg.get_rect()
+                screen.blit(msg, text_rect)
                 ```
             """.trimIndent(),
             repaired,
@@ -3801,8 +3802,70 @@ class MarkdownCodeRepairTest {
                 ```python
                 if game_over:
                     msg = font.render("GAME OVER", True, WHITE)
-                    text_rect = msg.get_rect()
-                    screen.blit(msg, text_rect)
+                text_rect = msg.get_rect()
+                screen.blit(msg, text_rect)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_doesNotOverNestWhileTrueAndElif() {
+        val input = """
+            ```python
+            for row in range(block_rows):
+            for col in range(block_cols):
+            blocks.append({'status': True})
+            score = 0
+            game_over = False
+            while True:
+            if ball_dx > 0:
+            ball_dx = -ball_dx
+            elif ball_dx < 0:
+            ball_dx = abs(ball_dx)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                for row in range(block_rows):
+                    for col in range(block_cols):
+                        blocks.append({'status': True})
+                score = 0
+                game_over = False
+                while True:
+                if ball_dx > 0:
+                ball_dx = -ball_dx
+                elif ball_dx < 0:
+                ball_dx = abs(ball_dx)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_sysExitStaysWithPygameQuit() {
+        val input = """
+            ```python
+            if running:
+            pygame.quit()
+            sys.exit()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if running:
+                pygame.quit()
+                sys.exit()
                 ```
             """.trimIndent(),
             repaired,
