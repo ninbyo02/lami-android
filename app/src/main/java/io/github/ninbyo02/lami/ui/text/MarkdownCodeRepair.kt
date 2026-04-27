@@ -149,17 +149,34 @@ object MarkdownCodeRepair {
                 continue
             }
 
-            if (currentTrimmed == "if block['status']:" && nextTrimmed.startsWith("block_rect =")) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 8)
-                index += 1
+            if (currentTrimmed == "if block['status']:" &&
+                (nextTrimmed.startsWith("block_rect =") || nextTrimmed.startsWith("pygame.draw.rect("))
+            ) {
+                var blockLineIndex = index + 1
+                while (blockLineIndex <= rebuilt.lastIndex) {
+                    val blockLine = rebuilt[blockLineIndex].trim()
+                    if (!blockLine.startsWith("block_rect =") && !blockLine.startsWith("pygame.draw.rect(")) break
+                    rebuilt[blockLineIndex] = withIndent(blockLine, 8)
+                    blockLineIndex += 1
+                }
+                index = blockLineIndex
                 continue
             }
 
             if ((currentTrimmed == "if game_over:" || currentTrimmed == "if win_game:") &&
                 nextTrimmed.startsWith("msg =")
             ) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
-                index += 1
+                var messageLineIndex = index + 1
+                while (messageLineIndex <= rebuilt.lastIndex) {
+                    val messageLine = rebuilt[messageLineIndex].trim()
+                    if (!messageLine.startsWith("msg =") &&
+                        !messageLine.startsWith("text_rect =") &&
+                        !messageLine.startsWith("screen.blit(")
+                    ) break
+                    rebuilt[messageLineIndex] = withIndent(messageLine, 4)
+                    messageLineIndex += 1
+                }
+                index = messageLineIndex
                 continue
             }
 
@@ -188,8 +205,14 @@ object MarkdownCodeRepair {
             }
 
             if (currentTrimmed == "if not game_over and not win_game:" && isGameUpdateLine(nextTrimmed)) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
-                index += 1
+                var updateLineIndex = index + 1
+                while (updateLineIndex <= rebuilt.lastIndex) {
+                    val updateLine = rebuilt[updateLineIndex].trim()
+                    if (!isGameUpdateLine(updateLine)) break
+                    rebuilt[updateLineIndex] = withIndent(updateLine, 4)
+                    updateLineIndex += 1
+                }
+                index = updateLineIndex
                 continue
             }
 
