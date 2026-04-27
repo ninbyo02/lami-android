@@ -156,14 +156,20 @@ object MarkdownCodeRepair {
                     nextTrimmed.startsWith("pygame.draw.rect("))
             ) {
                 var blockLineIndex = index + 1
+                var repairedAnyTargetLine = false
                 while (blockLineIndex <= rebuilt.lastIndex) {
                     val blockLine = rebuilt[blockLineIndex].trim()
+                    if (blockLine.isEmpty() && repairedAnyTargetLine) {
+                        blockLineIndex += 1
+                        continue
+                    }
                     if (!blockLine.startsWith("block_rect =") &&
                         !blockLine.startsWith("ball_rect =") &&
                         !blockLine.startsWith("if ball_rect.colliderect") &&
                         !blockLine.startsWith("pygame.draw.rect(")
                     ) break
                     rebuilt[blockLineIndex] = withIndent(blockLine, 8)
+                    repairedAnyTargetLine = true
                     blockLineIndex += 1
                 }
                 index = blockLineIndex
@@ -204,7 +210,7 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "for event in pygame.event.get():" &&
                 nextTrimmed == "if event.type == pygame.QUIT:"
             ) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 8)
+                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
                 index += 1
                 continue
             }
@@ -212,7 +218,7 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "if event.type == pygame.QUIT:" &&
                 (nextTrimmed == "pygame.quit()" || nextTrimmed == "sys.exit()")
             ) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 12)
+                rebuilt[index + 1] = withIndent(nextTrimmed, 8)
                 index += 1
                 continue
             }

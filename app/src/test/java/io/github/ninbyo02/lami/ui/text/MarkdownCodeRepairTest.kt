@@ -4222,9 +4222,9 @@ class MarkdownCodeRepairTest {
             """
                 ```python
                 for event in pygame.event.get():
-                        if event.type == pygame.QUIT:
-                            pygame.quit()
-                            sys.exit()
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
                 ```
             """.trimIndent(),
             repaired,
@@ -4301,6 +4301,102 @@ class MarkdownCodeRepairTest {
             """.trimIndent(),
             repaired,
         )
+    }
+
+    @Test
+    fun pythonIndentRepair_repairsBlockStatusCollisionLinesAcrossBlankLine() {
+        val input = """
+            ```python
+            for block in blocks:
+            if block['status']:
+
+            block_rect = block['rect']
+            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+            if ball_rect.colliderect(block_rect):
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                for block in blocks:
+                    if block['status']:
+
+                        block_rect = block['rect']
+                        ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+                        if ball_rect.colliderect(block_rect):
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_repairsQuitAndSysExitUnderForEventBlock() {
+        val input = """
+            ```python
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_repairsGameOverMessageLines() {
+        val input = """
+            ```python
+            if game_over:
+            msg = font.render("GAME OVER", True, WHITE)
+            text_rect = msg.get_rect()
+            screen.blit(msg, text_rect)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if game_over:
+                    msg = font.render("GAME OVER", True, WHITE)
+                    text_rect = msg.get_rect()
+                    screen.blit(msg, text_rect)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_fenceOutsideRepresentativePatternsRemainUnchanged() {
+        val input = """
+            if game_over:
+            msg = font.render("GAME OVER", True, WHITE)
+            text_rect = msg.get_rect()
+            screen.blit(msg, text_rect)
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(input, repaired)
     }
 
     @Test
