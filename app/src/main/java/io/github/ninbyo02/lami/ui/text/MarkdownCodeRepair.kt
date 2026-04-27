@@ -291,7 +291,8 @@ object MarkdownCodeRepair {
         flushCommentFragments()
         val postProcessedLines = mergeTrailingPythonCommentFragments(repairedLines)
         val finalPostProcessedLines = applyKnownFinalPythonPostProcess(postProcessedLines)
-        val safeguardedLines = applyFinalPaddlePlayerSafetyFuse(finalPostProcessedLines)
+        val compactedBlankLines = compactConsecutiveBlankLines(finalPostProcessedLines)
+        val safeguardedLines = applyFinalPaddlePlayerSafetyFuse(compactedBlankLines)
         return safeguardedLines.joinToString("\n")
     }
 
@@ -322,8 +323,34 @@ object MarkdownCodeRepair {
                 continue
             }
 
+            if (currentTrimmed.contains("})#")) {
+                val split = current.split("})#", limit = 2)
+                if (split.size == 2) {
+                    val trailingComment = split[1].trim()
+                    rebuilt.add("${split[0]}})")
+                    if (trailingComment.isNotEmpty()) {
+                        rebuilt.add("# ${trailingComment.removePrefix("#").trim()}")
+                    }
+                    index += 1
+                    continue
+                }
+            }
+
             rebuilt.add(current)
             index += 1
+        }
+        return rebuilt
+    }
+
+    private fun compactConsecutiveBlankLines(lines: List<String>): List<String> {
+        if (lines.isEmpty()) return lines
+        val rebuilt = mutableListOf<String>()
+        var previousBlank = false
+        for (line in lines) {
+            val isBlank = line.isBlank()
+            if (isBlank && previousBlank) continue
+            rebuilt.add(line)
+            previousBlank = isBlank
         }
         return rebuilt
     }
@@ -1148,6 +1175,42 @@ object MarkdownCodeRepair {
     private fun splitDeterministicFusedCodeLines(line: String): List<String> {
         if (line.isBlank()) return listOf(line)
         var expanded = line
+        expanded = expanded.replace(
+            Regex("(for\\s+row\\s+in\\s+range\\([^)]*\\):)\\s*(for\\s+col\\s+in\\s+range\\([^)]*\\):)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(for\\s+col\\s+in\\s+range\\([^)]*\\):)\\s*(blocks\\.append\\()"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(if\\s+block\\['status']:)\\s*(block_rect\\s*=)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(if\\s+game_over:)\\s*(msg\\s*=)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(if\\s+win_game:)\\s*(msg\\s*=)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(if\\s+keys\\[pygame\\.K_r]:)\\s*(#)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(for\\s+block\\s+in\\s+blocks:)\\s*(block\\['status']\\s*=\\s*True)"),
+            "$1\n$2",
+        )
+        expanded = expanded.replace(
+            Regex("(#\\s*Trueなら存在、Falseなら破壊済み)\\}\\)#"),
+            "$1\n# ",
+        )
+        expanded = expanded.replace(
+            Regex("(\\}\\))#\\s*"),
+            "$1\n# ",
+        )
         expanded = expanded.replace("import pygameimport sys#", "import pygame\nimport sys\n#")
         expanded = expanded.replace("import pygameimport sys", "import pygame\nimport sys")
         expanded = expanded.replace("import sys#", "import sys\n#")
