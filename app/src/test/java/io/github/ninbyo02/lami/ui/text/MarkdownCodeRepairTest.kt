@@ -3903,6 +3903,78 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun pythonIndentRepair_repairsEventQuitFourRepresentativeLines() {
+        val input = """
+            ```python
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                            pygame.quit()
+                            sys.exit()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_repairsRepresentativeWhileTrueEventBlock() {
+        val input = """
+            ```python
+            while True:
+            # 1.イベント処理
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                while True:
+                    # 1.イベント処理
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            pygame.quit()
+                            sys.exit()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_eventQuitSameTextOutsideFence_isUnchanged() {
+        val input = """
+            while True:
+            # 1.イベント処理
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(input, repaired)
+    }
+
+    @Test
     fun pythonIndentRepair_repairsForBlockStatusAndBlockRect() {
         val input = """
             ```python
