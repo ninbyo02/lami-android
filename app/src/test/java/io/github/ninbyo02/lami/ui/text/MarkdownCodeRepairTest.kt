@@ -193,6 +193,27 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun fusedJapaneseComment_isSplit() {
+        val input = """
+            ```python
+            # Trueなら存在、Falseなら破壊済みスコアとゲーム状態
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                # Trueなら存在、Falseなら破壊済み
+                # スコアとゲーム状態
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
     fun fullBreakoutTraceRepresentativeBlock_isRepaired() {
         val input = """
             ```python
