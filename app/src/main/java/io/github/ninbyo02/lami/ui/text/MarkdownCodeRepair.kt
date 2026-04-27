@@ -289,19 +289,51 @@ object MarkdownCodeRepair {
     private fun applyFinalPaddlePlayerSafetyFuse(lines: List<String>): List<String> {
         if (lines.isEmpty()) return lines
         val rebuilt = mutableListOf<String>()
-        var index = 0
-        while (index < lines.size) {
-            val currentTrimmed = lines[index].trim()
-            val nextTrimmed = lines.getOrNull(index + 1)?.trim()
-            if (currentTrimmed == "# パドル" && nextTrimmed == "(プレイヤー)") {
-                rebuilt.add("# パドル (プレイヤー)")
-                index += 2
-                continue
+
+        for (i in lines.indices) {
+            val current = lines[i]
+            val currentTrimmed = current.trim()
+
+            if (currentTrimmed == "(プレイヤー)") {
+                val paddleIndex = findMergeablePaddleIndex(rebuilt)
+                if (paddleIndex != null) {
+                    rebuilt[paddleIndex] = "# パドル (プレイヤー)"
+                    continue
+                }
             }
-            rebuilt.add(lines[index])
-            index += 1
+
+            rebuilt.add(current)
         }
+
         return rebuilt
+    }
+
+    private fun findMergeablePaddleIndex(lines: List<String>): Int? {
+        val maxLookback = 3
+        val lastIndex = lines.lastIndex
+
+        if (lastIndex < 0) return null
+
+        for (offset in 1..maxLookback) {
+            val idx = lastIndex - (offset - 1)
+            if (idx < 0) break
+
+            val line = lines[idx].trim()
+
+            if (line.startsWith("# パドル")) {
+                for (j in idx + 1..lastIndex) {
+                    val mid = lines[j].trim()
+                    if (mid.isNotEmpty() && !mid.startsWith("#")) {
+                        return null
+                    }
+                }
+                return idx
+            }
+
+            if (line.isNotEmpty() && !line.startsWith("#")) break
+        }
+
+        return null
     }
 
 
