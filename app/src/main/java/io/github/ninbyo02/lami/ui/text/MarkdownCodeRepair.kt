@@ -7,7 +7,8 @@ object MarkdownCodeRepair {
         if (text.isEmpty()) return text
         val normalizedFence = if (text.contains("```")) normalizeTwoLinePythonFence(text) else text
         val repaired = if (normalizedFence.contains("```")) repairCodeFences(normalizedFence) else normalizedFence
-        return normalizeMarkdownOutsideCodeFences(repaired)
+        val normalized = normalizeMarkdownOutsideCodeFences(repaired)
+        return applyFinalPaddlePlayerFuseInPythonFences(normalized)
     }
 
     private data class PythonFenceMatch(
@@ -46,6 +47,47 @@ object MarkdownCodeRepair {
         val supplement: String,
         val code: String,
     )
+
+    private fun applyFinalPaddlePlayerFuseInPythonFences(markdown: String): String {
+        if (!markdown.contains("```")) return markdown
+        val lines = markdown.split('\n')
+        if (lines.isEmpty()) return markdown
+
+        val rebuilt = mutableListOf<String>()
+        var index = 0
+        while (index < lines.size) {
+            val fenceMatch = resolvePythonFenceOpening(lines, index)
+            if (fenceMatch == null) {
+                rebuilt.add(lines[index])
+                index += 1
+                continue
+            }
+
+            rebuilt.add(
+                if (fenceMatch.fromBareFencePattern) normalizeBarePythonFenceLine(lines[index]) else lines[index],
+            )
+            index = fenceMatch.bodyStartIndex
+
+            while (index < lines.size && !isFenceLine(lines[index])) {
+                val current = lines[index]
+                val next = lines.getOrNull(index + 1)
+                if (current.trim() == "# パドル" && next?.trim() == "(プレイヤー)") {
+                    rebuilt.add("# パドル (プレイヤー)")
+                    index += 2
+                    continue
+                }
+                rebuilt.add(current)
+                index += 1
+            }
+
+            if (index < lines.size) {
+                rebuilt.add(lines[index])
+                index += 1
+            }
+        }
+
+        return rebuilt.joinToString("\n")
+    }
 
     private fun repairCodeFences(markdown: String): String {
         val lines = markdown.split('\n')

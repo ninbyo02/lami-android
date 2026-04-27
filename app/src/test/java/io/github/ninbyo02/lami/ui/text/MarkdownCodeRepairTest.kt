@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.text
 
+import io.github.ninbyo02.lami.ui.screens.home.buildFinalizedStreamingResponseForPersist
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -3435,6 +3436,29 @@ class MarkdownCodeRepairTest {
                 # パドル
                 paddle_x = 20
                 (プレイヤー)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun buildFinalizedStreamingResponseForPersist_mergesPaddlePlayerInsidePythonFence() {
+        val input = """
+            ```python
+            # パドル
+            (プレイヤー)
+            paddle_width = 10
+            ```
+        """.trimIndent()
+
+        val repaired = buildFinalizedStreamingResponseForPersist(input)
+
+        assertEquals(
+            """
+                ```python
+                # パドル (プレイヤー)
+                paddle_width = 10
                 ```
             """.trimIndent(),
             repaired,
