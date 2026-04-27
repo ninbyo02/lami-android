@@ -8,7 +8,8 @@ object MarkdownCodeRepair {
         val normalizedFence = if (text.contains("```")) normalizeTwoLinePythonFence(text) else text
         val repaired = if (normalizedFence.contains("```")) repairCodeFences(normalizedFence) else normalizedFence
         val normalized = normalizeMarkdownOutsideCodeFences(repaired)
-        return applyFinalPaddlePlayerFuseInPythonFences(normalized)
+        val fused = applyFinalPaddlePlayerFuseInPythonFences(normalized)
+        return applyConservativePythonIndentRepairInFences(fused)
     }
 
     private data class PythonFenceMatch(
@@ -87,6 +88,149 @@ object MarkdownCodeRepair {
         }
 
         return rebuilt.joinToString("\n")
+    }
+
+    private fun applyConservativePythonIndentRepairInFences(markdown: String): String {
+        if (!markdown.contains("```")) return markdown
+        val lines = markdown.split('\n')
+        if (lines.isEmpty()) return markdown
+
+        val rebuilt = mutableListOf<String>()
+        var index = 0
+        while (index < lines.size) {
+            val fenceMatch = resolvePythonFenceOpening(lines, index)
+            if (fenceMatch == null) {
+                rebuilt.add(lines[index])
+                index += 1
+                continue
+            }
+
+            rebuilt.add(
+                if (fenceMatch.fromBareFencePattern) normalizeBarePythonFenceLine(lines[index]) else lines[index],
+            )
+            index = fenceMatch.bodyStartIndex
+
+            val bodyLines = mutableListOf<String>()
+            while (index < lines.size && !isFenceLine(lines[index])) {
+                bodyLines.add(lines[index])
+                index += 1
+            }
+            rebuilt.addAll(repairConservativePythonIndent(bodyLines))
+
+            if (index < lines.size) {
+                rebuilt.add(lines[index])
+                index += 1
+            }
+        }
+        return rebuilt.joinToString("\n")
+    }
+
+    private fun repairConservativePythonIndent(lines: List<String>): List<String> {
+        if (lines.isEmpty()) return lines
+        val blankRepaired = mutableListOf<String>()
+        var index = 0
+        while (index < lines.size) {
+            val current = lines[index]
+            val currentTrimmed = current.trim()
+            val next = lines.getOrNull(index + 1)
+            val nextTrimmed = next?.trim().orEmpty()
+            if (
+                currentTrimmed.isEmpty() &&
+                index > 0 &&
+                opensPythonBlock(lines[index - 1]) &&
+                looksLikeCodeOrComment(nextTrimmed)
+            ) {
+                index += 1
+                continue
+            }
+            blankRepaired.add(current)
+            index += 1
+        }
+
+        val rebuilt = mutableListOf<String>()
+        var currentIndent = 0
+        var previousOpenedBlock = false
+
+        for (line in blankRepaired) {
+            val trimmed = line.trim()
+            if (trimmed.isEmpty()) {
+                rebuilt.add("")
+                previousOpenedBlock = false
+                continue
+            }
+
+            if (!looksLikeCodeOrComment(trimmed)) {
+                rebuilt.add(line)
+                previousOpenedBlock = false
+                continue
+            }
+
+            if (trimmed.startsWith("elif ") || trimmed == "else:" || trimmed.startsWith("except ") || trimmed == "finally:") {
+                currentIndent = (currentIndent - 4).coerceAtLeast(0)
+            }
+
+            val targetIndent = if (previousOpenedBlock) currentIndent + 4 else currentIndent
+            rebuilt.add("${" ".repeat(targetIndent)}$trimmed")
+
+            if (opensPythonBlock(trimmed)) {
+                currentIndent = targetIndent
+                previousOpenedBlock = true
+            } else {
+                previousOpenedBlock = false
+            }
+        }
+        return rebuilt
+    }
+
+    private fun opensPythonBlock(line: String): Boolean {
+        val trimmed = line.trim()
+        if (!trimmed.endsWith(":")) return false
+        return trimmed.startsWith("for ") ||
+            trimmed.startsWith("if ") ||
+            trimmed.startsWith("elif ") ||
+            trimmed == "else:" ||
+            trimmed.startsWith("while ") ||
+            trimmed == "try:" ||
+            trimmed.startsWith("except ") ||
+            trimmed == "finally:"
+    }
+
+    private fun looksLikeCodeOrComment(line: String): Boolean {
+        val trimmed = line.trim()
+        if (trimmed.isEmpty()) return false
+        if (trimmed.startsWith("```")) return false
+        if (trimmed.startsWith("#")) return true
+        if (trimmed.startsWith("import ") || trimmed.startsWith("from ")) return true
+
+        val codeSignals = listOf(
+            "=",
+            "(",
+            ")",
+            ".",
+            "[",
+            "]",
+            "return",
+            "break",
+            "continue",
+            "for ",
+            "if ",
+            "elif ",
+            "else:",
+            "while ",
+            "pygame.",
+            "screen.",
+            "blocks.",
+            "block_",
+            "ball_",
+            "paddle_",
+            "score",
+            "game_over",
+            "win_game",
+            "msg",
+            "text_rect",
+            "keys",
+        )
+        return codeSignals.any { trimmed.contains(it) }
     }
 
     private fun repairCodeFences(markdown: String): String {
