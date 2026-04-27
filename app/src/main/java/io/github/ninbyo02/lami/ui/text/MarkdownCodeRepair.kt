@@ -293,7 +293,17 @@ object MarkdownCodeRepair {
         val finalPostProcessedLines = applyKnownFinalPythonPostProcess(postProcessedLines)
         val compactedBlankLines = compactConsecutiveBlankLines(finalPostProcessedLines)
         val safeguardedLines = applyFinalPaddlePlayerSafetyFuse(compactedBlankLines)
-        return safeguardedLines.joinToString("\n")
+        val closedAppendLines = safeguardedLines.map(::closeKnownIncompleteBlocksAppendLine)
+        return closedAppendLines.joinToString("\n")
+    }
+
+    private fun closeKnownIncompleteBlocksAppendLine(line: String): String {
+        val trimmed = line.trimEnd()
+        if (!trimmed.contains("blocks.append(")) return line
+        if (!trimmed.contains("'status': True")) return line
+        if (trimmed.endsWith("})") || trimmed.endsWith("})#") || trimmed.endsWith("} )")) return line
+        if (trimmed.endsWith("True")) return "$trimmed})"
+        return line
     }
 
     private fun applyKnownFinalPythonPostProcess(lines: List<String>): List<String> {

@@ -3655,4 +3655,46 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun incompleteBlocksAppendStatusTrue_isClosed() {
+        val input = """
+            ```python
+            blocks.append({'rect': pygame.Rect(1, 2, 3, 4), 'status': True
+            # Trueなら存在、Falseなら破壊済み
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                blocks.append({'rect': pygame.Rect(1, 2, 3, 4), 'status': True})
+                # Trueなら存在、Falseなら破壊済み
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun completeBlocksAppendStatusTrue_isNotChanged() {
+        val input = """
+            ```python
+            blocks.append({'rect': pygame.Rect(1, 2, 3, 4), 'status': True})
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(input, repaired)
+    }
+
+    @Test
+    fun incompleteBlocksAppendRepair_doesNotRunOutsidePythonFence() {
+        val input = "blocks.append({'status': True"
+        val repaired = MarkdownCodeRepair.repair(input)
+        assertEquals(input, repaired)
+    }
+
 }
