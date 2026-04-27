@@ -210,7 +210,9 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "for event in pygame.event.get():" &&
                 nextTrimmed == "if event.type == pygame.QUIT:"
             ) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
+                val eventLoopIndent = rebuilt[index].indexOfFirst { !it.isWhitespace() }
+                    .let { if (it == -1) rebuilt[index].length else it }
+                rebuilt[index + 1] = withIndent(nextTrimmed, eventLoopIndent + 4)
                 index += 1
                 continue
             }
@@ -218,7 +220,9 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "if event.type == pygame.QUIT:" &&
                 (nextTrimmed == "pygame.quit()" || nextTrimmed == "sys.exit()")
             ) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 8)
+                val quitBranchIndent = rebuilt[index].indexOfFirst { !it.isWhitespace() }
+                    .let { if (it == -1) rebuilt[index].length else it }
+                rebuilt[index + 1] = withIndent(nextTrimmed, quitBranchIndent + 4)
                 index += 1
                 continue
             }
