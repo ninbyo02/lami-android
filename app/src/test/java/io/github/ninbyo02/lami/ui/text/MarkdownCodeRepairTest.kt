@@ -3872,4 +3872,121 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun pythonIndentRepair_repairsWhileEventQuitSysExitBlock() {
+        val input = """
+            ```python
+            while True:
+            # 1.イベント処理
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                while True:
+                    # 1.イベント処理
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            pygame.quit()
+                            sys.exit()
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_repairsForBlockStatusAndBlockRect() {
+        val input = """
+            ```python
+            for block in blocks:
+            if block['status']:
+            block_rect = block['rect']
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                for block in blocks:
+                    if block['status']:
+                        block_rect = block['rect']
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_removesBlankLineRightAfterGameOverCondition() {
+        val input = """
+            ```python
+            if game_over:
+
+            msg = font.render("GAME OVER", True, WHITE)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if game_over:
+                    msg = font.render("GAME OVER", True, WHITE)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_gameUpdateLineIsIndentedOnlyInsideFence() {
+        val input = """
+            if not game_over and not win_game:
+            keys = pygame.key.get_pressed()
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(input, repaired)
+    }
+
+    @Test
+    fun pythonIndentRepair_doesNotReintroduceOverNestingRegression2439() {
+        val input = """
+            ```python
+            while True:
+            if ball_dx > 0:
+            ball_dx = -ball_dx
+            elif ball_dx < 0:
+            ball_dx = abs(ball_dx)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                while True:
+                if ball_dx > 0:
+                ball_dx = -ball_dx
+                elif ball_dx < 0:
+                ball_dx = abs(ball_dx)
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
 }
