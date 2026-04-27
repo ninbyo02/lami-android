@@ -4114,4 +4114,95 @@ class MarkdownCodeRepairTest {
         assertEquals(input, repaired)
     }
 
+    @Test
+    fun pythonIndentRepair_repairsGameUpdateSectionUntilNextTopLevelComment() {
+        val input = """
+            ```python
+            if not game_over and not win_game:
+            # 2.キー入力処理
+            keys = pygame.key.get_pressed()
+                if keys[pygame.K_LEFT]:
+            paddle_x -= paddle_speed
+            ball_x += ball_dx
+            ball_y += ball_dy
+            # 3.衝突判定
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if not game_over and not win_game:
+                    # 2.キー入力処理
+                    keys = pygame.key.get_pressed()
+                    if keys[pygame.K_LEFT]:
+                    paddle_x -= paddle_speed
+                    ball_x += ball_dx
+                    ball_y += ball_dy
+                # 3.衝突判定
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_repairsRestartResetRepresentativePattern() {
+        val input = """
+            ```python
+            if keys[pygame.K_r]:
+            # ゲーム状態をリセット
+            game_over = False
+            win_game = False
+            score = 0
+            ball_x = SCREEN_WIDTH // 2
+            ball_y = SCREEN_HEIGHT // 2
+            ball_dx = 4
+            ball_dy = -4
+            paddle_x = (SCREEN_WIDTH - paddle_width) // 2
+            for block in blocks:
+            block['status'] = True
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ```python
+                if keys[pygame.K_r]:
+                    # ゲーム状態をリセット
+                    game_over = False
+                    win_game = False
+                    score = 0
+                    ball_x = SCREEN_WIDTH // 2
+                    ball_y = SCREEN_HEIGHT // 2
+                    ball_dx = 4
+                    ball_dy = -4
+                    paddle_x = (SCREEN_WIDTH - paddle_width) // 2
+                    for block in blocks:
+                        block['status'] = True
+                ```
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun pythonIndentRepair_restartResetRepresentativePatternOutsideFence_isUnchanged() {
+        val input = """
+            if keys[pygame.K_r]:
+            # ゲーム状態をリセット
+            game_over = False
+            for block in blocks:
+            block['status'] = True
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(input, repaired)
+    }
+
 }
