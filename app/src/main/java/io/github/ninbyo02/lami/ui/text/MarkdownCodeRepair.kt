@@ -9,7 +9,8 @@ object MarkdownCodeRepair {
         val repaired = if (normalizedFence.contains("```")) repairCodeFences(normalizedFence) else normalizedFence
         val normalized = normalizeMarkdownOutsideCodeFences(repaired)
         val fused = applyFinalPaddlePlayerFuseInPythonFences(normalized)
-        return applyConservativePythonIndentRepairInFences(fused)
+        val conservativelyIndented = applyConservativePythonIndentRepairInFences(fused)
+        return applyStructuralPythonIndentRepairInFences(conservativelyIndented)
     }
 
     private data class PythonFenceMatch(
@@ -116,6 +117,41 @@ object MarkdownCodeRepair {
                 index += 1
             }
             rebuilt.addAll(repairConservativePythonIndent(bodyLines))
+
+            if (index < lines.size) {
+                rebuilt.add(lines[index])
+                index += 1
+            }
+        }
+        return rebuilt.joinToString("\n")
+    }
+
+    private fun applyStructuralPythonIndentRepairInFences(markdown: String): String {
+        if (!markdown.contains("```")) return markdown
+        val lines = markdown.split('\n')
+        if (lines.isEmpty()) return markdown
+
+        val rebuilt = mutableListOf<String>()
+        var index = 0
+        while (index < lines.size) {
+            val fenceMatch = resolvePythonFenceOpening(lines, index)
+            if (fenceMatch == null) {
+                rebuilt.add(lines[index])
+                index += 1
+                continue
+            }
+
+            rebuilt.add(
+                if (fenceMatch.fromBareFencePattern) normalizeBarePythonFenceLine(lines[index]) else lines[index],
+            )
+            index = fenceMatch.bodyStartIndex
+
+            val bodyLines = mutableListOf<String>()
+            while (index < lines.size && !isFenceLine(lines[index])) {
+                bodyLines.add(lines[index])
+                index += 1
+            }
+            rebuilt.addAll(repairStructuralPythonIndent(bodyLines))
 
             if (index < lines.size) {
                 rebuilt.add(lines[index])
@@ -284,6 +320,93 @@ object MarkdownCodeRepair {
             index += 1
         }
         return rebuilt.toList()
+    }
+
+    private data class PythonBlockFrame(val keyword: String, val indent: Int)
+
+    private fun repairStructuralPythonIndent(lines: List<String>): List<String> {
+        if (lines.isEmpty()) return lines
+        val rebuilt = mutableListOf<String>()
+        val blockStack = ArrayDeque<PythonBlockFrame>()
+        var previousSignificantWasInsideBlock = false
+
+        lines.forEach { original ->
+            val trimmed = original.trim()
+            if (trimmed.isEmpty()) {
+                rebuilt.add(original)
+                return@forEach
+            }
+            if (!isLikelyPythonStructuralLine(trimmed)) {
+                rebuilt.add(original)
+                previousSignificantWasInsideBlock = blockStack.isNotEmpty()
+                return@forEach
+            }
+
+            val clauseKeyword = structuralClauseKeyword(trimmed)
+            if (clauseKeyword != null) {
+                while (blockStack.isNotEmpty() && !isClauseMatch(blockStack.last().keyword, clauseKeyword)) {
+                    blockStack.removeLast()
+                }
+                if (blockStack.isNotEmpty()) {
+                    blockStack.removeLast()
+                }
+            }
+
+            val baseIndent = blockStack.lastOrNull()?.indent?.plus(4) ?: 0
+            val repaired = when {
+                trimmed.startsWith("#") -> {
+                    if (baseIndent > 0 && previousSignificantWasInsideBlock) withIndentIfNeeded(original, baseIndent) else original
+                }
+                else -> withIndentIfNeeded(original, baseIndent)
+            }
+            rebuilt.add(repaired)
+
+            if (isStructuralBlockStarter(trimmed)) {
+                blockStack.addLast(PythonBlockFrame(keyword = structuralKeyword(trimmed), indent = baseIndent))
+            }
+            previousSignificantWasInsideBlock = blockStack.isNotEmpty()
+        }
+        return rebuilt
+    }
+
+    private fun isLikelyPythonStructuralLine(trimmed: String): Boolean {
+        if (trimmed.isEmpty()) return false
+        if (trimmed.startsWith("#")) return true
+        if (trimmed.startsWith("```")) return false
+        if (trimmed.startsWith("###") || trimmed.startsWith("* ") || trimmed.matches(Regex("""\d+\..+"""))) return false
+        return isStructuralBlockStarter(trimmed) ||
+            structuralClauseKeyword(trimmed) != null ||
+            trimmed.startsWith("import ") ||
+            trimmed.startsWith("from ") ||
+            trimmed.startsWith("return ") ||
+            trimmed.startsWith("break") ||
+            trimmed.startsWith("continue") ||
+            trimmed.startsWith("pass") ||
+            trimmed.contains("=") ||
+            trimmed.contains("(")
+    }
+
+    private fun isStructuralBlockStarter(trimmed: String): Boolean {
+        if (!trimmed.endsWith(":")) return false
+        val keyword = structuralKeyword(trimmed)
+        return keyword in setOf("if", "elif", "else", "for", "while", "try", "except", "finally", "with", "def", "class")
+    }
+
+    private fun structuralClauseKeyword(trimmed: String): String? {
+        val keyword = structuralKeyword(trimmed)
+        return if (keyword in setOf("elif", "else", "except", "finally")) keyword else null
+    }
+
+    private fun structuralKeyword(trimmed: String): String {
+        return trimmed.substringBefore(' ').substringBefore(':')
+    }
+
+    private fun isClauseMatch(openKeyword: String, clauseKeyword: String): Boolean {
+        return when (clauseKeyword) {
+            "elif", "else" -> openKeyword in setOf("if", "elif")
+            "except", "finally" -> openKeyword in setOf("try", "except")
+            else -> false
+        }
     }
 
     private fun withIndent(trimmedLine: String, spaces: Int): String {
