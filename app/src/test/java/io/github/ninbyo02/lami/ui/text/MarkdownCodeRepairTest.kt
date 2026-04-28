@@ -4525,4 +4525,198 @@ class MarkdownCodeRepairTest {
         assertEquals(input, repaired)
     }
 
+    @Test
+    fun structuralIndentRepair_breakoutRepresentativeBlock_isRepaired() {
+        val input = """
+            ```python
+            while True:
+            # 1.イベント処理
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            ```
+        """.trimIndent()
+
+        assertEquals(
+            """
+                ```python
+                while True:
+                    # 1.イベント処理
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            pygame.quit()
+                            sys.exit()
+                ```
+            """.trimIndent(),
+            MarkdownCodeRepair.repair(input),
+        )
+    }
+
+    @Test
+    fun structuralIndentRepair_sysExit_isAlignedWithPygameQuit() {
+        val input = """
+            ```python
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            ```
+        """.trimIndent()
+
+        assertEquals(
+            """
+                ```python
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                ```
+            """.trimIndent(),
+            MarkdownCodeRepair.repair(input),
+        )
+    }
+
+    @Test
+    fun structuralIndentRepair_gameUpdateBlock_isIndented() {
+        val input = """
+            ```python
+            if not game_over and not win_game:
+            # 2.キー入力処理
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_LEFT]:
+            paddle_x -= paddle_speed
+            ```
+        """.trimIndent()
+
+        assertEquals(
+            """
+                ```python
+                if not game_over and not win_game:
+                    # 2.キー入力処理
+                    keys = pygame.key.get_pressed()
+                    if keys[pygame.K_LEFT]:
+                        paddle_x -= paddle_speed
+                ```
+            """.trimIndent(),
+            MarkdownCodeRepair.repair(input),
+        )
+    }
+
+    @Test
+    fun structuralIndentRepair_blockCollisionSection_isIndented() {
+        val input = """
+            ```python
+            for block in blocks:
+            if block['status']:
+            block_rect = block['rect']
+            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+            if ball_rect.colliderect(block_rect):
+            ```
+        """.trimIndent()
+
+        assertEquals(
+            """
+                ```python
+                for block in blocks:
+                    if block['status']:
+                        block_rect = block['rect']
+                        ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+                        if ball_rect.colliderect(block_rect):
+                ```
+            """.trimIndent(),
+            MarkdownCodeRepair.repair(input),
+        )
+    }
+
+    @Test
+    fun structuralIndentRepair_gameOverMessageSection_isIndented() {
+        val input = """
+            ```python
+            if game_over:
+            msg = font.render("GAME OVER", True, WHITE)
+            text_rect = msg.get_rect()
+            screen.blit(msg, text_rect)
+            ```
+        """.trimIndent()
+
+        assertEquals(
+            """
+                ```python
+                if game_over:
+                    msg = font.render("GAME OVER", True, WHITE)
+                    text_rect = msg.get_rect()
+                    screen.blit(msg, text_rect)
+                ```
+            """.trimIndent(),
+            MarkdownCodeRepair.repair(input),
+        )
+    }
+
+    @Test
+    fun structuralIndentRepair_restartResetSection_isIndented() {
+        val input = """
+            ```python
+            if keys[pygame.K_r]:
+            # ゲーム状態をリセット
+            game_over = False
+            win_game = False
+            ```
+        """.trimIndent()
+
+        assertEquals(
+            """
+                ```python
+                if keys[pygame.K_r]:
+                    # ゲーム状態をリセット
+                    game_over = False
+                    win_game = False
+                ```
+            """.trimIndent(),
+            MarkdownCodeRepair.repair(input),
+        )
+    }
+
+    @Test
+    fun structuralIndentRepair_doesNotAffectOutsideFence() {
+        val input = """
+            while True:
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        """.trimIndent()
+
+        assertEquals(input, MarkdownCodeRepair.repair(input))
+    }
+
+    @Test
+    fun structuralIndentRepair_buildFinalizedStreamingResponseForPersist_matchesRepair() {
+        val input = """
+            ```python
+            while True:
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            ```
+        """.trimIndent()
+
+        assertEquals(
+            MarkdownCodeRepair.repair(input),
+            buildFinalizedStreamingResponseForPersist(input),
+        )
+    }
+
+    @Test
+    fun structuralIndentRepair_keepsAlreadyCorrectIndent() {
+        val input = """
+            ```python
+            if running:
+                pygame.quit()
+                sys.exit()
+            ```
+        """.trimIndent()
+
+        assertEquals(input, MarkdownCodeRepair.repair(input))
+    }
+
 }
