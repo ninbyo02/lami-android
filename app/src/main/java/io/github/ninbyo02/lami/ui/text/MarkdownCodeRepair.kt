@@ -265,6 +265,22 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "if not game_over and not win_game:" &&
                 (isGameUpdateLine(nextTrimmed) || isGameUpdateCommentLine(nextTrimmed))
             ) {
+                var parentIndex = index - 1
+                var hasRepresentativeParent = false
+                while (parentIndex >= 0) {
+                    val parentTrimmed = rebuilt[parentIndex].trim()
+                    if (parentTrimmed.isEmpty() || parentTrimmed.startsWith("#")) {
+                        parentIndex -= 1
+                        continue
+                    }
+                    hasRepresentativeParent =
+                        parentTrimmed == "while True:" || parentTrimmed == "for event in pygame.event.get():"
+                    break
+                }
+                if (!hasRepresentativeParent) {
+                    index += 1
+                    continue
+                }
                 rebuilt[index] = withIndentIfNeeded(rebuilt[index], 4)
                 var updateLineIndex = index + 1
                 while (updateLineIndex <= rebuilt.lastIndex) {

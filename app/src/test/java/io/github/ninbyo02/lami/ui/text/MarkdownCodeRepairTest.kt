@@ -4819,6 +4819,40 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun conservativeIndentRepair_alignsNotGameOverParentAndChildrenToExpectedDepth() {
+        val input = """
+            ```python
+            while True:
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            if not game_over and not win_game:
+            # 2.キー入力処理 (パドルの移動)
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_LEFT] and paddle_x >0:
+            paddle_x -= paddle_speed
+            if keys[pygame.K_RIGHT] and paddle_x < SCREEN_WIDTH - paddle_width:
+            paddle_x += paddle_speed
+            ```
+            if not game_over and not win_game:
+            keys = pygame.key.get_pressed()
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertContains(repaired, "    if not game_over and not win_game:")
+        assertContains(repaired, "        # 2.キー入力処理 (パドルの移動)")
+        assertContains(repaired, "        keys = pygame.key.get_pressed()")
+        assertContains(repaired, "        if keys[pygame.K_LEFT] and paddle_x > 0:")
+        assertContains(repaired, "            paddle_x -= paddle_speed")
+        assertContains(repaired, "        if keys[pygame.K_RIGHT] and paddle_x < SCREEN_WIDTH - paddle_width:")
+        assertContains(repaired, "            paddle_x += paddle_speed")
+        assertContains(repaired, "```\nif not game_over and not win_game:\nkeys = pygame.key.get_pressed()")
+    }
+
+
+    @Test
     fun conservativeIndentRepair_doesNotChangeRepresentativePygamePatternOutsideFence() {
         val input = """
             if not game_over and not win_game:
