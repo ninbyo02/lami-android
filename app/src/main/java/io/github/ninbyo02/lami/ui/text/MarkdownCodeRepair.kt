@@ -274,6 +274,15 @@ object MarkdownCodeRepair {
                 continue
             }
 
+            if (currentTrimmed.startsWith("if keys[") &&
+                currentTrimmed.endsWith(":") &&
+                (nextTrimmed.startsWith("paddle_x +=") || nextTrimmed.startsWith("paddle_x -="))
+            ) {
+                rebuilt[index + 1] = withIndentIfNeeded(rebuilt[index + 1], 8)
+                index += 1
+                continue
+            }
+
             if (currentTrimmed == "for block in blocks:" && nextTrimmed == "if block['status']:") {
                 rebuilt[index + 1] = withIndent(nextTrimmed, 4)
                 index += 1

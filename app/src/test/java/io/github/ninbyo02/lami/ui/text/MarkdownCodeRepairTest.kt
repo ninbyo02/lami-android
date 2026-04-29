@@ -4610,4 +4610,64 @@ class MarkdownCodeRepairTest {
         )
     }
 
+    @Test
+    fun conservativeIndentRepair_repairsRepresentativePygameIndentSet() {
+        val input = """
+            ```python
+            while True:
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            if not game_over and not win_game:
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_LEFT] and paddle_x > 0:
+            paddle_x -= paddle_speed
+            if keys[pygame.K_RIGHT] and paddle_x < SCREEN_WIDTH - paddle_width:
+            paddle_x += paddle_speed
+            ball_x += ball_dx
+            ball_y += ball_dy
+            for block in blocks:
+            if block['status']:
+            block_rect = block['rect']
+            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+            if ball_rect.colliderect(block_rect):
+            if game_over:
+            msg = font.render("GAME OVER", True, WHITE)
+            text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            screen.blit(msg, text_rect)
+            if win_game:
+            msg = font.render("YOU WIN!", True, WHITE)
+            text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            screen.blit(msg, text_rect)
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertContains(repaired, "    for event in pygame.event.get():")
+        assertContains(repaired, "        if event.type == pygame.QUIT:")
+        assertContains(repaired, "            pygame.quit()")
+        assertContains(repaired, "            sys.exit()")
+        assertContains(repaired, "    if not game_over and not win_game:")
+        assertContains(repaired, "        keys = pygame.key.get_pressed()")
+        assertContains(repaired, "        if keys[pygame.K_LEFT] and paddle_x > 0:")
+        assertContains(repaired, "            paddle_x -= paddle_speed")
+        assertContains(repaired, "        if keys[pygame.K_RIGHT] and paddle_x < SCREEN_WIDTH - paddle_width:")
+        assertContains(repaired, "            paddle_x += paddle_speed")
+        assertContains(repaired, "        ball_x += ball_dx")
+        assertContains(repaired, "        ball_y += ball_dy")
+        assertContains(repaired, "    for block in blocks:")
+        assertContains(repaired, "        if block['status']:")
+        assertContains(repaired, "            block_rect = block['rect']")
+        assertContains(repaired, "            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)")
+        assertContains(repaired, "            if ball_rect.colliderect(block_rect):")
+        assertContains(repaired, "    if game_over:")
+        assertContains(repaired, "        msg = font.render(\"GAME OVER\", True, WHITE)")
+        assertContains(repaired, "        text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))")
+        assertContains(repaired, "        screen.blit(msg, text_rect)")
+        assertContains(repaired, "    if win_game:")
+        assertContains(repaired, "        msg = font.render(\"YOU WIN!\", True, WHITE)")
+    }
+
 }
