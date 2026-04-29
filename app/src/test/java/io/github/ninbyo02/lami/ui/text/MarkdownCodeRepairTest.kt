@@ -4526,6 +4526,49 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun pythonIndentRepair_repairsRepresentativePygameBlocksAsMultiLineUnits() {
+        val input = """
+            ```python
+            for row in range(2):
+            for col in range(2):
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+                    sys.exit()
+            keys = pygame.key.get_pressed()
+                    if keys[pygame.K_LEFT]:
+            paddle_x -= paddle_speed
+            if game_over:
+            msg = font.render("GAME OVER", True, WHITE)
+                    text_rect = msg.get_rect()
+            screen.blit(msg, text_rect)
+            for block in blocks:
+            if block['status']:
+            block_rect = block['rect']
+            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+            if ball_rect.colliderect(block_rect):
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertContains(repaired, "    for event in pygame.event.get():")
+        assertContains(repaired, "        if event.type == pygame.QUIT:")
+        assertContains(repaired, "            pygame.quit()")
+        assertContains(repaired, "            sys.exit()")
+        assertContains(repaired, "        if keys[pygame.K_LEFT]:")
+        assertContains(repaired, "            paddle_x -= paddle_speed")
+        assertContains(repaired, "    if game_over:")
+        assertContains(repaired, "    msg = font.render(\"GAME OVER\", True, WHITE)")
+        assertContains(repaired, "    text_rect = msg.get_rect()")
+        assertContains(repaired, "    screen.blit(msg, text_rect)")
+        assertContains(repaired, "        if block['status']:")
+        assertContains(repaired, "            block_rect = block['rect']")
+        assertContains(repaired, "            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)")
+        assertContains(repaired, "            if ball_rect.colliderect(block_rect):")
+    }
+
+    @Test
     fun structuralIndentRepair_isDisabledToAvoidOverNesting() {
         val input = """
             ```python

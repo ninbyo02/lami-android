@@ -248,16 +248,17 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "for event in pygame.event.get():" &&
                 nextTrimmed == "if event.type == pygame.QUIT:"
             ) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 8)
-                index += 1
-                continue
-            }
-
-            if (currentTrimmed == "if event.type == pygame.QUIT:" &&
-                (nextTrimmed == "pygame.quit()" || nextTrimmed == "sys.exit()")
-            ) {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 12)
-                index += 1
+                var quitLineIndex = index + 1
+                while (quitLineIndex <= rebuilt.lastIndex) {
+                    val quitTrimmed = rebuilt[quitLineIndex].trim()
+                    when (quitTrimmed) {
+                        "if event.type == pygame.QUIT:" -> rebuilt[quitLineIndex] = withIndent(quitTrimmed, 8)
+                        "pygame.quit()", "sys.exit()" -> rebuilt[quitLineIndex] = withIndent(quitTrimmed, 12)
+                        else -> break
+                    }
+                    quitLineIndex += 1
+                }
+                index = quitLineIndex
                 continue
             }
 
@@ -281,8 +282,26 @@ object MarkdownCodeRepair {
                 currentTrimmed.endsWith(":") &&
                 (nextTrimmed.startsWith("paddle_x +=") || nextTrimmed.startsWith("paddle_x -="))
             ) {
-                rebuilt[index + 1] = withIndentIfNeeded(rebuilt[index + 1], 8)
-                index += 1
+                var parentIndex = index - 1
+                while (parentIndex >= 0) {
+                    val parentTrimmed = rebuilt[parentIndex].trim()
+                    if (parentTrimmed.isEmpty() || parentTrimmed.startsWith("#")) {
+                        parentIndex -= 1
+                        continue
+                    }
+                    if (parentTrimmed == "keys = pygame.key.get_pressed()") {
+                        rebuilt[index] = withIndentIfNeeded(rebuilt[index], 4)
+                    }
+                    break
+                }
+                var keyBlockLineIndex = index + 1
+                while (keyBlockLineIndex <= rebuilt.lastIndex) {
+                    val keyBlockTrimmed = rebuilt[keyBlockLineIndex].trim()
+                    if (!keyBlockTrimmed.startsWith("paddle_x +=") && !keyBlockTrimmed.startsWith("paddle_x -=")) break
+                    rebuilt[keyBlockLineIndex] = withIndentIfNeeded(rebuilt[keyBlockLineIndex], 8)
+                    keyBlockLineIndex += 1
+                }
+                index = keyBlockLineIndex
                 continue
             }
 
