@@ -10,7 +10,7 @@ object MarkdownCodeRepair {
         val normalized = normalizeMarkdownOutsideCodeFences(repaired)
         val fused = applyFinalPaddlePlayerFuseInPythonFences(normalized)
         val conservativelyIndented = applyConservativePythonIndentRepairInFences(fused)
-        return applyStructuralPythonIndentRepairInFences(conservativelyIndented)
+        return conservativelyIndented
     }
 
     private data class PythonFenceMatch(
