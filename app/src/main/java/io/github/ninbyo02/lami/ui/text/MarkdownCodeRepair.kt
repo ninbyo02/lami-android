@@ -271,7 +271,7 @@ object MarkdownCodeRepair {
                     if (isTopLevelSectionCommentLine(rebuilt[updateLineIndex])) break
                     val updateLine = rebuilt[updateLineIndex].trim()
                     if (!isGameUpdateLine(updateLine) && !isGameUpdateCommentLine(updateLine)) break
-                    rebuilt[updateLineIndex] = withIndentIfNeeded(rebuilt[updateLineIndex], 4)
+                    rebuilt[updateLineIndex] = withIndentIfNeeded(rebuilt[updateLineIndex], 8)
                     updateLineIndex += 1
                 }
                 index = updateLineIndex
@@ -290,7 +290,7 @@ object MarkdownCodeRepair {
                         continue
                     }
                     if (parentTrimmed == "keys = pygame.key.get_pressed()") {
-                        rebuilt[index] = withIndentIfNeeded(rebuilt[index], 4)
+                        rebuilt[index] = withIndentIfNeeded(rebuilt[index], 8)
                     }
                     break
                 }
@@ -298,7 +298,7 @@ object MarkdownCodeRepair {
                 while (keyBlockLineIndex <= rebuilt.lastIndex) {
                     val keyBlockTrimmed = rebuilt[keyBlockLineIndex].trim()
                     if (!keyBlockTrimmed.startsWith("paddle_x +=") && !keyBlockTrimmed.startsWith("paddle_x -=")) break
-                    rebuilt[keyBlockLineIndex] = withIndentIfNeeded(rebuilt[keyBlockLineIndex], 8)
+                    rebuilt[keyBlockLineIndex] = withIndentIfNeeded(rebuilt[keyBlockLineIndex], 12)
                     keyBlockLineIndex += 1
                 }
                 index = keyBlockLineIndex
