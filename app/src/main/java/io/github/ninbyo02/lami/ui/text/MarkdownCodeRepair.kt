@@ -471,15 +471,29 @@ object MarkdownCodeRepair {
             trimmedLine.startsWith("ball_y +=") ||
             trimmedLine.startsWith("if ball_y") ||
             trimmedLine.startsWith("if ball_x") ||
-            trimmedLine.startsWith("ball_rect =") ||
             trimmedLine.startsWith("paddle_rect =") ||
+            trimmedLine.startsWith("ball_rect =") ||
             trimmedLine.startsWith("if ball_rect.colliderect") ||
-            trimmedLine.startsWith("pygame.draw.") ||
+            trimmedLine.startsWith("for block in blocks:") ||
+            trimmedLine.startsWith("if all(not block['status'] for block in blocks):") ||
+            trimmedLine.startsWith("screen.fill(") ||
+            trimmedLine.startsWith("pygame.draw.rect(") ||
+            trimmedLine.startsWith("pygame.draw.circle(") ||
+            trimmedLine.startsWith("score_text =") ||
             trimmedLine.startsWith("screen.blit(")
     }
 
     private fun isGameUpdateCommentLine(trimmedLine: String): Boolean =
-        trimmedLine == "# 2.キー入力処理"
+        trimmedLine in setOf(
+            "# 2.キー入力処理",
+            "# 3.ボールの移動",
+            "# 4.衝突判定",
+            "# 5.衝突判定",
+            "# 6.衝突判定",
+            "# 7.ゲームオーバー判定",
+            "# 8.ゲームクリア判定",
+            "# 9.描画処理",
+        )
 
     private fun isTopLevelSectionCommentLine(line: String): Boolean {
         if (line.startsWith(" ")) return false

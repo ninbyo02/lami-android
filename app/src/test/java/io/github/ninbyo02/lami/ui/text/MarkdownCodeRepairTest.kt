@@ -4776,4 +4776,96 @@ class MarkdownCodeRepairTest {
         assertEquals(expected, MarkdownCodeRepair.repair(input))
     }
 
+    @Test
+    fun conservativeIndentRepair_indentsRepresentativePygameLinesUnderNotGameOverBlock() {
+        val input = """
+            ```python
+            while True:
+                if not game_over and not win_game:
+                # 2.キー入力処理
+                keys = pygame.key.get_pressed()
+                # 3.ボールの移動
+                ball_x += ball_dx
+                # 6.衝突判定
+                for block in blocks:
+                # 8.ゲームクリア判定
+                if all(not block['status'] for block in blocks):
+                # 9.描画処理
+                screen.fill(BLACK)
+                pygame.draw.rect(screen, WHITE, (paddle_x, paddle_y, paddle_width, paddle_height))
+                pygame.draw.circle(screen, WHITE, (ball_x, ball_y), ball_radius)
+                score_text = font.render(f"Score: {score}", True, WHITE)
+                screen.blit(score_text, (10, 10))
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertContains(repaired, "    if not game_over and not win_game:")
+        assertContains(repaired, "        # 2.キー入力処理")
+        assertContains(repaired, "        keys = pygame.key.get_pressed()")
+        assertContains(repaired, "        # 3.ボールの移動")
+        assertContains(repaired, "        ball_x += ball_dx")
+        assertContains(repaired, "        # 6.衝突判定")
+        assertContains(repaired, "        for block in blocks:")
+        assertContains(repaired, "        # 8.ゲームクリア判定")
+        assertContains(repaired, "        if all(not block['status'] for block in blocks):")
+        assertContains(repaired, "        # 9.描画処理")
+        assertContains(repaired, "        screen.fill(BLACK)")
+        assertContains(repaired, "        pygame.draw.rect(screen, WHITE, (paddle_x, paddle_y, paddle_width, paddle_height))")
+        assertContains(repaired, "        pygame.draw.circle(screen, WHITE, (ball_x, ball_y), ball_radius)")
+        assertContains(repaired, "        score_text = font.render(f\"Score: {score}\", True, WHITE)")
+        assertContains(repaired, "        screen.blit(score_text, (10, 10))")
+    }
+
+    @Test
+    fun conservativeIndentRepair_doesNotChangeRepresentativePygamePatternOutsideFence() {
+        val input = """
+            if not game_over and not win_game:
+            keys = pygame.key.get_pressed()
+            ball_x += ball_dx
+        """.trimIndent()
+
+        assertEquals(input, MarkdownCodeRepair.repair(input))
+    }
+
+    @Test
+    fun conservativeIndentRepair_keepsExistingEventAndQuitRepairAlongsideGameUpdateRepair() {
+        val input = """
+            ```python
+            while True:
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            if not game_over and not win_game:
+            keys = pygame.key.get_pressed()
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertContains(repaired, "    for event in pygame.event.get():")
+        assertContains(repaired, "        if event.type == pygame.QUIT:")
+        assertContains(repaired, "            pygame.quit()")
+        assertContains(repaired, "            sys.exit()")
+        assertContains(repaired, "    if not game_over and not win_game:")
+        assertContains(repaired, "        keys = pygame.key.get_pressed()")
+    }
+
+    @Test
+    fun conservativeIndentRepair_doesNotOverNestAlreadyNestedRepresentativePygameLines() {
+        val input = """
+            ```python
+            while True:
+                if not game_over and not win_game:
+                    keys = pygame.key.get_pressed()
+                    ball_x += ball_dx
+                    screen.fill(BLACK)
+            ```
+        """.trimIndent()
+
+        assertEquals(input, MarkdownCodeRepair.repair(input))
+    }
+
 }
