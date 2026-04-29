@@ -4670,4 +4670,67 @@ class MarkdownCodeRepairTest {
         assertContains(repaired, "        msg = font.render(\"YOU WIN!\", True, WHITE)")
     }
 
+    @Test
+    fun conservativeIndentRepair_repairRepresentativePygameParentAndChildIndent_withAssertEquals() {
+        val input = """
+            ```python
+            while True:
+            for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            if not game_over and not win_game:
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_LEFT] and paddle_x > 0:
+            paddle_x -= paddle_speed
+            ball_x += ball_dx
+            ball_y += ball_dy
+            for block in blocks:
+            if block['status']:
+            block_rect = block['rect']
+            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+            if ball_rect.colliderect(block_rect):
+            if game_over:
+            msg = font.render("GAME OVER", True, WHITE)
+            text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            screen.blit(msg, text_rect)
+            if win_game:
+            msg = font.render("YOU WIN!", True, WHITE)
+            text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            screen.blit(msg, text_rect)
+            ```
+        """.trimIndent()
+
+        val expected = """
+            ```python
+            while True:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                if not game_over and not win_game:
+                    keys = pygame.key.get_pressed()
+                    if keys[pygame.K_LEFT] and paddle_x > 0:
+                        paddle_x -= paddle_speed
+                    ball_x += ball_dx
+                    ball_y += ball_dy
+                for block in blocks:
+                    if block['status']:
+                        block_rect = block['rect']
+                        ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
+                        if ball_rect.colliderect(block_rect):
+                if game_over:
+                    msg = font.render("GAME OVER", True, WHITE)
+                    text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+                    screen.blit(msg, text_rect)
+                if win_game:
+                    msg = font.render("YOU WIN!", True, WHITE)
+                    text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+                    screen.blit(msg, text_rect)
+            ```
+        """.trimIndent()
+
+        assertEquals(expected, MarkdownCodeRepair.repair(input))
+    }
+
 }

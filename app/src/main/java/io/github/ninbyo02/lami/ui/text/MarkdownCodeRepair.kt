@@ -215,6 +215,7 @@ object MarkdownCodeRepair {
             if ((currentTrimmed == "if game_over:" || currentTrimmed == "if win_game:") &&
                 nextTrimmed.startsWith("msg =")
             ) {
+                rebuilt[index] = withIndentIfNeeded(rebuilt[index], 4)
                 var messageLineIndex = index + 1
                 while (messageLineIndex <= rebuilt.lastIndex) {
                     val messageLine = rebuilt[messageLineIndex].trim()
@@ -232,6 +233,7 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "while True:" &&
                 (nextTrimmed == "# 1.イベント処理" || nextTrimmed == "for event in pygame.event.get():")
             ) {
+                rebuilt[index] = withIndentIfNeeded(rebuilt[index], 0)
                 rebuilt[index + 1] = withIndentIfNeeded(rebuilt[index + 1], 4)
                 if (nextTrimmed == "# 1.イベント処理" && index + 2 <= rebuilt.lastIndex) {
                     val eventLoopTrimmed = rebuilt[index + 2].trim()
@@ -262,6 +264,7 @@ object MarkdownCodeRepair {
             if (currentTrimmed == "if not game_over and not win_game:" &&
                 (isGameUpdateLine(nextTrimmed) || isGameUpdateCommentLine(nextTrimmed))
             ) {
+                rebuilt[index] = withIndentIfNeeded(rebuilt[index], 4)
                 var updateLineIndex = index + 1
                 while (updateLineIndex <= rebuilt.lastIndex) {
                     if (isTopLevelSectionCommentLine(rebuilt[updateLineIndex])) break
@@ -284,7 +287,8 @@ object MarkdownCodeRepair {
             }
 
             if (currentTrimmed == "for block in blocks:" && nextTrimmed == "if block['status']:") {
-                rebuilt[index + 1] = withIndent(nextTrimmed, 4)
+                rebuilt[index] = withIndentIfNeeded(rebuilt[index], 4)
+                rebuilt[index + 1] = withIndent(nextTrimmed, 8)
                 index += 1
                 continue
             }
