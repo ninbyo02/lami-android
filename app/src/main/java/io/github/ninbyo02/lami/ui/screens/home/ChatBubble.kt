@@ -76,6 +76,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import io.github.ninbyo02.lami.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.text.PythonCodeSyntaxInspector
+import io.github.ninbyo02.lami.ui.text.PythonCodeWarning
 import io.github.ninbyo02.lami.ui.util.buildInferenceSummary
 import io.github.ninbyo02.lami.ui.text.Segment
 import io.github.ninbyo02.lami.ui.text.parseFencedCodeSegments
@@ -664,6 +666,9 @@ fun PlainAssistantMessage(
         isStreaming && shouldTreatAsProvisionalCode(streamingSplit.unstable)
     }
     val inferenceSummary = remember(inferenceStats) { inferenceStats?.let(::buildInferenceSummary) }
+    val pythonSyntaxWarnings = remember(message) {
+        PythonCodeSyntaxInspector.inspectMarkdown(message).warnings.take(3)
+    }
 
     Column(
         modifier = Modifier
@@ -700,6 +705,10 @@ fun PlainAssistantMessage(
                     )
                 }
             }
+        }
+        if (pythonSyntaxWarnings.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            PythonSyntaxWarningSummary(warnings = pythonSyntaxWarnings)
         }
         if (showMessageActions) {
             Row(
@@ -755,6 +764,33 @@ fun PlainAssistantMessage(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PythonSyntaxWarningSummary(warnings: List<PythonCodeWarning>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = "Pythonコードに構文崩れの可能性があります",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        warnings.forEach { warning ->
+            Text(
+                text = "- L${warning.lineNumber} ${warning.type.name}: ${warning.message}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
