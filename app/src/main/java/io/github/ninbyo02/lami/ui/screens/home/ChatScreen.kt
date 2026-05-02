@@ -1038,10 +1038,16 @@ fun Home(
 
     fun sanitizeTextForTts(text: String): String {
         val normalized = text
+            .replace("\r\n", "\n")
+            .replace("\r", "\n")
             .replace("☺", "")
             .replace("☻", "")
             .replace("*", "")
-            .replace(Regex("\\s+"), " ")
+            .lineSequence()
+            .joinToString("\n") { line ->
+                line.replace(Regex("[ \\t]+"), " ").trimEnd()
+            }
+            .replace(Regex("\n{3,}"), "\n\n")
             .trim()
         if (normalized.length < 2) return ""
         if (normalized.all { !it.isLetterOrDigit() }) return ""
