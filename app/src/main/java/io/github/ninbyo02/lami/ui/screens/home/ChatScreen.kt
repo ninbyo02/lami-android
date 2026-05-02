@@ -3416,7 +3416,7 @@ fun Home(
                                     )
                                 }
                             }
-                            if (BuildConfig.DEBUG) {
+                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
                                 Text(
                                     text = buildString {
                                         append("DEV stream")
