@@ -3276,10 +3276,18 @@ fun Home(
                                                 // 推論統計は保存済み assistant message の値のみを表示する。
                                                 message.toInferenceStats()
                                             val canShowTtsActions = ttsEnabled
+                                            val isPersistedStreamingAssistantRow =
+                                                streamingAssistantMessageId != null &&
+                                                    message.messageID == streamingAssistantMessageId
+                                            val isProvisionalStreamingAssistantRow =
+                                                streamingAssistantMessageId == null &&
+                                                    index == messagesForList.lastIndex
                                             val isStreamingMessageRow =
                                                 isInferenceRunningUi &&
-                                                    streamingAssistantMessageId == null &&
-                                                    index == messagesForList.lastIndex
+                                                    (
+                                                        isPersistedStreamingAssistantRow ||
+                                                            isProvisionalStreamingAssistantRow
+                                                        )
                                             val assistantDisplayMessage = buildAssistantDisplayText(
                                                 originalMessage = message.message,
                                                 tailLimitChars = if (devStreamingTailLimitEnabled || isStreamingMessageRow) {
@@ -3368,6 +3376,7 @@ fun Home(
                                         ).text
                                         PlainAssistantMessage(
                                             message = localRespondingMessage,
+                                            isStreaming = true,
                                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
                                         )
                                     }
