@@ -3881,6 +3881,8 @@ internal data class PreferredBackendApplyResult(
     val requestedPreferredBackend: String,
     val appliedPreferredBackend: String,
     val preferredBackendApplyResult: String,
+    val preferredBackendHookReached: Boolean = false,
+    val preferredBackendHookSource: String = "unknown",
     val preferredBackendApplyError: String? = null,
     val preferredBackendApplyBuilderClass: String? = null,
     val preferredBackendApplyMethodCandidates: List<String> = emptyList(),
@@ -3898,7 +3900,13 @@ private fun buildOptionsObject(
         method.name == "builder" && method.parameterTypes.isEmpty()
     } ?: return null
     val builder = runCatching { builderFactory.invoke(null) }.getOrNull() ?: return null
-    onPreferredBackendApplied(applyPreferredBackendIfRequested(builder, preferredBackendDryRunSetting))
+    onPreferredBackendApplied(
+        applyPreferredBackendIfRequested(
+            optionsBuilder = builder,
+            requested = preferredBackendDryRunSetting,
+            source = "buildOptionsObject",
+        ),
+    )
     val setterNames = listOf("setModelPath", "setModelFilePath", "setModelAssetPath")
     val setter = builder.javaClass.methods.firstOrNull { method ->
         setterNames.contains(method.name) &&
@@ -3917,6 +3925,7 @@ private fun buildOptionsObject(
 private fun applyPreferredBackendIfRequested(
     optionsBuilder: Any,
     requested: PreferredBackendDryRunSetting,
+    source: String,
 ): PreferredBackendApplyResult {
     val builderClass = optionsBuilder::class.java.name
     val methodCandidates = (optionsBuilder.javaClass.methods.asSequence() + optionsBuilder.javaClass.declaredMethods.asSequence())
@@ -3935,6 +3944,8 @@ private fun applyPreferredBackendIfRequested(
         requestedPreferredBackend = requested.name,
         appliedPreferredBackend = "not-applied",
         preferredBackendApplyResult = "not-supported",
+        preferredBackendHookReached = true,
+        preferredBackendHookSource = source,
         preferredBackendApplyBuilderClass = builderClass,
         preferredBackendApplyMethodCandidates = methodCandidates,
     )
