@@ -2785,6 +2785,8 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
                 modelPath = modelPath,
                 cacheDirPath = cacheDirPath,
                 mediaPipeProbeContext = mediaPipeProbeContext,
+                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                onPreferredBackendApplied = onPreferredBackendApplied,
                 appendTrace = appendTrace,
             )
         }.onFailure { throwable ->
@@ -3313,6 +3315,8 @@ private fun runOfficialBlockingConversationSingleNamespace(
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     appendTrace: (String) -> Unit,
 ): LocalOfficialBlockingResult? {
     if (spec.namespace == "com.google.ai.edge.litertlm") {
@@ -3873,7 +3877,7 @@ private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
     )
 }
 
-private data class PreferredBackendApplyResult(
+internal data class PreferredBackendApplyResult(
     val requestedPreferredBackend: String,
     val appliedPreferredBackend: String,
     val preferredBackendApplyResult: String,
