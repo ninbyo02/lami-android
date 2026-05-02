@@ -491,4 +491,37 @@ class InferenceStatsSheetContentTest {
         assertEquals("error", devSection.items.first { it.label == "Error" }.value)
     }
 
+    @Test
+    fun `buildInferenceDetailSections shows gpu probe and inference rows when available`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 34,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = "Qualcomm",
+                gpuRenderer = "Adreno",
+                gpuVersion = "OpenGL ES 3.2",
+                nnapiAvailable = false,
+                nnapiDeprecatedWarning = false,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                gpuProbeSource = "egl-pbuffer",
+                gpuProbeError = "egl fallback",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertTrue(devSection.items.first { it.label == "GPU検出情報" }.value.contains("Adreno"))
+        assertEquals("egl-pbuffer", devSection.items.first { it.label == "GPU Probe" }.value)
+        assertEquals("egl fallback", devSection.items.first { it.label == "GPU Probe Error" }.value)
+        assertEquals("gpu-possible / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+
 }
