@@ -1081,10 +1081,8 @@ fun Home(
         if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
             isStreamingSentencePlaybackActive = false
             streamingSpeechLastConsumedLength = fullText.length
-            currentSpeakingAssistantMessageId = null
             streamingSpeechStartedForMessageId = null
             viewModel.stopTtsPlayback()
-            ttsController.stop()
             return
         }
         val targetMessageId = streamingSpeechStartedForMessageId
@@ -1117,10 +1115,8 @@ fun Home(
         if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
             isStreamingSentencePlaybackActive = false
             streamingSpeechLastConsumedLength = fullText.length
-            currentSpeakingAssistantMessageId = null
             streamingSpeechStartedForMessageId = null
             viewModel.stopTtsPlayback()
-            ttsController.stop()
             return
         }
         val targetMessageId = streamingSpeechStartedForMessageId
