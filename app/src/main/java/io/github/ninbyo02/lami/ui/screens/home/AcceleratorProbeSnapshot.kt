@@ -24,6 +24,8 @@ data class AcceleratorProbeSnapshot(
     val delegateBackendCandidates: List<String> = emptyList(),
     val delegateBackendEnumValues: List<String> = emptyList(),
     val delegateBackendEnumProbeError: String? = null,
+    val delegatePreferredBackendSignatures: List<String> = emptyList(),
+    val delegatePreferredBackendSignatureProbeError: String? = null,
     val delegateClassCandidates: List<String> = emptyList(),
     val delegateSwitchingSupportedHint: String? = null,
     val inferredExecutionTarget: String? = null,
