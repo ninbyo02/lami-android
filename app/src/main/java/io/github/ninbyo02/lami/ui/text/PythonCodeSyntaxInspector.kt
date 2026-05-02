@@ -10,6 +10,7 @@ data class PythonCodeWarning(
     val lineNumber: Int,
     val type: PythonCodeWarningType,
     val message: String,
+    val lineText: String,
 )
 
 enum class PythonCodeWarningType {
@@ -61,6 +62,7 @@ object PythonCodeSyntaxInspector {
                             i + 1,
                             PythonCodeWarningType.POSSIBLE_EMPTY_BLOCK,
                             "':' の後に有効なブロック本文が見つからない可能性があります。",
+                            line,
                         )
                     }
                 }
@@ -72,6 +74,7 @@ object PythonCodeSyntaxInspector {
                     i + 1,
                     PythonCodeWarningType.POSSIBLE_FUSED_CODE,
                     "1行内で ':' の後に文が連結されている可能性があります。",
+                    line,
                 )
             }
         }
@@ -86,6 +89,7 @@ object PythonCodeSyntaxInspector {
                     i + 1,
                     PythonCodeWarningType.POSSIBLE_INDENT_JUMP,
                     "前行が ':' で終わらないのに急なインデント増加があります。",
+                    lines[i],
                 )
             }
         }
@@ -108,6 +112,7 @@ object PythonCodeSyntaxInspector {
                         nextTop.index + 1,
                         PythonCodeWarningType.POSSIBLE_TOP_LEVEL_DEDENT_AFTER_BLOCK,
                         "ブロック継続と思われる行がトップレベルに戻っている可能性があります。",
+                        lines[nextTop.index],
                     )
                 }
             }

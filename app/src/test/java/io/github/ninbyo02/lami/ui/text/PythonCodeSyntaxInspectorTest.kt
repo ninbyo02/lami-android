@@ -87,6 +87,20 @@ class PythonCodeSyntaxInspectorTest {
     }
 
     @Test
+    fun inspect_setsLineTextOnWarning() {
+        val markdown = """
+            ```python
+            if keys[pygame.K_RIGHT] and paddle_x < SCREEN_WIDTH - paddle_width:paddle_x += paddle_speed
+            ```
+        """.trimIndent()
+
+        val result = PythonCodeSyntaxInspector.inspectMarkdown(markdown)
+        val warning = result.warnings.first { it.type == PythonCodeWarningType.POSSIBLE_FUSED_CODE }
+
+        assertTrue(warning.lineText.contains("paddle_x += paddle_speed"))
+    }
+
+    @Test
     fun inspect_noWarningsForSimpleValidCode() {
         val markdown = """
             ```python

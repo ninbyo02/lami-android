@@ -116,6 +116,19 @@ class ChatBubbleStreamingTest {
     }
 
     @Test
+    fun sanitizeAssistantMessageForDisplay_removesDevStreamBlock() {
+        val raw = """
+            回答本文の先頭
+            === DEV Stream ===
+            hidden
+        """.trimIndent()
+
+        val sanitized = sanitizeAssistantMessageForDisplay(raw)
+
+        assertEquals("回答本文の先頭", sanitized)
+    }
+
+    @Test
     fun shouldUsePlainTextForStreamingCodeFence_streamingWithCodeFence_returnsTrue() {
         val result = shouldUsePlainTextForStreamingCodeFence(
             message = "説明です\n```python\nprint('ok')",
