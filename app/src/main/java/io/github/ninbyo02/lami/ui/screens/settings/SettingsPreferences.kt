@@ -304,6 +304,7 @@ class SettingsPreferences(private val context: Context) {
     private val localBaseModelFilePathKey = stringPreferencesKey("local_base_model_file_path")
     private val inferenceTargetKey = stringPreferencesKey("inference_target")
     private val inferenceStatsDisplayModeKey = stringPreferencesKey("inference_stats_display_mode")
+    private val preferredBackendDryRunKey = stringPreferencesKey("lami_dev_preferred_backend_dry_run")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
     // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
@@ -356,6 +357,7 @@ class SettingsPreferences(private val context: Context) {
             useDynamicColor = preferences[dynamicColorKey] ?: false,
             characterAnimationEnabled = preferences[characterAnimationEnabledKey] ?: true,
             inferenceStatsDisplayMode = InferenceStatsDisplayMode.fromStorage(preferences[inferenceStatsDisplayModeKey]),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.fromStorage(preferences[preferredBackendDryRunKey]),
         )
     }
 
@@ -454,6 +456,10 @@ class SettingsPreferences(private val context: Context) {
 
     val inferenceStatsDisplayModeFlow: Flow<InferenceStatsDisplayMode> = context.dataStore.data.map { preferences ->
         InferenceStatsDisplayMode.fromStorage(preferences[inferenceStatsDisplayModeKey])
+    }
+
+    val preferredBackendDryRunSettingFlow: Flow<PreferredBackendDryRunSetting> = context.dataStore.data.map { preferences ->
+        PreferredBackendDryRunSetting.fromStorage(preferences[preferredBackendDryRunKey])
     }
 
     val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -669,6 +675,12 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveInferenceStatsDisplayMode(mode: InferenceStatsDisplayMode) {
         context.dataStore.edit { preferences ->
             preferences[inferenceStatsDisplayModeKey] = mode.name
+        }
+    }
+
+    suspend fun savePreferredBackendDryRunSetting(setting: PreferredBackendDryRunSetting) {
+        context.dataStore.edit { preferences ->
+            preferences[preferredBackendDryRunKey] = setting.name
         }
     }
 

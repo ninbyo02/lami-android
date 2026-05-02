@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import io.github.ninbyo02.lami.ui.util.formatFinishReason
 import io.github.ninbyo02.lami.ui.util.formatImageInputCount
 import io.github.ninbyo02.lami.ui.util.formatInferenceTime
@@ -25,6 +26,7 @@ internal fun buildInferenceSummarySections(
     promptText: String? = null,
     enableDevLlmSessionAsyncPoc: Boolean = false,
     acceleratorProbeSnapshot: AcceleratorProbeSnapshot? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): List<InferenceStatsSectionUi> {
     if (displayMode == InferenceStatsDisplayMode.SIMPLE) {
         return buildInferenceSimpleSections(
@@ -104,6 +106,7 @@ internal fun buildInferenceDetailSections(
     measuredTokenSnapshotSummary: String? = null,
     enableDevLlmSessionAsyncPoc: Boolean = false,
     acceleratorProbeSnapshot: AcceleratorProbeSnapshot? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): List<InferenceStatsSectionUi> {
     if (displayMode == InferenceStatsDisplayMode.SIMPLE) return emptyList()
     val hasRealGenerationDuration = stats.generationDurationNs?.let { it > 0L } == true
@@ -180,12 +183,20 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Delegate backend candidates", value = probe.delegateBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Delegate backend enum values", value = probe.delegateBackendEnumValues.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Delegate preferredBackend signatures", value = probe.delegatePreferredBackendSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "Requested preferredBackend", value = preferredBackendDryRunSetting.name))
+            add(InferenceStatItemUi(label = "Applied preferredBackend", value = "not-applied"))
+            add(InferenceStatItemUi(label = "PreferredBackend dry-run", value = "enabled"))
             add(InferenceStatItemUi(label = "Delegate class candidates", value = probe.delegateClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             probe.delegateBackendEnumProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate backend enum probe error", value = it)) }
             probe.delegatePreferredBackendSignatureProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate preferredBackend signature error", value = it)) }
             probe.delegateProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate Probe Error", value = it)) }
             add(InferenceStatItemUi(label = "実行経路推定", value = "${executionInference.target} / ${executionInference.confidence}"))
-            add(InferenceStatItemUi(label = "推定理由", value = executionInference.reason))
+            val executionReason = if (preferredBackendDryRunSetting != PreferredBackendDryRunSetting.DEFAULT) {
+                "${executionInference.reason}; requested preferredBackend=${preferredBackendDryRunSetting.name} is dry-run only; delegate not applied"
+            } else {
+                executionInference.reason
+            }
+            add(InferenceStatItemUi(label = "推定理由", value = executionReason))
         }
         perceivedTokensPerSecondSourceText?.let {
             add(InferenceStatItemUi(label = "体感生成速度source", value = it))

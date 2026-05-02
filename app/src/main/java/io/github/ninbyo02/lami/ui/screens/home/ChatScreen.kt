@@ -151,6 +151,7 @@ import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
 import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
@@ -530,6 +531,9 @@ fun Home(
     val savedInferenceTarget by settingsPreferences.inferenceTargetFlow.collectAsState(initial = InferenceTarget.LOCAL)
     val savedInferenceStatsDisplayMode by settingsPreferences.inferenceStatsDisplayModeFlow.collectAsState(
         initial = InferenceStatsDisplayMode.SIMPLE,
+    )
+    val preferredBackendDryRunSetting by settingsPreferences.preferredBackendDryRunSettingFlow.collectAsState(
+        initial = PreferredBackendDryRunSetting.DEFAULT,
     )
     var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.LOCAL) }
     var isLocalInferenceRunning by rememberSaveable { mutableStateOf(false) }
@@ -6111,6 +6115,7 @@ private fun InferenceStatsSheetContent(
         measuredTokenSnapshotSummary = measuredTokenSnapshotSummary,
         enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
         acceleratorProbeSnapshot = acceleratorProbeSnapshot,
+        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
     )
 
     Column(
