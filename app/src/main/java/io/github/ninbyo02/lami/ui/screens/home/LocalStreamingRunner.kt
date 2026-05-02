@@ -3898,6 +3898,7 @@ private fun buildOptionsObject(
         method.name == "builder" && method.parameterTypes.isEmpty()
     } ?: return null
     val builder = runCatching { builderFactory.invoke(null) }.getOrNull() ?: return null
+    onPreferredBackendApplied(applyPreferredBackendIfRequested(builder, preferredBackendDryRunSetting))
     val setterNames = listOf("setModelPath", "setModelFilePath", "setModelAssetPath")
     val setter = builder.javaClass.methods.firstOrNull { method ->
         setterNames.contains(method.name) &&
@@ -3907,7 +3908,6 @@ private fun buildOptionsObject(
     runCatching {
         setter.invoke(builder, modelPath)
     }.getOrNull() ?: return null
-    onPreferredBackendApplied(applyPreferredBackendIfRequested(builder, preferredBackendDryRunSetting))
     val buildMethod = builder.javaClass.methods.firstOrNull { method ->
         method.name == "build" && method.parameterTypes.isEmpty()
     } ?: return null
