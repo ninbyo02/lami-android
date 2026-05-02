@@ -147,6 +147,7 @@ internal fun buildInferenceDetailSections(
         nnapiAvailable = acceleratorProbeSnapshot?.nnapiAvailable == true,
         nnapiDevices = acceleratorProbeSnapshot?.nnapiDevices.orEmpty(),
         androidSdk = acceleratorProbeSnapshot?.androidSdk,
+        delegateSwitchingSupportedHint = acceleratorProbeSnapshot?.delegateSwitchingSupportedHint,
     )
     val devSectionItems = buildList {
         devHeldStateText?.takeIf { it.isNotBlank() }?.let {
@@ -173,6 +174,12 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "NNAPI devices", value = probe.nnapiDevices.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Source", value = probe.probeSource))
             probe.probeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Error", value = it)) }
+            add(InferenceStatItemUi(label = "Delegate API Probe", value = probe.delegateProbeSource?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "Delegate switching hint", value = probe.delegateSwitchingSupportedHint?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "Delegate option candidates", value = probe.delegateOptionCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "Delegate backend candidates", value = probe.delegateBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "Delegate class candidates", value = probe.delegateClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            probe.delegateProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate Probe Error", value = it)) }
             add(InferenceStatItemUi(label = "実行経路推定", value = "${executionInference.target} / ${executionInference.confidence}"))
             add(InferenceStatItemUi(label = "推定理由", value = executionInference.reason))
         }
@@ -1055,15 +1062,24 @@ internal fun inferExecutionTarget(
     nnapiAvailable: Boolean,
     nnapiDevices: List<String>,
     androidSdk: Int?,
+    delegateSwitchingSupportedHint: String?,
 ): ExecutionTargetInference {
+    val delegateApiCandidateDetected = delegateSwitchingSupportedHint == "delegate-api-candidate-detected" ||
+        delegateSwitchingSupportedHint == "backend-enum-detected" ||
+        delegateSwitchingSupportedHint == "options-candidate-detected"
     fallbackReason?.takeIf { it.isNotBlank() }?.let {
         return ExecutionTargetInference("unknown", "low", "fallback detected: $it")
     }
     if (officialFlowUsed == true) {
+        val delegateNote = if (delegateApiCandidateDetected) {
+            "; delegate API candidate detected"
+        } else {
+            ""
+        }
         return ExecutionTargetInference(
             "accelerator-unknown",
             "low",
-            "MediaPipe/LiteRT official flow used, but delegate is not exposed",
+            "MediaPipe/LiteRT official flow used, delegate is not confirmed$delegateNote",
         )
     }
     if (!gpuRenderer.isNullOrBlank()) {

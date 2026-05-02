@@ -9,6 +9,19 @@ import java.util.Locale
 
 internal object AcceleratorProbe {
     private const val LOG_TAG = "AcceleratorProbe"
+    private const val MAX_DELEGATE_CANDIDATE_COUNT = 10
+    private val DELEGATE_KEYWORDS = listOf(
+        "delegate",
+        "backend",
+        "gpu",
+        "cpu",
+        "nnapi",
+        "npu",
+        "accelerator",
+        "acceleration",
+        "preferred",
+        "hardware",
+    )
 
     @Volatile
     private var hasLogged = false
@@ -37,6 +50,7 @@ internal object AcceleratorProbe {
         }
 
         val gpuProbeResult = probeGpuInfoSafely()
+        val delegateApiProbeResult = probeDelegateApiCandidatesSafely()
 
         return AcceleratorProbeSnapshot(
             deviceManufacturer = Build.MANUFACTURER,
@@ -56,6 +70,12 @@ internal object AcceleratorProbe {
             probeError = probeError,
             gpuProbeSource = gpuProbeResult.source,
             gpuProbeError = gpuProbeResult.error,
+            delegateProbeSource = "reflection-safe",
+            delegateProbeError = delegateApiProbeResult.error,
+            delegateOptionCandidates = delegateApiProbeResult.optionCandidates,
+            delegateBackendCandidates = delegateApiProbeResult.backendCandidates,
+            delegateClassCandidates = delegateApiProbeResult.classCandidates,
+            delegateSwitchingSupportedHint = delegateApiProbeResult.switchingSupportedHint,
         )
     }
 
@@ -157,5 +177,103 @@ internal object AcceleratorProbe {
         val version: String? = null,
         val source: String? = null,
         val error: String? = null,
+    )
+
+    private fun probeDelegateApiCandidatesSafely(): DelegateApiProbeResult {
+        return runCatching {
+            val classesToInspect = listOf(
+                "com.google.mediapipe.tasks.genai.llminference.LlmInference",
+                "com.google.mediapipe.tasks.genai.llminference.LlmInference\$LlmInferenceOptions",
+                "com.google.mediapipe.tasks.genai.llminference.LlmInference\$LlmInferenceOptions\$Builder",
+                "com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession",
+                "com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession\$LlmInferenceSessionOptions",
+            )
+            val optionCandidates = linkedSetOf<String>()
+            val backendCandidates = linkedSetOf<String>()
+            val classCandidates = linkedSetOf<String>()
+
+            classesToInspect.forEach { className ->
+                val clazz = runCatching { Class.forName(className) }.getOrNull() ?: return@forEach
+                collectDelegateCandidates(clazz, optionCandidates, backendCandidates, classCandidates)
+            }
+            val optionList = optionCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT)
+            val backendList = backendCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT)
+            val classList = classCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT)
+            DelegateApiProbeResult(
+                optionCandidates = optionList,
+                backendCandidates = backendList,
+                classCandidates = classList,
+                switchingSupportedHint = inferDelegateHint(optionList, backendList, classList),
+            )
+        }.getOrElse {
+            DelegateApiProbeResult(
+                error = it.javaClass.simpleName,
+                switchingSupportedHint = "unknown",
+            )
+        }
+    }
+
+    private fun collectDelegateCandidates(
+        clazz: Class<*>,
+        optionCandidates: MutableSet<String>,
+        backendCandidates: MutableSet<String>,
+        classCandidates: MutableSet<String>,
+    ) {
+        runCatching {
+            (clazz.methods.asList() + clazz.declaredMethods.asList()).forEach { method ->
+                if (containsDelegateKeyword(method.name)) {
+                    optionCandidates += "${clazz.simpleName}.${method.name}"
+                }
+            }
+        }
+        runCatching {
+            (clazz.fields.asList() + clazz.declaredFields.asList()).forEach { field ->
+                if (containsDelegateKeyword(field.name)) {
+                    optionCandidates += "${clazz.simpleName}.${field.name}"
+                }
+            }
+        }
+        runCatching {
+            (clazz.classes.asList() + clazz.declaredClasses.asList()).forEach { nestedClass ->
+                val simpleName = nestedClass.simpleName.orEmpty()
+                val qualifiedName = "${clazz.simpleName}.$simpleName"
+                if (containsDelegateKeyword(simpleName)) {
+                    backendCandidates += qualifiedName
+                }
+                if (nestedClass.isEnum || simpleName.contains("backend", ignoreCase = true) || simpleName.contains("delegate", ignoreCase = true)) {
+                    backendCandidates += qualifiedName
+                }
+                if (containsDelegateKeyword(simpleName) || simpleName.contains("option", ignoreCase = true) || simpleName.contains("builder", ignoreCase = true)) {
+                    classCandidates += qualifiedName
+                }
+            }
+        }
+    }
+
+    private fun containsDelegateKeyword(name: String): Boolean {
+        val lowerName = name.lowercase(Locale.US)
+        return DELEGATE_KEYWORDS.any(lowerName::contains)
+    }
+
+    private fun inferDelegateHint(
+        optionCandidates: List<String>,
+        backendCandidates: List<String>,
+        classCandidates: List<String>,
+    ): String {
+        val hasDelegateApiCandidate = optionCandidates.any { candidate ->
+            candidate.contains("set", ignoreCase = true) || candidate.contains("preferred", ignoreCase = true)
+        }
+        if (hasDelegateApiCandidate) return "delegate-api-candidate-detected"
+        if (backendCandidates.isNotEmpty()) return "backend-enum-detected"
+        if (optionCandidates.isNotEmpty() || classCandidates.isNotEmpty()) return "options-candidate-detected"
+        return "not-detected"
+    }
+
+    private data class DelegateApiProbeResult(
+        val error: String? = null,
+        val optionCandidates: List<String> = emptyList(),
+        val backendCandidates: List<String> = emptyList(),
+        val classCandidates: List<String> = emptyList(),
+        val switchingSupportedHint: String = "unknown",
     )
 }

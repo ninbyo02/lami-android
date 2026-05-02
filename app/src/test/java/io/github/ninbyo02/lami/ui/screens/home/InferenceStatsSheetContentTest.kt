@@ -523,5 +523,74 @@ class InferenceStatsSheetContentTest {
         assertEquals("gpu-possible / low", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
+    @Test
+    fun `buildInferenceDetailSections shows delegate probe rows and hides error when absent`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                delegateProbeSource = "reflection-safe",
+                delegateSwitchingSupportedHint = "not-detected",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("reflection-safe", devSection.items.first { it.label == "Delegate API Probe" }.value)
+        assertEquals("not-detected", devSection.items.first { it.label == "Delegate switching hint" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "Delegate option candidates" }.value)
+        assertTrue(devSection.items.none { it.label == "Delegate Probe Error" })
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows delegate probe error and execution reason note`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                officialFlowUsed = true,
+            ),
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = "Qualcomm",
+                gpuRenderer = "Adreno",
+                gpuVersion = "OpenGL ES 3.2",
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = listOf("nnapi-device"),
+                probeSource = "test",
+                delegateProbeSource = "reflection-safe",
+                delegateProbeError = "ClassNotFoundException",
+                delegateOptionCandidates = listOf("LlmInferenceOptions.Builder.setPreferredBackend"),
+                delegateBackendCandidates = listOf("LlmInferenceOptions.Backend"),
+                delegateClassCandidates = listOf("LlmInferenceOptions.Builder"),
+                delegateSwitchingSupportedHint = "delegate-api-candidate-detected",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("ClassNotFoundException", devSection.items.first { it.label == "Delegate Probe Error" }.value)
+        assertTrue(devSection.items.first { it.label == "推定理由" }.value.contains("delegate API candidate detected"))
+    }
+
 
 }
