@@ -3804,6 +3804,8 @@ private suspend fun runLocalInferenceOnceEntry(
             modelPath = modelPath,
             cacheDirPath = modelResolution.cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = { result -> preferredBackendApplyResult = result },
             onPartial = { partial ->
                 officialFlowObservedPartialCount += 1
                 onPartial(partial)
@@ -3912,6 +3914,8 @@ private suspend fun runLocalInferenceOnceEntry(
             modelPath = modelPath,
             cacheDirPath = modelResolution.cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = { result -> preferredBackendApplyResult = result },
             appendTrace = { traceMessage ->
                 appendLocalReflectionTrace(context = context, message = traceMessage)
             },
