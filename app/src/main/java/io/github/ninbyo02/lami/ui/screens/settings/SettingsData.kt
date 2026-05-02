@@ -7,4 +7,5 @@ data class SettingsData(
     val useDynamicColor: Boolean = false,
     val characterAnimationEnabled: Boolean = true,
     val inferenceStatsDisplayMode: InferenceStatsDisplayMode = InferenceStatsDisplayMode.SIMPLE,
+    val preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 )

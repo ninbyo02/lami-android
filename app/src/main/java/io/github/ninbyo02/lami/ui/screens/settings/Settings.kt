@@ -581,6 +581,56 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         }
                     }
                 }
+                if (BuildConfig.DEBUG) {
+                    // DEV診断向けのドライラン設定のため、DEBUGビルドのみ表示する
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Card {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = "MediaPipe preferredBackend（ドライラン）",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = "DEV診断用です。現時点では推論には適用されません。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            val currentDryRun = settingsData.preferredBackendDryRunSetting
+                            PreferredBackendDryRunSetting.entries.forEach { setting ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            scope.launch {
+                                                settingsPreferences.savePreferredBackendDryRunSetting(setting)
+                                            }
+                                        }
+                                        .padding(vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = currentDryRun == setting,
+                                        onClick = {
+                                            scope.launch {
+                                                settingsPreferences.savePreferredBackendDryRunSetting(setting)
+                                            }
+                                        },
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = setting.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
             item {
                 CardSectionHeader(

@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -637,6 +638,66 @@ class InferenceStatsSheetContentTest {
         assertEquals("Builder.setPreferredBackend(Backend): Builder", devSection.items.first { it.label == "Delegate preferredBackend signatures" }.value)
         assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
         assertTrue(devSection.items.first { it.label == "推定理由" }.value.contains("delegate API candidate detected"))
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows preferred backend dry-run rows for GPU and keeps conservative execution`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("GPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertEquals("not-applied", devSection.items.first { it.label == "Applied preferredBackend" }.value)
+        assertEquals("enabled", devSection.items.first { it.label == "PreferredBackend dry-run" }.value)
+        assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows preferred backend dry-run rows for DEFAULT`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("DEFAULT", devSection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertEquals("not-applied", devSection.items.first { it.label == "Applied preferredBackend" }.value)
     }
 
 
