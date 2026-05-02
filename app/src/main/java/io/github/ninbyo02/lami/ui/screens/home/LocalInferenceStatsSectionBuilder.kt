@@ -1027,8 +1027,8 @@ private fun buildDevDiagnosticSummarySection(
 
 private fun resolvePreferredBackendEngineRecreateDiagnostic(trace: LocalInferenceTrace?): Pair<Boolean, String?>? {
     if (trace == null) return null
-    trace.preferredBackendRequiresEngineRecreate?.let {
-        return it to trace.preferredBackendEngineRecreateReason
+    if (trace.preferredBackendRequiresEngineRecreate == true) {
+        return true to trace.preferredBackendEngineRecreateReason
     }
     val requested = trace.requestedPreferredBackend
     val requiresRecreate = requested != null &&
