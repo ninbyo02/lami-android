@@ -771,6 +771,11 @@ class InferenceStatsSheetContentTest {
 
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("GPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertEquals("GPU", devSection.items.first { it.label == "PreferredBackend resolver dry-run setting" }.value)
+        assertEquals("GPU", devSection.items.first { it.label == "PreferredBackend resolver requested" }.value)
+        assertEquals("true", devSection.items.first { it.label == "PreferredBackend resolver heldExistingEngine" }.value)
+        assertEquals("true", devSection.items.first { it.label == "PreferredBackend resolver hookNotReached" }.value)
+        assertEquals("true", devSection.items.first { it.label == "PreferredBackend resolver missingReasonHeldExisting" }.value)
         assertEquals("true", devSection.items.first { it.label == "PreferredBackend requires engine recreate" }.value)
         assertEquals(
             "requested preferredBackend requires a new held engine; current run reused existing engine",

@@ -198,6 +198,15 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Options builder source", value = localTraceForDev?.optionsBuilderSource?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "PreferredBackend hook eligible", value = localTraceForDev?.preferredBackendHookEligible?.toString() ?: "false"))
             add(InferenceStatItemUi(label = "PreferredBackend hook missing reason", value = localTraceForDev?.preferredBackendHookMissingReason?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "PreferredBackend resolver dry-run setting", value = preferredBackendDryRunSetting.name))
+            val resolverRequestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
+            add(InferenceStatItemUi(label = "PreferredBackend resolver requested", value = resolverRequestedPreferredBackend))
+            val resolverHeldExistingEngine = localTraceForDev?.heldEngineCreatePath == "holder-existing-engine"
+            add(InferenceStatItemUi(label = "PreferredBackend resolver heldExistingEngine", value = resolverHeldExistingEngine.toString()))
+            val resolverHookNotReached = localTraceForDev?.preferredBackendHookReached == false
+            add(InferenceStatItemUi(label = "PreferredBackend resolver hookNotReached", value = resolverHookNotReached.toString()))
+            val resolverMissingReasonHeldExisting = localTraceForDev?.preferredBackendHookMissingReason == "holder-existing-engine"
+            add(InferenceStatItemUi(label = "PreferredBackend resolver missingReasonHeldExisting", value = resolverMissingReasonHeldExisting.toString()))
             val preferredBackendRecreateRequired = resolvePreferredBackendEngineRecreateDiagnostic(
                 trace = localTraceForDev,
                 preferredBackendDryRunSetting = preferredBackendDryRunSetting,
