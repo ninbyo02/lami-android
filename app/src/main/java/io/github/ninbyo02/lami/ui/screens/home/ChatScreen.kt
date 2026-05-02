@@ -501,6 +501,9 @@ fun Home(
     val localInferenceEngineHolder = remember(context.applicationContext) {
         LocalInferenceEngineHolder.getInstance(context.applicationContext)
     }
+    val preferredBackendDryRunSetting by settingsPreferences.preferredBackendDryRunSettingFlow.collectAsState(
+        initial = PreferredBackendDryRunSetting.DEFAULT,
+    )
     val localStreamingRunner = remember(context.applicationContext, settingsPreferences, preferredBackendDryRunSetting) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
