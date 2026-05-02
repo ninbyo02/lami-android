@@ -203,7 +203,7 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "PreferredBackend resolver requested", value = resolverRequestedPreferredBackend))
             val resolverHeldExistingEngine = localTraceForDev?.heldEngineCreatePath == "holder-existing-engine"
             add(InferenceStatItemUi(label = "PreferredBackend resolver heldExistingEngine", value = resolverHeldExistingEngine.toString()))
-            val resolverHookNotReached = localTraceForDev?.preferredBackendHookReached == false
+            val resolverHookNotReached = localTraceForDev?.preferredBackendHookReached != true
             add(InferenceStatItemUi(label = "PreferredBackend resolver hookNotReached", value = resolverHookNotReached.toString()))
             val resolverMissingReasonHeldExisting = localTraceForDev?.preferredBackendHookMissingReason == "holder-existing-engine"
             add(InferenceStatItemUi(label = "PreferredBackend resolver missingReasonHeldExisting", value = resolverMissingReasonHeldExisting.toString()))
@@ -1047,7 +1047,7 @@ private fun resolvePreferredBackendEngineRecreateDiagnostic(
     val requested = trace?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
     val requiresRecreate = requested != PreferredBackendDryRunSetting.DEFAULT.name &&
         trace.heldEngineCreatePath == "holder-existing-engine" &&
-        trace.preferredBackendHookReached == false &&
+        trace.preferredBackendHookReached != true &&
         trace.preferredBackendHookMissingReason == "holder-existing-engine"
     if (!requiresRecreate) {
         return false to null
