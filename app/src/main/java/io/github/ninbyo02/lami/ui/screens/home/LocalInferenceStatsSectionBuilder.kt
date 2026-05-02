@@ -214,11 +214,9 @@ internal fun buildInferenceDetailSections(
             probe.delegatePreferredBackendSignatureProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate preferredBackend signature error", value = it)) }
             probe.delegateProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate Probe Error", value = it)) }
             add(InferenceStatItemUi(label = "実行経路推定", value = "${executionInference.target} / ${executionInference.confidence}"))
-            val executionReason = if (preferredBackendDryRunSetting != PreferredBackendDryRunSetting.DEFAULT) {
-                "${executionInference.reason}; requested preferredBackend=${preferredBackendDryRunSetting.name}"
-            } else {
-                executionInference.reason
-            }
+            val executionReason = preferredBackendRecreateRequired?.second?.let { recreateReason ->
+                "${executionInference.reason}; ${recreateReason}"
+            } ?: executionInference.reason
             add(InferenceStatItemUi(label = "推定理由", value = executionReason))
         }
         perceivedTokensPerSecondSourceText?.let {
@@ -1037,7 +1035,7 @@ private fun resolvePreferredBackendEngineRecreateDiagnostic(
     if (trace.preferredBackendRequiresEngineRecreate == true) {
         return true to trace.preferredBackendEngineRecreateReason
     }
-    val requested = trace.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
+    val requested = trace?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
     val requiresRecreate = requested != PreferredBackendDryRunSetting.DEFAULT.name &&
         trace.heldEngineCreatePath == "holder-existing-engine" &&
         trace.preferredBackendHookReached == false &&
