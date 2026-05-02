@@ -1078,7 +1078,15 @@ fun Home(
 
     fun consumeStreamingSentenceAndSpeak(fullText: String) {
         if (!ttsEnabled) return
-        if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) return
+        if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
+            isStreamingSentencePlaybackActive = false
+            streamingSpeechLastConsumedLength = fullText.length
+            viewModel.stopTtsPlayback()
+            if (currentSpeakingAssistantMessageId == streamingSpeechStartedForMessageId) {
+                currentSpeakingAssistantMessageId = null
+            }
+            return
+        }
         val targetMessageId = streamingSpeechStartedForMessageId
         if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
         if (fullText.length < streamingSpeechLastConsumedLength) {
@@ -1106,7 +1114,15 @@ fun Home(
 
     fun speakStreamingTailIfNeeded(fullText: String) {
         if (!ttsEnabled) return
-        if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) return
+        if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
+            isStreamingSentencePlaybackActive = false
+            streamingSpeechLastConsumedLength = fullText.length
+            viewModel.stopTtsPlayback()
+            if (currentSpeakingAssistantMessageId == streamingSpeechStartedForMessageId) {
+                currentSpeakingAssistantMessageId = null
+            }
+            return
+        }
         val targetMessageId = streamingSpeechStartedForMessageId
         if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
         val safeConsumed = streamingSpeechLastConsumedLength.coerceIn(0, fullText.length)
