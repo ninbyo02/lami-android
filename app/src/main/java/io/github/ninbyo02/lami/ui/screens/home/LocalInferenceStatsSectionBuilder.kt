@@ -183,6 +183,11 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Delegate backend candidates", value = probe.delegateBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Delegate backend enum values", value = probe.delegateBackendEnumValues.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Delegate preferredBackend signatures", value = probe.delegatePreferredBackendSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "NPU probe hint", value = probe.npuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "NPU delegate candidates", value = probe.npuDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "NPU backend candidates", value = probe.npuBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "QNN candidates", value = probe.qnnDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "NNAPI delegate candidates", value = probe.nnapiDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             val resolvedRequestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
             add(InferenceStatItemUi(label = "Requested preferredBackend", value = resolvedRequestedPreferredBackend))
             add(InferenceStatItemUi(label = "Applied preferredBackend", value = localTraceForDev?.appliedPreferredBackend ?: "not-applied"))
@@ -212,7 +217,7 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Options builder source", value = localTraceForDev?.optionsBuilderSource?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "PreferredBackend hook eligible", value = localTraceForDev?.preferredBackendHookEligible?.toString() ?: "false"))
             add(InferenceStatItemUi(label = "PreferredBackend hook missing reason", value = localTraceForDev?.preferredBackendHookMissingReason?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "PreferredBackend resolver dry-run setting", value = preferredBackendDryRunSetting.name))
+            add(InferenceStatItemUi(label = "PreferredBackend EngineConfig request setting", value = preferredBackendDryRunSetting.name))
             val resolverRequestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
             add(InferenceStatItemUi(label = "PreferredBackend resolver requested", value = resolverRequestedPreferredBackend))
             val resolverHeldExistingEngine = localTraceForDev?.heldEngineCreatePath == "holder-existing-engine"
@@ -236,6 +241,7 @@ internal fun buildInferenceDetailSections(
             probe.delegateBackendEnumProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate backend enum probe error", value = it)) }
             probe.delegatePreferredBackendSignatureProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate preferredBackend signature error", value = it)) }
             probe.delegateProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate Probe Error", value = it)) }
+            probe.npuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "NPU probe error", value = it)) }
             add(InferenceStatItemUi(label = "実行経路推定", value = "${executionInference.target} / ${executionInference.confidence}"))
             val executionReason = preferredBackendRecreateRequired?.second?.let { recreateReason ->
                 "${executionInference.reason}; ${recreateReason}"
