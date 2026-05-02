@@ -1042,7 +1042,7 @@ private fun formatMillisToCompactText(valueMs: Long): String {
 }
 
 
-private data class ExecutionTargetInference(
+internal data class ExecutionTargetInference(
     val target: String,
     val confidence: String,
     val reason: String,
