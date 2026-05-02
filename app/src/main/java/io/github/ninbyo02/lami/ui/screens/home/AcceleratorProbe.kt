@@ -219,9 +219,9 @@ internal object AcceleratorProbe {
             val classList = classCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT)
             val enumProbeResult = probeBackendEnumValues(classList, backendList)
             val signatureProbeResult = probePreferredBackendSignatures(classesToInspect, classList)
-            val npuCandidates = collectKeywordCandidates(optionList, backendList, classList, listOf("npu", "neural", "accelerator", "hardware", "qualcomm"))
-            val qnnCandidates = collectKeywordCandidates(optionList, backendList, classList, listOf("qnn", "htp", "hexagon", "dsp", "qualcomm"))
-            val nnapiCandidates = collectKeywordCandidates(optionList, backendList, classList, listOf("nnapi"))
+            val npuCandidates = collectKeywordCandidates(optionList, backendList, classList, keywords = listOf("npu", "neural", "accelerator", "hardware", "qualcomm"))
+            val qnnCandidates = collectKeywordCandidates(optionList, backendList, classList, keywords = listOf("qnn", "htp", "hexagon", "dsp", "qualcomm"))
+            val nnapiCandidates = collectKeywordCandidates(optionList, backendList, classList, keywords = listOf("nnapi"))
             val npuHint = inferNpuProbeHint(npuCandidates = npuCandidates, qnnCandidates = qnnCandidates, nnapiCandidates = nnapiCandidates)
             DelegateApiProbeResult(
                 optionCandidates = optionList,
