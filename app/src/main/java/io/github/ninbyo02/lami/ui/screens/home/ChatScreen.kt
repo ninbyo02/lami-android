@@ -4176,6 +4176,13 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             lastHeldEngineCreateAtElapsedMs = lastHeldEngineCreateAtElapsedMs,
             lastHeldEngineCreateRequestedPreferredBackend = lastHeldEngineCreateRequestedPreferredBackend,
             lastHeldEngineCreateStackHint = lastHeldEngineCreateStackHint,
+            requestedPreferredBackend = lastHeldEngineCreateRequestedPreferredBackend,
+            appliedPreferredBackend = lastHeldEngineCreateAppliedPreferredBackend,
+            preferredBackendApplyResult = lastHeldEngineCreatePreferredBackendApplyResult,
+            preferredBackendHookReached = lastHeldEngineCreatePreferredBackendHookReached,
+            preferredBackendHookSource = lastHeldEngineCreatePreferredBackendHookSource,
+            preferredBackendApplyBuilderClass = lastHeldEngineCreatePreferredBackendApplyBuilderClass,
+            preferredBackendApplyBackendEnumCandidates = lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
         ),
         closeLifecycleSummary = if (resolvedState == LocalInferenceEngineState.READY) {
             ensureSuccessCloseLifecycleSummary(
