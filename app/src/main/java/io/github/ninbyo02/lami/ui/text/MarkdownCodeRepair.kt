@@ -1898,6 +1898,10 @@ object MarkdownCodeRepair {
             "$1\n$2",
         )
         normalized = normalized.replace(
+            Regex("(?m)^(\\s{0,3}###\\s+[^\\n]*?)Py\\s+game([^\\n]*?)(まず、.*)$"),
+            "$1pygame$2\n$3",
+        )
+        normalized = normalized.replace(
             Regex("(?m)^(\\s*\\*\\s*\\*\\*[^\\n]+\\*\\*:[^\\n]*?)(\\*\\s*\\*\\*[^\\n]+\\*\\*:)$"),
             "$1\n$2",
         )

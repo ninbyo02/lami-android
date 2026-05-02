@@ -4902,4 +4902,28 @@ class MarkdownCodeRepairTest {
         assertEquals(input, MarkdownCodeRepair.repair(input))
     }
 
+    @Test
+    fun normalizeOutsideFence_splitsHeadingWhenPygameInstallLineContainsMazu() {
+        val input = "### 準備：Py gameのインストールまず、pygameをインストールします。"
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ### 準備：pygameのインストール
+                まず、pygameをインストールします。
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun normalizeOutsideFence_keepsHeadingWhenMazuIsAbsent() {
+        val input = "### 準備：Py gameのインストール手順です。"
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals("### 準備：Py gameのインストール手順です。", repaired)
+    }
+
 }
