@@ -1094,6 +1094,7 @@ private fun MessageSegments(
 
                 is Segment.Code -> {
                     val isStreamingCodeBlock = isStreaming && !segment.isClosed
+                    val shouldShowCodeLineNumbers = shouldShowCodeLineNumbers(isStreaming)
                     CodeBlockCard(
                         lang = segment.lang,
                         code = segment.code,
@@ -1102,6 +1103,7 @@ private fun MessageSegments(
                             isSegmentClosed = segment.isClosed,
                         ),
                         isStreamingCodeBlock = isStreamingCodeBlock,
+                        showLineNumbers = shouldShowCodeLineNumbers,
                     )
                 }
             }
@@ -1120,6 +1122,10 @@ internal fun shouldEnableAssistantTextSelection(
 ): Boolean = !isStreaming &&
     message.length <= ASSISTANT_TEXT_SELECTION_MAX_CHARS &&
     !message.contains("```")
+
+internal fun shouldShowCodeLineNumbers(
+    isStreaming: Boolean,
+): Boolean = !isStreaming
 
 internal fun shouldDisableCodeBlockBodyInteractions(
     code: String,
@@ -1259,6 +1265,7 @@ private fun CodeBlockCard(
     code: String,
     isClosed: Boolean = true,
     isStreamingCodeBlock: Boolean = false,
+    showLineNumbers: Boolean = true,
 ) {
     val clipboardManager = LocalClipboardManager.current
     Card(
@@ -1331,7 +1338,7 @@ private fun CodeBlockCard(
                             )
                         }
                     }
-                    if (isStreamingCodeBlock) {
+                    if (!showLineNumbers) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()

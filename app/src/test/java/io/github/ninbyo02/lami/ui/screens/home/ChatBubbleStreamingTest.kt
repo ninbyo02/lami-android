@@ -209,6 +209,21 @@ class ChatBubbleStreamingTest {
         assertEquals("```python\nimport pygame\nimport sys\n#\n```", final)
     }
 
+
+    @Test
+    fun shouldShowCodeLineNumbers_streaming_returnsFalse() {
+        val result = shouldShowCodeLineNumbers(isStreaming = true)
+
+        assertFalse(result)
+    }
+
+    @Test
+    fun shouldShowCodeLineNumbers_nonStreaming_returnsTrue() {
+        val result = shouldShowCodeLineNumbers(isStreaming = false)
+
+        assertTrue(result)
+    }
+
     @Test
     fun codeBlockScrollSelectionDisabled() {
         assertTrue(
