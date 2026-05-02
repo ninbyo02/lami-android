@@ -230,4 +230,14 @@ class ChatBubbleStreamingTest {
             ),
         )
     }
+    @Test
+    fun calculateCodeLineNumberDigits_singleLine_usesTwoDigits() {
+        assertEquals(2, calculateCodeLineNumberDigits(1))
+    }
+
+    @Test
+    fun calculateCodeLineNumberDigits_hundredLines_usesThreeDigits() {
+        assertEquals(3, calculateCodeLineNumberDigits(100))
+    }
+
 }
