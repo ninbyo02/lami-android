@@ -4926,4 +4926,35 @@ class MarkdownCodeRepairTest {
         assertEquals("### 準備：Py gameのインストール手順です。", repaired)
     }
 
+
+
+    @Test
+    fun fusedPygameHeadingOutsideFence_isSplitIntoHeadingAndBody() {
+        val input = """
+            ### 準備：Py gameのインストールまず、pygameがインストールされていない場合は、ターミナルで以下を実行してください。
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ### 準備：pygameのインストール
+                まず、pygameがインストールされていない場合は、ターミナルで以下を実行してください。
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedPygameHeadingInsideFence_isNotModified() {
+        val input = """
+            ```
+            ### 準備：Py gameのインストールまず、pygameがインストールされていない場合は、ターミナルで以下を実行してください。
+            ```
+        """.trimIndent()
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(input, repaired)
+    }
 }
