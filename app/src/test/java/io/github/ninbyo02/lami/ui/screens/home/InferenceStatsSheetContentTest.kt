@@ -667,7 +667,7 @@ class InferenceStatsSheetContentTest {
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("GPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
         assertEquals("not-applied", devSection.items.first { it.label == "Applied preferredBackend" }.value)
-        assertEquals("enabled", devSection.items.first { it.label == "PreferredBackend dry-run" }.value)
+        assertEquals("not-supported", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
         assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
@@ -698,6 +698,7 @@ class InferenceStatsSheetContentTest {
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("DEFAULT", devSection.items.first { it.label == "Requested preferredBackend" }.value)
         assertEquals("not-applied", devSection.items.first { it.label == "Applied preferredBackend" }.value)
+        assertEquals("skipped-default", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
     }
 
 

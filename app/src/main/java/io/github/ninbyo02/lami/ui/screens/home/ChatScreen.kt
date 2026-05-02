@@ -419,6 +419,10 @@ internal data class LocalInferenceTrace(
     val officialFlowFallbackReason: String? = null,
     val officialConversationApiAvailable: Boolean? = null,
     val officialFlowChunkCount: Int = 0,
+    val requestedPreferredBackend: String? = null,
+    val appliedPreferredBackend: String? = null,
+    val preferredBackendApplyResult: String? = null,
+    val preferredBackendApplyError: String? = null,
     val realPartialHookAttempted: Boolean = false,
     val realPartialHookAttached: Boolean = false,
     val realPartialCallbackCount: Int = 0,
@@ -5546,6 +5550,10 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         officialFlowFallbackReason = officialFlowFallbackReason ?: probe.officialFlowFallbackReason,
         officialConversationApiAvailable = officialConversationApiAvailable ?: probe.officialConversationApiAvailable,
         officialFlowChunkCount = if (officialFlowChunkCount > 0) officialFlowChunkCount else probe.officialFlowChunkCount,
+        requestedPreferredBackend = requestedPreferredBackend ?: probe.requestedPreferredBackend,
+        appliedPreferredBackend = appliedPreferredBackend ?: probe.appliedPreferredBackend,
+        preferredBackendApplyResult = preferredBackendApplyResult ?: probe.preferredBackendApplyResult,
+        preferredBackendApplyError = preferredBackendApplyError ?: probe.preferredBackendApplyError,
         measuredTokenSnapshot = measuredTokenSnapshot ?: probe.measuredTokenSnapshot,
     )
 }
