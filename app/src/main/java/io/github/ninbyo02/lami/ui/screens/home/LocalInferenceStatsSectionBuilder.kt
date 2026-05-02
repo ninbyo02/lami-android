@@ -24,6 +24,7 @@ internal fun buildInferenceSummarySections(
     assistantText: String? = null,
     promptText: String? = null,
     enableDevLlmSessionAsyncPoc: Boolean = false,
+    acceleratorProbeSnapshot: AcceleratorProbeSnapshot? = null,
 ): List<InferenceStatsSectionUi> {
     if (displayMode == InferenceStatsDisplayMode.SIMPLE) {
         return buildInferenceSimpleSections(
@@ -102,6 +103,7 @@ internal fun buildInferenceDetailSections(
     devDebugText: String? = null,
     measuredTokenSnapshotSummary: String? = null,
     enableDevLlmSessionAsyncPoc: Boolean = false,
+    acceleratorProbeSnapshot: AcceleratorProbeSnapshot? = null,
 ): List<InferenceStatsSectionUi> {
     if (displayMode == InferenceStatsDisplayMode.SIMPLE) return emptyList()
     val hasRealGenerationDuration = stats.generationDurationNs?.let { it > 0L } == true
@@ -147,6 +149,20 @@ internal fun buildInferenceDetailSections(
         }
         devDebugText?.takeIf { it.isNotBlank() }?.let {
             add(InferenceStatItemUi(label = "Failure / Debug", value = it))
+        }
+        acceleratorProbeSnapshot?.let { probe ->
+            add(InferenceStatItemUi(label = "アクセラレータ候補 Device", value = listOfNotNull(probe.deviceManufacturer, probe.deviceModel, probe.deviceBoard).joinToString(" / ").ifBlank { "unknown" }))
+            add(InferenceStatItemUi(label = "Android SDK", value = probe.androidSdk.toString()))
+            add(InferenceStatItemUi(label = "ABI", value = probe.supportedAbis.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "unknown"))
+            add(InferenceStatItemUi(label = "CPU cores", value = probe.cpuCoreCount?.toString() ?: "unknown"))
+            add(InferenceStatItemUi(label = "GPU検出情報", value = listOfNotNull(probe.gpuVendor, probe.gpuRenderer, probe.gpuVersion).joinToString(" / ").ifBlank { "unknown" }))
+            add(InferenceStatItemUi(label = "NNAPI候補", value = if (probe.nnapiAvailable) "available" else "unavailable"))
+            if (probe.nnapiDeprecatedWarning) {
+                add(InferenceStatItemUi(label = "NNAPI warning", value = "deprecated on Android 15+"))
+            }
+            add(InferenceStatItemUi(label = "NNAPI devices", value = probe.nnapiDevices.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "Source", value = probe.probeSource))
+            probe.probeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Error", value = it)) }
         }
         perceivedTokensPerSecondSourceText?.let {
             add(InferenceStatItemUi(label = "体感生成速度source", value = it))

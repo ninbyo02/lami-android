@@ -432,4 +432,63 @@ class InferenceStatsSheetContentTest {
 
         assertTrue(text.contains("—"))
     }
+
+
+    @Test
+    fun `buildInferenceDetailSections adds accelerator probe rows in developer mode`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("deprecated on Android 15+", devSection.items.first { it.label == "NNAPI warning" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "NNAPI devices" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections handles accelerator probe unknown values safely`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = null,
+                deviceModel = null,
+                deviceBoard = null,
+                androidSdk = 34,
+                supportedAbis = emptyList(),
+                cpuCoreCount = null,
+                cpuAbi = null,
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = false,
+                nnapiDeprecatedWarning = false,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                probeError = "error",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("unknown", devSection.items.first { it.label == "GPU検出情報" }.value)
+        assertEquals("error", devSection.items.first { it.label == "Error" }.value)
+    }
+
 }

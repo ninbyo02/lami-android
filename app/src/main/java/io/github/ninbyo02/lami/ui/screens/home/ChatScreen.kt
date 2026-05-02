@@ -6089,6 +6089,11 @@ private fun InferenceStatsSheetContent(
         promptText = promptText,
         enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
     )
+    val acceleratorProbeSnapshot = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+        remember { AcceleratorProbe.captureSnapshot() }
+    } else {
+        null
+    }
     val measuredTokenSnapshotSummary = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
         buildMeasuredTokenSnapshotSummary(localTraceForDev)
     } else {
@@ -6105,6 +6110,7 @@ private fun InferenceStatsSheetContent(
         devDebugText = devDebugText,
         measuredTokenSnapshotSummary = measuredTokenSnapshotSummary,
         enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
+        acceleratorProbeSnapshot = acceleratorProbeSnapshot,
     )
 
     Column(
