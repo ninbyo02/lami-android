@@ -434,6 +434,8 @@ internal data class LocalInferenceTrace(
     val optionsBuilderSource: String? = null,
     val preferredBackendHookEligible: Boolean? = null,
     val preferredBackendHookMissingReason: String? = null,
+    val preferredBackendRequiresEngineRecreate: Boolean? = null,
+    val preferredBackendEngineRecreateReason: String? = null,
     val realPartialHookAttempted: Boolean = false,
     val realPartialHookAttached: Boolean = false,
     val realPartialCallbackCount: Int = 0,
@@ -5628,6 +5630,8 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         optionsBuilderSource = optionsBuilderSource ?: probe.optionsBuilderSource,
         preferredBackendHookEligible = preferredBackendHookEligible ?: probe.preferredBackendHookEligible,
         preferredBackendHookMissingReason = preferredBackendHookMissingReason ?: probe.preferredBackendHookMissingReason,
+        preferredBackendRequiresEngineRecreate = preferredBackendRequiresEngineRecreate ?: probe.preferredBackendRequiresEngineRecreate,
+        preferredBackendEngineRecreateReason = preferredBackendEngineRecreateReason ?: probe.preferredBackendEngineRecreateReason,
         measuredTokenSnapshot = measuredTokenSnapshot ?: probe.measuredTokenSnapshot,
     )
 }
