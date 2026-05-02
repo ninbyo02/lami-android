@@ -1093,6 +1093,7 @@ private fun MessageSegments(
                 }
 
                 is Segment.Code -> {
+                    val isStreamingCodeBlock = isStreaming && !segment.isClosed
                     CodeBlockCard(
                         lang = segment.lang,
                         code = segment.code,
@@ -1100,6 +1101,7 @@ private fun MessageSegments(
                             isStreaming = isStreaming,
                             isSegmentClosed = segment.isClosed,
                         ),
+                        isStreamingCodeBlock = isStreamingCodeBlock,
                     )
                 }
             }
@@ -1126,6 +1128,12 @@ internal fun shouldDisableCodeBlockBodyInteractions(
 
 internal fun calculateCodeLineNumberDigits(lineCount: Int): Int =
     maxOf(2, lineCount.coerceAtLeast(1).toString().length)
+
+internal fun buildCodeLinesForDisplay(code: String): List<String> =
+    code.lines().dropTrailingFenceArtifacts()
+
+internal fun List<String>.dropTrailingFenceArtifacts(): List<String> =
+    dropLastWhile { it.isEmpty() }
 
 private fun replaceInlineCodeSpans(
     textView: TextView,
@@ -1250,6 +1258,7 @@ private fun CodeBlockCard(
     lang: String?,
     code: String,
     isClosed: Boolean = true,
+    isStreamingCodeBlock: Boolean = false,
 ) {
     val clipboardManager = LocalClipboardManager.current
     Card(
@@ -1322,38 +1331,46 @@ private fun CodeBlockCard(
                             )
                         }
                     }
-                    val codeLines = remember(code) { code.lines() }
-                    val lineNumberDigits = remember(codeLines) {
-                        calculateCodeLineNumberDigits(codeLines.size)
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        verticalAlignment = Alignment.Top,
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(end = 12.dp),
-                            horizontalAlignment = Alignment.End,
+                    if (isStreamingCodeBlock) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
                         ) {
-                            codeLines.forEachIndexed { index, _ ->
-                                Text(
-                                    text = (index + 1).toString().padStart(lineNumberDigits, ' '),
-                                    fontFamily = FontFamily.Monospace,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    textAlign = TextAlign.End,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                )
-                            }
+                            Text(
+                                text = code,
+                                fontFamily = FontFamily.Monospace,
+                                style = MaterialTheme.typography.bodySmall,
+                                softWrap = false,
+                            )
                         }
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            codeLines.forEach { line ->
-                                Text(
-                                    text = line,
-                                    fontFamily = FontFamily.Monospace,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    softWrap = false,
-                                )
+                    } else {
+                        val codeLines = remember(code) { buildCodeLinesForDisplay(code) }
+                        val lineNumberDigits = remember(codeLines) {
+                            calculateCodeLineNumberDigits(codeLines.size)
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                        ) {
+                            codeLines.forEachIndexed { index, line ->
+                                Row(verticalAlignment = Alignment.Top) {
+                                    Text(
+                                        text = (index + 1).toString().padStart(lineNumberDigits, ' '),
+                                        fontFamily = FontFamily.Monospace,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        textAlign = TextAlign.End,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        modifier = Modifier.padding(end = 12.dp),
+                                    )
+                                    Text(
+                                        text = line,
+                                        fontFamily = FontFamily.Monospace,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        softWrap = false,
+                                    )
+                                }
                             }
                         }
                     }
