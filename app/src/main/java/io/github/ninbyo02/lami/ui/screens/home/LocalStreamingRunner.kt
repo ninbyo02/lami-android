@@ -2885,6 +2885,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             cacheDirPath = engineKey.cacheDirPath,
             appendTrace = safeTrace,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = {},
         )
     }.getOrElse { throwable ->
         val className = throwable.javaClass.simpleName.ifBlank { throwable.javaClass.name }
@@ -3144,6 +3145,8 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
             appendTrace = appendTrace,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = onPreferredBackendApplied,
         )
     } else {
         createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath, preferredBackendDryRunSetting, onPreferredBackendApplied)
@@ -3395,6 +3398,8 @@ private fun runOfficialBlockingConversationSingleNamespace(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
             appendTrace = appendTrace,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = onPreferredBackendApplied,
         )
     } else {
         createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath, preferredBackendDryRunSetting, onPreferredBackendApplied)
@@ -3873,6 +3878,7 @@ private fun createOfficialLiteRtLmEngineInstance(
     cacheDirPath: String? = null,
     appendTrace: (String) -> Unit,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
 ): Any? {
     safeAppendTrace(appendTrace, "UPSTREAM official-helper start helper=createOfficialLiteRtLmEngineInstance")
     safeAppendTrace(appendTrace, "UPSTREAM official-helper backend=text=GPU vision=GPU audio=CPU")
@@ -3883,6 +3889,7 @@ private fun createOfficialLiteRtLmEngineInstance(
             cacheDirPath = cacheDirPath,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             appendTrace = appendTrace,
+            onPreferredBackendApplied = onPreferredBackendApplied,
         )
         safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-config-created non-null")
         Engine(engineConfig).also {
@@ -3900,16 +3907,31 @@ private fun buildLiteRtEngineConfig(
     cacheDirPath: String?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     appendTrace: (String) -> Unit = {},
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
 ): EngineConfig {
     val backend = when (preferredBackendDryRunSetting) {
         PreferredBackendDryRunSetting.CPU -> Backend.CPU()
         PreferredBackendDryRunSetting.GPU -> Backend.GPU()
         PreferredBackendDryRunSetting.DEFAULT -> Backend.GPU()
     }
-    val preferredBackendResult = if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT) "skipped-default" else "applied"
+    val appliedPreferredBackend = if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT) "DEFAULT" else preferredBackendDryRunSetting.name
+    val preferredBackendResult = if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT) "skipped-default-engine-config" else "applied-engine-config"
+    onPreferredBackendApplied(
+        PreferredBackendApplyResult(
+            requestedPreferredBackend = preferredBackendDryRunSetting.name,
+            appliedPreferredBackend = appliedPreferredBackend,
+            preferredBackendApplyResult = preferredBackendResult,
+            preferredBackendHookReached = true,
+            preferredBackendHookSource = "holder-acquire-engine-config",
+            preferredBackendApplyBuilderClass = "EngineConfig",
+            preferredBackendApplyMethodCandidates = emptyList(),
+            preferredBackendApplyBackendEnumCandidates = listOf("DEFAULT", "CPU", "GPU"),
+            preferredBackendApplyNotSupportedReason = null,
+        ),
+    )
     safeAppendTrace(
         appendTrace,
-        "UPSTREAM preferred-backend hook-reached=true source=holder-acquire requested=${preferredBackendDryRunSetting.name} applied=${if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT) "DEFAULT" else preferredBackendDryRunSetting.name} result=$preferredBackendResult builderClass=${EngineConfig::class.java.name}",
+        "UPSTREAM preferred-backend hook-reached=true source=holder-acquire-engine-config requested=${preferredBackendDryRunSetting.name} applied=$appliedPreferredBackend result=$preferredBackendResult builderClass=EngineConfig",
     )
     return EngineConfig(
         modelPath = modelPath,
