@@ -108,6 +108,11 @@ internal data class HeldEngineRunResult(
     val optionsBuilderSource: String = "unknown",
     val preferredBackendHookEligible: Boolean = false,
     val preferredBackendHookMissingReason: String? = null,
+    val holderInstanceHash: Int? = null,
+    val heldEngineHash: Int? = null,
+    val heldEngineRecreateRequestCount: Int? = null,
+    val heldEngineWasPresentAtRunStart: Boolean? = null,
+    val heldEngineCreatedDuringRun: Boolean? = null,
 )
 
 internal data class RunCloseTargetOutcome(
@@ -140,6 +145,7 @@ internal suspend fun runWithHeldEngine(
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
 ): HeldEngineRunResult? {
+    val holderSnapshotAtRunStart = engineHolder.getDevDiagnosticSnapshot()
     val startElapsedRealtimeMs = SystemClock.elapsedRealtime()
     heldEngine.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
     val namespace = heldEngine.namespace
@@ -404,6 +410,11 @@ internal suspend fun runWithHeldEngine(
         optionsBuilderSource = "unknown",
         preferredBackendHookEligible = false,
         preferredBackendHookMissingReason = "holder-existing-engine",
+        holderInstanceHash = holderSnapshotAtRunStart.holderInstanceHash,
+        heldEngineHash = holderSnapshotAtRunStart.heldEngineHash,
+        heldEngineRecreateRequestCount = holderSnapshotAtRunStart.recreateRequestCount,
+        heldEngineWasPresentAtRunStart = holderSnapshotAtRunStart.heldEngineHash != null,
+        heldEngineCreatedDuringRun = false,
     )
 }
 internal data class LocalOfficialConversationApiProbeResult(

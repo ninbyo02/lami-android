@@ -34,6 +34,16 @@ internal data class HeldEngineAcquireDiagnosticResult(
     val failureMessage: String?,
 )
 
+internal data class HeldEngineDevDiagnosticSnapshot(
+    val holderInstanceHash: Int,
+    val heldEngineHash: Int?,
+    val recreateRequestCount: Int,
+    val lastRecreateResult: String?,
+    val lastRecreateReason: String?,
+    val hasHeldEngineBeforeRecreate: Boolean?,
+    val hasHeldEngineAfterRecreate: Boolean?,
+)
+
 internal class LocalInferenceEngineHolder(
     private val appContext: Context,
 ) {
@@ -87,6 +97,11 @@ internal class LocalInferenceEngineHolder(
     private val heldConversationsByChatId = mutableMapOf<Int, HeldConversation>()
     private var heldEngineGeneration: Long = 0L
     private var appBackgroundedAtElapsedMs: Long? = null
+    private var recreateRequestCount: Int = 0
+    private var lastRecreateResult: String? = null
+    private var lastRecreateReason: String? = null
+    private var hasHeldEngineBeforeRecreate: Boolean? = null
+    private var hasHeldEngineAfterRecreate: Boolean? = null
 
     suspend fun acquire(
         engineKey: HeldEngineKey,
@@ -248,7 +263,14 @@ internal class LocalInferenceEngineHolder(
         appendTrace: ((String) -> Unit)? = null,
     ): Boolean = mutex.withLock {
         runCatching {
+            val before = held
+            recreateRequestCount += 1
+            lastRecreateReason = reason
+            hasHeldEngineBeforeRecreate = before != null
             appendTrace?.invoke("UPSTREAM held-engine manual-recreate-request reason=$reason")
+            appendTrace?.invoke(
+                "UPSTREAM held-engine manual-recreate-before holderHash=${this@LocalInferenceEngineHolder.hashCode()} heldHash=${before?.hashCode() ?: -1} heldExists=${before != null} requestCount=$recreateRequestCount",
+            )
             applyLifecycleDecisionLocked(
                 current = held,
                 decision = HeldEngineLifecycleDecision(
@@ -258,13 +280,33 @@ internal class LocalInferenceEngineHolder(
                 ),
                 appendTrace = appendTrace,
             )
+            val after = held
+            hasHeldEngineAfterRecreate = after != null
+            lastRecreateResult = "success"
+            appendTrace?.invoke(
+                "UPSTREAM held-engine manual-recreate-after holderHash=${this@LocalInferenceEngineHolder.hashCode()} heldHash=${after?.hashCode() ?: -1} heldExists=${after != null} result=success",
+            )
             true
         }.getOrElse {
+            hasHeldEngineAfterRecreate = held != null
+            lastRecreateResult = "failed:${it::class.java.simpleName}"
             appendTrace?.invoke(
                 "UPSTREAM held-engine manual-recreate-failed reason=$reason error=${it::class.java.simpleName}:${it.message}",
             )
             false
         }
+    }
+
+    suspend fun getDevDiagnosticSnapshot(): HeldEngineDevDiagnosticSnapshot = mutex.withLock {
+        HeldEngineDevDiagnosticSnapshot(
+            holderInstanceHash = this@LocalInferenceEngineHolder.hashCode(),
+            heldEngineHash = held?.hashCode(),
+            recreateRequestCount = recreateRequestCount,
+            lastRecreateResult = lastRecreateResult,
+            lastRecreateReason = lastRecreateReason,
+            hasHeldEngineBeforeRecreate = hasHeldEngineBeforeRecreate,
+            hasHeldEngineAfterRecreate = hasHeldEngineAfterRecreate,
+        )
     }
 
     suspend fun clearIfModelChanged(
