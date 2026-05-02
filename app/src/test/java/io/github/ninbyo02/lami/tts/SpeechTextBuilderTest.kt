@@ -528,6 +528,53 @@ class SpeechTextBuilderTest {
         assertTrue(actual.contains("コード例があります"))
         assertContainsNone(actual, "def hello", "Hello, {name}")
     }
+
+    @Test
+    fun ttsSanitizeEquivalent_preservesFencedCodeStructure() {
+        val input = "```python\r\nimport pygame\r\ndef hello():\r\n    pass\r\n```"
+
+        val sanitized = sanitizeTextForTtsEquivalent(input)
+
+        assertTrue(sanitized.contains("```python\n"))
+        assertTrue(sanitized.contains("\ndef hello():\n"))
+        assertTrue(sanitized.contains("\n```"))
+    }
+
+    @Test
+    fun speechTextBuilder_withSanitizedMarkdown_replacesPythonCodeBlock() {
+        val markdown = """
+            手順です。
+
+            ```python
+            import pygame
+            def hello():
+                print("hi")
+            ```
+
+            箇条書き:
+            - 実行する
+        """.trimIndent()
+
+        val actual = SpeechTextBuilder.build(sanitizeTextForTtsEquivalent(markdown))
+
+        assertTrue(actual.contains("コード例があります"))
+        assertContainsAll(actual, "手順です。", "箇条書き:", "実行する")
+        assertContainsNone(actual, "def hello", "import pygame")
+    }
+
+    private fun sanitizeTextForTtsEquivalent(text: String): String = text
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .replace("☺", "")
+        .replace("☻", "")
+        .replace("*", "")
+        .lineSequence()
+        .joinToString("\n") { line ->
+            line.replace(Regex("[ \\t]+"), " ").trimEnd()
+        }
+        .replace(Regex("\n{3,}"), "\n\n")
+        .trim()
+
     private fun assertContainsCodeGuide(actual: String) {
         assertTrue(
             actual.contains("コード例があります") ||
