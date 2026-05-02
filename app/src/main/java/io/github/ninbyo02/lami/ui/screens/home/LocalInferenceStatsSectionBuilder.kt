@@ -183,16 +183,17 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Delegate backend candidates", value = probe.delegateBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Delegate backend enum values", value = probe.delegateBackendEnumValues.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Delegate preferredBackend signatures", value = probe.delegatePreferredBackendSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Requested preferredBackend", value = preferredBackendDryRunSetting.name))
-            add(InferenceStatItemUi(label = "Applied preferredBackend", value = "not-applied"))
-            add(InferenceStatItemUi(label = "PreferredBackend dry-run", value = "enabled"))
+            add(InferenceStatItemUi(label = "Requested preferredBackend", value = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name))
+            add(InferenceStatItemUi(label = "Applied preferredBackend", value = localTraceForDev?.appliedPreferredBackend ?: "not-applied"))
+            add(InferenceStatItemUi(label = "PreferredBackend apply result", value = localTraceForDev?.preferredBackendApplyResult ?: if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT) "skipped-default" else "not-supported"))
+            add(InferenceStatItemUi(label = "PreferredBackend apply error", value = localTraceForDev?.preferredBackendApplyError ?: "—"))
             add(InferenceStatItemUi(label = "Delegate class candidates", value = probe.delegateClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             probe.delegateBackendEnumProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate backend enum probe error", value = it)) }
             probe.delegatePreferredBackendSignatureProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate preferredBackend signature error", value = it)) }
             probe.delegateProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate Probe Error", value = it)) }
             add(InferenceStatItemUi(label = "実行経路推定", value = "${executionInference.target} / ${executionInference.confidence}"))
             val executionReason = if (preferredBackendDryRunSetting != PreferredBackendDryRunSetting.DEFAULT) {
-                "${executionInference.reason}; requested preferredBackend=${preferredBackendDryRunSetting.name} is dry-run only; delegate not applied"
+                "${executionInference.reason}; requested preferredBackend=${preferredBackendDryRunSetting.name}"
             } else {
                 executionInference.reason
             }

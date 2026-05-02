@@ -596,7 +596,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "DEV診断用です。現時点では推論には適用されません。",
+                                text = "DEBUGビルド限定の実験機能です。CPU/GPU指定を試します。失敗時は既定動作に戻ります。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

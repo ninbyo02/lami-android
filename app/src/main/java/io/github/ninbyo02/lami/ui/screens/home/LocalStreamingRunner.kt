@@ -9,6 +9,7 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Dispatchers
@@ -3804,13 +3805,20 @@ private fun createOfficialEngineInstance(
     engineClass: Class<*>,
     optionClassNames: List<String>,
     modelPath: String,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
 ): Any? {
     val factoryMethod = engineClass.methods.firstOrNull { method ->
         method.name == "createFromOptions" && method.parameterTypes.size == 1
     } ?: return null
     val options = optionClassNames.firstNotNullOfOrNull { optionClassName ->
         val optionClass = runCatching { Class.forName(optionClassName) }.getOrNull() ?: return@firstNotNullOfOrNull null
-        buildOptionsObject(optionClass = optionClass, modelPath = modelPath)
+        buildOptionsObject(
+            optionClass = optionClass,
+            modelPath = modelPath,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = onPreferredBackendApplied,
+        )
     } ?: return null
     return runCatching { factoryMethod.invoke(null, options) }.getOrNull()
 }
@@ -3849,6 +3857,27 @@ private fun buildLiteRtEngineConfig(
 )
 
 private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
+    return buildOptionsObject(
+        optionClass = optionClass,
+        modelPath = modelPath,
+        preferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+        onPreferredBackendApplied = {},
+    )
+}
+
+private data class PreferredBackendApplyResult(
+    val requestedPreferredBackend: String,
+    val appliedPreferredBackend: String,
+    val preferredBackendApplyResult: String,
+    val preferredBackendApplyError: String? = null,
+)
+
+private fun buildOptionsObject(
+    optionClass: Class<*>,
+    modelPath: String,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit,
+): Any? {
     val builderFactory = optionClass.methods.firstOrNull { method ->
         method.name == "builder" && method.parameterTypes.isEmpty()
     } ?: return null
@@ -3862,10 +3891,33 @@ private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
     runCatching {
         setter.invoke(builder, modelPath)
     }.getOrNull() ?: return null
+    onPreferredBackendApplied(applyPreferredBackendIfRequested(builder, preferredBackendDryRunSetting))
     val buildMethod = builder.javaClass.methods.firstOrNull { method ->
         method.name == "build" && method.parameterTypes.isEmpty()
     } ?: return null
     return runCatching { buildMethod.invoke(builder) }.getOrNull()
+}
+
+private fun applyPreferredBackendIfRequested(
+    optionsBuilder: Any,
+    requested: PreferredBackendDryRunSetting,
+): PreferredBackendApplyResult {
+    if (!BuildConfig.DEBUG) return PreferredBackendApplyResult(requested.name, "not-applied", "not-debug-build")
+    if (requested == PreferredBackendDryRunSetting.DEFAULT) return PreferredBackendApplyResult(requested.name, "not-applied", "skipped-default")
+    val method = optionsBuilder.javaClass.methods.firstOrNull { m ->
+        m.name == "setPreferredBackend" &&
+            m.parameterTypes.size == 1 &&
+            m.parameterTypes[0].isEnum
+    } ?: return PreferredBackendApplyResult(requested.name, "not-applied", "not-supported", "NoSuchMethodException")
+    val enumType = method.parameterTypes[0]
+    val enumValue = enumType.enumConstants?.firstOrNull { (it as? Enum<*>)?.name == requested.name }
+        ?: return PreferredBackendApplyResult(requested.name, "not-applied", "not-supported", "BackendEnumNotFound")
+    return runCatching {
+        method.invoke(optionsBuilder, enumValue)
+        PreferredBackendApplyResult(requested.name, requested.name, "applied")
+    }.getOrElse {
+        PreferredBackendApplyResult(requested.name, "not-applied", "failed-fallback", it.javaClass.simpleName)
+    }
 }
 
 private fun createOfficialLiteRtLmConversation(
