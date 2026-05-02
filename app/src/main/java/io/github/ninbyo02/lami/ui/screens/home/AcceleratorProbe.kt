@@ -76,6 +76,8 @@ internal object AcceleratorProbe {
             delegateBackendCandidates = delegateApiProbeResult.backendCandidates,
             delegateBackendEnumValues = delegateApiProbeResult.backendEnumValues,
             delegateBackendEnumProbeError = delegateApiProbeResult.backendEnumProbeError,
+            delegatePreferredBackendSignatures = delegateApiProbeResult.preferredBackendSignatures,
+            delegatePreferredBackendSignatureProbeError = delegateApiProbeResult.preferredBackendSignatureProbeError,
             delegateClassCandidates = delegateApiProbeResult.classCandidates,
             delegateSwitchingSupportedHint = delegateApiProbeResult.switchingSupportedHint,
         )
@@ -202,11 +204,14 @@ internal object AcceleratorProbe {
             val backendList = backendCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT)
             val classList = classCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT)
             val enumProbeResult = probeBackendEnumValues(classList, backendList)
+            val signatureProbeResult = probePreferredBackendSignatures(classesToInspect, classList)
             DelegateApiProbeResult(
                 optionCandidates = optionList,
                 backendCandidates = backendList,
                 backendEnumValues = enumProbeResult.values,
                 backendEnumProbeError = enumProbeResult.error,
+                preferredBackendSignatures = signatureProbeResult.signatures,
+                preferredBackendSignatureProbeError = signatureProbeResult.error,
                 classCandidates = classList,
                 switchingSupportedHint = inferDelegateHint(optionList, backendList, classList),
             )
@@ -309,6 +314,60 @@ internal object AcceleratorProbe {
         )
     }
 
+    private fun probePreferredBackendSignatures(
+        classesToInspect: List<String>,
+        classCandidates: List<String>,
+    ): PreferredBackendSignatureProbeResult {
+        val classNames = linkedSetOf<String>()
+        classNames += classesToInspect
+        classNames += "com.google.mediapipe.tasks.genai.llminference.LlmInferenceOptions"
+        classNames += "com.google.mediapipe.tasks.genai.llminference.LlmInferenceOptions\$Builder"
+        classCandidates.forEach { candidate ->
+            classNames += toLikelyFqcnVariants(candidate)
+            if (candidate.contains("LlmInferenceOptions")) {
+                classNames += "com.google.mediapipe.tasks.genai.llminference.${candidate.removePrefix("LlmInference.")}"
+            }
+        }
+        val signatures = linkedSetOf<String>()
+        var lastError: String? = null
+        classNames.forEach { className ->
+            val clazz = runCatching { Class.forName(className) }.getOrElse {
+                lastError = it.javaClass.simpleName
+                return@forEach
+            }
+            runCatching {
+                (clazz.methods.asList() + clazz.declaredMethods.asList()).forEach { method ->
+                    if (matchesPreferredBackendMethod(method)) {
+                        signatures += formatMethodSignature(clazz, method)
+                    }
+                }
+            }.onFailure { throwable ->
+                lastError = throwable.javaClass.simpleName
+            }
+        }
+        return PreferredBackendSignatureProbeResult(
+            signatures = signatures.take(MAX_DELEGATE_CANDIDATE_COUNT),
+            error = if (signatures.isEmpty()) lastError else null,
+        )
+    }
+
+    private fun matchesPreferredBackendMethod(method: java.lang.reflect.Method): Boolean {
+        val name = method.name
+        if (name == "setPreferredBackend") return true
+        if (name.contains("preferredBackend", ignoreCase = true)) return true
+        if (!name.contains("backend", ignoreCase = true)) return false
+        return method.parameterTypes.any { parameterType ->
+            parameterType.simpleName.contains("Backend", ignoreCase = true) ||
+                parameterType.canonicalName.orEmpty().contains("Backend", ignoreCase = true)
+        }
+    }
+
+    private fun formatMethodSignature(clazz: Class<*>, method: java.lang.reflect.Method): String {
+        val params = method.parameterTypes.joinToString(", ") { it.simpleName.ifBlank { "Unknown" } }
+        val returnType = method.returnType.simpleName.ifBlank { "Unknown" }
+        return "${clazz.simpleName}.${method.name}($params): $returnType"
+    }
+
     private fun inferDelegateHint(
         optionCandidates: List<String>,
         backendCandidates: List<String>,
@@ -329,12 +388,19 @@ internal object AcceleratorProbe {
         val backendCandidates: List<String> = emptyList(),
         val backendEnumValues: List<String> = emptyList(),
         val backendEnumProbeError: String? = null,
+        val preferredBackendSignatures: List<String> = emptyList(),
+        val preferredBackendSignatureProbeError: String? = null,
         val classCandidates: List<String> = emptyList(),
         val switchingSupportedHint: String = "unknown",
     )
 
     private data class BackendEnumProbeResult(
         val values: List<String> = emptyList(),
+        val error: String? = null,
+    )
+
+    private data class PreferredBackendSignatureProbeResult(
+        val signatures: List<String> = emptyList(),
         val error: String? = null,
     )
 }

@@ -553,8 +553,10 @@ class InferenceStatsSheetContentTest {
         assertEquals("not-detected", devSection.items.first { it.label == "Delegate switching hint" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "Delegate option candidates" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "Delegate backend enum values" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "Delegate preferredBackend signatures" }.value)
         assertTrue(devSection.items.none { it.label == "Delegate Probe Error" })
         assertTrue(devSection.items.none { it.label == "Delegate backend enum probe error" })
+        assertTrue(devSection.items.none { it.label == "Delegate preferredBackend signature error" })
     }
 
     @Test
@@ -586,6 +588,8 @@ class InferenceStatsSheetContentTest {
                 delegateBackendCandidates = listOf("LlmInferenceOptions.Backend"),
                 delegateBackendEnumValues = listOf("CPU", "GPU"),
                 delegateBackendEnumProbeError = "ClassNotFoundException",
+                delegatePreferredBackendSignatures = listOf("Builder.setPreferredBackend(Backend): Builder"),
+                delegatePreferredBackendSignatureProbeError = "ClassNotFoundException",
                 delegateClassCandidates = listOf("LlmInferenceOptions.Builder"),
                 delegateSwitchingSupportedHint = "delegate-api-candidate-detected",
             ),
@@ -595,6 +599,42 @@ class InferenceStatsSheetContentTest {
         assertEquals("ClassNotFoundException", devSection.items.first { it.label == "Delegate Probe Error" }.value)
         assertEquals("CPU, GPU", devSection.items.first { it.label == "Delegate backend enum values" }.value)
         assertEquals("ClassNotFoundException", devSection.items.first { it.label == "Delegate backend enum probe error" }.value)
+        assertEquals("Builder.setPreferredBackend(Backend): Builder", devSection.items.first { it.label == "Delegate preferredBackend signatures" }.value)
+        assertEquals("ClassNotFoundException", devSection.items.first { it.label == "Delegate preferredBackend signature error" }.value)
+        assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
+        assertTrue(devSection.items.first { it.label == "推定理由" }.value.contains("delegate API candidate detected"))
+    }
+
+    @Test
+    fun `buildInferenceDetailSections keeps execution inference conservative when preferred backend signatures exist`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                delegateProbeSource = "reflection-safe",
+                delegateOptionCandidates = listOf("Builder.setPreferredBackend"),
+                delegateBackendCandidates = listOf("LlmInference.Backend"),
+                delegateBackendEnumValues = listOf("DEFAULT", "CPU", "GPU"),
+                delegatePreferredBackendSignatures = listOf("Builder.setPreferredBackend(Backend): Builder"),
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("Builder.setPreferredBackend(Backend): Builder", devSection.items.first { it.label == "Delegate preferredBackend signatures" }.value)
         assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
         assertTrue(devSection.items.first { it.label == "推定理由" }.value.contains("delegate API candidate detected"))
     }
