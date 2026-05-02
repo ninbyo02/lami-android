@@ -240,4 +240,19 @@ class ChatBubbleStreamingTest {
         assertEquals(3, calculateCodeLineNumberDigits(100))
     }
 
+    @Test
+    fun buildCodeLinesForDisplay_trailingEmptyLine_isDropped() {
+        val lines = buildCodeLinesForDisplay("print('x')\n")
+
+        assertEquals(listOf("print('x')"), lines)
+    }
+
+    @Test
+    fun buildCodeLinesForDisplay_intentionalBlankLine_isKept() {
+        val lines = buildCodeLinesForDisplay("line1\n\nline3")
+
+        assertEquals(listOf("line1", "", "line3"), lines)
+    }
+
+
 }
