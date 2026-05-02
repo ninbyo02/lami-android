@@ -728,5 +728,29 @@ class InferenceStatsSheetContentTest {
         assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
+    @Test
+    fun `buildInferenceDetailSections shows preferred backend engine recreate diagnostic when held engine is reused`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "not-applied",
+                preferredBackendHookReached = false,
+                heldEngineCreatePath = "holder-existing-engine",
+                preferredBackendHookMissingReason = "holder-existing-engine",
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("true", devSection.items.first { it.label == "PreferredBackend requires engine recreate" }.value)
+        assertEquals(
+            "requested preferredBackend requires a new held engine; current run reused existing engine",
+            devSection.items.first { it.label == "PreferredBackend recreate reason" }.value,
+        )
+        assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
 
 }

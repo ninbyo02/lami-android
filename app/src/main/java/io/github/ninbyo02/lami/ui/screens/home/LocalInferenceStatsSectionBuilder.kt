@@ -197,6 +197,11 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Options builder source", value = localTraceForDev?.optionsBuilderSource?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "PreferredBackend hook eligible", value = localTraceForDev?.preferredBackendHookEligible?.toString() ?: "false"))
             add(InferenceStatItemUi(label = "PreferredBackend hook missing reason", value = localTraceForDev?.preferredBackendHookMissingReason?.ifBlank { "unknown" } ?: "unknown"))
+            val preferredBackendRecreateDiagnostic = resolvePreferredBackendEngineRecreateDiagnostic(localTraceForDev)
+            add(InferenceStatItemUi(label = "PreferredBackend requires engine recreate", value = preferredBackendRecreateDiagnostic?.first?.toString() ?: "false"))
+            preferredBackendRecreateDiagnostic?.second?.let {
+                add(InferenceStatItemUi(label = "PreferredBackend recreate reason", value = it.ifBlank { "unknown" }))
+            }
             localTraceForDev?.preferredBackendApplyNotSupportedReason?.takeIf { it.isNotBlank() }?.let {
                 add(InferenceStatItemUi(label = "PreferredBackend not-supported reason", value = it))
             }
@@ -1018,6 +1023,23 @@ private fun buildDevDiagnosticSummarySection(
         title = "DEV診断サマリー",
         items = items,
     )
+}
+
+private fun resolvePreferredBackendEngineRecreateDiagnostic(trace: LocalInferenceTrace?): Pair<Boolean, String?>? {
+    if (trace == null) return null
+    trace.preferredBackendRequiresEngineRecreate?.let {
+        return it to trace.preferredBackendEngineRecreateReason
+    }
+    val requested = trace.requestedPreferredBackend
+    val requiresRecreate = requested != null &&
+        requested != PreferredBackendDryRunSetting.DEFAULT.name &&
+        trace.heldEngineCreatePath == "holder-existing-engine" &&
+        trace.preferredBackendHookReached == false &&
+        trace.preferredBackendHookMissingReason == "holder-existing-engine"
+    if (!requiresRecreate) {
+        return false to null
+    }
+    return true to "requested preferredBackend requires a new held engine; current run reused existing engine"
 }
 
 private fun resolveDevSummaryTokenizerRecountStatus(trace: LocalInferenceTrace?): String {
