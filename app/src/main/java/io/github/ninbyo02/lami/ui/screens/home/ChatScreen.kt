@@ -501,7 +501,7 @@ fun Home(
     val localInferenceEngineHolder = remember(context.applicationContext) {
         LocalInferenceEngineHolder.getInstance(context.applicationContext)
     }
-    val localStreamingRunner = remember(context.applicationContext, settingsPreferences) {
+    val localStreamingRunner = remember(context.applicationContext, settingsPreferences, preferredBackendDryRunSetting) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
         ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, runMediaPipeProbeContext, onPartial ->
@@ -517,6 +517,7 @@ fun Home(
                 resolvedModelPath = runResolvedModelPath,
                 resolvedCacheDirPath = runCacheDirPath,
                 mediaPipeProbeContext = runMediaPipeProbeContext,
+                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                 prompt = runPrompt,
                 onPartial = onPartial,
             )
@@ -539,9 +540,6 @@ fun Home(
     val savedInferenceTarget by settingsPreferences.inferenceTargetFlow.collectAsState(initial = InferenceTarget.LOCAL)
     val savedInferenceStatsDisplayMode by settingsPreferences.inferenceStatsDisplayModeFlow.collectAsState(
         initial = InferenceStatsDisplayMode.SIMPLE,
-    )
-    val preferredBackendDryRunSetting by settingsPreferences.preferredBackendDryRunSettingFlow.collectAsState(
-        initial = PreferredBackendDryRunSetting.DEFAULT,
     )
     var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.LOCAL) }
     var isLocalInferenceRunning by rememberSaveable { mutableStateOf(false) }
@@ -3743,6 +3741,7 @@ private suspend fun runLocalInferenceOnceEntry(
     resolvedModelPath: String? = null,
     resolvedCacheDirPath: String? = null,
     mediaPipeProbeContext: Context? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     prompt: String,
     onPartial: (String) -> Unit = {},
 ): LocalInferenceRunResult {
@@ -3787,6 +3786,7 @@ private suspend fun runLocalInferenceOnceEntry(
     var officialFlowFallbackReason: String? = null
     var officialFlowChunkCount = 0
     var officialFlowObservedPartialCount = 0
+    var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     val emitFinal: (String?) -> Unit = { result ->
         if (!result.isNullOrBlank()) {
             onPartial(result)
