@@ -2871,6 +2871,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
     context: android.content.Context,
     engineKey: HeldEngineKey,
     appendTrace: ((String) -> Unit)? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): ReusableLocalEngineCreateDiagnostic {
     val safeTrace: (String) -> Unit = { message ->
         runCatching { appendTrace?.invoke(message) }
@@ -2883,6 +2884,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             modelPath = engineKey.modelPath,
             cacheDirPath = engineKey.cacheDirPath,
             appendTrace = safeTrace,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
         )
     }.getOrElse { throwable ->
         val className = throwable.javaClass.simpleName.ifBlank { throwable.javaClass.name }
@@ -3870,12 +3872,18 @@ private fun createOfficialLiteRtLmEngineInstance(
     modelPath: String,
     cacheDirPath: String? = null,
     appendTrace: (String) -> Unit,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): Any? {
     safeAppendTrace(appendTrace, "UPSTREAM official-helper start helper=createOfficialLiteRtLmEngineInstance")
     safeAppendTrace(appendTrace, "UPSTREAM official-helper backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-helper cacheDirPresent=${!cacheDirPath.isNullOrBlank()}")
     return runCatching {
-        val engineConfig = buildLiteRtEngineConfig(modelPath = modelPath, cacheDirPath = cacheDirPath)
+        val engineConfig = buildLiteRtEngineConfig(
+            modelPath = modelPath,
+            cacheDirPath = cacheDirPath,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            appendTrace = appendTrace,
+        )
         safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-config-created non-null")
         Engine(engineConfig).also {
             safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-new-instance-result non-null")
@@ -3890,14 +3898,28 @@ private fun createOfficialLiteRtLmEngineInstance(
 private fun buildLiteRtEngineConfig(
     modelPath: String,
     cacheDirPath: String?,
-): EngineConfig = EngineConfig(
-    modelPath = modelPath,
-    backend = Backend.GPU(),
-    visionBackend = Backend.GPU(),
-    audioBackend = Backend.CPU(),
-    maxNumTokens = null,
-    cacheDir = cacheDirPath,
-)
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    appendTrace: (String) -> Unit = {},
+): EngineConfig {
+    val backend = when (preferredBackendDryRunSetting) {
+        PreferredBackendDryRunSetting.CPU -> Backend.CPU()
+        PreferredBackendDryRunSetting.GPU -> Backend.GPU()
+        PreferredBackendDryRunSetting.DEFAULT -> Backend.GPU()
+    }
+    val preferredBackendResult = if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT) "skipped-default" else "applied"
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM preferred-backend hook-reached=true source=holder-acquire requested=${preferredBackendDryRunSetting.name} applied=${if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT) "DEFAULT" else preferredBackendDryRunSetting.name} result=$preferredBackendResult builderClass=${EngineConfig::class.java.name}",
+    )
+    return EngineConfig(
+        modelPath = modelPath,
+        backend = backend,
+        visionBackend = Backend.GPU(),
+        audioBackend = Backend.CPU(),
+        maxNumTokens = null,
+        cacheDir = cacheDirPath,
+    )
+}
 
 private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
     return buildOptionsObject(

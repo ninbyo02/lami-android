@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.SystemClock
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -116,6 +117,7 @@ internal class LocalInferenceEngineHolder(
     suspend fun acquire(
         engineKey: HeldEngineKey,
         appendTrace: ((String) -> Unit)? = null,
+        preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     ): HeldLocalEngine = mutex.withLock {
         val nowElapsedMs = SystemClock.elapsedRealtime()
         maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
@@ -141,6 +143,7 @@ internal class LocalInferenceEngineHolder(
             context = appContext,
             engineKey = engineKey,
             appendTrace = appendTrace,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
         )
         val created = createdDiagnostic.engine
             ?: throw IllegalStateException(
@@ -158,7 +161,7 @@ internal class LocalInferenceEngineHolder(
             reason = "acquire-create",
             source = "LocalInferenceEngineHolder.acquire",
             createdAtElapsedMs = created.createdAtElapsedMs,
-            requestedPreferredBackend = null,
+            requestedPreferredBackend = preferredBackendDryRunSetting.name,
         )
         created
     }
@@ -166,6 +169,7 @@ internal class LocalInferenceEngineHolder(
     suspend fun acquireWithDiagnostic(
         engineKey: HeldEngineKey,
         appendTrace: ((String) -> Unit)? = null,
+        preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     ): HeldEngineAcquireDiagnosticResult = mutex.withLock {
         val nowElapsedMs = SystemClock.elapsedRealtime()
         maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
@@ -207,6 +211,7 @@ internal class LocalInferenceEngineHolder(
                 context = appContext,
                 engineKey = engineKey,
                 appendTrace = appendTrace,
+                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             )
             appendTrace?.invoke(
                 "UPSTREAM held-create-diagnostic stage=${createdDiagnostic.stage ?: "unknown"} class=${createdDiagnostic.className ?: "none"} message=${createdDiagnostic.message ?: "none"}",
@@ -239,7 +244,7 @@ internal class LocalInferenceEngineHolder(
                 reason = "acquire-with-diagnostic-create",
                 source = "LocalInferenceEngineHolder.acquireWithDiagnostic",
                 createdAtElapsedMs = created.createdAtElapsedMs,
-                requestedPreferredBackend = null,
+                requestedPreferredBackend = preferredBackendDryRunSetting.name,
             )
             appendTrace?.invoke(
                 "UPSTREAM held-acquire-diagnostic success heldHash=${created.hashCode()} useCount=${created.useCount}",

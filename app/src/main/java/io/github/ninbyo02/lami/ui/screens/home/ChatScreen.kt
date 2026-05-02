@@ -2229,6 +2229,7 @@ fun Home(
                                                                 val heldEngine = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
                                                                     val diagnosticResult = localInferenceEngineHolder.acquireWithDiagnostic(
                                                                         engineKey = modelResolution.engineKey,
+                                                                        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                                                                         appendTrace = { message ->
                                                                             if (message.startsWith("UPSTREAM official-helper") || message.startsWith("UPSTREAM held-create")) {
                                                                                 heldOfficialHelperProgress = message
@@ -2255,6 +2256,7 @@ fun Home(
                                                                         localInferenceEngineHolder.acquireOrCreate(
                                                                             engineKey = modelResolution.engineKey,
                                                                             context = context.applicationContext,
+                                                                            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                                                                             appendTrace = { message ->
                                                                                 appendLocalReflectionTrace(
                                                                                     context = context.applicationContext,
@@ -4293,10 +4295,12 @@ private suspend fun LocalInferenceEngineHolder.acquireOrCreate(
     engineKey: HeldEngineKey,
     context: Context,
     appendTrace: ((String) -> Unit)? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): HeldLocalEngine {
     return acquire(
         engineKey = engineKey,
         appendTrace = appendTrace,
+        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
     )
 }
 
