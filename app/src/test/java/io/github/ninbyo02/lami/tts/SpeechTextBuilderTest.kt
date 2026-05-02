@@ -508,6 +508,26 @@ class SpeechTextBuilderTest {
         assertContainsNone(actual, "🎲", "<div>")
     }
 
+
+    @Test
+    fun pythonFencedCode_isReplacedWithCodeGuideWithoutReadingBody() {
+        val input = """
+            Pythonの例です。
+
+            ```python
+            def hello(name: str) -> None:
+                print(f"Hello, {name}")
+            ```
+
+            `print()` を実行します。
+        """.trimIndent()
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertContainsAll(actual, "Pythonの例です。", "print 関数呼び出し を実行します。")
+        assertTrue(actual.contains("コード例があります"))
+        assertContainsNone(actual, "def hello", "Hello, {name}")
+    }
     private fun assertContainsCodeGuide(actual: String) {
         assertTrue(
             actual.contains("コード例があります") ||

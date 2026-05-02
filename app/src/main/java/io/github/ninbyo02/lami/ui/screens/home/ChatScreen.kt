@@ -1041,8 +1041,6 @@ fun Home(
             .replace("☺", "")
             .replace("☻", "")
             .replace("*", "")
-            .replace("```", "")
-            .replace("`", "")
             .replace(Regex("\\s+"), " ")
             .trim()
         if (normalized.length < 2) return ""
@@ -1051,16 +1049,22 @@ fun Home(
     }
 
     fun sanitizeStreamingTextForTts(text: String): String {
+        var insideFencedCodeBlock = false
         val filtered = text
             .lineSequence()
             .map { it.trim() }
             .filterNot { line ->
-                line.isBlank() ||
-                    line.contains("```") ||
-                    line == "コード生成中…" ||
-                    line.matches(Regex("^[`*_#>\\-\\s]+$")) ||
-                    line.matches(Regex("^[\\p{Punct}\\s]+$")) ||
-                    line.matches(Regex(".*[{}();=<>\\[\\]].*"))
+                if (line.contains("```")) {
+                    insideFencedCodeBlock = !insideFencedCodeBlock
+                    true
+                } else {
+                    insideFencedCodeBlock ||
+                        line.isBlank() ||
+                        line == "コード生成中…" ||
+                        line.matches(Regex("^[`*_#>\\-\\s]+$")) ||
+                        line.matches(Regex("^[\\p{Punct}\\s]+$")) ||
+                        line.matches(Regex(".*[{}();=<>\\[\\]].*"))
+                }
             }
             .joinToString(separator = " ")
         return sanitizeTextForTts(filtered)
