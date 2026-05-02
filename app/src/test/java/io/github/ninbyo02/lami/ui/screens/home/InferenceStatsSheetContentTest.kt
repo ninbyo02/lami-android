@@ -808,4 +808,27 @@ class InferenceStatsSheetContentTest {
     }
 
 
+    @Test
+    fun `buildInferenceDetailSections treats null preferred backend hook as not reached for recreate diagnostic`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "not-applied",
+                preferredBackendHookReached = null,
+                heldEngineCreatePath = "holder-existing-engine",
+                preferredBackendHookMissingReason = "holder-existing-engine",
+                preferredBackendRequiresEngineRecreate = false,
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("true", devSection.items.first { it.label == "PreferredBackend resolver hookNotReached" }.value)
+        assertEquals("true", devSection.items.first { it.label == "PreferredBackend requires engine recreate" }.value)
+    }
+
+
+
 }
