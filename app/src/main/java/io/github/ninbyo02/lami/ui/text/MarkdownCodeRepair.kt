@@ -1898,10 +1898,6 @@ object MarkdownCodeRepair {
             "$1\n$2",
         )
         normalized = normalized.replace(
-            Regex("(?m)^(\\s{0,3}###\\s+[^\\n]*?)Py\\s*game([^\\n]*?)(まず、.*)$", RegexOption.IGNORE_CASE),
-            "$1pygame$2\n$3",
-        )
-        normalized = normalized.replace(
             Regex("(?m)^(\\s*\\*\\s*\\*\\*[^\\n]+\\*\\*:[^\\n]*?)(\\*\\s*\\*\\*[^\\n]+\\*\\*:)$"),
             "$1\n$2",
         )
@@ -1909,8 +1905,21 @@ object MarkdownCodeRepair {
         return normalized
             .lineSequence()
             .flatMap { splitOutsideFenceInlineNumberedItems(it).lineSequence() }
+            .flatMap { normalizeFusedPygameInstallHeadingLine(it).lineSequence() }
             .map(::normalizeOutsideFenceLine)
             .joinToString("\n")
+    }
+
+    private fun normalizeFusedPygameInstallHeadingLine(line: String): String {
+        val match = Regex(
+            """^(\s{0,3})(#{1,6}\s*)?(\*\*)?\s*準備：\s*py\s*game\s*のインストール(まず、.*?)(\*\*)?$""",
+            RegexOption.IGNORE_CASE,
+        ).matchEntire(line) ?: return line
+        val indent = match.groupValues[1]
+        val trailingBody = match.groupValues[4]
+        val hasWrappedBold = match.groupValues[3].isNotEmpty() || match.groupValues[5].isNotEmpty()
+        if (hasWrappedBold && (match.groupValues[3].isEmpty() || match.groupValues[5].isEmpty())) return line
+        return "${indent}### 準備：pygameのインストール\n$trailingBody"
     }
 
     private fun splitOutsideFenceInlineNumberedItems(line: String): String {
