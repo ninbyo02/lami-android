@@ -140,6 +140,14 @@ internal fun buildInferenceDetailSections(
         devCloseLifecycleText = devCloseLifecycleText,
         devDebugText = devDebugText,
     )
+    val executionInference = inferExecutionTarget(
+        officialFlowUsed = localTraceForDev?.officialFlowUsed,
+        fallbackReason = localTraceForDev?.officialFlowFallbackReason,
+        gpuRenderer = acceleratorProbeSnapshot?.gpuRenderer,
+        nnapiAvailable = acceleratorProbeSnapshot?.nnapiAvailable == true,
+        nnapiDevices = acceleratorProbeSnapshot?.nnapiDevices.orEmpty(),
+        androidSdk = acceleratorProbeSnapshot?.androidSdk,
+    )
     val devSectionItems = buildList {
         devHeldStateText?.takeIf { it.isNotBlank() }?.let {
             add(InferenceStatItemUi(label = "Held Engine State", value = it))
@@ -156,6 +164,8 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "ABI", value = probe.supportedAbis.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "unknown"))
             add(InferenceStatItemUi(label = "CPU cores", value = probe.cpuCoreCount?.toString() ?: "unknown"))
             add(InferenceStatItemUi(label = "GPU検出情報", value = listOfNotNull(probe.gpuVendor, probe.gpuRenderer, probe.gpuVersion).joinToString(" / ").ifBlank { "unknown" }))
+            add(InferenceStatItemUi(label = "GPU Probe", value = probe.gpuProbeSource?.ifBlank { "unknown" } ?: "unknown"))
+            probe.gpuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "GPU Probe Error", value = it)) }
             add(InferenceStatItemUi(label = "NNAPI候補", value = if (probe.nnapiAvailable) "available" else "unavailable"))
             if (probe.nnapiDeprecatedWarning) {
                 add(InferenceStatItemUi(label = "NNAPI warning", value = "deprecated on Android 15+"))
@@ -163,6 +173,8 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "NNAPI devices", value = probe.nnapiDevices.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Source", value = probe.probeSource))
             probe.probeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Error", value = it)) }
+            add(InferenceStatItemUi(label = "実行経路推定", value = "${executionInference.target} / ${executionInference.confidence}"))
+            add(InferenceStatItemUi(label = "推定理由", value = executionInference.reason))
         }
         perceivedTokensPerSecondSourceText?.let {
             add(InferenceStatItemUi(label = "体感生成速度source", value = it))
@@ -1027,4 +1039,43 @@ private fun formatMillisToCompactText(valueMs: Long): String {
     } else {
         "$safeMs ms"
     }
+}
+
+
+private data class ExecutionTargetInference(
+    val target: String,
+    val confidence: String,
+    val reason: String,
+)
+
+internal fun inferExecutionTarget(
+    officialFlowUsed: Boolean?,
+    fallbackReason: String?,
+    gpuRenderer: String?,
+    nnapiAvailable: Boolean,
+    nnapiDevices: List<String>,
+    androidSdk: Int?,
+): ExecutionTargetInference {
+    fallbackReason?.takeIf { it.isNotBlank() }?.let {
+        return ExecutionTargetInference("unknown", "low", "fallback detected: $it")
+    }
+    if (officialFlowUsed == true) {
+        return ExecutionTargetInference(
+            "accelerator-unknown",
+            "low",
+            "MediaPipe/LiteRT official flow used, but delegate is not exposed",
+        )
+    }
+    if (!gpuRenderer.isNullOrBlank()) {
+        return ExecutionTargetInference("gpu-possible", "low", "GPU detected, but inference delegate is not confirmed")
+    }
+    if (nnapiAvailable || nnapiDevices.isNotEmpty()) {
+        val sdkNote = if ((androidSdk ?: 0) >= 35) " Android 15+ NNAPI is deprecated." else ""
+        return ExecutionTargetInference(
+            "npu-candidate",
+            "low",
+            "NNAPI candidate detected;$sdkNote not proof of NPU execution".trim(),
+        )
+    }
+    return ExecutionTargetInference("cpu-likely", "low", "No accelerator signal detected")
 }

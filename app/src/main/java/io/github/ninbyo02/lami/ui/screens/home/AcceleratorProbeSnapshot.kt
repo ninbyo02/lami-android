@@ -16,4 +16,9 @@ data class AcceleratorProbeSnapshot(
     val nnapiDevices: List<String>,
     val probeSource: String,
     val probeError: String? = null,
+    val gpuProbeSource: String? = null,
+    val gpuProbeError: String? = null,
+    val inferredExecutionTarget: String? = null,
+    val inferredExecutionConfidence: String? = null,
+    val inferredExecutionReason: String? = null,
 )
