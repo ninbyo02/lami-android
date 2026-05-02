@@ -78,6 +78,7 @@ import androidx.compose.ui.window.Dialog
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.text.PythonCodeSyntaxInspector
 import io.github.ninbyo02.lami.ui.text.PythonCodeWarning
+import io.github.ninbyo02.lami.ui.text.PythonCodeWarningType
 import io.github.ninbyo02.lami.ui.util.buildInferenceSummary
 import io.github.ninbyo02.lami.ui.text.Segment
 import io.github.ninbyo02.lami.ui.text.parseFencedCodeSegments
