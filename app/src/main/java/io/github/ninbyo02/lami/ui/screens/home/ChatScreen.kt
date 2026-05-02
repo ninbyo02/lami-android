@@ -748,6 +748,9 @@ fun Home(
     var selectedPromptMessageTextForStatsSheet by remember { mutableStateOf<String?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var showInferenceStatsSheet by remember { mutableStateOf(false) }
+    var preferredBackendManualRecreateInProgress by remember { mutableStateOf(false) }
+    var preferredBackendManualRecreateResult by remember { mutableStateOf("none") }
+    var preferredBackendManualRecreateReason by remember { mutableStateOf("user-requested") }
     var devUiAliveSeconds by remember(effectiveChatId) { mutableStateOf(0) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
@@ -3618,6 +3621,38 @@ fun Home(
                     devCloseLifecycleText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devCloseLifecycleText else null,
                     devDebugText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devDebugText else null,
                     preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                    showDevManualEngineRecreate = BuildConfig.DEBUG,
+                    manualEngineRecreateBusy = preferredBackendManualRecreateInProgress,
+                    manualEngineRecreateResult = preferredBackendManualRecreateResult,
+                    manualEngineRecreateReason = preferredBackendManualRecreateReason,
+                    manualEngineRecreateEnabled = !isInferenceRunningUi && !isTtsSpeaking && !isStreamingSentencePlaybackActive && !preferredBackendManualRecreateInProgress,
+                    onManualEngineRecreate = {
+                        val blocked = isInferenceRunningUi || isTtsSpeaking || isStreamingSentencePlaybackActive || preferredBackendManualRecreateInProgress
+                        if (blocked) {
+                            preferredBackendManualRecreateResult = "blocked-busy"
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("生成中は再作成できません")
+                            }
+                            return@InferenceStatsSheetContent
+                        }
+                        coroutineScope.launch {
+                            preferredBackendManualRecreateInProgress = true
+                            preferredBackendManualRecreateReason = "user-requested"
+                            val succeeded = localInferenceEngineHolder.requestRecreateForDev(
+                                reason = preferredBackendManualRecreateReason,
+                                appendTrace = { appendLocalReflectionTrace(context.applicationContext, it) },
+                            )
+                            preferredBackendManualRecreateInProgress = false
+                            preferredBackendManualRecreateResult = if (succeeded) "success" else "failed"
+                            snackbarHostState.showSnackbar(
+                                if (succeeded) {
+                                    "次回推論でローカルエンジンを再作成します"
+                                } else {
+                                    "ローカルエンジン再作成要求に失敗しました"
+                                },
+                            )
+                        }
+                    },
                 )
             }
         }
@@ -6163,6 +6198,12 @@ private fun InferenceStatsSheetContent(
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    showDevManualEngineRecreate: Boolean = false,
+    manualEngineRecreateEnabled: Boolean = false,
+    manualEngineRecreateBusy: Boolean = false,
+    manualEngineRecreateResult: String = "none",
+    manualEngineRecreateReason: String = "user-requested",
+    onManualEngineRecreate: () -> Unit = {},
 ) {
     var selectedDisplayMode by rememberSaveable { mutableStateOf(initialDisplayMode) }
     LaunchedEffect(initialDisplayMode) {
@@ -6288,7 +6329,7 @@ private fun InferenceStatsSheetContent(
                     modifier = Modifier.testTag("inferenceStatsDetailContent"),
                     verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                 ) {
-                    detailSections.forEach { section ->
+            detailSections.forEach { section ->
                         InferenceStatsSection(title = section.title) {
                             section.items.forEach { item ->
                                 InferenceStatRow(
@@ -6300,6 +6341,35 @@ private fun InferenceStatsSheetContent(
                         }
                     }
                 }
+            }
+            if (showDevManualEngineRecreate && selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
+                HorizontalDivider()
+                Text(
+                    text = "ローカルエンジンを再作成",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "preferredBackend変更を反映するには、既存のローカルエンジン再作成が必要です。生成中は実行できません。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    onClick = onManualEngineRecreate,
+                    enabled = manualEngineRecreateEnabled && !manualEngineRecreateBusy,
+                ) {
+                    Text("ローカルエンジンを再作成")
+                }
+                Text(
+                    text = "PreferredBackend manual recreate result: $manualEngineRecreateResult",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "PreferredBackend manual recreate reason: $manualEngineRecreateReason",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

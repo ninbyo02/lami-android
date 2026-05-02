@@ -243,6 +243,30 @@ internal class LocalInferenceEngineHolder(
         }
     }
 
+    suspend fun requestRecreateForDev(
+        reason: String,
+        appendTrace: ((String) -> Unit)? = null,
+    ): Boolean = mutex.withLock {
+        runCatching {
+            appendTrace?.invoke("UPSTREAM held-engine manual-recreate-request reason=$reason")
+            applyLifecycleDecisionLocked(
+                current = held,
+                decision = HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
+                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                    clearReason = "dev-manual-recreate:$reason",
+                ),
+                appendTrace = appendTrace,
+            )
+            true
+        }.getOrElse {
+            appendTrace?.invoke(
+                "UPSTREAM held-engine manual-recreate-failed reason=$reason error=${it::class.java.simpleName}:${it.message}",
+            )
+            false
+        }
+    }
+
     suspend fun clearIfModelChanged(
         newModelPath: String,
         appendTrace: ((String) -> Unit)? = null,
