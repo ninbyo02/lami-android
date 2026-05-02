@@ -68,6 +68,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
@@ -1123,6 +1124,9 @@ internal fun shouldDisableCodeBlockBodyInteractions(
     isStreamingCodeBlock: Boolean,
 ): Boolean = isStreamingCodeBlock || code.length > ASSISTANT_TEXT_SELECTION_MAX_CHARS
 
+internal fun calculateCodeLineNumberDigits(lineCount: Int): Int =
+    maxOf(2, lineCount.coerceAtLeast(1).toString().length)
+
 private fun replaceInlineCodeSpans(
     textView: TextView,
     text: Spannable,
@@ -1318,15 +1322,41 @@ private fun CodeBlockCard(
                             )
                         }
                     }
-                    Text(
-                        text = code,
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.bodySmall,
-                        softWrap = false,
+                    val codeLines = remember(code) { code.lines() }
+                    val lineNumberDigits = remember(codeLines) {
+                        calculateCodeLineNumberDigits(codeLines.size)
+                    }
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
-                    )
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(end = 12.dp),
+                            horizontalAlignment = Alignment.End,
+                        ) {
+                            codeLines.forEachIndexed { index, _ ->
+                                Text(
+                                    text = (index + 1).toString().padStart(lineNumberDigits, ' '),
+                                    fontFamily = FontFamily.Monospace,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    textAlign = TextAlign.End,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                )
+                            }
+                        }
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            codeLines.forEach { line ->
+                                Text(
+                                    text = line,
+                                    fontFamily = FontFamily.Monospace,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    softWrap = false,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
