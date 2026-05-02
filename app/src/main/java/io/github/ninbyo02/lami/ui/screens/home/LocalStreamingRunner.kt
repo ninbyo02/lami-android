@@ -3870,6 +3870,10 @@ private data class PreferredBackendApplyResult(
     val appliedPreferredBackend: String,
     val preferredBackendApplyResult: String,
     val preferredBackendApplyError: String? = null,
+    val preferredBackendApplyBuilderClass: String? = null,
+    val preferredBackendApplyMethodCandidates: List<String> = emptyList(),
+    val preferredBackendApplyBackendEnumCandidates: List<String> = emptyList(),
+    val preferredBackendApplyNotSupportedReason: String? = null,
 )
 
 private fun buildOptionsObject(
@@ -3902,21 +3906,65 @@ private fun applyPreferredBackendIfRequested(
     optionsBuilder: Any,
     requested: PreferredBackendDryRunSetting,
 ): PreferredBackendApplyResult {
-    if (!BuildConfig.DEBUG) return PreferredBackendApplyResult(requested.name, "not-applied", "not-debug-build")
-    if (requested == PreferredBackendDryRunSetting.DEFAULT) return PreferredBackendApplyResult(requested.name, "not-applied", "skipped-default")
+    val builderClass = optionsBuilder::class.java.name
+    val methodCandidates = (optionsBuilder.javaClass.methods.asSequence() + optionsBuilder.javaClass.declaredMethods.asSequence())
+        .filter { method ->
+            val lower = method.name.lowercase()
+            listOf("backend", "preferred", "delegate", "gpu", "cpu").any { keyword -> lower.contains(keyword) }
+        }
+        .map { method ->
+            val params = method.parameterTypes.joinToString(",") { it.simpleName }
+            "${method.name}(${params}): ${method.returnType.simpleName}"
+        }
+        .distinct()
+        .take(10)
+        .toList()
+    val common = PreferredBackendApplyResult(
+        requestedPreferredBackend = requested.name,
+        appliedPreferredBackend = "not-applied",
+        preferredBackendApplyResult = "not-supported",
+        preferredBackendApplyBuilderClass = builderClass,
+        preferredBackendApplyMethodCandidates = methodCandidates,
+    )
+    if (!BuildConfig.DEBUG) return common.copy(preferredBackendApplyResult = "not-debug-build", preferredBackendApplyNotSupportedReason = "not-debug-build")
+    if (requested == PreferredBackendDryRunSetting.DEFAULT) return common.copy(preferredBackendApplyResult = "skipped-default", preferredBackendApplyNotSupportedReason = "requested-default-skipped")
     val method = optionsBuilder.javaClass.methods.firstOrNull { m ->
-        m.name == "setPreferredBackend" &&
-            m.parameterTypes.size == 1 &&
-            m.parameterTypes[0].isEnum
-    } ?: return PreferredBackendApplyResult(requested.name, "not-applied", "not-supported", "NoSuchMethodException")
-    val enumType = method.parameterTypes[0]
+        m.name == "setPreferredBackend" && m.parameterTypes.size == 1 && m.parameterTypes[0].isEnum
+    } ?: return common.copy(preferredBackendApplyError = "NoSuchMethodException", preferredBackendApplyNotSupportedReason = "no-setPreferredBackend-method")
+    val enumType = method.parameterTypes.firstOrNull { it.isEnum }
+        ?: return common.copy(preferredBackendApplyNotSupportedReason = "no-backend-parameter")
+    val enumCandidates = enumType.enumConstants
+        ?.mapNotNull { (it as? Enum<*>)?.name }
+        ?.distinct()
+        ?.take(10)
+        .orEmpty()
+    if (enumCandidates.isEmpty()) {
+        return common.copy(
+            preferredBackendApplyBackendEnumCandidates = enumCandidates,
+            preferredBackendApplyNotSupportedReason = "backend-enum-values-empty",
+        )
+    }
     val enumValue = enumType.enumConstants?.firstOrNull { (it as? Enum<*>)?.name == requested.name }
-        ?: return PreferredBackendApplyResult(requested.name, "not-applied", "not-supported", "BackendEnumNotFound")
+        ?: return common.copy(
+            preferredBackendApplyBackendEnumCandidates = enumCandidates,
+            preferredBackendApplyError = "BackendEnumNotFound",
+            preferredBackendApplyNotSupportedReason = "enum-value-not-found",
+        )
     return runCatching {
         method.invoke(optionsBuilder, enumValue)
-        PreferredBackendApplyResult(requested.name, requested.name, "applied")
+        common.copy(
+            appliedPreferredBackend = requested.name,
+            preferredBackendApplyResult = "applied",
+            preferredBackendApplyBackendEnumCandidates = enumCandidates,
+            preferredBackendApplyNotSupportedReason = null,
+        )
     }.getOrElse {
-        PreferredBackendApplyResult(requested.name, "not-applied", "failed-fallback", it.javaClass.simpleName)
+        common.copy(
+            preferredBackendApplyResult = "failed-fallback",
+            preferredBackendApplyError = it.javaClass.simpleName,
+            preferredBackendApplyBackendEnumCandidates = enumCandidates,
+            preferredBackendApplyNotSupportedReason = "unknown",
+        )
     }
 }
 

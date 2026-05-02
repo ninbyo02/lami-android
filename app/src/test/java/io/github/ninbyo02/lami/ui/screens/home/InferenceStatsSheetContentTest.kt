@@ -702,4 +702,31 @@ class InferenceStatsSheetContentTest {
     }
 
 
+    @Test
+    fun `buildInferenceDetailSections shows preferred backend apply diagnostics details`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "not-applied",
+                preferredBackendApplyResult = "not-supported",
+                preferredBackendApplyError = "NoSuchMethodException",
+                preferredBackendApplyBuilderClass = "com.example.OptionsBuilder",
+                preferredBackendApplyMethodCandidates = listOf("setPreferredBackend(Backend): Builder"),
+                preferredBackendApplyBackendEnumCandidates = listOf("DEFAULT", "CPU", "GPU"),
+                preferredBackendApplyNotSupportedReason = "no-setPreferredBackend-method",
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("com.example.OptionsBuilder", devSection.items.first { it.label == "PreferredBackend builder class" }.value)
+        assertEquals("setPreferredBackend(Backend): Builder", devSection.items.first { it.label == "PreferredBackend method candidates" }.value)
+        assertEquals("DEFAULT, CPU, GPU", devSection.items.first { it.label == "PreferredBackend backend enum candidates" }.value)
+        assertEquals("no-setPreferredBackend-method", devSection.items.first { it.label == "PreferredBackend not-supported reason" }.value)
+        assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+
 }

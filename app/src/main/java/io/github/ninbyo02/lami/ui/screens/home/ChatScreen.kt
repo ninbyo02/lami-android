@@ -423,6 +423,10 @@ internal data class LocalInferenceTrace(
     val appliedPreferredBackend: String? = null,
     val preferredBackendApplyResult: String? = null,
     val preferredBackendApplyError: String? = null,
+    val preferredBackendApplyBuilderClass: String? = null,
+    val preferredBackendApplyMethodCandidates: List<String> = emptyList(),
+    val preferredBackendApplyBackendEnumCandidates: List<String> = emptyList(),
+    val preferredBackendApplyNotSupportedReason: String? = null,
     val realPartialHookAttempted: Boolean = false,
     val realPartialHookAttached: Boolean = false,
     val realPartialCallbackCount: Int = 0,
@@ -5554,6 +5558,10 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         appliedPreferredBackend = appliedPreferredBackend ?: probe.appliedPreferredBackend,
         preferredBackendApplyResult = preferredBackendApplyResult ?: probe.preferredBackendApplyResult,
         preferredBackendApplyError = preferredBackendApplyError ?: probe.preferredBackendApplyError,
+        preferredBackendApplyBuilderClass = preferredBackendApplyBuilderClass ?: probe.preferredBackendApplyBuilderClass,
+        preferredBackendApplyMethodCandidates = if (preferredBackendApplyMethodCandidates.isNotEmpty()) preferredBackendApplyMethodCandidates else probe.preferredBackendApplyMethodCandidates,
+        preferredBackendApplyBackendEnumCandidates = if (preferredBackendApplyBackendEnumCandidates.isNotEmpty()) preferredBackendApplyBackendEnumCandidates else probe.preferredBackendApplyBackendEnumCandidates,
+        preferredBackendApplyNotSupportedReason = preferredBackendApplyNotSupportedReason ?: probe.preferredBackendApplyNotSupportedReason,
         measuredTokenSnapshot = measuredTokenSnapshot ?: probe.measuredTokenSnapshot,
     )
 }
