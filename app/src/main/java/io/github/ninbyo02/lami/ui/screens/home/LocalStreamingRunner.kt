@@ -113,6 +113,11 @@ internal data class HeldEngineRunResult(
     val heldEngineRecreateRequestCount: Int? = null,
     val heldEngineWasPresentAtRunStart: Boolean? = null,
     val heldEngineCreatedDuringRun: Boolean? = null,
+    val lastHeldEngineCreateReason: String? = null,
+    val lastHeldEngineCreateSource: String? = null,
+    val lastHeldEngineCreateAtElapsedMs: Long? = null,
+    val lastHeldEngineCreateRequestedPreferredBackend: String? = null,
+    val lastHeldEngineCreateStackHint: String? = null,
 )
 
 internal data class RunCloseTargetOutcome(
@@ -415,6 +420,11 @@ internal suspend fun runWithHeldEngine(
         heldEngineRecreateRequestCount = holderSnapshotAtRunStart.recreateRequestCount,
         heldEngineWasPresentAtRunStart = holderSnapshotAtRunStart.heldEngineHash != null,
         heldEngineCreatedDuringRun = false,
+        lastHeldEngineCreateReason = holderSnapshotAtRunStart.lastHeldEngineCreateReason,
+        lastHeldEngineCreateSource = holderSnapshotAtRunStart.lastHeldEngineCreateSource,
+        lastHeldEngineCreateAtElapsedMs = holderSnapshotAtRunStart.lastHeldEngineCreateAtElapsedMs,
+        lastHeldEngineCreateRequestedPreferredBackend = holderSnapshotAtRunStart.lastHeldEngineCreateRequestedPreferredBackend,
+        lastHeldEngineCreateStackHint = holderSnapshotAtRunStart.lastHeldEngineCreateStackHint,
     )
 }
 internal data class LocalOfficialConversationApiProbeResult(

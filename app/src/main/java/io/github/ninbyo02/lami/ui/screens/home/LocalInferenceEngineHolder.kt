@@ -42,6 +42,11 @@ internal data class HeldEngineDevDiagnosticSnapshot(
     val lastRecreateReason: String?,
     val hasHeldEngineBeforeRecreate: Boolean?,
     val hasHeldEngineAfterRecreate: Boolean?,
+    val lastHeldEngineCreateReason: String?,
+    val lastHeldEngineCreateSource: String?,
+    val lastHeldEngineCreateAtElapsedMs: Long?,
+    val lastHeldEngineCreateRequestedPreferredBackend: String?,
+    val lastHeldEngineCreateStackHint: String?,
 )
 
 internal class LocalInferenceEngineHolder(
@@ -102,6 +107,11 @@ internal class LocalInferenceEngineHolder(
     private var lastRecreateReason: String? = null
     private var hasHeldEngineBeforeRecreate: Boolean? = null
     private var hasHeldEngineAfterRecreate: Boolean? = null
+    private var lastHeldEngineCreateReason: String? = null
+    private var lastHeldEngineCreateSource: String? = null
+    private var lastHeldEngineCreateAtElapsedMs: Long? = null
+    private var lastHeldEngineCreateRequestedPreferredBackend: String? = null
+    private var lastHeldEngineCreateStackHint: String? = null
 
     suspend fun acquire(
         engineKey: HeldEngineKey,
@@ -144,6 +154,12 @@ internal class LocalInferenceEngineHolder(
         heldEngineGeneration += 1
         clearAllConversationsLocked(reason = "engine-recreated", appendTrace = appendTrace)
         held = created
+        recordHeldEngineCreateLocked(
+            reason = "acquire-create",
+            source = "LocalInferenceEngineHolder.acquire",
+            createdAtElapsedMs = created.createdAtElapsedMs,
+            requestedPreferredBackend = null,
+        )
         created
     }
 
@@ -219,6 +235,12 @@ internal class LocalInferenceEngineHolder(
             heldEngineGeneration += 1
             clearAllConversationsLocked(reason = "engine-recreated", appendTrace = appendTrace)
             held = created
+            recordHeldEngineCreateLocked(
+                reason = "acquire-with-diagnostic-create",
+                source = "LocalInferenceEngineHolder.acquireWithDiagnostic",
+                createdAtElapsedMs = created.createdAtElapsedMs,
+                requestedPreferredBackend = null,
+            )
             appendTrace?.invoke(
                 "UPSTREAM held-acquire-diagnostic success heldHash=${created.hashCode()} useCount=${created.useCount}",
             )
@@ -286,6 +308,9 @@ internal class LocalInferenceEngineHolder(
             appendTrace?.invoke(
                 "UPSTREAM held-engine manual-recreate-after holderHash=${this@LocalInferenceEngineHolder.hashCode()} heldHash=${after?.hashCode() ?: -1} heldExists=${after != null} result=success",
             )
+            appendTrace?.invoke(
+                "UPSTREAM held-engine manual-recreate-holder-held-after heldExists=${after != null}",
+            )
             true
         }.getOrElse {
             hasHeldEngineAfterRecreate = held != null
@@ -306,7 +331,27 @@ internal class LocalInferenceEngineHolder(
             lastRecreateReason = lastRecreateReason,
             hasHeldEngineBeforeRecreate = hasHeldEngineBeforeRecreate,
             hasHeldEngineAfterRecreate = hasHeldEngineAfterRecreate,
+            lastHeldEngineCreateReason = lastHeldEngineCreateReason,
+            lastHeldEngineCreateSource = lastHeldEngineCreateSource,
+            lastHeldEngineCreateAtElapsedMs = lastHeldEngineCreateAtElapsedMs,
+            lastHeldEngineCreateRequestedPreferredBackend = lastHeldEngineCreateRequestedPreferredBackend,
+            lastHeldEngineCreateStackHint = lastHeldEngineCreateStackHint,
         )
+    }
+
+    private fun recordHeldEngineCreateLocked(
+        reason: String,
+        source: String,
+        createdAtElapsedMs: Long?,
+        requestedPreferredBackend: String?,
+    ) {
+        lastHeldEngineCreateReason = reason
+        lastHeldEngineCreateSource = source
+        lastHeldEngineCreateAtElapsedMs = createdAtElapsedMs
+        lastHeldEngineCreateRequestedPreferredBackend = requestedPreferredBackend
+        lastHeldEngineCreateStackHint = Throwable().stackTrace
+            .firstOrNull { frame -> frame.className.contains("ChatScreen") || frame.className.contains("LocalInference") }
+            ?.let { frame -> "${frame.className}.${frame.methodName}:${frame.lineNumber}" }
     }
 
     suspend fun clearIfModelChanged(

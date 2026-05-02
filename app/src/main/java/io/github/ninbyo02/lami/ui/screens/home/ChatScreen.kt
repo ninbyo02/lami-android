@@ -447,6 +447,11 @@ internal data class LocalInferenceTrace(
     val holderLastRecreateReason: String? = null,
     val holderHasHeldEngineBeforeRecreate: Boolean? = null,
     val holderHasHeldEngineAfterRecreate: Boolean? = null,
+    val lastHeldEngineCreateReason: String? = null,
+    val lastHeldEngineCreateSource: String? = null,
+    val lastHeldEngineCreateAtElapsedMs: Long? = null,
+    val lastHeldEngineCreateRequestedPreferredBackend: String? = null,
+    val lastHeldEngineCreateStackHint: String? = null,
     val realPartialHookAttempted: Boolean = false,
     val realPartialHookAttached: Boolean = false,
     val realPartialCallbackCount: Int = 0,
@@ -3664,6 +3669,11 @@ fun Home(
                                 holderLastRecreateReason = recreateSnapshot.lastRecreateReason,
                                 holderHasHeldEngineBeforeRecreate = recreateSnapshot.hasHeldEngineBeforeRecreate,
                                 holderHasHeldEngineAfterRecreate = recreateSnapshot.hasHeldEngineAfterRecreate,
+                                lastHeldEngineCreateReason = recreateSnapshot.lastHeldEngineCreateReason,
+                                lastHeldEngineCreateSource = recreateSnapshot.lastHeldEngineCreateSource,
+                                lastHeldEngineCreateAtElapsedMs = recreateSnapshot.lastHeldEngineCreateAtElapsedMs,
+                                lastHeldEngineCreateRequestedPreferredBackend = recreateSnapshot.lastHeldEngineCreateRequestedPreferredBackend,
+                                lastHeldEngineCreateStackHint = recreateSnapshot.lastHeldEngineCreateStackHint,
                             )
                             snackbarHostState.showSnackbar(
                                 if (succeeded) {
@@ -4159,6 +4169,11 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             heldEngineRecreateRequestCount = heldEngineRecreateRequestCount,
             heldEngineWasPresentAtRunStart = heldEngineWasPresentAtRunStart,
             heldEngineCreatedDuringRun = heldEngineCreatedDuringRun,
+            lastHeldEngineCreateReason = lastHeldEngineCreateReason,
+            lastHeldEngineCreateSource = lastHeldEngineCreateSource,
+            lastHeldEngineCreateAtElapsedMs = lastHeldEngineCreateAtElapsedMs,
+            lastHeldEngineCreateRequestedPreferredBackend = lastHeldEngineCreateRequestedPreferredBackend,
+            lastHeldEngineCreateStackHint = lastHeldEngineCreateStackHint,
         ),
         closeLifecycleSummary = if (resolvedState == LocalInferenceEngineState.READY) {
             ensureSuccessCloseLifecycleSummary(
@@ -5702,6 +5717,11 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         holderLastRecreateReason = holderLastRecreateReason ?: probe.holderLastRecreateReason,
         holderHasHeldEngineBeforeRecreate = holderHasHeldEngineBeforeRecreate ?: probe.holderHasHeldEngineBeforeRecreate,
         holderHasHeldEngineAfterRecreate = holderHasHeldEngineAfterRecreate ?: probe.holderHasHeldEngineAfterRecreate,
+        lastHeldEngineCreateReason = lastHeldEngineCreateReason ?: probe.lastHeldEngineCreateReason,
+        lastHeldEngineCreateSource = lastHeldEngineCreateSource ?: probe.lastHeldEngineCreateSource,
+        lastHeldEngineCreateAtElapsedMs = lastHeldEngineCreateAtElapsedMs ?: probe.lastHeldEngineCreateAtElapsedMs,
+        lastHeldEngineCreateRequestedPreferredBackend = lastHeldEngineCreateRequestedPreferredBackend ?: probe.lastHeldEngineCreateRequestedPreferredBackend,
+        lastHeldEngineCreateStackHint = lastHeldEngineCreateStackHint ?: probe.lastHeldEngineCreateStackHint,
         measuredTokenSnapshot = measuredTokenSnapshot ?: probe.measuredTokenSnapshot,
     )
 }
