@@ -666,8 +666,12 @@ fun PlainAssistantMessage(
         isStreaming && shouldTreatAsProvisionalCode(streamingSplit.unstable)
     }
     val inferenceSummary = remember(inferenceStats) { inferenceStats?.let(::buildInferenceSummary) }
-    val pythonSyntaxWarnings = remember(message) {
-        PythonCodeSyntaxInspector.inspectMarkdown(message).warnings.take(3)
+    val pythonSyntaxWarnings = remember(message, isStreaming) {
+        if (isStreaming) {
+            emptyList()
+        } else {
+            PythonCodeSyntaxInspector.inspectMarkdown(message).warnings.take(3)
+        }
     }
 
     Column(
@@ -787,12 +791,20 @@ private fun PythonSyntaxWarningSummary(warnings: List<PythonCodeWarning>) {
         Spacer(modifier = Modifier.height(4.dp))
         warnings.forEach { warning ->
             Text(
-                text = "- L${warning.lineNumber} ${warning.type.name}: ${warning.message}",
+                text = "- L${warning.lineNumber} ${pythonWarningTypeJa(warning.type)}: ${warning.message}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
+}
+
+
+private fun pythonWarningTypeJa(type: PythonCodeWarningType): String = when (type) {
+    PythonCodeWarningType.POSSIBLE_EMPTY_BLOCK -> "空ブロックの可能性"
+    PythonCodeWarningType.POSSIBLE_INDENT_JUMP -> "インデント崩れの可能性"
+    PythonCodeWarningType.POSSIBLE_TOP_LEVEL_DEDENT_AFTER_BLOCK -> "ブロック直後の字下げ崩れの可能性"
+    PythonCodeWarningType.POSSIBLE_FUSED_CODE -> "コード連結の可能性"
 }
 
 data class StreamingSplit(
