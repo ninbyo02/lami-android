@@ -9,7 +9,7 @@ import java.util.Locale
 
 internal object AcceleratorProbe {
     private const val LOG_TAG = "AcceleratorProbe"
-    private const val MAX_DELEGATE_CANDIDATE_COUNT = 10
+    private const val MAX_DELEGATE_CANDIDATE_COUNT = 12
     private val DELEGATE_KEYWORDS = listOf(
         "delegate",
         "backend",
@@ -21,6 +21,12 @@ internal object AcceleratorProbe {
         "acceleration",
         "preferred",
         "hardware",
+        "qnn",
+        "htp",
+        "dsp",
+        "hexagon",
+        "neural",
+        "qualcomm",
     )
 
     @Volatile
@@ -80,6 +86,12 @@ internal object AcceleratorProbe {
             delegatePreferredBackendSignatureProbeError = delegateApiProbeResult.preferredBackendSignatureProbeError,
             delegateClassCandidates = delegateApiProbeResult.classCandidates,
             delegateSwitchingSupportedHint = delegateApiProbeResult.switchingSupportedHint,
+            npuDelegateCandidates = delegateApiProbeResult.npuDelegateCandidates,
+            npuBackendCandidates = delegateApiProbeResult.npuBackendCandidates,
+            qnnDelegateCandidates = delegateApiProbeResult.qnnDelegateCandidates,
+            nnapiDelegateCandidates = delegateApiProbeResult.nnapiDelegateCandidates,
+            npuProbeHint = delegateApiProbeResult.npuProbeHint,
+            npuProbeError = delegateApiProbeResult.npuProbeError,
         )
     }
 
@@ -191,6 +203,8 @@ internal object AcceleratorProbe {
                 "com.google.mediapipe.tasks.genai.llminference.LlmInference\$LlmInferenceOptions\$Builder",
                 "com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession",
                 "com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession\$LlmInferenceSessionOptions",
+                "com.google.ai.edge.litertlm.EngineConfig",
+                "com.google.ai.edge.litertlm.EngineConfig\$Builder",
             )
             val optionCandidates = linkedSetOf<String>()
             val backendCandidates = linkedSetOf<String>()
@@ -205,6 +219,10 @@ internal object AcceleratorProbe {
             val classList = classCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT)
             val enumProbeResult = probeBackendEnumValues(classList, backendList)
             val signatureProbeResult = probePreferredBackendSignatures(classesToInspect, classList)
+            val npuCandidates = collectKeywordCandidates(optionList, backendList, classList, listOf("npu", "neural", "accelerator", "hardware", "qualcomm"))
+            val qnnCandidates = collectKeywordCandidates(optionList, backendList, classList, listOf("qnn", "htp", "hexagon", "dsp", "qualcomm"))
+            val nnapiCandidates = collectKeywordCandidates(optionList, backendList, classList, listOf("nnapi"))
+            val npuHint = inferNpuProbeHint(npuCandidates = npuCandidates, qnnCandidates = qnnCandidates, nnapiCandidates = nnapiCandidates)
             DelegateApiProbeResult(
                 optionCandidates = optionList,
                 backendCandidates = backendList,
@@ -214,11 +232,17 @@ internal object AcceleratorProbe {
                 preferredBackendSignatureProbeError = signatureProbeResult.error,
                 classCandidates = classList,
                 switchingSupportedHint = inferDelegateHint(optionList, backendList, classList),
+                npuDelegateCandidates = npuCandidates,
+                npuBackendCandidates = collectKeywordCandidates(backendList, classList, keywords = listOf("npu", "neural", "accelerator", "hardware", "qualcomm")),
+                qnnDelegateCandidates = qnnCandidates,
+                nnapiDelegateCandidates = nnapiCandidates,
+                npuProbeHint = npuHint,
             )
         }.getOrElse {
             DelegateApiProbeResult(
                 error = it.javaClass.simpleName,
                 switchingSupportedHint = "unknown",
+                npuProbeError = it.javaClass.simpleName,
             )
         }
     }
@@ -382,6 +406,29 @@ internal object AcceleratorProbe {
         return "not-detected"
     }
 
+    private fun collectKeywordCandidates(
+        vararg groups: List<String>,
+        keywords: List<String>,
+    ): List<String> {
+        return groups.asSequence()
+            .flatMap { it.asSequence() }
+            .filter { candidate -> keywords.any { keyword -> candidate.contains(keyword, ignoreCase = true) } }
+            .distinct()
+            .take(MAX_DELEGATE_CANDIDATE_COUNT)
+            .toList()
+    }
+
+    private fun inferNpuProbeHint(
+        npuCandidates: List<String>,
+        qnnCandidates: List<String>,
+        nnapiCandidates: List<String>,
+    ): String {
+        if (qnnCandidates.isNotEmpty()) return "qnn-candidate-detected"
+        if (npuCandidates.isNotEmpty()) return "npu-keyword-candidate-detected"
+        if (nnapiCandidates.isNotEmpty()) return "nnapi-only-candidate"
+        return "not-detected"
+    }
+
     private data class DelegateApiProbeResult(
         val error: String? = null,
         val optionCandidates: List<String> = emptyList(),
@@ -392,6 +439,12 @@ internal object AcceleratorProbe {
         val preferredBackendSignatureProbeError: String? = null,
         val classCandidates: List<String> = emptyList(),
         val switchingSupportedHint: String = "unknown",
+        val npuDelegateCandidates: List<String> = emptyList(),
+        val npuBackendCandidates: List<String> = emptyList(),
+        val qnnDelegateCandidates: List<String> = emptyList(),
+        val nnapiDelegateCandidates: List<String> = emptyList(),
+        val npuProbeHint: String = "unknown",
+        val npuProbeError: String? = null,
     )
 
     private data class BackendEnumProbeResult(

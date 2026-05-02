@@ -582,7 +582,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     }
                 }
                 if (BuildConfig.DEBUG) {
-                    // DEV診断向けのドライラン設定のため、DEBUGビルドのみ表示する
+                    // DEV診断向けの実験設定のため、DEBUGビルドのみ表示する
                     Spacer(modifier = Modifier.height(2.dp))
                     Card {
                         Column(
@@ -592,11 +592,11 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
-                                text = "MediaPipe preferredBackend（ドライラン）",
+                                text = "MediaPipe preferredBackend（実験）",
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "DEBUGビルド限定の実験機能です。CPU/GPU指定を試します。失敗時は既定動作に戻ります。",
+                                text = "DEBUGビルド限定の実験機能です。DEFAULT / CPU / GPU を EngineConfig に指定します。実際のdelegate使用確定ではありません。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

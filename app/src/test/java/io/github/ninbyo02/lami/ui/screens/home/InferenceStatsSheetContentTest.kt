@@ -560,6 +560,70 @@ class InferenceStatsSheetContentTest {
         assertTrue(devSection.items.none { it.label == "Delegate preferredBackend signature error" })
     }
 
+
+    @Test
+    fun `buildInferenceDetailSections shows npu probe none unknown by default`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                delegateProbeSource = "reflection-safe",
+                npuProbeHint = "not-detected",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("not-detected", devSection.items.first { it.label == "NPU probe hint" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "NPU delegate candidates" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "QNN candidates" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows qnn candidates and keeps conservative execution`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = "Qualcomm",
+                gpuRenderer = "Adreno",
+                gpuVersion = "OpenGL ES 3.2",
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                delegateProbeSource = "reflection-safe",
+                qnnDelegateCandidates = listOf("LlmInferenceOptions.Builder.setQnnDelegate"),
+                npuProbeHint = "qnn-candidate-detected",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("qnn-candidate-detected", devSection.items.first { it.label == "NPU probe hint" }.value)
+        assertEquals("LlmInferenceOptions.Builder.setQnnDelegate", devSection.items.first { it.label == "QNN candidates" }.value)
+        assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
     @Test
     fun `buildInferenceDetailSections shows delegate probe error and execution reason note`() {
         val sections = buildInferenceDetailSections(
