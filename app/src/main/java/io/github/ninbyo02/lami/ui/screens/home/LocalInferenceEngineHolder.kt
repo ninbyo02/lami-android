@@ -48,6 +48,12 @@ internal data class HeldEngineDevDiagnosticSnapshot(
     val lastHeldEngineCreateAtElapsedMs: Long?,
     val lastHeldEngineCreateRequestedPreferredBackend: String?,
     val lastHeldEngineCreateStackHint: String?,
+    val lastHeldEngineCreateAppliedPreferredBackend: String?,
+    val lastHeldEngineCreatePreferredBackendApplyResult: String?,
+    val lastHeldEngineCreatePreferredBackendHookReached: Boolean?,
+    val lastHeldEngineCreatePreferredBackendHookSource: String?,
+    val lastHeldEngineCreatePreferredBackendApplyBuilderClass: String?,
+    val lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates: List<String>,
 )
 
 internal class LocalInferenceEngineHolder(
@@ -113,6 +119,12 @@ internal class LocalInferenceEngineHolder(
     private var lastHeldEngineCreateAtElapsedMs: Long? = null
     private var lastHeldEngineCreateRequestedPreferredBackend: String? = null
     private var lastHeldEngineCreateStackHint: String? = null
+    private var lastHeldEngineCreateAppliedPreferredBackend: String? = null
+    private var lastHeldEngineCreatePreferredBackendApplyResult: String? = null
+    private var lastHeldEngineCreatePreferredBackendHookReached: Boolean? = null
+    private var lastHeldEngineCreatePreferredBackendHookSource: String? = null
+    private var lastHeldEngineCreatePreferredBackendApplyBuilderClass: String? = null
+    private var lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates: List<String> = emptyList()
 
     suspend fun acquire(
         engineKey: HeldEngineKey,
@@ -162,6 +174,7 @@ internal class LocalInferenceEngineHolder(
             source = "LocalInferenceEngineHolder.acquire",
             createdAtElapsedMs = created.createdAtElapsedMs,
             requestedPreferredBackend = preferredBackendDryRunSetting.name,
+            preferredBackendApplyResult = createdDiagnostic.preferredBackendApplyResult,
         )
         created
     }
@@ -245,6 +258,7 @@ internal class LocalInferenceEngineHolder(
                 source = "LocalInferenceEngineHolder.acquireWithDiagnostic",
                 createdAtElapsedMs = created.createdAtElapsedMs,
                 requestedPreferredBackend = preferredBackendDryRunSetting.name,
+                preferredBackendApplyResult = createdDiagnostic.preferredBackendApplyResult,
             )
             appendTrace?.invoke(
                 "UPSTREAM held-acquire-diagnostic success heldHash=${created.hashCode()} useCount=${created.useCount}",
@@ -341,6 +355,12 @@ internal class LocalInferenceEngineHolder(
             lastHeldEngineCreateAtElapsedMs = lastHeldEngineCreateAtElapsedMs,
             lastHeldEngineCreateRequestedPreferredBackend = lastHeldEngineCreateRequestedPreferredBackend,
             lastHeldEngineCreateStackHint = lastHeldEngineCreateStackHint,
+            lastHeldEngineCreateAppliedPreferredBackend = lastHeldEngineCreateAppliedPreferredBackend,
+            lastHeldEngineCreatePreferredBackendApplyResult = lastHeldEngineCreatePreferredBackendApplyResult,
+            lastHeldEngineCreatePreferredBackendHookReached = lastHeldEngineCreatePreferredBackendHookReached,
+            lastHeldEngineCreatePreferredBackendHookSource = lastHeldEngineCreatePreferredBackendHookSource,
+            lastHeldEngineCreatePreferredBackendApplyBuilderClass = lastHeldEngineCreatePreferredBackendApplyBuilderClass,
+            lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates = lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
         )
     }
 
@@ -349,11 +369,18 @@ internal class LocalInferenceEngineHolder(
         source: String,
         createdAtElapsedMs: Long?,
         requestedPreferredBackend: String?,
+        preferredBackendApplyResult: PreferredBackendApplyResult?,
     ) {
         lastHeldEngineCreateReason = reason
         lastHeldEngineCreateSource = source
         lastHeldEngineCreateAtElapsedMs = createdAtElapsedMs
         lastHeldEngineCreateRequestedPreferredBackend = requestedPreferredBackend
+        lastHeldEngineCreateAppliedPreferredBackend = preferredBackendApplyResult?.appliedPreferredBackend
+        lastHeldEngineCreatePreferredBackendApplyResult = preferredBackendApplyResult?.preferredBackendApplyResult
+        lastHeldEngineCreatePreferredBackendHookReached = preferredBackendApplyResult?.preferredBackendHookReached
+        lastHeldEngineCreatePreferredBackendHookSource = preferredBackendApplyResult?.preferredBackendHookSource
+        lastHeldEngineCreatePreferredBackendApplyBuilderClass = preferredBackendApplyResult?.preferredBackendApplyBuilderClass
+        lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates ?: emptyList()
         lastHeldEngineCreateStackHint = Throwable().stackTrace
             .firstOrNull { frame -> frame.className.contains("ChatScreen") || frame.className.contains("LocalInference") }
             ?.let { frame -> "${frame.className}.${frame.methodName}:${frame.lineNumber}" }

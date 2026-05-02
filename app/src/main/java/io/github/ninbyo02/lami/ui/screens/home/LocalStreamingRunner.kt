@@ -89,6 +89,7 @@ internal data class ReusableLocalEngineCreateDiagnostic(
     val stage: String?,
     val className: String?,
     val message: String?,
+    val preferredBackendApplyResult: PreferredBackendApplyResult? = null,
 )
 
 internal data class HeldEngineRunResult(
@@ -118,6 +119,12 @@ internal data class HeldEngineRunResult(
     val lastHeldEngineCreateAtElapsedMs: Long? = null,
     val lastHeldEngineCreateRequestedPreferredBackend: String? = null,
     val lastHeldEngineCreateStackHint: String? = null,
+    val lastHeldEngineCreateAppliedPreferredBackend: String? = null,
+    val lastHeldEngineCreatePreferredBackendApplyResult: String? = null,
+    val lastHeldEngineCreatePreferredBackendHookReached: Boolean? = null,
+    val lastHeldEngineCreatePreferredBackendHookSource: String? = null,
+    val lastHeldEngineCreatePreferredBackendApplyBuilderClass: String? = null,
+    val lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates: List<String> = emptyList(),
 )
 
 internal data class RunCloseTargetOutcome(
@@ -425,6 +432,12 @@ internal suspend fun runWithHeldEngine(
         lastHeldEngineCreateAtElapsedMs = holderSnapshotAtRunStart.lastHeldEngineCreateAtElapsedMs,
         lastHeldEngineCreateRequestedPreferredBackend = holderSnapshotAtRunStart.lastHeldEngineCreateRequestedPreferredBackend,
         lastHeldEngineCreateStackHint = holderSnapshotAtRunStart.lastHeldEngineCreateStackHint,
+        lastHeldEngineCreateAppliedPreferredBackend = holderSnapshotAtRunStart.lastHeldEngineCreateAppliedPreferredBackend,
+        lastHeldEngineCreatePreferredBackendApplyResult = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyResult,
+        lastHeldEngineCreatePreferredBackendHookReached = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendHookReached,
+        lastHeldEngineCreatePreferredBackendHookSource = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendHookSource,
+        lastHeldEngineCreatePreferredBackendApplyBuilderClass = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyBuilderClass,
+        lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
     )
 }
 internal data class LocalOfficialConversationApiProbeResult(
@@ -2879,13 +2892,14 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
     var stage = "official-create-engine"
     val createdAt = SystemClock.elapsedRealtime()
     safeAppendTrace(safeTrace, "UPSTREAM held-create engine-config-create-start")
+    var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     val officialEngine = runCatching {
         createOfficialLiteRtLmEngineInstance(
             modelPath = engineKey.modelPath,
             cacheDirPath = engineKey.cacheDirPath,
             appendTrace = safeTrace,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
-            onPreferredBackendApplied = {},
+            onPreferredBackendApplied = { result -> preferredBackendApplyResult = result },
         )
     }.getOrElse { throwable ->
         val className = throwable.javaClass.simpleName.ifBlank { throwable.javaClass.name }
@@ -2894,6 +2908,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             stage = stage,
             className = className,
             message = (throwable.message ?: "official create engine failed").take(200),
+            preferredBackendApplyResult = preferredBackendApplyResult,
         )
     }
     stage = if (officialEngine != null) "official-engine-created" else "official-engine-null"
@@ -2936,6 +2951,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             stage = stage,
             className = null,
             message = null,
+            preferredBackendApplyResult = preferredBackendApplyResult,
         )
     }
 
@@ -2945,6 +2961,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
         stage = stage,
         className = "ReturnedNull",
         message = "official litertlm engine returned null".take(200),
+        preferredBackendApplyResult = preferredBackendApplyResult,
     )
 }
 
