@@ -2679,6 +2679,8 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
     onFallbackReason: (String) -> Unit = {},
@@ -2712,6 +2714,8 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
                 cacheDirPath = cacheDirPath,
                 mediaPipeProbeContext = mediaPipeProbeContext,
                 startElapsedMs = startElapsedMs,
+                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                onPreferredBackendApplied = onPreferredBackendApplied,
                 onPartial = onPartial,
                 appendTrace = appendTrace,
             )
@@ -2750,6 +2754,8 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     appendTrace: (String) -> Unit = {},
     onFallbackReason: (String) -> Unit = {},
 ): LocalOfficialBlockingResult? {
@@ -3062,6 +3068,8 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit,
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
@@ -3103,7 +3111,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             appendTrace = appendTrace,
         )
     } else {
-        createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath)
+        createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath, preferredBackendDryRunSetting, onPreferredBackendApplied)
     }
         ?: throw OfficialFlowFallbackException("conversation_create_failed")
     var conversation: Any? = null
@@ -3352,7 +3360,7 @@ private fun runOfficialBlockingConversationSingleNamespace(
             appendTrace = appendTrace,
         )
     } else {
-        createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath)
+        createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath, preferredBackendDryRunSetting, onPreferredBackendApplied)
     }
         ?: throw OfficialFlowFallbackException("conversation_create_failed")
     var conversation: Any? = null
