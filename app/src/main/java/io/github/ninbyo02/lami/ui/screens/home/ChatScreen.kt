@@ -438,6 +438,15 @@ internal data class LocalInferenceTrace(
     val preferredBackendHookMissingReason: String? = null,
     val preferredBackendRequiresEngineRecreate: Boolean? = null,
     val preferredBackendEngineRecreateReason: String? = null,
+    val holderInstanceHash: Int? = null,
+    val heldEngineHash: Int? = null,
+    val heldEngineRecreateRequestCount: Int? = null,
+    val heldEngineWasPresentAtRunStart: Boolean? = null,
+    val heldEngineCreatedDuringRun: Boolean? = null,
+    val holderLastRecreateResult: String? = null,
+    val holderLastRecreateReason: String? = null,
+    val holderHasHeldEngineBeforeRecreate: Boolean? = null,
+    val holderHasHeldEngineAfterRecreate: Boolean? = null,
     val realPartialHookAttempted: Boolean = false,
     val realPartialHookAttached: Boolean = false,
     val realPartialCallbackCount: Int = 0,
@@ -3644,8 +3653,18 @@ fun Home(
                                 reason = preferredBackendManualRecreateReason,
                                 appendTrace = { appendLocalReflectionTrace(context.applicationContext, it) },
                             )
+                            val recreateSnapshot = localInferenceEngineHolder.getDevDiagnosticSnapshot()
                             preferredBackendManualRecreateInProgress = false
                             preferredBackendManualRecreateResult = if (succeeded) "success" else "failed"
+                            latestLocalTraceForDev = (latestLocalTraceForDev ?: LocalInferenceTrace()).copy(
+                                holderInstanceHash = recreateSnapshot.holderInstanceHash,
+                                heldEngineHash = recreateSnapshot.heldEngineHash,
+                                heldEngineRecreateRequestCount = recreateSnapshot.recreateRequestCount,
+                                holderLastRecreateResult = recreateSnapshot.lastRecreateResult,
+                                holderLastRecreateReason = recreateSnapshot.lastRecreateReason,
+                                holderHasHeldEngineBeforeRecreate = recreateSnapshot.hasHeldEngineBeforeRecreate,
+                                holderHasHeldEngineAfterRecreate = recreateSnapshot.hasHeldEngineAfterRecreate,
+                            )
                             snackbarHostState.showSnackbar(
                                 if (succeeded) {
                                     "次回推論でローカルエンジンを再作成します"
@@ -4135,6 +4154,11 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             optionsBuilderSource = optionsBuilderSource,
             preferredBackendHookEligible = preferredBackendHookEligible,
             preferredBackendHookMissingReason = preferredBackendHookMissingReason,
+            holderInstanceHash = holderInstanceHash,
+            heldEngineHash = heldEngineHash,
+            heldEngineRecreateRequestCount = heldEngineRecreateRequestCount,
+            heldEngineWasPresentAtRunStart = heldEngineWasPresentAtRunStart,
+            heldEngineCreatedDuringRun = heldEngineCreatedDuringRun,
         ),
         closeLifecycleSummary = if (resolvedState == LocalInferenceEngineState.READY) {
             ensureSuccessCloseLifecycleSummary(
@@ -5669,6 +5693,15 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         preferredBackendHookMissingReason = preferredBackendHookMissingReason ?: probe.preferredBackendHookMissingReason,
         preferredBackendRequiresEngineRecreate = preferredBackendRequiresEngineRecreate ?: probe.preferredBackendRequiresEngineRecreate,
         preferredBackendEngineRecreateReason = preferredBackendEngineRecreateReason ?: probe.preferredBackendEngineRecreateReason,
+        holderInstanceHash = holderInstanceHash ?: probe.holderInstanceHash,
+        heldEngineHash = heldEngineHash ?: probe.heldEngineHash,
+        heldEngineRecreateRequestCount = heldEngineRecreateRequestCount ?: probe.heldEngineRecreateRequestCount,
+        heldEngineWasPresentAtRunStart = heldEngineWasPresentAtRunStart ?: probe.heldEngineWasPresentAtRunStart,
+        heldEngineCreatedDuringRun = heldEngineCreatedDuringRun ?: probe.heldEngineCreatedDuringRun,
+        holderLastRecreateResult = holderLastRecreateResult ?: probe.holderLastRecreateResult,
+        holderLastRecreateReason = holderLastRecreateReason ?: probe.holderLastRecreateReason,
+        holderHasHeldEngineBeforeRecreate = holderHasHeldEngineBeforeRecreate ?: probe.holderHasHeldEngineBeforeRecreate,
+        holderHasHeldEngineAfterRecreate = holderHasHeldEngineAfterRecreate ?: probe.holderHasHeldEngineAfterRecreate,
         measuredTokenSnapshot = measuredTokenSnapshot ?: probe.measuredTokenSnapshot,
     )
 }
