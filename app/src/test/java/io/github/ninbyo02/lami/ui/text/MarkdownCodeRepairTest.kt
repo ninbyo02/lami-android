@@ -4946,6 +4946,51 @@ class MarkdownCodeRepairTest {
     }
 
     @Test
+    fun fusedPygameHeadingWithoutSpaceAfterHashesOutsideFence_isSplitIntoHeadingAndBody() {
+        val input = "###準備：PyGameのインストールまず、pygameをインストールします。"
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ### 準備：pygameのインストール
+                まず、pygameをインストールします。
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedPygameHeadingWithoutHashesOutsideFence_isSplitIntoHeadingAndBody() {
+        val input = "準備：pygameのインストールまず、pygameをインストールします。"
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ### 準備：pygameのインストール
+                まず、pygameをインストールします。
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
+    fun fusedPygameHeadingWrappedByBoldOutsideFence_isSplitIntoHeadingAndBody() {
+        val input = "**準備：Py gameのインストールまず、pygameをインストールします。**"
+
+        val repaired = MarkdownCodeRepair.repair(input)
+
+        assertEquals(
+            """
+                ### 準備：pygameのインストール
+                まず、pygameをインストールします。
+            """.trimIndent(),
+            repaired,
+        )
+    }
+
+    @Test
     fun fusedPygameHeadingInsideFence_isNotModified() {
         val input = """
             ```
