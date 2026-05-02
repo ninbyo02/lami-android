@@ -754,6 +754,31 @@ class InferenceStatsSheetContentTest {
 
 
     @Test
+    fun `buildInferenceDetailSections derives preferred backend engine recreate when trace requested is null and dry-run is GPU`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = null,
+                appliedPreferredBackend = "not-applied",
+                preferredBackendHookReached = false,
+                heldEngineCreatePath = "holder-existing-engine",
+                preferredBackendHookMissingReason = "holder-existing-engine",
+                preferredBackendRequiresEngineRecreate = false,
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("GPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertEquals("true", devSection.items.first { it.label == "PreferredBackend requires engine recreate" }.value)
+        assertEquals(
+            "requested preferredBackend requires a new held engine; current run reused existing engine",
+            devSection.items.first { it.label == "PreferredBackend recreate reason" }.value,
+        )
+    }
+
+    @Test
     fun `buildInferenceDetailSections derives preferred backend engine recreate when trace flag is false`() {
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(),
