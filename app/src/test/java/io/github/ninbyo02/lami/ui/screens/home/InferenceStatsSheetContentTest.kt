@@ -552,7 +552,9 @@ class InferenceStatsSheetContentTest {
         assertEquals("reflection-safe", devSection.items.first { it.label == "Delegate API Probe" }.value)
         assertEquals("not-detected", devSection.items.first { it.label == "Delegate switching hint" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "Delegate option candidates" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "Delegate backend enum values" }.value)
         assertTrue(devSection.items.none { it.label == "Delegate Probe Error" })
+        assertTrue(devSection.items.none { it.label == "Delegate backend enum probe error" })
     }
 
     @Test
@@ -582,6 +584,8 @@ class InferenceStatsSheetContentTest {
                 delegateProbeError = "ClassNotFoundException",
                 delegateOptionCandidates = listOf("LlmInferenceOptions.Builder.setPreferredBackend"),
                 delegateBackendCandidates = listOf("LlmInferenceOptions.Backend"),
+                delegateBackendEnumValues = listOf("CPU", "GPU"),
+                delegateBackendEnumProbeError = "ClassNotFoundException",
                 delegateClassCandidates = listOf("LlmInferenceOptions.Builder"),
                 delegateSwitchingSupportedHint = "delegate-api-candidate-detected",
             ),
@@ -589,6 +593,9 @@ class InferenceStatsSheetContentTest {
 
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("ClassNotFoundException", devSection.items.first { it.label == "Delegate Probe Error" }.value)
+        assertEquals("CPU, GPU", devSection.items.first { it.label == "Delegate backend enum values" }.value)
+        assertEquals("ClassNotFoundException", devSection.items.first { it.label == "Delegate backend enum probe error" }.value)
+        assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
         assertTrue(devSection.items.first { it.label == "推定理由" }.value.contains("delegate API candidate detected"))
     }
 
