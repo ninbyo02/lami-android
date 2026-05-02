@@ -74,6 +74,8 @@ internal object AcceleratorProbe {
             delegateProbeError = delegateApiProbeResult.error,
             delegateOptionCandidates = delegateApiProbeResult.optionCandidates,
             delegateBackendCandidates = delegateApiProbeResult.backendCandidates,
+            delegateBackendEnumValues = delegateApiProbeResult.backendEnumValues,
+            delegateBackendEnumProbeError = delegateApiProbeResult.backendEnumProbeError,
             delegateClassCandidates = delegateApiProbeResult.classCandidates,
             delegateSwitchingSupportedHint = delegateApiProbeResult.switchingSupportedHint,
         )
@@ -199,9 +201,12 @@ internal object AcceleratorProbe {
             val optionList = optionCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT)
             val backendList = backendCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT)
             val classList = classCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT)
+            val enumProbeResult = probeBackendEnumValues(classList, backendList)
             DelegateApiProbeResult(
                 optionCandidates = optionList,
                 backendCandidates = backendList,
+                backendEnumValues = enumProbeResult.values,
+                backendEnumProbeError = enumProbeResult.error,
                 classCandidates = classList,
                 switchingSupportedHint = inferDelegateHint(optionList, backendList, classList),
             )
@@ -255,6 +260,55 @@ internal object AcceleratorProbe {
         return DELEGATE_KEYWORDS.any(lowerName::contains)
     }
 
+    private fun probeBackendEnumValues(
+        classCandidates: List<String>,
+        backendCandidates: List<String>,
+    ): BackendEnumProbeResult {
+        val candidateNames = linkedSetOf(
+            "com.google.mediapipe.tasks.genai.llminference.LlmInference\$Backend",
+            "com.google.mediapipe.tasks.genai.llminference.LlmInference.Backend",
+        )
+        classCandidates.forEach { candidateNames += toLikelyFqcnVariants(it) }
+        backendCandidates.forEach { candidateNames += toLikelyFqcnVariants(it) }
+
+        var lastError: String? = null
+        candidateNames.forEach { className ->
+            val clazz = runCatching { Class.forName(className) }.getOrElse {
+                lastError = it.javaClass.simpleName
+                return@forEach
+            }
+            if (!clazz.isEnum) {
+                lastError = "not-enum"
+                return@forEach
+            }
+            val enumValues = runCatching {
+                (clazz.enumConstants ?: emptyArray<Any>())
+                    .mapNotNull { constant -> runCatching { constant.toString() }.getOrNull() }
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .take(MAX_DELEGATE_CANDIDATE_COUNT)
+            }.getOrElse {
+                lastError = it.javaClass.simpleName
+                emptyList()
+            }
+            if (enumValues.isNotEmpty()) {
+                return BackendEnumProbeResult(values = enumValues)
+            }
+        }
+        return BackendEnumProbeResult(error = lastError)
+    }
+
+    private fun toLikelyFqcnVariants(candidate: String): List<String> {
+        val trimmed = candidate.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        val suffix = trimmed.removePrefix("LlmInference.")
+        if (suffix == trimmed) return emptyList()
+        return listOf(
+            "com.google.mediapipe.tasks.genai.llminference.LlmInference.$suffix",
+            "com.google.mediapipe.tasks.genai.llminference.LlmInference\$${suffix.replace('.', '$')}",
+        )
+    }
+
     private fun inferDelegateHint(
         optionCandidates: List<String>,
         backendCandidates: List<String>,
@@ -273,7 +327,14 @@ internal object AcceleratorProbe {
         val error: String? = null,
         val optionCandidates: List<String> = emptyList(),
         val backendCandidates: List<String> = emptyList(),
+        val backendEnumValues: List<String> = emptyList(),
+        val backendEnumProbeError: String? = null,
         val classCandidates: List<String> = emptyList(),
         val switchingSupportedHint: String = "unknown",
+    )
+
+    private data class BackendEnumProbeResult(
+        val values: List<String> = emptyList(),
+        val error: String? = null,
     )
 }
