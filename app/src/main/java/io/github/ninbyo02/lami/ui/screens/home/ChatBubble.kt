@@ -42,6 +42,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -792,7 +793,27 @@ private fun PythonSyntaxWarningSummary(warnings: List<PythonCodeWarning>) {
         Spacer(modifier = Modifier.height(4.dp))
         warnings.forEach { warning ->
             Text(
-                text = "- L${warning.lineNumber} ${pythonWarningTypeJa(warning.type)}: ${warning.message}",
+                text = "L${warning.lineNumber} ${pythonWarningTypeJa(warning.type)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Surface(
+                modifier = Modifier
+                    .padding(top = 2.dp, bottom = 2.dp)
+                    .fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(6.dp),
+            ) {
+                Text(
+                    text = warning.lineText.take(140),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+            Text(
+                text = warning.message,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -836,6 +857,7 @@ fun sanitizeAssistantMessageForDisplay(message: String): String {
     val wsTraceKeywords = setOf(
         "=== WS TRACE ===",
         "=== RUNNER WS TRACE ===",
+        "=== DEV Stream ===",
         "RAW:",
         "NORMALIZED:",
         "LEN:",
