@@ -429,6 +429,11 @@ internal data class LocalInferenceTrace(
     val preferredBackendApplyMethodCandidates: List<String> = emptyList(),
     val preferredBackendApplyBackendEnumCandidates: List<String> = emptyList(),
     val preferredBackendApplyNotSupportedReason: String? = null,
+    val heldEngineCreatePath: String? = null,
+    val llmInferenceCreateMethod: String? = null,
+    val optionsBuilderSource: String? = null,
+    val preferredBackendHookEligible: Boolean? = null,
+    val preferredBackendHookMissingReason: String? = null,
     val realPartialHookAttempted: Boolean = false,
     val realPartialHookAttached: Boolean = false,
     val realPartialCallbackCount: Int = 0,
@@ -4086,6 +4091,11 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             officialConversationApiAvailable = namespace.isNotBlank(),
             officialFlowChunkCount = partialCount,
             measuredTokenSnapshot = measuredTokenSnapshot,
+            heldEngineCreatePath = heldEngineCreatePath,
+            llmInferenceCreateMethod = llmInferenceCreateMethod,
+            optionsBuilderSource = optionsBuilderSource,
+            preferredBackendHookEligible = preferredBackendHookEligible,
+            preferredBackendHookMissingReason = preferredBackendHookMissingReason,
         ),
         closeLifecycleSummary = if (resolvedState == LocalInferenceEngineState.READY) {
             ensureSuccessCloseLifecycleSummary(
@@ -5613,6 +5623,11 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         preferredBackendApplyMethodCandidates = if (preferredBackendApplyMethodCandidates.isNotEmpty()) preferredBackendApplyMethodCandidates else probe.preferredBackendApplyMethodCandidates,
         preferredBackendApplyBackendEnumCandidates = if (preferredBackendApplyBackendEnumCandidates.isNotEmpty()) preferredBackendApplyBackendEnumCandidates else probe.preferredBackendApplyBackendEnumCandidates,
         preferredBackendApplyNotSupportedReason = preferredBackendApplyNotSupportedReason ?: probe.preferredBackendApplyNotSupportedReason,
+        heldEngineCreatePath = heldEngineCreatePath ?: probe.heldEngineCreatePath,
+        llmInferenceCreateMethod = llmInferenceCreateMethod ?: probe.llmInferenceCreateMethod,
+        optionsBuilderSource = optionsBuilderSource ?: probe.optionsBuilderSource,
+        preferredBackendHookEligible = preferredBackendHookEligible ?: probe.preferredBackendHookEligible,
+        preferredBackendHookMissingReason = preferredBackendHookMissingReason ?: probe.preferredBackendHookMissingReason,
         measuredTokenSnapshot = measuredTokenSnapshot ?: probe.measuredTokenSnapshot,
     )
 }
