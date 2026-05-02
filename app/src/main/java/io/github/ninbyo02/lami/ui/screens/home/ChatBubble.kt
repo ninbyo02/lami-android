@@ -645,25 +645,15 @@ fun PlainAssistantMessage(
             isStreaming = isStreaming,
         )
     }
-    val usePlainTextDuringStreaming = remember(message, isStreaming) {
-        shouldUsePlainTextForStreamingCodeFence(
-            message = message,
-            isStreaming = isStreaming,
-        )
-    }
-    val streamingSplit = remember(message, isStreaming, usePlainTextDuringStreaming) {
-        if (isStreaming && !usePlainTextDuringStreaming) {
+    val streamingSplit = remember(message, isStreaming) {
+        if (isStreaming) {
             splitStreamingText(message)
         } else {
             StreamingSplit(stable = message, unstable = "")
         }
     }
-    val segments = remember(streamingSplit.stable, isStreaming, usePlainTextDuringStreaming) {
-        if (usePlainTextDuringStreaming) {
-            emptyList()
-        } else {
-            parseFencedCodeSegments(streamingSplit.stable)
-        }
+    val segments = remember(streamingSplit.stable) {
+        parseFencedCodeSegments(streamingSplit.stable)
     }
     val shouldRenderUnstableAsCode = remember(streamingSplit.unstable, isStreaming) {
         isStreaming && shouldTreatAsProvisionalCode(streamingSplit.unstable)
@@ -683,34 +673,28 @@ fun PlainAssistantMessage(
             .padding(contentPadding)
             .testTag("assistantPlainMessage")
     ) {
-        if (usePlainTextDuringStreaming) {
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        } else {
-            MessageSegments(
-                segments = segments,
-                enableTextSelection = shouldEnableAssistantTextSelection,
-                isStreaming = isStreaming,
-            )
-            val unstableTail = streamingSplit.unstable
-            if (unstableTail.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                if (shouldRenderUnstableAsCode) {
-                    CodeBlockCard(
-                        lang = detectProvisionalLanguage(unstableTail),
-                        code = unstableTail,
-                        isClosed = false,
-                    )
-                } else {
-                    Text(
-                        text = unstableTail,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
+        MessageSegments(
+            segments = segments,
+            enableTextSelection = shouldEnableAssistantTextSelection,
+            isStreaming = isStreaming,
+        )
+        val unstableTail = streamingSplit.unstable
+        if (unstableTail.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            if (shouldRenderUnstableAsCode) {
+                CodeBlockCard(
+                    lang = detectProvisionalLanguage(unstableTail),
+                    code = unstableTail,
+                    isClosed = false,
+                    isStreamingCodeBlock = isStreaming,
+                    showLineNumbers = shouldShowCodeLineNumbers(isStreaming),
+                )
+            } else {
+                Text(
+                    text = unstableTail,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
         }
         if (pythonSyntaxWarnings.isNotEmpty()) {
@@ -907,13 +891,6 @@ fun splitStreamingText(text: String): StreamingSplit {
     return StreamingSplit(stable = stablePart, unstable = unstablePart)
 }
 
-fun shouldUsePlainTextForStreamingCodeFence(
-    message: String,
-    isStreaming: Boolean,
-): Boolean {
-    if (!isStreaming) return false
-    return message.contains("```")
-}
 
 fun isPythonFusionStart(text: String): Boolean {
     val normalized = text.trimStart()
