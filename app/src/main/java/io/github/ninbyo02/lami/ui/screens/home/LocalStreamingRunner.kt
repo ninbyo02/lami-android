@@ -103,6 +103,11 @@ internal data class HeldEngineRunResult(
     val measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null,
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
     val runnerWhitespaceTraceText: String? = null,
+    val heldEngineCreatePath: String = "unknown",
+    val llmInferenceCreateMethod: String = "unknown",
+    val optionsBuilderSource: String = "unknown",
+    val preferredBackendHookEligible: Boolean = false,
+    val preferredBackendHookMissingReason: String? = null,
 )
 
 internal data class RunCloseTargetOutcome(
@@ -394,6 +399,11 @@ internal suspend fun runWithHeldEngine(
         measuredTokenSnapshot = measuredTokenSnapshot,
         closeLifecycleSummary = closeSummary,
         runnerWhitespaceTraceText = buildRunnerWhitespaceTraceBlock(runnerWhitespaceTraceEntries),
+        heldEngineCreatePath = "holder-existing-engine",
+        llmInferenceCreateMethod = "unknown",
+        optionsBuilderSource = "unknown",
+        preferredBackendHookEligible = false,
+        preferredBackendHookMissingReason = "holder-existing-engine",
     )
 }
 internal data class LocalOfficialConversationApiProbeResult(

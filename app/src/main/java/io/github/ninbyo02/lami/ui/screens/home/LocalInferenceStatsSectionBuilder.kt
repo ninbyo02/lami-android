@@ -192,6 +192,11 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "PreferredBackend builder class", value = localTraceForDev?.preferredBackendApplyBuilderClass?.ifBlank { "none/unknown" } ?: "none/unknown"))
             add(InferenceStatItemUi(label = "PreferredBackend method candidates", value = localTraceForDev?.preferredBackendApplyMethodCandidates?.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "PreferredBackend backend enum candidates", value = localTraceForDev?.preferredBackendApplyBackendEnumCandidates?.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "Held engine create path", value = localTraceForDev?.heldEngineCreatePath?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "LlmInference create method", value = localTraceForDev?.llmInferenceCreateMethod?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "Options builder source", value = localTraceForDev?.optionsBuilderSource?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "PreferredBackend hook eligible", value = localTraceForDev?.preferredBackendHookEligible?.toString() ?: "false"))
+            add(InferenceStatItemUi(label = "PreferredBackend hook missing reason", value = localTraceForDev?.preferredBackendHookMissingReason?.ifBlank { "unknown" } ?: "unknown"))
             localTraceForDev?.preferredBackendApplyNotSupportedReason?.takeIf { it.isNotBlank() }?.let {
                 add(InferenceStatItemUi(label = "PreferredBackend not-supported reason", value = it))
             }
