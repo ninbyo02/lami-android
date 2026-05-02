@@ -197,9 +197,9 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Options builder source", value = localTraceForDev?.optionsBuilderSource?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "PreferredBackend hook eligible", value = localTraceForDev?.preferredBackendHookEligible?.toString() ?: "false"))
             add(InferenceStatItemUi(label = "PreferredBackend hook missing reason", value = localTraceForDev?.preferredBackendHookMissingReason?.ifBlank { "unknown" } ?: "unknown"))
-            val preferredBackendRecreateDiagnostic = resolvePreferredBackendEngineRecreateDiagnostic(localTraceForDev)
-            add(InferenceStatItemUi(label = "PreferredBackend requires engine recreate", value = preferredBackendRecreateDiagnostic?.first?.toString() ?: "false"))
-            preferredBackendRecreateDiagnostic?.second?.let {
+            val preferredBackendRecreateRequired = resolvePreferredBackendEngineRecreateDiagnostic(localTraceForDev)
+            add(InferenceStatItemUi(label = "PreferredBackend requires engine recreate", value = preferredBackendRecreateRequired?.first?.toString() ?: "false"))
+            resolvePreferredBackendEngineRecreateDiagnostic(localTraceForDev)?.second?.let {
                 add(InferenceStatItemUi(label = "PreferredBackend recreate reason", value = it.ifBlank { "unknown" }))
             }
             localTraceForDev?.preferredBackendApplyNotSupportedReason?.takeIf { it.isNotBlank() }?.let {
