@@ -183,7 +183,8 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Delegate backend candidates", value = probe.delegateBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Delegate backend enum values", value = probe.delegateBackendEnumValues.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Delegate preferredBackend signatures", value = probe.delegatePreferredBackendSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
-            add(InferenceStatItemUi(label = "Requested preferredBackend", value = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name))
+            val resolvedRequestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
+            add(InferenceStatItemUi(label = "Requested preferredBackend", value = resolvedRequestedPreferredBackend))
             add(InferenceStatItemUi(label = "Applied preferredBackend", value = localTraceForDev?.appliedPreferredBackend ?: "not-applied"))
             add(InferenceStatItemUi(label = "PreferredBackend apply result", value = localTraceForDev?.preferredBackendApplyResult ?: if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT) "skipped-default" else "not-supported"))
             add(InferenceStatItemUi(label = "PreferredBackend hook reached", value = localTraceForDev?.preferredBackendHookReached?.toString() ?: "false"))
@@ -197,9 +198,12 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Options builder source", value = localTraceForDev?.optionsBuilderSource?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "PreferredBackend hook eligible", value = localTraceForDev?.preferredBackendHookEligible?.toString() ?: "false"))
             add(InferenceStatItemUi(label = "PreferredBackend hook missing reason", value = localTraceForDev?.preferredBackendHookMissingReason?.ifBlank { "unknown" } ?: "unknown"))
-            val preferredBackendRecreateRequired = resolvePreferredBackendEngineRecreateDiagnostic(localTraceForDev)
+            val preferredBackendRecreateRequired = resolvePreferredBackendEngineRecreateDiagnostic(
+                trace = localTraceForDev,
+                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            )
             add(InferenceStatItemUi(label = "PreferredBackend requires engine recreate", value = preferredBackendRecreateRequired?.first?.toString() ?: "false"))
-            resolvePreferredBackendEngineRecreateDiagnostic(localTraceForDev)?.second?.let {
+            preferredBackendRecreateRequired?.second?.let {
                 add(InferenceStatItemUi(label = "PreferredBackend recreate reason", value = it.ifBlank { "unknown" }))
             }
             localTraceForDev?.preferredBackendApplyNotSupportedReason?.takeIf { it.isNotBlank() }?.let {
@@ -1025,14 +1029,16 @@ private fun buildDevDiagnosticSummarySection(
     )
 }
 
-private fun resolvePreferredBackendEngineRecreateDiagnostic(trace: LocalInferenceTrace?): Pair<Boolean, String?>? {
+private fun resolvePreferredBackendEngineRecreateDiagnostic(
+    trace: LocalInferenceTrace?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+): Pair<Boolean, String?>? {
     if (trace == null) return null
     if (trace.preferredBackendRequiresEngineRecreate == true) {
         return true to trace.preferredBackendEngineRecreateReason
     }
-    val requested = trace.requestedPreferredBackend
-    val requiresRecreate = requested != null &&
-        requested != PreferredBackendDryRunSetting.DEFAULT.name &&
+    val requested = trace.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
+    val requiresRecreate = requested != PreferredBackendDryRunSetting.DEFAULT.name &&
         trace.heldEngineCreatePath == "holder-existing-engine" &&
         trace.preferredBackendHookReached == false &&
         trace.preferredBackendHookMissingReason == "holder-existing-engine"
