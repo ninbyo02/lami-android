@@ -6,6 +6,7 @@ import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class InferenceStatsSheetContentTest {
@@ -588,8 +589,14 @@ class InferenceStatsSheetContentTest {
 
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("not-detected", devSection.items.first { it.label == "NPU probe hint" }.value)
+        assertEquals("not available from current public API", devSection.items.first { it.label == "NPU status" }.value)
+        assertEquals("not-applied", devSection.items.first { it.label == "NPU apply status" }.value)
+        assertEquals("current backend enum exposes DEFAULT / CPU / GPU only", devSection.items.first { it.label == "NPU note" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "NPU delegate candidates" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "QNN candidates" }.value)
+        assertEquals("not-detected", devSection.items.first { it.label == "QNN status" }.value)
+        assertEquals("not-detected", devSection.items.first { it.label == "NNAPI delegate status" }.value)
+        assertNotEquals("npu-active / high", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
     @Test
@@ -621,6 +628,7 @@ class InferenceStatsSheetContentTest {
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("qnn-candidate-detected", devSection.items.first { it.label == "NPU probe hint" }.value)
         assertEquals("LlmInferenceOptions.Builder.setQnnDelegate", devSection.items.first { it.label == "QNN candidates" }.value)
+        assertEquals("candidate-detected", devSection.items.first { it.label == "QNN status" }.value)
         assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
