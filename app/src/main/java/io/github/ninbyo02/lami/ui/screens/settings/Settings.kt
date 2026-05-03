@@ -596,7 +596,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "DEBUGビルド限定の実験機能です。DEFAULT / CPU / GPU を EngineConfig に指定します。実際のdelegate使用確定ではありません。",
+                                text = "DEBUGビルド限定の実験機能です。現在選択できるのは DEFAULT / CPU / GPU です。NPU/QNN は候補検出のみで、現時点では適用しません。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
