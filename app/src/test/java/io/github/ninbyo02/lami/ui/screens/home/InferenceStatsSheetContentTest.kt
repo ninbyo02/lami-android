@@ -871,14 +871,14 @@ class InferenceStatsSheetContentTest {
             localTraceForDev = LocalInferenceTrace(
                 requestedPreferredBackend = "NPU",
                 appliedPreferredBackend = "GPU",
-                preferredBackendApplyResult = "fallback-gpu-after-npu-failed",
+                preferredBackendApplyResult = "fallback-gpu-after-npu-engine-create-failed",
                 preferredBackendApplyError = "IllegalStateException",
                 preferredBackendHookReached = true,
             ),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
         )
         val devSection = sections.first { it.title == "DEV診断" }
-        assertEquals("fallback-gpu-after-npu-failed", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("fallback-gpu-after-npu-engine-create-failed", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
         assertEquals("IllegalStateException", devSection.items.first { it.label == "PreferredBackend apply error" }.value)
     }
 
