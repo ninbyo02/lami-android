@@ -6416,7 +6416,7 @@ private fun InferenceStatsSheetContent(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "preferredBackend変更を反映するには、既存のローカルエンジン再作成が必要です。生成中は実行できません。",
+                    text = "現在のローカルエンジンを閉じ、次回推論で再作成します。preferredBackend変更後に使用してください。生成中は実行できません。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

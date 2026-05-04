@@ -596,7 +596,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "DEBUGビルド限定の実験機能です。現在選択できるのは DEFAULT / CPU / GPU です。NPU/QNN は候補検出のみで、現時点では適用しません。",
+                                text = "DEBUGビルド限定の実験機能です。LiteRT-LM EngineConfig に DEFAULT / CPU / GPU を指定します。実際のdelegate使用確定ではありません。変更後はローカルエンジン再作成が必要です。NPU/QNNは候補検出のみで、現時点では適用しません。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
