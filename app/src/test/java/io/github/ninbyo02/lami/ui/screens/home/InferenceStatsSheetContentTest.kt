@@ -883,6 +883,25 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceDetailSections shows preferred backend rows for NPU runtime fallback to GPU`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "NPU",
+                appliedPreferredBackend = "GPU",
+                preferredBackendApplyResult = "fallback-gpu-after-npu-runtime-failed",
+                preferredBackendApplyError = "IllegalStateException:initialize failed",
+                preferredBackendHookReached = true,
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
+        )
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("fallback-gpu-after-npu-runtime-failed", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("IllegalStateException:initialize failed", devSection.items.first { it.label == "PreferredBackend apply error" }.value)
+    }
+
+    @Test
     fun `buildInferenceDetailSections shows preferred backend engine recreate diagnostic when held engine is reused`() {
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(),
