@@ -186,7 +186,7 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "NPU probe hint", value = probe.npuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "NPU status", value = "not available from current public API"))
             add(InferenceStatItemUi(label = "NPU apply status", value = "not-applied"))
-            add(InferenceStatItemUi(label = "NPU note", value = "current backend enum exposes DEFAULT / CPU / GPU only"))
+            add(InferenceStatItemUi(label = "NPU note", value = "NPU is experimental. Backend.NPU requested via EngineConfig, actual delegate not confirmed"))
             add(InferenceStatItemUi(label = "NPU delegate candidates", value = probe.npuDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "NPU backend candidates", value = probe.npuBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Backend NPU probe hint", value = probe.backendNpuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
