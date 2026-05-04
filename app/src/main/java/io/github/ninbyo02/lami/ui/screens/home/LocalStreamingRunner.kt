@@ -3134,6 +3134,8 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = onPreferredBackendApplied,
             startElapsedMs = startElapsedMs,
             onPartial = onPartial,
             appendTrace = appendTrace,
@@ -3379,6 +3381,8 @@ private fun runOfficialBlockingConversationSingleNamespace(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = onPreferredBackendApplied,
             appendTrace = appendTrace,
         )
         return LocalOfficialBlockingResult(
@@ -3551,6 +3555,8 @@ private suspend fun runOfficialLiteRtLmDirect(
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
@@ -3560,7 +3566,13 @@ private suspend fun runOfficialLiteRtLmDirect(
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     return runCatching {
-        val engineConfig = buildLiteRtEngineConfig(modelPath = modelPath, cacheDirPath = cacheDirPath)
+        val engineConfig = buildLiteRtEngineConfig(
+            modelPath = modelPath,
+            cacheDirPath = cacheDirPath,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            appendTrace = appendTrace,
+            onPreferredBackendApplied = onPreferredBackendApplied,
+        )
         safeAppendTrace(appendTrace, "UPSTREAM official-direct engineConfig-created")
         var engine: Engine? = null
         var conversation: Any? = null
@@ -3718,6 +3730,36 @@ private suspend fun runOfficialLiteRtLmDirect(
         }
         result
     }.getOrElse { throwable ->
+        if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU) {
+            val errorName = throwable.javaClass.simpleName.ifBlank { "NpuRuntimeError" }
+            val errorMessage = throwable.message?.takeIf { it.isNotBlank() }?.let { ":$it" } ?: ""
+            safeAppendTrace(appendTrace, "UPSTREAM preferred-backend npu-runtime-fallback-to-gpu stage=sendMessageAsync error=$errorName$errorMessage")
+            onPreferredBackendApplied(
+                PreferredBackendApplyResult(
+                    requestedPreferredBackend = PreferredBackendDryRunSetting.NPU.name,
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "fallback-gpu-after-npu-runtime-failed",
+                    preferredBackendHookReached = true,
+                    preferredBackendHookSource = "holder-acquire-engine-config",
+                    preferredBackendApplyError = "$errorName$errorMessage",
+                    preferredBackendApplyBuilderClass = "EngineConfig",
+                    preferredBackendApplyMethodCandidates = emptyList(),
+                    preferredBackendApplyBackendEnumCandidates = listOf("DEFAULT", "CPU", "GPU", "NPU"),
+                    preferredBackendApplyNotSupportedReason = null,
+                ),
+            )
+            return runOfficialLiteRtLmDirect(
+                prompt = prompt,
+                modelPath = modelPath,
+                cacheDirPath = cacheDirPath,
+                mediaPipeProbeContext = mediaPipeProbeContext,
+                preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+                onPreferredBackendApplied = {},
+                startElapsedMs = startElapsedMs,
+                onPartial = onPartial,
+                appendTrace = appendTrace,
+            )
+        }
         safeAppendTrace(
             appendTrace,
             "UPSTREAM official-direct failed ${throwable.javaClass.simpleName}:${throwable.message}",
@@ -3731,6 +3773,8 @@ private fun runOfficialLiteRtLmBlocking(
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     appendTrace: (String) -> Unit,
 ): LocalOfficialDirectBlockingResult {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct blockingStart")
@@ -3738,7 +3782,13 @@ private fun runOfficialLiteRtLmBlocking(
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     return runCatching {
-        val engineConfig = buildLiteRtEngineConfig(modelPath = modelPath, cacheDirPath = cacheDirPath)
+        val engineConfig = buildLiteRtEngineConfig(
+            modelPath = modelPath,
+            cacheDirPath = cacheDirPath,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            appendTrace = appendTrace,
+            onPreferredBackendApplied = onPreferredBackendApplied,
+        )
         safeAppendTrace(appendTrace, "UPSTREAM official-direct engineConfig-created")
         var engine: Engine? = null
         var conversation: Any? = null
@@ -3863,8 +3913,36 @@ private fun runOfficialLiteRtLmBlocking(
             measuredTokenSnapshot = measuredTokenSnapshot,
             closeLifecycleSummary = closeSummary,
         )
-    }.getOrElse {
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct failed ${it.javaClass.simpleName}:${it.message}")
+    }.getOrElse { throwable ->
+        if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU) {
+            val errorName = throwable.javaClass.simpleName.ifBlank { "NpuRuntimeError" }
+            val errorMessage = throwable.message?.takeIf { it.isNotBlank() }?.let { ":$it" } ?: ""
+            safeAppendTrace(appendTrace, "UPSTREAM preferred-backend npu-runtime-fallback-to-gpu stage=sendMessage error=$errorName$errorMessage")
+            onPreferredBackendApplied(
+                PreferredBackendApplyResult(
+                    requestedPreferredBackend = PreferredBackendDryRunSetting.NPU.name,
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "fallback-gpu-after-npu-runtime-failed",
+                    preferredBackendHookReached = true,
+                    preferredBackendHookSource = "holder-acquire-engine-config",
+                    preferredBackendApplyError = "$errorName$errorMessage",
+                    preferredBackendApplyBuilderClass = "EngineConfig",
+                    preferredBackendApplyMethodCandidates = emptyList(),
+                    preferredBackendApplyBackendEnumCandidates = listOf("DEFAULT", "CPU", "GPU", "NPU"),
+                    preferredBackendApplyNotSupportedReason = null,
+                ),
+            )
+            return runOfficialLiteRtLmBlocking(
+                prompt = prompt,
+                modelPath = modelPath,
+                cacheDirPath = cacheDirPath,
+                mediaPipeProbeContext = mediaPipeProbeContext,
+                preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+                onPreferredBackendApplied = {},
+                appendTrace = appendTrace,
+            )
+        }
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct failed ${throwable.javaClass.simpleName}:${throwable.message}")
         LocalOfficialDirectBlockingResult(response = null)
     }
 }
