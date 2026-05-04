@@ -843,11 +843,11 @@ class InferenceStatsSheetContentTest {
 
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("GPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
-        assertEquals("GPU", devSection.items.first { it.label == "PreferredBackend resolver dry-run setting" }.value)
-        assertEquals("GPU", devSection.items.first { it.label == "PreferredBackend resolver requested" }.value)
-        assertEquals("true", devSection.items.first { it.label == "PreferredBackend resolver heldExistingEngine" }.value)
-        assertEquals("true", devSection.items.first { it.label == "PreferredBackend resolver hookNotReached" }.value)
-        assertEquals("true", devSection.items.first { it.label == "PreferredBackend resolver missingReasonHeldExisting" }.value)
+        assertTrue(devSection.items.none { it.label == "PreferredBackend resolver dry-run setting" })
+        assertTrue(devSection.items.none { it.label == "PreferredBackend resolver requested" })
+        assertTrue(devSection.items.none { it.label == "PreferredBackend resolver heldExistingEngine" })
+        assertTrue(devSection.items.none { it.label == "PreferredBackend resolver hookNotReached" })
+        assertTrue(devSection.items.none { it.label == "PreferredBackend resolver missingReasonHeldExisting" })
         assertEquals("true", devSection.items.first { it.label == "PreferredBackend requires engine recreate" }.value)
         assertEquals(
             "requested preferredBackend requires a new held engine; current run reused existing engine",
@@ -897,8 +897,28 @@ class InferenceStatsSheetContentTest {
         )
 
         val devSection = sections.first { it.title == "DEV診断" }
-        assertEquals("true", devSection.items.first { it.label == "PreferredBackend resolver hookNotReached" }.value)
+        assertTrue(devSection.items.none { it.label == "PreferredBackend resolver hookNotReached" })
         assertEquals("true", devSection.items.first { it.label == "PreferredBackend requires engine recreate" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections hides preferred backend recreate diagnostic when recreate is not required`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "GPU",
+                preferredBackendHookReached = true,
+                heldEngineCreatePath = "holder-created-engine-config",
+                preferredBackendRequiresEngineRecreate = false,
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertTrue(devSection.items.none { it.label == "PreferredBackend requires engine recreate" })
+        assertTrue(devSection.items.none { it.label == "PreferredBackend recreate reason" })
     }
 
 
