@@ -593,6 +593,11 @@ class InferenceStatsSheetContentTest {
         assertEquals("not-applied", devSection.items.first { it.label == "NPU apply status" }.value)
         assertEquals("current backend enum exposes DEFAULT / CPU / GPU only", devSection.items.first { it.label == "NPU note" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "NPU delegate candidates" }.value)
+        assertEquals("unknown", devSection.items.first { it.label == "Backend NPU probe hint" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "Backend NPU class candidates" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "Backend NPU method candidates" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "Backend NPU constructor signatures" }.value)
+        assertEquals("unknown", devSection.items.first { it.label == "Backend NPU nativeLibraryDir required" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "QNN candidates" }.value)
         assertEquals("not-detected", devSection.items.first { it.label == "QNN status" }.value)
         assertEquals("not-detected", devSection.items.first { it.label == "NNAPI delegate status" }.value)
@@ -630,6 +635,44 @@ class InferenceStatsSheetContentTest {
         assertEquals("LlmInferenceOptions.Builder.setQnnDelegate", devSection.items.first { it.label == "QNN candidates" }.value)
         assertEquals("candidate-detected", devSection.items.first { it.label == "QNN status" }.value)
         assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows backend npu constructor candidates without npu active`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                delegateProbeSource = "reflection-safe",
+                backendNpuClassCandidates = listOf("Backend.NPU"),
+                backendNpuMethodCandidates = listOf("NPU.nativeLibraryDir(String): NPU"),
+                backendNpuConstructorSignatures = listOf("NPU(String): Backend"),
+                backendNpuNativeLibraryDirRequired = "true",
+                backendNpuProbeHint = "npu-backend-native-library-dir-candidate",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("npu-backend-native-library-dir-candidate", devSection.items.first { it.label == "Backend NPU probe hint" }.value)
+        assertEquals("Backend.NPU", devSection.items.first { it.label == "Backend NPU class candidates" }.value)
+        assertEquals("NPU.nativeLibraryDir(String): NPU", devSection.items.first { it.label == "Backend NPU method candidates" }.value)
+        assertEquals("NPU(String): Backend", devSection.items.first { it.label == "Backend NPU constructor signatures" }.value)
+        assertEquals("true", devSection.items.first { it.label == "Backend NPU nativeLibraryDir required" }.value)
+        assertNotEquals("npu-active / high", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
     @Test

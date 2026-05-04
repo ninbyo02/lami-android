@@ -189,6 +189,11 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "NPU note", value = "current backend enum exposes DEFAULT / CPU / GPU only"))
             add(InferenceStatItemUi(label = "NPU delegate candidates", value = probe.npuDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "NPU backend candidates", value = probe.npuBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "Backend NPU probe hint", value = probe.backendNpuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "Backend NPU class candidates", value = probe.backendNpuClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "Backend NPU method candidates", value = probe.backendNpuMethodCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "Backend NPU constructor signatures", value = probe.backendNpuConstructorSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+            add(InferenceStatItemUi(label = "Backend NPU nativeLibraryDir required", value = probe.backendNpuNativeLibraryDirRequired?.ifBlank { "unknown" } ?: "unknown"))
             val qnnDetected = probe.qnnDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ")
             add(InferenceStatItemUi(label = "QNN candidates", value = qnnDetected ?: "none/unknown"))
             add(InferenceStatItemUi(label = "QNN status", value = if (qnnDetected == null) "not-detected" else "candidate-detected"))
@@ -244,6 +249,7 @@ internal fun buildInferenceDetailSections(
             probe.delegatePreferredBackendSignatureProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate preferredBackend signature error", value = it)) }
             probe.delegateProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Delegate Probe Error", value = it)) }
             probe.npuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "NPU probe error", value = it)) }
+            probe.backendNpuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Backend NPU probe error", value = it)) }
             add(InferenceStatItemUi(label = "実行経路推定", value = "${executionInference.target} / ${executionInference.confidence}"))
             val executionReason = preferredBackendRecreateRequired?.second?.let { recreateReason ->
                 "${executionInference.reason}; ${recreateReason}"

@@ -90,6 +90,12 @@ internal object AcceleratorProbe {
             delegateSwitchingSupportedHint = delegateApiProbeResult.switchingSupportedHint,
             npuDelegateCandidates = delegateApiProbeResult.npuDelegateCandidates,
             npuBackendCandidates = delegateApiProbeResult.npuBackendCandidates,
+            backendNpuClassCandidates = delegateApiProbeResult.backendNpuClassCandidates,
+            backendNpuMethodCandidates = delegateApiProbeResult.backendNpuMethodCandidates,
+            backendNpuConstructorSignatures = delegateApiProbeResult.backendNpuConstructorSignatures,
+            backendNpuNativeLibraryDirRequired = delegateApiProbeResult.backendNpuNativeLibraryDirRequired,
+            backendNpuProbeHint = delegateApiProbeResult.backendNpuProbeHint,
+            backendNpuProbeError = delegateApiProbeResult.backendNpuProbeError,
             qnnDelegateCandidates = delegateApiProbeResult.qnnDelegateCandidates,
             nnapiDelegateCandidates = delegateApiProbeResult.nnapiDelegateCandidates,
             npuProbeHint = delegateApiProbeResult.npuProbeHint,
@@ -224,6 +230,7 @@ internal object AcceleratorProbe {
             val npuCandidates = collectKeywordCandidates(optionList, backendList, classList, keywords = listOf("npu", "neural", "accelerator", "hardware", "qualcomm"))
             val qnnCandidates = collectKeywordCandidates(optionList, backendList, classList, keywords = listOf("qnn", "htp", "hexagon", "dsp", "qualcomm"))
             val nnapiCandidates = collectKeywordCandidates(optionList, backendList, classList, keywords = listOf("nnapi"))
+            val backendNpuProbeResult = probeBackendNpuCandidates(classList)
             val npuHint = inferNpuProbeHint(npuCandidates = npuCandidates, qnnCandidates = qnnCandidates, nnapiCandidates = nnapiCandidates)
             DelegateApiProbeResult(
                 optionCandidates = optionList,
@@ -236,6 +243,12 @@ internal object AcceleratorProbe {
                 switchingSupportedHint = inferDelegateHint(optionList, backendList, classList),
                 npuDelegateCandidates = npuCandidates,
                 npuBackendCandidates = collectKeywordCandidates(backendList, classList, keywords = listOf("npu", "neural", "accelerator", "hardware", "qualcomm")),
+                backendNpuClassCandidates = backendNpuProbeResult.classCandidates,
+                backendNpuMethodCandidates = backendNpuProbeResult.methodCandidates,
+                backendNpuConstructorSignatures = backendNpuProbeResult.constructorSignatures,
+                backendNpuNativeLibraryDirRequired = backendNpuProbeResult.nativeLibraryDirRequired,
+                backendNpuProbeHint = backendNpuProbeResult.hint,
+                backendNpuProbeError = backendNpuProbeResult.error,
                 qnnDelegateCandidates = qnnCandidates,
                 nnapiDelegateCandidates = nnapiCandidates,
                 npuProbeHint = npuHint,
@@ -245,6 +258,67 @@ internal object AcceleratorProbe {
                 error = it.javaClass.simpleName,
                 switchingSupportedHint = "unknown",
                 npuProbeError = it.javaClass.simpleName,
+                backendNpuProbeError = it.javaClass.simpleName,
+            )
+        }
+    }
+
+    private fun probeBackendNpuCandidates(classCandidates: List<String>): BackendNpuProbeResult {
+        return runCatching {
+            val backendClasses = classCandidates
+                .filter { it.contains("Backend", ignoreCase = true) }
+                .mapNotNull { candidate ->
+                    val simpleName = candidate.substringAfterLast('.')
+                    runCatching { Class.forName("com.google.ai.edge.litertlm.$simpleName") }.getOrNull()
+                }
+                .distinctBy { it.name }
+            val classCandidatesOut = linkedSetOf<String>()
+            val methodCandidatesOut = linkedSetOf<String>()
+            val constructorSignaturesOut = linkedSetOf<String>()
+            var nativeLibraryDirRequired = "unknown"
+            backendClasses.forEach { backendClass ->
+                (backendClass.classes.asList() + backendClass.declaredClasses.asList()).forEach { nestedClass ->
+                    if (!nestedClass.simpleName.contains("NPU", ignoreCase = true)) return@forEach
+                    classCandidatesOut += "${backendClass.simpleName}.${nestedClass.simpleName}"
+                    nestedClass.methods.forEach { method ->
+                        if (method.name.contains("NPU", ignoreCase = true) || method.name.contains("nativeLibraryDir", ignoreCase = true)) {
+                            methodCandidatesOut += formatMethodSignature(nestedClass, method)
+                        }
+                    }
+                    nestedClass.declaredMethods.forEach { method ->
+                        if (method.name.contains("NPU", ignoreCase = true) || method.name.contains("nativeLibraryDir", ignoreCase = true)) {
+                            methodCandidatesOut += formatMethodSignature(nestedClass, method)
+                        }
+                    }
+                    nestedClass.constructors.forEach { constructor ->
+                        val params = constructor.parameterTypes.joinToString(", ") { it.simpleName.ifBlank { "Unknown" } }
+                        val signature = "${nestedClass.simpleName}($params): ${backendClass.simpleName}"
+                        constructorSignaturesOut += signature
+                        if (constructor.parameterTypes.any { it.name == "java.lang.String" }) {
+                            nativeLibraryDirRequired = "true"
+                        }
+                    }
+                }
+            }
+            if (nativeLibraryDirRequired != "true" && constructorSignaturesOut.isNotEmpty()) {
+                nativeLibraryDirRequired = "false"
+            }
+            val hint = when {
+                constructorSignaturesOut.isNotEmpty() && nativeLibraryDirRequired == "true" -> "npu-backend-native-library-dir-candidate"
+                constructorSignaturesOut.isNotEmpty() -> "npu-backend-constructor-detected"
+                classCandidatesOut.isNotEmpty() -> "npu-backend-class-detected"
+                else -> "not-detected"
+            }
+            BackendNpuProbeResult(
+                classCandidates = classCandidatesOut.take(MAX_DELEGATE_CANDIDATE_COUNT),
+                methodCandidates = methodCandidatesOut.take(MAX_DELEGATE_CANDIDATE_COUNT),
+                constructorSignatures = constructorSignaturesOut.take(MAX_DELEGATE_CANDIDATE_COUNT),
+                nativeLibraryDirRequired = nativeLibraryDirRequired,
+                hint = hint,
+            )
+        }.getOrElse {
+            BackendNpuProbeResult(
+                error = it.javaClass.simpleName,
             )
         }
     }
@@ -443,6 +517,12 @@ internal object AcceleratorProbe {
         val switchingSupportedHint: String = "unknown",
         val npuDelegateCandidates: List<String> = emptyList(),
         val npuBackendCandidates: List<String> = emptyList(),
+        val backendNpuClassCandidates: List<String> = emptyList(),
+        val backendNpuMethodCandidates: List<String> = emptyList(),
+        val backendNpuConstructorSignatures: List<String> = emptyList(),
+        val backendNpuNativeLibraryDirRequired: String? = null,
+        val backendNpuProbeHint: String? = null,
+        val backendNpuProbeError: String? = null,
         val qnnDelegateCandidates: List<String> = emptyList(),
         val nnapiDelegateCandidates: List<String> = emptyList(),
         val npuProbeHint: String = "unknown",
@@ -456,6 +536,15 @@ internal object AcceleratorProbe {
 
     private data class PreferredBackendSignatureProbeResult(
         val signatures: List<String> = emptyList(),
+        val error: String? = null,
+    )
+
+    private data class BackendNpuProbeResult(
+        val classCandidates: List<String> = emptyList(),
+        val methodCandidates: List<String> = emptyList(),
+        val constructorSignatures: List<String> = emptyList(),
+        val nativeLibraryDirRequired: String = "unknown",
+        val hint: String = "not-detected",
         val error: String? = null,
     )
 }
