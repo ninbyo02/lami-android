@@ -596,7 +596,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "DEBUGビルド限定の実験機能です。LiteRT-LM EngineConfig に DEFAULT / CPU / GPU を指定します。実際のdelegate使用確定ではありません。変更後はローカルエンジン再作成が必要です。NPU/QNNは候補検出のみで、現時点では適用しません。",
+                                text = "DEBUGビルド限定の実験機能です。LiteRT-LM EngineConfig に DEFAULT / CPU / GPU / NPU を指定します。実際のdelegate使用確定ではありません。変更後はローカルエンジン再作成が必要です。NPUは実験中で、初期化に失敗した場合はGPUへフォールバックします。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -622,10 +622,12 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         },
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = setting.name,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
+                                    val settingLabel = if (setting == PreferredBackendDryRunSetting.NPU) {
+                                        "NPU（実験・失敗時GPU fallback）"
+                                    } else {
+                                        setting.name
+                                    }
+                                    Text(text = settingLabel, style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
                         }

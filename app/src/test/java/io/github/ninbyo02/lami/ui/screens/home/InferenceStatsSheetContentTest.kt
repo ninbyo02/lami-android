@@ -591,7 +591,7 @@ class InferenceStatsSheetContentTest {
         assertEquals("not-detected", devSection.items.first { it.label == "NPU probe hint" }.value)
         assertEquals("not available from current public API", devSection.items.first { it.label == "NPU status" }.value)
         assertEquals("not-applied", devSection.items.first { it.label == "NPU apply status" }.value)
-        assertEquals("current backend enum exposes DEFAULT / CPU / GPU only", devSection.items.first { it.label == "NPU note" }.value)
+        assertEquals("NPU is experimental. Backend.NPU requested via EngineConfig, actual delegate not confirmed", devSection.items.first { it.label == "NPU note" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "NPU delegate candidates" }.value)
         assertEquals("unknown", devSection.items.first { it.label == "Backend NPU probe hint" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "Backend NPU class candidates" }.value)
@@ -841,6 +841,45 @@ class InferenceStatsSheetContentTest {
         assertEquals("DEFAULT, CPU, GPU", devSection.items.first { it.label == "PreferredBackend backend enum candidates" }.value)
         assertEquals("no-setPreferredBackend-method", devSection.items.first { it.label == "PreferredBackend not-supported reason" }.value)
         assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows preferred backend rows for NPU applied and keeps conservative execution`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "NPU",
+                appliedPreferredBackend = "NPU",
+                preferredBackendApplyResult = "applied-engine-config-npu",
+                preferredBackendHookReached = true,
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
+        )
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("NPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertEquals("NPU", devSection.items.first { it.label == "Applied preferredBackend" }.value)
+        assertEquals("applied-engine-config-npu", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertNotEquals("npu-active / high", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows preferred backend rows for NPU fallback to GPU`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "NPU",
+                appliedPreferredBackend = "GPU",
+                preferredBackendApplyResult = "fallback-gpu-after-npu-failed",
+                preferredBackendApplyError = "IllegalStateException",
+                preferredBackendHookReached = true,
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
+        )
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("fallback-gpu-after-npu-failed", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("IllegalStateException", devSection.items.first { it.label == "PreferredBackend apply error" }.value)
     }
 
     @Test
