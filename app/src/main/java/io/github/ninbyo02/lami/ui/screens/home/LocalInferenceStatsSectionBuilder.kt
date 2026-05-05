@@ -184,9 +184,9 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Delegate backend enum values", value = probe.delegateBackendEnumValues.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Delegate preferredBackend signatures", value = probe.delegatePreferredBackendSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "NPU probe hint", value = probe.npuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "NPU status", value = "not available from current public API"))
-            add(InferenceStatItemUi(label = "NPU apply status", value = "not-applied"))
-            add(InferenceStatItemUi(label = "NPU note", value = "NPU is experimental. Backend.NPU requested via EngineConfig, actual delegate not confirmed"))
+            add(InferenceStatItemUi(label = "NPU status", value = "probe-only (not applied)"))
+            add(InferenceStatItemUi(label = "NPU apply status", value = "disabled (forced GPU fallback)"))
+            add(InferenceStatItemUi(label = "NPU note", value = "NPU backend candidate detected via reflection. Currently disabled for safety; GPU fallback is used for actual inference."))
             add(InferenceStatItemUi(label = "NPU delegate candidates", value = probe.npuDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "NPU backend candidates", value = probe.npuBackendCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Backend NPU probe hint", value = probe.backendNpuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
@@ -204,6 +204,9 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Requested preferredBackend", value = resolvedRequestedPreferredBackend))
             add(InferenceStatItemUi(label = "Applied preferredBackend", value = localTraceForDev?.appliedPreferredBackend ?: "not-applied"))
             add(InferenceStatItemUi(label = "PreferredBackend apply result", value = localTraceForDev?.preferredBackendApplyResult ?: if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT) "skipped-default" else "not-supported"))
+            if (resolvedRequestedPreferredBackend == PreferredBackendDryRunSetting.NPU.name && (localTraceForDev?.appliedPreferredBackend ?: "not-applied") == "GPU") {
+                add(InferenceStatItemUi(label = "Effective backend note", value = "NPU requested but GPU used for stability"))
+            }
             add(InferenceStatItemUi(label = "PreferredBackend EngineConfig applied", value = localTraceForDev?.preferredBackendHookReached?.toString() ?: "false"))
             add(InferenceStatItemUi(label = "PreferredBackend hook source", value = localTraceForDev?.preferredBackendHookSource?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "PreferredBackend apply error", value = localTraceForDev?.preferredBackendApplyError ?: "—"))
