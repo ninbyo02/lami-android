@@ -4062,50 +4062,11 @@ private fun buildLiteRtEngineConfig(
         PreferredBackendDryRunSetting.CPU -> Triple(Backend.CPU(), "CPU", "applied-engine-config")
         PreferredBackendDryRunSetting.GPU -> Triple(Backend.GPU(), "GPU", "applied-engine-config")
         PreferredBackendDryRunSetting.DEFAULT -> Triple(Backend.GPU(), "DEFAULT", "skipped-default-engine-config")
-        PreferredBackendDryRunSetting.NPU -> {
-            val npuBackend = runCatching {
-                val constructor = Backend::class.java.declaredClasses
-                    .firstOrNull { it.simpleName == "NPU" }
-                    ?.constructors
-                    ?.firstOrNull { ctor ->
-                        ctor.parameterTypes.size == 1 && ctor.parameterTypes[0] == String::class.java
-                    } ?: throw IllegalStateException("npu-constructor-string-missing")
-                val nativeDir = nativeLibraryDir?.takeIf { it.isNotBlank() }
-                    ?: throw IllegalStateException("native-library-dir-missing")
-                constructor.newInstance(nativeDir) as Backend
-            }
-            npuBackend.fold(
-                onSuccess = {
-                    Triple(it, "NPU", "applied-engine-config-npu")
-                },
-                onFailure = { error ->
-                    val errorName = error.javaClass.simpleName.ifBlank { "NpuApplyError" }
-                    onPreferredBackendApplied(
-                        PreferredBackendApplyResult(
-                            requestedPreferredBackend = PreferredBackendDryRunSetting.NPU.name,
-                            appliedPreferredBackend = "GPU",
-                            preferredBackendApplyResult = "fallback-gpu-after-npu-failed",
-                            preferredBackendHookReached = true,
-                            preferredBackendHookSource = "holder-acquire-engine-config",
-                            preferredBackendApplyError = errorName,
-                            preferredBackendApplyBuilderClass = "EngineConfig",
-                            preferredBackendApplyMethodCandidates = emptyList(),
-                            preferredBackendApplyBackendEnumCandidates = backendEnumCandidates,
-                            preferredBackendApplyNotSupportedReason = null,
-                        ),
-                    )
-                    safeAppendTrace(appendTrace, "UPSTREAM preferred-backend npu-fallback-to-gpu error=$errorName")
-                    return EngineConfig(
-                        modelPath = modelPath,
-                        backend = Backend.GPU(),
-                        visionBackend = Backend.GPU(),
-                        audioBackend = Backend.CPU(),
-                        maxNumTokens = null,
-                        cacheDir = cacheDirPath,
-                    )
-                },
-            )
-        }
+        PreferredBackendDryRunSetting.NPU -> Triple(
+            Backend.GPU(),
+            "GPU",
+            "fallback-gpu-before-npu-disabled",
+        )
     }
     onPreferredBackendApplied(
         PreferredBackendApplyResult(
@@ -4124,6 +4085,12 @@ private fun buildLiteRtEngineConfig(
         appendTrace,
         "UPSTREAM preferred-backend hook-reached=true source=holder-acquire-engine-config requested=${preferredBackendDryRunSetting.name} applied=${backendApply.second} result=${backendApply.third} builderClass=EngineConfig",
     )
+    if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU) {
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM preferred-backend npu-disabled-fallback-to-gpu reason=native-crash-risk",
+        )
+    }
     return EngineConfig(
         modelPath = modelPath,
         backend = backendApply.first,

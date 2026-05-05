@@ -844,22 +844,26 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
-    fun `buildInferenceDetailSections shows preferred backend rows for NPU applied and keeps conservative execution`() {
+    fun `buildInferenceDetailSections shows preferred backend rows for NPU disabled fallback to GPU`() {
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(),
             displayMode = InferenceStatsDisplayMode.DEVELOPER,
             localTraceForDev = LocalInferenceTrace(
                 requestedPreferredBackend = "NPU",
-                appliedPreferredBackend = "NPU",
-                preferredBackendApplyResult = "applied-engine-config-npu",
+                appliedPreferredBackend = "GPU",
+                preferredBackendApplyResult = "fallback-gpu-before-npu-disabled",
                 preferredBackendHookReached = true,
+                preferredBackendHookSource = "holder-acquire-engine-config",
+                preferredBackendApplyBackendEnumCandidates = listOf("DEFAULT", "CPU", "GPU", "NPU"),
             ),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
         )
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("NPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
-        assertEquals("NPU", devSection.items.first { it.label == "Applied preferredBackend" }.value)
-        assertEquals("applied-engine-config-npu", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("GPU", devSection.items.first { it.label == "Applied preferredBackend" }.value)
+        assertEquals("fallback-gpu-before-npu-disabled", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("holder-acquire-engine-config", devSection.items.first { it.label == "PreferredBackend hook source" }.value)
+        assertEquals("DEFAULT, CPU, GPU, NPU", devSection.items.first { it.label == "PreferredBackend backend enum candidates" }.value)
         assertNotEquals("npu-active / high", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
