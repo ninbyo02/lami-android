@@ -589,9 +589,9 @@ class InferenceStatsSheetContentTest {
 
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("not-detected", devSection.items.first { it.label == "NPU probe hint" }.value)
-        assertEquals("not available from current public API", devSection.items.first { it.label == "NPU status" }.value)
-        assertEquals("not-applied", devSection.items.first { it.label == "NPU apply status" }.value)
-        assertEquals("NPU is experimental. Backend.NPU requested via EngineConfig, actual delegate not confirmed", devSection.items.first { it.label == "NPU note" }.value)
+        assertEquals("probe-only (not applied)", devSection.items.first { it.label == "NPU status" }.value)
+        assertEquals("disabled (forced GPU fallback)", devSection.items.first { it.label == "NPU apply status" }.value)
+        assertEquals("NPU backend candidate detected via reflection. Currently disabled for safety; GPU fallback is used for actual inference.", devSection.items.first { it.label == "NPU note" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "NPU delegate candidates" }.value)
         assertEquals("unknown", devSection.items.first { it.label == "Backend NPU probe hint" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "Backend NPU class candidates" }.value)
@@ -862,6 +862,7 @@ class InferenceStatsSheetContentTest {
         assertEquals("NPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
         assertEquals("GPU", devSection.items.first { it.label == "Applied preferredBackend" }.value)
         assertEquals("fallback-gpu-before-npu-disabled", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("NPU requested but GPU used for stability", devSection.items.first { it.label == "Effective backend note" }.value)
         assertEquals("holder-acquire-engine-config", devSection.items.first { it.label == "PreferredBackend hook source" }.value)
         assertEquals("DEFAULT, CPU, GPU, NPU", devSection.items.first { it.label == "PreferredBackend backend enum candidates" }.value)
         assertNotEquals("npu-active / high", devSection.items.first { it.label == "実行経路推定" }.value)
