@@ -6,6 +6,13 @@ import org.junit.Test
 
 class MarkdownCodeRepairTest {
 
+    private fun assertContains(actual: String, expected: String) {
+        org.junit.Assert.assertTrue(
+            "Expected repaired markdown to contain:\n$expected\n\nActual:\n$actual",
+            actual.contains(expected),
+        )
+    }
+
     @Test
     fun hashCommentFragments_areMergedIntoOneLine() {
         val input = """

@@ -2932,6 +2932,22 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             safeAppendTrace(safeTrace, "UPSTREAM held-create engine-initialize-success")
         } else {
             safeAppendTrace(safeTrace, "UPSTREAM held-create engine-initialize-fail class=InitializeUnavailable message=initialize method missing or failed")
+            if (preferredBackendApplyResult?.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name) {
+                closeQuietly(officialEngine, safeTrace)
+                val fallbackResult = preferredBackendApplyResult?.copy(
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "fallback-gpu-after-npu-initialize-failed",
+                    preferredBackendApplyError = "InitializeUnavailable",
+                )
+                preferredBackendApplyResult = fallbackResult
+                safeAppendTrace(safeTrace, "UPSTREAM preferred-backend npu-initialize-fallback-to-gpu error=InitializeUnavailable")
+                return createReusableLocalInferenceEngineWithDiagnostic(
+                    context = context,
+                    engineKey = engineKey,
+                    appendTrace = appendTrace,
+                    preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+                ).copy(preferredBackendApplyResult = fallbackResult)
+            }
         }
         val held = HeldLocalEngine(
             engineKey = engineKey,
@@ -3164,6 +3180,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         createOfficialLiteRtLmEngineInstance(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
             appendTrace = appendTrace,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             onPreferredBackendApplied = onPreferredBackendApplied,
@@ -3419,6 +3436,7 @@ private fun runOfficialBlockingConversationSingleNamespace(
         createOfficialLiteRtLmEngineInstance(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
             appendTrace = appendTrace,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             onPreferredBackendApplied = onPreferredBackendApplied,
@@ -3565,13 +3583,18 @@ private suspend fun runOfficialLiteRtLmDirect(
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
+    var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     return runCatching {
         val engineConfig = buildLiteRtEngineConfig(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             appendTrace = appendTrace,
-            onPreferredBackendApplied = onPreferredBackendApplied,
+            onPreferredBackendApplied = { result ->
+                preferredBackendApplyResult = result
+                onPreferredBackendApplied(result)
+            },
         )
         safeAppendTrace(appendTrace, "UPSTREAM official-direct engineConfig-created")
         var engine: Engine? = null
@@ -3730,6 +3753,29 @@ private suspend fun runOfficialLiteRtLmDirect(
         }
         result
     }.getOrElse { throwable ->
+        if (preferredBackendApplyResult?.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name) {
+            val errorName = throwable.javaClass.simpleName.ifBlank { "NpuRuntimeError" }
+            val errorMessage = throwable.message?.takeIf { it.isNotBlank() }?.let { ":$it" } ?: ""
+            safeAppendTrace(appendTrace, "UPSTREAM preferred-backend npu-runtime-fallback-to-gpu stage=sendMessageAsync error=$errorName$errorMessage")
+            onPreferredBackendApplied(
+                preferredBackendApplyResult!!.copy(
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "fallback-gpu-after-npu-runtime-failed",
+                    preferredBackendApplyError = "$errorName$errorMessage",
+                ),
+            )
+            return runOfficialLiteRtLmDirect(
+                prompt = prompt,
+                modelPath = modelPath,
+                cacheDirPath = cacheDirPath,
+                mediaPipeProbeContext = mediaPipeProbeContext,
+                preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+                onPreferredBackendApplied = {},
+                startElapsedMs = startElapsedMs,
+                onPartial = onPartial,
+                appendTrace = appendTrace,
+            )
+        }
         safeAppendTrace(
             appendTrace,
             "UPSTREAM official-direct failed ${throwable.javaClass.simpleName}:${throwable.message}",
@@ -3751,13 +3797,18 @@ private fun runOfficialLiteRtLmBlocking(
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
+    var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     return runCatching {
         val engineConfig = buildLiteRtEngineConfig(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             appendTrace = appendTrace,
-            onPreferredBackendApplied = onPreferredBackendApplied,
+            onPreferredBackendApplied = { result ->
+                preferredBackendApplyResult = result
+                onPreferredBackendApplied(result)
+            },
         )
         safeAppendTrace(appendTrace, "UPSTREAM official-direct engineConfig-created")
         var engine: Engine? = null
@@ -3884,6 +3935,27 @@ private fun runOfficialLiteRtLmBlocking(
             closeLifecycleSummary = closeSummary,
         )
     }.getOrElse { throwable ->
+        if (preferredBackendApplyResult?.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name) {
+            val errorName = throwable.javaClass.simpleName.ifBlank { "NpuRuntimeError" }
+            val errorMessage = throwable.message?.takeIf { it.isNotBlank() }?.let { ":$it" } ?: ""
+            safeAppendTrace(appendTrace, "UPSTREAM preferred-backend npu-runtime-fallback-to-gpu stage=sendMessage error=$errorName$errorMessage")
+            onPreferredBackendApplied(
+                preferredBackendApplyResult!!.copy(
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "fallback-gpu-after-npu-runtime-failed",
+                    preferredBackendApplyError = "$errorName$errorMessage",
+                ),
+            )
+            return runOfficialLiteRtLmBlocking(
+                prompt = prompt,
+                modelPath = modelPath,
+                cacheDirPath = cacheDirPath,
+                mediaPipeProbeContext = mediaPipeProbeContext,
+                preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+                onPreferredBackendApplied = {},
+                appendTrace = appendTrace,
+            )
+        }
         safeAppendTrace(appendTrace, "UPSTREAM official-direct failed ${throwable.javaClass.simpleName}:${throwable.message}")
         LocalOfficialDirectBlockingResult(response = null)
     }
@@ -3922,6 +3994,7 @@ private fun createOfficialLiteRtLmEngineInstance(
     safeAppendTrace(appendTrace, "UPSTREAM official-helper start helper=createOfficialLiteRtLmEngineInstance")
     safeAppendTrace(appendTrace, "UPSTREAM official-helper backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-helper cacheDirPresent=${!cacheDirPath.isNullOrBlank()}")
+    var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     return runCatching {
         val engineConfig = buildLiteRtEngineConfig(
             modelPath = modelPath,
@@ -3929,13 +4002,36 @@ private fun createOfficialLiteRtLmEngineInstance(
             nativeLibraryDir = nativeLibraryDir,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             appendTrace = appendTrace,
-            onPreferredBackendApplied = onPreferredBackendApplied,
+            onPreferredBackendApplied = { result ->
+                preferredBackendApplyResult = result
+                onPreferredBackendApplied(result)
+            },
         )
         safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-config-created non-null")
         Engine(engineConfig).also {
             safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-new-instance-result non-null")
         }
     }.getOrElse { throwable ->
+        if (preferredBackendApplyResult?.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name) {
+            val errorName = throwable.javaClass.simpleName.ifBlank { "NpuEngineCreateError" }
+            val errorMessage = throwable.message?.takeIf { it.isNotBlank() }?.let { ":$it" } ?: ""
+            safeAppendTrace(appendTrace, "UPSTREAM preferred-backend npu-engine-create-fallback-to-gpu error=$errorName$errorMessage")
+            onPreferredBackendApplied(
+                preferredBackendApplyResult!!.copy(
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "fallback-gpu-after-npu-engine-create-failed",
+                    preferredBackendApplyError = "$errorName$errorMessage",
+                ),
+            )
+            return createOfficialLiteRtLmEngineInstance(
+                modelPath = modelPath,
+                cacheDirPath = cacheDirPath,
+                nativeLibraryDir = nativeLibraryDir,
+                appendTrace = appendTrace,
+                preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+                onPreferredBackendApplied = {},
+            )
+        }
         safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-create fail class=${throwable.javaClass.simpleName} message=${throwable.message}")
         safeAppendTrace(appendTrace, "UPSTREAM official-engine create failed ${throwable.javaClass.simpleName}:${throwable.message}")
         null
@@ -3952,46 +4048,90 @@ private fun buildLiteRtEngineConfig(
 ): EngineConfig {
     val backendEnumCandidates = listOf("DEFAULT", "CPU", "GPU", "NPU")
     val backendApply = when (preferredBackendDryRunSetting) {
-        PreferredBackendDryRunSetting.CPU -> Triple(Backend.CPU(), "CPU", "applied-engine-config")
-        PreferredBackendDryRunSetting.GPU -> Triple(Backend.GPU(), "GPU", "applied-engine-config")
-        PreferredBackendDryRunSetting.DEFAULT -> Triple(Backend.GPU(), "DEFAULT", "skipped-default-engine-config")
-        PreferredBackendDryRunSetting.NPU -> Triple(
-            Backend.GPU(),
-            "GPU",
-            "fallback-gpu-before-npu-disabled",
-        )
+        PreferredBackendDryRunSetting.CPU -> LiteRtBackendApply(Backend.CPU(), "CPU", "applied-engine-config")
+        PreferredBackendDryRunSetting.GPU -> LiteRtBackendApply(Backend.GPU(), "GPU", "applied-engine-config")
+        PreferredBackendDryRunSetting.DEFAULT -> LiteRtBackendApply(Backend.GPU(), "DEFAULT", "skipped-default-engine-config")
+        PreferredBackendDryRunSetting.NPU -> createNpuBackendReflectively(nativeLibraryDir)
     }
     onPreferredBackendApplied(
         PreferredBackendApplyResult(
             requestedPreferredBackend = preferredBackendDryRunSetting.name,
-            appliedPreferredBackend = backendApply.second,
-            preferredBackendApplyResult = backendApply.third,
+            appliedPreferredBackend = backendApply.appliedPreferredBackend,
+            preferredBackendApplyResult = backendApply.preferredBackendApplyResult,
             preferredBackendHookReached = true,
             preferredBackendHookSource = "holder-acquire-engine-config",
+            preferredBackendApplyError = backendApply.error,
             preferredBackendApplyBuilderClass = "EngineConfig",
             preferredBackendApplyMethodCandidates = emptyList(),
             preferredBackendApplyBackendEnumCandidates = backendEnumCandidates,
-            preferredBackendApplyNotSupportedReason = null,
+            preferredBackendApplyNotSupportedReason = backendApply.notSupportedReason,
         ),
     )
     safeAppendTrace(
         appendTrace,
-        "UPSTREAM preferred-backend hook-reached=true source=holder-acquire-engine-config requested=${preferredBackendDryRunSetting.name} applied=${backendApply.second} result=${backendApply.third} builderClass=EngineConfig",
+        "UPSTREAM preferred-backend hook-reached=true source=holder-acquire-engine-config requested=${preferredBackendDryRunSetting.name} applied=${backendApply.appliedPreferredBackend} result=${backendApply.preferredBackendApplyResult} builderClass=EngineConfig",
     )
     if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU) {
         safeAppendTrace(
             appendTrace,
-            "UPSTREAM preferred-backend npu-disabled-fallback-to-gpu reason=native-crash-risk",
+            "UPSTREAM preferred-backend npu-request result=${backendApply.preferredBackendApplyResult} applied=${backendApply.appliedPreferredBackend}",
         )
     }
     return EngineConfig(
         modelPath = modelPath,
-        backend = backendApply.first,
+        backend = backendApply.backend,
         visionBackend = Backend.GPU(),
         audioBackend = Backend.CPU(),
         maxNumTokens = null,
         cacheDir = cacheDirPath,
     )
+}
+
+private data class LiteRtBackendApply(
+    val backend: Backend,
+    val appliedPreferredBackend: String,
+    val preferredBackendApplyResult: String,
+    val error: String? = null,
+    val notSupportedReason: String? = null,
+)
+
+private fun createNpuBackendReflectively(nativeLibraryDir: String?): LiteRtBackendApply {
+    return runCatching {
+        val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
+        val npuClass = (backendClass.classes.asList() + backendClass.declaredClasses.asList())
+            .firstOrNull { it.simpleName == "NPU" }
+            ?: throw ClassNotFoundException("Backend.NPU")
+        val constructors = npuClass.declaredConstructors.asList() + npuClass.constructors.asList()
+        val stringConstructor = constructors.firstOrNull { constructor ->
+            constructor.parameterTypes.size == 1 && constructor.parameterTypes.first() == String::class.java
+        }
+        val noArgConstructor = constructors.firstOrNull { it.parameterTypes.isEmpty() }
+        val npuBackend = when {
+            stringConstructor != null && !nativeLibraryDir.isNullOrBlank() -> {
+                stringConstructor.isAccessible = true
+                stringConstructor.newInstance(nativeLibraryDir)
+            }
+            noArgConstructor != null -> {
+                noArgConstructor.isAccessible = true
+                noArgConstructor.newInstance()
+            }
+            stringConstructor != null -> throw IllegalStateException("Backend.NPU requires nativeLibraryDir")
+            else -> throw NoSuchMethodException("Backend.NPU constructor")
+        }
+        LiteRtBackendApply(
+            backend = npuBackend as Backend,
+            appliedPreferredBackend = "NPU",
+            preferredBackendApplyResult = "applied-engine-config",
+        )
+    }.getOrElse { throwable ->
+        LiteRtBackendApply(
+            backend = Backend.GPU(),
+            appliedPreferredBackend = "GPU",
+            preferredBackendApplyResult = "fallback-gpu-before-npu-unavailable",
+            error = throwable.javaClass.simpleName,
+            notSupportedReason = "npu-backend-constructor-unavailable",
+        )
+    }
 }
 
 private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
@@ -4093,11 +4233,7 @@ private fun applyPreferredBackendIfRequested(
             preferredBackendApplyNotSupportedReason = "backend-enum-values-empty",
         )
     }
-    val requestedBackendName = if (requested == PreferredBackendDryRunSetting.NPU) {
-        PreferredBackendDryRunSetting.GPU.name
-    } else {
-        requested.name
-    }
+    val requestedBackendName = requested.name
     val enumValue = enumType.enumConstants?.firstOrNull { (it as? Enum<*>)?.name == requestedBackendName }
         ?: return common.copy(
             preferredBackendApplyBackendEnumCandidates = enumCandidates,
@@ -4108,11 +4244,7 @@ private fun applyPreferredBackendIfRequested(
         method.invoke(optionsBuilder, enumValue)
         common.copy(
             appliedPreferredBackend = requestedBackendName,
-            preferredBackendApplyResult = if (requested == PreferredBackendDryRunSetting.NPU) {
-                "fallback-gpu-before-npu-disabled"
-            } else {
-                "applied"
-            },
+            preferredBackendApplyResult = "applied",
             preferredBackendApplyBackendEnumCandidates = enumCandidates,
             preferredBackendApplyNotSupportedReason = null,
         )

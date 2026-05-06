@@ -47,8 +47,8 @@ internal object AcceleratorProbe {
     }
 
     private fun captureSnapshotUncached(): AcceleratorProbeSnapshot {
-        // NPU/QNN/NNAPI は現時点では候補検出のみを行い、実適用は公式API/Delegateの確認後に扱う。
-        // DEFAULT/CPU/GPU の EngineConfig 指定フローとは分離して診断情報のみ提供する。
+        // NPU/QNN/NNAPI はここでは安全な候補検出のみを行う。実適用は LocalStreamingRunner 側で行う。
+        // この probe は EngineConfig/Engine を生成せず、診断情報のみ提供する。
         var probeError: String? = null
         val nnapiDevices = runCatching {
             fetchNnapiDeviceNamesSafely()

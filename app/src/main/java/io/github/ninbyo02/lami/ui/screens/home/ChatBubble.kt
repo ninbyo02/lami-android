@@ -1093,6 +1093,11 @@ internal fun shouldShowCodeGeneratingState(
     isSegmentClosed: Boolean,
 ): Boolean = isStreaming && !isSegmentClosed
 
+internal fun shouldUsePlainTextForStreamingCodeFence(
+    message: String,
+    isStreaming: Boolean,
+): Boolean = isStreaming && message.contains("```")
+
 internal fun shouldEnableAssistantTextSelection(
     message: String,
     isStreaming: Boolean,

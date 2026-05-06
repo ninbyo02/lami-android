@@ -207,22 +207,10 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "NNAPI delegate candidates", value = nnapiDelegateDetected ?: "none/unknown"))
             add(InferenceStatItemUi(label = "NNAPI delegate status", value = if (nnapiDelegateDetected == null) "not-detected" else "candidate-detected"))
             val resolvedRequestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
-            val resolvedAppliedPreferredBackend = localTraceForDev?.appliedPreferredBackend ?: if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU) {
-                "GPU"
-            } else {
-                "not-applied"
-            }
-            val resolvedPreferredBackendApplyResult = if (
-                resolvedRequestedPreferredBackend == PreferredBackendDryRunSetting.NPU.name &&
-                resolvedAppliedPreferredBackend == "GPU"
-            ) {
-                "fallback-gpu-before-npu-disabled"
-            } else {
-                localTraceForDev?.preferredBackendApplyResult ?: when (preferredBackendDryRunSetting) {
-                    PreferredBackendDryRunSetting.DEFAULT -> "skipped-default"
-                    PreferredBackendDryRunSetting.NPU -> "fallback-gpu-before-npu-disabled"
-                    else -> "not-supported"
-                }
+            val resolvedAppliedPreferredBackend = localTraceForDev?.appliedPreferredBackend ?: "not-applied"
+            val resolvedPreferredBackendApplyResult = localTraceForDev?.preferredBackendApplyResult ?: when (preferredBackendDryRunSetting) {
+                PreferredBackendDryRunSetting.DEFAULT -> "skipped-default"
+                else -> "not-supported"
             }
             add(InferenceStatItemUi(label = "Requested preferredBackend", value = resolvedRequestedPreferredBackend))
             add(InferenceStatItemUi(label = "Applied preferredBackend", value = resolvedAppliedPreferredBackend))
