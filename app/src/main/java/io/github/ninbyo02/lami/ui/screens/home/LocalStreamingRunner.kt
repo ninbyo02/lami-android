@@ -4096,42 +4096,32 @@ private data class LiteRtBackendApply(
 )
 
 private fun createNpuBackendReflectively(nativeLibraryDir: String?): LiteRtBackendApply {
-    return runCatching {
+    val probeResult = runCatching {
         val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
         val npuClass = (backendClass.classes.asList() + backendClass.declaredClasses.asList())
             .firstOrNull { it.simpleName == "NPU" }
             ?: throw ClassNotFoundException("Backend.NPU")
         val constructors = npuClass.declaredConstructors.asList() + npuClass.constructors.asList()
-        val stringConstructor = constructors.firstOrNull { constructor ->
+        val hasStringConstructor = constructors.any { constructor ->
             constructor.parameterTypes.size == 1 && constructor.parameterTypes.first() == String::class.java
         }
-        val noArgConstructor = constructors.firstOrNull { it.parameterTypes.isEmpty() }
-        val npuBackend = when {
-            stringConstructor != null && !nativeLibraryDir.isNullOrBlank() -> {
-                stringConstructor.isAccessible = true
-                stringConstructor.newInstance(nativeLibraryDir)
-            }
-            noArgConstructor != null -> {
-                noArgConstructor.isAccessible = true
-                noArgConstructor.newInstance()
-            }
-            stringConstructor != null -> throw IllegalStateException("Backend.NPU requires nativeLibraryDir")
-            else -> throw NoSuchMethodException("Backend.NPU constructor")
+        val hasNoArgConstructor = constructors.any { it.parameterTypes.isEmpty() }
+        when {
+            hasStringConstructor && !nativeLibraryDir.isNullOrBlank() -> "npu-string-constructor-visible"
+            hasNoArgConstructor -> "npu-noarg-constructor-visible"
+            hasStringConstructor -> "npu-string-constructor-visible-native-dir-missing"
+            else -> "npu-constructor-missing"
         }
-        LiteRtBackendApply(
-            backend = npuBackend as Backend,
-            appliedPreferredBackend = "NPU",
-            preferredBackendApplyResult = "applied-engine-config",
-        )
     }.getOrElse { throwable ->
-        LiteRtBackendApply(
-            backend = Backend.GPU(),
-            appliedPreferredBackend = "GPU",
-            preferredBackendApplyResult = "fallback-gpu-before-npu-unavailable",
-            error = throwable.javaClass.simpleName,
-            notSupportedReason = "npu-backend-constructor-unavailable",
-        )
+        throwable.javaClass.simpleName
     }
+    return LiteRtBackendApply(
+        backend = Backend.GPU(),
+        appliedPreferredBackend = "GPU",
+        preferredBackendApplyResult = "fallback-gpu-before-npu-disabled-native-crash-risk",
+        error = probeResult,
+        notSupportedReason = "npu-disabled-native-crash-risk",
+    )
 }
 
 private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
