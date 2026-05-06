@@ -194,6 +194,12 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Backend NPU method candidates", value = probe.backendNpuMethodCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Backend NPU constructor signatures", value = probe.backendNpuConstructorSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Backend NPU nativeLibraryDir required", value = probe.backendNpuNativeLibraryDirRequired?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "NPU stage probe", value = "probe-only"))
+            add(InferenceStatItemUi(label = "NPU constructor available", value = probe.npuConstructorAvailable.toString()))
+            add(InferenceStatItemUi(label = "NPU string constructor available", value = probe.npuStringConstructorAvailable.toString()))
+            add(InferenceStatItemUi(label = "NPU nativeLibraryDir candidate", value = probe.npuNativeLibraryDirCandidate?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "NPU stage probe result", value = probe.npuStageProbeResult?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "NPU stage probe error", value = probe.npuStageProbeError?.takeIf { it.isNotBlank() } ?: "—"))
             val qnnDetected = probe.qnnDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ")
             add(InferenceStatItemUi(label = "QNN candidates", value = qnnDetected ?: "none/unknown"))
             add(InferenceStatItemUi(label = "QNN status", value = if (qnnDetected == null) "not-detected" else "candidate-detected"))
@@ -201,10 +207,27 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "NNAPI delegate candidates", value = nnapiDelegateDetected ?: "none/unknown"))
             add(InferenceStatItemUi(label = "NNAPI delegate status", value = if (nnapiDelegateDetected == null) "not-detected" else "candidate-detected"))
             val resolvedRequestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
+            val resolvedAppliedPreferredBackend = localTraceForDev?.appliedPreferredBackend ?: if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU) {
+                "GPU"
+            } else {
+                "not-applied"
+            }
+            val resolvedPreferredBackendApplyResult = if (
+                resolvedRequestedPreferredBackend == PreferredBackendDryRunSetting.NPU.name &&
+                resolvedAppliedPreferredBackend == "GPU"
+            ) {
+                "fallback-gpu-before-npu-disabled"
+            } else {
+                localTraceForDev?.preferredBackendApplyResult ?: when (preferredBackendDryRunSetting) {
+                    PreferredBackendDryRunSetting.DEFAULT -> "skipped-default"
+                    PreferredBackendDryRunSetting.NPU -> "fallback-gpu-before-npu-disabled"
+                    else -> "not-supported"
+                }
+            }
             add(InferenceStatItemUi(label = "Requested preferredBackend", value = resolvedRequestedPreferredBackend))
-            add(InferenceStatItemUi(label = "Applied preferredBackend", value = localTraceForDev?.appliedPreferredBackend ?: "not-applied"))
-            add(InferenceStatItemUi(label = "PreferredBackend apply result", value = localTraceForDev?.preferredBackendApplyResult ?: if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.DEFAULT) "skipped-default" else "not-supported"))
-            if (resolvedRequestedPreferredBackend == PreferredBackendDryRunSetting.NPU.name && (localTraceForDev?.appliedPreferredBackend ?: "not-applied") == "GPU") {
+            add(InferenceStatItemUi(label = "Applied preferredBackend", value = resolvedAppliedPreferredBackend))
+            add(InferenceStatItemUi(label = "PreferredBackend apply result", value = resolvedPreferredBackendApplyResult))
+            if (resolvedRequestedPreferredBackend == PreferredBackendDryRunSetting.NPU.name && resolvedAppliedPreferredBackend == "GPU") {
                 add(InferenceStatItemUi(label = "Effective backend note", value = "NPU requested but GPU used for stability"))
             }
             add(InferenceStatItemUi(label = "PreferredBackend EngineConfig applied", value = localTraceForDev?.preferredBackendHookReached?.toString() ?: "false"))

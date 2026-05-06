@@ -598,6 +598,12 @@ class InferenceStatsSheetContentTest {
         assertEquals("none/unknown", devSection.items.first { it.label == "Backend NPU method candidates" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "Backend NPU constructor signatures" }.value)
         assertEquals("unknown", devSection.items.first { it.label == "Backend NPU nativeLibraryDir required" }.value)
+        assertEquals("probe-only", devSection.items.first { it.label == "NPU stage probe" }.value)
+        assertEquals("false", devSection.items.first { it.label == "NPU constructor available" }.value)
+        assertEquals("false", devSection.items.first { it.label == "NPU string constructor available" }.value)
+        assertEquals("unknown", devSection.items.first { it.label == "NPU nativeLibraryDir candidate" }.value)
+        assertEquals("unknown", devSection.items.first { it.label == "NPU stage probe result" }.value)
+        assertEquals("—", devSection.items.first { it.label == "NPU stage probe error" }.value)
         assertEquals("none/unknown", devSection.items.first { it.label == "QNN candidates" }.value)
         assertEquals("not-detected", devSection.items.first { it.label == "QNN status" }.value)
         assertEquals("not-detected", devSection.items.first { it.label == "NNAPI delegate status" }.value)
@@ -663,6 +669,10 @@ class InferenceStatsSheetContentTest {
                 backendNpuConstructorSignatures = listOf("NPU(String): Backend"),
                 backendNpuNativeLibraryDirRequired = "true",
                 backendNpuProbeHint = "npu-backend-native-library-dir-candidate",
+                npuConstructorAvailable = true,
+                npuStringConstructorAvailable = true,
+                npuNativeLibraryDirCandidate = "unknown",
+                npuStageProbeResult = "safe",
             ),
         )
 
@@ -672,6 +682,11 @@ class InferenceStatsSheetContentTest {
         assertEquals("NPU.nativeLibraryDir(String): NPU", devSection.items.first { it.label == "Backend NPU method candidates" }.value)
         assertEquals("NPU(String): Backend", devSection.items.first { it.label == "Backend NPU constructor signatures" }.value)
         assertEquals("true", devSection.items.first { it.label == "Backend NPU nativeLibraryDir required" }.value)
+        assertEquals("probe-only", devSection.items.first { it.label == "NPU stage probe" }.value)
+        assertEquals("true", devSection.items.first { it.label == "NPU constructor available" }.value)
+        assertEquals("true", devSection.items.first { it.label == "NPU string constructor available" }.value)
+        assertEquals("unknown", devSection.items.first { it.label == "NPU nativeLibraryDir candidate" }.value)
+        assertEquals("safe", devSection.items.first { it.label == "NPU stage probe result" }.value)
         assertNotEquals("npu-active / high", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
@@ -869,7 +884,7 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
-    fun `buildInferenceDetailSections shows preferred backend rows for NPU fallback to GPU`() {
+    fun `buildInferenceDetailSections normalizes legacy NPU engine-create fallback to disabled GPU fallback`() {
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(),
             displayMode = InferenceStatsDisplayMode.DEVELOPER,
@@ -883,12 +898,43 @@ class InferenceStatsSheetContentTest {
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
         )
         val devSection = sections.first { it.title == "DEV診断" }
-        assertEquals("fallback-gpu-after-npu-engine-create-failed", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("fallback-gpu-before-npu-disabled", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
         assertEquals("IllegalStateException", devSection.items.first { it.label == "PreferredBackend apply error" }.value)
     }
 
     @Test
-    fun `buildInferenceDetailSections shows preferred backend rows for NPU runtime fallback to GPU`() {
+    fun `buildInferenceDetailSections reports NPU dry-run as GPU fallback without trace`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("NPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertEquals("GPU", devSection.items.first { it.label == "Applied preferredBackend" }.value)
+        assertEquals("fallback-gpu-before-npu-disabled", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("NPU requested but GPU used for stability", devSection.items.first { it.label == "Effective backend note" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections normalizes legacy NPU runtime fallback to disabled GPU fallback`() {
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(),
             displayMode = InferenceStatsDisplayMode.DEVELOPER,
@@ -902,7 +948,7 @@ class InferenceStatsSheetContentTest {
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
         )
         val devSection = sections.first { it.title == "DEV診断" }
-        assertEquals("fallback-gpu-after-npu-runtime-failed", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("fallback-gpu-before-npu-disabled", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
         assertEquals("IllegalStateException:initialize failed", devSection.items.first { it.label == "PreferredBackend apply error" }.value)
     }
 

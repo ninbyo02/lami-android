@@ -6288,7 +6288,7 @@ private fun InferenceStatsSheetContent(
         promptText = promptText,
         enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
     )
-    val acceleratorProbeSnapshot = if (BuildConfig.DEBUG && selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
+    val acceleratorProbeSnapshot = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
         remember { AcceleratorProbe.captureSnapshot() }
     } else {
         null

@@ -59,6 +59,7 @@ internal object AcceleratorProbe {
 
         val gpuProbeResult = probeGpuInfoSafely()
         val delegateApiProbeResult = probeDelegateApiCandidatesSafely()
+        val npuStageProbeResult = probeBackendNpuStageSafely()
 
         return AcceleratorProbeSnapshot(
             deviceManufacturer = Build.MANUFACTURER,
@@ -96,6 +97,12 @@ internal object AcceleratorProbe {
             backendNpuNativeLibraryDirRequired = delegateApiProbeResult.backendNpuNativeLibraryDirRequired,
             backendNpuProbeHint = delegateApiProbeResult.backendNpuProbeHint,
             backendNpuProbeError = delegateApiProbeResult.backendNpuProbeError,
+            npuStageProbeSource = "reflection-probe-only",
+            npuConstructorAvailable = npuStageProbeResult.constructorAvailable,
+            npuStringConstructorAvailable = npuStageProbeResult.stringConstructorAvailable,
+            npuNativeLibraryDirCandidate = npuStageProbeResult.nativeLibraryDirCandidate,
+            npuStageProbeResult = npuStageProbeResult.result,
+            npuStageProbeError = npuStageProbeResult.error,
             qnnDelegateCandidates = delegateApiProbeResult.qnnDelegateCandidates,
             nnapiDelegateCandidates = delegateApiProbeResult.nnapiDelegateCandidates,
             npuProbeHint = delegateApiProbeResult.npuProbeHint,
@@ -323,6 +330,41 @@ internal object AcceleratorProbe {
         }
     }
 
+    private fun probeBackendNpuStageSafely(): BackendNpuStageProbeResult {
+        return runCatching {
+            val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
+            val npuClass = (backendClass.classes.asList() + backendClass.declaredClasses.asList())
+                .firstOrNull { it.simpleName == "NPU" }
+                ?: return BackendNpuStageProbeResult(result = "missing")
+            val constructors = npuClass.declaredConstructors.asList() + npuClass.constructors.asList()
+            val hasNoArgConstructor = constructors.any { it.parameterTypes.isEmpty() }
+            val hasStringConstructor = constructors.any { constructor ->
+                constructor.parameterTypes.size == 1 && constructor.parameterTypes.first() == String::class.java
+            }
+            val nativeLibraryDirCandidate = if (hasStringConstructor) {
+                "unknown"
+            } else {
+                null
+            }
+            BackendNpuStageProbeResult(
+                constructorAvailable = hasNoArgConstructor,
+                stringConstructorAvailable = hasStringConstructor,
+                nativeLibraryDirCandidate = nativeLibraryDirCandidate,
+                result = "safe",
+            )
+        }.getOrElse { throwable ->
+            val result = when (throwable) {
+                is ClassNotFoundException, is NoClassDefFoundError -> "missing"
+                is SecurityException -> "blocked"
+                else -> "error"
+            }
+            BackendNpuStageProbeResult(
+                result = result,
+                error = throwable.javaClass.simpleName,
+            )
+        }
+    }
+
     private fun collectDelegateCandidates(
         clazz: Class<*>,
         optionCandidates: MutableSet<String>,
@@ -545,6 +587,14 @@ internal object AcceleratorProbe {
         val constructorSignatures: List<String> = emptyList(),
         val nativeLibraryDirRequired: String = "unknown",
         val hint: String = "not-detected",
+        val error: String? = null,
+    )
+
+    private data class BackendNpuStageProbeResult(
+        val constructorAvailable: Boolean = false,
+        val stringConstructorAvailable: Boolean = false,
+        val nativeLibraryDirCandidate: String? = null,
+        val result: String = "unknown",
         val error: String? = null,
     )
 }
