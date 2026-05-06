@@ -60,6 +60,7 @@ internal object AcceleratorProbe {
         val gpuProbeResult = probeGpuInfoSafely()
         val delegateApiProbeResult = probeDelegateApiCandidatesSafely()
         val npuStageProbeResult = probeBackendNpuStageSafely()
+        val npuRequirementsProbeResult = probeLiteRtLmNpuRequirementsSafely()
 
         return AcceleratorProbeSnapshot(
             deviceManufacturer = Build.MANUFACTURER,
@@ -103,6 +104,15 @@ internal object AcceleratorProbe {
             npuNativeLibraryDirCandidate = npuStageProbeResult.nativeLibraryDirCandidate,
             npuStageProbeResult = npuStageProbeResult.result,
             npuStageProbeError = npuStageProbeResult.error,
+            npuSocManufacturer = npuRequirementsProbeResult.socManufacturer,
+            npuSocModel = npuRequirementsProbeResult.socModel,
+            npuOfficialVendor = npuRequirementsProbeResult.officialVendor,
+            npuOfficialSocSupport = npuRequirementsProbeResult.officialSocSupport,
+            npuModelRequirement = npuRequirementsProbeResult.modelRequirement,
+            npuRuntimeLibraryRequirement = npuRequirementsProbeResult.runtimeLibraryRequirement,
+            npuDispatchLibraryRequirement = npuRequirementsProbeResult.dispatchLibraryRequirement,
+            npuCliProofRequirement = npuRequirementsProbeResult.cliProofRequirement,
+            npuReadinessSummary = npuRequirementsProbeResult.readinessSummary,
             qnnDelegateCandidates = delegateApiProbeResult.qnnDelegateCandidates,
             nnapiDelegateCandidates = delegateApiProbeResult.nnapiDelegateCandidates,
             npuProbeHint = delegateApiProbeResult.npuProbeHint,
@@ -365,6 +375,69 @@ internal object AcceleratorProbe {
         }
     }
 
+    private fun probeLiteRtLmNpuRequirementsSafely(): LiteRtLmNpuRequirementsProbeResult {
+        return runCatching {
+            val socManufacturer = readBuildStaticString("SOC_MANUFACTURER")
+            val socModel = readBuildStaticString("SOC_MODEL")
+            val normalizedSoc = socModel?.trim()?.uppercase(Locale.US)
+            val officialVendor = when (normalizedSoc) {
+                "SM8750", "SM8650", "SM8550" -> "qualcomm"
+                "MT6989", "MT6991" -> "mediatek"
+                else -> null
+            }
+            val officialSocSupport = when {
+                normalizedSoc.isNullOrBlank() -> "unknown-soc-model"
+                officialVendor != null -> "listed-${officialVendor}-soc"
+                else -> "not-listed-in-current-litert-lm-npu-table"
+            }
+            val modelRequirement = when (officialVendor) {
+                "qualcomm", "mediatek" -> "requires-soc-specific-gemma3-1b-litertlm"
+                else -> "requires-supported-soc-specific-litertlm-model"
+            }
+            val runtimeLibraryRequirement = when (officialVendor) {
+                "qualcomm" -> "requires-qairt-libs-libQnnHtp-libQnnSystem-libQnnHtpPrepare-skel"
+                "mediatek" -> "requires-neuropilot-runtime-libs"
+                else -> "requires-vendor-runtime-libs"
+            }
+            val dispatchLibraryRequirement = when (officialVendor) {
+                "qualcomm" -> "requires-qualcomm-dispatch-api-so"
+                "mediatek" -> "requires-mediatek-dispatch-api-so"
+                else -> "requires-vendor-dispatch-api-so"
+            }
+            LiteRtLmNpuRequirementsProbeResult(
+                socManufacturer = socManufacturer,
+                socModel = socModel,
+                officialVendor = officialVendor ?: "unknown",
+                officialSocSupport = officialSocSupport,
+                modelRequirement = modelRequirement,
+                runtimeLibraryRequirement = runtimeLibraryRequirement,
+                dispatchLibraryRequirement = dispatchLibraryRequirement,
+                cliProofRequirement = "required-litert_lm_main-backend-npu-before-app-enable",
+                readinessSummary = if (officialVendor == null) {
+                    "blocked-until-supported-soc-model-runtime-libs-dispatch-so-and-cli-proof"
+                } else {
+                    "blocked-until-matching-model-runtime-libs-dispatch-so-and-cli-proof"
+                },
+            )
+        }.getOrElse { throwable ->
+            LiteRtLmNpuRequirementsProbeResult(
+                officialVendor = "unknown",
+                officialSocSupport = "error",
+                modelRequirement = "requires-supported-soc-specific-litertlm-model",
+                runtimeLibraryRequirement = "requires-vendor-runtime-libs",
+                dispatchLibraryRequirement = "requires-vendor-dispatch-api-so",
+                cliProofRequirement = "required-litert_lm_main-backend-npu-before-app-enable",
+                readinessSummary = "error-${throwable.javaClass.simpleName}",
+            )
+        }
+    }
+
+    private fun readBuildStaticString(fieldName: String): String? {
+        return runCatching {
+            Build::class.java.getField(fieldName).get(null) as? String
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+    }
+
     private fun collectDelegateCandidates(
         clazz: Class<*>,
         optionCandidates: MutableSet<String>,
@@ -596,5 +669,17 @@ internal object AcceleratorProbe {
         val nativeLibraryDirCandidate: String? = null,
         val result: String = "unknown",
         val error: String? = null,
+    )
+
+    private data class LiteRtLmNpuRequirementsProbeResult(
+        val socManufacturer: String? = null,
+        val socModel: String? = null,
+        val officialVendor: String = "unknown",
+        val officialSocSupport: String = "unknown",
+        val modelRequirement: String = "unknown",
+        val runtimeLibraryRequirement: String = "unknown",
+        val dispatchLibraryRequirement: String = "unknown",
+        val cliProofRequirement: String = "unknown",
+        val readinessSummary: String = "unknown",
     )
 }
