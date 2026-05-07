@@ -711,7 +711,7 @@ fun PlainAssistantMessage(
             ) {
                 if (isReplaying && onStopReplayClick != null) {
                     IconButton(
-                        onClick = { onStopReplayClick?.invoke() },
+                        onClick = { onStopReplayClick() },
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
@@ -722,7 +722,7 @@ fun PlainAssistantMessage(
                     }
                 } else if (onReplayClick != null) {
                     IconButton(
-                        onClick = { onReplayClick?.invoke() },
+                        onClick = { onReplayClick() },
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
@@ -953,6 +953,9 @@ fun shouldTreatAsProvisionalCode(text: String): Boolean {
         Regex(";"),
     )
     var score = signals.count { signal -> signal.containsMatchIn(trimmed) }
+    if (hasStrongCodeSignal(trimmed)) {
+        score += 2
+    }
     if (pythonContext && (trimmed.startsWith("from ") || trimmed.startsWith("self.") || trimmed.startsWith("print("))) {
         score += 1
     }

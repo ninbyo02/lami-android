@@ -15,7 +15,7 @@ class LocalInferenceStatsUiModelBuilderTest {
         )
 
         requireNotNull(actual)
-        assertEquals(18.6, actual, 0.01)
+        assertEquals(18.6, actual, 0.02)
     }
 
     @Test

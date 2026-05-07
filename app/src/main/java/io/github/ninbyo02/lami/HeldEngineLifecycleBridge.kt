@@ -36,6 +36,7 @@ internal class HeldEngineLifecycleBridge(
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun isCriticalTrimLevel(level: Int): Boolean {
         return level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
             level == ComponentCallbacks2.TRIM_MEMORY_COMPLETE

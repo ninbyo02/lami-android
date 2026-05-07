@@ -2932,9 +2932,11 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             safeAppendTrace(safeTrace, "UPSTREAM held-create engine-initialize-success")
         } else {
             safeAppendTrace(safeTrace, "UPSTREAM held-create engine-initialize-fail class=InitializeUnavailable message=initialize method missing or failed")
-            if (preferredBackendApplyResult?.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name) {
+            val npuPreferredBackendApplyResult = preferredBackendApplyResult
+                ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
+            if (npuPreferredBackendApplyResult != null) {
                 closeQuietly(officialEngine, safeTrace)
-                val fallbackResult = preferredBackendApplyResult?.copy(
+                val fallbackResult = npuPreferredBackendApplyResult.copy(
                     appliedPreferredBackend = "GPU",
                     preferredBackendApplyResult = "fallback-gpu-after-npu-initialize-failed",
                     preferredBackendApplyError = "InitializeUnavailable",
@@ -3753,12 +3755,14 @@ private suspend fun runOfficialLiteRtLmDirect(
         }
         result
     }.getOrElse { throwable ->
-        if (preferredBackendApplyResult?.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name) {
+        val npuPreferredBackendApplyResult = preferredBackendApplyResult
+            ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
+        if (npuPreferredBackendApplyResult != null) {
             val errorName = throwable.javaClass.simpleName.ifBlank { "NpuRuntimeError" }
             val errorMessage = throwable.message?.takeIf { it.isNotBlank() }?.let { ":$it" } ?: ""
             safeAppendTrace(appendTrace, "UPSTREAM preferred-backend npu-runtime-fallback-to-gpu stage=sendMessageAsync error=$errorName$errorMessage")
             onPreferredBackendApplied(
-                preferredBackendApplyResult!!.copy(
+                npuPreferredBackendApplyResult.copy(
                     appliedPreferredBackend = "GPU",
                     preferredBackendApplyResult = "fallback-gpu-after-npu-runtime-failed",
                     preferredBackendApplyError = "$errorName$errorMessage",
@@ -3935,12 +3939,14 @@ private fun runOfficialLiteRtLmBlocking(
             closeLifecycleSummary = closeSummary,
         )
     }.getOrElse { throwable ->
-        if (preferredBackendApplyResult?.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name) {
+        val npuPreferredBackendApplyResult = preferredBackendApplyResult
+            ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
+        if (npuPreferredBackendApplyResult != null) {
             val errorName = throwable.javaClass.simpleName.ifBlank { "NpuRuntimeError" }
             val errorMessage = throwable.message?.takeIf { it.isNotBlank() }?.let { ":$it" } ?: ""
             safeAppendTrace(appendTrace, "UPSTREAM preferred-backend npu-runtime-fallback-to-gpu stage=sendMessage error=$errorName$errorMessage")
             onPreferredBackendApplied(
-                preferredBackendApplyResult!!.copy(
+                npuPreferredBackendApplyResult.copy(
                     appliedPreferredBackend = "GPU",
                     preferredBackendApplyResult = "fallback-gpu-after-npu-runtime-failed",
                     preferredBackendApplyError = "$errorName$errorMessage",
@@ -4012,12 +4018,14 @@ private fun createOfficialLiteRtLmEngineInstance(
             safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-new-instance-result non-null")
         }
     }.getOrElse { throwable ->
-        if (preferredBackendApplyResult?.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name) {
+        val npuPreferredBackendApplyResult = preferredBackendApplyResult
+            ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
+        if (npuPreferredBackendApplyResult != null) {
             val errorName = throwable.javaClass.simpleName.ifBlank { "NpuEngineCreateError" }
             val errorMessage = throwable.message?.takeIf { it.isNotBlank() }?.let { ":$it" } ?: ""
             safeAppendTrace(appendTrace, "UPSTREAM preferred-backend npu-engine-create-fallback-to-gpu error=$errorName$errorMessage")
             onPreferredBackendApplied(
-                preferredBackendApplyResult!!.copy(
+                npuPreferredBackendApplyResult.copy(
                     appliedPreferredBackend = "GPU",
                     preferredBackendApplyResult = "fallback-gpu-after-npu-engine-create-failed",
                     preferredBackendApplyError = "$errorName$errorMessage",
@@ -4590,6 +4598,7 @@ internal fun appendStreamingChunk(
 ): String {
     if (extractedRaw.isEmpty()) return ""
     var previousText = builder.toString()
+    var forcedJoin: String? = null
     if (context?.lane == StreamingLane.PROSE &&
         isStandaloneCodeLanguageTag(extractedRaw) &&
         context.pendingCodeLanguageTag == null
@@ -4618,6 +4627,8 @@ internal fun appendStreamingChunk(
             commitPendingCodeLine(builder, context, appendTrace)
             flushPendingCodeLanguageTagAsProse(builder, context, appendTrace)
             context.lane = StreamingLane.PROSE
+            previousText = builder.toString()
+            forcedJoin = if (previousText.startsWithStandaloneStreamingLanguageTagLine()) "\n" else " "
             appendTrace?.let { trace ->
                 safeAppendTrace(trace, "[lane.switch]=code->prose reason=prose_like_chunk")
             }
@@ -4630,7 +4641,22 @@ internal fun appendStreamingChunk(
             )
         }
     }
-    val join = if (shouldInsertMinimalJoinBetween(previousText, extractedRaw)) " " else ""
+    val join = forcedJoin?.takeIf {
+        previousText.isNotEmpty() &&
+            previousText.lastOrNull()?.isWhitespace() != true &&
+            extractedRaw.isNotBlank() &&
+            !extractedRaw.first().isWhitespace()
+    } ?: if (shouldInsertMinimalJoinBetween(previousText, extractedRaw)) {
+        " "
+    } else if (
+        previousText.endsWith("```") &&
+        extractedRaw.isNotBlank() &&
+        !extractedRaw.first().isWhitespace()
+    ) {
+        "\n"
+    } else {
+        ""
+    }
     appendTrace?.let { trace ->
         safeAppendTrace(trace, "UPSTREAM append-chunk previousTail=${summarizeWhitespaceForUi(previousText.takeLast(64))}")
         safeAppendTrace(trace, "UPSTREAM append-chunk extracted=${summarizeWhitespaceForUi(extractedRaw.take(64))}")
@@ -4655,8 +4681,8 @@ private fun appendStreamingChunkForCode(
     val isFenceBoundaryChunk = isFenceBoundaryChunk(extractedRaw)
     if (isFenceBoundaryChunk) {
         if (wasInFencedCodeBlock) {
-            commitPendingCodeLine(builder, context, appendTrace)
-            appendFenceChunk(builder, extractedRaw)
+            commitPendingCodeLine(builder, context, appendTrace, force = true)
+            appendFenceChunk(builder, extractedRaw, appendTrailingNewline = false)
             context.lane = StreamingLane.PROSE
             clearCodeLanePendingState(context)
             context.inFencedCodeBlock = updateFencedCodeState(wasInFencedCodeBlock, extractedRaw)
@@ -4667,7 +4693,9 @@ private fun appendStreamingChunkForCode(
             return ""
         }
         commitPendingCodeLine(builder, context, appendTrace)
-        appendFenceChunk(builder, extractedRaw)
+        val hadPendingLanguageTag = context.pendingCodeLanguageTag != null
+        flushPendingCodeLanguageTagAsCodeLine(builder, context, appendTrace)
+        appendFenceChunk(builder, extractedRaw, appendTrailingNewline = !hadPendingLanguageTag)
         clearCodeLanePendingState(context)
         context.inFencedCodeBlock = updateFencedCodeState(wasInFencedCodeBlock, extractedRaw)
         context.fencedCodeLanguageTag = extractFencedCodeLanguageTag(extractedRaw)
@@ -4741,18 +4769,24 @@ private fun appendStreamingCodeChunkBody(
         safeAppendTrace(trace, "[code.pending.before]=${summarizeWhitespaceForUi(context.pendingCodeLineBuffer?.toString())}")
     }
 
-    val pendingBuffer = context.pendingCodeLineBuffer ?: StringBuilder().also {
+    context.pendingCodeLineBuffer ?: StringBuilder().also {
         context.pendingCodeLineBuffer = it
     }
     if (
-        pendingBuffer.isNotEmpty() &&
-            shouldStartNewFencedPythonLogicalLine(context, pendingBuffer.toString(), extractedRaw)
+        context.pendingCodeLineBuffer?.isNotEmpty() == true &&
+            shouldStartNewFencedPythonLogicalLine(context, context.pendingCodeLineBuffer.toString(), extractedRaw)
     ) {
         commitPendingCodeLine(builder, context, appendTrace)
-    } else if (pendingBuffer.isNotEmpty() && shouldCommitPendingCodeLine(context, pendingBuffer.toString(), extractedRaw)) {
+    } else if (
+        context.pendingCodeLineBuffer?.isNotEmpty() == true &&
+            shouldCommitPendingCodeLine(context, context.pendingCodeLineBuffer.toString(), extractedRaw)
+    ) {
         commitPendingCodeLine(builder, context, appendTrace)
     }
-    context.pendingCodeLineBuffer?.append(extractedRaw)
+    val appendBuffer = context.pendingCodeLineBuffer ?: StringBuilder().also {
+        context.pendingCodeLineBuffer = it
+    }
+    appendBuffer.append(extractedRaw)
     if (shouldCommitPendingCodeLine(context, context.pendingCodeLineBuffer?.toString().orEmpty(), null)) {
         commitPendingCodeLine(builder, context, appendTrace)
     }
@@ -4763,12 +4797,16 @@ private fun isFenceBoundaryChunk(chunk: String): Boolean {
     return trimmed.startsWith("```")
 }
 
-private fun appendFenceChunk(builder: StringBuilder, fenceChunk: String) {
+private fun appendFenceChunk(
+    builder: StringBuilder,
+    fenceChunk: String,
+    appendTrailingNewline: Boolean = true,
+) {
     if (builder.isNotEmpty() && builder.last() != '\n') {
         builder.append('\n')
     }
     builder.append(fenceChunk.trimEnd())
-    if (builder.lastOrNull() != '\n') {
+    if (appendTrailingNewline && builder.lastOrNull() != '\n') {
         builder.append('\n')
     }
 }
@@ -4776,6 +4814,7 @@ private fun appendFenceChunk(builder: StringBuilder, fenceChunk: String) {
 private fun clearCodeLanePendingState(context: StreamingAppendContext) {
     context.pendingCodeLanguageTag = null
     context.pendingCodeLineBuffer = null
+    context.lastCommittedCodeLine = null
     context.lastCodeChunkEndedWithNewline = false
 }
 
@@ -4791,6 +4830,7 @@ internal data class StreamingAppendContext(
     var lastCodeChunkEndedWithNewline: Boolean = false,
     var inFencedCodeBlock: Boolean = false,
     var fencedCodeLanguageTag: String? = null,
+    var lastCommittedCodeLine: String? = null,
 )
 
 
@@ -4805,14 +4845,14 @@ private fun shouldEnterCodeLane(next: String, context: StreamingAppendContext?):
     if (context?.inFencedCodeBlock == true) return true
     val nextTrimmedStart = next.trimStart()
     if (nextTrimmedStart.startsWith("```")) return true
-    if (context?.pendingCodeLanguageTag != null && isStrongCodeLikeChunk(next)) return true
+    if (context?.pendingCodeLanguageTag != null && isLikelyCodeAfterLanguageTag(next)) return true
     return isStrongCodeLikeChunk(next)
 }
 
 private fun codeLaneReason(next: String, context: StreamingAppendContext?): String = when {
     context?.inFencedCodeBlock == true -> "fenced_block"
     next.trimStart().startsWith("```") -> "fenced_chunk"
-    context?.pendingCodeLanguageTag != null && isStrongCodeLikeChunk(next) -> "language_tag_and_strong_code"
+    context?.pendingCodeLanguageTag != null && isLikelyCodeAfterLanguageTag(next) -> "language_tag_and_strong_code"
     isStrongCodeLikeChunk(next) -> "strong_code_chunk"
     else -> "unknown"
 }
@@ -4865,6 +4905,25 @@ private fun flushPendingCodeLanguageTagAsProse(
     }
 }
 
+private fun flushPendingCodeLanguageTagAsCodeLine(
+    builder: StringBuilder,
+    context: StreamingAppendContext,
+    appendTrace: ((String) -> Unit)? = null,
+) {
+    val pendingTag = context.pendingCodeLanguageTag ?: return
+    if (builder.isNotEmpty() && builder.last() != '\n') {
+        builder.append('\n')
+    }
+    builder.append(pendingTag)
+    if (builder.lastOrNull() != '\n') {
+        builder.append('\n')
+    }
+    context.pendingCodeLanguageTag = null
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "[code.flushLanguageTag.asCodeLine]")
+    }
+}
+
 private val STREAMING_CODE_LANGUAGE_TAGS = setOf("python", "kotlin", "bash", "json")
 private val FENCED_MARKER_REGEX = Regex("```")
 private val FENCED_PYTHON_ASSIGNMENT_STARTER_REGEX = Regex("^[A-Za-z_][A-Za-z0-9_]*\\s*(?:[+\\-*/%:]?=)")
@@ -4895,10 +4954,18 @@ private fun preSplitFencedPythonChunk(context: StreamingAppendContext, raw: Stri
     if (raw.isEmpty() || raw.contains('\n')) return listOf(raw)
     if (isFenceBoundaryChunk(raw)) return listOf(raw)
     val pendingLine = context.pendingCodeLineBuffer?.toString().orEmpty()
-    if (pendingLine.isNotEmpty() && (isQuoteOrBracketCarryOverLine(pendingLine) || isFencedPythonCommentCarryOverLine(context, pendingLine))) {
-        return listOf(raw)
+    val normalizedRaw = if (
+        raw.firstOrNull()?.isWhitespace() == true &&
+        (pendingLine.trimStart().startsWith("import ") || context.lastCommittedCodeLine?.trimStart()?.startsWith("import ") == true)
+    ) {
+        raw.trimStart()
+    } else {
+        raw
     }
-    return splitFencedPythonChunkSequentially(raw)
+    if (pendingLine.isNotEmpty() && (isQuoteOrBracketCarryOverLine(pendingLine) || isFencedPythonCommentCarryOverLine(context, pendingLine))) {
+        return listOf(normalizedRaw)
+    }
+    return splitFencedPythonChunkSequentially(normalizedRaw)
 }
 
 private fun splitFencedPythonChunkSequentially(raw: String): List<String> {
@@ -4935,6 +5002,9 @@ private fun shouldSplitAtFencedPythonIndex(raw: String, index: Int): Boolean {
     if (isFencedPythonClosingBracketTailBoundaryAt(raw, index)) return true
     if (isFencedPythonImportTailBoundaryAt(raw, index)) return true
     if (isFencedPythonTailToStrongStarterBoundaryAt(raw, index)) return true
+    if (isFencedPythonIdentifierToStrongStarterBoundaryAt(raw, index)) return true
+    if (isFencedPythonBooleanLiteralToStrongStarterBoundaryAt(raw, index)) return true
+    if (isFencedPythonBooleanLiteralToAssignmentBoundaryAt(raw, index)) return true
     if (isFencedPythonNumericLiteralTailBoundaryAt(raw, index)) return true
     return isFencedPythonLiteralToAssignmentBoundaryAt(raw, index)
 }
@@ -4952,7 +5022,10 @@ private fun isFencedPythonIdentifierToStrongStarterBoundaryAt(text: String, inde
     val before = text[index - 1]
     if (!isIdentifierPart(before)) return false
     if (!isIdentifierStart(text[index])) return false
+    if (before == '_') return false
+    if (before.isUpperCase() && text[index].isUpperCase()) return false
     if (isFencedPythonStrongStarterAt(text, index)) return true
+    if (isUpperSnakeAssignmentListStarterAt(text, index)) return true
     return isFencedPythonAssignmentTargetListStarterAt(text, index)
 }
 
@@ -4961,6 +5034,20 @@ private fun isFencedPythonLiteralToAssignmentBoundaryAt(text: String, index: Int
     if (!isFencedPythonAssignmentTargetListStarterAt(text, index)) return false
     val before = text[index - 1]
     return before.isDigit() || before in listOf(']', ')', '}', '"', '\'')
+}
+
+private fun isFencedPythonBooleanLiteralToAssignmentBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isLooseFencedPythonAssignmentStarterAt(text, index)) return false
+    val prefix = text.substring(0, index)
+    return prefix.endsWith("True") || prefix.endsWith("False")
+}
+
+private fun isFencedPythonBooleanLiteralToStrongStarterBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!matchesFencedPythonStrongStarterAt(text, index, requireBoundary = false)) return false
+    val prefix = text.substring(0, index)
+    return prefix.endsWith("True") || prefix.endsWith("False")
 }
 
 private fun isFencedPythonImportTailBoundaryAt(text: String, index: Int): Boolean {
@@ -5063,9 +5150,19 @@ private fun isFencedPythonClosingBracketTailBoundaryAt(text: String, index: Int)
     if (index !in 1 until text.length) return false
     val before = text[index - 1]
     if (before !in listOf(')', ']', '}')) return false
+    if (isCommentStarterAt(text, index) && before == ')') {
+        return !pythonCommentTailHasCodeBoundary(text, index)
+    }
     if (isCommentStarterAt(text, index)) return true
     if (isFencedPythonStrongStarterAt(text, index)) return true
     return isAsciiAssignmentStarterAt(text, index)
+}
+
+private fun pythonCommentTailHasCodeBoundary(text: String, hashIndex: Int): Boolean {
+    for (index in (hashIndex + 1) until text.length) {
+        if (isFencedPythonCommentTailBoundaryAt(text, index)) return true
+    }
+    return false
 }
 
 private fun isFencedPythonClassOrDefStarterAt(text: String, index: Int): Boolean {
@@ -5138,20 +5235,38 @@ private fun isCommentStarterAt(text: String, index: Int): Boolean =
     index in 1 until text.length && text[index] == '#'
 
 private fun isUpperSnakeAssignmentStarterAt(text: String, index: Int): Boolean {
-    if (index !in 1 until text.length) return false
-    if (!text[index].isUpperCase()) return false
+    return upperSnakeAssignmentPrefixEnd(text, index) != null
+}
+
+private fun isUpperSnakeAssignmentListStarterAt(text: String, index: Int): Boolean {
+    val end = upperSnakeAssignmentPrefixEnd(text, index) ?: return false
+    return text.substring(index, end).contains(',')
+}
+
+private fun upperSnakeAssignmentPrefixEnd(text: String, index: Int): Int? {
+    if (index !in text.indices) return null
+    if (!text[index].isUpperCase()) return null
     var cursor = index
     while (cursor < text.length && (text[cursor].isUpperCase() || text[cursor].isDigit() || text[cursor] == '_')) {
         cursor += 1
     }
-    if (cursor == index) return false
+    if (cursor == index) return null
     while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
-    if (cursor >= text.length) return false
-    if (text[cursor] == '=') return text.getOrNull(cursor + 1) != '='
-    if (cursor + 1 >= text.length) return false
+    while (cursor < text.length && text[cursor] == ',') {
+        cursor += 1
+        while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+        if (cursor >= text.length || !text[cursor].isUpperCase()) return null
+        while (cursor < text.length && (text[cursor].isUpperCase() || text[cursor].isDigit() || text[cursor] == '_')) {
+            cursor += 1
+        }
+        while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+    }
+    if (cursor >= text.length) return null
+    if (text[cursor] == '=') return if (text.getOrNull(cursor + 1) != '=') cursor else null
+    if (cursor + 1 >= text.length) return null
     val op = text[cursor]
     val eq = text[cursor + 1]
-    return op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '='
+    return if (op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '=') cursor else null
 }
 
 private fun isAsciiAssignmentStarterAt(text: String, index: Int): Boolean {
@@ -5168,12 +5283,49 @@ private fun isAsciiAssignmentStarterAt(text: String, index: Int): Boolean {
     return op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '='
 }
 
+private fun isLooseFencedPythonAssignmentStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isIdentifierStart(text[index])) return false
+    var cursor = index
+    while (true) {
+        if (cursor >= text.length || !isIdentifierStart(text[cursor])) return false
+        cursor += 1
+        while (cursor < text.length && isIdentifierPart(text[cursor])) cursor += 1
+        while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+        if (cursor < text.length && text[cursor] == ',') {
+            cursor += 1
+            while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+            continue
+        }
+        break
+    }
+    while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+    if (cursor >= text.length) return false
+    if (text[cursor] == '=') return text.getOrNull(cursor + 1) != '='
+    if (cursor + 1 >= text.length) return false
+    val op = text[cursor]
+    val eq = text[cursor + 1]
+    return op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '='
+}
+
 private fun isStandaloneLanguageTag(text: String): Boolean {
     val normalized = text.trim()
     return normalized in STREAMING_CODE_LANGUAGE_TAGS
 }
 
 private fun isStandaloneCodeLanguageTag(text: String): Boolean = isStandaloneLanguageTag(text)
+
+private fun String.startsWithStandaloneStreamingLanguageTagLine(): Boolean {
+    val firstLine = lineSequence().firstOrNull()?.trim().orEmpty()
+    return firstLine in STREAMING_CODE_LANGUAGE_TAGS
+}
+
+private fun isLikelyCodeAfterLanguageTag(text: String): Boolean {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) return false
+    return isStrongCodeLikeChunk(trimmed) ||
+        trimmed.matches(Regex("[A-Za-z_][A-Za-z0-9_.]*"))
+}
 
 private fun isStrongCodeLineStart(text: String): Boolean {
     val trimmedStart = text.trimStart()
@@ -5214,6 +5366,7 @@ private fun shouldCommitPendingCodeLine(
             !isFencedPythonCommentCarryOverLine(context, pendingLine)
     }
     if (nextChunk.startsWith("```")) return true
+    if (shouldCommitAfterFencedPythonComment(context, pendingLine, nextChunk)) return true
     if (shouldKeepPythonCommentOnSameLogicalLine(context, pendingLine, nextChunk)) return false
     if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
     if (!isStrongCodeLikeChunk(nextChunk)) return false
@@ -5232,6 +5385,7 @@ private fun shouldKeepPythonCommentOnSameLogicalLine(
     if (!isFencedPythonCommentCarryOverLine(context, pendingLine)) return false
     if (nextChunk.isEmpty() || nextChunk.contains('\n')) return false
     if (nextChunk.trimStart().startsWith("```")) return false
+    if (nextChunk.trimStart().startsWith("#")) return false
     return !isFencedPythonLogicalLineStarter(nextChunk)
 }
 
@@ -5272,8 +5426,8 @@ private fun shouldStartNewFencedPythonLogicalLine(
     if (!isFencedPythonCodeContext(context)) return false
     if (pendingLine.isEmpty() || nextChunk.isEmpty()) return false
     if (nextChunk.trimStart().startsWith("```")) return false
-    if (shouldKeepPythonCommentOnSameLogicalLine(context, pendingLine, nextChunk)) return false
     if (shouldCommitAfterFencedPythonComment(context, pendingLine, nextChunk)) return true
+    if (shouldKeepPythonCommentOnSameLogicalLine(context, pendingLine, nextChunk)) return false
     if (!isFencedPythonLogicalLineStarter(nextChunk)) return false
     if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
     return !isQuoteOrBracketCarryOverLine(pendingLine)
@@ -5285,13 +5439,15 @@ private fun shouldCommitAfterFencedPythonComment(
     nextChunk: String,
 ): Boolean {
     if (!isFencedPythonCodeContext(context)) return false
-    if (!isFencedPythonCommentLine(pendingLine)) return false
+    if (!isFencedPythonCommentCarryOverLine(context, pendingLine)) return false
     if (pendingLine.contains('\n')) return false
     if (nextChunk.isEmpty() || nextChunk.contains('\n')) return false
     if (nextChunk.trimStart().startsWith("```")) return false
     if (isQuoteOrBracketCarryOverLine(pendingLine)) return false
     if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
-    return isFencedPythonAssignmentStarter(nextChunk) || isFencedPythonClassOrDefStarter(nextChunk)
+    return nextChunk.trimStart().startsWith("#") ||
+        isFencedPythonAssignmentStarter(nextChunk) ||
+        isFencedPythonClassOrDefStarter(nextChunk)
 }
 
 private fun isFencedPythonCommentLine(line: String): Boolean = line.trimStart().startsWith("#")
@@ -5336,7 +5492,14 @@ private fun isStrongFencedPythonLogicalLineStarter(chunk: String): Boolean {
     return strongKeywords.any { matchesFencedPythonStarterKeyword(trimmed, it) }
 }
 
-private fun isFencedPythonLogicalLineStarter(chunk: String): Boolean = isStrongFencedPythonLogicalLineStarter(chunk)
+private fun isFencedPythonLogicalLineStarter(chunk: String): Boolean =
+    isStrongFencedPythonLogicalLineStarter(chunk) || isFencedPythonUpperSnakeAssignmentListStarter(chunk)
+
+private fun isFencedPythonUpperSnakeAssignmentListStarter(chunk: String): Boolean {
+    val trimmed = chunk.trimStart()
+    val end = upperSnakeAssignmentPrefixEnd(trimmed, 0) ?: return false
+    return trimmed.substring(0, end).contains(',')
+}
 
 private fun matchesFencedPythonStarterKeyword(text: String, keyword: String): Boolean {
     if (!text.startsWith(keyword)) return false
@@ -5370,8 +5533,7 @@ private fun shouldHoldPendingCodeLine(pendingLine: String): Boolean {
     if (isQuoteOrBracketContinuationLine(pendingLine)) return true
     return trimmedEnd.endsWith("(") ||
         trimmedEnd.endsWith("=") ||
-        trimmedEnd.endsWith(":") ||
-        trimmedEnd.matches(Regex(".*[A-Za-z0-9_\\]\"')]$"))
+        trimmedEnd.matches(Regex("[A-Za-z_][A-Za-z0-9_.]*"))
 }
 
 private fun shouldAppendToCurrentCodeLine(
@@ -5420,7 +5582,6 @@ private fun isQuoteOrBracketContinuationLine(pendingLine: String): Boolean {
     if (trimmedEnd.endsWith("(") || trimmedEnd.endsWith("[") || trimmedEnd.endsWith("{")) return true
     return trimmedEnd.endsWith(".") ||
         trimmedEnd.endsWith("=") ||
-        trimmedEnd.endsWith(":") ||
         trimmedEnd.matches(Regex(".*[+\\-*/%&|^<>!]$"))
 }
 
@@ -5547,13 +5708,15 @@ private fun commitPendingCodeLine(
     builder: StringBuilder,
     context: StreamingAppendContext,
     appendTrace: ((String) -> Unit)? = null,
+    force: Boolean = false,
 ) {
-    val pending = context.pendingCodeLineBuffer?.toString().orEmpty()
+    val pending = context.pendingCodeLineBuffer?.toString().orEmpty().trimEnd()
     if (pending.isEmpty()) return
     if (builder.isNotEmpty() && builder.last() != '\n' && !pending.startsWith("\n")) {
         builder.append('\n')
     }
     builder.append(pending)
+    context.lastCommittedCodeLine = pending
     context.lastCodeChunkEndedWithNewline = pending.endsWith('\n')
     context.pendingCodeLineBuffer = null
     appendTrace?.let { trace ->

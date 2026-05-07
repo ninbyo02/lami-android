@@ -57,6 +57,7 @@ class AndroidTtsController(context: Context) {
                         notifyPlaybackState(false)
                     }
 
+                    @Deprecated("Deprecated by Android; kept for compatibility with older TTS callbacks.")
                     override fun onError(utteranceId: String?) {
                         markPlaybackEnded()
                         notifyPlaybackState(false)

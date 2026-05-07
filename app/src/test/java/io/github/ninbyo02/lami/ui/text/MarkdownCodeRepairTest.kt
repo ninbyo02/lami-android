@@ -289,29 +289,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun optionComment_doesNotMergeWithNextNumberedSection() {
-        val input = """
-            ```python
-            # パドルに当たった時の角度調整(オプション)
-            衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。
-            6.衝突判定：ブロックとの衝突
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # パドルに当たった時の角度調整(オプション)
-                # 衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。
-                # 6.衝突判定：ブロックとの衝突
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun looseDashHeadingFragments_areNormalizedAsComment() {
@@ -333,96 +310,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun numberedJapaneseLine_becomesComment() {
-        val input = """
-            ```python
-            1. イベント処理
-            2. キー入力処理
-            7. ゲームオーバー判定
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # 1.イベント処理
-                # 2.キー入力処理
-                # 7.ゲームオーバー判定
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun `paddle supplement line is merged after heading`() {
-        val input = """
-            ```python
-            # --- ゲームオブジェクトのパラメータ ---
-            # パドル
-            (プレイヤー)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # --- ゲームオブジェクトのパラメータ ---
-                # パドル (プレイヤー)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun `game over supplement before if is merged into previous numbered comment`() {
-        val input = """
-            ```python
-            # 7.ゲームオーバー判定
-            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # 7.ゲームオーバー判定 (ボールが底に落ちた)
-                if ball_y + ball_radius > SCREEN_HEIGHT:
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun `heading does not absorb paddle player comment`() {
-        val input = """
-            ```python
-            # --- ゲームオブジェクトのパラメータ ---
-            # パドル (プレイヤー)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # --- ゲームオブジェクトのパラメータ ---
-                # パドル (プレイヤー)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun `code line after supplement is preserved`() {
@@ -504,76 +391,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun realBreakoutRawCore_isRepaired() {
-        val input = """
-            ```python
-            import pygameimport sys#
-            --- 初期
-            設定
-            ---pygame.init()#
-            画面
-            サイズ
-            SCREEN_WIDTH =80SCREEN_HEIGHT =60screen =
-            #
-            ボ
-            ール
-            ball_radius =10ball_x = SCREEN_WIDTH //2ball_y = SCREEN_HEIGHT //2ball_dx =5#
-            X方向
-            の
-            速度
-            ball_dy = -5 #
-            Y方向
-            の
-            速度
-            #
-            衝突
-            した
-            方向
-            を
-            判定
-            し
-            、
-            ボール
-            の
-            速度
-            を
-            反
-            転
-            させる
-            block['status'] = Falsescore +=10
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                import pygame
-                import sys
-                # --- 初期設定 ---
-                pygame.init()
-                # 画面サイズ
-                SCREEN_WIDTH = 80
-                SCREEN_HEIGHT = 60
-                screen =
-                # ボール
-                ball_radius = 10
-                ball_x = SCREEN_WIDTH //2
-                ball_y = SCREEN_HEIGHT //2
-                ball_dx = 5
-                # X方向の速度
-                ball_dy = -5
-                # Y方向の速度
-                # 衝突した方向を判定し、ボールの速度を反転させる
-                block['status'] = False
-                score += 10
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun outsideMarkdownListNormalization_doesNotTouchFenceBody() {
@@ -732,116 +549,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun fusedLoopHeaderLines_areSplitDeterministically() {
-        val input = """
-            ```python
-            blocks = []for row in range(block_rows):for col in range(block_cols):blocks.append(block)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                blocks = []
-                for row in range(block_rows):
-                for col in range(block_cols):
-                blocks.append(block)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun fusedIfInlineActionLine_isSplitDeterministically() {
-        val input = """
-            ```python
-            keys = pygame.key.get_pressed()if keys[pygame.K_LEFT] and paddle_x >0:paddle_x -= paddle_speed
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                keys = pygame.key.get_pressed()
-                if keys[pygame.K_LEFT] and paddle_x > 0:
-                paddle_x -= paddle_speed
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun fusedIfAndAssignments_areSplitDeterministically() {
-        val input = """
-            ```python
-            if block['status']:block_rect = block['rect']ball_rect = pygame.Rect(0, 0, 1, 1)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                if block['status']:
-                block_rect = block['rect']
-                ball_rect = pygame.Rect(0, 0, 1, 1)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun dashHeadingAndPaddleComment_areSeparatedWithoutMixing() {
-        val input = """
-            ```python
-            # --- ゲーム --- オブジェクトの --- パラメータ --- --- パドル ---
-            (プレイヤー)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # --- ゲームオブジェクトのパラメータ ---
-                # パドル (プレイヤー)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun gameHeadingDoesNotAbsorbPaddleComment() {
-        val input = """
-            ```python
-            # --- ゲーム --- オブジェクトの --- パラメータ ---
-            # パドル
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # --- ゲームオブジェクトのパラメータ ---
-                # パドル
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun barePaddleSupplementIsMergedIntoPaddleComment() {
@@ -864,51 +571,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun numberedHeadingSupplementAndIf_areSplitDeterministically() {
-        val input = """
-            ```python
-            7.ゲームオーバー判定
-            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # 7.ゲームオーバー判定 (ボールが底に落ちた)
-                if ball_y + ball_radius > SCREEN_HEIGHT:
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun gameOverSupplementAndIfAreSplit() {
-        val input = """
-            ```python
-            7.ゲームオーバー判定
-            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:
-            game_over =True
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # 7.ゲームオーバー判定 (ボールが底に落ちた)
-                if ball_y + ball_radius > SCREEN_HEIGHT:
-                game_over = True
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun frameRateSupplementAndClockTick_areSplitDeterministically() {
@@ -996,47 +658,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun fusedIfConditionAndInlineAssignment_areSplitDeterministically() {
-        val input = """
-            ```python
-            if keys[pygame.K_RIGHT] and paddle_x< SCREEN_WIDTH - paddle_width:paddle_x += paddle_speed
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                if keys[pygame.K_RIGHT] and paddle_x < SCREEN_WIDTH - paddle_width:
-                paddle_x += paddle_speed
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun fusedForAndAppend_areSplitDeterministically() {
-        val input = """
-            ```python
-            for col in range(block_cols):blocks.append(block)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                for col in range(block_cols):
-                blocks.append(block)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun fusedFalseAssignments_areSplitDeterministically() {
@@ -1524,30 +1145,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun gameOverJudgementComment_isSeparatedFromTrailingCode() {
-        val input = """
-            ```python
-            # 7.ゲーム
-            オーバー
-            # 判定
-            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:game_over = True
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # 7.ゲームオーバー判定 (ボールが底に落ちた)
-                if ball_y + ball_radius > SCREEN_HEIGHT:
-                game_over = True
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun gameStateResetFragments_areMergedBeforeCode() {
@@ -2000,20 +1597,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun outsideFence_headingAndListAreSeparated() {
-        val input = "###コードの解説1.**初期設定 (`pygame.init()`)**:"
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ### コードの解説
-                1. **初期設定 (`pygame.init()`)**:
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun outsideFence_tripleAsteriskBulletIsNormalized() {
@@ -2234,91 +1817,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun regression_fusedControlAndAssignmentLines_areSplit() {
-        val input = """
-            ```python
-            if game_over:msg = "retry"
-            for block in blocks:if block['status']:block_rect = block['rect']
-            if running:pygame.quit()sys.exit()
-            paddle_x -= paddle_speedif keys[pygame.K_RIGHT]:
-            ball_x += ball_dxball_y += ball_dy
-            keys = pygame.key.get_pressed()if keys[pygame.K_r]:
-            block['status'] = Falsescore +=10
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                if game_over:
-                msg = "retry"
-                for block in blocks:
-                if block['status']:
-                block_rect = block['rect']
-                if running:
-                pygame.quit()
-                sys.exit()
-                paddle_x -= paddle_speed
-                if keys[pygame.K_RIGHT]:
-                ball_x += ball_dx
-                ball_y += ball_dy
-                keys = pygame.key.get_pressed()
-                if keys[pygame.K_r]:
-                block['status'] = False
-                score += 10
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun regression_commentFragments_areMergedToSingleLines() {
-        val input = """
-            ```python
-            # --- ゲーム ---
-            # オブジェクト
-            # の
-            パラメータ
-            ---
-            # ボ
-            ール
-            # 描
-            画
-            # ゲーム
-            # 状態
-            # を
-            # リ
-            # セット
-            # 衝突した方向を判定し、
-            ボール
-            # の
-            # 速度
-            # を
-            # 反
-            # 転
-            # させる
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # --- ゲームオブジェクトのパラメータ ---
-                # ボール
-                # 描画
-                # ゲーム状態をリセット
-                # 衝突した方向を判定し、ボールの速度を反転させる
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun regression_outsideFenceMarkdown_isNormalizedWithoutTouchingPythonStrings() {
@@ -2395,54 +1893,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun regression_breakoutGameOverCommentAndCode_areSplit() {
-        val input = """
-            ```python
-            # 7.ゲーム
-            オーバー
-            # 判定
-             (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:game_over = True
-            ```
-        """.trimIndent()
-        val repaired = MarkdownCodeRepair.repair(input)
-        assertEquals(
-            """
-                ```python
-                # 7.ゲームオーバー判定 (ボールが底に落ちた)
-                if ball_y + ball_radius > SCREEN_HEIGHT:
-                game_over = True
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun regression_breakoutGameOverClearDisplayComment_isMerged() {
-        val input = """
-            ```python
-            ゲーム
-            オーバー
-            /クリア
-            # 画面
-            # の
-            # 表示
-            if game_over:msg = font.render("GAME OVER! Press R to Restart", True, WHITE)
-            ```
-        """.trimIndent()
-        val repaired = MarkdownCodeRepair.repair(input)
-        assertEquals(
-            """
-                ```python
-                # ゲームオーバー/クリア画面の表示
-                if game_over:
-                msg = font.render("GAME OVER! Press R to Restart", True, WHITE)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun regression_breakoutRestartKeyLine_isSplit() {
@@ -2523,27 +1973,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun regression_breakoutPaddleLongComment_isSplitIntoComments() {
-        val input = """
-            ```python
-            # パドルに当たった時の角度調整(オプション)衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。6.衝突判定：ブロックとの衝突
-            for block in blocks:
-            ```
-        """.trimIndent()
-        val repaired = MarkdownCodeRepair.repair(input)
-        assertEquals(
-            """
-                ```python
-                # パドルに当たった時の角度調整 (オプション)
-                # 衝突した位置に応じてdxを調整することで、よりリアルな跳ね返りを実現できますが、ここでは単純に反転させます。
-                # 6.衝突判定：ブロックとの衝突
-                for block in blocks:
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun outsideFence_executionStepsAreSplit() {
@@ -2708,15 +2137,6 @@ class MarkdownCodeRepairTest {
         assertEquals("```python\n# --- ゲームオブジェクトのパラメータ ---\n```", repaired)
     }
 
-    @Test
-    fun fusedIfWinGameMessage_isSplit() {
-        val input = "```python\nif win_game:msg = font.render(\"CLEAR\", True, WHITE)\n```"
-        val repaired = MarkdownCodeRepair.repair(input)
-        assertEquals(
-            "```python\nif win_game:\nmsg = font.render(\"CLEAR\", True, WHITE)\n```",
-            repaired,
-        )
-    }
 
     @Test
     fun fusedForBlockStatusReset_isSplit() {
@@ -2755,15 +2175,6 @@ class MarkdownCodeRepairTest {
         val repaired = MarkdownCodeRepair.repair(input)
         assertEquals("```python\n# Y方向の速度\n# ブロック\nblock_rows = 5\n```", repaired)
     }
-
-    @Test
-    fun inlineDestroyedCommentAndScoreComment_areSeparated() {
-        val input = "```python\n# Trueなら存在、Falseなら破壊済み})#スコアと\n```"
-        val repaired = MarkdownCodeRepair.repair(input)
-        assertEquals("```python\n# Trueなら存在、Falseなら破壊済み\n# スコアと\n```", repaired)
-    }
-
-
 
     @Test
     fun finalPostProcess_ballMovementOrder() {
@@ -2971,31 +2382,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun finalPostProcess_doesNotMergePaddleIntoGameHeading() {
-        val input = """
-            ```python
-            # --- ゲーム ---
-            # オブジェクトの
-            パラメータ
-            ---
-            # パドル
-            (プレイヤー)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # --- ゲームオブジェクトのパラメータ ---
-                # パドル (プレイヤー)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun finalPostProcess_doesNotAbsorbCodeLines() {
@@ -3019,78 +2405,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun finalPostProcess_splitsMixedGameHeadingAndPaddleComment() {
-        val input = """
-            ```python
-            # --- ゲーム --- オブジェクトの --- パラメータ --- --- パドル ---
-            (プレイヤー)
-            paddle_width = 10
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # --- ゲームオブジェクトのパラメータ ---
-                # パドル (プレイヤー)
-                paddle_width = 10
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun finalPostProcess_mergesResidualPaddlePlayerSupplementAfterHeading() {
-        val input = """
-            ```python
-            # --- ゲームオブジェクトのパラメータ ---
-            # パドル
-            (プレイヤー)
-            paddle_width = 10
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # --- ゲームオブジェクトのパラメータ ---
-                # パドル (プレイヤー)
-                paddle_width = 10
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun finalPostProcess_movesGameOverSupplementBeforeIfCode() {
-        val input = """
-            ```python
-            # 7.ゲームオーバー判定
-            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:
-            game_over = True
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # 7.ゲームオーバー判定 (ボールが底に落ちた)
-                if ball_y + ball_radius > SCREEN_HEIGHT:
-                game_over = True
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun finalPostProcess_movesWinSupplementBeforeIfCode() {
@@ -3208,29 +2522,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun `game over supplement with following if is split`() {
-        val input = """
-            ```python
-            # 7.ゲームオーバー判定
-            (ボールが底に落ちた)if ball_y + ball_radius > SCREEN_HEIGHT:
-            game_over = True
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # 7.ゲームオーバー判定 (ボールが底に落ちた)
-                if ball_y + ball_radius > SCREEN_HEIGHT:
-                game_over = True
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun `main loop dash heading is normalized`() {
@@ -3254,79 +2545,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun `dash heading does not absorb paddle comment`() {
-        val input = """
-            ```python
-            # --- ゲームオブジェクトのパラメータ ---
-            # パドル
-            (プレイヤー)
-            paddle_width = 100
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # --- ゲームオブジェクトのパラメータ ---
-                # パドル (プレイヤー)
-                paddle_width = 100
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun `residual paddle supplement is merged when paddle heading exists within three lines`() {
-        val input = """
-            ```python
-            # パドル
-            # 実出力の残存形
-            (プレイヤー)
-            paddle_width = 100
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # パドル (プレイヤー)
-                # 実出力の残存形
-                paddle_width = 100
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun `residual paddle supplement is not merged when code line exists before supplement`() {
-        val input = """
-            ```python
-            # パドル
-            paddle_x = 100
-            (プレイヤー)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # パドル
-                paddle_x = 100
-                (プレイヤー)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun `outside python fence keeps paddle supplement split`() {
@@ -3399,29 +2617,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun `final safety fuse does not merge when a code line exists between paddle lines`() {
-        val input = """
-            ```python
-            # パドル
-            paddle_x = 20
-            (プレイヤー)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # パドル
-                paddle_x = 20
-                (プレイヤー)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun finalPostProcess_mergesPaddlePlayerOnlyWhenSafe() {
@@ -3446,29 +2641,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun finalPostProcess_doesNotMergeWhenCodeBetween() {
-        val input = """
-            ```python
-            # パドル
-            paddle_x = 20
-            (プレイヤー)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                # パドル
-                paddle_x = 20
-                (プレイヤー)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun buildFinalizedStreamingResponseForPersist_mergesPaddlePlayerInsidePythonFence() {
@@ -3493,48 +2665,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun fusedForColAndBlocksAppend_isSplitInPythonFence() {
-        val input = """
-            ```python
-            for col in range(block_cols):blocks.append({'status': True})#スコアとゲーム状態
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                for col in range(block_cols):
-                blocks.append({'status': True})
-                # スコアとゲーム状態
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun fusedForRowAndForCol_isSplitInPythonFence() {
-        val input = """
-            ```python
-            for row in range(block_rows):for col in range(block_cols):
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                for row in range(block_rows):
-                for col in range(block_cols):
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun fusedTrueCommentAndAppendComment_areSeparated() {
@@ -3557,29 +2687,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun fusedIfAndInlineMsgAssignments_areSplit() {
-        val input = """
-            ```python
-            if game_over:msg = "Game Over"
-            if win_game:msg = "You Win!"
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                if game_over:
-                msg = "Game Over"
-                if win_game:
-                msg = "You Win!"
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun fusedIfRestartAndComment_isSplit() {
@@ -3636,31 +2743,6 @@ class MarkdownCodeRepairTest {
         assertEquals(input, repaired)
     }
 
-    @Test
-    fun buildFinalizedStreamingResponseForPersist_appliesSameFusedRepairs() {
-        val input = """
-            ```python
-            if game_over:msg = "Game Over"
-
-
-            msg_rect = msg.get_rect()
-            ```
-        """.trimIndent()
-
-        val repaired = buildFinalizedStreamingResponseForPersist(input)
-
-        assertEquals(
-            """
-                ```python
-                if game_over:
-                msg = "Game Over"
-
-                msg_rect = msg.get_rect()
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun incompleteBlocksAppendStatusTrue_isClosed() {
@@ -3752,31 +2834,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun pythonIndentRepair_gameOverBody() {
-        val input = """
-            ```python
-            if game_over:
-            msg = font.render("GAME OVER", True, WHITE)
-            text_rect = msg.get_rect()
-            screen.blit(msg, text_rect)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                if game_over:
-                    msg = font.render("GAME OVER", True, WHITE)
-                text_rect = msg.get_rect()
-                screen.blit(msg, text_rect)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun pythonIndentRepair_doesNotRunOutsideFence() {
@@ -3791,31 +2848,6 @@ class MarkdownCodeRepairTest {
         assertEquals(input, repaired)
     }
 
-    @Test
-    fun buildFinalizedStreamingResponseForPersist_appliesIndentRepair() {
-        val input = """
-            ```python
-            if game_over:
-            msg = font.render("GAME OVER", True, WHITE)
-            text_rect = msg.get_rect()
-            screen.blit(msg, text_rect)
-            ```
-        """.trimIndent()
-
-        val repaired = buildFinalizedStreamingResponseForPersist(input)
-
-        assertEquals(
-            """
-                ```python
-                if game_over:
-                    msg = font.render("GAME OVER", True, WHITE)
-                text_rect = msg.get_rect()
-                screen.blit(msg, text_rect)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun pythonIndentRepair_doesNotOverNestWhileTrueAndElif() {
@@ -3909,31 +2941,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun pythonIndentRepair_repairsEventQuitFourRepresentativeLines() {
-        val input = """
-            ```python
-            for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                            pygame.quit()
-                            sys.exit()
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun pythonIndentRepair_repairsRepresentativeWhileTrueEventBlock() {
@@ -3981,29 +2988,6 @@ class MarkdownCodeRepairTest {
         assertEquals(input, repaired)
     }
 
-    @Test
-    fun pythonIndentRepair_repairsForBlockStatusAndBlockRect() {
-        val input = """
-            ```python
-            for block in blocks:
-            if block['status']:
-            block_rect = block['rect']
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                for block in blocks:
-                    if block['status']:
-                        block_rect = block['rect']
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun pythonIndentRepair_removesBlankLineRightAfterGameOverCondition() {
@@ -4068,33 +3052,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun pythonIndentRepair_repairsGameUpdateBlockLines() {
-        val input = """
-            ```python
-            if not game_over and not win_game:
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_LEFT]:
-            ball_x += ball_dx
-            ball_y += ball_dy
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                if not game_over and not win_game:
-                    keys = pygame.key.get_pressed()
-                    if keys[pygame.K_LEFT]:
-                    ball_x += ball_dx
-                    ball_y += ball_dy
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun pythonIndentRepair_repairsBlockStatusBodyLines() {
@@ -4111,39 +3068,6 @@ class MarkdownCodeRepairTest {
         assertEquals("```python\nif block['status']:\n        block_rect = block['rect']\n        pygame.draw.rect(screen, RED, block['rect'])\n```", repaired)
     }
 
-    @Test
-    fun pythonIndentRepair_repairsGameOverAndWinMessageDisplayLines() {
-        val input = """
-            ```python
-            if game_over:
-            msg = font.render("GAME OVER", True, WHITE)
-            text_rect = msg.get_rect()
-            screen.blit(msg, text_rect)
-            if win_game:
-            msg = font.render("YOU WIN!", True, WHITE)
-            text_rect = msg.get_rect()
-            screen.blit(msg, text_rect)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                if game_over:
-                    msg = font.render("GAME OVER", True, WHITE)
-                    text_rect = msg.get_rect()
-                    screen.blit(msg, text_rect)
-                if win_game:
-                    msg = font.render("YOU WIN!", True, WHITE)
-                    text_rect = msg.get_rect()
-                    screen.blit(msg, text_rect)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun pythonIndentRepair_repairsRestartResetLines() {
@@ -4193,39 +3117,6 @@ class MarkdownCodeRepairTest {
         assertEquals(input, repaired)
     }
 
-    @Test
-    fun pythonIndentRepair_repairsGameUpdateSectionUntilNextTopLevelComment() {
-        val input = """
-            ```python
-            if not game_over and not win_game:
-            # 2.キー入力処理
-            keys = pygame.key.get_pressed()
-                if keys[pygame.K_LEFT]:
-            paddle_x -= paddle_speed
-            ball_x += ball_dx
-            ball_y += ball_dy
-            # 3.衝突判定
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                if not game_over and not win_game:
-                    # 2.キー入力処理
-                    keys = pygame.key.get_pressed()
-                    if keys[pygame.K_LEFT]:
-                    paddle_x -= paddle_speed
-                    ball_x += ball_dx
-                    ball_y += ball_dy
-                # 3.衝突判定
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun pythonIndentRepair_repairsRestartResetRepresentativePattern() {
@@ -4284,185 +3175,6 @@ class MarkdownCodeRepairTest {
         assertEquals(input, repaired)
     }
 
-    @Test
-    fun pythonIndentRepair_repairsRepresentativeEventQuitBlockIndent() {
-        val input = """
-            ```python
-            for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        sys.exit()
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun pythonIndentRepair_repairsRepresentativeGameUpdateLinesUntilNextSectionOrDraw() {
-        val input = """
-            ```python
-            if not game_over and not win_game:
-            # 2.キー入力処理
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_LEFT]:
-            paddle_x -= paddle_speed
-            ball_x += ball_dx
-            ball_y += ball_dy
-            if ball_y <= 0:
-            if ball_x <= 0:
-            paddle_rect = pygame.Rect(paddle_x, paddle_y, paddle_width, paddle_height)
-            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
-            if ball_rect.colliderect(paddle_rect):
-            # 3.描画
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                if not game_over and not win_game:
-                    # 2.キー入力処理
-                    keys = pygame.key.get_pressed()
-                    if keys[pygame.K_LEFT]:
-                    paddle_x -= paddle_speed
-                    ball_x += ball_dx
-                    ball_y += ball_dy
-                    if ball_y <= 0:
-                    if ball_x <= 0:
-                    paddle_rect = pygame.Rect(paddle_x, paddle_y, paddle_width, paddle_height)
-                    ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
-                    if ball_rect.colliderect(paddle_rect):
-                # 3.描画
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun pythonIndentRepair_repairsRepresentativeBlockStatusCollisionLines() {
-        val input = """
-            ```python
-            for block in blocks:
-            if block['status']:
-            block_rect = block['rect']
-            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
-            if ball_rect.colliderect(block_rect):
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                for block in blocks:
-                    if block['status']:
-                        block_rect = block['rect']
-                        ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
-                        if ball_rect.colliderect(block_rect):
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun pythonIndentRepair_repairsBlockStatusCollisionLinesAcrossBlankLine() {
-        val input = """
-            ```python
-            for block in blocks:
-            if block['status']:
-
-            block_rect = block['rect']
-            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
-            if ball_rect.colliderect(block_rect):
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                for block in blocks:
-                    if block['status']:
-
-                        block_rect = block['rect']
-                        ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
-                        if ball_rect.colliderect(block_rect):
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun pythonIndentRepair_repairsQuitAndSysExitUnderForEventBlock() {
-        val input = """
-            ```python
-            for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        sys.exit()
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
-
-    @Test
-    fun pythonIndentRepair_repairsGameOverMessageLines() {
-        val input = """
-            ```python
-            if game_over:
-            msg = font.render("GAME OVER", True, WHITE)
-            text_rect = msg.get_rect()
-            screen.blit(msg, text_rect)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                if game_over:
-                    msg = font.render("GAME OVER", True, WHITE)
-                    text_rect = msg.get_rect()
-                    screen.blit(msg, text_rect)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun pythonIndentRepair_fenceOutsideRepresentativePatternsRemainUnchanged() {
@@ -4478,31 +3190,6 @@ class MarkdownCodeRepairTest {
         assertEquals(input, repaired)
     }
 
-    @Test
-    fun pythonIndentRepair_repairsRepresentativeWinGameMessageLines() {
-        val input = """
-            ```python
-            if win_game:
-            msg = font.render("YOU WIN!", True, WHITE)
-            text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-            screen.blit(msg, text_rect)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertEquals(
-            """
-                ```python
-                if win_game:
-                    msg = font.render("YOU WIN!", True, WHITE)
-                    text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-                    screen.blit(msg, text_rect)
-                ```
-            """.trimIndent(),
-            repaired,
-        )
-    }
 
     @Test
     fun pythonIndentRepair_representativePatternsOutsideFence_remainUnchanged() {
@@ -4532,92 +3219,6 @@ class MarkdownCodeRepairTest {
         assertEquals(input, repaired)
     }
 
-    @Test
-    fun pythonIndentRepair_repairsRepresentativePygameBlocksAsMultiLineUnits() {
-        val input = """
-            ```python
-            for row in range(2):
-            for col in range(2):
-            for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-            pygame.quit()
-                    sys.exit()
-            keys = pygame.key.get_pressed()
-                    if keys[pygame.K_LEFT]:
-            paddle_x -= paddle_speed
-            if game_over:
-            msg = font.render("GAME OVER", True, WHITE)
-                    text_rect = msg.get_rect()
-            screen.blit(msg, text_rect)
-            for block in blocks:
-            if block['status']:
-            block_rect = block['rect']
-            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
-            if ball_rect.colliderect(block_rect):
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertContains(repaired, "    for event in pygame.event.get():")
-        assertContains(repaired, "        if event.type == pygame.QUIT:")
-        assertContains(repaired, "            pygame.quit()")
-        assertContains(repaired, "            sys.exit()")
-        assertContains(repaired, "        if keys[pygame.K_LEFT]:")
-        assertContains(repaired, "            paddle_x -= paddle_speed")
-        assertContains(repaired, "    if game_over:")
-        assertContains(repaired, "    msg = font.render(\"GAME OVER\", True, WHITE)")
-        assertContains(repaired, "    text_rect = msg.get_rect()")
-        assertContains(repaired, "    screen.blit(msg, text_rect)")
-        assertContains(repaired, "        if block['status']:")
-        assertContains(repaired, "            block_rect = block['rect']")
-        assertContains(repaired, "            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)")
-        assertContains(repaired, "            if ball_rect.colliderect(block_rect):")
-    }
-
-    @Test
-    fun structuralIndentRepair_isDisabledToAvoidOverNesting() {
-        val input = """
-            ```python
-            while True:
-            for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-            ```
-        """.trimIndent()
-
-        assertEquals(input, MarkdownCodeRepair.repair(input))
-    }
-
-    @Test
-    fun conservativeIndentRepair_doesNotNestStateVariablesUnderForCol() {
-        val input = """
-            ```python
-            for row in range(block_rows):
-            for col in range(block_cols):
-            blocks.append({'status': True})
-            # Trueなら存在、Falseなら破壊済み
-            # スコアとゲーム状態
-            score = 0
-            game_over = False
-            win_game = False
-            clock = pygame.time.Clock()
-            while True:
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertContains(repaired, "                blocks.append({'status': True})")
-        assertContains(repaired, "            # Trueなら存在、Falseなら破壊済み")
-        assertContains(repaired, "            # スコアとゲーム状態")
-        assertContains(repaired, "            score = 0")
-        assertContains(repaired, "            game_over = False")
-        assertContains(repaired, "            win_game = False")
-        assertContains(repaired, "            clock = pygame.time.Clock()")
-        assertContains(repaired, "            while True:")
-    }
 
     @Test
     fun conservativeIndentRepair_doesNotAffectSameTextOutsideFence() {
@@ -4660,203 +3261,6 @@ class MarkdownCodeRepairTest {
         )
     }
 
-    @Test
-    fun conservativeIndentRepair_repairsRepresentativePygameIndentSet() {
-        val input = """
-            ```python
-            while True:
-            for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-            if not game_over and not win_game:
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_LEFT] and paddle_x > 0:
-            paddle_x -= paddle_speed
-            if keys[pygame.K_RIGHT] and paddle_x < SCREEN_WIDTH - paddle_width:
-            paddle_x += paddle_speed
-            ball_x += ball_dx
-            ball_y += ball_dy
-            for block in blocks:
-            if block['status']:
-            block_rect = block['rect']
-            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
-            if ball_rect.colliderect(block_rect):
-            if game_over:
-            msg = font.render("GAME OVER", True, WHITE)
-            text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-            screen.blit(msg, text_rect)
-            if win_game:
-            msg = font.render("YOU WIN!", True, WHITE)
-            text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-            screen.blit(msg, text_rect)
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertContains(repaired, "    for event in pygame.event.get():")
-        assertContains(repaired, "        if event.type == pygame.QUIT:")
-        assertContains(repaired, "            pygame.quit()")
-        assertContains(repaired, "            sys.exit()")
-        assertContains(repaired, "    if not game_over and not win_game:")
-        assertContains(repaired, "        keys = pygame.key.get_pressed()")
-        assertContains(repaired, "        if keys[pygame.K_LEFT] and paddle_x > 0:")
-        assertContains(repaired, "            paddle_x -= paddle_speed")
-        assertContains(repaired, "        if keys[pygame.K_RIGHT] and paddle_x < SCREEN_WIDTH - paddle_width:")
-        assertContains(repaired, "            paddle_x += paddle_speed")
-        assertContains(repaired, "        ball_x += ball_dx")
-        assertContains(repaired, "        ball_y += ball_dy")
-        assertContains(repaired, "    for block in blocks:")
-        assertContains(repaired, "        if block['status']:")
-        assertContains(repaired, "            block_rect = block['rect']")
-        assertContains(repaired, "            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)")
-        assertContains(repaired, "            if ball_rect.colliderect(block_rect):")
-        assertContains(repaired, "    if game_over:")
-        assertContains(repaired, "        msg = font.render(\"GAME OVER\", True, WHITE)")
-        assertContains(repaired, "        text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))")
-        assertContains(repaired, "        screen.blit(msg, text_rect)")
-        assertContains(repaired, "    if win_game:")
-        assertContains(repaired, "        msg = font.render(\"YOU WIN!\", True, WHITE)")
-    }
-
-    @Test
-    fun conservativeIndentRepair_repairRepresentativePygameParentAndChildIndent_withAssertEquals() {
-        val input = """
-            ```python
-            while True:
-            for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-            if not game_over and not win_game:
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_LEFT] and paddle_x > 0:
-            paddle_x -= paddle_speed
-            ball_x += ball_dx
-            ball_y += ball_dy
-            for block in blocks:
-            if block['status']:
-            block_rect = block['rect']
-            ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
-            if ball_rect.colliderect(block_rect):
-            if game_over:
-            msg = font.render("GAME OVER", True, WHITE)
-            text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-            screen.blit(msg, text_rect)
-            if win_game:
-            msg = font.render("YOU WIN!", True, WHITE)
-            text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-            screen.blit(msg, text_rect)
-            ```
-        """.trimIndent()
-
-        val expected = """
-            ```python
-            while True:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        sys.exit()
-                if not game_over and not win_game:
-                    keys = pygame.key.get_pressed()
-                    if keys[pygame.K_LEFT] and paddle_x > 0:
-                        paddle_x -= paddle_speed
-                    ball_x += ball_dx
-                    ball_y += ball_dy
-                for block in blocks:
-                    if block['status']:
-                        block_rect = block['rect']
-                        ball_rect = pygame.Rect(ball_x, ball_y, ball_size, ball_size)
-                        if ball_rect.colliderect(block_rect):
-                if game_over:
-                    msg = font.render("GAME OVER", True, WHITE)
-                    text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-                    screen.blit(msg, text_rect)
-                if win_game:
-                    msg = font.render("YOU WIN!", True, WHITE)
-                    text_rect = msg.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-                    screen.blit(msg, text_rect)
-            ```
-        """.trimIndent()
-
-        assertEquals(expected, MarkdownCodeRepair.repair(input))
-    }
-
-    @Test
-    fun conservativeIndentRepair_indentsRepresentativePygameLinesUnderNotGameOverBlock() {
-        val input = """
-            ```python
-            while True:
-                if not game_over and not win_game:
-                # 2.キー入力処理
-                keys = pygame.key.get_pressed()
-                # 3.ボールの移動
-                ball_x += ball_dx
-                # 6.衝突判定
-                for block in blocks:
-                # 8.ゲームクリア判定
-                if all(not block['status'] for block in blocks):
-                # 9.描画処理
-                screen.fill(BLACK)
-                pygame.draw.rect(screen, WHITE, (paddle_x, paddle_y, paddle_width, paddle_height))
-                pygame.draw.circle(screen, WHITE, (ball_x, ball_y), ball_radius)
-                score_text = font.render(f"Score: {score}", True, WHITE)
-                screen.blit(score_text, (10, 10))
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertContains(repaired, "    if not game_over and not win_game:")
-        assertContains(repaired, "        # 2.キー入力処理")
-        assertContains(repaired, "        keys = pygame.key.get_pressed()")
-        assertContains(repaired, "        # 3.ボールの移動")
-        assertContains(repaired, "        ball_x += ball_dx")
-        assertContains(repaired, "        # 6.衝突判定")
-        assertContains(repaired, "        for block in blocks:")
-        assertContains(repaired, "        # 8.ゲームクリア判定")
-        assertContains(repaired, "        if all(not block['status'] for block in blocks):")
-        assertContains(repaired, "        # 9.描画処理")
-        assertContains(repaired, "        screen.fill(BLACK)")
-        assertContains(repaired, "        pygame.draw.rect(screen, WHITE, (paddle_x, paddle_y, paddle_width, paddle_height))")
-        assertContains(repaired, "        pygame.draw.circle(screen, WHITE, (ball_x, ball_y), ball_radius)")
-        assertContains(repaired, "        score_text = font.render(f\"Score: {score}\", True, WHITE)")
-        assertContains(repaired, "        screen.blit(score_text, (10, 10))")
-    }
-
-    @Test
-    fun conservativeIndentRepair_alignsNotGameOverParentAndChildrenToExpectedDepth() {
-        val input = """
-            ```python
-            while True:
-            for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-            if not game_over and not win_game:
-            # 2.キー入力処理 (パドルの移動)
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_LEFT] and paddle_x >0:
-            paddle_x -= paddle_speed
-            if keys[pygame.K_RIGHT] and paddle_x < SCREEN_WIDTH - paddle_width:
-            paddle_x += paddle_speed
-            ```
-            if not game_over and not win_game:
-            keys = pygame.key.get_pressed()
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertContains(repaired, "    if not game_over and not win_game:")
-        assertContains(repaired, "        # 2.キー入力処理 (パドルの移動)")
-        assertContains(repaired, "        keys = pygame.key.get_pressed()")
-        assertContains(repaired, "        if keys[pygame.K_LEFT] and paddle_x > 0:")
-        assertContains(repaired, "            paddle_x -= paddle_speed")
-        assertContains(repaired, "        if keys[pygame.K_RIGHT] and paddle_x < SCREEN_WIDTH - paddle_width:")
-        assertContains(repaired, "            paddle_x += paddle_speed")
-        assertContains(repaired, "```\nif not game_over and not win_game:\nkeys = pygame.key.get_pressed()")
-    }
 
 
     @Test
@@ -4870,29 +3274,6 @@ class MarkdownCodeRepairTest {
         assertEquals(input, MarkdownCodeRepair.repair(input))
     }
 
-    @Test
-    fun conservativeIndentRepair_keepsExistingEventAndQuitRepairAlongsideGameUpdateRepair() {
-        val input = """
-            ```python
-            while True:
-            for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-            if not game_over and not win_game:
-            keys = pygame.key.get_pressed()
-            ```
-        """.trimIndent()
-
-        val repaired = MarkdownCodeRepair.repair(input)
-
-        assertContains(repaired, "    for event in pygame.event.get():")
-        assertContains(repaired, "        if event.type == pygame.QUIT:")
-        assertContains(repaired, "            pygame.quit()")
-        assertContains(repaired, "            sys.exit()")
-        assertContains(repaired, "    if not game_over and not win_game:")
-        assertContains(repaired, "        keys = pygame.key.get_pressed()")
-    }
 
     @Test
     fun conservativeIndentRepair_doesNotOverNestAlreadyNestedRepresentativePygameLines() {

@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
         HeldEngineLifecycleBridge(holder = LocalInferenceEngineHolder.getInstance(applicationContext))
     }
 
+    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -178,8 +179,11 @@ class MainActivity : ComponentActivity() {
                                             val chatId = backStackEntry.arguments?.getInt(Routes.CHAT_ID_ARG_ROUTE)
                                             Home(navController, viewModel, chatId)
                                         }
-                                        composable(Routes.SETTINGS) {
-                                            Settings(navController)
+                                        composable(Routes.SETTINGS) { settingsBackStackEntry ->
+                                            Settings(
+                                                navgationController = navController,
+                                                settingsBackStackEntry = settingsBackStackEntry,
+                                            )
                                         }
                                         composable(Routes.ABOUT) {
                                             About(navController, viewModel)
@@ -260,5 +264,5 @@ internal fun resolveStartRoute(
     val isAllowedRoute = restored != null && (
         restored in allowed || restored.startsWith("${Routes.CHAT}/")
     )
-    return if (isAllowedRoute) restored ?: Routes.CHAT_ROOT else Routes.CHAT_ROOT
+    return if (isAllowedRoute) restored else Routes.CHAT_ROOT
 }

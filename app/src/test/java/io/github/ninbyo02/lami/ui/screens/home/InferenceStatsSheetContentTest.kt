@@ -7,10 +7,8 @@ import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Ignore
 import org.junit.Test
 
-@Ignore("Temporarily disabled while inference stats UI tests are realigned with the current section layout.")
 class InferenceStatsSheetContentTest {
     @Test
     fun `buildInferenceSummarySections returns model and overview sections in expected order`() {
@@ -32,7 +30,7 @@ class InferenceStatsSheetContentTest {
             listOf("初回受信まで（端末基準）", "全体完了まで（統計基準）", "生成速度", "完了理由"),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("0.4 s", "3.6 s", "55.5 token/s", "通常終了 (stop)"), sections[0].items.map { it.value })
+        assertEquals(listOf("420 ms", "3.6 s", "55.5 token/s", "通常終了 (stop)"), sections[0].items.map { it.value })
     }
 
     @Test
@@ -71,7 +69,7 @@ class InferenceStatsSheetContentTest {
             localTraceForDev = trace,
         )
 
-        assertEquals("18.6 token/s（準実測）", sections[0].items[2].value)
+        assertEquals("12.2 token/s", sections[0].items[2].value)
     }
 
     @Test
@@ -96,7 +94,7 @@ class InferenceStatsSheetContentTest {
             localTraceForDev = trace,
         )
 
-        assertEquals("11.9 token/s（Tokenizer）", sections[0].items[2].value)
+        assertEquals("17.9 token/s", sections[0].items[2].value)
     }
 
     @Test
@@ -173,15 +171,18 @@ class InferenceStatsSheetContentTest {
             displayMode = InferenceStatsDisplayMode.DETAILED,
         )
 
-        assertEquals(listOf("トークン", "バックエンド時間詳細", "補足"), sections.map { it.title })
+        assertEquals(listOf("トークン", "詳細", "補足"), sections.map { it.title })
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元", "速度取得元", "Tokenizer状態"),
+            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元"),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("100（推定）", "240（推定）", "340（推定）", "Ollama", "推定", "未実行"), sections[0].items.map { it.value })
-        assertEquals(listOf("モデルロード時間", "入力評価時間", "生成時間", "推論時間"), sections[1].items.map { it.label })
+        assertEquals(listOf("100（推定）", "240（推定）", "340（推定）", "バックエンド"), sections[0].items.map { it.value })
         assertEquals(
-            listOf("2.0 s（取得済み）", "1.5 s（取得済み）", "3.0 s（取得済み）", "—（未取得）"),
+            listOf("速度取得元", "表示速度", "バックエンド基準速度", "Lami基準TTFT", "バックエンド基準TTFT", "モデルロード時間", "入力評価時間", "生成時間", "推論時間"),
+            sections[1].items.map { it.label },
+        )
+        assertEquals(
+            listOf("推定", "—", "—", "—", "—", "2.0 s（取得済み）", "1.5 s（取得済み）", "3.0 s（取得済み）", "—（未取得）"),
             sections[1].items.map { it.value },
         )
         assertEquals(listOf("画像入力"), sections[2].items.map { it.label })
@@ -204,16 +205,15 @@ class InferenceStatsSheetContentTest {
         )
 
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元", "実測生成速度", "体感生成速度", "速度取得元", "Tokenizer状態"),
+            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元"),
             sections[0].items.map { it.label },
         )
-        assertEquals("32.4 token/s", sections[0].items[4].value)
-        assertEquals("21.8 token/s", sections[0].items[5].value)
-        val devSection = sections.first { it.title == "DEV診断" }
         assertEquals(
-            "semi-measured:assistantUpdateCount / generationTimeMs",
-            devSection.items.first { it.label == "体感生成速度source" }.value,
+            listOf("速度取得元", "表示速度", "バックエンド基準速度", "体感速度", "Lami基準TTFT", "バックエンド基準TTFT", "モデルロード時間", "入力評価時間", "生成時間", "推論時間"),
+            sections[1].items.map { it.label },
         )
+        assertEquals("32.4 token/s", sections[1].items.first { it.label == "バックエンド基準速度" }.value)
+        assertEquals("48.0 token/s", sections[1].items.first { it.label == "体感速度" }.value)
     }
 
     @Test
@@ -230,8 +230,12 @@ class InferenceStatsSheetContentTest {
         )
 
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元", "実測生成速度", "速度取得元", "Tokenizer状態"),
+            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元"),
             sections[0].items.map { it.label },
+        )
+        assertEquals(
+            listOf("速度取得元", "表示速度", "バックエンド基準速度", "Lami基準TTFT", "バックエンド基準TTFT", "モデルロード時間", "入力評価時間", "生成時間", "推論時間"),
+            sections[1].items.map { it.label },
         )
     }
 
@@ -243,8 +247,7 @@ class InferenceStatsSheetContentTest {
         )
 
         assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）"), sections[0].items.take(3).map { it.value })
-        assertEquals("未実行", sections[0].items.last { it.label == "Tokenizer状態" }.value)
-        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "—（未取得）"), sections[1].items.map { it.value })
+        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "—（未取得）"), sections[1].items.takeLast(4).map { it.value })
         assertEquals("—", sections[2].items.first().value)
     }
 
@@ -259,15 +262,18 @@ class InferenceStatsSheetContentTest {
 
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(),
-            displayMode = InferenceStatsDisplayMode.DETAILED,
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
             localTraceForDev = trace,
         )
 
         assertEquals(
-            listOf("入力トークン数（未取得）", "出力トークン数（未取得）", "合計トークン（未取得）", "トークン取得元", "速度取得元", "直近 Prefill Token", "直近 Decode Token", "Tokenizer状態"),
+            listOf("入力トークン数（未取得）", "出力トークン数（未取得）", "合計トークン（未取得）", "トークン取得元"),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "未取得", "未取得", "0", "42", "未実行"), sections[0].items.map { it.value })
+        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "未取得"), sections[0].items.map { it.value })
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("0", devSection.items.first { it.label == "直近 Prefill Token" }.value)
+        assertEquals("42", devSection.items.first { it.label == "直近 Decode Token" }.value)
     }
 
     @Test
@@ -290,16 +296,22 @@ class InferenceStatsSheetContentTest {
                 "出力トークン数（未取得）",
                 "合計トークン（未取得）",
                 "トークン取得元",
-                "実測生成速度",
-                "速度取得元",
-                "TTFT",
-                "Decode時間",
-                "総応答時間",
-                "Tokenizer状態",
             ),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("21.5 token/s（推定）", "推定", "0.4 s", "2.8 s", "3.4 s", "未実行"), sections[0].items.takeLast(6).map { it.value })
+        assertEquals(
+            listOf(
+                "速度取得元",
+                "表示速度",
+                "バックエンド基準速度",
+                "Lami基準TTFT",
+                "バックエンド基準TTFT",
+                "Decode時間",
+                "総応答時間",
+            ),
+            sections[1].items.take(7).map { it.label },
+        )
+        assertEquals(listOf("未取得 / バックエンド基準（Engine時間）", "—", "21.5 token/s", "420 ms", "—", "2.8 s", "3.4 s"), sections[1].items.take(7).map { it.value })
         assertEquals("tokenizer note", sections[2].items.first { it.label == "注記" }.value)
     }
 
@@ -316,7 +328,7 @@ class InferenceStatsSheetContentTest {
         )
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(tokenCountMode = "tokenizer_recount"),
-            displayMode = InferenceStatsDisplayMode.DETAILED,
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
             localTraceForDev = trace,
         )
 
@@ -325,7 +337,8 @@ class InferenceStatsSheetContentTest {
             sections[0].items.take(3).map { it.label },
         )
         assertEquals(listOf("12（Tokenizer）", "34（Tokenizer）", "46（Tokenizer）"), sections[0].items.take(3).map { it.value })
-        assertEquals("成功", sections[0].items.last { it.label == "Tokenizer状態" }.value)
+        val summarySection = sections.first { it.title == "DEV診断サマリー" }
+        assertEquals("成功", summarySection.items.first { it.label == "Tokenizer再計数" }.value)
     }
 
     @Test
@@ -337,7 +350,7 @@ class InferenceStatsSheetContentTest {
         )
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(inputTokens = 8, outputTokens = 13, totalTokens = 21),
-            displayMode = InferenceStatsDisplayMode.DETAILED,
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
             localTraceForDev = trace,
         )
 
@@ -345,7 +358,8 @@ class InferenceStatsSheetContentTest {
             listOf("入力トークン数（推定）", "出力トークン数（推定）", "合計トークン（推定）"),
             sections[0].items.take(3).map { it.label },
         )
-        assertEquals("失敗（inference-instance-not-found）", sections[0].items.last { it.label == "Tokenizer状態" }.value)
+        val summarySection = sections.first { it.title == "DEV診断サマリー" }
+        assertEquals("未取得", summarySection.items.first { it.label == "Tokenizer再計数" }.value)
     }
 
     @Test
@@ -357,8 +371,8 @@ class InferenceStatsSheetContentTest {
             displayMode = InferenceStatsDisplayMode.DETAILED,
         )
 
-        assertEquals("1.2 s（fallback）", sections[1].items[2].value)
-        assertEquals("1.2 s（取得済み）", sections[1].items[3].value)
+        assertEquals("—", sections[1].items[2].value)
+        assertEquals("1.2 s（取得済み）", sections[1].items.first { it.label == "推論時間" }.value)
     }
 
     @Test
@@ -642,7 +656,7 @@ class InferenceStatsSheetContentTest {
         assertEquals("qnn-candidate-detected", devSection.items.first { it.label == "NPU probe hint" }.value)
         assertEquals("LlmInferenceOptions.Builder.setQnnDelegate", devSection.items.first { it.label == "QNN candidates" }.value)
         assertEquals("candidate-detected", devSection.items.first { it.label == "QNN status" }.value)
-        assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
+        assertEquals("gpu-possible / low", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
     @Test
@@ -768,8 +782,7 @@ class InferenceStatsSheetContentTest {
 
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("Builder.setPreferredBackend(Backend): Builder", devSection.items.first { it.label == "Delegate preferredBackend signatures" }.value)
-        assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
-        assertTrue(devSection.items.first { it.label == "推定理由" }.value.contains("delegate API candidate detected"))
+        assertEquals("npu-candidate / low", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
     @Test
@@ -800,7 +813,7 @@ class InferenceStatsSheetContentTest {
         assertEquals("GPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
         assertEquals("not-applied", devSection.items.first { it.label == "Applied preferredBackend" }.value)
         assertEquals("not-supported", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
-        assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
+        assertEquals("npu-candidate / low", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
     @Test
@@ -849,6 +862,7 @@ class InferenceStatsSheetContentTest {
                 preferredBackendApplyBackendEnumCandidates = listOf("DEFAULT", "CPU", "GPU"),
                 preferredBackendApplyNotSupportedReason = "no-setPreferredBackend-method",
             ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
         )
 
@@ -857,7 +871,7 @@ class InferenceStatsSheetContentTest {
         assertEquals("setPreferredBackend(Backend): Builder", devSection.items.first { it.label == "PreferredBackend method candidates" }.value)
         assertEquals("DEFAULT, CPU, GPU", devSection.items.first { it.label == "PreferredBackend backend enum candidates" }.value)
         assertEquals("no-setPreferredBackend-method", devSection.items.first { it.label == "PreferredBackend not-supported reason" }.value)
-        assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
+        assertEquals("npu-candidate / low", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
     @Test
@@ -873,6 +887,7 @@ class InferenceStatsSheetContentTest {
                 preferredBackendHookSource = "holder-acquire-engine-config",
                 preferredBackendApplyBackendEnumCandidates = listOf("DEFAULT", "CPU", "GPU", "NPU"),
             ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
         )
         val devSection = sections.first { it.title == "DEV診断" }
@@ -897,6 +912,7 @@ class InferenceStatsSheetContentTest {
                 preferredBackendApplyError = "IllegalStateException",
                 preferredBackendHookReached = true,
             ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
         )
         val devSection = sections.first { it.title == "DEV診断" }
@@ -947,6 +963,7 @@ class InferenceStatsSheetContentTest {
                 preferredBackendApplyError = "IllegalStateException:initialize failed",
                 preferredBackendHookReached = true,
             ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
         )
         val devSection = sections.first { it.title == "DEV診断" }
@@ -966,6 +983,7 @@ class InferenceStatsSheetContentTest {
                 heldEngineCreatePath = "holder-existing-engine",
                 preferredBackendHookMissingReason = "holder-existing-engine",
             ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
         )
 
@@ -975,7 +993,7 @@ class InferenceStatsSheetContentTest {
             "requested preferredBackend requires a new held engine; current run reused existing engine",
             devSection.items.first { it.label == "PreferredBackend recreate reason" }.value,
         )
-        assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
+        assertEquals("npu-candidate / low", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
 
@@ -992,6 +1010,7 @@ class InferenceStatsSheetContentTest {
                 preferredBackendHookMissingReason = "holder-existing-engine",
                 preferredBackendRequiresEngineRecreate = false,
             ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
         )
 
@@ -1022,6 +1041,7 @@ class InferenceStatsSheetContentTest {
                 preferredBackendHookMissingReason = "holder-existing-engine",
                 preferredBackendRequiresEngineRecreate = false,
             ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
         )
 
@@ -1047,6 +1067,7 @@ class InferenceStatsSheetContentTest {
                 preferredBackendHookMissingReason = "holder-existing-engine",
                 preferredBackendRequiresEngineRecreate = false,
             ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
         )
 
@@ -1067,6 +1088,7 @@ class InferenceStatsSheetContentTest {
                 heldEngineCreatePath = "holder-created-engine-config",
                 preferredBackendRequiresEngineRecreate = false,
             ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
         )
 
@@ -1075,6 +1097,21 @@ class InferenceStatsSheetContentTest {
         assertTrue(devSection.items.none { it.label == "PreferredBackend recreate reason" })
     }
 
-
-
+    private fun preferredBackendProbeSnapshot(): AcceleratorProbeSnapshot =
+        AcceleratorProbeSnapshot(
+            deviceManufacturer = "Google",
+            deviceModel = "Pixel",
+            deviceBoard = "board-x",
+            androidSdk = 35,
+            supportedAbis = listOf("arm64-v8a"),
+            cpuCoreCount = 8,
+            cpuAbi = "arm64-v8a",
+            gpuVendor = null,
+            gpuRenderer = null,
+            gpuVersion = null,
+            nnapiAvailable = true,
+            nnapiDeprecatedWarning = true,
+            nnapiDevices = emptyList(),
+            probeSource = "test",
+        )
 }

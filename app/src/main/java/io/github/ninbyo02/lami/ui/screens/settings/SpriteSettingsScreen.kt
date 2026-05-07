@@ -5528,7 +5528,7 @@ private fun ReadyAnimationTab(
                 // [dp] 横: 2カラム の間隔(間隔)に関係
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                BoxWithConstraints(
+                Box(
                     modifier = Modifier
                         // [非dp] 横: 左カラム の width(制約)に関係
                         .width(previewWidth)

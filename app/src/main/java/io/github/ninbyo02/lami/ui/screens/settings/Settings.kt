@@ -82,6 +82,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.annotation.VisibleForTesting
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import io.github.ninbyo02.lami.BuildConfig
@@ -104,6 +105,7 @@ import io.github.ninbyo02.lami.util.normalizeUrlInput
 import io.github.ninbyo02.lami.util.validateUrlFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -148,7 +150,11 @@ fun openUrl(context: Context, url: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
+fun Settings(
+    navgationController: NavController,
+    onSaved: () -> Unit = {},
+    settingsBackStackEntry: NavBackStackEntry? = null,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val db = AppDatabase.getDatabase(context)
@@ -256,18 +262,14 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
     val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
     val listState = rememberLazyListState()
-    // Use the explicit SETTINGS NavBackStackEntry as the owner of the
-    // SavedStateHandle used for About→Settings return events.
-    // This avoids relying on currentBackStackEntry and makes the state
-    // owner explicit and stable across recompositions.
-    val settingsBackStackEntry = remember(navgationController) {
-        navgationController.getBackStackEntry(Routes.SETTINGS)
-    }
     val resetScrollOnReturnFromAbout by
-        settingsBackStackEntry
-            .savedStateHandle
-            .getStateFlow(ResetSettingsScrollOnReturnFromAboutKey, false)
-            .collectAsState()
+        remember(settingsBackStackEntry) {
+            settingsBackStackEntry
+                ?.savedStateHandle
+                ?.getStateFlow(ResetSettingsScrollOnReturnFromAboutKey, false)
+                ?: flowOf(false)
+        }
+            .collectAsState(initial = false)
     val fadeHeight = 32.dp
     val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
     val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
@@ -282,8 +284,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         if (resetScrollOnReturnFromAbout) {
             listState.scrollToItem(0)
             settingsBackStackEntry
-                .savedStateHandle
-                .set(ResetSettingsScrollOnReturnFromAboutKey, false)
+                ?.savedStateHandle
+                ?.set(ResetSettingsScrollOnReturnFromAboutKey, false)
         }
     }
 
@@ -1071,8 +1073,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 Card(
                     onClick = {
                         settingsBackStackEntry
-                            .savedStateHandle
-                            .set(ResetSettingsScrollOnReturnFromAboutKey, true)
+                            ?.savedStateHandle
+                            ?.set(ResetSettingsScrollOnReturnFromAboutKey, true)
                         navgationController.navigate(Routes.ABOUT)
                     },
                     modifier = Modifier.fillMaxWidth(),

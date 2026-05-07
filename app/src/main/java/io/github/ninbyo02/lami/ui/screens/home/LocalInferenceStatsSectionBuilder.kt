@@ -1107,7 +1107,7 @@ private fun resolvePreferredBackendEngineRecreateDiagnostic(
     if (trace.preferredBackendRequiresEngineRecreate == true) {
         return true to trace.preferredBackendEngineRecreateReason
     }
-    val requested = trace?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
+    val requested = trace.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
     val requiresRecreate = requested != PreferredBackendDryRunSetting.DEFAULT.name &&
         trace.heldEngineCreatePath == "holder-existing-engine" &&
         trace.preferredBackendHookReached != true &&

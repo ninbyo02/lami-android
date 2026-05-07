@@ -20,6 +20,7 @@ import io.github.ninbyo02.lami.navigation.SettingsRoute
 import io.github.ninbyo02.lami.ui.TestAppWrapper
 import io.github.ninbyo02.lami.ui.theme.OllamaTheme
 
+@Suppress("UNCHECKED_CAST")
 private fun ComposeTestRule.asAndroidRule(): AndroidComposeTestRule<ActivityScenarioRule<out ComponentActivity>, out ComponentActivity> =
     this as AndroidComposeTestRule<ActivityScenarioRule<out ComponentActivity>, out ComponentActivity>
 

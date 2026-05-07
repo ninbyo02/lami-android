@@ -46,7 +46,7 @@ object PythonCodeSyntaxInspector {
     }
 
     private fun inspectPythonBlock(code: String, blockIndex: Int): List<PythonCodeWarning> {
-        val lines = code.split("\n")
+        val lines = stripCommonIndent(code.split("\n"))
         val warnings = mutableListOf<PythonCodeWarning>()
 
         lines.forEachIndexed { i, line ->
@@ -55,8 +55,7 @@ object PythonCodeSyntaxInspector {
             if (trimmed.endsWith(":")) {
                 val next = nextEffectiveLine(lines, i + 1)
                 if (next != null) {
-                    val isNearFenceEnd = (lines.size - 1 - next.index) <= 0
-                    if (!isNearFenceEnd && (next.isBlank || next.indent <= indent)) {
+                    if (next.isBlank || next.indent <= indent) {
                         warnings += PythonCodeWarning(
                             blockIndex,
                             i + 1,
@@ -130,8 +129,27 @@ object PythonCodeSyntaxInspector {
         val before = trimmed.substring(0, colonIndex)
         val isLikelyDictLiteral = !before.contains(' ') && before.endsWith("{")
         if (isLikelyDictLiteral) return false
-        if (before.endsWith("[") || before.contains("[")) return false
+        if (!blockStarterRegex.containsMatchIn(before) && (before.endsWith("[") || before.contains("["))) {
+            return false
+        }
         return true
+    }
+
+    private fun stripCommonIndent(lines: List<String>): List<String> {
+        val minIndent = lines
+            .asSequence()
+            .filter { it.isNotBlank() }
+            .map { line -> line.takeWhile { it == ' ' }.length }
+            .minOrNull()
+            ?: return lines
+        if (minIndent <= 0) return lines
+        return lines.map { line ->
+            if (line.isBlank()) {
+                line
+            } else {
+                line.drop(minIndent.coerceAtMost(line.length))
+            }
+        }
     }
 
     private data class LineInfo(val index: Int = -1, val trimmed: String, val indent: Int, val isBlank: Boolean, val isComment: Boolean) {

@@ -20,8 +20,8 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
         private val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `base_url_new` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -30,19 +30,19 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                database.execSQL(
+                db.execSQL(
                     """
                     INSERT INTO `base_url_new` (`url`, `isActive`)
                     SELECT `url`, 1 FROM `base_url` LIMIT 1
                     """.trimIndent()
                 )
-                database.execSQL("DROP TABLE `base_url`")
-                database.execSQL("ALTER TABLE `base_url_new` RENAME TO `base_url`")
+                db.execSQL("DROP TABLE `base_url`")
+                db.execSQL("ALTER TABLE `base_url_new` RENAME TO `base_url`")
             }
         }
         private val MIGRATION_2_3 = object : Migration(2, 3) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `selected_model` (
                         `baseUrl` TEXT NOT NULL,

@@ -3745,12 +3745,10 @@ internal fun normalizeStreamingPartialForRender(partial: String): String {
 internal fun buildFinalizedStreamingResponseForPersist(response: String): String {
     val normalizedFinalText = response.trim()
     val repaired = MarkdownCodeRepair.repair(normalizedFinalText).trim()
-    Log.d(
-        "MarkdownCodeRepair",
-        "MarkdownCodeRepair final: len ${normalizedFinalText.length} -> ${repaired.length}, nl ${normalizedFinalText.count { it == '\n' }} -> ${repaired.count { it == '\n' }}",
-    )
-    Log.d("MarkdownCodeRepair", "MarkdownCodeRepair final body:\n${previewForDevLog(repaired)}")
-    return repaired
+    if (!normalizedFinalText.endsWith("#\n```") || repaired.endsWith("#\n```")) {
+        return repaired
+    }
+    return repaired.replace(Regex("\\n```$"), "\n#\n```")
 }
 
 private fun previewForDevLog(
@@ -4097,6 +4095,8 @@ private suspend fun runLocalInferenceOnceEntry(
         LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT -> LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT
         else -> LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY
     }
+    val preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates
+    val preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates
     val traceWithOfficialFlow = generated.trace.copy(
         selectedAssistantResponseSource = resolvedSource.takeIf { !response.isNullOrBlank() },
         officialFlowAttempted = officialFlowAttempted,
@@ -4111,8 +4111,8 @@ private suspend fun runLocalInferenceOnceEntry(
         preferredBackendApplyResult = preferredBackendApplyResult?.preferredBackendApplyResult ?: generated.trace.preferredBackendApplyResult,
         preferredBackendApplyError = preferredBackendApplyResult?.preferredBackendApplyError ?: generated.trace.preferredBackendApplyError,
         preferredBackendApplyBuilderClass = preferredBackendApplyResult?.preferredBackendApplyBuilderClass ?: generated.trace.preferredBackendApplyBuilderClass,
-        preferredBackendApplyMethodCandidates = if (preferredBackendApplyResult?.preferredBackendApplyMethodCandidates?.isNotEmpty() == true) preferredBackendApplyResult?.preferredBackendApplyMethodCandidates.orEmpty() else generated.trace.preferredBackendApplyMethodCandidates,
-        preferredBackendApplyBackendEnumCandidates = if (preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates?.isNotEmpty() == true) preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty() else generated.trace.preferredBackendApplyBackendEnumCandidates,
+        preferredBackendApplyMethodCandidates = if (!preferredBackendApplyMethodCandidates.isNullOrEmpty()) preferredBackendApplyMethodCandidates else generated.trace.preferredBackendApplyMethodCandidates,
+        preferredBackendApplyBackendEnumCandidates = if (!preferredBackendApplyBackendEnumCandidates.isNullOrEmpty()) preferredBackendApplyBackendEnumCandidates else generated.trace.preferredBackendApplyBackendEnumCandidates,
         preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason ?: generated.trace.preferredBackendApplyNotSupportedReason,
     )
     emitFinal(response)

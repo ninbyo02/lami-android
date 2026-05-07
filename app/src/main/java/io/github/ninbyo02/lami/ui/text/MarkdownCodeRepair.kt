@@ -1107,7 +1107,8 @@ object MarkdownCodeRepair {
         val compact = content.replace(Regex("\\s+"), "")
         return when {
             compact == "ゲームオブジェクトのパラメータ" || compact == "---ゲームオブジェクトのパラメータ---" ||
-                compact == "---ゲーム---オブジェクトのパラメータ---" -> "# --- ゲームオブジェクトのパラメータ ---"
+                compact == "---ゲーム---オブジェクトのパラメータ---" ||
+                compact == "オブジェクトのパラメータ---" -> "# --- ゲームオブジェクトのパラメータ ---"
             compact == "---メインループ---" ||
                 compact == "メインループ" ||
                 compact == "---メイン---ループ" ||
@@ -1118,6 +1119,9 @@ object MarkdownCodeRepair {
             compact == "リスタート処理" -> "# リスタート処理"
             compact == "ゲーム状態をリセット" -> "# ゲーム状態をリセット"
             compact == "ボール" -> "# ボール"
+            compact == "フレームレート設定(60FPS)" ||
+                compact == "フレームレート設定" ||
+                compact == "フレーム/レート/設定" -> "# フレームレート設定 (60 FPS)"
             compact == "の速度を反転させる上下どちらに当たったか" -> "# の速度を反転させる上下どちらに当たったか"
             else -> if (content.contains("---")) normalizeDashComment("# $content") else normalizePlainComment("# $content")
         }
@@ -1142,7 +1146,10 @@ object MarkdownCodeRepair {
 
     private fun repairCodeLine(line: String): String {
         var repaired = line
-        repaired = repaired.replace(Regex("(?<=\\S)#"), "\n#")
+        val hasHashOutsideQuotes = firstHashOutsideQuotes(repaired) != null
+        if (hasHashOutsideQuotes) {
+            repaired = repaired.replace(Regex("(?<=\\S)#"), "\n#")
+        }
         repaired = repaired.replace(Regex("(?<!\\S)(import\\s+[\\w.]+)import\\s+"), "$1\nimport ")
         repaired = repaired.replace(
             Regex("(SCREEN_WIDTH\\s*=\\s*\\d+)(SCREEN_HEIGHT\\s*=\\s*\\d+)(screen\\s*=)"),
@@ -1183,10 +1190,12 @@ object MarkdownCodeRepair {
         repaired = repaired.replace(Regex("\\)el\\nif\\s+"), ")\nelif ")
         repaired = repaired.replace(Regex("(^|\\s)el\\nif\\s+"), "$1elif ")
         repaired = repaired.replace(Regex("\\)elif\\s+"), ")\nelif ")
-        repaired = repaired.replace(
-            Regex("(?<=[\\]\\\"'A-Za-z_0-9\\)])\\s*#\\s*(\\S.*)$"),
-            "\n# $1",
-        )
+        if (hasHashOutsideQuotes) {
+            repaired = repaired.replace(
+                Regex("(?<=[\\]\\\"'A-Za-z_0-9\\)])\\s*#\\s*(\\S.*)$"),
+                "\n# $1",
+            )
+        }
         repaired = repaired.replace(
             Regex("(\\b(?:True|False|None)\\b|\\d)([A-Za-z_][A-Za-z0-9_]*\\s*=)"),
             "$1\n$2",
@@ -1356,7 +1365,18 @@ object MarkdownCodeRepair {
             val trimmedContent = dashContent
                 .replace(Regex("(\\s*---\\s*)+$"), "")
                 .trim()
-            normalized = "# --- $trimmedContent ---"
+            val compactContent = trimmedContent.replace(Regex("\\s+"), "")
+            val canonicalContent = when (compactContent) {
+                "ゲーム---オブジェクトの---パラメータ",
+                "ゲーム---オブジェクトのパラメータ",
+                "ゲームオブジェクトの---パラメータ",
+                "ゲームオブジェクトのパラメータ",
+                "オブジェクトのパラメータ" -> "ゲームオブジェクトのパラメータ"
+                "メイン---ループ",
+                "メインループ" -> "メインループ"
+                else -> trimmedContent
+            }
+            normalized = "# --- $canonicalContent ---"
         }
         if (!normalized.trimStart().startsWith("#")) {
             normalized = "# ${normalized.trim()}"
@@ -1602,12 +1622,34 @@ object MarkdownCodeRepair {
     }
 
     private fun splitInlineHashCodeAndComment(line: String): InlineHashSplitResult? {
-        val hashIndex = line.indexOf('#')
-        if (hashIndex < 0) return null
+        val hashIndex = firstHashOutsideQuotes(line) ?: return null
         val codePart = line.substring(0, hashIndex).trimEnd()
         if (codePart.isEmpty() || codePart.trimStart().startsWith("#")) return null
         val commentSeed = line.substring(hashIndex + 1).trim()
         return InlineHashSplitResult(code = codePart, commentSeed = commentSeed)
+    }
+
+    private fun firstHashOutsideQuotes(line: String): Int? {
+        var inSingle = false
+        var inDouble = false
+        var escaped = false
+        for (index in line.indices) {
+            val char = line[index]
+            if (escaped) {
+                escaped = false
+                continue
+            }
+            if (char == '\\') {
+                escaped = true
+                continue
+            }
+            when (char) {
+                '\'' -> if (!inDouble) inSingle = !inSingle
+                '"' -> if (!inSingle) inDouble = !inDouble
+                '#' -> if (!inSingle && !inDouble) return index
+            }
+        }
+        return null
     }
 
     private fun sanitizeLeadingDashCodeResidue(line: String): String {
@@ -1777,6 +1819,8 @@ object MarkdownCodeRepair {
 
     private fun normalizeKnownSpacing(line: String): String {
         return line
+            .replace(Regex("^(score|ball_radius|ball_dx|paddle_width)\\s*=\\s*(\\d+)$"), "$1 = $2")
+            .replace(Regex("([<>]=?)\\s*(\\d+)(?=:)"), "$1 $2")
             .replace(Regex("^SCREEN_WIDTH\\s*=\\s*(\\d+)$"), "SCREEN_WIDTH = $1")
             .replace(Regex("^SCREEN_HEIGHT\\s*=\\s*(\\d+)$"), "SCREEN_HEIGHT = $1")
             .replace(Regex("^paddle_width\\s*=\\s*(\\d+)$"), "paddle_width = $1")
@@ -1888,9 +1932,9 @@ object MarkdownCodeRepair {
         )
         normalized = normalized.replace(Regex("([。．.!?！？])\\s*(\\*\\*\\*.+?\\*\\*:)"), "$1\n$2")
         normalized = normalized.replace(Regex("([。．.!?！？])\\s*(#{1,6})"), "$1\n$2")
-        normalized = normalized.replace(Regex("(?m)^(\\s{0,3}#{1,6}\\s*[^\\n]*?)(\\d+\\.\\s*\\S.*)$"), "$1\n$2")
+        normalized = normalized.replace(Regex("(?m)^(\\s{0,3}#{2,6}\\s*[^\\n]*?)(\\d+\\.\\s*\\S.*)$"), "$1\n$2")
         normalized = normalized.replace(
-            Regex("(?m)^(\\s{0,3}#{1,6}\\s+[^\\n]+?)(?=(この|本|上記|以下|次|また|ここ|それ)[^\\n]*[。．])"),
+            Regex("(?m)^(\\s{0,3}#{1,6}\\s+[^\\n]+?)(?=(この|本|上記|また|ここ|それ)[^\\n]*[。．])"),
             "$1\n",
         )
         normalized = normalized.replace(
@@ -1908,6 +1952,14 @@ object MarkdownCodeRepair {
             .flatMap { normalizeFusedPygameInstallHeadingLine(it).lineSequence() }
             .map(::normalizeOutsideFenceLine)
             .joinToString("\n")
+            .let(::collapseBlankBetweenColonNumberedItems)
+    }
+
+    private fun collapseBlankBetweenColonNumberedItems(text: String): String {
+        return text.replace(
+            Regex("""(?m)^(\d+\.\s+.+?:\s+.+[。．.!?！？])\n\n(?=\d+\.\s+)"""),
+            "$1\n",
+        )
     }
 
     private fun normalizeFusedPygameInstallHeadingLine(line: String): String {
@@ -1959,6 +2011,11 @@ object MarkdownCodeRepair {
             val content = numberedBoldBulletMatch.groupValues[2].trim()
             val trailing = numberedBoldBulletMatch.groupValues[3]
             return "$prefix **$content**:$trailing"
+        }
+
+        val excessiveNumberedSpaceMatch = Regex("^(\\s*\\d+\\.)\\s{2,}(\\S.*)$").matchEntire(line)
+        if (excessiveNumberedSpaceMatch != null) {
+            return "${excessiveNumberedSpaceMatch.groupValues[1]} ${excessiveNumberedSpaceMatch.groupValues[2]}"
         }
 
         val numberedBulletMissingSpaceMatch = Regex("^(\\s*\\d+\\.)(\\S.*)$").matchEntire(line)

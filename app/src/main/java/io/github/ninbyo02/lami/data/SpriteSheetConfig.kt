@@ -99,7 +99,7 @@ data class SpriteSheetConfig(
                 applicationContext.assets.open(DEFAULT_ASSET_PATH).bufferedReader().use { reader ->
                     fromJson(reader.readText())
                 }
-            }.getOrNull() ?: null
+            }.getOrNull()
         }
 
         private fun resolveApplicationContext(): Context? {

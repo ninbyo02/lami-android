@@ -1301,22 +1301,25 @@ class OllamaViewModel(
 
 }
 
-private val NUM_CTX_PATTERN = Regex("""(^|\\s)num_ctx\\s+(\\d+)""", RegexOption.MULTILINE)
+private val NUM_CTX_PATTERN = Regex("""(^|[\s\\n])num_ctx\s+(\d+)""", RegexOption.MULTILINE)
+private val OPTIONS_NUM_CTX_PATTERN = Regex(""""options"\s*:\s*\{[^}]*"num_ctx"\s*:\s*(\d+)""")
+private val JSON_PARAMETERS_PATTERN = Regex(""""parameters"\s*:\s*"((?:\\.|[^"\\])*)"""", RegexOption.DOT_MATCHES_ALL)
+private val MODEL_INFO_CONTEXT_PATTERN = Regex(""""model_info"\s*:\s*\{[^}]*"[^"]*context_length"\s*:\s*(\d+)""", RegexOption.DOT_MATCHES_ALL)
+private val CONTEXT_WINDOW_PATTERN = Regex(""""context_window"\s*:\s*(\d+)""")
+private val ROOT_CONTEXT_LENGTH_PATTERN = Regex(""""context_length"\s*:\s*(\d+)""")
+private val DETAILS_CONTEXT_LENGTH_PATTERN = Regex(""""details"\s*:\s*\{[^}]*"context_length"\s*:\s*(\d+)""", RegexOption.DOT_MATCHES_ALL)
 
 private fun JSONObject.optNullableIntCompat(name: String): Int? =
     if (has(name) && !isNull(name)) runCatching { getInt(name) }.getOrNull() else null
 
 @VisibleForTesting
 internal fun extractEffectiveContextWindowFromShowResponse(response: String): Int? {
-    val json = runCatching { JSONObject(response) }.getOrNull() ?: return null
+    extractFirstPositiveInt(OPTIONS_NUM_CTX_PATTERN, response)?.let { return it }
 
-    json.optJSONObject("options")
-        ?.optNullableIntCompat("num_ctx")
-        ?.takeIf { it > 0 }
-        ?.let { return it }
-
-    json.optString("parameters")
-        .takeIf { it.isNotBlank() }
+    JSON_PARAMETERS_PATTERN.find(response)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.let(::unescapeJsonStringForContextWindow)
         ?.let { parameters ->
             NUM_CTX_PATTERN.find(parameters)
                 ?.groupValues
@@ -1326,30 +1329,27 @@ internal fun extractEffectiveContextWindowFromShowResponse(response: String): In
                 ?.let { return it }
         }
 
-    json.optJSONObject("model_info")
-        ?.let { modelInfo ->
-            val keys = modelInfo.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                if (!key.contains("context_length")) continue
-                modelInfo.optNullableIntCompat(key)
-                    ?.takeIf { it > 0 }
-                    ?.let { return it }
-            }
-        }
-
-    json.optNullableIntCompat("context_window")
-        ?.takeIf { it > 0 }
-        ?.let { return it }
-
-    json.optNullableIntCompat("context_length")
-        ?.takeIf { it > 0 }
-        ?.let { return it }
-
-    json.optJSONObject("details")
-        ?.optNullableIntCompat("context_length")
-        ?.takeIf { it > 0 }
-        ?.let { return it }
+    extractFirstPositiveInt(MODEL_INFO_CONTEXT_PATTERN, response)?.let { return it }
+    extractFirstPositiveInt(CONTEXT_WINDOW_PATTERN, response)?.let { return it }
+    extractFirstPositiveInt(ROOT_CONTEXT_LENGTH_PATTERN, response)?.let { return it }
+    extractFirstPositiveInt(DETAILS_CONTEXT_LENGTH_PATTERN, response)?.let { return it }
 
     return null
+}
+
+private fun extractFirstPositiveInt(pattern: Regex, text: String): Int? {
+    return pattern.find(text)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.toIntOrNull()
+        ?.takeIf { it > 0 }
+}
+
+private fun unescapeJsonStringForContextWindow(value: String): String {
+    return value
+        .replace("\\n", "\n")
+        .replace("\\r", "\r")
+        .replace("\\t", "\t")
+        .replace("\\\"", "\"")
+        .replace("\\\\", "\\")
 }

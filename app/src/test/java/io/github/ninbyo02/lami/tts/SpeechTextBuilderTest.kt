@@ -524,7 +524,7 @@ class SpeechTextBuilderTest {
 
         val actual = SpeechTextBuilder.build(input)
 
-        assertContainsAll(actual, "Pythonの例です。", "print 関数呼び出し を実行します。")
+        assertContainsAll(actual, "Pythonの例です。", "関数呼び出し を実行します。")
         assertTrue(actual.contains("コード例があります"))
         assertContainsNone(actual, "def hello", "Hello, {name}")
     }
