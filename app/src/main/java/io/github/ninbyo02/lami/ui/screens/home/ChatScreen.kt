@@ -6277,6 +6277,7 @@ private fun InferenceStatsSheetContent(
     }
     val scrollState = rememberScrollState()
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     val sheetContentPadding = 14.dp
     val sectionSpacing = 12.dp
 
@@ -6289,7 +6290,7 @@ private fun InferenceStatsSheetContent(
         enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
     )
     val acceleratorProbeSnapshot = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
-        remember { AcceleratorProbe.captureSnapshot() }
+        remember(context) { AcceleratorProbe.captureSnapshot(context = context.applicationContext) }
     } else {
         null
     }

@@ -4046,12 +4046,13 @@ private fun buildLiteRtEngineConfig(
     appendTrace: (String) -> Unit = {},
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
 ): EngineConfig {
-    val backendEnumCandidates = listOf("DEFAULT", "CPU", "GPU", "NPU")
+    val backendEnumCandidates = listOf("DEFAULT", "CPU", "GPU", "NPU", "QUALCOMM_QNN_NPU")
     val backendApply = when (preferredBackendDryRunSetting) {
         PreferredBackendDryRunSetting.CPU -> LiteRtBackendApply(Backend.CPU(), "CPU", "applied-engine-config")
         PreferredBackendDryRunSetting.GPU -> LiteRtBackendApply(Backend.GPU(), "GPU", "applied-engine-config")
         PreferredBackendDryRunSetting.DEFAULT -> LiteRtBackendApply(Backend.GPU(), "DEFAULT", "skipped-default-engine-config")
         PreferredBackendDryRunSetting.NPU -> createNpuBackendReflectively(nativeLibraryDir)
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> createQualcommQnnNpuBackendAttempt(nativeLibraryDir)
     }
     onPreferredBackendApplied(
         PreferredBackendApplyResult(
@@ -4071,10 +4072,10 @@ private fun buildLiteRtEngineConfig(
         appendTrace,
         "UPSTREAM preferred-backend hook-reached=true source=holder-acquire-engine-config requested=${preferredBackendDryRunSetting.name} applied=${backendApply.appliedPreferredBackend} result=${backendApply.preferredBackendApplyResult} builderClass=EngineConfig",
     )
-    if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU) {
+    if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU || preferredBackendDryRunSetting == PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU) {
         safeAppendTrace(
             appendTrace,
-            "UPSTREAM preferred-backend npu-request result=${backendApply.preferredBackendApplyResult} applied=${backendApply.appliedPreferredBackend}",
+            "UPSTREAM preferred-backend npu-request result=${backendApply.preferredBackendApplyResult} applied=${backendApply.appliedPreferredBackend} error=${backendApply.error ?: "none"}",
         )
     }
     return EngineConfig(
@@ -4122,6 +4123,102 @@ private fun createNpuBackendReflectively(nativeLibraryDir: String?): LiteRtBacke
         error = probeResult,
         notSupportedReason = "npu-disabled-native-crash-risk",
     )
+}
+
+private fun createQualcommQnnNpuBackendAttempt(nativeLibraryDir: String?): LiteRtBackendApply {
+    val evidence = mutableListOf<String>()
+    val missing = mutableListOf<String>()
+    val probeResult = runCatching {
+        evidence += "nativeLibraryDir=${nativeLibraryDir ?: "unknown"}"
+        val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
+        val npuClass = (backendClass.classes.asList() + backendClass.declaredClasses.asList())
+            .firstOrNull { it.simpleName == "NPU" }
+        if (npuClass == null) {
+            missing += "Backend.NPU"
+        } else {
+            evidence += "foundClass=${npuClass.name}"
+            val signatures = (npuClass.declaredConstructors.asList() + npuClass.constructors.asList())
+                .map { constructor ->
+                    "${npuClass.simpleName}(${constructor.parameterTypes.joinToString(",") { it.simpleName }})"
+                }
+                .distinct()
+            evidence += "constructors=${signatures.joinToString("|").ifBlank { "none" }}"
+        }
+        val qnnLibraryStatus = probeQnnRuntimeLibraries(nativeLibraryDir)
+        evidence += "qnnRuntime=${qnnLibraryStatus.status}"
+        evidence += "qnnEvidence=${qnnLibraryStatus.evidence.joinToString("|").ifBlank { "none" }}"
+        if (!qnnLibraryStatus.available) missing += "qnn-runtime-libs"
+        val dispatchStatus = probeDispatchLibrary(nativeLibraryDir)
+        evidence += "dispatch=${dispatchStatus.status}"
+        evidence += "dispatchEvidence=${dispatchStatus.evidence.joinToString("|").ifBlank { "none" }}"
+        if (!dispatchStatus.available) missing += "dispatch-api-so"
+        if (missing.isEmpty()) {
+            "qualcomm-qnn-npu-prerequisites-visible"
+        } else {
+            "missing-${missing.joinToString(",")}"
+        }
+    }.getOrElse { throwable ->
+        missing += "reflection-probe"
+        "error-${throwable.javaClass.simpleName}:${throwable.message?.take(80) ?: "no-message"}"
+    }
+    return LiteRtBackendApply(
+        backend = Backend.GPU(),
+        appliedPreferredBackend = "GPU",
+        preferredBackendApplyResult = if (missing.isEmpty()) {
+            "fallback-gpu-before-qualcomm-qnn-npu-main-process-disabled"
+        } else {
+            "fallback-gpu-before-qualcomm-qnn-npu-prerequisites-missing"
+        },
+        error = "stage=qualcomm-qnn-npu-prerequisite-probe result=$probeResult evidence=${evidence.joinToString(";")}",
+        notSupportedReason = if (missing.isEmpty()) {
+            "qualcomm-qnn-npu-main-process-disabled-native-crash-risk"
+        } else {
+            "missing-${missing.distinct().joinToString(",")}"
+        },
+    )
+}
+
+private data class NativeLibraryProbeStatus(
+    val available: Boolean,
+    val status: String,
+    val evidence: List<String>,
+)
+
+private fun probeQnnRuntimeLibraries(nativeLibraryDir: String?): NativeLibraryProbeStatus {
+    val libraries = listNativeLibraries(nativeLibraryDir)
+    val required = listOf("libQnnSystem.so", "libQnnHtp.so", "libQnnHtpPrepare.so")
+    val hasHtpVariant = libraries.any { it.startsWith("libQnnHtpV") }
+    val missing = required.filterNot(libraries::contains) + if (hasHtpVariant) emptyList() else listOf("libQnnHtpV*.so")
+    return NativeLibraryProbeStatus(
+        available = missing.isEmpty(),
+        status = if (missing.isEmpty()) "available-candidate" else "missing-${missing.joinToString(",")}",
+        evidence = libraries.filter { it.contains("Qnn", ignoreCase = true) || it.contains("Htp", ignoreCase = true) || it.contains("hexagon", ignoreCase = true) }.take(10),
+    )
+}
+
+private fun probeDispatchLibrary(nativeLibraryDir: String?): NativeLibraryProbeStatus {
+    val libraries = listNativeLibraries(nativeLibraryDir)
+    val candidates = libraries.filter { name ->
+        name.contains("dispatch", ignoreCase = true) &&
+            (name.contains("litert", ignoreCase = true) ||
+                name.contains("qnn", ignoreCase = true) ||
+                name.contains("qualcomm", ignoreCase = true))
+    }
+    return NativeLibraryProbeStatus(
+        available = candidates.isNotEmpty(),
+        status = if (candidates.isNotEmpty()) "available-candidate" else "missing-dispatch-api-so",
+        evidence = candidates.take(10),
+    )
+}
+
+private fun listNativeLibraries(nativeLibraryDir: String?): List<String> {
+    if (nativeLibraryDir.isNullOrBlank()) return emptyList()
+    return runCatching {
+        File(nativeLibraryDir).listFiles()
+            ?.mapNotNull { file -> file.name.takeIf { it.endsWith(".so") } }
+            ?.sorted()
+            .orEmpty()
+    }.getOrDefault(emptyList())
 }
 
 private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
@@ -4187,7 +4284,7 @@ private fun applyPreferredBackendIfRequested(
     val methodCandidates = (optionsBuilder.javaClass.methods.asSequence() + optionsBuilder.javaClass.declaredMethods.asSequence())
         .filter { method ->
             val lower = method.name.lowercase()
-            listOf("backend", "preferred", "delegate", "gpu", "cpu").any { keyword -> lower.contains(keyword) }
+            listOf("backend", "preferred", "delegate", "accelerator", "gpu", "cpu", "npu", "qnn", "hexagon", "htp").any { keyword -> lower.contains(keyword) }
         }
         .map { method ->
             val params = method.parameterTypes.joinToString(",") { it.simpleName }
@@ -4207,6 +4304,14 @@ private fun applyPreferredBackendIfRequested(
     )
     if (!BuildConfig.DEBUG) return common.copy(preferredBackendApplyResult = "not-debug-build", preferredBackendApplyNotSupportedReason = "not-debug-build")
     if (requested == PreferredBackendDryRunSetting.DEFAULT) return common.copy(preferredBackendApplyResult = "skipped-default", preferredBackendApplyNotSupportedReason = "requested-default-skipped")
+    if (requested == PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU) {
+        return common.copy(
+            appliedPreferredBackend = "GPU",
+            preferredBackendApplyResult = "fallback-gpu-before-qualcomm-qnn-npu-options-builder-disabled",
+            preferredBackendApplyError = "stage=options-builder-qualcomm-qnn-npu",
+            preferredBackendApplyNotSupportedReason = "main-process-npu-options-disabled-native-crash-risk",
+        )
+    }
     val method = optionsBuilder.javaClass.methods.firstOrNull { m ->
         m.name == "setPreferredBackend" && m.parameterTypes.size == 1 && m.parameterTypes[0].isEnum
     } ?: return common.copy(preferredBackendApplyError = "NoSuchMethodException", preferredBackendApplyNotSupportedReason = "no-setPreferredBackend-method")

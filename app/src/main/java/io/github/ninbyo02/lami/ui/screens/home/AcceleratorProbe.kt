@@ -1,11 +1,14 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import android.content.Context
 import android.opengl.EGL14
 import android.opengl.GLES20
 import android.os.Build
 import android.util.Log
 import io.github.ninbyo02.lami.BuildConfig
+import java.io.File
 import java.util.Locale
+import java.util.zip.ZipFile
 
 internal object AcceleratorProbe {
     private const val LOG_TAG = "AcceleratorProbe"
@@ -35,18 +38,20 @@ internal object AcceleratorProbe {
     @Volatile
     private var cachedSnapshot: AcceleratorProbeSnapshot? = null
 
-    fun captureSnapshot(forceRefresh: Boolean = false): AcceleratorProbeSnapshot {
+    fun captureSnapshot(context: Context? = null, forceRefresh: Boolean = false): AcceleratorProbeSnapshot {
         if (!forceRefresh) {
-            cachedSnapshot?.let { return it }
+            cachedSnapshot?.let { snapshot ->
+                if (context == null || snapshot.npuNativeLibraryDir != null) return snapshot
+            }
         }
 
-        val snapshot = captureSnapshotUncached()
+        val snapshot = captureSnapshotUncached(context)
         cachedSnapshot = snapshot
         maybeLogOnce(snapshot)
         return snapshot
     }
 
-    private fun captureSnapshotUncached(): AcceleratorProbeSnapshot {
+    private fun captureSnapshotUncached(context: Context?): AcceleratorProbeSnapshot {
         // NPU/QNN/NNAPI はここでは安全な候補検出のみを行う。実適用は LocalStreamingRunner 側で行う。
         // この probe は EngineConfig/Engine を生成せず、診断情報のみ提供する。
         var probeError: String? = null
@@ -61,6 +66,15 @@ internal object AcceleratorProbe {
         val delegateApiProbeResult = probeDelegateApiCandidatesSafely()
         val npuStageProbeResult = probeBackendNpuStageSafely()
         val npuRequirementsProbeResult = probeLiteRtLmNpuRequirementsSafely()
+        val npuPackagedLibraryProbeResult = probePackagedNpuLibrariesSafely(
+            context = context,
+            officialVendor = npuRequirementsProbeResult.officialVendor,
+        )
+        val qnnNpuAttemptSnapshot = buildQualcommQnnNpuAttemptSnapshot(
+            requirements = npuRequirementsProbeResult,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            delegateApiProbeResult = delegateApiProbeResult,
+        )
 
         return AcceleratorProbeSnapshot(
             deviceManufacturer = Build.MANUFACTURER,
@@ -112,7 +126,23 @@ internal object AcceleratorProbe {
             npuRuntimeLibraryRequirement = npuRequirementsProbeResult.runtimeLibraryRequirement,
             npuDispatchLibraryRequirement = npuRequirementsProbeResult.dispatchLibraryRequirement,
             npuCliProofRequirement = npuRequirementsProbeResult.cliProofRequirement,
-            npuReadinessSummary = npuRequirementsProbeResult.readinessSummary,
+            npuReadinessSummary = buildNpuReadinessSummary(
+                requirements = npuRequirementsProbeResult,
+                packagedLibraries = npuPackagedLibraryProbeResult,
+            ),
+            npuNativeLibraryDir = npuPackagedLibraryProbeResult.nativeLibraryDir,
+            npuPackagedLibraryCandidates = npuPackagedLibraryProbeResult.libraryCandidates,
+            npuVendorRuntimeLibraryStatus = npuPackagedLibraryProbeResult.vendorRuntimeLibraryStatus,
+            npuDispatchLibraryStatus = npuPackagedLibraryProbeResult.dispatchLibraryStatus,
+            qnnNpuAttemptRequested = qnnNpuAttemptSnapshot.requested,
+            qnnNpuAttempted = qnnNpuAttemptSnapshot.attempted,
+            qnnNpuAvailable = qnnNpuAttemptSnapshot.available,
+            qnnNpuSelectedPath = qnnNpuAttemptSnapshot.selectedPath,
+            qnnNpuFallbackPath = qnnNpuAttemptSnapshot.fallbackPath,
+            qnnNpuAttemptStage = qnnNpuAttemptSnapshot.stage,
+            qnnNpuAttemptErrorClass = qnnNpuAttemptSnapshot.errorClass,
+            qnnNpuAttemptErrorMessage = qnnNpuAttemptSnapshot.errorMessage,
+            qnnNpuAttemptEvidence = qnnNpuAttemptSnapshot.evidence,
             qnnDelegateCandidates = delegateApiProbeResult.qnnDelegateCandidates,
             nnapiDelegateCandidates = delegateApiProbeResult.nnapiDelegateCandidates,
             npuProbeHint = delegateApiProbeResult.npuProbeHint,
@@ -438,6 +468,207 @@ internal object AcceleratorProbe {
         }.getOrNull()?.takeIf { it.isNotBlank() }
     }
 
+    private fun probePackagedNpuLibrariesSafely(
+        context: Context?,
+        officialVendor: String,
+    ): PackagedNpuLibraryProbeResult {
+        return runCatching {
+            val nativeLibraryDir = context?.applicationInfo?.nativeLibraryDir?.takeIf { it.isNotBlank() }
+                ?: return PackagedNpuLibraryProbeResult(
+                    vendorRuntimeLibraryStatus = "unknown-context-unavailable",
+                    dispatchLibraryStatus = "unknown-context-unavailable",
+                )
+            val nativeLibraryFilesFromDir = File(nativeLibraryDir).listFiles()
+                ?.mapNotNull { file -> file.name.takeIf { it.endsWith(".so") } }
+                ?.sorted()
+                .orEmpty()
+            val nativeLibraryFiles = (nativeLibraryFilesFromDir + listApkNativeLibraries(context))
+                .distinct()
+                .sorted()
+            val libraryCandidates = nativeLibraryFiles
+                .filter { name -> matchesNpuLibraryKeyword(name) }
+                .take(MAX_DELEGATE_CANDIDATE_COUNT)
+            val vendorRuntimeLibraryStatus = when (officialVendor) {
+                "qualcomm" -> buildRequiredLibraryStatus(
+                    nativeLibraryFiles = nativeLibraryFiles,
+                    requiredExactNames = listOf("libQnnHtp.so", "libQnnSystem.so", "libQnnHtpPrepare.so"),
+                    requiredPrefixes = listOf("libQnnHtp", "libQnnHtpV"),
+                    label = "qairt",
+                )
+                "mediatek" -> if (nativeLibraryFiles.any { it.contains("neuro", ignoreCase = true) || it.contains("mediatek", ignoreCase = true) || it.contains("mtk", ignoreCase = true) }) {
+                    "candidate-detected-neuropilot"
+                } else {
+                    "missing-neuropilot-runtime-candidate"
+                }
+                else -> if (libraryCandidates.isNotEmpty()) "candidate-detected-unknown-vendor" else "missing-vendor-runtime-candidate"
+            }
+            val dispatchLibraryStatus = if (nativeLibraryFiles.any { name ->
+                    name.contains("dispatch", ignoreCase = true) &&
+                        (name.contains("litert", ignoreCase = true) ||
+                            name.contains("qnn", ignoreCase = true) ||
+                            name.contains("qualcomm", ignoreCase = true) ||
+                            name.contains("mediatek", ignoreCase = true) ||
+                            name.contains("mtk", ignoreCase = true))
+                }
+            ) {
+                "candidate-detected"
+            } else {
+                "missing-dispatch-api-so-candidate"
+            }
+            PackagedNpuLibraryProbeResult(
+                nativeLibraryDir = nativeLibraryDir,
+                libraryCandidates = libraryCandidates,
+                vendorRuntimeLibraryStatus = vendorRuntimeLibraryStatus,
+                dispatchLibraryStatus = dispatchLibraryStatus,
+            )
+        }.getOrElse { throwable ->
+            PackagedNpuLibraryProbeResult(
+                vendorRuntimeLibraryStatus = "error-${throwable.javaClass.simpleName}",
+                dispatchLibraryStatus = "error-${throwable.javaClass.simpleName}",
+            )
+        }
+    }
+
+    private fun listApkNativeLibraries(context: Context): List<String> {
+        val applicationInfo = context.applicationInfo
+        val apkPaths = listOfNotNull(applicationInfo.sourceDir) + applicationInfo.splitSourceDirs.orEmpty()
+        return apkPaths.flatMap { apkPath ->
+            runCatching {
+                ZipFile(apkPath).use { zipFile ->
+                    zipFile.entries().asSequence()
+                        .map { it.name }
+                        .filter { entryName -> entryName.startsWith("lib/") && entryName.endsWith(".so") }
+                        .map { entryName -> entryName.substringAfterLast('/') }
+                        .toList()
+                }
+            }.getOrDefault(emptyList())
+        }
+    }
+
+    private fun matchesNpuLibraryKeyword(name: String): Boolean {
+        return listOf(
+            "qnn",
+            "htp",
+            "hexagon",
+            "skel",
+            "dispatch",
+            "neuro",
+            "mediatek",
+            "mtk",
+        ).any { keyword -> name.contains(keyword, ignoreCase = true) }
+    }
+
+    private fun buildRequiredLibraryStatus(
+        nativeLibraryFiles: List<String>,
+        requiredExactNames: List<String>,
+        requiredPrefixes: List<String>,
+        label: String,
+    ): String {
+        val missingExactNames = requiredExactNames.filterNot { required -> nativeLibraryFiles.contains(required) }
+        val missingPrefixes = requiredPrefixes.filterNot { prefix -> nativeLibraryFiles.any { it.startsWith(prefix) } }
+        return if (missingExactNames.isEmpty() && missingPrefixes.isEmpty()) {
+            "candidate-detected-$label"
+        } else {
+            "missing-$label:${(missingExactNames + missingPrefixes.map { "$it*" }).joinToString(",")}"
+        }
+    }
+
+    private fun buildNpuReadinessSummary(
+        requirements: LiteRtLmNpuRequirementsProbeResult,
+        packagedLibraries: PackagedNpuLibraryProbeResult,
+    ): String {
+        val blockers = buildList {
+            if (!requirements.officialSocSupport.startsWith("listed-")) {
+                add("supported-soc-model")
+            }
+            if (packagedLibraries.vendorRuntimeLibraryStatus?.startsWith("candidate-detected") != true) {
+                add("vendor-runtime-libs")
+            }
+            if (packagedLibraries.dispatchLibraryStatus != "candidate-detected") {
+                add("dispatch-api-so")
+            }
+            add("soc-specific-model")
+            add("litert_lm_main-backend-npu-proof")
+        }
+        return "blocked-until-${blockers.distinct().joinToString("-")}"
+    }
+
+    private fun buildQualcommQnnNpuAttemptSnapshot(
+        requirements: LiteRtLmNpuRequirementsProbeResult,
+        packagedLibraries: PackagedNpuLibraryProbeResult,
+        delegateApiProbeResult: DelegateApiProbeResult,
+    ): LocalAcceleratorAttemptSnapshot {
+        val evidence = buildList {
+            add("device=${Build.MANUFACTURER}/${Build.MODEL}/${Build.DEVICE}/${Build.BOARD}")
+            add("hardware=${Build.HARDWARE}")
+            add("soc=${requirements.socManufacturer ?: "unknown"}/${requirements.socModel ?: "unknown"}")
+            add("androidSdk=${Build.VERSION.SDK_INT}")
+            add("officialSocSupport=${requirements.officialSocSupport}")
+            add("runtimeLibStatus=${packagedLibraries.vendorRuntimeLibraryStatus ?: "unknown"}")
+            add("dispatchLibStatus=${packagedLibraries.dispatchLibraryStatus ?: "unknown"}")
+            add("backendNpu=${delegateApiProbeResult.backendNpuProbeHint ?: "unknown"}")
+            delegateApiProbeResult.backendNpuClassCandidates.takeIf { it.isNotEmpty() }?.let {
+                add("foundBackendNpuClasses=${it.joinToString(",")}")
+            }
+            delegateApiProbeResult.qnnDelegateCandidates.takeIf { it.isNotEmpty() }?.let {
+                add("foundQnnCandidates=${it.joinToString(",")}")
+            }
+            packagedLibraries.libraryCandidates.takeIf { it.isNotEmpty() }?.let {
+                add("foundNativeLibCandidates=${it.joinToString(",")}")
+            }
+        }
+        val isQualcommCandidate = requirements.officialVendor == "qualcomm" ||
+            listOf(Build.MANUFACTURER, Build.HARDWARE, Build.BOARD, requirements.socManufacturer, requirements.socModel)
+                .any { value -> value?.contains("qcom", ignoreCase = true) == true || value?.contains("qualcomm", ignoreCase = true) == true || value?.contains("sm8750", ignoreCase = true) == true }
+        if (!isQualcommCandidate) {
+            return LocalAcceleratorAttemptSnapshot(
+                requested = "auto",
+                attempted = false,
+                available = "unsupported",
+                selectedPath = "gpu",
+                fallbackPath = "gpu",
+                stage = "soc-probe",
+                errorClass = "UnsupportedSoc",
+                errorMessage = "Qualcomm QNN/NPU candidate not detected",
+                evidence = evidence,
+            )
+        }
+        val runtimeReady = packagedLibraries.vendorRuntimeLibraryStatus?.startsWith("candidate-detected") == true
+        val dispatchReady = packagedLibraries.dispatchLibraryStatus == "candidate-detected"
+        val backendNpuReady = delegateApiProbeResult.backendNpuClassCandidates.isNotEmpty() ||
+            delegateApiProbeResult.backendNpuConstructorSignatures.isNotEmpty()
+        val missing = buildList {
+            if (!runtimeReady) add("qnn-runtime-libs")
+            if (!dispatchReady) add("dispatch-api-so")
+            if (!backendNpuReady) add("backend-npu-api")
+        }
+        return if (missing.isEmpty()) {
+            LocalAcceleratorAttemptSnapshot(
+                requested = "auto",
+                attempted = true,
+                available = "available-candidate",
+                selectedPath = "qualcomm-qnn-npu-candidate",
+                fallbackPath = null,
+                stage = "prerequisite-probe",
+                errorClass = null,
+                errorMessage = null,
+                evidence = evidence,
+            )
+        } else {
+            LocalAcceleratorAttemptSnapshot(
+                requested = "auto",
+                attempted = false,
+                available = "unsupported",
+                selectedPath = "gpu",
+                fallbackPath = "gpu",
+                stage = "prerequisite-probe",
+                errorClass = "MissingPrerequisite",
+                errorMessage = missing.joinToString(","),
+                evidence = evidence + "missing=${missing.joinToString(",")}",
+            )
+        }
+    }
+
     private fun collectDelegateCandidates(
         clazz: Class<*>,
         optionCandidates: MutableSet<String>,
@@ -681,5 +912,24 @@ internal object AcceleratorProbe {
         val dispatchLibraryRequirement: String = "unknown",
         val cliProofRequirement: String = "unknown",
         val readinessSummary: String = "unknown",
+    )
+
+    private data class PackagedNpuLibraryProbeResult(
+        val nativeLibraryDir: String? = null,
+        val libraryCandidates: List<String> = emptyList(),
+        val vendorRuntimeLibraryStatus: String? = null,
+        val dispatchLibraryStatus: String? = null,
+    )
+
+    private data class LocalAcceleratorAttemptSnapshot(
+        val requested: String,
+        val attempted: Boolean,
+        val available: String,
+        val selectedPath: String,
+        val fallbackPath: String?,
+        val stage: String?,
+        val errorClass: String?,
+        val errorMessage: String?,
+        val evidence: List<String>,
     )
 }
