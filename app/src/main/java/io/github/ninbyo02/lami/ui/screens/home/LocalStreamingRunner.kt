@@ -4046,7 +4046,7 @@ private fun createOfficialLiteRtLmEngineInstance(
     }
 }
 
-private fun buildLiteRtEngineConfig(
+internal fun buildLiteRtEngineConfig(
     modelPath: String,
     cacheDirPath: String?,
     nativeLibraryDir: String? = null,
@@ -4105,38 +4105,47 @@ private data class LiteRtBackendApply(
 )
 
 private fun createNpuBackendReflectively(nativeLibraryDir: String?): LiteRtBackendApply {
-    val probeResult = runCatching {
+    val npuBackend = runCatching {
         val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
         val npuClass = (backendClass.classes.asList() + backendClass.declaredClasses.asList())
             .firstOrNull { it.simpleName == "NPU" }
             ?: throw ClassNotFoundException("Backend.NPU")
         val constructors = npuClass.declaredConstructors.asList() + npuClass.constructors.asList()
-        val hasStringConstructor = constructors.any { constructor ->
+        val stringConstructor = constructors.firstOrNull { constructor ->
             constructor.parameterTypes.size == 1 && constructor.parameterTypes.first() == String::class.java
         }
-        val hasNoArgConstructor = constructors.any { it.parameterTypes.isEmpty() }
+        val noArgConstructor = constructors.firstOrNull { it.parameterTypes.isEmpty() }
         when {
-            hasStringConstructor && !nativeLibraryDir.isNullOrBlank() -> "npu-string-constructor-visible"
-            hasNoArgConstructor -> "npu-noarg-constructor-visible"
-            hasStringConstructor -> "npu-string-constructor-visible-native-dir-missing"
-            else -> "npu-constructor-missing"
+            stringConstructor != null && !nativeLibraryDir.isNullOrBlank() -> {
+                stringConstructor.isAccessible = true
+                stringConstructor.newInstance(nativeLibraryDir) as Backend
+            }
+            noArgConstructor != null -> {
+                noArgConstructor.isAccessible = true
+                noArgConstructor.newInstance() as Backend
+            }
+            else -> throw NoSuchMethodException("Backend.NPU constructor")
         }
     }.getOrElse { throwable ->
-        throwable.javaClass.simpleName
+        return LiteRtBackendApply(
+            backend = Backend.GPU(),
+            appliedPreferredBackend = "GPU",
+            preferredBackendApplyResult = "fallback-gpu-before-npu-constructor-unavailable",
+            error = "${throwable.javaClass.simpleName}:${throwable.message ?: "Backend.NPU"}",
+            notSupportedReason = "npu-constructor-unavailable",
+        )
     }
     return LiteRtBackendApply(
-        backend = Backend.GPU(),
-        appliedPreferredBackend = "GPU",
-        preferredBackendApplyResult = "fallback-gpu-before-npu-disabled-native-crash-risk",
-        error = probeResult,
-        notSupportedReason = "npu-disabled-native-crash-risk",
+        backend = npuBackend,
+        appliedPreferredBackend = "NPU",
+        preferredBackendApplyResult = "applied-engine-config",
     )
 }
 
 private fun createQualcommQnnNpuBackendAttempt(nativeLibraryDir: String?): LiteRtBackendApply {
     val evidence = mutableListOf<String>()
     val missing = mutableListOf<String>()
-    val probeResult = runCatching {
+    val npuBackend = runCatching {
         evidence += "nativeLibraryDir=${nativeLibraryDir ?: "unknown"}"
         val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
         val npuClass = (backendClass.classes.asList() + backendClass.declaredClasses.asList())
@@ -4161,25 +4170,38 @@ private fun createQualcommQnnNpuBackendAttempt(nativeLibraryDir: String?): LiteR
         evidence += "dispatchEvidence=${dispatchStatus.evidence.joinToString("|").ifBlank { "none" }}"
         if (!dispatchStatus.available) missing += "dispatch-api-so"
         if (missing.isEmpty()) {
-            "qualcomm-qnn-npu-prerequisites-visible"
+            createNpuBackendReflectively(nativeLibraryDir).also { backendApply ->
+                if (backendApply.appliedPreferredBackend != "NPU") {
+                    missing += backendApply.notSupportedReason ?: "npu-backend-create-failed"
+                    evidence += "npuBackend=${backendApply.preferredBackendApplyResult}"
+                    backendApply.error?.let { evidence += "npuBackendError=$it" }
+                }
+            }.takeIf { it.appliedPreferredBackend == "NPU" }?.backend
+                ?: Backend.GPU()
         } else {
-            "missing-${missing.joinToString(",")}"
+            Backend.GPU()
         }
     }.getOrElse { throwable ->
         missing += "reflection-probe"
-        "error-${throwable.javaClass.simpleName}:${throwable.message?.take(80) ?: "no-message"}"
+        evidence += "probeError=${throwable.javaClass.simpleName}:${throwable.message?.take(80) ?: "no-message"}"
+        Backend.GPU()
     }
+    val prerequisitesReady = missing.isEmpty()
     return LiteRtBackendApply(
-        backend = Backend.GPU(),
-        appliedPreferredBackend = "GPU",
-        preferredBackendApplyResult = if (missing.isEmpty()) {
-            "fallback-gpu-before-qualcomm-qnn-npu-main-process-disabled"
+        backend = npuBackend,
+        appliedPreferredBackend = if (prerequisitesReady) "NPU" else "GPU",
+        preferredBackendApplyResult = if (prerequisitesReady) {
+            "applied-engine-config-qualcomm-qnn-npu"
         } else {
             "fallback-gpu-before-qualcomm-qnn-npu-prerequisites-missing"
         },
-        error = "stage=qualcomm-qnn-npu-prerequisite-probe result=$probeResult evidence=${evidence.joinToString(";")}",
-        notSupportedReason = if (missing.isEmpty()) {
-            "qualcomm-qnn-npu-main-process-disabled-native-crash-risk"
+        error = if (prerequisitesReady) {
+            null
+        } else {
+            "stage=qualcomm-qnn-npu-prerequisite-probe result=missing-${missing.joinToString(",")} evidence=${evidence.joinToString(";")}"
+        },
+        notSupportedReason = if (prerequisitesReady) {
+            null
         } else {
             "missing-${missing.distinct().joinToString(",")}"
         },
