@@ -941,6 +941,15 @@ fun Home(
         lastPersistedStreamingAssistantText = null
     }
 
+    suspend fun resolveLocalPreparingUiState(): LocalInferenceEngineState {
+        val hasHeldEngine = localInferenceEngineHolder.getDevDiagnosticSnapshot().heldEngineHash != null
+        return if (hasHeldEngine) {
+            LocalInferenceEngineState.READY
+        } else {
+            LocalInferenceEngineState.PREPARING
+        }
+    }
+
     fun isTtsSuppressedForAssistant(messageId: Int?): Boolean {
         return messageId != null && suppressedTtsAssistantMessageId == messageId
     }
@@ -2128,7 +2137,7 @@ fun Home(
                                                     prompt = ""
                                                     userPrompt = ""
                                                     selectedImageUriStrings = emptyList()
-                                                    localInferenceEngineState = LocalInferenceEngineState.PREPARING
+                                                    localInferenceEngineState = LocalInferenceEngineState.READY
                                                     localStopRequested = false
                                                     debugLocalUiTrace(
                                                         label = "LOCAL_UI_PENDING_ARMED",
@@ -2191,7 +2200,7 @@ fun Home(
                                                         localStreamingResponseText = null
                                                         isLocalInferenceRunning = true
                                                         try {
-                                                            localInferenceEngineState = LocalInferenceEngineState.PREPARING
+                                                            localInferenceEngineState = resolveLocalPreparingUiState()
                                                             localStreamingResponseText = null
                                                             didReceiveRealLocalPartial = false
                                                             realLocalPartialChunkCount = 0
