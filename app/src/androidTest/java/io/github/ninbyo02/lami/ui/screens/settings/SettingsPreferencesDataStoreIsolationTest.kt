@@ -1,7 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.settings
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -9,9 +9,9 @@ import org.junit.runner.RunWith
 class SettingsPreferencesDataStoreIsolationTest {
     @Test
     fun instrumentation_usesAndroidTestSettingsDataStore() {
-        assertEquals(
-            "ollama_settings_android_test",
+        assertTrue(
             resolvedSettingsDataStoreNameForTesting(),
+            resolvedSettingsDataStoreNameForTesting().startsWith("ollama_settings_android_test_run_"),
         )
     }
 }

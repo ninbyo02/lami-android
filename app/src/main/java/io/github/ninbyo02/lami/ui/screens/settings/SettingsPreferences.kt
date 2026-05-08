@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.settings
 
 import android.content.Context
+import android.os.Process
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -25,7 +26,7 @@ import kotlin.random.Random
 import java.io.File
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
-private const val ANDROID_TEST_SETTINGS_DATA_STORE_NAME = "ollama_settings_android_test"
+private const val ANDROID_TEST_SETTINGS_DATA_STORE_NAME_PREFIX = "ollama_settings_android_test_run_"
 const val DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP = 64
 const val MIN_CHAT_LAMI_AVATAR_SIZE_DP = 48
 const val MAX_CHAT_LAMI_AVATAR_SIZE_DP = 64
@@ -39,7 +40,7 @@ internal fun resolvedSettingsDataStoreNameForTesting(): String = resolveSettings
 
 private fun resolveSettingsDataStoreName(): String {
     return if (isAndroidInstrumentationActive()) {
-        ANDROID_TEST_SETTINGS_DATA_STORE_NAME
+        "$ANDROID_TEST_SETTINGS_DATA_STORE_NAME_PREFIX${Process.myPid()}"
     } else {
         SETTINGS_DATA_STORE_NAME
     }

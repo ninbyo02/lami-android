@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.sprite
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Process
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
@@ -30,12 +31,12 @@ import kotlinx.coroutines.withContext
 
 private const val TAG = "LamiSpriteSheetRepo"
 private const val SPRITE_OVERRIDE_FILE_NAME = "current_sprite_sheet.png"
-private const val ANDROID_TEST_SPRITE_OVERRIDE_FILE_NAME = "current_sprite_sheet_android_test.png"
+private const val ANDROID_TEST_SPRITE_OVERRIDE_FILE_NAME_PREFIX = "current_sprite_sheet_android_test_run_"
 
 @VisibleForTesting
 internal fun resolveCurrentSpriteSheetOverrideFile(context: Context): File {
     val fileName = if (isAndroidInstrumentationActiveForSpriteFiles()) {
-        ANDROID_TEST_SPRITE_OVERRIDE_FILE_NAME
+        "$ANDROID_TEST_SPRITE_OVERRIDE_FILE_NAME_PREFIX${Process.myPid()}.png"
     } else {
         SPRITE_OVERRIDE_FILE_NAME
     }

@@ -19,7 +19,7 @@ class SpriteAnimationsIdlePerStateDefaultTest {
     // 動作確認手順:
     // 1) ./gradlew :app:compileDebugKotlin
     // 2) ./gradlew :app:connectedDebugAndroidTest
-    // 3) adb exec-out run-as <package> strings /data/data/<package>/datastore/ollama_settings_android_test.preferences_pb | awk '/sprite_animation_json_idle/{print}'
+    // 3) adb exec-out run-as <package> find /data/data/<package>/datastore -name 'ollama_settings_android_test_run_*.preferences_pb'
 
     @Test
     fun idle_per_state_json_uses_defaults_on_fresh_state() = runBlocking {
