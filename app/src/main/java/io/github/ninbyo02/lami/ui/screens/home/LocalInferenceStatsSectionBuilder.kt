@@ -142,6 +142,7 @@ internal fun buildInferenceDetailSections(
         devHeldStateText = devHeldStateText,
         devCloseLifecycleText = devCloseLifecycleText,
         devDebugText = devDebugText,
+        trace = localTraceForDev,
     )
     val executionInference = inferExecutionTarget(
         officialFlowUsed = localTraceForDev?.officialFlowUsed,
@@ -248,6 +249,10 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "Held engine create path", value = localTraceForDev?.heldEngineCreatePath?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "Holder instance hash", value = localTraceForDev?.holderInstanceHash?.toString() ?: "-1"))
             add(InferenceStatItemUi(label = "Held engine hash", value = localTraceForDev?.heldEngineHash?.toString() ?: "-1"))
+            add(InferenceStatItemUi(label = "Holder app foreground", value = localTraceForDev?.holderAppInForeground?.toString() ?: "unknown"))
+            add(InferenceStatItemUi(label = "Holder last acquire action", value = localTraceForDev?.holderLastAcquireAction ?: "unknown"))
+            add(InferenceStatItemUi(label = "Holder last lifecycle event", value = localTraceForDev?.holderLastLifecycleEventReason ?: "unknown"))
+            add(InferenceStatItemUi(label = "Holder last lifecycle decision", value = localTraceForDev?.holderLastLifecycleDecisionAction ?: "unknown"))
             add(InferenceStatItemUi(label = "Held recreate request count", value = localTraceForDev?.heldEngineRecreateRequestCount?.toString() ?: "0"))
             add(InferenceStatItemUi(label = "Held present at run start", value = localTraceForDev?.heldEngineWasPresentAtRunStart?.toString() ?: "false"))
             add(InferenceStatItemUi(label = "Held created during run", value = localTraceForDev?.heldEngineCreatedDuringRun?.toString() ?: "false"))
