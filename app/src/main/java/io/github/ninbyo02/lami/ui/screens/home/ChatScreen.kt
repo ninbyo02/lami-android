@@ -577,6 +577,7 @@ fun Home(
     var isLocalInferenceRunning by rememberSaveable { mutableStateOf(false) }
     val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
     val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow.collectAsState(initial = null)
+    var hasObservedValidLocalBaseModelPath by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(savedInferenceTarget) {
         selectedInferenceTarget = savedInferenceTarget
     }
@@ -604,8 +605,14 @@ fun Home(
         }
         val path = localBaseModelFilePath?.takeIf { it.isNotBlank() }
         if (path != null) {
+            hasObservedValidLocalBaseModelPath = true
             localInferenceEngineHolder.clearIfModelChanged(path)
-        } else {
+        } else if (shouldClearHeldEngineForLocalModelPath(
+                localBaseModelFilePath = localBaseModelFilePath,
+                hasObservedValidPath = hasObservedValidLocalBaseModelPath,
+            )
+        ) {
+            hasObservedValidLocalBaseModelPath = false
             localInferenceEngineHolder.notifyLifecycleEvent(reason = "explicit-reset")
         }
     }
@@ -4359,6 +4366,13 @@ private fun resolveLocalModelDisplayName(
     val normalizedDisplayName = localBaseModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
     if (normalizedDisplayName != null) return normalizedDisplayName
     return File(modelPath).name.removeSuffix(".litertlm")
+}
+
+internal fun shouldClearHeldEngineForLocalModelPath(
+    localBaseModelFilePath: String?,
+    hasObservedValidPath: Boolean,
+): Boolean {
+    return localBaseModelFilePath.isNullOrBlank() && hasObservedValidPath
 }
 
 private suspend fun resolveLocalModelResolutionOrNull(
