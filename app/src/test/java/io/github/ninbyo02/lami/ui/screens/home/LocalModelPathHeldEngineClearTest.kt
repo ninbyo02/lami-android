@@ -6,31 +6,28 @@ import org.junit.Test
 
 class LocalModelPathHeldEngineClearTest {
     @Test
-    fun `initial null model path does not clear held engine`() {
+    fun `initial null model path does not update held engine`() {
         assertFalse(
-            shouldClearHeldEngineForLocalModelPath(
+            shouldApplyHeldEngineModelPath(
                 localBaseModelFilePath = null,
-                hasObservedValidPath = false,
             ),
         )
     }
 
     @Test
-    fun `blank model path clears after a valid path was observed`() {
-        assertTrue(
-            shouldClearHeldEngineForLocalModelPath(
-                localBaseModelFilePath = "",
-                hasObservedValidPath = true,
-            ),
-        )
-    }
-
-    @Test
-    fun `valid model path does not clear held engine`() {
+    fun `blank model path does not update held engine`() {
         assertFalse(
-            shouldClearHeldEngineForLocalModelPath(
+            shouldApplyHeldEngineModelPath(
+                localBaseModelFilePath = "",
+            ),
+        )
+    }
+
+    @Test
+    fun `valid model path updates held engine key`() {
+        assertTrue(
+            shouldApplyHeldEngineModelPath(
                 localBaseModelFilePath = "/models/gemma.litertlm",
-                hasObservedValidPath = true,
             ),
         )
     }
