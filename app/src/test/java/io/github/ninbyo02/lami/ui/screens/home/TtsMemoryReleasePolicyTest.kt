@@ -23,7 +23,7 @@ class TtsMemoryReleasePolicyTest {
     }
 
     @Test
-    fun `releases held engine when available memory is below required headroom`() {
+    fun `keeps held engine when available memory is below previous headroom`() {
         val decision = decideHeldEngineReleaseForTts(
             TtsMemorySnapshot(
                 lowMemory = false,
@@ -34,12 +34,12 @@ class TtsMemoryReleasePolicyTest {
             ),
         )
 
-        assertTrue(decision.shouldReleaseHeldEngine)
-        assertEquals("available-memory-low:700MB<1024MB", decision.reason)
+        assertFalse(decision.shouldReleaseHeldEngine)
+        assertEquals("memory-ok", decision.reason)
     }
 
     @Test
-    fun `releases held engine when app pss is high`() {
+    fun `keeps held engine when app pss is high unless low memory is reported`() {
         val decision = decideHeldEngineReleaseForTts(
             TtsMemorySnapshot(
                 lowMemory = false,
@@ -50,8 +50,8 @@ class TtsMemoryReleasePolicyTest {
             ),
         )
 
-        assertTrue(decision.shouldReleaseHeldEngine)
-        assertEquals("app-pss-high:900MB>=700MB", decision.reason)
+        assertFalse(decision.shouldReleaseHeldEngine)
+        assertEquals("memory-ok", decision.reason)
     }
 
     @Test
