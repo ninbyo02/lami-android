@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import java.io.File
 import java.io.FileInputStream
@@ -28,6 +29,31 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 private const val TAG = "LamiSpriteSheetRepo"
+private const val SPRITE_OVERRIDE_FILE_NAME = "current_sprite_sheet.png"
+private const val ANDROID_TEST_SPRITE_OVERRIDE_FILE_NAME = "current_sprite_sheet_android_test.png"
+
+@VisibleForTesting
+internal fun resolveCurrentSpriteSheetOverrideFile(context: Context): File {
+    val fileName = if (isAndroidInstrumentationActiveForSpriteFiles()) {
+        ANDROID_TEST_SPRITE_OVERRIDE_FILE_NAME
+    } else {
+        SPRITE_OVERRIDE_FILE_NAME
+    }
+    return File(context.filesDir, "sprite_settings/$fileName")
+}
+
+private fun isAndroidInstrumentationActiveForSpriteFiles(): Boolean {
+    return runCatching {
+        val activityThreadClass = Class.forName("android.app.ActivityThread")
+        val currentThread = activityThreadClass
+            .getDeclaredMethod("currentActivityThread")
+            .invoke(null)
+        val instrumentation = activityThreadClass
+            .getDeclaredMethod("getInstrumentation")
+            .invoke(currentThread)
+        instrumentation != null
+    }.getOrDefault(false)
+}
 
 data class SpriteSheetFrameRegion(
     val srcOffset: IntOffset,
@@ -164,7 +190,7 @@ object LamiSpriteSheetRepository {
     }
 
     private fun currentSpriteSheetOverrideFile(context: Context): File {
-        return File(context.filesDir, "sprite_settings/current_sprite_sheet.png")
+        return resolveCurrentSpriteSheetOverrideFile(context)
     }
 
     private suspend fun decodeOverrideFile(file: File): Bitmap? = withContext(Dispatchers.IO) {

@@ -117,6 +117,7 @@ import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import io.github.ninbyo02.lami.sprite.compositePreserveTransparency
+import io.github.ninbyo02.lami.sprite.resolveCurrentSpriteSheetOverrideFile
 import io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsSessionSpriteOverride
 import io.github.ninbyo02.lami.ui.components.rememberLamiEditorSpriteBackdropColor
 import io.github.ninbyo02.lami.ui.screens.spriteeditor.FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD
@@ -3167,7 +3168,7 @@ private fun internalAutosaveFile(context: android.content.Context): File {
 }
 
 private fun currentSpriteSheetOverrideFile(context: android.content.Context): File {
-    return File(context.filesDir, "sprite_settings/current_sprite_sheet.png")
+    return resolveCurrentSpriteSheetOverrideFile(context)
 }
 
 private suspend fun saveCurrentSpriteSheetOverride(context: android.content.Context, bitmap: Bitmap): Boolean {

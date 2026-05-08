@@ -13,6 +13,13 @@ import java.io.File
 import java.io.FileOutputStream
 
 class LamiSpriteSheetRepositoryOverrideTest {
+    @Test
+    fun currentSpriteSheetOverrideFile_usesAndroidTestFileDuringInstrumentation() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val overrideFile = currentSpriteSheetOverrideFile(context)
+
+        assertTrue(overrideFile.name.contains("android_test"))
+    }
 
     @Test
     fun loadLamiSpriteSheet_overrideEnabledAndFileExists_readsOverridePng() {
@@ -63,6 +70,6 @@ class LamiSpriteSheetRepositoryOverrideTest {
     }
 
     private fun currentSpriteSheetOverrideFile(context: android.content.Context): File {
-        return File(context.filesDir, "sprite_settings/current_sprite_sheet.png")
+        return resolveCurrentSpriteSheetOverrideFile(context)
     }
 }

@@ -25,13 +25,38 @@ import kotlin.random.Random
 import java.io.File
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
+private const val ANDROID_TEST_SETTINGS_DATA_STORE_NAME = "ollama_settings_android_test"
 const val DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP = 64
 const val MIN_CHAT_LAMI_AVATAR_SIZE_DP = 48
 const val MAX_CHAT_LAMI_AVATAR_SIZE_DP = 64
 
 private val Context.dataStore by preferencesDataStore(
-    name = SETTINGS_DATA_STORE_NAME
+    name = resolveSettingsDataStoreName()
 )
+
+@VisibleForTesting
+internal fun resolvedSettingsDataStoreNameForTesting(): String = resolveSettingsDataStoreName()
+
+private fun resolveSettingsDataStoreName(): String {
+    return if (isAndroidInstrumentationActive()) {
+        ANDROID_TEST_SETTINGS_DATA_STORE_NAME
+    } else {
+        SETTINGS_DATA_STORE_NAME
+    }
+}
+
+private fun isAndroidInstrumentationActive(): Boolean {
+    return runCatching {
+        val activityThreadClass = Class.forName("android.app.ActivityThread")
+        val currentThread = activityThreadClass
+            .getDeclaredMethod("currentActivityThread")
+            .invoke(null)
+        val instrumentation = activityThreadClass
+            .getDeclaredMethod("getInstrumentation")
+            .invoke(currentThread)
+        instrumentation != null
+    }.getOrDefault(false)
+}
 
 enum class ErrorCause {
     LIGHT,
