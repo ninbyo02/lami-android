@@ -55,8 +55,50 @@ private fun isAndroidInstrumentationActive(): Boolean {
         val instrumentation = activityThreadClass
             .getDeclaredMethod("getInstrumentation")
             .invoke(currentThread)
-        instrumentation != null
+        isAndroidTestInstrumentationClassName(instrumentation?.javaClass?.name)
     }.getOrDefault(false)
+}
+
+@VisibleForTesting
+internal fun isAndroidTestInstrumentationClassName(className: String?): Boolean {
+    if (className.isNullOrBlank()) return false
+    if (className == "android.app.Instrumentation") return false
+    return className.startsWith("androidx.test.") ||
+        className.contains(".test.", ignoreCase = true) ||
+        className.contains("AndroidJUnitRunner")
+}
+
+private fun migrateMisdetectedInstrumentationDataStoreIfNeeded(context: Context) {
+    if (isAndroidInstrumentationActive()) return
+    val datastoreDir = File(context.filesDir, "datastore")
+    val target = File(datastoreDir, "$SETTINGS_DATA_STORE_NAME.preferences_pb")
+    if (target.exists() && target.length() > 0L) return
+    val source = findLatestMisdetectedInstrumentationDataStore(datastoreDir) ?: return
+    runCatching {
+        datastoreDir.mkdirs()
+        source.copyTo(target, overwrite = false)
+        Log.w(
+            "SettingsPreferences",
+            "Migrated settings DataStore from ${source.name} to ${target.name}",
+        )
+    }.onFailure {
+        Log.w(
+            "SettingsPreferences",
+            "Failed to migrate settings DataStore from ${source.name}: ${it::class.java.simpleName}:${it.message}",
+        )
+    }
+}
+
+@VisibleForTesting
+internal fun findLatestMisdetectedInstrumentationDataStore(datastoreDir: File): File? {
+    return datastoreDir
+        .listFiles { file ->
+            file.isFile &&
+                file.name.startsWith(ANDROID_TEST_SETTINGS_DATA_STORE_NAME_PREFIX) &&
+                file.name.endsWith(".preferences_pb") &&
+                file.length() > 0L
+        }
+        ?.maxByOrNull { it.lastModified() }
 }
 
 enum class ErrorCause {
@@ -346,6 +388,11 @@ class SettingsPreferences(private val context: Context) {
     private val spriteAnimationJsonThinkingKey = stringPreferencesKey("sprite_animation_json_thinking")
     private val spriteAnimationJsonOfflineKey = stringPreferencesKey("sprite_animation_json_offline")
     private val spriteAnimationJsonErrorKey = stringPreferencesKey("sprite_animation_json_error")
+
+    init {
+        migrateMisdetectedInstrumentationDataStoreIfNeeded(context.applicationContext)
+    }
+
     // DataStoreの実体確認用ログ(デバッグ専用)
     private fun dumpDataStoreDebug(caller: String) {
         if (!BuildConfig.DEBUG) return
