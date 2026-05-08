@@ -69,6 +69,7 @@ internal class LocalInferenceEngineHolder(
         EXPLICIT_RESET,
         FATAL_ERROR,
         LOW_MEMORY,
+        APP_BACKGROUNDED,
         BACKGROUND_TIMEOUT,
         IDLE_TIMEOUT,
         KEEP_HELD,
@@ -483,8 +484,13 @@ internal class LocalInferenceEngineHolder(
         mutex.withLock {
             appInForeground = false
             appBackgroundedAtElapsedMs = nowElapsedMs
-            lastLifecycleEventReason = "app-backgrounded"
-            lastLifecycleDecisionAction = HeldEngineLifecycleAction.KEEP_HELD.name
+            val decision = resolveLifecycleDecision(reason = "app-backgrounded")
+            lastLifecycleEventReason = decision.clearReason
+            lastLifecycleDecisionAction = decision.action.name
+            applyLifecycleDecisionLocked(
+                current = held,
+                decision = decision,
+            )
         }
     }
 
@@ -580,6 +586,12 @@ internal class LocalInferenceEngineHolder(
 
             "low-memory" -> HeldEngineLifecycleDecision(
                 reason = HeldEngineLifecycleReason.LOW_MEMORY,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "app-backgrounded" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.APP_BACKGROUNDED,
                 action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
                 clearReason = reason,
             )
