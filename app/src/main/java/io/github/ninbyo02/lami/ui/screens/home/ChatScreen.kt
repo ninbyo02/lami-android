@@ -1,7 +1,9 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
+import android.app.ActivityManager
 import android.net.Uri
+import android.os.Debug
 import android.os.SystemClock
 import android.util.Log
 import android.widget.ImageView
@@ -1118,6 +1120,24 @@ fun Home(
         return sanitizeTextForTts(filtered)
     }
 
+    suspend fun maybeReleaseHeldEngineForTtsPlayback() {
+        val memorySnapshot = withContext(Dispatchers.Default) {
+            captureTtsMemorySnapshot(context.applicationContext)
+        }
+        val decision = decideHeldEngineReleaseForTts(memorySnapshot)
+        if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+            devDebugText = buildTtsMemoryDecisionDebugText(
+                snapshot = memorySnapshot,
+                decision = decision,
+            )
+        }
+        if (decision.shouldReleaseHeldEngine) {
+            withContext(Dispatchers.IO) {
+                localInferenceEngineHolder.notifyLifecycleEvent(reason = "tts-playback")
+            }
+        }
+    }
+
     fun consumeStreamingSentenceAndSpeak(fullText: String) {
         if (!ttsEnabled) return
         if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
@@ -1377,6 +1397,7 @@ fun Home(
                         }
                     }
                     if (effectiveStreamingSentenceTtsEnabled) {
+                        maybeReleaseHeldEngineForTtsPlayback()
                         speakStreamingTailIfNeeded(response)
                         resetStreamingSpeechState(clearPlaybackFlag = false)
                     } else if (
@@ -1385,7 +1406,10 @@ fun Home(
                         suppressedTtsAssistantMessageId != assistantId &&
                         !ttsController.isInCooldown()
                     ) {
-                        sanitizeTextForTts(response).takeIf { it.isNotEmpty() }?.let(ttsController::speak)
+                        sanitizeTextForTts(response).takeIf { it.isNotEmpty() }?.let { speechText ->
+                            maybeReleaseHeldEngineForTtsPlayback()
+                            ttsController.speak(speechText)
+                        }
                     }
                     placeholder = "Enter your prompt..."
                     pendingAssistantImageInputCount = null
@@ -2766,6 +2790,7 @@ fun Home(
                                                                         }
                                                                     }
                                                                     if (effectiveStreamingSentenceTtsEnabled && !localStopRequested) {
+                                                                        maybeReleaseHeldEngineForTtsPlayback()
                                                                         speakStreamingTailIfNeeded(resolvedAssistantResponse)
                                                                         resetStreamingSpeechState(clearPlaybackFlag = false)
                                                                     } else if (
@@ -2775,7 +2800,10 @@ fun Home(
                                                                         suppressedTtsAssistantMessageId != assistantId &&
                                                                         !ttsController.isInCooldown()
                                                                     ) {
-                                                                        sanitizeTextForTts(resolvedAssistantResponse).takeIf { it.isNotEmpty() }?.let(ttsController::speak)
+                                                                        sanitizeTextForTts(resolvedAssistantResponse).takeIf { it.isNotEmpty() }?.let { speechText ->
+                                                                            maybeReleaseHeldEngineForTtsPlayback()
+                                                                            ttsController.speak(speechText)
+                                                                        }
                                                                     }
                                                                     localStreamingResponseText = null
                                                                     resetStreamingAssistantPlaceholderId(reason = "success")
@@ -3377,7 +3405,12 @@ fun Home(
                                                     isStreamingSentencePlaybackActive = false
                                                     currentSpeakingAssistantMessageId = message.messageID
                                                     stopButtonOwnerAssistantMessageId = message.messageID
-                                                    sanitizeTextForTts(message.message).takeIf { it.isNotEmpty() }?.let(ttsController::speak)
+                                                    sanitizeTextForTts(message.message).takeIf { it.isNotEmpty() }?.let { speechText ->
+                                                        coroutineScope.launch {
+                                                            maybeReleaseHeldEngineForTtsPlayback()
+                                                            ttsController.speak(speechText)
+                                                        }
+                                                    }
                                                 }
                                                 } else {
                                                     null
@@ -4360,6 +4393,40 @@ private fun resolveLocalModelDisplayName(
 
 internal fun shouldApplyHeldEngineModelPath(localBaseModelFilePath: String?): Boolean {
     return !localBaseModelFilePath.isNullOrBlank()
+}
+
+private fun captureTtsMemorySnapshot(context: Context): TtsMemorySnapshot {
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+    val systemMemoryInfo = ActivityManager.MemoryInfo()
+    val hasSystemMemoryInfo = runCatching {
+        activityManager?.getMemoryInfo(systemMemoryInfo)
+        activityManager != null
+    }.getOrDefault(false)
+    val processMemoryInfo = Debug.MemoryInfo()
+    runCatching {
+        Debug.getMemoryInfo(processMemoryInfo)
+    }
+    return TtsMemorySnapshot(
+        lowMemory = hasSystemMemoryInfo && systemMemoryInfo.lowMemory,
+        availableMemoryMb = if (hasSystemMemoryInfo) systemMemoryInfo.availMem / (1024L * 1024L) else null,
+        thresholdMemoryMb = if (hasSystemMemoryInfo) systemMemoryInfo.threshold / (1024L * 1024L) else null,
+        appTotalPssMb = kbToMb(processMemoryInfo.totalPss),
+        appNativePssMb = kbToMb(processMemoryInfo.nativePss),
+    )
+}
+
+internal fun buildTtsMemoryDecisionDebugText(
+    snapshot: TtsMemorySnapshot,
+    decision: TtsMemoryReleaseDecision,
+): String = buildString {
+    appendLine("DEV TTS MEMORY")
+    append("decision=").append(if (decision.shouldReleaseHeldEngine) "release-held-engine" else "keep-held-engine").appendLine()
+    append("reason=").append(decision.reason).appendLine()
+    append("lowMemory=").append(snapshot.lowMemory).appendLine()
+    append("availableMemoryMb=").append(snapshot.availableMemoryMb ?: "unknown").appendLine()
+    append("thresholdMemoryMb=").append(snapshot.thresholdMemoryMb ?: "unknown").appendLine()
+    append("appTotalPssMb=").append(snapshot.appTotalPssMb ?: "unknown").appendLine()
+    append("appNativePssMb=").append(snapshot.appNativePssMb ?: "unknown")
 }
 
 private suspend fun resolveLocalModelResolutionOrNull(

@@ -70,6 +70,7 @@ internal class LocalInferenceEngineHolder(
         FATAL_ERROR,
         LOW_MEMORY,
         APP_BACKGROUNDED,
+        TTS_PLAYBACK,
         BACKGROUND_TIMEOUT,
         IDLE_TIMEOUT,
         KEEP_HELD,
@@ -592,6 +593,12 @@ internal class LocalInferenceEngineHolder(
 
             "app-backgrounded" -> HeldEngineLifecycleDecision(
                 reason = HeldEngineLifecycleReason.APP_BACKGROUNDED,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "tts-playback" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.TTS_PLAYBACK,
                 action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
                 clearReason = reason,
             )
