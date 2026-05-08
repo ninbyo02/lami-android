@@ -1396,6 +1396,13 @@ fun Home(
                             }
                         }
                     }
+                    placeholder = "Enter your prompt..."
+                    pendingAssistantImageInputCount = null
+                    toggle = false
+                    remoteRequestJob = null
+                    resetStreamingAssistantPlaceholderId(reason = "success")
+                    viewModel.resetUiState()
+                    yield()
                     if (effectiveStreamingSentenceTtsEnabled) {
                         maybeReleaseHeldEngineForTtsPlayback()
                         speakStreamingTailIfNeeded(response)
@@ -1411,13 +1418,7 @@ fun Home(
                             ttsController.speak(speechText)
                         }
                     }
-                    placeholder = "Enter your prompt..."
-                    pendingAssistantImageInputCount = null
-                    toggle = false
-                    remoteRequestJob = null
                     resetStreamingSpeechState()
-                    resetStreamingAssistantPlaceholderId(reason = "success")
-                    viewModel.resetUiState()
                 }
 
                 is UiState.Error -> {
@@ -2789,6 +2790,10 @@ fun Home(
                                                                             stopButtonOwnerAssistantMessageId = assistantId
                                                                         }
                                                                     }
+                                                                    localStreamingResponseText = null
+                                                                    resetStreamingAssistantPlaceholderId(reason = "success")
+                                                                    isLocalInferenceRunning = false
+                                                                    yield()
                                                                     if (effectiveStreamingSentenceTtsEnabled && !localStopRequested) {
                                                                         maybeReleaseHeldEngineForTtsPlayback()
                                                                         speakStreamingTailIfNeeded(resolvedAssistantResponse)
@@ -2805,8 +2810,6 @@ fun Home(
                                                                             ttsController.speak(speechText)
                                                                         }
                                                                     }
-                                                                    localStreamingResponseText = null
-                                                                    resetStreamingAssistantPlaceholderId(reason = "success")
                                                                     return@launch
                                                             }
                                                             localStreamingResponseText = null
