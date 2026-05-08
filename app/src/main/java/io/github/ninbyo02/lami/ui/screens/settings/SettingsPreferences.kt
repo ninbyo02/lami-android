@@ -431,7 +431,7 @@ class SettingsPreferences(private val context: Context) {
     }
 
     val devEnableStreamingSentenceTtsFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[devEnableStreamingSentenceTtsKey] ?: false
+        preferences[devEnableStreamingSentenceTtsKey] ?: true
     }
 
     val chatLamiAvatarSizeDpFlow: Flow<Int> = context.dataStore.data.map { preferences ->

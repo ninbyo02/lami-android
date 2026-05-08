@@ -555,7 +555,7 @@ fun Home(
         initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP,
     )
     val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow.collectAsState(
-        initial = false,
+        initial = true,
     )
     val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(
         initial = true,
@@ -1134,7 +1134,7 @@ fun Home(
         streamingSpeechBuffer = fullText
         if (streamingSpeechLastConsumedLength >= fullText.length) return
         val remaining = fullText.substring(streamingSpeechLastConsumedLength)
-        val sentenceBreakIndex = remaining.lastIndexOfAny(charArrayOf('。', '！', '？', '\n'))
+        val sentenceBreakIndex = findStreamingTtsBreakIndex(remaining)
         if (sentenceBreakIndex < 0) return
         val speakTarget = remaining.substring(0, sentenceBreakIndex + 1)
         val normalized = sanitizeStreamingTextForTts(speakTarget)
@@ -1186,7 +1186,7 @@ fun Home(
         streamingResponseText,
     ) {
         if (!effectiveStreamingSentenceTtsEnabled || !isInferenceRunningUi) return@LaunchedEffect
-        val fullText = streamingResponseTextForRender ?: streamingResponseText ?: return@LaunchedEffect
+        val fullText = streamingResponseText ?: streamingResponseTextForRender ?: return@LaunchedEffect
         if (fullText.isBlank()) return@LaunchedEffect
         consumeStreamingSentenceAndSpeak(fullText)
     }
@@ -3785,6 +3785,12 @@ fun shouldRefreshRender(
         appendedDelta.length >= 32 ||
         deltaTrimmedStart.startsWith("```") ||
         isPythonFusionStart(deltaTrimmedStart)
+}
+
+internal fun findStreamingTtsBreakIndex(remaining: String): Int {
+    val sentenceBreakIndex = remaining.lastIndexOfAny(charArrayOf('。', '！', '？', '\n'))
+    if (sentenceBreakIndex >= 0) return sentenceBreakIndex
+    return remaining.lastIndexOfAny(charArrayOf('、', ',', '，', ';', '；', ':', '：'))
 }
 
 private suspend fun initializeLocalInferenceEngineEntry(

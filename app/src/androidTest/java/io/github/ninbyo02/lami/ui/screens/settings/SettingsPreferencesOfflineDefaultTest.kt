@@ -23,6 +23,16 @@ class SettingsPreferencesOfflineDefaultTest {
     }
 
     @Test
+    fun devEnableStreamingSentenceTts_defaultsToEnabled() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val settingsPreferences = SettingsPreferences(context)
+
+        settingsPreferences.clearAllPreferencesForTest()
+
+        assertEquals(true, settingsPreferences.devEnableStreamingSentenceTtsFlow.first())
+    }
+
+    @Test
     fun ensurePerStateAnimationJsonsInitialized_setsOfflineLoopDefaults() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val settingsPreferences = SettingsPreferences(context)
