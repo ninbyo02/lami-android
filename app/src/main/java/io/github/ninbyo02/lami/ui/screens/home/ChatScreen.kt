@@ -223,6 +223,7 @@ private const val LOCAL_INFERENCE_PROBE_PROMPT = "hi"
 private const val LOCAL_INIT_TIMEOUT_MS = 3000L
 private const val LOCAL_GENERATE_TIMEOUT_MS = 30000L
 private const val LOCAL_RESPONDING_PLACEHOLDER_DELAY_MS = 350L
+private const val TTS_HEADER_TALKING_GRACE_MS = 900L
 // DEV専用のsession async PoCは今回のPoC検証のため一時的にON（判定は internal file のみで実施）。
 private const val ENABLE_DEV_LLM_SESSION_ASYNC_POC = true
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT = "one-shot"
@@ -571,6 +572,7 @@ fun Home(
     val clipboardManager = LocalClipboardManager.current
     val ttsController = remember { AndroidTtsController(context.applicationContext) }
     val isTtsSpeaking by ttsController.isSpeaking.collectAsState()
+    var keepTtsTalkingInHeader by remember(effectiveChatId) { mutableStateOf(false) }
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
     val savedInferenceTarget by settingsPreferences.inferenceTargetFlow.collectAsState(initial = InferenceTarget.LOCAL)
@@ -669,7 +671,7 @@ fun Home(
         selectedInferenceTarget == InferenceTarget.LOCAL &&
             isTtsPlaying &&
             !isStopRequested
-    val isTtsPlayingForHeaderUi = isTtsSpeaking || isLocalTtsPlayingUi
+    val isTtsPlayingForHeaderUi = isTtsSpeaking || isLocalTtsPlayingUi || keepTtsTalkingInHeader
     val isHeaderRunningUi = isInferenceRunningUi || isTtsPlayingForHeaderUi
     val isServerLoadingUi = uiState is UiState.Loading && isServerRunningUi
     LaunchedEffect(
@@ -1279,6 +1281,32 @@ fun Home(
                 suppressedMessageId = null,
                 armTapGuards = false,
             )
+        }
+    }
+
+    LaunchedEffect(
+        isTtsSpeaking,
+        isTtsPlaying,
+        isInferenceRunningUi,
+        isStreamingSentencePlaybackActive,
+        stopButtonOwnerAssistantMessageId,
+    ) {
+        if (isTtsSpeaking || isTtsPlaying) {
+            keepTtsTalkingInHeader = true
+            return@LaunchedEffect
+        }
+        val hasActiveTtsContext =
+            isStreamingSentencePlaybackActive ||
+                stopButtonOwnerAssistantMessageId != null
+        if (!isInferenceRunningUi || !hasActiveTtsContext) {
+            keepTtsTalkingInHeader = false
+            return@LaunchedEffect
+        }
+
+        keepTtsTalkingInHeader = true
+        delay(TTS_HEADER_TALKING_GRACE_MS)
+        if (!isTtsSpeaking && !isTtsPlaying) {
+            keepTtsTalkingInHeader = false
         }
     }
 
