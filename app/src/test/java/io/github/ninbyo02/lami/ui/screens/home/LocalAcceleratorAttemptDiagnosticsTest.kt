@@ -127,6 +127,13 @@ class LocalAcceleratorAttemptDiagnosticsTest {
                 qnnNpuAttemptStage = "prerequisite-probe",
                 qnnNpuAttemptErrorClass = "MissingPrerequisite",
                 qnnNpuAttemptErrorMessage = "qnn-runtime-libs,backend-npu-api",
+                qnnNpuAttemptEvidence = listOf("missing=qnn-runtime-libs", "backendNpu=missing"),
+                npuVendorRuntimeLibraryStatus = "missing:libQnnHtp.so",
+                npuDispatchLibraryStatus = "missing:libLiteRtDispatch.so",
+                npuReadinessSummary = "missing=qnn-runtime-libs,backend-npu-api",
+                backendNpuProbeHint = "not-detected",
+                backendNpuClassCandidates = emptyList(),
+                backendNpuMethodCandidates = listOf("setPreferredBackend(Backend)"),
             ),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU,
         )
@@ -140,6 +147,13 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         assertEquals("prerequisite-probe", devSummarySection.items.first { it.label == "QNN/NPU stage" }.value)
         assertEquals("MissingPrerequisite", devSummarySection.items.first { it.label == "QNN/NPU errorClass" }.value)
         assertEquals("qnn-runtime-libs,backend-npu-api", devSummarySection.items.first { it.label == "QNN/NPU errorMessage" }.value)
+        assertEquals("missing=qnn-runtime-libs / backendNpu=missing", devSummarySection.items.first { it.label == "QNN/NPU evidence" }.value)
+        assertEquals("missing:libQnnHtp.so", devSummarySection.items.first { it.label == "LiteRT-LM NPU runtime lib status" }.value)
+        assertEquals("missing:libLiteRtDispatch.so", devSummarySection.items.first { it.label == "LiteRT-LM NPU dispatch lib status" }.value)
+        assertEquals("missing=qnn-runtime-libs,backend-npu-api", devSummarySection.items.first { it.label == "LiteRT-LM NPU readiness" }.value)
+        assertEquals("not-detected", devSummarySection.items.first { it.label == "Backend NPU probe hint" }.value)
+        assertEquals("none/unknown", devSummarySection.items.first { it.label == "Backend NPU class candidates" }.value)
+        assertEquals("setPreferredBackend(Backend)", devSummarySection.items.first { it.label == "Backend NPU method candidates" }.value)
         assertTrue(devSummarySection.items.none { it.label == "PreferredBackend hook missing" })
     }
 
@@ -153,6 +167,12 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         qnnNpuAttemptErrorClass: String? = null,
         qnnNpuAttemptErrorMessage: String? = null,
         qnnNpuAttemptEvidence: List<String> = emptyList(),
+        npuVendorRuntimeLibraryStatus: String? = null,
+        npuDispatchLibraryStatus: String? = null,
+        npuReadinessSummary: String? = null,
+        backendNpuProbeHint: String? = null,
+        backendNpuClassCandidates: List<String> = emptyList(),
+        backendNpuMethodCandidates: List<String> = emptyList(),
     ): AcceleratorProbeSnapshot {
         return AcceleratorProbeSnapshot(
             deviceManufacturer = "nubia",
@@ -178,6 +198,12 @@ class LocalAcceleratorAttemptDiagnosticsTest {
             qnnNpuAttemptErrorClass = qnnNpuAttemptErrorClass,
             qnnNpuAttemptErrorMessage = qnnNpuAttemptErrorMessage,
             qnnNpuAttemptEvidence = qnnNpuAttemptEvidence,
+            npuVendorRuntimeLibraryStatus = npuVendorRuntimeLibraryStatus,
+            npuDispatchLibraryStatus = npuDispatchLibraryStatus,
+            npuReadinessSummary = npuReadinessSummary,
+            backendNpuProbeHint = backendNpuProbeHint,
+            backendNpuClassCandidates = backendNpuClassCandidates,
+            backendNpuMethodCandidates = backendNpuMethodCandidates,
         )
     }
 }
