@@ -640,10 +640,6 @@ fun Home(
     var didReceiveRealLocalPartial by remember(effectiveChatId) { mutableStateOf(false) }
     var realLocalPartialChunkCount by remember(effectiveChatId) { mutableStateOf(0) }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
-    var pendingLocalOverlayText by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingLocalOverlaySendEpoch by rememberSaveable { mutableStateOf<Long?>(null) }
-    var pendingLocalOverlayResolvedChatId by rememberSaveable { mutableStateOf<Int?>(null) }
-    var pendingLocalOverlayVisible by rememberSaveable { mutableStateOf(false) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
@@ -708,13 +704,6 @@ fun Home(
         isLocalRunningUi &&
             streamingAssistantMessageId == null &&
             showDelayedLocalRespondingPlaceholder
-    val shouldClearPendingLocalOverlayOnAssistantStart =
-        streamingAssistantMessageId != null ||
-            !localStreamingResponseText.isNullOrBlank() ||
-            showLocalRespondingAssistantRow
-    val pendingLocalOverlayTextValue = pendingLocalOverlayText.orEmpty()
-    val hasPendingLocalOverlay = pendingLocalOverlayTextValue.isNotBlank()
-    val shouldShowPendingLocalOverlay = pendingLocalOverlayVisible && hasPendingLocalOverlay
     val localRespondingAssistantRowMessage = if (
         localInferenceEngineState == LocalInferenceEngineState.PREPARING &&
         localStreamingResponseText.isNullOrBlank()
@@ -883,24 +872,6 @@ fun Home(
         val message = "[LOCAL_UI] $label$suffix"
         Log.i("ChatScreen", message)
         appendLocalReflectionTrace(context.applicationContext, message)
-    }
-
-    fun armPendingLocalOverlay(requestPrompt: String, resolvedChatId: Int?) {
-        pendingLocalOverlayText = requestPrompt
-        pendingLocalOverlaySendEpoch = SystemClock.elapsedRealtime()
-        pendingLocalOverlayResolvedChatId = resolvedChatId
-        pendingLocalOverlayVisible = true
-    }
-
-    fun clearPendingLocalOverlay(reason: String) {
-        debugLocalUiTrace(
-            label = "LOCAL_UI_PENDING_CLEAR",
-            extra = "reason=$reason effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId pendingLocalOverlayTextLength=${pendingLocalOverlayText?.length ?: 0} isCreatingChat=$isCreatingChat",
-        )
-        pendingLocalOverlayVisible = false
-        pendingLocalOverlayText = null
-        pendingLocalOverlaySendEpoch = null
-        pendingLocalOverlayResolvedChatId = null
     }
 
     fun resetStreamingSpeechState(clearPlaybackFlag: Boolean = true) {
@@ -1427,7 +1398,7 @@ fun Home(
         }
     }
 
-    LaunchedEffect(chatId, chats, pendingNavigateChatId, pendingLocalOverlayVisible) {
+    LaunchedEffect(chatId, chats, pendingNavigateChatId) {
         val resolvedChatId = resolveDefaultChatId(chatId, chats)
         if (pendingNavigateChatId == null) {
             effectiveChatId = resolvedChatId
@@ -1435,7 +1406,6 @@ fun Home(
 
         if (
             pendingNavigateChatId == null &&
-            !pendingLocalOverlayVisible &&
             shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)
         ) {
             isCreatingChat = true
@@ -1449,15 +1419,6 @@ fun Home(
         if (resolvedChatId != null) {
             isCreatingChat = false
             suppressAutoNewChat = false
-        }
-    }
-
-    LaunchedEffect(chatId, pendingLocalOverlayVisible, pendingLocalOverlayResolvedChatId) {
-        val pendingChatId = pendingLocalOverlayResolvedChatId ?: return@LaunchedEffect
-        val currentChatId = chatId ?: return@LaunchedEffect
-        if (!pendingLocalOverlayVisible) return@LaunchedEffect
-        if (currentChatId != pendingChatId) {
-            clearPendingLocalOverlay(reason = "chat-switched")
         }
     }
 
@@ -2108,7 +2069,6 @@ fun Home(
                                                 if (isInferenceRunningUi) {
                                                     if (isLocalRunningRaw) {
                                                         localStopRequested = true
-                                                        clearPendingLocalOverlay(reason = "stop")
                                                         localInferenceJob?.cancel()
                                                         localInferenceJob = null
                                                         effectiveChatId?.let { currentChatId ->
@@ -2234,11 +2194,7 @@ fun Home(
                                                     if (requestPrompt.isBlank()) return@IconButton
                                                     debugLocalUiTrace(
                                                         label = "LOCAL_UI_SEND_TAPPED",
-                                                        extra = "selectedInferenceTarget=$selectedInferenceTarget effectiveChatId=$effectiveChatId userPromptLength=${userPrompt.length} pendingVisibleBefore=$pendingLocalOverlayVisible",
-                                                    )
-                                                    armPendingLocalOverlay(
-                                                        requestPrompt = requestPrompt,
-                                                        resolvedChatId = effectiveChatId,
+                                                        extra = "selectedInferenceTarget=$selectedInferenceTarget effectiveChatId=$effectiveChatId userPromptLength=${userPrompt.length}",
                                                     )
                                                     prompt = ""
                                                     userPrompt = ""
@@ -2247,8 +2203,8 @@ fun Home(
                                                     localInferenceEngineState = LocalInferenceEngineState.READY
                                                     localStopRequested = false
                                                     debugLocalUiTrace(
-                                                        label = "LOCAL_UI_PENDING_ARMED",
-                                                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId pendingLocalOverlayTextLength=${pendingLocalOverlayText?.length ?: 0} userPromptLengthAfterClear=${userPrompt.length}",
+                                                        label = "LOCAL_UI_INPUT_CLEARED",
+                                                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId userPromptLengthAfterClear=${userPrompt.length}",
                                                     )
                                                     stopTtsWithCleanup(
                                                         suppressedMessageId = stopButtonOwnerAssistantMessageId
@@ -2259,7 +2215,7 @@ fun Home(
                                                     localInferenceJob = coroutineScope.launch {
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_LAUNCH_ENTER",
-                                                            extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId isCreatingChat=$isCreatingChat",
+                                                            extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId isCreatingChat=$isCreatingChat",
                                                         )
                                                         var currentChatId = effectiveChatId
                                                         if (currentChatId == null) {
@@ -2272,7 +2228,6 @@ fun Home(
                                                                 }
                                                                 effectiveChatId = newChatId
                                                                 pendingNavigateChatId = newChatId
-                                                                pendingLocalOverlayResolvedChatId = newChatId
                                                                 currentChatId = newChatId
                                                             } finally {
                                                                 isCreatingChat = false
@@ -2281,7 +2236,7 @@ fun Home(
                                                         val resolvedChatId = currentChatId
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_USER_INSERT_START",
-                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId",
+                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length}",
                                                         )
                                                         withContext(Dispatchers.IO) {
                                                             viewModel.insert(
@@ -2294,7 +2249,7 @@ fun Home(
                                                         }
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_USER_INSERT_DONE",
-                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId",
+                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length}",
                                                         )
                                                         appendLocalReflectionTrace(
                                                             context = context.applicationContext,
@@ -2941,7 +2896,6 @@ fun Home(
                                                             localStreamingResponseText = null
                                                             showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
-                                                            clearPendingLocalOverlay(reason = "error")
                                                             isLocalInferenceRunning = false
                                                             localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
@@ -2972,7 +2926,6 @@ fun Home(
                                                             showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
-                                                            clearPendingLocalOverlay(reason = "error")
                                                             effectiveChatId?.let { chatId ->
                                                                 localInferenceEngineHolder.resetConversation(
                                                                     chatId = chatId,
@@ -3127,16 +3080,6 @@ fun Home(
         ) {
             val contentModifier = Modifier
                 .fillMaxSize()
-            LaunchedEffect(
-                shouldClearPendingLocalOverlayOnAssistantStart,
-                pendingLocalOverlayVisible,
-                pendingLocalOverlayText,
-                pendingLocalOverlayResolvedChatId,
-            ) {
-                if (!pendingLocalOverlayVisible) return@LaunchedEffect
-                if (!shouldClearPendingLocalOverlayOnAssistantStart) return@LaunchedEffect
-                clearPendingLocalOverlay(reason = "assistant-started")
-            }
 
             if (effectiveChatId == null) {
                 Column(
@@ -3702,21 +3645,6 @@ fun Home(
                             }
                         }
                     }
-                }
-            }
-            if (shouldShowPendingLocalOverlay) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = effectiveTopGradientBottomDp),
-                    contentAlignment = Alignment.TopEnd,
-                ) {
-                    ChatBubble(
-                        message = pendingLocalOverlayTextValue,
-                        isSentByMe = true,
-                        attachmentUriString = null,
-                        attachmentUriStringsJson = null,
-                    )
                 }
             }
         }
