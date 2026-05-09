@@ -82,38 +82,102 @@ val requiredQnnRuntimeLibs = listOf(
     "libQnnHtp.so",
     "libQnnHtpPrepare.so",
 )
+val qnnNpuModelNameMarkers = listOf("qualcomm", "qnn", "npu", "sm8750", "snapdragon", "htp")
+
+fun collectQnnNpuNativeLibStatus(): QnnNpuNativeLibStatus {
+    val libDir = qnnNpuArm64LibDir.asFile
+    val libraries = libDir.listFiles()
+        ?.filter { it.isFile && it.extension == "so" }
+        ?.map(File::getName)
+        ?.sorted()
+        .orEmpty()
+    val missingRuntimeLibs = requiredQnnRuntimeLibs.filterNot(libraries::contains)
+    val hasHtpVariant = libraries.any { it.startsWith("libQnnHtpV") && it.endsWith(".so") }
+    val dispatchCandidates = libraries.filter { name ->
+        name.contains("dispatch", ignoreCase = true) &&
+            (name.contains("litert", ignoreCase = true) ||
+                name.contains("qnn", ignoreCase = true) ||
+                name.contains("qualcomm", ignoreCase = true))
+    }
+    return QnnNpuNativeLibStatus(
+        libDir = libDir,
+        libraries = libraries,
+        missingRuntimeLibs = missingRuntimeLibs,
+        hasHtpVariant = hasHtpVariant,
+        dispatchCandidates = dispatchCandidates,
+    )
+}
+
+data class QnnNpuNativeLibStatus(
+    val libDir: File,
+    val libraries: List<String>,
+    val missingRuntimeLibs: List<String>,
+    val hasHtpVariant: Boolean,
+    val dispatchCandidates: List<String>,
+) {
+    val ready: Boolean
+        get() = missingRuntimeLibs.isEmpty() && hasHtpVariant && dispatchCandidates.isNotEmpty()
+}
+
+fun collectQnnNpuModelStatus(modelPath: String?): QnnNpuModelStatus {
+    val fileName = modelPath?.substringAfterLast('/')?.trim().orEmpty()
+    if (fileName.isBlank()) {
+        return QnnNpuModelStatus(
+            fileName = "",
+            isLiteRtLm = false,
+            matchedMarkers = emptyList(),
+        )
+    }
+    val lowerName = fileName.lowercase()
+    return QnnNpuModelStatus(
+        fileName = fileName,
+        isLiteRtLm = lowerName.endsWith(".litertlm"),
+        matchedMarkers = qnnNpuModelNameMarkers.filter(lowerName::contains),
+    )
+}
+
+data class QnnNpuModelStatus(
+    val fileName: String,
+    val isLiteRtLm: Boolean,
+    val matchedMarkers: List<String>,
+) {
+    val ready: Boolean
+        get() = isLiteRtLm && matchedMarkers.isNotEmpty()
+}
 
 tasks.register("printQnnNpuNativeLibStatus") {
     group = "verification"
     description = "Prints local Qualcomm QNN/NPU native library readiness for LiteRT-LM."
     doLast {
-        val libDir = qnnNpuArm64LibDir.asFile
-        val libraries = libDir.listFiles()
-            ?.filter { it.isFile && it.extension == "so" }
-            ?.map(File::getName)
-            ?.sorted()
-            .orEmpty()
-        val missingRuntimeLibs = requiredQnnRuntimeLibs.filterNot(libraries::contains)
-        val hasHtpVariant = libraries.any { it.startsWith("libQnnHtpV") && it.endsWith(".so") }
-        val dispatchCandidates = libraries.filter { name ->
-            name.contains("dispatch", ignoreCase = true) &&
-                (name.contains("litert", ignoreCase = true) ||
-                    name.contains("qnn", ignoreCase = true) ||
-                    name.contains("qualcomm", ignoreCase = true))
-        }
+        val status = collectQnnNpuNativeLibStatus()
 
-        println("QNN/NPU native library directory: ${libDir.absolutePath}")
-        println("Packaged .so candidates: ${libraries.ifEmpty { listOf("none") }.joinToString(", ")}")
-        println("Required QAIRT runtime libs: ${if (missingRuntimeLibs.isEmpty()) "present" else "missing ${missingRuntimeLibs.joinToString(", ")}"}")
-        println("Required HTP skel/variant lib: ${if (hasHtpVariant) "present" else "missing libQnnHtpV*.so"}")
-        println("LiteRT Qualcomm dispatch API lib: ${dispatchCandidates.ifEmpty { listOf("missing") }.joinToString(", ")}")
-        println(
-            "Readiness: " + if (missingRuntimeLibs.isEmpty() && hasHtpVariant && dispatchCandidates.isNotEmpty()) {
-                "candidate-ready"
-            } else {
-                "blocked"
-            }
+        println("QNN/NPU native library directory: ${status.libDir.absolutePath}")
+        println("Packaged .so candidates: ${status.libraries.ifEmpty { listOf("none") }.joinToString(", ")}")
+        println("Required QAIRT runtime libs: ${if (status.missingRuntimeLibs.isEmpty()) "present" else "missing ${status.missingRuntimeLibs.joinToString(", ")}"}")
+        println("Required HTP skel/variant lib: ${if (status.hasHtpVariant) "present" else "missing libQnnHtpV*.so"}")
+        println("LiteRT Qualcomm dispatch API lib: ${status.dispatchCandidates.ifEmpty { listOf("missing") }.joinToString(", ")}")
+        println("Readiness: ${if (status.ready) "candidate-ready" else "blocked"}")
+    }
+}
+
+tasks.register("printQnnNpuReadiness") {
+    group = "verification"
+    description = "Prints Qualcomm QNN/NPU library and model readiness. Pass -PqnnNpuModelPath=/path/to/model.litertlm."
+    doLast {
+        val nativeLibStatus = collectQnnNpuNativeLibStatus()
+        val modelStatus = collectQnnNpuModelStatus(
+            providers.gradleProperty("qnnNpuModelPath").orNull
+                ?: System.getenv("QNN_NPU_MODEL_PATH")?.trim(),
         )
+        val blockers = buildList {
+            if (!nativeLibStatus.ready) add("native-libs")
+            if (!modelStatus.ready) add("soc-specific-model")
+        }
+        println("QNN/NPU native library readiness: ${if (nativeLibStatus.ready) "candidate-ready" else "blocked"}")
+        println("QNN/NPU model file: ${modelStatus.fileName.ifBlank { "missing" }}")
+        println("QNN/NPU model litertlm: ${modelStatus.isLiteRtLm}")
+        println("QNN/NPU model markers: ${modelStatus.matchedMarkers.ifEmpty { listOf("none") }.joinToString(", ")}")
+        println("QNN/NPU readiness: ${if (blockers.isEmpty()) "candidate-ready" else "blocked-until-${blockers.joinToString("-")}"}")
     }
 }
 

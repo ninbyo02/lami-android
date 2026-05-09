@@ -58,6 +58,15 @@ Check local packaging readiness:
 ./gradlew :app:printQnnNpuNativeLibStatus
 ```
 
+Check library and model readiness together:
+
+```bash
+./gradlew :app:printQnnNpuReadiness \
+  -PqnnNpuModelPath=/path/to/gemma3-1b-sm8750-qnn-npu.litertlm
+```
+
+`QNN_NPU_MODEL_PATH` can be used instead of the Gradle property.
+
 Install the app:
 
 ```bash
@@ -74,6 +83,19 @@ Applied preferredBackend: NPU
 ```
 
 Do not treat NPU as ready from app diagnostics alone. First prove the same model can run with LiteRT-LM's command-line NPU path on the device.
+
+The app also blocks Qualcomm NPU selection unless the selected `.litertlm` filename looks like an NPU/SOC-specific candidate. Current accepted markers are:
+
+```text
+qualcomm
+qnn
+npu
+sm8750
+snapdragon
+htp
+```
+
+This is intentionally conservative. A generic model such as `gemma-4-E4B-it.litertlm` should continue to use GPU until an NPU-specific model is selected and CLI proof exists.
 
 ## External prerequisites
 

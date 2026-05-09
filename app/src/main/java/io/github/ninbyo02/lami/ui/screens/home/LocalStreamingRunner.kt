@@ -4068,7 +4068,10 @@ internal fun buildLiteRtEngineConfig(
         PreferredBackendDryRunSetting.GPU -> LiteRtBackendApply(Backend.GPU(), "GPU", "applied-engine-config")
         PreferredBackendDryRunSetting.DEFAULT -> LiteRtBackendApply(Backend.GPU(), "DEFAULT", "skipped-default-engine-config")
         PreferredBackendDryRunSetting.NPU -> createNpuBackendReflectively(nativeLibraryDir)
-        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> createQualcommQnnNpuBackendAttempt(nativeLibraryDir)
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> createQualcommQnnNpuBackendAttempt(
+            nativeLibraryDir = nativeLibraryDir,
+            modelPath = modelPath,
+        )
     }
     onPreferredBackendApplied(
         PreferredBackendApplyResult(
@@ -4150,11 +4153,18 @@ private fun createNpuBackendReflectively(nativeLibraryDir: String?): LiteRtBacke
     )
 }
 
-private fun createQualcommQnnNpuBackendAttempt(nativeLibraryDir: String?): LiteRtBackendApply {
+private fun createQualcommQnnNpuBackendAttempt(
+    nativeLibraryDir: String?,
+    modelPath: String,
+): LiteRtBackendApply {
     val evidence = mutableListOf<String>()
     val missing = mutableListOf<String>()
     val npuBackend = runCatching {
         evidence += "nativeLibraryDir=${nativeLibraryDir ?: "unknown"}"
+        val modelCompatibility = probeQualcommNpuModelCompatibility(modelPath)
+        evidence += "model=${modelCompatibility.status}"
+        evidence += "modelEvidence=${modelCompatibility.evidence}"
+        if (!modelCompatibility.compatible) missing += "soc-specific-model"
         val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
         val npuClass = (backendClass.classes.asList() + backendClass.declaredClasses.asList())
             .firstOrNull { it.simpleName == "NPU" }
@@ -4213,6 +4223,37 @@ private fun createQualcommQnnNpuBackendAttempt(nativeLibraryDir: String?): LiteR
         } else {
             "missing-${missing.distinct().joinToString(",")}"
         },
+    )
+}
+
+internal data class QualcommNpuModelCompatibility(
+    val compatible: Boolean,
+    val status: String,
+    val evidence: String,
+)
+
+internal fun probeQualcommNpuModelCompatibility(modelPath: String): QualcommNpuModelCompatibility {
+    val fileName = modelPath.substringAfterLast('/').trim()
+    if (fileName.isBlank()) {
+        return QualcommNpuModelCompatibility(
+            compatible = false,
+            status = "missing-model-path",
+            evidence = "modelPath=blank",
+        )
+    }
+    val lowerName = fileName.lowercase(Locale.US)
+    val markers = listOf("qualcomm", "qnn", "npu", "sm8750", "snapdragon", "htp")
+    val matchedMarkers = markers.filter(lowerName::contains)
+    val isLiteRtLm = lowerName.endsWith(".litertlm")
+    val compatible = isLiteRtLm && matchedMarkers.isNotEmpty()
+    return QualcommNpuModelCompatibility(
+        compatible = compatible,
+        status = if (compatible) {
+            "candidate-detected-soc-specific-model"
+        } else {
+            "missing-soc-specific-npu-model-marker"
+        },
+        evidence = "file=$fileName;litertlm=$isLiteRtLm;markers=${matchedMarkers.joinToString("|").ifBlank { "none" }}",
     )
 }
 
