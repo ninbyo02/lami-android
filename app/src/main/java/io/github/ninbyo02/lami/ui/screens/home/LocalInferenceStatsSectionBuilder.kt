@@ -147,11 +147,19 @@ internal fun buildInferenceDetailSections(
     val executionInference = inferExecutionTarget(
         officialFlowUsed = localTraceForDev?.officialFlowUsed,
         fallbackReason = localTraceForDev?.officialFlowFallbackReason,
+        requestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name,
+        appliedPreferredBackend = localTraceForDev?.appliedPreferredBackend,
+        preferredBackendApplyResult = localTraceForDev?.preferredBackendApplyResult,
         gpuRenderer = acceleratorProbeSnapshot?.gpuRenderer,
         nnapiAvailable = acceleratorProbeSnapshot?.nnapiAvailable == true,
         nnapiDevices = acceleratorProbeSnapshot?.nnapiDevices.orEmpty(),
         androidSdk = acceleratorProbeSnapshot?.androidSdk,
         delegateSwitchingSupportedHint = acceleratorProbeSnapshot?.delegateSwitchingSupportedHint,
+        qnnNpuAttempted = acceleratorProbeSnapshot?.qnnNpuAttempted == true,
+        qnnNpuAvailable = acceleratorProbeSnapshot?.qnnNpuAvailable,
+        qnnNpuSelectedPath = acceleratorProbeSnapshot?.qnnNpuSelectedPath,
+        qnnNpuFallbackPath = acceleratorProbeSnapshot?.qnnNpuFallbackPath,
+        npuReadinessSummary = acceleratorProbeSnapshot?.npuReadinessSummary,
     )
     val devSectionItems = buildList {
         devHeldStateText?.takeIf { it.isNotBlank() }?.let {
@@ -307,6 +315,7 @@ internal fun buildInferenceDetailSections(
         devCloseLifecycleText = devCloseLifecycleText,
         devDebugText = devDebugText,
         devDiagnosticsUiModel = devDiagnosticsUiModel,
+        executionInference = executionInference,
     )
 
     val tokenizerRecountSnapshot = localTraceForDev?.measuredTokenSnapshot
@@ -1076,6 +1085,7 @@ private fun buildDevDiagnosticSummarySection(
     devCloseLifecycleText: String?,
     devDebugText: String?,
     devDiagnosticsUiModel: LocalInferenceDevDiagnosticsUiModel,
+    executionInference: ExecutionTargetInference,
 ): InferenceStatsSectionUi? {
     if (
         trace == null &&
@@ -1092,6 +1102,7 @@ private fun buildDevDiagnosticSummarySection(
         InferenceStatItemUi(label = "モデル解決", value = resolveDevSummaryModelResolution(stats, trace)),
         InferenceStatItemUi(label = "held engine再利用", value = devDiagnosticsUiModel.heldEngineReuseSummary),
         InferenceStatItemUi(label = "held engine状態", value = devDiagnosticsUiModel.heldEngineStateSummary),
+        InferenceStatItemUi(label = "推定実行先", value = "${executionInference.target} / ${executionInference.confidence}"),
         InferenceStatItemUi(label = "close結果", value = devDiagnosticsUiModel.closeStatusSummary),
         InferenceStatItemUi(label = "Tokenizer再計数", value = resolveDevSummaryTokenizerRecountStatus(trace)),
         InferenceStatItemUi(label = "MediaPipe tokenizer", value = resolveDevSummaryMediaPipeTokenizerStatus(trace)),
@@ -1190,12 +1201,73 @@ internal data class ExecutionTargetInference(
 internal fun inferExecutionTarget(
     officialFlowUsed: Boolean?,
     fallbackReason: String?,
+    requestedPreferredBackend: String?,
+    appliedPreferredBackend: String?,
+    preferredBackendApplyResult: String?,
     gpuRenderer: String?,
     nnapiAvailable: Boolean,
     nnapiDevices: List<String>,
     androidSdk: Int?,
     delegateSwitchingSupportedHint: String?,
+    qnnNpuAttempted: Boolean,
+    qnnNpuAvailable: String?,
+    qnnNpuSelectedPath: String?,
+    qnnNpuFallbackPath: String?,
+    npuReadinessSummary: String?,
 ): ExecutionTargetInference {
+    val requested = requestedPreferredBackend?.trim()?.uppercase(Locale.ROOT).orEmpty()
+    val applied = appliedPreferredBackend?.trim()?.uppercase(Locale.ROOT).orEmpty()
+    val applyResult = preferredBackendApplyResult?.trim().orEmpty()
+    val qnnSelected = qnnNpuSelectedPath?.trim()?.lowercase(Locale.ROOT).orEmpty()
+    val qnnFallback = qnnNpuFallbackPath?.trim()?.lowercase(Locale.ROOT).orEmpty()
+    val qnnAvailable = qnnNpuAvailable?.trim()?.lowercase(Locale.ROOT).orEmpty()
+    val readiness = npuReadinessSummary?.trim()?.takeIf { it.isNotBlank() }
+
+    if (applied == "NPU") {
+        val confidence = if (
+            qnnNpuAttempted ||
+            qnnSelected.contains("npu") ||
+            qnnAvailable == "available"
+        ) {
+            "high"
+        } else {
+            "medium"
+        }
+        val reason = buildString {
+            append("preferredBackend applied NPU")
+            if (applyResult.isNotBlank()) append("; applyResult=$applyResult")
+            readiness?.let { append("; readiness=$it") }
+        }
+        return ExecutionTargetInference("qnn-npu-likely", confidence, reason)
+    }
+
+    if (requested == "NPU" && applied == "GPU") {
+        val reason = buildString {
+            append("NPU requested but GPU applied")
+            if (applyResult.isNotBlank()) append("; applyResult=$applyResult")
+            if (qnnFallback.isNotBlank()) append("; qnnFallback=$qnnFallback")
+        }
+        return ExecutionTargetInference("gpu-fallback", "high", reason)
+    }
+
+    if (applied == "GPU") {
+        val rendererNote = gpuRenderer?.takeIf { it.isNotBlank() }?.let { "; renderer=$it" }.orEmpty()
+        return ExecutionTargetInference("gpu-likely", "medium", "preferredBackend applied GPU$rendererNote")
+    }
+
+    if (applied == "CPU") {
+        return ExecutionTargetInference("cpu-likely", "medium", "preferredBackend applied CPU")
+    }
+
+    if (requested == "NPU" && applied == "NOT-APPLIED") {
+        val reason = buildString {
+            append("NPU requested but no backend was applied")
+            if (applyResult.isNotBlank()) append("; applyResult=$applyResult")
+            readiness?.let { append("; readiness=$it") }
+        }
+        return ExecutionTargetInference("unknown", "low", reason)
+    }
+
     val delegateApiCandidateDetected = delegateSwitchingSupportedHint == "delegate-api-candidate-detected" ||
         delegateSwitchingSupportedHint == "backend-enum-detected" ||
         delegateSwitchingSupportedHint == "options-candidate-detected"

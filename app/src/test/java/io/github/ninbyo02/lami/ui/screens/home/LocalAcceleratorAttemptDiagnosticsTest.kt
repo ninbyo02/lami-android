@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -66,6 +67,34 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         )
 
         assertNull(sections.firstOrNull { it.title == "DEV診断" })
+    }
+
+    @Test
+    fun `developer diagnostics infer high confidence qnn npu when npu is applied with qnn evidence`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "NPU",
+                appliedPreferredBackend = "NPU",
+                preferredBackendApplyResult = "applied-engine-config",
+                preferredBackendHookReached = true,
+            ),
+            acceleratorProbeSnapshot = acceleratorSnapshot(
+                qnnNpuAttemptRequested = "auto",
+                qnnNpuAttempted = true,
+                qnnNpuAvailable = "available",
+                qnnNpuSelectedPath = "qualcomm-qnn-npu-candidate",
+                qnnNpuAttemptEvidence = listOf("runtime=present", "backendNpu=present"),
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        val devSummarySection = sections.first { it.title == "DEV診断サマリー" }
+        assertEquals("qnn-npu-likely / high", devSection.items.first { it.label == "実行経路推定" }.value)
+        assertEquals("qnn-npu-likely / high", devSummarySection.items.first { it.label == "推定実行先" }.value)
+        assertTrue(devSection.items.first { it.label == "推定理由" }.value.contains("preferredBackend applied NPU"))
     }
 
     private fun acceleratorSnapshot(

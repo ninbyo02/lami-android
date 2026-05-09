@@ -897,7 +897,8 @@ class InferenceStatsSheetContentTest {
         assertTrue(devSection.items.none { it.label == "Effective backend note" })
         assertEquals("holder-acquire-engine-config", devSection.items.first { it.label == "PreferredBackend hook source" }.value)
         assertEquals("DEFAULT, CPU, GPU, NPU", devSection.items.first { it.label == "PreferredBackend backend enum candidates" }.value)
-        assertNotEquals("npu-active / high", devSection.items.first { it.label == "実行経路推定" }.value)
+        assertEquals("qnn-npu-likely / medium", devSection.items.first { it.label == "実行経路推定" }.value)
+        assertEquals("qnn-npu-likely / medium", sections.first { it.title == "DEV診断サマリー" }.items.first { it.label == "推定実行先" }.value)
     }
 
     @Test
@@ -918,6 +919,7 @@ class InferenceStatsSheetContentTest {
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("fallback-gpu-after-npu-engine-create-failed", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
         assertEquals("IllegalStateException", devSection.items.first { it.label == "PreferredBackend apply error" }.value)
+        assertEquals("gpu-fallback / high", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
     @Test
@@ -969,6 +971,7 @@ class InferenceStatsSheetContentTest {
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("fallback-gpu-after-npu-runtime-failed", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
         assertEquals("IllegalStateException:initialize failed", devSection.items.first { it.label == "PreferredBackend apply error" }.value)
+        assertEquals("gpu-fallback / high", devSection.items.first { it.label == "実行経路推定" }.value)
     }
 
     @Test
