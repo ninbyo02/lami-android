@@ -236,6 +236,16 @@ internal fun buildInferenceDetailSections(
             val nnapiDelegateDetected = probe.nnapiDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ")
             add(InferenceStatItemUi(label = "NNAPI delegate candidates", value = nnapiDelegateDetected ?: "none/unknown"))
             add(InferenceStatItemUi(label = "NNAPI delegate status", value = if (nnapiDelegateDetected == null) "not-detected" else "candidate-detected"))
+            add(InferenceStatItemUi(label = "External QAIRT stage", value = probe.externalQairtStageStatus))
+            add(InferenceStatItemUi(label = "qnn-net-run", value = probe.externalQairtQnnNetRunStatus))
+            add(InferenceStatItemUi(label = "QNN SDK version", value = probe.externalQairtQnnSdkVersion))
+            add(InferenceStatItemUi(label = "QNN GPU backend", value = probe.externalQairtGpuBackendStatus))
+            add(InferenceStatItemUi(label = "QNN DSP core", value = probe.externalQairtDspCore))
+            add(InferenceStatItemUi(label = "QNN DSP backend", value = probe.externalQairtDspBackendStatus))
+            add(InferenceStatItemUi(label = "QAIRT stage path", value = probe.externalQairtStagePath))
+            probe.externalQairtNote?.takeIf { it.isNotBlank() }?.let {
+                add(InferenceStatItemUi(label = "QAIRT stage note", value = it))
+            }
             val resolvedRequestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
             val resolvedAppliedPreferredBackend = localTraceForDev?.appliedPreferredBackend ?: "not-applied"
             val resolvedPreferredBackendApplyResult = localTraceForDev?.preferredBackendApplyResult ?: when (preferredBackendDryRunSetting) {

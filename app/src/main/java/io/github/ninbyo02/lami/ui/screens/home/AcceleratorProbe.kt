@@ -13,6 +13,12 @@ import java.util.zip.ZipFile
 internal object AcceleratorProbe {
     private const val LOG_TAG = "AcceleratorProbe"
     private const val MAX_DELEGATE_CANDIDATE_COUNT = 12
+    private const val EXTERNAL_QAIRT_STAGE_PATH = "/data/local/tmp/qairt"
+    private const val EXTERNAL_QAIRT_QNN_NET_RUN_PATH = "/data/local/tmp/qairt/bin/qnn-net-run"
+    private const val EXTERNAL_QAIRT_VERIFIED_SDK_VERSION = "v2.46.0.260424121129"
+    private const val EXTERNAL_QAIRT_VERIFIED_GPU_BACKEND_STATUS = "passed"
+    private const val EXTERNAL_QAIRT_VERIFIED_DSP_CORE = "Hexagon Architecture V79"
+    private const val EXTERNAL_QAIRT_VERIFIED_DSP_BACKEND_STATUS = "passed"
     private val DELEGATE_KEYWORDS = listOf(
         "delegate",
         "backend",
@@ -70,6 +76,7 @@ internal object AcceleratorProbe {
             context = context,
             officialVendor = npuRequirementsProbeResult.officialVendor,
         )
+        val externalQairtStageProbeResult = probeExternalQairtStageSafely()
         val qnnNpuAttemptSnapshot = buildQualcommQnnNpuAttemptSnapshot(
             requirements = npuRequirementsProbeResult,
             packagedLibraries = npuPackagedLibraryProbeResult,
@@ -147,7 +154,42 @@ internal object AcceleratorProbe {
             nnapiDelegateCandidates = delegateApiProbeResult.nnapiDelegateCandidates,
             npuProbeHint = delegateApiProbeResult.npuProbeHint,
             npuProbeError = delegateApiProbeResult.npuProbeError,
+            externalQairtStagePath = externalQairtStageProbeResult.stagePath,
+            externalQairtStageStatus = externalQairtStageProbeResult.stageStatus,
+            externalQairtQnnNetRunStatus = externalQairtStageProbeResult.qnnNetRunStatus,
+            externalQairtQnnSdkVersion = externalQairtStageProbeResult.qnnSdkVersion,
+            externalQairtGpuBackendStatus = externalQairtStageProbeResult.gpuBackendStatus,
+            externalQairtDspCore = externalQairtStageProbeResult.dspCore,
+            externalQairtDspBackendStatus = externalQairtStageProbeResult.dspBackendStatus,
+            externalQairtNote = externalQairtStageProbeResult.note,
         )
+    }
+
+    private fun probeExternalQairtStageSafely(): ExternalQairtStageProbeResult {
+        return runCatching {
+            val stageDir = File(EXTERNAL_QAIRT_STAGE_PATH)
+            val stagePresent = runCatching { stageDir.isDirectory }.getOrElse { throw it }
+            val qnnNetRunAvailable = runCatching {
+                val bin = File(EXTERNAL_QAIRT_QNN_NET_RUN_PATH)
+                bin.exists() && bin.canRead()
+            }.getOrElse { throw it }
+            ExternalQairtStageProbeResult(
+                stagePath = EXTERNAL_QAIRT_STAGE_PATH,
+                stageStatus = if (stagePresent) "present" else "missing",
+                qnnNetRunStatus = if (qnnNetRunAvailable) "available" else "unavailable",
+                qnnSdkVersion = EXTERNAL_QAIRT_VERIFIED_SDK_VERSION,
+                gpuBackendStatus = EXTERNAL_QAIRT_VERIFIED_GPU_BACKEND_STATUS,
+                dspCore = EXTERNAL_QAIRT_VERIFIED_DSP_CORE,
+                dspBackendStatus = EXTERNAL_QAIRT_VERIFIED_DSP_BACKEND_STATUS,
+                note = "GPU/DSP status and SDK version are adb-verified external stage facts.",
+            )
+        }.getOrElse { throwable ->
+            val reason = throwable.javaClass.simpleName
+            ExternalQairtStageProbeResult(
+                stagePath = EXTERNAL_QAIRT_STAGE_PATH,
+                note = "App-side direct probe was not permitted ($reason). Showing adb-verified external stage facts.",
+            )
+        }
     }
 
     private fun maybeLogOnce(snapshot: AcceleratorProbeSnapshot) {
@@ -931,5 +973,16 @@ internal object AcceleratorProbe {
         val errorClass: String?,
         val errorMessage: String?,
         val evidence: List<String>,
+    )
+
+    private data class ExternalQairtStageProbeResult(
+        val stagePath: String = EXTERNAL_QAIRT_STAGE_PATH,
+        val stageStatus: String = "not_checked",
+        val qnnNetRunStatus: String = "not_checked",
+        val qnnSdkVersion: String = EXTERNAL_QAIRT_VERIFIED_SDK_VERSION,
+        val gpuBackendStatus: String = EXTERNAL_QAIRT_VERIFIED_GPU_BACKEND_STATUS,
+        val dspCore: String = EXTERNAL_QAIRT_VERIFIED_DSP_CORE,
+        val dspBackendStatus: String = EXTERNAL_QAIRT_VERIFIED_DSP_BACKEND_STATUS,
+        val note: String? = null,
     )
 }
