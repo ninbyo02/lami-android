@@ -220,10 +220,11 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "LiteRT-LM NPU packaged libs", value = probe.npuPackagedLibraryCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "LiteRT-LM NPU runtime lib status", value = probe.npuVendorRuntimeLibraryStatus?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "LiteRT-LM NPU dispatch lib status", value = probe.npuDispatchLibraryStatus?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU readiness", value = probe.npuReadinessSummary?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "Lami LiteRT-LM NPU readiness", value = formatLamiNpuReadiness(probe)))
+            formatLamiBlockedReason(probe)?.let { add(InferenceStatItemUi(label = "Blocked reason", value = it)) }
             add(InferenceStatItemUi(label = "QNN/NPU要求", value = probe.qnnNpuAttemptRequested?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "QNN/NPU試行", value = if (probe.qnnNpuAttempted) "yes" else "no"))
-            add(InferenceStatItemUi(label = "QNN利用可否", value = probe.qnnNpuAvailable?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "Lami runtime QNN availability", value = formatLamiRuntimeQnnAvailability(probe)))
             add(InferenceStatItemUi(label = "QNN/NPU selectedPath", value = probe.qnnNpuSelectedPath?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "QNN/NPU fallbackPath", value = probe.qnnNpuFallbackPath?.ifBlank { "—" } ?: "—"))
             add(InferenceStatItemUi(label = "QNN/NPU stage", value = probe.qnnNpuAttemptStage?.ifBlank { "unknown" } ?: "unknown"))
@@ -236,17 +237,6 @@ internal fun buildInferenceDetailSections(
             val nnapiDelegateDetected = probe.nnapiDelegateCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ")
             add(InferenceStatItemUi(label = "NNAPI delegate candidates", value = nnapiDelegateDetected ?: "none/unknown"))
             add(InferenceStatItemUi(label = "NNAPI delegate status", value = if (nnapiDelegateDetected == null) "not-detected" else "candidate-detected"))
-            add(InferenceStatItemUi(label = "External QAIRT stage", value = probe.externalQairtStageStatus))
-            add(InferenceStatItemUi(label = "qnn-net-run", value = probe.externalQairtQnnNetRunStatus))
-            add(InferenceStatItemUi(label = "qnn-platform-validator", value = probe.externalQairtQnnPlatformValidatorStatus))
-            add(InferenceStatItemUi(label = "QNN SDK version", value = probe.externalQairtQnnSdkVersion))
-            add(InferenceStatItemUi(label = "QNN GPU backend", value = probe.externalQairtGpuBackendStatus))
-            add(InferenceStatItemUi(label = "QNN DSP core", value = probe.externalQairtDspCore))
-            add(InferenceStatItemUi(label = "QNN DSP backend", value = probe.externalQairtDspBackendStatus))
-            add(InferenceStatItemUi(label = "QAIRT stage path", value = probe.externalQairtStagePath))
-            probe.externalQairtNote?.takeIf { it.isNotBlank() }?.let {
-                add(InferenceStatItemUi(label = "QAIRT stage note", value = it))
-            }
             val resolvedRequestedPreferredBackend = localTraceForDev?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
             val resolvedAppliedPreferredBackend = localTraceForDev?.appliedPreferredBackend ?: "not-applied"
             val resolvedPreferredBackendApplyResult = localTraceForDev?.preferredBackendApplyResult ?: when (preferredBackendDryRunSetting) {
@@ -254,7 +244,7 @@ internal fun buildInferenceDetailSections(
                 else -> "not-supported"
             }
             add(InferenceStatItemUi(label = "Requested preferredBackend", value = resolvedRequestedPreferredBackend))
-            add(InferenceStatItemUi(label = "Applied preferredBackend", value = resolvedAppliedPreferredBackend))
+            add(InferenceStatItemUi(label = "Applied backend", value = formatAppliedBackendDisplay(resolvedAppliedPreferredBackend, resolvedPreferredBackendApplyResult)))
             add(InferenceStatItemUi(label = "PreferredBackend apply result", value = resolvedPreferredBackendApplyResult))
             if (resolvedRequestedPreferredBackend == PreferredBackendDryRunSetting.NPU.name && resolvedAppliedPreferredBackend == "GPU") {
                 add(InferenceStatItemUi(label = "Effective backend note", value = "NPU requested but GPU used for stability"))
@@ -527,6 +517,26 @@ internal fun buildInferenceDetailSections(
             },
         ),
         devDiagnosticSummarySection.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && hasExternalQairtDiagnostics(it) }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: External QAIRT",
+                    items = buildList {
+                        add(InferenceStatItemUi(label = "External QAIRT stage", value = formatExternalQairtStageStatus(probe.externalQairtStageStatus)))
+                        add(InferenceStatItemUi(label = "qnn-net-run", value = probe.externalQairtQnnNetRunStatus))
+                        add(InferenceStatItemUi(label = "qnn-platform-validator", value = probe.externalQairtQnnPlatformValidatorStatus))
+                        add(InferenceStatItemUi(label = "QNN SDK version", value = probe.externalQairtQnnSdkVersion))
+                        add(InferenceStatItemUi(label = "External QNN GPU", value = formatExternalQairtPassStatus(probe.externalQairtGpuBackendStatus)))
+                        add(InferenceStatItemUi(label = "QNN DSP core", value = probe.externalQairtDspCore))
+                        add(InferenceStatItemUi(label = "External QNN DSP/HTP", value = formatExternalQairtPassStatus(probe.externalQairtDspBackendStatus)))
+                        add(InferenceStatItemUi(label = "QAIRT stage path", value = probe.externalQairtStagePath))
+                        probe.externalQairtNote?.takeIf { it.isNotBlank() }?.let {
+                            add(InferenceStatItemUi(label = "QAIRT stage note", value = it))
+                        }
+                    },
+                )
+            },
         InferenceStatsSectionUi(
             title = "DEV診断",
             items = buildList {
@@ -1125,7 +1135,7 @@ private fun buildDevDiagnosticSummarySection(
         add(InferenceStatItemUi(label = "held engine状態", value = devDiagnosticsUiModel.heldEngineStateSummary))
         add(InferenceStatItemUi(label = "推定実行先", value = "${executionInference.target} / ${executionInference.confidence}"))
         add(InferenceStatItemUi(label = "Requested preferredBackend", value = requestedPreferredBackend))
-        add(InferenceStatItemUi(label = "Applied preferredBackend", value = appliedPreferredBackend))
+        add(InferenceStatItemUi(label = "Applied backend", value = formatAppliedBackendDisplay(appliedPreferredBackend, preferredBackendApplyResult)))
         add(InferenceStatItemUi(label = "PreferredBackend apply result", value = preferredBackendApplyResult))
         add(InferenceStatItemUi(label = "PreferredBackend hook", value = trace?.preferredBackendHookReached?.toString() ?: "false"))
         add(InferenceStatItemUi(label = "PreferredBackend hook source", value = trace?.preferredBackendHookSource?.ifBlank { "unknown" } ?: "unknown"))
@@ -1140,7 +1150,7 @@ private fun buildDevDiagnosticSummarySection(
         acceleratorProbeSnapshot?.let { probe ->
             add(InferenceStatItemUi(label = "QNN/NPU要求", value = probe.qnnNpuAttemptRequested?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "QNN/NPU試行", value = if (probe.qnnNpuAttempted) "yes" else "no"))
-            add(InferenceStatItemUi(label = "QNN利用可否", value = probe.qnnNpuAvailable?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "Lami runtime QNN availability", value = formatLamiRuntimeQnnAvailability(probe)))
             add(InferenceStatItemUi(label = "QNN/NPU selectedPath", value = probe.qnnNpuSelectedPath?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "QNN/NPU fallbackPath", value = probe.qnnNpuFallbackPath?.ifBlank { "—" } ?: "—"))
             add(InferenceStatItemUi(label = "QNN/NPU stage", value = probe.qnnNpuAttemptStage?.ifBlank { "unknown" } ?: "unknown"))
@@ -1149,7 +1159,8 @@ private fun buildDevDiagnosticSummarySection(
             add(InferenceStatItemUi(label = "QNN/NPU evidence", value = probe.qnnNpuAttemptEvidence.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(" / ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "LiteRT-LM NPU runtime lib status", value = probe.npuVendorRuntimeLibraryStatus?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "LiteRT-LM NPU dispatch lib status", value = probe.npuDispatchLibraryStatus?.ifBlank { "unknown" } ?: "unknown"))
-            add(InferenceStatItemUi(label = "LiteRT-LM NPU readiness", value = probe.npuReadinessSummary?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "Lami LiteRT-LM NPU readiness", value = formatLamiNpuReadiness(probe)))
+            formatLamiBlockedReason(probe)?.let { add(InferenceStatItemUi(label = "Blocked reason", value = it)) }
             add(InferenceStatItemUi(label = "Backend NPU probe hint", value = probe.backendNpuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "Backend NPU class candidates", value = probe.backendNpuClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
             add(InferenceStatItemUi(label = "Backend NPU method candidates", value = probe.backendNpuMethodCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
@@ -1231,6 +1242,81 @@ private fun resolveDevSummaryModelResolution(
         modelName == null && traceModel != null -> "設定モデル使用"
         else -> "不明"
     }
+}
+
+private fun hasExternalQairtDiagnostics(probe: AcceleratorProbeSnapshot): Boolean {
+    return listOf(
+        probe.externalQairtStageStatus,
+        probe.externalQairtQnnNetRunStatus,
+        probe.externalQairtQnnPlatformValidatorStatus,
+        probe.externalQairtQnnSdkVersion,
+        probe.externalQairtGpuBackendStatus,
+        probe.externalQairtDspCore,
+        probe.externalQairtDspBackendStatus,
+        probe.externalQairtStagePath,
+        probe.externalQairtNote,
+    ).any { !it.isNullOrBlank() && it != "unknown" }
+}
+
+private fun formatExternalQairtStageStatus(status: String?): String {
+    return when (status?.trim()) {
+        null, "" -> "unknown"
+        "present", "available", "passed" -> "passed"
+        else -> status
+    }
+}
+
+private fun formatExternalQairtPassStatus(status: String?): String {
+    return when (status?.trim()) {
+        null, "" -> "unknown"
+        "available", "present", "passed" -> "passed"
+        else -> status
+    }
+}
+
+private fun formatAppliedBackendDisplay(appliedBackend: String, preferredBackendApplyResult: String): String {
+    return if (appliedBackend == "GPU" && preferredBackendApplyResult.startsWith("fallback-gpu")) {
+        "GPU fallback"
+    } else {
+        appliedBackend
+    }
+}
+
+private fun formatLamiRuntimeQnnAvailability(probe: AcceleratorProbeSnapshot): String {
+    return when (probe.qnnNpuAvailable?.trim()) {
+        null, "" -> "unknown"
+        "unsupported" -> if (formatLamiBlockedReason(probe) != null) "blocked" else "unsupported"
+        else -> probe.qnnNpuAvailable
+    }
+}
+
+private fun formatLamiNpuReadiness(probe: AcceleratorProbeSnapshot): String {
+    val summary = probe.npuReadinessSummary?.trim()
+    if (!summary.isNullOrEmpty() && !summary.startsWith("missing=")) {
+        return summary
+    }
+    return if (formatLamiBlockedReason(probe) != null) "blocked" else summary ?: "unknown"
+}
+
+private fun formatLamiBlockedReason(probe: AcceleratorProbeSnapshot): String? {
+    val reasons = linkedSetOf<String>()
+    listOfNotNull(
+        probe.qnnNpuAttemptErrorMessage,
+        probe.npuReadinessSummary,
+        probe.npuVendorRuntimeLibraryStatus,
+        probe.npuDispatchLibraryStatus,
+    ).forEach { source ->
+        if ("qnn-runtime-libs" in source || source.startsWith("missing:libQnn")) {
+            reasons += "app-packaged QNN runtime libs missing"
+        }
+        if ("dispatch-api-so" in source || "missing-dispatch-api-so-candidate" in source || "missing:libLiteRtDispatch.so" in source) {
+            reasons += "dispatch API .so missing"
+        }
+        if ("backend-npu-api" in source) {
+            reasons += "Backend.NPU API missing"
+        }
+    }
+    return reasons.takeIf { it.isNotEmpty() }?.joinToString(", ")
 }
 
 private fun formatMillisToCompactText(valueMs: Long): String {

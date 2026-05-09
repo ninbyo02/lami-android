@@ -609,16 +609,16 @@ class InferenceStatsSheetContentTest {
             ),
         )
 
-        val devSection = sections.first { it.title == "DEV診断" }
-        assertEquals("present", devSection.items.first { it.label == "External QAIRT stage" }.value)
-        assertEquals("/data/local/tmp/qairt", devSection.items.first { it.label == "QAIRT stage path" }.value)
-        assertEquals("available", devSection.items.first { it.label == "qnn-net-run" }.value)
-        assertEquals("available", devSection.items.first { it.label == "qnn-platform-validator" }.value)
-        assertEquals("v2.46.0.260424121129", devSection.items.first { it.label == "QNN SDK version" }.value)
-        assertEquals("passed", devSection.items.first { it.label == "QNN GPU backend" }.value)
-        assertEquals("Hexagon Architecture V79", devSection.items.first { it.label == "QNN DSP core" }.value)
-        assertEquals("passed", devSection.items.first { it.label == "QNN DSP backend" }.value)
-        assertEquals("adb-verified external stage facts", devSection.items.first { it.label == "QAIRT stage note" }.value)
+        val externalQairtSection = sections.first { it.title == "DEV診断: External QAIRT" }
+        assertEquals("passed", externalQairtSection.items.first { it.label == "External QAIRT stage" }.value)
+        assertEquals("/data/local/tmp/qairt", externalQairtSection.items.first { it.label == "QAIRT stage path" }.value)
+        assertEquals("available", externalQairtSection.items.first { it.label == "qnn-net-run" }.value)
+        assertEquals("available", externalQairtSection.items.first { it.label == "qnn-platform-validator" }.value)
+        assertEquals("v2.46.0.260424121129", externalQairtSection.items.first { it.label == "QNN SDK version" }.value)
+        assertEquals("passed", externalQairtSection.items.first { it.label == "External QNN GPU" }.value)
+        assertEquals("Hexagon Architecture V79", externalQairtSection.items.first { it.label == "QNN DSP core" }.value)
+        assertEquals("passed", externalQairtSection.items.first { it.label == "External QNN DSP/HTP" }.value)
+        assertEquals("adb-verified external stage facts", externalQairtSection.items.first { it.label == "QAIRT stage note" }.value)
     }
 
 
@@ -855,7 +855,7 @@ class InferenceStatsSheetContentTest {
 
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("GPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
-        assertEquals("not-applied", devSection.items.first { it.label == "Applied preferredBackend" }.value)
+        assertEquals("not-applied", devSection.items.first { it.label == "Applied backend" }.value)
         assertEquals("not-supported", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
         assertEquals("npu-candidate / low", devSection.items.first { it.label == "実行経路推定" }.value)
     }
@@ -886,7 +886,7 @@ class InferenceStatsSheetContentTest {
 
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("DEFAULT", devSection.items.first { it.label == "Requested preferredBackend" }.value)
-        assertEquals("not-applied", devSection.items.first { it.label == "Applied preferredBackend" }.value)
+        assertEquals("not-applied", devSection.items.first { it.label == "Applied backend" }.value)
         assertEquals("skipped-default", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
     }
 
@@ -936,7 +936,7 @@ class InferenceStatsSheetContentTest {
         )
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("NPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
-        assertEquals("NPU", devSection.items.first { it.label == "Applied preferredBackend" }.value)
+        assertEquals("NPU", devSection.items.first { it.label == "Applied backend" }.value)
         assertEquals("applied-engine-config", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
         assertTrue(devSection.items.none { it.label == "Effective backend note" })
         assertEquals("holder-acquire-engine-config", devSection.items.first { it.label == "PreferredBackend hook source" }.value)
@@ -992,7 +992,7 @@ class InferenceStatsSheetContentTest {
 
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("NPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
-        assertEquals("not-applied", devSection.items.first { it.label == "Applied preferredBackend" }.value)
+        assertEquals("not-applied", devSection.items.first { it.label == "Applied backend" }.value)
         assertEquals("not-supported", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
         assertTrue(devSection.items.none { it.label == "Effective backend note" })
     }
