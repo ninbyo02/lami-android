@@ -221,6 +221,7 @@ private const val MaxComposerAttachments = 10
 private const val LOCAL_INFERENCE_PROBE_PROMPT = "hi"
 private const val LOCAL_INIT_TIMEOUT_MS = 3000L
 private const val LOCAL_GENERATE_TIMEOUT_MS = 30000L
+private const val LOCAL_RESPONDING_PLACEHOLDER_DELAY_MS = 350L
 // DEV専用のsession async PoCは今回のPoC検証のため一時的にON（判定は internal file のみで実施）。
 private const val ENABLE_DEV_LLM_SESSION_ASYNC_POC = true
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT = "one-shot"
@@ -631,6 +632,7 @@ fun Home(
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val remoteStreamingResponseText = (uiState as? UiState.Streaming)?.partialText
     var localStreamingResponseText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var showDelayedLocalRespondingPlaceholder by remember(effectiveChatId) { mutableStateOf(false) }
     var localStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var didReceiveRealLocalPartial by remember(effectiveChatId) { mutableStateOf(false) }
     var realLocalPartialChunkCount by remember(effectiveChatId) { mutableStateOf(0) }
@@ -669,12 +671,40 @@ fun Home(
     val isTtsPlayingForHeaderUi = isTtsSpeaking || isLocalTtsPlayingUi
     val isHeaderRunningUi = isInferenceRunningUi || isTtsPlayingForHeaderUi
     val isServerLoadingUi = uiState is UiState.Loading && isServerRunningUi
+    LaunchedEffect(
+        isLocalInferenceRunning,
+        localStopRequested,
+        streamingAssistantMessageId,
+        localStreamingResponseText,
+    ) {
+        showDelayedLocalRespondingPlaceholder = false
+        if (
+            !isLocalInferenceRunning ||
+            localStopRequested ||
+            streamingAssistantMessageId != null ||
+            !localStreamingResponseText.isNullOrBlank()
+        ) {
+            return@LaunchedEffect
+        }
+        delay(LOCAL_RESPONDING_PLACEHOLDER_DELAY_MS)
+        if (
+            isLocalInferenceRunning &&
+            !localStopRequested &&
+            streamingAssistantMessageId == null &&
+            localStreamingResponseText.isNullOrBlank()
+        ) {
+            showDelayedLocalRespondingPlaceholder = true
+        }
+    }
     val headerStatusTitleOverride = when {
         isHeaderRunningUi -> "Responding..."
         isStopRequested -> "Ready"
         else -> null
     }
-    val showLocalRespondingAssistantRow = isLocalRunningUi && streamingAssistantMessageId == null
+    val showLocalRespondingAssistantRow =
+        isLocalRunningUi &&
+            streamingAssistantMessageId == null &&
+            showDelayedLocalRespondingPlaceholder
     val shouldClearPendingLocalOverlayOnAssistantStart =
         streamingAssistantMessageId != null ||
             !localStreamingResponseText.isNullOrBlank() ||
@@ -2137,6 +2167,7 @@ fun Home(
                                                     prompt = ""
                                                     userPrompt = ""
                                                     selectedImageUriStrings = emptyList()
+                                                    showDelayedLocalRespondingPlaceholder = false
                                                     localInferenceEngineState = LocalInferenceEngineState.READY
                                                     localStopRequested = false
                                                     debugLocalUiTrace(
@@ -2198,10 +2229,12 @@ fun Home(
                                                         didReceiveRealLocalPartial = false
                                                         realLocalPartialChunkCount = 0
                                                         localStreamingResponseText = null
+                                                        showDelayedLocalRespondingPlaceholder = false
                                                         isLocalInferenceRunning = true
                                                         try {
                                                             localInferenceEngineState = resolveLocalPreparingUiState()
                                                             localStreamingResponseText = null
+                                                            showDelayedLocalRespondingPlaceholder = false
                                                             didReceiveRealLocalPartial = false
                                                             realLocalPartialChunkCount = 0
                                                             assistantUpdateCountForDev = 0
@@ -2399,6 +2432,7 @@ fun Home(
                                                                                     raw = partial,
                                                                                     normalized = normalizedPartial,
                                                                                 )
+                                                                                showDelayedLocalRespondingPlaceholder = false
                                                                                 localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
@@ -2491,6 +2525,7 @@ fun Home(
                                                                                             raw = partial,
                                                                                             normalized = normalizedPartial,
                                                                                         )
+                                                                                        showDelayedLocalRespondingPlaceholder = false
                                                                                         localStreamingResponseText = normalizedPartial
                                                                                         upsertStreamingAssistantPlaceholderSerialized(
                                                                                             chatId = currentChatId,
@@ -2581,6 +2616,7 @@ fun Home(
                                                                                     raw = partial,
                                                                                     normalized = normalizedPartial,
                                                                                 )
+                                                                                showDelayedLocalRespondingPlaceholder = false
                                                                                 localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
@@ -2736,6 +2772,7 @@ fun Home(
                                                                     if (localStopRequested) {
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before stream")
                                                                         localStreamingResponseText = null
+                                                                        showDelayedLocalRespondingPlaceholder = false
                                                                         resetStreamingSpeechState()
                                                                         resetStreamingAssistantPlaceholderId(reason = "stop")
                                                                         return@launch
@@ -2753,6 +2790,7 @@ fun Home(
                                                                                     stage = "ChatScreen#preview.onChunk.raw",
                                                                                     raw = chunk,
                                                                                 )
+                                                                                showDelayedLocalRespondingPlaceholder = false
                                                                                 localStreamingResponseText = chunk
                                                                                 val normalizedChunk = chunk.trim()
                                                                                 logLocalStreamingWhitespace(
@@ -2780,6 +2818,7 @@ fun Home(
                                                                     if (localStopRequested) {
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before insert")
                                                                         localStreamingResponseText = null
+                                                                        showDelayedLocalRespondingPlaceholder = false
                                                                         resetStreamingSpeechState()
                                                                         resetStreamingAssistantPlaceholderId(reason = "stop")
                                                                         return@launch
@@ -2800,6 +2839,7 @@ fun Home(
                                                                         }
                                                                     }
                                                                     localStreamingResponseText = null
+                                                                    showDelayedLocalRespondingPlaceholder = false
                                                                     resetStreamingAssistantPlaceholderId(reason = "success")
                                                                     isLocalInferenceRunning = false
                                                                     yield()
@@ -2822,6 +2862,7 @@ fun Home(
                                                                     return@launch
                                                             }
                                                             localStreamingResponseText = null
+                                                            showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
                                                             clearPendingLocalOverlay(reason = "error")
                                                             isLocalInferenceRunning = false
@@ -2851,6 +2892,7 @@ fun Home(
                                                             dismissJob.cancel()
                                                         } catch (exception: Exception) {
                                                             localStreamingResponseText = null
+                                                            showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
                                                             clearPendingLocalOverlay(reason = "error")
@@ -2875,6 +2917,7 @@ fun Home(
                                                             )
                                                         } finally {
                                                             localStreamingResponseText = null
+                                                            showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "local-finish")
                                                             didReceiveRealLocalPartial = false
