@@ -105,6 +105,44 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         assertTrue(devSection.items.first { it.label == "推定理由" }.value.contains("preferredBackend applied NPU"))
     }
 
+    @Test
+    fun `developer diagnostics summarize qualcomm qnn prerequisite fallback as gpu fallback`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "QUALCOMM_QNN_NPU",
+                appliedPreferredBackend = "GPU",
+                preferredBackendApplyResult = "fallback-gpu-before-qualcomm-qnn-npu-prerequisites-missing",
+                preferredBackendHookReached = true,
+                preferredBackendHookSource = "holder-acquire-engine-config",
+                preferredBackendHookMissingReason = "holder-existing-engine",
+            ),
+            acceleratorProbeSnapshot = acceleratorSnapshot(
+                qnnNpuAttemptRequested = "auto",
+                qnnNpuAttempted = false,
+                qnnNpuAvailable = "unsupported",
+                qnnNpuSelectedPath = "gpu",
+                qnnNpuFallbackPath = "gpu",
+                qnnNpuAttemptStage = "prerequisite-probe",
+                qnnNpuAttemptErrorClass = "MissingPrerequisite",
+                qnnNpuAttemptErrorMessage = "qnn-runtime-libs,backend-npu-api",
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        val devSummarySection = sections.first { it.title == "DEV診断サマリー" }
+        assertEquals("gpu-fallback / high", devSection.items.first { it.label == "実行経路推定" }.value)
+        assertEquals("gpu-fallback / high", devSummarySection.items.first { it.label == "推定実行先" }.value)
+        assertEquals("QUALCOMM_QNN_NPU", devSummarySection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertEquals("GPU", devSummarySection.items.first { it.label == "Applied preferredBackend" }.value)
+        assertEquals("prerequisite-probe", devSummarySection.items.first { it.label == "QNN/NPU stage" }.value)
+        assertEquals("MissingPrerequisite", devSummarySection.items.first { it.label == "QNN/NPU errorClass" }.value)
+        assertEquals("qnn-runtime-libs,backend-npu-api", devSummarySection.items.first { it.label == "QNN/NPU errorMessage" }.value)
+        assertTrue(devSummarySection.items.none { it.label == "PreferredBackend hook missing" })
+    }
+
     private fun acceleratorSnapshot(
         qnnNpuAttemptRequested: String? = null,
         qnnNpuAttempted: Boolean = false,

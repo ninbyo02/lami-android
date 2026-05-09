@@ -1118,7 +1118,9 @@ private fun buildDevDiagnosticSummarySection(
         add(InferenceStatItemUi(label = "PreferredBackend apply result", value = preferredBackendApplyResult))
         add(InferenceStatItemUi(label = "PreferredBackend hook", value = trace?.preferredBackendHookReached?.toString() ?: "false"))
         add(InferenceStatItemUi(label = "PreferredBackend hook source", value = trace?.preferredBackendHookSource?.ifBlank { "unknown" } ?: "unknown"))
-        trace?.preferredBackendHookMissingReason?.takeIf { it.isNotBlank() }?.let {
+        trace?.preferredBackendHookMissingReason
+            ?.takeIf { trace.preferredBackendHookReached != true && it.isNotBlank() }
+            ?.let {
             add(InferenceStatItemUi(label = "PreferredBackend hook missing", value = it))
         }
         trace?.preferredBackendApplyError?.takeIf { it.isNotBlank() }?.let {
@@ -1131,6 +1133,8 @@ private fun buildDevDiagnosticSummarySection(
             add(InferenceStatItemUi(label = "QNN/NPU selectedPath", value = probe.qnnNpuSelectedPath?.ifBlank { "unknown" } ?: "unknown"))
             add(InferenceStatItemUi(label = "QNN/NPU fallbackPath", value = probe.qnnNpuFallbackPath?.ifBlank { "—" } ?: "—"))
             add(InferenceStatItemUi(label = "QNN/NPU stage", value = probe.qnnNpuAttemptStage?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "QNN/NPU errorClass", value = probe.qnnNpuAttemptErrorClass?.ifBlank { "—" } ?: "—"))
+            add(InferenceStatItemUi(label = "QNN/NPU errorMessage", value = probe.qnnNpuAttemptErrorMessage?.ifBlank { "—" } ?: "—"))
         }
         add(InferenceStatItemUi(label = "close結果", value = devDiagnosticsUiModel.closeStatusSummary))
         add(InferenceStatItemUi(label = "Tokenizer再計数", value = resolveDevSummaryTokenizerRecountStatus(trace)))
@@ -1247,6 +1251,11 @@ internal fun inferExecutionTarget(
     val requested = requestedPreferredBackend?.trim()?.uppercase(Locale.ROOT).orEmpty()
     val applied = appliedPreferredBackend?.trim()?.uppercase(Locale.ROOT).orEmpty()
     val applyResult = preferredBackendApplyResult?.trim().orEmpty()
+    val applyResultLower = applyResult.lowercase(Locale.ROOT)
+    val requestedNpuLike = requested == "NPU" ||
+        requested == "QUALCOMM_QNN_NPU" ||
+        requested.contains("QNN") ||
+        requested.contains("NPU")
     val qnnSelected = qnnNpuSelectedPath?.trim()?.lowercase(Locale.ROOT).orEmpty()
     val qnnFallback = qnnNpuFallbackPath?.trim()?.lowercase(Locale.ROOT).orEmpty()
     val qnnAvailable = qnnNpuAvailable?.trim()?.lowercase(Locale.ROOT).orEmpty()
@@ -1270,9 +1279,9 @@ internal fun inferExecutionTarget(
         return ExecutionTargetInference("qnn-npu-likely", confidence, reason)
     }
 
-    if (requested == "NPU" && applied == "GPU") {
+    if ((requestedNpuLike && applied == "GPU") || applyResultLower.startsWith("fallback-gpu")) {
         val reason = buildString {
-            append("NPU requested but GPU applied")
+            append("NPU/QNN requested but GPU applied")
             if (applyResult.isNotBlank()) append("; applyResult=$applyResult")
             if (qnnFallback.isNotBlank()) append("; qnnFallback=$qnnFallback")
         }
@@ -1288,9 +1297,9 @@ internal fun inferExecutionTarget(
         return ExecutionTargetInference("cpu-likely", "medium", "preferredBackend applied CPU")
     }
 
-    if (requested == "NPU" && applied == "NOT-APPLIED") {
+    if (requestedNpuLike && applied == "NOT-APPLIED") {
         val reason = buildString {
-            append("NPU requested but no backend was applied")
+            append("NPU/QNN requested but no backend was applied")
             if (applyResult.isNotBlank()) append("; applyResult=$applyResult")
             readiness?.let { append("; readiness=$it") }
         }
