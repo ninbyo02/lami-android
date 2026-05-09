@@ -1,4 +1,5 @@
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 plugins {
     id("com.google.devtools.ksp")
@@ -72,6 +73,97 @@ android {
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+val qnnNpuArm64LibDir = layout.projectDirectory.dir("src/main/jniLibs/arm64-v8a")
+val requiredQnnRuntimeLibs = listOf(
+    "libQnnSystem.so",
+    "libQnnHtp.so",
+    "libQnnHtpPrepare.so",
+)
+
+tasks.register("printQnnNpuNativeLibStatus") {
+    group = "verification"
+    description = "Prints local Qualcomm QNN/NPU native library readiness for LiteRT-LM."
+    doLast {
+        val libDir = qnnNpuArm64LibDir.asFile
+        val libraries = libDir.listFiles()
+            ?.filter { it.isFile && it.extension == "so" }
+            ?.map(File::getName)
+            ?.sorted()
+            .orEmpty()
+        val missingRuntimeLibs = requiredQnnRuntimeLibs.filterNot(libraries::contains)
+        val hasHtpVariant = libraries.any { it.startsWith("libQnnHtpV") && it.endsWith(".so") }
+        val dispatchCandidates = libraries.filter { name ->
+            name.contains("dispatch", ignoreCase = true) &&
+                (name.contains("litert", ignoreCase = true) ||
+                    name.contains("qnn", ignoreCase = true) ||
+                    name.contains("qualcomm", ignoreCase = true))
+        }
+
+        println("QNN/NPU native library directory: ${libDir.absolutePath}")
+        println("Packaged .so candidates: ${libraries.ifEmpty { listOf("none") }.joinToString(", ")}")
+        println("Required QAIRT runtime libs: ${if (missingRuntimeLibs.isEmpty()) "present" else "missing ${missingRuntimeLibs.joinToString(", ")}"}")
+        println("Required HTP skel/variant lib: ${if (hasHtpVariant) "present" else "missing libQnnHtpV*.so"}")
+        println("LiteRT Qualcomm dispatch API lib: ${dispatchCandidates.ifEmpty { listOf("missing") }.joinToString(", ")}")
+        println(
+            "Readiness: " + if (missingRuntimeLibs.isEmpty() && hasHtpVariant && dispatchCandidates.isNotEmpty()) {
+                "candidate-ready"
+            } else {
+                "blocked"
+            }
+        )
+    }
+}
+
+tasks.register("copyQnnNpuNativeLibsFromQairt") {
+    group = "setup"
+    description = "Copies local QAIRT and LiteRT Qualcomm dispatch libraries into app/src/main/jniLibs/arm64-v8a."
+    doLast {
+        val qairtRoot = System.getenv("QAIRT_ROOT")?.trim().orEmpty()
+        require(qairtRoot.isNotEmpty()) {
+            "QAIRT_ROOT is required. Example: QAIRT_ROOT=~/qairt/2.34.0.250424 ./gradlew :app:copyQnnNpuNativeLibsFromQairt"
+        }
+        val qairtLibDir = File(qairtRoot).resolve("lib/aarch64-android")
+        require(qairtLibDir.isDirectory) {
+            "QAIRT Android library directory not found: ${qairtLibDir.absolutePath}"
+        }
+
+        val targetDir = qnnNpuArm64LibDir.asFile
+        targetDir.mkdirs()
+        val qairtLibraries = qairtLibDir.listFiles()
+            ?.filter { file ->
+                file.isFile &&
+                    file.extension == "so" &&
+                    (file.name in requiredQnnRuntimeLibs ||
+                        file.name.startsWith("libQnnHtpV") ||
+                        file.name.contains("skel", ignoreCase = true))
+            }
+            .orEmpty()
+        require(qairtLibraries.isNotEmpty()) {
+            "No QNN/HTP runtime libraries found in ${qairtLibDir.absolutePath}"
+        }
+        copy {
+            from(qairtLibraries)
+            into(targetDir)
+        }
+
+        val dispatchPath = providers.gradleProperty("litertQualcommDispatchSo").orNull
+            ?: System.getenv("LITERT_QUALCOMM_DISPATCH_SO")?.trim()
+        if (!dispatchPath.isNullOrBlank()) {
+            val dispatchFile = File(dispatchPath)
+            require(dispatchFile.isFile && dispatchFile.extension == "so") {
+                "LiteRT Qualcomm dispatch API library not found: ${dispatchFile.absolutePath}"
+            }
+            copy {
+                from(dispatchFile)
+                into(targetDir)
+            }
+        } else {
+            println("LiteRT Qualcomm dispatch API library not copied. Set -PlitertQualcommDispatchSo=/path/to/lib...so or LITERT_QUALCOMM_DISPATCH_SO.")
+        }
+        println("Copied ${qairtLibraries.size} QAIRT libraries into ${targetDir.absolutePath}")
     }
 }
 
