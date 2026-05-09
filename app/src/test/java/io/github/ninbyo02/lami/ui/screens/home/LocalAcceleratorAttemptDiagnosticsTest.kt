@@ -94,6 +94,14 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         val devSummarySection = sections.first { it.title == "DEV診断サマリー" }
         assertEquals("qnn-npu-likely / high", devSection.items.first { it.label == "実行経路推定" }.value)
         assertEquals("qnn-npu-likely / high", devSummarySection.items.first { it.label == "推定実行先" }.value)
+        assertEquals("NPU", devSummarySection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertEquals("NPU", devSummarySection.items.first { it.label == "Applied preferredBackend" }.value)
+        assertEquals("applied-engine-config", devSummarySection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("true", devSummarySection.items.first { it.label == "PreferredBackend hook" }.value)
+        assertEquals("auto", devSummarySection.items.first { it.label == "QNN/NPU要求" }.value)
+        assertEquals("yes", devSummarySection.items.first { it.label == "QNN/NPU試行" }.value)
+        assertEquals("available", devSummarySection.items.first { it.label == "QNN利用可否" }.value)
+        assertEquals("qualcomm-qnn-npu-candidate", devSummarySection.items.first { it.label == "QNN/NPU selectedPath" }.value)
         assertTrue(devSection.items.first { it.label == "推定理由" }.value.contains("preferredBackend applied NPU"))
     }
 

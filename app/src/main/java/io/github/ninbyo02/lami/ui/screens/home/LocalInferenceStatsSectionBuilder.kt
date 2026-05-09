@@ -316,6 +316,8 @@ internal fun buildInferenceDetailSections(
         devDebugText = devDebugText,
         devDiagnosticsUiModel = devDiagnosticsUiModel,
         executionInference = executionInference,
+        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+        acceleratorProbeSnapshot = acceleratorProbeSnapshot,
     )
 
     val tokenizerRecountSnapshot = localTraceForDev?.measuredTokenSnapshot
@@ -1086,6 +1088,8 @@ private fun buildDevDiagnosticSummarySection(
     devDebugText: String?,
     devDiagnosticsUiModel: LocalInferenceDevDiagnosticsUiModel,
     executionInference: ExecutionTargetInference,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    acceleratorProbeSnapshot: AcceleratorProbeSnapshot?,
 ): InferenceStatsSectionUi? {
     if (
         trace == null &&
@@ -1096,18 +1100,43 @@ private fun buildDevDiagnosticSummarySection(
     ) {
         return null
     }
-    val items = listOf(
-        InferenceStatItemUi(label = "実行経路", value = resolveDevSummaryExecutionPath(stats, trace)),
-        InferenceStatItemUi(label = "使用モデル", value = resolveDevSummaryModelName(stats, trace)),
-        InferenceStatItemUi(label = "モデル解決", value = resolveDevSummaryModelResolution(stats, trace)),
-        InferenceStatItemUi(label = "held engine再利用", value = devDiagnosticsUiModel.heldEngineReuseSummary),
-        InferenceStatItemUi(label = "held engine状態", value = devDiagnosticsUiModel.heldEngineStateSummary),
-        InferenceStatItemUi(label = "推定実行先", value = "${executionInference.target} / ${executionInference.confidence}"),
-        InferenceStatItemUi(label = "close結果", value = devDiagnosticsUiModel.closeStatusSummary),
-        InferenceStatItemUi(label = "Tokenizer再計数", value = resolveDevSummaryTokenizerRecountStatus(trace)),
-        InferenceStatItemUi(label = "MediaPipe tokenizer", value = resolveDevSummaryMediaPipeTokenizerStatus(trace)),
-        InferenceStatItemUi(label = "失敗要約", value = devDiagnosticsUiModel.failureSummary),
-    )
+    val requestedPreferredBackend = trace?.requestedPreferredBackend ?: preferredBackendDryRunSetting.name
+    val appliedPreferredBackend = trace?.appliedPreferredBackend ?: "not-applied"
+    val preferredBackendApplyResult = trace?.preferredBackendApplyResult ?: when (preferredBackendDryRunSetting) {
+        PreferredBackendDryRunSetting.DEFAULT -> "skipped-default"
+        else -> "not-supported-or-not-reached"
+    }
+    val items = buildList {
+        add(InferenceStatItemUi(label = "実行経路", value = resolveDevSummaryExecutionPath(stats, trace)))
+        add(InferenceStatItemUi(label = "使用モデル", value = resolveDevSummaryModelName(stats, trace)))
+        add(InferenceStatItemUi(label = "モデル解決", value = resolveDevSummaryModelResolution(stats, trace)))
+        add(InferenceStatItemUi(label = "held engine再利用", value = devDiagnosticsUiModel.heldEngineReuseSummary))
+        add(InferenceStatItemUi(label = "held engine状態", value = devDiagnosticsUiModel.heldEngineStateSummary))
+        add(InferenceStatItemUi(label = "推定実行先", value = "${executionInference.target} / ${executionInference.confidence}"))
+        add(InferenceStatItemUi(label = "Requested preferredBackend", value = requestedPreferredBackend))
+        add(InferenceStatItemUi(label = "Applied preferredBackend", value = appliedPreferredBackend))
+        add(InferenceStatItemUi(label = "PreferredBackend apply result", value = preferredBackendApplyResult))
+        add(InferenceStatItemUi(label = "PreferredBackend hook", value = trace?.preferredBackendHookReached?.toString() ?: "false"))
+        add(InferenceStatItemUi(label = "PreferredBackend hook source", value = trace?.preferredBackendHookSource?.ifBlank { "unknown" } ?: "unknown"))
+        trace?.preferredBackendHookMissingReason?.takeIf { it.isNotBlank() }?.let {
+            add(InferenceStatItemUi(label = "PreferredBackend hook missing", value = it))
+        }
+        trace?.preferredBackendApplyError?.takeIf { it.isNotBlank() }?.let {
+            add(InferenceStatItemUi(label = "PreferredBackend apply error", value = it))
+        }
+        acceleratorProbeSnapshot?.let { probe ->
+            add(InferenceStatItemUi(label = "QNN/NPU要求", value = probe.qnnNpuAttemptRequested?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "QNN/NPU試行", value = if (probe.qnnNpuAttempted) "yes" else "no"))
+            add(InferenceStatItemUi(label = "QNN利用可否", value = probe.qnnNpuAvailable?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "QNN/NPU selectedPath", value = probe.qnnNpuSelectedPath?.ifBlank { "unknown" } ?: "unknown"))
+            add(InferenceStatItemUi(label = "QNN/NPU fallbackPath", value = probe.qnnNpuFallbackPath?.ifBlank { "—" } ?: "—"))
+            add(InferenceStatItemUi(label = "QNN/NPU stage", value = probe.qnnNpuAttemptStage?.ifBlank { "unknown" } ?: "unknown"))
+        }
+        add(InferenceStatItemUi(label = "close結果", value = devDiagnosticsUiModel.closeStatusSummary))
+        add(InferenceStatItemUi(label = "Tokenizer再計数", value = resolveDevSummaryTokenizerRecountStatus(trace)))
+        add(InferenceStatItemUi(label = "MediaPipe tokenizer", value = resolveDevSummaryMediaPipeTokenizerStatus(trace)))
+        add(InferenceStatItemUi(label = "失敗要約", value = devDiagnosticsUiModel.failureSummary))
+    }
     if (items.all { it.value == "—" || it.value == "不明" }) return null
     return InferenceStatsSectionUi(
         title = "DEV診断サマリー",
