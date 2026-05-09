@@ -780,6 +780,7 @@ fun Home(
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
     var currentSpeakingAssistantMessageId by remember { mutableStateOf<Int?>(null) }
     var stopButtonOwnerAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
+    var stopButtonOwnerSetAtMs by remember(effectiveChatId) { mutableStateOf<Long?>(null) }
     var streamingSpeechBuffer by remember(effectiveChatId) { mutableStateOf("") }
     var streamingSpeechLastConsumedLength by remember(effectiveChatId) { mutableStateOf(0) }
     var streamingSpeechStartedForMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
@@ -920,6 +921,7 @@ fun Home(
         resetStreamingSpeechState()
         currentSpeakingAssistantMessageId = null
         stopButtonOwnerAssistantMessageId = null
+        stopButtonOwnerSetAtMs = null
 
         pendingStopButtonOwnerClearJob?.cancel()
         pendingStopButtonOwnerClearJob = null
@@ -1009,6 +1011,7 @@ fun Home(
             currentSpeakingAssistantMessageId = insertedId
             if (!isTtsSuppressedForAssistant(insertedId)) {
                 stopButtonOwnerAssistantMessageId = insertedId
+                stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
             }
             logStreamTrace("STREAM placeholder insert id=$insertedId")
             return insertedId
@@ -1028,6 +1031,7 @@ fun Home(
         currentSpeakingAssistantMessageId = existingId
         if (!isTtsSuppressedForAssistant(existingId)) {
             stopButtonOwnerAssistantMessageId = existingId
+            stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
         }
         logStreamTrace("STREAM placeholder update id=$existingId len=${normalizedResponse.length}")
         return existingId
@@ -1213,6 +1217,7 @@ fun Home(
                 currentSpeakingAssistantMessageId = messageId
                 if (!isTtsSuppressedForAssistant(messageId)) {
                     stopButtonOwnerAssistantMessageId = messageId
+                    stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
                 }
             }
             isStreamingSentencePlaybackActive = true
@@ -1240,6 +1245,7 @@ fun Home(
                 currentSpeakingAssistantMessageId = messageId
                 if (!isTtsSuppressedForAssistant(messageId)) {
                     stopButtonOwnerAssistantMessageId = messageId
+                    stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
                 }
             }
             isStreamingSentencePlaybackActive = true
@@ -1298,6 +1304,7 @@ fun Home(
                     if (!latestIsTtsSpeaking && !latestIsInferenceRunningUi && !ttsController.isSpeaking.value) {
                         isStreamingSentencePlaybackActive = false
                         stopButtonOwnerAssistantMessageId = null
+                        stopButtonOwnerSetAtMs = null
                     }
                 }
             }
@@ -1314,10 +1321,40 @@ fun Home(
             stopUiCooldownAssistantMessageId = null
             currentSpeakingAssistantMessageId = null
             stopButtonOwnerAssistantMessageId = null
+            stopButtonOwnerSetAtMs = null
             resetStreamingSpeechState()
             ttsController.shutdown()
         }
     }
+
+    LaunchedEffect(
+        isTtsSpeaking,
+        isInferenceRunningUi,
+        isStreamingSentencePlaybackActive,
+        stopButtonOwnerAssistantMessageId,
+    ) {
+        val ownerMessageId = stopButtonOwnerAssistantMessageId ?: return@LaunchedEffect
+        if (isTtsSpeaking || ttsController.isSpeaking.value || isInferenceRunningUi) return@LaunchedEffect
+
+        val ownerAgeMs = SystemClock.elapsedRealtime() - (stopButtonOwnerSetAtMs ?: 0L)
+        if (ownerAgeMs < 450L) {
+            delay(450L - ownerAgeMs)
+        }
+        delay(120L)
+
+        if (
+            stopButtonOwnerAssistantMessageId == ownerMessageId &&
+            !isTtsSpeaking &&
+            !ttsController.isSpeaking.value &&
+            !isInferenceRunningUi
+        ) {
+            isStreamingSentencePlaybackActive = false
+            currentSpeakingAssistantMessageId = null
+            stopButtonOwnerAssistantMessageId = null
+            stopButtonOwnerSetAtMs = null
+        }
+    }
+
     LaunchedEffect(chatId) {
         pendingStopButtonOwnerClearJob?.cancel()
         pendingStopButtonOwnerClearJob = null
@@ -1329,6 +1366,7 @@ fun Home(
         stopUiCooldownAssistantMessageId = null
         currentSpeakingAssistantMessageId = null
         stopButtonOwnerAssistantMessageId = null
+        stopButtonOwnerSetAtMs = null
         resetStreamingSpeechState()
         resetStreamingAssistantPlaceholderId(reason = "chat-change")
         effectiveChatId?.let { currentChatId ->
@@ -1465,6 +1503,7 @@ fun Home(
                             currentSpeakingAssistantMessageId = assistantId
                             if (!isTtsSuppressedForAssistant(assistantId)) {
                                 stopButtonOwnerAssistantMessageId = assistantId
+                                stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
                             }
                             maybeReleaseHeldEngineForTtsPlayback()
                             ttsController.speak(speechText)
@@ -1490,11 +1529,7 @@ fun Home(
                             response = (uiState as UiState.Error).errorMessage,
                         )
                         if (assistantId != null) {
-                            currentSpeakingAssistantMessageId = assistantId
                             streamingSpeechStartedForMessageId = assistantId
-                            if (!isTtsSuppressedForAssistant(assistantId)) {
-                                stopButtonOwnerAssistantMessageId = assistantId
-                            }
                         }
                     }
                     placeholder = "Enter your prompt..."
@@ -2867,6 +2902,7 @@ fun Home(
                                                                             currentSpeakingAssistantMessageId = assistantId
                                                                             if (!isTtsSuppressedForAssistant(assistantId)) {
                                                                                 stopButtonOwnerAssistantMessageId = assistantId
+                                                                                stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
                                                                             }
                                                                             maybeReleaseHeldEngineForTtsPlayback()
                                                                             ttsController.speak(speechText)
@@ -3478,6 +3514,7 @@ fun Home(
                                                     isStreamingSentencePlaybackActive = false
                                                     currentSpeakingAssistantMessageId = message.messageID
                                                     stopButtonOwnerAssistantMessageId = message.messageID
+                                                    stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
                                                     coroutineScope.launch {
                                                         maybeReleaseHeldEngineForTtsPlayback()
                                                         ttsController.speak(speechText)
