@@ -105,6 +105,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
@@ -795,6 +796,9 @@ fun Home(
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var selectedAssistantMessageTextForStatsSheet by remember { mutableStateOf<String?>(null) }
     var selectedPromptMessageTextForStatsSheet by remember { mutableStateOf<String?>(null) }
+    val immediateInferenceStatsByMessageId = remember(effectiveChatId) {
+        mutableStateMapOf<Int, InferenceStats>()
+    }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var showInferenceStatsSheet by remember { mutableStateOf(false) }
     var preferredBackendManualRecreateInProgress by remember { mutableStateOf(false) }
@@ -1066,6 +1070,9 @@ fun Home(
         if (existingId == null) {
             val insertedId = viewModel.insertAssistantMessageAndReturnId(finalPayload).toInt()
             lastPersistedStreamingAssistantText = finalizedResponseForPersist
+            if (latestInferenceStats != null) {
+                immediateInferenceStatsByMessageId[insertedId] = latestInferenceStats
+            }
             logStreamTrace("STREAM final insert id=$insertedId fallbackNoPlaceholder=true")
             return insertedId
         }
@@ -1095,6 +1102,9 @@ fun Home(
         }
         viewModel.updateMessage(updatedMessage)
         lastPersistedStreamingAssistantText = finalizedResponseForPersist
+        if (latestInferenceStats != null) {
+            immediateInferenceStatsByMessageId[existingId] = latestInferenceStats
+        }
         logStreamTrace("STREAM final update id=$existingId")
         return existingId
     }
@@ -1266,6 +1276,9 @@ fun Home(
         }
     }
 
+    val latestIsInferenceRunningUi by rememberUpdatedState(isInferenceRunningUi)
+    val latestIsTtsSpeaking by rememberUpdatedState(isTtsSpeaking)
+
     DisposableEffect(ttsController) {
         ttsController.setOnPlaybackStateChanged { isPlaying ->
             viewModel.onTtsPlaybackChanged(isPlaying)
@@ -1276,13 +1289,13 @@ fun Home(
             }
             if (!isPlaying) {
                 currentSpeakingAssistantMessageId = null
-                if (isStreamingSentencePlaybackActive && isInferenceRunningUi) {
+                if (isStreamingSentencePlaybackActive && latestIsInferenceRunningUi) {
                     return@setOnPlaybackStateChanged
                 }
                 pendingStopButtonOwnerClearJob?.cancel()
                 pendingStopButtonOwnerClearJob = coroutineScope.launch {
                     delay(220)
-                    if (!isTtsSpeaking && !isInferenceRunningUi) {
+                    if (!latestIsTtsSpeaking && !latestIsInferenceRunningUi && !ttsController.isSpeaking.value) {
                         isStreamingSentencePlaybackActive = false
                         stopButtonOwnerAssistantMessageId = null
                     }
@@ -1428,11 +1441,7 @@ fun Home(
                             imageInputCount = pendingAssistantImageInputCount,
                         )
                         if (assistantId != null) {
-                            currentSpeakingAssistantMessageId = assistantId
                             streamingSpeechStartedForMessageId = assistantId
-                            if (!isTtsSuppressedForAssistant(assistantId)) {
-                                stopButtonOwnerAssistantMessageId = assistantId
-                            }
                         }
                     }
                     placeholder = "Enter your prompt..."
@@ -1453,6 +1462,10 @@ fun Home(
                         !ttsController.isInCooldown()
                     ) {
                         sanitizeTextForTts(response).takeIf { it.isNotEmpty() }?.let { speechText ->
+                            currentSpeakingAssistantMessageId = assistantId
+                            if (!isTtsSuppressedForAssistant(assistantId)) {
+                                stopButtonOwnerAssistantMessageId = assistantId
+                            }
                             maybeReleaseHeldEngineForTtsPlayback()
                             ttsController.speak(speechText)
                         }
@@ -2832,11 +2845,7 @@ fun Home(
                                                                         generationTimeMs = localGenerationTimeMs,
                                                                     )
                                                                     if (assistantId != null) {
-                                                                        currentSpeakingAssistantMessageId = assistantId
                                                                         streamingSpeechStartedForMessageId = assistantId
-                                                                        if (!isTtsSuppressedForAssistant(assistantId)) {
-                                                                            stopButtonOwnerAssistantMessageId = assistantId
-                                                                        }
                                                                     }
                                                                     localStreamingResponseText = null
                                                                     showDelayedLocalRespondingPlaceholder = false
@@ -2855,6 +2864,10 @@ fun Home(
                                                                         !ttsController.isInCooldown()
                                                                     ) {
                                                                         sanitizeTextForTts(resolvedAssistantResponse).takeIf { it.isNotEmpty() }?.let { speechText ->
+                                                                            currentSpeakingAssistantMessageId = assistantId
+                                                                            if (!isTtsSuppressedForAssistant(assistantId)) {
+                                                                                stopButtonOwnerAssistantMessageId = assistantId
+                                                                            }
                                                                             maybeReleaseHeldEngineForTtsPlayback()
                                                                             ttsController.speak(speechText)
                                                                         }
@@ -3399,9 +3412,10 @@ fun Home(
                                                 attachmentUriStringsJson = message.attachmentUriStringsJson,
                                             )
                                         } else {
+                                            val persistedMessageInferenceStats = message.toInferenceStats()
                                             val messageInferenceStats =
-                                                // 推論統計は保存済み assistant message の値のみを表示する。
-                                                message.toInferenceStats()
+                                                persistedMessageInferenceStats
+                                                    ?: immediateInferenceStatsByMessageId[message.messageID]
                                             val canShowTtsActions = ttsEnabled
                                             val isPersistedStreamingAssistantRow =
                                                 streamingAssistantMessageId != null &&
@@ -3457,14 +3471,16 @@ fun Home(
                                                     if (suppressedTtsAssistantMessageId == message.messageID) {
                                                         suppressedTtsAssistantMessageId = null
                                                     }
+                                                    val speechText = sanitizeTextForTts(message.message)
+                                                    if (speechText.isEmpty()) {
+                                                        return@PlainAssistantMessage
+                                                    }
                                                     isStreamingSentencePlaybackActive = false
                                                     currentSpeakingAssistantMessageId = message.messageID
                                                     stopButtonOwnerAssistantMessageId = message.messageID
-                                                    sanitizeTextForTts(message.message).takeIf { it.isNotEmpty() }?.let { speechText ->
-                                                        coroutineScope.launch {
-                                                            maybeReleaseHeldEngineForTtsPlayback()
-                                                            ttsController.speak(speechText)
-                                                        }
+                                                    coroutineScope.launch {
+                                                        maybeReleaseHeldEngineForTtsPlayback()
+                                                        ttsController.speak(speechText)
                                                     }
                                                 }
                                                 } else {
