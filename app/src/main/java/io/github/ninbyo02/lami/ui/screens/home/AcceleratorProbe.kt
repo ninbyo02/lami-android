@@ -15,6 +15,7 @@ internal object AcceleratorProbe {
     private const val MAX_DELEGATE_CANDIDATE_COUNT = 12
     private const val EXTERNAL_QAIRT_STAGE_PATH = "/data/local/tmp/qairt"
     private const val EXTERNAL_QAIRT_QNN_NET_RUN_PATH = "/data/local/tmp/qairt/bin/qnn-net-run"
+    private const val EXTERNAL_QAIRT_QNN_PLATFORM_VALIDATOR_PATH = "/data/local/tmp/qairt/bin/qnn-platform-validator"
     private const val EXTERNAL_QAIRT_VERIFIED_SDK_VERSION = "v2.46.0.260424121129"
     private const val EXTERNAL_QAIRT_VERIFIED_GPU_BACKEND_STATUS = "passed"
     private const val EXTERNAL_QAIRT_VERIFIED_DSP_CORE = "Hexagon Architecture V79"
@@ -157,6 +158,7 @@ internal object AcceleratorProbe {
             externalQairtStagePath = externalQairtStageProbeResult.stagePath,
             externalQairtStageStatus = externalQairtStageProbeResult.stageStatus,
             externalQairtQnnNetRunStatus = externalQairtStageProbeResult.qnnNetRunStatus,
+            externalQairtQnnPlatformValidatorStatus = externalQairtStageProbeResult.qnnPlatformValidatorStatus,
             externalQairtQnnSdkVersion = externalQairtStageProbeResult.qnnSdkVersion,
             externalQairtGpuBackendStatus = externalQairtStageProbeResult.gpuBackendStatus,
             externalQairtDspCore = externalQairtStageProbeResult.dspCore,
@@ -173,10 +175,15 @@ internal object AcceleratorProbe {
                 val bin = File(EXTERNAL_QAIRT_QNN_NET_RUN_PATH)
                 bin.exists() && bin.canRead()
             }.getOrElse { throw it }
+            val qnnPlatformValidatorAvailable = runCatching {
+                val bin = File(EXTERNAL_QAIRT_QNN_PLATFORM_VALIDATOR_PATH)
+                bin.exists() && bin.canRead()
+            }.getOrElse { throw it }
             ExternalQairtStageProbeResult(
                 stagePath = EXTERNAL_QAIRT_STAGE_PATH,
                 stageStatus = if (stagePresent) "present" else "missing",
                 qnnNetRunStatus = if (qnnNetRunAvailable) "available" else "unavailable",
+                qnnPlatformValidatorStatus = if (qnnPlatformValidatorAvailable) "available" else "unavailable",
                 qnnSdkVersion = EXTERNAL_QAIRT_VERIFIED_SDK_VERSION,
                 gpuBackendStatus = EXTERNAL_QAIRT_VERIFIED_GPU_BACKEND_STATUS,
                 dspCore = EXTERNAL_QAIRT_VERIFIED_DSP_CORE,
@@ -187,6 +194,9 @@ internal object AcceleratorProbe {
             val reason = throwable.javaClass.simpleName
             ExternalQairtStageProbeResult(
                 stagePath = EXTERNAL_QAIRT_STAGE_PATH,
+                stageStatus = "unknown",
+                qnnNetRunStatus = "unknown",
+                qnnPlatformValidatorStatus = "unknown",
                 note = "App-side direct probe was not permitted ($reason). Showing adb-verified external stage facts.",
             )
         }
@@ -977,8 +987,9 @@ internal object AcceleratorProbe {
 
     private data class ExternalQairtStageProbeResult(
         val stagePath: String = EXTERNAL_QAIRT_STAGE_PATH,
-        val stageStatus: String = "not_checked",
-        val qnnNetRunStatus: String = "not_checked",
+        val stageStatus: String = "unknown",
+        val qnnNetRunStatus: String = "unknown",
+        val qnnPlatformValidatorStatus: String = "unknown",
         val qnnSdkVersion: String = EXTERNAL_QAIRT_VERIFIED_SDK_VERSION,
         val gpuBackendStatus: String = EXTERNAL_QAIRT_VERIFIED_GPU_BACKEND_STATUS,
         val dspCore: String = EXTERNAL_QAIRT_VERIFIED_DSP_CORE,

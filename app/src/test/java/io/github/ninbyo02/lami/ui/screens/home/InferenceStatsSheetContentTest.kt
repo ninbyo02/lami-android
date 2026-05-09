@@ -577,6 +577,50 @@ class InferenceStatsSheetContentTest {
         assertTrue(devSection.items.none { it.label == "Delegate preferredBackend signature error" })
     }
 
+    @Test
+    fun `buildInferenceDetailSections shows external qairt staged facts in developer mode`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "nubia",
+                deviceModel = "NX733J",
+                deviceBoard = "kalama",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = "Qualcomm",
+                gpuRenderer = "Adreno",
+                gpuVersion = "OpenGL ES 3.2",
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                externalQairtStageStatus = "present",
+                externalQairtStagePath = "/data/local/tmp/qairt",
+                externalQairtQnnNetRunStatus = "available",
+                externalQairtQnnPlatformValidatorStatus = "available",
+                externalQairtQnnSdkVersion = "v2.46.0.260424121129",
+                externalQairtGpuBackendStatus = "passed",
+                externalQairtDspCore = "Hexagon Architecture V79",
+                externalQairtDspBackendStatus = "passed",
+                externalQairtNote = "adb-verified external stage facts",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("present", devSection.items.first { it.label == "External QAIRT stage" }.value)
+        assertEquals("/data/local/tmp/qairt", devSection.items.first { it.label == "QAIRT stage path" }.value)
+        assertEquals("available", devSection.items.first { it.label == "qnn-net-run" }.value)
+        assertEquals("available", devSection.items.first { it.label == "qnn-platform-validator" }.value)
+        assertEquals("v2.46.0.260424121129", devSection.items.first { it.label == "QNN SDK version" }.value)
+        assertEquals("passed", devSection.items.first { it.label == "QNN GPU backend" }.value)
+        assertEquals("Hexagon Architecture V79", devSection.items.first { it.label == "QNN DSP core" }.value)
+        assertEquals("passed", devSection.items.first { it.label == "QNN DSP backend" }.value)
+        assertEquals("adb-verified external stage facts", devSection.items.first { it.label == "QAIRT stage note" }.value)
+    }
+
 
     @Test
     fun `buildInferenceDetailSections shows npu probe none unknown by default`() {

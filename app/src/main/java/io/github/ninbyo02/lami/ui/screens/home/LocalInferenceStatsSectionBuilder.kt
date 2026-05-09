@@ -238,6 +238,7 @@ internal fun buildInferenceDetailSections(
             add(InferenceStatItemUi(label = "NNAPI delegate status", value = if (nnapiDelegateDetected == null) "not-detected" else "candidate-detected"))
             add(InferenceStatItemUi(label = "External QAIRT stage", value = probe.externalQairtStageStatus))
             add(InferenceStatItemUi(label = "qnn-net-run", value = probe.externalQairtQnnNetRunStatus))
+            add(InferenceStatItemUi(label = "qnn-platform-validator", value = probe.externalQairtQnnPlatformValidatorStatus))
             add(InferenceStatItemUi(label = "QNN SDK version", value = probe.externalQairtQnnSdkVersion))
             add(InferenceStatItemUi(label = "QNN GPU backend", value = probe.externalQairtGpuBackendStatus))
             add(InferenceStatItemUi(label = "QNN DSP core", value = probe.externalQairtDspCore))
