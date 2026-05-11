@@ -598,7 +598,7 @@ fun Settings(
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "DEBUGビルド限定の実験機能です。LiteRT-LM EngineConfig に DEFAULT / CPU / GPU を指定します。Qualcomm QNN/NPUは前提ライブラリとAPI候補を診断し、不足時は実推論をGPUへフォールバックします。変更後はローカルエンジン再作成が必要です。",
+                                text = "DEBUGビルド限定の実験機能です。LiteRT-LM EngineConfig に DEFAULT / CPU / GPU を指定します。NPUはvendor FastRPC namespace制約のため本線では無効化し、GPUを推奨します。変更後はローカルエンジン再作成が必要です。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -624,11 +624,7 @@ fun Settings(
                                         },
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    val settingLabel = when (setting) {
-                                        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> "Qualcomm QNN/NPU（安全試行・不足時GPU）"
-                                        else -> setting.name
-                                    }
-                                    Text(text = settingLabel, style = MaterialTheme.typography.bodyMedium)
+                                    Text(text = setting.name, style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
                         }

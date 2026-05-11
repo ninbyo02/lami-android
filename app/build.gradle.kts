@@ -1,5 +1,7 @@
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.nio.file.Files
+import java.util.Properties
 
 plugins {
     id("com.google.devtools.ksp")
@@ -34,6 +36,9 @@ fun resolveBuildPrNumber(): String {
     return ""
 }
 
+val liteRtLmAndroidReleaseVersion = "0.10.0"
+val liteRtLmAndroidDebugVersion = "0.11.0"
+
 android {
 
     namespace = "io.github.ninbyo02.lami"
@@ -52,10 +57,15 @@ android {
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
         buildConfigField("String", "BUILD_PR_NUMBER", "\"$buildPrNumber\"")
         buildConfigField("String", "APP_SUBTITLE", "\"LAMI — Lightweight AI for Memory & Interaction\"")
+        buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidReleaseVersion\"")
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidDebugVersion\"")
+        }
         release {
+            buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidReleaseVersion\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -73,6 +83,11 @@ android {
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+    sourceSets {
+        getByName("debug") {
+            jniLibs.srcDir(layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs"))
+        }
     }
 }
 
@@ -181,6 +196,115 @@ tasks.register("printQnnNpuReadiness") {
     }
 }
 
+val qnnDirectProbeDebugJniSource = layout.projectDirectory.file("src/debug/cpp/qnn_direct_probe_debug.cpp")
+val qnnDirectProbeDebugJniOutputDir = layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs/arm64-v8a")
+
+fun findAndroidNdkClang(): File? {
+    val explicitNdk = listOfNotNull(
+        System.getenv("ANDROID_NDK_HOME")?.trim()?.takeIf { it.isNotEmpty() },
+        System.getenv("ANDROID_NDK_ROOT")?.trim()?.takeIf { it.isNotEmpty() },
+    ).map(::File)
+    explicitNdk
+        .map { ndkDir -> File(ndkDir, "toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang++") }
+        .firstOrNull { it.isFile }
+        ?.let { return it }
+
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.isFile) {
+        localPropertiesFile.inputStream().use { input -> localProperties.load(input) }
+    }
+    val sdkDir = localProperties.getProperty("sdk.dir")?.trim()?.takeIf { it.isNotEmpty() }?.let(::File)
+        ?: System.getenv("ANDROID_HOME")?.trim()?.takeIf { it.isNotEmpty() }?.let(::File)
+        ?: System.getenv("ANDROID_SDK_ROOT")?.trim()?.takeIf { it.isNotEmpty() }?.let(::File)
+    return sdkDir
+        ?.resolve("ndk")
+        ?.listFiles()
+        ?.sortedByDescending(File::getName)
+        ?.map { ndkDir -> File(ndkDir, "toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang++") }
+        ?.firstOrNull { it.isFile }
+}
+
+tasks.register("buildQnnDirectProbeDebugJni") {
+    group = "build"
+    description = "Builds the debug-only QNN direct probe JNI library."
+    inputs.file(qnnDirectProbeDebugJniSource)
+    outputs.file(qnnDirectProbeDebugJniOutputDir.map { it.file("libqnn_direct_probe_debug.so") })
+
+    doLast {
+        val outputDir = qnnDirectProbeDebugJniOutputDir.get().asFile
+        outputDir.mkdirs()
+        val outputFile = File(outputDir, "libqnn_direct_probe_debug.so")
+        val clangArgs = listOf(
+            "-shared",
+            "-fPIC",
+            "-std=c++17",
+            "-fno-exceptions",
+            "-fno-rtti",
+            "-O0",
+            "-g",
+            "-Wall",
+            "-Wextra",
+            "-nostdlib++",
+            "-Wl,--build-id=sha1",
+        )
+        val localClang = findAndroidNdkClang()
+        if (localClang != null) {
+            exec {
+                commandLine(
+                    listOf(localClang.absolutePath) +
+                        clangArgs +
+                        listOf(
+                            qnnDirectProbeDebugJniSource.asFile.absolutePath,
+                            "-o",
+                            outputFile.absolutePath,
+                            "-llog",
+                            "-ldl",
+                        ),
+                )
+            }
+        } else {
+            val uid = runCatching { Files.getAttribute(projectDir.toPath(), "unix:uid").toString() }
+                .getOrDefault("1000")
+            val gid = runCatching { Files.getAttribute(projectDir.toPath(), "unix:gid").toString() }
+                .getOrDefault("1000")
+            exec {
+                commandLine(
+                    listOf(
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--user",
+                        "$uid:$gid",
+                        "-v",
+                        "${projectDir.parentFile.absolutePath}:/work",
+                        "-w",
+                        "/work/${projectDir.name}",
+                        "litert-build:ubuntu22",
+                        "/opt/android-sdk/ndk/28.1.13356709/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang++",
+                    ) +
+                        clangArgs +
+                        listOf(
+                            "src/debug/cpp/qnn_direct_probe_debug.cpp",
+                            "-o",
+                            "build/generated/qnnDirectProbeDebugJniLibs/arm64-v8a/libqnn_direct_probe_debug.so",
+                            "-llog",
+                            "-ldl",
+                        ),
+                )
+            }
+        }
+        exec {
+            commandLine("readelf", "-d", outputFile.absolutePath)
+            isIgnoreExitValue = true
+        }
+    }
+}
+
+tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
+    dependsOn("buildQnnDirectProbeDebugJni")
+}
+
 tasks.register("copyQnnNpuNativeLibsFromQairt") {
     group = "setup"
     description = "Copies local QAIRT and LiteRT Qualcomm dispatch libraries into app/src/main/jniLibs/arm64-v8a."
@@ -267,7 +391,8 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-    implementation("com.google.ai.edge.litertlm:litertlm-android:0.10.0")
+    debugImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
+    releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
     implementation("com.google.mediapipe:tasks-genai:0.10.33")
     
 

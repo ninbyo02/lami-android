@@ -5,29 +5,28 @@ import org.junit.Test
 
 class PreferredBackendDryRunSettingTest {
     @Test
-    fun `fromStorage restores qualcomm qnn npu setting`() {
+    fun `fromStorage migrates qualcomm qnn npu setting to gpu`() {
         assertEquals(
-            PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU,
+            PreferredBackendDryRunSetting.GPU,
             PreferredBackendDryRunSetting.fromStorage("QUALCOMM_QNN_NPU"),
         )
     }
 
     @Test
-    fun `fromStorage migrates legacy generic npu setting to qualcomm qnn npu`() {
+    fun `fromStorage migrates legacy generic npu setting to gpu`() {
         assertEquals(
-            PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU,
+            PreferredBackendDryRunSetting.GPU,
             PreferredBackendDryRunSetting.fromStorage("NPU"),
         )
     }
 
     @Test
-    fun `selectableEntries hides unsafe generic npu setting`() {
+    fun `selectableEntries exposes stable gpu and cpu settings only`() {
         assertEquals(
             listOf(
                 PreferredBackendDryRunSetting.DEFAULT,
                 PreferredBackendDryRunSetting.CPU,
                 PreferredBackendDryRunSetting.GPU,
-                PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU,
             ),
             PreferredBackendDryRunSetting.selectableEntries,
         )

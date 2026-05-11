@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application android:extractNativeLibs="true">
+        <activity
+            android:name="io.github.ninbyo02.lami.debug.LiteRtModelInspectorActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <activity
+            android:name="io.github.ninbyo02.lami.debug.LiteRtMinimalSmokeTestActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <activity
+            android:name="io.github.ninbyo02.lami.debug.QairtNpuProbeActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
+            android:process=":qairt_npu_probe"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <activity
+            android:name="io.github.ninbyo02.lami.debug.QnnDirectProbeActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
+            android:process=":qnn_direct_probe"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <service
+            android:name="io.github.ninbyo02.lami.debug.QairtNpuProbeService"
+            android:exported="true"
+            android:process=":qairt_npu_probe" />
+    </application>
+</manifest>

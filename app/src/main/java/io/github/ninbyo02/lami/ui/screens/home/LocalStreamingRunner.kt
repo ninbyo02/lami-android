@@ -29,6 +29,7 @@ private const val TOKENIZER_COUNT_UNAVAILABLE_NOTE =
 private const val MEDIAPIPE_TOKEN_COUNT_MODE = "mediapipe_tokenizer_recount"
 private const val LITERT_TOKEN_COUNT_MODE = "tokenizer_recount"
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
+private const val NPU_DISABLED_NOT_SUPPORTED_REASON = "npu-disabled-vendor-fastrpc-namespace-blocked-recommended-gpu"
 private val STREAMING_NO_JOIN_PREVIOUS_CHARS = setOf(
     '(', '[', '{', '"', '\'', '`', '/', '\\', '.', ',', ':', ';', '!', '?',
 )
@@ -4062,16 +4063,13 @@ internal fun buildLiteRtEngineConfig(
     appendTrace: (String) -> Unit = {},
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
 ): EngineConfig {
-    val backendEnumCandidates = listOf("DEFAULT", "CPU", "GPU", "NPU", "QUALCOMM_QNN_NPU")
+    val backendEnumCandidates = listOf("DEFAULT", "CPU", "GPU")
     val backendApply = when (preferredBackendDryRunSetting) {
         PreferredBackendDryRunSetting.CPU -> LiteRtBackendApply(Backend.CPU(), "CPU", "applied-engine-config")
         PreferredBackendDryRunSetting.GPU -> LiteRtBackendApply(Backend.GPU(), "GPU", "applied-engine-config")
         PreferredBackendDryRunSetting.DEFAULT -> LiteRtBackendApply(Backend.GPU(), "DEFAULT", "skipped-default-engine-config")
-        PreferredBackendDryRunSetting.NPU -> createNpuBackendReflectively(nativeLibraryDir)
-        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> createQualcommQnnNpuBackendAttempt(
-            nativeLibraryDir = nativeLibraryDir,
-            modelPath = modelPath,
-        )
+        PreferredBackendDryRunSetting.NPU -> createDisabledNpuGpuFallback()
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> createDisabledNpuGpuFallback()
     }
     onPreferredBackendApplied(
         PreferredBackendApplyResult(
@@ -4094,7 +4092,7 @@ internal fun buildLiteRtEngineConfig(
     if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU || preferredBackendDryRunSetting == PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU) {
         safeAppendTrace(
             appendTrace,
-            "UPSTREAM preferred-backend npu-request result=${backendApply.preferredBackendApplyResult} applied=${backendApply.appliedPreferredBackend} error=${backendApply.error ?: "none"}",
+            "UPSTREAM preferred-backend npu-request result=${backendApply.preferredBackendApplyResult} applied=${backendApply.appliedPreferredBackend} error=${backendApply.error ?: "none"} recommended=GPU",
         )
     }
     return EngineConfig(
@@ -4114,6 +4112,16 @@ private data class LiteRtBackendApply(
     val error: String? = null,
     val notSupportedReason: String? = null,
 )
+
+private fun createDisabledNpuGpuFallback(): LiteRtBackendApply {
+    return LiteRtBackendApply(
+        backend = Backend.GPU(),
+        appliedPreferredBackend = "GPU",
+        preferredBackendApplyResult = "fallback-gpu-before-npu-disabled",
+        error = "stage=npu-disabled result=vendor-fastrpc-namespace-blocked device=nubia-NX733J android=16 recommended=GPU",
+        notSupportedReason = NPU_DISABLED_NOT_SUPPORTED_REASON,
+    )
+}
 
 private fun createNpuBackendReflectively(nativeLibraryDir: String?): LiteRtBackendApply {
     val npuBackend = runCatching {
@@ -4154,76 +4162,10 @@ private fun createNpuBackendReflectively(nativeLibraryDir: String?): LiteRtBacke
 }
 
 private fun createQualcommQnnNpuBackendAttempt(
-    nativeLibraryDir: String?,
-    modelPath: String,
+    @Suppress("UNUSED_PARAMETER") nativeLibraryDir: String?,
+    @Suppress("UNUSED_PARAMETER") modelPath: String,
 ): LiteRtBackendApply {
-    val evidence = mutableListOf<String>()
-    val missing = mutableListOf<String>()
-    val npuBackend = runCatching {
-        evidence += "nativeLibraryDir=${nativeLibraryDir ?: "unknown"}"
-        val modelCompatibility = probeQualcommNpuModelCompatibility(modelPath)
-        evidence += "model=${modelCompatibility.status}"
-        evidence += "modelEvidence=${modelCompatibility.evidence}"
-        if (!modelCompatibility.compatible) missing += "soc-specific-model"
-        val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
-        val npuClass = (backendClass.classes.asList() + backendClass.declaredClasses.asList())
-            .firstOrNull { it.simpleName == "NPU" }
-        if (npuClass == null) {
-            missing += "Backend.NPU"
-        } else {
-            evidence += "foundClass=${npuClass.name}"
-            val signatures = (npuClass.declaredConstructors.asList() + npuClass.constructors.asList())
-                .map { constructor ->
-                    "${npuClass.simpleName}(${constructor.parameterTypes.joinToString(",") { it.simpleName }})"
-                }
-                .distinct()
-            evidence += "constructors=${signatures.joinToString("|").ifBlank { "none" }}"
-        }
-        val qnnLibraryStatus = probeQnnRuntimeLibraries(nativeLibraryDir)
-        evidence += "qnnRuntime=${qnnLibraryStatus.status}"
-        evidence += "qnnEvidence=${qnnLibraryStatus.evidence.joinToString("|").ifBlank { "none" }}"
-        if (!qnnLibraryStatus.available) missing += "qnn-runtime-libs"
-        val dispatchStatus = probeDispatchLibrary(nativeLibraryDir)
-        evidence += "dispatch=${dispatchStatus.status}"
-        evidence += "dispatchEvidence=${dispatchStatus.evidence.joinToString("|").ifBlank { "none" }}"
-        if (!dispatchStatus.available) missing += "dispatch-api-so"
-        if (missing.isEmpty()) {
-            createNpuBackendReflectively(nativeLibraryDir).also { backendApply ->
-                if (backendApply.appliedPreferredBackend != "NPU") {
-                    missing += backendApply.notSupportedReason ?: "npu-backend-create-failed"
-                    evidence += "npuBackend=${backendApply.preferredBackendApplyResult}"
-                    backendApply.error?.let { evidence += "npuBackendError=$it" }
-                }
-            }.takeIf { it.appliedPreferredBackend == "NPU" }?.backend
-                ?: Backend.GPU()
-        } else {
-            Backend.GPU()
-        }
-    }.getOrElse { throwable ->
-        missing += "reflection-probe"
-        evidence += "probeError=${throwable.javaClass.simpleName}:${throwable.message?.take(80) ?: "no-message"}"
-        Backend.GPU()
-    }
-    val prerequisitesReady = missing.isEmpty()
-    return LiteRtBackendApply(
-        backend = npuBackend,
-        appliedPreferredBackend = if (prerequisitesReady) "NPU" else "GPU",
-        preferredBackendApplyResult = if (prerequisitesReady) {
-            "applied-engine-config-qualcomm-qnn-npu"
-        } else {
-            "fallback-gpu-before-qualcomm-qnn-npu-prerequisites-missing"
-        },
-        error = if (prerequisitesReady) {
-            null
-        } else {
-            "stage=qualcomm-qnn-npu-prerequisite-probe result=missing-${missing.joinToString(",")} evidence=${evidence.joinToString(";")}"
-        },
-        notSupportedReason = if (prerequisitesReady) {
-            null
-        } else {
-            "missing-${missing.distinct().joinToString(",")}"
-        },
-    )
+    return createDisabledNpuGpuFallback()
 }
 
 internal data class QualcommNpuModelCompatibility(
@@ -4383,12 +4325,12 @@ private fun applyPreferredBackendIfRequested(
     )
     if (!BuildConfig.DEBUG) return common.copy(preferredBackendApplyResult = "not-debug-build", preferredBackendApplyNotSupportedReason = "not-debug-build")
     if (requested == PreferredBackendDryRunSetting.DEFAULT) return common.copy(preferredBackendApplyResult = "skipped-default", preferredBackendApplyNotSupportedReason = "requested-default-skipped")
-    if (requested == PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU) {
+    if (requested == PreferredBackendDryRunSetting.NPU || requested == PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU) {
         return common.copy(
             appliedPreferredBackend = "GPU",
-            preferredBackendApplyResult = "fallback-gpu-before-qualcomm-qnn-npu-options-builder-disabled",
-            preferredBackendApplyError = "stage=options-builder-qualcomm-qnn-npu",
-            preferredBackendApplyNotSupportedReason = "main-process-npu-options-disabled-native-crash-risk",
+            preferredBackendApplyResult = "fallback-gpu-before-npu-disabled",
+            preferredBackendApplyError = "stage=options-builder-npu-disabled result=vendor-fastrpc-namespace-blocked recommended=GPU",
+            preferredBackendApplyNotSupportedReason = NPU_DISABLED_NOT_SUPPORTED_REASON,
         )
     }
     val method = optionsBuilder.javaClass.methods.firstOrNull { m ->

@@ -560,6 +560,14 @@ internal fun buildInferenceDetailSections(
                         ),
                     )
                 }
+                localTraceForDev?.let { trace ->
+                    add(InferenceStatItemUi(label = "streamedCharsPerSecond", value = formatCharsPerSecond(trace.streamedCharsPerSecond)))
+                    add(InferenceStatItemUi(label = "appendBatchSizeAvg", value = formatChars(trace.appendBatchSizeAvg)))
+                    add(InferenceStatItemUi(label = "appendEventsPerSecond", value = formatEventsPerSecond(trace.appendEventsPerSecond)))
+                    add(InferenceStatItemUi(label = "composeRecomposeEstimate", value = trace.composeRecomposeEstimate?.toString() ?: "—"))
+                    add(InferenceStatItemUi(label = "markdownRepairCount", value = trace.markdownRepairCount?.toString() ?: "—"))
+                    add(InferenceStatItemUi(label = "uiAppendDebounceMs", value = trace.uiAppendDebounceMs?.let { "${it} ms" } ?: "—"))
+                }
                 if (localTraceForDev != null && enableDevLlmSessionAsyncPoc) {
                     add(InferenceStatItemUi(label = "evalTime", value = localTraceForDev.evalTimeProbe.availability.name))
                     add(InferenceStatItemUi(label = "evalTimeSignature", value = localTraceForDev.evalTimeProbe.signature ?: "—"))
@@ -1075,6 +1083,15 @@ private fun buildBackendTokensPerSecondText(stats: InferenceStats): String? {
     return backendValue.takeIf { it.isFinite() && it >= 0.0 }?.let { String.format(Locale.US, "%.1f token/s", it) }
 }
 
+private fun formatCharsPerSecond(value: Double?): String =
+    value?.takeIf { it.isFinite() && it >= 0.0 }?.let { String.format(Locale.US, "%.1f chars/s", it) } ?: "—"
+
+private fun formatEventsPerSecond(value: Double?): String =
+    value?.takeIf { it.isFinite() && it >= 0.0 }?.let { String.format(Locale.US, "%.1f events/s", it) } ?: "—"
+
+private fun formatChars(value: Double?): String =
+    value?.takeIf { it.isFinite() && it >= 0.0 }?.let { String.format(Locale.US, "%.1f chars", it) } ?: "—"
+
 private fun buildTokenizerTokenLabel(
     baseLabel: String,
     tokenizerSucceeded: Boolean,
@@ -1314,6 +1331,9 @@ private fun formatLamiBlockedReason(probe: AcceleratorProbeSnapshot): String? {
         }
         if ("backend-npu-api" in source) {
             reasons += "Backend.NPU API missing"
+        }
+        if ("vendor-fastrpc-namespace-blocked" in source || "npu-disabled" in source) {
+            reasons += "vendor FastRPC namespace blocked; GPU recommended"
         }
     }
     return reasons.takeIf { it.isNotEmpty() }?.joinToString(", ")

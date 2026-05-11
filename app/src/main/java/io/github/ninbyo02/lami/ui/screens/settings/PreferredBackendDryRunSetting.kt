@@ -12,15 +12,14 @@ enum class PreferredBackendDryRunSetting {
             DEFAULT,
             CPU,
             GPU,
-            QUALCOMM_QNN_NPU,
         )
 
         fun fromStorage(raw: String?): PreferredBackendDryRunSetting =
             when (raw) {
                 CPU.name -> CPU
                 GPU.name -> GPU
-                NPU.name -> QUALCOMM_QNN_NPU
-                QUALCOMM_QNN_NPU.name -> QUALCOMM_QNN_NPU
+                NPU.name -> GPU
+                QUALCOMM_QNN_NPU.name -> GPU
                 else -> DEFAULT
             }
     }

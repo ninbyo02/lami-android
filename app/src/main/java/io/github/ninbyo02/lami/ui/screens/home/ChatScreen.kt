@@ -237,6 +237,7 @@ private const val DEV_UI_DEBUG_MODE = false
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED = true
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
 private const val DEV_USE_HELD_PATH_ONLY = false
+private const val LOCAL_UI_APPEND_DEBOUNCE_MS = 0L
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
 
 private enum class LocalExecutionPath(
@@ -417,6 +418,12 @@ internal data class LocalInferenceTrace(
     val sessionAsyncPocErrorClassName: String? = null,
     val sessionAsyncPocErrorMessage: String? = null,
     val assistantUpdateCount: Int = 0,
+    val streamedCharsPerSecond: Double? = null,
+    val appendBatchSizeAvg: Double? = null,
+    val appendEventsPerSecond: Double? = null,
+    val composeRecomposeEstimate: Int? = null,
+    val markdownRepairCount: Int? = null,
+    val uiAppendDebounceMs: Long? = null,
     val firstNonEmptyAssistantChunkSeen: Boolean = false,
     val assistantStreamedToUi: Boolean = false,
     val realPartialReceived: Boolean = false,
@@ -465,6 +472,92 @@ internal data class LocalInferenceTrace(
     val realPartialHookAttached: Boolean = false,
     val realPartialCallbackCount: Int = 0,
 )
+
+private data class LocalStreamingUiMetricsSnapshot(
+    val streamedCharsPerSecond: Double?,
+    val appendBatchSizeAvg: Double?,
+    val appendEventsPerSecond: Double?,
+    val composeRecomposeEstimate: Int?,
+    val markdownRepairCount: Int,
+    val uiAppendDebounceMs: Long,
+)
+
+private class LocalStreamingUiMetrics {
+    private var firstAppendElapsedMs: Long? = null
+    private var lastAppendElapsedMs: Long? = null
+    private var lastText: String? = null
+    private var appendEventCount: Int = 0
+    private var appendedCharCount: Int = 0
+    private var renderUpdateCount: Int = 0
+    private var markdownRepairCount: Int = 0
+
+    fun reset() {
+        firstAppendElapsedMs = null
+        lastAppendElapsedMs = null
+        lastText = null
+        appendEventCount = 0
+        appendedCharCount = 0
+        renderUpdateCount = 0
+        markdownRepairCount = 0
+    }
+
+    fun recordAppend(text: String, nowElapsedMs: Long) {
+        if (text.isBlank() || text == lastText) return
+        val previous = lastText
+        val appendedChars = when {
+            previous != null && text.startsWith(previous) -> text.length - previous.length
+            previous == null -> text.length
+            else -> text.length
+        }.coerceAtLeast(0)
+        firstAppendElapsedMs = firstAppendElapsedMs ?: nowElapsedMs
+        lastAppendElapsedMs = nowElapsedMs
+        lastText = text
+        appendEventCount += 1
+        appendedCharCount += appendedChars
+    }
+
+    fun recordRenderUpdate() {
+        renderUpdateCount += 1
+    }
+
+    fun recordMarkdownRepair() {
+        markdownRepairCount += 1
+    }
+
+    fun snapshot(): LocalStreamingUiMetricsSnapshot {
+        val firstMs = firstAppendElapsedMs
+        val lastMs = lastAppendElapsedMs
+        val elapsedSeconds = if (firstMs != null && lastMs != null) {
+            ((lastMs - firstMs).coerceAtLeast(1L)).toDouble() / 1000.0
+        } else {
+            null
+        }
+        return LocalStreamingUiMetricsSnapshot(
+            streamedCharsPerSecond = elapsedSeconds?.takeIf { appendEventCount > 0 }
+                ?.let { appendedCharCount.toDouble() / it },
+            appendBatchSizeAvg = appendEventCount.takeIf { it > 0 }
+                ?.let { appendedCharCount.toDouble() / it.toDouble() },
+            appendEventsPerSecond = elapsedSeconds?.takeIf { appendEventCount > 0 }
+                ?.let { appendEventCount.toDouble() / it },
+            composeRecomposeEstimate = renderUpdateCount.takeIf { it > 0 } ?: appendEventCount.takeIf { it > 0 },
+            markdownRepairCount = markdownRepairCount,
+            uiAppendDebounceMs = LOCAL_UI_APPEND_DEBOUNCE_MS,
+        )
+    }
+}
+
+private fun LocalInferenceTrace.withStreamingUiMetrics(
+    snapshot: LocalStreamingUiMetricsSnapshot,
+): LocalInferenceTrace {
+    return copy(
+        streamedCharsPerSecond = snapshot.streamedCharsPerSecond,
+        appendBatchSizeAvg = snapshot.appendBatchSizeAvg,
+        appendEventsPerSecond = snapshot.appendEventsPerSecond,
+        composeRecomposeEstimate = snapshot.composeRecomposeEstimate,
+        markdownRepairCount = snapshot.markdownRepairCount,
+        uiAppendDebounceMs = snapshot.uiAppendDebounceMs,
+    )
+}
 
 private data class LocalSessionTokenProbeResult(
     val promptTokens: Int? = null,
@@ -801,6 +894,7 @@ fun Home(
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
     var lastStreamingAssistantChunkForDev by remember { mutableStateOf<String?>(null) }
     var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    val localStreamingUiMetricsForDev = remember(effectiveChatId) { LocalStreamingUiMetrics() }
     val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
 
     LaunchedEffect(isLocalInferenceRunning, streamingResponseText) {
@@ -810,6 +904,10 @@ fun Home(
             assistantUpdateCountForDev += 1
             firstNonEmptyAssistantChunkSeenForDev = true
             lastStreamingAssistantChunkForDev = currentChunk
+            localStreamingUiMetricsForDev.recordAppend(
+                text = currentChunk,
+                nowElapsedMs = SystemClock.elapsedRealtime(),
+            )
         }
     }
     LaunchedEffect(streamingResponseText, isInferenceRunningUi) {
@@ -832,6 +930,9 @@ fun Home(
         )
 
         if (shouldRefreshRenderText) {
+            if (BuildConfig.DEBUG && isLocalInferenceRunning) {
+                localStreamingUiMetricsForDev.recordRenderUpdate()
+            }
             streamingResponseTextForRender = latestText
         }
     }
@@ -1025,7 +1126,14 @@ fun Home(
         generationTimeMs: Long? = null,
     ): Int? {
         // finalize 経路は「保存してよい最終本文」のみを受け取る想定。
-        val finalizedResponseForPersist = buildFinalizedStreamingResponseForPersist(response)
+        val finalizedResponseForPersist = buildFinalizedStreamingResponseForPersist(
+            response = response,
+            onMarkdownRepair = {
+                if (BuildConfig.DEBUG) {
+                    localStreamingUiMetricsForDev.recordMarkdownRepair()
+                }
+            },
+        )
         if (finalizedResponseForPersist.isBlank()) return streamingAssistantMessageId
         if (finalizedResponseForPersist == "コード生成中…") {
             logStreamTrace("STREAM final skip displayOnlyText")
@@ -2271,6 +2379,7 @@ fun Home(
                                                             assistantUpdateCountForDev = 0
                                                             firstNonEmptyAssistantChunkSeenForDev = false
                                                             lastStreamingAssistantChunkForDev = null
+                                                            localStreamingUiMetricsForDev.reset()
                                                             if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
                                                                 devRunnerWhitespaceTraceText = null
                                                             }
@@ -2680,7 +2789,7 @@ fun Home(
                                                                         assistantStreamedToUi = assistantUpdateCountForDev >= 2,
                                                                         realPartialReceived = didReceiveRealLocalPartial,
                                                                         realPartialChunkCount = realLocalPartialChunkCount,
-                                                                    ),
+                                                                    ).withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot()),
                                                                 )
                                                             )
                                                             if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && runResultWithUiTrace != null) {
@@ -2763,8 +2872,8 @@ fun Home(
                                                             )
                                                             if (resolvedState == LocalInferenceEngineState.READY && resolvedAssistantResponse.isNotBlank()) {
                                                                     val resolvedRunResult = runResultWithUiTrace
-                                                                    val resolvedTrace = resolvedRunResult?.trace
-                                                                    val localStats = if (resolvedTrace != null) {
+                                                                    var resolvedTrace = resolvedRunResult?.trace
+                                                                    var localStats = if (resolvedTrace != null) {
                                                                         buildLocalInferenceStatsFromTrace(
                                                                             trace = resolvedTrace,
                                                                             generationTimeMs = localGenerationTimeMs,
@@ -2775,7 +2884,7 @@ fun Home(
                                                                     } else {
                                                                         null
                                                                     }
-                                                                    val rawSourceSummary =
+                                                                    var rawSourceSummary =
                                                                         if (resolvedTrace != null && localStats != null) {
                                                                             buildLocalSourceSummaryText(
                                                                                 trace = resolvedTrace,
@@ -2784,7 +2893,7 @@ fun Home(
                                                                         } else {
                                                                             null
                                                                         }
-                                                                    val localSourceSummary =
+                                                                    var localSourceSummary =
                                                                         resolvedTrace?.selectedAssistantResponseSource
                                                                             ?.takeIf { it.isNotBlank() }
                                                                             ?: rawSourceSummary
@@ -2846,6 +2955,40 @@ fun Home(
                                                                             "LOCAL pseudo-stream skipped: real partial already received count=$realLocalPartialChunkCount",
                                                                         )
                                                                     }
+                                                                    resolvedTrace = resolvedTrace
+                                                                        ?.copy(
+                                                                            assistantUpdateCount = assistantUpdateCountForDev,
+                                                                            firstNonEmptyAssistantChunkSeen = firstNonEmptyAssistantChunkSeenForDev,
+                                                                            assistantStreamedToUi = assistantUpdateCountForDev >= 2,
+                                                                            realPartialReceived = didReceiveRealLocalPartial,
+                                                                            realPartialChunkCount = realLocalPartialChunkCount,
+                                                                        )
+                                                                        ?.withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot())
+                                                                    latestLocalTraceForDev = resolvedTrace
+                                                                    localStats = if (resolvedTrace != null) {
+                                                                        buildLocalInferenceStatsFromTrace(
+                                                                            trace = resolvedTrace,
+                                                                            generationTimeMs = localGenerationTimeMs,
+                                                                            responseCharCount = resolvedAssistantResponse.length,
+                                                                            responseText = resolvedAssistantResponse,
+                                                                            fallbackTimeToFirstTokenMs = localGenerationTimeMs,
+                                                                        )
+                                                                    } else {
+                                                                        null
+                                                                    }
+                                                                    rawSourceSummary =
+                                                                        if (resolvedTrace != null && localStats != null) {
+                                                                            buildLocalSourceSummaryText(
+                                                                                trace = resolvedTrace,
+                                                                                stats = localStats,
+                                                                            )
+                                                                        } else {
+                                                                            null
+                                                                        }
+                                                                    localSourceSummary =
+                                                                        resolvedTrace?.selectedAssistantResponseSource
+                                                                            ?.takeIf { it.isNotBlank() }
+                                                                            ?: rawSourceSummary
                                                                     if (localStopRequested) {
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before insert")
                                                                         localStreamingResponseText = null
@@ -2862,6 +3005,9 @@ fun Home(
                                                                         localSourceSummary = localSourceSummary,
                                                                         generationTimeMs = localGenerationTimeMs,
                                                                     )
+                                                                    latestLocalTraceForDev = resolvedTrace
+                                                                        ?.withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot())
+                                                                        ?: latestLocalTraceForDev
                                                                     if (assistantId != null) {
                                                                         streamingSpeechStartedForMessageId = assistantId
                                                                     }
@@ -3840,9 +3986,15 @@ internal fun normalizeStreamingPartialForRender(partial: String): String {
     return partial.trim()
 }
 
-internal fun buildFinalizedStreamingResponseForPersist(response: String): String {
+internal fun buildFinalizedStreamingResponseForPersist(
+    response: String,
+    onMarkdownRepair: (() -> Unit)? = null,
+): String {
     val normalizedFinalText = response.trim()
     val repaired = MarkdownCodeRepair.repair(normalizedFinalText).trim()
+    if (repaired != normalizedFinalText) {
+        onMarkdownRepair?.invoke()
+    }
     if (!normalizedFinalText.endsWith("#\n```") || repaired.endsWith("#\n```")) {
         return repaired
     }
