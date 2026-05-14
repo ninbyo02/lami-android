@@ -16,6 +16,10 @@ Ollama連携もサポート対象ですが、LAMIはOllama専用クライアン�
 io.github.ninbyo02.lami
 ```
 
+## Project Scope
+
+LAMIはOllama用UIだけを目的にしたアプリではありません。Android-nativeなローカルAIプラットフォーム方向のプロジェクトとして、Edge AIワークフロー、ローカル推論ランタイム、キャラクター指向のインタラクション、モバイル向け診断を実験・整理していきます。
+
 ## 機能
 
 ### 実装済み / 利用可能
@@ -46,6 +50,15 @@ io.github.ninbyo02.lami
 - 共有可能なローカルAIパーソナリティ形式
 - コントリビューションガイドと公開ドキュメントの整理
 
+## Current Focus
+
+- LiteRTローカル推論実験
+- Android Edge AIワークフロー
+- スプライト状態システムとキャラクターフィードバック
+- チャット、ローカル推論、TTS向けのストリーミングUX
+- ローカル推論診断とランタイム可視化
+- 将来的なQNN / NPU研究方向
+
 ## Why LAMI?
 
 LAMIは次の方向性を重視しています。
@@ -56,6 +69,14 @@ LAMIは次の方向性を重視しています。
 - **Experimental Edge AI direction:** LiteRT、MediaPipe系ローカルLLM API、tokenizerメトリクス、モバイルアクセラレータ経路を検証します。
 - **Privacy-conscious direction:** ローカル推論と診断を重視し、不要なデータ移動を減らす設計を目指します。
 - **Future AI personality sharing:** スプライトやパーソナリティの概念を、将来的に端末間で共有できる形へ発展させます。
+
+## Design Philosophy
+
+LAMIは、単一の大きなAI機能よりも、小さく理解しやすい要素を積み上げる方針を取ります。Android-nativeなUX、local-firstなワークフロー、キャラクター指向の対話、Edge AI実験をアーキテクチャ上で見える形に保つことを重視します。オフライン対応の方向性、privacy-consciousな挙動、小さく表情豊かなスプライト、共有可能なAIパーソナリティは設計指針であり、すべてのワークフローが完成済みという意味ではありません。
+
+## Why Sprite Characters?
+
+スプライトキャラクターは、Android上でアシスタントの状態を軽量に伝えるための仕組みです。待機中、思考中、発話中、エラー、将来的なパーソナリティ状態などを、重いアバター基盤なしに表現できます。目標は、モバイルUIとして実用的で、将来的にスプライト / パーソナリティ共有形式へ発展できる、感情的に読み取りやすい対話モデルです。
 
 ## Edge AI / Local Inference
 
@@ -75,6 +96,26 @@ LAMIは次の方向性を重視しています。
 - 共有可能なAIパーソナリティ
 
 これらは研究・統合作業中の領域です。このREADMEだけを根拠に、QNN/NPUアクセラレーション、オフラインだけで完結する動作、安定済みのローカル推論挙動を前提にしないでください。
+
+## Research Status
+
+| Area | Status |
+|---|---|
+| Ollama backend | Available |
+| LiteRT integration | Experimental |
+| Local inference diagnostics | Active development |
+| Streaming TTS | Experimental |
+| QNN delegate | Research |
+| ASR integration | Planned |
+| Sprite personality sharing | Planned |
+
+## Non-Goals / Current Limitations
+
+- ローカル推論対応はまだExperimentalであり、モデル、ランタイム、端末によって挙動が変わる可能性があります。
+- Edge AIやアクセラレータ関連の実験では、端末互換性に差が出る可能性があります。
+- QNN / NPU関連の作業はresearch-stageであり、一般的に対応済みとは扱わないでください。
+- 完全にオフラインだけで完結するワークフローは、まだ発展中です。
+- このREADMEはプロジェクトの方向性と現在の統合作業を説明するもので、完成済みの安定版を示すものではありません。
 
 ## Architecture Overview
 
@@ -146,6 +187,16 @@ Androidローカル推論、LiteRT / MediaPipe挙動、アクセラレータ診�
 - Shareable personality direction
 - Developer diagnostics for mobile AI runtimes
 
+## Future Directions
+
+- ローカルASR連携（Planned）
+- QNN delegate研究（Research）
+- 共有可能なスプライトパーソナリティ（Planned）
+- QRベースの共有形式（Planned）
+- 複数バックエンドによるローカル推論（Experimental direction）
+- より表情豊かなスプライト状態（Planned）
+- ローカルメモリシステム（Planned / Research）
+
 ## ロードマップ
 
 - [ ] 古いスクリーンショットを現在のLAMI Android UIへ置き換える
@@ -207,6 +258,14 @@ Issues、Discussions、feature requests、device reportsを歓迎します。
 - TTS / ASRへの期待
 - QNN / NPU診断結果
 - スプライトキャラクターやパーソナリティ共有のアイデア
+- 端末互換性レポート
+- Edge AI実験メモ
+- バグ報告とパフォーマンス診断
+- スプライトやUXのアイデア
+
+## Project Maturity
+
+LAMIは現在、活発に変化しているExperimentalなプロジェクトです。Android Edge AIのツールや端末ごとの挙動が明確になるにつれて、アーキテクチャ、ローカル推論ワークフロー、診断、キャラクターシステムは変わる可能性があります。
 
 ## Attribution
 
@@ -220,6 +279,7 @@ MITライセンスのupstream materialを含む第三者attributionについて�
 
 <!--
 Suggested GitHub Topics:
-edge-ai, local-llm, litert, mediapipe, android-ai, on-device-ai,
-ai-assistant, sprite-animation, offline-ai
+edge-ai, local-ai, local-llm, litert, mediapipe, android-ai,
+on-device-ai, ai-assistant, sprite-animation, local-inference,
+offline-ai, character-ai
 -->
