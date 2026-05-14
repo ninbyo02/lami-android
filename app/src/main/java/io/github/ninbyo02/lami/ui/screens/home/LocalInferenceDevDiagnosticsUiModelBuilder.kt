@@ -11,10 +11,11 @@ internal fun buildLocalInferenceDevDiagnosticsUiModel(
     devHeldStateText: String?,
     devCloseLifecycleText: String?,
     devDebugText: String?,
+    trace: LocalInferenceTrace? = null,
 ): LocalInferenceDevDiagnosticsUiModel {
     return LocalInferenceDevDiagnosticsUiModel(
-        heldEngineReuseSummary = resolveDevSummaryEngineReuse(devHeldStateText),
-        heldEngineStateSummary = resolveDevSummaryHeldState(devHeldStateText),
+        heldEngineReuseSummary = resolveDevSummaryEngineReuse(devHeldStateText, trace),
+        heldEngineStateSummary = resolveDevSummaryHeldState(devHeldStateText, trace),
         closeStatusSummary = resolveDevSummaryCloseStatus(devCloseLifecycleText),
         failureSummary = resolveDevSummaryFailure(devDebugText),
     )
@@ -23,13 +24,19 @@ internal fun buildLocalInferenceDevDiagnosticsUiModel(
 internal fun withProbeStateLabel(value: String?, state: String): String =
     "${value ?: "—"}（$state）"
 
-private fun resolveDevSummaryEngineReuse(devHeldStateText: String?): String {
+private fun resolveDevSummaryEngineReuse(devHeldStateText: String?, trace: LocalInferenceTrace?): String {
     val heldExists = devHeldStateText.devLineValue("heldExists")?.toBooleanStrictOrNull()
     val useCount = devHeldStateText.devLineValue("useCount")?.toIntOrNull()
     val heldHash = devHeldStateText.devLineValue("heldHash")
+    val acquireAction = trace?.holderLastAcquireAction
     return when {
+        acquireAction == "reused" -> "再利用あり"
+        acquireAction == "created" -> "新規作成"
+        acquireAction?.startsWith("failed:") == true -> "取得失敗"
         heldExists == true && useCount != null && useCount >= 1 -> "再利用あり"
         heldExists == true && !heldHash.isNullOrBlank() && heldHash != "null" -> "再利用あり"
+        trace?.heldEngineCreatedDuringRun == true -> "新規作成"
+        trace?.heldEngineWasPresentAtRunStart == true -> "再利用あり"
         heldExists == false -> "再利用なし"
         heldExists == true && useCount == 0 -> "再利用なし"
         heldExists == true -> "再利用あり"
@@ -37,12 +44,21 @@ private fun resolveDevSummaryEngineReuse(devHeldStateText: String?): String {
     }
 }
 
-private fun resolveDevSummaryHeldState(devHeldStateText: String?): String {
+private fun resolveDevSummaryHeldState(devHeldStateText: String?, trace: LocalInferenceTrace?): String {
     val heldExists = devHeldStateText.devLineValue("heldExists")?.toBooleanStrictOrNull()
+    val foregroundSuffix = when (trace?.holderAppInForeground) {
+        true -> " / foreground"
+        false -> " / background"
+        null -> ""
+    }
     return when (heldExists) {
-        true -> "存在"
-        false -> "未保持"
-        null -> "不明"
+        true -> "存在$foregroundSuffix"
+        false -> "未保持$foregroundSuffix"
+        null -> when {
+            trace?.heldEngineHash != null -> "存在$foregroundSuffix"
+            trace?.heldEngineWasPresentAtRunStart == true -> "存在$foregroundSuffix"
+            else -> "不明$foregroundSuffix"
+        }
     }
 }
 

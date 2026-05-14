@@ -82,6 +82,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.annotation.VisibleForTesting
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import io.github.ninbyo02.lami.BuildConfig
@@ -104,6 +105,7 @@ import io.github.ninbyo02.lami.util.normalizeUrlInput
 import io.github.ninbyo02.lami.util.validateUrlFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -148,7 +150,11 @@ fun openUrl(context: Context, url: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
+fun Settings(
+    navgationController: NavController,
+    onSaved: () -> Unit = {},
+    settingsBackStackEntry: NavBackStackEntry? = null,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val db = AppDatabase.getDatabase(context)
@@ -256,18 +262,14 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
     val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
     val listState = rememberLazyListState()
-    // Use the explicit SETTINGS NavBackStackEntry as the owner of the
-    // SavedStateHandle used for About→Settings return events.
-    // This avoids relying on currentBackStackEntry and makes the state
-    // owner explicit and stable across recompositions.
-    val settingsBackStackEntry = remember(navgationController) {
-        navgationController.getBackStackEntry(Routes.SETTINGS)
-    }
     val resetScrollOnReturnFromAbout by
-        settingsBackStackEntry
-            .savedStateHandle
-            .getStateFlow(ResetSettingsScrollOnReturnFromAboutKey, false)
-            .collectAsState()
+        remember(settingsBackStackEntry) {
+            settingsBackStackEntry
+                ?.savedStateHandle
+                ?.getStateFlow(ResetSettingsScrollOnReturnFromAboutKey, false)
+                ?: flowOf(false)
+        }
+            .collectAsState(initial = false)
     val fadeHeight = 32.dp
     val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
     val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
@@ -282,8 +284,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         if (resetScrollOnReturnFromAbout) {
             listState.scrollToItem(0)
             settingsBackStackEntry
-                .savedStateHandle
-                .set(ResetSettingsScrollOnReturnFromAboutKey, false)
+                ?.savedStateHandle
+                ?.set(ResetSettingsScrollOnReturnFromAboutKey, false)
         }
     }
 
@@ -576,6 +578,53 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                }
+                            }
+                        }
+                    }
+                }
+                if (BuildConfig.DEBUG) {
+                    // DEV診断向けの実験設定のため、DEBUGビルドのみ表示する
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Card {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = "MediaPipe preferredBackend（実験）",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = "DEBUGビルド限定の実験機能です。LiteRT-LM EngineConfig に DEFAULT / CPU / GPU を指定します。NPUはvendor FastRPC namespace制約のため本線では無効化し、GPUを推奨します。変更後はローカルエンジン再作成が必要です。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            val currentDryRun = settingsData.preferredBackendDryRunSetting
+                            PreferredBackendDryRunSetting.selectableEntries.forEach { setting ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            scope.launch {
+                                                settingsPreferences.savePreferredBackendDryRunSetting(setting)
+                                            }
+                                        }
+                                        .padding(vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = currentDryRun == setting,
+                                        onClick = {
+                                            scope.launch {
+                                                settingsPreferences.savePreferredBackendDryRunSetting(setting)
+                                            }
+                                        },
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(text = setting.name, style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
                         }
@@ -1019,8 +1068,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 Card(
                     onClick = {
                         settingsBackStackEntry
-                            .savedStateHandle
-                            .set(ResetSettingsScrollOnReturnFromAboutKey, true)
+                            ?.savedStateHandle
+                            ?.set(ResetSettingsScrollOnReturnFromAboutKey, true)
                         navgationController.navigate(Routes.ABOUT)
                     },
                     modifier = Modifier.fillMaxWidth(),

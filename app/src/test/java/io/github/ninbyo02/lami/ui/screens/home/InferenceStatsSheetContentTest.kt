@@ -2,8 +2,11 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class InferenceStatsSheetContentTest {
@@ -17,14 +20,17 @@ class InferenceStatsSheetContentTest {
             finishReason = "stop",
         )
 
-        val sections = buildInferenceSummarySections(stats)
+        val sections = buildInferenceSummarySections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
 
         assertEquals(listOf("概要"), sections.map { it.title })
         assertEquals(
             listOf("初回受信まで（端末基準）", "全体完了まで（統計基準）", "生成速度", "完了理由"),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("0.4 s", "3.6 s", "55.5 token/s", "通常終了 (stop)"), sections[0].items.map { it.value })
+        assertEquals(listOf("420 ms", "3.6 s", "55.5 token/s", "通常終了 (stop)"), sections[0].items.map { it.value })
     }
 
     @Test
@@ -34,7 +40,10 @@ class InferenceStatsSheetContentTest {
             inferenceTimeSec = 1.8,
         )
 
-        val sections = buildInferenceSummarySections(stats)
+        val sections = buildInferenceSummarySections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
 
         assertEquals("2.0 s", sections[0].items[0].value)
         assertEquals("1.8 s", sections[0].items[1].value)
@@ -56,10 +65,11 @@ class InferenceStatsSheetContentTest {
 
         val sections = buildInferenceSummarySections(
             stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             localTraceForDev = trace,
         )
 
-        assertEquals("18.6 token/s（準実測）", sections[0].items[2].value)
+        assertEquals("12.2 token/s", sections[0].items[2].value)
     }
 
     @Test
@@ -80,10 +90,11 @@ class InferenceStatsSheetContentTest {
 
         val sections = buildInferenceSummarySections(
             stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             localTraceForDev = trace,
         )
 
-        assertEquals("11.9 token/s（Tokenizer）", sections[0].items[2].value)
+        assertEquals("17.9 token/s", sections[0].items[2].value)
     }
 
     @Test
@@ -155,17 +166,23 @@ class InferenceStatsSheetContentTest {
             imageInputCount = 2,
         )
 
-        val sections = buildInferenceDetailSections(stats)
+        val sections = buildInferenceDetailSections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
 
-        assertEquals(listOf("トークン", "バックエンド時間詳細", "補足"), sections.map { it.title })
+        assertEquals(listOf("トークン", "詳細", "補足"), sections.map { it.title })
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元", "速度取得元", "Tokenizer状態"),
+            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元"),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("100（推定）", "240（推定）", "340（推定）", "Ollama", "推定", "未実行"), sections[0].items.map { it.value })
-        assertEquals(listOf("モデルロード時間", "入力評価時間", "生成時間", "推論時間"), sections[1].items.map { it.label })
+        assertEquals(listOf("100（推定）", "240（推定）", "340（推定）", "バックエンド"), sections[0].items.map { it.value })
         assertEquals(
-            listOf("2.0 s（取得済み）", "1.5 s（取得済み）", "3.0 s（取得済み）", "—（未取得）"),
+            listOf("速度取得元", "表示速度", "バックエンド基準速度", "Lami基準TTFT", "バックエンド基準TTFT", "モデルロード時間", "入力評価時間", "生成時間", "推論時間"),
+            sections[1].items.map { it.label },
+        )
+        assertEquals(
+            listOf("推定", "—", "—", "—", "—", "2.0 s（取得済み）", "1.5 s（取得済み）", "3.0 s（取得済み）", "—（未取得）"),
             sections[1].items.map { it.value },
         )
         assertEquals(listOf("画像入力"), sections[2].items.map { it.label })
@@ -182,19 +199,21 @@ class InferenceStatsSheetContentTest {
             assistantUpdateCount = 109,
         )
 
-        val sections = buildInferenceDetailSections(stats)
+        val sections = buildInferenceDetailSections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
 
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元", "実測生成速度", "体感生成速度", "速度取得元", "Tokenizer状態"),
+            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元"),
             sections[0].items.map { it.label },
         )
-        assertEquals("32.4 token/s", sections[0].items[4].value)
-        assertEquals("21.8 token/s", sections[0].items[5].value)
-        val devSection = sections.first { it.title == "DEV診断" }
         assertEquals(
-            "semi-measured:assistantUpdateCount / generationTimeMs",
-            devSection.items.first { it.label == "体感生成速度source" }.value,
+            listOf("速度取得元", "表示速度", "バックエンド基準速度", "体感速度", "Lami基準TTFT", "バックエンド基準TTFT", "モデルロード時間", "入力評価時間", "生成時間", "推論時間"),
+            sections[1].items.map { it.label },
         )
+        assertEquals("32.4 token/s", sections[1].items.first { it.label == "バックエンド基準速度" }.value)
+        assertEquals("48.0 token/s", sections[1].items.first { it.label == "体感速度" }.value)
     }
 
     @Test
@@ -205,21 +224,30 @@ class InferenceStatsSheetContentTest {
             assistantUpdateCount = 0,
         )
 
-        val sections = buildInferenceDetailSections(stats)
+        val sections = buildInferenceDetailSections(
+            stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
 
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元", "実測生成速度", "速度取得元", "Tokenizer状態"),
+            listOf("入力トークン", "生成トークン", "合計トークン", "トークン取得元"),
             sections[0].items.map { it.label },
+        )
+        assertEquals(
+            listOf("速度取得元", "表示速度", "バックエンド基準速度", "Lami基準TTFT", "バックエンド基準TTFT", "モデルロード時間", "入力評価時間", "生成時間", "推論時間"),
+            sections[1].items.map { it.label },
         )
     }
 
     @Test
     fun `buildInferenceDetailSections keeps placeholder when values are missing`() {
-        val sections = buildInferenceDetailSections(InferenceStats())
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
+        )
 
         assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）"), sections[0].items.take(3).map { it.value })
-        assertEquals("未実行", sections[0].items.last { it.label == "Tokenizer状態" }.value)
-        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "—（未取得）"), sections[1].items.map { it.value })
+        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "—（未取得）"), sections[1].items.takeLast(4).map { it.value })
         assertEquals("—", sections[2].items.first().value)
     }
 
@@ -234,14 +262,58 @@ class InferenceStatsSheetContentTest {
 
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
             localTraceForDev = trace,
         )
 
         assertEquals(
-            listOf("入力トークン数（未取得）", "出力トークン数（未取得）", "合計トークン（未取得）", "トークン取得元", "速度取得元", "直近 Prefill Token", "直近 Decode Token", "Tokenizer状態"),
+            listOf("入力トークン数（未取得）", "出力トークン数（未取得）", "合計トークン（未取得）", "トークン取得元"),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "未取得", "未取得", "0", "42", "未実行"), sections[0].items.map { it.value })
+        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "未取得"), sections[0].items.map { it.value })
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("0", devSection.items.first { it.label == "直近 Prefill Token" }.value)
+        assertEquals("42", devSection.items.first { it.label == "直近 Decode Token" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows official chunk timing diagnostics`() {
+        val trace = LocalInferenceTrace(
+            assistantUpdateCount = 4,
+            appendEventsPerSecond = 22.5,
+            officialChunkCount = 4,
+            officialChunkIntervalAvgMs = 850.5,
+            officialChunkIntervalMaxMs = 1_800L,
+            officialChunkIntervalMinMs = 100L,
+            officialChunkFirstToLastMs = 2_551L,
+            officialChunkCharsAvg = 8.5,
+            officialChunkCharsMax = 12,
+            officialChunkCharsMin = 0,
+            officialChunkEmptyCount = 1,
+            officialChunkNonEmptyCount = 3,
+            officialChunkEventsPerSecond = 1.6,
+            officialChunkCharsPerSecond = 13.3,
+        )
+
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = trace,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("4", devSection.items.first { it.label == "officialChunkCount" }.value)
+        assertEquals("850.5 ms", devSection.items.first { it.label == "officialChunkIntervalAvgMs" }.value)
+        assertEquals("1800 ms", devSection.items.first { it.label == "officialChunkIntervalMaxMs" }.value)
+        assertEquals("2551 ms", devSection.items.first { it.label == "officialChunkFirstToLastMs" }.value)
+        assertEquals("8.5 chars", devSection.items.first { it.label == "officialChunkCharsAvg" }.value)
+        assertEquals("1.6 events/s", devSection.items.first { it.label == "officialChunkEventsPerSecond" }.value)
+        assertEquals("13.3 chars/s", devSection.items.first { it.label == "officialChunkCharsPerSecond" }.value)
+        assertEquals("1", devSection.items.first { it.label == "officialChunkEmptyCount" }.value)
+        assertEquals("official-chunk-sparse", devSection.items.first { it.label == "Streaming bottleneck hint" }.value)
+
+        val summarySection = sections.first { it.title == "DEV診断サマリー" }
+        assertEquals("official-chunk-sparse", summarySection.items.first { it.label == "Streaming bottleneck hint" }.value)
     }
 
     @Test
@@ -254,6 +326,7 @@ class InferenceStatsSheetContentTest {
                 totalDurationMs = 3_400L,
                 notes = "tokenizer note",
             ),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             localTraceForDev = LocalInferenceTrace(),
         )
 
@@ -263,16 +336,22 @@ class InferenceStatsSheetContentTest {
                 "出力トークン数（未取得）",
                 "合計トークン（未取得）",
                 "トークン取得元",
-                "実測生成速度",
-                "速度取得元",
-                "TTFT",
-                "Decode時間",
-                "総応答時間",
-                "Tokenizer状態",
             ),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("21.5 token/s（推定）", "推定", "0.4 s", "2.8 s", "3.4 s", "未実行"), sections[0].items.takeLast(6).map { it.value })
+        assertEquals(
+            listOf(
+                "速度取得元",
+                "表示速度",
+                "バックエンド基準速度",
+                "Lami基準TTFT",
+                "バックエンド基準TTFT",
+                "Decode時間",
+                "総応答時間",
+            ),
+            sections[1].items.take(7).map { it.label },
+        )
+        assertEquals(listOf("未取得 / バックエンド基準（Engine時間）", "—", "21.5 token/s", "420 ms", "—", "2.8 s", "3.4 s"), sections[1].items.take(7).map { it.value })
         assertEquals("tokenizer note", sections[2].items.first { it.label == "注記" }.value)
     }
 
@@ -289,6 +368,7 @@ class InferenceStatsSheetContentTest {
         )
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(tokenCountMode = "tokenizer_recount"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
             localTraceForDev = trace,
         )
 
@@ -297,7 +377,8 @@ class InferenceStatsSheetContentTest {
             sections[0].items.take(3).map { it.label },
         )
         assertEquals(listOf("12（Tokenizer）", "34（Tokenizer）", "46（Tokenizer）"), sections[0].items.take(3).map { it.value })
-        assertEquals("成功", sections[0].items.last { it.label == "Tokenizer状態" }.value)
+        val summarySection = sections.first { it.title == "DEV診断サマリー" }
+        assertEquals("成功", summarySection.items.first { it.label == "Tokenizer再計数" }.value)
     }
 
     @Test
@@ -309,6 +390,7 @@ class InferenceStatsSheetContentTest {
         )
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(inputTokens = 8, outputTokens = 13, totalTokens = 21),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
             localTraceForDev = trace,
         )
 
@@ -316,25 +398,28 @@ class InferenceStatsSheetContentTest {
             listOf("入力トークン数（推定）", "出力トークン数（推定）", "合計トークン（推定）"),
             sections[0].items.take(3).map { it.label },
         )
-        assertEquals("失敗（inference-instance-not-found）", sections[0].items.last { it.label == "Tokenizer状態" }.value)
+        val summarySection = sections.first { it.title == "DEV診断サマリー" }
+        assertEquals("未取得", summarySection.items.first { it.label == "Tokenizer再計数" }.value)
     }
 
     @Test
     fun `buildInferenceDetailSections marks generation fallback when using evalDurationNs`() {
         val sections = buildInferenceDetailSections(
-            InferenceStats(
+            stats = InferenceStats(
                 evalDurationNs = 1_200_000_000L,
             ),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
         )
 
-        assertEquals("1.2 s（fallback）", sections[1].items[2].value)
-        assertEquals("1.2 s（取得済み）", sections[1].items[3].value)
+        assertEquals("—", sections[1].items[2].value)
+        assertEquals("1.2 s（取得済み）", sections[1].items.first { it.label == "推論時間" }.value)
     }
 
     @Test
     fun `buildInferenceDetailSections does not duplicate measuredTokens in DEV diagnostics`() {
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             measuredTokenSnapshotSummary = "in=1 / out=2 / total=3",
         )
         val devSection = sections.firstOrNull { it.title == "DEV診断" }
@@ -370,6 +455,7 @@ class InferenceStatsSheetContentTest {
         )
         val text = buildInferenceStatsFullCopyText(
             stats = stats,
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             sections = listOf(
                 InferenceStatsSectionUi(
                     title = "概要",
@@ -382,7 +468,6 @@ class InferenceStatsSheetContentTest {
                     items = listOf(InferenceStatItemUi(label = "診断", value = "ok")),
                 ),
             ),
-            measuredTokenSnapshotSummary = "in=1 / out=2 / total=3\n[BenchmarkInfo raw]\nprefillTokenCount: 1",
         )
 
         assertTrue(text.contains("推論統計"))
@@ -392,21 +477,728 @@ class InferenceStatsSheetContentTest {
         assertTrue(text.contains("[コンテキスト使用量]"))
         assertTrue(text.contains("[追加情報]"))
         assertTrue(text.contains("[DEV診断サマリー]"))
-        assertTrue(text.contains("[measuredTokens]"))
-        assertTrue(text.contains("[BenchmarkInfo raw]"))
     }
 
     @Test
     fun `buildInferenceStatsFullCopyText keeps benchmark placeholder when measured tokens are unavailable`() {
         val text = buildInferenceStatsFullCopyText(
             stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DETAILED,
             sections = emptyList(),
             detailSections = emptyList(),
-            measuredTokenSnapshotSummary = null,
         )
 
-        assertTrue(text.contains("[measuredTokens]"))
-        assertTrue(text.contains("unavailable"))
-        assertTrue(text.contains("[BenchmarkInfo raw]"))
+        assertTrue(text.contains("—"))
     }
+
+
+    @Test
+    fun `buildInferenceDetailSections adds accelerator probe rows in developer mode`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("deprecated on Android 15+", devSection.items.first { it.label == "NNAPI warning" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "NNAPI devices" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections handles accelerator probe unknown values safely`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = null,
+                deviceModel = null,
+                deviceBoard = null,
+                androidSdk = 34,
+                supportedAbis = emptyList(),
+                cpuCoreCount = null,
+                cpuAbi = null,
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = false,
+                nnapiDeprecatedWarning = false,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                probeError = "error",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("unknown", devSection.items.first { it.label == "GPU検出情報" }.value)
+        assertEquals("error", devSection.items.first { it.label == "Error" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows gpu probe and inference rows when available`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 34,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = "Qualcomm",
+                gpuRenderer = "Adreno",
+                gpuVersion = "OpenGL ES 3.2",
+                nnapiAvailable = false,
+                nnapiDeprecatedWarning = false,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                gpuProbeSource = "egl-pbuffer",
+                gpuProbeError = "egl fallback",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertTrue(devSection.items.first { it.label == "GPU検出情報" }.value.contains("Adreno"))
+        assertEquals("egl-pbuffer", devSection.items.first { it.label == "GPU Probe" }.value)
+        assertEquals("egl fallback", devSection.items.first { it.label == "GPU Probe Error" }.value)
+        assertEquals("gpu-possible / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows delegate probe rows and hides error when absent`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                delegateProbeSource = "reflection-safe",
+                delegateSwitchingSupportedHint = "not-detected",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("reflection-safe", devSection.items.first { it.label == "Delegate API Probe" }.value)
+        assertEquals("not-detected", devSection.items.first { it.label == "Delegate switching hint" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "Delegate option candidates" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "Delegate backend enum values" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "Delegate preferredBackend signatures" }.value)
+        assertTrue(devSection.items.none { it.label == "Delegate Probe Error" })
+        assertTrue(devSection.items.none { it.label == "Delegate backend enum probe error" })
+        assertTrue(devSection.items.none { it.label == "Delegate preferredBackend signature error" })
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows external qairt staged facts in developer mode`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "nubia",
+                deviceModel = "NX733J",
+                deviceBoard = "kalama",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = "Qualcomm",
+                gpuRenderer = "Adreno",
+                gpuVersion = "OpenGL ES 3.2",
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                externalQairtStageStatus = "present",
+                externalQairtStagePath = "/data/local/tmp/qairt",
+                externalQairtQnnNetRunStatus = "available",
+                externalQairtQnnPlatformValidatorStatus = "available",
+                externalQairtQnnSdkVersion = "v2.46.0.260424121129",
+                externalQairtGpuBackendStatus = "passed",
+                externalQairtDspCore = "Hexagon Architecture V79",
+                externalQairtDspBackendStatus = "passed",
+                externalQairtNote = "adb-verified external stage facts",
+            ),
+        )
+
+        val externalQairtSection = sections.first { it.title == "DEV診断: External QAIRT" }
+        assertEquals("passed", externalQairtSection.items.first { it.label == "External QAIRT stage" }.value)
+        assertEquals("/data/local/tmp/qairt", externalQairtSection.items.first { it.label == "QAIRT stage path" }.value)
+        assertEquals("available", externalQairtSection.items.first { it.label == "qnn-net-run" }.value)
+        assertEquals("available", externalQairtSection.items.first { it.label == "qnn-platform-validator" }.value)
+        assertEquals("v2.46.0.260424121129", externalQairtSection.items.first { it.label == "QNN SDK version" }.value)
+        assertEquals("passed", externalQairtSection.items.first { it.label == "External QNN GPU" }.value)
+        assertEquals("Hexagon Architecture V79", externalQairtSection.items.first { it.label == "QNN DSP core" }.value)
+        assertEquals("passed", externalQairtSection.items.first { it.label == "External QNN DSP/HTP" }.value)
+        assertEquals("adb-verified external stage facts", externalQairtSection.items.first { it.label == "QAIRT stage note" }.value)
+    }
+
+
+    @Test
+    fun `buildInferenceDetailSections shows npu probe none unknown by default`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                delegateProbeSource = "reflection-safe",
+                npuProbeHint = "not-detected",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("not-detected", devSection.items.first { it.label == "NPU probe hint" }.value)
+        assertEquals("probe-only (not applied)", devSection.items.first { it.label == "NPU status" }.value)
+        assertEquals("disabled (forced GPU fallback)", devSection.items.first { it.label == "NPU apply status" }.value)
+        assertEquals("NPU backend candidate detected via reflection. Currently disabled for safety; GPU fallback is used for actual inference.", devSection.items.first { it.label == "NPU note" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "NPU delegate candidates" }.value)
+        assertEquals("unknown", devSection.items.first { it.label == "Backend NPU probe hint" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "Backend NPU class candidates" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "Backend NPU method candidates" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "Backend NPU constructor signatures" }.value)
+        assertEquals("unknown", devSection.items.first { it.label == "Backend NPU nativeLibraryDir required" }.value)
+        assertEquals("probe-only", devSection.items.first { it.label == "NPU stage probe" }.value)
+        assertEquals("false", devSection.items.first { it.label == "NPU constructor available" }.value)
+        assertEquals("false", devSection.items.first { it.label == "NPU string constructor available" }.value)
+        assertEquals("unknown", devSection.items.first { it.label == "NPU nativeLibraryDir candidate" }.value)
+        assertEquals("unknown", devSection.items.first { it.label == "NPU stage probe result" }.value)
+        assertEquals("—", devSection.items.first { it.label == "NPU stage probe error" }.value)
+        assertEquals("none/unknown", devSection.items.first { it.label == "QNN candidates" }.value)
+        assertEquals("not-detected", devSection.items.first { it.label == "QNN status" }.value)
+        assertEquals("not-detected", devSection.items.first { it.label == "NNAPI delegate status" }.value)
+        assertNotEquals("npu-active / high", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows qnn candidates and keeps conservative execution`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = "Qualcomm",
+                gpuRenderer = "Adreno",
+                gpuVersion = "OpenGL ES 3.2",
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                delegateProbeSource = "reflection-safe",
+                qnnDelegateCandidates = listOf("LlmInferenceOptions.Builder.setQnnDelegate"),
+                npuProbeHint = "qnn-candidate-detected",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("qnn-candidate-detected", devSection.items.first { it.label == "NPU probe hint" }.value)
+        assertEquals("LlmInferenceOptions.Builder.setQnnDelegate", devSection.items.first { it.label == "QNN candidates" }.value)
+        assertEquals("candidate-detected", devSection.items.first { it.label == "QNN status" }.value)
+        assertEquals("gpu-possible / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows backend npu constructor candidates without npu active`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                delegateProbeSource = "reflection-safe",
+                backendNpuClassCandidates = listOf("Backend.NPU"),
+                backendNpuMethodCandidates = listOf("NPU.nativeLibraryDir(String): NPU"),
+                backendNpuConstructorSignatures = listOf("NPU(String): Backend"),
+                backendNpuNativeLibraryDirRequired = "true",
+                backendNpuProbeHint = "npu-backend-native-library-dir-candidate",
+                npuConstructorAvailable = true,
+                npuStringConstructorAvailable = true,
+                npuNativeLibraryDirCandidate = "unknown",
+                npuStageProbeResult = "safe",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("npu-backend-native-library-dir-candidate", devSection.items.first { it.label == "Backend NPU probe hint" }.value)
+        assertEquals("Backend.NPU", devSection.items.first { it.label == "Backend NPU class candidates" }.value)
+        assertEquals("NPU.nativeLibraryDir(String): NPU", devSection.items.first { it.label == "Backend NPU method candidates" }.value)
+        assertEquals("NPU(String): Backend", devSection.items.first { it.label == "Backend NPU constructor signatures" }.value)
+        assertEquals("true", devSection.items.first { it.label == "Backend NPU nativeLibraryDir required" }.value)
+        assertEquals("probe-only", devSection.items.first { it.label == "NPU stage probe" }.value)
+        assertEquals("true", devSection.items.first { it.label == "NPU constructor available" }.value)
+        assertEquals("true", devSection.items.first { it.label == "NPU string constructor available" }.value)
+        assertEquals("unknown", devSection.items.first { it.label == "NPU nativeLibraryDir candidate" }.value)
+        assertEquals("safe", devSection.items.first { it.label == "NPU stage probe result" }.value)
+        assertNotEquals("npu-active / high", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows delegate probe error and execution reason note`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                officialFlowUsed = true,
+            ),
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = "Qualcomm",
+                gpuRenderer = "Adreno",
+                gpuVersion = "OpenGL ES 3.2",
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = listOf("nnapi-device"),
+                probeSource = "test",
+                delegateProbeSource = "reflection-safe",
+                delegateProbeError = "ClassNotFoundException",
+                delegateOptionCandidates = listOf("LlmInferenceOptions.Builder.setPreferredBackend"),
+                delegateBackendCandidates = listOf("LlmInferenceOptions.Backend"),
+                delegateBackendEnumValues = listOf("CPU", "GPU"),
+                delegateBackendEnumProbeError = "ClassNotFoundException",
+                delegatePreferredBackendSignatures = listOf("Builder.setPreferredBackend(Backend): Builder"),
+                delegatePreferredBackendSignatureProbeError = "ClassNotFoundException",
+                delegateClassCandidates = listOf("LlmInferenceOptions.Builder"),
+                delegateSwitchingSupportedHint = "delegate-api-candidate-detected",
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("ClassNotFoundException", devSection.items.first { it.label == "Delegate Probe Error" }.value)
+        assertEquals("CPU, GPU", devSection.items.first { it.label == "Delegate backend enum values" }.value)
+        assertEquals("ClassNotFoundException", devSection.items.first { it.label == "Delegate backend enum probe error" }.value)
+        assertEquals("Builder.setPreferredBackend(Backend): Builder", devSection.items.first { it.label == "Delegate preferredBackend signatures" }.value)
+        assertEquals("ClassNotFoundException", devSection.items.first { it.label == "Delegate preferredBackend signature error" }.value)
+        assertEquals("accelerator-unknown / low", devSection.items.first { it.label == "実行経路推定" }.value)
+        assertTrue(devSection.items.first { it.label == "推定理由" }.value.contains("delegate API candidate detected"))
+    }
+
+    @Test
+    fun `buildInferenceDetailSections keeps execution inference conservative when preferred backend signatures exist`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+                delegateProbeSource = "reflection-safe",
+                delegateOptionCandidates = listOf("Builder.setPreferredBackend"),
+                delegateBackendCandidates = listOf("LlmInference.Backend"),
+                delegateBackendEnumValues = listOf("DEFAULT", "CPU", "GPU"),
+                delegatePreferredBackendSignatures = listOf("Builder.setPreferredBackend(Backend): Builder"),
+            ),
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("Builder.setPreferredBackend(Backend): Builder", devSection.items.first { it.label == "Delegate preferredBackend signatures" }.value)
+        assertEquals("npu-candidate / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows preferred backend dry-run rows for GPU and keeps conservative execution`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("GPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertEquals("not-applied", devSection.items.first { it.label == "Applied backend" }.value)
+        assertEquals("not-supported", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("npu-candidate / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows preferred backend dry-run rows for DEFAULT`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("DEFAULT", devSection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertEquals("not-applied", devSection.items.first { it.label == "Applied backend" }.value)
+        assertEquals("skipped-default", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+    }
+
+
+    @Test
+    fun `buildInferenceDetailSections shows preferred backend apply diagnostics details`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "not-applied",
+                preferredBackendApplyResult = "not-supported",
+                preferredBackendApplyError = "NoSuchMethodException",
+                preferredBackendApplyBuilderClass = "com.example.OptionsBuilder",
+                preferredBackendApplyMethodCandidates = listOf("setPreferredBackend(Backend): Builder"),
+                preferredBackendApplyBackendEnumCandidates = listOf("DEFAULT", "CPU", "GPU"),
+                preferredBackendApplyNotSupportedReason = "no-setPreferredBackend-method",
+            ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("com.example.OptionsBuilder", devSection.items.first { it.label == "PreferredBackend builder class" }.value)
+        assertEquals("setPreferredBackend(Backend): Builder", devSection.items.first { it.label == "PreferredBackend method candidates" }.value)
+        assertEquals("DEFAULT, CPU, GPU", devSection.items.first { it.label == "PreferredBackend backend enum candidates" }.value)
+        assertEquals("no-setPreferredBackend-method", devSection.items.first { it.label == "PreferredBackend not-supported reason" }.value)
+        assertEquals("npu-candidate / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows preferred backend rows for NPU applied`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "NPU",
+                appliedPreferredBackend = "NPU",
+                preferredBackendApplyResult = "applied-engine-config",
+                preferredBackendHookReached = true,
+                preferredBackendHookSource = "holder-acquire-engine-config",
+                preferredBackendApplyBackendEnumCandidates = listOf("DEFAULT", "CPU", "GPU", "NPU"),
+            ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
+        )
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("NPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertEquals("NPU", devSection.items.first { it.label == "Applied backend" }.value)
+        assertEquals("applied-engine-config", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertTrue(devSection.items.none { it.label == "Effective backend note" })
+        assertEquals("holder-acquire-engine-config", devSection.items.first { it.label == "PreferredBackend hook source" }.value)
+        assertEquals("DEFAULT, CPU, GPU, NPU", devSection.items.first { it.label == "PreferredBackend backend enum candidates" }.value)
+        assertEquals("qnn-npu-likely / medium", devSection.items.first { it.label == "実行経路推定" }.value)
+        assertEquals("qnn-npu-likely / medium", sections.first { it.title == "DEV診断サマリー" }.items.first { it.label == "推定実行先" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows NPU engine-create fallback to GPU`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "NPU",
+                appliedPreferredBackend = "GPU",
+                preferredBackendApplyResult = "fallback-gpu-after-npu-engine-create-failed",
+                preferredBackendApplyError = "IllegalStateException",
+                preferredBackendHookReached = true,
+            ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
+        )
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("fallback-gpu-after-npu-engine-create-failed", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("IllegalStateException", devSection.items.first { it.label == "PreferredBackend apply error" }.value)
+        assertEquals("gpu-fallback / high", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections reports NPU request as not applied without trace`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = AcceleratorProbeSnapshot(
+                deviceManufacturer = "Google",
+                deviceModel = "Pixel",
+                deviceBoard = "board-x",
+                androidSdk = 35,
+                supportedAbis = listOf("arm64-v8a"),
+                cpuCoreCount = 8,
+                cpuAbi = "arm64-v8a",
+                gpuVendor = null,
+                gpuRenderer = null,
+                gpuVersion = null,
+                nnapiAvailable = true,
+                nnapiDeprecatedWarning = true,
+                nnapiDevices = emptyList(),
+                probeSource = "test",
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("NPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertEquals("not-applied", devSection.items.first { it.label == "Applied backend" }.value)
+        assertEquals("not-supported", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertTrue(devSection.items.none { it.label == "Effective backend note" })
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows NPU runtime fallback to GPU`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "NPU",
+                appliedPreferredBackend = "GPU",
+                preferredBackendApplyResult = "fallback-gpu-after-npu-runtime-failed",
+                preferredBackendApplyError = "IllegalStateException:initialize failed",
+                preferredBackendHookReached = true,
+            ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.NPU,
+        )
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("fallback-gpu-after-npu-runtime-failed", devSection.items.first { it.label == "PreferredBackend apply result" }.value)
+        assertEquals("IllegalStateException:initialize failed", devSection.items.first { it.label == "PreferredBackend apply error" }.value)
+        assertEquals("gpu-fallback / high", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections shows preferred backend engine recreate diagnostic when held engine is reused`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "not-applied",
+                preferredBackendHookReached = false,
+                heldEngineCreatePath = "holder-existing-engine",
+                preferredBackendHookMissingReason = "holder-existing-engine",
+            ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("true", devSection.items.first { it.label == "PreferredBackend requires engine recreate" }.value)
+        assertEquals(
+            "requested preferredBackend requires a new held engine; current run reused existing engine",
+            devSection.items.first { it.label == "PreferredBackend recreate reason" }.value,
+        )
+        assertEquals("npu-candidate / low", devSection.items.first { it.label == "実行経路推定" }.value)
+    }
+
+
+    @Test
+    fun `buildInferenceDetailSections derives preferred backend engine recreate when trace requested is null and dry-run is GPU`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = null,
+                appliedPreferredBackend = "not-applied",
+                preferredBackendHookReached = false,
+                heldEngineCreatePath = "holder-existing-engine",
+                preferredBackendHookMissingReason = "holder-existing-engine",
+                preferredBackendRequiresEngineRecreate = false,
+            ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("GPU", devSection.items.first { it.label == "Requested preferredBackend" }.value)
+        assertTrue(devSection.items.none { it.label == "PreferredBackend resolver dry-run setting" })
+        assertTrue(devSection.items.none { it.label == "PreferredBackend resolver requested" })
+        assertTrue(devSection.items.none { it.label == "PreferredBackend resolver heldExistingEngine" })
+        assertTrue(devSection.items.none { it.label == "PreferredBackend resolver hookNotReached" })
+        assertTrue(devSection.items.none { it.label == "PreferredBackend resolver missingReasonHeldExisting" })
+        assertEquals("true", devSection.items.first { it.label == "PreferredBackend requires engine recreate" }.value)
+        assertEquals(
+            "requested preferredBackend requires a new held engine; current run reused existing engine",
+            devSection.items.first { it.label == "PreferredBackend recreate reason" }.value,
+        )
+    }
+
+    @Test
+    fun `buildInferenceDetailSections derives preferred backend engine recreate when trace flag is false`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "not-applied",
+                preferredBackendHookReached = false,
+                heldEngineCreatePath = "holder-existing-engine",
+                preferredBackendHookMissingReason = "holder-existing-engine",
+                preferredBackendRequiresEngineRecreate = false,
+            ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("true", devSection.items.first { it.label == "PreferredBackend requires engine recreate" }.value)
+        assertEquals(
+            "requested preferredBackend requires a new held engine; current run reused existing engine",
+            devSection.items.first { it.label == "PreferredBackend recreate reason" }.value,
+        )
+    }
+
+
+    @Test
+    fun `buildInferenceDetailSections treats null preferred backend hook as not reached for recreate diagnostic`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "not-applied",
+                preferredBackendHookReached = null,
+                heldEngineCreatePath = "holder-existing-engine",
+                preferredBackendHookMissingReason = "holder-existing-engine",
+                preferredBackendRequiresEngineRecreate = false,
+            ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertTrue(devSection.items.none { it.label == "PreferredBackend resolver hookNotReached" })
+        assertEquals("true", devSection.items.first { it.label == "PreferredBackend requires engine recreate" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections hides preferred backend recreate diagnostic when recreate is not required`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "GPU",
+                preferredBackendHookReached = true,
+                heldEngineCreatePath = "holder-created-engine-config",
+                preferredBackendRequiresEngineRecreate = false,
+            ),
+            acceleratorProbeSnapshot = preferredBackendProbeSnapshot(),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertTrue(devSection.items.none { it.label == "PreferredBackend requires engine recreate" })
+        assertTrue(devSection.items.none { it.label == "PreferredBackend recreate reason" })
+    }
+
+    private fun preferredBackendProbeSnapshot(): AcceleratorProbeSnapshot =
+        AcceleratorProbeSnapshot(
+            deviceManufacturer = "Google",
+            deviceModel = "Pixel",
+            deviceBoard = "board-x",
+            androidSdk = 35,
+            supportedAbis = listOf("arm64-v8a"),
+            cpuCoreCount = 8,
+            cpuAbi = "arm64-v8a",
+            gpuVendor = null,
+            gpuRenderer = null,
+            gpuVersion = null,
+            nnapiAvailable = true,
+            nnapiDeprecatedWarning = true,
+            nnapiDevices = emptyList(),
+            probeSource = "test",
+        )
 }

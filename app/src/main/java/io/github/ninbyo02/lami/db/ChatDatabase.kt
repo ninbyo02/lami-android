@@ -22,88 +22,88 @@ abstract class ChatDatabase : RoomDatabase() {
         private var INSTANCE: ChatDatabase? = null
 
         private val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
                     "ALTER TABLE user_table ADD COLUMN titleSource TEXT NOT NULL DEFAULT '${TitleSource.MANUAL}'"
                 )
             }
         }
 
         private val MIGRATION_2_3 = object : Migration(2, 3) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
                     "ALTER TABLE chat_table ADD COLUMN attachmentUriString TEXT"
                 )
             }
         }
 
         private val MIGRATION_3_4 = object : Migration(3, 4) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
                     "ALTER TABLE chat_table ADD COLUMN attachmentUriStringsJson TEXT"
                 )
             }
         }
 
         private val MIGRATION_4_5 = object : Migration(4, 5) {
-            override fun migrate(database: SupportSQLiteDatabase) {
+            override fun migrate(db: SupportSQLiteDatabase) {
                 // 既存行の backfill は行わず、追加列は NULL のまま残す。
                 // そのため統計値は v5 移行後に新規保存されたメッセージのみ保持される。
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN completionTokens INTEGER")
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN generationTimeMs INTEGER")
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN evalDurationNs INTEGER")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN completionTokens INTEGER")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN generationTimeMs INTEGER")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN evalDurationNs INTEGER")
             }
         }
 
         private val MIGRATION_5_6 = object : Migration(5, 6) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN modelName TEXT")
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN inputTokens INTEGER")
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN totalTokens INTEGER")
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN tokensPerSecond REAL")
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN inferenceTimeSec REAL")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN modelName TEXT")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN inputTokens INTEGER")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN totalTokens INTEGER")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN tokensPerSecond REAL")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN inferenceTimeSec REAL")
             }
         }
 
         private val MIGRATION_6_7 = object : Migration(6, 7) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN finishReason TEXT")
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN imageInputCount INTEGER")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN finishReason TEXT")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN imageInputCount INTEGER")
             }
         }
 
         private val MIGRATION_7_8 = object : Migration(7, 8) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN timeToFirstTokenMs INTEGER")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN timeToFirstTokenMs INTEGER")
             }
         }
 
         private val MIGRATION_8_9 = object : Migration(8, 9) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN loadDurationNs INTEGER")
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN promptEvalDurationNs INTEGER")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN loadDurationNs INTEGER")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN promptEvalDurationNs INTEGER")
             }
         }
 
         private val MIGRATION_9_10 = object : Migration(9, 10) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN generationDurationNs INTEGER")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN generationDurationNs INTEGER")
             }
         }
 
         private val MIGRATION_10_11 = object : Migration(10, 11) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN localSourceSummary TEXT")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN localSourceSummary TEXT")
             }
         }
 
         private val MIGRATION_11_12 = object : Migration(11, 12) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN charsPerSecond REAL")
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN tokenCountMode TEXT")
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN inferenceNotes TEXT")
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN decodeDurationMs INTEGER")
-                database.execSQL("ALTER TABLE chat_table ADD COLUMN totalDurationMs INTEGER")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN charsPerSecond REAL")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN tokenCountMode TEXT")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN inferenceNotes TEXT")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN decodeDurationMs INTEGER")
+                db.execSQL("ALTER TABLE chat_table ADD COLUMN totalDurationMs INTEGER")
             }
         }
 

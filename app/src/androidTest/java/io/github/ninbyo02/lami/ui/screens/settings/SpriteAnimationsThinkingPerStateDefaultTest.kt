@@ -11,7 +11,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class SpriteAnimationsThinkingPerStateDefaultTest {
@@ -19,9 +18,7 @@ class SpriteAnimationsThinkingPerStateDefaultTest {
     // 動作確認手順:
     // 1) ./gradlew :app:compileDebugKotlin
     // 2) ./gradlew :app:connectedDebugAndroidTest
-    // 3) adb shell pm clear <package>
-    // 4) adb exec-out run-as <package> strings /data/data/<package>/datastore/ollama_settings.preferences_pb | awk '/sprite_animation_json_thinking/{print}'
-    // 失敗時のリカバリ: 3) を再実行して DataStore を初期化し、再度 1) から確認する
+    // 3) adb exec-out run-as <package> find /data/data/<package>/datastore -name 'ollama_settings_android_test_run_*.preferences_pb'
 
     @Test
     fun thinking_per_state_json_uses_defaults_on_fresh_state() = runBlocking {
@@ -71,10 +68,8 @@ class SpriteAnimationsThinkingPerStateDefaultTest {
     }
 
     private fun resetDataStore(context: Context) {
-        val dataDir = context.applicationInfo.dataDir
-        val dataStoreFile = File(dataDir, "datastore/ollama_settings.preferences_pb")
-        if (dataStoreFile.exists()) {
-            dataStoreFile.delete()
+        runBlocking {
+            SettingsPreferences(context).clearAllPreferencesForTest()
         }
     }
 }

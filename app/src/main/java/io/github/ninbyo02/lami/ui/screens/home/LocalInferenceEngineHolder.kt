@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.SystemClock
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -34,6 +35,31 @@ internal data class HeldEngineAcquireDiagnosticResult(
     val failureMessage: String?,
 )
 
+internal data class HeldEngineDevDiagnosticSnapshot(
+    val holderInstanceHash: Int,
+    val heldEngineHash: Int?,
+    val appInForeground: Boolean,
+    val lastAcquireAction: String?,
+    val lastLifecycleEventReason: String?,
+    val lastLifecycleDecisionAction: String?,
+    val recreateRequestCount: Int,
+    val lastRecreateResult: String?,
+    val lastRecreateReason: String?,
+    val hasHeldEngineBeforeRecreate: Boolean?,
+    val hasHeldEngineAfterRecreate: Boolean?,
+    val lastHeldEngineCreateReason: String?,
+    val lastHeldEngineCreateSource: String?,
+    val lastHeldEngineCreateAtElapsedMs: Long?,
+    val lastHeldEngineCreateRequestedPreferredBackend: String?,
+    val lastHeldEngineCreateStackHint: String?,
+    val lastHeldEngineCreateAppliedPreferredBackend: String?,
+    val lastHeldEngineCreatePreferredBackendApplyResult: String?,
+    val lastHeldEngineCreatePreferredBackendHookReached: Boolean?,
+    val lastHeldEngineCreatePreferredBackendHookSource: String?,
+    val lastHeldEngineCreatePreferredBackendApplyBuilderClass: String?,
+    val lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates: List<String>,
+)
+
 internal class LocalInferenceEngineHolder(
     private val appContext: Context,
 ) {
@@ -43,6 +69,8 @@ internal class LocalInferenceEngineHolder(
         EXPLICIT_RESET,
         FATAL_ERROR,
         LOW_MEMORY,
+        APP_BACKGROUNDED,
+        TTS_PLAYBACK,
         BACKGROUND_TIMEOUT,
         IDLE_TIMEOUT,
         KEEP_HELD,
@@ -86,11 +114,32 @@ internal class LocalInferenceEngineHolder(
     private var held: HeldLocalEngine? = null
     private val heldConversationsByChatId = mutableMapOf<Int, HeldConversation>()
     private var heldEngineGeneration: Long = 0L
+    private var appInForeground: Boolean = true
     private var appBackgroundedAtElapsedMs: Long? = null
+    private var lastAcquireAction: String? = null
+    private var lastLifecycleEventReason: String? = null
+    private var lastLifecycleDecisionAction: String? = null
+    private var recreateRequestCount: Int = 0
+    private var lastRecreateResult: String? = null
+    private var lastRecreateReason: String? = null
+    private var hasHeldEngineBeforeRecreate: Boolean? = null
+    private var hasHeldEngineAfterRecreate: Boolean? = null
+    private var lastHeldEngineCreateReason: String? = null
+    private var lastHeldEngineCreateSource: String? = null
+    private var lastHeldEngineCreateAtElapsedMs: Long? = null
+    private var lastHeldEngineCreateRequestedPreferredBackend: String? = null
+    private var lastHeldEngineCreateStackHint: String? = null
+    private var lastHeldEngineCreateAppliedPreferredBackend: String? = null
+    private var lastHeldEngineCreatePreferredBackendApplyResult: String? = null
+    private var lastHeldEngineCreatePreferredBackendHookReached: Boolean? = null
+    private var lastHeldEngineCreatePreferredBackendHookSource: String? = null
+    private var lastHeldEngineCreatePreferredBackendApplyBuilderClass: String? = null
+    private var lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates: List<String> = emptyList()
 
     suspend fun acquire(
         engineKey: HeldEngineKey,
         appendTrace: ((String) -> Unit)? = null,
+        preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     ): HeldLocalEngine = mutex.withLock {
         val nowElapsedMs = SystemClock.elapsedRealtime()
         maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
@@ -106,6 +155,7 @@ internal class LocalInferenceEngineHolder(
         if (decision.action == HeldEngineLifecycleAction.KEEP_HELD && current != null) {
             current.useCount += 1
             current.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+            lastAcquireAction = "reused"
             appendTrace?.invoke(
                 "UPSTREAM held-engine reuse-hit modelPathTail=${modelPath.substringAfterLast('/')} useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
             )
@@ -116,6 +166,7 @@ internal class LocalInferenceEngineHolder(
             context = appContext,
             engineKey = engineKey,
             appendTrace = appendTrace,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
         )
         val created = createdDiagnostic.engine
             ?: throw IllegalStateException(
@@ -123,18 +174,27 @@ internal class LocalInferenceEngineHolder(
             )
         created.useCount += 1
         created.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+        lastAcquireAction = "created"
         appendTrace?.invoke(
             "UPSTREAM held-engine create-success modelPathTail=${modelPath.substringAfterLast('/')} useCount=${created.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
         )
         heldEngineGeneration += 1
         clearAllConversationsLocked(reason = "engine-recreated", appendTrace = appendTrace)
         held = created
+        recordHeldEngineCreateLocked(
+            reason = "acquire-create",
+            source = "LocalInferenceEngineHolder.acquire",
+            createdAtElapsedMs = created.createdAtElapsedMs,
+            requestedPreferredBackend = preferredBackendDryRunSetting.name,
+            preferredBackendApplyResult = createdDiagnostic.preferredBackendApplyResult,
+        )
         created
     }
 
     suspend fun acquireWithDiagnostic(
         engineKey: HeldEngineKey,
         appendTrace: ((String) -> Unit)? = null,
+        preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     ): HeldEngineAcquireDiagnosticResult = mutex.withLock {
         val nowElapsedMs = SystemClock.elapsedRealtime()
         maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
@@ -157,6 +217,7 @@ internal class LocalInferenceEngineHolder(
             if (decision.action == HeldEngineLifecycleAction.KEEP_HELD && current != null) {
                 current.useCount += 1
                 current.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+                lastAcquireAction = "reused"
                 appendTrace?.invoke(
                     "UPSTREAM held-engine reuse-hit modelPathTail=$modelPathTail useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
                 )
@@ -176,6 +237,7 @@ internal class LocalInferenceEngineHolder(
                 context = appContext,
                 engineKey = engineKey,
                 appendTrace = appendTrace,
+                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             )
             appendTrace?.invoke(
                 "UPSTREAM held-create-diagnostic stage=${createdDiagnostic.stage ?: "unknown"} class=${createdDiagnostic.className ?: "none"} message=${createdDiagnostic.message ?: "none"}",
@@ -185,6 +247,7 @@ internal class LocalInferenceEngineHolder(
                 val failStage = createdDiagnostic.stage ?: "create-reusable-engine"
                 val failClass = createdDiagnostic.className ?: "ReturnedNull"
                 val failMessage = (createdDiagnostic.message ?: "createReusableLocalInferenceEngine returned null").take(200)
+                lastAcquireAction = "failed:$failStage"
                 appendTrace?.invoke(
                     "UPSTREAM held-acquire-diagnostic fail stage=$failStage class=$failClass message=$failMessage",
                 )
@@ -197,6 +260,7 @@ internal class LocalInferenceEngineHolder(
             }
             created.useCount += 1
             created.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+            lastAcquireAction = "created"
             appendTrace?.invoke(
                 "UPSTREAM held-engine create-success modelPathTail=$modelPathTail useCount=${created.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
             )
@@ -204,6 +268,13 @@ internal class LocalInferenceEngineHolder(
             heldEngineGeneration += 1
             clearAllConversationsLocked(reason = "engine-recreated", appendTrace = appendTrace)
             held = created
+            recordHeldEngineCreateLocked(
+                reason = "acquire-with-diagnostic-create",
+                source = "LocalInferenceEngineHolder.acquireWithDiagnostic",
+                createdAtElapsedMs = created.createdAtElapsedMs,
+                requestedPreferredBackend = preferredBackendDryRunSetting.name,
+                preferredBackendApplyResult = createdDiagnostic.preferredBackendApplyResult,
+            )
             appendTrace?.invoke(
                 "UPSTREAM held-acquire-diagnostic success heldHash=${created.hashCode()} useCount=${created.useCount}",
             )
@@ -217,6 +288,7 @@ internal class LocalInferenceEngineHolder(
             val resolvedStage = failureStage ?: "unknown"
             val failureClassName = e::class.java.simpleName.ifBlank { e::class.java.name }
             val failureMessage = (e.message ?: "no message").take(200)
+            lastAcquireAction = "failed:$resolvedStage"
             appendTrace?.invoke(
                 "UPSTREAM held-acquire-diagnostic fail stage=$resolvedStage class=$failureClassName message=$failureMessage",
             )
@@ -241,6 +313,97 @@ internal class LocalInferenceEngineHolder(
                 appendTrace = appendTrace,
             )
         }
+    }
+
+    suspend fun requestRecreateForDev(
+        reason: String,
+        appendTrace: ((String) -> Unit)? = null,
+    ): Boolean = mutex.withLock {
+        runCatching {
+            val before = held
+            recreateRequestCount += 1
+            lastRecreateReason = reason
+            hasHeldEngineBeforeRecreate = before != null
+            appendTrace?.invoke("UPSTREAM held-engine manual-recreate-request reason=$reason")
+            appendTrace?.invoke(
+                "UPSTREAM held-engine manual-recreate-before holderHash=${this@LocalInferenceEngineHolder.hashCode()} heldHash=${before?.hashCode() ?: -1} heldExists=${before != null} requestCount=$recreateRequestCount",
+            )
+            applyLifecycleDecisionLocked(
+                current = held,
+                decision = HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
+                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                    clearReason = "dev-manual-recreate:$reason",
+                ),
+                appendTrace = appendTrace,
+            )
+            val after = held
+            hasHeldEngineAfterRecreate = after != null
+            lastRecreateResult = "success"
+            appendTrace?.invoke(
+                "UPSTREAM held-engine manual-recreate-after holderHash=${this@LocalInferenceEngineHolder.hashCode()} heldHash=${after?.hashCode() ?: -1} heldExists=${after != null} result=success",
+            )
+            appendTrace?.invoke(
+                "UPSTREAM held-engine manual-recreate-holder-held-after heldExists=${after != null}",
+            )
+            true
+        }.getOrElse {
+            hasHeldEngineAfterRecreate = held != null
+            lastRecreateResult = "failed:${it::class.java.simpleName}"
+            appendTrace?.invoke(
+                "UPSTREAM held-engine manual-recreate-failed reason=$reason error=${it::class.java.simpleName}:${it.message}",
+            )
+            false
+        }
+    }
+
+    suspend fun getDevDiagnosticSnapshot(): HeldEngineDevDiagnosticSnapshot = mutex.withLock {
+        HeldEngineDevDiagnosticSnapshot(
+            holderInstanceHash = this@LocalInferenceEngineHolder.hashCode(),
+            heldEngineHash = held?.hashCode(),
+            appInForeground = appInForeground,
+            lastAcquireAction = lastAcquireAction,
+            lastLifecycleEventReason = lastLifecycleEventReason,
+            lastLifecycleDecisionAction = lastLifecycleDecisionAction,
+            recreateRequestCount = recreateRequestCount,
+            lastRecreateResult = lastRecreateResult,
+            lastRecreateReason = lastRecreateReason,
+            hasHeldEngineBeforeRecreate = hasHeldEngineBeforeRecreate,
+            hasHeldEngineAfterRecreate = hasHeldEngineAfterRecreate,
+            lastHeldEngineCreateReason = lastHeldEngineCreateReason,
+            lastHeldEngineCreateSource = lastHeldEngineCreateSource,
+            lastHeldEngineCreateAtElapsedMs = lastHeldEngineCreateAtElapsedMs,
+            lastHeldEngineCreateRequestedPreferredBackend = lastHeldEngineCreateRequestedPreferredBackend,
+            lastHeldEngineCreateStackHint = lastHeldEngineCreateStackHint,
+            lastHeldEngineCreateAppliedPreferredBackend = lastHeldEngineCreateAppliedPreferredBackend,
+            lastHeldEngineCreatePreferredBackendApplyResult = lastHeldEngineCreatePreferredBackendApplyResult,
+            lastHeldEngineCreatePreferredBackendHookReached = lastHeldEngineCreatePreferredBackendHookReached,
+            lastHeldEngineCreatePreferredBackendHookSource = lastHeldEngineCreatePreferredBackendHookSource,
+            lastHeldEngineCreatePreferredBackendApplyBuilderClass = lastHeldEngineCreatePreferredBackendApplyBuilderClass,
+            lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates = lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
+        )
+    }
+
+    private fun recordHeldEngineCreateLocked(
+        reason: String,
+        source: String,
+        createdAtElapsedMs: Long?,
+        requestedPreferredBackend: String?,
+        preferredBackendApplyResult: PreferredBackendApplyResult?,
+    ) {
+        lastHeldEngineCreateReason = reason
+        lastHeldEngineCreateSource = source
+        lastHeldEngineCreateAtElapsedMs = createdAtElapsedMs
+        lastHeldEngineCreateRequestedPreferredBackend = requestedPreferredBackend
+        lastHeldEngineCreateAppliedPreferredBackend = preferredBackendApplyResult?.appliedPreferredBackend
+        lastHeldEngineCreatePreferredBackendApplyResult = preferredBackendApplyResult?.preferredBackendApplyResult
+        lastHeldEngineCreatePreferredBackendHookReached = preferredBackendApplyResult?.preferredBackendHookReached
+        lastHeldEngineCreatePreferredBackendHookSource = preferredBackendApplyResult?.preferredBackendHookSource
+        lastHeldEngineCreatePreferredBackendApplyBuilderClass = preferredBackendApplyResult?.preferredBackendApplyBuilderClass
+        lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates ?: emptyList()
+        lastHeldEngineCreateStackHint = Throwable().stackTrace
+            .firstOrNull { frame -> frame.className.contains("ChatScreen") || frame.className.contains("LocalInference") }
+            ?.let { frame -> "${frame.className}.${frame.methodName}:${frame.lineNumber}" }
     }
 
     suspend fun clearIfModelChanged(
@@ -280,6 +443,8 @@ internal class LocalInferenceEngineHolder(
             maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
             maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
             val decision = resolveLifecycleDecision(reason = reason)
+            lastLifecycleEventReason = reason
+            lastLifecycleDecisionAction = decision.action.name
             applyLifecycleDecisionLocked(
                 current = held,
                 decision = decision,
@@ -318,7 +483,15 @@ internal class LocalInferenceEngineHolder(
         nowElapsedMs: Long = SystemClock.elapsedRealtime(),
     ) {
         mutex.withLock {
+            appInForeground = false
             appBackgroundedAtElapsedMs = nowElapsedMs
+            val decision = resolveLifecycleDecision(reason = "app-backgrounded")
+            lastLifecycleEventReason = decision.clearReason
+            lastLifecycleDecisionAction = decision.action.name
+            applyLifecycleDecisionLocked(
+                current = held,
+                decision = decision,
+            )
         }
     }
 
@@ -328,7 +501,10 @@ internal class LocalInferenceEngineHolder(
     ) {
         mutex.withLock {
             maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+            appInForeground = true
             appBackgroundedAtElapsedMs = null
+            lastLifecycleEventReason = "app-foregrounded"
+            lastLifecycleDecisionAction = HeldEngineLifecycleAction.KEEP_HELD.name
             maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
         }
     }
@@ -415,6 +591,18 @@ internal class LocalInferenceEngineHolder(
                 clearReason = reason,
             )
 
+            "app-backgrounded" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.APP_BACKGROUNDED,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "tts-playback" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.TTS_PLAYBACK,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
             "background-timeout" -> HeldEngineLifecycleDecision(
                 reason = HeldEngineLifecycleReason.BACKGROUND_TIMEOUT,
                 action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
@@ -439,6 +627,7 @@ internal class LocalInferenceEngineHolder(
         nowElapsedMs: Long,
         appendTrace: ((String) -> Unit)? = null,
     ) {
+        if (appInForeground) return
         val current = held ?: return
         if (nowElapsedMs - current.lastUsedAtElapsedMs < HELD_ENGINE_IDLE_TIMEOUT_MS) return
         applyLifecycleDecisionLocked(

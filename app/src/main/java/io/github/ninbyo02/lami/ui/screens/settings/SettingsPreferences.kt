@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.settings
 
 import android.content.Context
+import android.os.Process
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -25,13 +26,80 @@ import kotlin.random.Random
 import java.io.File
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
+private const val ANDROID_TEST_SETTINGS_DATA_STORE_NAME_PREFIX = "ollama_settings_android_test_run_"
 const val DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP = 64
 const val MIN_CHAT_LAMI_AVATAR_SIZE_DP = 48
 const val MAX_CHAT_LAMI_AVATAR_SIZE_DP = 64
 
 private val Context.dataStore by preferencesDataStore(
-    name = SETTINGS_DATA_STORE_NAME
+    name = resolveSettingsDataStoreName()
 )
+
+@VisibleForTesting
+internal fun resolvedSettingsDataStoreNameForTesting(): String = resolveSettingsDataStoreName()
+
+private fun resolveSettingsDataStoreName(): String {
+    return if (isAndroidInstrumentationActive()) {
+        "$ANDROID_TEST_SETTINGS_DATA_STORE_NAME_PREFIX${Process.myPid()}"
+    } else {
+        SETTINGS_DATA_STORE_NAME
+    }
+}
+
+private fun isAndroidInstrumentationActive(): Boolean {
+    return runCatching {
+        val activityThreadClass = Class.forName("android.app.ActivityThread")
+        val currentThread = activityThreadClass
+            .getDeclaredMethod("currentActivityThread")
+            .invoke(null)
+        val instrumentation = activityThreadClass
+            .getDeclaredMethod("getInstrumentation")
+            .invoke(currentThread)
+        isAndroidTestInstrumentationClassName(instrumentation?.javaClass?.name)
+    }.getOrDefault(false)
+}
+
+@VisibleForTesting
+internal fun isAndroidTestInstrumentationClassName(className: String?): Boolean {
+    if (className.isNullOrBlank()) return false
+    if (className == "android.app.Instrumentation") return false
+    return className.startsWith("androidx.test.") ||
+        className.contains(".test.", ignoreCase = true) ||
+        className.contains("AndroidJUnitRunner")
+}
+
+private fun migrateMisdetectedInstrumentationDataStoreIfNeeded(context: Context) {
+    if (isAndroidInstrumentationActive()) return
+    val datastoreDir = File(context.filesDir, "datastore")
+    val target = File(datastoreDir, "$SETTINGS_DATA_STORE_NAME.preferences_pb")
+    if (target.exists() && target.length() > 0L) return
+    val source = findLatestMisdetectedInstrumentationDataStore(datastoreDir) ?: return
+    runCatching {
+        datastoreDir.mkdirs()
+        source.copyTo(target, overwrite = false)
+        Log.w(
+            "SettingsPreferences",
+            "Migrated settings DataStore from ${source.name} to ${target.name}",
+        )
+    }.onFailure {
+        Log.w(
+            "SettingsPreferences",
+            "Failed to migrate settings DataStore from ${source.name}: ${it::class.java.simpleName}:${it.message}",
+        )
+    }
+}
+
+@VisibleForTesting
+internal fun findLatestMisdetectedInstrumentationDataStore(datastoreDir: File): File? {
+    return datastoreDir
+        .listFiles { file ->
+            file.isFile &&
+                file.name.startsWith(ANDROID_TEST_SETTINGS_DATA_STORE_NAME_PREFIX) &&
+                file.name.endsWith(".preferences_pb") &&
+                file.length() > 0L
+        }
+        ?.maxByOrNull { it.lastModified() }
+}
 
 enum class ErrorCause {
     LIGHT,
@@ -304,6 +372,7 @@ class SettingsPreferences(private val context: Context) {
     private val localBaseModelFilePathKey = stringPreferencesKey("local_base_model_file_path")
     private val inferenceTargetKey = stringPreferencesKey("inference_target")
     private val inferenceStatsDisplayModeKey = stringPreferencesKey("inference_stats_display_mode")
+    private val preferredBackendDryRunKey = stringPreferencesKey("lami_dev_preferred_backend_dry_run")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
     // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
@@ -319,6 +388,11 @@ class SettingsPreferences(private val context: Context) {
     private val spriteAnimationJsonThinkingKey = stringPreferencesKey("sprite_animation_json_thinking")
     private val spriteAnimationJsonOfflineKey = stringPreferencesKey("sprite_animation_json_offline")
     private val spriteAnimationJsonErrorKey = stringPreferencesKey("sprite_animation_json_error")
+
+    init {
+        migrateMisdetectedInstrumentationDataStoreIfNeeded(context.applicationContext)
+    }
+
     // DataStoreの実体確認用ログ(デバッグ専用)
     private fun dumpDataStoreDebug(caller: String) {
         if (!BuildConfig.DEBUG) return
@@ -356,6 +430,7 @@ class SettingsPreferences(private val context: Context) {
             useDynamicColor = preferences[dynamicColorKey] ?: false,
             characterAnimationEnabled = preferences[characterAnimationEnabledKey] ?: true,
             inferenceStatsDisplayMode = InferenceStatsDisplayMode.fromStorage(preferences[inferenceStatsDisplayModeKey]),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.fromStorage(preferences[preferredBackendDryRunKey]),
         )
     }
 
@@ -429,7 +504,7 @@ class SettingsPreferences(private val context: Context) {
     }
 
     val devEnableStreamingSentenceTtsFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[devEnableStreamingSentenceTtsKey] ?: false
+        preferences[devEnableStreamingSentenceTtsKey] ?: true
     }
 
     val chatLamiAvatarSizeDpFlow: Flow<Int> = context.dataStore.data.map { preferences ->
@@ -454,6 +529,10 @@ class SettingsPreferences(private val context: Context) {
 
     val inferenceStatsDisplayModeFlow: Flow<InferenceStatsDisplayMode> = context.dataStore.data.map { preferences ->
         InferenceStatsDisplayMode.fromStorage(preferences[inferenceStatsDisplayModeKey])
+    }
+
+    val preferredBackendDryRunSettingFlow: Flow<PreferredBackendDryRunSetting> = context.dataStore.data.map { preferences ->
+        PreferredBackendDryRunSetting.fromStorage(preferences[preferredBackendDryRunKey])
     }
 
     val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -669,6 +748,12 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveInferenceStatsDisplayMode(mode: InferenceStatsDisplayMode) {
         context.dataStore.edit { preferences ->
             preferences[inferenceStatsDisplayModeKey] = mode.name
+        }
+    }
+
+    suspend fun savePreferredBackendDryRunSetting(setting: PreferredBackendDryRunSetting) {
+        context.dataStore.edit { preferences ->
+            preferences[preferredBackendDryRunKey] = setting.name
         }
     }
 

@@ -54,13 +54,17 @@ class FencedCodeParserTest {
     }
 
     @Test
-    fun missingClosingFence_returnsWholeInputAsText() {
+    fun missingClosingFence_returnsUnclosedCodeSegment() {
         val input = "開始\n```kotlin\nval a = 1"
 
         val result = parseFencedCodeSegments(input)
 
-        assertEquals(1, result.size)
+        assertEquals(2, result.size)
         assertTrue(result[0] is Segment.Text)
-        assertEquals(input, (result[0] as Segment.Text).text)
+        assertEquals("開始", (result[0] as Segment.Text).text)
+        val code = result[1] as Segment.Code
+        assertEquals("kotlin", code.lang)
+        assertEquals("val a = 1", code.code)
+        assertTrue(!code.isClosed)
     }
 }

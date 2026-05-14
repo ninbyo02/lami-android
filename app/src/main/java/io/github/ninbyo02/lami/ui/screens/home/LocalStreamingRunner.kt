@@ -2,12 +2,14 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.SystemClock
+import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +28,14 @@ private const val TOKENIZER_COUNT_UNAVAILABLE_NOTE =
     "このビルドの LiteRT API では tokenizer-based token count を取得できませんでした。"
 private const val MEDIAPIPE_TOKEN_COUNT_MODE = "mediapipe_tokenizer_recount"
 private const val LITERT_TOKEN_COUNT_MODE = "tokenizer_recount"
+private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
+private const val NPU_DISABLED_NOT_SUPPORTED_REASON = "npu-disabled-vendor-fastrpc-namespace-blocked-recommended-gpu"
+private val STREAMING_NO_JOIN_PREVIOUS_CHARS = setOf(
+    '(', '[', '{', '"', '\'', '`', '/', '\\', '.', ',', ':', ';', '!', '?',
+)
+private val STREAMING_NO_JOIN_NEXT_CHARS = setOf(
+    ')', ']', '}', '"', '\'', '`', '.', ',', ':', ';', '!', '?', '/', '\\',
+)
 
 internal interface LocalStreamingRunner<T> {
     suspend fun run(
@@ -80,6 +90,7 @@ internal data class ReusableLocalEngineCreateDiagnostic(
     val stage: String?,
     val className: String?,
     val message: String?,
+    val preferredBackendApplyResult: PreferredBackendApplyResult? = null,
 )
 
 internal data class HeldEngineRunResult(
@@ -88,11 +99,38 @@ internal data class HeldEngineRunResult(
     val firstPartialElapsedRealtimeMs: Long?,
     val completedElapsedRealtimeMs: Long,
     val partialCount: Int,
+    val officialChunkMetrics: LocalOfficialChunkMetricsSnapshot = LocalOfficialChunkMetricsSnapshot(),
     val namespace: String,
     val officialFlowUsed: Boolean,
     val localModelDisplayName: String?,
     val measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null,
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
+    val runnerWhitespaceTraceText: String? = null,
+    val heldEngineCreatePath: String = "unknown",
+    val llmInferenceCreateMethod: String = "unknown",
+    val optionsBuilderSource: String = "unknown",
+    val preferredBackendHookEligible: Boolean = false,
+    val preferredBackendHookMissingReason: String? = null,
+    val holderInstanceHash: Int? = null,
+    val heldEngineHash: Int? = null,
+    val holderAppInForeground: Boolean? = null,
+    val holderLastAcquireAction: String? = null,
+    val holderLastLifecycleEventReason: String? = null,
+    val holderLastLifecycleDecisionAction: String? = null,
+    val heldEngineRecreateRequestCount: Int? = null,
+    val heldEngineWasPresentAtRunStart: Boolean? = null,
+    val heldEngineCreatedDuringRun: Boolean? = null,
+    val lastHeldEngineCreateReason: String? = null,
+    val lastHeldEngineCreateSource: String? = null,
+    val lastHeldEngineCreateAtElapsedMs: Long? = null,
+    val lastHeldEngineCreateRequestedPreferredBackend: String? = null,
+    val lastHeldEngineCreateStackHint: String? = null,
+    val lastHeldEngineCreateAppliedPreferredBackend: String? = null,
+    val lastHeldEngineCreatePreferredBackendApplyResult: String? = null,
+    val lastHeldEngineCreatePreferredBackendHookReached: Boolean? = null,
+    val lastHeldEngineCreatePreferredBackendHookSource: String? = null,
+    val lastHeldEngineCreatePreferredBackendApplyBuilderClass: String? = null,
+    val lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates: List<String> = emptyList(),
 )
 
 internal data class RunCloseTargetOutcome(
@@ -125,6 +163,7 @@ internal suspend fun runWithHeldEngine(
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
 ): HeldEngineRunResult? {
+    val holderSnapshotAtRunStart = engineHolder.getDevDiagnosticSnapshot()
     val startElapsedRealtimeMs = SystemClock.elapsedRealtime()
     heldEngine.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
     val namespace = heldEngine.namespace
@@ -135,6 +174,16 @@ internal suspend fun runWithHeldEngine(
     var officialFlowUsed = false
     var closeSummaryPath = "held-official-flow"
     var measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null
+    val officialChunkMetricsCollector = LocalOfficialChunkMetricsCollector()
+    val runnerWhitespaceTraceEntries = mutableListOf<Pair<String, String?>>()
+
+    fun appendRunnerWhitespaceStage(
+        stage: String,
+        text: String?,
+    ) {
+        if (!BuildConfig.DEBUG) return
+        runnerWhitespaceTraceEntries += stage to text
+    }
 
     val response = runCatching {
         runWithConversation(
@@ -156,25 +205,62 @@ internal suspend fun runWithHeldEngine(
                 ) ?: return@runCatching null
                 val flow = flowValue as? Flow<*> ?: return@runCatching null
                 val builder = StringBuilder()
+                val appendContext = StreamingAppendContext()
                 var lastPartial: String? = null
                 flow.collect { message ->
                     if (!currentCoroutineContext().isActive) return@collect
-                    val extracted = extractOfficialMessageTextWithTrace(
+                    val chunkArrivalElapsedMs = SystemClock.elapsedRealtime()
+                    val messageContentsRaw = extractMessageContentsForTrace(message)
+                    val extractedText = extractOfficialMessageTextWithTrace(
                         path = "held-engine-flow",
                         value = message,
                         appendTrace = appendTrace,
-                    )?.trim().orEmpty()
-                    if (extracted.isBlank() || extracted == lastPartial) return@collect
+                    )
+                    officialChunkMetricsCollector.record(
+                        chunkText = extractedText,
+                        nowElapsedMs = chunkArrivalElapsedMs,
+                    )
+                    val extracted = extractedText.orEmpty()
+                    appendRunnerWhitespaceStage("message.contents", messageContentsRaw)
+                    appendRunnerWhitespaceStage("extract.raw", extractedText)
+                    appendRunnerWhitespaceStage("extract.trimmed", extractedText?.trim())
+                    logLocalStreamingWhitespace(
+                        stage = "LocalStreamingRunner#held.flow.extract",
+                        raw = extractedText,
+                        normalized = extractedText?.trim(),
+                    )
+                    if (!isViableStreamingChunk(extracted) || extracted == lastPartial) return@collect
                     lastPartial = extracted
                     heldFlowPartialCount += 1
                     if (heldFlowFirstPartialElapsedRealtimeMs == null) {
                         heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     }
                     heldFlowLastChunkElapsedRealtimeMs = SystemClock.elapsedRealtime()
-                    builder.append(extracted)
+                    appendRunnerWhitespaceStage("append.boundary.before", builder.toString().takeLast(64))
+                    appendRunnerWhitespaceStage("append.boundary.extracted", extracted)
+                    val joinApplied = appendStreamingChunk(
+                        builder = builder,
+                        extractedRaw = extracted,
+                        context = appendContext,
+                        appendTrace = appendTrace,
+                    )
+                    appendRunnerWhitespaceStage("lane", appendContext.lane.label)
+                    appendRunnerWhitespaceStage("append.boundary.join", joinApplied)
+                    appendRunnerWhitespaceStage("append.boundary.after", builder.toString().takeLast(64))
                     onPartial(builder.toString())
                 }
-                builder.toString().trim().takeIf { it.isNotBlank() }
+                val built = builder.toString()
+                val trimmedBuilt = built.trim()
+                appendRunnerWhitespaceStage("builder.raw", built)
+                appendRunnerWhitespaceStage("builder.trimmed", trimmedBuilt)
+                appendRunnerWhitespaceStage("responseText.raw", built)
+                appendRunnerWhitespaceStage("responseText.trimmed", trimmedBuilt)
+                logLocalStreamingWhitespace(
+                    stage = "LocalStreamingRunner#held.flow.builder",
+                    raw = built,
+                    normalized = trimmedBuilt,
+                )
+                trimmedBuilt.takeIf { it.isNotBlank() }
             }.getOrElse { throwable ->
                 safeAppendTrace(
                     appendTrace,
@@ -231,11 +317,19 @@ internal suspend fun runWithHeldEngine(
                     namespace = namespace,
                     prompt = prompt,
                 ) ?: return@runCatching null
-                extractOfficialMessageTextWithTrace(
+                appendRunnerWhitespaceStage("message.contents", extractMessageContentsForTrace(value))
+                val extractedText = extractOfficialMessageTextWithTrace(
                     path = "held-engine-blocking",
                     value = value,
                     appendTrace = appendTrace,
-                )?.trim()?.takeIf { it.isNotBlank() }
+                )
+                val responseRaw = extractedText
+                val responseTrimmed = extractedText?.trim()
+                appendRunnerWhitespaceStage("extract.raw", responseRaw)
+                appendRunnerWhitespaceStage("extract.trimmed", responseTrimmed)
+                appendRunnerWhitespaceStage("responseText.raw", responseRaw)
+                appendRunnerWhitespaceStage("responseText.trimmed", responseTrimmed)
+                responseTrimmed?.takeIf { it.isNotBlank() }
             }.getOrElse { throwable ->
                 safeAppendTrace(
                     appendTrace,
@@ -329,11 +423,42 @@ internal suspend fun runWithHeldEngine(
         firstPartialElapsedRealtimeMs = if (officialFlowUsed) heldFlowFirstPartialElapsedRealtimeMs else SystemClock.elapsedRealtime(),
         completedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
         partialCount = if (officialFlowUsed) heldFlowPartialCount else 1,
+        officialChunkMetrics = if (officialFlowUsed) {
+            officialChunkMetricsCollector.snapshot()
+        } else {
+            LocalOfficialChunkMetricsSnapshot()
+        },
         namespace = namespace ?: "unknown",
         officialFlowUsed = officialFlowUsed,
         localModelDisplayName = localModelDisplayName,
         measuredTokenSnapshot = measuredTokenSnapshot,
         closeLifecycleSummary = closeSummary,
+        runnerWhitespaceTraceText = buildRunnerWhitespaceTraceBlock(runnerWhitespaceTraceEntries),
+        heldEngineCreatePath = "holder-existing-engine",
+        llmInferenceCreateMethod = "unknown",
+        optionsBuilderSource = "unknown",
+        preferredBackendHookEligible = false,
+        preferredBackendHookMissingReason = "holder-existing-engine",
+        holderInstanceHash = holderSnapshotAtRunStart.holderInstanceHash,
+        heldEngineHash = holderSnapshotAtRunStart.heldEngineHash,
+        holderAppInForeground = holderSnapshotAtRunStart.appInForeground,
+        holderLastAcquireAction = holderSnapshotAtRunStart.lastAcquireAction,
+        holderLastLifecycleEventReason = holderSnapshotAtRunStart.lastLifecycleEventReason,
+        holderLastLifecycleDecisionAction = holderSnapshotAtRunStart.lastLifecycleDecisionAction,
+        heldEngineRecreateRequestCount = holderSnapshotAtRunStart.recreateRequestCount,
+        heldEngineWasPresentAtRunStart = holderSnapshotAtRunStart.heldEngineHash != null,
+        heldEngineCreatedDuringRun = false,
+        lastHeldEngineCreateReason = holderSnapshotAtRunStart.lastHeldEngineCreateReason,
+        lastHeldEngineCreateSource = holderSnapshotAtRunStart.lastHeldEngineCreateSource,
+        lastHeldEngineCreateAtElapsedMs = holderSnapshotAtRunStart.lastHeldEngineCreateAtElapsedMs,
+        lastHeldEngineCreateRequestedPreferredBackend = holderSnapshotAtRunStart.lastHeldEngineCreateRequestedPreferredBackend,
+        lastHeldEngineCreateStackHint = holderSnapshotAtRunStart.lastHeldEngineCreateStackHint,
+        lastHeldEngineCreateAppliedPreferredBackend = holderSnapshotAtRunStart.lastHeldEngineCreateAppliedPreferredBackend,
+        lastHeldEngineCreatePreferredBackendApplyResult = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyResult,
+        lastHeldEngineCreatePreferredBackendHookReached = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendHookReached,
+        lastHeldEngineCreatePreferredBackendHookSource = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendHookSource,
+        lastHeldEngineCreatePreferredBackendApplyBuilderClass = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyBuilderClass,
+        lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
     )
 }
 internal data class LocalOfficialConversationApiProbeResult(
@@ -413,9 +538,93 @@ internal data class LocalOfficialFlowStreamingResult(
     val response: String,
     val partialCount: Int,
     val firstNonEmptyPartialElapsedRealtimeMs: Long?,
+    val officialChunkMetrics: LocalOfficialChunkMetricsSnapshot = LocalOfficialChunkMetricsSnapshot(),
     val measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null,
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
 )
+
+internal data class LocalOfficialChunkMetricsSnapshot(
+    val officialChunkCount: Int = 0,
+    val officialChunkIntervalAvgMs: Double? = null,
+    val officialChunkIntervalMaxMs: Long? = null,
+    val officialChunkIntervalMinMs: Long? = null,
+    val officialChunkFirstToLastMs: Long? = null,
+    val officialChunkCharsAvg: Double? = null,
+    val officialChunkCharsMax: Int? = null,
+    val officialChunkCharsMin: Int? = null,
+    val officialChunkEmptyCount: Int = 0,
+    val officialChunkNonEmptyCount: Int = 0,
+    val officialChunkEventsPerSecond: Double? = null,
+    val officialChunkCharsPerSecond: Double? = null,
+)
+
+private class LocalOfficialChunkMetricsCollector {
+    private var firstChunkElapsedMs: Long? = null
+    private var lastChunkElapsedMs: Long? = null
+    private var previousChunkElapsedMs: Long? = null
+    private var intervalCount: Int = 0
+    private var intervalTotalMs: Long = 0L
+    private var intervalMaxMs: Long? = null
+    private var intervalMinMs: Long? = null
+    private var chunkCount: Int = 0
+    private var chunkCharTotal: Int = 0
+    private var chunkCharMax: Int? = null
+    private var chunkCharMin: Int? = null
+    private var emptyCount: Int = 0
+    private var nonEmptyCount: Int = 0
+
+    fun record(chunkText: String?, nowElapsedMs: Long) {
+        val length = chunkText?.length ?: 0
+        chunkCount += 1
+        chunkCharTotal += length
+        chunkCharMax = maxOf(chunkCharMax ?: length, length)
+        chunkCharMin = minOf(chunkCharMin ?: length, length)
+        if (chunkText.isNullOrBlank()) {
+            emptyCount += 1
+        } else {
+            nonEmptyCount += 1
+        }
+        firstChunkElapsedMs = firstChunkElapsedMs ?: nowElapsedMs
+        previousChunkElapsedMs?.let { previous ->
+            val intervalMs = (nowElapsedMs - previous).coerceAtLeast(0L)
+            intervalCount += 1
+            intervalTotalMs += intervalMs
+            intervalMaxMs = maxOf(intervalMaxMs ?: intervalMs, intervalMs)
+            intervalMinMs = minOf(intervalMinMs ?: intervalMs, intervalMs)
+        }
+        previousChunkElapsedMs = nowElapsedMs
+        lastChunkElapsedMs = nowElapsedMs
+    }
+
+    fun snapshot(): LocalOfficialChunkMetricsSnapshot {
+        val firstMs = firstChunkElapsedMs
+        val lastMs = lastChunkElapsedMs
+        val firstToLastMs = if (firstMs != null && lastMs != null) {
+            (lastMs - firstMs).coerceAtLeast(0L)
+        } else {
+            null
+        }
+        val elapsedSeconds = firstToLastMs
+            ?.takeIf { it > 0L }
+            ?.let { it.toDouble() / 1000.0 }
+        return LocalOfficialChunkMetricsSnapshot(
+            officialChunkCount = chunkCount,
+            officialChunkIntervalAvgMs = intervalCount.takeIf { it > 0 }
+                ?.let { intervalTotalMs.toDouble() / it.toDouble() },
+            officialChunkIntervalMaxMs = intervalMaxMs,
+            officialChunkIntervalMinMs = intervalMinMs,
+            officialChunkFirstToLastMs = firstToLastMs,
+            officialChunkCharsAvg = chunkCount.takeIf { it > 0 }
+                ?.let { chunkCharTotal.toDouble() / it.toDouble() },
+            officialChunkCharsMax = chunkCharMax,
+            officialChunkCharsMin = chunkCharMin,
+            officialChunkEmptyCount = emptyCount,
+            officialChunkNonEmptyCount = nonEmptyCount,
+            officialChunkEventsPerSecond = elapsedSeconds?.let { chunkCount.toDouble() / it },
+            officialChunkCharsPerSecond = elapsedSeconds?.let { chunkCharTotal.toDouble() / it },
+        )
+    }
+}
 
 internal data class LocalOfficialBlockingResult(
     val response: String?,
@@ -2619,6 +2828,8 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
     onFallbackReason: (String) -> Unit = {},
@@ -2652,6 +2863,8 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
                 cacheDirPath = cacheDirPath,
                 mediaPipeProbeContext = mediaPipeProbeContext,
                 startElapsedMs = startElapsedMs,
+                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                onPreferredBackendApplied = onPreferredBackendApplied,
                 onPartial = onPartial,
                 appendTrace = appendTrace,
             )
@@ -2690,6 +2903,8 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     appendTrace: (String) -> Unit = {},
     onFallbackReason: (String) -> Unit = {},
 ): LocalOfficialBlockingResult? {
@@ -2719,6 +2934,8 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
                 modelPath = modelPath,
                 cacheDirPath = cacheDirPath,
                 mediaPipeProbeContext = mediaPipeProbeContext,
+                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                onPreferredBackendApplied = onPreferredBackendApplied,
                 appendTrace = appendTrace,
             )
         }.onFailure { throwable ->
@@ -2772,6 +2989,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
     context: android.content.Context,
     engineKey: HeldEngineKey,
     appendTrace: ((String) -> Unit)? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): ReusableLocalEngineCreateDiagnostic {
     val safeTrace: (String) -> Unit = { message ->
         runCatching { appendTrace?.invoke(message) }
@@ -2779,11 +2997,15 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
     var stage = "official-create-engine"
     val createdAt = SystemClock.elapsedRealtime()
     safeAppendTrace(safeTrace, "UPSTREAM held-create engine-config-create-start")
+    var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     val officialEngine = runCatching {
         createOfficialLiteRtLmEngineInstance(
             modelPath = engineKey.modelPath,
             cacheDirPath = engineKey.cacheDirPath,
+            nativeLibraryDir = context.applicationInfo.nativeLibraryDir,
             appendTrace = safeTrace,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = { result -> preferredBackendApplyResult = result },
         )
     }.getOrElse { throwable ->
         val className = throwable.javaClass.simpleName.ifBlank { throwable.javaClass.name }
@@ -2792,6 +3014,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             stage = stage,
             className = className,
             message = (throwable.message ?: "official create engine failed").take(200),
+            preferredBackendApplyResult = preferredBackendApplyResult,
         )
     }
     stage = if (officialEngine != null) "official-engine-created" else "official-engine-null"
@@ -2814,6 +3037,24 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             safeAppendTrace(safeTrace, "UPSTREAM held-create engine-initialize-success")
         } else {
             safeAppendTrace(safeTrace, "UPSTREAM held-create engine-initialize-fail class=InitializeUnavailable message=initialize method missing or failed")
+            val npuPreferredBackendApplyResult = preferredBackendApplyResult
+                ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
+            if (npuPreferredBackendApplyResult != null) {
+                closeQuietly(officialEngine, safeTrace)
+                val fallbackResult = npuPreferredBackendApplyResult.copy(
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "fallback-gpu-after-npu-initialize-failed",
+                    preferredBackendApplyError = "InitializeUnavailable",
+                )
+                preferredBackendApplyResult = fallbackResult
+                safeAppendTrace(safeTrace, "UPSTREAM preferred-backend npu-initialize-fallback-to-gpu error=InitializeUnavailable")
+                return createReusableLocalInferenceEngineWithDiagnostic(
+                    context = context,
+                    engineKey = engineKey,
+                    appendTrace = appendTrace,
+                    preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+                ).copy(preferredBackendApplyResult = fallbackResult)
+            }
         }
         val held = HeldLocalEngine(
             engineKey = engineKey,
@@ -2834,6 +3075,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             stage = stage,
             className = null,
             message = null,
+            preferredBackendApplyResult = preferredBackendApplyResult,
         )
     }
 
@@ -2843,6 +3085,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
         stage = stage,
         className = "ReturnedNull",
         message = "official litertlm engine returned null".take(200),
+        preferredBackendApplyResult = preferredBackendApplyResult,
     )
 }
 
@@ -3002,6 +3245,8 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit,
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
@@ -3012,6 +3257,8 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = onPreferredBackendApplied,
             startElapsedMs = startElapsedMs,
             onPartial = onPartial,
             appendTrace = appendTrace,
@@ -3040,10 +3287,13 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         createOfficialLiteRtLmEngineInstance(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
             appendTrace = appendTrace,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = onPreferredBackendApplied,
         )
     } else {
-        createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath)
+        createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath, preferredBackendDryRunSetting, onPreferredBackendApplied)
     }
         ?: throw OfficialFlowFallbackException("conversation_create_failed")
     var conversation: Any? = null
@@ -3097,6 +3347,8 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         safeAppendTrace(appendTrace, "UPSTREAM official-flow flowClass=${flowValue?.javaClass?.name ?: "null"}")
         val flow = flowValue as? Flow<*> ?: throw OfficialFlowFallbackException("send_message_async_missing")
         val builder = StringBuilder()
+        val appendContext = StreamingAppendContext()
+        val officialChunkMetricsCollector = LocalOfficialChunkMetricsCollector()
         var partialCount = 0
         var extractFailureCount = 0
         var firstPartialMs: Long? = null
@@ -3105,6 +3357,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         runCatching {
             flow.collect { message ->
                 if (!currentCoroutineContext().isActive) return@collect
+                val chunkArrivalElapsedMs = SystemClock.elapsedRealtime()
                 safeAppendTrace(
                     appendTrace = appendTrace,
                     message = "UPSTREAM official-flow chunkClass=${message?.javaClass?.name ?: "null"}",
@@ -3114,14 +3367,28 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
                     value = message,
                     appendTrace = appendTrace,
                 )
-                val extracted = extractedText?.trim().orEmpty()
-                if (extracted.isBlank()) {
+                officialChunkMetricsCollector.record(
+                    chunkText = extractedText,
+                    nowElapsedMs = chunkArrivalElapsedMs,
+                )
+                val extracted = extractedText.orEmpty()
+                logLocalStreamingWhitespace(
+                    stage = "LocalStreamingRunner#official.flow.extract",
+                    raw = extractedText,
+                    normalized = extractedText?.trim(),
+                )
+                if (!isViableStreamingChunk(extracted)) {
                     extractFailureCount += 1
                     return@collect
                 }
-                if (extracted.isBlank() || extracted == lastPartial) return@collect
+                if (extracted == lastPartial) return@collect
                 lastPartial = extracted
-                builder.append(extracted)
+                appendStreamingChunk(
+                    builder = builder,
+                    extractedRaw = extracted,
+                    context = appendContext,
+                    appendTrace = appendTrace,
+                )
                 partialCount += 1
                 if (firstPartialMs == null) {
                     firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
@@ -3136,7 +3403,13 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         if (partialCount <= 0) {
             throw OfficialFlowFallbackException(if (extractFailureCount > 0) "message_extract_failed" else "no_partial_emitted")
         }
-        val response = builder.toString().trim()
+        val built = builder.toString()
+        val response = built.trim()
+        logLocalStreamingWhitespace(
+            stage = "LocalStreamingRunner#official.flow.builder",
+            raw = built,
+            normalized = response,
+        )
         if (response.isBlank()) throw OfficialFlowFallbackException("blank_response")
         measuredCollector.observe(
             timing = "after-response",
@@ -3172,6 +3445,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             response = response,
             partialCount = partialCount,
             firstNonEmptyPartialElapsedRealtimeMs = firstPartialMs,
+            officialChunkMetrics = officialChunkMetricsCollector.snapshot(),
             measuredTokenSnapshot = measuredTokenSnapshot,
         )
     } finally {
@@ -3228,6 +3502,8 @@ private fun runOfficialBlockingConversationSingleNamespace(
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     appendTrace: (String) -> Unit,
 ): LocalOfficialBlockingResult? {
     if (spec.namespace == "com.google.ai.edge.litertlm") {
@@ -3236,6 +3512,8 @@ private fun runOfficialBlockingConversationSingleNamespace(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = onPreferredBackendApplied,
             appendTrace = appendTrace,
         )
         return LocalOfficialBlockingResult(
@@ -3272,10 +3550,13 @@ private fun runOfficialBlockingConversationSingleNamespace(
         createOfficialLiteRtLmEngineInstance(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
+            nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
             appendTrace = appendTrace,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = onPreferredBackendApplied,
         )
     } else {
-        createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath)
+        createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath, preferredBackendDryRunSetting, onPreferredBackendApplied)
     }
         ?: throw OfficialFlowFallbackException("conversation_create_failed")
     var conversation: Any? = null
@@ -3324,16 +3605,24 @@ private fun runOfficialBlockingConversationSingleNamespace(
             }
         }
         safeAppendTrace(appendTrace, "UPSTREAM official-blocking returnClass=${responseValue?.javaClass?.name ?: "null"}")
-        val responseText = extractOfficialMessageTextWithTrace(
+        val extractedText = extractOfficialMessageTextWithTrace(
             path = "official-blocking",
             value = responseValue,
             appendTrace = appendTrace,
-        )?.trim()?.takeIf { it.isNotBlank() } ?: throw OfficialFlowFallbackException("message_extract_failed")
+        )
+        val responseText = extractedText?.trim()
+        logLocalStreamingWhitespace(
+            stage = "LocalStreamingRunner#official.blocking.extract",
+            raw = extractedText,
+            normalized = responseText,
+        )
+        val nonBlankResponseText = responseText?.takeIf { it.isNotBlank() }
+            ?: throw OfficialFlowFallbackException("message_extract_failed")
         measuredCollector.observe(
             timing = "after-response",
             conversation = conversation,
         )
-        safeAppendTrace(appendTrace, "UPSTREAM official-blocking success responseLength=${responseText.length}")
+        safeAppendTrace(appendTrace, "UPSTREAM official-blocking success responseLength=${nonBlankResponseText.length}")
         if (BuildConfig.DEBUG) {
             measuredCollector.observe(
                 timing = "around-success-reached",
@@ -3343,7 +3632,7 @@ private fun runOfficialBlockingConversationSingleNamespace(
         successReached = true
         measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
         measuredCollector.emitAdoptedTrace()
-        finalResponse = responseText
+        finalResponse = nonBlankResponseText
     } finally {
         if (BuildConfig.DEBUG) {
             measuredCollector.observe(
@@ -3398,6 +3687,8 @@ private suspend fun runOfficialLiteRtLmDirect(
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
@@ -3406,8 +3697,19 @@ private suspend fun runOfficialLiteRtLmDirect(
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
+    var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     return runCatching {
-        val engineConfig = buildLiteRtEngineConfig(modelPath = modelPath, cacheDirPath = cacheDirPath)
+        val engineConfig = buildLiteRtEngineConfig(
+            modelPath = modelPath,
+            cacheDirPath = cacheDirPath,
+            nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            appendTrace = appendTrace,
+            onPreferredBackendApplied = { result ->
+                preferredBackendApplyResult = result
+                onPreferredBackendApplied(result)
+            },
+        )
         safeAppendTrace(appendTrace, "UPSTREAM official-direct engineConfig-created")
         var engine: Engine? = null
         var conversation: Any? = null
@@ -3433,17 +3735,44 @@ private suspend fun runOfficialLiteRtLmDirect(
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
             val builder = StringBuilder()
+            val appendContext = StreamingAppendContext()
+            val officialChunkMetricsCollector = LocalOfficialChunkMetricsCollector()
             var lastChunk: String? = null
             var partialCount = 0
             var firstPartialMs: Long? = null
             var lastNonEmptyChunkAtMs: Long? = null
             conversation.sendMessageAsync(prompt).collect { message ->
-                val extractedText = message.contents.toString().trim()
-                    .ifBlank { message.toString().trim() }
-                if (extractedText.isNotBlank()) {
+                val chunkArrivalElapsedMs = SystemClock.elapsedRealtime()
+                val rawContents = message.contents.toString()
+                val normalizedContents = rawContents.trim()
+                val rawMessage = message.toString()
+                val normalizedMessage = rawMessage.trim()
+                logLocalStreamingWhitespace(
+                    stage = "LocalStreamingRunner#official.direct.flow.contents",
+                    raw = rawContents,
+                    normalized = normalizedContents,
+                )
+                logLocalStreamingWhitespace(
+                    stage = "LocalStreamingRunner#official.direct.flow.message",
+                    raw = rawMessage,
+                    normalized = normalizedMessage,
+                )
+                val extractedText = rawContents
+                    .takeIf { isViableStreamingChunk(it) }
+                    ?: rawMessage.takeIf { isViableStreamingChunk(it) }
+                officialChunkMetricsCollector.record(
+                    chunkText = extractedText ?: rawContents,
+                    nowElapsedMs = chunkArrivalElapsedMs,
+                )
+                if (!extractedText.isNullOrEmpty()) {
                     if (extractedText == lastChunk) return@collect
                     lastChunk = extractedText
-                    builder.append(extractedText)
+                    appendStreamingChunk(
+                        builder = builder,
+                        extractedRaw = extractedText,
+                        context = appendContext,
+                        appendTrace = appendTrace,
+                    )
                     if (firstPartialMs == null) {
                         firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
                     }
@@ -3453,7 +3782,13 @@ private suspend fun runOfficialLiteRtLmDirect(
                 }
             }
 
-            val response = builder.toString().trim()
+            val built = builder.toString()
+            val response = built.trim()
+            logLocalStreamingWhitespace(
+                stage = "LocalStreamingRunner#official.direct.flow.builder",
+                raw = built,
+                normalized = response,
+            )
             safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
             if (response.isBlank()) throw OfficialFlowFallbackException("blank_response")
             measuredCollector.observe(
@@ -3489,6 +3824,7 @@ private suspend fun runOfficialLiteRtLmDirect(
                 response = response,
                 partialCount = partialCount,
                 firstNonEmptyPartialElapsedRealtimeMs = firstPartialMs,
+                officialChunkMetrics = officialChunkMetricsCollector.snapshot(),
                 measuredTokenSnapshot = measuredTokenSnapshot,
             )
         } finally {
@@ -3538,6 +3874,31 @@ private suspend fun runOfficialLiteRtLmDirect(
         }
         result
     }.getOrElse { throwable ->
+        val npuPreferredBackendApplyResult = preferredBackendApplyResult
+            ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
+        if (npuPreferredBackendApplyResult != null) {
+            val errorName = throwable.javaClass.simpleName.ifBlank { "NpuRuntimeError" }
+            val errorMessage = throwable.message?.takeIf { it.isNotBlank() }?.let { ":$it" } ?: ""
+            safeAppendTrace(appendTrace, "UPSTREAM preferred-backend npu-runtime-fallback-to-gpu stage=sendMessageAsync error=$errorName$errorMessage")
+            onPreferredBackendApplied(
+                npuPreferredBackendApplyResult.copy(
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "fallback-gpu-after-npu-runtime-failed",
+                    preferredBackendApplyError = "$errorName$errorMessage",
+                ),
+            )
+            return runOfficialLiteRtLmDirect(
+                prompt = prompt,
+                modelPath = modelPath,
+                cacheDirPath = cacheDirPath,
+                mediaPipeProbeContext = mediaPipeProbeContext,
+                preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+                onPreferredBackendApplied = {},
+                startElapsedMs = startElapsedMs,
+                onPartial = onPartial,
+                appendTrace = appendTrace,
+            )
+        }
         safeAppendTrace(
             appendTrace,
             "UPSTREAM official-direct failed ${throwable.javaClass.simpleName}:${throwable.message}",
@@ -3551,14 +3912,27 @@ private fun runOfficialLiteRtLmBlocking(
     modelPath: String,
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     appendTrace: (String) -> Unit,
 ): LocalOfficialDirectBlockingResult {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct blockingStart")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
+    var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     return runCatching {
-        val engineConfig = buildLiteRtEngineConfig(modelPath = modelPath, cacheDirPath = cacheDirPath)
+        val engineConfig = buildLiteRtEngineConfig(
+            modelPath = modelPath,
+            cacheDirPath = cacheDirPath,
+            nativeLibraryDir = mediaPipeProbeContext?.applicationInfo?.nativeLibraryDir,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            appendTrace = appendTrace,
+            onPreferredBackendApplied = { result ->
+                preferredBackendApplyResult = result
+                onPreferredBackendApplied(result)
+            },
+        )
         safeAppendTrace(appendTrace, "UPSTREAM official-direct engineConfig-created")
         var engine: Engine? = null
         var conversation: Any? = null
@@ -3586,8 +3960,22 @@ private fun runOfficialLiteRtLmBlocking(
 
             val startedAtMs = SystemClock.elapsedRealtime()
             val message = conversation.sendMessage(prompt)
-            val response = message.contents.toString().trim()
-                .ifBlank { message.toString().trim() }
+            val rawContents = message.contents.toString()
+            val normalizedContents = rawContents.trim()
+            val rawMessage = message.toString()
+            val normalizedMessage = rawMessage.trim()
+            logLocalStreamingWhitespace(
+                stage = "LocalStreamingRunner#official.direct.blocking.contents",
+                raw = rawContents,
+                normalized = normalizedContents,
+            )
+            logLocalStreamingWhitespace(
+                stage = "LocalStreamingRunner#official.direct.blocking.message",
+                raw = rawMessage,
+                normalized = normalizedMessage,
+            )
+            val response = normalizedContents
+                .ifBlank { normalizedMessage }
 
             safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
             responseText = response.takeIf { it.isNotBlank() }
@@ -3669,8 +4057,31 @@ private fun runOfficialLiteRtLmBlocking(
             measuredTokenSnapshot = measuredTokenSnapshot,
             closeLifecycleSummary = closeSummary,
         )
-    }.getOrElse {
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct failed ${it.javaClass.simpleName}:${it.message}")
+    }.getOrElse { throwable ->
+        val npuPreferredBackendApplyResult = preferredBackendApplyResult
+            ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
+        if (npuPreferredBackendApplyResult != null) {
+            val errorName = throwable.javaClass.simpleName.ifBlank { "NpuRuntimeError" }
+            val errorMessage = throwable.message?.takeIf { it.isNotBlank() }?.let { ":$it" } ?: ""
+            safeAppendTrace(appendTrace, "UPSTREAM preferred-backend npu-runtime-fallback-to-gpu stage=sendMessage error=$errorName$errorMessage")
+            onPreferredBackendApplied(
+                npuPreferredBackendApplyResult.copy(
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "fallback-gpu-after-npu-runtime-failed",
+                    preferredBackendApplyError = "$errorName$errorMessage",
+                ),
+            )
+            return runOfficialLiteRtLmBlocking(
+                prompt = prompt,
+                modelPath = modelPath,
+                cacheDirPath = cacheDirPath,
+                mediaPipeProbeContext = mediaPipeProbeContext,
+                preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+                onPreferredBackendApplied = {},
+                appendTrace = appendTrace,
+            )
+        }
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct failed ${throwable.javaClass.simpleName}:${throwable.message}")
         LocalOfficialDirectBlockingResult(response = null)
     }
 }
@@ -3679,13 +4090,20 @@ private fun createOfficialEngineInstance(
     engineClass: Class<*>,
     optionClassNames: List<String>,
     modelPath: String,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
 ): Any? {
     val factoryMethod = engineClass.methods.firstOrNull { method ->
         method.name == "createFromOptions" && method.parameterTypes.size == 1
     } ?: return null
     val options = optionClassNames.firstNotNullOfOrNull { optionClassName ->
         val optionClass = runCatching { Class.forName(optionClassName) }.getOrNull() ?: return@firstNotNullOfOrNull null
-        buildOptionsObject(optionClass = optionClass, modelPath = modelPath)
+        buildOptionsObject(
+            optionClass = optionClass,
+            modelPath = modelPath,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = onPreferredBackendApplied,
+        )
     } ?: return null
     return runCatching { factoryMethod.invoke(null, options) }.getOrNull()
 }
@@ -3693,41 +4111,286 @@ private fun createOfficialEngineInstance(
 private fun createOfficialLiteRtLmEngineInstance(
     modelPath: String,
     cacheDirPath: String? = null,
+    nativeLibraryDir: String? = null,
     appendTrace: (String) -> Unit,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
 ): Any? {
     safeAppendTrace(appendTrace, "UPSTREAM official-helper start helper=createOfficialLiteRtLmEngineInstance")
     safeAppendTrace(appendTrace, "UPSTREAM official-helper backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-helper cacheDirPresent=${!cacheDirPath.isNullOrBlank()}")
+    var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     return runCatching {
-        val engineConfig = buildLiteRtEngineConfig(modelPath = modelPath, cacheDirPath = cacheDirPath)
+        val engineConfig = buildLiteRtEngineConfig(
+            modelPath = modelPath,
+            cacheDirPath = cacheDirPath,
+            nativeLibraryDir = nativeLibraryDir,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            appendTrace = appendTrace,
+            onPreferredBackendApplied = { result ->
+                preferredBackendApplyResult = result
+                onPreferredBackendApplied(result)
+            },
+        )
         safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-config-created non-null")
         Engine(engineConfig).also {
             safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-new-instance-result non-null")
         }
     }.getOrElse { throwable ->
+        val npuPreferredBackendApplyResult = preferredBackendApplyResult
+            ?.takeIf { it.appliedPreferredBackend == PreferredBackendDryRunSetting.NPU.name }
+        if (npuPreferredBackendApplyResult != null) {
+            val errorName = throwable.javaClass.simpleName.ifBlank { "NpuEngineCreateError" }
+            val errorMessage = throwable.message?.takeIf { it.isNotBlank() }?.let { ":$it" } ?: ""
+            safeAppendTrace(appendTrace, "UPSTREAM preferred-backend npu-engine-create-fallback-to-gpu error=$errorName$errorMessage")
+            onPreferredBackendApplied(
+                npuPreferredBackendApplyResult.copy(
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "fallback-gpu-after-npu-engine-create-failed",
+                    preferredBackendApplyError = "$errorName$errorMessage",
+                ),
+            )
+            return createOfficialLiteRtLmEngineInstance(
+                modelPath = modelPath,
+                cacheDirPath = cacheDirPath,
+                nativeLibraryDir = nativeLibraryDir,
+                appendTrace = appendTrace,
+                preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+                onPreferredBackendApplied = {},
+            )
+        }
         safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-create fail class=${throwable.javaClass.simpleName} message=${throwable.message}")
         safeAppendTrace(appendTrace, "UPSTREAM official-engine create failed ${throwable.javaClass.simpleName}:${throwable.message}")
         null
     }
 }
 
-private fun buildLiteRtEngineConfig(
+internal fun buildLiteRtEngineConfig(
     modelPath: String,
     cacheDirPath: String?,
-): EngineConfig = EngineConfig(
-    modelPath = modelPath,
-    backend = Backend.GPU(),
-    visionBackend = Backend.GPU(),
-    audioBackend = Backend.CPU(),
-    maxNumTokens = null,
-    cacheDir = cacheDirPath,
+    nativeLibraryDir: String? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    appendTrace: (String) -> Unit = {},
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
+): EngineConfig {
+    val backendEnumCandidates = listOf("DEFAULT", "CPU", "GPU")
+    val backendApply = when (preferredBackendDryRunSetting) {
+        PreferredBackendDryRunSetting.CPU -> LiteRtBackendApply(Backend.CPU(), "CPU", "applied-engine-config")
+        PreferredBackendDryRunSetting.GPU -> LiteRtBackendApply(Backend.GPU(), "GPU", "applied-engine-config")
+        PreferredBackendDryRunSetting.DEFAULT -> LiteRtBackendApply(Backend.GPU(), "DEFAULT", "skipped-default-engine-config")
+        PreferredBackendDryRunSetting.NPU -> createDisabledNpuGpuFallback()
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> createDisabledNpuGpuFallback()
+    }
+    onPreferredBackendApplied(
+        PreferredBackendApplyResult(
+            requestedPreferredBackend = preferredBackendDryRunSetting.name,
+            appliedPreferredBackend = backendApply.appliedPreferredBackend,
+            preferredBackendApplyResult = backendApply.preferredBackendApplyResult,
+            preferredBackendHookReached = true,
+            preferredBackendHookSource = "holder-acquire-engine-config",
+            preferredBackendApplyError = backendApply.error,
+            preferredBackendApplyBuilderClass = "EngineConfig",
+            preferredBackendApplyMethodCandidates = emptyList(),
+            preferredBackendApplyBackendEnumCandidates = backendEnumCandidates,
+            preferredBackendApplyNotSupportedReason = backendApply.notSupportedReason,
+        ),
+    )
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM preferred-backend hook-reached=true source=holder-acquire-engine-config requested=${preferredBackendDryRunSetting.name} applied=${backendApply.appliedPreferredBackend} result=${backendApply.preferredBackendApplyResult} builderClass=EngineConfig",
+    )
+    if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU || preferredBackendDryRunSetting == PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU) {
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM preferred-backend npu-request result=${backendApply.preferredBackendApplyResult} applied=${backendApply.appliedPreferredBackend} error=${backendApply.error ?: "none"} recommended=GPU",
+        )
+    }
+    return EngineConfig(
+        modelPath = modelPath,
+        backend = backendApply.backend,
+        visionBackend = Backend.GPU(),
+        audioBackend = Backend.CPU(),
+        maxNumTokens = null,
+        cacheDir = cacheDirPath,
+    )
+}
+
+private data class LiteRtBackendApply(
+    val backend: Backend,
+    val appliedPreferredBackend: String,
+    val preferredBackendApplyResult: String,
+    val error: String? = null,
+    val notSupportedReason: String? = null,
 )
 
+private fun createDisabledNpuGpuFallback(): LiteRtBackendApply {
+    return LiteRtBackendApply(
+        backend = Backend.GPU(),
+        appliedPreferredBackend = "GPU",
+        preferredBackendApplyResult = "fallback-gpu-before-npu-disabled",
+        error = "stage=npu-disabled result=vendor-fastrpc-namespace-blocked device=nubia-NX733J android=16 recommended=GPU",
+        notSupportedReason = NPU_DISABLED_NOT_SUPPORTED_REASON,
+    )
+}
+
+private fun createNpuBackendReflectively(nativeLibraryDir: String?): LiteRtBackendApply {
+    val npuBackend = runCatching {
+        val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
+        val npuClass = (backendClass.classes.asList() + backendClass.declaredClasses.asList())
+            .firstOrNull { it.simpleName == "NPU" }
+            ?: throw ClassNotFoundException("Backend.NPU")
+        val constructors = npuClass.declaredConstructors.asList() + npuClass.constructors.asList()
+        val stringConstructor = constructors.firstOrNull { constructor ->
+            constructor.parameterTypes.size == 1 && constructor.parameterTypes.first() == String::class.java
+        }
+        val noArgConstructor = constructors.firstOrNull { it.parameterTypes.isEmpty() }
+        when {
+            stringConstructor != null && !nativeLibraryDir.isNullOrBlank() -> {
+                stringConstructor.isAccessible = true
+                stringConstructor.newInstance(nativeLibraryDir) as Backend
+            }
+            noArgConstructor != null -> {
+                noArgConstructor.isAccessible = true
+                noArgConstructor.newInstance() as Backend
+            }
+            else -> throw NoSuchMethodException("Backend.NPU constructor")
+        }
+    }.getOrElse { throwable ->
+        return LiteRtBackendApply(
+            backend = Backend.GPU(),
+            appliedPreferredBackend = "GPU",
+            preferredBackendApplyResult = "fallback-gpu-before-npu-constructor-unavailable",
+            error = "${throwable.javaClass.simpleName}:${throwable.message ?: "Backend.NPU"}",
+            notSupportedReason = "npu-constructor-unavailable",
+        )
+    }
+    return LiteRtBackendApply(
+        backend = npuBackend,
+        appliedPreferredBackend = "NPU",
+        preferredBackendApplyResult = "applied-engine-config",
+    )
+}
+
+private fun createQualcommQnnNpuBackendAttempt(
+    @Suppress("UNUSED_PARAMETER") nativeLibraryDir: String?,
+    @Suppress("UNUSED_PARAMETER") modelPath: String,
+): LiteRtBackendApply {
+    return createDisabledNpuGpuFallback()
+}
+
+internal data class QualcommNpuModelCompatibility(
+    val compatible: Boolean,
+    val status: String,
+    val evidence: String,
+)
+
+internal fun probeQualcommNpuModelCompatibility(modelPath: String): QualcommNpuModelCompatibility {
+    val fileName = modelPath.substringAfterLast('/').trim()
+    if (fileName.isBlank()) {
+        return QualcommNpuModelCompatibility(
+            compatible = false,
+            status = "missing-model-path",
+            evidence = "modelPath=blank",
+        )
+    }
+    val lowerName = fileName.lowercase(Locale.US)
+    val markers = listOf("qualcomm", "qnn", "npu", "sm8750", "snapdragon", "htp")
+    val matchedMarkers = markers.filter(lowerName::contains)
+    val isLiteRtLm = lowerName.endsWith(".litertlm")
+    val compatible = isLiteRtLm && matchedMarkers.isNotEmpty()
+    return QualcommNpuModelCompatibility(
+        compatible = compatible,
+        status = if (compatible) {
+            "candidate-detected-soc-specific-model"
+        } else {
+            "missing-soc-specific-npu-model-marker"
+        },
+        evidence = "file=$fileName;litertlm=$isLiteRtLm;markers=${matchedMarkers.joinToString("|").ifBlank { "none" }}",
+    )
+}
+
+private data class NativeLibraryProbeStatus(
+    val available: Boolean,
+    val status: String,
+    val evidence: List<String>,
+)
+
+private fun probeQnnRuntimeLibraries(nativeLibraryDir: String?): NativeLibraryProbeStatus {
+    val libraries = listNativeLibraries(nativeLibraryDir)
+    val required = listOf("libQnnSystem.so", "libQnnHtp.so", "libQnnHtpPrepare.so")
+    val hasHtpVariant = libraries.any { it.startsWith("libQnnHtpV") }
+    val missing = required.filterNot(libraries::contains) + if (hasHtpVariant) emptyList() else listOf("libQnnHtpV*.so")
+    return NativeLibraryProbeStatus(
+        available = missing.isEmpty(),
+        status = if (missing.isEmpty()) "available-candidate" else "missing-${missing.joinToString(",")}",
+        evidence = libraries.filter { it.contains("Qnn", ignoreCase = true) || it.contains("Htp", ignoreCase = true) || it.contains("hexagon", ignoreCase = true) }.take(10),
+    )
+}
+
+private fun probeDispatchLibrary(nativeLibraryDir: String?): NativeLibraryProbeStatus {
+    val libraries = listNativeLibraries(nativeLibraryDir)
+    val candidates = libraries.filter { name ->
+        name.contains("dispatch", ignoreCase = true) &&
+            (name.contains("litert", ignoreCase = true) ||
+                name.contains("qnn", ignoreCase = true) ||
+                name.contains("qualcomm", ignoreCase = true))
+    }
+    return NativeLibraryProbeStatus(
+        available = candidates.isNotEmpty(),
+        status = if (candidates.isNotEmpty()) "available-candidate" else "missing-dispatch-api-so",
+        evidence = candidates.take(10),
+    )
+}
+
+private fun listNativeLibraries(nativeLibraryDir: String?): List<String> {
+    if (nativeLibraryDir.isNullOrBlank()) return emptyList()
+    return runCatching {
+        File(nativeLibraryDir).listFiles()
+            ?.mapNotNull { file -> file.name.takeIf { it.endsWith(".so") } }
+            ?.sorted()
+            .orEmpty()
+    }.getOrDefault(emptyList())
+}
+
 private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
+    return buildOptionsObject(
+        optionClass = optionClass,
+        modelPath = modelPath,
+        preferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+        onPreferredBackendApplied = {},
+    )
+}
+
+internal data class PreferredBackendApplyResult(
+    val requestedPreferredBackend: String,
+    val appliedPreferredBackend: String,
+    val preferredBackendApplyResult: String,
+    val preferredBackendHookReached: Boolean = false,
+    val preferredBackendHookSource: String = "unknown",
+    val preferredBackendApplyError: String? = null,
+    val preferredBackendApplyBuilderClass: String? = null,
+    val preferredBackendApplyMethodCandidates: List<String> = emptyList(),
+    val preferredBackendApplyBackendEnumCandidates: List<String> = emptyList(),
+    val preferredBackendApplyNotSupportedReason: String? = null,
+)
+
+private fun buildOptionsObject(
+    optionClass: Class<*>,
+    modelPath: String,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit,
+): Any? {
     val builderFactory = optionClass.methods.firstOrNull { method ->
         method.name == "builder" && method.parameterTypes.isEmpty()
     } ?: return null
     val builder = runCatching { builderFactory.invoke(null) }.getOrNull() ?: return null
+    onPreferredBackendApplied(
+        applyPreferredBackendIfRequested(
+            optionsBuilder = builder,
+            requested = preferredBackendDryRunSetting,
+            source = "buildOptionsObject",
+        ),
+    )
     val setterNames = listOf("setModelPath", "setModelFilePath", "setModelAssetPath")
     val setter = builder.javaClass.methods.firstOrNull { method ->
         setterNames.contains(method.name) &&
@@ -3741,6 +4404,84 @@ private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
         method.name == "build" && method.parameterTypes.isEmpty()
     } ?: return null
     return runCatching { buildMethod.invoke(builder) }.getOrNull()
+}
+
+private fun applyPreferredBackendIfRequested(
+    optionsBuilder: Any,
+    requested: PreferredBackendDryRunSetting,
+    source: String,
+): PreferredBackendApplyResult {
+    val builderClass = optionsBuilder::class.java.name
+    val methodCandidates = (optionsBuilder.javaClass.methods.asSequence() + optionsBuilder.javaClass.declaredMethods.asSequence())
+        .filter { method ->
+            val lower = method.name.lowercase()
+            listOf("backend", "preferred", "delegate", "accelerator", "gpu", "cpu", "npu", "qnn", "hexagon", "htp").any { keyword -> lower.contains(keyword) }
+        }
+        .map { method ->
+            val params = method.parameterTypes.joinToString(",") { it.simpleName }
+            "${method.name}(${params}): ${method.returnType.simpleName}"
+        }
+        .distinct()
+        .take(10)
+        .toList()
+    val common = PreferredBackendApplyResult(
+        requestedPreferredBackend = requested.name,
+        appliedPreferredBackend = "not-applied",
+        preferredBackendApplyResult = "not-supported",
+        preferredBackendHookReached = true,
+        preferredBackendHookSource = source,
+        preferredBackendApplyBuilderClass = builderClass,
+        preferredBackendApplyMethodCandidates = methodCandidates,
+    )
+    if (!BuildConfig.DEBUG) return common.copy(preferredBackendApplyResult = "not-debug-build", preferredBackendApplyNotSupportedReason = "not-debug-build")
+    if (requested == PreferredBackendDryRunSetting.DEFAULT) return common.copy(preferredBackendApplyResult = "skipped-default", preferredBackendApplyNotSupportedReason = "requested-default-skipped")
+    if (requested == PreferredBackendDryRunSetting.NPU || requested == PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU) {
+        return common.copy(
+            appliedPreferredBackend = "GPU",
+            preferredBackendApplyResult = "fallback-gpu-before-npu-disabled",
+            preferredBackendApplyError = "stage=options-builder-npu-disabled result=vendor-fastrpc-namespace-blocked recommended=GPU",
+            preferredBackendApplyNotSupportedReason = NPU_DISABLED_NOT_SUPPORTED_REASON,
+        )
+    }
+    val method = optionsBuilder.javaClass.methods.firstOrNull { m ->
+        m.name == "setPreferredBackend" && m.parameterTypes.size == 1 && m.parameterTypes[0].isEnum
+    } ?: return common.copy(preferredBackendApplyError = "NoSuchMethodException", preferredBackendApplyNotSupportedReason = "no-setPreferredBackend-method")
+    val enumType = method.parameterTypes.firstOrNull { it.isEnum }
+        ?: return common.copy(preferredBackendApplyNotSupportedReason = "no-backend-parameter")
+    val enumCandidates = enumType.enumConstants
+        ?.mapNotNull { (it as? Enum<*>)?.name }
+        ?.distinct()
+        ?.take(10)
+        .orEmpty()
+    if (enumCandidates.isEmpty()) {
+        return common.copy(
+            preferredBackendApplyBackendEnumCandidates = enumCandidates,
+            preferredBackendApplyNotSupportedReason = "backend-enum-values-empty",
+        )
+    }
+    val requestedBackendName = requested.name
+    val enumValue = enumType.enumConstants?.firstOrNull { (it as? Enum<*>)?.name == requestedBackendName }
+        ?: return common.copy(
+            preferredBackendApplyBackendEnumCandidates = enumCandidates,
+            preferredBackendApplyError = "BackendEnumNotFound",
+            preferredBackendApplyNotSupportedReason = "enum-value-not-found",
+        )
+    return runCatching {
+        method.invoke(optionsBuilder, enumValue)
+        common.copy(
+            appliedPreferredBackend = requestedBackendName,
+            preferredBackendApplyResult = "applied",
+            preferredBackendApplyBackendEnumCandidates = enumCandidates,
+            preferredBackendApplyNotSupportedReason = null,
+        )
+    }.getOrElse {
+        common.copy(
+            preferredBackendApplyResult = "failed-fallback",
+            preferredBackendApplyError = it.javaClass.simpleName,
+            preferredBackendApplyBackendEnumCandidates = enumCandidates,
+            preferredBackendApplyNotSupportedReason = "unknown",
+        )
+    }
 }
 
 private fun createOfficialLiteRtLmConversation(
@@ -3831,28 +4572,28 @@ private fun extractOfficialMessageText(value: Any?): String? {
         is CharSequence -> return value.toString()
         is Iterable<*> -> {
             value.forEach { nested ->
-                extractOfficialMessageText(nested)?.takeIf { it.isNotBlank() }?.let { return it }
+                extractOfficialMessageText(nested)?.takeIf { isViableStreamingChunk(it) }?.let { return it }
             }
             return null
         }
     }
     if (value.javaClass.isArray) {
         (value as? Array<*>)?.forEach { nested ->
-            extractOfficialMessageText(nested)?.takeIf { it.isNotBlank() }?.let { return it }
+            extractOfficialMessageText(nested)?.takeIf { isViableStreamingChunk(it) }?.let { return it }
         }
     }
     val getterNames = OFFICIAL_TEXT_CANDIDATES.filterNot { it == "toString" }
     getterNames.forEach { getterName ->
         val method = value.javaClass.methods.firstOrNull { it.name == getterName && it.parameterTypes.isEmpty() } ?: return@forEach
         val extracted = runCatching { extractOfficialMessageText(method.invoke(value)) }.getOrNull()
-        if (!extracted.isNullOrBlank()) return extracted
+        if (!extracted.isNullOrEmpty() && isViableStreamingChunk(extracted)) return extracted
     }
     val loweredMethods = value.javaClass.methods.filter { it.parameterTypes.isEmpty() }.sortedBy { it.name }
     loweredMethods.forEach { method ->
         val lowerName = method.name.lowercase(Locale.ROOT)
         if (!lowerName.contains("text") && !lowerName.contains("content") && !lowerName.contains("part")) return@forEach
         val extracted = runCatching { extractOfficialMessageText(method.invoke(value)) }.getOrNull()
-        if (!extracted.isNullOrBlank()) return extracted
+        if (!extracted.isNullOrEmpty() && isViableStreamingChunk(extracted)) return extracted
     }
     val toStringValue = value.toString()
     return toStringValue.takeIf { isMeaningfulToStringFallback(value, it) }
@@ -3874,21 +4615,1320 @@ private fun extractOfficialMessageTextWithTrace(
                 runCatching { method.invoke(value) }.getOrNull()
             }
         }
-        val extracted = runCatching { extractOfficialMessageText(candidateValue) }.getOrNull()?.trim()
-        if (!extracted.isNullOrBlank()) {
-            if (candidate == "toString" && value != null && !isMeaningfulToStringFallback(value, extracted)) {
+        val extractedRaw = runCatching { extractOfficialMessageText(candidateValue) }.getOrNull()
+        val normalizedForBlankCheck = extractedRaw?.trim()
+        logLocalStreamingWhitespace(
+            stage = "LocalStreamingRunner#extractOfficialMessageTextWithTrace.$candidate",
+            raw = extractedRaw,
+            normalized = normalizedForBlankCheck,
+        )
+        if (!extractedRaw.isNullOrEmpty() && isViableStreamingChunk(extractedRaw)) {
+            if (candidate == "toString" && value != null && !isMeaningfulToStringFallback(value, extractedRaw)) {
                 safeAppendTrace(appendTrace, "UPSTREAM extract-text candidate=$candidate result=blank")
                 return@forEach
             }
-            safeAppendTrace(appendTrace, "UPSTREAM extract-text candidate=$candidate result=nonBlank length=${extracted.length}")
-            safeAppendTrace(appendTrace, "UPSTREAM $path extracted length=${extracted.length}")
-            return extracted
+            val resultType = if (normalizedForBlankCheck.isNullOrBlank()) "whitespaceOnly" else "nonBlank"
+            safeAppendTrace(
+                appendTrace,
+                "UPSTREAM extract-text candidate=$candidate result=$resultType length=${extractedRaw.length}",
+            )
+            safeAppendTrace(appendTrace, "UPSTREAM $path extracted length=${extractedRaw.length}")
+            return extractedRaw
         }
         val resultLabel = if (candidateValue == null) "null" else "blank"
         safeAppendTrace(appendTrace, "UPSTREAM extract-text candidate=$candidate result=$resultLabel")
     }
     safeAppendTrace(appendTrace, "UPSTREAM $path extracted length=0")
     return null
+}
+
+private fun logLocalStreamingWhitespace(
+    stage: String,
+    raw: String?,
+    normalized: String? = null,
+) {
+    if (!BuildConfig.DEBUG) return
+    val rawSummary = summarizeWhitespaceForDebug(raw)
+    val normalizedSummary = summarizeWhitespaceForDebug(normalized)
+    if (normalized == null) {
+        Log.d(LOCAL_STREAMING_WHITESPACE_LOG_TAG, "$stage raw=$rawSummary")
+    } else {
+        Log.d(
+            LOCAL_STREAMING_WHITESPACE_LOG_TAG,
+            "$stage raw=$rawSummary normalized=$normalizedSummary delta=${buildWhitespaceDeltaForDebug(raw, normalized)}",
+        )
+    }
+}
+
+private fun summarizeWhitespaceForDebug(text: String?): String {
+    if (text == null) return "null"
+    val spaces = text.count { it == ' ' }
+    val newlines = text.count { it == '\n' }
+    val tabs = text.count { it == '\t' }
+    val carriageReturns = text.count { it == '\r' }
+    val visualized = text
+        .replace(" ", "␠")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    val head = visualized.take(60)
+    val tail = if (visualized.length > 60) visualized.takeLast(60) else visualized
+    return "len=${text.length},spaces=$spaces,newlines=$newlines,tabs=$tabs,cr=$carriageReturns,head=\"$head\",tail=\"$tail\""
+}
+
+private fun extractMessageContentsForTrace(message: Any?): String? {
+    if (message == null) return null
+    val contentsValue = runCatching {
+        message.javaClass.methods.firstOrNull {
+            it.name == "getContents" && it.parameterTypes.isEmpty()
+        }?.invoke(message)
+    }.getOrNull()
+    return when (contentsValue) {
+        null -> null
+        is String -> contentsValue
+        is CharSequence -> contentsValue.toString()
+        else -> contentsValue.toString()
+    }
+}
+
+internal fun shouldPreserveWhitespaceChunk(text: String): Boolean =
+    text.isNotEmpty() && text.all { it.isWhitespace() }
+
+internal fun isViableStreamingChunk(text: String): Boolean =
+    text.isNotEmpty() && (text.isNotBlank() || shouldPreserveWhitespaceChunk(text))
+
+internal fun shouldInsertMinimalJoinBetween(
+    previous: String,
+    next: String,
+): Boolean {
+    if (previous.isEmpty() || next.isEmpty()) return false
+    if (next.first().isWhitespace()) return false
+    if (previous.last().isWhitespace()) return false
+    val previousLast = previous.last()
+    val nextFirst = next.first()
+    if (!previousLast.isAsciiWordLike() || !nextFirst.isAsciiWordLike()) return false
+    if (previousLast in STREAMING_NO_JOIN_PREVIOUS_CHARS) return false
+    if (nextFirst in STREAMING_NO_JOIN_NEXT_CHARS) return false
+    if (isLikelyCodeJoinContext(previous, next)) return false
+    return true
+}
+
+internal fun appendStreamingChunk(
+    builder: StringBuilder,
+    extractedRaw: String,
+    context: StreamingAppendContext? = null,
+    appendTrace: ((String) -> Unit)? = null,
+): String {
+    if (extractedRaw.isEmpty()) return ""
+    var previousText = builder.toString()
+    var forcedJoin: String? = null
+    if (context?.lane == StreamingLane.PROSE &&
+        isStandaloneCodeLanguageTag(extractedRaw) &&
+        context.pendingCodeLanguageTag == null
+    ) {
+        context.pendingCodeLanguageTag = extractedRaw.trim()
+        appendTrace?.let { trace ->
+            safeAppendTrace(trace, "[code.pendingLanguageTag.prose]=${summarizeWhitespaceForUi(context.pendingCodeLanguageTag)}")
+            safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.PROSE.label}")
+            safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
+        }
+        return ""
+    }
+    val lane = context?.lane ?: StreamingLane.PROSE
+    if (lane == StreamingLane.PROSE && shouldEnterCodeLane(extractedRaw, context)) {
+        context?.lane = StreamingLane.CODE
+        appendTrace?.let { trace ->
+            safeAppendTrace(trace, "[lane.switch]=prose->code reason=${codeLaneReason(extractedRaw, context)}")
+        }
+    }
+    if (context?.lane == StreamingLane.PROSE && context.pendingCodeLanguageTag != null && !isStrongCodeLikeChunk(extractedRaw)) {
+        flushPendingCodeLanguageTagAsProse(builder, context, appendTrace)
+        previousText = builder.toString()
+    }
+    if (context?.lane == StreamingLane.CODE) {
+        if (shouldLeaveCodeLane(extractedRaw, context)) {
+            commitPendingCodeLine(builder, context, appendTrace)
+            flushPendingCodeLanguageTagAsProse(builder, context, appendTrace)
+            context.lane = StreamingLane.PROSE
+            previousText = builder.toString()
+            forcedJoin = if (previousText.startsWithStandaloneStreamingLanguageTagLine()) "\n" else " "
+            appendTrace?.let { trace ->
+                safeAppendTrace(trace, "[lane.switch]=code->prose reason=prose_like_chunk")
+            }
+        } else {
+            return appendStreamingChunkForCode(
+                builder = builder,
+                extractedRaw = extractedRaw,
+                context = context,
+                appendTrace = appendTrace,
+            )
+        }
+    }
+    val join = forcedJoin?.takeIf {
+        previousText.isNotEmpty() &&
+            previousText.lastOrNull()?.isWhitespace() != true &&
+            extractedRaw.isNotBlank() &&
+            !extractedRaw.first().isWhitespace()
+    } ?: if (shouldInsertMinimalJoinBetween(previousText, extractedRaw)) {
+        " "
+    } else if (
+        previousText.endsWith("```") &&
+        extractedRaw.isNotBlank() &&
+        !extractedRaw.first().isWhitespace()
+    ) {
+        "\n"
+    } else {
+        ""
+    }
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "UPSTREAM append-chunk previousTail=${summarizeWhitespaceForUi(previousText.takeLast(64))}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk extracted=${summarizeWhitespaceForUi(extractedRaw.take(64))}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.PROSE.label}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi(join)}")
+    }
+    if (join.isNotEmpty()) builder.append(join)
+    builder.append(extractedRaw)
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
+    }
+    return join
+}
+
+private fun appendStreamingChunkForCode(
+    builder: StringBuilder,
+    extractedRaw: String,
+    context: StreamingAppendContext,
+    appendTrace: ((String) -> Unit)? = null,
+): String {
+    val wasInFencedCodeBlock = context.inFencedCodeBlock
+    val isFenceBoundaryChunk = isFenceBoundaryChunk(extractedRaw)
+    if (isFenceBoundaryChunk) {
+        if (wasInFencedCodeBlock) {
+            commitPendingCodeLine(builder, context, appendTrace, force = true)
+            appendFenceChunk(builder, extractedRaw, appendTrailingNewline = false)
+            context.lane = StreamingLane.PROSE
+            clearCodeLanePendingState(context)
+            context.inFencedCodeBlock = updateFencedCodeState(wasInFencedCodeBlock, extractedRaw)
+            context.fencedCodeLanguageTag = null
+            appendTrace?.let { trace ->
+                safeAppendTrace(trace, "[lane.switch]=code->prose reason=fence_close")
+            }
+            return ""
+        }
+        commitPendingCodeLine(builder, context, appendTrace)
+        val hadPendingLanguageTag = context.pendingCodeLanguageTag != null
+        flushPendingCodeLanguageTagAsCodeLine(builder, context, appendTrace)
+        appendFenceChunk(builder, extractedRaw, appendTrailingNewline = !hadPendingLanguageTag)
+        clearCodeLanePendingState(context)
+        context.inFencedCodeBlock = updateFencedCodeState(wasInFencedCodeBlock, extractedRaw)
+        context.fencedCodeLanguageTag = extractFencedCodeLanguageTag(extractedRaw)
+        appendTrace?.let { trace ->
+            safeAppendTrace(trace, "[lane.switch]=code->code reason=fence_open")
+        }
+        return ""
+    }
+    context.inFencedCodeBlock = updateFencedCodeState(wasInFencedCodeBlock, extractedRaw)
+
+    if (isStandaloneCodeLanguageTag(extractedRaw)) {
+        commitPendingCodeLine(builder, context, appendTrace)
+        context.pendingCodeLanguageTag = extractedRaw.trim()
+        appendTrace?.let { trace ->
+            safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(context.pendingCodeLanguageTag)}")
+            safeAppendTrace(trace, "UPSTREAM [code.insertedNewline]=false")
+            safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.CODE.label}")
+            safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
+            safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
+        }
+        return ""
+    }
+
+    val pendingTag = context.pendingCodeLanguageTag
+    var insertedNewline = false
+    if (pendingTag != null) {
+        if (builder.isNotEmpty() && !builder.last().isWhitespace()) {
+            builder.append('\n')
+            insertedNewline = true
+        }
+        builder.append(pendingTag)
+        context.pendingCodeLanguageTag = null
+        if (builder.lastOrNull() != '\n') builder.append('\n')
+        appendTrace?.let { trace ->
+            safeAppendTrace(trace, "[code.flushLanguageTag]")
+            safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(pendingTag)}")
+        }
+    }
+
+    preSplitFencedPythonChunk(context, extractedRaw).forEach { chunkPart ->
+        appendStreamingCodeChunkBody(
+            builder = builder,
+            extractedRaw = chunkPart,
+            context = context,
+            appendTrace = appendTrace,
+        )
+    }
+
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "UPSTREAM append-chunk previousTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk extracted=${summarizeWhitespaceForUi(extractedRaw.take(64))}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk lane=${StreamingLane.CODE.label}")
+        safeAppendTrace(trace, "UPSTREAM append-chunk join=${summarizeWhitespaceForUi("")}")
+        safeAppendTrace(trace, "UPSTREAM [code.pendingLanguageTag]=${summarizeWhitespaceForUi(context.pendingCodeLanguageTag)}")
+        safeAppendTrace(trace, "[code.pending.after]=${summarizeWhitespaceForUi(context.pendingCodeLineBuffer?.toString())}")
+        safeAppendTrace(trace, "UPSTREAM [code.insertedNewline]=$insertedNewline")
+    }
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "UPSTREAM append-chunk afterTail=${summarizeWhitespaceForUi(builder.toString().takeLast(64))}")
+    }
+    return ""
+}
+
+private fun appendStreamingCodeChunkBody(
+    builder: StringBuilder,
+    extractedRaw: String,
+    context: StreamingAppendContext,
+    appendTrace: ((String) -> Unit)? = null,
+) {
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "[code.pending.before]=${summarizeWhitespaceForUi(context.pendingCodeLineBuffer?.toString())}")
+    }
+
+    context.pendingCodeLineBuffer ?: StringBuilder().also {
+        context.pendingCodeLineBuffer = it
+    }
+    if (
+        context.pendingCodeLineBuffer?.isNotEmpty() == true &&
+            shouldStartNewFencedPythonLogicalLine(context, context.pendingCodeLineBuffer.toString(), extractedRaw)
+    ) {
+        commitPendingCodeLine(builder, context, appendTrace)
+    } else if (
+        context.pendingCodeLineBuffer?.isNotEmpty() == true &&
+            shouldCommitPendingCodeLine(context, context.pendingCodeLineBuffer.toString(), extractedRaw)
+    ) {
+        commitPendingCodeLine(builder, context, appendTrace)
+    }
+    val appendBuffer = context.pendingCodeLineBuffer ?: StringBuilder().also {
+        context.pendingCodeLineBuffer = it
+    }
+    appendBuffer.append(extractedRaw)
+    if (shouldCommitPendingCodeLine(context, context.pendingCodeLineBuffer?.toString().orEmpty(), null)) {
+        commitPendingCodeLine(builder, context, appendTrace)
+    }
+}
+
+private fun isFenceBoundaryChunk(chunk: String): Boolean {
+    val trimmed = chunk.trim()
+    return trimmed.startsWith("```")
+}
+
+private fun appendFenceChunk(
+    builder: StringBuilder,
+    fenceChunk: String,
+    appendTrailingNewline: Boolean = true,
+) {
+    if (builder.isNotEmpty() && builder.last() != '\n') {
+        builder.append('\n')
+    }
+    builder.append(fenceChunk.trimEnd())
+    if (appendTrailingNewline && builder.lastOrNull() != '\n') {
+        builder.append('\n')
+    }
+}
+
+private fun clearCodeLanePendingState(context: StreamingAppendContext) {
+    context.pendingCodeLanguageTag = null
+    context.pendingCodeLineBuffer = null
+    context.lastCommittedCodeLine = null
+    context.lastCodeChunkEndedWithNewline = false
+}
+
+internal enum class StreamingLane(val label: String) {
+    PROSE("prose"),
+    CODE("code"),
+}
+
+internal data class StreamingAppendContext(
+    var lane: StreamingLane = StreamingLane.PROSE,
+    var pendingCodeLanguageTag: String? = null,
+    var pendingCodeLineBuffer: StringBuilder? = null,
+    var lastCodeChunkEndedWithNewline: Boolean = false,
+    var inFencedCodeBlock: Boolean = false,
+    var fencedCodeLanguageTag: String? = null,
+    var lastCommittedCodeLine: String? = null,
+)
+
+
+private fun updateFencedCodeState(current: Boolean, chunk: String): Boolean {
+    val fenceCount = FENCED_MARKER_REGEX.findAll(chunk).count()
+    if (fenceCount == 0) return current
+    return if (fenceCount % 2 == 0) current else !current
+}
+
+private fun shouldEnterCodeLane(next: String, context: StreamingAppendContext?): Boolean {
+    if (next.isEmpty()) return false
+    if (context?.inFencedCodeBlock == true) return true
+    val nextTrimmedStart = next.trimStart()
+    if (nextTrimmedStart.startsWith("```")) return true
+    if (context?.pendingCodeLanguageTag != null && isLikelyCodeAfterLanguageTag(next)) return true
+    return isStrongCodeLikeChunk(next)
+}
+
+private fun codeLaneReason(next: String, context: StreamingAppendContext?): String = when {
+    context?.inFencedCodeBlock == true -> "fenced_block"
+    next.trimStart().startsWith("```") -> "fenced_chunk"
+    context?.pendingCodeLanguageTag != null && isLikelyCodeAfterLanguageTag(next) -> "language_tag_and_strong_code"
+    isStrongCodeLikeChunk(next) -> "strong_code_chunk"
+    else -> "unknown"
+}
+
+private fun shouldLeaveCodeLane(next: String, context: StreamingAppendContext): Boolean {
+    if (context.inFencedCodeBlock) return false
+    return isProseLikeChunk(next)
+}
+
+
+private fun isProseLikeChunk(text: String): Boolean {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) return false
+    if (trimmed.startsWith("```")) return false
+    if (isStandaloneCodeLanguageTag(trimmed)) return false
+    if (isStrongCodeLikeChunk(trimmed)) return false
+    if (isCommandLikeCodeChunk(trimmed)) return false
+    if (isCodeArtifactLikeChunk(trimmed)) return false
+
+    val hasJapanese = JAPANESE_TEXT_REGEX.containsMatchIn(trimmed)
+    val hasSentencePunctuation = JAPANESE_SENTENCE_PUNCTUATION.any { punctuation ->
+        trimmed.contains(punctuation)
+    }
+    val isQuotedNaturalText = trimmed.length >= 3 &&
+        ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+            (trimmed.startsWith('“') && trimmed.endsWith('”'))) &&
+        trimmed.any { it.isLetter() }
+
+    return hasJapanese || hasSentencePunctuation || isQuotedNaturalText
+}
+
+private fun isCommandLikeCodeChunk(text: String): Boolean =
+    CODE_COMMAND_CHUNK_REGEX.containsMatchIn(text)
+
+private fun isCodeArtifactLikeChunk(text: String): Boolean =
+    CODE_ARTIFACT_CHUNK_REGEX.containsMatchIn(text)
+
+private fun flushPendingCodeLanguageTagAsProse(
+    builder: StringBuilder,
+    context: StreamingAppendContext,
+    appendTrace: ((String) -> Unit)? = null,
+) {
+    val pendingTag = context.pendingCodeLanguageTag ?: return
+    val join = if (shouldInsertMinimalJoinBetween(builder.toString(), pendingTag)) " " else ""
+    if (join.isNotEmpty()) builder.append(join)
+    builder.append(pendingTag)
+    context.pendingCodeLanguageTag = null
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "[code.flushLanguageTag.asProse]")
+    }
+}
+
+private fun flushPendingCodeLanguageTagAsCodeLine(
+    builder: StringBuilder,
+    context: StreamingAppendContext,
+    appendTrace: ((String) -> Unit)? = null,
+) {
+    val pendingTag = context.pendingCodeLanguageTag ?: return
+    if (builder.isNotEmpty() && builder.last() != '\n') {
+        builder.append('\n')
+    }
+    builder.append(pendingTag)
+    if (builder.lastOrNull() != '\n') {
+        builder.append('\n')
+    }
+    context.pendingCodeLanguageTag = null
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "[code.flushLanguageTag.asCodeLine]")
+    }
+}
+
+private val STREAMING_CODE_LANGUAGE_TAGS = setOf("python", "kotlin", "bash", "json")
+private val FENCED_MARKER_REGEX = Regex("```")
+private val FENCED_PYTHON_ASSIGNMENT_STARTER_REGEX = Regex("^[A-Za-z_][A-Za-z0-9_]*\\s*(?:[+\\-*/%:]?=)")
+private val FENCED_PYTHON_STRONG_STARTERS = listOf(
+    "import ",
+    "from ",
+    "class ",
+    "def ",
+    "if ",
+    "elif ",
+    "else:",
+    "for ",
+    "while ",
+    "try:",
+    "except",
+    "finally:",
+    "with ",
+    "return ",
+    "raise ",
+    "yield ",
+    "async def ",
+    "async for ",
+    "async with ",
+)
+
+private fun preSplitFencedPythonChunk(context: StreamingAppendContext, raw: String): List<String> {
+    if (!isFencedPythonCodeContext(context)) return listOf(raw)
+    if (raw.isEmpty() || raw.contains('\n')) return listOf(raw)
+    if (isFenceBoundaryChunk(raw)) return listOf(raw)
+    val pendingLine = context.pendingCodeLineBuffer?.toString().orEmpty()
+    val normalizedRaw = if (
+        raw.firstOrNull()?.isWhitespace() == true &&
+        (pendingLine.trimStart().startsWith("import ") || context.lastCommittedCodeLine?.trimStart()?.startsWith("import ") == true)
+    ) {
+        raw.trimStart()
+    } else {
+        raw
+    }
+    if (pendingLine.isNotEmpty() && (isQuoteOrBracketCarryOverLine(pendingLine) || isFencedPythonCommentCarryOverLine(context, pendingLine))) {
+        return listOf(normalizedRaw)
+    }
+    return splitFencedPythonChunkSequentially(normalizedRaw)
+}
+
+private fun splitFencedPythonChunkSequentially(raw: String): List<String> {
+    val chunks = mutableListOf<String>()
+    var remainder = raw
+    while (remainder.isNotEmpty()) {
+        val splitIndex = findNextFencedPythonSplitIndex(remainder)
+        if (splitIndex == null) {
+            chunks += remainder
+            break
+        }
+        if (splitIndex !in 1 until remainder.length) {
+            chunks += remainder
+            break
+        }
+        chunks += remainder.substring(0, splitIndex)
+        remainder = remainder.substring(splitIndex)
+    }
+    return chunks.filter { it.isNotEmpty() }
+}
+
+private fun findNextFencedPythonSplitIndex(text: String): Int? {
+    for (index in 1 until text.length) {
+        if (shouldSplitAtFencedPythonIndex(text, index)) return index
+    }
+    return null
+}
+
+private fun shouldSplitAtFencedPythonIndex(raw: String, index: Int): Boolean {
+    if (index !in 1 until raw.length) return false
+    if (isInsideQuotedString(raw, index)) return false
+    if (isInsidePythonComment(raw, index)) return isFencedPythonCommentTailBoundaryAt(raw, index)
+    if (hasUnclosedBrackets(raw.substring(0, index))) return false
+    if (isFencedPythonClosingBracketTailBoundaryAt(raw, index)) return true
+    if (isFencedPythonImportTailBoundaryAt(raw, index)) return true
+    if (isFencedPythonTailToStrongStarterBoundaryAt(raw, index)) return true
+    if (isFencedPythonIdentifierToStrongStarterBoundaryAt(raw, index)) return true
+    if (isFencedPythonBooleanLiteralToStrongStarterBoundaryAt(raw, index)) return true
+    if (isFencedPythonBooleanLiteralToAssignmentBoundaryAt(raw, index)) return true
+    if (isFencedPythonNumericLiteralTailBoundaryAt(raw, index)) return true
+    return isFencedPythonLiteralToAssignmentBoundaryAt(raw, index)
+}
+
+private fun isFencedPythonTailToStrongStarterBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isFencedPythonStrongStarterAt(text, index)) return false
+    val before = text[index - 1]
+    if (before == '\n' || before.isWhitespace() || before == '#') return false
+    return true
+}
+
+private fun isFencedPythonIdentifierToStrongStarterBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    val before = text[index - 1]
+    if (!isIdentifierPart(before)) return false
+    if (!isIdentifierStart(text[index])) return false
+    if (before == '_') return false
+    if (before.isUpperCase() && text[index].isUpperCase()) return false
+    if (isFencedPythonStrongStarterAt(text, index)) return true
+    if (isUpperSnakeAssignmentListStarterAt(text, index)) return true
+    return isFencedPythonAssignmentTargetListStarterAt(text, index)
+}
+
+private fun isFencedPythonLiteralToAssignmentBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isFencedPythonAssignmentTargetListStarterAt(text, index)) return false
+    val before = text[index - 1]
+    return before.isDigit() || before in listOf(']', ')', '}', '"', '\'')
+}
+
+private fun isFencedPythonBooleanLiteralToAssignmentBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isLooseFencedPythonAssignmentStarterAt(text, index)) return false
+    val prefix = text.substring(0, index)
+    return prefix.endsWith("True") || prefix.endsWith("False")
+}
+
+private fun isFencedPythonBooleanLiteralToStrongStarterBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!matchesFencedPythonStrongStarterAt(text, index, requireBoundary = false)) return false
+    val prefix = text.substring(0, index)
+    return prefix.endsWith("True") || prefix.endsWith("False")
+}
+
+private fun isFencedPythonImportTailBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    val trimmed = text.trimStart()
+    if (!trimmed.startsWith("import ") && !trimmed.startsWith("from ")) return false
+
+    if (text.regionMatches(index, "import ", 0, "import ".length) ||
+        text.regionMatches(index, "from ", 0, "from ".length)
+    ) {
+        val before = text[index - 1]
+        if (!isAsciiIdentifierPart(before) && before != ')' && before != ']' && before != '}') return false
+        val previousWord = text.substring(0, index).trimEnd().takeLastWhile { isAsciiIdentifierPart(it) }
+        if (previousWord == "as") return false
+        return true
+    }
+
+    val before = text[index - 1]
+    if (!before.isWhitespace()) return false
+    if (!isAsciiIdentifierStart(text[index]) && !isFencedPythonStrongStarterAt(text, index)) return false
+
+    if (trimmed.startsWith("import ")) {
+        val importTokenEnd = text.indexOf("import ") + "import ".length
+        if (index <= importTokenEnd) return false
+        val previousWord = text.substring(0, index).trimEnd().takeLastWhile { isAsciiIdentifierPart(it) }
+        if (previousWord == "as") return false
+        return true
+    }
+
+    val importIndex = text.indexOf(" import ")
+    if (importIndex < 0 || index <= importIndex + " import ".length) return false
+    val previousWord = text.substring(0, index).trimEnd().takeLastWhile { isAsciiIdentifierPart(it) }
+    if (previousWord == "as") return false
+    return isAsciiIdentifierStart(text[index]) || isFencedPythonStrongStarterAt(text, index)
+}
+
+private fun isFencedPythonNumericLiteralTailBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isIdentifierStart(text[index])) return false
+    val before = text[index - 1]
+    if (!before.isDigit() && before !in listOf(']', ')', '}')) return false
+    return true
+}
+
+private fun isFencedPythonStrongStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    val before = text[index - 1]
+    val prevPrev = text.getOrNull(index - 2)
+    val hasWordBoundary = before == '\n' || (!isAsciiIdentifierPart(before)) || (before.isLowerCase() && text[index].isUpperCase())
+    if (!hasWordBoundary) return false
+    if (prevPrev == '#' || before == '#') return false
+    return matchesFencedPythonStrongStarterAt(text, index)
+}
+
+private fun isFencedPythonAssignmentStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    return isFencedPythonAssignmentTargetListStarterAt(text, index)
+}
+
+private fun isFencedPythonAssignmentTargetListStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isIdentifierStart(text[index])) return false
+    val before = text[index - 1]
+    if (before == '#') return false
+    val boundary = before == '\n' || !isIdentifierPart(before) || (text[index].isUpperCase() && (before.isLowerCase() || before.isDigit()))
+    if (!boundary) return false
+    var cursor = index
+    while (true) {
+        if (cursor >= text.length || !isIdentifierStart(text[cursor])) return false
+        cursor += 1
+        while (cursor < text.length && isIdentifierPart(text[cursor])) cursor += 1
+        while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+        if (cursor < text.length && text[cursor] == ',') {
+            cursor += 1
+            while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+            continue
+        }
+        break
+    }
+    while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+    if (cursor >= text.length) return false
+    if (text[cursor] == '=') return text.getOrNull(cursor + 1) != '='
+    if (cursor + 1 >= text.length) return false
+    val op = text[cursor]
+    val eq = text[cursor + 1]
+    return op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '='
+}
+
+private fun isFencedPythonCommentTailBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    val before = text[index - 1]
+    if (before == '\n') return false
+    if (!isInsidePythonComment(text, index)) return false
+    if (text[index] == '#') return true
+    if (isAsciiAssignmentStarterAt(text, index)) return true
+    return isCommentStrongStarterAt(text, index)
+}
+
+private fun isFencedPythonClosingBracketTailBoundaryAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    val before = text[index - 1]
+    if (before !in listOf(')', ']', '}')) return false
+    if (isCommentStarterAt(text, index) && before == ')') {
+        return !pythonCommentTailHasCodeBoundary(text, index)
+    }
+    if (isCommentStarterAt(text, index)) return true
+    if (isFencedPythonStrongStarterAt(text, index)) return true
+    return isAsciiAssignmentStarterAt(text, index)
+}
+
+private fun pythonCommentTailHasCodeBoundary(text: String, hashIndex: Int): Boolean {
+    for (index in (hashIndex + 1) until text.length) {
+        if (isFencedPythonCommentTailBoundaryAt(text, index)) return true
+    }
+    return false
+}
+
+private fun isFencedPythonClassOrDefStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    return text.regionMatches(index, "class ", 0, "class ".length) ||
+        text.regionMatches(index, "def ", 0, "def ".length)
+}
+
+private fun isInsideQuotedString(text: String, targetIndex: Int): Boolean {
+    if (targetIndex <= 0 || targetIndex >= text.length) return false
+    return hasUnclosedQuotedString(text.substring(0, targetIndex))
+}
+
+private fun isInsidePythonComment(text: String, targetIndex: Int): Boolean {
+    if (targetIndex <= 0 || targetIndex > text.length) return false
+    var inSingleQuote = false
+    var inDoubleQuote = false
+    var escaped = false
+    var inComment = false
+    for (i in 0 until targetIndex) {
+        val ch = text[i]
+        if (inComment) {
+            if (ch == '\n') inComment = false
+            continue
+        }
+        if (escaped) {
+            escaped = false
+            continue
+        }
+        when (ch) {
+            '\\' -> if (inSingleQuote || inDoubleQuote) escaped = true
+            '\'' -> if (!inDoubleQuote) inSingleQuote = !inSingleQuote
+            '"' -> if (!inSingleQuote) inDoubleQuote = !inDoubleQuote
+            '#' -> if (!inSingleQuote && !inDoubleQuote) inComment = true
+        }
+    }
+    return inComment
+}
+
+private fun matchesFencedPythonStrongStarterAt(
+    text: String,
+    index: Int,
+    requireBoundary: Boolean = true,
+): Boolean {
+    return FENCED_PYTHON_STRONG_STARTERS.any { keyword ->
+        if (!text.regionMatches(index, keyword, 0, keyword.length)) return@any false
+        if (!requireBoundary) return@any true
+        val before = text.getOrNull(index - 1) ?: return@any true
+        before == '\n' || !isAsciiIdentifierPart(before) || (before.isLowerCase() && text[index].isUpperCase())
+    }
+}
+
+private fun isIdentifierStart(ch: Char): Boolean = ch == '_' || ch.isLetter()
+
+private fun isIdentifierPart(ch: Char): Boolean = isIdentifierStart(ch) || ch.isDigit()
+
+private fun isAsciiIdentifierPart(ch: Char): Boolean = ch == '_' || ch.isDigit() || ch in 'a'..'z' || ch in 'A'..'Z'
+
+private fun isAsciiIdentifierStart(ch: Char): Boolean = ch == '_' || ch in 'a'..'z' || ch in 'A'..'Z'
+
+private fun isCommentStrongStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    return text.regionMatches(index, "class ", 0, "class ".length) ||
+        text.regionMatches(index, "def ", 0, "def ".length) ||
+        text.regionMatches(index, "import ", 0, "import ".length) ||
+        text.regionMatches(index, "from ", 0, "from ".length)
+}
+
+private fun isCommentStarterAt(text: String, index: Int): Boolean =
+    index in 1 until text.length && text[index] == '#'
+
+private fun isUpperSnakeAssignmentStarterAt(text: String, index: Int): Boolean {
+    return upperSnakeAssignmentPrefixEnd(text, index) != null
+}
+
+private fun isUpperSnakeAssignmentListStarterAt(text: String, index: Int): Boolean {
+    val end = upperSnakeAssignmentPrefixEnd(text, index) ?: return false
+    return text.substring(index, end).contains(',')
+}
+
+private fun upperSnakeAssignmentPrefixEnd(text: String, index: Int): Int? {
+    if (index !in text.indices) return null
+    if (!text[index].isUpperCase()) return null
+    var cursor = index
+    while (cursor < text.length && (text[cursor].isUpperCase() || text[cursor].isDigit() || text[cursor] == '_')) {
+        cursor += 1
+    }
+    if (cursor == index) return null
+    while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+    while (cursor < text.length && text[cursor] == ',') {
+        cursor += 1
+        while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+        if (cursor >= text.length || !text[cursor].isUpperCase()) return null
+        while (cursor < text.length && (text[cursor].isUpperCase() || text[cursor].isDigit() || text[cursor] == '_')) {
+            cursor += 1
+        }
+        while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+    }
+    if (cursor >= text.length) return null
+    if (text[cursor] == '=') return if (text.getOrNull(cursor + 1) != '=') cursor else null
+    if (cursor + 1 >= text.length) return null
+    val op = text[cursor]
+    val eq = text[cursor + 1]
+    return if (op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '=') cursor else null
+}
+
+private fun isAsciiAssignmentStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isAsciiIdentifierStart(text[index])) return false
+    var cursor = index + 1
+    while (cursor < text.length && isAsciiIdentifierPart(text[cursor])) cursor += 1
+    while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+    if (cursor >= text.length) return false
+    if (text[cursor] == '=') return text.getOrNull(cursor + 1) != '='
+    if (cursor + 1 >= text.length) return false
+    val op = text[cursor]
+    val eq = text[cursor + 1]
+    return op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '='
+}
+
+private fun isLooseFencedPythonAssignmentStarterAt(text: String, index: Int): Boolean {
+    if (index !in 1 until text.length) return false
+    if (!isIdentifierStart(text[index])) return false
+    var cursor = index
+    while (true) {
+        if (cursor >= text.length || !isIdentifierStart(text[cursor])) return false
+        cursor += 1
+        while (cursor < text.length && isIdentifierPart(text[cursor])) cursor += 1
+        while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+        if (cursor < text.length && text[cursor] == ',') {
+            cursor += 1
+            while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+            continue
+        }
+        break
+    }
+    while (cursor < text.length && text[cursor].isWhitespace()) cursor += 1
+    if (cursor >= text.length) return false
+    if (text[cursor] == '=') return text.getOrNull(cursor + 1) != '='
+    if (cursor + 1 >= text.length) return false
+    val op = text[cursor]
+    val eq = text[cursor + 1]
+    return op in charArrayOf('+', '-', '*', '/', '%', ':') && eq == '='
+}
+
+private fun isStandaloneLanguageTag(text: String): Boolean {
+    val normalized = text.trim()
+    return normalized in STREAMING_CODE_LANGUAGE_TAGS
+}
+
+private fun isStandaloneCodeLanguageTag(text: String): Boolean = isStandaloneLanguageTag(text)
+
+private fun String.startsWithStandaloneStreamingLanguageTagLine(): Boolean {
+    val firstLine = lineSequence().firstOrNull()?.trim().orEmpty()
+    return firstLine in STREAMING_CODE_LANGUAGE_TAGS
+}
+
+private fun isLikelyCodeAfterLanguageTag(text: String): Boolean {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) return false
+    return isStrongCodeLikeChunk(trimmed) ||
+        trimmed.matches(Regex("[A-Za-z_][A-Za-z0-9_.]*"))
+}
+
+private fun isStrongCodeLineStart(text: String): Boolean {
+    val trimmedStart = text.trimStart()
+    if (trimmedStart.isEmpty()) return false
+    val lower = trimmedStart.lowercase(Locale.ROOT)
+    val keywords = listOf(
+        "import ",
+        "from ",
+        "def ",
+        "class ",
+        "for ",
+        "while ",
+        "return ",
+        "print(",
+        "if ",
+        "elif ",
+        "else",
+        "try",
+        "except",
+    )
+    if (keywords.any { lower.startsWith(it) }) return true
+    val assignmentPattern = Regex("^[A-Za-z_][A-Za-z0-9_\\.\\[\\]]*\\s*=.+")
+    return assignmentPattern.containsMatchIn(trimmedStart)
+}
+
+private fun isStrongCodeLikeChunk(text: String): Boolean =
+    isStrongCodeLineStart(text) || text.startsWith("    ")
+
+private fun shouldCommitPendingCodeLine(
+    context: StreamingAppendContext,
+    pendingLine: String,
+    nextChunk: String?,
+): Boolean {
+    if (pendingLine.isEmpty()) return false
+    if (pendingLine.contains('\n')) return true
+    if (nextChunk == null) {
+        return !shouldHoldPendingCodeLine(pendingLine) &&
+            !isFencedPythonCommentCarryOverLine(context, pendingLine)
+    }
+    if (nextChunk.startsWith("```")) return true
+    if (shouldCommitAfterFencedPythonComment(context, pendingLine, nextChunk)) return true
+    if (shouldKeepPythonCommentOnSameLogicalLine(context, pendingLine, nextChunk)) return false
+    if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
+    if (!isStrongCodeLikeChunk(nextChunk)) return false
+    if (pendingLine.endsWith(" ") || pendingLine.endsWith("(") || pendingLine.endsWith("=")) return false
+    return pendingLine.trimStart().startsWith("{") ||
+        pendingLine.trimStart().startsWith("}") ||
+        pendingLine.trimEnd().endsWith(":") ||
+        isStrongCodeLikeChunk(pendingLine)
+}
+
+private fun shouldKeepPythonCommentOnSameLogicalLine(
+    context: StreamingAppendContext,
+    pendingLine: String,
+    nextChunk: String,
+): Boolean {
+    if (!isFencedPythonCommentCarryOverLine(context, pendingLine)) return false
+    if (nextChunk.isEmpty() || nextChunk.contains('\n')) return false
+    if (nextChunk.trimStart().startsWith("```")) return false
+    if (nextChunk.trimStart().startsWith("#")) return false
+    return !isFencedPythonLogicalLineStarter(nextChunk)
+}
+
+private fun isFencedPythonCommentCarryOverLine(
+    context: StreamingAppendContext,
+    pendingLine: String,
+): Boolean {
+    if (!isFencedPythonCodeContext(context)) return false
+    if (pendingLine.contains('\n')) return false
+    if (isQuoteOrBracketCarryOverLine(pendingLine)) return false
+    return findPythonCommentHashIndex(pendingLine) >= 0
+}
+
+private fun findPythonCommentHashIndex(line: String): Int {
+    var inSingleQuote = false
+    var inDoubleQuote = false
+    var escaped = false
+    line.forEachIndexed { index, ch ->
+        if (escaped) {
+            escaped = false
+            return@forEachIndexed
+        }
+        when (ch) {
+            '\\' -> if (inSingleQuote || inDoubleQuote) escaped = true
+            '\'' -> if (!inDoubleQuote) inSingleQuote = !inSingleQuote
+            '"' -> if (!inSingleQuote) inDoubleQuote = !inDoubleQuote
+            '#' -> if (!inSingleQuote && !inDoubleQuote) return index
+        }
+    }
+    return -1
+}
+
+private fun shouldStartNewFencedPythonLogicalLine(
+    context: StreamingAppendContext,
+    pendingLine: String,
+    nextChunk: String,
+): Boolean {
+    if (!isFencedPythonCodeContext(context)) return false
+    if (pendingLine.isEmpty() || nextChunk.isEmpty()) return false
+    if (nextChunk.trimStart().startsWith("```")) return false
+    if (shouldCommitAfterFencedPythonComment(context, pendingLine, nextChunk)) return true
+    if (shouldKeepPythonCommentOnSameLogicalLine(context, pendingLine, nextChunk)) return false
+    if (!isFencedPythonLogicalLineStarter(nextChunk)) return false
+    if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
+    return !isQuoteOrBracketCarryOverLine(pendingLine)
+}
+
+private fun shouldCommitAfterFencedPythonComment(
+    context: StreamingAppendContext,
+    pendingLine: String,
+    nextChunk: String,
+): Boolean {
+    if (!isFencedPythonCodeContext(context)) return false
+    if (!isFencedPythonCommentCarryOverLine(context, pendingLine)) return false
+    if (pendingLine.contains('\n')) return false
+    if (nextChunk.isEmpty() || nextChunk.contains('\n')) return false
+    if (nextChunk.trimStart().startsWith("```")) return false
+    if (isQuoteOrBracketCarryOverLine(pendingLine)) return false
+    if (shouldAppendToCurrentCodeLine(pendingLine, nextChunk)) return false
+    return nextChunk.trimStart().startsWith("#") ||
+        isFencedPythonAssignmentStarter(nextChunk) ||
+        isFencedPythonClassOrDefStarter(nextChunk)
+}
+
+private fun isFencedPythonCommentLine(line: String): Boolean = line.trimStart().startsWith("#")
+
+private fun isFencedPythonAssignmentStarter(chunk: String): Boolean {
+    val trimmedStart = chunk.trimStart()
+    return FENCED_PYTHON_ASSIGNMENT_STARTER_REGEX.containsMatchIn(trimmedStart)
+}
+
+private fun isFencedPythonClassOrDefStarter(chunk: String): Boolean {
+    val trimmedStart = chunk.trimStart()
+    return trimmedStart.startsWith("class ") || trimmedStart.startsWith("def ")
+}
+
+private fun isFencedPythonCodeContext(context: StreamingAppendContext): Boolean {
+    if (!context.inFencedCodeBlock) return false
+    val normalized = context.fencedCodeLanguageTag?.trim()?.lowercase(Locale.ROOT) ?: return false
+    return normalized == "python" || normalized == "py"
+}
+
+private fun isStrongFencedPythonLogicalLineStarter(chunk: String): Boolean {
+    val trimmed = chunk.trimStart()
+    if (trimmed.isEmpty()) return false
+    val strongKeywords = listOf(
+        "import",
+        "from",
+        "class",
+        "def",
+        "if",
+        "elif",
+        "else",
+        "for",
+        "while",
+        "try",
+        "except",
+        "finally",
+        "with",
+        "return",
+        "raise",
+        "yield",
+    )
+    return strongKeywords.any { matchesFencedPythonStarterKeyword(trimmed, it) }
+}
+
+private fun isFencedPythonLogicalLineStarter(chunk: String): Boolean =
+    isStrongFencedPythonLogicalLineStarter(chunk) || isFencedPythonUpperSnakeAssignmentListStarter(chunk)
+
+private fun isFencedPythonUpperSnakeAssignmentListStarter(chunk: String): Boolean {
+    val trimmed = chunk.trimStart()
+    val end = upperSnakeAssignmentPrefixEnd(trimmed, 0) ?: return false
+    return trimmed.substring(0, end).contains(',')
+}
+
+private fun matchesFencedPythonStarterKeyword(text: String, keyword: String): Boolean {
+    if (!text.startsWith(keyword)) return false
+    if (text.length == keyword.length) return true
+    val next = text[keyword.length]
+    return next.isWhitespace() || next == ':'
+}
+
+private fun isQuoteOrBracketCarryOverLine(pendingLine: String): Boolean {
+    val trimmedEnd = pendingLine.trimEnd()
+    if (trimmedEnd.isEmpty()) return false
+    if (hasUnclosedQuotedString(trimmedEnd)) return true
+    if (hasUnclosedBrackets(trimmedEnd)) return true
+    return trimmedEnd.endsWith(",") ||
+        trimmedEnd.endsWith("(") ||
+        trimmedEnd.endsWith("[") ||
+        trimmedEnd.endsWith("{")
+}
+
+private fun extractFencedCodeLanguageTag(chunk: String): String? {
+    val trimmed = chunk.trim()
+    if (!trimmed.startsWith("```")) return null
+    val markerTail = trimmed.removePrefix("```").trim()
+    if (markerTail.isEmpty()) return null
+    return markerTail.lineSequence().first().trim().ifEmpty { null }
+}
+
+private fun shouldHoldPendingCodeLine(pendingLine: String): Boolean {
+    val trimmedEnd = pendingLine.trimEnd()
+    if (trimmedEnd.isEmpty()) return false
+    if (isQuoteOrBracketContinuationLine(pendingLine)) return true
+    return trimmedEnd.endsWith("(") ||
+        trimmedEnd.endsWith("=") ||
+        trimmedEnd.matches(Regex("[A-Za-z_][A-Za-z0-9_.]*"))
+}
+
+private fun shouldAppendToCurrentCodeLine(
+    pendingLine: String,
+    nextChunk: String,
+): Boolean {
+    if (nextChunk.isEmpty()) return true
+    if (nextChunk.contains('\n')) return false
+    if (nextChunk.trimStart().startsWith("```")) return false
+
+    val previous = pendingLine.trimEnd()
+    if (previous.isEmpty()) return true
+    val nextTrimmedStart = nextChunk.trimStart()
+    if (nextTrimmedStart.isEmpty()) return true
+
+    if (nextChunk.first().isWhitespace()) {
+        return isQuoteOrBracketContinuationLine(pendingLine)
+    }
+
+    val previousLast = previous.last()
+    val nextFirst = nextTrimmedStart.first()
+
+    val inlinePair = (previousLast.isLetterOrDigit() || previousLast == '_') &&
+        (nextFirst == '(' || nextFirst == ',' || nextFirst == ')' || nextFirst == '!' || nextFirst == ']' || nextFirst == '}')
+    if (inlinePair) return true
+
+    if ((previousLast == '(' || previousLast == '[' || previousLast == '{') &&
+        (nextFirst.isLetterOrDigit() || nextFirst == '"' || nextFirst == '\'')
+    ) return true
+
+    if ((previousLast == '"' || previousLast == '\'') && (nextFirst == '"' || nextFirst == '\'' || nextFirst.isLetterOrDigit())) {
+        return true
+    }
+
+    if (previousLast == ',' && nextChunk.first().isWhitespace()) return true
+
+    return false
+}
+
+private fun isQuoteOrBracketContinuationLine(pendingLine: String): Boolean {
+    val trimmedEnd = pendingLine.trimEnd()
+    if (trimmedEnd.isEmpty()) return false
+    if (hasUnclosedQuotedString(trimmedEnd)) return true
+    if (hasUnclosedBrackets(trimmedEnd)) return true
+    if (trimmedEnd.endsWith(",")) return true
+    if (trimmedEnd.endsWith("(") || trimmedEnd.endsWith("[") || trimmedEnd.endsWith("{")) return true
+    return trimmedEnd.endsWith(".") ||
+        trimmedEnd.endsWith("=") ||
+        trimmedEnd.matches(Regex(".*[+\\-*/%&|^<>!]$"))
+}
+
+private fun hasUnclosedQuotedString(text: String): Boolean {
+    var index = 0
+    var single = false
+    var double = false
+    var tripleSingle = false
+    var tripleDouble = false
+    while (index < text.length) {
+        if (tripleSingle) {
+            if (text.startsWith("'''", index)) {
+                tripleSingle = false
+                index += 3
+                continue
+            }
+            index += 1
+            continue
+        }
+        if (tripleDouble) {
+            if (text.startsWith("\"\"\"", index)) {
+                tripleDouble = false
+                index += 3
+                continue
+            }
+            index += 1
+            continue
+        }
+        val ch = text[index]
+        val escaped = index > 0 && text[index - 1] == '\\' && (index < 2 || text[index - 2] != '\\')
+        if (ch == '\'' && !double && !escaped) {
+            if (!single && text.startsWith("'''", index)) {
+                tripleSingle = true
+                index += 3
+                continue
+            }
+            single = !single
+            index += 1
+            continue
+        }
+        if (ch == '"' && !single && !escaped) {
+            if (!double && text.startsWith("\"\"\"", index)) {
+                tripleDouble = true
+                index += 3
+                continue
+            }
+            double = !double
+            index += 1
+            continue
+        }
+        index += 1
+    }
+    return single || double || tripleSingle || tripleDouble
+}
+
+private fun hasUnclosedBrackets(text: String): Boolean {
+    var round = 0
+    var square = 0
+    var curly = 0
+    var index = 0
+    var single = false
+    var double = false
+    var tripleSingle = false
+    var tripleDouble = false
+    while (index < text.length) {
+        if (tripleSingle) {
+            if (text.startsWith("'''", index)) {
+                tripleSingle = false
+                index += 3
+                continue
+            }
+            index += 1
+            continue
+        }
+        if (tripleDouble) {
+            if (text.startsWith("\"\"\"", index)) {
+                tripleDouble = false
+                index += 3
+                continue
+            }
+            index += 1
+            continue
+        }
+        val ch = text[index]
+        val escaped = index > 0 && text[index - 1] == '\\' && (index < 2 || text[index - 2] != '\\')
+        if (ch == '\'' && !double && !escaped) {
+            if (!single && text.startsWith("'''", index)) {
+                tripleSingle = true
+                index += 3
+                continue
+            }
+            single = !single
+            index += 1
+            continue
+        }
+        if (ch == '"' && !single && !escaped) {
+            if (!double && text.startsWith("\"\"\"", index)) {
+                tripleDouble = true
+                index += 3
+                continue
+            }
+            double = !double
+            index += 1
+            continue
+        }
+        if (single || double) {
+            index += 1
+            continue
+        }
+        when (ch) {
+            '(' -> round += 1
+            ')' -> round = (round - 1).coerceAtLeast(0)
+            '[' -> square += 1
+            ']' -> square = (square - 1).coerceAtLeast(0)
+            '{' -> curly += 1
+            '}' -> curly = (curly - 1).coerceAtLeast(0)
+        }
+        index += 1
+    }
+    return round > 0 || square > 0 || curly > 0
+}
+
+private fun commitPendingCodeLine(
+    builder: StringBuilder,
+    context: StreamingAppendContext,
+    appendTrace: ((String) -> Unit)? = null,
+    force: Boolean = false,
+) {
+    val pending = context.pendingCodeLineBuffer?.toString().orEmpty().trimEnd()
+    if (pending.isEmpty()) return
+    if (builder.isNotEmpty() && builder.last() != '\n' && !pending.startsWith("\n")) {
+        builder.append('\n')
+    }
+    builder.append(pending)
+    context.lastCommittedCodeLine = pending
+    context.lastCodeChunkEndedWithNewline = pending.endsWith('\n')
+    context.pendingCodeLineBuffer = null
+    appendTrace?.let { trace ->
+        safeAppendTrace(trace, "[code.commit]=${summarizeWhitespaceForUi(pending)}")
+    }
+}
+
+
+private val JAPANESE_TEXT_REGEX = Regex("[\\p{IsHiragana}\\p{IsKatakana}\\p{IsHan}]")
+private val JAPANESE_SENTENCE_PUNCTUATION = listOf("。", "、", "！", "？")
+private val CODE_COMMAND_CHUNK_REGEX = Regex("^(python|python3|bash|sh|node|ruby|java|kotlinc)\\b", RegexOption.IGNORE_CASE)
+private val CODE_ARTIFACT_CHUNK_REGEX = Regex("^[A-Za-z0-9_./-]+\\.(py|kt|kts|sh|json|yaml|yml|xml|txt|md)$", RegexOption.IGNORE_CASE)
+
+private val STREAMING_STRONG_CODE_SIGNALS = listOf(
+    "import ",
+    "from ",
+    "def ",
+    "class ",
+    "return",
+    "print(",
+    "=",
+    "self.",
+)
+
+private fun Char.isAsciiWordLike(): Boolean =
+    (this in 'a'..'z') || (this in 'A'..'Z') || (this in '0'..'9') || this == '_' || this == '-'
+
+private fun isLikelyCodeJoinContext(previous: String, next: String): Boolean {
+    val previousTail = previous.takeLast(48)
+    val nextHead = next.take(48)
+    val lowerPreviousTail = previousTail.lowercase(Locale.ROOT)
+    val lowerNextHead = nextHead.lowercase(Locale.ROOT)
+    val codeHints = listOf(
+        "print(",
+        "def ",
+        "class ",
+        "import ",
+        "from ",
+        "return ",
+        "if ",
+        "for ",
+        "while ",
+        "grid_",
+        "self.",
+        "np.",
+        "```",
+        "=",
+        "):",
+        "->",
+    )
+    return codeHints.any { hint ->
+        lowerPreviousTail.contains(hint) || lowerNextHead.contains(hint)
+    }
+}
+
+private fun buildRunnerWhitespaceTraceBlock(
+    stages: List<Pair<String, String?>>,
+): String? {
+    if (!BuildConfig.DEBUG || stages.isEmpty()) return null
+    return buildString {
+        appendLine("=== RUNNER WS TRACE ===")
+        stages.forEach { (stage, text) ->
+            append('[').append(stage).appendLine("]")
+            appendLine(summarizeWhitespaceForUi(text))
+            appendLine()
+        }
+    }
+}
+
+private fun summarizeWhitespaceForUi(text: String?): String {
+    if (text == null) return "len=null\nspaces=0\nnewlines=0\ntabs=0\ntext=\"null\""
+    val spaces = text.count { it == ' ' }
+    val newlines = text.count { it == '\n' }
+    val tabs = text.count { it == '\t' }
+    val visualized = text
+        .replace(" ", "␠")
+        .replace("\n", "\\n")
+        .replace("\t", "\\t")
+    val limited = if (visualized.length > 1200) {
+        visualized.take(1200) + "…(truncated)"
+    } else {
+        visualized
+    }
+    return "len=${text.length}\nspaces=$spaces\nnewlines=$newlines\ntabs=$tabs\ntext=\"$limited\""
+}
+
+private fun buildWhitespaceDeltaForDebug(raw: String?, normalized: String?): String {
+    if (raw == null || normalized == null) return "n/a"
+    return "len=${raw.length - normalized.length},spaces=${raw.count { it == ' ' } - normalized.count { it == ' ' }},newlines=${raw.count { it == '\n' } - normalized.count { it == '\n' }}"
 }
 
 private fun isMeaningfulToStringFallback(source: Any, value: String): Boolean {

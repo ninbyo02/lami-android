@@ -28,7 +28,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -43,6 +42,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,8 +67,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -76,8 +77,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import io.github.ninbyo02.lami.ui.common.buildHighlightedCodeAnnotatedString
 import io.github.ninbyo02.lami.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.text.PythonCodeSyntaxInspector
+import io.github.ninbyo02.lami.ui.text.PythonCodeWarning
+import io.github.ninbyo02.lami.ui.text.PythonCodeWarningType
 import io.github.ninbyo02.lami.ui.util.buildInferenceSummary
 import io.github.ninbyo02.lami.ui.text.Segment
 import io.github.ninbyo02.lami.ui.text.parseFencedCodeSegments
@@ -93,6 +96,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.hypot
 
 private const val ZOOM_EPS = 1.01f
+private const val ASSISTANT_TEXT_SELECTION_MAX_CHARS = 3000
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -625,6 +629,7 @@ private fun decodeAttachmentUriStrings(attachmentUriStringsJson: String?): List<
 fun PlainAssistantMessage(
     message: String,
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+    isStreaming: Boolean = false,
     showMessageActions: Boolean = false,
     isReplaying: Boolean = false,
     onReplayClick: (() -> Unit)? = null,
@@ -633,8 +638,34 @@ fun PlainAssistantMessage(
     inferenceStats: InferenceStats? = null,
     onInferenceStatsClick: (() -> Unit)? = null,
 ) {
-    val segments = remember(message) { parseFencedCodeSegments(message) }
+    // 長文回答ではスクロール優先のため選択を無効化する。
+    val shouldEnableAssistantTextSelection = remember(message, isStreaming) {
+        shouldEnableAssistantTextSelection(
+            message = message,
+            isStreaming = isStreaming,
+        )
+    }
+    val streamingSplit = remember(message, isStreaming) {
+        if (isStreaming) {
+            splitStreamingText(message)
+        } else {
+            StreamingSplit(stable = message, unstable = "")
+        }
+    }
+    val segments = remember(streamingSplit.stable) {
+        parseFencedCodeSegments(streamingSplit.stable)
+    }
+    val shouldRenderUnstableAsCode = remember(streamingSplit.unstable, isStreaming) {
+        isStreaming && shouldTreatAsProvisionalCode(streamingSplit.unstable)
+    }
     val inferenceSummary = remember(inferenceStats) { inferenceStats?.let(::buildInferenceSummary) }
+    val pythonSyntaxWarnings = remember(message, isStreaming) {
+        if (isStreaming) {
+            emptyList()
+        } else {
+            PythonCodeSyntaxInspector.inspectMarkdown(message).warnings.take(3)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -644,8 +675,32 @@ fun PlainAssistantMessage(
     ) {
         MessageSegments(
             segments = segments,
-            enableTextSelection = true,
+            enableTextSelection = shouldEnableAssistantTextSelection,
+            isStreaming = isStreaming,
         )
+        val unstableTail = streamingSplit.unstable
+        if (unstableTail.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            if (shouldRenderUnstableAsCode) {
+                CodeBlockCard(
+                    lang = detectProvisionalLanguage(unstableTail),
+                    code = unstableTail,
+                    isClosed = false,
+                    isStreamingCodeBlock = isStreaming,
+                    showLineNumbers = shouldShowCodeLineNumbers(isStreaming),
+                )
+            } else {
+                Text(
+                    text = unstableTail,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+        if (pythonSyntaxWarnings.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            PythonSyntaxWarningSummary(warnings = pythonSyntaxWarnings)
+        }
         if (showMessageActions) {
             Row(
                 modifier = Modifier
@@ -656,7 +711,7 @@ fun PlainAssistantMessage(
             ) {
                 if (isReplaying && onStopReplayClick != null) {
                     IconButton(
-                        onClick = { onStopReplayClick?.invoke() },
+                        onClick = { onStopReplayClick() },
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
@@ -667,7 +722,7 @@ fun PlainAssistantMessage(
                     }
                 } else if (onReplayClick != null) {
                     IconButton(
-                        onClick = { onReplayClick?.invoke() },
+                        onClick = { onReplayClick() },
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
@@ -705,9 +760,284 @@ fun PlainAssistantMessage(
 }
 
 @Composable
+private fun PythonSyntaxWarningSummary(warnings: List<PythonCodeWarning>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = "Pythonコードに構文崩れの可能性があります",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        warnings.forEach { warning ->
+            Text(
+                text = "L${warning.lineNumber} ${pythonWarningTypeJa(warning.type)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Surface(
+                modifier = Modifier
+                    .padding(top = 2.dp, bottom = 2.dp)
+                    .fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(6.dp),
+            ) {
+                Text(
+                    text = warning.lineText.take(140),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+            Text(
+                text = warning.message,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+
+private fun pythonWarningTypeJa(type: PythonCodeWarningType): String = when (type) {
+    PythonCodeWarningType.POSSIBLE_EMPTY_BLOCK -> "空ブロックの可能性"
+    PythonCodeWarningType.POSSIBLE_INDENT_JUMP -> "インデント崩れの可能性"
+    PythonCodeWarningType.POSSIBLE_TOP_LEVEL_DEDENT_AFTER_BLOCK -> "ブロック直後の字下げ崩れの可能性"
+    PythonCodeWarningType.POSSIBLE_FUSED_CODE -> "コード連結の可能性"
+}
+
+data class StreamingSplit(
+    val stable: String,
+    val unstable: String,
+)
+
+data class AssistantDisplayText(
+    val text: String,
+    val isTrimmedForRender: Boolean,
+)
+
+fun buildAssistantDisplayText(
+    originalMessage: String,
+    @Suppress("UNUSED_PARAMETER")
+    tailLimitChars: Int,
+): AssistantDisplayText {
+    val sanitized = sanitizeAssistantMessageForDisplay(originalMessage)
+    // tail trim/前半省略は使わず、常に整形済み全文を表示する。
+    return AssistantDisplayText(
+        text = sanitized,
+        isTrimmedForRender = false,
+    )
+}
+
+fun sanitizeAssistantMessageForDisplay(message: String): String {
+    if (message.isBlank()) return message
+    val wsTraceKeywords = setOf(
+        "=== WS TRACE ===",
+        "=== RUNNER WS TRACE ===",
+        "=== DEV Stream ===",
+        "RAW:",
+        "NORMALIZED:",
+        "LEN:",
+        "SPACES:",
+        "NL:",
+        "----",
+    )
+    val visibleLines = mutableListOf<String>()
+    for (line in message.lineSequence()) {
+        val trimmed = line.trim()
+        if (wsTraceKeywords.any { keyword -> trimmed.startsWith(keyword) }) {
+            break
+        }
+        visibleLines += line
+    }
+    return visibleLines
+        .joinToString("\n")
+        .replace('␠', ' ')
+        .trim()
+}
+
+fun splitStreamingText(text: String): StreamingSplit {
+    if (text.isEmpty()) return StreamingSplit(stable = "", unstable = "")
+    val lines = text.lines()
+    val hasTrailingNewLine = text.endsWith("\n")
+    val unclosedFence = text.split("```").size % 2 == 0
+    val unstableStartLine = findProvisionalUnstableStartLine(
+        lines = lines,
+        hasTrailingNewLine = hasTrailingNewLine,
+        unclosedFence = unclosedFence,
+    ) ?: return StreamingSplit(stable = text, unstable = "")
+
+    val unstablePart = lines.drop(unstableStartLine).joinToString("\n")
+    val unstableFirstLine = unstablePart.lineSequence().firstOrNull().orEmpty().trim()
+    val shouldSplitTail =
+        shouldTreatAsProvisionalCode(unstablePart) ||
+            unstablePart.lineSequence().any { line -> isPythonFusionStart(line.trim()) } ||
+            unstableFirstLine in PROVISIONAL_LANGUAGE_TAGS ||
+            unstableFirstLine.startsWith("```")
+
+    if (!shouldSplitTail) {
+        return StreamingSplit(stable = text, unstable = "")
+    }
+
+    val stablePart = lines.take(unstableStartLine).joinToString("\n")
+    return StreamingSplit(stable = stablePart, unstable = unstablePart)
+}
+
+
+fun isPythonFusionStart(text: String): Boolean {
+    val normalized = text.trimStart()
+    if (!normalized.startsWith("python")) return false
+    val tail = normalized.removePrefix("python").trimStart()
+    if (tail.isBlank()) return false
+    val strongFusionPrefixes = listOf(
+        "import",
+        "def",
+        "class",
+        "for",
+        "while",
+        "print(",
+        "return",
+        "from",
+        "self.",
+        "GRID_",
+    )
+    if (strongFusionPrefixes.any { prefix -> tail.startsWith(prefix) }) {
+        return true
+    }
+    if (
+        Regex("^[A-Za-z_][A-Za-z0-9_]{2,}\\s*[(:=\\[]").containsMatchIn(tail) ||
+            Regex("^np\\.").containsMatchIn(tail)
+    ) {
+        return true
+    }
+    return false
+}
+
+fun shouldTreatAsProvisionalCode(text: String): Boolean {
+    val trimmed = text.trim()
+    if (trimmed.isBlank()) return false
+    if (trimmed in setOf("python", "kotlin", "bash", "json")) return true
+    val hasPythonFusion = isPythonFusionStart(trimmed)
+    if (hasPythonFusion) return true
+    val hasPythonLanguageTag = trimmed.equals("python", ignoreCase = true)
+    val pythonContext = hasPythonLanguageTag || hasPythonFusion
+
+    val assignmentLike = Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*[^=]")
+    val signals = listOf(
+        Regex("\\bimport\\b"),
+        Regex("\\bfrom\\s+"),
+        Regex("\\bdef\\b"),
+        Regex("\\bclass\\b"),
+        Regex("\\bfor\\b"),
+        Regex("\\bwhile\\b"),
+        Regex("\\belif\\b"),
+        Regex("\\bexcept\\b"),
+        Regex("\\breturn\\b"),
+        Regex("lambda"),
+        Regex("self\\."),
+        Regex("np\\."),
+        Regex("GRID_[A-Za-z0-9_]*"),
+        Regex("print\\("),
+        assignmentLike,
+        Regex("->"),
+        Regex("[{}]"),
+        Regex("[\\[\\]]"),
+        Regex(";"),
+    )
+    var score = signals.count { signal -> signal.containsMatchIn(trimmed) }
+    if (hasStrongCodeSignal(trimmed)) {
+        score += 2
+    }
+    if (pythonContext && (trimmed.startsWith("from ") || trimmed.startsWith("self.") || trimmed.startsWith("print("))) {
+        score += 1
+    }
+    if (text.startsWith("    ") || text.startsWith("\t")) score += 1
+    return score >= 3
+}
+
+private fun findProvisionalUnstableStartLine(
+    lines: List<String>,
+    hasTrailingNewLine: Boolean,
+    unclosedFence: Boolean,
+): Int? {
+    if (hasTrailingNewLine || lines.isEmpty()) return null
+    val blockEnd = lines.indexOfLast { it.isNotBlank() }
+    if (blockEnd < 0) return null
+    val blockStart =
+        lines.subList(0, blockEnd + 1).indexOfLast { it.isBlank() }.let { blankIndex ->
+            if (blankIndex >= 0) blankIndex + 1 else 0
+        }
+
+    if (unclosedFence) {
+        val fenceStart = (0..blockEnd).lastOrNull { index -> lines[index].trimStart().startsWith("```") }
+        if (fenceStart != null) return fenceStart
+    }
+
+    for (index in blockStart..blockEnd) {
+        val line = lines[index].trim()
+        if (line in PROVISIONAL_LANGUAGE_TAGS && index < blockEnd) {
+            val activeBlock = lines.drop(index).joinToString("\n")
+            if (shouldTreatAsProvisionalCode(activeBlock) || hasStrongCodeSignal(lines[index + 1])) {
+                return index
+            }
+        }
+        if (isPythonFusionStart(line)) return index
+    }
+
+    val candidateIndices = (blockStart..blockEnd).filter { index -> lines[index].isNotBlank() }
+    if (candidateIndices.isEmpty()) return null
+    var streakStart: Int? = null
+    var previousIndex: Int? = null
+    for (index in candidateIndices) {
+        val codeLike = shouldTreatAsProvisionalCode(lines[index]) || hasStrongCodeSignal(lines[index])
+        if (codeLike && previousIndex != null && index == previousIndex + 1 && streakStart != null) {
+            return streakStart
+        }
+        if (codeLike) {
+            streakStart = index
+        } else {
+            streakStart = null
+        }
+        previousIndex = index
+    }
+    return null
+}
+
+private val PROVISIONAL_LANGUAGE_TAGS = setOf("python", "kotlin", "bash", "json")
+
+private fun hasStrongCodeSignal(line: String): Boolean {
+    val trimmed = line.trim()
+    if (trimmed.isBlank()) return false
+    return Regex("^\\s*(import\\s+|from\\s+|def\\s+|class\\s+|for\\s+|while\\s+|return\\b)").containsMatchIn(trimmed) ||
+        Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*[^=]").containsMatchIn(trimmed) ||
+        trimmed.startsWith("print(") ||
+        trimmed.startsWith("```")
+}
+
+private fun detectProvisionalLanguage(text: String): String? {
+    val trimmed = text.trimStart()
+    return when {
+        trimmed.startsWith("python") -> "python"
+        trimmed.startsWith("fun ") || trimmed.startsWith("val ") || trimmed.startsWith("class ") -> "kotlin"
+        trimmed.startsWith("{") || trimmed.startsWith("[") -> "json"
+        trimmed.startsWith("$") || trimmed.startsWith("#!/bin/bash") -> "bash"
+        else -> null
+    }
+}
+
+@Composable
 private fun MessageSegments(
     segments: List<Segment>,
     enableTextSelection: Boolean = false,
+    isStreaming: Boolean = false,
 ) {
     val bodyMedium = MaterialTheme.typography.bodyMedium
     val markdownTextStyle = bodyMedium.copy(
@@ -743,12 +1073,58 @@ private fun MessageSegments(
                 }
 
                 is Segment.Code -> {
-                    CodeBlockCard(lang = segment.lang, code = segment.code)
+                    val isStreamingCodeBlock = isStreaming && !segment.isClosed
+                    val shouldShowCodeLineNumbers = shouldShowCodeLineNumbers(isStreaming)
+                    CodeBlockCard(
+                        lang = segment.lang,
+                        code = segment.code,
+                        isClosed = !shouldShowCodeGeneratingState(
+                            isStreaming = isStreaming,
+                            isSegmentClosed = segment.isClosed,
+                        ),
+                        isStreamingCodeBlock = isStreamingCodeBlock,
+                        showLineNumbers = shouldShowCodeLineNumbers,
+                    )
                 }
             }
         }
     }
 }
+
+internal fun shouldShowCodeGeneratingState(
+    isStreaming: Boolean,
+    isSegmentClosed: Boolean,
+): Boolean = isStreaming && !isSegmentClosed
+
+internal fun shouldUsePlainTextForStreamingCodeFence(
+    message: String,
+    isStreaming: Boolean,
+): Boolean = isStreaming && message.contains("```")
+
+internal fun shouldEnableAssistantTextSelection(
+    message: String,
+    isStreaming: Boolean,
+): Boolean = !isStreaming &&
+    message.length <= ASSISTANT_TEXT_SELECTION_MAX_CHARS &&
+    !message.contains("```")
+
+internal fun shouldShowCodeLineNumbers(
+    isStreaming: Boolean,
+): Boolean = !isStreaming
+
+internal fun shouldDisableCodeBlockBodyInteractions(
+    code: String,
+    isStreamingCodeBlock: Boolean,
+): Boolean = isStreamingCodeBlock || code.length > ASSISTANT_TEXT_SELECTION_MAX_CHARS
+
+internal fun calculateCodeLineNumberDigits(lineCount: Int): Int =
+    maxOf(2, lineCount.coerceAtLeast(1).toString().length)
+
+internal fun buildCodeLinesForDisplay(code: String): List<String> =
+    code.lines().dropTrailingFenceArtifacts()
+
+internal fun List<String>.dropTrailingFenceArtifacts(): List<String> =
+    dropLastWhile { it.isEmpty() }
 
 private fun replaceInlineCodeSpans(
     textView: TextView,
@@ -872,21 +1248,11 @@ private class InlineCodeChipSpan(
 private fun CodeBlockCard(
     lang: String?,
     code: String,
+    isClosed: Boolean = true,
+    isStreamingCodeBlock: Boolean = false,
+    showLineNumbers: Boolean = true,
 ) {
     val clipboardManager = LocalClipboardManager.current
-    val colorScheme = MaterialTheme.colorScheme
-    val bodyMedium = MaterialTheme.typography.bodyMedium
-    val codeTextStyle = bodyMedium.copy(
-        lineHeight = bodyMedium.lineHeight * 0.94f,
-        platformStyle = PlatformTextStyle(includeFontPadding = false)
-    )
-    val highlightedCode = remember(code, lang, colorScheme) {
-        buildHighlightedCodeAnnotatedString(
-            code = code,
-            language = lang,
-            colors = colorScheme,
-        )
-    }
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -920,15 +1286,27 @@ private fun CodeBlockCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = lang?.takeIf { it.isNotBlank() } ?: "Code",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = lerp(
-                                MaterialTheme.colorScheme.onSurfaceVariant,
-                                MaterialTheme.colorScheme.primary,
-                                0.18f,
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = lang?.takeIf { it.isNotBlank() } ?: "Code",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = lerp(
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                    MaterialTheme.colorScheme.primary,
+                                    0.18f,
+                                )
                             )
-                        )
+                            if (!isClosed) {
+                                Text(
+                                    text = "生成中…",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .clickable { clipboardManager.setText(AnnotatedString(code)) }
@@ -945,14 +1323,48 @@ private fun CodeBlockCard(
                             )
                         }
                     }
-                    SelectionContainer {
-                        Text(
-                            text = highlightedCode,
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            fontFamily = FontFamily.Monospace,
-                            style = codeTextStyle,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                    if (!showLineNumbers) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                        ) {
+                            Text(
+                                text = code,
+                                fontFamily = FontFamily.Monospace,
+                                style = MaterialTheme.typography.bodySmall,
+                                softWrap = false,
+                            )
+                        }
+                    } else {
+                        val codeLines = remember(code) { buildCodeLinesForDisplay(code) }
+                        val lineNumberDigits = remember(codeLines) {
+                            calculateCodeLineNumberDigits(codeLines.size)
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                        ) {
+                            codeLines.forEachIndexed { index, line ->
+                                Row(verticalAlignment = Alignment.Top) {
+                                    Text(
+                                        text = (index + 1).toString().padStart(lineNumberDigits, ' '),
+                                        fontFamily = FontFamily.Monospace,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        textAlign = TextAlign.End,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        modifier = Modifier.padding(end = 12.dp),
+                                    )
+                                    Text(
+                                        text = line,
+                                        fontFamily = FontFamily.Monospace,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        softWrap = false,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

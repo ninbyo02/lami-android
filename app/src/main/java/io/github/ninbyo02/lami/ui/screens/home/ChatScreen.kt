@@ -1,7 +1,9 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
+import android.app.ActivityManager
 import android.net.Uri
+import android.os.Debug
 import android.os.SystemClock
 import android.util.Log
 import android.widget.ImageView
@@ -50,6 +52,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.zIndex
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -67,6 +70,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -101,6 +105,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
@@ -151,11 +156,13 @@ import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
 import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.text.MarkdownCodeRepair
 import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
 import io.github.ninbyo02.lami.ui.util.formatOutputTokens
 import io.github.ninbyo02.lami.ui.util.formatInferenceTime
@@ -215,6 +222,8 @@ private const val MaxComposerAttachments = 10
 private const val LOCAL_INFERENCE_PROBE_PROMPT = "hi"
 private const val LOCAL_INIT_TIMEOUT_MS = 3000L
 private const val LOCAL_GENERATE_TIMEOUT_MS = 30000L
+private const val LOCAL_RESPONDING_PLACEHOLDER_DELAY_MS = 350L
+private const val TTS_HEADER_TALKING_GRACE_MS = 900L
 // DEV専用のsession async PoCは今回のPoC検証のため一時的にON（判定は internal file のみで実施）。
 private const val ENABLE_DEV_LLM_SESSION_ASYNC_POC = true
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT = "one-shot"
@@ -224,8 +233,12 @@ private const val DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS = 10_000L
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
-private const val DEV_UI_DEBUG_MODE = true
+private const val DEV_UI_DEBUG_MODE = false
+private const val DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED = true
+private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
 private const val DEV_USE_HELD_PATH_ONLY = false
+private const val LOCAL_UI_APPEND_DEBOUNCE_MS = 0L
+private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
 
 private enum class LocalExecutionPath(
     val sourceLabel: String,
@@ -309,6 +322,7 @@ private data class LocalInferenceRunResult(
     val response: String? = null,
     val trace: LocalInferenceTrace = LocalInferenceTrace(),
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
+    val runnerWhitespaceTraceText: String? = null,
 )
 
 private data class LocalModelResolution(
@@ -404,6 +418,12 @@ internal data class LocalInferenceTrace(
     val sessionAsyncPocErrorClassName: String? = null,
     val sessionAsyncPocErrorMessage: String? = null,
     val assistantUpdateCount: Int = 0,
+    val streamedCharsPerSecond: Double? = null,
+    val appendBatchSizeAvg: Double? = null,
+    val appendEventsPerSecond: Double? = null,
+    val composeRecomposeEstimate: Int? = null,
+    val markdownRepairCount: Int? = null,
+    val uiAppendDebounceMs: Long? = null,
     val firstNonEmptyAssistantChunkSeen: Boolean = false,
     val assistantStreamedToUi: Boolean = false,
     val realPartialReceived: Boolean = false,
@@ -413,10 +433,163 @@ internal data class LocalInferenceTrace(
     val officialFlowFallbackReason: String? = null,
     val officialConversationApiAvailable: Boolean? = null,
     val officialFlowChunkCount: Int = 0,
+    val officialChunkCount: Int = 0,
+    val officialChunkIntervalAvgMs: Double? = null,
+    val officialChunkIntervalMaxMs: Long? = null,
+    val officialChunkIntervalMinMs: Long? = null,
+    val officialChunkFirstToLastMs: Long? = null,
+    val officialChunkCharsAvg: Double? = null,
+    val officialChunkCharsMax: Int? = null,
+    val officialChunkCharsMin: Int? = null,
+    val officialChunkEmptyCount: Int = 0,
+    val officialChunkNonEmptyCount: Int = 0,
+    val officialChunkEventsPerSecond: Double? = null,
+    val officialChunkCharsPerSecond: Double? = null,
+    val requestedPreferredBackend: String? = null,
+    val appliedPreferredBackend: String? = null,
+    val preferredBackendApplyResult: String? = null,
+    val preferredBackendHookReached: Boolean? = null,
+    val preferredBackendHookSource: String? = null,
+    val preferredBackendApplyError: String? = null,
+    val preferredBackendApplyBuilderClass: String? = null,
+    val preferredBackendApplyMethodCandidates: List<String> = emptyList(),
+    val preferredBackendApplyBackendEnumCandidates: List<String> = emptyList(),
+    val preferredBackendApplyNotSupportedReason: String? = null,
+    val heldEngineCreatePath: String? = null,
+    val llmInferenceCreateMethod: String? = null,
+    val optionsBuilderSource: String? = null,
+    val preferredBackendHookEligible: Boolean? = null,
+    val preferredBackendHookMissingReason: String? = null,
+    val preferredBackendRequiresEngineRecreate: Boolean? = null,
+    val preferredBackendEngineRecreateReason: String? = null,
+    val holderInstanceHash: Int? = null,
+    val heldEngineHash: Int? = null,
+    val holderAppInForeground: Boolean? = null,
+    val holderLastAcquireAction: String? = null,
+    val holderLastLifecycleEventReason: String? = null,
+    val holderLastLifecycleDecisionAction: String? = null,
+    val heldEngineRecreateRequestCount: Int? = null,
+    val heldEngineWasPresentAtRunStart: Boolean? = null,
+    val heldEngineCreatedDuringRun: Boolean? = null,
+    val holderLastRecreateResult: String? = null,
+    val holderLastRecreateReason: String? = null,
+    val holderHasHeldEngineBeforeRecreate: Boolean? = null,
+    val holderHasHeldEngineAfterRecreate: Boolean? = null,
+    val lastHeldEngineCreateReason: String? = null,
+    val lastHeldEngineCreateSource: String? = null,
+    val lastHeldEngineCreateAtElapsedMs: Long? = null,
+    val lastHeldEngineCreateRequestedPreferredBackend: String? = null,
+    val lastHeldEngineCreateStackHint: String? = null,
     val realPartialHookAttempted: Boolean = false,
     val realPartialHookAttached: Boolean = false,
     val realPartialCallbackCount: Int = 0,
 )
+
+private data class LocalStreamingUiMetricsSnapshot(
+    val streamedCharsPerSecond: Double?,
+    val appendBatchSizeAvg: Double?,
+    val appendEventsPerSecond: Double?,
+    val composeRecomposeEstimate: Int?,
+    val markdownRepairCount: Int,
+    val uiAppendDebounceMs: Long,
+)
+
+private class LocalStreamingUiMetrics {
+    private var firstAppendElapsedMs: Long? = null
+    private var lastAppendElapsedMs: Long? = null
+    private var lastText: String? = null
+    private var appendEventCount: Int = 0
+    private var appendedCharCount: Int = 0
+    private var renderUpdateCount: Int = 0
+    private var markdownRepairCount: Int = 0
+
+    fun reset() {
+        firstAppendElapsedMs = null
+        lastAppendElapsedMs = null
+        lastText = null
+        appendEventCount = 0
+        appendedCharCount = 0
+        renderUpdateCount = 0
+        markdownRepairCount = 0
+    }
+
+    fun recordAppend(text: String, nowElapsedMs: Long) {
+        if (text.isBlank() || text == lastText) return
+        val previous = lastText
+        val appendedChars = when {
+            previous != null && text.startsWith(previous) -> text.length - previous.length
+            previous == null -> text.length
+            else -> text.length
+        }.coerceAtLeast(0)
+        firstAppendElapsedMs = firstAppendElapsedMs ?: nowElapsedMs
+        lastAppendElapsedMs = nowElapsedMs
+        lastText = text
+        appendEventCount += 1
+        appendedCharCount += appendedChars
+    }
+
+    fun recordRenderUpdate() {
+        renderUpdateCount += 1
+    }
+
+    fun recordMarkdownRepair() {
+        markdownRepairCount += 1
+    }
+
+    fun snapshot(): LocalStreamingUiMetricsSnapshot {
+        val firstMs = firstAppendElapsedMs
+        val lastMs = lastAppendElapsedMs
+        val elapsedSeconds = if (firstMs != null && lastMs != null) {
+            ((lastMs - firstMs).coerceAtLeast(1L)).toDouble() / 1000.0
+        } else {
+            null
+        }
+        return LocalStreamingUiMetricsSnapshot(
+            streamedCharsPerSecond = elapsedSeconds?.takeIf { appendEventCount > 0 }
+                ?.let { appendedCharCount.toDouble() / it },
+            appendBatchSizeAvg = appendEventCount.takeIf { it > 0 }
+                ?.let { appendedCharCount.toDouble() / it.toDouble() },
+            appendEventsPerSecond = elapsedSeconds?.takeIf { appendEventCount > 0 }
+                ?.let { appendEventCount.toDouble() / it },
+            composeRecomposeEstimate = renderUpdateCount.takeIf { it > 0 } ?: appendEventCount.takeIf { it > 0 },
+            markdownRepairCount = markdownRepairCount,
+            uiAppendDebounceMs = LOCAL_UI_APPEND_DEBOUNCE_MS,
+        )
+    }
+}
+
+private fun LocalInferenceTrace.withStreamingUiMetrics(
+    snapshot: LocalStreamingUiMetricsSnapshot,
+): LocalInferenceTrace {
+    return copy(
+        streamedCharsPerSecond = snapshot.streamedCharsPerSecond,
+        appendBatchSizeAvg = snapshot.appendBatchSizeAvg,
+        appendEventsPerSecond = snapshot.appendEventsPerSecond,
+        composeRecomposeEstimate = snapshot.composeRecomposeEstimate,
+        markdownRepairCount = snapshot.markdownRepairCount,
+        uiAppendDebounceMs = snapshot.uiAppendDebounceMs,
+    )
+}
+
+private fun LocalInferenceTrace.withOfficialChunkMetrics(
+    snapshot: LocalOfficialChunkMetricsSnapshot?,
+): LocalInferenceTrace {
+    if (snapshot == null) return this
+    return copy(
+        officialChunkCount = snapshot.officialChunkCount,
+        officialChunkIntervalAvgMs = snapshot.officialChunkIntervalAvgMs,
+        officialChunkIntervalMaxMs = snapshot.officialChunkIntervalMaxMs,
+        officialChunkIntervalMinMs = snapshot.officialChunkIntervalMinMs,
+        officialChunkFirstToLastMs = snapshot.officialChunkFirstToLastMs,
+        officialChunkCharsAvg = snapshot.officialChunkCharsAvg,
+        officialChunkCharsMax = snapshot.officialChunkCharsMax,
+        officialChunkCharsMin = snapshot.officialChunkCharsMin,
+        officialChunkEmptyCount = snapshot.officialChunkEmptyCount,
+        officialChunkNonEmptyCount = snapshot.officialChunkNonEmptyCount,
+        officialChunkEventsPerSecond = snapshot.officialChunkEventsPerSecond,
+        officialChunkCharsPerSecond = snapshot.officialChunkCharsPerSecond,
+    )
+}
 
 private data class LocalSessionTokenProbeResult(
     val promptTokens: Int? = null,
@@ -487,7 +660,10 @@ fun Home(
     val localInferenceEngineHolder = remember(context.applicationContext) {
         LocalInferenceEngineHolder.getInstance(context.applicationContext)
     }
-    val localStreamingRunner = remember(context.applicationContext, settingsPreferences) {
+    val preferredBackendDryRunSetting by settingsPreferences.preferredBackendDryRunSettingFlow.collectAsState(
+        initial = PreferredBackendDryRunSetting.DEFAULT,
+    )
+    val localStreamingRunner = remember(context.applicationContext, settingsPreferences, preferredBackendDryRunSetting) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
         ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, runMediaPipeProbeContext, onPartial ->
@@ -503,6 +679,7 @@ fun Home(
                 resolvedModelPath = runResolvedModelPath,
                 resolvedCacheDirPath = runCacheDirPath,
                 mediaPipeProbeContext = runMediaPipeProbeContext,
+                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                 prompt = runPrompt,
                 onPartial = onPartial,
             )
@@ -512,7 +689,7 @@ fun Home(
         initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP,
     )
     val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow.collectAsState(
-        initial = false,
+        initial = true,
     )
     val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(
         initial = true,
@@ -520,6 +697,7 @@ fun Home(
     val clipboardManager = LocalClipboardManager.current
     val ttsController = remember { AndroidTtsController(context.applicationContext) }
     val isTtsSpeaking by ttsController.isSpeaking.collectAsState()
+    var keepTtsTalkingInHeader by remember(effectiveChatId) { mutableStateOf(false) }
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
     val savedInferenceTarget by settingsPreferences.inferenceTargetFlow.collectAsState(initial = InferenceTarget.LOCAL)
@@ -555,11 +733,8 @@ fun Home(
         if (localBaseModelFilePath.isNullOrBlank()) {
             localInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED
         }
-        val path = localBaseModelFilePath?.takeIf { it.isNotBlank() }
-        if (path != null) {
-            localInferenceEngineHolder.clearIfModelChanged(path)
-        } else {
-            localInferenceEngineHolder.notifyLifecycleEvent(reason = "explicit-reset")
+        if (shouldApplyHeldEngineModelPath(localBaseModelFilePath)) {
+            localInferenceEngineHolder.clearIfModelChanged(localBaseModelFilePath?.trim().orEmpty())
         }
     }
     val pickImageLauncher = rememberLauncherForActivityResult(
@@ -585,21 +760,21 @@ fun Home(
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val remoteStreamingResponseText = (uiState as? UiState.Streaming)?.partialText
     var localStreamingResponseText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var showDelayedLocalRespondingPlaceholder by remember(effectiveChatId) { mutableStateOf(false) }
     var localStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var didReceiveRealLocalPartial by remember(effectiveChatId) { mutableStateOf(false) }
     var realLocalPartialChunkCount by remember(effectiveChatId) { mutableStateOf(0) }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
-    var pendingLocalOverlayText by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingLocalOverlaySendEpoch by rememberSaveable { mutableStateOf<Long?>(null) }
-    var pendingLocalOverlayResolvedChatId by rememberSaveable { mutableStateOf<Int?>(null) }
-    var pendingLocalOverlayVisible by rememberSaveable { mutableStateOf(false) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var devDebugText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var devRunnerWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
+    var streamingResponseTextForRender by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val isLocalRunningRaw = isLocalInferenceRunning
     val isServerRunning =
         !remoteStopRequested &&
@@ -617,22 +792,43 @@ fun Home(
         selectedInferenceTarget == InferenceTarget.LOCAL &&
             isTtsPlaying &&
             !isStopRequested
-    val isTtsPlayingForHeaderUi = isTtsSpeaking || isLocalTtsPlayingUi
+    val isTtsPlayingForHeaderUi = isTtsSpeaking || isLocalTtsPlayingUi || keepTtsTalkingInHeader
     val isHeaderRunningUi = isInferenceRunningUi || isTtsPlayingForHeaderUi
     val isServerLoadingUi = uiState is UiState.Loading && isServerRunningUi
+    LaunchedEffect(
+        isLocalInferenceRunning,
+        localStopRequested,
+        streamingAssistantMessageId,
+        localStreamingResponseText,
+    ) {
+        showDelayedLocalRespondingPlaceholder = false
+        if (
+            !isLocalInferenceRunning ||
+            localStopRequested ||
+            streamingAssistantMessageId != null ||
+            !localStreamingResponseText.isNullOrBlank()
+        ) {
+            return@LaunchedEffect
+        }
+        delay(LOCAL_RESPONDING_PLACEHOLDER_DELAY_MS)
+        if (
+            isLocalInferenceRunning &&
+            !localStopRequested &&
+            streamingAssistantMessageId == null &&
+            localStreamingResponseText.isNullOrBlank()
+        ) {
+            showDelayedLocalRespondingPlaceholder = true
+        }
+    }
     val headerStatusTitleOverride = when {
         isHeaderRunningUi -> "Responding..."
         isStopRequested -> "Ready"
         else -> null
     }
-    val showLocalRespondingAssistantRow = isLocalRunningUi && streamingAssistantMessageId == null
-    val shouldClearPendingLocalOverlayOnAssistantStart =
-        streamingAssistantMessageId != null ||
-            !localStreamingResponseText.isNullOrBlank() ||
-            showLocalRespondingAssistantRow
-    val pendingLocalOverlayTextValue = pendingLocalOverlayText.orEmpty()
-    val hasPendingLocalOverlay = pendingLocalOverlayTextValue.isNotBlank()
-    val shouldShowPendingLocalOverlay = pendingLocalOverlayVisible && hasPendingLocalOverlay
+    val showLocalRespondingAssistantRow =
+        isLocalRunningUi &&
+            streamingAssistantMessageId == null &&
+            showDelayedLocalRespondingPlaceholder
     val localRespondingAssistantRowMessage = if (
         localInferenceEngineState == LocalInferenceEngineState.PREPARING &&
         localStreamingResponseText.isNullOrBlank()
@@ -700,6 +896,7 @@ fun Home(
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
     var currentSpeakingAssistantMessageId by remember { mutableStateOf<Int?>(null) }
     var stopButtonOwnerAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
+    var stopButtonOwnerSetAtMs by remember(effectiveChatId) { mutableStateOf<Long?>(null) }
     var streamingSpeechBuffer by remember(effectiveChatId) { mutableStateOf("") }
     var streamingSpeechLastConsumedLength by remember(effectiveChatId) { mutableStateOf(0) }
     var streamingSpeechStartedForMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
@@ -716,12 +913,20 @@ fun Home(
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var selectedAssistantMessageTextForStatsSheet by remember { mutableStateOf<String?>(null) }
     var selectedPromptMessageTextForStatsSheet by remember { mutableStateOf<String?>(null) }
+    val immediateInferenceStatsByMessageId = remember(effectiveChatId) {
+        mutableStateMapOf<Int, InferenceStats>()
+    }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var showInferenceStatsSheet by remember { mutableStateOf(false) }
+    var preferredBackendManualRecreateInProgress by remember { mutableStateOf(false) }
+    var preferredBackendManualRecreateResult by remember { mutableStateOf("none") }
+    var preferredBackendManualRecreateReason by remember { mutableStateOf("user-requested") }
+    var devUiAliveSeconds by remember(effectiveChatId) { mutableStateOf(0) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
     var lastStreamingAssistantChunkForDev by remember { mutableStateOf<String?>(null) }
     var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    val localStreamingUiMetricsForDev = remember(effectiveChatId) { LocalStreamingUiMetrics() }
     val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
 
     LaunchedEffect(isLocalInferenceRunning, streamingResponseText) {
@@ -731,7 +936,62 @@ fun Home(
             assistantUpdateCountForDev += 1
             firstNonEmptyAssistantChunkSeenForDev = true
             lastStreamingAssistantChunkForDev = currentChunk
+            localStreamingUiMetricsForDev.recordAppend(
+                text = currentChunk,
+                nowElapsedMs = SystemClock.elapsedRealtime(),
+            )
         }
+    }
+    LaunchedEffect(streamingResponseText, isInferenceRunningUi) {
+        val latestText = streamingResponseText
+        if (latestText.isNullOrEmpty()) {
+            streamingResponseTextForRender = latestText
+            return@LaunchedEffect
+        }
+
+        val previousRendered = streamingResponseTextForRender.orEmpty()
+        val appendedDelta = if (latestText.startsWith(previousRendered)) {
+            latestText.substring(previousRendered.length)
+        } else {
+            latestText
+        }
+        val shouldRefreshRenderText = shouldRefreshRender(
+            prev = previousRendered,
+            next = latestText,
+            isStreaming = isInferenceRunningUi,
+        )
+
+        if (shouldRefreshRenderText) {
+            if (BuildConfig.DEBUG && isLocalInferenceRunning) {
+                localStreamingUiMetricsForDev.recordRenderUpdate()
+            }
+            streamingResponseTextForRender = latestText
+        }
+    }
+    LaunchedEffect(effectiveChatId, BuildConfig.DEBUG) {
+        if (!BuildConfig.DEBUG) return@LaunchedEffect
+        devUiAliveSeconds = 0
+        while (true) {
+            delay(1000)
+            devUiAliveSeconds += 1
+        }
+    }
+    val devStreamingTailLimitEnabled = BuildConfig.DEBUG && DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED
+    val isStreamingRenderActive =
+        isInferenceRunningUi || !localStreamingResponseText.isNullOrBlank()
+    val assistantRenderTailLimitChars = DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS
+    val streamingResponseTextForDisplay = (
+        streamingResponseTextForRender ?: streamingResponseText
+        )?.let { renderText ->
+        val shouldTrimForRender = devStreamingTailLimitEnabled || isStreamingRenderActive
+        if (!shouldTrimForRender) return@let sanitizeAssistantMessageForDisplay(renderText)
+        buildAssistantDisplayText(
+            originalMessage = renderText,
+            tailLimitChars = assistantRenderTailLimitChars,
+        ).text
+    }
+    val devStreamingDisplayLineCount = remember(streamingResponseTextForDisplay) {
+        streamingResponseTextForDisplay?.lineSequence()?.count() ?: 0
     }
 
     fun logStreamTrace(message: String) {
@@ -745,24 +1005,6 @@ fun Home(
         val message = "[LOCAL_UI] $label$suffix"
         Log.i("ChatScreen", message)
         appendLocalReflectionTrace(context.applicationContext, message)
-    }
-
-    fun armPendingLocalOverlay(requestPrompt: String, resolvedChatId: Int?) {
-        pendingLocalOverlayText = requestPrompt
-        pendingLocalOverlaySendEpoch = SystemClock.elapsedRealtime()
-        pendingLocalOverlayResolvedChatId = resolvedChatId
-        pendingLocalOverlayVisible = true
-    }
-
-    fun clearPendingLocalOverlay(reason: String) {
-        debugLocalUiTrace(
-            label = "LOCAL_UI_PENDING_CLEAR",
-            extra = "reason=$reason effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId pendingLocalOverlayTextLength=${pendingLocalOverlayText?.length ?: 0} isCreatingChat=$isCreatingChat",
-        )
-        pendingLocalOverlayVisible = false
-        pendingLocalOverlayText = null
-        pendingLocalOverlaySendEpoch = null
-        pendingLocalOverlayResolvedChatId = null
     }
 
     fun resetStreamingSpeechState(clearPlaybackFlag: Boolean = true) {
@@ -785,6 +1027,7 @@ fun Home(
         resetStreamingSpeechState()
         currentSpeakingAssistantMessageId = null
         stopButtonOwnerAssistantMessageId = null
+        stopButtonOwnerSetAtMs = null
 
         pendingStopButtonOwnerClearJob?.cancel()
         pendingStopButtonOwnerClearJob = null
@@ -840,6 +1083,15 @@ fun Home(
         lastPersistedStreamingAssistantText = null
     }
 
+    suspend fun resolveLocalPreparingUiState(): LocalInferenceEngineState {
+        val hasHeldEngine = localInferenceEngineHolder.getDevDiagnosticSnapshot().heldEngineHash != null
+        return if (hasHeldEngine) {
+            LocalInferenceEngineState.READY
+        } else {
+            LocalInferenceEngineState.PREPARING
+        }
+    }
+
     fun isTtsSuppressedForAssistant(messageId: Int?): Boolean {
         return messageId != null && suppressedTtsAssistantMessageId == messageId
     }
@@ -865,6 +1117,7 @@ fun Home(
             currentSpeakingAssistantMessageId = insertedId
             if (!isTtsSuppressedForAssistant(insertedId)) {
                 stopButtonOwnerAssistantMessageId = insertedId
+                stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
             }
             logStreamTrace("STREAM placeholder insert id=$insertedId")
             return insertedId
@@ -884,6 +1137,7 @@ fun Home(
         currentSpeakingAssistantMessageId = existingId
         if (!isTtsSuppressedForAssistant(existingId)) {
             stopButtonOwnerAssistantMessageId = existingId
+            stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
         }
         logStreamTrace("STREAM placeholder update id=$existingId len=${normalizedResponse.length}")
         return existingId
@@ -903,12 +1157,26 @@ fun Home(
         imageInputCount: Int? = null,
         generationTimeMs: Long? = null,
     ): Int? {
-        val normalizedResponse = response.trim()
-        if (normalizedResponse.isBlank()) return streamingAssistantMessageId
+        // finalize 経路は「保存してよい最終本文」のみを受け取る想定。
+        val finalizedResponseForPersist = buildFinalizedStreamingResponseForPersist(
+            response = response,
+            onMarkdownRepair = {
+                if (BuildConfig.DEBUG) {
+                    localStreamingUiMetricsForDev.recordMarkdownRepair()
+                }
+            },
+        )
+        if (finalizedResponseForPersist.isBlank()) return streamingAssistantMessageId
+        if (finalizedResponseForPersist == "コード生成中…") {
+            logStreamTrace("STREAM final skip displayOnlyText")
+            return streamingAssistantMessageId
+        }
+        // finalize後の本文をUI表示系にも反映し、streaming途中本文の残留を防ぐ。
+        streamingResponseTextForRender = finalizedResponseForPersist
 
         val finalPayload = createAssistantMessage(
             chatId = chatId,
-            response = normalizedResponse,
+            response = finalizedResponseForPersist,
             latestInferenceStats = latestInferenceStats,
             localSourceSummary = localSourceSummary,
             imageInputCount = imageInputCount,
@@ -918,7 +1186,10 @@ fun Home(
         logStreamTrace("STREAM final path existingId=$existingId")
         if (existingId == null) {
             val insertedId = viewModel.insertAssistantMessageAndReturnId(finalPayload).toInt()
-            lastPersistedStreamingAssistantText = normalizedResponse
+            lastPersistedStreamingAssistantText = finalizedResponseForPersist
+            if (latestInferenceStats != null) {
+                immediateInferenceStatsByMessageId[insertedId] = latestInferenceStats
+            }
             logStreamTrace("STREAM final insert id=$insertedId fallbackNoPlaceholder=true")
             return insertedId
         }
@@ -947,7 +1218,10 @@ fun Home(
             finalPayload.copy(messageID = existingId)
         }
         viewModel.updateMessage(updatedMessage)
-        lastPersistedStreamingAssistantText = normalizedResponse
+        lastPersistedStreamingAssistantText = finalizedResponseForPersist
+        if (latestInferenceStats != null) {
+            immediateInferenceStatsByMessageId[existingId] = latestInferenceStats
+        }
         logStreamTrace("STREAM final update id=$existingId")
         return existingId
     }
@@ -974,20 +1248,71 @@ fun Home(
 
     fun sanitizeTextForTts(text: String): String {
         val normalized = text
+            .replace("\r\n", "\n")
+            .replace("\r", "\n")
             .replace("☺", "")
             .replace("☻", "")
             .replace("*", "")
-            .replace("```", "")
-            .replace("`", "")
-            .replace(Regex("\\s+"), " ")
+            .lineSequence()
+            .joinToString("\n") { line ->
+                line.replace(Regex("[ \\t]+"), " ").trimEnd()
+            }
+            .replace(Regex("\n{3,}"), "\n\n")
             .trim()
         if (normalized.length < 2) return ""
         if (normalized.all { !it.isLetterOrDigit() }) return ""
         return normalized
     }
 
+    fun sanitizeStreamingTextForTts(text: String): String {
+        var insideFencedCodeBlock = false
+        val filtered = text
+            .lineSequence()
+            .map { it.trim() }
+            .filterNot { line ->
+                if (line.contains("```")) {
+                    insideFencedCodeBlock = !insideFencedCodeBlock
+                    true
+                } else {
+                    insideFencedCodeBlock ||
+                        line.isBlank() ||
+                        line == "コード生成中…" ||
+                        line.matches(Regex("^[`*_#>\\-\\s]+$")) ||
+                        line.matches(Regex("^[\\p{Punct}\\s]+$")) ||
+                        line.matches(Regex(".*[{}();=<>\\[\\]].*"))
+                }
+            }
+            .joinToString(separator = " ")
+        return sanitizeTextForTts(filtered)
+    }
+
+    suspend fun maybeReleaseHeldEngineForTtsPlayback() {
+        val memorySnapshot = withContext(Dispatchers.Default) {
+            captureTtsMemorySnapshot(context.applicationContext)
+        }
+        val decision = decideHeldEngineReleaseForTts(memorySnapshot)
+        if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+            devDebugText = buildTtsMemoryDecisionDebugText(
+                snapshot = memorySnapshot,
+                decision = decision,
+            )
+        }
+        if (decision.shouldReleaseHeldEngine) {
+            withContext(Dispatchers.IO) {
+                localInferenceEngineHolder.notifyLifecycleEvent(reason = "tts-playback")
+            }
+        }
+    }
+
     fun consumeStreamingSentenceAndSpeak(fullText: String) {
         if (!ttsEnabled) return
+        if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
+            isStreamingSentencePlaybackActive = false
+            streamingSpeechLastConsumedLength = fullText.length
+            streamingSpeechStartedForMessageId = null
+            viewModel.stopTtsPlayback()
+            return
+        }
         val targetMessageId = streamingSpeechStartedForMessageId
         if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
         if (fullText.length < streamingSpeechLastConsumedLength) {
@@ -996,15 +1321,16 @@ fun Home(
         streamingSpeechBuffer = fullText
         if (streamingSpeechLastConsumedLength >= fullText.length) return
         val remaining = fullText.substring(streamingSpeechLastConsumedLength)
-        val sentenceBreakIndex = remaining.lastIndexOfAny(charArrayOf('。', '！', '？', '\n'))
+        val sentenceBreakIndex = findStreamingTtsBreakIndex(remaining)
         if (sentenceBreakIndex < 0) return
         val speakTarget = remaining.substring(0, sentenceBreakIndex + 1)
-        val normalized = sanitizeTextForTts(speakTarget)
+        val normalized = sanitizeStreamingTextForTts(speakTarget)
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
             streamingSpeechStartedForMessageId?.let { messageId ->
                 currentSpeakingAssistantMessageId = messageId
                 if (!isTtsSuppressedForAssistant(messageId)) {
                     stopButtonOwnerAssistantMessageId = messageId
+                    stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
                 }
             }
             isStreamingSentencePlaybackActive = true
@@ -1015,16 +1341,24 @@ fun Home(
 
     fun speakStreamingTailIfNeeded(fullText: String) {
         if (!ttsEnabled) return
+        if (fullText.contains("```") || fullText.contains("```python") || fullText.contains("```bash")) {
+            isStreamingSentencePlaybackActive = false
+            streamingSpeechLastConsumedLength = fullText.length
+            streamingSpeechStartedForMessageId = null
+            viewModel.stopTtsPlayback()
+            return
+        }
         val targetMessageId = streamingSpeechStartedForMessageId
         if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
         val safeConsumed = streamingSpeechLastConsumedLength.coerceIn(0, fullText.length)
         val remaining = fullText.substring(safeConsumed)
-        val normalized = sanitizeTextForTts(remaining)
+        val normalized = sanitizeStreamingTextForTts(remaining)
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
             streamingSpeechStartedForMessageId?.let { messageId ->
                 currentSpeakingAssistantMessageId = messageId
                 if (!isTtsSuppressedForAssistant(messageId)) {
                     stopButtonOwnerAssistantMessageId = messageId
+                    stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
                 }
             }
             isStreamingSentencePlaybackActive = true
@@ -1034,9 +1368,14 @@ fun Home(
 
     val effectiveStreamingSentenceTtsEnabled = ttsEnabled && devEnableStreamingSentenceTts
 
-    LaunchedEffect(effectiveStreamingSentenceTtsEnabled, isInferenceRunningUi, streamingResponseText) {
+    LaunchedEffect(
+        effectiveStreamingSentenceTtsEnabled,
+        isInferenceRunningUi,
+        streamingResponseTextForRender,
+        streamingResponseText,
+    ) {
         if (!effectiveStreamingSentenceTtsEnabled || !isInferenceRunningUi) return@LaunchedEffect
-        val fullText = streamingResponseText ?: return@LaunchedEffect
+        val fullText = streamingResponseText ?: streamingResponseTextForRender ?: return@LaunchedEffect
         if (fullText.isBlank()) return@LaunchedEffect
         consumeStreamingSentenceAndSpeak(fullText)
     }
@@ -1056,6 +1395,35 @@ fun Home(
         }
     }
 
+    LaunchedEffect(
+        isTtsSpeaking,
+        isTtsPlaying,
+        isInferenceRunningUi,
+        isStreamingSentencePlaybackActive,
+        stopButtonOwnerAssistantMessageId,
+    ) {
+        if (isTtsSpeaking || isTtsPlaying) {
+            keepTtsTalkingInHeader = true
+            return@LaunchedEffect
+        }
+        val hasActiveTtsContext =
+            isStreamingSentencePlaybackActive ||
+                stopButtonOwnerAssistantMessageId != null
+        if (!isInferenceRunningUi || !hasActiveTtsContext) {
+            keepTtsTalkingInHeader = false
+            return@LaunchedEffect
+        }
+
+        keepTtsTalkingInHeader = true
+        delay(TTS_HEADER_TALKING_GRACE_MS)
+        if (!isTtsSpeaking && !isTtsPlaying) {
+            keepTtsTalkingInHeader = false
+        }
+    }
+
+    val latestIsInferenceRunningUi by rememberUpdatedState(isInferenceRunningUi)
+    val latestIsTtsSpeaking by rememberUpdatedState(isTtsSpeaking)
+
     DisposableEffect(ttsController) {
         ttsController.setOnPlaybackStateChanged { isPlaying ->
             viewModel.onTtsPlaybackChanged(isPlaying)
@@ -1066,15 +1434,16 @@ fun Home(
             }
             if (!isPlaying) {
                 currentSpeakingAssistantMessageId = null
-                if (isStreamingSentencePlaybackActive && isInferenceRunningUi) {
+                if (isStreamingSentencePlaybackActive && latestIsInferenceRunningUi) {
                     return@setOnPlaybackStateChanged
                 }
                 pendingStopButtonOwnerClearJob?.cancel()
                 pendingStopButtonOwnerClearJob = coroutineScope.launch {
                     delay(220)
-                    if (!isTtsSpeaking && !isInferenceRunningUi) {
+                    if (!latestIsTtsSpeaking && !latestIsInferenceRunningUi && !ttsController.isSpeaking.value) {
                         isStreamingSentencePlaybackActive = false
                         stopButtonOwnerAssistantMessageId = null
+                        stopButtonOwnerSetAtMs = null
                     }
                 }
             }
@@ -1091,10 +1460,40 @@ fun Home(
             stopUiCooldownAssistantMessageId = null
             currentSpeakingAssistantMessageId = null
             stopButtonOwnerAssistantMessageId = null
+            stopButtonOwnerSetAtMs = null
             resetStreamingSpeechState()
             ttsController.shutdown()
         }
     }
+
+    LaunchedEffect(
+        isTtsSpeaking,
+        isInferenceRunningUi,
+        isStreamingSentencePlaybackActive,
+        stopButtonOwnerAssistantMessageId,
+    ) {
+        val ownerMessageId = stopButtonOwnerAssistantMessageId ?: return@LaunchedEffect
+        if (isTtsSpeaking || ttsController.isSpeaking.value || isInferenceRunningUi) return@LaunchedEffect
+
+        val ownerAgeMs = SystemClock.elapsedRealtime() - (stopButtonOwnerSetAtMs ?: 0L)
+        if (ownerAgeMs < 450L) {
+            delay(450L - ownerAgeMs)
+        }
+        delay(120L)
+
+        if (
+            stopButtonOwnerAssistantMessageId == ownerMessageId &&
+            !isTtsSpeaking &&
+            !ttsController.isSpeaking.value &&
+            !isInferenceRunningUi
+        ) {
+            isStreamingSentencePlaybackActive = false
+            currentSpeakingAssistantMessageId = null
+            stopButtonOwnerAssistantMessageId = null
+            stopButtonOwnerSetAtMs = null
+        }
+    }
+
     LaunchedEffect(chatId) {
         pendingStopButtonOwnerClearJob?.cancel()
         pendingStopButtonOwnerClearJob = null
@@ -1106,6 +1505,7 @@ fun Home(
         stopUiCooldownAssistantMessageId = null
         currentSpeakingAssistantMessageId = null
         stopButtonOwnerAssistantMessageId = null
+        stopButtonOwnerSetAtMs = null
         resetStreamingSpeechState()
         resetStreamingAssistantPlaceholderId(reason = "chat-change")
         effectiveChatId?.let { currentChatId ->
@@ -1138,7 +1538,7 @@ fun Home(
         }
     }
 
-    LaunchedEffect(chatId, chats, pendingNavigateChatId, pendingLocalOverlayVisible) {
+    LaunchedEffect(chatId, chats, pendingNavigateChatId) {
         val resolvedChatId = resolveDefaultChatId(chatId, chats)
         if (pendingNavigateChatId == null) {
             effectiveChatId = resolvedChatId
@@ -1146,7 +1546,6 @@ fun Home(
 
         if (
             pendingNavigateChatId == null &&
-            !pendingLocalOverlayVisible &&
             shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)
         ) {
             isCreatingChat = true
@@ -1160,15 +1559,6 @@ fun Home(
         if (resolvedChatId != null) {
             isCreatingChat = false
             suppressAutoNewChat = false
-        }
-    }
-
-    LaunchedEffect(chatId, pendingLocalOverlayVisible, pendingLocalOverlayResolvedChatId) {
-        val pendingChatId = pendingLocalOverlayResolvedChatId ?: return@LaunchedEffect
-        val currentChatId = chatId ?: return@LaunchedEffect
-        if (!pendingLocalOverlayVisible) return@LaunchedEffect
-        if (currentChatId != pendingChatId) {
-            clearPendingLocalOverlay(reason = "chat-switched")
         }
     }
 
@@ -1218,14 +1608,18 @@ fun Home(
                             imageInputCount = pendingAssistantImageInputCount,
                         )
                         if (assistantId != null) {
-                            currentSpeakingAssistantMessageId = assistantId
                             streamingSpeechStartedForMessageId = assistantId
-                            if (!isTtsSuppressedForAssistant(assistantId)) {
-                                stopButtonOwnerAssistantMessageId = assistantId
-                            }
                         }
                     }
+                    placeholder = "Enter your prompt..."
+                    pendingAssistantImageInputCount = null
+                    toggle = false
+                    remoteRequestJob = null
+                    resetStreamingAssistantPlaceholderId(reason = "success")
+                    viewModel.resetUiState()
+                    yield()
                     if (effectiveStreamingSentenceTtsEnabled) {
+                        maybeReleaseHeldEngineForTtsPlayback()
                         speakStreamingTailIfNeeded(response)
                         resetStreamingSpeechState(clearPlaybackFlag = false)
                     } else if (
@@ -1234,15 +1628,17 @@ fun Home(
                         suppressedTtsAssistantMessageId != assistantId &&
                         !ttsController.isInCooldown()
                     ) {
-                        sanitizeTextForTts(response).takeIf { it.isNotEmpty() }?.let(ttsController::speak)
+                        sanitizeTextForTts(response).takeIf { it.isNotEmpty() }?.let { speechText ->
+                            currentSpeakingAssistantMessageId = assistantId
+                            if (!isTtsSuppressedForAssistant(assistantId)) {
+                                stopButtonOwnerAssistantMessageId = assistantId
+                                stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
+                            }
+                            maybeReleaseHeldEngineForTtsPlayback()
+                            ttsController.speak(speechText)
+                        }
                     }
-                    placeholder = "Enter your prompt..."
-                    pendingAssistantImageInputCount = null
-                    toggle = false
-                    remoteRequestJob = null
                     resetStreamingSpeechState()
-                    resetStreamingAssistantPlaceholderId(reason = "success")
-                    viewModel.resetUiState()
                 }
 
                 is UiState.Error -> {
@@ -1262,11 +1658,7 @@ fun Home(
                             response = (uiState as UiState.Error).errorMessage,
                         )
                         if (assistantId != null) {
-                            currentSpeakingAssistantMessageId = assistantId
                             streamingSpeechStartedForMessageId = assistantId
-                            if (!isTtsSuppressedForAssistant(assistantId)) {
-                                stopButtonOwnerAssistantMessageId = assistantId
-                            }
                         }
                     }
                     placeholder = "Enter your prompt..."
@@ -1817,7 +2209,6 @@ fun Home(
                                                 if (isInferenceRunningUi) {
                                                     if (isLocalRunningRaw) {
                                                         localStopRequested = true
-                                                        clearPendingLocalOverlay(reason = "stop")
                                                         localInferenceJob?.cancel()
                                                         localInferenceJob = null
                                                         effectiveChatId?.let { currentChatId ->
@@ -1943,20 +2334,17 @@ fun Home(
                                                     if (requestPrompt.isBlank()) return@IconButton
                                                     debugLocalUiTrace(
                                                         label = "LOCAL_UI_SEND_TAPPED",
-                                                        extra = "selectedInferenceTarget=$selectedInferenceTarget effectiveChatId=$effectiveChatId userPromptLength=${userPrompt.length} pendingVisibleBefore=$pendingLocalOverlayVisible",
-                                                    )
-                                                    armPendingLocalOverlay(
-                                                        requestPrompt = requestPrompt,
-                                                        resolvedChatId = effectiveChatId,
+                                                        extra = "selectedInferenceTarget=$selectedInferenceTarget effectiveChatId=$effectiveChatId userPromptLength=${userPrompt.length}",
                                                     )
                                                     prompt = ""
                                                     userPrompt = ""
                                                     selectedImageUriStrings = emptyList()
-                                                    localInferenceEngineState = LocalInferenceEngineState.PREPARING
+                                                    showDelayedLocalRespondingPlaceholder = false
+                                                    localInferenceEngineState = LocalInferenceEngineState.READY
                                                     localStopRequested = false
                                                     debugLocalUiTrace(
-                                                        label = "LOCAL_UI_PENDING_ARMED",
-                                                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId pendingLocalOverlayTextLength=${pendingLocalOverlayText?.length ?: 0} userPromptLengthAfterClear=${userPrompt.length}",
+                                                        label = "LOCAL_UI_INPUT_CLEARED",
+                                                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId userPromptLengthAfterClear=${userPrompt.length}",
                                                     )
                                                     stopTtsWithCleanup(
                                                         suppressedMessageId = stopButtonOwnerAssistantMessageId
@@ -1967,7 +2355,7 @@ fun Home(
                                                     localInferenceJob = coroutineScope.launch {
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_LAUNCH_ENTER",
-                                                            extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId isCreatingChat=$isCreatingChat",
+                                                            extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId isCreatingChat=$isCreatingChat",
                                                         )
                                                         var currentChatId = effectiveChatId
                                                         if (currentChatId == null) {
@@ -1980,7 +2368,6 @@ fun Home(
                                                                 }
                                                                 effectiveChatId = newChatId
                                                                 pendingNavigateChatId = newChatId
-                                                                pendingLocalOverlayResolvedChatId = newChatId
                                                                 currentChatId = newChatId
                                                             } finally {
                                                                 isCreatingChat = false
@@ -1989,7 +2376,7 @@ fun Home(
                                                         val resolvedChatId = currentChatId
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_USER_INSERT_START",
-                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId",
+                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length}",
                                                         )
                                                         withContext(Dispatchers.IO) {
                                                             viewModel.insert(
@@ -2002,7 +2389,7 @@ fun Home(
                                                         }
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_USER_INSERT_DONE",
-                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length} pendingLocalOverlayVisible=$pendingLocalOverlayVisible pendingLocalOverlayResolvedChatId=$pendingLocalOverlayResolvedChatId",
+                                                            extra = "resolvedChatId=$resolvedChatId requestPromptLength=${requestPrompt.length}",
                                                         )
                                                         appendLocalReflectionTrace(
                                                             context = context.applicationContext,
@@ -2013,15 +2400,21 @@ fun Home(
                                                         didReceiveRealLocalPartial = false
                                                         realLocalPartialChunkCount = 0
                                                         localStreamingResponseText = null
+                                                        showDelayedLocalRespondingPlaceholder = false
                                                         isLocalInferenceRunning = true
                                                         try {
-                                                            localInferenceEngineState = LocalInferenceEngineState.PREPARING
+                                                            localInferenceEngineState = resolveLocalPreparingUiState()
                                                             localStreamingResponseText = null
+                                                            showDelayedLocalRespondingPlaceholder = false
                                                             didReceiveRealLocalPartial = false
                                                             realLocalPartialChunkCount = 0
                                                             assistantUpdateCountForDev = 0
                                                             firstNonEmptyAssistantChunkSeenForDev = false
                                                             lastStreamingAssistantChunkForDev = null
+                                                            localStreamingUiMetricsForDev.reset()
+                                                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                devRunnerWhitespaceTraceText = null
+                                                            }
                                                             val localRunGuardEpoch = streamingGuardEpoch
                                                             val localRunStartedAtMs = SystemClock.elapsedRealtime()
                                                             val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
@@ -2076,6 +2469,7 @@ fun Home(
                                                                 val heldEngine = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
                                                                     val diagnosticResult = localInferenceEngineHolder.acquireWithDiagnostic(
                                                                         engineKey = modelResolution.engineKey,
+                                                                        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                                                                         appendTrace = { message ->
                                                                             if (message.startsWith("UPSTREAM official-helper") || message.startsWith("UPSTREAM held-create")) {
                                                                                 heldOfficialHelperProgress = message
@@ -2102,6 +2496,7 @@ fun Home(
                                                                         localInferenceEngineHolder.acquireOrCreate(
                                                                             engineKey = modelResolution.engineKey,
                                                                             context = context.applicationContext,
+                                                                            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                                                                             appendTrace = { message ->
                                                                                 appendLocalReflectionTrace(
                                                                                     context = context.applicationContext,
@@ -2175,13 +2570,41 @@ fun Home(
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         onPartial = { partial ->
                                                                             if (localStopRequested) return@runWithHeldEngine
-                                                                            val normalizedPartial = partial.trim()
+                                                                            val normalizedPartial = normalizeStreamingPartialForRender(partial)
+                                                                            val debugText = buildString {
+                                                                                appendLine("=== WS TRACE ===")
+                                                                                appendLine("RAW:")
+                                                                                appendLine(partial.replace(" ", "␠").replace("\n", "\\n"))
+                                                                                appendLine("----")
+                                                                                appendLine("STREAM_NORMALIZED:")
+                                                                                appendLine(normalizedPartial.replace(" ", "␠").replace("\n", "\\n"))
+                                                                                appendLine("----")
+                                                                                appendLine("LEN: ${partial.length} -> ${normalizedPartial.length}")
+                                                                                appendLine("SPACES: ${partial.count { it == ' ' }} -> ${normalizedPartial.count { it == ' ' }}")
+                                                                                appendLine("NL: ${partial.count { it == '\n' }} -> ${normalizedPartial.count { it == '\n' }}")
+                                                                            }
+                                                                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                                coroutineScope.launch {
+                                                                                    devWhitespaceTraceText = debugText
+                                                                                }
+                                                                            }
+                                                                            logLocalStreamingWhitespace(
+                                                                                stage = "ChatScreen#held.onPartial",
+                                                                                raw = partial,
+                                                                                normalized = normalizedPartial,
+                                                                            )
                                                                             if (normalizedPartial.isBlank()) return@runWithHeldEngine
                                                                             coroutineScope.launch {
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                 if (localStopRequested) return@launch
                                                                                 didReceiveRealLocalPartial = true
                                                                                 realLocalPartialChunkCount += 1
+                                                                                logLocalStreamingWhitespace(
+                                                                                    stage = "ChatScreen#held.localStreamingResponseText",
+                                                                                    raw = partial,
+                                                                                    normalized = normalizedPartial,
+                                                                                )
+                                                                                showDelayedLocalRespondingPlaceholder = false
                                                                                 localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
@@ -2240,13 +2663,41 @@ fun Home(
                                                                                 mediaPipeProbeContext = mediaPipeProbeContext,
                                                                                 onPartial = legacyPartial@{ partial ->
                                                                                     if (localStopRequested) return@legacyPartial
-                                                                                    val normalizedPartial = partial.trim()
+                                                                                    val normalizedPartial = normalizeStreamingPartialForRender(partial)
+                                                                                    val debugText = buildString {
+                                                                                        appendLine("=== WS TRACE ===")
+                                                                                        appendLine("RAW:")
+                                                                                        appendLine(partial.replace(" ", "␠").replace("\n", "\\n"))
+                                                                                        appendLine("----")
+                                                                                        appendLine("STREAM_NORMALIZED:")
+                                                                                        appendLine(normalizedPartial.replace(" ", "␠").replace("\n", "\\n"))
+                                                                                        appendLine("----")
+                                                                                        appendLine("LEN: ${partial.length} -> ${normalizedPartial.length}")
+                                                                                        appendLine("SPACES: ${partial.count { it == ' ' }} -> ${normalizedPartial.count { it == ' ' }}")
+                                                                                        appendLine("NL: ${partial.count { it == '\n' }} -> ${normalizedPartial.count { it == '\n' }}")
+                                                                                    }
+                                                                                    if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                                        coroutineScope.launch {
+                                                                                            devWhitespaceTraceText = debugText
+                                                                                        }
+                                                                                    }
+                                                                                    logLocalStreamingWhitespace(
+                                                                                        stage = "ChatScreen#legacy.onPartial",
+                                                                                        raw = partial,
+                                                                                        normalized = normalizedPartial,
+                                                                                    )
                                                                                     if (normalizedPartial.isBlank()) return@legacyPartial
                                                                                     coroutineScope.launch {
                                                                                         if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                         if (localStopRequested) return@launch
                                                                                         didReceiveRealLocalPartial = true
                                                                                         realLocalPartialChunkCount += 1
+                                                                                        logLocalStreamingWhitespace(
+                                                                                            stage = "ChatScreen#legacy.localStreamingResponseText",
+                                                                                            raw = partial,
+                                                                                            normalized = normalizedPartial,
+                                                                                        )
+                                                                                        showDelayedLocalRespondingPlaceholder = false
                                                                                         localStreamingResponseText = normalizedPartial
                                                                                         upsertStreamingAssistantPlaceholderSerialized(
                                                                                             chatId = currentChatId,
@@ -2303,13 +2754,41 @@ fun Home(
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         onPartial = legacyPartial@{ partial ->
                                                                             if (localStopRequested) return@legacyPartial
-                                                                            val normalizedPartial = partial.trim()
+                                                                            val normalizedPartial = normalizeStreamingPartialForRender(partial)
+                                                                            val debugText = buildString {
+                                                                                appendLine("=== WS TRACE ===")
+                                                                                appendLine("RAW:")
+                                                                                appendLine(partial.replace(" ", "␠").replace("\n", "\\n"))
+                                                                                appendLine("----")
+                                                                                appendLine("STREAM_NORMALIZED:")
+                                                                                appendLine(normalizedPartial.replace(" ", "␠").replace("\n", "\\n"))
+                                                                                appendLine("----")
+                                                                                appendLine("LEN: ${partial.length} -> ${normalizedPartial.length}")
+                                                                                appendLine("SPACES: ${partial.count { it == ' ' }} -> ${normalizedPartial.count { it == ' ' }}")
+                                                                                appendLine("NL: ${partial.count { it == '\n' }} -> ${normalizedPartial.count { it == '\n' }}")
+                                                                            }
+                                                                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                                coroutineScope.launch {
+                                                                                    devWhitespaceTraceText = debugText
+                                                                                }
+                                                                            }
+                                                                            logLocalStreamingWhitespace(
+                                                                                stage = "ChatScreen#legacyDirect.onPartial",
+                                                                                raw = partial,
+                                                                                normalized = normalizedPartial,
+                                                                            )
                                                                             if (normalizedPartial.isBlank()) return@legacyPartial
                                                                             coroutineScope.launch {
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                 if (localStopRequested) return@launch
                                                                                 didReceiveRealLocalPartial = true
                                                                                 realLocalPartialChunkCount += 1
+                                                                                logLocalStreamingWhitespace(
+                                                                                    stage = "ChatScreen#legacyDirect.localStreamingResponseText",
+                                                                                    raw = partial,
+                                                                                    normalized = normalizedPartial,
+                                                                                )
+                                                                                showDelayedLocalRespondingPlaceholder = false
                                                                                 localStreamingResponseText = normalizedPartial
                                                                                 upsertStreamingAssistantPlaceholderSerialized(
                                                                                     chatId = currentChatId,
@@ -2342,12 +2821,13 @@ fun Home(
                                                                         assistantStreamedToUi = assistantUpdateCountForDev >= 2,
                                                                         realPartialReceived = didReceiveRealLocalPartial,
                                                                         realPartialChunkCount = realLocalPartialChunkCount,
-                                                                    ),
+                                                                    ).withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot()),
                                                                 )
                                                             )
                                                             if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && runResultWithUiTrace != null) {
                                                                 devCloseLifecycleText = buildCloseLifecycleText(runResultWithUiTrace.closeLifecycleSummary)
                                                                     ?: "CLOSE LIFECYCLE\nsummary=none"
+                                                                devRunnerWhitespaceTraceText = runResultWithUiTrace.runnerWhitespaceTraceText
                                                             }
                                                             val inventoryState = runResultWithUiTrace?.state ?: LocalInferenceEngineState.ERROR
                                                             val inventoryResponseChars = runResultWithUiTrace?.response?.length ?: -1
@@ -2424,8 +2904,8 @@ fun Home(
                                                             )
                                                             if (resolvedState == LocalInferenceEngineState.READY && resolvedAssistantResponse.isNotBlank()) {
                                                                     val resolvedRunResult = runResultWithUiTrace
-                                                                    val resolvedTrace = resolvedRunResult?.trace
-                                                                    val localStats = if (resolvedTrace != null) {
+                                                                    var resolvedTrace = resolvedRunResult?.trace
+                                                                    var localStats = if (resolvedTrace != null) {
                                                                         buildLocalInferenceStatsFromTrace(
                                                                             trace = resolvedTrace,
                                                                             generationTimeMs = localGenerationTimeMs,
@@ -2436,7 +2916,7 @@ fun Home(
                                                                     } else {
                                                                         null
                                                                     }
-                                                                    val rawSourceSummary =
+                                                                    var rawSourceSummary =
                                                                         if (resolvedTrace != null && localStats != null) {
                                                                             buildLocalSourceSummaryText(
                                                                                 trace = resolvedTrace,
@@ -2445,7 +2925,7 @@ fun Home(
                                                                         } else {
                                                                             null
                                                                         }
-                                                                    val localSourceSummary =
+                                                                    var localSourceSummary =
                                                                         resolvedTrace?.selectedAssistantResponseSource
                                                                             ?.takeIf { it.isNotBlank() }
                                                                             ?: rawSourceSummary
@@ -2464,6 +2944,7 @@ fun Home(
                                                                     if (localStopRequested) {
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before stream")
                                                                         localStreamingResponseText = null
+                                                                        showDelayedLocalRespondingPlaceholder = false
                                                                         resetStreamingSpeechState()
                                                                         resetStreamingAssistantPlaceholderId(reason = "stop")
                                                                         return@launch
@@ -2477,8 +2958,18 @@ fun Home(
                                                                             responseText = resolvedAssistantResponse,
                                                                             onChunk = { chunk ->
                                                                                 if (localStopRequested) return@streamLocalAssistantPreviewTextToUi
+                                                                                logLocalStreamingWhitespace(
+                                                                                    stage = "ChatScreen#preview.onChunk.raw",
+                                                                                    raw = chunk,
+                                                                                )
+                                                                                showDelayedLocalRespondingPlaceholder = false
                                                                                 localStreamingResponseText = chunk
                                                                                 val normalizedChunk = chunk.trim()
+                                                                                logLocalStreamingWhitespace(
+                                                                                    stage = "ChatScreen#preview.onChunk.trim",
+                                                                                    raw = chunk,
+                                                                                    normalized = normalizedChunk,
+                                                                                )
                                                                                 if (normalizedChunk.isBlank()) return@streamLocalAssistantPreviewTextToUi
                                                                                 coroutineScope.launch {
                                                                                     if (localRunGuardEpoch != streamingGuardEpoch) return@launch
@@ -2496,9 +2987,44 @@ fun Home(
                                                                             "LOCAL pseudo-stream skipped: real partial already received count=$realLocalPartialChunkCount",
                                                                         )
                                                                     }
+                                                                    resolvedTrace = resolvedTrace
+                                                                        ?.copy(
+                                                                            assistantUpdateCount = assistantUpdateCountForDev,
+                                                                            firstNonEmptyAssistantChunkSeen = firstNonEmptyAssistantChunkSeenForDev,
+                                                                            assistantStreamedToUi = assistantUpdateCountForDev >= 2,
+                                                                            realPartialReceived = didReceiveRealLocalPartial,
+                                                                            realPartialChunkCount = realLocalPartialChunkCount,
+                                                                        )
+                                                                        ?.withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot())
+                                                                    latestLocalTraceForDev = resolvedTrace
+                                                                    localStats = if (resolvedTrace != null) {
+                                                                        buildLocalInferenceStatsFromTrace(
+                                                                            trace = resolvedTrace,
+                                                                            generationTimeMs = localGenerationTimeMs,
+                                                                            responseCharCount = resolvedAssistantResponse.length,
+                                                                            responseText = resolvedAssistantResponse,
+                                                                            fallbackTimeToFirstTokenMs = localGenerationTimeMs,
+                                                                        )
+                                                                    } else {
+                                                                        null
+                                                                    }
+                                                                    rawSourceSummary =
+                                                                        if (resolvedTrace != null && localStats != null) {
+                                                                            buildLocalSourceSummaryText(
+                                                                                trace = resolvedTrace,
+                                                                                stats = localStats,
+                                                                            )
+                                                                        } else {
+                                                                            null
+                                                                        }
+                                                                    localSourceSummary =
+                                                                        resolvedTrace?.selectedAssistantResponseSource
+                                                                            ?.takeIf { it.isNotBlank() }
+                                                                            ?: rawSourceSummary
                                                                     if (localStopRequested) {
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before insert")
                                                                         localStreamingResponseText = null
+                                                                        showDelayedLocalRespondingPlaceholder = false
                                                                         resetStreamingSpeechState()
                                                                         resetStreamingAssistantPlaceholderId(reason = "stop")
                                                                         return@launch
@@ -2511,14 +3037,19 @@ fun Home(
                                                                         localSourceSummary = localSourceSummary,
                                                                         generationTimeMs = localGenerationTimeMs,
                                                                     )
+                                                                    latestLocalTraceForDev = resolvedTrace
+                                                                        ?.withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot())
+                                                                        ?: latestLocalTraceForDev
                                                                     if (assistantId != null) {
-                                                                        currentSpeakingAssistantMessageId = assistantId
                                                                         streamingSpeechStartedForMessageId = assistantId
-                                                                        if (!isTtsSuppressedForAssistant(assistantId)) {
-                                                                            stopButtonOwnerAssistantMessageId = assistantId
-                                                                        }
                                                                     }
+                                                                    localStreamingResponseText = null
+                                                                    showDelayedLocalRespondingPlaceholder = false
+                                                                    resetStreamingAssistantPlaceholderId(reason = "success")
+                                                                    isLocalInferenceRunning = false
+                                                                    yield()
                                                                     if (effectiveStreamingSentenceTtsEnabled && !localStopRequested) {
+                                                                        maybeReleaseHeldEngineForTtsPlayback()
                                                                         speakStreamingTailIfNeeded(resolvedAssistantResponse)
                                                                         resetStreamingSpeechState(clearPlaybackFlag = false)
                                                                     } else if (
@@ -2528,15 +3059,21 @@ fun Home(
                                                                         suppressedTtsAssistantMessageId != assistantId &&
                                                                         !ttsController.isInCooldown()
                                                                     ) {
-                                                                        sanitizeTextForTts(resolvedAssistantResponse).takeIf { it.isNotEmpty() }?.let(ttsController::speak)
+                                                                        sanitizeTextForTts(resolvedAssistantResponse).takeIf { it.isNotEmpty() }?.let { speechText ->
+                                                                            currentSpeakingAssistantMessageId = assistantId
+                                                                            if (!isTtsSuppressedForAssistant(assistantId)) {
+                                                                                stopButtonOwnerAssistantMessageId = assistantId
+                                                                                stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
+                                                                            }
+                                                                            maybeReleaseHeldEngineForTtsPlayback()
+                                                                            ttsController.speak(speechText)
+                                                                        }
                                                                     }
-                                                                    localStreamingResponseText = null
-                                                                    resetStreamingAssistantPlaceholderId(reason = "success")
                                                                     return@launch
                                                             }
                                                             localStreamingResponseText = null
+                                                            showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
-                                                            clearPendingLocalOverlay(reason = "error")
                                                             isLocalInferenceRunning = false
                                                             localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
@@ -2564,9 +3101,9 @@ fun Home(
                                                             dismissJob.cancel()
                                                         } catch (exception: Exception) {
                                                             localStreamingResponseText = null
+                                                            showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
-                                                            clearPendingLocalOverlay(reason = "error")
                                                             effectiveChatId?.let { chatId ->
                                                                 localInferenceEngineHolder.resetConversation(
                                                                     chatId = chatId,
@@ -2588,6 +3125,7 @@ fun Home(
                                                             )
                                                         } finally {
                                                             localStreamingResponseText = null
+                                                            showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "local-finish")
                                                             didReceiveRealLocalPartial = false
@@ -2720,16 +3258,6 @@ fun Home(
         ) {
             val contentModifier = Modifier
                 .fillMaxSize()
-            LaunchedEffect(
-                shouldClearPendingLocalOverlayOnAssistantStart,
-                pendingLocalOverlayVisible,
-                pendingLocalOverlayText,
-                pendingLocalOverlayResolvedChatId,
-            ) {
-                if (!pendingLocalOverlayVisible) return@LaunchedEffect
-                if (!shouldClearPendingLocalOverlayOnAssistantStart) return@LaunchedEffect
-                clearPendingLocalOverlay(reason = "assistant-started")
-            }
 
             if (effectiveChatId == null) {
                 Column(
@@ -2750,23 +3278,36 @@ fun Home(
             } else {
                 val currentChatId = effectiveChatId
                 val messagesForListBase: List<Message> = allChatsOrNull
-                val messagesForList: List<Message> = if (
+                val streamingResponseTextForRenderValue = streamingResponseTextForDisplay
+                val shouldShowTransientAssistantRow =
                     currentChatId != null &&
-                    streamingAssistantMessageId == null &&
-                    !streamingResponseText.isNullOrBlank()
-                ) {
+                        streamingAssistantMessageId == null &&
+                        !streamingResponseTextForRenderValue.isNullOrBlank() &&
+                        streamingResponseTextForRenderValue.trim() != lastPersistedStreamingAssistantText
+                val messagesForList: List<Message> = if (shouldShowTransientAssistantRow) {
                     logStreamTrace("STREAM ui transient row enabled")
                     messagesForListBase + Message(
                         chatId = currentChatId,
-                        message = streamingResponseText,
+                        message = streamingResponseTextForRenderValue,
                         isSendbyMe = false,
                     )
                 } else {
-                    if (streamingAssistantMessageId != null && !streamingResponseText.isNullOrBlank()) {
-                        Log.i(
-                            "ChatScreen",
-                            "STREAM ui transient row suppressed placeholderId=$streamingAssistantMessageId",
-                        )
+                    if (!streamingResponseTextForRenderValue.isNullOrBlank()) {
+                        when {
+                            streamingAssistantMessageId != null -> {
+                                Log.i(
+                                    "ChatScreen",
+                                    "STREAM ui transient row suppressed placeholderId=$streamingAssistantMessageId",
+                                )
+                            }
+
+                            streamingResponseTextForRenderValue.trim() == lastPersistedStreamingAssistantText -> {
+                                Log.i(
+                                    "ChatScreen",
+                                    "STREAM ui transient row suppressed persistedTextMatched",
+                                )
+                            }
+                        }
                     }
                     messagesForListBase
                 }
@@ -3056,12 +3597,34 @@ fun Home(
                                                 attachmentUriStringsJson = message.attachmentUriStringsJson,
                                             )
                                         } else {
+                                            val persistedMessageInferenceStats = message.toInferenceStats()
                                             val messageInferenceStats =
-                                                // 推論統計は保存済み assistant message の値のみを表示する。
-                                                message.toInferenceStats()
+                                                persistedMessageInferenceStats
+                                                    ?: immediateInferenceStatsByMessageId[message.messageID]
                                             val canShowTtsActions = ttsEnabled
+                                            val isPersistedStreamingAssistantRow =
+                                                streamingAssistantMessageId != null &&
+                                                    message.messageID == streamingAssistantMessageId
+                                            val isProvisionalStreamingAssistantRow =
+                                                streamingAssistantMessageId == null &&
+                                                    index == messagesForList.lastIndex
+                                            val isStreamingMessageRow =
+                                                isInferenceRunningUi &&
+                                                    (
+                                                        isPersistedStreamingAssistantRow ||
+                                                            isProvisionalStreamingAssistantRow
+                                                        )
+                                            val assistantDisplayMessage = buildAssistantDisplayText(
+                                                originalMessage = message.message,
+                                                tailLimitChars = if (devStreamingTailLimitEnabled || isStreamingMessageRow) {
+                                                    assistantRenderTailLimitChars
+                                                } else {
+                                                    Int.MAX_VALUE
+                                                },
+                                            ).text
                                             PlainAssistantMessage(
-                                                message = message.message,
+                                                message = assistantDisplayMessage,
+                                                isStreaming = isStreamingMessageRow,
                                                 showMessageActions = true,
                                                 isReplaying =
                                                     canShowTtsActions &&
@@ -3093,10 +3656,18 @@ fun Home(
                                                     if (suppressedTtsAssistantMessageId == message.messageID) {
                                                         suppressedTtsAssistantMessageId = null
                                                     }
+                                                    val speechText = sanitizeTextForTts(message.message)
+                                                    if (speechText.isEmpty()) {
+                                                        return@PlainAssistantMessage
+                                                    }
                                                     isStreamingSentencePlaybackActive = false
                                                     currentSpeakingAssistantMessageId = message.messageID
                                                     stopButtonOwnerAssistantMessageId = message.messageID
-                                                    sanitizeTextForTts(message.message).takeIf { it.isNotEmpty() }?.let(ttsController::speak)
+                                                    stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
+                                                    coroutineScope.launch {
+                                                        maybeReleaseHeldEngineForTtsPlayback()
+                                                        ttsController.speak(speechText)
+                                                    }
                                                 }
                                                 } else {
                                                     null
@@ -3133,9 +3704,50 @@ fun Home(
                                 }
                                 if (showLocalRespondingAssistantRow) {
                                     item(key = "local_responding_indicator") {
+                                        val localRespondingMessage = buildAssistantDisplayText(
+                                            originalMessage = localRespondingAssistantRowMessage,
+                                            tailLimitChars = assistantRenderTailLimitChars,
+                                        ).text
                                         PlainAssistantMessage(
-                                            message = localRespondingAssistantRowMessage,
+                                            message = localRespondingMessage,
+                                            isStreaming = true,
                                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                        )
+                                    }
+                                }
+                                if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && devWhitespaceTraceText != null) {
+                                    item(key = "dev_whitespace_trace") {
+                                        val whitespaceTraceText = devWhitespaceTraceText!!
+                                        CopyableDebugBlock(
+                                            text = whitespaceTraceText,
+                                            onCopy = {
+                                                clipboardManager.setText(AnnotatedString(whitespaceTraceText))
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "WS TRACE をコピーしました",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                                if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && devRunnerWhitespaceTraceText != null) {
+                                    item(key = "dev_runner_whitespace_trace") {
+                                        val runnerWhitespaceTraceText = devRunnerWhitespaceTraceText!!
+                                        CopyableDebugBlock(
+                                            text = runnerWhitespaceTraceText,
+                                            onCopy = {
+                                                clipboardManager.setText(AnnotatedString(runnerWhitespaceTraceText))
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "RUNNER WS TRACE をコピーしました",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                         )
                                     }
                                 }
@@ -3171,23 +3783,46 @@ fun Home(
                                     )
                                 }
                             }
+                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                Text(
+                                    text = buildString {
+                                        append("DEV stream")
+                                        append("\nrawLen=")
+                                        append(streamingResponseText?.length ?: 0)
+                                        append(" renderLen=")
+                                        append(streamingResponseTextForRender?.length ?: 0)
+                                        append(" localLen=")
+                                        append(localStreamingResponseText?.length ?: 0)
+                                        append("\nstreaming=")
+                                        append(isInferenceRunningUi)
+                                        append(" lines=")
+                                        append(devStreamingDisplayLineCount)
+                                        append(" alive=")
+                                        append(devUiAliveSeconds)
+                                        append("s")
+                                        append("\nuiTailLimit=")
+                                        append(devStreamingTailLimitEnabled)
+                                        append(" (")
+                                        append(DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS)
+                                        append(")")
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(
+                                            start = 8.dp,
+                                            bottom = ComposerMinHeight + ComposerBottomGapHeight + bottomDp + 8.dp,
+                                        )
+                                        .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Medium,
+                                    ),
+                                    color = Color.White.copy(alpha = 0.92f),
+                                )
+                            }
                         }
                     }
-                }
-            }
-            if (shouldShowPendingLocalOverlay) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = effectiveTopGradientBottomDp),
-                    contentAlignment = Alignment.TopEnd,
-                ) {
-                    ChatBubble(
-                        message = pendingLocalOverlayTextValue,
-                        isSentByMe = true,
-                        attachmentUriString = null,
-                        attachmentUriStringsJson = null,
-                    )
                 }
             }
         }
@@ -3279,6 +3914,54 @@ fun Home(
                     devHeldStateText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devHeldStateText else null,
                     devCloseLifecycleText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devCloseLifecycleText else null,
                     devDebugText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devDebugText else null,
+                    preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                    showDevManualEngineRecreate = BuildConfig.DEBUG,
+                    manualEngineRecreateBusy = preferredBackendManualRecreateInProgress,
+                    manualEngineRecreateResult = preferredBackendManualRecreateResult,
+                    manualEngineRecreateReason = preferredBackendManualRecreateReason,
+                    manualEngineRecreateEnabled = !isInferenceRunningUi && !isTtsSpeaking && !isStreamingSentencePlaybackActive && !preferredBackendManualRecreateInProgress,
+                    onManualEngineRecreate = {
+                        val blocked = isInferenceRunningUi || isTtsSpeaking || isStreamingSentencePlaybackActive || preferredBackendManualRecreateInProgress
+                        if (blocked) {
+                            preferredBackendManualRecreateResult = "blocked-busy"
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("生成中は再作成できません")
+                            }
+                            return@InferenceStatsSheetContent
+                        }
+                        coroutineScope.launch {
+                            preferredBackendManualRecreateInProgress = true
+                            preferredBackendManualRecreateReason = "user-requested"
+                            val succeeded = localInferenceEngineHolder.requestRecreateForDev(
+                                reason = preferredBackendManualRecreateReason,
+                                appendTrace = { appendLocalReflectionTrace(context.applicationContext, it) },
+                            )
+                            val recreateSnapshot = localInferenceEngineHolder.getDevDiagnosticSnapshot()
+                            preferredBackendManualRecreateInProgress = false
+                            preferredBackendManualRecreateResult = if (succeeded) "success" else "failed"
+                            latestLocalTraceForDev = (latestLocalTraceForDev ?: LocalInferenceTrace()).copy(
+                                holderInstanceHash = recreateSnapshot.holderInstanceHash,
+                                heldEngineHash = recreateSnapshot.heldEngineHash,
+                                heldEngineRecreateRequestCount = recreateSnapshot.recreateRequestCount,
+                                holderLastRecreateResult = recreateSnapshot.lastRecreateResult,
+                                holderLastRecreateReason = recreateSnapshot.lastRecreateReason,
+                                holderHasHeldEngineBeforeRecreate = recreateSnapshot.hasHeldEngineBeforeRecreate,
+                                holderHasHeldEngineAfterRecreate = recreateSnapshot.hasHeldEngineAfterRecreate,
+                                lastHeldEngineCreateReason = recreateSnapshot.lastHeldEngineCreateReason,
+                                lastHeldEngineCreateSource = recreateSnapshot.lastHeldEngineCreateSource,
+                                lastHeldEngineCreateAtElapsedMs = recreateSnapshot.lastHeldEngineCreateAtElapsedMs,
+                                lastHeldEngineCreateRequestedPreferredBackend = recreateSnapshot.lastHeldEngineCreateRequestedPreferredBackend,
+                                lastHeldEngineCreateStackHint = recreateSnapshot.lastHeldEngineCreateStackHint,
+                            )
+                            snackbarHostState.showSnackbar(
+                                if (succeeded) {
+                                    "次回推論でローカルエンジンを再作成します"
+                                } else {
+                                    "ローカルエンジン再作成要求に失敗しました"
+                                },
+                            )
+                        }
+                    },
                 )
             }
         }
@@ -3329,6 +4012,69 @@ fun Home(
 }
 }
 
+
+
+internal fun normalizeStreamingPartialForRender(partial: String): String {
+    return partial.trim()
+}
+
+internal fun buildFinalizedStreamingResponseForPersist(
+    response: String,
+    onMarkdownRepair: (() -> Unit)? = null,
+): String {
+    val normalizedFinalText = response.trim()
+    val repaired = MarkdownCodeRepair.repair(normalizedFinalText).trim()
+    if (repaired != normalizedFinalText) {
+        onMarkdownRepair?.invoke()
+    }
+    if (!normalizedFinalText.endsWith("#\n```") || repaired.endsWith("#\n```")) {
+        return repaired
+    }
+    return repaired.replace(Regex("\\n```$"), "\n#\n```")
+}
+
+private fun previewForDevLog(
+    text: String,
+    maxLength: Int = 2000,
+): String {
+    if (text.length <= maxLength) return text
+    val headLength = maxLength / 2
+    val tailLength = maxLength - headLength
+    val omittedCount = text.length - maxLength
+    val head = text.take(headLength)
+    val tail = text.takeLast(tailLength)
+    return buildString {
+        appendLine(head)
+        appendLine("...<omitted $omittedCount chars>...")
+        append(tail)
+    }
+}
+fun shouldRefreshRender(
+    prev: String,
+    next: String,
+    isStreaming: Boolean,
+): Boolean {
+    if (next.isEmpty()) return true
+    if (!isStreaming) return true
+    if (prev.isEmpty()) return true
+    val appendedDelta = if (next.startsWith(prev)) {
+        next.substring(prev.length)
+    } else {
+        next
+    }
+    val deltaTrimmedStart = appendedDelta.trimStart()
+    return appendedDelta.contains('\n') ||
+        appendedDelta.length >= 32 ||
+        deltaTrimmedStart.startsWith("```") ||
+        isPythonFusionStart(deltaTrimmedStart)
+}
+
+internal fun findStreamingTtsBreakIndex(remaining: String): Int {
+    val sentenceBreakIndex = remaining.lastIndexOfAny(charArrayOf('。', '！', '？', '\n'))
+    if (sentenceBreakIndex >= 0) return sentenceBreakIndex
+    return remaining.lastIndexOfAny(charArrayOf('、', ',', '，', ';', '；', ':', '：'))
+}
+
 private suspend fun initializeLocalInferenceEngineEntry(
     context: Context,
     settingsPreferences: SettingsPreferences,
@@ -3361,6 +4107,7 @@ private suspend fun runLocalInferenceOnceEntry(
     resolvedModelPath: String? = null,
     resolvedCacheDirPath: String? = null,
     mediaPipeProbeContext: Context? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     prompt: String,
     onPartial: (String) -> Unit = {},
 ): LocalInferenceRunResult {
@@ -3405,6 +4152,7 @@ private suspend fun runLocalInferenceOnceEntry(
     var officialFlowFallbackReason: String? = null
     var officialFlowChunkCount = 0
     var officialFlowObservedPartialCount = 0
+    var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     val emitFinal: (String?) -> Unit = { result ->
         if (!result.isNullOrBlank()) {
             onPartial(result)
@@ -3422,6 +4170,8 @@ private suspend fun runLocalInferenceOnceEntry(
             modelPath = modelPath,
             cacheDirPath = modelResolution.cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = { result -> preferredBackendApplyResult = result },
             onPartial = { partial ->
                 officialFlowObservedPartialCount += 1
                 onPartial(partial)
@@ -3475,6 +4225,16 @@ private suspend fun runLocalInferenceOnceEntry(
                         officialFlowFallbackReason = officialFlowFallbackReason,
                         officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
                         officialFlowChunkCount = officialFlowChunkCount,
+                        preferredBackendHookReached = preferredBackendApplyResult?.preferredBackendHookReached,
+                        preferredBackendHookSource = preferredBackendApplyResult?.preferredBackendHookSource,
+                        requestedPreferredBackend = preferredBackendApplyResult?.requestedPreferredBackend,
+                        appliedPreferredBackend = preferredBackendApplyResult?.appliedPreferredBackend,
+                        preferredBackendApplyResult = preferredBackendApplyResult?.preferredBackendApplyResult,
+                        preferredBackendApplyError = preferredBackendApplyResult?.preferredBackendApplyError,
+                        preferredBackendApplyBuilderClass = preferredBackendApplyResult?.preferredBackendApplyBuilderClass,
+                        preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates.orEmpty(),
+                        preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
+                        preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
                         ),
                     closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
                         summary = fallbackGenerated.closeLifecycleSummary,
@@ -3509,8 +4269,18 @@ private suspend fun runLocalInferenceOnceEntry(
                     officialFlowFallbackReason = officialFlowFallbackReason,
                     officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
                     officialFlowChunkCount = officialFlowChunkCount,
+                    preferredBackendHookReached = preferredBackendApplyResult?.preferredBackendHookReached,
+                    preferredBackendHookSource = preferredBackendApplyResult?.preferredBackendHookSource,
+                    requestedPreferredBackend = preferredBackendApplyResult?.requestedPreferredBackend,
+                    appliedPreferredBackend = preferredBackendApplyResult?.appliedPreferredBackend,
+                    preferredBackendApplyResult = preferredBackendApplyResult?.preferredBackendApplyResult,
+                    preferredBackendApplyError = preferredBackendApplyResult?.preferredBackendApplyError,
+                    preferredBackendApplyBuilderClass = preferredBackendApplyResult?.preferredBackendApplyBuilderClass,
+                    preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates.orEmpty(),
+                    preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
+                    preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
                     measuredTokenSnapshot = officialResult?.measuredTokenSnapshot,
-                ),
+                ).withOfficialChunkMetrics(officialResult?.officialChunkMetrics),
                 closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
                     summary = officialResult?.closeLifecycleSummary,
                     path = "chat-official-flow-success",
@@ -3530,6 +4300,8 @@ private suspend fun runLocalInferenceOnceEntry(
             modelPath = modelPath,
             cacheDirPath = modelResolution.cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            onPreferredBackendApplied = { result -> preferredBackendApplyResult = result },
             appendTrace = { traceMessage ->
                 appendLocalReflectionTrace(context = context, message = traceMessage)
             },
@@ -3555,6 +4327,16 @@ private suspend fun runLocalInferenceOnceEntry(
                     officialFlowFallbackReason = officialFlowFallbackReason,
                     officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
                     officialFlowChunkCount = officialFlowChunkCount,
+                    preferredBackendHookReached = preferredBackendApplyResult?.preferredBackendHookReached,
+                    preferredBackendHookSource = preferredBackendApplyResult?.preferredBackendHookSource,
+                    requestedPreferredBackend = preferredBackendApplyResult?.requestedPreferredBackend,
+                    appliedPreferredBackend = preferredBackendApplyResult?.appliedPreferredBackend,
+                    preferredBackendApplyResult = preferredBackendApplyResult?.preferredBackendApplyResult,
+                    preferredBackendApplyError = preferredBackendApplyResult?.preferredBackendApplyError,
+                    preferredBackendApplyBuilderClass = preferredBackendApplyResult?.preferredBackendApplyBuilderClass,
+                    preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates.orEmpty(),
+                    preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
+                    preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
                     measuredTokenSnapshot = blockingResult?.measuredTokenSnapshot,
                 ),
                 closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
@@ -3601,6 +4383,8 @@ private suspend fun runLocalInferenceOnceEntry(
         LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT -> LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT
         else -> LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY
     }
+    val preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates
+    val preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates
     val traceWithOfficialFlow = generated.trace.copy(
         selectedAssistantResponseSource = resolvedSource.takeIf { !response.isNullOrBlank() },
         officialFlowAttempted = officialFlowAttempted,
@@ -3608,6 +4392,16 @@ private suspend fun runLocalInferenceOnceEntry(
         officialFlowFallbackReason = officialFlowFallbackReason,
         officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
         officialFlowChunkCount = officialFlowChunkCount,
+        preferredBackendHookReached = preferredBackendApplyResult?.preferredBackendHookReached ?: generated.trace.preferredBackendHookReached,
+        preferredBackendHookSource = preferredBackendApplyResult?.preferredBackendHookSource ?: generated.trace.preferredBackendHookSource,
+        requestedPreferredBackend = preferredBackendApplyResult?.requestedPreferredBackend ?: generated.trace.requestedPreferredBackend,
+        appliedPreferredBackend = preferredBackendApplyResult?.appliedPreferredBackend ?: generated.trace.appliedPreferredBackend,
+        preferredBackendApplyResult = preferredBackendApplyResult?.preferredBackendApplyResult ?: generated.trace.preferredBackendApplyResult,
+        preferredBackendApplyError = preferredBackendApplyResult?.preferredBackendApplyError ?: generated.trace.preferredBackendApplyError,
+        preferredBackendApplyBuilderClass = preferredBackendApplyResult?.preferredBackendApplyBuilderClass ?: generated.trace.preferredBackendApplyBuilderClass,
+        preferredBackendApplyMethodCandidates = if (!preferredBackendApplyMethodCandidates.isNullOrEmpty()) preferredBackendApplyMethodCandidates else generated.trace.preferredBackendApplyMethodCandidates,
+        preferredBackendApplyBackendEnumCandidates = if (!preferredBackendApplyBackendEnumCandidates.isNullOrEmpty()) preferredBackendApplyBackendEnumCandidates else generated.trace.preferredBackendApplyBackendEnumCandidates,
+        preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason ?: generated.trace.preferredBackendApplyNotSupportedReason,
     )
     emitFinal(response)
     return if (response.isNullOrBlank()) {
@@ -3655,7 +4449,33 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             officialConversationApiAvailable = namespace.isNotBlank(),
             officialFlowChunkCount = partialCount,
             measuredTokenSnapshot = measuredTokenSnapshot,
-        ),
+            heldEngineCreatePath = heldEngineCreatePath,
+            llmInferenceCreateMethod = llmInferenceCreateMethod,
+            optionsBuilderSource = optionsBuilderSource,
+            preferredBackendHookEligible = preferredBackendHookEligible,
+            preferredBackendHookMissingReason = preferredBackendHookMissingReason,
+            holderInstanceHash = holderInstanceHash,
+            heldEngineHash = heldEngineHash,
+            holderAppInForeground = holderAppInForeground,
+            holderLastAcquireAction = holderLastAcquireAction,
+            holderLastLifecycleEventReason = holderLastLifecycleEventReason,
+            holderLastLifecycleDecisionAction = holderLastLifecycleDecisionAction,
+            heldEngineRecreateRequestCount = heldEngineRecreateRequestCount,
+            heldEngineWasPresentAtRunStart = heldEngineWasPresentAtRunStart,
+            heldEngineCreatedDuringRun = heldEngineCreatedDuringRun,
+            lastHeldEngineCreateReason = lastHeldEngineCreateReason,
+            lastHeldEngineCreateSource = lastHeldEngineCreateSource,
+            lastHeldEngineCreateAtElapsedMs = lastHeldEngineCreateAtElapsedMs,
+            lastHeldEngineCreateRequestedPreferredBackend = lastHeldEngineCreateRequestedPreferredBackend,
+            lastHeldEngineCreateStackHint = lastHeldEngineCreateStackHint,
+            requestedPreferredBackend = lastHeldEngineCreateRequestedPreferredBackend,
+            appliedPreferredBackend = lastHeldEngineCreateAppliedPreferredBackend,
+            preferredBackendApplyResult = lastHeldEngineCreatePreferredBackendApplyResult,
+            preferredBackendHookReached = lastHeldEngineCreatePreferredBackendHookReached,
+            preferredBackendHookSource = lastHeldEngineCreatePreferredBackendHookSource,
+            preferredBackendApplyBuilderClass = lastHeldEngineCreatePreferredBackendApplyBuilderClass,
+            preferredBackendApplyBackendEnumCandidates = lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
+        ).withOfficialChunkMetrics(officialChunkMetrics),
         closeLifecycleSummary = if (resolvedState == LocalInferenceEngineState.READY) {
             ensureSuccessCloseLifecycleSummary(
                 summary = closeLifecycleSummary,
@@ -3664,6 +4484,7 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
         } else {
             closeLifecycleSummary
         },
+        runnerWhitespaceTraceText = runnerWhitespaceTraceText,
     )
 }
 
@@ -3773,10 +4594,12 @@ private suspend fun LocalInferenceEngineHolder.acquireOrCreate(
     engineKey: HeldEngineKey,
     context: Context,
     appendTrace: ((String) -> Unit)? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
 ): HeldLocalEngine {
     return acquire(
         engineKey = engineKey,
         appendTrace = appendTrace,
+        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
     )
 }
 
@@ -3814,6 +4637,44 @@ private fun resolveLocalModelDisplayName(
     val normalizedDisplayName = localBaseModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
     if (normalizedDisplayName != null) return normalizedDisplayName
     return File(modelPath).name.removeSuffix(".litertlm")
+}
+
+internal fun shouldApplyHeldEngineModelPath(localBaseModelFilePath: String?): Boolean {
+    return !localBaseModelFilePath.isNullOrBlank()
+}
+
+private fun captureTtsMemorySnapshot(context: Context): TtsMemorySnapshot {
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+    val systemMemoryInfo = ActivityManager.MemoryInfo()
+    val hasSystemMemoryInfo = runCatching {
+        activityManager?.getMemoryInfo(systemMemoryInfo)
+        activityManager != null
+    }.getOrDefault(false)
+    val processMemoryInfo = Debug.MemoryInfo()
+    runCatching {
+        Debug.getMemoryInfo(processMemoryInfo)
+    }
+    return TtsMemorySnapshot(
+        lowMemory = hasSystemMemoryInfo && systemMemoryInfo.lowMemory,
+        availableMemoryMb = if (hasSystemMemoryInfo) systemMemoryInfo.availMem / (1024L * 1024L) else null,
+        thresholdMemoryMb = if (hasSystemMemoryInfo) systemMemoryInfo.threshold / (1024L * 1024L) else null,
+        appTotalPssMb = kbToMb(processMemoryInfo.totalPss),
+        appNativePssMb = kbToMb(processMemoryInfo.nativePss),
+    )
+}
+
+internal fun buildTtsMemoryDecisionDebugText(
+    snapshot: TtsMemorySnapshot,
+    decision: TtsMemoryReleaseDecision,
+): String = buildString {
+    appendLine("DEV TTS MEMORY")
+    append("decision=").append(if (decision.shouldReleaseHeldEngine) "release-held-engine" else "keep-held-engine").appendLine()
+    append("reason=").append(decision.reason).appendLine()
+    append("lowMemory=").append(snapshot.lowMemory).appendLine()
+    append("availableMemoryMb=").append(snapshot.availableMemoryMb ?: "unknown").appendLine()
+    append("thresholdMemoryMb=").append(snapshot.thresholdMemoryMb ?: "unknown").appendLine()
+    append("appTotalPssMb=").append(snapshot.appTotalPssMb ?: "unknown").appendLine()
+    append("appNativePssMb=").append(snapshot.appNativePssMb ?: "unknown")
 }
 
 private suspend fun resolveLocalModelResolutionOrNull(
@@ -4624,6 +5485,11 @@ private suspend fun streamLocalAssistantPreviewTextToUi(
     onChunk: (String) -> Unit,
 ) {
     val trimmed = responseText.trim()
+    logLocalStreamingWhitespace(
+        stage = "ChatScreen#preview.input",
+        raw = responseText,
+        normalized = trimmed,
+    )
     if (trimmed.isEmpty()) return
     var previousChunk: String? = null
     var emittedChunkCount = 0
@@ -4632,6 +5498,10 @@ private suspend fun streamLocalAssistantPreviewTextToUi(
     while (endIndex <= trimmed.length) {
         val chunk = trimmed.substring(0, endIndex)
         if (chunk.isNotEmpty() && chunk != previousChunk) {
+            logLocalStreamingWhitespace(
+                stage = "ChatScreen#preview.emitChunk",
+                raw = chunk,
+            )
             withContext(Dispatchers.Main.immediate) {
                 onChunk(chunk)
             }
@@ -4644,6 +5514,10 @@ private suspend fun streamLocalAssistantPreviewTextToUi(
         endIndex += step
     }
     if (previousChunk != trimmed) {
+        logLocalStreamingWhitespace(
+            stage = "ChatScreen#preview.emitFinal",
+            raw = trimmed,
+        )
         withContext(Dispatchers.Main.immediate) {
             onChunk(trimmed)
         }
@@ -5158,6 +6032,53 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         officialFlowFallbackReason = officialFlowFallbackReason ?: probe.officialFlowFallbackReason,
         officialConversationApiAvailable = officialConversationApiAvailable ?: probe.officialConversationApiAvailable,
         officialFlowChunkCount = if (officialFlowChunkCount > 0) officialFlowChunkCount else probe.officialFlowChunkCount,
+        officialChunkCount = if (officialChunkCount > 0) officialChunkCount else probe.officialChunkCount,
+        officialChunkIntervalAvgMs = officialChunkIntervalAvgMs ?: probe.officialChunkIntervalAvgMs,
+        officialChunkIntervalMaxMs = officialChunkIntervalMaxMs ?: probe.officialChunkIntervalMaxMs,
+        officialChunkIntervalMinMs = officialChunkIntervalMinMs ?: probe.officialChunkIntervalMinMs,
+        officialChunkFirstToLastMs = officialChunkFirstToLastMs ?: probe.officialChunkFirstToLastMs,
+        officialChunkCharsAvg = officialChunkCharsAvg ?: probe.officialChunkCharsAvg,
+        officialChunkCharsMax = officialChunkCharsMax ?: probe.officialChunkCharsMax,
+        officialChunkCharsMin = officialChunkCharsMin ?: probe.officialChunkCharsMin,
+        officialChunkEmptyCount = if (officialChunkEmptyCount > 0) officialChunkEmptyCount else probe.officialChunkEmptyCount,
+        officialChunkNonEmptyCount = if (officialChunkNonEmptyCount > 0) officialChunkNonEmptyCount else probe.officialChunkNonEmptyCount,
+        officialChunkEventsPerSecond = officialChunkEventsPerSecond ?: probe.officialChunkEventsPerSecond,
+        officialChunkCharsPerSecond = officialChunkCharsPerSecond ?: probe.officialChunkCharsPerSecond,
+        requestedPreferredBackend = requestedPreferredBackend ?: probe.requestedPreferredBackend,
+        appliedPreferredBackend = appliedPreferredBackend ?: probe.appliedPreferredBackend,
+        preferredBackendApplyResult = preferredBackendApplyResult ?: probe.preferredBackendApplyResult,
+        preferredBackendHookReached = preferredBackendHookReached ?: probe.preferredBackendHookReached,
+        preferredBackendHookSource = preferredBackendHookSource ?: probe.preferredBackendHookSource,
+        preferredBackendApplyError = preferredBackendApplyError ?: probe.preferredBackendApplyError,
+        preferredBackendApplyBuilderClass = preferredBackendApplyBuilderClass ?: probe.preferredBackendApplyBuilderClass,
+        preferredBackendApplyMethodCandidates = if (preferredBackendApplyMethodCandidates.isNotEmpty()) preferredBackendApplyMethodCandidates else probe.preferredBackendApplyMethodCandidates,
+        preferredBackendApplyBackendEnumCandidates = if (preferredBackendApplyBackendEnumCandidates.isNotEmpty()) preferredBackendApplyBackendEnumCandidates else probe.preferredBackendApplyBackendEnumCandidates,
+        preferredBackendApplyNotSupportedReason = preferredBackendApplyNotSupportedReason ?: probe.preferredBackendApplyNotSupportedReason,
+        heldEngineCreatePath = heldEngineCreatePath ?: probe.heldEngineCreatePath,
+        llmInferenceCreateMethod = llmInferenceCreateMethod ?: probe.llmInferenceCreateMethod,
+        optionsBuilderSource = optionsBuilderSource ?: probe.optionsBuilderSource,
+        preferredBackendHookEligible = preferredBackendHookEligible ?: probe.preferredBackendHookEligible,
+        preferredBackendHookMissingReason = preferredBackendHookMissingReason ?: probe.preferredBackendHookMissingReason,
+        preferredBackendRequiresEngineRecreate = preferredBackendRequiresEngineRecreate ?: probe.preferredBackendRequiresEngineRecreate,
+        preferredBackendEngineRecreateReason = preferredBackendEngineRecreateReason ?: probe.preferredBackendEngineRecreateReason,
+        holderInstanceHash = holderInstanceHash ?: probe.holderInstanceHash,
+        heldEngineHash = heldEngineHash ?: probe.heldEngineHash,
+        holderAppInForeground = holderAppInForeground ?: probe.holderAppInForeground,
+        holderLastAcquireAction = holderLastAcquireAction ?: probe.holderLastAcquireAction,
+        holderLastLifecycleEventReason = holderLastLifecycleEventReason ?: probe.holderLastLifecycleEventReason,
+        holderLastLifecycleDecisionAction = holderLastLifecycleDecisionAction ?: probe.holderLastLifecycleDecisionAction,
+        heldEngineRecreateRequestCount = heldEngineRecreateRequestCount ?: probe.heldEngineRecreateRequestCount,
+        heldEngineWasPresentAtRunStart = heldEngineWasPresentAtRunStart ?: probe.heldEngineWasPresentAtRunStart,
+        heldEngineCreatedDuringRun = heldEngineCreatedDuringRun ?: probe.heldEngineCreatedDuringRun,
+        holderLastRecreateResult = holderLastRecreateResult ?: probe.holderLastRecreateResult,
+        holderLastRecreateReason = holderLastRecreateReason ?: probe.holderLastRecreateReason,
+        holderHasHeldEngineBeforeRecreate = holderHasHeldEngineBeforeRecreate ?: probe.holderHasHeldEngineBeforeRecreate,
+        holderHasHeldEngineAfterRecreate = holderHasHeldEngineAfterRecreate ?: probe.holderHasHeldEngineAfterRecreate,
+        lastHeldEngineCreateReason = lastHeldEngineCreateReason ?: probe.lastHeldEngineCreateReason,
+        lastHeldEngineCreateSource = lastHeldEngineCreateSource ?: probe.lastHeldEngineCreateSource,
+        lastHeldEngineCreateAtElapsedMs = lastHeldEngineCreateAtElapsedMs ?: probe.lastHeldEngineCreateAtElapsedMs,
+        lastHeldEngineCreateRequestedPreferredBackend = lastHeldEngineCreateRequestedPreferredBackend ?: probe.lastHeldEngineCreateRequestedPreferredBackend,
+        lastHeldEngineCreateStackHint = lastHeldEngineCreateStackHint ?: probe.lastHeldEngineCreateStackHint,
         measuredTokenSnapshot = measuredTokenSnapshot ?: probe.measuredTokenSnapshot,
     )
 }
@@ -5436,35 +6357,58 @@ private fun InferenceStatsSection(
 }
 
 private fun sanitizeLocalAssistantResponse(raw: String): String {
-    return raw
+    val sanitized = raw
         .replace("<end_of_turn>", "")
         .replace("<eot>", "")
         .replace("<|eot_id|>", "")
         .replace("<|end_of_text|>", "")
         .replace(Regex("\n{3,}"), "\n\n")
         .trim()
-}
-
-internal fun LocalStatsCandidateProbe.stringValueOrNull(): String? {
-    if (availability == LocalStatsAvailability.NOT_FOUND) return null
-    return valueSummary
-}
-
-internal fun createLocalInferenceStatsUiModel(
-    trace: LocalInferenceTrace,
-    stats: InferenceStats,
-    assistantText: String? = null,
-    promptText: String? = null,
-): LocalInferenceStatsUiModel {
-    return buildLocalInferenceStatsUiModel(
-        trace = trace,
-        resolved = resolveLocalInferenceStats(trace),
-        stats = stats,
-        measuredSnapshot = trace.measuredTokenSnapshot,
-        assistantText = assistantText,
-        promptText = promptText,
-        selectedAssistantResponseSource = trace.selectedAssistantResponseSource,
+    logLocalStreamingWhitespace(
+        stage = "ChatScreen#sanitizeLocalAssistantResponse",
+        raw = raw,
+        normalized = sanitized,
     )
+    return sanitized
+}
+
+private fun logLocalStreamingWhitespace(
+    stage: String,
+    raw: String?,
+    normalized: String? = null,
+) {
+    if (!BuildConfig.DEBUG) return
+    val rawSummary = summarizeWhitespaceForDebug(raw)
+    val normalizedSummary = summarizeWhitespaceForDebug(normalized)
+    if (normalized == null) {
+        Log.d(LOCAL_STREAMING_WHITESPACE_LOG_TAG, "$stage raw=$rawSummary")
+    } else {
+        Log.d(
+            LOCAL_STREAMING_WHITESPACE_LOG_TAG,
+            "$stage raw=$rawSummary normalized=$normalizedSummary delta=${buildWhitespaceDeltaForDebug(raw, normalized)}",
+        )
+    }
+}
+
+private fun summarizeWhitespaceForDebug(text: String?): String {
+    if (text == null) return "null"
+    val spaces = text.count { it == ' ' }
+    val newlines = text.count { it == '\n' }
+    val tabs = text.count { it == '\t' }
+    val carriageReturns = text.count { it == '\r' }
+    val visualized = text
+        .replace(" ", "␠")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    val head = visualized.take(60)
+    val tail = if (visualized.length > 60) visualized.takeLast(60) else visualized
+    return "len=${text.length},spaces=$spaces,newlines=$newlines,tabs=$tabs,cr=$carriageReturns,head=\"$head\",tail=\"$tail\""
+}
+
+private fun buildWhitespaceDeltaForDebug(raw: String?, normalized: String?): String {
+    if (raw == null || normalized == null) return "n/a"
+    return "len=${raw.length - normalized.length},spaces=${raw.count { it == ' ' } - normalized.count { it == ' ' }},newlines=${raw.count { it == '\n' } - normalized.count { it == '\n' }}"
 }
 
 private fun buildMeasuredTokenSnapshotSummary(trace: LocalInferenceTrace?): String? {
@@ -5665,6 +6609,13 @@ private fun InferenceStatsSheetContent(
     devHeldStateText: String? = null,
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    showDevManualEngineRecreate: Boolean = false,
+    manualEngineRecreateEnabled: Boolean = false,
+    manualEngineRecreateBusy: Boolean = false,
+    manualEngineRecreateResult: String = "none",
+    manualEngineRecreateReason: String = "user-requested",
+    onManualEngineRecreate: () -> Unit = {},
 ) {
     var selectedDisplayMode by rememberSaveable { mutableStateOf(initialDisplayMode) }
     LaunchedEffect(initialDisplayMode) {
@@ -5672,6 +6623,7 @@ private fun InferenceStatsSheetContent(
     }
     val scrollState = rememberScrollState()
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     val sheetContentPadding = 14.dp
     val sectionSpacing = 12.dp
 
@@ -5683,6 +6635,11 @@ private fun InferenceStatsSheetContent(
         promptText = promptText,
         enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
     )
+    val acceleratorProbeSnapshot = if (BuildConfig.DEBUG && selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
+        remember(context) { AcceleratorProbe.captureSnapshot(context = context.applicationContext) }
+    } else {
+        null
+    }
     val measuredTokenSnapshotSummary = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
         buildMeasuredTokenSnapshotSummary(localTraceForDev)
     } else {
@@ -5699,6 +6656,8 @@ private fun InferenceStatsSheetContent(
         devDebugText = devDebugText,
         measuredTokenSnapshotSummary = measuredTokenSnapshotSummary,
         enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
+        acceleratorProbeSnapshot = acceleratorProbeSnapshot,
+        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
     )
 
     Column(
@@ -5783,7 +6742,7 @@ private fun InferenceStatsSheetContent(
                     modifier = Modifier.testTag("inferenceStatsDetailContent"),
                     verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                 ) {
-                    detailSections.forEach { section ->
+            detailSections.forEach { section ->
                         InferenceStatsSection(title = section.title) {
                             section.items.forEach { item ->
                                 InferenceStatRow(
@@ -5795,6 +6754,35 @@ private fun InferenceStatsSheetContent(
                         }
                     }
                 }
+            }
+            if (showDevManualEngineRecreate && selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
+                HorizontalDivider()
+                Text(
+                    text = "ローカルエンジンを再作成",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "現在のローカルエンジンを閉じ、次回推論で再作成します。preferredBackend変更後に使用してください。生成中は実行できません。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    onClick = onManualEngineRecreate,
+                    enabled = manualEngineRecreateEnabled && !manualEngineRecreateBusy,
+                ) {
+                    Text("ローカルエンジンを再作成")
+                }
+                Text(
+                    text = "PreferredBackend manual recreate result: $manualEngineRecreateResult",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "PreferredBackend manual recreate reason: $manualEngineRecreateReason",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -5848,6 +6836,48 @@ private fun InferenceModelInfoRow(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CopyableDebugBlock(
+    text: String,
+    title: String? = null,
+    onCopy: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (!title.isNullOrBlank()) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Red,
+                )
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Red,
+            )
+        }
+        IconButton(
+            onClick = onCopy,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .semantics { contentDescription = "デバッグテキストをコピー" },
+        ) {
+            Icon(
+                imageVector = Icons.Default.ContentCopy,
+                contentDescription = "デバッグテキストをコピー",
+                tint = Color.Red,
+            )
         }
     }
 }
@@ -6201,17 +7231,6 @@ internal fun buildContextUsageUi(stats: InferenceStats): ContextUsageUi? {
         -> ContextUsageUi.WithoutMax(used = used)
     }
 }
-
-internal data class InferenceStatsSectionUi(
-    val title: String,
-    val items: List<InferenceStatItemUi>,
-)
-
-internal data class InferenceStatItemUi(
-    val label: String,
-    val value: String,
-    val emphasizeValue: Boolean = false,
-)
 
 @Composable
 private fun DrawerSearchPill(

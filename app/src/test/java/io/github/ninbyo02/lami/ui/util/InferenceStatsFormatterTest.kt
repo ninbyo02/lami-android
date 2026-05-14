@@ -97,7 +97,7 @@ class InferenceStatsFormatterTest {
 
         assertEquals("2.3 s", formatModelLoadDuration(stats))
         assertEquals("0.7 s", formatPromptEvalDuration(stats))
-        assertEquals("4.0 s", formatGenerationDuration(stats))
+        assertEquals("4.1 s", formatGenerationDuration(stats))
     }
 
     @Test

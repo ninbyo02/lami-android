@@ -43,6 +43,7 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 data class ModelInfo(val name: String)
 class OllamaViewModel(
     private val chatRepository: ChatRepository,
@@ -385,12 +386,12 @@ class OllamaViewModel(
             }
 
             val body = response.body() ?: throw IOException("Empty response")
-            val resultBuilder = StringBuilder()
+            val streamAssembler = SafeMarkdownStreamAssembler()
             var doneReceived = false
             val streamingUiUpdateIntervalMs = 80L
             val priorityFlushChars = setOf('。', '、', '！', '？', '\n')
             var lastUiUpdateAtMs = 0L
-            var latestFlushedLength = 0
+            var latestFlushedText: String? = null
             var finalChunk: StreamChunk? = null
             var timeToFirstTokenMs: Long? = null
             var assistantUpdateCount = 0
@@ -408,29 +409,29 @@ class OllamaViewModel(
                         timeToFirstTokenMs = (SystemClock.elapsedRealtime() - requestStartedAtMs).coerceAtLeast(0L)
                     }
                     if (!chunk.text.isNullOrBlank()) {
-                        resultBuilder.append(chunk.text)
-                        val currentText = resultBuilder.toString()
+                        streamAssembler.appendChunk(chunk.text)
+                        val currentText = streamAssembler.buildDisplayText()
                         val nowMs = System.currentTimeMillis()
                         val isIntervalElapsed = nowMs - lastUiUpdateAtMs >= streamingUiUpdateIntervalMs
                         val endsWithPriorityChar =
                             chunk.text.lastOrNull() in priorityFlushChars ||
                                 currentText.lastOrNull() in priorityFlushChars
-                        if (isIntervalElapsed || endsWithPriorityChar) {
+                        if ((isIntervalElapsed || endsWithPriorityChar) && latestFlushedText != currentText) {
                             onResponseReceived(currentText.length)
                             _uiState.value = UiState.Streaming(currentText)
                             assistantUpdateCount += 1
                             lastUiUpdateAtMs = nowMs
-                            latestFlushedLength = currentText.length
+                            latestFlushedText = currentText
                         }
                     }
                     if (chunk.done) {
                         finalChunk = chunk
-                        val currentText = resultBuilder.toString()
-                        if (currentText.isNotEmpty() && latestFlushedLength != currentText.length) {
+                        val currentText = streamAssembler.buildDisplayText()
+                        if (currentText.isNotEmpty() && latestFlushedText != currentText) {
                             onResponseReceived(currentText.length)
                             _uiState.value = UiState.Streaming(currentText)
                             assistantUpdateCount += 1
-                            latestFlushedLength = currentText.length
+                            latestFlushedText = currentText
                         }
                         doneReceived = true
                         break
@@ -440,11 +441,18 @@ class OllamaViewModel(
             if (!doneReceived) {
                 throw IOException("Streaming response ended before done=true")
             }
-            if (resultBuilder.isEmpty()) {
+            // SafeMarkdownStreamAssembler の finalizeResult() は、保存に使ってよい最終本文を返す。
+            val finalizedTextForPersist = streamAssembler.finalizeResult()
+            if (finalizedTextForPersist.isEmpty()) {
                 throw IOException("Empty response")
             }
+            if (latestFlushedText != finalizedTextForPersist) {
+                onResponseReceived(finalizedTextForPersist.length)
+                _uiState.value = UiState.Streaming(finalizedTextForPersist)
+                assistantUpdateCount += 1
+            }
             return StreamingResult(
-                text = resultBuilder.toString(),
+                text = finalizedTextForPersist,
                 finalChunk = finalChunk,
                 timeToFirstTokenMs = timeToFirstTokenMs,
                 assistantUpdateCount = assistantUpdateCount,
@@ -453,6 +461,485 @@ class OllamaViewModel(
             if (activeRemoteCall === call) {
                 activeRemoteCall = null
             }
+        }
+    }
+
+    private class SafeMarkdownStreamAssembler(
+        private val streamingCodePlaceholder: String = "コード生成中…",
+    ) {
+        companion object {
+            private const val PY_REPAIR_LOG_TAG = "PY_REPAIR"
+        }
+        private val confirmedText = StringBuilder()
+        private val pendingCodeBlock = StringBuilder()
+        private val pendingLine = StringBuilder()
+        private var insideCodeBlock = false
+
+        fun appendChunk(rawChunk: String) {
+            val normalizedChunk = normalizeChunk(rawChunk)
+            if (normalizedChunk.isEmpty()) return
+            pendingLine.append(normalizedChunk)
+            drainCompleteLines()
+            flushSafeInlineText()
+        }
+
+        fun buildDisplayText(): String {
+            if (!insideCodeBlock) return confirmedText.toString()
+            val base = confirmedText.toString().trimEnd('\n')
+            return if (base.isEmpty()) streamingCodePlaceholder else "$base\n$streamingCodePlaceholder"
+        }
+
+        fun finalizeResult(): String {
+            if (insideCodeBlock) {
+                if (pendingLine.isNotEmpty()) {
+                    pendingCodeBlock.append(pendingLine)
+                    pendingLine.clear()
+                }
+                if (pendingCodeBlock.isNotEmpty() && !pendingCodeBlock.endsWith("\n")) {
+                    pendingCodeBlock.append('\n')
+                }
+                pendingCodeBlock.append("```")
+                confirmedText.append(pendingCodeBlock)
+                pendingCodeBlock.clear()
+                insideCodeBlock = false
+            } else if (pendingLine.isNotEmpty()) {
+                confirmedText.append(pendingLine)
+                pendingLine.clear()
+            }
+            val preRepairText = confirmedText.toString()
+            val preStats = analyzeMarkdownForRepair(preRepairText)
+            Log.d(
+                PY_REPAIR_LOG_TAG,
+                "PY_REPAIR pre: len=${preRepairText.length}, containsFence=${preStats.containsFence}, " +
+                    "containsBareFencePythonPattern=${preStats.bareFencePythonMatchCount > 0}, " +
+                    "containsPythonFenceOpening=${preStats.pythonFenceMatchCount > 0}, " +
+                    "containsPythonImport=${preRepairText.contains("python\nimport")}, " +
+                    "containsPygameMerge=${preRepairText.contains("import pygameimport sys#")}, " +
+                    "containsScreenMerge=${preRepairText.contains("SCREEN_WIDTH =80SCREEN_HEIGHT")}, " +
+                    "preview=${toSingleLinePreview(preRepairText)}",
+            )
+            val repairedText = repairPythonCodeBlocks(preRepairText)
+            val postStats = analyzeMarkdownForRepair(repairedText)
+            val changed = repairedText != preRepairText
+            Log.d(
+                PY_REPAIR_LOG_TAG,
+                "PY_REPAIR post: len=${repairedText.length}, changed=$changed, " +
+                    "pythonFenceMatchCount=${postStats.pythonFenceMatchCount}, " +
+                    "bareFencePythonMatchCount=${postStats.bareFencePythonMatchCount}, " +
+                    "containsPythonImport=${repairedText.contains("python\nimport")}, " +
+                    "containsPygameMerge=${repairedText.contains("import pygameimport sys#")}, " +
+                    "containsScreenMerge=${repairedText.contains("SCREEN_WIDTH =80SCREEN_HEIGHT")}, " +
+                    "preview=${toSingleLinePreview(repairedText)}",
+            )
+            Log.d(
+                PY_REPAIR_LOG_TAG,
+                "PY_REPAIR final: len=${repairedText.length}, changedFromPreRepair=$changed",
+            )
+            return repairedText
+        }
+
+        private fun repairPythonCodeBlocks(markdown: String): String {
+            if (!markdown.contains("```")) return markdown
+            val lines = markdown.split('\n')
+            if (lines.isEmpty()) return markdown
+
+            val rebuilt = StringBuilder(markdown.length + 32)
+            var index = 0
+            while (index < lines.size) {
+                val pythonFenceMatch = resolvePythonFenceOpening(lines, index)
+                if (pythonFenceMatch == null) {
+                    val currentLine = lines[index]
+                    rebuilt.append(currentLine)
+                    if (index < lines.lastIndex) rebuilt.append('\n')
+                    index += 1
+                    continue
+                }
+                val currentLine = lines[index]
+                val openingFenceLine = if (pythonFenceMatch.fromBareFencePattern) {
+                    normalizeBarePythonFenceLine(currentLine)
+                } else {
+                    currentLine
+                }
+                rebuilt.append(openingFenceLine)
+                if (index < lines.lastIndex) rebuilt.append('\n')
+                index = pythonFenceMatch.bodyStartIndex
+
+                val bodyBuilder = StringBuilder()
+                while (index < lines.size && !isFenceLine(lines[index])) {
+                    bodyBuilder.append(lines[index])
+                    if (index < lines.lastIndex) bodyBuilder.append('\n')
+                    index += 1
+                }
+                rebuilt.append(repairPythonBlockBody(bodyBuilder.toString()))
+
+                if (index < lines.size) {
+                    rebuilt.append(lines[index])
+                    if (index < lines.lastIndex) rebuilt.append('\n')
+                    index += 1
+                }
+            }
+            return rebuilt.toString()
+        }
+
+        private data class RepairDetectionStats(
+            val containsFence: Boolean,
+            val pythonFenceMatchCount: Int,
+            val bareFencePythonMatchCount: Int,
+        )
+
+        private data class PythonFenceMatch(
+            val bodyStartIndex: Int,
+            val fromBareFencePattern: Boolean,
+        )
+
+        private fun resolvePythonFenceOpening(lines: List<String>, index: Int): PythonFenceMatch? {
+            val currentLine = lines[index]
+            if (isPythonFenceOpeningLine(currentLine)) {
+                return PythonFenceMatch(bodyStartIndex = index + 1, fromBareFencePattern = false)
+            }
+            if (!isBareFenceLine(currentLine)) return null
+            val nextIndex = index + 1
+            if (nextIndex >= lines.size) return null
+            if (!isPythonLanguageOnlyLine(lines[nextIndex])) return null
+            return PythonFenceMatch(bodyStartIndex = nextIndex + 1, fromBareFencePattern = true)
+        }
+
+        private fun analyzeMarkdownForRepair(markdown: String): RepairDetectionStats {
+            if (!markdown.contains("```")) {
+                return RepairDetectionStats(
+                    containsFence = false,
+                    pythonFenceMatchCount = 0,
+                    bareFencePythonMatchCount = 0,
+                )
+            }
+            val lines = markdown.split('\n')
+            var pythonFenceMatchCount = 0
+            var bareFencePythonMatchCount = 0
+            var index = 0
+            while (index < lines.size) {
+                val match = resolvePythonFenceOpening(lines, index)
+                if (match != null) {
+                    pythonFenceMatchCount += 1
+                    if (match.fromBareFencePattern) {
+                        bareFencePythonMatchCount += 1
+                    }
+                }
+                index += 1
+            }
+            return RepairDetectionStats(
+                containsFence = true,
+                pythonFenceMatchCount = pythonFenceMatchCount,
+                bareFencePythonMatchCount = bareFencePythonMatchCount,
+            )
+        }
+
+        private fun toSingleLinePreview(value: String, maxLength: Int = 320): String {
+            return value
+                .replace("\n", "\\n")
+                .take(maxLength)
+        }
+
+        private fun isPythonFenceOpeningLine(line: String): Boolean {
+            val withoutIndent = line.trimStart(' ', '\t')
+            if (!withoutIndent.startsWith("```")) return false
+            val rawSuffix = withoutIndent.removePrefix("```").trim()
+            if (rawSuffix.isEmpty()) return false
+            val languageToken = rawSuffix.substringBefore(' ').lowercase(Locale.ROOT)
+            return languageToken == "python" || languageToken == "py"
+        }
+
+        private fun isBareFenceLine(line: String): Boolean {
+            val withoutIndent = line.trimStart(' ', '\t')
+            if (!withoutIndent.startsWith("```")) return false
+            return withoutIndent.removePrefix("```").trim().isEmpty()
+        }
+
+        private fun isPythonLanguageOnlyLine(line: String): Boolean {
+            val trimmed = line.trim().lowercase(Locale.ROOT)
+            return trimmed == "python" || trimmed == "py"
+        }
+
+        private fun normalizeBarePythonFenceLine(line: String): String {
+            val withoutIndent = line.trimStart(' ', '\t')
+            val indentLength = line.length - withoutIndent.length
+            val indent = line.substring(0, indentLength)
+            return "${indent}```python"
+        }
+
+        private fun repairPythonBlockBody(body: String): String {
+            if (body.isEmpty()) return body
+            val lines = body.split('\n')
+            if (lines.isEmpty()) return body
+            val repairedLines = mutableListOf<String>()
+            var index = 0
+            while (index < lines.size) {
+                var line = lines[index]
+                val nextLine = lines.getOrNull(index + 1)
+                val splitResult = splitCommentFragmentAndCode(line)
+                line = splitResult.line
+                if (splitResult.extractedComment != null) {
+                    repairedLines.add(line)
+                    repairedLines.add(splitResult.extractedComment)
+                    index += 1
+                    continue
+                }
+                if (line.trimStart().startsWith("#")) {
+                    val merged = mergeCommentBlocks(lines, index)
+                    repairedLines.addAll(normalizeCommentLines(merged.comments))
+                    index = merged.nextIndex
+                    continue
+                }
+                val repairedLine = repairPythonCodeLine(line, nextLine)
+                repairedLines.add(repairedLine)
+                index += 1
+            }
+            return repairedLines.joinToString("\n")
+        }
+
+        private fun repairPythonCodeLine(line: String, nextLine: String?): String {
+            var repaired = line
+            repaired = repaired.replace(
+                Regex("^\\s*\\(([^)]{1,20})\\)([A-Za-z_][A-Za-z0-9_]*\\s*=.*)$"),
+                "# （$1）\n$2",
+            )
+            if (repaired.trimStart().startsWith("---") && repaired.contains("pygame.")) {
+                repaired = repaired.trimStart().removePrefix("---").trimStart()
+            }
+            repaired = repaired.replace(Regex("(?<!\\S)(import\\s+[\\w.]+)import\\s+"), "$1\nimport ")
+            repaired = repaired.replace(
+                Regex("(?<=[\\]\"'A-Za-z_0-9\\)])\\s*#\\s*(\\S.*)$"),
+                "\n# $1",
+            )
+            repaired = repaired.replace(
+                Regex("(\\b(?:True|False|None)\\b|\\d)([A-Za-z_][A-Za-z0-9_]*\\s*=)"),
+                "$1\n$2",
+            )
+            repaired = repaired.replace(
+                Regex("(?<=\\))(?=(?:[A-Za-z_][A-Za-z0-9_]*\\s*=|pygame\\.))"),
+                "\n",
+            )
+            repaired = repaired.replace(
+                Regex("(?<=\\])(for|if|while|with|return|pass|break|continue)\\b"),
+                "\n$1",
+            )
+            repaired = repaired.replace(
+                Regex("(?<=[^\\s=<>!])=(?=[^=\\s])"),
+                " = ",
+            )
+            repaired = repaired.replace(Regex("(?<=\\d),(?=\\d)"), ", ")
+            repaired = repaired.replace(Regex("(?<=\\S),(?=\\S)"), ", ")
+            if (nextLine != null && isCommentFragment(nextLine.trim())) {
+                repaired = repaired.replace(Regex("\\s+#\\s*$"), "")
+            }
+            return repaired
+        }
+
+        private data class MergedCommentResult(
+            val comments: List<String>,
+            val nextIndex: Int,
+        )
+
+        private data class SplitCommentCodeResult(
+            val line: String,
+            val extractedComment: String? = null,
+        )
+
+        private fun mergeCommentBlocks(lines: List<String>, startIndex: Int): MergedCommentResult {
+            val comments = mutableListOf<String>()
+            var index = startIndex
+            while (index < lines.size) {
+                val current = lines[index]
+                val trimmed = current.trim()
+                if (trimmed.isEmpty()) break
+                if (trimmed.startsWith("#")) {
+                    comments.add(current)
+                    index += 1
+                    continue
+                }
+                if (!isCommentFragment(trimmed)) break
+                comments.add("# $trimmed")
+                index += 1
+            }
+            return MergedCommentResult(comments = comments, nextIndex = index)
+        }
+
+        private fun splitCommentFragmentAndCode(line: String): SplitCommentCodeResult {
+            val trimmed = line.trimStart()
+            if (!trimmed.startsWith("#")) return SplitCommentCodeResult(line = line)
+            val match = Regex("^(\\s*#\\s*[^=]+?)([A-Za-z_][A-Za-z0-9_]*\\s*=.*)$").find(line)
+            if (match != null) {
+                val commentLine = normalizePlainComment(match.groupValues[1])
+                val codeLine = match.groupValues[2].trimStart()
+                return SplitCommentCodeResult(line = commentLine, extractedComment = codeLine)
+            }
+            return SplitCommentCodeResult(line = line)
+        }
+
+        private fun normalizeCommentLines(lines: List<String>): List<String> {
+            if (lines.isEmpty()) return lines
+            val rebuilt = mutableListOf<String>()
+            var index = 0
+            while (index < lines.size) {
+                val current = lines[index]
+                val trimmed = current.trim()
+                if (!trimmed.startsWith("#")) {
+                    rebuilt.add(current)
+                    index += 1
+                    continue
+                }
+                val rawContent = trimmed.removePrefix("#").trim()
+                if (rawContent.replace(" ", "").contains("パラメータ---パドル")) {
+                    rebuilt.add("# --- ゲームオブジェクトのパラメータ ---")
+                    rebuilt.add("# パドル（プレイヤー）")
+                    index += 1
+                    continue
+                }
+                if (!rawContent.contains("---") && isCommentFragment(rawContent)) {
+                    val mergedContent = StringBuilder(rawContent)
+                    var cursor = index + 1
+                    while (cursor < lines.size) {
+                        val nextContent = lines[cursor].trim().removePrefix("#").trim()
+                        if (nextContent.isEmpty() || nextContent.contains("---") || !isCommentFragment(nextContent)) break
+                        mergedContent.append(nextContent)
+                        cursor += 1
+                    }
+                    rebuilt.add(normalizePlainComment("# ${mergedContent.toString()}"))
+                    index = cursor
+                    continue
+                }
+                val normalized = if (trimmed.contains("---")) normalizeDashComment(current) else normalizePlainComment(current)
+                rebuilt.add(normalized)
+                index += 1
+            }
+            return rebuilt
+        }
+
+        private fun normalizeDashComment(line: String): String {
+            var normalized = line.replace(Regex("^(\\s*)#\\s*"), "$1# ")
+            normalized = normalized.replace(Regex("\\s*---\\s*"), " --- ")
+            normalized = normalized.replace(Regex("\\s{2,}"), " ").trimEnd()
+            if (!normalized.trimStart().startsWith("#")) {
+                normalized = "# ${normalized.trim()}"
+            }
+            return normalized
+        }
+
+        private fun normalizePlainComment(line: String): String {
+            val trimmed = line.trim()
+            val content = trimmed.removePrefix("#").trim()
+            val merged = content
+                .replace(Regex("\\s+"), " ")
+                .replace(Regex("\\(\\s*"), "（")
+                .replace(Regex("\\s*\\)"), "）")
+            return "# $merged"
+        }
+
+        private fun isCommentFragment(text: String): Boolean {
+            if (text.isEmpty()) return false
+            if (looksLikeCodeLine(text)) return false
+            if (text.length > 18) return false
+            return containsJapanese(text) || text.all { it == '-' || it.isWhitespace() }
+        }
+
+        private fun containsJapanese(text: String): Boolean {
+            return text.any {
+                Character.UnicodeBlock.of(it) == Character.UnicodeBlock.HIRAGANA ||
+                    Character.UnicodeBlock.of(it) == Character.UnicodeBlock.KATAKANA ||
+                    Character.UnicodeBlock.of(it) == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS
+            }
+        }
+
+        private fun looksLikeCodeLine(text: String): Boolean {
+            if (text.contains(Regex("[=\\[\\]{}():]"))) return true
+            if (text.startsWith("import ")) return true
+            if (text.startsWith("from ")) return true
+            if (text.startsWith("for ") || text.startsWith("if ") || text.startsWith("while ")) return true
+            return false
+        }
+
+        private fun drainCompleteLines() {
+            while (true) {
+                val newlineIndex = pendingLine.indexOf("\n")
+                if (newlineIndex < 0) break
+                val line = pendingLine.substring(0, newlineIndex)
+                pendingLine.delete(0, newlineIndex + 1)
+                appendLine(line, hasTrailingNewline = true)
+            }
+        }
+
+        private fun appendLine(line: String, hasTrailingNewline: Boolean) {
+            val isFence = isFenceLine(line)
+            if (!insideCodeBlock) {
+                if (isFence) {
+                    insideCodeBlock = true
+                    pendingCodeBlock.clear()
+                    pendingCodeBlock.append(normalizeOpeningFenceLine(line))
+                    if (hasTrailingNewline) pendingCodeBlock.append('\n')
+                    return
+                }
+                confirmedText.append(line)
+                if (hasTrailingNewline) confirmedText.append('\n')
+                return
+            }
+            pendingCodeBlock.append(line)
+            if (hasTrailingNewline) pendingCodeBlock.append('\n')
+            if (isFence) {
+                insideCodeBlock = false
+                confirmedText.append(pendingCodeBlock)
+                pendingCodeBlock.clear()
+            }
+        }
+
+        private fun flushSafeInlineText() {
+            if (insideCodeBlock || pendingLine.isEmpty()) return
+            val partialLine = pendingLine.toString()
+            if (isPossibleFencePrefix(partialLine)) return
+            confirmedText.append(partialLine)
+            pendingLine.clear()
+        }
+
+        private fun isFenceLine(line: String): Boolean {
+            val withoutIndent = line.trimStart(' ', '\t')
+            return withoutIndent.startsWith("```")
+        }
+
+        private fun normalizeOpeningFenceLine(line: String): String {
+            val withoutIndent = line.trimStart(' ', '\t')
+            if (!withoutIndent.startsWith("```")) return line
+            val indentLength = line.length - withoutIndent.length
+            val indent = line.substring(0, indentLength)
+            val rawSuffix = withoutIndent.removePrefix("```").trim()
+            if (rawSuffix.isEmpty()) return "${indent}```"
+            val languageToken = rawSuffix.substringBefore(' ')
+            val suffixRemainder = rawSuffix.removePrefix(languageToken).trimStart()
+            val normalizedLanguage = normalizeLanguageToken(languageToken)
+            return if (suffixRemainder.isEmpty()) {
+                "${indent}```$normalizedLanguage"
+            } else {
+                "${indent}```$normalizedLanguage $suffixRemainder"
+            }
+        }
+
+        private fun normalizeLanguageToken(token: String): String {
+            return when (token.lowercase(Locale.ROOT)) {
+                "kt" -> "kotlin"
+                "py" -> "python"
+                "js" -> "javascript"
+                "ts" -> "typescript"
+                "sh" -> "bash"
+                else -> token
+            }
+        }
+
+        private fun isPossibleFencePrefix(text: String): Boolean {
+            val trimmed = text.trimStart(' ', '\t')
+            return "```".startsWith(trimmed)
+        }
+
+        private fun normalizeChunk(chunk: String): String {
+            return chunk
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
         }
     }
 
@@ -814,22 +1301,25 @@ class OllamaViewModel(
 
 }
 
-private val NUM_CTX_PATTERN = Regex("""(^|\\s)num_ctx\\s+(\\d+)""", RegexOption.MULTILINE)
+private val NUM_CTX_PATTERN = Regex("""(^|[\s\\n])num_ctx\s+(\d+)""", RegexOption.MULTILINE)
+private val OPTIONS_NUM_CTX_PATTERN = Regex(""""options"\s*:\s*\{[^}]*"num_ctx"\s*:\s*(\d+)""")
+private val JSON_PARAMETERS_PATTERN = Regex(""""parameters"\s*:\s*"((?:\\.|[^"\\])*)"""", RegexOption.DOT_MATCHES_ALL)
+private val MODEL_INFO_CONTEXT_PATTERN = Regex(""""model_info"\s*:\s*\{[^}]*"[^"]*context_length"\s*:\s*(\d+)""", RegexOption.DOT_MATCHES_ALL)
+private val CONTEXT_WINDOW_PATTERN = Regex(""""context_window"\s*:\s*(\d+)""")
+private val ROOT_CONTEXT_LENGTH_PATTERN = Regex(""""context_length"\s*:\s*(\d+)""")
+private val DETAILS_CONTEXT_LENGTH_PATTERN = Regex(""""details"\s*:\s*\{[^}]*"context_length"\s*:\s*(\d+)""", RegexOption.DOT_MATCHES_ALL)
 
 private fun JSONObject.optNullableIntCompat(name: String): Int? =
     if (has(name) && !isNull(name)) runCatching { getInt(name) }.getOrNull() else null
 
 @VisibleForTesting
 internal fun extractEffectiveContextWindowFromShowResponse(response: String): Int? {
-    val json = runCatching { JSONObject(response) }.getOrNull() ?: return null
+    extractFirstPositiveInt(OPTIONS_NUM_CTX_PATTERN, response)?.let { return it }
 
-    json.optJSONObject("options")
-        ?.optNullableIntCompat("num_ctx")
-        ?.takeIf { it > 0 }
-        ?.let { return it }
-
-    json.optString("parameters")
-        .takeIf { it.isNotBlank() }
+    JSON_PARAMETERS_PATTERN.find(response)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.let(::unescapeJsonStringForContextWindow)
         ?.let { parameters ->
             NUM_CTX_PATTERN.find(parameters)
                 ?.groupValues
@@ -839,30 +1329,27 @@ internal fun extractEffectiveContextWindowFromShowResponse(response: String): In
                 ?.let { return it }
         }
 
-    json.optJSONObject("model_info")
-        ?.let { modelInfo ->
-            val keys = modelInfo.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                if (!key.contains("context_length")) continue
-                modelInfo.optNullableIntCompat(key)
-                    ?.takeIf { it > 0 }
-                    ?.let { return it }
-            }
-        }
-
-    json.optNullableIntCompat("context_window")
-        ?.takeIf { it > 0 }
-        ?.let { return it }
-
-    json.optNullableIntCompat("context_length")
-        ?.takeIf { it > 0 }
-        ?.let { return it }
-
-    json.optJSONObject("details")
-        ?.optNullableIntCompat("context_length")
-        ?.takeIf { it > 0 }
-        ?.let { return it }
+    extractFirstPositiveInt(MODEL_INFO_CONTEXT_PATTERN, response)?.let { return it }
+    extractFirstPositiveInt(CONTEXT_WINDOW_PATTERN, response)?.let { return it }
+    extractFirstPositiveInt(ROOT_CONTEXT_LENGTH_PATTERN, response)?.let { return it }
+    extractFirstPositiveInt(DETAILS_CONTEXT_LENGTH_PATTERN, response)?.let { return it }
 
     return null
+}
+
+private fun extractFirstPositiveInt(pattern: Regex, text: String): Int? {
+    return pattern.find(text)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.toIntOrNull()
+        ?.takeIf { it > 0 }
+}
+
+private fun unescapeJsonStringForContextWindow(value: String): String {
+    return value
+        .replace("\\n", "\n")
+        .replace("\\r", "\r")
+        .replace("\\t", "\t")
+        .replace("\\\"", "\"")
+        .replace("\\\\", "\\")
 }
