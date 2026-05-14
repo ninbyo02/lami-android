@@ -45,6 +45,7 @@ Usage:
 
 Subcommands:
   ./update.sh update [options]      # fetch/pull WORK_BRANCH, then build+install
+  ./update.sh publish [options]     # commit current changes, then push current branch
   ./update.sh switch [options]      # create/switch branch from PR or commit (optionally push & update WORK_BRANCH)
   ./update.sh test   [options]      # build/install test on temp branch (no detached), then return & cleanup
   ./update.sh here-install [options]# build+install current branch (no pull)
@@ -56,6 +57,14 @@ update options:
   --no-wip              abort if working tree dirty (default: auto WIP local commit)
   --dry-run             stop after fetch/pull (no gradle, no adb)
   --verbose|-v          show verbose logs (adb devices -l, etc.)
+
+publish options:
+  --message|-m MSG      commit message for current changes (required when dirty)
+  --remote NAME         remote to push to (default: origin)
+  --branch NAME         remote branch name (default: current branch)
+  --no-push             commit only; do not push
+  --dry-run             show intended commit/push without changing anything
+  --no-verify           pass --no-verify to git commit
 
 test options:
   --pr N | --commit SHA
@@ -70,6 +79,8 @@ Examples:
   ./update.sh update --dry-run
   ./update.sh update --no-wip
   ./update.sh update -c --no-wip
+  ./update.sh publish -m "docs: update README"
+  ./update.sh publish --dry-run
   ./update.sh test --pr 398 --install -c -v
   ./update.sh here-install -p 42951
   ./update.sh promote --install -p 42951
@@ -198,6 +209,36 @@ branch_exists_local() {
 branch_exists_remote() {
   local b="$1"
   git show-ref --verify --quiet "refs/remotes/${REMOTE_NAME}/$b"
+}
+
+print_publish_status() {
+  local remote="$1"
+  local branch="$2"
+  local remote_ref="refs/remotes/${remote}/${branch}"
+
+  info "== publish status =="
+  info "target: ${remote}/${branch}"
+
+  if git show-ref --verify --quiet "$remote_ref"; then
+    local ahead="0"
+    local behind="0"
+    read -r ahead behind < <(
+      git rev-list --left-right --count "HEAD...${remote_ref}" 2>/dev/null
+    )
+    ahead="${ahead:-0}"
+    behind="${behind:-0}"
+    info "ahead/behind: ${ahead}/${behind}"
+  else
+    warn "remote branch not found yet: ${remote}/${branch}"
+  fi
+
+  if [[ -n "$(git status --porcelain)" ]]; then
+    warn "worktree: dirty"
+    git status --short
+  else
+    info "worktree: clean"
+  fi
+  info "===================="
 }
 
 # Resolve PR number to commit hash by searching commit message containing "#<PR>"
@@ -409,6 +450,116 @@ cmd_update() {
     warn "NOTE: local WIP commit created: ${WIP_PREFIX} before update.sh"
     warn "Undo: git reset --soft HEAD~1"
   fi
+}
+
+cmd_publish() {
+  local msg=""
+  local remote="$REMOTE_NAME"
+  local branch=""
+  local no_push=0
+  local dry_run=0
+  local no_verify=0
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --message|-m) msg="${2:?Missing commit message}"; shift 2 ;;
+      --remote) remote="${2:?Missing remote name}"; shift 2 ;;
+      --branch) branch="${2:?Missing branch name}"; shift 2 ;;
+      --no-push) no_push=1; shift ;;
+      --dry-run) dry_run=1; shift ;;
+      --no-verify) no_verify=1; shift ;;
+      --help|-h) usage ;;
+      *) die "Unknown option for publish: $1" ;;
+    esac
+  done
+
+  require_cmd git
+  ensure_git_repo
+
+  local cur
+  cur="$(current_branch_or_die)"
+  if [[ -z "$branch" ]]; then
+    branch="$cur"
+  fi
+
+  print_head_commit
+
+  local dirty=0
+  if [[ -n "$(git status --porcelain)" ]]; then
+    dirty=1
+  fi
+
+  if [[ "$dirty" -eq 1 && -z "$msg" ]]; then
+    die "publish requires --message when the working tree has changes."
+  fi
+
+  info "Fetching ${remote}..."
+  git fetch -q "$remote" || true
+
+  print_publish_status "$remote" "$branch"
+
+  local remote_ref="refs/remotes/${remote}/${branch}"
+  local remote_exists=0
+  local ahead="0"
+  local behind="0"
+  if git show-ref --verify --quiet "$remote_ref"; then
+    remote_exists=1
+    read -r ahead behind < <(
+      git rev-list --left-right --count "HEAD...${remote_ref}" 2>/dev/null
+    )
+    ahead="${ahead:-0}"
+    behind="${behind:-0}"
+  fi
+
+  if [[ "$behind" -gt 0 ]]; then
+    die "Local branch is behind ${remote}/${branch} (${behind} commit(s)). Pull/rebase first."
+  fi
+
+  if [[ "$dry_run" -eq 1 ]]; then
+    info "Dry-run: no commit or push will be performed."
+    if [[ "$dirty" -eq 1 ]]; then
+      info "Would stage all changes and commit with message:"
+      info "  $msg"
+    else
+      info "No working tree changes to commit."
+    fi
+    if [[ "$no_push" -eq 1 ]]; then
+      info "Would skip push (--no-push)."
+    elif [[ "$remote_exists" -eq 1 ]]; then
+      info "Would push HEAD to ${remote}/${branch}."
+    else
+      info "Would create remote tracking branch ${remote}/${branch}."
+    fi
+    return 0
+  fi
+
+  if [[ "$dirty" -eq 1 ]]; then
+    info "Staging all changes..."
+    git add -A
+
+    info "Creating commit..."
+    if [[ "$no_verify" -eq 1 ]]; then
+      git commit --no-verify -m "$msg"
+    else
+      git commit -m "$msg"
+    fi
+    ok "commit created"
+  else
+    info "No working tree changes to commit."
+  fi
+
+  if [[ "$no_push" -eq 1 ]]; then
+    warn "Skipped push (--no-push)."
+    return 0
+  fi
+
+  info "Pushing ${cur} to ${remote}/${branch}..."
+  if [[ "$remote_exists" -eq 1 ]]; then
+    git push "$remote" "HEAD:${branch}"
+  else
+    git push -u "$remote" "HEAD:${branch}"
+  fi
+  ok "pushed: ${remote}/${branch}"
 }
 
 cmd_switch() {
@@ -779,12 +930,14 @@ fi
 cmd="$1"; shift || true
 case "$cmd" in
   update) cmd_update "$@" ;;
+  publish) cmd_publish "$@" ;;
+  commit-push) cmd_publish "$@" ;;
   switch) cmd_switch "$@" ;;
   test)   cmd_test "$@" ;;
   here-install) cmd_here_install "$@" ;;
   promote) cmd_promote "$@" ;;
   --help|-h|help) usage ;;
   *)
-    die "Unknown subcommand: $cmd (use: update|switch|test|here-install|promote)"
+    die "Unknown subcommand: $cmd (use: update|publish|switch|test|here-install|promote)"
     ;;
 esac
