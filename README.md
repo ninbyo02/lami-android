@@ -1,5 +1,7 @@
 # LAMI Android
 
+[日本語版 README](README.ja.md)
+
 Android-first local AI assistant focused on Edge AI, LiteRT, offline inference, and shareable AI personalities.
 
 ## Overview
