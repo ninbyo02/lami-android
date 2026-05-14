@@ -8,6 +8,6 @@ Expected minimum candidates:
 - `libQnnHtp.so`
 - `libQnnHtpPrepare.so`
 - `libQnnHtpV*.so`
-- a LiteRT Qualcomm dispatch API `.so` whose name contains `dispatch` and one of `litert`, `qnn`, or `qualcomm`
+- a LiteRT Qualcomm dispatch API `.so`, preferably `libLiteRtDispatch_Qualcomm.so`; other names containing `dispatch`, `LiteRtDispatch`, `qnn`, or `qualcomm` are diagnostic candidates only
 
 Run `./gradlew :app:printQnnNpuNativeLibStatus` before installing a build.

@@ -97,7 +97,15 @@ val requiredQnnRuntimeLibs = listOf(
     "libQnnHtp.so",
     "libQnnHtpPrepare.so",
 )
-val qnnNpuModelNameMarkers = listOf("qualcomm", "qnn", "npu", "sm8750", "snapdragon", "htp")
+val qnnNpuDispatchExactLib = "libLiteRtDispatch_Qualcomm.so"
+val qnnNpuDispatchCandidateNames = listOf(
+    qnnNpuDispatchExactLib,
+    "libLiteRtDispatchQualcomm.so",
+    "liblitert_dispatch_qualcomm.so",
+    "libLiteRtDispatch.so",
+    "liblitert_dispatch.so",
+)
+val qnnNpuModelNameMarkers = listOf("qualcomm", "qnn", "npu", "sm8750", "snapdragon", "htp", "qcs")
 
 fun collectQnnNpuNativeLibStatus(): QnnNpuNativeLibStatus {
     val libDir = qnnNpuArm64LibDir.asFile
@@ -109,10 +117,11 @@ fun collectQnnNpuNativeLibStatus(): QnnNpuNativeLibStatus {
     val missingRuntimeLibs = requiredQnnRuntimeLibs.filterNot(libraries::contains)
     val hasHtpVariant = libraries.any { it.startsWith("libQnnHtpV") && it.endsWith(".so") }
     val dispatchCandidates = libraries.filter { name ->
-        name.contains("dispatch", ignoreCase = true) &&
-            (name.contains("litert", ignoreCase = true) ||
-                name.contains("qnn", ignoreCase = true) ||
-                name.contains("qualcomm", ignoreCase = true))
+        val lower = name.lowercase()
+        qnnNpuDispatchCandidateNames.any { it.equals(name, ignoreCase = true) } ||
+            "dispatch" in lower ||
+            "litertdispatch" in lower ||
+            (("qualcomm" in lower || "qnn" in lower) && "dispatch" in lower)
     }
     return QnnNpuNativeLibStatus(
         libDir = libDir,
@@ -171,6 +180,7 @@ tasks.register("printQnnNpuNativeLibStatus") {
         println("Required QAIRT runtime libs: ${if (status.missingRuntimeLibs.isEmpty()) "present" else "missing ${status.missingRuntimeLibs.joinToString(", ")}"}")
         println("Required HTP skel/variant lib: ${if (status.hasHtpVariant) "present" else "missing libQnnHtpV*.so"}")
         println("LiteRT Qualcomm dispatch API lib: ${status.dispatchCandidates.ifEmpty { listOf("missing") }.joinToString(", ")}")
+        println("LiteRT Qualcomm dispatch API exact match: ${status.dispatchCandidates.any { it.equals(qnnNpuDispatchExactLib, ignoreCase = true) }}")
         println("Readiness: ${if (status.ready) "candidate-ready" else "blocked"}")
     }
 }

@@ -191,9 +191,84 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         assertEquals("requires-soc-specific-qualcomm-litertlm-for-sm8750", readinessSection.items.first { it.label == "model requirement" }.value)
         assertEquals("missing", readinessSection.items.first { it.label == "dispatch API status" }.value)
         assertEquals("libQnnHtpV79Skel.so, libQnnHtpV79Stub.so", readinessSection.items.first { it.label == "V79 skel/stub candidates" }.value)
-        assertEquals("gpu-ok-npu-blocked-dispatch-missing", readinessSection.items.first { it.label == "readiness" }.value)
+        assertEquals("blocked-dispatch-api-so-missing", readinessSection.items.first { it.label == "readiness" }.value)
         assertEquals("gpu", readinessSection.items.first { it.label == "selected path" }.value)
         assertEquals("disabled / blocked", readinessSection.items.first { it.label == "NPU apply status" }.value)
+    }
+
+    @Test
+    fun `developer diagnostics classify exact dispatch candidate`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = acceleratorSnapshot(
+                npuSocManufacturer = "QTI",
+                npuSocModel = "SM8750",
+                npuNativeLibraryDir = "/data/app/lib/arm64",
+                npuNativeLibraryDirExists = true,
+                npuDispatchApiCandidates = listOf("libLiteRtDispatch_Qualcomm.so"),
+                npuDispatchApiExactMatch = true,
+                npuDispatchApiSelectedCandidate = "libLiteRtDispatch_Qualcomm.so",
+                npuDispatchLibraryStatus = "found-exact-libLiteRtDispatch_Qualcomm-so",
+                npuQnnRuntimeCandidates = listOf("libQnnSystem.so", "libQnnHtp.so", "libQnnHtpPrepare.so"),
+                npuHtpSkelStubCandidates = listOf("libQnnHtpV79Skel.so", "libQnnHtpV79Stub.so"),
+                npuV79SkelStubCandidates = listOf("libQnnHtpV79Skel.so", "libQnnHtpV79Stub.so"),
+                backendNpuClassCandidates = listOf("Backend.NPU"),
+                npuConstructorAvailable = true,
+                npuStringConstructorAvailable = true,
+            ),
+        )
+
+        val readinessSection = sections.first { it.title == "DEV診断: LiteRT-LM NPU Readiness" }
+        assertEquals("found-exact-libLiteRtDispatch_Qualcomm-so", readinessSection.items.first { it.label == "dispatch API status" }.value)
+        assertEquals("true", readinessSection.items.first { it.label == "dispatch API exact match" }.value)
+        assertEquals("ready-but-disabled-cli-proof-required", readinessSection.items.first { it.label == "readiness" }.value)
+        assertEquals("gpu", readinessSection.items.first { it.label == "selected path" }.value)
+    }
+
+    @Test
+    fun `developer diagnostics classify non exact dispatch candidate`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it_qnn_sm8750.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = acceleratorSnapshot(
+                npuNativeLibraryDir = "/data/app/lib/arm64",
+                npuNativeLibraryDirExists = true,
+                npuDispatchApiCandidates = listOf("libVendorDispatchQnn.so"),
+                npuDispatchApiExactMatch = false,
+                npuDispatchApiSelectedCandidate = "libVendorDispatchQnn.so",
+                npuDispatchLibraryStatus = "found-dispatch-candidate",
+                npuQnnRuntimeCandidates = listOf("libQnnSystem.so", "libQnnHtp.so", "libQnnHtpPrepare.so"),
+                npuHtpSkelStubCandidates = listOf("libQnnHtpV79Skel.so", "libQnnHtpV79Stub.so"),
+                backendNpuClassCandidates = listOf("Backend.NPU"),
+                npuStringConstructorAvailable = true,
+            ),
+        )
+
+        val readinessSection = sections.first { it.title == "DEV診断: LiteRT-LM NPU Readiness" }
+        assertEquals("found-dispatch-candidate", readinessSection.items.first { it.label == "dispatch API status" }.value)
+        assertEquals("false", readinessSection.items.first { it.label == "dispatch API exact match" }.value)
+        assertEquals("libVendorDispatchQnn.so", readinessSection.items.first { it.label == "dispatch API selected candidate" }.value)
+    }
+
+    @Test
+    fun `developer diagnostics show model compatibility hints`() {
+        val genericSections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = acceleratorSnapshot(),
+        )
+        val qualcommSections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = acceleratorSnapshot(),
+        )
+
+        val genericReadiness = genericSections.first { it.title == "DEV診断: LiteRT-LM NPU Readiness" }
+        val qualcommReadiness = qualcommSections.first { it.title == "DEV診断: LiteRT-LM NPU Readiness" }
+        assertEquals("generic-gpu-compatible", genericReadiness.items.first { it.label == "model npu compatibility hint" }.value)
+        assertEquals("qualcomm-soc-specific-candidate", qualcommReadiness.items.first { it.label == "model npu compatibility hint" }.value)
+        assertEquals("requires-soc-specific-qualcomm-litertlm", genericReadiness.items.first { it.label == "model npu blocker" }.value)
     }
 
     private fun acceleratorSnapshot(
@@ -214,6 +289,10 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         npuNativeLibraryDir: String? = null,
         npuNativeLibraryDirExists: Boolean? = null,
         npuDispatchApiCandidates: List<String> = emptyList(),
+        npuDispatchApiExactMatch: Boolean? = null,
+        npuDispatchApiSelectedCandidate: String? = null,
+        npuDispatchApiSearchDir: String? = null,
+        npuDispatchApiSearchError: String? = null,
         npuQnnRuntimeCandidates: List<String> = emptyList(),
         npuHtpSkelStubCandidates: List<String> = emptyList(),
         npuV79SkelStubCandidates: List<String> = emptyList(),
@@ -253,6 +332,10 @@ class LocalAcceleratorAttemptDiagnosticsTest {
             npuNativeLibraryDir = npuNativeLibraryDir,
             npuNativeLibraryDirExists = npuNativeLibraryDirExists,
             npuDispatchApiCandidates = npuDispatchApiCandidates,
+            npuDispatchApiExactMatch = npuDispatchApiExactMatch,
+            npuDispatchApiSelectedCandidate = npuDispatchApiSelectedCandidate,
+            npuDispatchApiSearchDir = npuDispatchApiSearchDir,
+            npuDispatchApiSearchError = npuDispatchApiSearchError,
             npuQnnRuntimeCandidates = npuQnnRuntimeCandidates,
             npuHtpSkelStubCandidates = npuHtpSkelStubCandidates,
             npuV79SkelStubCandidates = npuV79SkelStubCandidates,

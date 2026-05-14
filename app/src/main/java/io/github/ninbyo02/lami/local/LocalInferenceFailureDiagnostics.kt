@@ -255,7 +255,7 @@ private fun isDispatchApiLibraryCandidate(name: String): Boolean {
     return name in dispatchLibraryNames ||
         "dispatch" in lower ||
         "litertdispatch" in lower ||
-        ("qualcomm" in lower && "dispatch" in lower)
+        (("qualcomm" in lower || "qnn" in lower) && "dispatch" in lower)
 }
 
 private fun isHtpSkelStubLibraryCandidate(name: String): Boolean {
@@ -315,6 +315,7 @@ private const val MAX_STACK_LINE_TEXT = 260
 
 private val dispatchLibraryNames = setOf(
     "libLiteRtDispatch_Qualcomm.so",
+    "libLiteRtDispatchQualcomm.so",
     "libLiteRtDispatch.so",
     "liblitert_dispatch_qualcomm.so",
     "liblitert_dispatch.so",

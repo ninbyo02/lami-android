@@ -1419,26 +1419,45 @@ private fun buildLiteRtLmNpuReadinessItems(
     selectedModel: String,
 ): List<InferenceStatItemUi> {
     val modelKind = classifyLiteRtLmModelKind(selectedModel)
+    val modelCompatibilityHint = classifyLiteRtLmModelNpuCompatibilityHint(selectedModel)
+    val modelNpuBlocker = formatLiteRtLmModelNpuBlocker(modelCompatibilityHint, selectedModel)
     val dispatchStatus = formatDispatchApiStatus(probe.npuDispatchLibraryStatus, probe.npuDispatchApiCandidates)
-    val readiness = computeLiteRtLmNpuReadiness(probe, dispatchStatus)
+    val readiness = computeLiteRtLmNpuReadiness(
+        probe = probe,
+        dispatchStatus = dispatchStatus,
+        modelCompatibilityHint = modelCompatibilityHint,
+    )
     return listOf(
         InferenceStatItemUi(label = "selected model", value = selectedModel.ifBlank { "unknown" }),
         InferenceStatItemUi(label = "model kind", value = modelKind),
+        InferenceStatItemUi(label = "model npu compatibility hint", value = modelCompatibilityHint),
+        InferenceStatItemUi(label = "model npu blocker", value = modelNpuBlocker ?: "none"),
         InferenceStatItemUi(label = "model requirement", value = formatLiteRtLmModelRequirement(modelKind)),
         InferenceStatItemUi(label = "SoC", value = listOfNotNull(probe.npuSocManufacturer, probe.npuSocModel).joinToString(" / ").ifBlank { "unknown" }),
         InferenceStatItemUi(label = "External QNN DSP core", value = probe.externalQairtDspCore.ifBlank { "unknown" }),
         InferenceStatItemUi(label = "Backend.NPU available", value = (probe.backendNpuClassCandidates.isNotEmpty() || probe.npuConstructorAvailable).toString()),
+        InferenceStatItemUi(label = "Backend.NPU(String)", value = if (probe.npuStringConstructorAvailable) "available" else "missing"),
         InferenceStatItemUi(label = "Backend.NPU(String) available", value = probe.npuStringConstructorAvailable.toString()),
         InferenceStatItemUi(label = "nativeLibraryDir", value = probe.npuNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"),
         InferenceStatItemUi(label = "nativeLibraryDir exists", value = probe.npuNativeLibraryDirExists?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "nativeLibraryDir status", value = formatNativeLibraryDirStatus(probe)),
         InferenceStatItemUi(label = "dispatch API candidates", value = probe.npuDispatchApiCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
+        InferenceStatItemUi(label = "dispatch API exact match", value = probe.npuDispatchApiExactMatch?.toString() ?: "unknown"),
         InferenceStatItemUi(label = "dispatch API status", value = dispatchStatus),
+        InferenceStatItemUi(label = "dispatch API selected candidate", value = probe.npuDispatchApiSelectedCandidate?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "dispatch API search dir", value = probe.npuDispatchApiSearchDir?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch API search error", value = probe.npuDispatchApiSearchError?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "dispatch API .so", value = if (dispatchStatus.startsWith("found-")) "found" else dispatchStatus),
+        InferenceStatItemUi(label = "QNN runtime libs", value = if (probe.npuQnnRuntimeCandidates.isNotEmpty()) "found" else "missing"),
         InferenceStatItemUi(label = "QNN runtime candidates", value = probe.npuQnnRuntimeCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
+        InferenceStatItemUi(label = "HTP skel/stub", value = if (probe.npuHtpSkelStubCandidates.isNotEmpty()) "found" else "missing"),
+        InferenceStatItemUi(label = "HTP V79 skel/stub", value = if (probe.npuV79SkelStubCandidates.isNotEmpty()) "found" else "missing"),
         InferenceStatItemUi(label = "HTP skel/stub candidates", value = probe.npuHtpSkelStubCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
         InferenceStatItemUi(label = "V79 skel/stub candidates", value = probe.npuV79SkelStubCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
         InferenceStatItemUi(label = "readiness", value = readiness),
         InferenceStatItemUi(label = "selected path", value = formatLiteRtLmNpuSelectedPath(readiness)),
         InferenceStatItemUi(label = "NPU apply status", value = "disabled / blocked"),
+        InferenceStatItemUi(label = "next action", value = formatLiteRtLmNpuNextAction(readiness)),
     )
 }
 
@@ -1446,9 +1465,31 @@ private fun classifyLiteRtLmModelKind(selectedModel: String): String {
     val lower = selectedModel.substringAfterLast('/').lowercase(Locale.ROOT)
     return when {
         "qualcomm" in lower && "sm8750" in lower -> "qualcomm-sm8750-litertlm"
-        "qualcomm" in lower -> "qualcomm-litertlm"
+        listOf("qualcomm", "qcs", "qnn", "htp").any { it in lower } -> "qualcomm-litertlm"
         "litertlm" in lower -> "generic-litertlm"
         else -> "unknown"
+    }
+}
+
+private fun classifyLiteRtLmModelNpuCompatibilityHint(selectedModel: String): String {
+    val lower = selectedModel.substringAfterLast('/').lowercase(Locale.ROOT)
+    return when {
+        listOf("qualcomm", "sm8750", "qcs", "qnn", "htp").any { it in lower } -> "qualcomm-soc-specific-candidate"
+        "litertlm" in lower -> "generic-gpu-compatible"
+        else -> "unknown"
+    }
+}
+
+private fun formatLiteRtLmModelNpuBlocker(
+    modelCompatibilityHint: String,
+    selectedModel: String,
+): String? {
+    if (modelCompatibilityHint == "qualcomm-soc-specific-candidate") return null
+    val lower = selectedModel.substringAfterLast('/').lowercase(Locale.ROOT)
+    return if ("sm8750" in lower || selectedModel.isBlank()) {
+        "requires-soc-specific-qualcomm-litertlm-for-sm8750"
+    } else {
+        "requires-soc-specific-qualcomm-litertlm"
     }
 }
 
@@ -1466,9 +1507,16 @@ private fun formatDispatchApiStatus(
     dispatchApiCandidates: List<String>,
 ): String {
     return when {
-        dispatchApiCandidates.isNotEmpty() -> "found"
+        dispatchLibraryStatus == "found-exact-libLiteRtDispatch_Qualcomm-so" -> dispatchLibraryStatus
+        dispatchLibraryStatus == "found-dispatch-candidate" -> dispatchLibraryStatus
+        dispatchApiCandidates.any { it.equals("libLiteRtDispatch_Qualcomm.so", ignoreCase = true) } -> "found-exact-libLiteRtDispatch_Qualcomm-so"
+        dispatchApiCandidates.isNotEmpty() -> "found-dispatch-candidate"
         dispatchLibraryStatus == "missing-dispatch-api-so-candidate" -> "missing"
-        dispatchLibraryStatus == "candidate-detected" -> "found"
+        dispatchLibraryStatus == "candidate-detected" -> "found-dispatch-candidate"
+        dispatchLibraryStatus == "native-library-dir-missing" -> dispatchLibraryStatus
+        dispatchLibraryStatus == "native-library-dir-empty" -> dispatchLibraryStatus
+        dispatchLibraryStatus == "missing" -> dispatchLibraryStatus
+        dispatchLibraryStatus == "unknown-error" -> dispatchLibraryStatus
         dispatchLibraryStatus.isNullOrBlank() -> "unknown"
         dispatchLibraryStatus.startsWith("error-") -> "unknown"
         else -> dispatchLibraryStatus
@@ -1478,21 +1526,52 @@ private fun formatDispatchApiStatus(
 private fun computeLiteRtLmNpuReadiness(
     probe: AcceleratorProbeSnapshot,
     dispatchStatus: String,
+    modelCompatibilityHint: String,
 ): String {
-    val runtimeReady = probe.npuVendorRuntimeLibraryStatus?.startsWith("candidate-detected") == true
-    val backendNpuReady = probe.backendNpuClassCandidates.isNotEmpty() || probe.npuConstructorAvailable
+    val runtimeReady = probe.npuQnnRuntimeCandidates.isNotEmpty() ||
+        probe.npuVendorRuntimeLibraryStatus?.startsWith("candidate-detected") == true
+    val htpSkelStubReady = probe.npuHtpSkelStubCandidates.isNotEmpty()
     return when {
-        dispatchStatus == "missing" -> "gpu-ok-npu-blocked-dispatch-missing"
-        dispatchStatus == "found" && runtimeReady && backendNpuReady -> "npu-prerequisites-present-probe-only"
+        !probe.npuStringConstructorAvailable -> "blocked-backend-npu-string-missing"
+        probe.npuNativeLibraryDir.isNullOrBlank() || probe.npuNativeLibraryDirExists == false -> "blocked-native-library-dir-missing"
+        !runtimeReady -> "blocked-qnn-runtime-missing"
+        !htpSkelStubReady -> "blocked-htp-skel-stub-missing"
+        dispatchStatus == "missing" || dispatchStatus == "native-library-dir-empty" -> "blocked-dispatch-api-so-missing"
+        dispatchStatus == "native-library-dir-missing" -> "blocked-native-library-dir-missing"
+        dispatchStatus == "unknown-error" -> "npu-unknown"
+        modelCompatibilityHint != "qualcomm-soc-specific-candidate" -> "blocked-requires-soc-specific-qualcomm-litertlm"
+        dispatchStatus.startsWith("found-") -> "ready-but-disabled-cli-proof-required"
         else -> "npu-unknown"
     }
 }
 
 private fun formatLiteRtLmNpuSelectedPath(readiness: String): String {
     return when (readiness) {
-        "gpu-ok-npu-blocked-dispatch-missing" -> "gpu"
-        "npu-prerequisites-present-probe-only" -> "npu-probe-only"
-        else -> "blocked"
+        "ready-for-manual-npu-enable" -> "npu-probe-only"
+        "ready-but-disabled-cli-proof-required" -> "gpu"
+        else -> if (readiness.startsWith("blocked-")) "gpu" else "blocked"
+    }
+}
+
+private fun formatNativeLibraryDirStatus(probe: AcceleratorProbeSnapshot): String {
+    return when {
+        probe.npuNativeLibraryDir.isNullOrBlank() -> "missing"
+        probe.npuNativeLibraryDirExists == true -> "exists"
+        probe.npuNativeLibraryDirExists == false -> "missing"
+        else -> "unknown"
+    }
+}
+
+private fun formatLiteRtLmNpuNextAction(readiness: String): String {
+    return when (readiness) {
+        "blocked-dispatch-api-so-missing" ->
+            "add compatible Qualcomm LiteRT dispatch API .so and verify with litert_lm_main --backend=npu before enabling app NPU"
+        "ready-but-disabled-cli-proof-required" ->
+            "verify with litert_lm_main --backend=npu before enabling app NPU"
+        "ready-for-manual-npu-enable" ->
+            "manual NPU enable can be considered after explicit app-side guard review"
+        else ->
+            "keep GPU fallback; resolve listed NPU prerequisite before any Backend.NPU app enable"
     }
 }
 
@@ -1557,7 +1636,13 @@ private fun formatLamiBlockedReason(probe: AcceleratorProbeSnapshot): String? {
         if ("qnn-runtime-libs" in source || source.startsWith("missing:libQnn")) {
             reasons += "app-packaged QNN runtime libs missing"
         }
-        if ("dispatch-api-so" in source || "missing-dispatch-api-so-candidate" in source || "missing:libLiteRtDispatch.so" in source) {
+        if ("dispatch-api-so" in source ||
+            "missing-dispatch-api-so-candidate" in source ||
+            source == "missing" ||
+            source == "native-library-dir-empty" ||
+            "blocked-dispatch-api-so-missing" in source ||
+            "missing:libLiteRtDispatch.so" in source
+        ) {
             reasons += "dispatch API .so missing"
         }
         if ("backend-npu-api" in source) {
