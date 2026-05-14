@@ -1,12 +1,12 @@
 # LAMI Android
 
-[日本語版 README](README.ja.md)
+[日本語版 README](README_ja.md)
 
-Android-first local AI assistant focused on Edge AI, LiteRT, offline inference, and shareable AI personalities.
+Android-first local AI assistant platform focused on Edge AI, LiteRT, local inference, expressive sprite characters, and future shareable AI personalities.
 
 ## Overview
 
-LAMI (ラミィ) is an Android app project for building a local-first AI assistant experience on mobile devices. The project focuses on Android-native chat, local inference experiments, voice interaction, developer diagnostics, and future shareable AI personality formats.
+LAMI (ラミィ) is an Android app project for building a local-first AI assistant experience on mobile devices. The project focuses on Android-native chat, local inference experiments, expressive character UI, voice interaction, developer diagnostics, and future shareable AI personality formats.
 
 LAMI can integrate with Ollama, but it is not intended to be an Ollama-only client. Ollama is one supported backend path alongside Android local inference work based on LiteRT / MediaPipe-style local LLM APIs and future accelerator experiments.
 
@@ -46,30 +46,55 @@ io.github.ninbyo02.lami
 - Shareable local AI personality format
 - Contribution guide and public project documentation cleanup
 
-## Screenshots
-
-Screenshots will be updated with current LAMI Android UI.
-
-Planned screenshots:
-
-- Chat screen
-- Local inference statistics
-- TTS / voice interaction
-- Sprite character editor
-- Developer diagnostics
-
-<!-- TODO: Add current LAMI Android screenshots when available. -->
-
 ## Why LAMI?
 
 LAMI is built around these project directions:
 
 - **Local-first:** prefer on-device or user-controlled inference paths where practical.
 - **Android-first:** treat Android as the primary runtime, not a thin desktop-client companion.
-- **Offline-capable direction:** design features so local workflows can improve over time without assuming constant network access.
-- **Edge AI experimentation:** explore LiteRT, MediaPipe-style local LLM APIs, tokenizer metrics, and mobile accelerator paths.
-- **Privacy-conscious design:** reduce unnecessary data movement by keeping local inference and diagnostics in scope.
-- **AI personality sharing direction:** develop sprite/personality concepts that can eventually be shared between devices.
+- **Character-oriented UI:** keep expressive sprite characters and assistant personality as part of the product direction.
+- **Experimental Edge AI direction:** explore LiteRT, MediaPipe-style local LLM APIs, tokenizer metrics, and mobile accelerator paths.
+- **Privacy-conscious direction:** reduce unnecessary data movement by keeping local inference and diagnostics in scope.
+- **Future AI personality sharing:** develop sprite/personality concepts that can eventually be shared between devices.
+
+## Edge AI / Local Inference
+
+### Current
+
+- Ollama backend support
+- Android local inference experiments
+- LiteRT / MediaPipe exploration
+- Streaming response UI
+- Inference diagnostics and developer stats
+
+### Future / Experimental
+
+- Qualcomm QNN delegate research
+- NPU acceleration experiments
+- Local ASR integration
+- Shareable AI personalities
+
+These areas are active research and integration work. Do not assume QNN/NPU acceleration, offline-only operation, or stable local inference behavior from this README alone.
+
+## Architecture Overview
+
+```text
+Android UI (Jetpack Compose, sprite character UI, TTS)
+  |
+  v
+Backend abstraction and runtime selection
+  |
+  +-- Ollama backend (available)
+  |
+  +-- LiteRT / MediaPipe local inference path (experimental)
+  |
+  +-- Future local inference backends (planned / experimental)
+        |
+        v
+      Future QNN / NPU acceleration direction (planned / experimental)
+```
+
+The current architecture keeps backend work separated from the Android UI so that Ollama integration, local inference experiments, diagnostics, and future accelerator paths can evolve without making the app an Ollama-only client.
 
 ## Architecture / Backends
 
@@ -88,6 +113,38 @@ QNN / NPU support is planned and experimental at the diagnostics level. Current 
 ### ASR, TTS, and Personalities
 
 TTS support is available. ASR integration, richer sprite editing, QR sharing, and a shareable local AI personality format are planned project directions.
+
+## Supported / Tested Devices
+
+| Device | Status | Notes |
+|---|---|---|
+| Nubia Z70S Ultra | Experimental | Snapdragon Edge AI experiments |
+| Android Emulator | Supported | Development and testing |
+
+Device reports are welcome, especially for Android local inference, LiteRT / MediaPipe behavior, and accelerator diagnostics.
+
+## Screenshots
+
+Screenshots will be updated with current LAMI Android UI.
+
+Planned screenshots:
+
+- Chat screen
+- Local inference statistics
+- TTS / voice interaction
+- Sprite character editor
+- Developer diagnostics
+
+<!-- TODO: Add current LAMI Android screenshots when available. -->
+
+## Project Direction
+
+- Android-native AI experience
+- Local-first AI workflows
+- Character + AI integration
+- Edge AI and local inference experiments
+- Shareable personality direction
+- Developer diagnostics for mobile AI runtimes
 
 ## Roadmap
 
@@ -126,16 +183,30 @@ Run unit tests:
 ./gradlew test
 ```
 
-The repository also includes `update.sh`, a single-developer helper script for local update, build, install, and test workflows. It is optional and should be reviewed before use:
+The repository also includes `update.sh`, a single-developer helper script for local update, build, install, test, and publish workflows. It is optional and should be reviewed before use:
 
 ```bash
 ./update.sh
+./update.sh publish -m "docs: update README"
 ```
 
 ## Documentation
 
 - `docs/ui/LAMI_STANDARD_LAYOUT.md`: LAMI UI density, spacing, and inset guidance.
 - `docs/qualcomm-qnn-npu-setup.md`: current QNN / NPU setup notes and limitations.
+
+## Community
+
+Issues, discussions, feature requests, and device reports are welcome.
+
+Useful report topics include:
+
+- Android device and OS version
+- Ollama backend behavior
+- LiteRT / MediaPipe local inference behavior
+- TTS / ASR expectations
+- QNN / NPU diagnostic results
+- Sprite character and personality sharing ideas
 
 ## Attribution
 
@@ -146,3 +217,9 @@ LAMI is its own Android project, but parts of the repository history and notices
 This project includes a `LICENSE` file containing the Apache License, Version 2.0.
 
 See `NOTICE` for third-party attribution, including MIT-licensed upstream material referenced there.
+
+<!--
+Suggested GitHub Topics:
+edge-ai, local-llm, litert, mediapipe, android-ai, on-device-ai,
+ai-assistant, sprite-animation, offline-ai
+-->
