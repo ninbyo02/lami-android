@@ -166,17 +166,33 @@ Device reports are welcome, especially for Android local inference, LiteRT / Med
 
 ## Screenshots
 
-Screenshots will be updated with current LAMI Android UI.
+These screenshots are captured from the current LAMI Android app. They are intended to show the real Android UI and active development direction, not polished marketing mockups.
 
-Planned screenshots:
+### Chat + Sprite UI
 
-- Chat screen
-- Local inference statistics
-- TTS / voice interaction
-- Sprite character editor
-- Developer diagnostics
+<img src="assets/screenshots/hero-chat.jpg" alt="Chat and sprite UI" width="360">
 
-<!-- TODO: Add current LAMI Android screenshots when available. -->
+### Sprite State System
+
+<img src="assets/screenshots/sprite-state.jpg" alt="Sprite state settings" width="360">
+
+### Sprite Editor
+
+<img src="assets/screenshots/sprite-editor.jpg" alt="Sprite editor" width="360">
+
+### Streaming / TTS State
+
+<img src="assets/screenshots/streaming-tts.jpg" alt="Streaming and TTS state" width="360">
+
+### Local Inference Statistics
+
+<img src="assets/screenshots/local-inference-stats.jpg" alt="Local inference statistics" width="360">
+
+### LiteRT Experimental Flow
+
+<img src="assets/screenshots/litert-experimental.jpg" alt="LiteRT experimental local inference flow" width="360">
+
+Additional developer diagnostics screenshots are still welcome, especially views that show backend selection, local runtime details, or device compatibility checks without implying QNN / NPU support is complete.
 
 ## Project Direction
 
