@@ -16,6 +16,10 @@ Package name:
 io.github.ninbyo02.lami
 ```
 
+## Project Scope
+
+LAMI is not only an Ollama UI. The project is an Android-native local AI platform direction for experimenting with Edge AI workflows, local inference runtimes, character-oriented interaction, and mobile-first diagnostics.
+
 ## Features
 
 ### Implemented / Available
@@ -46,6 +50,15 @@ io.github.ninbyo02.lami
 - Shareable local AI personality format
 - Contribution guide and public project documentation cleanup
 
+## Current Focus
+
+- LiteRT local inference experiments
+- Android Edge AI workflows
+- Sprite state system and character feedback
+- Streaming UX for chat, local inference, and TTS
+- Local inference diagnostics and runtime visibility
+- Future QNN / NPU research direction
+
 ## Why LAMI?
 
 LAMI is built around these project directions:
@@ -56,6 +69,14 @@ LAMI is built around these project directions:
 - **Experimental Edge AI direction:** explore LiteRT, MediaPipe-style local LLM APIs, tokenizer metrics, and mobile accelerator paths.
 - **Privacy-conscious direction:** reduce unnecessary data movement by keeping local inference and diagnostics in scope.
 - **Future AI personality sharing:** develop sprite/personality concepts that can eventually be shared between devices.
+
+## Design Philosophy
+
+LAMI favors small, understandable pieces over a single opaque AI feature. The project keeps Android-native UX, local-first workflows, character-oriented interaction, and Edge AI experimentation visible in the architecture. Offline-capable workflows, privacy-conscious behavior, expressive sprite characters, and shareable AI personalities are directions that guide the design, not claims that every workflow is finished today.
+
+## Why Sprite Characters?
+
+Sprite characters give LAMI a lightweight way to make assistant state readable on Android. They can express idle, thinking, speaking, error, and future personality states without requiring a heavy avatar stack. The goal is an emotionally readable interaction model that stays practical for mobile UI and can later support shareable sprite/personality formats.
 
 ## Edge AI / Local Inference
 
@@ -75,6 +96,26 @@ LAMI is built around these project directions:
 - Shareable AI personalities
 
 These areas are active research and integration work. Do not assume QNN/NPU acceleration, offline-only operation, or stable local inference behavior from this README alone.
+
+## Research Status
+
+| Area | Status |
+|---|---|
+| Ollama backend | Available |
+| LiteRT integration | Experimental |
+| Local inference diagnostics | Active development |
+| Streaming TTS | Experimental |
+| QNN delegate | Research |
+| ASR integration | Planned |
+| Sprite personality sharing | Planned |
+
+## Non-Goals / Current Limitations
+
+- Local inference support is still experimental and may vary by model, runtime, and device.
+- Device compatibility may vary, especially for Edge AI and accelerator-related experiments.
+- QNN / NPU work is research-stage and should not be treated as generally supported.
+- Full offline workflows are still evolving.
+- The README describes project direction and current integration work, not a finished stable release.
 
 ## Architecture Overview
 
@@ -146,6 +187,16 @@ Planned screenshots:
 - Shareable personality direction
 - Developer diagnostics for mobile AI runtimes
 
+## Future Directions
+
+- Local ASR integration (planned)
+- QNN delegate research (research)
+- Shareable sprite personalities (planned)
+- QR-based sharing format (planned)
+- Multi-backend local inference (experimental direction)
+- More expressive sprite states (planned)
+- Local memory systems (planned / research)
+
 ## Roadmap
 
 - [ ] Replace legacy screenshots with current LAMI Android screenshots
@@ -207,6 +258,14 @@ Useful report topics include:
 - TTS / ASR expectations
 - QNN / NPU diagnostic results
 - Sprite character and personality sharing ideas
+- Device compatibility reports
+- Edge AI experiment notes
+- Bug reports and performance diagnostics
+- Sprite and UX ideas
+
+## Project Maturity
+
+LAMI is currently an actively evolving experimental project. Architecture, local inference workflows, diagnostics, and character systems may change over time as Android Edge AI tooling and device behavior become clearer.
 
 ## Attribution
 
@@ -220,6 +279,7 @@ See `NOTICE` for third-party attribution, including MIT-licensed upstream materi
 
 <!--
 Suggested GitHub Topics:
-edge-ai, local-llm, litert, mediapipe, android-ai, on-device-ai,
-ai-assistant, sprite-animation, offline-ai
+edge-ai, local-ai, local-llm, litert, mediapipe, android-ai,
+on-device-ai, ai-assistant, sprite-animation, local-inference,
+offline-ai, character-ai
 -->
