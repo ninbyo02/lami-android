@@ -99,6 +99,7 @@ internal data class HeldEngineRunResult(
     val firstPartialElapsedRealtimeMs: Long?,
     val completedElapsedRealtimeMs: Long,
     val partialCount: Int,
+    val officialChunkMetrics: LocalOfficialChunkMetricsSnapshot = LocalOfficialChunkMetricsSnapshot(),
     val namespace: String,
     val officialFlowUsed: Boolean,
     val localModelDisplayName: String?,
@@ -173,6 +174,7 @@ internal suspend fun runWithHeldEngine(
     var officialFlowUsed = false
     var closeSummaryPath = "held-official-flow"
     var measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null
+    val officialChunkMetricsCollector = LocalOfficialChunkMetricsCollector()
     val runnerWhitespaceTraceEntries = mutableListOf<Pair<String, String?>>()
 
     fun appendRunnerWhitespaceStage(
@@ -207,11 +209,16 @@ internal suspend fun runWithHeldEngine(
                 var lastPartial: String? = null
                 flow.collect { message ->
                     if (!currentCoroutineContext().isActive) return@collect
+                    val chunkArrivalElapsedMs = SystemClock.elapsedRealtime()
                     val messageContentsRaw = extractMessageContentsForTrace(message)
                     val extractedText = extractOfficialMessageTextWithTrace(
                         path = "held-engine-flow",
                         value = message,
                         appendTrace = appendTrace,
+                    )
+                    officialChunkMetricsCollector.record(
+                        chunkText = extractedText,
+                        nowElapsedMs = chunkArrivalElapsedMs,
                     )
                     val extracted = extractedText.orEmpty()
                     appendRunnerWhitespaceStage("message.contents", messageContentsRaw)
@@ -416,6 +423,11 @@ internal suspend fun runWithHeldEngine(
         firstPartialElapsedRealtimeMs = if (officialFlowUsed) heldFlowFirstPartialElapsedRealtimeMs else SystemClock.elapsedRealtime(),
         completedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
         partialCount = if (officialFlowUsed) heldFlowPartialCount else 1,
+        officialChunkMetrics = if (officialFlowUsed) {
+            officialChunkMetricsCollector.snapshot()
+        } else {
+            LocalOfficialChunkMetricsSnapshot()
+        },
         namespace = namespace ?: "unknown",
         officialFlowUsed = officialFlowUsed,
         localModelDisplayName = localModelDisplayName,
@@ -526,9 +538,93 @@ internal data class LocalOfficialFlowStreamingResult(
     val response: String,
     val partialCount: Int,
     val firstNonEmptyPartialElapsedRealtimeMs: Long?,
+    val officialChunkMetrics: LocalOfficialChunkMetricsSnapshot = LocalOfficialChunkMetricsSnapshot(),
     val measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null,
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
 )
+
+internal data class LocalOfficialChunkMetricsSnapshot(
+    val officialChunkCount: Int = 0,
+    val officialChunkIntervalAvgMs: Double? = null,
+    val officialChunkIntervalMaxMs: Long? = null,
+    val officialChunkIntervalMinMs: Long? = null,
+    val officialChunkFirstToLastMs: Long? = null,
+    val officialChunkCharsAvg: Double? = null,
+    val officialChunkCharsMax: Int? = null,
+    val officialChunkCharsMin: Int? = null,
+    val officialChunkEmptyCount: Int = 0,
+    val officialChunkNonEmptyCount: Int = 0,
+    val officialChunkEventsPerSecond: Double? = null,
+    val officialChunkCharsPerSecond: Double? = null,
+)
+
+private class LocalOfficialChunkMetricsCollector {
+    private var firstChunkElapsedMs: Long? = null
+    private var lastChunkElapsedMs: Long? = null
+    private var previousChunkElapsedMs: Long? = null
+    private var intervalCount: Int = 0
+    private var intervalTotalMs: Long = 0L
+    private var intervalMaxMs: Long? = null
+    private var intervalMinMs: Long? = null
+    private var chunkCount: Int = 0
+    private var chunkCharTotal: Int = 0
+    private var chunkCharMax: Int? = null
+    private var chunkCharMin: Int? = null
+    private var emptyCount: Int = 0
+    private var nonEmptyCount: Int = 0
+
+    fun record(chunkText: String?, nowElapsedMs: Long) {
+        val length = chunkText?.length ?: 0
+        chunkCount += 1
+        chunkCharTotal += length
+        chunkCharMax = maxOf(chunkCharMax ?: length, length)
+        chunkCharMin = minOf(chunkCharMin ?: length, length)
+        if (chunkText.isNullOrBlank()) {
+            emptyCount += 1
+        } else {
+            nonEmptyCount += 1
+        }
+        firstChunkElapsedMs = firstChunkElapsedMs ?: nowElapsedMs
+        previousChunkElapsedMs?.let { previous ->
+            val intervalMs = (nowElapsedMs - previous).coerceAtLeast(0L)
+            intervalCount += 1
+            intervalTotalMs += intervalMs
+            intervalMaxMs = maxOf(intervalMaxMs ?: intervalMs, intervalMs)
+            intervalMinMs = minOf(intervalMinMs ?: intervalMs, intervalMs)
+        }
+        previousChunkElapsedMs = nowElapsedMs
+        lastChunkElapsedMs = nowElapsedMs
+    }
+
+    fun snapshot(): LocalOfficialChunkMetricsSnapshot {
+        val firstMs = firstChunkElapsedMs
+        val lastMs = lastChunkElapsedMs
+        val firstToLastMs = if (firstMs != null && lastMs != null) {
+            (lastMs - firstMs).coerceAtLeast(0L)
+        } else {
+            null
+        }
+        val elapsedSeconds = firstToLastMs
+            ?.takeIf { it > 0L }
+            ?.let { it.toDouble() / 1000.0 }
+        return LocalOfficialChunkMetricsSnapshot(
+            officialChunkCount = chunkCount,
+            officialChunkIntervalAvgMs = intervalCount.takeIf { it > 0 }
+                ?.let { intervalTotalMs.toDouble() / it.toDouble() },
+            officialChunkIntervalMaxMs = intervalMaxMs,
+            officialChunkIntervalMinMs = intervalMinMs,
+            officialChunkFirstToLastMs = firstToLastMs,
+            officialChunkCharsAvg = chunkCount.takeIf { it > 0 }
+                ?.let { chunkCharTotal.toDouble() / it.toDouble() },
+            officialChunkCharsMax = chunkCharMax,
+            officialChunkCharsMin = chunkCharMin,
+            officialChunkEmptyCount = emptyCount,
+            officialChunkNonEmptyCount = nonEmptyCount,
+            officialChunkEventsPerSecond = elapsedSeconds?.let { chunkCount.toDouble() / it },
+            officialChunkCharsPerSecond = elapsedSeconds?.let { chunkCharTotal.toDouble() / it },
+        )
+    }
+}
 
 internal data class LocalOfficialBlockingResult(
     val response: String?,
@@ -3252,6 +3348,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         val flow = flowValue as? Flow<*> ?: throw OfficialFlowFallbackException("send_message_async_missing")
         val builder = StringBuilder()
         val appendContext = StreamingAppendContext()
+        val officialChunkMetricsCollector = LocalOfficialChunkMetricsCollector()
         var partialCount = 0
         var extractFailureCount = 0
         var firstPartialMs: Long? = null
@@ -3260,6 +3357,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         runCatching {
             flow.collect { message ->
                 if (!currentCoroutineContext().isActive) return@collect
+                val chunkArrivalElapsedMs = SystemClock.elapsedRealtime()
                 safeAppendTrace(
                     appendTrace = appendTrace,
                     message = "UPSTREAM official-flow chunkClass=${message?.javaClass?.name ?: "null"}",
@@ -3268,6 +3366,10 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
                     path = "official-flow",
                     value = message,
                     appendTrace = appendTrace,
+                )
+                officialChunkMetricsCollector.record(
+                    chunkText = extractedText,
+                    nowElapsedMs = chunkArrivalElapsedMs,
                 )
                 val extracted = extractedText.orEmpty()
                 logLocalStreamingWhitespace(
@@ -3343,6 +3445,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             response = response,
             partialCount = partialCount,
             firstNonEmptyPartialElapsedRealtimeMs = firstPartialMs,
+            officialChunkMetrics = officialChunkMetricsCollector.snapshot(),
             measuredTokenSnapshot = measuredTokenSnapshot,
         )
     } finally {
@@ -3633,11 +3736,13 @@ private suspend fun runOfficialLiteRtLmDirect(
 
             val builder = StringBuilder()
             val appendContext = StreamingAppendContext()
+            val officialChunkMetricsCollector = LocalOfficialChunkMetricsCollector()
             var lastChunk: String? = null
             var partialCount = 0
             var firstPartialMs: Long? = null
             var lastNonEmptyChunkAtMs: Long? = null
             conversation.sendMessageAsync(prompt).collect { message ->
+                val chunkArrivalElapsedMs = SystemClock.elapsedRealtime()
                 val rawContents = message.contents.toString()
                 val normalizedContents = rawContents.trim()
                 val rawMessage = message.toString()
@@ -3655,6 +3760,10 @@ private suspend fun runOfficialLiteRtLmDirect(
                 val extractedText = rawContents
                     .takeIf { isViableStreamingChunk(it) }
                     ?: rawMessage.takeIf { isViableStreamingChunk(it) }
+                officialChunkMetricsCollector.record(
+                    chunkText = extractedText ?: rawContents,
+                    nowElapsedMs = chunkArrivalElapsedMs,
+                )
                 if (!extractedText.isNullOrEmpty()) {
                     if (extractedText == lastChunk) return@collect
                     lastChunk = extractedText
@@ -3715,6 +3824,7 @@ private suspend fun runOfficialLiteRtLmDirect(
                 response = response,
                 partialCount = partialCount,
                 firstNonEmptyPartialElapsedRealtimeMs = firstPartialMs,
+                officialChunkMetrics = officialChunkMetricsCollector.snapshot(),
                 measuredTokenSnapshot = measuredTokenSnapshot,
             )
         } finally {

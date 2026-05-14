@@ -433,6 +433,18 @@ internal data class LocalInferenceTrace(
     val officialFlowFallbackReason: String? = null,
     val officialConversationApiAvailable: Boolean? = null,
     val officialFlowChunkCount: Int = 0,
+    val officialChunkCount: Int = 0,
+    val officialChunkIntervalAvgMs: Double? = null,
+    val officialChunkIntervalMaxMs: Long? = null,
+    val officialChunkIntervalMinMs: Long? = null,
+    val officialChunkFirstToLastMs: Long? = null,
+    val officialChunkCharsAvg: Double? = null,
+    val officialChunkCharsMax: Int? = null,
+    val officialChunkCharsMin: Int? = null,
+    val officialChunkEmptyCount: Int = 0,
+    val officialChunkNonEmptyCount: Int = 0,
+    val officialChunkEventsPerSecond: Double? = null,
+    val officialChunkCharsPerSecond: Double? = null,
     val requestedPreferredBackend: String? = null,
     val appliedPreferredBackend: String? = null,
     val preferredBackendApplyResult: String? = null,
@@ -556,6 +568,26 @@ private fun LocalInferenceTrace.withStreamingUiMetrics(
         composeRecomposeEstimate = snapshot.composeRecomposeEstimate,
         markdownRepairCount = snapshot.markdownRepairCount,
         uiAppendDebounceMs = snapshot.uiAppendDebounceMs,
+    )
+}
+
+private fun LocalInferenceTrace.withOfficialChunkMetrics(
+    snapshot: LocalOfficialChunkMetricsSnapshot?,
+): LocalInferenceTrace {
+    if (snapshot == null) return this
+    return copy(
+        officialChunkCount = snapshot.officialChunkCount,
+        officialChunkIntervalAvgMs = snapshot.officialChunkIntervalAvgMs,
+        officialChunkIntervalMaxMs = snapshot.officialChunkIntervalMaxMs,
+        officialChunkIntervalMinMs = snapshot.officialChunkIntervalMinMs,
+        officialChunkFirstToLastMs = snapshot.officialChunkFirstToLastMs,
+        officialChunkCharsAvg = snapshot.officialChunkCharsAvg,
+        officialChunkCharsMax = snapshot.officialChunkCharsMax,
+        officialChunkCharsMin = snapshot.officialChunkCharsMin,
+        officialChunkEmptyCount = snapshot.officialChunkEmptyCount,
+        officialChunkNonEmptyCount = snapshot.officialChunkNonEmptyCount,
+        officialChunkEventsPerSecond = snapshot.officialChunkEventsPerSecond,
+        officialChunkCharsPerSecond = snapshot.officialChunkCharsPerSecond,
     )
 }
 
@@ -4248,7 +4280,7 @@ private suspend fun runLocalInferenceOnceEntry(
                     preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
                     preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
                     measuredTokenSnapshot = officialResult?.measuredTokenSnapshot,
-                ),
+                ).withOfficialChunkMetrics(officialResult?.officialChunkMetrics),
                 closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
                     summary = officialResult?.closeLifecycleSummary,
                     path = "chat-official-flow-success",
@@ -4443,7 +4475,7 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             preferredBackendHookSource = lastHeldEngineCreatePreferredBackendHookSource,
             preferredBackendApplyBuilderClass = lastHeldEngineCreatePreferredBackendApplyBuilderClass,
             preferredBackendApplyBackendEnumCandidates = lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
-        ),
+        ).withOfficialChunkMetrics(officialChunkMetrics),
         closeLifecycleSummary = if (resolvedState == LocalInferenceEngineState.READY) {
             ensureSuccessCloseLifecycleSummary(
                 summary = closeLifecycleSummary,
@@ -6000,6 +6032,18 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         officialFlowFallbackReason = officialFlowFallbackReason ?: probe.officialFlowFallbackReason,
         officialConversationApiAvailable = officialConversationApiAvailable ?: probe.officialConversationApiAvailable,
         officialFlowChunkCount = if (officialFlowChunkCount > 0) officialFlowChunkCount else probe.officialFlowChunkCount,
+        officialChunkCount = if (officialChunkCount > 0) officialChunkCount else probe.officialChunkCount,
+        officialChunkIntervalAvgMs = officialChunkIntervalAvgMs ?: probe.officialChunkIntervalAvgMs,
+        officialChunkIntervalMaxMs = officialChunkIntervalMaxMs ?: probe.officialChunkIntervalMaxMs,
+        officialChunkIntervalMinMs = officialChunkIntervalMinMs ?: probe.officialChunkIntervalMinMs,
+        officialChunkFirstToLastMs = officialChunkFirstToLastMs ?: probe.officialChunkFirstToLastMs,
+        officialChunkCharsAvg = officialChunkCharsAvg ?: probe.officialChunkCharsAvg,
+        officialChunkCharsMax = officialChunkCharsMax ?: probe.officialChunkCharsMax,
+        officialChunkCharsMin = officialChunkCharsMin ?: probe.officialChunkCharsMin,
+        officialChunkEmptyCount = if (officialChunkEmptyCount > 0) officialChunkEmptyCount else probe.officialChunkEmptyCount,
+        officialChunkNonEmptyCount = if (officialChunkNonEmptyCount > 0) officialChunkNonEmptyCount else probe.officialChunkNonEmptyCount,
+        officialChunkEventsPerSecond = officialChunkEventsPerSecond ?: probe.officialChunkEventsPerSecond,
+        officialChunkCharsPerSecond = officialChunkCharsPerSecond ?: probe.officialChunkCharsPerSecond,
         requestedPreferredBackend = requestedPreferredBackend ?: probe.requestedPreferredBackend,
         appliedPreferredBackend = appliedPreferredBackend ?: probe.appliedPreferredBackend,
         preferredBackendApplyResult = preferredBackendApplyResult ?: probe.preferredBackendApplyResult,

@@ -564,6 +564,19 @@ internal fun buildInferenceDetailSections(
                     add(InferenceStatItemUi(label = "streamedCharsPerSecond", value = formatCharsPerSecond(trace.streamedCharsPerSecond)))
                     add(InferenceStatItemUi(label = "appendBatchSizeAvg", value = formatChars(trace.appendBatchSizeAvg)))
                     add(InferenceStatItemUi(label = "appendEventsPerSecond", value = formatEventsPerSecond(trace.appendEventsPerSecond)))
+                    add(InferenceStatItemUi(label = "officialChunkCount", value = trace.officialChunkCount.toString()))
+                    add(InferenceStatItemUi(label = "officialChunkIntervalAvgMs", value = formatMillis(trace.officialChunkIntervalAvgMs)))
+                    add(InferenceStatItemUi(label = "officialChunkIntervalMaxMs", value = formatMillis(trace.officialChunkIntervalMaxMs)))
+                    add(InferenceStatItemUi(label = "officialChunkIntervalMinMs", value = formatMillis(trace.officialChunkIntervalMinMs)))
+                    add(InferenceStatItemUi(label = "officialChunkFirstToLastMs", value = formatMillis(trace.officialChunkFirstToLastMs)))
+                    add(InferenceStatItemUi(label = "officialChunkCharsAvg", value = formatChars(trace.officialChunkCharsAvg)))
+                    add(InferenceStatItemUi(label = "officialChunkCharsMax", value = trace.officialChunkCharsMax?.let { "$it chars" } ?: "—"))
+                    add(InferenceStatItemUi(label = "officialChunkCharsMin", value = trace.officialChunkCharsMin?.let { "$it chars" } ?: "—"))
+                    add(InferenceStatItemUi(label = "officialChunkEventsPerSecond", value = formatEventsPerSecond(trace.officialChunkEventsPerSecond)))
+                    add(InferenceStatItemUi(label = "officialChunkCharsPerSecond", value = formatCharsPerSecond(trace.officialChunkCharsPerSecond)))
+                    add(InferenceStatItemUi(label = "officialChunkEmptyCount", value = trace.officialChunkEmptyCount.toString()))
+                    add(InferenceStatItemUi(label = "officialChunkNonEmptyCount", value = trace.officialChunkNonEmptyCount.toString()))
+                    add(InferenceStatItemUi(label = "Streaming bottleneck hint", value = resolveStreamingBottleneckHint(trace)))
                     add(InferenceStatItemUi(label = "composeRecomposeEstimate", value = trace.composeRecomposeEstimate?.toString() ?: "—"))
                     add(InferenceStatItemUi(label = "markdownRepairCount", value = trace.markdownRepairCount?.toString() ?: "—"))
                     add(InferenceStatItemUi(label = "uiAppendDebounceMs", value = trace.uiAppendDebounceMs?.let { "${it} ms" } ?: "—"))
@@ -1092,6 +1105,32 @@ private fun formatEventsPerSecond(value: Double?): String =
 private fun formatChars(value: Double?): String =
     value?.takeIf { it.isFinite() && it >= 0.0 }?.let { String.format(Locale.US, "%.1f chars", it) } ?: "—"
 
+private fun formatMillis(value: Double?): String =
+    value?.takeIf { it.isFinite() && it >= 0.0 }?.let { String.format(Locale.US, "%.1f ms", it) } ?: "—"
+
+private fun formatMillis(value: Long?): String =
+    value?.takeIf { it >= 0L }?.let { "$it ms" } ?: "—"
+
+private fun resolveStreamingBottleneckHint(trace: LocalInferenceTrace): String {
+    val officialIntervalMaxMs = trace.officialChunkIntervalMaxMs ?: 0L
+    val officialChunkEventsPerSecond = trace.officialChunkEventsPerSecond ?: 0.0
+    val appendEventsPerSecond = trace.appendEventsPerSecond ?: 0.0
+    val markdownRepairCount = trace.markdownRepairCount ?: 0
+    val composeRecomposeEstimate = trace.composeRecomposeEstimate ?: 0
+
+    return when {
+        trace.officialChunkCount > 0 &&
+            trace.officialChunkCount <= trace.assistantUpdateCount &&
+            officialIntervalMaxMs >= 750L -> "official-chunk-sparse"
+        appendEventsPerSecond > 0.0 &&
+            officialChunkEventsPerSecond >= appendEventsPerSecond * 2.0 &&
+            appendEventsPerSecond < 8.0 -> "ui-append-sparse"
+        markdownRepairCount > 0 -> "markdown-repair-heavy"
+        composeRecomposeEstimate >= 120 -> "compose-recompose-heavy"
+        else -> "unknown"
+    }
+}
+
 private fun buildTokenizerTokenLabel(
     baseLabel: String,
     tokenizerSucceeded: Boolean,
@@ -1156,6 +1195,9 @@ private fun buildDevDiagnosticSummarySection(
         add(InferenceStatItemUi(label = "PreferredBackend apply result", value = preferredBackendApplyResult))
         add(InferenceStatItemUi(label = "PreferredBackend hook", value = trace?.preferredBackendHookReached?.toString() ?: "false"))
         add(InferenceStatItemUi(label = "PreferredBackend hook source", value = trace?.preferredBackendHookSource?.ifBlank { "unknown" } ?: "unknown"))
+        trace?.let {
+            add(InferenceStatItemUi(label = "Streaming bottleneck hint", value = resolveStreamingBottleneckHint(it)))
+        }
         trace?.preferredBackendHookMissingReason
             ?.takeIf { trace.preferredBackendHookReached != true && it.isNotBlank() }
             ?.let {

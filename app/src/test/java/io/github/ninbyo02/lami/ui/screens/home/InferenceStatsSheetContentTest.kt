@@ -277,6 +277,46 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceDetailSections shows official chunk timing diagnostics`() {
+        val trace = LocalInferenceTrace(
+            assistantUpdateCount = 4,
+            appendEventsPerSecond = 22.5,
+            officialChunkCount = 4,
+            officialChunkIntervalAvgMs = 850.5,
+            officialChunkIntervalMaxMs = 1_800L,
+            officialChunkIntervalMinMs = 100L,
+            officialChunkFirstToLastMs = 2_551L,
+            officialChunkCharsAvg = 8.5,
+            officialChunkCharsMax = 12,
+            officialChunkCharsMin = 0,
+            officialChunkEmptyCount = 1,
+            officialChunkNonEmptyCount = 3,
+            officialChunkEventsPerSecond = 1.6,
+            officialChunkCharsPerSecond = 13.3,
+        )
+
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = trace,
+        )
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("4", devSection.items.first { it.label == "officialChunkCount" }.value)
+        assertEquals("850.5 ms", devSection.items.first { it.label == "officialChunkIntervalAvgMs" }.value)
+        assertEquals("1800 ms", devSection.items.first { it.label == "officialChunkIntervalMaxMs" }.value)
+        assertEquals("2551 ms", devSection.items.first { it.label == "officialChunkFirstToLastMs" }.value)
+        assertEquals("8.5 chars", devSection.items.first { it.label == "officialChunkCharsAvg" }.value)
+        assertEquals("1.6 events/s", devSection.items.first { it.label == "officialChunkEventsPerSecond" }.value)
+        assertEquals("13.3 chars/s", devSection.items.first { it.label == "officialChunkCharsPerSecond" }.value)
+        assertEquals("1", devSection.items.first { it.label == "officialChunkEmptyCount" }.value)
+        assertEquals("official-chunk-sparse", devSection.items.first { it.label == "Streaming bottleneck hint" }.value)
+
+        val summarySection = sections.first { it.title == "DEV診断サマリー" }
+        assertEquals("official-chunk-sparse", summarySection.items.first { it.label == "Streaming bottleneck hint" }.value)
+    }
+
+    @Test
     fun `buildInferenceDetailSections adds LiteRT tokenizer timing rows and note when available`() {
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(
