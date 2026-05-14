@@ -166,17 +166,33 @@ Androidローカル推論、LiteRT / MediaPipe挙動、アクセラレータ診�
 
 ## スクリーンショット
 
-現在のLAMI Android UIに合わせたスクリーンショットへ更新予定です。
+以下は現在のLAMI Androidアプリから取得したスクリーンショットです。マーケティング用の合成画像ではなく、実際のAndroid UIと開発中の方向性を示すためのものです。
 
-予定しているスクリーンショット:
+### チャット + スプライトUI
 
-- チャット画面
-- ローカル推論統計
-- TTS / 音声インタラクション
-- スプライトキャラクターエディタ
-- 開発者向け診断
+<img src="assets/screenshots/hero-chat.jpg" alt="チャットとスプライトUI" width="360">
 
-<!-- TODO: 現在のLAMI Android UIのスクリーンショットが用意できたら追加する。 -->
+### スプライト状態システム
+
+<img src="assets/screenshots/sprite-state.jpg" alt="スプライト状態設定" width="360">
+
+### スプライトエディタ
+
+<img src="assets/screenshots/sprite-editor.jpg" alt="スプライトエディタ" width="360">
+
+### Streaming / TTS状態
+
+<img src="assets/screenshots/streaming-tts.jpg" alt="StreamingとTTS状態" width="360">
+
+### ローカル推論統計
+
+<img src="assets/screenshots/local-inference-stats.jpg" alt="ローカル推論統計" width="360">
+
+### LiteRT Experimental Flow
+
+<img src="assets/screenshots/litert-experimental.jpg" alt="LiteRT experimental local inference flow" width="360">
+
+バックエンド選択、ローカルランタイム詳細、device compatibility checkなどを示す開発者向け診断スクリーンショットは、今後追加歓迎です。ただし、QNN / NPU対応が完成済みであるような見せ方は避けます。
 
 ## Project Direction
 
