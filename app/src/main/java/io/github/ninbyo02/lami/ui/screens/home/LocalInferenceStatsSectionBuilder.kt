@@ -537,6 +537,14 @@ internal fun buildInferenceDetailSections(
                     },
                 )
             },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && hasQnnDelegateProbeDiagnostics(it) }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: QNN Probe",
+                    items = buildQnnDelegateProbeItems(probe),
+                )
+            },
         InferenceStatsSectionUi(
             title = "DEV診断",
             items = buildList {
@@ -1315,6 +1323,63 @@ private fun hasExternalQairtDiagnostics(probe: AcceleratorProbeSnapshot): Boolea
         probe.externalQairtStagePath,
         probe.externalQairtNote,
     ).any { !it.isNullOrBlank() && it != "unknown" }
+}
+
+private fun hasQnnDelegateProbeDiagnostics(probe: AcceleratorProbeSnapshot): Boolean {
+    return probe.qnnDelegateProbeIsSm8750Likely != null ||
+        probe.qnnDelegateProbeClassFound != null ||
+        probe.qnnDelegateProbeCreated != null ||
+        probe.qnnDelegateProbeHtpBackendRequested != null ||
+        probe.qnnDelegateProbeSocHints.isNotEmpty() ||
+        !probe.qnnDelegateProbeNativeLibraryDir.isNullOrBlank() ||
+        !probe.qnnDelegateProbeErrorClass.isNullOrBlank() ||
+        !probe.qnnDelegateProbeErrorMessage.isNullOrBlank()
+}
+
+private fun buildQnnDelegateProbeItems(probe: AcceleratorProbeSnapshot): List<InferenceStatItemUi> {
+    val errorText = listOfNotNull(
+        probe.qnnDelegateProbeErrorClass?.takeIf { it.isNotBlank() },
+        probe.qnnDelegateProbeErrorMessage?.takeIf { it.isNotBlank() },
+    ).joinToString(": ").ifBlank { "—" }
+    return listOf(
+        InferenceStatItemUi(
+            label = "SoC判定",
+            value = if (probe.qnnDelegateProbeIsSm8750Likely == true) "SM8750 likely" else "unknown",
+        ),
+        InferenceStatItemUi(
+            label = "SoC hints",
+            value = probe.qnnDelegateProbeSocHints.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown",
+        ),
+        InferenceStatItemUi(
+            label = "QNN class",
+            value = when (probe.qnnDelegateProbeClassFound) {
+                true -> "found"
+                false -> "not found"
+                null -> "unknown"
+            },
+        ),
+        InferenceStatItemUi(
+            label = "HTP backend",
+            value = when (probe.qnnDelegateProbeHtpBackendRequested) {
+                true -> "requested"
+                false -> "not requested"
+                null -> "unknown"
+            },
+        ),
+        InferenceStatItemUi(
+            label = "QNN delegate",
+            value = when (probe.qnnDelegateProbeCreated) {
+                true -> "created"
+                false -> "failed"
+                null -> "unknown"
+            },
+        ),
+        InferenceStatItemUi(
+            label = "nativeLibraryDir",
+            value = probe.qnnDelegateProbeNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown",
+        ),
+        InferenceStatItemUi(label = "error", value = errorText),
+    )
 }
 
 private fun formatExternalQairtStageStatus(status: String?): String {

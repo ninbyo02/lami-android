@@ -6,6 +6,7 @@ import android.opengl.GLES20
 import android.os.Build
 import android.util.Log
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.local.QnnDelegateProbe
 import java.io.File
 import java.util.Locale
 import java.util.zip.ZipFile
@@ -83,6 +84,7 @@ internal object AcceleratorProbe {
             packagedLibraries = npuPackagedLibraryProbeResult,
             delegateApiProbeResult = delegateApiProbeResult,
         )
+        val qnnDelegateProbeResult = context?.let { QnnDelegateProbe.probe(it) }
 
         return AcceleratorProbeSnapshot(
             deviceManufacturer = Build.MANUFACTURER,
@@ -153,6 +155,14 @@ internal object AcceleratorProbe {
             qnnNpuAttemptEvidence = qnnNpuAttemptSnapshot.evidence,
             qnnDelegateCandidates = delegateApiProbeResult.qnnDelegateCandidates,
             nnapiDelegateCandidates = delegateApiProbeResult.nnapiDelegateCandidates,
+            qnnDelegateProbeIsSm8750Likely = qnnDelegateProbeResult?.isSm8750Likely,
+            qnnDelegateProbeSocHints = qnnDelegateProbeResult?.socHints.orEmpty(),
+            qnnDelegateProbeClassFound = qnnDelegateProbeResult?.qnnClassFound,
+            qnnDelegateProbeCreated = qnnDelegateProbeResult?.qnnDelegateCreated,
+            qnnDelegateProbeHtpBackendRequested = qnnDelegateProbeResult?.htpBackendRequested,
+            qnnDelegateProbeNativeLibraryDir = qnnDelegateProbeResult?.nativeLibraryDir,
+            qnnDelegateProbeErrorClass = qnnDelegateProbeResult?.errorClass,
+            qnnDelegateProbeErrorMessage = qnnDelegateProbeResult?.errorMessage,
             npuProbeHint = delegateApiProbeResult.npuProbeHint,
             npuProbeError = delegateApiProbeResult.npuProbeError,
             externalQairtStagePath = externalQairtStageProbeResult.stagePath,

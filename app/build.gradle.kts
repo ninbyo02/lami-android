@@ -393,6 +393,8 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     debugImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
+    implementation("com.qualcomm.qti:qnn-runtime:2.34.0")
+    implementation("com.qualcomm.qti:qnn-litert-delegate:2.34.0")
     implementation("com.google.mediapipe:tasks-genai:0.10.33")
     
 
