@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.SystemClock
+import io.github.ninbyo02.lami.local.buildLocalInferenceFailureDiagnosticsText
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -33,6 +34,7 @@ internal data class HeldEngineAcquireDiagnosticResult(
     val failureStage: String?,
     val failureClassName: String?,
     val failureMessage: String?,
+    val failureDiagnosticsText: String? = null,
 )
 
 internal data class HeldEngineDevDiagnosticSnapshot(
@@ -256,6 +258,7 @@ internal class LocalInferenceEngineHolder(
                     failureStage = failStage,
                     failureClassName = failClass,
                     failureMessage = failMessage,
+                    failureDiagnosticsText = createdDiagnostic.failureDiagnosticsText,
                 )
             }
             created.useCount += 1
@@ -297,6 +300,13 @@ internal class LocalInferenceEngineHolder(
                 failureStage = resolvedStage,
                 failureClassName = failureClassName,
                 failureMessage = failureMessage,
+                failureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                    context = appContext,
+                    stage = "holder-acquire",
+                    throwable = e,
+                    selectedModelName = engineKey.modelPath,
+                    selectedFallbackPath = "gpu",
+                ),
             )
         }
     }

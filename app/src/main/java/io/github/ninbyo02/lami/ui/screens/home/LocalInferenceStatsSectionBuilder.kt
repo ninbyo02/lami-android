@@ -545,6 +545,19 @@ internal fun buildInferenceDetailSections(
                     items = buildQnnDelegateProbeItems(probe),
                 )
             },
+        localTraceForDev?.localFailureDiagnosticsText
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.isNotBlank() }
+            ?.let { diagnostics ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Qualcomm Model Failure",
+                    items = listOf(
+                        InferenceStatItemUi(
+                            label = "Qualcomm model failure diagnostics",
+                            value = diagnostics,
+                        ),
+                    ),
+                )
+            },
         InferenceStatsSectionUi(
             title = "DEV診断",
             items = buildList {

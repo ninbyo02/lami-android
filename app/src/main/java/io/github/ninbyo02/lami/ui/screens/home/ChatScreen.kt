@@ -7,6 +7,7 @@ import android.os.Debug
 import android.os.SystemClock
 import android.util.Log
 import android.widget.ImageView
+import io.github.ninbyo02.lami.local.buildLocalInferenceFailureDiagnosticsText
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -483,6 +484,7 @@ internal data class LocalInferenceTrace(
     val realPartialHookAttempted: Boolean = false,
     val realPartialHookAttached: Boolean = false,
     val realPartialCallbackCount: Int = 0,
+    val localFailureDiagnosticsText: String? = null,
 )
 
 private data class LocalStreamingUiMetricsSnapshot(
@@ -2462,6 +2464,7 @@ fun Home(
                                                                 var heldAcquireFailureClassName: String? = null
                                                                 var heldAcquireFailureMessage: String? = null
                                                                 var heldOfficialHelperProgress: String? = null
+                                                                var heldFailureDiagnosticsText: String? = null
                                                                 appendLocalReflectionTrace(
                                                                     context = context.applicationContext,
                                                                     message = "UPSTREAM held-acquire start modelPathTail=$modelPathTail",
@@ -2483,6 +2486,7 @@ fun Home(
                                                                     heldAcquireFailureStage = diagnosticResult.failureStage
                                                                     heldAcquireFailureClassName = diagnosticResult.failureClassName
                                                                     heldAcquireFailureMessage = diagnosticResult.failureMessage
+                                                                    heldFailureDiagnosticsText = diagnosticResult.failureDiagnosticsText
                                                                     if (!useHeldPathOnlyForDev && diagnosticResult.engine == null) {
                                                                         legacyFallbackReason = "held-acquire-failed"
                                                                         appendLocalReflectionTrace(
@@ -2505,6 +2509,13 @@ fun Home(
                                                                             },
                                                                         )
                                                                     }.getOrElse {
+                                                                        heldFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                                                                            context = context.applicationContext,
+                                                                            stage = "holder-acquire",
+                                                                            throwable = it,
+                                                                            selectedModelName = modelResolution.modelPath,
+                                                                            selectedFallbackPath = "gpu",
+                                                                        )
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
                                                                             message = "HELD ACQUIRE ERROR: ${it.message}",
@@ -2531,6 +2542,9 @@ fun Home(
                                                                             append("class=").append(heldAcquireFailureClassName ?: "unknown").append("\n")
                                                                             append("message=").append(heldAcquireFailureMessage ?: "no message").append("\n")
                                                                             append("helper=").append(heldOfficialHelperProgress ?: "not-started").append("\n")
+                                                                            heldFailureDiagnosticsText?.let {
+                                                                                append(it).append("\n")
+                                                                            }
                                                                         }
                                                                     }
                                                                 }
@@ -2618,6 +2632,9 @@ fun Home(
                                                                                 message = message,
                                                                             )
                                                                         },
+                                                                        onFailureDiagnostics = { diagnostics ->
+                                                                            heldFailureDiagnosticsText = diagnostics
+                                                                        },
                                                                     )
                                                                     if (heldRunResult != null) {
                                                                         appendLocalReflectionTrace(
@@ -2643,6 +2660,11 @@ fun Home(
                                                                             LocalInferenceRunResult(
                                                                                 state = LocalInferenceEngineState.ERROR,
                                                                                 response = "DEV held path failure: held run returned null",
+                                                                                trace = LocalInferenceTrace(
+                                                                                    localModelDisplayName = modelResolution.displayName,
+                                                                                    mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                                    localFailureDiagnosticsText = heldFailureDiagnosticsText,
+                                                                                ),
                                                                             )
                                                                         } else {
                                                                             legacyFallbackReason = "held-run-null"
@@ -2726,12 +2748,20 @@ fun Home(
                                                                                 append("held=").append(heldEngine != null).append("\n")
                                                                                 append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
                                                                                 append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
+                                                                                heldFailureDiagnosticsText?.let {
+                                                                                    append(it).append("\n")
+                                                                                }
                                                                             }
                                                                             coroutineScope.launch { devDebugText = failReason }
                                                                         }
                                                                         return@run LocalInferenceRunResult(
                                                                             state = LocalInferenceEngineState.ERROR,
                                                                             response = "DEV held path failure: acquire failed",
+                                                                            trace = LocalInferenceTrace(
+                                                                                localModelDisplayName = modelResolution.displayName,
+                                                                                mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                                localFailureDiagnosticsText = heldFailureDiagnosticsText,
+                                                                            ),
                                                                         )
                                                                     }
                                                                     if (legacyFallbackReason == null) {
@@ -4153,6 +4183,7 @@ private suspend fun runLocalInferenceOnceEntry(
     var officialFlowChunkCount = 0
     var officialFlowObservedPartialCount = 0
     var preferredBackendApplyResult: PreferredBackendApplyResult? = null
+    var localFailureDiagnosticsText: String? = null
     val emitFinal: (String?) -> Unit = { result ->
         if (!result.isNullOrBlank()) {
             onPartial(result)
@@ -4181,6 +4212,9 @@ private suspend fun runLocalInferenceOnceEntry(
             },
             onFallbackReason = { reasonCode ->
                 officialFlowFallbackReason = reasonCode
+            },
+            onFailureDiagnostics = { diagnostics ->
+                localFailureDiagnosticsText = diagnostics
             },
         )
         val officialResponse = officialResult?.response?.trim().orEmpty()
@@ -4235,6 +4269,7 @@ private suspend fun runLocalInferenceOnceEntry(
                         preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates.orEmpty(),
                         preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
                         preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
+                        localFailureDiagnosticsText = localFailureDiagnosticsText ?: fallbackGenerated.trace.localFailureDiagnosticsText,
                         ),
                     closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
                         summary = fallbackGenerated.closeLifecycleSummary,
@@ -4280,6 +4315,7 @@ private suspend fun runLocalInferenceOnceEntry(
                     preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
                     preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
                     measuredTokenSnapshot = officialResult?.measuredTokenSnapshot,
+                    localFailureDiagnosticsText = localFailureDiagnosticsText,
                 ).withOfficialChunkMetrics(officialResult?.officialChunkMetrics),
                 closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
                     summary = officialResult?.closeLifecycleSummary,
@@ -4310,6 +4346,9 @@ private suspend fun runLocalInferenceOnceEntry(
                     officialFlowFallbackReason = reasonCode
                 }
             },
+            onFailureDiagnostics = { diagnostics ->
+                localFailureDiagnosticsText = diagnostics
+            },
         )
         val blockingResponse = blockingResult?.response?.trim().orEmpty()
         if (blockingResponse.isNotBlank()) {
@@ -4338,6 +4377,7 @@ private suspend fun runLocalInferenceOnceEntry(
                     preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
                     preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
                     measuredTokenSnapshot = blockingResult?.measuredTokenSnapshot,
+                    localFailureDiagnosticsText = localFailureDiagnosticsText,
                 ),
                 closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
                     summary = blockingResult?.closeLifecycleSummary,
@@ -4402,6 +4442,7 @@ private suspend fun runLocalInferenceOnceEntry(
         preferredBackendApplyMethodCandidates = if (!preferredBackendApplyMethodCandidates.isNullOrEmpty()) preferredBackendApplyMethodCandidates else generated.trace.preferredBackendApplyMethodCandidates,
         preferredBackendApplyBackendEnumCandidates = if (!preferredBackendApplyBackendEnumCandidates.isNullOrEmpty()) preferredBackendApplyBackendEnumCandidates else generated.trace.preferredBackendApplyBackendEnumCandidates,
         preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason ?: generated.trace.preferredBackendApplyNotSupportedReason,
+        localFailureDiagnosticsText = generated.trace.localFailureDiagnosticsText ?: localFailureDiagnosticsText,
     )
     emitFinal(response)
     return if (response.isNullOrBlank()) {
@@ -4475,6 +4516,7 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             preferredBackendHookSource = lastHeldEngineCreatePreferredBackendHookSource,
             preferredBackendApplyBuilderClass = lastHeldEngineCreatePreferredBackendApplyBuilderClass,
             preferredBackendApplyBackendEnumCandidates = lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
+            localFailureDiagnosticsText = failureDiagnosticsText,
         ).withOfficialChunkMetrics(officialChunkMetrics),
         closeLifecycleSummary = if (resolvedState == LocalInferenceEngineState.READY) {
             ensureSuccessCloseLifecycleSummary(
@@ -4785,6 +4827,7 @@ private fun generateLiteRtResponseViaReflection(
 ): LocalLiteRtGeneratedResponse {
     var trace = LocalInferenceTrace(
         localModelDisplayName = localModelDisplayName,
+        mediaPipeProbeModelPath = modelPath,
         localTraceStartElapsedRealtimeMs = SystemClock.elapsedRealtime(),
     )
     val modelPathTail = modelPath.substringAfterLast('/')
@@ -4799,6 +4842,15 @@ private fun generateLiteRtResponseViaReflection(
     val llmInferenceClass = runCatching {
         Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
     }.getOrElse { throwable ->
+        trace = trace.copy(
+            localFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                context = context,
+                stage = "engine-create",
+                throwable = throwable,
+                selectedModelName = modelPath,
+                selectedFallbackPath = "none",
+            ),
+        )
         Log.i("ChatScreen", "LOCAL reflection early-return: llm class load failed")
         appendLocalReflectionTrace(context = context, message = "early-return reason=llm-class-load-failed")
         Log.w("ChatScreen", "LiteRT-LM class not found for response generation.", throwable)
@@ -4826,6 +4878,15 @@ private fun generateLiteRtResponseViaReflection(
             modelPath = modelPath,
         )
     }.getOrElse { throwable ->
+        trace = trace.copy(
+            localFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                context = context,
+                stage = "engine-create",
+                throwable = throwable,
+                selectedModelName = modelPath,
+                selectedFallbackPath = "none",
+            ),
+        )
         Log.i("ChatScreen", "LOCAL reflection early-return: options build failed")
         appendLocalReflectionTrace(context = context, message = "early-return reason=options-build-failed")
         Log.e("ChatScreen", "LiteRT-LM options build failed for response generation.", throwable)
@@ -4841,6 +4902,15 @@ private fun generateLiteRtResponseViaReflection(
     val inferenceInstance = runCatching {
         createFromOptionsMethod.invoke(null, context, optionsBuildResult.options)
     }.getOrElse { throwable ->
+        trace = trace.copy(
+            localFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                context = context,
+                stage = "engine-create",
+                throwable = throwable,
+                selectedModelName = modelPath,
+                selectedFallbackPath = "none",
+            ),
+        )
         Log.i("ChatScreen", "LOCAL reflection early-return: createFromOptions invocation failed")
         appendLocalReflectionTrace(context = context, message = "early-return reason=createFromOptions-invocation-failed")
         Log.e("ChatScreen", "LiteRT-LM createFromOptions invocation failed for response generation.", throwable)
@@ -5877,6 +5947,7 @@ private fun generateLiteRtStringResponseOnceViaReflection(
         message = "real-partial-hook attempted=${partialHookSnapshot.attempted} attached=${partialHookSnapshot.attached}",
     )
 
+    var lastFailureDiagnosticsText: String? = null
     candidateMethods.forEach { method ->
         Log.i("ChatScreen", "LOCAL reflection oneshot-try: method=${method.toGenericString()}")
         appendLocalReflectionTrace(context = context, message = "oneshot-try method=${method.toGenericString()}")
@@ -5884,6 +5955,13 @@ private fun generateLiteRtStringResponseOnceViaReflection(
         val result = runCatching {
             method.invoke(inferenceInstance, prompt)
         }.onFailure { throwable ->
+            lastFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                context = context,
+                stage = "generate-response",
+                throwable = throwable,
+                selectedModelName = trace.mediaPipeProbeModelPath ?: trace.localModelDisplayName,
+                selectedFallbackPath = "none",
+            )
             Log.w("ChatScreen", "LiteRT-LM generate invocation failed on ${method.name}(String)", throwable)
         }.getOrNull()
         val wallClockTotalInferenceDurationNs = (SystemClock.elapsedRealtimeNanos() - generateStartNs).coerceAtLeast(0L)
@@ -5994,6 +6072,7 @@ private fun generateLiteRtStringResponseOnceViaReflection(
         realPartialHookAttempted = partialHookSnapshot.attempted,
         realPartialHookAttached = partialHookSnapshot.attached,
         realPartialCallbackCount = partialHook.snapshot().callbackCount,
+        localFailureDiagnosticsText = trace.localFailureDiagnosticsText ?: lastFailureDiagnosticsText,
     ).merge(probeLocalStatsCandidates(inferenceInstance))
     return LocalLiteRtGeneratedResponse(trace = inventoryTrace)
 }
@@ -6080,6 +6159,7 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         lastHeldEngineCreateRequestedPreferredBackend = lastHeldEngineCreateRequestedPreferredBackend ?: probe.lastHeldEngineCreateRequestedPreferredBackend,
         lastHeldEngineCreateStackHint = lastHeldEngineCreateStackHint ?: probe.lastHeldEngineCreateStackHint,
         measuredTokenSnapshot = measuredTokenSnapshot ?: probe.measuredTokenSnapshot,
+        localFailureDiagnosticsText = localFailureDiagnosticsText ?: probe.localFailureDiagnosticsText,
     )
 }
 

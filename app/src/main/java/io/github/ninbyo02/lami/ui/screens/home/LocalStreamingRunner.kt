@@ -9,6 +9,7 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.local.buildLocalInferenceFailureDiagnosticsText
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -91,6 +92,7 @@ internal data class ReusableLocalEngineCreateDiagnostic(
     val className: String?,
     val message: String?,
     val preferredBackendApplyResult: PreferredBackendApplyResult? = null,
+    val failureDiagnosticsText: String? = null,
 )
 
 internal data class HeldEngineRunResult(
@@ -131,6 +133,7 @@ internal data class HeldEngineRunResult(
     val lastHeldEngineCreatePreferredBackendHookSource: String? = null,
     val lastHeldEngineCreatePreferredBackendApplyBuilderClass: String? = null,
     val lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates: List<String> = emptyList(),
+    val failureDiagnosticsText: String? = null,
 )
 
 internal data class RunCloseTargetOutcome(
@@ -162,6 +165,7 @@ internal suspend fun runWithHeldEngine(
     mediaPipeProbeContext: Context? = null,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
+    onFailureDiagnostics: ((String) -> Unit)? = null,
 ): HeldEngineRunResult? {
     val holderSnapshotAtRunStart = engineHolder.getDevDiagnosticSnapshot()
     val startElapsedRealtimeMs = SystemClock.elapsedRealtime()
@@ -176,6 +180,7 @@ internal suspend fun runWithHeldEngine(
     var measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null
     val officialChunkMetricsCollector = LocalOfficialChunkMetricsCollector()
     val runnerWhitespaceTraceEntries = mutableListOf<Pair<String, String?>>()
+    var failureDiagnosticsText: String? = null
 
     fun appendRunnerWhitespaceStage(
         stage: String,
@@ -262,6 +267,15 @@ internal suspend fun runWithHeldEngine(
                 )
                 trimmedBuilt.takeIf { it.isNotBlank() }
             }.getOrElse { throwable ->
+                failureDiagnosticsText = mediaPipeProbeContext?.let {
+                    buildLocalInferenceFailureDiagnosticsText(
+                        context = it,
+                        stage = "streaming-callback",
+                        throwable = throwable,
+                        selectedModelName = mediaPipeProbeModelPath ?: heldEngine.modelPath,
+                        selectedFallbackPath = "gpu",
+                    )
+                }
                 safeAppendTrace(
                     appendTrace,
                     "UPSTREAM held-run flow-error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
@@ -331,6 +345,15 @@ internal suspend fun runWithHeldEngine(
                 appendRunnerWhitespaceStage("responseText.trimmed", responseTrimmed)
                 responseTrimmed?.takeIf { it.isNotBlank() }
             }.getOrElse { throwable ->
+                failureDiagnosticsText = mediaPipeProbeContext?.let {
+                    buildLocalInferenceFailureDiagnosticsText(
+                        context = it,
+                        stage = "generate-response",
+                        throwable = throwable,
+                        selectedModelName = mediaPipeProbeModelPath ?: heldEngine.modelPath,
+                        selectedFallbackPath = "gpu",
+                    )
+                }
                 safeAppendTrace(
                     appendTrace,
                     "UPSTREAM held-run blocking-error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
@@ -378,12 +401,26 @@ internal suspend fun runWithHeldEngine(
             blockingResponse
         }
     }.getOrElse { throwable ->
+        failureDiagnosticsText = mediaPipeProbeContext?.let {
+            buildLocalInferenceFailureDiagnosticsText(
+                context = it,
+                stage = "conversation-create",
+                throwable = throwable,
+                selectedModelName = mediaPipeProbeModelPath ?: heldEngine.modelPath,
+                selectedFallbackPath = "gpu",
+            )
+        }
         safeAppendTrace(
             appendTrace,
             "UPSTREAM held-run error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
         )
         null
-    } ?: return null
+    } ?: return null.also {
+        failureDiagnosticsText?.let { text ->
+            safeAppendTrace(appendTrace, "UPSTREAM held-run failure-diagnostics\n$text")
+            runCatching { onFailureDiagnostics?.invoke(text) }
+        }
+    }
 
     val closeSummary = RunCloseLifecycleSummary(
         path = closeSummaryPath,
@@ -459,6 +496,7 @@ internal suspend fun runWithHeldEngine(
         lastHeldEngineCreatePreferredBackendHookSource = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendHookSource,
         lastHeldEngineCreatePreferredBackendApplyBuilderClass = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyBuilderClass,
         lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
+        failureDiagnosticsText = failureDiagnosticsText,
     )
 }
 internal data class LocalOfficialConversationApiProbeResult(
@@ -2833,6 +2871,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
     onFallbackReason: (String) -> Unit = {},
+    onFailureDiagnostics: ((String) -> Unit)? = null,
 ): LocalOfficialFlowStreamingResult? {
     val startElapsedMs = SystemClock.elapsedRealtime()
     val attempts = listOf(
@@ -2867,11 +2906,23 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
                 onPreferredBackendApplied = onPreferredBackendApplied,
                 onPartial = onPartial,
                 appendTrace = appendTrace,
+                onFailureDiagnostics = onFailureDiagnostics,
             )
         }.onFailure { throwable ->
             val reasonCode = (throwable as? OfficialFlowFallbackException)?.reasonCode ?: "official_exception"
             fallbackReasonReported = true
             runCatching { onFallbackReason(reasonCode) }
+            mediaPipeProbeContext?.let { context ->
+                val diagnostics = buildLocalInferenceFailureDiagnosticsText(
+                    context = context,
+                    stage = failureStageForOfficialReason(reasonCode),
+                    throwable = throwable,
+                    selectedModelName = modelPath,
+                    selectedFallbackPath = "gpu",
+                )
+                safeAppendTrace(appendTrace, "UPSTREAM official-flow failure-diagnostics\n$diagnostics")
+                runCatching { onFailureDiagnostics?.invoke(diagnostics) }
+            }
             safeAppendTrace(
                 appendTrace = appendTrace,
                 message = "UPSTREAM official-flow fallback reason=$reasonCode namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
@@ -2907,6 +2958,7 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     appendTrace: (String) -> Unit = {},
     onFallbackReason: (String) -> Unit = {},
+    onFailureDiagnostics: ((String) -> Unit)? = null,
 ): LocalOfficialBlockingResult? {
     val attempts = listOf(
         LocalOfficialNamespaceSpec(
@@ -2937,10 +2989,22 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
                 preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                 onPreferredBackendApplied = onPreferredBackendApplied,
                 appendTrace = appendTrace,
+                onFailureDiagnostics = onFailureDiagnostics,
             )
         }.onFailure { throwable ->
             val reasonCode = (throwable as? OfficialFlowFallbackException)?.reasonCode ?: "official_blocking_exception"
             runCatching { onFallbackReason(reasonCode) }
+            mediaPipeProbeContext?.let { context ->
+                val diagnostics = buildLocalInferenceFailureDiagnosticsText(
+                    context = context,
+                    stage = failureStageForOfficialReason(reasonCode),
+                    throwable = throwable,
+                    selectedModelName = modelPath,
+                    selectedFallbackPath = "gpu",
+                )
+                safeAppendTrace(appendTrace, "UPSTREAM official-blocking failure-diagnostics\n$diagnostics")
+                runCatching { onFailureDiagnostics?.invoke(diagnostics) }
+            }
             safeAppendTrace(
                 appendTrace = appendTrace,
                 message = "UPSTREAM official-blocking fallback reason=$reasonCode namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
@@ -2968,6 +3032,20 @@ private class OfficialFlowFallbackException(
     val reasonCode: String,
     cause: Throwable? = null,
 ) : RuntimeException(reasonCode, cause)
+
+private fun failureStageForOfficialReason(reasonCode: String): String {
+    return when (reasonCode) {
+        "conversation_create_failed" -> "conversation-create"
+        "flow_collect_failed" -> "streaming-callback"
+        "send_message_async_missing",
+        "send_message_missing",
+        "message_extract_failed",
+        "no_partial_emitted",
+        "blank_response",
+        -> "generate-response"
+        else -> "unknown"
+    }
+}
 
 private data class LocalOfficialNamespaceSpec(
     val namespace: String,
@@ -3009,12 +3087,21 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
         )
     }.getOrElse { throwable ->
         val className = throwable.javaClass.simpleName.ifBlank { throwable.javaClass.name }
+        val failureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+            context = context,
+            stage = "engine-create",
+            throwable = throwable,
+            selectedModelName = engineKey.modelPath,
+            selectedFallbackPath = "gpu",
+        )
+        safeAppendTrace(safeTrace, "UPSTREAM held-create failure-diagnostics\n$failureDiagnosticsText")
         return ReusableLocalEngineCreateDiagnostic(
             engine = null,
             stage = stage,
             className = className,
             message = (throwable.message ?: "official create engine failed").take(200),
             preferredBackendApplyResult = preferredBackendApplyResult,
+            failureDiagnosticsText = failureDiagnosticsText,
         )
     }
     stage = if (officialEngine != null) "official-engine-created" else "official-engine-null"
@@ -3080,12 +3167,21 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
     }
 
     stage = "official-engine-null"
+    val failureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+        context = context,
+        stage = "engine-create",
+        throwable = IllegalStateException("official litertlm engine returned null"),
+        selectedModelName = engineKey.modelPath,
+        selectedFallbackPath = "gpu",
+    )
+    safeAppendTrace(safeTrace, "UPSTREAM held-create failure-diagnostics\n$failureDiagnosticsText")
     return ReusableLocalEngineCreateDiagnostic(
         engine = null,
         stage = stage,
         className = "ReturnedNull",
         message = "official litertlm engine returned null".take(200),
         preferredBackendApplyResult = preferredBackendApplyResult,
+        failureDiagnosticsText = failureDiagnosticsText,
     )
 }
 
@@ -3250,6 +3346,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
+    onFailureDiagnostics: ((String) -> Unit)? = null,
 ): LocalOfficialFlowStreamingResult? {
     if (spec.namespace == "com.google.ai.edge.litertlm") {
         return runOfficialLiteRtLmDirect(
@@ -3262,6 +3359,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             startElapsedMs = startElapsedMs,
             onPartial = onPartial,
             appendTrace = appendTrace,
+            onFailureDiagnostics = onFailureDiagnostics,
         )
     }
     safeAppendTrace(appendTrace, "UPSTREAM official-flow start namespace=${spec.namespace}")
@@ -3505,6 +3603,7 @@ private fun runOfficialBlockingConversationSingleNamespace(
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     appendTrace: (String) -> Unit,
+    onFailureDiagnostics: ((String) -> Unit)? = null,
 ): LocalOfficialBlockingResult? {
     if (spec.namespace == "com.google.ai.edge.litertlm") {
         val result = runOfficialLiteRtLmBlocking(
@@ -3515,6 +3614,7 @@ private fun runOfficialBlockingConversationSingleNamespace(
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             onPreferredBackendApplied = onPreferredBackendApplied,
             appendTrace = appendTrace,
+            onFailureDiagnostics = onFailureDiagnostics,
         )
         return LocalOfficialBlockingResult(
             response = result.response,
@@ -3692,12 +3792,14 @@ private suspend fun runOfficialLiteRtLmDirect(
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
+    onFailureDiagnostics: ((String) -> Unit)? = null,
 ): LocalOfficialFlowStreamingResult? {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct flowStart")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     var preferredBackendApplyResult: PreferredBackendApplyResult? = null
+    var failureStage = "engine-create"
     return runCatching {
         val engineConfig = buildLiteRtEngineConfig(
             modelPath = modelPath,
@@ -3721,19 +3823,23 @@ private suspend fun runOfficialLiteRtLmDirect(
             appendTrace = appendTrace,
         )
         try {
+            failureStage = "engine-create"
             engine = Engine(engineConfig)
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engine-created")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engineCreated")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engine-initialize-start")
+            failureStage = "engine-initialize"
             engine.initialize()
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engine-initialize-success")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engineInitialized")
 
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-start")
+            failureStage = "conversation-create"
             conversation = engine.createConversation()
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-success")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
+            failureStage = "streaming-callback"
             val builder = StringBuilder()
             val appendContext = StreamingAppendContext()
             val officialChunkMetricsCollector = LocalOfficialChunkMetricsCollector()
@@ -3897,12 +4003,24 @@ private suspend fun runOfficialLiteRtLmDirect(
                 startElapsedMs = startElapsedMs,
                 onPartial = onPartial,
                 appendTrace = appendTrace,
+                onFailureDiagnostics = onFailureDiagnostics,
             )
         }
         safeAppendTrace(
             appendTrace,
             "UPSTREAM official-direct failed ${throwable.javaClass.simpleName}:${throwable.message}",
         )
+        mediaPipeProbeContext?.let { context ->
+            val diagnostics = buildLocalInferenceFailureDiagnosticsText(
+                context = context,
+                stage = failureStage,
+                throwable = throwable,
+                selectedModelName = modelPath,
+                selectedFallbackPath = "gpu",
+            )
+            safeAppendTrace(appendTrace, "UPSTREAM official-direct failure-diagnostics\n$diagnostics")
+            runCatching { onFailureDiagnostics?.invoke(diagnostics) }
+        }
         null
     }
 }
@@ -3915,12 +4033,14 @@ private fun runOfficialLiteRtLmBlocking(
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     appendTrace: (String) -> Unit,
+    onFailureDiagnostics: ((String) -> Unit)? = null,
 ): LocalOfficialDirectBlockingResult {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct blockingStart")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     var preferredBackendApplyResult: PreferredBackendApplyResult? = null
+    var failureStage = "engine-create"
     return runCatching {
         val engineConfig = buildLiteRtEngineConfig(
             modelPath = modelPath,
@@ -3945,19 +4065,23 @@ private fun runOfficialLiteRtLmBlocking(
             appendTrace = appendTrace,
         )
         try {
+            failureStage = "engine-create"
             engine = Engine(engineConfig)
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engine-created")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engineCreated")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engine-initialize-start")
+            failureStage = "engine-initialize"
             engine.initialize()
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engine-initialize-success")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engineInitialized")
 
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-start")
+            failureStage = "conversation-create"
             conversation = engine.createConversation()
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-success")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
+            failureStage = "generate-response"
             val startedAtMs = SystemClock.elapsedRealtime()
             val message = conversation.sendMessage(prompt)
             val rawContents = message.contents.toString()
@@ -4079,9 +4203,21 @@ private fun runOfficialLiteRtLmBlocking(
                 preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
                 onPreferredBackendApplied = {},
                 appendTrace = appendTrace,
+                onFailureDiagnostics = onFailureDiagnostics,
             )
         }
         safeAppendTrace(appendTrace, "UPSTREAM official-direct failed ${throwable.javaClass.simpleName}:${throwable.message}")
+        mediaPipeProbeContext?.let { context ->
+            val diagnostics = buildLocalInferenceFailureDiagnosticsText(
+                context = context,
+                stage = failureStage,
+                throwable = throwable,
+                selectedModelName = modelPath,
+                selectedFallbackPath = "gpu",
+            )
+            safeAppendTrace(appendTrace, "UPSTREAM official-direct failure-diagnostics\n$diagnostics")
+            runCatching { onFailureDiagnostics?.invoke(diagnostics) }
+        }
         LocalOfficialDirectBlockingResult(response = null)
     }
 }
@@ -4161,7 +4297,7 @@ private fun createOfficialLiteRtLmEngineInstance(
         }
         safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-create fail class=${throwable.javaClass.simpleName} message=${throwable.message}")
         safeAppendTrace(appendTrace, "UPSTREAM official-engine create failed ${throwable.javaClass.simpleName}:${throwable.message}")
-        null
+        throw throwable
     }
 }
 
