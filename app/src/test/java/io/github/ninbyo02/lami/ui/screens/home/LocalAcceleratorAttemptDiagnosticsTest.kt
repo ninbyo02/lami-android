@@ -159,6 +159,43 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         assertTrue(devSummarySection.items.none { it.label == "PreferredBackend hook missing" })
     }
 
+    @Test
+    fun `developer diagnostics show litert lm npu readiness without enabling npu`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = acceleratorSnapshot(
+                qnnNpuAttemptRequested = "auto",
+                qnnNpuAttempted = false,
+                qnnNpuAvailable = "unsupported",
+                qnnNpuSelectedPath = "gpu",
+                qnnNpuFallbackPath = "gpu",
+                npuSocManufacturer = "QTI",
+                npuSocModel = "SM8750",
+                npuNativeLibraryDir = "/data/app/lib/arm64",
+                npuNativeLibraryDirExists = true,
+                npuVendorRuntimeLibraryStatus = "candidate-detected-qairt",
+                npuDispatchLibraryStatus = "missing-dispatch-api-so-candidate",
+                npuQnnRuntimeCandidates = listOf("libQnnSystem.so", "libQnnHtp.so", "libQnnHtpPrepare.so"),
+                npuHtpSkelStubCandidates = listOf("libQnnHtpV79Skel.so", "libQnnHtpV79Stub.so"),
+                npuV79SkelStubCandidates = listOf("libQnnHtpV79Skel.so", "libQnnHtpV79Stub.so"),
+                backendNpuClassCandidates = listOf("Backend.NPU"),
+                npuConstructorAvailable = true,
+                npuStringConstructorAvailable = true,
+                externalQairtDspCore = "Hexagon Architecture V79",
+            ),
+        )
+
+        val readinessSection = sections.first { it.title == "DEV診断: LiteRT-LM NPU Readiness" }
+        assertEquals("qualcomm-sm8750-litertlm", readinessSection.items.first { it.label == "model kind" }.value)
+        assertEquals("requires-soc-specific-qualcomm-litertlm-for-sm8750", readinessSection.items.first { it.label == "model requirement" }.value)
+        assertEquals("missing", readinessSection.items.first { it.label == "dispatch API status" }.value)
+        assertEquals("libQnnHtpV79Skel.so, libQnnHtpV79Stub.so", readinessSection.items.first { it.label == "V79 skel/stub candidates" }.value)
+        assertEquals("gpu-ok-npu-blocked-dispatch-missing", readinessSection.items.first { it.label == "readiness" }.value)
+        assertEquals("gpu", readinessSection.items.first { it.label == "selected path" }.value)
+        assertEquals("disabled / blocked", readinessSection.items.first { it.label == "NPU apply status" }.value)
+    }
+
     private fun acceleratorSnapshot(
         qnnNpuAttemptRequested: String? = null,
         qnnNpuAttempted: Boolean = false,
@@ -172,9 +209,20 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         npuVendorRuntimeLibraryStatus: String? = null,
         npuDispatchLibraryStatus: String? = null,
         npuReadinessSummary: String? = null,
+        npuSocManufacturer: String? = null,
+        npuSocModel: String? = null,
+        npuNativeLibraryDir: String? = null,
+        npuNativeLibraryDirExists: Boolean? = null,
+        npuDispatchApiCandidates: List<String> = emptyList(),
+        npuQnnRuntimeCandidates: List<String> = emptyList(),
+        npuHtpSkelStubCandidates: List<String> = emptyList(),
+        npuV79SkelStubCandidates: List<String> = emptyList(),
         backendNpuProbeHint: String? = null,
         backendNpuClassCandidates: List<String> = emptyList(),
         backendNpuMethodCandidates: List<String> = emptyList(),
+        npuConstructorAvailable: Boolean = false,
+        npuStringConstructorAvailable: Boolean = false,
+        externalQairtDspCore: String = "unknown",
     ): AcceleratorProbeSnapshot {
         return AcceleratorProbeSnapshot(
             deviceManufacturer = "nubia",
@@ -200,12 +248,23 @@ class LocalAcceleratorAttemptDiagnosticsTest {
             qnnNpuAttemptErrorClass = qnnNpuAttemptErrorClass,
             qnnNpuAttemptErrorMessage = qnnNpuAttemptErrorMessage,
             qnnNpuAttemptEvidence = qnnNpuAttemptEvidence,
+            npuSocManufacturer = npuSocManufacturer,
+            npuSocModel = npuSocModel,
+            npuNativeLibraryDir = npuNativeLibraryDir,
+            npuNativeLibraryDirExists = npuNativeLibraryDirExists,
+            npuDispatchApiCandidates = npuDispatchApiCandidates,
+            npuQnnRuntimeCandidates = npuQnnRuntimeCandidates,
+            npuHtpSkelStubCandidates = npuHtpSkelStubCandidates,
+            npuV79SkelStubCandidates = npuV79SkelStubCandidates,
             npuVendorRuntimeLibraryStatus = npuVendorRuntimeLibraryStatus,
             npuDispatchLibraryStatus = npuDispatchLibraryStatus,
             npuReadinessSummary = npuReadinessSummary,
             backendNpuProbeHint = backendNpuProbeHint,
             backendNpuClassCandidates = backendNpuClassCandidates,
             backendNpuMethodCandidates = backendNpuMethodCandidates,
+            npuConstructorAvailable = npuConstructorAvailable,
+            npuStringConstructorAvailable = npuStringConstructorAvailable,
+            externalQairtDspCore = externalQairtDspCore,
         )
     }
 }

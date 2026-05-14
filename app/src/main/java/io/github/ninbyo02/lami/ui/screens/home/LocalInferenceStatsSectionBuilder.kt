@@ -538,6 +538,17 @@ internal fun buildInferenceDetailSections(
                 )
             },
         acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: LiteRT-LM NPU Readiness",
+                    items = buildLiteRtLmNpuReadinessItems(
+                        probe = probe,
+                        selectedModel = resolveLiteRtLmReadinessSelectedModelName(stats, localTraceForDev),
+                    ),
+                )
+            },
+        acceleratorProbeSnapshot
             ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && hasQnnDelegateProbeDiagnostics(it) }
             ?.let { probe ->
                 InferenceStatsSectionUi(
@@ -1391,8 +1402,108 @@ private fun buildQnnDelegateProbeItems(probe: AcceleratorProbeSnapshot): List<In
             label = "nativeLibraryDir",
             value = probe.qnnDelegateProbeNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown",
         ),
+        InferenceStatItemUi(
+            label = "QNN class probe note",
+            value = if (probe.qnnDelegateProbeClassFound == false) {
+                "TFLite QnnDelegate class was not found. LiteRT-LM NPU path is checked separately via Backend.NPU."
+            } else {
+                "TFLite QnnDelegate class probe is separate from LiteRT-LM Backend.NPU readiness."
+            },
+        ),
         InferenceStatItemUi(label = "error", value = errorText),
     )
+}
+
+private fun buildLiteRtLmNpuReadinessItems(
+    probe: AcceleratorProbeSnapshot,
+    selectedModel: String,
+): List<InferenceStatItemUi> {
+    val modelKind = classifyLiteRtLmModelKind(selectedModel)
+    val dispatchStatus = formatDispatchApiStatus(probe.npuDispatchLibraryStatus, probe.npuDispatchApiCandidates)
+    val readiness = computeLiteRtLmNpuReadiness(probe, dispatchStatus)
+    return listOf(
+        InferenceStatItemUi(label = "selected model", value = selectedModel.ifBlank { "unknown" }),
+        InferenceStatItemUi(label = "model kind", value = modelKind),
+        InferenceStatItemUi(label = "model requirement", value = formatLiteRtLmModelRequirement(modelKind)),
+        InferenceStatItemUi(label = "SoC", value = listOfNotNull(probe.npuSocManufacturer, probe.npuSocModel).joinToString(" / ").ifBlank { "unknown" }),
+        InferenceStatItemUi(label = "External QNN DSP core", value = probe.externalQairtDspCore.ifBlank { "unknown" }),
+        InferenceStatItemUi(label = "Backend.NPU available", value = (probe.backendNpuClassCandidates.isNotEmpty() || probe.npuConstructorAvailable).toString()),
+        InferenceStatItemUi(label = "Backend.NPU(String) available", value = probe.npuStringConstructorAvailable.toString()),
+        InferenceStatItemUi(label = "nativeLibraryDir", value = probe.npuNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "nativeLibraryDir exists", value = probe.npuNativeLibraryDirExists?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch API candidates", value = probe.npuDispatchApiCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
+        InferenceStatItemUi(label = "dispatch API status", value = dispatchStatus),
+        InferenceStatItemUi(label = "QNN runtime candidates", value = probe.npuQnnRuntimeCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
+        InferenceStatItemUi(label = "HTP skel/stub candidates", value = probe.npuHtpSkelStubCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
+        InferenceStatItemUi(label = "V79 skel/stub candidates", value = probe.npuV79SkelStubCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
+        InferenceStatItemUi(label = "readiness", value = readiness),
+        InferenceStatItemUi(label = "selected path", value = formatLiteRtLmNpuSelectedPath(readiness)),
+        InferenceStatItemUi(label = "NPU apply status", value = "disabled / blocked"),
+    )
+}
+
+private fun classifyLiteRtLmModelKind(selectedModel: String): String {
+    val lower = selectedModel.substringAfterLast('/').lowercase(Locale.ROOT)
+    return when {
+        "qualcomm" in lower && "sm8750" in lower -> "qualcomm-sm8750-litertlm"
+        "qualcomm" in lower -> "qualcomm-litertlm"
+        "litertlm" in lower -> "generic-litertlm"
+        else -> "unknown"
+    }
+}
+
+private fun formatLiteRtLmModelRequirement(modelKind: String): String {
+    return when (modelKind) {
+        "qualcomm-sm8750-litertlm" -> "requires-soc-specific-qualcomm-litertlm-for-sm8750"
+        "qualcomm-litertlm" -> "requires-soc-specific-qualcomm-litertlm"
+        "generic-litertlm" -> "generic-litertlm-gpu-compatible"
+        else -> "unknown"
+    }
+}
+
+private fun formatDispatchApiStatus(
+    dispatchLibraryStatus: String?,
+    dispatchApiCandidates: List<String>,
+): String {
+    return when {
+        dispatchApiCandidates.isNotEmpty() -> "found"
+        dispatchLibraryStatus == "missing-dispatch-api-so-candidate" -> "missing"
+        dispatchLibraryStatus == "candidate-detected" -> "found"
+        dispatchLibraryStatus.isNullOrBlank() -> "unknown"
+        dispatchLibraryStatus.startsWith("error-") -> "unknown"
+        else -> dispatchLibraryStatus
+    }
+}
+
+private fun computeLiteRtLmNpuReadiness(
+    probe: AcceleratorProbeSnapshot,
+    dispatchStatus: String,
+): String {
+    val runtimeReady = probe.npuVendorRuntimeLibraryStatus?.startsWith("candidate-detected") == true
+    val backendNpuReady = probe.backendNpuClassCandidates.isNotEmpty() || probe.npuConstructorAvailable
+    return when {
+        dispatchStatus == "missing" -> "gpu-ok-npu-blocked-dispatch-missing"
+        dispatchStatus == "found" && runtimeReady && backendNpuReady -> "npu-prerequisites-present-probe-only"
+        else -> "npu-unknown"
+    }
+}
+
+private fun formatLiteRtLmNpuSelectedPath(readiness: String): String {
+    return when (readiness) {
+        "gpu-ok-npu-blocked-dispatch-missing" -> "gpu"
+        "npu-prerequisites-present-probe-only" -> "npu-probe-only"
+        else -> "blocked"
+    }
+}
+
+private fun resolveLiteRtLmReadinessSelectedModelName(
+    stats: InferenceStats,
+    trace: LocalInferenceTrace?,
+): String {
+    return trace?.mediaPipeProbeModelPath?.trim()?.takeIf { it.isNotBlank() }
+        ?: stats.modelName?.trim()?.takeIf { it.isNotBlank() }
+        ?: trace?.localModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
+        ?: "—"
 }
 
 private fun formatExternalQairtStageStatus(status: String?): String {

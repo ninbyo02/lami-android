@@ -21,6 +21,33 @@ internal object AcceleratorProbe {
     private const val EXTERNAL_QAIRT_VERIFIED_GPU_BACKEND_STATUS = "passed"
     private const val EXTERNAL_QAIRT_VERIFIED_DSP_CORE = "Hexagon Architecture V79"
     private const val EXTERNAL_QAIRT_VERIFIED_DSP_BACKEND_STATUS = "passed"
+    private val dispatchApiLibraryNames = setOf(
+        "libLiteRtDispatch_Qualcomm.so",
+        "libLiteRtDispatch.so",
+        "liblitert_dispatch_qualcomm.so",
+        "liblitert_dispatch.so",
+    )
+    private val qnnRuntimeLibraryNames = setOf(
+        "libQnnSystem.so",
+        "libQnnHtp.so",
+        "libQnnHtpPrepare.so",
+        "libQnnGpu.so",
+        "libQnnDsp.so",
+    )
+    private val htpSkelStubLibraryNames = setOf(
+        "libQnnHtpV79Skel.so",
+        "libQnnHtpV79Stub.so",
+        "libQnnHtpV75Skel.so",
+        "libQnnHtpV75Stub.so",
+        "libQnnHtpV73Skel.so",
+        "libQnnHtpV73Stub.so",
+        "libQnnHtpV69Skel.so",
+        "libQnnHtpV69Stub.so",
+        "libQnnHtpV68Skel.so",
+        "libQnnHtpV68Stub.so",
+        "libQnnDspV66Skel.so",
+        "libQnnDspV66Stub.so",
+    )
     private val DELEGATE_KEYWORDS = listOf(
         "delegate",
         "backend",
@@ -142,6 +169,11 @@ internal object AcceleratorProbe {
             ),
             npuNativeLibraryDir = npuPackagedLibraryProbeResult.nativeLibraryDir,
             npuPackagedLibraryCandidates = npuPackagedLibraryProbeResult.libraryCandidates,
+            npuNativeLibraryDirExists = npuPackagedLibraryProbeResult.nativeLibraryDirExists,
+            npuDispatchApiCandidates = npuPackagedLibraryProbeResult.dispatchApiCandidates,
+            npuQnnRuntimeCandidates = npuPackagedLibraryProbeResult.qnnRuntimeCandidates,
+            npuHtpSkelStubCandidates = npuPackagedLibraryProbeResult.htpSkelStubCandidates,
+            npuV79SkelStubCandidates = npuPackagedLibraryProbeResult.v79SkelStubCandidates,
             npuVendorRuntimeLibraryStatus = npuPackagedLibraryProbeResult.vendorRuntimeLibraryStatus,
             npuDispatchLibraryStatus = npuPackagedLibraryProbeResult.dispatchLibraryStatus,
             qnnNpuAttemptRequested = qnnNpuAttemptSnapshot.requested,
@@ -483,7 +515,12 @@ internal object AcceleratorProbe {
                 else -> "not-listed-in-current-litert-lm-npu-table"
             }
             val modelRequirement = when (officialVendor) {
-                "qualcomm", "mediatek" -> "requires-soc-specific-gemma3-1b-litertlm"
+                "qualcomm" -> if (normalizedSoc == "SM8750") {
+                    "requires-soc-specific-qualcomm-litertlm-for-sm8750"
+                } else {
+                    "requires-soc-specific-qualcomm-litertlm"
+                }
+                "mediatek" -> "requires-soc-specific-vendor-litertlm"
                 else -> "requires-supported-soc-specific-litertlm-model"
             }
             val runtimeLibraryRequirement = when (officialVendor) {
@@ -544,12 +581,25 @@ internal object AcceleratorProbe {
                 ?.mapNotNull { file -> file.name.takeIf { it.endsWith(".so") } }
                 ?.sorted()
                 .orEmpty()
+            val nativeLibraryDirExists = runCatching { File(nativeLibraryDir).isDirectory }.getOrDefault(false)
             val nativeLibraryFiles = (nativeLibraryFilesFromDir + listApkNativeLibraries(context))
                 .distinct()
                 .sorted()
             val libraryCandidates = nativeLibraryFiles
                 .filter { name -> matchesNpuLibraryKeyword(name) }
                 .take(MAX_DELEGATE_CANDIDATE_COUNT)
+            val dispatchApiCandidates = nativeLibraryFiles
+                .filter(::isDispatchApiLibraryCandidate)
+                .sorted()
+            val qnnRuntimeCandidates = nativeLibraryFiles
+                .filter(::isQnnRuntimeLibraryCandidate)
+                .sorted()
+            val htpSkelStubCandidates = nativeLibraryFiles
+                .filter(::isHtpSkelStubLibraryCandidate)
+                .sorted()
+            val v79SkelStubCandidates = htpSkelStubCandidates
+                .filter { name -> name.contains("V79", ignoreCase = true) }
+                .sorted()
             val vendorRuntimeLibraryStatus = when (officialVendor) {
                 "qualcomm" -> buildRequiredLibraryStatus(
                     nativeLibraryFiles = nativeLibraryFiles,
@@ -564,22 +614,19 @@ internal object AcceleratorProbe {
                 }
                 else -> if (libraryCandidates.isNotEmpty()) "candidate-detected-unknown-vendor" else "missing-vendor-runtime-candidate"
             }
-            val dispatchLibraryStatus = if (nativeLibraryFiles.any { name ->
-                    name.contains("dispatch", ignoreCase = true) &&
-                        (name.contains("litert", ignoreCase = true) ||
-                            name.contains("qnn", ignoreCase = true) ||
-                            name.contains("qualcomm", ignoreCase = true) ||
-                            name.contains("mediatek", ignoreCase = true) ||
-                            name.contains("mtk", ignoreCase = true))
-                }
-            ) {
+            val dispatchLibraryStatus = if (dispatchApiCandidates.isNotEmpty()) {
                 "candidate-detected"
             } else {
                 "missing-dispatch-api-so-candidate"
             }
             PackagedNpuLibraryProbeResult(
                 nativeLibraryDir = nativeLibraryDir,
+                nativeLibraryDirExists = nativeLibraryDirExists,
                 libraryCandidates = libraryCandidates,
+                dispatchApiCandidates = dispatchApiCandidates,
+                qnnRuntimeCandidates = qnnRuntimeCandidates,
+                htpSkelStubCandidates = htpSkelStubCandidates,
+                v79SkelStubCandidates = v79SkelStubCandidates,
                 vendorRuntimeLibraryStatus = vendorRuntimeLibraryStatus,
                 dispatchLibraryStatus = dispatchLibraryStatus,
             )
@@ -618,6 +665,26 @@ internal object AcceleratorProbe {
             "mediatek",
             "mtk",
         ).any { keyword -> name.contains(keyword, ignoreCase = true) }
+    }
+
+    private fun isDispatchApiLibraryCandidate(name: String): Boolean {
+        if (!name.endsWith(".so")) return false
+        val lower = name.lowercase(Locale.US)
+        return name in dispatchApiLibraryNames ||
+            "dispatch" in lower ||
+            "litertdispatch" in lower ||
+            ("qualcomm" in lower && "dispatch" in lower)
+    }
+
+    private fun isQnnRuntimeLibraryCandidate(name: String): Boolean {
+        return name in qnnRuntimeLibraryNames
+    }
+
+    private fun isHtpSkelStubLibraryCandidate(name: String): Boolean {
+        if (!name.endsWith(".so")) return false
+        return name in htpSkelStubLibraryNames ||
+            ((name.contains("Skel", ignoreCase = true) || name.contains("Stub", ignoreCase = true)) &&
+                (name.contains("QnnHtp", ignoreCase = true) || name.contains("QnnDsp", ignoreCase = true)))
     }
 
     private fun buildRequiredLibraryStatus(
@@ -707,14 +774,14 @@ internal object AcceleratorProbe {
         return if (missing.isEmpty()) {
             LocalAcceleratorAttemptSnapshot(
                 requested = "auto",
-                attempted = true,
+                attempted = false,
                 available = "available-candidate",
-                selectedPath = "qualcomm-qnn-npu-candidate",
-                fallbackPath = null,
+                selectedPath = "gpu",
+                fallbackPath = "gpu",
                 stage = "prerequisite-probe",
                 errorClass = null,
                 errorMessage = null,
-                evidence = evidence,
+                evidence = evidence + "npuApplyStatus=disabled-probe-only",
             )
         } else {
             LocalAcceleratorAttemptSnapshot(
@@ -979,6 +1046,11 @@ internal object AcceleratorProbe {
     private data class PackagedNpuLibraryProbeResult(
         val nativeLibraryDir: String? = null,
         val libraryCandidates: List<String> = emptyList(),
+        val nativeLibraryDirExists: Boolean? = null,
+        val dispatchApiCandidates: List<String> = emptyList(),
+        val qnnRuntimeCandidates: List<String> = emptyList(),
+        val htpSkelStubCandidates: List<String> = emptyList(),
+        val v79SkelStubCandidates: List<String> = emptyList(),
         val vendorRuntimeLibraryStatus: String? = null,
         val dispatchLibraryStatus: String? = null,
     )

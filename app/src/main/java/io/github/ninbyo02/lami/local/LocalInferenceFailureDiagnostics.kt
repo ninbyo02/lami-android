@@ -63,18 +63,13 @@ fun buildLocalInferenceFailureDiagnostics(
     val lowerThrowableText = throwableText.lowercase(Locale.US)
     val missingLibraryNames = extractMissingLibraryNames(throwableText)
     val dispatchApiCandidates = nativeLibraryFiles.filter { name ->
-        name.contains("dispatch", ignoreCase = true) ||
-            name.contains("LiteRtDispatch", ignoreCase = true)
+        isDispatchApiLibraryCandidate(name)
     }
     val qnnRuntimeCandidates = nativeLibraryFiles.filter { name ->
-        name in qnnRuntimeLibraryNames ||
-            name.contains("Qnn", ignoreCase = true)
+        name in qnnRuntimeLibraryNames
     }
     val htpSkelStubCandidates = nativeLibraryFiles.filter { name ->
-        (name.contains("Htp", ignoreCase = true) ||
-            name.contains("Skel", ignoreCase = true) ||
-            name.contains("Stub", ignoreCase = true)) &&
-            name.endsWith(".so")
+        isHtpSkelStubLibraryCandidate(name)
     }
     val backendNpu = inspectBackendNpuConstructors()
     val dispatchMissingByException = listOf(
@@ -152,6 +147,7 @@ fun formatLocalInferenceFailureDiagnosticsForDev(
     appendLine("dispatch api missing=${diagnostics.dispatchApiMissingLikely}")
     appendLine("qnn runtime files found=${diagnostics.qnnRuntimeCandidatesFound.ifEmpty { listOf("none") }.joinToString(", ")}")
     appendLine("htp/skel/stub files found=${diagnostics.htpSkelStubCandidatesFound.ifEmpty { listOf("none") }.joinToString(", ")}")
+    appendLine("V79 skel/stub files found=${diagnostics.htpSkelStubCandidatesFound.filter { it.contains("V79", ignoreCase = true) }.ifEmpty { listOf("none") }.joinToString(", ")}")
     appendLine("backend npu constructor availability=${diagnostics.backendNpuConstructorAvailable}")
     appendLine("Backend.NPU(String) constructor availability=${diagnostics.backendNpuStringConstructorAvailable}")
     appendLine("NPU nativeLibraryDir required=${diagnostics.backendNpuNativeLibraryDirRequired}")
@@ -253,6 +249,22 @@ private fun summarizeNativeLibraryFiles(files: List<String>): String {
     return "count=${files.size}; relevant=${relevant.ifEmpty { listOf("none") }.take(40).joinToString(", ")}"
 }
 
+private fun isDispatchApiLibraryCandidate(name: String): Boolean {
+    if (!name.endsWith(".so")) return false
+    val lower = name.lowercase(Locale.US)
+    return name in dispatchLibraryNames ||
+        "dispatch" in lower ||
+        "litertdispatch" in lower ||
+        ("qualcomm" in lower && "dispatch" in lower)
+}
+
+private fun isHtpSkelStubLibraryCandidate(name: String): Boolean {
+    if (!name.endsWith(".so")) return false
+    return name in htpSkelStubLibraryNames ||
+        ((name.contains("Skel", ignoreCase = true) || name.contains("Stub", ignoreCase = true)) &&
+            (name.contains("QnnHtp", ignoreCase = true) || name.contains("QnnDsp", ignoreCase = true)))
+}
+
 private fun inspectBackendNpuConstructors(): BackendNpuConstructorDiagnostics {
     return runCatching {
         val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
@@ -304,20 +316,32 @@ private const val MAX_STACK_LINE_TEXT = 260
 private val dispatchLibraryNames = setOf(
     "libLiteRtDispatch_Qualcomm.so",
     "libLiteRtDispatch.so",
+    "liblitert_dispatch_qualcomm.so",
+    "liblitert_dispatch.so",
     "dispatch_api_so",
 )
 
 private val qnnRuntimeLibraryNames = setOf(
-    "libQnnHtp.so",
     "libQnnSystem.so",
+    "libQnnHtp.so",
     "libQnnHtpPrepare.so",
+    "libQnnGpu.so",
+    "libQnnDsp.so",
 )
 
-private val knownDiagnosticLibraryNames = dispatchLibraryNames + qnnRuntimeLibraryNames + setOf(
+private val htpSkelStubLibraryNames = setOf(
     "libQnnHtpV79Skel.so",
     "libQnnHtpV79Stub.so",
+    "libQnnHtpV75Skel.so",
+    "libQnnHtpV75Stub.so",
     "libQnnHtpV73Skel.so",
     "libQnnHtpV73Stub.so",
     "libQnnHtpV69Skel.so",
     "libQnnHtpV69Stub.so",
+    "libQnnHtpV68Skel.so",
+    "libQnnHtpV68Stub.so",
+    "libQnnDspV66Skel.so",
+    "libQnnDspV66Stub.so",
 )
+
+private val knownDiagnosticLibraryNames = dispatchLibraryNames + qnnRuntimeLibraryNames + htpSkelStubLibraryNames
