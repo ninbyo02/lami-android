@@ -16,6 +16,7 @@ REMOTE_NAME="origin"
 WIP_PREFIX="wip(auto):"
 PHONE_IP="10.5.5.3"
 DEFAULT_PORT="40215"
+DEFAULT_ANDROID_FLAVOR="standard"
 VERBOSE=0
 CODEX_GUIDE_LINE="────────────────────────"
 CODEX_RECOMMENDED_BRANCH="work/oldest-buildable-good"
@@ -53,7 +54,8 @@ Subcommands:
 
 update options:
   --port|-p PORT        ADB connect port (default: 40215)
-  --clean-install|-c    uninstall app before installDebug (requires device)
+  --flavor NAME         Android flavor to install: standard or npuExperiment (default: standard)
+  --clean-install|-c    uninstall selected flavor before installStandardDebug/installNpuExperimentDebug
   --no-wip              abort if working tree dirty (default: auto WIP local commit)
   --dry-run             stop after fetch/pull (no gradle, no adb)
   --verbose|-v          show verbose logs (adb devices -l, etc.)
@@ -68,21 +70,24 @@ publish options:
 
 test options:
   --pr N | --commit SHA
-  --build               run :app:compileDebugKotlin (default if neither --build nor --install)
-  --install             run :app:installDebug (device required)
-  --clean-install|-c    uninstall app before installDebug (requires --install)
+  --build               run selected flavor Kotlin compile task (default if neither --build nor --install)
+  --install             run selected flavor install task (device required)
+  --flavor NAME         Android flavor to install: standard or npuExperiment (default: standard)
+  --clean-install|-c    uninstall selected flavor before install task (requires --install)
   --port|-p PORT        ADB connect port (default: 40215)
   --keep-temp           keep temp branch after test (default: delete)
   --verbose|-v          show verbose logs (adb devices -l, etc.)
 
 Examples:
   ./update.sh update --dry-run
+  ./update.sh update --flavor npuExperiment
   ./update.sh update --no-wip
   ./update.sh update -c --no-wip
   ./update.sh publish -m "docs: update README"
   ./update.sh publish --dry-run
   ./update.sh test --pr 398 --install -c -v
   ./update.sh here-install -p 42951
+  ./update.sh here-install --flavor npuExperiment -p 42951
   ./update.sh promote --install -p 42951
 
 EOF
@@ -113,13 +118,54 @@ resolve_adb_install_options() {
 }
 
 run_install_debug() {
+  local flavor="${1:-$DEFAULT_ANDROID_FLAVOR}"
   local install_options=""
+  local task
+  task="$(install_task_for_flavor "$flavor")"
   install_options="$(resolve_adb_install_options)"
   if [[ -n "$install_options" ]]; then
-    ./gradlew :app:installDebug "-Pandroid.injected.adb.installOptions=${install_options}"
+    ./gradlew ":app:${task}" "-Pandroid.injected.adb.installOptions=${install_options}"
   else
-    ./gradlew :app:installDebug
+    ./gradlew ":app:${task}"
   fi
+}
+
+normalize_android_flavor() {
+  local flavor="${1:-$DEFAULT_ANDROID_FLAVOR}"
+  case "$flavor" in
+    standard|Standard) echo "standard" ;;
+    npuExperiment|NpuExperiment|npu|npu-experiment) echo "npuExperiment" ;;
+    *) die "Unknown Android flavor: $flavor (expected: standard or npuExperiment)" ;;
+  esac
+}
+
+install_task_for_flavor() {
+  local flavor
+  flavor="$(normalize_android_flavor "$1")"
+  case "$flavor" in
+    standard) echo "installStandardDebug" ;;
+    npuExperiment) echo "installNpuExperimentDebug" ;;
+  esac
+}
+
+compile_task_for_flavor() {
+  local flavor
+  flavor="$(normalize_android_flavor "$1")"
+  case "$flavor" in
+    standard) echo "compileDebugKotlin" ;;
+    npuExperiment) echo "compileNpuExperimentDebugKotlin" ;;
+  esac
+}
+
+resolve_app_id_for_flavor() {
+  local flavor
+  flavor="$(normalize_android_flavor "$1")"
+  # Keep these explicit after introducing flavors; manifest scraping of generic debug
+  # outputs can pick the wrong variant and make clean installs uninstall the wrong app.
+  case "$flavor" in
+    standard) echo "io.github.ninbyo02.lami" ;;
+    npuExperiment) echo "io.github.ninbyo02.lami.npu" ;;
+  esac
 }
 
 # ★追加: 実行時にHEADコミット情報を毎回表示
@@ -328,11 +374,16 @@ resolve_app_id() {
 
 do_clean_uninstall_if_requested() {
   local clean="$1"
+  local flavor="${2:-$DEFAULT_ANDROID_FLAVOR}"
   if [[ "$clean" -ne 1 ]]; then return 0; fi
 
   info "Resolving applicationId..."
   local app_id=""
-  if app_id="$(resolve_app_id)"; then
+  if app_id="$(resolve_app_id_for_flavor "$flavor")"; then
+    ok "applicationId: $app_id"
+    info "Uninstalling $app_id ..."
+    adb uninstall "$app_id" >/dev/null 2>&1 || true
+  elif app_id="$(resolve_app_id)"; then
     ok "applicationId: $app_id"
     info "Uninstalling $app_id ..."
     adb uninstall "$app_id" >/dev/null 2>&1 || true
@@ -376,6 +427,7 @@ guard_work_branch() {
 
 cmd_update() {
   local port="$DEFAULT_PORT"
+  local flavor="$DEFAULT_ANDROID_FLAVOR"
   local clean=0
   local no_wip=0
   local dry_run=0
@@ -383,6 +435,7 @@ cmd_update() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --port|-p) port="${2:?Missing port}"; shift 2 ;;
+      --flavor) flavor="$(normalize_android_flavor "${2:?Missing flavor}")"; shift 2 ;;
       --clean-install|-c) clean=1; shift ;;
       --no-wip) no_wip=1; shift ;;
       --dry-run) dry_run=1; shift ;;
@@ -398,7 +451,8 @@ cmd_update() {
 
   echo "🔧 update.sh (single-dev safe mode)"
   echo "📡 Target: ${PHONE_IP}:${port}"
-  [[ "$clean" -eq 1 ]] && echo "🧼 Clean install: ON (uninstall -> installDebug)"
+  echo "📦 Android flavor: ${flavor} ($(install_task_for_flavor "$flavor"))"
+  [[ "$clean" -eq 1 ]] && echo "🧼 Clean install: ON (uninstall -> $(install_task_for_flavor "$flavor"))"
   [[ "$dry_run" -eq 1 ]] && echo "Dry-run: ON (stop after fetch/pull)"
 
   # ★追加: 実行開始時点のHEADを表示
@@ -439,10 +493,10 @@ cmd_update() {
     exit 0
   fi
 
-  do_clean_uninstall_if_requested "$clean"
+  do_clean_uninstall_if_requested "$clean" "$flavor"
 
-  info "Device detected ($device_count). Running installDebug..."
-  run_install_debug
+  info "Device detected ($device_count). Running $(install_task_for_flavor "$flavor")..."
+  run_install_debug "$flavor"
   ok "update completed."
 
   if [[ "$auto_wip_commit" -eq 1 ]]; then
@@ -667,6 +721,7 @@ cmd_test() {
   local pr=""
   local commit=""
   local port="$DEFAULT_PORT"
+  local flavor="$DEFAULT_ANDROID_FLAVOR"
   local clean=0
   local do_build=0
   local do_install=0
@@ -677,6 +732,7 @@ cmd_test() {
       --pr) pr="${2:?Missing PR number}"; shift 2 ;;
       --commit) commit="${2:?Missing commit sha}"; shift 2 ;;
       --port|-p) port="${2:?Missing port}"; shift 2 ;;
+      --flavor) flavor="$(normalize_android_flavor "${2:?Missing flavor}")"; shift 2 ;;
       --clean-install|-c) clean=1; shift ;;
       --build) do_build=1; shift ;;
       --install) do_install=1; shift ;;
@@ -739,8 +795,10 @@ cmd_test() {
   print_head_commit
 
   if [[ "$do_build" -eq 1 ]]; then
-    info "Running compileDebugKotlin..."
-    ./gradlew :app:compileDebugKotlin
+    local compile_task
+    compile_task="$(compile_task_for_flavor "$flavor")"
+    info "Running ${compile_task}..."
+    ./gradlew ":app:${compile_task}"
     ok "build ok"
   fi
 
@@ -749,9 +807,9 @@ cmd_test() {
     local device_count
     device_count="$(adb_connect_and_count "$port")"
     [[ "$device_count" -ge 1 ]] || die "No device detected for install test."
-    do_clean_uninstall_if_requested "$clean"
-    info "Running installDebug..."
-    run_install_debug
+    do_clean_uninstall_if_requested "$clean" "$flavor"
+    info "Running $(install_task_for_flavor "$flavor")..."
+    run_install_debug "$flavor"
     ok "install ok"
   fi
 
@@ -774,6 +832,7 @@ cmd_test() {
 # Install current branch "as-is" (no pull), for UI verification.
 cmd_here_install() {
   local port="$DEFAULT_PORT"
+  local flavor="$DEFAULT_ANDROID_FLAVOR"
   local clean=0
   local no_wip=0
   local build_only=0
@@ -781,6 +840,7 @@ cmd_here_install() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --port|-p) port="${2:?Missing port}"; shift 2 ;;
+      --flavor) flavor="$(normalize_android_flavor "${2:?Missing flavor}")"; shift 2 ;;
       --clean-install|-c) clean=1; shift ;;
       --no-wip) no_wip=1; shift ;;
       --build-only) build_only=1; shift ;;
@@ -804,8 +864,10 @@ cmd_here_install() {
   cur="$(current_branch_or_die)"
   info "here-install on current branch: $cur (no pull)"
 
-  info "Running compileDebugKotlin..."
-  ./gradlew :app:compileDebugKotlin
+  local compile_task
+  compile_task="$(compile_task_for_flavor "$flavor")"
+  info "Running ${compile_task}..."
+  ./gradlew ":app:${compile_task}"
   ok "build ok"
 
   if [[ "$build_only" -eq 1 ]]; then
@@ -819,9 +881,9 @@ cmd_here_install() {
   device_count="$(adb_connect_and_count "$port")"
   [[ "$device_count" -ge 1 ]] || die "No device detected for install."
 
-  do_clean_uninstall_if_requested "$clean"
-  info "Running installDebug..."
-  run_install_debug
+  do_clean_uninstall_if_requested "$clean" "$flavor"
+  info "Running $(install_task_for_flavor "$flavor")..."
+  run_install_debug "$flavor"
   ok "install ok (current branch)"
 
   [[ "$auto_wip_commit" -eq 1 ]] && warn "NOTE: local WIP commit created. Undo: git reset --soft HEAD~1"
@@ -835,6 +897,7 @@ cmd_promote() {
   local no_wip=0
   local do_install=0
   local port="$DEFAULT_PORT"
+  local flavor="$DEFAULT_ANDROID_FLAVOR"
   local clean=0
   local msg=""
 
@@ -845,6 +908,7 @@ cmd_promote() {
       --no-wip) no_wip=1; shift ;;
       --install) do_install=1; shift ;;
       --port|-p) port="${2:?Missing port}"; shift 2 ;;
+      --flavor) flavor="$(normalize_android_flavor "${2:?Missing flavor}")"; shift 2 ;;
       --clean-install|-c) clean=1; shift ;;
       --message) msg="${2:?Missing message}"; shift 2 ;;
       --verbose|-v) VERBOSE=1; shift ;;
@@ -903,9 +967,9 @@ cmd_promote() {
     local device_count
     device_count="$(adb_connect_and_count "$port")"
     [[ "$device_count" -ge 1 ]] || die "No device detected for install."
-    do_clean_uninstall_if_requested "$clean"
-    info "Installing stable build from $base..."
-    run_install_debug
+    do_clean_uninstall_if_requested "$clean" "$flavor"
+    info "Installing stable build from $base with $(install_task_for_flavor "$flavor")..."
+    run_install_debug "$flavor"
     ok "stable install ok: $base"
   fi
 

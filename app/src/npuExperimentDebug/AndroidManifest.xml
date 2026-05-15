@@ -1,0 +1,23 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!--
+            Debug-only explicit ADB probe for the isolated npuExperiment variant.
+            This logs the same diagnostic snapshot as the DEV sheet without loading
+            dispatch libraries or passing Backend.NPU to inference.
+        -->
+        <receiver
+            android:name="io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.npu.PROBE_DISPATCH" />
+            </intent-filter>
+        </receiver>
+        <activity
+            android:name="io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+    </application>
+</manifest>
