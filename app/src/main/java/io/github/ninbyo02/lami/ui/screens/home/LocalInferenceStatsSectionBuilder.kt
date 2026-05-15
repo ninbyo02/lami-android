@@ -597,6 +597,22 @@ internal fun buildInferenceDetailSections(
                 )
             },
         acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Engine API Inventory",
+                    items = buildEngineApiInventoryItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Engine Initialize Dry-Run Probe",
+                    items = buildEngineInitializeDryRunProbeItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
             ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && hasQnnDelegateProbeDiagnostics(it) }
             ?.let { probe ->
                 InferenceStatsSectionUi(
@@ -1625,6 +1641,56 @@ private fun buildBackendNpuConnectionCandidateItems(
         InferenceStatItemUi(label = "EngineConfig backend path", value = probe.backendNpuConnectionEngineConfigBackendPath?.ifBlank { "unknown" } ?: "unknown"),
         InferenceStatItemUi(label = "Engine initialize path", value = probe.backendNpuConnectionEngineInitializePath?.ifBlank { "not attempted" } ?: "not attempted"),
         InferenceStatItemUi(label = "recommended next phase", value = probe.backendNpuConnectionRecommendedNextPhase?.ifBlank { "unknown" } ?: "unknown"),
+    )
+}
+
+private fun buildEngineApiInventoryItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "enabled", value = probe.engineApiInventoryEnabled?.toString() ?: "false"),
+        InferenceStatItemUi(label = "skipped reason", value = probe.engineApiInventorySkipReason?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "class found", value = probe.engineApiClassFound?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "constructors", value = probe.engineApiConstructors.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "static/companion factory candidates", value = probe.engineApiStaticFactoryCandidates.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "initialize method candidates", value = probe.engineApiInitializeMethodCandidates.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "close/dispose method candidates", value = probe.engineApiCloseDisposeMethodCandidates.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "create method candidates", value = probe.engineApiCreateMethodCandidates.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+    )
+}
+
+private fun buildEngineInitializeDryRunProbeItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "enabled", value = probe.engineInitializeDryRunEnabled?.toString() ?: "false"),
+        InferenceStatItemUi(label = "skipped reason", value = probe.engineInitializeDryRunSkipReason?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "explicit opt-in", value = probe.engineInitializeDryRunExplicitOptIn?.toString() ?: "false"),
+        InferenceStatItemUi(label = "model path", value = probe.engineInitializeDryRunModelPath?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "model kind", value = probe.engineInitializeDryRunModelKind?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "nativeLibraryDir", value = probe.engineInitializeDryRunNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "Backend.NPU object class", value = probe.engineInitializeDryRunBackendNpuObjectClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "EngineConfig object class", value = probe.engineInitializeDryRunEngineConfigObjectClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "selected Engine constructor/factory", value = probe.engineInitializeDryRunSelectedEngineConstructorOrFactory?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "selected initialize method", value = probe.engineInitializeDryRunSelectedInitializeMethod?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "initialize invoked", value = probe.engineInitializeDryRunInitializeInvoked?.ifBlank { "no" } ?: "no"),
+        InferenceStatItemUi(label = "initialize result", value = probe.engineInitializeDryRunInitializeResult?.ifBlank { "skipped" } ?: "skipped"),
+        InferenceStatItemUi(label = "elapsed ms", value = probe.engineInitializeDryRunElapsedMs?.toString() ?: "—"),
+        InferenceStatItemUi(label = "exception class", value = probe.engineInitializeDryRunExceptionClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "exception message", value = probe.engineInitializeDryRunExceptionMessage?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "root cause", value = probe.engineInitializeDryRunRootCause?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "cause chain", value = probe.engineInitializeDryRunCauseChain?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "UnsatisfiedLinkError detected", value = probe.engineInitializeDryRunUnsatisfiedLinkErrorDetected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "No usable Dispatch runtime found detected", value = probe.engineInitializeDryRunNoUsableDispatchRuntimeDetected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "Failed to initialize Dispatch API detected", value = probe.engineInitializeDryRunFailedToInitializeDispatchApiDetected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "insufficient capabilities detected", value = probe.engineInitializeDryRunInsufficientCapabilitiesDetected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "version mismatch detected", value = probe.engineInitializeDryRunVersionMismatchDetected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "symbol mismatch detected", value = probe.engineInitializeDryRunSymbolMismatchDetected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "SIGABRT suspected", value = probe.engineInitializeDryRunSigabrtSuspected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "close invoked", value = probe.engineInitializeDryRunCloseInvoked?.ifBlank { "no" } ?: "no"),
+        InferenceStatItemUi(label = "close result", value = probe.engineInitializeDryRunCloseResult?.ifBlank { "skipped" } ?: "skipped"),
+        InferenceStatItemUi(label = "diagnostic file", value = probe.engineInitializeDryRunDiagnosticFilePath?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "warning", value = probe.engineInitializeDryRunWarning?.ifBlank { "initialize-only; no Conversation; no generateResponse; not wired to app inference" } ?: "initialize-only; no Conversation; no generateResponse; not wired to app inference"),
     )
 }
 

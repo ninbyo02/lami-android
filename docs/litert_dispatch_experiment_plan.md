@@ -272,6 +272,82 @@ If `EngineConfig` NPU config-only dry-build succeeds with no native crash while
 `selectedPath=gpu` and QNN/NPU attempt remains `no`, the next possible phase is an
 isolated `Engine.initialize` dry-run. That phase has not been performed.
 
+## Engine.initialize dry-run phase
+
+`npuExperimentDebug` now has an isolated Engine initialization dry-run scaffold. It is
+disabled by default and requires explicit intent opt-in:
+
+```bash
+adb shell am start \
+  -n io.github.ninbyo02.lami.npu/io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeActivity \
+  --ez run_engine_initialize_dry_run true \
+  --es model_path "/data/user/0/.../gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+```
+
+The helper script wraps install, launch, and diagnostic collection:
+
+```bash
+bash scripts/run_npu_engine_initialize_dry_run.sh "/data/user/0/.../gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+```
+
+The dry-run remains gated by all of these conditions:
+
+- `BuildConfig.DEBUG == true`
+- `BuildConfig.CURRENT_FLAVOR == "npuExperiment"`
+- dispatch runtime present in `nativeLibraryDir`
+- dispatch SHA-256 matches the staged Gallery SM8750 runtime
+- `Backend.NPU(String)` instantiate-only probe succeeded
+- `EngineConfig` NPU config-only dry-build succeeded
+- model path is explicitly provided
+- model filename is a Qualcomm SM8750 `.litertlm`
+- explicit opt-in extra is true
+
+The dry-run writes stage progress before dangerous calls to:
+
+```text
+files/npu_engine_initialize_dry_run.txt
+```
+
+Stages include:
+
+- `started`
+- `Backend.NPU creating`
+- `Backend.NPU created`
+- `EngineConfig creating`
+- `EngineConfig created`
+- `Engine initialize invoking`
+- `Engine initialize returned`
+- `close invoking`
+- `close returned`
+- `done`
+
+This file is intentionally written incrementally so a native `SIGABRT` can still leave
+the last reached stage behind.
+
+Risks remain high because Gallery dispatch runtime and Lami's LiteRT-LM native stack
+have mismatched build ids. Known failure modes include:
+
+- native `SIGABRT`
+- `No usable Dispatch runtime found`
+- `Failed to initialize Dispatch API`
+- dispatch API capability or version mismatch
+- symbol mismatch
+- QNN version mismatch
+
+Still forbidden in this phase:
+
+- `Conversation` construction
+- `Session` construction
+- `generateResponse`
+- prompt evaluation or token generation
+- wiring NPU into normal app inference
+- `selectedPath=npu`
+- changing held engine / official-flow behavior
+- running in standard flavor
+
+If Engine initialization succeeds, the next phase is only to design an isolated
+single-token smoke test. That smoke test has not been implemented or run.
+
 Use the install helper for device-side detection:
 
 ```bash
@@ -293,7 +369,8 @@ The helper installs only `npuExperimentDebug`, verifies the APK contains the dis
 5. Require explicit opt-in before any runtime load experiment.
 6. Run attach dry-run only in `npuExperimentDebug`; require setter success, no native crash, `selectedPath=gpu`, and QNN/NPU attempt `no`.
 7. Inventory LiteRT-LM API and verify `EngineConfig` config-only dry-build without Engine initialization.
-8. Only after ABI compatibility and dry-run evidence, consider a guarded `Backend.NPU` inference experiment with GPU fallback intact.
+8. Run Engine.initialize dry-run only with explicit opt-in, staged diagnostics, and no Conversation/generation.
+9. Only after ABI compatibility and dry-run evidence, consider a guarded `Backend.NPU` inference experiment with GPU fallback intact.
 
 ## Current recommendation
 

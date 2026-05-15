@@ -7,16 +7,26 @@ import android.util.Log
 class NpuExperimentProbeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        NpuExperimentProbeLogger.logSnapshot(applicationContext)
+        NpuExperimentProbeLogger.logSnapshot(
+            context = applicationContext,
+            runEngineInitializeDryRun = intent?.getBooleanExtra("run_engine_initialize_dry_run", false) == true,
+            engineInitializeDryRunModelPath = intent?.getStringExtra("model_path"),
+        )
         finish()
     }
 }
 
 internal object NpuExperimentProbeLogger {
-    fun logSnapshot(context: android.content.Context) {
+    fun logSnapshot(
+        context: android.content.Context,
+        runEngineInitializeDryRun: Boolean = false,
+        engineInitializeDryRunModelPath: String? = null,
+    ) {
         val snapshot = AcceleratorProbe.captureSnapshot(
             context = context.applicationContext,
             forceRefresh = true,
+            engineInitializeDryRunOptIn = runEngineInitializeDryRun,
+            engineInitializeDryRunModelPath = engineInitializeDryRunModelPath,
         )
         val dispatchLine =
             "Dispatch Runtime Compatibility: " +
@@ -95,6 +105,46 @@ internal object NpuExperimentProbeLogger {
                 "EngineConfig backend path=${snapshot.backendNpuConnectionEngineConfigBackendPath ?: "unknown"}; " +
                 "Engine initialize path=${snapshot.backendNpuConnectionEngineInitializePath ?: "not attempted"}; " +
                 "recommended next phase=${snapshot.backendNpuConnectionRecommendedNextPhase ?: "unknown"}"
+        val engineApiInventoryLine =
+            "Engine API Inventory: " +
+                "enabled=${snapshot.engineApiInventoryEnabled ?: "unknown"}; " +
+                "skipped reason=${snapshot.engineApiInventorySkipReason ?: "none"}; " +
+                "class found=${snapshot.engineApiClassFound ?: "unknown"}; " +
+                "constructors=${snapshot.engineApiConstructors.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "none/unknown"}; " +
+                "static/companion factory candidates=${snapshot.engineApiStaticFactoryCandidates.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "none/unknown"}; " +
+                "initialize method candidates=${snapshot.engineApiInitializeMethodCandidates.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "none/unknown"}; " +
+                "close/dispose method candidates=${snapshot.engineApiCloseDisposeMethodCandidates.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "none/unknown"}; " +
+                "create method candidates=${snapshot.engineApiCreateMethodCandidates.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "none/unknown"}"
+        val engineInitializeDryRunLine =
+            "Engine Initialize Dry-Run Probe: " +
+                "enabled=${snapshot.engineInitializeDryRunEnabled ?: "unknown"}; " +
+                "skipped reason=${snapshot.engineInitializeDryRunSkipReason ?: "none"}; " +
+                "explicit opt-in=${snapshot.engineInitializeDryRunExplicitOptIn ?: false}; " +
+                "model path=${snapshot.engineInitializeDryRunModelPath ?: "-"}; " +
+                "model kind=${snapshot.engineInitializeDryRunModelKind ?: "unknown"}; " +
+                "nativeLibraryDir=${snapshot.engineInitializeDryRunNativeLibraryDir ?: "unknown"}; " +
+                "Backend.NPU object class=${snapshot.engineInitializeDryRunBackendNpuObjectClass ?: "-"}; " +
+                "EngineConfig object class=${snapshot.engineInitializeDryRunEngineConfigObjectClass ?: "-"}; " +
+                "selected Engine constructor/factory=${snapshot.engineInitializeDryRunSelectedEngineConstructorOrFactory ?: "-"}; " +
+                "selected initialize method=${snapshot.engineInitializeDryRunSelectedInitializeMethod ?: "-"}; " +
+                "initialize invoked=${snapshot.engineInitializeDryRunInitializeInvoked ?: "no"}; " +
+                "initialize result=${snapshot.engineInitializeDryRunInitializeResult ?: "skipped"}; " +
+                "elapsed ms=${snapshot.engineInitializeDryRunElapsedMs ?: "-"}; " +
+                "exception class=${snapshot.engineInitializeDryRunExceptionClass ?: "-"}; " +
+                "exception message=${snapshot.engineInitializeDryRunExceptionMessage ?: "-"}; " +
+                "root cause=${snapshot.engineInitializeDryRunRootCause ?: "-"}; " +
+                "cause chain=${snapshot.engineInitializeDryRunCauseChain ?: "-"}; " +
+                "UnsatisfiedLinkError detected=${snapshot.engineInitializeDryRunUnsatisfiedLinkErrorDetected ?: false}; " +
+                "No usable Dispatch runtime found detected=${snapshot.engineInitializeDryRunNoUsableDispatchRuntimeDetected ?: false}; " +
+                "Failed to initialize Dispatch API detected=${snapshot.engineInitializeDryRunFailedToInitializeDispatchApiDetected ?: false}; " +
+                "insufficient capabilities detected=${snapshot.engineInitializeDryRunInsufficientCapabilitiesDetected ?: false}; " +
+                "version mismatch detected=${snapshot.engineInitializeDryRunVersionMismatchDetected ?: false}; " +
+                "symbol mismatch detected=${snapshot.engineInitializeDryRunSymbolMismatchDetected ?: false}; " +
+                "SIGABRT suspected=${snapshot.engineInitializeDryRunSigabrtSuspected ?: false}; " +
+                "close invoked=${snapshot.engineInitializeDryRunCloseInvoked ?: "no"}; " +
+                "close result=${snapshot.engineInitializeDryRunCloseResult ?: "skipped"}; " +
+                "diagnostic file=${snapshot.engineInitializeDryRunDiagnosticFilePath ?: "unknown"}; " +
+                "warning=${snapshot.engineInitializeDryRunWarning ?: "initialize-only; no Conversation; no generateResponse; not wired to app inference"}"
         val safetyLine =
             "NPU safety status: " +
                 "selectedPath=${snapshot.qnnNpuSelectedPath ?: "unknown"}; " +
@@ -102,12 +152,12 @@ internal object NpuExperimentProbeLogger {
                 "fallbackPath=${snapshot.qnnNpuFallbackPath ?: "-"}; " +
                 "NPU apply status=disabled / probe-only"
 
-        listOf(dispatchLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, safetyLine).forEach { line ->
+        listOf(dispatchLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, engineApiInventoryLine, engineInitializeDryRunLine, safetyLine).forEach { line ->
             Log.i(LOG_TAG, line)
         }
         runCatching {
             context.filesDir.resolve("npu_experiment_probe.txt").writeText(
-                listOf(dispatchLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, safetyLine).joinToString(separator = "\n", postfix = "\n"),
+                listOf(dispatchLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, engineApiInventoryLine, engineInitializeDryRunLine, safetyLine).joinToString(separator = "\n", postfix = "\n"),
             )
         }.onFailure { throwable ->
             Log.e(LOG_TAG, "Failed to write probe result: ${throwable.javaClass.simpleName}: ${throwable.message}")
