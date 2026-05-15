@@ -130,6 +130,20 @@ internal object AcceleratorProbe {
             instantiateProbeResult = backendNpuInstantiateProbeResult,
             delegateApiProbeResult = delegateApiProbeResult,
         )
+        val liteRtLmNpuApiInventoryProbeResult = probeLiteRtLmNpuApiInventorySafely(
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+        )
+        val engineConfigNpuDryBuildProbeResult = probeEngineConfigNpuDryBuildSafely(
+            context = context,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+        )
+        val backendNpuConnectionCandidateProbeResult = buildBackendNpuConnectionCandidate(
+            apiInventory = liteRtLmNpuApiInventoryProbeResult,
+            engineConfigDryBuild = engineConfigNpuDryBuildProbeResult,
+        )
         val qnnNpuAttemptSnapshot = buildQualcommQnnNpuAttemptSnapshot(
             requirements = npuRequirementsProbeResult,
             packagedLibraries = npuPackagedLibraryProbeResult,
@@ -273,6 +287,39 @@ internal object AcceleratorProbe {
             backendNpuAttachDryRunRootCause = backendNpuAttachDryRunProbeResult.rootCause,
             backendNpuAttachDryRunCauseChain = backendNpuAttachDryRunProbeResult.causeChain,
             backendNpuAttachDryRunWarning = backendNpuAttachDryRunProbeResult.warning,
+            backendNpuAttachDryRunNote = backendNpuAttachDryRunProbeResult.note,
+            liteRtLmNpuApiInventoryEnabled = liteRtLmNpuApiInventoryProbeResult.enabled,
+            liteRtLmNpuApiInventorySkipReason = liteRtLmNpuApiInventoryProbeResult.skipReason,
+            liteRtLmNpuApiClassInventory = liteRtLmNpuApiInventoryProbeResult.classInventory,
+            liteRtLmNpuApiConstructorInventory = liteRtLmNpuApiInventoryProbeResult.constructorInventory,
+            liteRtLmNpuApiPublicMethodInventory = liteRtLmNpuApiInventoryProbeResult.publicMethodInventory,
+            liteRtLmNpuApiDeclaredMethodInventory = liteRtLmNpuApiInventoryProbeResult.declaredMethodInventory,
+            liteRtLmNpuApiFieldInventory = liteRtLmNpuApiInventoryProbeResult.fieldInventory,
+            liteRtLmNpuApiStaticMethodInventory = liteRtLmNpuApiInventoryProbeResult.staticMethodInventory,
+            liteRtLmNpuApiAssignability = liteRtLmNpuApiInventoryProbeResult.assignability,
+            engineConfigConstructorInventory = liteRtLmNpuApiInventoryProbeResult.engineConfigConstructorInventory,
+            engineConfigBackendPropertyInventory = liteRtLmNpuApiInventoryProbeResult.engineConfigBackendPropertyInventory,
+            engineConfigCopyMethodInventory = liteRtLmNpuApiInventoryProbeResult.engineConfigCopyMethodInventory,
+            engineConfigComponentMethodInventory = liteRtLmNpuApiInventoryProbeResult.engineConfigComponentMethodInventory,
+            engineConfigJsonMethodInventory = liteRtLmNpuApiInventoryProbeResult.engineConfigJsonMethodInventory,
+            engineConfigNpuDryBuildEnabled = engineConfigNpuDryBuildProbeResult.enabled,
+            engineConfigNpuDryBuildSkipReason = engineConfigNpuDryBuildProbeResult.skipReason,
+            engineConfigNpuDryBuildSelectedConstructor = engineConfigNpuDryBuildProbeResult.selectedConstructor,
+            engineConfigNpuDryBuildConstructorArgsSummary = engineConfigNpuDryBuildProbeResult.constructorArgsSummary,
+            engineConfigNpuDryBuildNpuBackendObjectClass = engineConfigNpuDryBuildProbeResult.npuBackendObjectClass,
+            engineConfigNpuDryBuildResult = engineConfigNpuDryBuildProbeResult.result,
+            engineConfigNpuDryBuildCreatedObjectClass = engineConfigNpuDryBuildProbeResult.createdObjectClass,
+            engineConfigNpuDryBuildBackendGetterResultClass = engineConfigNpuDryBuildProbeResult.backendGetterResultClass,
+            engineConfigNpuDryBuildExceptionClass = engineConfigNpuDryBuildProbeResult.exceptionClass,
+            engineConfigNpuDryBuildExceptionMessage = engineConfigNpuDryBuildProbeResult.exceptionMessage,
+            engineConfigNpuDryBuildRootCause = engineConfigNpuDryBuildProbeResult.rootCause,
+            engineConfigNpuDryBuildCauseChain = engineConfigNpuDryBuildProbeResult.causeChain,
+            engineConfigNpuDryBuildWarning = engineConfigNpuDryBuildProbeResult.warning,
+            backendNpuConnectionPreferredBackendEnumPath = backendNpuConnectionCandidateProbeResult.preferredBackendEnumPath,
+            backendNpuConnectionPreferredBackendEnumReason = backendNpuConnectionCandidateProbeResult.preferredBackendEnumReason,
+            backendNpuConnectionEngineConfigBackendPath = backendNpuConnectionCandidateProbeResult.engineConfigBackendPath,
+            backendNpuConnectionEngineInitializePath = backendNpuConnectionCandidateProbeResult.engineInitializePath,
+            backendNpuConnectionRecommendedNextPhase = backendNpuConnectionCandidateProbeResult.recommendedNextPhase,
         )
     }
 
@@ -523,6 +570,350 @@ internal object AcceleratorProbe {
             backendClass = backendClass,
             npuClass = npuClass,
         )
+    }
+
+    private fun probeLiteRtLmNpuApiInventorySafely(
+        dispatchRuntimeCompatibility: DispatchRuntimeCompatibilityProbeResult,
+        instantiateProbeResult: BackendNpuInstantiateProbeResult,
+    ): LiteRtLmNpuApiInventoryProbeResult {
+        val skipReason = when {
+            !BuildConfig.DEBUG -> "not-debug"
+            BuildConfig.CURRENT_FLAVOR != "npuExperiment" -> "not-npuExperiment-flavor"
+            !BuildConfig.NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED -> "build-config-disabled"
+            dispatchRuntimeCompatibility.dispatchRuntimePresent != true -> "dispatch-runtime-not-present"
+            instantiateProbeResult.result != "success" -> "npu-instantiate-failed"
+            else -> null
+        }
+        if (skipReason != null) {
+            return LiteRtLmNpuApiInventoryProbeResult(enabled = false, skipReason = skipReason)
+        }
+
+        return runCatching {
+            val classInventory = linkedSetOf<String>()
+            val constructorInventory = linkedSetOf<String>()
+            val publicMethodInventory = linkedSetOf<String>()
+            val declaredMethodInventory = linkedSetOf<String>()
+            val fieldInventory = linkedSetOf<String>()
+            val staticMethodInventory = linkedSetOf<String>()
+            val assignability = linkedSetOf<String>()
+            val engineConfigConstructors = linkedSetOf<String>()
+            val engineConfigBackendProperties = linkedSetOf<String>()
+            val engineConfigCopyMethods = linkedSetOf<String>()
+            val engineConfigComponentMethods = linkedSetOf<String>()
+            val engineConfigJsonMethods = linkedSetOf<String>()
+            val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
+            val npuClass = Class.forName("com.google.ai.edge.litertlm.Backend\$NPU")
+
+            liteRtLmNpuApiInventoryClassNames().forEach { className ->
+                val clazz = runCatching { Class.forName(className) }.getOrElse { throwable ->
+                    classInventory += "$className: not found (${throwable.javaClass.simpleName})"
+                    return@forEach
+                }
+                classInventory += "$className: found"
+                val constructors = (clazz.constructors.asList() + clazz.declaredConstructors.asList())
+                    .distinctBy { constructor -> constructor.parameterTypes.joinToString("#") { it.name } }
+                constructors.forEach { constructor ->
+                    val signature = formatConstructorSignature(clazz, constructor)
+                    constructorInventory += signature
+                    if (clazz.name == "com.google.ai.edge.litertlm.EngineConfig") {
+                        engineConfigConstructors += buildEngineConfigConstructorDetail(constructor, npuClass)
+                    }
+                }
+                clazz.methods
+                    .distinctBy { method -> method.name + method.parameterTypes.joinToString("#") { it.name } }
+                    .forEach { method ->
+                        publicMethodInventory += formatMethodSignature(clazz, method)
+                        if (Modifier.isStatic(method.modifiers)) {
+                            staticMethodInventory += formatMethodSignature(clazz, method)
+                        }
+                        collectEngineConfigMethodDetail(clazz, method, engineConfigBackendProperties, engineConfigCopyMethods, engineConfigComponentMethods, engineConfigJsonMethods)
+                    }
+                clazz.declaredMethods
+                    .distinctBy { method -> method.name + method.parameterTypes.joinToString("#") { it.name } }
+                    .forEach { method ->
+                        declaredMethodInventory += formatMethodSignature(clazz, method)
+                        if (Modifier.isStatic(method.modifiers)) {
+                            staticMethodInventory += formatMethodSignature(clazz, method)
+                        }
+                        collectEngineConfigMethodDetail(clazz, method, engineConfigBackendProperties, engineConfigCopyMethods, engineConfigComponentMethods, engineConfigJsonMethods)
+                    }
+                (clazz.fields.asList() + clazz.declaredFields.asList())
+                    .distinctBy { field -> field.name }
+                    .forEach { field ->
+                        fieldInventory += "${clazz.simpleName}.${field.name}: ${field.type.simpleName}"
+                        if (clazz.name == "com.google.ai.edge.litertlm.EngineConfig" && field.name.contains("backend", ignoreCase = true)) {
+                            engineConfigBackendProperties += "${clazz.simpleName}.${field.name}: ${field.type.name}"
+                        }
+                    }
+            }
+
+            assignability += "Backend base class <- Backend.NPU object class: ${backendClass.isAssignableFrom(npuClass)}"
+            constructorInventory
+                .filter { it.startsWith("EngineConfig(") && it.contains("Backend") }
+                .forEach { assignability += "EngineConfig backend parameter candidate: $it" }
+            liteRtLmNpuApiInventoryClassNames().forEach { className ->
+                val clazz = runCatching { Class.forName(className) }.getOrNull() ?: return@forEach
+                (clazz.methods.asList() + clazz.declaredMethods.asList())
+                    .filter(::isAttachDryRunBackendSetterCandidate)
+                    .forEach { method ->
+                        val parameterType = method.parameterTypes.singleOrNull() ?: return@forEach
+                        val assignable = parameterType.isAssignableFrom(npuClass)
+                        assignability += "${formatMethodSignature(clazz, method)} parameter <- Backend.NPU: $assignable"
+                    }
+            }
+
+            LiteRtLmNpuApiInventoryProbeResult(
+                enabled = true,
+                classInventory = classInventory.take(48),
+                constructorInventory = constructorInventory.take(80),
+                publicMethodInventory = publicMethodInventory.take(80),
+                declaredMethodInventory = declaredMethodInventory.take(80),
+                fieldInventory = fieldInventory.take(80),
+                staticMethodInventory = staticMethodInventory.take(40),
+                assignability = assignability.take(80),
+                engineConfigConstructorInventory = engineConfigConstructors.take(40),
+                engineConfigBackendPropertyInventory = engineConfigBackendProperties.take(40),
+                engineConfigCopyMethodInventory = engineConfigCopyMethods.take(20),
+                engineConfigComponentMethodInventory = engineConfigComponentMethods.take(20),
+                engineConfigJsonMethodInventory = engineConfigJsonMethods.take(20),
+            )
+        }.getOrElse { throwable ->
+            LiteRtLmNpuApiInventoryProbeResult(
+                enabled = true,
+                skipReason = "error-${throwable.javaClass.simpleName}",
+                classInventory = listOf("error: ${throwable.javaClass.name}:${throwable.message.orEmpty().take(160)}"),
+            )
+        }
+    }
+
+    private fun probeEngineConfigNpuDryBuildSafely(
+        context: Context?,
+        packagedLibraries: PackagedNpuLibraryProbeResult,
+        dispatchRuntimeCompatibility: DispatchRuntimeCompatibilityProbeResult,
+        instantiateProbeResult: BackendNpuInstantiateProbeResult,
+    ): EngineConfigNpuDryBuildProbeResult {
+        val nativeLibraryDir = context?.applicationInfo?.nativeLibraryDir?.takeIf { it.isNotBlank() }
+            ?: packagedLibraries.nativeLibraryDir?.takeIf { it.isNotBlank() }
+        val warning = "config-only; not passed to Engine; no inference"
+        val skipReason = when {
+            !BuildConfig.DEBUG -> "not-debug"
+            BuildConfig.CURRENT_FLAVOR != "npuExperiment" -> "not-npuExperiment-flavor"
+            !BuildConfig.NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED -> "build-config-disabled"
+            dispatchRuntimeCompatibility.dispatchRuntimePresent != true -> "dispatch-runtime-not-present"
+            instantiateProbeResult.result != "success" -> "npu-instantiate-failed"
+            nativeLibraryDir.isNullOrBlank() -> "native-library-dir-missing"
+            else -> null
+        }
+        if (skipReason != null) {
+            return EngineConfigNpuDryBuildProbeResult(
+                enabled = false,
+                skipReason = skipReason,
+                result = "skipped",
+                warning = warning,
+            )
+        }
+        val nativeLibraryDirArgument = requireNotNull(nativeLibraryDir)
+        return runCatching {
+            val npuHandle = instantiateBackendNpuForProbe(nativeLibraryDirArgument)
+            val engineConfigClass = Class.forName("com.google.ai.edge.litertlm.EngineConfig")
+            val constructor = selectEngineConfigDryBuildConstructor(engineConfigClass, npuHandle.npuClass)
+                ?: return@runCatching EngineConfigNpuDryBuildProbeResult(
+                    enabled = true,
+                    npuBackendObjectClass = npuHandle.instance.javaClass.name,
+                    result = "skipped",
+                    skipReason = "engineconfig-backend-constructor-not-found",
+                    warning = warning,
+                )
+            val args = buildEngineConfigDryBuildArgs(
+                constructor = constructor,
+                npuObject = npuHandle.instance,
+                npuClass = npuHandle.npuClass,
+                context = context,
+            )
+            constructor.isAccessible = true
+            val config = constructor.newInstance(*args.values.toTypedArray())
+            val backendGetterClass = readEngineConfigBackendClassSafely(config)
+            EngineConfigNpuDryBuildProbeResult(
+                enabled = true,
+                selectedConstructor = formatConstructorSignature(engineConfigClass, constructor),
+                constructorArgsSummary = args.summary.joinToString(", "),
+                npuBackendObjectClass = npuHandle.instance.javaClass.name,
+                result = "success",
+                createdObjectClass = config.javaClass.name,
+                backendGetterResultClass = backendGetterClass,
+                warning = warning,
+            )
+        }.getOrElse { throwable ->
+            val unwrapped = unwrapInvocationTarget(throwable)
+            val chain = throwableCauseChain(throwable)
+            EngineConfigNpuDryBuildProbeResult(
+                enabled = true,
+                npuBackendObjectClass = instantiateProbeResult.objectClass,
+                result = "failed",
+                exceptionClass = throwable.javaClass.name,
+                exceptionMessage = throwable.message?.take(240),
+                rootCause = "${unwrapped.javaClass.name}:${unwrapped.message.orEmpty().take(240)}",
+                causeChain = chain.joinToString(" -> ") { cause ->
+                    "${cause.javaClass.simpleName}:${cause.message.orEmpty().take(120)}"
+                }.ifBlank { throwable.javaClass.simpleName },
+                warning = warning,
+            )
+        }
+    }
+
+    private fun buildBackendNpuConnectionCandidate(
+        apiInventory: LiteRtLmNpuApiInventoryProbeResult,
+        engineConfigDryBuild: EngineConfigNpuDryBuildProbeResult,
+    ): BackendNpuConnectionCandidateProbeResult {
+        val preferredBackendEnumReason = apiInventory.assignability
+            .firstOrNull { it.contains("setPreferredBackend") && it.contains("false") }
+            ?: "MediaPipe LlmInference preferredBackend setter does not accept LiteRT-LM Backend.NPU."
+        val engineConfigPath = when (engineConfigDryBuild.result) {
+            "success" -> "candidate"
+            "failed" -> "failed"
+            "skipped" -> if (engineConfigDryBuild.skipReason == "engineconfig-backend-constructor-not-found") "not found" else "skipped"
+            else -> "unknown"
+        }
+        val nextPhase = if (engineConfigDryBuild.result == "success") {
+            "next: isolated Engine.initialize dry-run only, no generate"
+        } else {
+            "next: inspect LiteRT-LM source/API version mismatch"
+        }
+        return BackendNpuConnectionCandidateProbeResult(
+            preferredBackendEnumPath = "incompatible",
+            preferredBackendEnumReason = preferredBackendEnumReason,
+            engineConfigBackendPath = engineConfigPath,
+            engineInitializePath = "not attempted",
+            recommendedNextPhase = nextPhase,
+        )
+    }
+
+    private fun liteRtLmNpuApiInventoryClassNames(): List<String> {
+        return listOf(
+            "com.google.ai.edge.litertlm.Backend",
+            "com.google.ai.edge.litertlm.Backend\$NPU",
+            "com.google.ai.edge.litertlm.Backend\$GPU",
+            "com.google.ai.edge.litertlm.Backend\$CPU",
+            "com.google.ai.edge.litertlm.EngineConfig",
+            "com.google.ai.edge.litertlm.Engine",
+            "com.google.ai.edge.litertlm.LlmInference",
+            "com.google.ai.edge.litertlm.LlmInferenceOptions",
+            "com.google.ai.edge.litertlm.LlmInferenceOptions\$Builder",
+            "com.google.mediapipe.tasks.genai.llminference.LlmInference",
+            "com.google.mediapipe.tasks.genai.llminference.LlmInference\$LlmInferenceOptions",
+            "com.google.mediapipe.tasks.genai.llminference.LlmInference\$LlmInferenceOptions\$Builder",
+        )
+    }
+
+    private fun buildEngineConfigConstructorDetail(
+        constructor: Constructor<*>,
+        npuClass: Class<*>,
+    ): String {
+        val params = constructor.parameterTypes
+        val hasDefaultConstructorMarker = params.any { it.name == "kotlin.jvm.internal.DefaultConstructorMarker" }
+        val hasModelPathString = params.any { it == String::class.java }
+        val backendParamIndexes = params.mapIndexedNotNull { index, type ->
+            index.takeIf { type.isAssignableFrom(npuClass) || type.simpleName.contains("Backend", ignoreCase = true) }
+        }
+        return formatConstructorSignature(constructor.declaringClass, constructor) +
+            " count=${params.size}" +
+            " defaultMarker=$hasDefaultConstructorMarker" +
+            " modelPathString=$hasModelPathString" +
+            " backendParamIndexes=${backendParamIndexes.joinToString("|").ifBlank { "none" }}"
+    }
+
+    private fun collectEngineConfigMethodDetail(
+        clazz: Class<*>,
+        method: Method,
+        backendProperties: MutableSet<String>,
+        copyMethods: MutableSet<String>,
+        componentMethods: MutableSet<String>,
+        jsonMethods: MutableSet<String>,
+    ) {
+        if (clazz.name != "com.google.ai.edge.litertlm.EngineConfig") return
+        val signature = formatMethodSignature(clazz, method)
+        if (method.name.contains("backend", ignoreCase = true)) {
+            backendProperties += signature
+        }
+        if (method.name == "copy" || method.name.startsWith("copy\$")) {
+            copyMethods += signature
+        }
+        if (method.name.startsWith("component")) {
+            componentMethods += signature
+        }
+        if (method.name.contains("json", ignoreCase = true)) {
+            jsonMethods += signature
+        }
+    }
+
+    private fun selectEngineConfigDryBuildConstructor(
+        engineConfigClass: Class<*>,
+        npuClass: Class<*>,
+    ): Constructor<*>? {
+        return (engineConfigClass.declaredConstructors.asList() + engineConfigClass.constructors.asList())
+            .distinctBy { constructor -> constructor.parameterTypes.joinToString("#") { it.name } }
+            .filterNot { constructor -> constructor.parameterTypes.any { it.name == "kotlin.jvm.internal.DefaultConstructorMarker" } }
+            .filter { constructor -> constructor.parameterTypes.any { it.isAssignableFrom(npuClass) } }
+            .filter { constructor -> constructor.parameterTypes.any { it == String::class.java } }
+            .minWithOrNull(compareBy<Constructor<*>> { it.parameterTypes.size }.thenBy { formatConstructorSignature(engineConfigClass, it) })
+    }
+
+    private fun buildEngineConfigDryBuildArgs(
+        constructor: Constructor<*>,
+        npuObject: Any,
+        npuClass: Class<*>,
+        context: Context?,
+    ): EngineConfigDryBuildArgs {
+        var backendAssigned = false
+        val values = constructor.parameterTypes.mapIndexed { index, type ->
+            when {
+                !backendAssigned && type.isAssignableFrom(npuClass) -> {
+                    backendAssigned = true
+                    npuObject
+                }
+                type == String::class.java -> "/dev/null/nonexistent.litertlm"
+                type == java.lang.Boolean.TYPE -> false
+                type == java.lang.Integer.TYPE -> 0
+                type == java.lang.Long.TYPE -> 0L
+                type == java.lang.Float.TYPE -> 0f
+                type == java.lang.Double.TYPE -> 0.0
+                type == File::class.java -> context?.cacheDir ?: File("/tmp")
+                List::class.java.isAssignableFrom(type) -> emptyList<Any>()
+                Map::class.java.isAssignableFrom(type) -> emptyMap<Any, Any>()
+                type.isEnum -> type.enumConstants?.firstOrNull()
+                else -> null
+            }
+        }
+        val summary = constructor.parameterTypes.mapIndexed { index, type ->
+            val value = values[index]
+            val valueSummary = when (value) {
+                null -> "null"
+                npuObject -> "Backend.NPU"
+                is String -> "dummy-model-path"
+                else -> value.javaClass.simpleName
+            }
+            "arg$index:${type.simpleName}=$valueSummary"
+        }
+        return EngineConfigDryBuildArgs(values = values, summary = summary)
+    }
+
+    private fun readEngineConfigBackendClassSafely(config: Any): String? {
+        val clazz = config.javaClass
+        val getterResult = runCatching {
+            val getter = (clazz.methods.asList() + clazz.declaredMethods.asList())
+                .firstOrNull { method -> method.parameterTypes.isEmpty() && method.name == "getBackend" }
+                ?: return@runCatching null
+            getter.isAccessible = true
+            getter.invoke(config)?.javaClass?.name
+        }.getOrNull()
+        if (!getterResult.isNullOrBlank()) return getterResult
+        return runCatching {
+            val field = (clazz.fields.asList() + clazz.declaredFields.asList())
+                .firstOrNull { field -> field.name == "backend" }
+                ?: return@runCatching null
+            field.isAccessible = true
+            field.get(config)?.javaClass?.name
+        }.getOrNull()
     }
 
     private fun backendNpuAttachDryRunTargetClassNames(
@@ -1477,6 +1868,13 @@ internal object AcceleratorProbe {
         return "${clazz.simpleName}.${method.name}($params): $returnType"
     }
 
+    private fun formatConstructorSignature(clazz: Class<*>, constructor: Constructor<*>): String {
+        val params = constructor.parameterTypes.joinToString(", ") { type ->
+            type.simpleName.ifBlank { type.name.substringAfterLast('.') }
+        }
+        return "${clazz.simpleName}($params)"
+    }
+
     private fun inferDelegateHint(
         optionCandidates: List<String>,
         backendCandidates: List<String>,
@@ -1663,6 +2061,53 @@ internal object AcceleratorProbe {
         val rootCause: String? = null,
         val causeChain: String? = null,
         val warning: String = "attach-dry-run only; no Engine; no Conversation; no inference",
+        val note: String = "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU.",
+    )
+
+    private data class LiteRtLmNpuApiInventoryProbeResult(
+        val enabled: Boolean = false,
+        val skipReason: String? = null,
+        val classInventory: List<String> = emptyList(),
+        val constructorInventory: List<String> = emptyList(),
+        val publicMethodInventory: List<String> = emptyList(),
+        val declaredMethodInventory: List<String> = emptyList(),
+        val fieldInventory: List<String> = emptyList(),
+        val staticMethodInventory: List<String> = emptyList(),
+        val assignability: List<String> = emptyList(),
+        val engineConfigConstructorInventory: List<String> = emptyList(),
+        val engineConfigBackendPropertyInventory: List<String> = emptyList(),
+        val engineConfigCopyMethodInventory: List<String> = emptyList(),
+        val engineConfigComponentMethodInventory: List<String> = emptyList(),
+        val engineConfigJsonMethodInventory: List<String> = emptyList(),
+    )
+
+    private data class EngineConfigNpuDryBuildProbeResult(
+        val enabled: Boolean = false,
+        val skipReason: String? = null,
+        val selectedConstructor: String? = null,
+        val constructorArgsSummary: String? = null,
+        val npuBackendObjectClass: String? = null,
+        val result: String = "skipped",
+        val createdObjectClass: String? = null,
+        val backendGetterResultClass: String? = null,
+        val exceptionClass: String? = null,
+        val exceptionMessage: String? = null,
+        val rootCause: String? = null,
+        val causeChain: String? = null,
+        val warning: String = "config-only; not passed to Engine; no inference",
+    )
+
+    private data class BackendNpuConnectionCandidateProbeResult(
+        val preferredBackendEnumPath: String,
+        val preferredBackendEnumReason: String,
+        val engineConfigBackendPath: String,
+        val engineInitializePath: String,
+        val recommendedNextPhase: String,
+    )
+
+    private data class EngineConfigDryBuildArgs(
+        val values: List<Any?>,
+        val summary: List<String>,
     )
 
     private data class BackendNpuProbeObject(

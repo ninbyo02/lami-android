@@ -217,6 +217,61 @@ flavor will show `current flavor: standard` and the NPU probes skipped; the
 `npuExperimentDebug` probe activity/file is the place to inspect dispatch-present,
 instantiate-success, and attach dry-run results.
 
+## Backend.NPU API inventory phase
+
+The attach dry-run showed that MediaPipe `LlmInferenceOptions.Builder.setPreferredBackend(...)`
+is not the correct path for LiteRT-LM `Backend.NPU`. That setter appears to belong to
+the MediaPipe preferred backend enum path (`DEFAULT`, `CPU`, `GPU`) and is not
+assignable from the LiteRT-LM sealed `Backend.NPU` object.
+
+The next diagnostic phase inventories the LiteRT-LM API surface directly:
+
+- `com.google.ai.edge.litertlm.Backend`
+- `Backend.NPU`, `Backend.GPU`, `Backend.CPU`
+- `com.google.ai.edge.litertlm.EngineConfig`
+- `com.google.ai.edge.litertlm.Engine`
+- LiteRT-LM and MediaPipe `LlmInferenceOptions` classes
+
+The diagnostic records class presence, constructors, methods, fields, static methods,
+and assignability checks, including:
+
+- `Backend` base class `<- Backend.NPU`
+- `EngineConfig` backend constructor parameter `<- Backend.NPU`
+- setter parameter type `<- Backend.NPU`
+
+`EngineConfig` is the current likely connection point because official LiteRT-LM
+Kotlin API shapes use:
+
+```text
+EngineConfig(modelPath: String, backend: Backend, ...)
+```
+
+This phase also performs a config-only dry-build, still only in `npuExperimentDebug`,
+by constructing an `EngineConfig` with:
+
+```text
+modelPath = /dev/null/nonexistent.litertlm
+backend = Backend.NPU(nativeLibraryDir)
+```
+
+The created `EngineConfig` object is discarded. It is not passed to `Engine`, and no
+model load or inference is performed.
+
+Still prohibited in this phase:
+
+- `Engine` construction
+- `Engine.initialize`
+- `Conversation` construction
+- `Session` construction
+- `LlmInference.createFromOptions`
+- `LlmInference.createFromFile`
+- `generateResponse`
+- Qualcomm model NPU execution
+
+If `EngineConfig` NPU config-only dry-build succeeds with no native crash while
+`selectedPath=gpu` and QNN/NPU attempt remains `no`, the next possible phase is an
+isolated `Engine.initialize` dry-run. That phase has not been performed.
+
 Use the install helper for device-side detection:
 
 ```bash
@@ -237,7 +292,8 @@ The helper installs only `npuExperimentDebug`, verifies the APK contains the dis
    - `selectedPath` remains `gpu`
 5. Require explicit opt-in before any runtime load experiment.
 6. Run attach dry-run only in `npuExperimentDebug`; require setter success, no native crash, `selectedPath=gpu`, and QNN/NPU attempt `no`.
-7. Only after ABI compatibility and dry-run evidence, consider a guarded `Backend.NPU` inference experiment with GPU fallback intact.
+7. Inventory LiteRT-LM API and verify `EngineConfig` config-only dry-build without Engine initialization.
+8. Only after ABI compatibility and dry-run evidence, consider a guarded `Backend.NPU` inference experiment with GPU fallback intact.
 
 ## Current recommendation
 

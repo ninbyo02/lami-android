@@ -573,6 +573,30 @@ internal fun buildInferenceDetailSections(
                 )
             },
         acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: LiteRT-LM NPU API Inventory",
+                    items = buildLiteRtLmNpuApiInventoryItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: EngineConfig NPU Dry-Build Probe",
+                    items = buildEngineConfigNpuDryBuildProbeItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Backend.NPU Connection Candidate",
+                    items = buildBackendNpuConnectionCandidateItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
             ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && hasQnnDelegateProbeDiagnostics(it) }
             ?.let { probe ->
                 InferenceStatsSectionUi(
@@ -1547,6 +1571,60 @@ private fun buildBackendNpuAttachDryRunProbeItems(
         InferenceStatItemUi(label = "root cause", value = probe.backendNpuAttachDryRunRootCause?.ifBlank { "—" } ?: "—"),
         InferenceStatItemUi(label = "cause chain", value = probe.backendNpuAttachDryRunCauseChain?.ifBlank { "—" } ?: "—"),
         InferenceStatItemUi(label = "warning", value = probe.backendNpuAttachDryRunWarning?.ifBlank { "attach-dry-run only; no Engine; no Conversation; no inference" } ?: "attach-dry-run only; no Engine; no Conversation; no inference"),
+        InferenceStatItemUi(label = "note", value = probe.backendNpuAttachDryRunNote?.ifBlank { "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU." } ?: "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU."),
+    )
+}
+
+private fun buildLiteRtLmNpuApiInventoryItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "enabled", value = probe.liteRtLmNpuApiInventoryEnabled?.toString() ?: "false"),
+        InferenceStatItemUi(label = "skipped reason", value = probe.liteRtLmNpuApiInventorySkipReason?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "class found / not found", value = probe.liteRtLmNpuApiClassInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "constructors", value = probe.liteRtLmNpuApiConstructorInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "public methods", value = probe.liteRtLmNpuApiPublicMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "declared methods", value = probe.liteRtLmNpuApiDeclaredMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "fields", value = probe.liteRtLmNpuApiFieldInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "companion/static methods", value = probe.liteRtLmNpuApiStaticMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "assignability", value = probe.liteRtLmNpuApiAssignability.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "EngineConfig constructors", value = probe.engineConfigConstructorInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "EngineConfig backend property/getter", value = probe.engineConfigBackendPropertyInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "EngineConfig copy methods", value = probe.engineConfigCopyMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "EngineConfig componentN methods", value = probe.engineConfigComponentMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "EngineConfig json methods", value = probe.engineConfigJsonMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+    )
+}
+
+private fun buildEngineConfigNpuDryBuildProbeItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "enabled", value = probe.engineConfigNpuDryBuildEnabled?.toString() ?: "false"),
+        InferenceStatItemUi(label = "skipped reason", value = probe.engineConfigNpuDryBuildSkipReason?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "selected constructor", value = probe.engineConfigNpuDryBuildSelectedConstructor?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "constructor args summary", value = probe.engineConfigNpuDryBuildConstructorArgsSummary?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "npu backend object class", value = probe.engineConfigNpuDryBuildNpuBackendObjectClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "result", value = probe.engineConfigNpuDryBuildResult?.ifBlank { "skipped" } ?: "skipped"),
+        InferenceStatItemUi(label = "created object class", value = probe.engineConfigNpuDryBuildCreatedObjectClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "backend getter result class", value = probe.engineConfigNpuDryBuildBackendGetterResultClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "exception class", value = probe.engineConfigNpuDryBuildExceptionClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "exception message", value = probe.engineConfigNpuDryBuildExceptionMessage?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "root cause", value = probe.engineConfigNpuDryBuildRootCause?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "cause chain", value = probe.engineConfigNpuDryBuildCauseChain?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "warning", value = probe.engineConfigNpuDryBuildWarning?.ifBlank { "config-only; not passed to Engine; no inference" } ?: "config-only; not passed to Engine; no inference"),
+    )
+}
+
+private fun buildBackendNpuConnectionCandidateItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "preferredBackend enum path", value = probe.backendNpuConnectionPreferredBackendEnumPath?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "reason", value = probe.backendNpuConnectionPreferredBackendEnumReason?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "EngineConfig backend path", value = probe.backendNpuConnectionEngineConfigBackendPath?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "Engine initialize path", value = probe.backendNpuConnectionEngineInitializePath?.ifBlank { "not attempted" } ?: "not attempted"),
+        InferenceStatItemUi(label = "recommended next phase", value = probe.backendNpuConnectionRecommendedNextPhase?.ifBlank { "unknown" } ?: "unknown"),
     )
 }
 

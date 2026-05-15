@@ -60,7 +60,41 @@ internal object NpuExperimentProbeLogger {
                 "exception message=${snapshot.backendNpuAttachDryRunExceptionMessage ?: "-"}; " +
                 "root cause=${snapshot.backendNpuAttachDryRunRootCause ?: "-"}; " +
                 "cause chain=${snapshot.backendNpuAttachDryRunCauseChain ?: "-"}; " +
-                "warning=${snapshot.backendNpuAttachDryRunWarning ?: "attach-dry-run only; no Engine; no Conversation; no inference"}"
+                "warning=${snapshot.backendNpuAttachDryRunWarning ?: "attach-dry-run only; no Engine; no Conversation; no inference"}; " +
+                "note=${snapshot.backendNpuAttachDryRunNote ?: "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU."}"
+        val apiInventoryLine =
+            "LiteRT-LM NPU API Inventory: " +
+                "enabled=${snapshot.liteRtLmNpuApiInventoryEnabled ?: "unknown"}; " +
+                "skipped reason=${snapshot.liteRtLmNpuApiInventorySkipReason ?: "none"}; " +
+                "classes=${snapshot.liteRtLmNpuApiClassInventory.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "none/unknown"}; " +
+                "EngineConfig constructors=${snapshot.engineConfigConstructorInventory.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "none/unknown"}; " +
+                "assignability=${snapshot.liteRtLmNpuApiAssignability.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "none/unknown"}; " +
+                "backend property=${snapshot.engineConfigBackendPropertyInventory.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "none/unknown"}; " +
+                "copy=${snapshot.engineConfigCopyMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "none/unknown"}; " +
+                "componentN=${snapshot.engineConfigComponentMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "none/unknown"}; " +
+                "json=${snapshot.engineConfigJsonMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "none/unknown"}"
+        val engineConfigDryBuildLine =
+            "EngineConfig NPU Dry-Build Probe: " +
+                "enabled=${snapshot.engineConfigNpuDryBuildEnabled ?: "unknown"}; " +
+                "skipped reason=${snapshot.engineConfigNpuDryBuildSkipReason ?: "none"}; " +
+                "selected constructor=${snapshot.engineConfigNpuDryBuildSelectedConstructor ?: "-"}; " +
+                "constructor args summary=${snapshot.engineConfigNpuDryBuildConstructorArgsSummary ?: "-"}; " +
+                "npu backend object class=${snapshot.engineConfigNpuDryBuildNpuBackendObjectClass ?: "-"}; " +
+                "result=${snapshot.engineConfigNpuDryBuildResult ?: "unknown"}; " +
+                "created object class=${snapshot.engineConfigNpuDryBuildCreatedObjectClass ?: "-"}; " +
+                "backend getter result class=${snapshot.engineConfigNpuDryBuildBackendGetterResultClass ?: "-"}; " +
+                "exception class=${snapshot.engineConfigNpuDryBuildExceptionClass ?: "-"}; " +
+                "exception message=${snapshot.engineConfigNpuDryBuildExceptionMessage ?: "-"}; " +
+                "root cause=${snapshot.engineConfigNpuDryBuildRootCause ?: "-"}; " +
+                "cause chain=${snapshot.engineConfigNpuDryBuildCauseChain ?: "-"}; " +
+                "warning=${snapshot.engineConfigNpuDryBuildWarning ?: "config-only; not passed to Engine; no inference"}"
+        val connectionCandidateLine =
+            "Backend.NPU Connection Candidate: " +
+                "preferredBackend enum path=${snapshot.backendNpuConnectionPreferredBackendEnumPath ?: "unknown"}; " +
+                "reason=${snapshot.backendNpuConnectionPreferredBackendEnumReason ?: "unknown"}; " +
+                "EngineConfig backend path=${snapshot.backendNpuConnectionEngineConfigBackendPath ?: "unknown"}; " +
+                "Engine initialize path=${snapshot.backendNpuConnectionEngineInitializePath ?: "not attempted"}; " +
+                "recommended next phase=${snapshot.backendNpuConnectionRecommendedNextPhase ?: "unknown"}"
         val safetyLine =
             "NPU safety status: " +
                 "selectedPath=${snapshot.qnnNpuSelectedPath ?: "unknown"}; " +
@@ -68,12 +102,12 @@ internal object NpuExperimentProbeLogger {
                 "fallbackPath=${snapshot.qnnNpuFallbackPath ?: "-"}; " +
                 "NPU apply status=disabled / probe-only"
 
-        listOf(dispatchLine, instantiateLine, attachDryRunLine, safetyLine).forEach { line ->
+        listOf(dispatchLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, safetyLine).forEach { line ->
             Log.i(LOG_TAG, line)
         }
         runCatching {
             context.filesDir.resolve("npu_experiment_probe.txt").writeText(
-                listOf(dispatchLine, instantiateLine, attachDryRunLine, safetyLine).joinToString(separator = "\n", postfix = "\n"),
+                listOf(dispatchLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, safetyLine).joinToString(separator = "\n", postfix = "\n"),
             )
         }.onFailure { throwable ->
             Log.e(LOG_TAG, "Failed to write probe result: ${throwable.javaClass.simpleName}: ${throwable.message}")

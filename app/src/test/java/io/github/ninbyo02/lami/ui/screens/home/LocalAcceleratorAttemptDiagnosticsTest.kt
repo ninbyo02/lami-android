@@ -256,6 +256,7 @@ class LocalAcceleratorAttemptDiagnosticsTest {
                 backendNpuAttachDryRunBuildInvoked = "no",
                 backendNpuAttachDryRunBuildResult = "skipped-build-not-invoked-safety",
                 backendNpuAttachDryRunWarning = "attach-dry-run only; no Engine; no Conversation; no inference",
+                backendNpuAttachDryRunNote = "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU.",
             ),
         )
 
@@ -265,6 +266,7 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         assertEquals("success", attachDryRunSection.items.first { it.label == "setter invoke result" }.value)
         assertEquals("no", attachDryRunSection.items.first { it.label == "build invoked" }.value)
         assertTrue(attachDryRunSection.items.first { it.label == "warning" }.value.contains("no Engine"))
+        assertTrue(attachDryRunSection.items.first { it.label == "note" }.value.contains("MediaPipe LlmInference.Backend enum path"))
 
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals("no", devSection.items.first { it.label == "QNN/NPU試行" }.value)
@@ -293,6 +295,89 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         assertEquals("method-not-found", attachDryRunSection.items.first { it.label == "setter invoke result" }.value)
         assertEquals("NoSuchMethodException:setBackend", attachDryRunSection.items.first { it.label == "cause chain" }.value)
         assertEquals("no", attachDryRunSection.items.first { it.label == "build invoked" }.value)
+    }
+
+    @Test
+    fun `developer diagnostics show litert lm api inventory and engineconfig candidate`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = acceleratorSnapshot(
+                qnnNpuAttempted = false,
+                qnnNpuSelectedPath = "gpu",
+                liteRtLmNpuApiInventoryEnabled = true,
+                liteRtLmNpuApiClassInventory = listOf("com.google.ai.edge.litertlm.EngineConfig: found"),
+                liteRtLmNpuApiAssignability = listOf("Backend base class <- Backend.NPU object class: true"),
+                engineConfigConstructorInventory = listOf("EngineConfig(String, Backend) count=2 defaultMarker=false modelPathString=true backendParamIndexes=1"),
+                engineConfigBackendPropertyInventory = listOf("EngineConfig.getBackend(): Backend"),
+                engineConfigCopyMethodInventory = listOf("EngineConfig.copy(String, Backend): EngineConfig"),
+                engineConfigComponentMethodInventory = listOf("EngineConfig.component1(): String"),
+            ),
+        )
+
+        val inventorySection = sections.first { it.title == "DEV診断: LiteRT-LM NPU API Inventory" }
+        assertEquals("true", inventorySection.items.first { it.label == "enabled" }.value)
+        assertTrue(inventorySection.items.first { it.label == "assignability" }.value.contains("Backend base class"))
+        assertTrue(inventorySection.items.first { it.label == "EngineConfig constructors" }.value.contains("backendParamIndexes=1"))
+    }
+
+    @Test
+    fun `developer diagnostics show engineconfig dry build and connection candidate`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = acceleratorSnapshot(
+                qnnNpuAttempted = false,
+                qnnNpuSelectedPath = "gpu",
+                engineConfigNpuDryBuildEnabled = true,
+                engineConfigNpuDryBuildSelectedConstructor = "EngineConfig(String, Backend)",
+                engineConfigNpuDryBuildConstructorArgsSummary = "arg0:String=dummy-model-path, arg1:Backend=Backend.NPU",
+                engineConfigNpuDryBuildNpuBackendObjectClass = "com.google.ai.edge.litertlm.Backend\$NPU",
+                engineConfigNpuDryBuildResult = "success",
+                engineConfigNpuDryBuildCreatedObjectClass = "com.google.ai.edge.litertlm.EngineConfig",
+                engineConfigNpuDryBuildBackendGetterResultClass = "com.google.ai.edge.litertlm.Backend\$NPU",
+                engineConfigNpuDryBuildWarning = "config-only; not passed to Engine; no inference",
+                backendNpuConnectionPreferredBackendEnumPath = "incompatible",
+                backendNpuConnectionPreferredBackendEnumReason = "MediaPipe LlmInference preferredBackend setter does not accept LiteRT-LM Backend.NPU.",
+                backendNpuConnectionEngineConfigBackendPath = "candidate",
+                backendNpuConnectionEngineInitializePath = "not attempted",
+                backendNpuConnectionRecommendedNextPhase = "next: isolated Engine.initialize dry-run only, no generate",
+            ),
+        )
+
+        val dryBuildSection = sections.first { it.title == "DEV診断: EngineConfig NPU Dry-Build Probe" }
+        assertEquals("success", dryBuildSection.items.first { it.label == "result" }.value)
+        assertTrue(dryBuildSection.items.first { it.label == "warning" }.value.contains("not passed to Engine"))
+
+        val candidateSection = sections.first { it.title == "DEV診断: Backend.NPU Connection Candidate" }
+        assertEquals("incompatible", candidateSection.items.first { it.label == "preferredBackend enum path" }.value)
+        assertEquals("candidate", candidateSection.items.first { it.label == "EngineConfig backend path" }.value)
+        assertEquals("not attempted", candidateSection.items.first { it.label == "Engine initialize path" }.value)
+    }
+
+    @Test
+    fun `developer diagnostics show inventory skipped for standard flavor`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = acceleratorSnapshot(
+                qnnNpuAttempted = false,
+                qnnNpuSelectedPath = "gpu",
+                liteRtLmNpuApiInventoryEnabled = false,
+                liteRtLmNpuApiInventorySkipReason = "not-npuExperiment-flavor",
+                engineConfigNpuDryBuildEnabled = false,
+                engineConfigNpuDryBuildSkipReason = "not-npuExperiment-flavor",
+                engineConfigNpuDryBuildResult = "skipped",
+            ),
+        )
+
+        val inventorySection = sections.first { it.title == "DEV診断: LiteRT-LM NPU API Inventory" }
+        assertEquals("false", inventorySection.items.first { it.label == "enabled" }.value)
+        assertEquals("not-npuExperiment-flavor", inventorySection.items.first { it.label == "skipped reason" }.value)
+
+        val dryBuildSection = sections.first { it.title == "DEV診断: EngineConfig NPU Dry-Build Probe" }
+        assertEquals("false", dryBuildSection.items.first { it.label == "enabled" }.value)
+        assertEquals("skipped", dryBuildSection.items.first { it.label == "result" }.value)
     }
 
     @Test
@@ -427,6 +512,29 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         backendNpuAttachDryRunBuildResult: String? = null,
         backendNpuAttachDryRunCauseChain: String? = null,
         backendNpuAttachDryRunWarning: String? = null,
+        backendNpuAttachDryRunNote: String? = null,
+        liteRtLmNpuApiInventoryEnabled: Boolean? = null,
+        liteRtLmNpuApiInventorySkipReason: String? = null,
+        liteRtLmNpuApiClassInventory: List<String> = emptyList(),
+        liteRtLmNpuApiAssignability: List<String> = emptyList(),
+        engineConfigConstructorInventory: List<String> = emptyList(),
+        engineConfigBackendPropertyInventory: List<String> = emptyList(),
+        engineConfigCopyMethodInventory: List<String> = emptyList(),
+        engineConfigComponentMethodInventory: List<String> = emptyList(),
+        engineConfigNpuDryBuildEnabled: Boolean? = null,
+        engineConfigNpuDryBuildSkipReason: String? = null,
+        engineConfigNpuDryBuildSelectedConstructor: String? = null,
+        engineConfigNpuDryBuildConstructorArgsSummary: String? = null,
+        engineConfigNpuDryBuildNpuBackendObjectClass: String? = null,
+        engineConfigNpuDryBuildResult: String? = null,
+        engineConfigNpuDryBuildCreatedObjectClass: String? = null,
+        engineConfigNpuDryBuildBackendGetterResultClass: String? = null,
+        engineConfigNpuDryBuildWarning: String? = null,
+        backendNpuConnectionPreferredBackendEnumPath: String? = null,
+        backendNpuConnectionPreferredBackendEnumReason: String? = null,
+        backendNpuConnectionEngineConfigBackendPath: String? = null,
+        backendNpuConnectionEngineInitializePath: String? = null,
+        backendNpuConnectionRecommendedNextPhase: String? = null,
     ): AcceleratorProbeSnapshot {
         return AcceleratorProbeSnapshot(
             deviceManufacturer = "nubia",
@@ -497,6 +605,29 @@ class LocalAcceleratorAttemptDiagnosticsTest {
             backendNpuAttachDryRunBuildResult = backendNpuAttachDryRunBuildResult,
             backendNpuAttachDryRunCauseChain = backendNpuAttachDryRunCauseChain,
             backendNpuAttachDryRunWarning = backendNpuAttachDryRunWarning,
+            backendNpuAttachDryRunNote = backendNpuAttachDryRunNote,
+            liteRtLmNpuApiInventoryEnabled = liteRtLmNpuApiInventoryEnabled,
+            liteRtLmNpuApiInventorySkipReason = liteRtLmNpuApiInventorySkipReason,
+            liteRtLmNpuApiClassInventory = liteRtLmNpuApiClassInventory,
+            liteRtLmNpuApiAssignability = liteRtLmNpuApiAssignability,
+            engineConfigConstructorInventory = engineConfigConstructorInventory,
+            engineConfigBackendPropertyInventory = engineConfigBackendPropertyInventory,
+            engineConfigCopyMethodInventory = engineConfigCopyMethodInventory,
+            engineConfigComponentMethodInventory = engineConfigComponentMethodInventory,
+            engineConfigNpuDryBuildEnabled = engineConfigNpuDryBuildEnabled,
+            engineConfigNpuDryBuildSkipReason = engineConfigNpuDryBuildSkipReason,
+            engineConfigNpuDryBuildSelectedConstructor = engineConfigNpuDryBuildSelectedConstructor,
+            engineConfigNpuDryBuildConstructorArgsSummary = engineConfigNpuDryBuildConstructorArgsSummary,
+            engineConfigNpuDryBuildNpuBackendObjectClass = engineConfigNpuDryBuildNpuBackendObjectClass,
+            engineConfigNpuDryBuildResult = engineConfigNpuDryBuildResult,
+            engineConfigNpuDryBuildCreatedObjectClass = engineConfigNpuDryBuildCreatedObjectClass,
+            engineConfigNpuDryBuildBackendGetterResultClass = engineConfigNpuDryBuildBackendGetterResultClass,
+            engineConfigNpuDryBuildWarning = engineConfigNpuDryBuildWarning,
+            backendNpuConnectionPreferredBackendEnumPath = backendNpuConnectionPreferredBackendEnumPath,
+            backendNpuConnectionPreferredBackendEnumReason = backendNpuConnectionPreferredBackendEnumReason,
+            backendNpuConnectionEngineConfigBackendPath = backendNpuConnectionEngineConfigBackendPath,
+            backendNpuConnectionEngineInitializePath = backendNpuConnectionEngineInitializePath,
+            backendNpuConnectionRecommendedNextPhase = backendNpuConnectionRecommendedNextPhase,
         )
     }
 }
