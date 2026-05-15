@@ -11,6 +11,8 @@ class NpuExperimentProbeActivity : Activity() {
             context = applicationContext,
             runEngineInitializeDryRun = intent?.getBooleanExtra("run_engine_initialize_dry_run", false) == true,
             engineInitializeDryRunModelPath = intent?.getStringExtra("model_path"),
+            engineInitializeDryRunRunId = intent?.getStringExtra("run_id"),
+            engineInitializeDiagnosticFilesClearedBeforeRun = intent?.getBooleanExtra("diagnostic_files_cleared_before_run", false) == true,
         )
         finish()
     }
@@ -21,12 +23,16 @@ internal object NpuExperimentProbeLogger {
         context: android.content.Context,
         runEngineInitializeDryRun: Boolean = false,
         engineInitializeDryRunModelPath: String? = null,
+        engineInitializeDryRunRunId: String? = null,
+        engineInitializeDiagnosticFilesClearedBeforeRun: Boolean = false,
     ) {
         val snapshot = AcceleratorProbe.captureSnapshot(
             context = context.applicationContext,
             forceRefresh = true,
             engineInitializeDryRunOptIn = runEngineInitializeDryRun,
             engineInitializeDryRunModelPath = engineInitializeDryRunModelPath,
+            engineInitializeDryRunRunId = engineInitializeDryRunRunId,
+            engineInitializeDiagnosticFilesClearedBeforeRun = engineInitializeDiagnosticFilesClearedBeforeRun,
         )
         val dispatchLine =
             "Dispatch Runtime Compatibility: " +
@@ -118,16 +124,27 @@ internal object NpuExperimentProbeLogger {
         val engineInitializeDryRunLine =
             "Engine Initialize Dry-Run Probe: " +
                 "enabled=${snapshot.engineInitializeDryRunEnabled ?: "unknown"}; " +
+                "runId=${snapshot.engineInitializeDryRunRunId ?: "-"}; " +
                 "skipped reason=${snapshot.engineInitializeDryRunSkipReason ?: "none"}; " +
                 "explicit opt-in=${snapshot.engineInitializeDryRunExplicitOptIn ?: false}; " +
                 "model path=${snapshot.engineInitializeDryRunModelPath ?: "-"}; " +
                 "model kind=${snapshot.engineInitializeDryRunModelKind ?: "unknown"}; " +
+                "model file exists=${snapshot.engineInitializeDryRunModelFileExists ?: "unknown"}; " +
+                "model file length=${snapshot.engineInitializeDryRunModelFileLength ?: "unknown"}; " +
+                "model file canRead=${snapshot.engineInitializeDryRunModelFileCanRead ?: "unknown"}; " +
+                "model parent exists=${snapshot.engineInitializeDryRunModelFileParentExists ?: "unknown"}; " +
+                "model parent list count=${snapshot.engineInitializeDryRunModelFileParentListCount ?: "unknown"}; " +
+                "model parent list sample=${snapshot.engineInitializeDryRunModelFileParentListSample.takeIf { it.isNotEmpty() }?.joinToString(",") ?: "-"}; " +
                 "nativeLibraryDir=${snapshot.engineInitializeDryRunNativeLibraryDir ?: "unknown"}; " +
                 "Backend.NPU object class=${snapshot.engineInitializeDryRunBackendNpuObjectClass ?: "-"}; " +
                 "EngineConfig object class=${snapshot.engineInitializeDryRunEngineConfigObjectClass ?: "-"}; " +
                 "selected Engine constructor/factory=${snapshot.engineInitializeDryRunSelectedEngineConstructorOrFactory ?: "-"}; " +
                 "selected initialize method=${snapshot.engineInitializeDryRunSelectedInitializeMethod ?: "-"}; " +
+                "last stage=${snapshot.engineInitializeDryRunLastStage ?: "-"}; " +
+                "constructor invoked=${snapshot.engineInitializeDryRunConstructorInvoked ?: "no"}; " +
+                "constructor returned=${snapshot.engineInitializeDryRunConstructorReturned ?: "no"}; " +
                 "initialize invoked=${snapshot.engineInitializeDryRunInitializeInvoked ?: "no"}; " +
+                "initialize returned=${snapshot.engineInitializeDryRunInitializeReturned ?: "no"}; " +
                 "initialize result=${snapshot.engineInitializeDryRunInitializeResult ?: "skipped"}; " +
                 "elapsed ms=${snapshot.engineInitializeDryRunElapsedMs ?: "-"}; " +
                 "exception class=${snapshot.engineInitializeDryRunExceptionClass ?: "-"}; " +
@@ -141,6 +158,10 @@ internal object NpuExperimentProbeLogger {
                 "version mismatch detected=${snapshot.engineInitializeDryRunVersionMismatchDetected ?: false}; " +
                 "symbol mismatch detected=${snapshot.engineInitializeDryRunSymbolMismatchDetected ?: false}; " +
                 "SIGABRT suspected=${snapshot.engineInitializeDryRunSigabrtSuspected ?: false}; " +
+                "crash suspected=${snapshot.engineInitializeDryRunCrashSuspected ?: false}; " +
+                "process alive after probe=${snapshot.engineInitializeDryRunProcessAliveAfterProbe ?: "unknown-script-checks-pidof"}; " +
+                "stale snapshot suspected=${snapshot.engineInitializeDryRunStaleSnapshotSuspected ?: false}; " +
+                "diagnostic files cleared before run=${snapshot.engineInitializeDryRunDiagnosticFilesClearedBeforeRun ?: false}; " +
                 "close invoked=${snapshot.engineInitializeDryRunCloseInvoked ?: "no"}; " +
                 "close result=${snapshot.engineInitializeDryRunCloseResult ?: "skipped"}; " +
                 "diagnostic file=${snapshot.engineInitializeDryRunDiagnosticFilePath ?: "unknown"}; " +

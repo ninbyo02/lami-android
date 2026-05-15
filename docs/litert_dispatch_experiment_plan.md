@@ -306,23 +306,58 @@ The dry-run writes stage progress before dangerous calls to:
 
 ```text
 files/npu_engine_initialize_dry_run.txt
+files/npu_engine_initialize_last_stage.txt
+files/npu_engine_initialize_crash_marker.txt
 ```
 
 Stages include:
 
 - `started`
+- `modelPath received`
+- `model file exists check start`
+- `model file exists true/false`
+- `model file length`
+- `dispatch present check`
 - `Backend.NPU creating`
 - `Backend.NPU created`
 - `EngineConfig creating`
 - `EngineConfig created`
-- `Engine initialize invoking`
-- `Engine initialize returned`
-- `close invoking`
-- `close returned`
+- `Engine constructor invoking`
+- `Engine constructor returned`
+- `Engine.initialize invoking`
+- `Engine.initialize returned`
+- `Engine.close invoking`
+- `Engine.close returned`
+- `failed exception captured`
 - `done`
 
 This file is intentionally written incrementally so a native `SIGABRT` can still leave
 the last reached stage behind.
+
+Constructor and initialize are logged separately because `Engine(EngineConfig)` may
+perform native initialization before `Engine.initialize()` is called. If the process
+dies after `Engine constructor invoking`, the constructor is the likely crash point.
+If it dies after `Engine.initialize invoking`, the explicit initialize call is the
+likely crash point. Native `SIGABRT` is not catchable from Kotlin, so the crash marker
+is written before each risky call and completed only after the dry-run returns.
+
+The helper script clears stale diagnostic files before each run:
+
+```text
+files/npu_experiment_probe.txt
+files/npu_engine_initialize_dry_run.txt
+files/npu_engine_initialize_crash_marker.txt
+files/npu_engine_initialize_last_stage.txt
+```
+
+Each run carries a `runId`. If a collected `npu_experiment_probe.txt` does not contain
+the current `runId`, treat it as stale output from an older Activity run.
+
+Model paths are app-private. The standard app id is `io.github.ninbyo02.lami`, while
+the experiment app id is `io.github.ninbyo02.lami.npu`. A model under the standard app
+private directory is not automatically readable by `npuExperimentDebug`; place the
+Qualcomm SM8750 `.litertlm` under the npu experiment app's `files/local_models/`
+directory before running the dry-run.
 
 Risks remain high because Gallery dispatch runtime and Lami's LiteRT-LM native stack
 have mismatched build ids. Known failure modes include:

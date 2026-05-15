@@ -33,6 +33,8 @@ internal object AcceleratorProbe {
     private const val GALLERY_SM8750_LITERTLM_JNI_BUILD_ID = "76e4dccd9c5f9cba468d9cae7becfec0"
     private const val GALLERY_SM8750_DISPATCH_SHA256 = "92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777"
     private const val ENGINE_INITIALIZE_DRY_RUN_FILE_NAME = "npu_engine_initialize_dry_run.txt"
+    private const val ENGINE_INITIALIZE_LAST_STAGE_FILE_NAME = "npu_engine_initialize_last_stage.txt"
+    private const val ENGINE_INITIALIZE_CRASH_MARKER_FILE_NAME = "npu_engine_initialize_crash_marker.txt"
     private val dispatchApiLibraryNames = setOf(
         "libLiteRtDispatch_Qualcomm.so",
         "libLiteRtDispatchQualcomm.so",
@@ -91,6 +93,8 @@ internal object AcceleratorProbe {
         forceRefresh: Boolean = false,
         engineInitializeDryRunOptIn: Boolean = false,
         engineInitializeDryRunModelPath: String? = null,
+        engineInitializeDryRunRunId: String? = null,
+        engineInitializeDiagnosticFilesClearedBeforeRun: Boolean = false,
     ): AcceleratorProbeSnapshot {
         if (!forceRefresh && !engineInitializeDryRunOptIn) {
             cachedSnapshot?.let { snapshot ->
@@ -102,6 +106,8 @@ internal object AcceleratorProbe {
             context = context,
             engineInitializeDryRunOptIn = engineInitializeDryRunOptIn,
             engineInitializeDryRunModelPath = engineInitializeDryRunModelPath,
+            engineInitializeDryRunRunId = engineInitializeDryRunRunId,
+            engineInitializeDiagnosticFilesClearedBeforeRun = engineInitializeDiagnosticFilesClearedBeforeRun,
         )
         if (!engineInitializeDryRunOptIn) {
             cachedSnapshot = snapshot
@@ -114,6 +120,8 @@ internal object AcceleratorProbe {
         context: Context?,
         engineInitializeDryRunOptIn: Boolean,
         engineInitializeDryRunModelPath: String?,
+        engineInitializeDryRunRunId: String?,
+        engineInitializeDiagnosticFilesClearedBeforeRun: Boolean,
     ): AcceleratorProbeSnapshot {
         // NPU/QNN/NNAPI はここでは安全な候補検出のみを行う。実適用は LocalStreamingRunner 側で行う。
         // この probe は EngineConfig/Engine を生成せず、診断情報のみ提供する。
@@ -174,6 +182,8 @@ internal object AcceleratorProbe {
             engineConfigDryBuildProbeResult = engineConfigNpuDryBuildProbeResult,
             explicitOptIn = engineInitializeDryRunOptIn,
             requestedModelPath = engineInitializeDryRunModelPath,
+            requestedRunId = engineInitializeDryRunRunId,
+            diagnosticFilesClearedBeforeRun = engineInitializeDiagnosticFilesClearedBeforeRun,
             engineApiInventoryProbeResult = engineApiInventoryProbeResult,
         )
         val qnnNpuAttemptSnapshot = buildQualcommQnnNpuAttemptSnapshot(
@@ -361,16 +371,27 @@ internal object AcceleratorProbe {
             engineApiCloseDisposeMethodCandidates = engineApiInventoryProbeResult.closeDisposeMethodCandidates,
             engineApiCreateMethodCandidates = engineApiInventoryProbeResult.createMethodCandidates,
             engineInitializeDryRunEnabled = engineInitializeDryRunProbeResult.enabled,
+            engineInitializeDryRunRunId = engineInitializeDryRunProbeResult.runId,
             engineInitializeDryRunSkipReason = engineInitializeDryRunProbeResult.skipReason,
             engineInitializeDryRunExplicitOptIn = engineInitializeDryRunProbeResult.explicitOptIn,
             engineInitializeDryRunModelPath = engineInitializeDryRunProbeResult.modelPath,
             engineInitializeDryRunModelKind = engineInitializeDryRunProbeResult.modelKind,
+            engineInitializeDryRunModelFileExists = engineInitializeDryRunProbeResult.modelFileExists,
+            engineInitializeDryRunModelFileLength = engineInitializeDryRunProbeResult.modelFileLength,
+            engineInitializeDryRunModelFileCanRead = engineInitializeDryRunProbeResult.modelFileCanRead,
+            engineInitializeDryRunModelFileParentExists = engineInitializeDryRunProbeResult.modelFileParentExists,
+            engineInitializeDryRunModelFileParentListCount = engineInitializeDryRunProbeResult.modelFileParentListCount,
+            engineInitializeDryRunModelFileParentListSample = engineInitializeDryRunProbeResult.modelFileParentListSample,
             engineInitializeDryRunNativeLibraryDir = engineInitializeDryRunProbeResult.nativeLibraryDir,
             engineInitializeDryRunBackendNpuObjectClass = engineInitializeDryRunProbeResult.backendNpuObjectClass,
             engineInitializeDryRunEngineConfigObjectClass = engineInitializeDryRunProbeResult.engineConfigObjectClass,
             engineInitializeDryRunSelectedEngineConstructorOrFactory = engineInitializeDryRunProbeResult.selectedEngineConstructorOrFactory,
             engineInitializeDryRunSelectedInitializeMethod = engineInitializeDryRunProbeResult.selectedInitializeMethod,
+            engineInitializeDryRunLastStage = engineInitializeDryRunProbeResult.lastStage,
+            engineInitializeDryRunConstructorInvoked = engineInitializeDryRunProbeResult.constructorInvoked,
+            engineInitializeDryRunConstructorReturned = engineInitializeDryRunProbeResult.constructorReturned,
             engineInitializeDryRunInitializeInvoked = engineInitializeDryRunProbeResult.initializeInvoked,
+            engineInitializeDryRunInitializeReturned = engineInitializeDryRunProbeResult.initializeReturned,
             engineInitializeDryRunInitializeResult = engineInitializeDryRunProbeResult.initializeResult,
             engineInitializeDryRunElapsedMs = engineInitializeDryRunProbeResult.elapsedMs,
             engineInitializeDryRunExceptionClass = engineInitializeDryRunProbeResult.exceptionClass,
@@ -384,6 +405,10 @@ internal object AcceleratorProbe {
             engineInitializeDryRunVersionMismatchDetected = engineInitializeDryRunProbeResult.versionMismatchDetected,
             engineInitializeDryRunSymbolMismatchDetected = engineInitializeDryRunProbeResult.symbolMismatchDetected,
             engineInitializeDryRunSigabrtSuspected = engineInitializeDryRunProbeResult.sigabrtSuspected,
+            engineInitializeDryRunCrashSuspected = engineInitializeDryRunProbeResult.crashSuspected,
+            engineInitializeDryRunProcessAliveAfterProbe = engineInitializeDryRunProbeResult.processAliveAfterProbe,
+            engineInitializeDryRunStaleSnapshotSuspected = engineInitializeDryRunProbeResult.staleSnapshotSuspected,
+            engineInitializeDryRunDiagnosticFilesClearedBeforeRun = engineInitializeDryRunProbeResult.diagnosticFilesClearedBeforeRun,
             engineInitializeDryRunCloseInvoked = engineInitializeDryRunProbeResult.closeInvoked,
             engineInitializeDryRunCloseResult = engineInitializeDryRunProbeResult.closeResult,
             engineInitializeDryRunDiagnosticFilePath = engineInitializeDryRunProbeResult.diagnosticFilePath,
@@ -918,14 +943,62 @@ internal object AcceleratorProbe {
         engineConfigDryBuildProbeResult: EngineConfigNpuDryBuildProbeResult,
         explicitOptIn: Boolean,
         requestedModelPath: String?,
+        requestedRunId: String?,
+        diagnosticFilesClearedBeforeRun: Boolean,
         engineApiInventoryProbeResult: EngineApiInventoryProbeResult,
     ): EngineInitializeDryRunProbeResult {
         val nativeLibraryDir = context?.applicationInfo?.nativeLibraryDir?.takeIf { it.isNotBlank() }
             ?: packagedLibraries.nativeLibraryDir?.takeIf { it.isNotBlank() }
         val diagnosticFile = context?.filesDir?.resolve(ENGINE_INITIALIZE_DRY_RUN_FILE_NAME)
+        val lastStageFile = context?.filesDir?.resolve(ENGINE_INITIALIZE_LAST_STAGE_FILE_NAME)
+        val crashMarkerFile = context?.filesDir?.resolve(ENGINE_INITIALIZE_CRASH_MARKER_FILE_NAME)
         val warning = "initialize-only; no Conversation; no generateResponse; not wired to app inference"
         val modelPath = requestedModelPath?.trim()?.takeIf { it.isNotBlank() }
         val modelKind = modelPath?.let(::classifyEngineInitializeDryRunModelKind)
+        val runId = requestedRunId?.trim()?.takeIf { it.isNotBlank() }
+            ?: "${System.currentTimeMillis()}-${modelPath?.hashCode() ?: 0}"
+        val modelFileProbe = modelPath?.let(::probeEngineInitializeModelFile)
+        var lastStage = "not-started"
+        var constructorInvoked = "no"
+        var constructorReturned = "no"
+        var initializeInvoked = "no"
+        var initializeReturned = "no"
+
+        fun stage(message: String, reset: Boolean = false, updateCrashMarker: Boolean = false) {
+            lastStage = message
+            writeEngineInitializeDryRunStage(
+                diagnosticFile = diagnosticFile,
+                lastStageFile = lastStageFile,
+                runId = runId,
+                message = message,
+                reset = reset,
+            )
+            if (updateCrashMarker) {
+                writeEngineInitializeCrashMarker(
+                    crashMarkerFile = crashMarkerFile,
+                    runId = runId,
+                    lastStage = message,
+                    modelPath = modelPath ?: "-",
+                    pid = android.os.Process.myPid(),
+                    completed = false,
+                )
+            }
+        }
+
+        if (explicitOptIn) {
+            stage("started explicitOptIn=true modelPath=${modelPath ?: "-"}", reset = true)
+            stage("modelPath received value=${modelPath ?: "-"}")
+            if (modelPath != null) {
+                stage("model file exists check start")
+                stage("model file exists ${modelFileProbe?.exists ?: false}")
+                stage("model file length ${modelFileProbe?.length ?: 0L}")
+                stage("model file canRead ${modelFileProbe?.canRead ?: false}")
+                stage("model file parent exists ${modelFileProbe?.parentExists ?: false}")
+                stage("model file parent list count ${modelFileProbe?.parentListCount ?: 0}")
+                stage("model file parent list sample ${modelFileProbe?.parentListSample.orEmpty().joinToString(",").ifBlank { "-" }}")
+                stage("dispatch present check ${dispatchRuntimeCompatibility.dispatchRuntimePresent == true}")
+            }
+        }
         val skipReason = when {
             !BuildConfig.DEBUG -> "not-debug"
             BuildConfig.CURRENT_FLAVOR != "npuExperiment" -> "not-npuExperiment-flavor"
@@ -937,24 +1010,37 @@ internal object AcceleratorProbe {
             nativeLibraryDir.isNullOrBlank() -> "native-library-dir-missing"
             modelPath.isNullOrBlank() -> "model-path-not-provided"
             modelKind != "qualcomm-sm8750-litertlm" -> "model-not-qualcomm-sm8750-litertlm"
+            modelFileProbe?.exists != true -> "model-file-not-found"
+            modelFileProbe.canRead != true -> "model-file-not-readable"
             engineApiInventoryProbeResult.enabled != true -> "engine-api-inventory-not-ready"
             else -> null
         }
         if (skipReason != null) {
-            writeEngineInitializeDryRunStage(
-                diagnosticFile = diagnosticFile,
-                message = "skipped reason=$skipReason explicitOptIn=$explicitOptIn modelPath=${modelPath ?: "-"}",
-                reset = true,
-            )
+            stage("skipped reason=$skipReason explicitOptIn=$explicitOptIn modelPath=${modelPath ?: "-"}", reset = !explicitOptIn)
             return EngineInitializeDryRunProbeResult(
                 enabled = false,
+                runId = runId,
                 skipReason = skipReason,
                 explicitOptIn = explicitOptIn,
                 modelPath = modelPath,
                 modelKind = modelKind ?: "unknown",
+                modelFileExists = modelFileProbe?.exists,
+                modelFileLength = modelFileProbe?.length,
+                modelFileCanRead = modelFileProbe?.canRead,
+                modelFileParentExists = modelFileProbe?.parentExists,
+                modelFileParentListCount = modelFileProbe?.parentListCount,
+                modelFileParentListSample = modelFileProbe?.parentListSample.orEmpty(),
                 nativeLibraryDir = nativeLibraryDir,
+                lastStage = lastStage,
+                constructorInvoked = constructorInvoked,
+                constructorReturned = constructorReturned,
                 initializeInvoked = "no",
+                initializeReturned = initializeReturned,
                 initializeResult = "skipped",
+                crashSuspected = false,
+                processAliveAfterProbe = "unknown-script-checks-pidof",
+                staleSnapshotSuspected = false,
+                diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
                 closeInvoked = "no",
                 closeResult = "skipped",
                 diagnosticFilePath = diagnosticFile?.absolutePath,
@@ -965,28 +1051,38 @@ internal object AcceleratorProbe {
         val nativeLibraryDirArgument = requireNotNull(nativeLibraryDir)
         val resolvedModelPath = requireNotNull(modelPath)
         val startMs = SystemClock.elapsedRealtime()
-        writeEngineInitializeDryRunStage(
-            diagnosticFile = diagnosticFile,
-            message = "started explicitOptIn=true modelPath=$resolvedModelPath",
-            reset = true,
-        )
         return runCatching {
-            writeEngineInitializeDryRunStage(diagnosticFile, "Backend.NPU creating")
+            stage("Backend.NPU creating")
             val npuHandle = instantiateBackendNpuForProbe(nativeLibraryDirArgument)
-            writeEngineInitializeDryRunStage(diagnosticFile, "Backend.NPU created class=${npuHandle.instance.javaClass.name}")
+            stage("Backend.NPU created class=${npuHandle.instance.javaClass.name}")
 
             val engineConfigClass = Class.forName("com.google.ai.edge.litertlm.EngineConfig")
             val constructor = selectEngineConfigDryBuildConstructor(engineConfigClass, npuHandle.npuClass)
                 ?: return@runCatching EngineInitializeDryRunProbeResult(
                     enabled = true,
+                    runId = runId,
                     skipReason = "engineconfig-backend-constructor-not-found",
                     explicitOptIn = true,
                     modelPath = resolvedModelPath,
                     modelKind = modelKind,
+                    modelFileExists = modelFileProbe?.exists,
+                    modelFileLength = modelFileProbe?.length,
+                    modelFileCanRead = modelFileProbe?.canRead,
+                    modelFileParentExists = modelFileProbe?.parentExists,
+                    modelFileParentListCount = modelFileProbe?.parentListCount,
+                    modelFileParentListSample = modelFileProbe?.parentListSample.orEmpty(),
                     nativeLibraryDir = nativeLibraryDirArgument,
                     backendNpuObjectClass = npuHandle.instance.javaClass.name,
+                    lastStage = lastStage,
+                    constructorInvoked = constructorInvoked,
+                    constructorReturned = constructorReturned,
                     initializeInvoked = "no",
+                    initializeReturned = initializeReturned,
                     initializeResult = "skipped",
+                    crashSuspected = false,
+                    processAliveAfterProbe = "unknown-script-checks-pidof",
+                    staleSnapshotSuspected = false,
+                    diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
                     closeInvoked = "no",
                     closeResult = "skipped",
                     diagnosticFilePath = diagnosticFile?.absolutePath,
@@ -999,51 +1095,108 @@ internal object AcceleratorProbe {
                 context = context,
                 modelPath = resolvedModelPath,
             )
-            writeEngineInitializeDryRunStage(diagnosticFile, "EngineConfig creating ctor=${formatConstructorSignature(engineConfigClass, constructor)}")
+            stage("EngineConfig creating ctor=${formatConstructorSignature(engineConfigClass, constructor)}")
             constructor.isAccessible = true
             val engineConfig = constructor.newInstance(*args.values.toTypedArray())
-            writeEngineInitializeDryRunStage(diagnosticFile, "EngineConfig created class=${engineConfig.javaClass.name}")
+            stage("EngineConfig created class=${engineConfig.javaClass.name}")
 
             val engineClass = Class.forName("com.google.ai.edge.litertlm.Engine")
             val operation = selectEngineInitializeOperation(engineClass, engineConfigClass)
                 ?: return@runCatching EngineInitializeDryRunProbeResult(
                     enabled = true,
+                    runId = runId,
                     skipReason = "engine-initialize-operation-not-found",
                     explicitOptIn = true,
                     modelPath = resolvedModelPath,
                     modelKind = modelKind,
+                    modelFileExists = modelFileProbe?.exists,
+                    modelFileLength = modelFileProbe?.length,
+                    modelFileCanRead = modelFileProbe?.canRead,
+                    modelFileParentExists = modelFileProbe?.parentExists,
+                    modelFileParentListCount = modelFileProbe?.parentListCount,
+                    modelFileParentListSample = modelFileProbe?.parentListSample.orEmpty(),
                     nativeLibraryDir = nativeLibraryDirArgument,
                     backendNpuObjectClass = npuHandle.instance.javaClass.name,
                     engineConfigObjectClass = engineConfig.javaClass.name,
+                    lastStage = lastStage,
+                    constructorInvoked = constructorInvoked,
+                    constructorReturned = constructorReturned,
                     initializeInvoked = "no",
+                    initializeReturned = initializeReturned,
                     initializeResult = "skipped",
+                    crashSuspected = false,
+                    processAliveAfterProbe = "unknown-script-checks-pidof",
+                    staleSnapshotSuspected = false,
+                    diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
                     closeInvoked = "no",
                     closeResult = "skipped",
                     diagnosticFilePath = diagnosticFile?.absolutePath,
                     warning = warning,
                 )
 
-            writeEngineInitializeDryRunStage(diagnosticFile, "Engine initialize invoking operation=${operation.label}")
-            val initializedObject = invokeEngineInitializeOperation(operation, engineConfig)
-            writeEngineInitializeDryRunStage(diagnosticFile, "Engine initialize returned resultClass=${initializedObject?.javaClass?.name ?: "null"}")
-            val closeResult = closeEngineAfterDryRunSafely(
-                target = initializedObject,
-                diagnosticFile = diagnosticFile,
+            val initializeResult = invokeEngineInitializeOperation(
+                operation = operation,
+                engineConfig = engineConfig,
+                onConstructorInvoking = {
+                    constructorInvoked = "yes"
+                    stage("Engine constructor invoking operation=${operation.constructorOrFactoryLabel}", updateCrashMarker = true)
+                },
+                onConstructorReturned = { engine ->
+                    constructorReturned = "yes"
+                    stage("Engine constructor returned resultClass=${engine?.javaClass?.name ?: "null"}")
+                },
+                onInitializeInvoking = {
+                    initializeInvoked = "yes"
+                    stage("Engine.initialize invoking method=${operation.initializeMethodLabel}", updateCrashMarker = true)
+                },
+                onInitializeReturned = { initialized ->
+                    initializeReturned = "yes"
+                    stage("Engine.initialize returned resultClass=${initialized?.javaClass?.name ?: "null"}")
+                },
             )
-            writeEngineInitializeDryRunStage(diagnosticFile, "done")
+            val closeResult = closeEngineAfterDryRunSafely(
+                target = initializeResult.closeTarget,
+                diagnosticFile = diagnosticFile,
+                lastStageFile = lastStageFile,
+                runId = runId,
+            )
+            stage("done")
+            writeEngineInitializeCrashMarker(
+                crashMarkerFile = crashMarkerFile,
+                runId = runId,
+                lastStage = lastStage,
+                modelPath = resolvedModelPath,
+                pid = android.os.Process.myPid(),
+                completed = true,
+            )
             EngineInitializeDryRunProbeResult(
                 enabled = true,
+                runId = runId,
                 explicitOptIn = true,
                 modelPath = resolvedModelPath,
                 modelKind = modelKind,
+                modelFileExists = modelFileProbe?.exists,
+                modelFileLength = modelFileProbe?.length,
+                modelFileCanRead = modelFileProbe?.canRead,
+                modelFileParentExists = modelFileProbe?.parentExists,
+                modelFileParentListCount = modelFileProbe?.parentListCount,
+                modelFileParentListSample = modelFileProbe?.parentListSample.orEmpty(),
                 nativeLibraryDir = nativeLibraryDirArgument,
                 backendNpuObjectClass = npuHandle.instance.javaClass.name,
                 engineConfigObjectClass = engineConfig.javaClass.name,
                 selectedEngineConstructorOrFactory = operation.constructorOrFactoryLabel,
                 selectedInitializeMethod = operation.initializeMethodLabel,
-                initializeInvoked = "yes",
+                lastStage = lastStage,
+                constructorInvoked = constructorInvoked,
+                constructorReturned = constructorReturned,
+                initializeInvoked = initializeInvoked,
+                initializeReturned = initializeReturned,
                 initializeResult = "success",
                 elapsedMs = SystemClock.elapsedRealtime() - startMs,
+                crashSuspected = false,
+                processAliveAfterProbe = "unknown-script-checks-pidof",
+                staleSnapshotSuspected = false,
+                diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
                 closeInvoked = closeResult.invoked,
                 closeResult = closeResult.result,
                 diagnosticFilePath = diagnosticFile?.absolutePath,
@@ -1054,19 +1207,28 @@ internal object AcceleratorProbe {
             val chain = throwableCauseChain(throwable)
             val text = (listOf(throwable, unwrapped) + chain)
                 .joinToString(" ") { "${it.javaClass.name} ${it.message.orEmpty()}" }
-            writeEngineInitializeDryRunStage(
-                diagnosticFile = diagnosticFile,
-                message = "failed class=${throwable.javaClass.name} root=${unwrapped.javaClass.name}:${unwrapped.message.orEmpty().take(240)}",
-            )
+            val failedResult = classifyEngineInitializeFailure(text)
+            stage("failed exception captured class=${throwable.javaClass.name} root=${unwrapped.javaClass.name}:${unwrapped.message.orEmpty().take(240)}")
             EngineInitializeDryRunProbeResult(
                 enabled = true,
+                runId = runId,
                 explicitOptIn = true,
                 modelPath = resolvedModelPath,
                 modelKind = modelKind,
+                modelFileExists = modelFileProbe?.exists,
+                modelFileLength = modelFileProbe?.length,
+                modelFileCanRead = modelFileProbe?.canRead,
+                modelFileParentExists = modelFileProbe?.parentExists,
+                modelFileParentListCount = modelFileProbe?.parentListCount,
+                modelFileParentListSample = modelFileProbe?.parentListSample.orEmpty(),
                 nativeLibraryDir = nativeLibraryDirArgument,
                 backendNpuObjectClass = instantiateProbeResult.objectClass,
-                initializeInvoked = "yes",
-                initializeResult = classifyEngineInitializeFailure(text),
+                lastStage = lastStage,
+                constructorInvoked = constructorInvoked,
+                constructorReturned = constructorReturned,
+                initializeInvoked = initializeInvoked,
+                initializeReturned = initializeReturned,
+                initializeResult = failedResult,
                 elapsedMs = SystemClock.elapsedRealtime() - startMs,
                 exceptionClass = throwable.javaClass.name,
                 exceptionMessage = throwable.message?.take(240),
@@ -1081,6 +1243,10 @@ internal object AcceleratorProbe {
                 versionMismatchDetected = text.contains("version mismatch", ignoreCase = true) || text.contains("unsupported version", ignoreCase = true),
                 symbolMismatchDetected = text.contains("symbol", ignoreCase = true) && text.contains("mismatch", ignoreCase = true),
                 sigabrtSuspected = text.contains("SIGABRT", ignoreCase = true) || text.contains("abort", ignoreCase = true),
+                crashSuspected = failedResult == "crash-suspected",
+                processAliveAfterProbe = "unknown-script-checks-pidof",
+                staleSnapshotSuspected = false,
+                diagnosticFilesClearedBeforeRun = diagnosticFilesClearedBeforeRun,
                 closeInvoked = "no",
                 closeResult = "skipped-after-failure",
                 diagnosticFilePath = diagnosticFile?.absolutePath,
@@ -1158,18 +1324,30 @@ internal object AcceleratorProbe {
     private fun invokeEngineInitializeOperation(
         operation: EngineInitializeOperation,
         engineConfig: Any,
-    ): Any? {
+        onConstructorInvoking: () -> Unit,
+        onConstructorReturned: (Any?) -> Unit,
+        onInitializeInvoking: () -> Unit,
+        onInitializeReturned: (Any?) -> Unit,
+    ): EngineInitializeInvokeResult {
         operation.staticMethod?.let { method ->
-            return method.invoke(null, *buildEngineMethodArgs(method, engineConfig).toTypedArray())
+            onInitializeInvoking()
+            val result = method.invoke(null, *buildEngineMethodArgs(method, engineConfig).toTypedArray())
+            onInitializeReturned(result)
+            return EngineInitializeInvokeResult(result = result, closeTarget = result)
         }
         operation.constructor?.let { constructor ->
+            onConstructorInvoking()
             val engine = constructor.newInstance(*buildConstructorArgsForEngine(constructor, engineConfig).toTypedArray())
+            onConstructorReturned(engine)
             operation.instanceInitializeMethod?.let { method ->
-                return method.invoke(engine, *buildEngineMethodArgs(method, engineConfig).toTypedArray()) ?: engine
+                onInitializeInvoking()
+                val result = method.invoke(engine, *buildEngineMethodArgs(method, engineConfig).toTypedArray())
+                onInitializeReturned(result ?: engine)
+                return EngineInitializeInvokeResult(result = result ?: engine, closeTarget = engine)
             }
-            return engine
+            return EngineInitializeInvokeResult(result = engine, closeTarget = engine)
         }
-        return null
+        return EngineInitializeInvokeResult(result = null, closeTarget = null)
     }
 
     private fun canInvokeEngineMethodWithConfig(method: Method, engineConfigClass: Class<*>): Boolean {
@@ -1212,6 +1390,8 @@ internal object AcceleratorProbe {
     private fun closeEngineAfterDryRunSafely(
         target: Any?,
         diagnosticFile: File?,
+        lastStageFile: File?,
+        runId: String,
     ): EngineInitializeCloseResult {
         if (target == null) return EngineInitializeCloseResult(invoked = "no", result = "skipped-null-target")
         val closeMethod = (target.javaClass.methods.asList() + target.javaClass.declaredMethods.asList())
@@ -1221,31 +1401,79 @@ internal object AcceleratorProbe {
             .firstOrNull()
             ?: return EngineInitializeCloseResult(invoked = "no", result = "method-not-found")
         return runCatching {
-            writeEngineInitializeDryRunStage(diagnosticFile, "close invoking method=${closeMethod.name}")
+            writeEngineInitializeDryRunStage(diagnosticFile, lastStageFile, runId, "Engine.close invoking method=${closeMethod.name}")
             closeMethod.isAccessible = true
             closeMethod.invoke(target)
-            writeEngineInitializeDryRunStage(diagnosticFile, "close returned")
+            writeEngineInitializeDryRunStage(diagnosticFile, lastStageFile, runId, "Engine.close returned")
             EngineInitializeCloseResult(invoked = "yes", result = "success")
         }.getOrElse { throwable ->
-            writeEngineInitializeDryRunStage(diagnosticFile, "close failed class=${throwable.javaClass.name}:${throwable.message.orEmpty().take(160)}")
+            writeEngineInitializeDryRunStage(diagnosticFile, lastStageFile, runId, "Engine.close failed class=${throwable.javaClass.name}:${throwable.message.orEmpty().take(160)}")
             EngineInitializeCloseResult(invoked = "yes", result = "failed-${throwable.javaClass.simpleName}")
         }
     }
 
     private fun writeEngineInitializeDryRunStage(
         diagnosticFile: File?,
+        lastStageFile: File? = null,
+        runId: String? = null,
         message: String,
         reset: Boolean = false,
     ) {
-        if (diagnosticFile == null) return
+        if (diagnosticFile == null && lastStageFile == null) return
         runCatching {
-            val line = "${System.currentTimeMillis()} $message\n"
-            if (reset) {
-                diagnosticFile.writeText(line)
+            val line = "${System.currentTimeMillis()}${runId?.let { " runId=$it" }.orEmpty()} $message\n"
+            diagnosticFile?.let { file ->
+                if (reset) {
+                    file.writeText(line)
+                } else {
+                    file.appendText(line)
+                }
+            }
+            lastStageFile?.writeText(line)
+        }
+    }
+
+    private fun writeEngineInitializeCrashMarker(
+        crashMarkerFile: File?,
+        runId: String,
+        lastStage: String,
+        modelPath: String,
+        pid: Int,
+        completed: Boolean,
+    ) {
+        if (crashMarkerFile == null) return
+        runCatching {
+            val line = buildString {
+                append(System.currentTimeMillis())
+                append(" runId=").append(runId)
+                append(" lastStage=").append(lastStage)
+                append(" modelPath=").append(modelPath)
+                append(" pid=").append(pid)
+                append(" completed=").append(completed)
+                append('\n')
+            }
+            if (completed) {
+                crashMarkerFile.appendText(line)
             } else {
-                diagnosticFile.appendText(line)
+                crashMarkerFile.writeText(line)
             }
         }
+    }
+
+    private fun probeEngineInitializeModelFile(modelPath: String): EngineInitializeModelFileProbe {
+        val file = File(modelPath)
+        val parent = file.parentFile
+        val parentList = runCatching {
+            parent?.list()?.sorted().orEmpty()
+        }.getOrDefault(emptyList())
+        return EngineInitializeModelFileProbe(
+            exists = runCatching { file.isFile }.getOrDefault(false),
+            length = runCatching { if (file.isFile) file.length() else 0L }.getOrDefault(0L),
+            canRead = runCatching { file.canRead() }.getOrDefault(false),
+            parentExists = runCatching { parent?.isDirectory == true }.getOrDefault(false),
+            parentListCount = parentList.size,
+            parentListSample = parentList.take(12),
+        )
     }
 
     private fun classifyEngineInitializeFailure(text: String): String {
@@ -2612,16 +2840,27 @@ internal object AcceleratorProbe {
 
     private data class EngineInitializeDryRunProbeResult(
         val enabled: Boolean = false,
+        val runId: String? = null,
         val skipReason: String? = null,
         val explicitOptIn: Boolean = false,
         val modelPath: String? = null,
         val modelKind: String? = null,
+        val modelFileExists: Boolean? = null,
+        val modelFileLength: Long? = null,
+        val modelFileCanRead: Boolean? = null,
+        val modelFileParentExists: Boolean? = null,
+        val modelFileParentListCount: Int? = null,
+        val modelFileParentListSample: List<String> = emptyList(),
         val nativeLibraryDir: String? = null,
         val backendNpuObjectClass: String? = null,
         val engineConfigObjectClass: String? = null,
         val selectedEngineConstructorOrFactory: String? = null,
         val selectedInitializeMethod: String? = null,
+        val lastStage: String? = null,
+        val constructorInvoked: String = "no",
+        val constructorReturned: String = "no",
         val initializeInvoked: String = "no",
+        val initializeReturned: String = "no",
         val initializeResult: String = "skipped",
         val elapsedMs: Long? = null,
         val exceptionClass: String? = null,
@@ -2635,6 +2874,10 @@ internal object AcceleratorProbe {
         val versionMismatchDetected: Boolean? = null,
         val symbolMismatchDetected: Boolean? = null,
         val sigabrtSuspected: Boolean? = null,
+        val crashSuspected: Boolean? = null,
+        val processAliveAfterProbe: String? = null,
+        val staleSnapshotSuspected: Boolean? = null,
+        val diagnosticFilesClearedBeforeRun: Boolean? = null,
         val closeInvoked: String = "no",
         val closeResult: String = "skipped",
         val diagnosticFilePath: String? = null,
@@ -2650,9 +2893,23 @@ internal object AcceleratorProbe {
         val initializeMethodLabel: String,
     )
 
+    private data class EngineInitializeInvokeResult(
+        val result: Any?,
+        val closeTarget: Any?,
+    )
+
     private data class EngineInitializeCloseResult(
         val invoked: String,
         val result: String,
+    )
+
+    private data class EngineInitializeModelFileProbe(
+        val exists: Boolean,
+        val length: Long,
+        val canRead: Boolean,
+        val parentExists: Boolean,
+        val parentListCount: Int,
+        val parentListSample: List<String>,
     )
 
     private data class BackendNpuConnectionCandidateProbeResult(
