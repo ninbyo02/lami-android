@@ -1565,13 +1565,13 @@ private fun formatNativeLibraryDirStatus(probe: AcceleratorProbeSnapshot): Strin
 private fun formatLiteRtLmNpuNextAction(readiness: String): String {
     return when (readiness) {
         "blocked-dispatch-api-so-missing" ->
-            "add compatible Qualcomm LiteRT dispatch API .so and verify with litert_lm_main --backend=npu before enabling app NPU"
+            "1) run scripts/check_litert_npu_dispatch.sh\n2) if dispatch API .so is found, package it under jniLibs/arm64-v8a or dependency packaging\n3) verify CLI with litert_lm_main --backend=npu\n4) enable app NPU only after CLI proof"
         "ready-but-disabled-cli-proof-required" ->
-            "verify with litert_lm_main --backend=npu before enabling app NPU"
+            "1) verify CLI with litert_lm_main --backend=npu\n2) keep app NPU disabled until CLI proof is recorded\n3) enable app NPU only after explicit guard review"
         "ready-for-manual-npu-enable" ->
             "manual NPU enable can be considered after explicit app-side guard review"
         else ->
-            "keep GPU fallback; resolve listed NPU prerequisite before any Backend.NPU app enable"
+            "1) keep GPU fallback\n2) resolve listed NPU prerequisite\n3) do not apply Backend.NPU until dispatch API .so and CLI proof are both present"
     }
 }
 

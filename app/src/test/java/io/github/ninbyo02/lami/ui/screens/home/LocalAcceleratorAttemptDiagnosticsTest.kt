@@ -194,6 +194,7 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         assertEquals("blocked-dispatch-api-so-missing", readinessSection.items.first { it.label == "readiness" }.value)
         assertEquals("gpu", readinessSection.items.first { it.label == "selected path" }.value)
         assertEquals("disabled / blocked", readinessSection.items.first { it.label == "NPU apply status" }.value)
+        assertTrue(readinessSection.items.first { it.label == "next action" }.value.contains("scripts/check_litert_npu_dispatch.sh"))
     }
 
     @Test
