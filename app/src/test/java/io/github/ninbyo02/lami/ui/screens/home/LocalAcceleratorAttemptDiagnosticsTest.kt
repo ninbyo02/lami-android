@@ -183,6 +183,13 @@ class LocalAcceleratorAttemptDiagnosticsTest {
                 npuConstructorAvailable = true,
                 npuStringConstructorAvailable = true,
                 externalQairtDspCore = "Hexagon Architecture V79",
+                currentFlavor = "npuExperiment",
+                dispatchRuntimePresentInFlavor = false,
+                dispatchRuntimeSource = "none",
+                liteRtBuildId = "80fa0688ac32301185275c903cec97bd",
+                liteRtLmJniBuildId = "c2c27170ba409dbd0bc01820fa738580",
+                dispatchRuntimeBuildId = null,
+                dispatchRuntimeAbiCompatibility = "unknown",
             ),
         )
 
@@ -190,11 +197,46 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         assertEquals("qualcomm-sm8750-litertlm", readinessSection.items.first { it.label == "model kind" }.value)
         assertEquals("requires-soc-specific-qualcomm-litertlm-for-sm8750", readinessSection.items.first { it.label == "model requirement" }.value)
         assertEquals("missing", readinessSection.items.first { it.label == "dispatch API status" }.value)
+        assertEquals("missing", readinessSection.items.first { it.label == "dispatch API .so" }.value)
         assertEquals("libQnnHtpV79Skel.so, libQnnHtpV79Stub.so", readinessSection.items.first { it.label == "V79 skel/stub candidates" }.value)
-        assertEquals("blocked-dispatch-api-so-missing", readinessSection.items.first { it.label == "readiness" }.value)
+        assertEquals("gpu-ok-npu-blocked-dispatch-missing", readinessSection.items.first { it.label == "readiness" }.value)
         assertEquals("gpu", readinessSection.items.first { it.label == "selected path" }.value)
         assertEquals("disabled / blocked", readinessSection.items.first { it.label == "NPU apply status" }.value)
         assertTrue(readinessSection.items.first { it.label == "next action" }.value.contains("scripts/check_litert_npu_dispatch.sh"))
+
+        val dispatchCompatibilitySection = sections.first { it.title == "DEV診断: Dispatch Runtime Compatibility" }
+        assertEquals("npuExperiment", dispatchCompatibilitySection.items.first { it.label == "current flavor" }.value)
+        assertEquals("false", dispatchCompatibilitySection.items.first { it.label == "dispatch runtime present in flavor" }.value)
+        assertEquals("unknown", dispatchCompatibilitySection.items.first { it.label == "ABI compatibility" }.value)
+    }
+
+    @Test
+    fun `developer diagnostics show backend npu instantiate probe as skipped without changing gpu path`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = acceleratorSnapshot(
+                qnnNpuAttempted = false,
+                qnnNpuSelectedPath = "gpu",
+                backendNpuInstantiateProbeEnabled = false,
+                backendNpuInstantiateProbeSkipReason = "not-npuExperiment-flavor",
+                backendNpuInstantiateNativeLibraryDirArgument = "/data/app/lib/arm64",
+                backendNpuInstantiateConstructor = "Backend.NPU(String)",
+                backendNpuInstantiateResult = "skipped",
+                backendNpuInstantiateWarning = "instantiate-only; object not passed to engine; no inference",
+            ),
+        )
+
+        val instantiateSection = sections.first { it.title == "DEV診断: Backend.NPU Instantiate Probe" }
+        assertEquals("false", instantiateSection.items.first { it.label == "enabled" }.value)
+        assertEquals("not-npuExperiment-flavor", instantiateSection.items.first { it.label == "reason if skipped" }.value)
+        assertEquals("Backend.NPU(String)", instantiateSection.items.first { it.label == "constructor" }.value)
+        assertEquals("skipped", instantiateSection.items.first { it.label == "instantiate result" }.value)
+        assertTrue(instantiateSection.items.first { it.label == "warning" }.value.contains("object not passed to engine"))
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("no", devSection.items.first { it.label == "QNN/NPU試行" }.value)
+        assertEquals("gpu", devSection.items.first { it.label == "QNN/NPU selectedPath" }.value)
     }
 
     @Test
@@ -221,10 +263,11 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         )
 
         val readinessSection = sections.first { it.title == "DEV診断: LiteRT-LM NPU Readiness" }
-        assertEquals("found-exact-libLiteRtDispatch_Qualcomm-so", readinessSection.items.first { it.label == "dispatch API status" }.value)
+        assertEquals("found", readinessSection.items.first { it.label == "dispatch API status" }.value)
+        assertEquals("found-exact-libLiteRtDispatch_Qualcomm-so", readinessSection.items.first { it.label == "dispatch API detail status" }.value)
         assertEquals("true", readinessSection.items.first { it.label == "dispatch API exact match" }.value)
-        assertEquals("ready-but-disabled-cli-proof-required", readinessSection.items.first { it.label == "readiness" }.value)
-        assertEquals("gpu", readinessSection.items.first { it.label == "selected path" }.value)
+        assertEquals("npu-prerequisites-present-probe-only", readinessSection.items.first { it.label == "readiness" }.value)
+        assertEquals("npu-probe-only", readinessSection.items.first { it.label == "selected path" }.value)
     }
 
     @Test
@@ -247,7 +290,8 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         )
 
         val readinessSection = sections.first { it.title == "DEV診断: LiteRT-LM NPU Readiness" }
-        assertEquals("found-dispatch-candidate", readinessSection.items.first { it.label == "dispatch API status" }.value)
+        assertEquals("found", readinessSection.items.first { it.label == "dispatch API status" }.value)
+        assertEquals("found-dispatch-candidate", readinessSection.items.first { it.label == "dispatch API detail status" }.value)
         assertEquals("false", readinessSection.items.first { it.label == "dispatch API exact match" }.value)
         assertEquals("libVendorDispatchQnn.so", readinessSection.items.first { it.label == "dispatch API selected candidate" }.value)
     }
@@ -303,6 +347,19 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         npuConstructorAvailable: Boolean = false,
         npuStringConstructorAvailable: Boolean = false,
         externalQairtDspCore: String = "unknown",
+        currentFlavor: String? = null,
+        dispatchRuntimePresentInFlavor: Boolean? = null,
+        dispatchRuntimeSource: String? = null,
+        liteRtBuildId: String? = null,
+        liteRtLmJniBuildId: String? = null,
+        dispatchRuntimeBuildId: String? = null,
+        dispatchRuntimeAbiCompatibility: String? = null,
+        backendNpuInstantiateProbeEnabled: Boolean? = null,
+        backendNpuInstantiateProbeSkipReason: String? = null,
+        backendNpuInstantiateNativeLibraryDirArgument: String? = null,
+        backendNpuInstantiateConstructor: String? = null,
+        backendNpuInstantiateResult: String? = null,
+        backendNpuInstantiateWarning: String? = null,
     ): AcceleratorProbeSnapshot {
         return AcceleratorProbeSnapshot(
             deviceManufacturer = "nubia",
@@ -349,6 +406,19 @@ class LocalAcceleratorAttemptDiagnosticsTest {
             npuConstructorAvailable = npuConstructorAvailable,
             npuStringConstructorAvailable = npuStringConstructorAvailable,
             externalQairtDspCore = externalQairtDspCore,
+            currentFlavor = currentFlavor,
+            dispatchRuntimePresentInFlavor = dispatchRuntimePresentInFlavor,
+            dispatchRuntimeSource = dispatchRuntimeSource,
+            liteRtBuildId = liteRtBuildId,
+            liteRtLmJniBuildId = liteRtLmJniBuildId,
+            dispatchRuntimeBuildId = dispatchRuntimeBuildId,
+            dispatchRuntimeAbiCompatibility = dispatchRuntimeAbiCompatibility,
+            backendNpuInstantiateProbeEnabled = backendNpuInstantiateProbeEnabled,
+            backendNpuInstantiateProbeSkipReason = backendNpuInstantiateProbeSkipReason,
+            backendNpuInstantiateNativeLibraryDirArgument = backendNpuInstantiateNativeLibraryDirArgument,
+            backendNpuInstantiateConstructor = backendNpuInstantiateConstructor,
+            backendNpuInstantiateResult = backendNpuInstantiateResult,
+            backendNpuInstantiateWarning = backendNpuInstantiateWarning,
         )
     }
 }

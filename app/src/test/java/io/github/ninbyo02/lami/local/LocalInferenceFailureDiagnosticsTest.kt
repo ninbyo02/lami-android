@@ -47,10 +47,10 @@ class LocalInferenceFailureDiagnosticsTest {
             selectedFallbackPath = "gpu",
         )
 
-        assertTrue(text.contains("[Qualcomm model failure diagnostics]"))
+        assertTrue(text.contains("[Qualcomm Model Failure]"))
         assertTrue(text.contains("failure stage=generate-response"))
         assertTrue(text.contains("No usable Dispatch runtime found=true"))
-        assertTrue(text.contains("dispatch api missing=true"))
-        assertTrue(text.contains("stacktrace first 20 lines:"))
+        assertTrue(text.contains("dispatch api missing likely=true"))
+        assertTrue(text.contains("stacktrace head:"))
     }
 }

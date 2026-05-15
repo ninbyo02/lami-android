@@ -8,12 +8,15 @@ import android.util.Log
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.local.QnnDelegateProbe
 import java.io.File
+import java.lang.reflect.InvocationTargetException
+import java.security.MessageDigest
 import java.util.Locale
 import java.util.zip.ZipFile
 
 internal object AcceleratorProbe {
     private const val LOG_TAG = "AcceleratorProbe"
     private const val MAX_DELEGATE_CANDIDATE_COUNT = 12
+    private const val MAX_ELF_NOTE_SCAN_BYTES = 1024 * 1024
     private const val EXTERNAL_QAIRT_STAGE_PATH = "/data/local/tmp/qairt"
     private const val EXTERNAL_QAIRT_QNN_NET_RUN_PATH = "/data/local/tmp/qairt/bin/qnn-net-run"
     private const val EXTERNAL_QAIRT_QNN_PLATFORM_VALIDATOR_PATH = "/data/local/tmp/qairt/bin/qnn-platform-validator"
@@ -21,6 +24,10 @@ internal object AcceleratorProbe {
     private const val EXTERNAL_QAIRT_VERIFIED_GPU_BACKEND_STATUS = "passed"
     private const val EXTERNAL_QAIRT_VERIFIED_DSP_CORE = "Hexagon Architecture V79"
     private const val EXTERNAL_QAIRT_VERIFIED_DSP_BACKEND_STATUS = "passed"
+    private const val GALLERY_SM8750_DISPATCH_BUILD_ID = "643ad77b8ac2f54bd1b61e4133c77b3a"
+    private const val GALLERY_SM8750_LITERT_BUILD_ID = "869121bd7f4b0b77fa581218117a5c14"
+    private const val GALLERY_SM8750_LITERTLM_JNI_BUILD_ID = "76e4dccd9c5f9cba468d9cae7becfec0"
+    private const val GALLERY_SM8750_DISPATCH_SHA256 = "92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777"
     private val dispatchApiLibraryNames = setOf(
         "libLiteRtDispatch_Qualcomm.so",
         "libLiteRtDispatchQualcomm.so",
@@ -107,6 +114,12 @@ internal object AcceleratorProbe {
             officialVendor = npuRequirementsProbeResult.officialVendor,
         )
         val externalQairtStageProbeResult = probeExternalQairtStageSafely()
+        val dispatchRuntimeCompatibility = probeDispatchRuntimeCompatibilitySafely(npuPackagedLibraryProbeResult)
+        val backendNpuInstantiateProbeResult = probeBackendNpuInstantiateOnlySafely(
+            context = context,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+        )
         val qnnNpuAttemptSnapshot = buildQualcommQnnNpuAttemptSnapshot(
             requirements = npuRequirementsProbeResult,
             packagedLibraries = npuPackagedLibraryProbeResult,
@@ -211,8 +224,250 @@ internal object AcceleratorProbe {
             externalQairtDspCore = externalQairtStageProbeResult.dspCore,
             externalQairtDspBackendStatus = externalQairtStageProbeResult.dspBackendStatus,
             externalQairtNote = externalQairtStageProbeResult.note,
+            currentFlavor = dispatchRuntimeCompatibility.currentFlavor,
+            applicationId = dispatchRuntimeCompatibility.applicationId,
+            dispatchNativeLibraryDir = dispatchRuntimeCompatibility.nativeLibraryDir,
+            dispatchNativeLibraryDirExists = dispatchRuntimeCompatibility.nativeLibraryDirExists,
+            dispatchRuntimePresentInFlavor = dispatchRuntimeCompatibility.dispatchRuntimePresent,
+            dispatchRuntimeSource = dispatchRuntimeCompatibility.dispatchRuntimeSource,
+            dispatchRuntimeFilePath = dispatchRuntimeCompatibility.dispatchRuntimeFilePath,
+            dispatchRuntimeFileLength = dispatchRuntimeCompatibility.dispatchRuntimeFileLength,
+            liteRtBuildId = dispatchRuntimeCompatibility.liteRtBuildId,
+            liteRtLmJniBuildId = dispatchRuntimeCompatibility.liteRtLmJniBuildId,
+            dispatchRuntimeBuildId = dispatchRuntimeCompatibility.dispatchRuntimeBuildId,
+            dispatchRuntimeSha256 = dispatchRuntimeCompatibility.dispatchRuntimeSha256,
+            dispatchRuntimeExpectedSha256Match = dispatchRuntimeCompatibility.dispatchRuntimeExpectedSha256Match,
+            dispatchRuntimeAbiCompatibility = dispatchRuntimeCompatibility.abiCompatibility,
+            backendNpuInstantiateProbeEnabled = backendNpuInstantiateProbeResult.enabled,
+            backendNpuInstantiateProbeSkipReason = backendNpuInstantiateProbeResult.skipReason,
+            backendNpuInstantiateNativeLibraryDirArgument = backendNpuInstantiateProbeResult.nativeLibraryDirArgument,
+            backendNpuInstantiateConstructor = backendNpuInstantiateProbeResult.constructor,
+            backendNpuInstantiateResult = backendNpuInstantiateProbeResult.result,
+            backendNpuInstantiateObjectClass = backendNpuInstantiateProbeResult.objectClass,
+            backendNpuInstantiateExceptionClass = backendNpuInstantiateProbeResult.exceptionClass,
+            backendNpuInstantiateExceptionMessage = backendNpuInstantiateProbeResult.exceptionMessage,
+            backendNpuInstantiateRootCause = backendNpuInstantiateProbeResult.rootCause,
+            backendNpuInstantiateCauseChain = backendNpuInstantiateProbeResult.causeChain,
+            backendNpuInstantiateWarning = backendNpuInstantiateProbeResult.warning,
         )
     }
+
+    private fun probeDispatchRuntimeCompatibilitySafely(
+        packagedLibraries: PackagedNpuLibraryProbeResult,
+    ): DispatchRuntimeCompatibilityProbeResult {
+        return runCatching {
+            val nativeLibraryDir = packagedLibraries.nativeLibraryDir?.takeIf { it.isNotBlank() }
+            val nativeLibraryDirectory = nativeLibraryDir?.let(::File)
+            val nativeLibraryDirExists = nativeLibraryDirectory?.isDirectory
+            val liteRtBuildId = nativeLibraryDirectory?.resolve("libLiteRt.so")?.let(::readElfBuildIdSafely)
+            val liteRtLmJniBuildId = nativeLibraryDirectory?.resolve("liblitertlm_jni.so")?.let(::readElfBuildIdSafely)
+            val dispatchCandidate = packagedLibraries.dispatchApiSelectedCandidate
+                ?: packagedLibraries.dispatchApiCandidates.firstOrNull()
+            val dispatchRuntimeFile = dispatchCandidate?.let { nativeLibraryDirectory?.resolve(it) }
+            val dispatchRuntimeBuildId = dispatchRuntimeFile?.let(::readElfBuildIdSafely)
+            val dispatchRuntimeSha256 = dispatchRuntimeFile?.let(::sha256ForFileSafely)
+            val dispatchPresent = dispatchRuntimeFile?.isFile == true
+            val abiCompatibility = classifyDispatchRuntimeAbiCompatibility(
+                dispatchPresent = dispatchPresent,
+                liteRtBuildId = liteRtBuildId,
+                liteRtLmJniBuildId = liteRtLmJniBuildId,
+                dispatchRuntimeBuildId = dispatchRuntimeBuildId,
+            )
+            DispatchRuntimeCompatibilityProbeResult(
+                currentFlavor = BuildConfig.CURRENT_FLAVOR,
+                applicationId = BuildConfig.APPLICATION_ID,
+                nativeLibraryDir = nativeLibraryDir,
+                nativeLibraryDirExists = nativeLibraryDirExists,
+                dispatchRuntimePresent = dispatchPresent,
+                dispatchRuntimeSource = if (dispatchPresent) BuildConfig.DISPATCH_RUNTIME_SOURCE else "none",
+                dispatchRuntimeFilePath = dispatchRuntimeFile?.absolutePath,
+                dispatchRuntimeFileLength = dispatchRuntimeFile?.takeIf { it.isFile }?.length(),
+                liteRtBuildId = liteRtBuildId,
+                liteRtLmJniBuildId = liteRtLmJniBuildId,
+                dispatchRuntimeBuildId = dispatchRuntimeBuildId,
+                dispatchRuntimeSha256 = dispatchRuntimeSha256,
+                dispatchRuntimeExpectedSha256Match = dispatchRuntimeSha256?.equals(GALLERY_SM8750_DISPATCH_SHA256, ignoreCase = true),
+                abiCompatibility = abiCompatibility,
+            )
+        }.getOrElse {
+            DispatchRuntimeCompatibilityProbeResult(
+                currentFlavor = BuildConfig.CURRENT_FLAVOR,
+                applicationId = BuildConfig.APPLICATION_ID,
+                dispatchRuntimePresent = false,
+                dispatchRuntimeSource = "probe-error:${it.javaClass.simpleName}",
+                abiCompatibility = "unknown",
+            )
+        }
+    }
+
+    private fun classifyDispatchRuntimeAbiCompatibility(
+        dispatchPresent: Boolean,
+        liteRtBuildId: String?,
+        liteRtLmJniBuildId: String?,
+        dispatchRuntimeBuildId: String?,
+    ): String {
+        if (!dispatchPresent) return "unknown"
+        if (dispatchRuntimeBuildId.isNullOrBlank() || liteRtBuildId.isNullOrBlank() || liteRtLmJniBuildId.isNullOrBlank()) {
+            return "unknown"
+        }
+        val galleryDispatch = dispatchRuntimeBuildId.equals(GALLERY_SM8750_DISPATCH_BUILD_ID, ignoreCase = true)
+        val galleryLiteRt = liteRtBuildId.equals(GALLERY_SM8750_LITERT_BUILD_ID, ignoreCase = true)
+        val galleryLiteRtLmJni = liteRtLmJniBuildId.equals(GALLERY_SM8750_LITERTLM_JNI_BUILD_ID, ignoreCase = true)
+        if (galleryDispatch && (!galleryLiteRt || !galleryLiteRtLmJni)) return "likely-mismatch"
+        if (galleryDispatch && galleryLiteRt && galleryLiteRtLmJni) return "likely-compatible"
+        return "unknown"
+    }
+
+    private fun probeBackendNpuInstantiateOnlySafely(
+        context: Context?,
+        packagedLibraries: PackagedNpuLibraryProbeResult,
+        dispatchRuntimeCompatibility: DispatchRuntimeCompatibilityProbeResult,
+    ): BackendNpuInstantiateProbeResult {
+        val nativeLibraryDir = context?.applicationInfo?.nativeLibraryDir?.takeIf { it.isNotBlank() }
+            ?: packagedLibraries.nativeLibraryDir?.takeIf { it.isNotBlank() }
+        val warning = "instantiate-only; object not passed to engine; no inference"
+        val skipReason = when {
+            !BuildConfig.DEBUG -> "not-debug"
+            BuildConfig.CURRENT_FLAVOR != "npuExperiment" -> "not-npuExperiment-flavor"
+            !BuildConfig.NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED -> "build-config-disabled"
+            dispatchRuntimeCompatibility.dispatchRuntimePresent != true -> "dispatch-runtime-not-present"
+            nativeLibraryDir.isNullOrBlank() -> "native-library-dir-missing"
+            else -> null
+        }
+        if (skipReason != null) {
+            return BackendNpuInstantiateProbeResult(
+                enabled = false,
+                skipReason = skipReason,
+                nativeLibraryDirArgument = nativeLibraryDir,
+                result = "skipped",
+                warning = warning,
+            )
+        }
+        return runCatching {
+            val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
+            val npuClass = (backendClass.classes.asList() + backendClass.declaredClasses.asList())
+                .firstOrNull { it.simpleName == "NPU" }
+                ?: throw ClassNotFoundException("Backend.NPU")
+            val constructor = (npuClass.declaredConstructors.asList() + npuClass.constructors.asList())
+                .firstOrNull { candidate ->
+                    candidate.parameterTypes.size == 1 && candidate.parameterTypes.first() == String::class.java
+                }
+                ?: throw NoSuchMethodException("Backend.NPU(String)")
+            constructor.isAccessible = true
+            val instance = constructor.newInstance(nativeLibraryDir)
+            BackendNpuInstantiateProbeResult(
+                enabled = true,
+                nativeLibraryDirArgument = nativeLibraryDir,
+                constructor = "Backend.NPU(String)",
+                result = "success",
+                objectClass = instance?.javaClass?.name ?: "unknown",
+                warning = warning,
+            )
+        }.getOrElse { throwable ->
+            val unwrapped = unwrapInvocationTarget(throwable)
+            val chain = throwableCauseChain(throwable)
+            BackendNpuInstantiateProbeResult(
+                enabled = true,
+                nativeLibraryDirArgument = nativeLibraryDir,
+                constructor = "Backend.NPU(String)",
+                result = "failed",
+                exceptionClass = throwable.javaClass.name,
+                exceptionMessage = throwable.message?.take(240),
+                rootCause = "${unwrapped.javaClass.name}:${unwrapped.message.orEmpty().take(240)}",
+                causeChain = chain.joinToString(" -> ") { cause ->
+                    "${cause.javaClass.simpleName}:${cause.message.orEmpty().take(120)}"
+                }.ifBlank { throwable.javaClass.simpleName },
+                warning = warning,
+            )
+        }
+    }
+
+    private fun unwrapInvocationTarget(throwable: Throwable): Throwable {
+        var current = throwable
+        while (current is InvocationTargetException && current.targetException != null) {
+            current = current.targetException
+        }
+        return current
+    }
+
+    private fun throwableCauseChain(throwable: Throwable): List<Throwable> {
+        val chain = mutableListOf<Throwable>()
+        var current: Throwable? = throwable
+        while (current != null && chain.size < 8 && current !in chain) {
+            chain += current
+            current = if (current is InvocationTargetException && current.targetException != null) {
+                current.targetException
+            } else {
+                current.cause
+            }
+        }
+        return chain
+    }
+
+    private fun sha256ForFileSafely(file: File): String? {
+        return runCatching {
+            if (!file.isFile || file.length() <= 0L) return null
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().use { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read <= 0) break
+                    digest.update(buffer, 0, read)
+                }
+            }
+            digest.digest().joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
+        }.getOrNull()
+    }
+
+    private fun readElfBuildIdSafely(file: File): String? {
+        return runCatching {
+            if (!file.isFile || file.length() <= 0L) return null
+            val bytes = file.inputStream().use { input ->
+                input.readBytes().let { data ->
+                    if (data.size <= MAX_ELF_NOTE_SCAN_BYTES) data else data.copyOf(MAX_ELF_NOTE_SCAN_BYTES)
+                }
+            }
+            extractGnuBuildId(bytes)
+        }.getOrNull()
+    }
+
+    private fun extractGnuBuildId(bytes: ByteArray): String? {
+        val gnuName = byteArrayOf('G'.code.toByte(), 'N'.code.toByte(), 'U'.code.toByte(), 0)
+        var index = 12
+        while (index <= bytes.size - gnuName.size) {
+            if (matchesBytes(bytes, index, gnuName)) {
+                val headerOffset = index - 12
+                val nameSize = readLittleEndianInt(bytes, headerOffset)
+                val descSize = readLittleEndianInt(bytes, headerOffset + 4)
+                val type = readLittleEndianInt(bytes, headerOffset + 8)
+                if (nameSize == 4 && type == 3 && descSize in 4..64) {
+                    val descOffset = index + align4(nameSize)
+                    if (descOffset >= 0 && descOffset + descSize <= bytes.size) {
+                        return bytes.copyOfRange(descOffset, descOffset + descSize)
+                            .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
+                    }
+                }
+            }
+            index += 1
+        }
+        return null
+    }
+
+    private fun matchesBytes(bytes: ByteArray, offset: Int, expected: ByteArray): Boolean {
+        if (offset < 0 || offset + expected.size > bytes.size) return false
+        return expected.indices.all { index -> bytes[offset + index] == expected[index] }
+    }
+
+    private fun readLittleEndianInt(bytes: ByteArray, offset: Int): Int {
+        if (offset < 0 || offset + 4 > bytes.size) return -1
+        return (bytes[offset].toInt() and 0xff) or
+            ((bytes[offset + 1].toInt() and 0xff) shl 8) or
+            ((bytes[offset + 2].toInt() and 0xff) shl 16) or
+            ((bytes[offset + 3].toInt() and 0xff) shl 24)
+    }
+
+    private fun align4(value: Int): Int = (value + 3) and -4
 
     private fun probeExternalQairtStageSafely(): ExternalQairtStageProbeResult {
         return runCatching {
@@ -264,6 +519,19 @@ internal object AcceleratorProbe {
                 snapshot.nnapiDevices.size,
             )
             Log.d(LOG_TAG, message)
+            Log.d(
+                LOG_TAG,
+                "dispatchCompatibility flavor=${snapshot.currentFlavor ?: "unknown"} " +
+                    "applicationId=${snapshot.applicationId ?: "unknown"} " +
+                    "nativeLibraryDir=${snapshot.dispatchNativeLibraryDir ?: "unknown"} " +
+                    "present=${snapshot.dispatchRuntimePresentInFlavor ?: false} " +
+                    "buildId=${snapshot.dispatchRuntimeBuildId ?: "unknown"} " +
+                    "sha256Match=${snapshot.dispatchRuntimeExpectedSha256Match ?: false} " +
+                    "abi=${snapshot.dispatchRuntimeAbiCompatibility ?: "unknown"} " +
+                    "loadPolicy=diagnostic-only " +
+                    "backendNpuInstantiate=${snapshot.backendNpuInstantiateResult ?: "skipped"} " +
+                    "skip=${snapshot.backendNpuInstantiateProbeSkipReason ?: "none"}",
+            )
             hasLogged = true
         }
     }
@@ -710,19 +978,19 @@ internal object AcceleratorProbe {
     private fun isDispatchApiLibraryCandidate(name: String): Boolean {
         if (!name.endsWith(".so")) return false
         val lower = name.lowercase(Locale.US)
-        return name in dispatchApiLibraryNames ||
+        return dispatchApiLibraryNames.any { it.equals(name, ignoreCase = true) } ||
             "dispatch" in lower ||
             "litertdispatch" in lower ||
             (("qualcomm" in lower || "qnn" in lower) && "dispatch" in lower)
     }
 
     private fun isQnnRuntimeLibraryCandidate(name: String): Boolean {
-        return name in qnnRuntimeLibraryNames
+        return qnnRuntimeLibraryNames.any { it.equals(name, ignoreCase = true) }
     }
 
     private fun isHtpSkelStubLibraryCandidate(name: String): Boolean {
         if (!name.endsWith(".so")) return false
-        return name in htpSkelStubLibraryNames ||
+        return htpSkelStubLibraryNames.any { it.equals(name, ignoreCase = true) } ||
             ((name.contains("Skel", ignoreCase = true) || name.contains("Stub", ignoreCase = true)) &&
                 (name.contains("QnnHtp", ignoreCase = true) || name.contains("QnnDsp", ignoreCase = true)))
     }
@@ -1124,5 +1392,36 @@ internal object AcceleratorProbe {
         val dspCore: String = EXTERNAL_QAIRT_VERIFIED_DSP_CORE,
         val dspBackendStatus: String = EXTERNAL_QAIRT_VERIFIED_DSP_BACKEND_STATUS,
         val note: String? = null,
+    )
+
+    private data class DispatchRuntimeCompatibilityProbeResult(
+        val currentFlavor: String = "unknown",
+        val applicationId: String = "unknown",
+        val nativeLibraryDir: String? = null,
+        val nativeLibraryDirExists: Boolean? = null,
+        val dispatchRuntimePresent: Boolean = false,
+        val dispatchRuntimeSource: String = "none",
+        val dispatchRuntimeFilePath: String? = null,
+        val dispatchRuntimeFileLength: Long? = null,
+        val liteRtBuildId: String? = null,
+        val liteRtLmJniBuildId: String? = null,
+        val dispatchRuntimeBuildId: String? = null,
+        val dispatchRuntimeSha256: String? = null,
+        val dispatchRuntimeExpectedSha256Match: Boolean? = null,
+        val abiCompatibility: String = "unknown",
+    )
+
+    private data class BackendNpuInstantiateProbeResult(
+        val enabled: Boolean = false,
+        val skipReason: String? = null,
+        val nativeLibraryDirArgument: String? = null,
+        val constructor: String? = null,
+        val result: String = "skipped",
+        val objectClass: String? = null,
+        val exceptionClass: String? = null,
+        val exceptionMessage: String? = null,
+        val rootCause: String? = null,
+        val causeChain: String? = null,
+        val warning: String = "instantiate-only; object not passed to engine; no inference",
     )
 }

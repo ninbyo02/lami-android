@@ -58,6 +58,30 @@ android {
         buildConfigField("String", "BUILD_PR_NUMBER", "\"$buildPrNumber\"")
         buildConfigField("String", "APP_SUBTITLE", "\"LAMI — Lightweight AI for Memory & Interaction\"")
         buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidReleaseVersion\"")
+        buildConfigField("String", "CURRENT_FLAVOR", "\"standard\"")
+        buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+        buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
+        buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+    }
+
+    flavorDimensions += "dispatchExperiment"
+    productFlavors {
+        create("standard") {
+            dimension = "dispatchExperiment"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"standard\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+        }
+        create("npuExperiment") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".npu"
+            versionNameSuffix = "-npuExperiment"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"npuExperiment\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "true")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"gallery-sm8750 detection-only staged in app/src/npuExperimentDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
+        }
     }
 
     buildTypes {
@@ -87,6 +111,17 @@ android {
     sourceSets {
         getByName("debug") {
             jniLibs.srcDir(layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs"))
+        }
+        create("npuExperimentDebug") {
+            jniLibs.srcDir("src/npuExperimentDebug/jniLibs")
+        }
+    }
+}
+
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) { variantBuilder ->
+        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && it.second == "npuExperiment" }) {
+            variantBuilder.enable = false
         }
     }
 }
@@ -313,6 +348,27 @@ tasks.register("buildQnnDirectProbeDebugJni") {
 
 tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
+}
+
+tasks.matching { it.name == "mergeStandardDebugJniLibFolders" || it.name == "mergeNpuExperimentDebugJniLibFolders" }.configureEach {
+    dependsOn("buildQnnDirectProbeDebugJni")
+}
+
+afterEvaluate {
+    if (tasks.findByName("compileDebugKotlin") == null && tasks.findByName("compileStandardDebugKotlin") != null) {
+        tasks.register("compileDebugKotlin") {
+            group = "build"
+            description = "Compatibility alias for the standard debug Kotlin compile task."
+            dependsOn("compileStandardDebugKotlin")
+        }
+    }
+    if (tasks.findByName("assembleDebug") == null && tasks.findByName("assembleStandardDebug") != null) {
+        tasks.register("assembleDebug") {
+            group = "build"
+            description = "Compatibility alias for the standard debug assemble task."
+            dependsOn("assembleStandardDebug")
+        }
+    }
 }
 
 tasks.register("copyQnnNpuNativeLibsFromQairt") {

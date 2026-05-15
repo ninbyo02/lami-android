@@ -549,6 +549,22 @@ internal fun buildInferenceDetailSections(
                 )
             },
         acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Dispatch Runtime Compatibility",
+                    items = buildDispatchRuntimeCompatibilityItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Backend.NPU Instantiate Probe",
+                    items = buildBackendNpuInstantiateProbeItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
             ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && hasQnnDelegateProbeDiagnostics(it) }
             ?.let { probe ->
                 InferenceStatsSectionUi(
@@ -1421,10 +1437,12 @@ private fun buildLiteRtLmNpuReadinessItems(
     val modelKind = classifyLiteRtLmModelKind(selectedModel)
     val modelCompatibilityHint = classifyLiteRtLmModelNpuCompatibilityHint(selectedModel)
     val modelNpuBlocker = formatLiteRtLmModelNpuBlocker(modelCompatibilityHint, selectedModel)
-    val dispatchStatus = formatDispatchApiStatus(probe.npuDispatchLibraryStatus, probe.npuDispatchApiCandidates)
+    val dispatchDetailStatus = formatDispatchApiDetailStatus(probe.npuDispatchLibraryStatus, probe.npuDispatchApiCandidates)
+    val dispatchStatus = formatDispatchApiStatus(dispatchDetailStatus)
     val readiness = computeLiteRtLmNpuReadiness(
         probe = probe,
         dispatchStatus = dispatchStatus,
+        dispatchDetailStatus = dispatchDetailStatus,
         modelCompatibilityHint = modelCompatibilityHint,
     )
     return listOf(
@@ -1444,10 +1462,11 @@ private fun buildLiteRtLmNpuReadinessItems(
         InferenceStatItemUi(label = "dispatch API candidates", value = probe.npuDispatchApiCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
         InferenceStatItemUi(label = "dispatch API exact match", value = probe.npuDispatchApiExactMatch?.toString() ?: "unknown"),
         InferenceStatItemUi(label = "dispatch API status", value = dispatchStatus),
+        InferenceStatItemUi(label = "dispatch API detail status", value = dispatchDetailStatus),
         InferenceStatItemUi(label = "dispatch API selected candidate", value = probe.npuDispatchApiSelectedCandidate?.ifBlank { "none" } ?: "none"),
         InferenceStatItemUi(label = "dispatch API search dir", value = probe.npuDispatchApiSearchDir?.ifBlank { "unknown" } ?: "unknown"),
         InferenceStatItemUi(label = "dispatch API search error", value = probe.npuDispatchApiSearchError?.ifBlank { "none" } ?: "none"),
-        InferenceStatItemUi(label = "dispatch API .so", value = if (dispatchStatus.startsWith("found-")) "found" else dispatchStatus),
+        InferenceStatItemUi(label = "dispatch API .so", value = dispatchStatus),
         InferenceStatItemUi(label = "QNN runtime libs", value = if (probe.npuQnnRuntimeCandidates.isNotEmpty()) "found" else "missing"),
         InferenceStatItemUi(label = "QNN runtime candidates", value = probe.npuQnnRuntimeCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
         InferenceStatItemUi(label = "HTP skel/stub", value = if (probe.npuHtpSkelStubCandidates.isNotEmpty()) "found" else "missing"),
@@ -1458,6 +1477,47 @@ private fun buildLiteRtLmNpuReadinessItems(
         InferenceStatItemUi(label = "selected path", value = formatLiteRtLmNpuSelectedPath(readiness)),
         InferenceStatItemUi(label = "NPU apply status", value = "disabled / blocked"),
         InferenceStatItemUi(label = "next action", value = formatLiteRtLmNpuNextAction(readiness)),
+    )
+}
+
+private fun buildDispatchRuntimeCompatibilityItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "current flavor", value = probe.currentFlavor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "applicationId", value = probe.applicationId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "nativeLibraryDir", value = probe.dispatchNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "nativeLibraryDir exists", value = probe.dispatchNativeLibraryDirExists?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime present in flavor", value = probe.dispatchRuntimePresentInFlavor?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime present in nativeLibraryDir", value = probe.dispatchRuntimePresentInFlavor?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime file path", value = probe.dispatchRuntimeFilePath?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime file length", value = probe.dispatchRuntimeFileLength?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime source", value = probe.dispatchRuntimeSource?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "LiteRT build id", value = probe.liteRtBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "litertlm_jni build id", value = probe.liteRtLmJniBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime build id", value = probe.dispatchRuntimeBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime sha256", value = probe.dispatchRuntimeSha256?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime expected sha256 match", value = probe.dispatchRuntimeExpectedSha256Match?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "ABI compatibility", value = probe.dispatchRuntimeAbiCompatibility?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "load policy", value = "diagnostic-only; no System.loadLibrary; no Backend.NPU apply"),
+    )
+}
+
+private fun buildBackendNpuInstantiateProbeItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "enabled", value = probe.backendNpuInstantiateProbeEnabled?.toString() ?: "false"),
+        InferenceStatItemUi(label = "reason if skipped", value = probe.backendNpuInstantiateProbeSkipReason?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "nativeLibraryDir argument", value = probe.backendNpuInstantiateNativeLibraryDirArgument?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "constructor", value = probe.backendNpuInstantiateConstructor?.ifBlank { "Backend.NPU(String)" } ?: "Backend.NPU(String)"),
+        InferenceStatItemUi(label = "instantiate result", value = probe.backendNpuInstantiateResult?.ifBlank { "skipped" } ?: "skipped"),
+        InferenceStatItemUi(label = "object class", value = probe.backendNpuInstantiateObjectClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "exception class", value = probe.backendNpuInstantiateExceptionClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "exception message", value = probe.backendNpuInstantiateExceptionMessage?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "root cause", value = probe.backendNpuInstantiateRootCause?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "cause chain", value = probe.backendNpuInstantiateCauseChain?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "warning", value = probe.backendNpuInstantiateWarning?.ifBlank { "instantiate-only; object not passed to engine; no inference" } ?: "instantiate-only; object not passed to engine; no inference"),
     )
 }
 
@@ -1502,7 +1562,7 @@ private fun formatLiteRtLmModelRequirement(modelKind: String): String {
     }
 }
 
-private fun formatDispatchApiStatus(
+private fun formatDispatchApiDetailStatus(
     dispatchLibraryStatus: String?,
     dispatchApiCandidates: List<String>,
 ): String {
@@ -1523,33 +1583,41 @@ private fun formatDispatchApiStatus(
     }
 }
 
+private fun formatDispatchApiStatus(dispatchDetailStatus: String): String {
+    return when {
+        dispatchDetailStatus.startsWith("found-") -> "found"
+        dispatchDetailStatus == "missing" || dispatchDetailStatus == "native-library-dir-empty" -> "missing"
+        else -> "unknown"
+    }
+}
+
 private fun computeLiteRtLmNpuReadiness(
     probe: AcceleratorProbeSnapshot,
     dispatchStatus: String,
+    dispatchDetailStatus: String,
     modelCompatibilityHint: String,
 ): String {
     val runtimeReady = probe.npuQnnRuntimeCandidates.isNotEmpty() ||
         probe.npuVendorRuntimeLibraryStatus?.startsWith("candidate-detected") == true
     val htpSkelStubReady = probe.npuHtpSkelStubCandidates.isNotEmpty()
     return when {
-        !probe.npuStringConstructorAvailable -> "blocked-backend-npu-string-missing"
-        probe.npuNativeLibraryDir.isNullOrBlank() || probe.npuNativeLibraryDirExists == false -> "blocked-native-library-dir-missing"
-        !runtimeReady -> "blocked-qnn-runtime-missing"
-        !htpSkelStubReady -> "blocked-htp-skel-stub-missing"
-        dispatchStatus == "missing" || dispatchStatus == "native-library-dir-empty" -> "blocked-dispatch-api-so-missing"
-        dispatchStatus == "native-library-dir-missing" -> "blocked-native-library-dir-missing"
-        dispatchStatus == "unknown-error" -> "npu-unknown"
-        modelCompatibilityHint != "qualcomm-soc-specific-candidate" -> "blocked-requires-soc-specific-qualcomm-litertlm"
-        dispatchStatus.startsWith("found-") -> "ready-but-disabled-cli-proof-required"
+        dispatchStatus == "missing" -> "gpu-ok-npu-blocked-dispatch-missing"
+        dispatchDetailStatus == "unknown-error" -> "npu-unknown"
+        !probe.npuStringConstructorAvailable -> "npu-unknown"
+        probe.npuNativeLibraryDir.isNullOrBlank() || probe.npuNativeLibraryDirExists == false -> "npu-unknown"
+        !runtimeReady -> "npu-unknown"
+        !htpSkelStubReady -> "npu-unknown"
+        modelCompatibilityHint != "qualcomm-soc-specific-candidate" -> "npu-unknown"
+        dispatchStatus == "found" -> "npu-prerequisites-present-probe-only"
         else -> "npu-unknown"
     }
 }
 
 private fun formatLiteRtLmNpuSelectedPath(readiness: String): String {
     return when (readiness) {
-        "ready-for-manual-npu-enable" -> "npu-probe-only"
-        "ready-but-disabled-cli-proof-required" -> "gpu"
-        else -> if (readiness.startsWith("blocked-")) "gpu" else "blocked"
+        "npu-prerequisites-present-probe-only" -> "npu-probe-only"
+        "gpu-ok-npu-blocked-dispatch-missing" -> "gpu"
+        else -> "blocked"
     }
 }
 
@@ -1564,12 +1632,10 @@ private fun formatNativeLibraryDirStatus(probe: AcceleratorProbeSnapshot): Strin
 
 private fun formatLiteRtLmNpuNextAction(readiness: String): String {
     return when (readiness) {
-        "blocked-dispatch-api-so-missing" ->
+        "gpu-ok-npu-blocked-dispatch-missing" ->
             "1) run scripts/check_litert_npu_dispatch.sh\n2) if dispatch API .so is found, package it under jniLibs/arm64-v8a or dependency packaging\n3) verify CLI with litert_lm_main --backend=npu\n4) enable app NPU only after CLI proof"
-        "ready-but-disabled-cli-proof-required" ->
+        "npu-prerequisites-present-probe-only" ->
             "1) verify CLI with litert_lm_main --backend=npu\n2) keep app NPU disabled until CLI proof is recorded\n3) enable app NPU only after explicit guard review"
-        "ready-for-manual-npu-enable" ->
-            "manual NPU enable can be considered after explicit app-side guard review"
         else ->
             "1) keep GPU fallback\n2) resolve listed NPU prerequisite\n3) do not apply Backend.NPU until dispatch API .so and CLI proof are both present"
     }
@@ -1641,6 +1707,7 @@ private fun formatLamiBlockedReason(probe: AcceleratorProbeSnapshot): String? {
             source == "missing" ||
             source == "native-library-dir-empty" ||
             "blocked-dispatch-api-so-missing" in source ||
+            "gpu-ok-npu-blocked-dispatch-missing" in source ||
             "missing:libLiteRtDispatch.so" in source
         ) {
             reasons += "dispatch API .so missing"

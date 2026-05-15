@@ -66,7 +66,7 @@ fun buildLocalInferenceFailureDiagnostics(
         isDispatchApiLibraryCandidate(name)
     }
     val qnnRuntimeCandidates = nativeLibraryFiles.filter { name ->
-        name in qnnRuntimeLibraryNames
+        qnnRuntimeLibraryNames.any { it.equals(name, ignoreCase = true) }
     }
     val htpSkelStubCandidates = nativeLibraryFiles.filter { name ->
         isHtpSkelStubLibraryCandidate(name)
@@ -80,7 +80,7 @@ fun buildLocalInferenceFailureDiagnostics(
     ).any(lowerThrowableText::contains)
     val dispatchMissingByKnownLibrary = missingLibraryNames.any { name ->
         name.contains("dispatch", ignoreCase = true) ||
-            name in dispatchLibraryNames
+            dispatchLibraryNames.any { it.equals(name, ignoreCase = true) }
     }
     val dispatchApiMissingLikely = dispatchApiCandidates.isEmpty() ||
         dispatchMissingByException ||
@@ -125,7 +125,7 @@ fun buildLocalInferenceFailureDiagnostics(
 fun formatLocalInferenceFailureDiagnosticsForDev(
     diagnostics: LocalInferenceFailureDiagnostics,
 ): String = buildString {
-    appendLine("[Qualcomm model failure diagnostics]")
+    appendLine("[Qualcomm Model Failure]")
     appendLine("selected model filename=${diagnostics.selectedModelFilename ?: "unknown"}")
     appendLine("isQualcommModelLikely=${diagnostics.isQualcommModelLikely}")
     appendLine("isSm8750ModelLikely=${diagnostics.isSm8750ModelLikely}")
@@ -139,12 +139,12 @@ fun formatLocalInferenceFailureDiagnosticsForDev(
     appendLine("UnsatisfiedLinkError detected=${diagnostics.unsatisfiedLinkErrorDetected}")
     appendLine("dlopen failed detected=${diagnostics.dlopenFailedDetected}")
     appendLine("No usable Dispatch runtime found=${diagnostics.noUsableDispatchRuntimeDetected}")
-    appendLine("missing library names extracted=${diagnostics.missingLibraryNames.ifEmpty { listOf("none") }.joinToString(", ")}")
+    appendLine("missing library names=${diagnostics.missingLibraryNames.ifEmpty { listOf("none") }.joinToString(", ")}")
     appendLine("nativeLibraryDir=${diagnostics.nativeLibraryDir ?: "unknown"}")
     appendLine("nativeLibraryDir exists=${diagnostics.nativeLibraryDirExists}")
     appendLine("nativeLibraryDir files summary=${diagnostics.nativeLibraryFilesSummary}")
     appendLine("dispatch api candidate files found=${diagnostics.dispatchApiCandidatesFound.ifEmpty { listOf("none") }.joinToString(", ")}")
-    appendLine("dispatch api missing=${diagnostics.dispatchApiMissingLikely}")
+    appendLine("dispatch api missing likely=${diagnostics.dispatchApiMissingLikely}")
     appendLine("qnn runtime files found=${diagnostics.qnnRuntimeCandidatesFound.ifEmpty { listOf("none") }.joinToString(", ")}")
     appendLine("htp/skel/stub files found=${diagnostics.htpSkelStubCandidatesFound.ifEmpty { listOf("none") }.joinToString(", ")}")
     appendLine("V79 skel/stub files found=${diagnostics.htpSkelStubCandidatesFound.filter { it.contains("V79", ignoreCase = true) }.ifEmpty { listOf("none") }.joinToString(", ")}")
@@ -153,7 +153,7 @@ fun formatLocalInferenceFailureDiagnosticsForDev(
     appendLine("NPU nativeLibraryDir required=${diagnostics.backendNpuNativeLibraryDirRequired}")
     appendLine("litert_lm_main backend=npu proof status=${diagnostics.litertLmMainBackendNpuProofStatus}")
     appendLine("selected fallback path=${diagnostics.selectedFallbackPath ?: "unknown"}")
-    appendLine("stacktrace first 20 lines:")
+    appendLine("stacktrace head:")
     appendLine(diagnostics.stackTraceHead.ifBlank { "none" })
 }.trimEnd()
 
@@ -252,7 +252,7 @@ private fun summarizeNativeLibraryFiles(files: List<String>): String {
 private fun isDispatchApiLibraryCandidate(name: String): Boolean {
     if (!name.endsWith(".so")) return false
     val lower = name.lowercase(Locale.US)
-    return name in dispatchLibraryNames ||
+    return dispatchLibraryNames.any { it.equals(name, ignoreCase = true) } ||
         "dispatch" in lower ||
         "litertdispatch" in lower ||
         (("qualcomm" in lower || "qnn" in lower) && "dispatch" in lower)
@@ -260,7 +260,7 @@ private fun isDispatchApiLibraryCandidate(name: String): Boolean {
 
 private fun isHtpSkelStubLibraryCandidate(name: String): Boolean {
     if (!name.endsWith(".so")) return false
-    return name in htpSkelStubLibraryNames ||
+    return htpSkelStubLibraryNames.any { it.equals(name, ignoreCase = true) } ||
         ((name.contains("Skel", ignoreCase = true) || name.contains("Stub", ignoreCase = true)) &&
             (name.contains("QnnHtp", ignoreCase = true) || name.contains("QnnDsp", ignoreCase = true)))
 }
