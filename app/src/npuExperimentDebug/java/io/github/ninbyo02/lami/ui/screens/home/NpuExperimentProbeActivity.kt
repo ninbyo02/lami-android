@@ -45,6 +45,22 @@ internal object NpuExperimentProbeLogger {
                 "root cause=${snapshot.backendNpuInstantiateRootCause ?: "-"}; " +
                 "cause chain=${snapshot.backendNpuInstantiateCauseChain ?: "-"}; " +
                 "warning=${snapshot.backendNpuInstantiateWarning ?: "instantiate-only; object not passed to engine; no inference"}"
+        val attachDryRunLine =
+            "Backend.NPU Attach Dry-Run Probe: " +
+                "enabled=${snapshot.backendNpuAttachDryRunEnabled ?: "unknown"}; " +
+                "skipped reason=${snapshot.backendNpuAttachDryRunSkipReason ?: "none"}; " +
+                "npu object class=${snapshot.backendNpuAttachDryRunNpuObjectClass ?: "-"}; " +
+                "target builder candidates=${snapshot.backendNpuAttachDryRunTargetBuilderCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"}; " +
+                "setter candidates=${snapshot.backendNpuAttachDryRunSetterCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"}; " +
+                "selected setter=${snapshot.backendNpuAttachDryRunSelectedSetter ?: "-"}; " +
+                "setter invoke result=${snapshot.backendNpuAttachDryRunSetterInvokeResult ?: "unknown"}; " +
+                "build invoked=${snapshot.backendNpuAttachDryRunBuildInvoked ?: "no"}; " +
+                "build result=${snapshot.backendNpuAttachDryRunBuildResult ?: "skipped"}; " +
+                "exception class=${snapshot.backendNpuAttachDryRunExceptionClass ?: "-"}; " +
+                "exception message=${snapshot.backendNpuAttachDryRunExceptionMessage ?: "-"}; " +
+                "root cause=${snapshot.backendNpuAttachDryRunRootCause ?: "-"}; " +
+                "cause chain=${snapshot.backendNpuAttachDryRunCauseChain ?: "-"}; " +
+                "warning=${snapshot.backendNpuAttachDryRunWarning ?: "attach-dry-run only; no Engine; no Conversation; no inference"}"
         val safetyLine =
             "NPU safety status: " +
                 "selectedPath=${snapshot.qnnNpuSelectedPath ?: "unknown"}; " +
@@ -52,12 +68,12 @@ internal object NpuExperimentProbeLogger {
                 "fallbackPath=${snapshot.qnnNpuFallbackPath ?: "-"}; " +
                 "NPU apply status=disabled / probe-only"
 
-        listOf(dispatchLine, instantiateLine, safetyLine).forEach { line ->
+        listOf(dispatchLine, instantiateLine, attachDryRunLine, safetyLine).forEach { line ->
             Log.i(LOG_TAG, line)
         }
         runCatching {
             context.filesDir.resolve("npu_experiment_probe.txt").writeText(
-                listOf(dispatchLine, instantiateLine, safetyLine).joinToString(separator = "\n", postfix = "\n"),
+                listOf(dispatchLine, instantiateLine, attachDryRunLine, safetyLine).joinToString(separator = "\n", postfix = "\n"),
             )
         }.onFailure { throwable ->
             Log.e(LOG_TAG, "Failed to write probe result: ${throwable.javaClass.simpleName}: ${throwable.message}")

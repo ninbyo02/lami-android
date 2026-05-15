@@ -240,6 +240,62 @@ class LocalAcceleratorAttemptDiagnosticsTest {
     }
 
     @Test
+    fun `developer diagnostics show backend npu attach dry run without changing gpu path`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = acceleratorSnapshot(
+                qnnNpuAttempted = false,
+                qnnNpuSelectedPath = "gpu",
+                backendNpuAttachDryRunEnabled = true,
+                backendNpuAttachDryRunNpuObjectClass = "com.google.ai.edge.litertlm.Backend\$NPU",
+                backendNpuAttachDryRunTargetBuilderCandidates = listOf("EngineConfig"),
+                backendNpuAttachDryRunSetterCandidates = listOf("EngineConfig.EngineConfig.setBackend(Backend): EngineConfig"),
+                backendNpuAttachDryRunSelectedSetter = "EngineConfig.EngineConfig.setBackend(Backend): EngineConfig",
+                backendNpuAttachDryRunSetterInvokeResult = "success",
+                backendNpuAttachDryRunBuildInvoked = "no",
+                backendNpuAttachDryRunBuildResult = "skipped-build-not-invoked-safety",
+                backendNpuAttachDryRunWarning = "attach-dry-run only; no Engine; no Conversation; no inference",
+            ),
+        )
+
+        val attachDryRunSection = sections.first { it.title == "DEV診断: Backend.NPU Attach Dry-Run Probe" }
+        assertEquals("true", attachDryRunSection.items.first { it.label == "enabled" }.value)
+        assertEquals("EngineConfig", attachDryRunSection.items.first { it.label == "target builder candidates" }.value)
+        assertEquals("success", attachDryRunSection.items.first { it.label == "setter invoke result" }.value)
+        assertEquals("no", attachDryRunSection.items.first { it.label == "build invoked" }.value)
+        assertTrue(attachDryRunSection.items.first { it.label == "warning" }.value.contains("no Engine"))
+
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals("no", devSection.items.first { it.label == "QNN/NPU試行" }.value)
+        assertEquals("gpu", devSection.items.first { it.label == "QNN/NPU selectedPath" }.value)
+    }
+
+    @Test
+    fun `developer diagnostics show attach dry run method not found as non inference result`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            acceleratorProbeSnapshot = acceleratorSnapshot(
+                qnnNpuAttempted = false,
+                qnnNpuSelectedPath = "gpu",
+                backendNpuAttachDryRunEnabled = true,
+                backendNpuAttachDryRunNpuObjectClass = "com.google.ai.edge.litertlm.Backend\$NPU",
+                backendNpuAttachDryRunTargetBuilderCandidates = listOf("EngineConfig:no-instantiable-builder"),
+                backendNpuAttachDryRunSetterInvokeResult = "method-not-found",
+                backendNpuAttachDryRunBuildInvoked = "no",
+                backendNpuAttachDryRunBuildResult = "skipped",
+                backendNpuAttachDryRunCauseChain = "NoSuchMethodException:setBackend",
+            ),
+        )
+
+        val attachDryRunSection = sections.first { it.title == "DEV診断: Backend.NPU Attach Dry-Run Probe" }
+        assertEquals("method-not-found", attachDryRunSection.items.first { it.label == "setter invoke result" }.value)
+        assertEquals("NoSuchMethodException:setBackend", attachDryRunSection.items.first { it.label == "cause chain" }.value)
+        assertEquals("no", attachDryRunSection.items.first { it.label == "build invoked" }.value)
+    }
+
+    @Test
     fun `developer diagnostics classify exact dispatch candidate`() {
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(modelName = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"),
@@ -360,6 +416,17 @@ class LocalAcceleratorAttemptDiagnosticsTest {
         backendNpuInstantiateConstructor: String? = null,
         backendNpuInstantiateResult: String? = null,
         backendNpuInstantiateWarning: String? = null,
+        backendNpuAttachDryRunEnabled: Boolean? = null,
+        backendNpuAttachDryRunSkipReason: String? = null,
+        backendNpuAttachDryRunNpuObjectClass: String? = null,
+        backendNpuAttachDryRunTargetBuilderCandidates: List<String> = emptyList(),
+        backendNpuAttachDryRunSetterCandidates: List<String> = emptyList(),
+        backendNpuAttachDryRunSelectedSetter: String? = null,
+        backendNpuAttachDryRunSetterInvokeResult: String? = null,
+        backendNpuAttachDryRunBuildInvoked: String? = null,
+        backendNpuAttachDryRunBuildResult: String? = null,
+        backendNpuAttachDryRunCauseChain: String? = null,
+        backendNpuAttachDryRunWarning: String? = null,
     ): AcceleratorProbeSnapshot {
         return AcceleratorProbeSnapshot(
             deviceManufacturer = "nubia",
@@ -419,6 +486,17 @@ class LocalAcceleratorAttemptDiagnosticsTest {
             backendNpuInstantiateConstructor = backendNpuInstantiateConstructor,
             backendNpuInstantiateResult = backendNpuInstantiateResult,
             backendNpuInstantiateWarning = backendNpuInstantiateWarning,
+            backendNpuAttachDryRunEnabled = backendNpuAttachDryRunEnabled,
+            backendNpuAttachDryRunSkipReason = backendNpuAttachDryRunSkipReason,
+            backendNpuAttachDryRunNpuObjectClass = backendNpuAttachDryRunNpuObjectClass,
+            backendNpuAttachDryRunTargetBuilderCandidates = backendNpuAttachDryRunTargetBuilderCandidates,
+            backendNpuAttachDryRunSetterCandidates = backendNpuAttachDryRunSetterCandidates,
+            backendNpuAttachDryRunSelectedSetter = backendNpuAttachDryRunSelectedSetter,
+            backendNpuAttachDryRunSetterInvokeResult = backendNpuAttachDryRunSetterInvokeResult,
+            backendNpuAttachDryRunBuildInvoked = backendNpuAttachDryRunBuildInvoked,
+            backendNpuAttachDryRunBuildResult = backendNpuAttachDryRunBuildResult,
+            backendNpuAttachDryRunCauseChain = backendNpuAttachDryRunCauseChain,
+            backendNpuAttachDryRunWarning = backendNpuAttachDryRunWarning,
         )
     }
 }

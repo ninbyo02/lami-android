@@ -565,6 +565,14 @@ internal fun buildInferenceDetailSections(
                 )
             },
         acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Backend.NPU Attach Dry-Run Probe",
+                    items = buildBackendNpuAttachDryRunProbeItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
             ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && hasQnnDelegateProbeDiagnostics(it) }
             ?.let { probe ->
                 InferenceStatsSectionUi(
@@ -1518,6 +1526,27 @@ private fun buildBackendNpuInstantiateProbeItems(
         InferenceStatItemUi(label = "root cause", value = probe.backendNpuInstantiateRootCause?.ifBlank { "—" } ?: "—"),
         InferenceStatItemUi(label = "cause chain", value = probe.backendNpuInstantiateCauseChain?.ifBlank { "—" } ?: "—"),
         InferenceStatItemUi(label = "warning", value = probe.backendNpuInstantiateWarning?.ifBlank { "instantiate-only; object not passed to engine; no inference" } ?: "instantiate-only; object not passed to engine; no inference"),
+    )
+}
+
+private fun buildBackendNpuAttachDryRunProbeItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "enabled", value = probe.backendNpuAttachDryRunEnabled?.toString() ?: "false"),
+        InferenceStatItemUi(label = "skipped reason", value = probe.backendNpuAttachDryRunSkipReason?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "npu object class", value = probe.backendNpuAttachDryRunNpuObjectClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "target builder candidates", value = probe.backendNpuAttachDryRunTargetBuilderCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "setter candidates", value = probe.backendNpuAttachDryRunSetterCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "selected setter", value = probe.backendNpuAttachDryRunSelectedSetter?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "setter invoke result", value = probe.backendNpuAttachDryRunSetterInvokeResult?.ifBlank { "skipped" } ?: "skipped"),
+        InferenceStatItemUi(label = "build invoked", value = probe.backendNpuAttachDryRunBuildInvoked?.ifBlank { "no" } ?: "no"),
+        InferenceStatItemUi(label = "build result", value = probe.backendNpuAttachDryRunBuildResult?.ifBlank { "skipped" } ?: "skipped"),
+        InferenceStatItemUi(label = "exception class", value = probe.backendNpuAttachDryRunExceptionClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "exception message", value = probe.backendNpuAttachDryRunExceptionMessage?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "root cause", value = probe.backendNpuAttachDryRunRootCause?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "cause chain", value = probe.backendNpuAttachDryRunCauseChain?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "warning", value = probe.backendNpuAttachDryRunWarning?.ifBlank { "attach-dry-run only; no Engine; no Conversation; no inference" } ?: "attach-dry-run only; no Engine; no Conversation; no inference"),
     )
 }
 

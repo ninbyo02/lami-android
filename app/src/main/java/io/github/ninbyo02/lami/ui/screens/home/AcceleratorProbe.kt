@@ -8,7 +8,10 @@ import android.util.Log
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.local.QnnDelegateProbe
 import java.io.File
+import java.lang.reflect.Constructor
 import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.zip.ZipFile
@@ -119,6 +122,13 @@ internal object AcceleratorProbe {
             context = context,
             packagedLibraries = npuPackagedLibraryProbeResult,
             dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+        )
+        val backendNpuAttachDryRunProbeResult = probeBackendNpuAttachDryRunSafely(
+            context = context,
+            packagedLibraries = npuPackagedLibraryProbeResult,
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            instantiateProbeResult = backendNpuInstantiateProbeResult,
+            delegateApiProbeResult = delegateApiProbeResult,
         )
         val qnnNpuAttemptSnapshot = buildQualcommQnnNpuAttemptSnapshot(
             requirements = npuRequirementsProbeResult,
@@ -249,6 +259,20 @@ internal object AcceleratorProbe {
             backendNpuInstantiateRootCause = backendNpuInstantiateProbeResult.rootCause,
             backendNpuInstantiateCauseChain = backendNpuInstantiateProbeResult.causeChain,
             backendNpuInstantiateWarning = backendNpuInstantiateProbeResult.warning,
+            backendNpuAttachDryRunEnabled = backendNpuAttachDryRunProbeResult.enabled,
+            backendNpuAttachDryRunSkipReason = backendNpuAttachDryRunProbeResult.skipReason,
+            backendNpuAttachDryRunNpuObjectClass = backendNpuAttachDryRunProbeResult.npuObjectClass,
+            backendNpuAttachDryRunTargetBuilderCandidates = backendNpuAttachDryRunProbeResult.targetBuilderCandidates,
+            backendNpuAttachDryRunSetterCandidates = backendNpuAttachDryRunProbeResult.setterCandidates,
+            backendNpuAttachDryRunSelectedSetter = backendNpuAttachDryRunProbeResult.selectedSetter,
+            backendNpuAttachDryRunSetterInvokeResult = backendNpuAttachDryRunProbeResult.setterInvokeResult,
+            backendNpuAttachDryRunBuildInvoked = backendNpuAttachDryRunProbeResult.buildInvoked,
+            backendNpuAttachDryRunBuildResult = backendNpuAttachDryRunProbeResult.buildResult,
+            backendNpuAttachDryRunExceptionClass = backendNpuAttachDryRunProbeResult.exceptionClass,
+            backendNpuAttachDryRunExceptionMessage = backendNpuAttachDryRunProbeResult.exceptionMessage,
+            backendNpuAttachDryRunRootCause = backendNpuAttachDryRunProbeResult.rootCause,
+            backendNpuAttachDryRunCauseChain = backendNpuAttachDryRunProbeResult.causeChain,
+            backendNpuAttachDryRunWarning = backendNpuAttachDryRunProbeResult.warning,
         )
     }
 
@@ -343,24 +367,15 @@ internal object AcceleratorProbe {
                 warning = warning,
             )
         }
+        val nativeLibraryDirArgument = requireNotNull(nativeLibraryDir)
         return runCatching {
-            val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
-            val npuClass = (backendClass.classes.asList() + backendClass.declaredClasses.asList())
-                .firstOrNull { it.simpleName == "NPU" }
-                ?: throw ClassNotFoundException("Backend.NPU")
-            val constructor = (npuClass.declaredConstructors.asList() + npuClass.constructors.asList())
-                .firstOrNull { candidate ->
-                    candidate.parameterTypes.size == 1 && candidate.parameterTypes.first() == String::class.java
-                }
-                ?: throw NoSuchMethodException("Backend.NPU(String)")
-            constructor.isAccessible = true
-            val instance = constructor.newInstance(nativeLibraryDir)
+            val instance = instantiateBackendNpuForProbe(nativeLibraryDirArgument)
             BackendNpuInstantiateProbeResult(
                 enabled = true,
-                nativeLibraryDirArgument = nativeLibraryDir,
+                nativeLibraryDirArgument = nativeLibraryDirArgument,
                 constructor = "Backend.NPU(String)",
                 result = "success",
-                objectClass = instance?.javaClass?.name ?: "unknown",
+                objectClass = instance.instance.javaClass.name,
                 warning = warning,
             )
         }.getOrElse { throwable ->
@@ -368,7 +383,7 @@ internal object AcceleratorProbe {
             val chain = throwableCauseChain(throwable)
             BackendNpuInstantiateProbeResult(
                 enabled = true,
-                nativeLibraryDirArgument = nativeLibraryDir,
+                nativeLibraryDirArgument = nativeLibraryDirArgument,
                 constructor = "Backend.NPU(String)",
                 result = "failed",
                 exceptionClass = throwable.javaClass.name,
@@ -379,6 +394,212 @@ internal object AcceleratorProbe {
                 }.ifBlank { throwable.javaClass.simpleName },
                 warning = warning,
             )
+        }
+    }
+
+    private fun probeBackendNpuAttachDryRunSafely(
+        context: Context?,
+        packagedLibraries: PackagedNpuLibraryProbeResult,
+        dispatchRuntimeCompatibility: DispatchRuntimeCompatibilityProbeResult,
+        instantiateProbeResult: BackendNpuInstantiateProbeResult,
+        delegateApiProbeResult: DelegateApiProbeResult,
+    ): BackendNpuAttachDryRunProbeResult {
+        val nativeLibraryDir = context?.applicationInfo?.nativeLibraryDir?.takeIf { it.isNotBlank() }
+            ?: packagedLibraries.nativeLibraryDir?.takeIf { it.isNotBlank() }
+        val warning = "attach-dry-run only; no Engine; no Conversation; no inference"
+        val skipReason = when {
+            !BuildConfig.DEBUG -> "not-debug"
+            BuildConfig.CURRENT_FLAVOR != "npuExperiment" -> "not-npuExperiment-flavor"
+            !BuildConfig.NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED -> "build-config-disabled"
+            dispatchRuntimeCompatibility.dispatchRuntimePresent != true -> "dispatch-runtime-not-present"
+            instantiateProbeResult.result != "success" -> "npu-instantiate-failed"
+            nativeLibraryDir.isNullOrBlank() -> "native-library-dir-missing"
+            else -> null
+        }
+        if (skipReason != null) {
+            return BackendNpuAttachDryRunProbeResult(
+                enabled = false,
+                skipReason = skipReason,
+                setterInvokeResult = "skipped",
+                buildInvoked = "no",
+                buildResult = "skipped",
+                warning = warning,
+            )
+        }
+        val nativeLibraryDirArgument = requireNotNull(nativeLibraryDir)
+
+        return runCatching {
+            val npuHandle = instantiateBackendNpuForProbe(nativeLibraryDirArgument)
+            val classNames = backendNpuAttachDryRunTargetClassNames(delegateApiProbeResult)
+            val targetBuilderCandidates = linkedSetOf<String>()
+            val setterCandidates = linkedSetOf<String>()
+            var selectedTarget: BackendNpuAttachDryRunTarget? = null
+            var selectedMethod: Method? = null
+
+            classNames.forEach { className ->
+                val clazz = runCatching { Class.forName(className) }.getOrElse { throwable ->
+                    targetBuilderCandidates += "${className.substringAfterLast('.')}:missing-${throwable.javaClass.simpleName}"
+                    return@forEach
+                }
+                val target = instantiateAttachDryRunTarget(clazz)
+                if (target == null) {
+                    targetBuilderCandidates += "${clazz.simpleName}:no-instantiable-builder"
+                    return@forEach
+                }
+                targetBuilderCandidates += target.label
+                val methods = (target.builderClass.methods.asList() + target.builderClass.declaredMethods.asList())
+                    .distinctBy { method -> method.name + method.parameterTypes.joinToString("#") { it.name } }
+                    .filter(::isAttachDryRunBackendSetterCandidate)
+                    .sortedWith(compareBy<Method> { attachDryRunSetterRank(it.name) }.thenBy { it.name })
+                methods.forEach { method ->
+                    val assignable = method.parameterTypes.singleOrNull()?.isAssignableFrom(npuHandle.npuClass) == true
+                    val signature = "${target.label}.${formatMethodSignature(target.builderClass, method)}"
+                    setterCandidates += if (assignable) signature else "$signature [not-assignable]"
+                    if (selectedMethod == null && assignable) {
+                        selectedTarget = target
+                        selectedMethod = method
+                    }
+                }
+            }
+
+            val method = selectedMethod
+                ?: return@runCatching BackendNpuAttachDryRunProbeResult(
+                    enabled = true,
+                    npuObjectClass = npuHandle.instance.javaClass.name,
+                    targetBuilderCandidates = targetBuilderCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT),
+                    setterCandidates = setterCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT),
+                    setterInvokeResult = "method-not-found",
+                    buildInvoked = "no",
+                    buildResult = "skipped",
+                    warning = warning,
+                )
+            val target = requireNotNull(selectedTarget)
+            method.isAccessible = true
+            method.invoke(target.builder, npuHandle.instance)
+            BackendNpuAttachDryRunProbeResult(
+                enabled = true,
+                npuObjectClass = npuHandle.instance.javaClass.name,
+                targetBuilderCandidates = targetBuilderCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT),
+                setterCandidates = setterCandidates.take(MAX_DELEGATE_CANDIDATE_COUNT),
+                selectedSetter = "${target.label}.${formatMethodSignature(target.builderClass, method)}",
+                setterInvokeResult = "success",
+                buildInvoked = "no",
+                buildResult = "skipped-build-not-invoked-safety",
+                warning = warning,
+            )
+        }.getOrElse { throwable ->
+            val unwrapped = unwrapInvocationTarget(throwable)
+            val chain = throwableCauseChain(throwable)
+            BackendNpuAttachDryRunProbeResult(
+                enabled = true,
+                npuObjectClass = instantiateProbeResult.objectClass,
+                setterInvokeResult = "failed",
+                buildInvoked = "no",
+                buildResult = "skipped",
+                exceptionClass = throwable.javaClass.name,
+                exceptionMessage = throwable.message?.take(240),
+                rootCause = "${unwrapped.javaClass.name}:${unwrapped.message.orEmpty().take(240)}",
+                causeChain = chain.joinToString(" -> ") { cause ->
+                    "${cause.javaClass.simpleName}:${cause.message.orEmpty().take(120)}"
+                }.ifBlank { throwable.javaClass.simpleName },
+                warning = warning,
+            )
+        }
+    }
+
+    private fun instantiateBackendNpuForProbe(nativeLibraryDir: String): BackendNpuProbeObject {
+        val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
+        val npuClass = (backendClass.classes.asList() + backendClass.declaredClasses.asList())
+            .firstOrNull { it.simpleName == "NPU" }
+            ?: throw ClassNotFoundException("Backend.NPU")
+        val constructor = (npuClass.declaredConstructors.asList() + npuClass.constructors.asList())
+            .firstOrNull { candidate ->
+                candidate.parameterTypes.size == 1 && candidate.parameterTypes.first() == String::class.java
+            }
+            ?: throw NoSuchMethodException("Backend.NPU(String)")
+        constructor.isAccessible = true
+        return BackendNpuProbeObject(
+            instance = constructor.newInstance(nativeLibraryDir),
+            backendClass = backendClass,
+            npuClass = npuClass,
+        )
+    }
+
+    private fun backendNpuAttachDryRunTargetClassNames(
+        delegateApiProbeResult: DelegateApiProbeResult,
+    ): List<String> {
+        val classNames = linkedSetOf(
+            "com.google.ai.edge.litertlm.EngineConfig",
+            "com.google.ai.edge.litertlm.EngineConfig\$Builder",
+            "com.google.mediapipe.tasks.genai.llminference.LlmInference\$LlmInferenceOptions\$Builder",
+            "com.google.mediapipe.tasks.genai.llminference.LlmInference\$LlmInferenceOptions",
+            "com.google.mediapipe.tasks.genai.llminference.LlmInferenceOptions\$Builder",
+            "com.google.mediapipe.tasks.genai.llminference.LlmInferenceOptions",
+        )
+        delegateApiProbeResult.classCandidates.forEach { candidate ->
+            classNames += toLikelyFqcnVariants(candidate)
+            if (candidate.contains("LlmInferenceOptions")) {
+                classNames += "com.google.mediapipe.tasks.genai.llminference.${candidate.removePrefix("LlmInference.")}"
+            }
+            if (candidate.contains("EngineConfig")) {
+                classNames += "com.google.ai.edge.litertlm.${candidate.substringAfterLast('.')}"
+            }
+        }
+        return classNames.toList()
+    }
+
+    private fun instantiateAttachDryRunTarget(clazz: Class<*>): BackendNpuAttachDryRunTarget? {
+        instantiateNoArgConstructor(clazz)?.let { instance ->
+            return BackendNpuAttachDryRunTarget(label = clazz.simpleName, builder = instance, builderClass = clazz)
+        }
+        val builderFromStaticMethod = (clazz.methods.asList() + clazz.declaredMethods.asList())
+            .firstNotNullOfOrNull { method ->
+                if (!Modifier.isStatic(method.modifiers) || method.parameterTypes.isNotEmpty()) return@firstNotNullOfOrNull null
+                if (method.name !in setOf("builder", "newBuilder")) return@firstNotNullOfOrNull null
+                runCatching {
+                    method.isAccessible = true
+                    method.invoke(null)
+                }.getOrNull()
+            }
+        if (builderFromStaticMethod != null) {
+            return BackendNpuAttachDryRunTarget(
+                label = "${clazz.simpleName}.${builderFromStaticMethod.javaClass.simpleName}",
+                builder = builderFromStaticMethod,
+                builderClass = builderFromStaticMethod.javaClass,
+            )
+        }
+        return null
+    }
+
+    private fun instantiateNoArgConstructor(clazz: Class<*>): Any? {
+        val constructor = (clazz.declaredConstructors.asList() + clazz.constructors.asList())
+            .filterIsInstance<Constructor<*>>()
+            .firstOrNull { constructor -> constructor.parameterTypes.isEmpty() }
+            ?: return null
+        return runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance()
+        }.getOrNull()
+    }
+
+    private fun isAttachDryRunBackendSetterCandidate(method: Method): Boolean {
+        if (method.isSynthetic || method.name.indexOf('$') >= 0) return false
+        if (method.parameterTypes.size != 1) return false
+        val lowerName = method.name.lowercase(Locale.US)
+        return lowerName == "setbackend" ||
+            lowerName == "setpreferredbackend" ||
+            lowerName == "backend" ||
+            lowerName == "preferredbackend" ||
+            lowerName.contains("backend")
+    }
+
+    private fun attachDryRunSetterRank(methodName: String): Int {
+        return when (methodName) {
+            "setBackend" -> 0
+            "setPreferredBackend" -> 1
+            "backend" -> 2
+            "preferredBackend" -> 3
+            else -> 4
         }
     }
 
@@ -530,7 +751,9 @@ internal object AcceleratorProbe {
                     "abi=${snapshot.dispatchRuntimeAbiCompatibility ?: "unknown"} " +
                     "loadPolicy=diagnostic-only " +
                     "backendNpuInstantiate=${snapshot.backendNpuInstantiateResult ?: "skipped"} " +
-                    "skip=${snapshot.backendNpuInstantiateProbeSkipReason ?: "none"}",
+                    "skip=${snapshot.backendNpuInstantiateProbeSkipReason ?: "none"} " +
+                    "backendNpuAttachDryRun=${snapshot.backendNpuAttachDryRunSetterInvokeResult ?: "skipped"} " +
+                    "attachSkip=${snapshot.backendNpuAttachDryRunSkipReason ?: "none"}",
             )
             hasLogged = true
         }
@@ -1423,5 +1646,34 @@ internal object AcceleratorProbe {
         val rootCause: String? = null,
         val causeChain: String? = null,
         val warning: String = "instantiate-only; object not passed to engine; no inference",
+    )
+
+    private data class BackendNpuAttachDryRunProbeResult(
+        val enabled: Boolean = false,
+        val skipReason: String? = null,
+        val npuObjectClass: String? = null,
+        val targetBuilderCandidates: List<String> = emptyList(),
+        val setterCandidates: List<String> = emptyList(),
+        val selectedSetter: String? = null,
+        val setterInvokeResult: String = "skipped",
+        val buildInvoked: String = "no",
+        val buildResult: String = "skipped",
+        val exceptionClass: String? = null,
+        val exceptionMessage: String? = null,
+        val rootCause: String? = null,
+        val causeChain: String? = null,
+        val warning: String = "attach-dry-run only; no Engine; no Conversation; no inference",
+    )
+
+    private data class BackendNpuProbeObject(
+        val instance: Any,
+        val backendClass: Class<*>,
+        val npuClass: Class<*>,
+    )
+
+    private data class BackendNpuAttachDryRunTarget(
+        val label: String,
+        val builder: Any,
+        val builderClass: Class<*>,
     )
 }

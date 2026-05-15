@@ -169,6 +169,54 @@ QNN/NPU attempt=no
 NPU apply status=disabled / probe-only
 ```
 
+## Backend.NPU attach dry-run
+
+The next phase is a guarded attach dry-run. Its only purpose is to observe whether a
+`Backend.NPU(String nativeLibraryDir)` object can be passed to an `EngineConfig` or
+options builder setter by reflection.
+
+The dry-run is enabled only when all of the following are true:
+
+- `BuildConfig.DEBUG == true`
+- `BuildConfig.CURRENT_FLAVOR == "npuExperiment"`
+- `BuildConfig.NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED == true`
+- the dispatch runtime is present in `context.applicationInfo.nativeLibraryDir`
+- the `Backend.NPU(String)` instantiate-only probe succeeded
+
+The probe searches builder candidates such as:
+
+- `com.google.ai.edge.litertlm.EngineConfig`
+- `com.google.ai.edge.litertlm.EngineConfig$Builder`
+- `LlmInferenceOptions.Builder`
+- `LlmInference.LlmInferenceOptions.Builder`
+
+It then looks for backend setter candidates such as `setBackend(Backend)`,
+`setPreferredBackend(Backend)`, `backend(Backend)`, and Object-compatible variants.
+If a compatible setter is found, the probe invokes only that setter on the builder
+object and records success or the exception/cause chain.
+
+For safety, this phase does not call `build()`. The diagnostic reports:
+
+```text
+build invoked: no
+build result: skipped-build-not-invoked-safety
+```
+
+The dry-run still does not create or use:
+
+- `Engine`
+- `Conversation`
+- `Session`
+- `LlmInference.createFromOptions`
+- `LlmInference.createFromFile`
+- `generateResponse`
+- the Qualcomm model NPU path
+
+The standard flavor remains skipped. A normal inference screen running the standard
+flavor will show `current flavor: standard` and the NPU probes skipped; the
+`npuExperimentDebug` probe activity/file is the place to inspect dispatch-present,
+instantiate-success, and attach dry-run results.
+
 Use the install helper for device-side detection:
 
 ```bash
@@ -188,7 +236,7 @@ The helper installs only `npuExperimentDebug`, verifies the APK contains the dis
    - QNN/NPU attempt remains `no`
    - `selectedPath` remains `gpu`
 5. Require explicit opt-in before any runtime load experiment.
-6. If a dry-run probe is added later, keep it separate from inference and guard it from native crash risk.
+6. Run attach dry-run only in `npuExperimentDebug`; require setter success, no native crash, `selectedPath=gpu`, and QNN/NPU attempt `no`.
 7. Only after ABI compatibility and dry-run evidence, consider a guarded `Backend.NPU` inference experiment with GPU fallback intact.
 
 ## Current recommendation
