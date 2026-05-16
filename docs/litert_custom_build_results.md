@@ -195,3 +195,36 @@ build-success-but-runtime-dispatch-unusable
 ```
 
 The next investigation should focus on dispatch runtime usability, QAIRT/QNN version/capability expectations, model/runtime schema compatibility, or upstream guidance. The result does not justify wiring NPU into normal inference.
+
+## QNN/QAIRT Coupling Static Analysis
+
+Result date: 2026-05-17
+
+Script:
+
+```bash
+bash scripts/analyze_qairt_qnn_coupling.sh
+```
+
+Artifact:
+
+```text
+artifacts/qairt_qnn_coupling/20260517_012057/
+```
+
+No build, install, app launch, `Engine.initialize`, `Conversation`, `Session`, `generateResponse`, or NPU inference was performed.
+
+Key result:
+
+- `customBuildExperimentDebug` packages the custom built LiteRT stack and QNN/HTP libraries.
+- The packaged QNN/HTP libraries differ from both Gallery SM8750 QNN libraries and local QAIRT 2.46 libraries.
+- The latest customnpu tombstone maps `liblitertlm_jni.so`, `libGemmaModelConstraintProvider.so`, and `libllm_inference_engine_jni.so`; it does not map `libLiteRtDispatch_Qualcomm.so` or QNN libraries in the extracted map lines.
+- Dispatch libraries include QNN version mismatch strings and path-related strings for `ADSP_LIBRARY_PATH` / `LD_LIBRARY_PATH`.
+
+Updated interpretation:
+
+```text
+runtime-dispatch-unusable; qnn-qairt-coupling-likely
+```
+
+The most likely next direction is not another Java/native ABI fix. It is QNN/QAIRT generation alignment or SM8750/V79 dispatch capability validation.

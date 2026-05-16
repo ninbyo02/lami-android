@@ -248,6 +248,33 @@ The next phase is not single-token smoke testing. The custom stack still fails b
 3. Ask upstream maintainers whether additional QNN/HTP runtime setup or model/runtime pairing is required for SM8750.
 4. Keep all further experiments in `customBuildExperimentDebug` or a new isolated flavor.
 
+## QNN/QAIRT Coupling Static Pass
+
+Result date: 2026-05-17
+
+Artifact:
+
+```text
+artifacts/qairt_qnn_coupling/20260517_012057/
+```
+
+Detailed findings:
+
+```text
+docs/litert_qnn_qairt_coupling_findings.md
+```
+
+The static pass found that `customBuildExperimentDebug` packages QNN/HTP libraries, but those QNN libraries do not match either Gallery SM8750 Build IDs or the local QAIRT 2.46 Build IDs. The latest tombstone does not show the dispatch or QNN libraries mapped before abort; only `liblitertlm_jni.so`, `libGemmaModelConstraintProvider.so`, and `libllm_inference_engine_jni.so` are visible in the extracted map lines.
+
+Next build-oriented options:
+
+1. get exact QAIRT `2.44.0.260225`, rebuild the same limited targets, and static-compare;
+2. identify a LiteRT source/ref that expects QAIRT `2.46.0.260424`, then query/build only into `artifacts/`;
+3. prepare a separate, explicitly approved QNN-libs alignment experiment for `customBuildExperimentDebug`;
+4. investigate a same-source `litert_lm_main` CLI path before any generation smoke test in Lami.
+
+Do not proceed to single-token smoke until `Engine.initialize` returns successfully in an isolated flavor.
+
 ## Limited Build Phase Result
 
 Result date: 2026-05-16

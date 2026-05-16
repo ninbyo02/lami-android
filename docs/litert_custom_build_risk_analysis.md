@@ -250,3 +250,28 @@ Risk implication:
 - the remaining risk is likely runtime/capability compatibility, QAIRT/QNN version coupling, or model/runtime schema support
 - it is still unsafe to wire `Backend.NPU` into normal inference
 - no `Conversation`, `Session`, `generateResponse`, token generation, or `selectedPath=npu` was used
+
+## QNN/QAIRT Coupling Risk Update
+
+Static analysis artifact:
+
+```text
+artifacts/qairt_qnn_coupling/20260517_012057/
+```
+
+New risk facts:
+
+- `customBuildExperimentDebug` packages QNN/HTP libraries, but their Build IDs are not the same as Gallery SM8750 and not the same as local QAIRT `2.46.0.260424`.
+- The custom LiteRT dispatch library was built from a source tree that expects QAIRT `2.44.0.260225`, while the local overlay used QAIRT `2.46.0.260424`.
+- QNN headers in local QAIRT `2.46.0.260424` report QNN core API `2.35.0` and HTP API `5.46.0`.
+- Dispatch libraries contain QNN library/backend/system version mismatch strings.
+- QNN HTP/stub/skel libraries contain errors for unsupported Snapdragon model, future/incompatible context blobs, and skel/stub file path setup.
+- The latest customnpu tombstone does not show QNN libraries mapped, so a QNN path issue is possible but not yet proven.
+
+Risk implication:
+
+```text
+qnn-qairt-generation-coupling-risk-high
+```
+
+The next insertion experiment must not blindly add or replace QNN libraries. If QNN library alignment is tested, it must be isolated, explicit opt-in, and preceded by licensing/reuse review. Exact QAIRT source-version alignment is safer than mixing arbitrary QNN payloads.

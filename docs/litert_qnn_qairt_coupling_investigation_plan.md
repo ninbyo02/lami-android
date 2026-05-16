@@ -300,3 +300,56 @@ Recommended order:
 - no `standardDebug`, `npuExperimentDebug`, or `galleryStackExperimentDebug` behavior changes
 - no native library addition/removal/replacement without a dedicated isolated experiment
 - no QNN SDK libraries copied into app source sets without explicit approval
+
+## Static Coupling Pass Result
+
+Result date: 2026-05-17
+
+Script:
+
+```bash
+bash scripts/analyze_qairt_qnn_coupling.sh
+```
+
+Artifact:
+
+```text
+artifacts/qairt_qnn_coupling/20260517_012057/
+```
+
+Scope:
+
+- no build
+- no install
+- no app launch
+- no `Engine.initialize`
+- no NPU inference
+- no native library staging
+
+Findings:
+
+- `customBuildExperimentDebug` packages the built LiteRT stack plus QNN/HTP libraries, but the packaged QNN libraries are a third generation distinct from both Gallery SM8750 and local QAIRT 2.46.
+- Tombstone mapping from the latest customnpu crash shows `liblitertlm_jni.so`, `libGemmaModelConstraintProvider.so`, and `libllm_inference_engine_jni.so`; it does not show `libLiteRtDispatch_Qualcomm.so` or QNN libraries mapped in the extracted map lines.
+- built and Gallery dispatch libraries both contain `SM8750`, `ADSP_LIBRARY_PATH`, `LD_LIBRARY_PATH`, and QNN version mismatch/check strings.
+- No direct evidence points to `libLiteRtRuntimeCApi.so` as the primary missing dependency.
+
+Detailed findings:
+
+```text
+docs/litert_qnn_qairt_coupling_findings.md
+```
+
+Revised hypothesis ranking:
+
+1. QAIRT/QNN version coupling mismatch.
+2. SM8750/V79 dispatch capability mismatch.
+3. QNN/HTP skel/stub path issue.
+4. model/runtime schema mismatch.
+5. app sandbox/nativeLibraryDir discovery limitation.
+
+Recommended next safe work:
+
+1. obtain exact QAIRT `2.44.0.260225` or find a LiteRT source/ref aligned to QAIRT `2.46.0.260424`;
+2. build only into `artifacts/` and static-compare before any insertion;
+3. consider an isolated QNN-libs alignment experiment only after licensing/reuse review;
+4. keep all runtime checks at `Engine.initialize` dry-run until initialization succeeds.
