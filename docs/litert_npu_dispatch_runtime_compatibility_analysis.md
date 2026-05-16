@@ -261,3 +261,26 @@ Updated next actions:
 - Do not copy Gallery `libLiteRt.so` or QNN libraries into standard/debug.
 - If testing a matched Gallery-style stack, create a more isolated debug flavor or separate app id and compare the entire native payload as a set.
 - If building dispatch from source, first identify the exact LiteRT/LiteRT-LM generation that produced the desired `liblitertlm_jni.so`; public HEAD remains risky.
+
+## Independent build decision after Gallery stack classification
+
+Gallery SM8750 classification artifact:
+
+- `artifacts/gallery_native_stack_plan/20260516_183915/`
+- plan doc: `docs/litert_gallery_native_stack_experiment_plan.md`
+
+The Gallery SM8750 APK contains a small, distinct native stack:
+
+- required candidates: `liblitertlm_jni.so`, `libLiteRt.so`, `libLiteRtDispatch_Qualcomm.so`
+- QNN runtime candidates: `libQnnSystem.so`, `libQnnHtp.so`
+- HTP candidates: `libQnnHtpV79Skel.so`, `libQnnHtpV79Stub.so`
+- no `libLiteRtRuntimeCApi.so` in `lib/arm64-v8a`
+- no `libQnnHtpPrepare.so` in the APK arm64 payload
+
+This reinforces that independent `dispatch_api_so` builds are still premature. There are still three safer steps before source builds:
+
+1. Create a fully isolated `galleryStackExperimentDebug` flavor with a separate app id.
+2. Stage Gallery SM8750 native libraries only inside that flavor and verify package/nativeLibraryDir detection without inference.
+3. Run the existing guarded probes in order: `Backend.NPU(String)` instantiate, `EngineConfig` dry-build, then explicit opt-in `Engine.initialize` dry-run.
+
+Only if that isolated Gallery stack still reports `No usable Dispatch runtime found` should the next investigation move to exact source/tag identification or upstream reporting. Public HEAD standalone dispatch builds remain non-recommended because the failure mode is consistent with runtime generation/capability mismatch, not simply a missing `.so` file.
