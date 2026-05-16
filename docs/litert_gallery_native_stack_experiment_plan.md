@@ -189,7 +189,7 @@ bash scripts/stage_gallery_native_stack_for_experiment.sh /tmp/lami-gallery-apks
 
 Staging artifact:
 
-- `artifacts/gallery_native_stack_stage/20260516_190657/`
+- `artifacts/gallery_native_stack_stage/20260516_191925/`
 
 Staged libraries:
 
@@ -230,6 +230,62 @@ Probe policy:
 - `Backend.NPU(String)` instantiate-only and `EngineConfig` dry-build are allowed in `galleryStackExperimentDebug`.
 - `Engine.initialize` remains explicit opt-in only.
 - Normal UI inference remains GPU/fallback oriented and is not wired to `Backend.NPU`.
+
+## Detection-only device probe result
+
+Command:
+
+```bash
+bash scripts/run_gallery_stack_probe.sh /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk
+```
+
+Device install:
+
+- `./update.sh update --flavor galleryStackExperiment`
+- installed variant: `galleryStackExperimentDebug`
+- applicationId: `io.github.ninbyo02.lami.gallerynpu`
+
+Probe result:
+
+```text
+Dispatch Runtime Compatibility:
+  current flavor=galleryStackExperiment
+  nativeLibraryDir exists=true
+  dispatch runtime present in nativeLibraryDir=true
+  dispatch runtime sha256=92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777
+  expected sha256 match=true
+  dispatch runtime build id=643ad77b8ac2f54bd1b61e4133c77b3a
+  ABI compatibility=likely-compatible
+
+Gallery Stack Runtime Compatibility:
+  Gallery stack present=true
+  liblitertlm_jni.so build id=76e4dccd9c5f9cba468d9cae7becfec0
+  libLiteRt.so build id=869121bd7f4b0b77fa581218117a5c14
+  libLiteRtDispatch_Qualcomm.so build id=643ad77b8ac2f54bd1b61e4133c77b3a
+  libQnnSystem.so build id=0d409cdd664b8b0a
+  libQnnHtp.so build id=f2c90c1775a109e1
+  libQnnHtpV79Stub.so build id=10d7ad6f9195411a
+  expected Gallery build id match=true
+
+Backend.NPU Instantiate Probe:
+  result=success
+
+EngineConfig NPU Dry-Build Probe:
+  result=success
+  selected constructor=EngineConfig(String, Backend, Backend, Backend, Integer, String)
+
+Engine Initialize Dry-Run Probe:
+  enabled=false
+  skipped reason=explicit-opt-in-required
+  initialize invoked=no
+  initialize result=skipped
+
+NPU safety status:
+  selectedPath=gpu
+  QNN/NPU attempted=no
+```
+
+No `--engine-dry-run` flag was passed. `Engine.initialize`, `Conversation`, `Session`, and `generateResponse` were not executed.
 
 ## Native crash risks
 

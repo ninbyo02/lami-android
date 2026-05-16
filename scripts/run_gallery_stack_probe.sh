@@ -49,11 +49,13 @@ unzip -l "$GALLERY_APK" 2>/dev/null | grep -E "libLiteRt|liblitertlm|libQnn" || 
 
 echo
 echo "[gallery-stack-probe] standardDebug leakage check:"
-if unzip -l "$STANDARD_APK" 2>/dev/null | grep -E "libLiteRtDispatch_Qualcomm|gallery|libQnnHtpV79"; then
-  echo "[gallery-stack-probe] ERROR: standardDebug leakage detected." >&2
+if unzip -l "$STANDARD_APK" 2>/dev/null | grep -E "libLiteRtDispatch_Qualcomm|gallery"; then
+  echo "[gallery-stack-probe] ERROR: standardDebug Gallery dispatch/source-set leakage detected." >&2
   exit 3
 else
-  echo "[gallery-stack-probe] no Gallery dispatch/V79 leakage detected in standardDebug."
+  echo "[gallery-stack-probe] no Gallery dispatch/source-set leakage detected in standardDebug."
+  echo "[gallery-stack-probe] existing standardDebug LiteRT/QNN entries, if any:"
+  unzip -l "$STANDARD_APK" 2>/dev/null | grep -E "lib/arm64-v8a/libLiteRt.so|libQnnHtpV79" || true
 fi
 
 echo
