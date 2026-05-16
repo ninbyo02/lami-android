@@ -41,6 +41,7 @@ val liteRtLmAndroidReleaseVersion = "0.10.0"
 val liteRtLmAndroidDebugVersion = "0.11.0"
 val liteRtLmAndroidNpuExperimentDebugVersion = "0.10.0"
 val liteRtLmAndroidGalleryStackExperimentDebugVersion = "0.11.0"
+val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 
 android {
 
@@ -66,6 +67,7 @@ android {
         buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
         buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
         buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+        buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
     }
 
     flavorDimensions += "dispatchExperiment"
@@ -77,6 +79,7 @@ android {
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("npuExperiment") {
             dimension = "dispatchExperiment"
@@ -87,6 +90,7 @@ android {
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"gallery-sm8750 detection-only staged in app/src/npuExperimentDebug/jniLibs/arm64-v8a\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryStackExperiment") {
             dimension = "dispatchExperiment"
@@ -97,6 +101,18 @@ android {
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"gallery-sm8750 full native stack staged in app/src/galleryStackExperimentDebug/jniLibs/arm64-v8a\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "true")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("customBuildExperiment") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".customnpu"
+            versionNameSuffix = "-customBuildExperiment"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"customBuildExperiment\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "true")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"custom LiteRT-LM v0.11.0 pinned-source native stack staged in app/src/customBuildExperimentDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "true")
         }
     }
 
@@ -136,18 +152,24 @@ android {
             manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
             jniLibs.srcDir("src/galleryStackExperimentDebug/jniLibs")
         }
+        create("customBuildExperimentDebug") {
+            java.srcDir("src/npuExperimentDebug/java")
+            manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
+            jniLibs.srcDir("src/customBuildExperimentDebug/jniLibs")
+        }
     }
 }
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) { variantBuilder ->
-        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment") }) {
+        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "customBuildExperiment") }) {
             variantBuilder.enable = false
         }
     }
     onVariants { variant ->
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
         val liteRtLmVersion = when {
+            variant.buildType == "debug" && flavor == "customBuildExperiment" -> liteRtLmAndroidCustomBuildExperimentDebugVersion
             variant.buildType == "debug" && flavor == "galleryStackExperiment" -> liteRtLmAndroidGalleryStackExperimentDebugVersion
             variant.buildType == "debug" && flavor == "npuExperiment" -> liteRtLmAndroidNpuExperimentDebugVersion
             variant.buildType == "debug" -> liteRtLmAndroidDebugVersion
@@ -393,7 +415,8 @@ tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
 tasks.matching {
     it.name == "mergeStandardDebugJniLibFolders" ||
         it.name == "mergeNpuExperimentDebugJniLibFolders" ||
-        it.name == "mergeGalleryStackExperimentDebugJniLibFolders"
+        it.name == "mergeGalleryStackExperimentDebugJniLibFolders" ||
+        it.name == "mergeCustomBuildExperimentDebugJniLibFolders"
 }.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
 }
@@ -504,6 +527,7 @@ dependencies {
     add("standardImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
     add("npuExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidNpuExperimentDebugVersion")
     add("galleryStackExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryStackExperimentDebugVersion")
+    add("customBuildExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidCustomBuildExperimentDebugVersion")
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
     implementation("com.qualcomm.qti:qnn-runtime:2.34.0")
     implementation("com.qualcomm.qti:qnn-litert-delegate:2.34.0")

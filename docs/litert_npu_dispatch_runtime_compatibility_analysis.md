@@ -496,3 +496,37 @@ Final recommendation before source builds:
 2. Continue source/tag identification for the Gallery SM8750 native generation.
 3. Only after that, consider a same-generation source build of `liblitertlm_jni.so`, `libLiteRt.so`, and `libLiteRtDispatch_Qualcomm.so` together.
 4. Do not build public HEAD `dispatch_api_so` alone; it is unlikely to resolve a dispatch compatibility mismatch and could reintroduce ABI/layout drift.
+
+## Official issue report preparation
+
+Date: 2026-05-16
+
+An upstream-ready issue report has been prepared. It captures the current final cut:
+
+- latest related commit: `25f68e7d Analyze Gallery dispatch runtime requirements`
+- branch: `future`
+- `standardDebug`: `litertlm-android:0.11.0`, GPU inference path preserved
+- `npuExperimentDebug`: `litertlm-android:0.10.0`
+- `galleryStackExperimentDebug`: `litertlm-android:0.11.0` plus Gallery SM8750 native stack
+- Gallery Java/native descriptor mismatch: resolved
+- prior `SIGSEGV`: resolved
+- current failure: `Engine.initialize` `SIGABRT`
+- classification: `no-usable-dispatch-runtime` / `dispatch-runtime-compatibility-mismatch`, confidence medium
+
+Prepared files:
+
+- detailed report: `docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md`
+- GitHub issue body: `docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md`
+- artifact bundle script: `scripts/package_npu_issue_artifacts.sh`
+
+Current recommendation:
+
+1. Ask maintainers for the exact supported artifact/source generation before building a custom dispatch/runtime stack.
+2. Do not start an independent `dispatch_api_so` build yet.
+3. Do not build public HEAD `dispatch_api_so` alone.
+4. If a local build becomes necessary, align `liblitertlm_jni.so`, Java/Kotlin classes, `libLiteRt.so`, and `libLiteRtDispatch_Qualcomm.so` from the same source/tag generation.
+
+Independent build status:
+
+- not started
+- blocked until source/tag/native artifact compatibility guidance is obtained

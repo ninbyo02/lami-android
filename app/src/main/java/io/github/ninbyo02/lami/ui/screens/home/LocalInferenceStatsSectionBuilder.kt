@@ -573,6 +573,14 @@ internal fun buildInferenceDetailSections(
                 )
             },
         acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.currentFlavor == "customBuildExperiment" }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Custom Build Stack Compatibility",
+                    items = buildCustomBuildStackCompatibilityItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
             ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
             ?.let { probe ->
                 InferenceStatsSectionUi(
@@ -1600,6 +1608,27 @@ private fun buildGalleryStackJavaNativeApiCompatibilityItems(
         InferenceStatItemUi(label = "libLiteRt.so build id", value = probe.liteRtBuildId?.ifBlank { "unknown" } ?: "unknown"),
         InferenceStatItemUi(label = "libLiteRtDispatch_Qualcomm.so build id", value = probe.dispatchRuntimeBuildId?.ifBlank { "unknown" } ?: "unknown"),
         InferenceStatItemUi(label = "note", value = probe.galleryStackJavaNativeApiCompatibilityNote?.ifBlank { "unknown" } ?: "unknown"),
+    )
+}
+
+private fun buildCustomBuildStackCompatibilityItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "current flavor", value = probe.currentFlavor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "applicationId", value = probe.applicationId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "nativeLibraryDir", value = probe.dispatchNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "custom stack present", value = probe.customStackExpectedBuildIdMatch?.toString() ?: "false"),
+        InferenceStatItemUi(label = "liblitertlm_jni.so build id", value = probe.liteRtLmJniBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRt.so build id", value = probe.liteRtBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRtDispatch_Qualcomm.so build id", value = probe.dispatchRuntimeBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRtCompilerPlugin_Qualcomm.so build id", value = probe.customStackCompilerPluginBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libGemmaModelConstraintProvider.so build id", value = probe.customStackGemmaModelConstraintProviderBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "expected custom build id match", value = probe.customStackExpectedBuildIdMatch?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "LiteRtDispatchGetApi export expected", value = "true"),
+        InferenceStatItemUi(label = "dependency Java API version expected", value = probe.liteRtLmExpectedVersion?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "EngineConfig constructor expected", value = "EngineConfig(String, Backend, Backend, Backend, Integer, Integer, String)"),
+        InferenceStatItemUi(label = "load policy", value = "diagnostic-only; Engine.initialize explicit opt-in only; no Conversation; no generateResponse"),
     )
 }
 

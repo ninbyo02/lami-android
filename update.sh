@@ -54,7 +54,7 @@ Subcommands:
 
 update options:
   --port|-p PORT        ADB connect port (default: 40215)
-  --flavor NAME         Android flavor to install: standard, npuExperiment, or galleryStackExperiment (default: standard)
+  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, or customBuildExperiment (default: standard)
   --clean-install|-c    uninstall selected flavor before its install task
   --no-wip              abort if working tree dirty (default: auto WIP local commit)
   --dry-run             stop after fetch/pull (no gradle, no adb)
@@ -72,7 +72,7 @@ test options:
   --pr N | --commit SHA
   --build               run selected flavor Kotlin compile task (default if neither --build nor --install)
   --install             run selected flavor install task (device required)
-  --flavor NAME         Android flavor to install: standard, npuExperiment, or galleryStackExperiment (default: standard)
+  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, or customBuildExperiment (default: standard)
   --clean-install|-c    uninstall selected flavor before install task (requires --install)
   --port|-p PORT        ADB connect port (default: 40215)
   --keep-temp           keep temp branch after test (default: delete)
@@ -82,6 +82,7 @@ Examples:
   ./update.sh update --dry-run
   ./update.sh update --flavor npuExperiment
   ./update.sh update --flavor galleryStackExperiment
+  ./update.sh update --flavor customBuildExperiment
   ./update.sh update --no-wip
   ./update.sh update -c --no-wip
   ./update.sh publish -m "docs: update README"
@@ -137,7 +138,8 @@ normalize_android_flavor() {
     standard|Standard) echo "standard" ;;
     npuExperiment|NpuExperiment|npu|npu-experiment) echo "npuExperiment" ;;
     galleryStackExperiment|GalleryStackExperiment|gallery|gallery-stack|gallery-stack-experiment|gallerynpu) echo "galleryStackExperiment" ;;
-    *) die "Unknown Android flavor: $flavor (expected: standard, npuExperiment, or galleryStackExperiment)" ;;
+    customBuildExperiment|CustomBuildExperiment|custom|custom-build|custom-build-experiment|customnpu) echo "customBuildExperiment" ;;
+    *) die "Unknown Android flavor: $flavor (expected: standard, npuExperiment, galleryStackExperiment, or customBuildExperiment)" ;;
   esac
 }
 
@@ -148,6 +150,7 @@ install_task_for_flavor() {
     standard) echo "installStandardDebug" ;;
     npuExperiment) echo "installNpuExperimentDebug" ;;
     galleryStackExperiment) echo "installGalleryStackExperimentDebug" ;;
+    customBuildExperiment) echo "installCustomBuildExperimentDebug" ;;
   esac
 }
 
@@ -158,6 +161,7 @@ compile_task_for_flavor() {
     standard) echo "compileDebugKotlin" ;;
     npuExperiment) echo "compileNpuExperimentDebugKotlin" ;;
     galleryStackExperiment) echo "compileGalleryStackExperimentDebugKotlin" ;;
+    customBuildExperiment) echo "compileCustomBuildExperimentDebugKotlin" ;;
   esac
 }
 
@@ -170,6 +174,7 @@ resolve_app_id_for_flavor() {
     standard) echo "io.github.ninbyo02.lami" ;;
     npuExperiment) echo "io.github.ninbyo02.lami.npu" ;;
     galleryStackExperiment) echo "io.github.ninbyo02.lami.gallerynpu" ;;
+    customBuildExperiment) echo "io.github.ninbyo02.lami.customnpu" ;;
   esac
 }
 

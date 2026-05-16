@@ -10,10 +10,12 @@ CONFIGURATIONS=(
   "standardDebugRuntimeClasspath"
   "npuExperimentDebugRuntimeClasspath"
   "galleryStackExperimentDebugRuntimeClasspath"
+  "customBuildExperimentDebugRuntimeClasspath"
   "standardReleaseRuntimeClasspath"
   "standardDebugCompileClasspath"
   "npuExperimentDebugCompileClasspath"
   "galleryStackExperimentDebugCompileClasspath"
+  "customBuildExperimentDebugCompileClasspath"
 )
 
 DEPENDENCIES=(
@@ -161,7 +163,7 @@ write_summary() {
     printf '# LiteRT-LM flavor dependency summary\n\n'
     printf 'Artifact directory: `%s`\n\n' "$OUT_DIR"
     printf '## Current app declarations\n\n'
-    grep -nE 'liteRtLmAndroid(Debug|Release|NpuExperimentDebug|GalleryStackExperimentDebug)Version|litertlm-android|debugImplementation|releaseImplementation|npuExperimentDebugImplementation|galleryStackExperimentDebugImplementation|standardDebugImplementation|npuExperimentImplementation|galleryStackExperimentImplementation|standardImplementation' app/build.gradle.kts || true
+    grep -nE 'liteRtLmAndroid(Debug|Release|NpuExperimentDebug|GalleryStackExperimentDebug|CustomBuildExperimentDebug)Version|litertlm-android|debugImplementation|releaseImplementation|npuExperimentDebugImplementation|galleryStackExperimentDebugImplementation|customBuildExperimentDebugImplementation|standardDebugImplementation|npuExperimentImplementation|galleryStackExperimentImplementation|customBuildExperimentImplementation|standardImplementation' app/build.gradle.kts || true
     printf '\n## Configuration files\n\n'
     for config in "${CONFIGURATIONS[@]}"; do
       printf '%s\n' "- \`$config\`: \`${config}_dependencies.txt\`"
@@ -198,6 +200,8 @@ write_assertions() {
   local npu_debug_has_011
   local gallery_debug_has_010
   local gallery_debug_has_011
+  local custom_debug_has_010
+  local custom_debug_has_011
   local standard_release_has_010
   standard_debug_has_011="$(insight_has_version standardDebugRuntimeClasspath 0.11.0)"
   standard_debug_has_010="$(insight_has_version standardDebugRuntimeClasspath 0.10.0)"
@@ -205,6 +209,8 @@ write_assertions() {
   npu_debug_has_011="$(insight_has_version npuExperimentDebugRuntimeClasspath 0.11.0)"
   gallery_debug_has_010="$(insight_has_version galleryStackExperimentDebugRuntimeClasspath 0.10.0)"
   gallery_debug_has_011="$(insight_has_version galleryStackExperimentDebugRuntimeClasspath 0.11.0)"
+  custom_debug_has_010="$(insight_has_version customBuildExperimentDebugRuntimeClasspath 0.10.0)"
+  custom_debug_has_011="$(insight_has_version customBuildExperimentDebugRuntimeClasspath 0.11.0)"
   standard_release_has_010="$(insight_has_version standardReleaseRuntimeClasspath 0.10.0)"
   {
     printf 'artifact_dir=%s\n' "$OUT_DIR"
@@ -214,6 +220,8 @@ write_assertions() {
     printf 'npuExperimentDebugRuntimeClasspath selects litertlm-android:0.11.0: %s\n' "$npu_debug_has_011"
     printf 'galleryStackExperimentDebugRuntimeClasspath has litertlm-android:0.11.0: %s\n' "$gallery_debug_has_011"
     printf 'galleryStackExperimentDebugRuntimeClasspath selects litertlm-android:0.10.0: %s\n' "$gallery_debug_has_010"
+    printf 'customBuildExperimentDebugRuntimeClasspath has litertlm-android:0.11.0: %s\n' "$custom_debug_has_011"
+    printf 'customBuildExperimentDebugRuntimeClasspath selects litertlm-android:0.10.0: %s\n' "$custom_debug_has_010"
     printf 'standardReleaseRuntimeClasspath has litertlm-android:0.10.0: %s\n' "$standard_release_has_010"
     printf 'overall: %s\n' "$(
       if [ "$standard_debug_has_011" = yes ] &&
@@ -222,6 +230,8 @@ write_assertions() {
         [ "$npu_debug_has_011" = no ] &&
         [ "$gallery_debug_has_011" = yes ] &&
         [ "$gallery_debug_has_010" = no ] &&
+        [ "$custom_debug_has_011" = yes ] &&
+        [ "$custom_debug_has_010" = no ] &&
         [ "$standard_release_has_010" = yes ]; then
         printf 'expected-split'
       else

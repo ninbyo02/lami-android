@@ -35,6 +35,11 @@ internal object AcceleratorProbe {
     private const val GALLERY_SM8750_QNN_HTP_BUILD_ID = "f2c90c1775a109e1"
     private const val GALLERY_SM8750_QNN_HTP_V79_STUB_BUILD_ID = "10d7ad6f9195411a"
     private const val GALLERY_SM8750_DISPATCH_SHA256 = "92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777"
+    private const val CUSTOM_BUILD_LITERT_BUILD_ID = "a03032ad1eeefda446478aea308c2ed0"
+    private const val CUSTOM_BUILD_DISPATCH_BUILD_ID = "e999216e6d32c2f38702cd8538299e7d"
+    private const val CUSTOM_BUILD_LITERTLM_JNI_BUILD_ID = "b78167f717866bbc1d9a981f01fb0334"
+    private const val CUSTOM_BUILD_COMPILER_PLUGIN_BUILD_ID = "9053b81d7cbccdc3b5460c5e7395e293"
+    private const val CUSTOM_BUILD_GEMMA_MODEL_CONSTRAINT_PROVIDER_BUILD_ID = "f9e5e73e668032550042319e43012011"
     private const val GALLERY_NATIVE_CREATE_ENGINE_DESCRIPTOR =
         "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;ZLjava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)J"
     private const val GALLERY_ENGINE_CONFIG_CONSTRUCTOR_SIGNATURE =
@@ -328,6 +333,9 @@ internal object AcceleratorProbe {
             galleryStackQnnHtpBuildId = dispatchRuntimeCompatibility.qnnHtpBuildId,
             galleryStackQnnHtpV79StubBuildId = dispatchRuntimeCompatibility.qnnHtpV79StubBuildId,
             galleryStackExpectedBuildIdMatch = dispatchRuntimeCompatibility.galleryStackExpectedBuildIdMatch,
+            customStackCompilerPluginBuildId = dispatchRuntimeCompatibility.customCompilerPluginBuildId,
+            customStackGemmaModelConstraintProviderBuildId = dispatchRuntimeCompatibility.customGemmaModelConstraintProviderBuildId,
+            customStackExpectedBuildIdMatch = dispatchRuntimeCompatibility.customStackExpectedBuildIdMatch,
             galleryStackJavaApiExpectedVersion = galleryStackJavaNativeApiCompatibilityProbeResult.expectedJavaApiVersion,
             galleryStackJavaNativeCreateEngineDescriptor = galleryStackJavaNativeApiCompatibilityProbeResult.javaNativeCreateEngineDescriptor,
             galleryStackExpectedJniNativeCreateEngineDescriptor = galleryStackJavaNativeApiCompatibilityProbeResult.expectedGalleryJniDescriptor,
@@ -461,6 +469,8 @@ internal object AcceleratorProbe {
             val qnnSystemBuildId = nativeLibraryDirectory?.resolve("libQnnSystem.so")?.let(::readElfBuildIdSafely)
             val qnnHtpBuildId = nativeLibraryDirectory?.resolve("libQnnHtp.so")?.let(::readElfBuildIdSafely)
             val qnnHtpV79StubBuildId = nativeLibraryDirectory?.resolve("libQnnHtpV79Stub.so")?.let(::readElfBuildIdSafely)
+            val customCompilerPluginBuildId = nativeLibraryDirectory?.resolve("libLiteRtCompilerPlugin_Qualcomm.so")?.let(::readElfBuildIdSafely)
+            val customGemmaModelConstraintProviderBuildId = nativeLibraryDirectory?.resolve("libGemmaModelConstraintProvider.so")?.let(::readElfBuildIdSafely)
             val dispatchCandidate = packagedLibraries.dispatchApiSelectedCandidate
                 ?: packagedLibraries.dispatchApiCandidates.firstOrNull()
             val dispatchRuntimeFile = dispatchCandidate?.let { nativeLibraryDirectory?.resolve(it) }
@@ -522,6 +532,15 @@ internal object AcceleratorProbe {
                     qnnHtpBuildId = qnnHtpBuildId,
                     qnnHtpV79StubBuildId = qnnHtpV79StubBuildId,
                 ),
+                customCompilerPluginBuildId = customCompilerPluginBuildId,
+                customGemmaModelConstraintProviderBuildId = customGemmaModelConstraintProviderBuildId,
+                customStackExpectedBuildIdMatch = customStackExpectedBuildIdsMatch(
+                    liteRtBuildId = liteRtBuildId,
+                    liteRtLmJniBuildId = liteRtLmJniBuildId,
+                    dispatchRuntimeBuildId = dispatchRuntimeBuildId,
+                    compilerPluginBuildId = customCompilerPluginBuildId,
+                    gemmaModelConstraintProviderBuildId = customGemmaModelConstraintProviderBuildId,
+                ),
                 runtimeStackNote = buildLiteRtLmRuntimeStackNote(liteRtFile?.isFile == true),
             )
         }.getOrElse {
@@ -561,6 +580,8 @@ internal object AcceleratorProbe {
         return when {
             BuildConfig.CURRENT_FLAVOR == "galleryStackExperiment" && BuildConfig.DEBUG ->
                 "galleryStackExperimentDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; Gallery SM8750 native stack staged only for diagnostics; libLiteRt.so present=$liteRtSoPresent"
+            BuildConfig.CURRENT_FLAVOR == "customBuildExperiment" && BuildConfig.DEBUG ->
+                "customBuildExperimentDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; pinned-source custom native stack staged only for explicit probe dry-runs; libLiteRt.so present=$liteRtSoPresent"
             BuildConfig.CURRENT_FLAVOR == "npuExperiment" && BuildConfig.DEBUG ->
                 "npuExperimentDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; Maven 0.10.0 may still differ from Gallery SM8750 native payload; libLiteRt.so present=$liteRtSoPresent"
             else ->
@@ -572,10 +593,10 @@ internal object AcceleratorProbe {
         dispatchRuntimeCompatibility: DispatchRuntimeCompatibilityProbeResult,
         engineConfigDryBuild: EngineConfigNpuDryBuildProbeResult,
     ): GalleryStackJavaNativeApiCompatibilityProbeResult {
-        if (BuildConfig.CURRENT_FLAVOR != "galleryStackExperiment" || !BuildConfig.DEBUG) {
+        if ((BuildConfig.CURRENT_FLAVOR != "galleryStackExperiment" && BuildConfig.CURRENT_FLAVOR != "customBuildExperiment") || !BuildConfig.DEBUG) {
             return GalleryStackJavaNativeApiCompatibilityProbeResult(
                 expectedJavaApiVersion = BuildConfig.LITERTLM_ANDROID_VERSION,
-                skipReason = "not-galleryStackExperiment-debug",
+                skipReason = "not-galleryStackExperiment-or-customBuildExperiment-debug",
             )
         }
         return runCatching {
@@ -596,7 +617,11 @@ internal object AcceleratorProbe {
                 liteRtLmJniBuildId = dispatchRuntimeCompatibility.liteRtLmJniBuildId,
                 liteRtBuildId = dispatchRuntimeCompatibility.liteRtBuildId,
                 dispatchRuntimeBuildId = dispatchRuntimeCompatibility.dispatchRuntimeBuildId,
-                note = "diagnostic-only; descriptor match does not imply NPU inference readiness",
+                note = if (BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
+                    "custom-build diagnostic-only; descriptor match does not imply NPU inference readiness"
+                } else {
+                    "diagnostic-only; descriptor match does not imply NPU inference readiness"
+                },
             )
         }.getOrElse { throwable ->
             GalleryStackJavaNativeApiCompatibilityProbeResult(
@@ -637,15 +662,13 @@ internal object AcceleratorProbe {
     }
 
     private fun isNpuProbeFlavor(): Boolean {
-        return BuildConfig.CURRENT_FLAVOR == "npuExperiment" || BuildConfig.CURRENT_FLAVOR == "galleryStackExperiment"
+        return BuildConfig.CURRENT_FLAVOR == "npuExperiment" ||
+            BuildConfig.CURRENT_FLAVOR == "galleryStackExperiment" ||
+            BuildConfig.CURRENT_FLAVOR == "customBuildExperiment"
     }
 
     private fun npuProbeFlavorSkipReason(): String {
-        return if (BuildConfig.CURRENT_FLAVOR == "galleryStackExperiment") {
-            "not-galleryStackExperiment-or-npuExperiment-flavor"
-        } else {
-            "not-npuExperiment-flavor"
-        }
+        return "not-npuExperiment-galleryStackExperiment-or-customBuildExperiment-flavor"
     }
 
     private fun galleryStackExpectedBuildIdsMatch(
@@ -664,6 +687,20 @@ internal object AcceleratorProbe {
             qnnHtpV79StubBuildId.equals(GALLERY_SM8750_QNN_HTP_V79_STUB_BUILD_ID, ignoreCase = true)
     }
 
+    private fun customStackExpectedBuildIdsMatch(
+        liteRtBuildId: String?,
+        liteRtLmJniBuildId: String?,
+        dispatchRuntimeBuildId: String?,
+        compilerPluginBuildId: String?,
+        gemmaModelConstraintProviderBuildId: String?,
+    ): Boolean {
+        return liteRtBuildId.equals(CUSTOM_BUILD_LITERT_BUILD_ID, ignoreCase = true) &&
+            liteRtLmJniBuildId.equals(CUSTOM_BUILD_LITERTLM_JNI_BUILD_ID, ignoreCase = true) &&
+            dispatchRuntimeBuildId.equals(CUSTOM_BUILD_DISPATCH_BUILD_ID, ignoreCase = true) &&
+            compilerPluginBuildId.equals(CUSTOM_BUILD_COMPILER_PLUGIN_BUILD_ID, ignoreCase = true) &&
+            gemmaModelConstraintProviderBuildId.equals(CUSTOM_BUILD_GEMMA_MODEL_CONSTRAINT_PROVIDER_BUILD_ID, ignoreCase = true)
+    }
+
     private fun classifyDispatchRuntimeAbiCompatibility(
         dispatchPresent: Boolean,
         liteRtBuildId: String?,
@@ -677,6 +714,11 @@ internal object AcceleratorProbe {
         val galleryDispatch = dispatchRuntimeBuildId.equals(GALLERY_SM8750_DISPATCH_BUILD_ID, ignoreCase = true)
         val galleryLiteRt = liteRtBuildId.equals(GALLERY_SM8750_LITERT_BUILD_ID, ignoreCase = true)
         val galleryLiteRtLmJni = liteRtLmJniBuildId.equals(GALLERY_SM8750_LITERTLM_JNI_BUILD_ID, ignoreCase = true)
+        val customDispatch = dispatchRuntimeBuildId.equals(CUSTOM_BUILD_DISPATCH_BUILD_ID, ignoreCase = true)
+        val customLiteRt = liteRtBuildId.equals(CUSTOM_BUILD_LITERT_BUILD_ID, ignoreCase = true)
+        val customLiteRtLmJni = liteRtLmJniBuildId.equals(CUSTOM_BUILD_LITERTLM_JNI_BUILD_ID, ignoreCase = true)
+        if (customDispatch && customLiteRt && customLiteRtLmJni) return "likely-compatible-custom-build-stack"
+        if (customDispatch && (!customLiteRt || !customLiteRtLmJni)) return "likely-mismatch-custom-build-stack"
         if (galleryDispatch && (!galleryLiteRt || !galleryLiteRtLmJni)) return "likely-mismatch"
         if (galleryDispatch && galleryLiteRt && galleryLiteRtLmJni) return "likely-compatible"
         return "unknown"
@@ -1203,7 +1245,8 @@ internal object AcceleratorProbe {
             !BuildConfig.DEBUG -> "not-debug"
             !isNpuProbeFlavor() -> npuProbeFlavorSkipReason()
             dispatchRuntimeCompatibility.dispatchRuntimePresent != true -> "dispatch-runtime-not-present"
-            dispatchRuntimeCompatibility.dispatchRuntimeExpectedSha256Match != true -> "dispatch-sha256-mismatch"
+            BuildConfig.CURRENT_FLAVOR == "customBuildExperiment" && dispatchRuntimeCompatibility.customStackExpectedBuildIdMatch != true -> "custom-stack-build-id-mismatch"
+            BuildConfig.CURRENT_FLAVOR != "customBuildExperiment" && dispatchRuntimeCompatibility.dispatchRuntimeExpectedSha256Match != true -> "dispatch-sha256-mismatch"
             instantiateProbeResult.result != "success" -> "npu-instantiate-failed"
             engineConfigDryBuildProbeResult.result != "success" -> "engineconfig-npu-dry-build-not-success"
             !explicitOptIn -> "explicit-opt-in-required"
@@ -2998,6 +3041,9 @@ internal object AcceleratorProbe {
         val qnnHtpBuildId: String? = null,
         val qnnHtpV79StubBuildId: String? = null,
         val galleryStackExpectedBuildIdMatch: Boolean? = null,
+        val customCompilerPluginBuildId: String? = null,
+        val customGemmaModelConstraintProviderBuildId: String? = null,
+        val customStackExpectedBuildIdMatch: Boolean? = null,
         val runtimeStackNote: String = "unknown",
     )
 
