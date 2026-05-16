@@ -108,6 +108,10 @@ LIBS=(
   libQnnSystem.so
   libQnnHtp.so
   libQnnHtpPrepare.so
+  libQnnHtpV68Stub.so
+  libQnnHtpV68Skel.so
+  libQnnHtpV73Stub.so
+  libQnnHtpV73Skel.so
   libQnnHtpV79Stub.so
   libQnnHtpV79Skel.so
   libQnnDsp.so
@@ -130,6 +134,8 @@ for root in "${QAIRT_ROOTS[@]}"; do
   [ "$exists" = true ] || continue
   for lib in "${LIBS[@]}"; do
     metadata_for "$label" "$root/lib/aarch64-android/$lib" "$OUT_DIR/metadata/${label}_${lib}.txt"
+    metadata_for "${label}_hexagon_v68" "$root/lib/hexagon-v68/unsigned/$lib" "$OUT_DIR/metadata/${label}_hexagon_v68_${lib}.txt"
+    metadata_for "${label}_hexagon_v73" "$root/lib/hexagon-v73/unsigned/$lib" "$OUT_DIR/metadata/${label}_hexagon_v73_${lib}.txt"
     metadata_for "${label}_hexagon_v79" "$root/lib/hexagon-v79/unsigned/$lib" "$OUT_DIR/metadata/${label}_hexagon_v79_${lib}.txt"
   done
 done
@@ -161,6 +167,9 @@ Key files:
 This script is static-only and is intended to support generation comparison
 between Radxa-public QAIRT 2.42, LiteRT-public QAIRT 2.44 metadata, local QAIRT
 2.46, and Gallery SM8750 payloads.
+
+QAIRT 2.42 entries include V68/V73/V79 skel/stub probes because Radxa public
+Linux documents focus on QCS6490/V68 and QCS9075/V73 rather than SM8750/V79.
 EOF
 
 printf '%s\n' "$OUT_DIR"

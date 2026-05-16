@@ -242,6 +242,26 @@ Ranking after adding Radxa evidence:
    They may address Android app discovery, but will not fix a generation mismatch
    by themselves.
 
+## QAIRT 2.42 Local Workflow
+
+QAIRT `2.42.0.251225` was searched locally and was not found:
+
+```text
+artifacts/qairt242_acquisition/20260517_083526/local_search.txt
+```
+
+The repository now has static-only helpers for a future official 2.42 SDK:
+
+```text
+scripts/check_qairt242_sdk.sh
+scripts/stage_qairt242_sdk_from_download.sh
+docs/qairt_242_acquisition_notes.md
+```
+
+These helpers exist to compare Radxa's public generation against LiteRT 2.44
+metadata, local QAIRT 2.46, and Gallery/custom payloads. They do not build,
+install, modify `jniLibs`, or run `Engine.initialize`.
+
 ## Source Links
 
 - Radxa Dragon Q6A NPU overview: <https://docs.radxa.com/en/dragon/q6a/app-dev/npu-dev>

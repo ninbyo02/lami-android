@@ -319,6 +319,51 @@ available LiteRT/LiteRT-LM refs. The strongest next path is still exact QAIRT
    - QAIRT 2.44 required by public metadata
    - same-source/tag 2.46-overlay build still fails with no usable dispatch runtime
 
+## QAIRT 2.42 Comparison Status
+
+Result date: 2026-05-17
+
+Local search artifact:
+
+```text
+artifacts/qairt242_acquisition/20260517_083526/local_search.txt
+```
+
+Status:
+
+```text
+qairt242-local-missing
+```
+
+QAIRT `2.42.0.251225` was not found locally. The existing SDK tree contains
+QAIRT `2.46.0.260424`, but that cannot be used as a 2.42 comparison root.
+
+QAIRT 2.42 is now documented as a public Radxa/Linux comparison generation, not
+as the primary SM8750/V79 candidate:
+
+- Radxa public docs use QAIRT `2.42.0.251225`.
+- Radxa examples focus on Linux board workflows and QCS6490/V68 or QCS9075/V73
+  style paths.
+- LiteRT public Qualcomm metadata references QAIRT `2.44.0.260225`.
+- The local SDK is QAIRT `2.46.0.260424`.
+- Lami's target remains Android app `Backend.NPU(nativeLibraryDir)` on
+  SM8750/V79 with a Qualcomm SM8750 `.litertlm` model.
+
+Prepared helpers:
+
+```text
+scripts/check_qairt242_sdk.sh
+scripts/stage_qairt242_sdk_from_download.sh
+docs/qairt_242_acquisition_notes.md
+```
+
+Recommended priority:
+
+1. official issue / maintainer guidance,
+2. exact QAIRT `2.44.0.260225` acquisition and rebuild compare,
+3. QAIRT `2.42.0.251225` static comparison only, if obtained,
+4. no QAIRT 2.42 build or app insertion unless explicitly approved later.
+
 ## QAIRT 2.44 Acquisition Probe
 
 Probe date: 2026-05-17
