@@ -2,6 +2,11 @@
 set -u
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [ -z "${LAMI_LEGACY_NPU_TOMBSTONE_COLLECTOR:-}" ]; then
+  exec "$ROOT_DIR/scripts/collect_npu_tombstone_diagnostics_v2.sh" "$@"
+fi
+
 APP_ID="${APP_ID:-io.github.ninbyo02.lami.npu}"
 APK_PATH="${APK_PATH:-app/build/outputs/apk/npuExperiment/debug/app-npuExperiment-debug.apk}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"

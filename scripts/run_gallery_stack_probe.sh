@@ -102,11 +102,17 @@ sleep 3
 
 echo
 echo "[gallery-stack-probe] pidof $APP_ID:"
-adb shell pidof "$APP_ID" 2>/dev/null | tr -d '\r' || true
+PID="$(adb shell pidof "$APP_ID" 2>/dev/null | tr -d '\r' || true)"
+printf '%s\n' "${PID:-<not-running>}"
 
 echo
 echo "[gallery-stack-probe] probe snapshot:"
-adb shell run-as "$APP_ID" cat "$SNAPSHOT_FILE" || true
+SNAPSHOT="$(adb shell run-as "$APP_ID" cat "$SNAPSHOT_FILE" 2>/dev/null | tr -d '\r' || true)"
+if [ -n "$SNAPSHOT" ]; then
+  printf '%s\n' "$SNAPSHOT"
+else
+  echo "<missing>"
+fi
 
 if [ "$RUN_ENGINE_DRY_RUN" = "true" ]; then
   echo
@@ -117,6 +123,19 @@ fi
 echo
 echo "[gallery-stack-probe] related logcat lines:"
 adb logcat -d -t 500 2>/dev/null | grep -Ei "Gallery Stack Runtime|NpuExperimentProbe|AcceleratorProbe|LiteRt|Dispatch|QNN|NPU|lami|FATAL|SIGABRT" || true
+
+if [ "$RUN_ENGINE_DRY_RUN" = "true" ] && { [ -z "$PID" ] || [ -z "$SNAPSHOT" ]; }; then
+  echo
+  echo "[gallery-stack-probe] crash suspected or snapshot missing; collecting gallerynpu diagnostics..."
+  if bash scripts/collect_npu_tombstone_diagnostics.sh \
+    --app-id "$APP_ID" \
+    --label gallerynpu \
+    --run-id "$RUN_ID"; then
+    echo "[gallery-stack-probe] collector finished."
+  else
+    echo "[gallery-stack-probe] warning: collector failed; continuing." >&2
+  fi
+fi
 
 echo
 if [ "$RUN_ENGINE_DRY_RUN" = "true" ]; then

@@ -284,3 +284,84 @@ This reinforces that independent `dispatch_api_so` builds are still premature. T
 3. Run the existing guarded probes in order: `Backend.NPU(String)` instantiate, `EngineConfig` dry-build, then explicit opt-in `Engine.initialize` dry-run.
 
 Only if that isolated Gallery stack still reports `No usable Dispatch runtime found` should the next investigation move to exact source/tag identification or upstream reporting. Public HEAD standalone dispatch builds remain non-recommended because the failure mode is consistent with runtime generation/capability mismatch, not simply a missing `.so` file.
+
+## galleryStackExperimentDebug app-id specific crash result
+
+Collection date: 2026-05-16
+
+Artifact:
+
+- `artifacts/npu_diagnostics/20260516_195739_gallerynpu/`
+
+The collector was run with:
+
+```bash
+bash scripts/collect_npu_tombstone_diagnostics.sh \
+  --app-id io.github.ninbyo02.lami.gallerynpu \
+  --label gallerynpu
+```
+
+The selected tombstone matches the exact app id:
+
+```text
+Cmdline: io.github.ninbyo02.lami.gallerynpu
+tombstone selection: latest-tombstone-matches-app
+```
+
+This is a different crash signature from the earlier `npuExperimentDebug` Maven/native-stack mismatch.
+
+Observed state:
+
+```text
+final stage: Engine.initialize invoking method=Engine.initialize(): void
+process alive after probe: not-running
+signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0000000000ffffe0
+abort message: not-found
+likely abort/register/log text: not-found
+```
+
+Backtrace summary:
+
+```text
+#00 libc.so (__strlen_aarch64+240)
+#01 libart.so art::JavaVMExt::JniAbort
+#05 libart.so CheckJNI::GetStringCharsInternal
+#06 liblitertlm_jni.so Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+816
+#13 base.apk com.google.ai.edge.litertlm.Engine.initialize
+#25 base.apk AcceleratorProbe.invokeEngineInitializeOperation
+```
+
+Native library state in `io.github.ninbyo02.lami.gallerynpu`:
+
+| Library | Present | Build ID |
+| --- | --- | --- |
+| `liblitertlm_jni.so` | true | `76e4dccd9c5f9cba468d9cae7becfec0` |
+| `libLiteRt.so` | true | `869121bd7f4b0b77fa581218117a5c14` |
+| `libLiteRtDispatch_Qualcomm.so` | true | `643ad77b8ac2f54bd1b61e4133c77b3a` |
+| `libQnnSystem.so` | true | `0d409cdd664b8b0a` |
+| `libQnnHtp.so` | true | `f2c90c1775a109e1` |
+| `libQnnHtpPrepare.so` | true | `9ae62cf17f972404` |
+| `libQnnHtpV79Stub.so` | true | `10d7ad6f9195411a` |
+| `libQnnHtpV79Skel.so` | true | no GNU Build ID |
+| `libLiteRtRuntimeCApi.so` | false | missing |
+
+The tombstone mapping excerpt shows `liblitertlm_jni.so` and `libllm_inference_engine_jni.so`. It does not show mapped `libLiteRt.so`, `libLiteRtDispatch_Qualcomm.so`, or QNN libraries in the extracted top crash block. The file-level metadata still confirms those libraries are present in the isolated app nativeLibraryDir.
+
+Classification:
+
+- `unknown-native-abort`
+- confidence: `medium`
+
+Reasoning:
+
+- Gallery stack native libraries are present in the isolated app nativeLibraryDir.
+- The latest app-id matched tombstone does not show `No usable Dispatch runtime found`, `Failed to initialize Dispatch API`, or `insufficient capabilities`.
+- The top failure path is ART CheckJNI `GetStringCharsInternal` called from `LiteRtLmJni_nativeCreateEngine+816`.
+- This points to a Java/Kotlin API or JNI argument-generation mismatch between the public Maven classes used by Lami and the Gallery SM8750 `liblitertlm_jni.so`, rather than a proven dispatch runtime capability failure.
+
+Updated recommendation:
+
+1. Do not build `dispatch_api_so` yet.
+2. Do not add more native libraries or change standard/npuExperiment.
+3. Identify the exact Gallery Java/Kotlin source or AAR generation that matches Gallery `liblitertlm_jni.so` Build ID `76e4dccd9c5f9cba468d9cae7becfec0`.
+4. If another experiment is needed, isolate it under a separate app id and verify `EngineConfig` constructor/JNI argument layout before calling `Engine.initialize`.

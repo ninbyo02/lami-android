@@ -287,6 +287,87 @@ NPU safety status:
 
 No `--engine-dry-run` flag was passed. `Engine.initialize`, `Conversation`, `Session`, and `generateResponse` were not executed.
 
+## Gallery Stack Engine.Initialize Crash Collection
+
+Collection date: 2026-05-16
+
+Collector command:
+
+```bash
+bash scripts/collect_npu_tombstone_diagnostics.sh \
+  --app-id io.github.ninbyo02.lami.gallerynpu \
+  --label gallerynpu
+```
+
+Artifact:
+
+- `artifacts/npu_diagnostics/20260516_195739_gallerynpu/`
+
+The collector now filters by exact application id. The selected tombstone contains:
+
+```text
+Cmdline: io.github.ninbyo02.lami.gallerynpu
+tombstone selection: latest-tombstone-matches-app
+```
+
+This prevents mixing the older `io.github.ninbyo02.lami.npu` crash with the newer `io.github.ninbyo02.lami.gallerynpu` crash.
+
+Final stage before process death:
+
+```text
+Engine.initialize invoking method=Engine.initialize(): void
+```
+
+Observed crash:
+
+```text
+signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0000000000ffffe0
+abort message: not-found
+likely abort/register/log text: not-found
+process alive after probe: not-running
+```
+
+Top frames:
+
+```text
+#00 libc.so (__strlen_aarch64+240)
+#01 libart.so art::JavaVMExt::JniAbort
+#05 libart.so CheckJNI::GetStringCharsInternal
+#06 liblitertlm_jni.so Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+816
+#13 base.apk com.google.ai.edge.litertlm.Engine.initialize
+#25 base.apk AcceleratorProbe.invokeEngineInitializeOperation
+```
+
+Native library metadata from the gallery app nativeLibraryDir:
+
+| Library | Present | Build ID |
+| --- | --- | --- |
+| `liblitertlm_jni.so` | true | `76e4dccd9c5f9cba468d9cae7becfec0` |
+| `libLiteRt.so` | true | `869121bd7f4b0b77fa581218117a5c14` |
+| `libLiteRtDispatch_Qualcomm.so` | true | `643ad77b8ac2f54bd1b61e4133c77b3a` |
+| `libQnnSystem.so` | true | `0d409cdd664b8b0a` |
+| `libQnnHtp.so` | true | `f2c90c1775a109e1` |
+| `libQnnHtpPrepare.so` | true | `9ae62cf17f972404` |
+| `libQnnHtpV79Stub.so` | true | `10d7ad6f9195411a` |
+| `libQnnHtpV79Skel.so` | true | no GNU Build ID |
+| `libLiteRtRuntimeCApi.so` | false | missing |
+
+The tombstone mapping excerpt shows `liblitertlm_jni.so` and `libllm_inference_engine_jni.so`. It does not show mapped `libLiteRt.so`, `libLiteRtDispatch_Qualcomm.so`, or QNN libraries in the extracted top crash block, even though those files are present in nativeLibraryDir.
+
+Classification:
+
+- `unknown-native-abort`
+- confidence: `medium`
+
+This latest gallery stack crash is not a confirmed `No usable Dispatch runtime found` case. It is a CheckJNI/string-handling crash inside `LiteRtLmJni_nativeCreateEngine`, which points more strongly at Java/Kotlin API surface and native JNI generation mismatch than at a plain missing dispatch runtime. There is also no direct log evidence in this artifact for `insufficient capabilities`, `LiteRtRuntimeCApi`, or ADSP path failure.
+
+Next actions:
+
+1. Treat this as a Gallery JNI/classes compatibility problem until proven otherwise.
+2. Identify the exact Gallery Java/Kotlin artifact or source generation that matches `liblitertlm_jni.so` Build ID `76e4dccd9c5f9cba468d9cae7becfec0`.
+3. Do not proceed to `Conversation`, `Session`, `generateResponse`, or normal app inference wiring.
+4. If the next experiment changes Java/Kotlin classes or LiteRT-LM AAR generation, keep it inside `galleryStackExperimentDebug` or another separate app id.
+
 ## Native crash risks
 
 - `liblitertlm_jni.so` and Kotlin/Java classes can drift. A Gallery JNI payload may not match public Maven `classes.jar`.
