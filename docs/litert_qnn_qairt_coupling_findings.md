@@ -345,3 +345,45 @@ Prepared workflow:
 
 Safety status remains unchanged: no normal UI NPU path, no `selectedPath=npu`,
 no `Conversation`, no `Session`, and no `generateResponse`.
+
+## Public Qualcomm Ecosystem Comparison
+
+Result date: 2026-05-17
+
+Detailed analysis:
+
+```text
+docs/radxa_qairt_ecosystem_analysis.md
+docs/litert_generation_strategy_options.md
+```
+
+Radxa Dragon Q6A and AIRbox Q900 public docs currently present a Linux/SBC QAIRT
+workflow centered on QAIRT `2.42.0.251225`. That public workflow assumes:
+
+- board/system fastrpc setup,
+- `/dev/fastrpc-*` devices,
+- `/usr/lib/dsp` libraries,
+- `source bin/envsetup.sh`,
+- explicit `ADSP_LIBRARY_PATH`,
+- Linux QNN ABI paths such as `aarch64-oe-linux-gcc11.2`,
+- SoC-specific `dsp_arch` / `soc_id` context generation.
+
+This differs from Lami's Android app path, which depends on app-packaged
+`lib/arm64-v8a` libraries and `Backend.NPU(nativeLibraryDir)` without shell
+environment setup.
+
+Generation comparison after adding Radxa evidence:
+
+| Ecosystem | Generation signal | Reading |
+| --- | --- | --- |
+| Radxa public Linux docs | QAIRT `2.42.0.251225` | stable public Linux/SBC generation, not SM8750-specific |
+| LiteRT public refs | QAIRT `2.44.0.260225` | current public LiteRT Qualcomm metadata |
+| local SDK | QAIRT `2.46.0.260424` | newer local SDK, no matching public LiteRT/LiteRT-LM ref found |
+| Gallery SM8750 APK | special native payload | likely internal/special generation |
+
+This makes `No usable Dispatch runtime found` consistent with a generation or
+capability acceptance failure even when the dispatch `.so`, `libLiteRt.so`, and
+QNN files are present. The best next path remains exact QAIRT `2.44.0.260225`
+acquisition or maintainer guidance; a QAIRT 2.42 downgrade is informative but
+lower confidence for SM8750/V79 because Radxa documents QCS6490/V68 and
+QCS9075/V73 rather than SM8750/V79.
