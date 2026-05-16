@@ -116,3 +116,84 @@ Flavor-specific version separation is Gradle-feasible, but public Maven `litertl
 - It can test whether the `0.10.0` Java/Kotlin API and `liblitertlm_jni.so` behavior changes the dispatch failure.
 - It is unlikely to fully match Gallery SM8750 unless a compatible `libLiteRt.so` and QNN/dispatch set are also isolated in a separate experiment.
 - Do not proceed to native stack replacement in standard/debug. If a matched Gallery stack is needed, use a separate isolated flavor or app id.
+
+## Minimal split experiment result
+
+Experiment date: 2026-05-16
+
+Implementation:
+
+- Removed the broad debug LiteRT-LM dependency root.
+- Added flavor-scoped debug roots:
+  - `standardImplementation("com.google.ai.edge.litertlm:litertlm-android:0.11.0")`
+  - `npuExperimentImplementation("com.google.ai.edge.litertlm:litertlm-android:0.10.0")`
+- Kept release on `0.10.0`.
+- Added a `standardRelease*` classpath-only force to keep standard release on `0.10.0`, because `standardImplementation(0.11.0)` otherwise participates in standard release conflict resolution.
+- Did not add any global force and did not change standard debug native packaging.
+
+Resolved dependency evidence:
+
+```text
+artifact_dir=artifacts/litertlm_flavor_dependencies/20260516_182950
+standardDebugRuntimeClasspath has litertlm-android:0.11.0: yes
+standardDebugRuntimeClasspath selects litertlm-android:0.10.0: no
+npuExperimentDebugRuntimeClasspath has litertlm-android:0.10.0: yes
+npuExperimentDebugRuntimeClasspath selects litertlm-android:0.11.0: no
+standardReleaseRuntimeClasspath has litertlm-android:0.10.0: yes
+overall: expected-split
+```
+
+Native payload evidence after the split:
+
+| APK | LiteRT-LM native payload |
+| --- | --- |
+| `app-standard-debug.apk` | `libLiteRt.so`, `libLiteRtClGlAccelerator.so`, `liblitertlm_jni.so`; no Qualcomm dispatch runtime |
+| `app-npuExperiment-debug.apk` | `liblitertlm_jni.so`, `libLiteRtDispatch_Qualcomm.so`; no `libLiteRt.so` |
+
+`npuExperimentDebug` Build IDs:
+
+| Library | Build ID |
+| --- | --- |
+| `liblitertlm_jni.so` | `ecacedccf835d7674c95bd40186d0fde` |
+| `libLiteRtDispatch_Qualcomm.so` | `643ad77b8ac2f54bd1b61e4133c77b3a` |
+| `libLiteRt.so` | not packaged by public Maven `litertlm-android:0.10.0` |
+
+`EngineConfig` API compatibility:
+
+- `0.10.0` selected constructor: `EngineConfig(String, Backend, Backend, Backend, Integer, String)`.
+- `0.11.0` selected constructor remains supported: `EngineConfig(String, Backend, Backend, Backend, Integer, Integer, String)`.
+- The probe builds constructor args by reflected parameter type, so it tolerates both constructor shapes without a direct compile dependency on either exact signature.
+
+Engine.initialize dry-run result with `npuExperimentDebug` on `litertlm-android:0.10.0`:
+
+```text
+runId=1778923550718
+model file exists true
+model file length 3016294400
+Backend.NPU created class=com.google.ai.edge.litertlm.Backend$NPU
+EngineConfig created class=com.google.ai.edge.litertlm.EngineConfig
+Engine constructor returned resultClass=com.google.ai.edge.litertlm.Engine
+Engine.initialize invoking method=Engine.initialize(): void
+pid after probe: <not-running>
+crash suspected: true
+```
+
+Latest artifacts:
+
+- `artifacts/npu_diagnostics/20260516_182607/`
+- `tombstone_latest.txt`: `signal 6 (SIGABRT)`
+- top JNI frame: `Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+1516`
+- `liblitertlm_jni.so` Build ID in tombstone: `ecacedccf835d7674c95bd40186d0fde`
+
+Result interpretation:
+
+- The dependency split worked: `standardDebug` stayed on `0.11.0`; `npuExperimentDebug` resolved only `0.10.0`.
+- The error still reaches a native SIGABRT during `Engine.initialize`, after `Engine(EngineConfig)` returns.
+- The failure changed the native stack generation from Lami `0.11.0` Build ID `c2c27170ba409dbd0bc01820fa738580` to Maven `0.10.0` Build ID `ecacedccf835d7674c95bd40186d0fde`.
+- Public Maven `0.10.0` still does not reproduce Gallery SM8750's native stack because its `liblitertlm_jni.so` Build ID differs from Gallery's `76e4dccd9c5f9cba468d9cae7becfec0`, and it does not package Gallery's `libLiteRt.so`.
+
+Next decision points:
+
+- If the goal is a Gallery-equivalent stack, `litertlm-android:0.10.0` alone is insufficient.
+- If `No usable Dispatch runtime found` remains the abort reason, the likely issue is still dispatch/runtime capability mismatch rather than Kotlin API wiring.
+- If a matched stack is tested next, keep it in an isolated flavor or separate app id and do not affect `standardDebug`.

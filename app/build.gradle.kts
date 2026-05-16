@@ -2,6 +2,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
 import java.util.Properties
+import com.android.build.api.variant.BuildConfigField
 
 plugins {
     id("com.google.devtools.ksp")
@@ -38,6 +39,7 @@ fun resolveBuildPrNumber(): String {
 
 val liteRtLmAndroidReleaseVersion = "0.10.0"
 val liteRtLmAndroidDebugVersion = "0.11.0"
+val liteRtLmAndroidNpuExperimentDebugVersion = "0.10.0"
 
 android {
 
@@ -124,6 +126,24 @@ androidComponents {
             variantBuilder.enable = false
         }
     }
+    onVariants { variant ->
+        val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
+        val liteRtLmVersion = when {
+            variant.buildType == "debug" && flavor == "npuExperiment" -> liteRtLmAndroidNpuExperimentDebugVersion
+            variant.buildType == "debug" -> liteRtLmAndroidDebugVersion
+            else -> liteRtLmAndroidReleaseVersion
+        }
+        variant.buildConfigFields?.put(
+            "LITERTLM_ANDROID_VERSION",
+            BuildConfigField("String", "\"$liteRtLmVersion\"", "Resolved LiteRT-LM Android dependency version for this variant"),
+        )
+    }
+}
+
+configurations.matching { configuration ->
+    configuration.name.startsWith("standardRelease")
+}.configureEach {
+    resolutionStrategy.force("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
 }
 
 val qnnNpuArm64LibDir = layout.projectDirectory.dir("src/main/jniLibs/arm64-v8a")
@@ -457,7 +477,8 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-    debugImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
+    add("standardImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
+    add("npuExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidNpuExperimentDebugVersion")
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
     implementation("com.qualcomm.qti:qnn-runtime:2.34.0")
     implementation("com.qualcomm.qti:qnn-litert-delegate:2.34.0")

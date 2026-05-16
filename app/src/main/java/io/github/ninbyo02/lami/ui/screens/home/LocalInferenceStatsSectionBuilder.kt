@@ -560,6 +560,14 @@ internal fun buildInferenceDetailSections(
             ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
             ?.let { probe ->
                 InferenceStatsSectionUi(
+                    title = "DEV診断: LiteRT-LM Runtime Version",
+                    items = buildLiteRtLmRuntimeVersionItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
                     title = "DEV診断: Backend.NPU Instantiate Probe",
                     items = buildBackendNpuInstantiateProbeItems(probe),
                 )
@@ -1548,6 +1556,23 @@ private fun buildDispatchRuntimeCompatibilityItems(
         InferenceStatItemUi(label = "dispatch runtime expected sha256 match", value = probe.dispatchRuntimeExpectedSha256Match?.toString() ?: "unknown"),
         InferenceStatItemUi(label = "ABI compatibility", value = probe.dispatchRuntimeAbiCompatibility?.ifBlank { "unknown" } ?: "unknown"),
         InferenceStatItemUi(label = "load policy", value = "diagnostic-only; no System.loadLibrary; no Backend.NPU apply"),
+    )
+}
+
+private fun buildLiteRtLmRuntimeVersionItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "current flavor", value = probe.currentFlavor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "resolved litertlm expected version", value = probe.liteRtLmExpectedVersion?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "liblitertlm_jni.so build id", value = probe.liteRtLmJniBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRt.so present", value = probe.liteRtSoPresent?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRt.so build id", value = probe.liteRtBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime build id", value = probe.dispatchRuntimeBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "comparison: Lami 0.11.0 known ids", value = probe.liteRtLmRuntimeComparisonToLami011?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "comparison: Maven 0.10.0 known ids", value = probe.liteRtLmRuntimeComparisonToMaven010?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "comparison: Gallery SM8750 known ids", value = probe.liteRtLmRuntimeComparisonToGallerySm8750?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "runtime stack note", value = probe.liteRtLmRuntimeStackNote?.ifBlank { "unknown" } ?: "unknown"),
     )
 }
 

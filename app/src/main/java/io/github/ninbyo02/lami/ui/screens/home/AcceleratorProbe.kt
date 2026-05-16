@@ -32,6 +32,9 @@ internal object AcceleratorProbe {
     private const val GALLERY_SM8750_LITERT_BUILD_ID = "869121bd7f4b0b77fa581218117a5c14"
     private const val GALLERY_SM8750_LITERTLM_JNI_BUILD_ID = "76e4dccd9c5f9cba468d9cae7becfec0"
     private const val GALLERY_SM8750_DISPATCH_SHA256 = "92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777"
+    private const val LAMI_LITERTLM_011_LITERT_BUILD_ID = "80fa0688ac32301185275c903cec97bd"
+    private const val LAMI_LITERTLM_011_JNI_BUILD_ID = "c2c27170ba409dbd0bc01820fa738580"
+    private const val MAVEN_LITERTLM_010_JNI_BUILD_ID = "ecacedccf835d7674c95bd40186d0fde"
     private const val ENGINE_INITIALIZE_DRY_RUN_FILE_NAME = "npu_engine_initialize_dry_run.txt"
     private const val ENGINE_INITIALIZE_LAST_STAGE_FILE_NAME = "npu_engine_initialize_last_stage.txt"
     private const val ENGINE_INITIALIZE_CRASH_MARKER_FILE_NAME = "npu_engine_initialize_crash_marker.txt"
@@ -304,6 +307,12 @@ internal object AcceleratorProbe {
             dispatchRuntimeSha256 = dispatchRuntimeCompatibility.dispatchRuntimeSha256,
             dispatchRuntimeExpectedSha256Match = dispatchRuntimeCompatibility.dispatchRuntimeExpectedSha256Match,
             dispatchRuntimeAbiCompatibility = dispatchRuntimeCompatibility.abiCompatibility,
+            liteRtLmExpectedVersion = dispatchRuntimeCompatibility.expectedLiteRtLmVersion,
+            liteRtSoPresent = dispatchRuntimeCompatibility.liteRtSoPresent,
+            liteRtLmRuntimeComparisonToLami011 = dispatchRuntimeCompatibility.comparisonToLami011,
+            liteRtLmRuntimeComparisonToMaven010 = dispatchRuntimeCompatibility.comparisonToMaven010,
+            liteRtLmRuntimeComparisonToGallerySm8750 = dispatchRuntimeCompatibility.comparisonToGallerySm8750,
+            liteRtLmRuntimeStackNote = dispatchRuntimeCompatibility.runtimeStackNote,
             backendNpuInstantiateProbeEnabled = backendNpuInstantiateProbeResult.enabled,
             backendNpuInstantiateProbeSkipReason = backendNpuInstantiateProbeResult.skipReason,
             backendNpuInstantiateNativeLibraryDirArgument = backendNpuInstantiateProbeResult.nativeLibraryDirArgument,
@@ -423,7 +432,8 @@ internal object AcceleratorProbe {
             val nativeLibraryDir = packagedLibraries.nativeLibraryDir?.takeIf { it.isNotBlank() }
             val nativeLibraryDirectory = nativeLibraryDir?.let(::File)
             val nativeLibraryDirExists = nativeLibraryDirectory?.isDirectory
-            val liteRtBuildId = nativeLibraryDirectory?.resolve("libLiteRt.so")?.let(::readElfBuildIdSafely)
+            val liteRtFile = nativeLibraryDirectory?.resolve("libLiteRt.so")
+            val liteRtBuildId = liteRtFile?.let(::readElfBuildIdSafely)
             val liteRtLmJniBuildId = nativeLibraryDirectory?.resolve("liblitertlm_jni.so")?.let(::readElfBuildIdSafely)
             val dispatchCandidate = packagedLibraries.dispatchApiSelectedCandidate
                 ?: packagedLibraries.dispatchApiCandidates.firstOrNull()
@@ -452,6 +462,30 @@ internal object AcceleratorProbe {
                 dispatchRuntimeSha256 = dispatchRuntimeSha256,
                 dispatchRuntimeExpectedSha256Match = dispatchRuntimeSha256?.equals(GALLERY_SM8750_DISPATCH_SHA256, ignoreCase = true),
                 abiCompatibility = abiCompatibility,
+                expectedLiteRtLmVersion = BuildConfig.LITERTLM_ANDROID_VERSION,
+                liteRtSoPresent = liteRtFile?.isFile == true,
+                comparisonToLami011 = compareRuntimeBuildIds(
+                    liteRtBuildId = liteRtBuildId,
+                    liteRtLmJniBuildId = liteRtLmJniBuildId,
+                    expectedLiteRtBuildId = LAMI_LITERTLM_011_LITERT_BUILD_ID,
+                    expectedLiteRtLmJniBuildId = LAMI_LITERTLM_011_JNI_BUILD_ID,
+                    missingLiteRtAllowed = false,
+                ),
+                comparisonToMaven010 = compareRuntimeBuildIds(
+                    liteRtBuildId = liteRtBuildId,
+                    liteRtLmJniBuildId = liteRtLmJniBuildId,
+                    expectedLiteRtBuildId = null,
+                    expectedLiteRtLmJniBuildId = MAVEN_LITERTLM_010_JNI_BUILD_ID,
+                    missingLiteRtAllowed = true,
+                ),
+                comparisonToGallerySm8750 = compareRuntimeBuildIds(
+                    liteRtBuildId = liteRtBuildId,
+                    liteRtLmJniBuildId = liteRtLmJniBuildId,
+                    expectedLiteRtBuildId = GALLERY_SM8750_LITERT_BUILD_ID,
+                    expectedLiteRtLmJniBuildId = GALLERY_SM8750_LITERTLM_JNI_BUILD_ID,
+                    missingLiteRtAllowed = false,
+                ),
+                runtimeStackNote = buildLiteRtLmRuntimeStackNote(liteRtFile?.isFile == true),
             )
         }.getOrElse {
             DispatchRuntimeCompatibilityProbeResult(
@@ -460,7 +494,37 @@ internal object AcceleratorProbe {
                 dispatchRuntimePresent = false,
                 dispatchRuntimeSource = "probe-error:${it.javaClass.simpleName}",
                 abiCompatibility = "unknown",
+                expectedLiteRtLmVersion = BuildConfig.LITERTLM_ANDROID_VERSION,
             )
+        }
+    }
+
+    private fun compareRuntimeBuildIds(
+        liteRtBuildId: String?,
+        liteRtLmJniBuildId: String?,
+        expectedLiteRtBuildId: String?,
+        expectedLiteRtLmJniBuildId: String,
+        missingLiteRtAllowed: Boolean,
+    ): String {
+        val liteRtMatches = when {
+            expectedLiteRtBuildId == null -> if (missingLiteRtAllowed && liteRtBuildId.isNullOrBlank()) "match-missing" else "not-checked"
+            liteRtBuildId.equals(expectedLiteRtBuildId, ignoreCase = true) -> "match"
+            liteRtBuildId.isNullOrBlank() -> "missing"
+            else -> "different"
+        }
+        val jniMatches = when {
+            liteRtLmJniBuildId.equals(expectedLiteRtLmJniBuildId, ignoreCase = true) -> "match"
+            liteRtLmJniBuildId.isNullOrBlank() -> "missing"
+            else -> "different"
+        }
+        return "libLiteRt=$liteRtMatches;liblitertlm_jni=$jniMatches"
+    }
+
+    private fun buildLiteRtLmRuntimeStackNote(liteRtSoPresent: Boolean): String {
+        return if (BuildConfig.CURRENT_FLAVOR == "npuExperiment" && BuildConfig.DEBUG) {
+            "npuExperimentDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; Maven 0.10.0 may still differ from Gallery SM8750 native payload; libLiteRt.so present=$liteRtSoPresent"
+        } else {
+            "standard/debug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; normal inference remains GPU path"
         }
     }
 
@@ -2760,6 +2824,12 @@ internal object AcceleratorProbe {
         val dispatchRuntimeSha256: String? = null,
         val dispatchRuntimeExpectedSha256Match: Boolean? = null,
         val abiCompatibility: String = "unknown",
+        val expectedLiteRtLmVersion: String = "unknown",
+        val liteRtSoPresent: Boolean? = null,
+        val comparisonToLami011: String = "unknown",
+        val comparisonToMaven010: String = "unknown",
+        val comparisonToGallerySm8750: String = "unknown",
+        val runtimeStackNote: String = "unknown",
     )
 
     private data class BackendNpuInstantiateProbeResult(

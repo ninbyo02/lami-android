@@ -182,3 +182,82 @@ Reasons:
    - `selectedPath=gpu`
    - `QNN/NPU attempted=no`
    - no `Conversation` / `Session` / `generateResponse` in the NPU experiment path.
+
+## npuExperimentDebug Maven 0.10.0 split result
+
+Experiment date: 2026-05-16
+
+Change under test:
+
+- `standardDebug` remains on `litertlm-android:0.11.0`.
+- `npuExperimentDebug` resolves only `litertlm-android:0.10.0`.
+- The staged Gallery SM8750 `libLiteRtDispatch_Qualcomm.so` remains only in the isolated `npuExperimentDebug` native payload.
+- No native libraries were manually replaced and no dispatch library was built.
+
+Resolved dependency evidence:
+
+```text
+artifact_dir=artifacts/litertlm_flavor_dependencies/20260516_182950
+standardDebugRuntimeClasspath has litertlm-android:0.11.0: yes
+standardDebugRuntimeClasspath selects litertlm-android:0.10.0: no
+npuExperimentDebugRuntimeClasspath has litertlm-android:0.10.0: yes
+npuExperimentDebugRuntimeClasspath selects litertlm-android:0.11.0: no
+standardReleaseRuntimeClasspath has litertlm-android:0.10.0: yes
+overall: expected-split
+```
+
+Native Build IDs after switching `npuExperimentDebug` to Maven `0.10.0`:
+
+| Component | Build ID | Note |
+| --- | --- | --- |
+| `liblitertlm_jni.so` | `ecacedccf835d7674c95bd40186d0fde` | Maven `litertlm-android:0.10.0` payload |
+| `libLiteRtDispatch_Qualcomm.so` | `643ad77b8ac2f54bd1b61e4133c77b3a` | Gallery SM8750 dispatch payload |
+| `libLiteRt.so` | not packaged | Public Maven `0.10.0` does not include this Gallery SM8750 library |
+
+Gallery SM8750 comparison:
+
+| Component | Gallery SM8750 Build ID | npuExperimentDebug after split | Assessment |
+| --- | --- | --- | --- |
+| `liblitertlm_jni.so` | `76e4dccd9c5f9cba468d9cae7becfec0` | `ecacedccf835d7674c95bd40186d0fde` | different |
+| `libLiteRt.so` | `869121bd7f4b0b77fa581218117a5c14` | not packaged | missing from Maven `0.10.0` payload |
+| `libLiteRtDispatch_Qualcomm.so` | `643ad77b8ac2f54bd1b61e4133c77b3a` | `643ad77b8ac2f54bd1b61e4133c77b3a` | same dispatch file |
+
+Engine.initialize dry-run evidence:
+
+```text
+artifacts/npu_diagnostics/20260516_182607/
+runId=1778923550718
+model file exists true
+model file length 3016294400
+Backend.NPU created class=com.google.ai.edge.litertlm.Backend$NPU
+EngineConfig created class=com.google.ai.edge.litertlm.EngineConfig
+Engine constructor returned resultClass=com.google.ai.edge.litertlm.Engine
+Engine.initialize invoking method=Engine.initialize(): void
+pid after probe: <not-running>
+crash suspected: true
+```
+
+Tombstone summary:
+
+```text
+signal 6 (SIGABRT)
+#20 pc 00000000006f6e2c liblitertlm_jni.so
+    Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+1516
+    BuildId: ecacedccf835d7674c95bd40186d0fde
+```
+
+The latest tombstone does not contain a clear `Abort message:` line. The observable change is the native generation in the crash stack: it now uses Maven `0.10.0` `liblitertlm_jni.so` (`ecaced...`) instead of Maven `0.11.0` (`c2c...`). The process still aborts during `Engine.initialize` after the `Engine(EngineConfig)` constructor returns.
+
+Updated root cause assessment:
+
+1. Public Maven `litertlm-android:0.10.0` is not the same native stack as Gallery SM8750. It changes `liblitertlm_jni.so`, but still does not match Gallery's Build ID and does not package Gallery's `libLiteRt.so`.
+2. The exact Gallery dispatch runtime alone remains insufficient. The dispatch Build ID matches Gallery, but the paired LiteRT-LM native payload does not.
+3. If the abort reason is still `No usable Dispatch runtime found`, the best explanation remains dispatch/runtime capability negotiation mismatch, not Java/Kotlin API wiring.
+4. A same-generation runtime stack is still required before judging the Qualcomm SM8750 model itself.
+
+Updated next actions:
+
+- Do not enable NPU inference from this state.
+- Do not copy Gallery `libLiteRt.so` or QNN libraries into standard/debug.
+- If testing a matched Gallery-style stack, create a more isolated debug flavor or separate app id and compare the entire native payload as a set.
+- If building dispatch from source, first identify the exact LiteRT/LiteRT-LM generation that produced the desired `liblitertlm_jni.so`; public HEAD remains risky.

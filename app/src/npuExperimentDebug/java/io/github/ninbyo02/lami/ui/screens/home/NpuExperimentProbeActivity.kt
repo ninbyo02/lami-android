@@ -48,6 +48,18 @@ internal object NpuExperimentProbeLogger {
                 "dispatch runtime build id=${snapshot.dispatchRuntimeBuildId ?: "unknown"}; " +
                 "ABI compatibility=${snapshot.dispatchRuntimeAbiCompatibility ?: "unknown"}; " +
                 "load policy=diagnostic-only; no System.loadLibrary; no Backend.NPU apply"
+        val runtimeVersionLine =
+            "LiteRT-LM Runtime Version: " +
+                "current flavor=${snapshot.currentFlavor ?: "unknown"}; " +
+                "resolved litertlm expected version=${snapshot.liteRtLmExpectedVersion ?: "unknown"}; " +
+                "liblitertlm_jni.so build id=${snapshot.liteRtLmJniBuildId ?: "unknown"}; " +
+                "libLiteRt.so present=${snapshot.liteRtSoPresent ?: "unknown"}; " +
+                "libLiteRt.so build id=${snapshot.liteRtBuildId ?: "unknown"}; " +
+                "dispatch runtime build id=${snapshot.dispatchRuntimeBuildId ?: "unknown"}; " +
+                "comparison Lami 0.11.0=${snapshot.liteRtLmRuntimeComparisonToLami011 ?: "unknown"}; " +
+                "comparison Maven 0.10.0=${snapshot.liteRtLmRuntimeComparisonToMaven010 ?: "unknown"}; " +
+                "comparison Gallery SM8750=${snapshot.liteRtLmRuntimeComparisonToGallerySm8750 ?: "unknown"}; " +
+                "runtime stack note=${snapshot.liteRtLmRuntimeStackNote ?: "unknown"}"
         val instantiateLine =
             "Backend.NPU Instantiate Probe: " +
                 "enabled=${snapshot.backendNpuInstantiateProbeEnabled ?: "unknown"}; " +
@@ -173,12 +185,12 @@ internal object NpuExperimentProbeLogger {
                 "fallbackPath=${snapshot.qnnNpuFallbackPath ?: "-"}; " +
                 "NPU apply status=disabled / probe-only"
 
-        listOf(dispatchLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, engineApiInventoryLine, engineInitializeDryRunLine, safetyLine).forEach { line ->
+        listOf(dispatchLine, runtimeVersionLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, engineApiInventoryLine, engineInitializeDryRunLine, safetyLine).forEach { line ->
             Log.i(LOG_TAG, line)
         }
         runCatching {
             context.filesDir.resolve("npu_experiment_probe.txt").writeText(
-                listOf(dispatchLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, engineApiInventoryLine, engineInitializeDryRunLine, safetyLine).joinToString(separator = "\n", postfix = "\n"),
+                listOf(dispatchLine, runtimeVersionLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, engineApiInventoryLine, engineInitializeDryRunLine, safetyLine).joinToString(separator = "\n", postfix = "\n"),
             )
         }.onFailure { throwable ->
             Log.e(LOG_TAG, "Failed to write probe result: ${throwable.javaClass.simpleName}: ${throwable.message}")

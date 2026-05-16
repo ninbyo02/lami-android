@@ -9,6 +9,7 @@ GRADLE_CACHE="${GRADLE_CACHE:-$HOME/.gradle/caches/modules-2/files-2.1}"
 CONFIGURATIONS=(
   "standardDebugRuntimeClasspath"
   "npuExperimentDebugRuntimeClasspath"
+  "standardReleaseRuntimeClasspath"
   "standardDebugCompileClasspath"
   "npuExperimentDebugCompileClasspath"
 )
@@ -158,7 +159,7 @@ write_summary() {
     printf '# LiteRT-LM flavor dependency summary\n\n'
     printf 'Artifact directory: `%s`\n\n' "$OUT_DIR"
     printf '## Current app declarations\n\n'
-    grep -nE 'liteRtLmAndroid(Debug|Release)Version|litertlm-android|debugImplementation|releaseImplementation|npuExperimentImplementation|standardImplementation' app/build.gradle.kts || true
+    grep -nE 'liteRtLmAndroid(Debug|Release|NpuExperimentDebug)Version|litertlm-android|debugImplementation|releaseImplementation|npuExperimentDebugImplementation|standardDebugImplementation|npuExperimentImplementation|standardImplementation' app/build.gradle.kts || true
     printf '\n## Configuration files\n\n'
     for config in "${CONFIGURATIONS[@]}"; do
       printf '%s\n' "- \`$config\`: \`${config}_dependencies.txt\`"
@@ -173,6 +174,50 @@ write_summary() {
     for version in "${LITERTLM_VERSIONS[@]}"; do
       printf '%s\n' "- \`$version\`: \`litertlm_${version}_probe.txt\`"
     done
+  } >"$out"
+}
+
+insight_has_version() {
+  local config="$1"
+  local version="$2"
+  local file="$OUT_DIR/${config}_litertlm-android_insight.txt"
+  if [ -f "$file" ] && grep -q "com.google.ai.edge.litertlm:litertlm-android:$version" "$file"; then
+    printf 'yes'
+  else
+    printf 'no'
+  fi
+}
+
+write_assertions() {
+  local out="$1"
+  local standard_debug_has_011
+  local standard_debug_has_010
+  local npu_debug_has_010
+  local npu_debug_has_011
+  local standard_release_has_010
+  standard_debug_has_011="$(insight_has_version standardDebugRuntimeClasspath 0.11.0)"
+  standard_debug_has_010="$(insight_has_version standardDebugRuntimeClasspath 0.10.0)"
+  npu_debug_has_010="$(insight_has_version npuExperimentDebugRuntimeClasspath 0.10.0)"
+  npu_debug_has_011="$(insight_has_version npuExperimentDebugRuntimeClasspath 0.11.0)"
+  standard_release_has_010="$(insight_has_version standardReleaseRuntimeClasspath 0.10.0)"
+  {
+    printf 'artifact_dir=%s\n' "$OUT_DIR"
+    printf 'standardDebugRuntimeClasspath has litertlm-android:0.11.0: %s\n' "$standard_debug_has_011"
+    printf 'standardDebugRuntimeClasspath selects litertlm-android:0.10.0: %s\n' "$standard_debug_has_010"
+    printf 'npuExperimentDebugRuntimeClasspath has litertlm-android:0.10.0: %s\n' "$npu_debug_has_010"
+    printf 'npuExperimentDebugRuntimeClasspath selects litertlm-android:0.11.0: %s\n' "$npu_debug_has_011"
+    printf 'standardReleaseRuntimeClasspath has litertlm-android:0.10.0: %s\n' "$standard_release_has_010"
+    printf 'overall: %s\n' "$(
+      if [ "$standard_debug_has_011" = yes ] &&
+        [ "$standard_debug_has_010" = no ] &&
+        [ "$npu_debug_has_010" = yes ] &&
+        [ "$npu_debug_has_011" = no ] &&
+        [ "$standard_release_has_010" = yes ]; then
+        printf 'expected-split'
+      else
+        printf 'unexpected-resolution'
+      fi
+    )"
   } >"$out"
 }
 
@@ -194,5 +239,7 @@ for version in "${LITERTLM_VERSIONS[@]}"; do
 done
 
 write_summary "$OUT_DIR/summary.md"
+write_assertions "$OUT_DIR/summary.txt"
 log "wrote $OUT_DIR/summary.md"
+log "wrote $OUT_DIR/summary.txt"
 log "done"
