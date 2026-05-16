@@ -353,3 +353,40 @@ Recommended next safe work:
 2. build only into `artifacts/` and static-compare before any insertion;
 3. consider an isolated QNN-libs alignment experiment only after licensing/reuse review;
 4. keep all runtime checks at `Engine.initialize` dry-run until initialization succeeds.
+
+## QAIRT 2.44 Search Result
+
+Result date: 2026-05-17
+
+Search artifact:
+
+```text
+artifacts/qairt_244_exact_match/20260517_013958/local_search.txt
+```
+
+Finding:
+
+- exact QAIRT `2.44.0.260225` was not found locally.
+- the only matching directory is the existing build overlay path, which points to QAIRT `2.46.0.260424`.
+
+Status:
+
+```text
+blocked-awaiting-qairt244
+```
+
+Prepared docs:
+
+- `docs/qairt_244_acquisition_notes.md`
+- `docs/litert_custom_build_qairt244_compare.md`
+
+Prepared script option:
+
+```bash
+bash scripts/build_litert_custom_artifacts.sh \
+  ~/project/litert-custom-build/LiteRT-LM \
+  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+  --label qairt244
+```
+
+No exact-match rebuild was performed.

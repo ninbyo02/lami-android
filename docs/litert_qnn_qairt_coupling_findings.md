@@ -205,3 +205,56 @@ Safety remains unchanged:
 - no `Session`
 - no `generateResponse`
 - isolated flavor only
+
+## QAIRT 2.44 Exact-Match Rebuild Status
+
+Result date: 2026-05-17
+
+Local search artifact:
+
+```text
+artifacts/qairt_244_exact_match/20260517_013958/local_search.txt
+```
+
+Status:
+
+```text
+blocked-awaiting-qairt244
+```
+
+The exact QAIRT `2.44.0.260225` SDK was not found locally. The only matching path is:
+
+```text
+/home/sato/project/litert-custom-build/qairt_overlay/qairt/2.44.0.260225
+```
+
+That is a symlink to:
+
+```text
+/home/sato/compose/qairt/workspace/sdk/qairt/2.46.0.260424
+```
+
+No QAIRT 2.44 exact-match rebuild was performed.
+
+Acquisition notes:
+
+```text
+docs/qairt_244_acquisition_notes.md
+```
+
+Prepared compare doc:
+
+```text
+docs/litert_custom_build_qairt244_compare.md
+```
+
+The build helper now supports:
+
+```bash
+bash scripts/build_litert_custom_artifacts.sh \
+  ~/project/litert-custom-build/LiteRT-LM \
+  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+  --label qairt244
+```
+
+This creates a per-run overlay under the build artifact directory and does not overwrite the existing 2.46 overlay.

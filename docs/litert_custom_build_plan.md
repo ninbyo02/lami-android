@@ -275,6 +275,47 @@ Next build-oriented options:
 
 Do not proceed to single-token smoke until `Engine.initialize` returns successfully in an isolated flavor.
 
+## QAIRT 2.44 Exact-Match Rebuild Gate
+
+Result date: 2026-05-17
+
+Local search artifact:
+
+```text
+artifacts/qairt_244_exact_match/20260517_013958/local_search.txt
+```
+
+The exact QAIRT `2.44.0.260225` SDK is not currently installed. The existing path:
+
+```text
+/home/sato/project/litert-custom-build/qairt_overlay/qairt/2.44.0.260225
+```
+
+is a symlink to QAIRT `2.46.0.260424`, so it is not an exact-match input.
+
+Status:
+
+```text
+blocked-awaiting-qairt244
+```
+
+The build script is prepared for the exact SDK once available:
+
+```bash
+bash scripts/build_litert_custom_artifacts.sh \
+  ~/project/litert-custom-build/LiteRT-LM \
+  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+  --label qairt244
+```
+
+Expected output:
+
+```text
+artifacts/litert_custom_build/<timestamp>_qairt244/
+```
+
+Until QAIRT 2.44 is acquired, do not run another app insertion or `Engine.initialize` dry-run for this path.
+
 ## Limited Build Phase Result
 
 Result date: 2026-05-16

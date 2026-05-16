@@ -3,8 +3,61 @@ set -u
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LITERT_LM_DIR="${1:-$HOME/project/litert-custom-build/LiteRT-LM}"
+if [ $# -gt 0 ] && [[ "${1:-}" != --* ]]; then
+  shift
+fi
+
+LABEL=""
+QAIRT_ROOT=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --qairt-root)
+      if [ $# -lt 2 ]; then
+        printf 'ERROR: --qairt-root requires a path\n' >&2
+        exit 2
+      fi
+      QAIRT_ROOT="$2"
+      shift 2
+      ;;
+    --label)
+      if [ $# -lt 2 ]; then
+        printf 'ERROR: --label requires a value\n' >&2
+        exit 2
+      fi
+      LABEL="$2"
+      shift 2
+      ;;
+    --help|-h)
+      cat <<'EOF'
+Usage:
+  scripts/build_litert_custom_artifacts.sh [LiteRT-LM checkout] [--qairt-root <path>] [--label <label>]
+
+Options:
+  --qairt-root <path>  Exact QAIRT SDK version directory, for example
+                       /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225.
+                       The script creates a per-run overlay at
+                       artifacts/litert_custom_build/<timestamp>_<label>/qairt_overlay/
+                       and does not modify existing overlays.
+  --label <label>      Suffix for the artifact directory, for example qairt244.
+
+Safety:
+  Builds only the limited target list in this script. Does not copy outputs into app source sets.
+EOF
+      exit 0
+      ;;
+    *)
+      printf 'ERROR: unknown argument: %s\n' "$1" >&2
+      exit 2
+      ;;
+  esac
+done
+
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
-OUT_DIR="${OUT_DIR:-$ROOT_DIR/artifacts/litert_custom_build/$TIMESTAMP}"
+if [ -n "$LABEL" ]; then
+  OUT_DIR="${OUT_DIR:-$ROOT_DIR/artifacts/litert_custom_build/${TIMESTAMP}_${LABEL}}"
+else
+  OUT_DIR="${OUT_DIR:-$ROOT_DIR/artifacts/litert_custom_build/$TIMESTAMP}"
+fi
 
 BAZEL="${BAZEL:-$HOME/.local/bin/bazelisk}"
 ANDROID_SDK_ROOT_DEFAULT="$HOME/Android/Sdk"
@@ -20,7 +73,11 @@ export PATH="$HOME/.local/bin:$PATH"
 export ANDROID_HOME="${ANDROID_HOME:-$ANDROID_SDK_ROOT_DEFAULT}"
 export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT_OVERRIDE:-$ANDROID_HOME}"
 export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_NDK_HOME_DEFAULT}"
-export LITERT_QAIRT_SDK="${LITERT_QAIRT_SDK:-$QAIRT_OVERLAY_DEFAULT}"
+if [ -n "$QAIRT_ROOT" ]; then
+  export LITERT_QAIRT_SDK="$OUT_DIR/qairt_overlay/"
+else
+  export LITERT_QAIRT_SDK="${LITERT_QAIRT_SDK:-$QAIRT_OVERLAY_DEFAULT}"
+fi
 
 TARGETS=(
   "@litert//litert/c:litert_runtime_c_api_so"
@@ -190,6 +247,56 @@ write_matrix_for_dir() {
 mkdir -p "$OUT_DIR/build_logs" "$OUT_DIR/built_libs" "$OUT_DIR/metadata" "$OUT_DIR/symbols" "$OUT_DIR/strings" "$OUT_DIR/reference_libs/gallery" "$OUT_DIR/reference_libs/gallery_stack" "$OUT_DIR/reference_libs/maven_0.11.0" "$BAZEL_OUTPUT_BASE"
 : >"$OUT_DIR/build_results.tsv"
 
+if [ -n "$QAIRT_ROOT" ]; then
+  {
+    printf 'requested_qairt_root=%s\n' "$QAIRT_ROOT"
+    printf 'expected_version=2.44.0.260225\n'
+    printf 'artifact_overlay=%s\n' "$LITERT_QAIRT_SDK"
+  } >"$OUT_DIR/qairt_root_check.txt"
+
+  if [ ! -d "$QAIRT_ROOT" ]; then
+    log "missing --qairt-root directory: $QAIRT_ROOT"
+    printf 'status=missing\n' >>"$OUT_DIR/qairt_root_check.txt"
+    printf 'missing --qairt-root directory: %s\n' "$QAIRT_ROOT" >"$OUT_DIR/ERROR.txt"
+    printf '%s\n' "$OUT_DIR"
+    exit 2
+  fi
+
+  if [ "$(basename "$QAIRT_ROOT")" != "2.44.0.260225" ]; then
+    log "WARNING: --qairt-root basename is not 2.44.0.260225: $QAIRT_ROOT"
+    printf 'basename_match=false\n' >>"$OUT_DIR/qairt_root_check.txt"
+  else
+    printf 'basename_match=true\n' >>"$OUT_DIR/qairt_root_check.txt"
+  fi
+
+  mkdir -p "$LITERT_QAIRT_SDK/qairt"
+  ln -sfn "$QAIRT_ROOT" "$LITERT_QAIRT_SDK/qairt/2.44.0.260225"
+  {
+    printf 'status=present\n'
+    printf 'symlink=%s\n' "$LITERT_QAIRT_SDK/qairt/2.44.0.260225"
+    printf 'symlink_target='
+    readlink "$LITERT_QAIRT_SDK/qairt/2.44.0.260225" 2>/dev/null || true
+    printf '\nversion_files:\n'
+    find "$QAIRT_ROOT" -maxdepth 3 -type f \( -name version.txt -o -name manifest.xml -o -name envsetup.sh \) 2>/dev/null | sort
+    printf '\nrequired_files:\n'
+    for path in \
+      "$QAIRT_ROOT/bin/envsetup.sh" \
+      "$QAIRT_ROOT/bin/x86_64-linux-clang/qnn-net-run" \
+      "$QAIRT_ROOT/bin/x86_64-linux-clang/qnn-platform-validator" \
+      "$QAIRT_ROOT/lib/aarch64-android/libQnnSystem.so" \
+      "$QAIRT_ROOT/lib/aarch64-android/libQnnHtp.so" \
+      "$QAIRT_ROOT/lib/aarch64-android/libQnnHtpPrepare.so" \
+      "$QAIRT_ROOT/lib/aarch64-android/libQnnHtpV79Stub.so" \
+      "$QAIRT_ROOT/lib/hexagon-v79/unsigned/libQnnHtpV79Skel.so"; do
+      if [ -e "$path" ]; then
+        printf 'present\t%s\n' "$path"
+      else
+        printf 'missing\t%s\n' "$path"
+      fi
+    done
+  } >>"$OUT_DIR/qairt_root_check.txt"
+fi
+
 if [ ! -d "$LITERT_LM_DIR" ]; then
   log "missing LiteRT-LM checkout: $LITERT_LM_DIR"
   printf 'missing LiteRT-LM checkout: %s\n' "$LITERT_LM_DIR" >"$OUT_DIR/ERROR.txt"
@@ -232,6 +339,8 @@ log "bazel: $BAZEL"
   printf 'ANDROID_SDK_ROOT=%s\n' "$ANDROID_SDK_ROOT"
   printf 'ANDROID_NDK_HOME=%s\n' "$ANDROID_NDK_HOME"
   printf 'LITERT_QAIRT_SDK=%s\n' "$LITERT_QAIRT_SDK"
+  printf 'QAIRT_ROOT=%s\n' "${QAIRT_ROOT:-<default-overlay>}"
+  printf 'LABEL=%s\n' "${LABEL:-<none>}"
   printf 'BAZEL_OUTPUT_BASE=%s\n' "$BAZEL_OUTPUT_BASE"
   printf 'BAZEL_BUILD_TIMEOUT=%s\n' "$BAZEL_BUILD_TIMEOUT"
   printf '\nWORKSPACE refs:\n'
@@ -251,6 +360,7 @@ log "bazel: $BAZEL"
 {
   printf '# QAIRT/QNN\n\n'
   printf 'LITERT_QAIRT_SDK=%s\n' "$LITERT_QAIRT_SDK"
+  printf 'QAIRT_ROOT=%s\n' "${QAIRT_ROOT:-<default-overlay>}"
   printf 'Expected LiteRT strip path: %sqairt/2.44.0.260225\n' "$LITERT_QAIRT_SDK"
   find "$LITERT_QAIRT_SDK" -maxdepth 4 \( -name envsetup.sh -o -name qnn-net-run -o -name qnn-platform-validator -o -name libQnnSystem.so -o -name libQnnHtp.so -o -name libQnnHtpPrepare.so \) 2>/dev/null | sort
 } >"$OUT_DIR/qairt_env.txt"

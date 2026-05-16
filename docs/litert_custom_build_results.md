@@ -228,3 +228,29 @@ runtime-dispatch-unusable; qnn-qairt-coupling-likely
 ```
 
 The most likely next direction is not another Java/native ABI fix. It is QNN/QAIRT generation alignment or SM8750/V79 dispatch capability validation.
+
+## QAIRT 2.44 Exact-Match Rebuild Check
+
+Result date: 2026-05-17
+
+Search artifact:
+
+```text
+artifacts/qairt_244_exact_match/20260517_013958/local_search.txt
+```
+
+Exact QAIRT `2.44.0.260225` was not found locally. The matching overlay path is a symlink to QAIRT `2.46.0.260424`, so no exact-match rebuild was performed.
+
+Prepared acquisition and compare docs:
+
+- `docs/qairt_244_acquisition_notes.md`
+- `docs/litert_custom_build_qairt244_compare.md`
+
+Prepared build command for after acquisition:
+
+```bash
+bash scripts/build_litert_custom_artifacts.sh \
+  ~/project/litert-custom-build/LiteRT-LM \
+  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+  --label qairt244
+```

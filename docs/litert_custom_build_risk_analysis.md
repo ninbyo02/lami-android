@@ -275,3 +275,15 @@ qnn-qairt-generation-coupling-risk-high
 ```
 
 The next insertion experiment must not blindly add or replace QNN libraries. If QNN library alignment is tested, it must be isolated, explicit opt-in, and preceded by licensing/reuse review. Exact QAIRT source-version alignment is safer than mixing arbitrary QNN payloads.
+
+## QAIRT 2.44 Exact-Match Availability Risk
+
+The exact QAIRT `2.44.0.260225` SDK is not currently installed locally. The apparent `2.44.0.260225` path is an overlay symlink to `2.46.0.260424`.
+
+Risk implication:
+
+```text
+exact-qairt244-build-blocked
+```
+
+Do not treat the current overlay build as an exact-match QAIRT 2.44 result. Any runtime conclusion from that build remains subject to QAIRT 2.44 vs 2.46 coupling risk.
