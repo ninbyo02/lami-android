@@ -4,7 +4,7 @@ Recommended main repo: `google-ai-edge/LiteRT-LM`.
 
 Title candidate:
 
-`[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with Gallery native stack`
+`[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
 
 Environment:
 
@@ -21,6 +21,13 @@ Isolated app variant:
 - applicationId: `io.github.ninbyo02.lami.gallerynpu`
 - Java API: `litertlm-android:0.11.0`
 - Native stack: Gallery SM8750 APK `1.0.12`
+
+Second isolated variant:
+
+- `customBuildExperimentDebug`
+- applicationId: `io.github.ninbyo02.lami.customnpu`
+- Java API: `litertlm-android:0.11.0`
+- Native stack: same-source/tag custom build from LiteRT-LM `v0.11.0` and pinned LiteRT `47615eb6eaec25e8dfcd1aba922c560a57cba0a2`
 
 Key native Build IDs:
 
@@ -44,7 +51,8 @@ Current failure:
 
 - `Engine.initialize()` explicit dry-run only
 - signal: `SIGABRT`
-- frame: `Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+1668`
+- Gallery frame: `Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+1668`
+- custom stack frame: `DispatchDelegate::CreateDelegateKernelInterface()+312`
 - no direct tombstone `Abort message`
 - register fragments match `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found`
 
@@ -58,10 +66,17 @@ Additional source/version findings:
 
 - same-source/tag LiteRT-LM `v0.11.0` + pinned LiteRT custom stack also failed at `Engine.initialize`
 - failure frame: `DispatchDelegate::CreateDelegateKernelInterface()+312`
+- custom built stack includes `libLiteRt.so`, `libLiteRtDispatch_Qualcomm.so`, `liblitertlm_jni.so`, `libLiteRtCompilerPlugin_Qualcomm.so`, and `libGemmaModelConstraintProvider.so`
+- Java/native ABI mismatch is no longer likely
+- missing dispatch `.so` is no longer likely
+- missing `libLiteRt.so` is no longer likely
+- QNN Build IDs differ across custom APK packaged QNN libs, Gallery QNN libs, and local QAIRT 2.46 libs
 - public LiteRT metadata still points to QAIRT `2.44.0.260225`
 - public LiteRT-LM `origin/main` pins a LiteRT ref that also points to QAIRT `2.44.0.260225`
 - bounded search found no public QAIRT `2.46.0.260424` source/ref evidence
 - exact QAIRT `2.44.0.260225` SDK is not available locally, so exact-match rebuild is blocked
+- existing `2.44.0.260225` path was only a 2.46 overlay symlink
+- QPM / Qualcomm Software Center CLI was not detected locally
 
 What seems unlikely:
 
@@ -70,9 +85,12 @@ What seems unlikely:
 
 Maintainer ask:
 
+- Is QAIRT `2.44.0.260225` the expected SDK for public Qualcomm dispatch builds?
+- Is there an official way to obtain QAIRT `2.44.0.260225`?
+- Is there a public LiteRT/LiteRT-LM source/ref for QAIRT `2.46.0.260424`?
+- Is `No usable Dispatch runtime found` expected when QNN/QAIRT generation does not match?
+- Which QNN libs should be packaged for SM8750/V79 `Backend.NPU` Android apps?
 - Which `litertlm-android` Maven artifact or source tag matches Gallery SM8750 native stack?
 - Is Gallery `libLiteRtDispatch_Qualcomm.so` intended for external app reuse?
 - What is the supported Qualcomm dispatch runtime distribution/build path for Android SM8750?
-- Is QAIRT `2.44.0.260225` the expected SDK for current public Qualcomm dispatch builds?
-- Is there a public source/ref for QAIRT `2.46.0.260424`?
 - Should `Engine.initialize()` return a Java exception instead of aborting for this class?

@@ -1,10 +1,87 @@
 # Google AI Edge / LiteRT-LM issue report: SM8750 NPU dispatch runtime
 
-日本語要約: Nubia Z70S Ultra / SM8750 / Android 16 で、LiteRT-LM Android の `Backend.NPU(nativeLibraryDir)` と Gemma 4 E2B Qualcomm SM8750 モデルを使った `Engine.initialize` dry-run が `SIGABRT` で終了します。Gallery SM8750 由来の native stack を隔離flavorへ同梱し、Java/native descriptor mismatch も解消済みですが、現在は `No usable Dispatch runtime found` 系の dispatch runtime compatibility 問題に見えます。
+日本語要約: Nubia Z70S Ultra / SM8750 / Android 16 で、LiteRT-LM Android の `Backend.NPU(nativeLibraryDir)` と Gemma 4 E2B Qualcomm SM8750 モデルを使った `Engine.initialize` dry-run が `SIGABRT` で終了します。Gallery SM8750 由来 stack だけでなく、LiteRT-LM `v0.11.0` と pinned LiteRT ref から同一source/tagで built native stack を作って隔離flavorへ投入しても `DispatchDelegate::CreateDelegateKernelInterface()+312` で `No usable Dispatch runtime found` となるため、現時点の最有力は QAIRT/QNN generation/capability mismatch です。QAIRT 2.44 exact SDK は未入手で、QAIRT 2.46 対応 public source/ref も見つかっていません。
 
 ## Title Candidate
 
-`[Android][LiteRT-LM][Qualcomm SM8750] Engine.initialize with Backend.NPU crashes with SIGABRT: "No usable Dispatch runtime found" even with Gallery SM8750 native stack and matching Java API descriptor`
+`[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+
+## Latest Update
+
+Date: 2026-05-17
+
+Latest repo commit at report refresh:
+
+```text
+b6ff70ac docs: prepare QAIRT 2.44 SDK acquisition workflow
+```
+
+New evidence since the initial Gallery-stack report:
+
+- same-source/tag custom build completed from LiteRT-LM `v0.11.0`
+  (`c87189528a758db32ead241f4fc9c64836398ee7`) and pinned LiteRT
+  `47615eb6eaec25e8dfcd1aba922c560a57cba0a2`
+- custom built stack contained:
+  - `libLiteRt.so`
+  - `libLiteRtDispatch_Qualcomm.so`
+  - `liblitertlm_jni.so`
+  - `libLiteRtCompilerPlugin_Qualcomm.so`
+  - `libGemmaModelConstraintProvider.so`
+- the stack was staged only into `customBuildExperimentDebug`
+  (`io.github.ninbyo02.lami.customnpu`)
+- `Backend.NPU(String)`, `EngineConfig`, and `Engine(EngineConfig)` succeeded
+- `Engine.initialize()` still aborted
+- latest top frame:
+
+  ```text
+  liblitertlm_jni.so / DispatchDelegate::CreateDelegateKernelInterface()+312
+  ```
+
+- register fragments remained consistent with:
+
+  ```text
+  Failed to create a dispatch delegate kernel: No usable Dispatch runtime found
+  ```
+
+Therefore the strongest current reading is no longer Java/native descriptor
+mismatch, missing dispatch `.so`, or missing `libLiteRt.so`. The current blocker
+is most likely QAIRT/QNN generation/capability coupling, SM8750/V79 dispatch
+capability, or model/runtime schema compatibility.
+
+QAIRT status:
+
+- public LiteRT metadata expects QAIRT `2.44.0.260225`
+- exact QAIRT `2.44.0.260225` SDK is not installed locally
+- the local `2.44.0.260225` path was only a symlink/overlay to QAIRT
+  `2.46.0.260424`
+- QPM / Qualcomm Software Center CLI was not detected locally
+- bounded public search found no LiteRT/LiteRT-LM source/ref with QAIRT
+  `2.46.0.260424` evidence
+- LiteRT `origin/main` and LiteRT-LM `origin/main` still appear to reference
+  QAIRT `2.44.0.260225` metadata
+
+## Experiment Timeline
+
+| Phase | Variant / stack | Result |
+| --- | --- | --- |
+| GPU baseline | `standardDebug`, `litertlm-android:0.11.0` | normal GPU inference works |
+| dispatch-only probe | `npuExperimentDebug`, `litertlm-android:0.10.0`, Gallery dispatch only | `Engine.initialize` SIGABRT |
+| Gallery stack with wrong Java API | `galleryStackExperimentDebug`, Gallery native stack + Maven `0.10.0` Java API | CheckJNI SIGSEGV |
+| Gallery stack with matching Java API | `galleryStackExperimentDebug`, Gallery native stack + Maven `0.11.0` Java API | SIGSEGV fixed, `Engine.initialize` SIGABRT |
+| same-source/tag custom stack | `customBuildExperimentDebug`, built LiteRT-LM/LiteRT stack + Maven `0.11.0` Java API | SIGABRT at `DispatchDelegate::CreateDelegateKernelInterface()+312` |
+| QAIRT coupling search | static only | QNN Build IDs differ across custom APK, Gallery, and local QAIRT 2.46 |
+| QAIRT 2.44 acquisition | docs/scripts only | exact SDK missing; QPM tooling not detected |
+
+## Current Blocker
+
+The next actionable path is either:
+
+1. obtain official QAIRT `2.44.0.260225`, rebuild the limited source-matched
+   stack, and static-compare before any insertion; or
+2. get maintainer guidance on the public source/ref and QNN package expected for
+   QAIRT `2.46.0.260424` / SM8750 / V79.
+
+No generation, `Conversation`, `Session`, or `generateResponse` has been run.
 
 ## Summary
 
