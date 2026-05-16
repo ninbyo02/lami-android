@@ -8,7 +8,7 @@ RUN_ID="${RUN_ID:-}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 OUT_DIR=""
 
-KEYWORDS="gallerynpu|LiteRt|LiteRT|litert|liblitertlm|libLiteRt|libLiteRtDispatch|Dispatch|dispatch|QNN|Qnn|HTP|Htp|NPU|nativeCreateEngine|No usable Dispatch runtime found|Failed to initialize Dispatch API|insufficient capabilities|LiteRtRuntimeCApi|LiteRtDispatchCheckRuntimeCompatibility|QNN manager|ADSP|LD_LIBRARY_PATH|dlopen|cannot locate|library not found|symbol not found|version mismatch|FATAL|SIGABRT|Abort message|tombstone|DEBUG"
+KEYWORDS="gallerynpu|LiteRt|LiteRT|litert|liblitertlm|libLiteRt|libLiteRtDispatch|Dispatch|dispatch|QNN|Qnn|HTP|Htp|NPU|nativeCreateEngine|No usable Dispatch runtime found|Failed to initialize Dispatch API|insufficient capabilities|capabilities|LiteRtRuntimeCApi|LiteRtDispatchCheckRuntimeCompatibility|CheckRuntimeCompatibility|RuntimeCApi|QNN manager|ADSP|LD_LIBRARY_PATH|dlopen|linker|cannot locate|library not found|symbol not found|version mismatch|FATAL|SIGABRT|Abort message|tombstone|DEBUG"
 LIBS=(
   "liblitertlm_jni.so"
   "libLiteRt.so"
@@ -121,6 +121,22 @@ context_extract() {
   fi
 }
 
+decode_register_ascii() {
+  local input="$1"
+  local output="$2"
+  perl -ne '
+    while (/(x\d+)\s+([0-9a-fA-F]{16})/g) {
+      my ($reg, $hex) = ($1, $2);
+      my $text = "";
+      for (my $i = length($hex) - 2; $i >= 0; $i -= 2) {
+        my $v = hex(substr($hex, $i, 2));
+        $text .= ($v >= 32 && $v <= 126) ? chr($v) : ".";
+      }
+      print "$reg\t$hex\t$text\n" if $text =~ /[A-Za-z0-9][A-Za-z0-9 ][A-Za-z0-9]/;
+    }
+  ' "$input" >"$output" 2>/dev/null || true
+}
+
 pick_local_apk() {
   case "$APP_ID" in
     *gallerynpu) printf 'app/build/outputs/apk/galleryStackExperiment/debug/app-galleryStackExperiment-debug.apk' ;;
@@ -173,7 +189,7 @@ if [ -z "$NATIVE_DIR" ]; then
   NATIVE_DIR="$(grep -m1 -oE "/data/app/[^ ]+/${APP_ID}[^ ]*/lib/arm64" "$OUT_DIR/probe_snapshot.txt" "$OUT_DIR/stage_file.txt" 2>/dev/null | head -n 1 | cut -d: -f2-)"
 fi
 
-adb logcat -b all -d -t 3000 >"$OUT_DIR/logcat_all_tail.txt" 2>"$OUT_DIR/logcat_all_tail.err" || true
+adb logcat -b all -d -t 5000 >"$OUT_DIR/logcat_all_tail.txt" 2>"$OUT_DIR/logcat_all_tail.err" || true
 grep -Ei "$APP_ID|$KEYWORDS" "$OUT_DIR/logcat_all_tail.txt" >"$OUT_DIR/logcat_litert_qnn_extract.txt" 2>/dev/null || true
 
 adb shell dumpsys dropbox --print >"$OUT_DIR/dropbox_full.txt" 2>"$OUT_DIR/dropbox_full.err" || true
@@ -205,6 +221,7 @@ if [ -z "${NATIVE_DIR:-}" ]; then
 fi
 grep -E "($APP_ID|/lib/arm64/|BuildId:|Build ID:|libLiteRt|liblitertlm|libQnn|libLiteRtRuntimeCApi)" "$SOURCE_FOR_PARSE" >"$OUT_DIR/loaded_libs_extract.txt" 2>/dev/null || true
 grep -Ei "cannot locate|library not found|dlopen failed|symbol not found|not found|No usable Dispatch runtime found|insufficient capabilities|Failed to initialize Dispatch API|LiteRtRuntimeCApi" "$SOURCE_FOR_PARSE" "$OUT_DIR/logcat_litert_qnn_extract.txt" >"$OUT_DIR/missing_or_error_strings.txt" 2>/dev/null || true
+decode_register_ascii "$SOURCE_FOR_PARSE" "$OUT_DIR/register_ascii_fragments.txt"
 
 APK_PATH="$(pick_local_apk)"
 APK_LIB_DIR="$OUT_DIR/apk_libs"
@@ -241,6 +258,69 @@ mkdir -p "$APK_LIB_DIR"
   done
 } >"$OUT_DIR/native_lib_build_ids.txt"
 
+{
+  printf 'library\tmapped_in_tombstone\tpresent_in_native_library_dir\tbuild_id\n'
+  for lib in "${LIBS[@]}"; do
+    mapped="false"
+    if grep -Fq "/lib/arm64/$lib" "$SOURCE_FOR_PARSE" 2>/dev/null; then
+      mapped="true"
+    fi
+    present="$(awk -F '\t' -v lib="$lib" '$1 == lib { print $2; found=1 } END { if (!found) print "unknown" }' "$OUT_DIR/native_lib_build_ids.txt")"
+    build="$(awk -F '\t' -v lib="$lib" '$1 == lib { print $5; found=1 } END { if (!found) print "-" }' "$OUT_DIR/native_lib_build_ids.txt")"
+    printf '%s\t%s\t%s\t%s\n' "$lib" "$mapped" "$present" "${build:-}"
+  done
+} >"$OUT_DIR/loaded_libs_matrix.tsv"
+
+{
+  printf '# Loaded native library summary\n\n'
+  printf '%s\n\n' "- applicationId: \`$APP_ID\`"
+  printf '| Library | Mapped in tombstone | Present in nativeLibraryDir/APK | Build ID |\n'
+  printf '| --- | --- | --- | --- |\n'
+  tail -n +2 "$OUT_DIR/loaded_libs_matrix.tsv" | while IFS="$(printf '\t')" read -r lib mapped present build; do
+    printf '| `%s` | %s | %s | `%s` |\n' "$lib" "$mapped" "$present" "${build:-}"
+  done
+} >"$OUT_DIR/loaded_libs_summary.md"
+
+{
+  printf '# Abort text candidates\n\n'
+  printf '## Direct strings\n\n```text\n'
+  grep -Eio 'No usable Dispatch runtime found|Failed to create a dispatch delegate kernel|Failed to initialize Dispatch API|Dispatch API has insufficient capabilities|insufficient capabilities|LiteRtDispatchCheckRuntimeCompatibility|libLiteRtRuntimeCApi\.so|LiteRtRuntimeCApi|QNN[^[:cntrl:]]{0,120}|ADSP[^[:cntrl:]]{0,120}|LD_LIBRARY_PATH[^[:cntrl:]]{0,120}' "$SOURCE_FOR_PARSE" "$OUT_DIR/logcat_litert_qnn_extract.txt" 2>/dev/null | sort -u || true
+  printf '```\n\n## Register ASCII fragments\n\n```text\n'
+  cat "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null || true
+  printf '```\n\n## Scored candidates\n\n'
+  for candidate in \
+    "No usable Dispatch runtime found" \
+    "Failed to create a dispatch delegate kernel" \
+    "Failed to initialize Dispatch API" \
+    "insufficient capabilities" \
+    "LiteRtDispatchCheckRuntimeCompatibility" \
+    "libLiteRtRuntimeCApi" \
+    "QNN path / ADSP path"; do
+    score=0
+    grep -Fqi "$candidate" "$SOURCE_FOR_PARSE" "$OUT_DIR/logcat_litert_qnn_extract.txt" "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null && score=1
+    case "$candidate" in
+      "No usable Dispatch runtime found")
+        if grep -Fq 'ernel: N' "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null &&
+          grep -Fq 'ch runti' "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null &&
+          grep -Fq 'me found' "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null; then
+          score=1
+        fi
+        ;;
+      "Failed to create a dispatch delegate kernel")
+        if grep -Fq '] Failed' "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null &&
+          grep -Fq ' to crea' "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null &&
+          grep -Fq 'legate k' "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null; then
+          score=1
+        fi
+        ;;
+      "QNN path / ADSP path")
+        grep -Eqi 'QNN|Qnn|HTP|Htp|ADSP|LD_LIBRARY_PATH|cdsprpc' "$SOURCE_FOR_PARSE" "$OUT_DIR/logcat_litert_qnn_extract.txt" 2>/dev/null && score=1
+        ;;
+    esac
+    printf -- '- %s: %s\n' "$candidate" "$score"
+  done
+} >"$OUT_DIR/abort_text_candidates.txt"
+
 signal="$(grep -m1 -E 'signal [0-9]+|signal:' "$SOURCE_FOR_PARSE" | sed 's/^[[:space:]]*//' || true)"
 abort_message="$(grep -m1 -E 'Abort message:' "$SOURCE_FOR_PARSE" | sed 's/^[[:space:]]*//' || true)"
 process_line="$(grep -m1 -E "Cmdline: $APP_ID|process: $APP_ID|>>> $APP_ID <<<" "$SOURCE_FOR_PARSE" | sed 's/^[[:space:]]*//' || true)"
@@ -248,6 +328,15 @@ final_stage="$(cat "$OUT_DIR/last_stage.txt" 2>/dev/null | tr -d '\r' | head -n 
 [ -z "$final_stage" ] || [ "$final_stage" = "<missing>" ] && final_stage="$(grep -E 'Engine\.initialize invoking|Engine constructor returned|last stage=' "$OUT_DIR/stage_file.txt" 2>/dev/null | tail -n 1 | tr -d '\r')"
 backtrace="$(grep -E '^ *#[0-9]+ pc|Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine|com.google.ai.edge.litertlm.Engine.initialize' "$SOURCE_FOR_PARSE" | head -n 45)"
 likely_abort="$(grep -Eio 'No usable Dispatch runtime found|Dispatch API has insufficient capabilities|insufficient capabilities|Failed to initialize Dispatch API|LiteRtRuntimeCApi|cannot locate[^[:cntrl:]]+|library not found|symbol not found|version mismatch' "$SOURCE_FOR_PARSE" "$OUT_DIR/logcat_litert_qnn_extract.txt" 2>/dev/null | head -n 5 | paste -sd ';' -)"
+if [ -z "$likely_abort" ] &&
+  grep -Fq '] Failed' "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null &&
+  grep -Fq ' to crea' "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null &&
+  grep -Fq 'legate k' "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null &&
+  grep -Fq 'ernel: N' "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null &&
+  grep -Fq 'ch runti' "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null &&
+  grep -Fq 'me found' "$OUT_DIR/register_ascii_fragments.txt" 2>/dev/null; then
+  likely_abort="register-fragments: Failed to create a dispatch delegate kernel: No usable Dispatch runtime found"
+fi
 process_alive="$(adb shell pidof "$APP_ID" 2>/dev/null | tr -d '\r' || true)"
 if [ -z "$process_alive" ]; then
   process_alive="not-running"
@@ -258,7 +347,11 @@ confidence="low"
 recommended="Preserve artifacts and compare with upstream LiteRT-LM/Gallery source generation."
 if printf '%s\n%s\n' "$abort_message" "$likely_abort" | grep -qi 'No usable Dispatch runtime found'; then
   classification="no-usable-dispatch-runtime"
-  confidence="high"
+  if printf '%s\n' "$likely_abort" | grep -q '^register-fragments:'; then
+    confidence="medium"
+  else
+    confidence="high"
+  fi
   recommended="Report upstream with Gallery stack Build IDs; next compare exact Gallery source/tag or dispatch runtime compatibility."
 elif printf '%s\n%s\n' "$abort_message" "$likely_abort" | grep -qi 'insufficient capabilities'; then
   classification="insufficient-capabilities"
@@ -301,6 +394,12 @@ fi
   printf '## Backtrace Summary\n\n```text\n%s\n```\n\n' "${backtrace:-not-found}"
   printf '## Loaded Libs Summary\n\n```text\n'
   grep -E 'liblitertlm_jni|libLiteRt\.so|libLiteRtDispatch_Qualcomm|libQnnSystem|libQnnHtp|libQnnHtpV79Stub|libQnnHtpV79Skel|libLiteRtRuntimeCApi|libllm_inference_engine_jni' "$OUT_DIR/loaded_libs_extract.txt" | head -n 80 || true
+  printf '```\n\n'
+  printf '## Loaded Libs Matrix\n\n'
+  cat "$OUT_DIR/loaded_libs_summary.md"
+  printf '\n\n'
+  printf '## Abort Text Candidates\n\n```text\n'
+  sed -n '/## Direct strings/,$p' "$OUT_DIR/abort_text_candidates.txt" | head -n 120
   printf '```\n\n'
   printf '## Missing/Error Strings\n\n```text\n'
   head -n 80 "$OUT_DIR/missing_or_error_strings.txt" 2>/dev/null || true

@@ -459,3 +459,91 @@ Still forbidden:
 - `generateResponse`
 - normal app inference wiring
 - `selectedPath=npu`
+
+## Final pre-build dispatch/runtime cut
+
+Date: 2026-05-16
+
+Artifacts:
+
+- static analysis: `artifacts/gallery_dispatch_requirements/20260516_210635/`
+- tombstone/logcat/dropbox: `artifacts/npu_diagnostics/20260516_210643_gallerynpu/`
+
+Static analysis result:
+
+- `libLiteRtRuntimeCApi.so` is absent from Gallery SM8750 APK and from `galleryStackExperimentDebug`.
+- No `LiteRtRuntimeCApi` / `libLiteRtRuntimeCApi.so` string hit was found in the analyzed Gallery stack.
+- `libLiteRtDispatch_Qualcomm.so` has `NEEDED: libLiteRt.so, libandroid.so, liblog.so, libdl.so, libc.so, libm.so`.
+- `libLiteRtDispatch_Qualcomm.so` exports `LiteRtDispatchGetApi@@VERS_1.0`.
+- `libLiteRtDispatch_Qualcomm.so` has undefined `LiteRt*` runtime symbols that are satisfied by `libLiteRt.so`, not by a separate Runtime C API library.
+- `libLiteRt.so` exports dispatch compatibility/capability entry points, including `LiteRtDispatchCheckRuntimeCompatibility@@VERS_1.0`, `LiteRtDispatchGetApiVersion@@VERS_1.0`, and `LiteRtDispatchGetCapabilities@@VERS_1.0`.
+
+QNN/path evidence from static strings:
+
+```text
+ADSP_LIBRARY_PATH
+LD_LIBRARY_PATH
+Cannot resolve functions: libQnn*.so has not been loaded.
+Loading qnn shared library from "%s"
+Qnn System library version ... mismatched/not supported/used
+Qnn backend library version ... mismatched/not supported/used
+```
+
+Loaded library result from the latest explicit `Engine.initialize` dry-run:
+
+| Library | Mapped in tombstone | Present |
+| --- | --- | --- |
+| `liblitertlm_jni.so` | true | true |
+| `libLiteRt.so` | true | true |
+| `libLiteRtDispatch_Qualcomm.so` | true | true |
+| `libQnnSystem.so` | true | true |
+| `libQnnHtp.so` | true | true |
+| `libQnnHtpPrepare.so` | false | true |
+| `libQnnHtpV79Stub.so` | false | true |
+| `libQnnHtpV79Skel.so` | false | true |
+| `libLiteRtRuntimeCApi.so` | false | false |
+
+Latest explicit dry-run state:
+
+```text
+runId=1778932910000-final
+final stage=Engine.initialize invoking method=Engine.initialize(): void
+signal=SIGABRT
+native frame=Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+1668
+```
+
+The tombstone still does not contain a clean `Abort message:` line. Register ASCII fragments now reconstruct the relevant text:
+
+```text
+] Failed
+ to crea
+legate k
+ernel: N
+ch runti
+me found
+```
+
+This is consistent with:
+
+```text
+Failed to create a dispatch delegate kernel: No usable Dispatch runtime found
+```
+
+Classification:
+
+- primary: `no-usable-dispatch-runtime`
+- likely underlying class: `dispatch-runtime-compatibility-mismatch`
+- confidence: `medium`
+
+Less likely based on current evidence:
+
+- `runtime-c-api-missing`: no NEEDED/string/symbol evidence for `libLiteRtRuntimeCApi.so`.
+- `qnn-adsp-path-problem`: possible because the dispatch runtime contains ADSP/LD path logic, but latest logcat/tombstone has no direct missing-library or QNN version failure line.
+- `model-runtime-schema-mismatch`: possible, but not directly supported by the current abort fragments.
+
+Next recommendation:
+
+1. Do not add `libLiteRtRuntimeCApi.so` yet.
+2. Do not change QNN/ADSP paths yet without direct log evidence.
+3. Prepare an upstream issue or internal source/tag investigation using the Build IDs and artifacts above.
+4. If a local build becomes necessary, build the same-generation `liblitertlm_jni.so`, `libLiteRt.so`, and dispatch runtime together from the matching source/tag; do not build public HEAD `dispatch_api_so` alone.

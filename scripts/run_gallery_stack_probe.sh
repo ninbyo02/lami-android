@@ -122,7 +122,7 @@ fi
 
 echo
 echo "[gallery-stack-probe] related logcat lines:"
-adb logcat -d -t 500 2>/dev/null | grep -Ei "Gallery Stack Runtime|NpuExperimentProbe|AcceleratorProbe|LiteRt|Dispatch|QNN|NPU|lami|FATAL|SIGABRT" || true
+adb logcat -b all -d -t 5000 2>/dev/null | grep -Ei "Gallery Stack Runtime|NpuExperimentProbe|AcceleratorProbe|LiteRt|LiteRT|litert|Dispatch|dispatch|QNN|Qnn|HTP|Htp|ADSP|nativeCreateEngine|gallerynpu|linker|dlopen|CheckRuntimeCompatibility|RuntimeCApi|NPU|lami|FATAL|SIGABRT" || true
 
 if [ "$RUN_ENGINE_DRY_RUN" = "true" ] && { [ -z "$PID" ] || [ -z "$SNAPSHOT" ]; }; then
   echo

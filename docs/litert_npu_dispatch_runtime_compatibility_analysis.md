@@ -417,3 +417,82 @@ Recommended next action:
 - Preserve `galleryStackExperimentDebug` as the isolated repro.
 - Use the artifact and Build IDs in an upstream LiteRT-LM/Gallery issue or continue with Runtime C API / dispatch compatibility inspection before any native replacement.
 - Continue keeping `standardDebug` and normal GPU inference untouched.
+
+## Final cut before Runtime C API / ADSP / source-build experiments
+
+Date: 2026-05-16
+
+Artifacts:
+
+- static analysis: `artifacts/gallery_dispatch_requirements/20260516_210635/`
+- latest explicit dry-run diagnostics: `artifacts/npu_diagnostics/20260516_210643_gallerynpu/`
+
+### Runtime C API
+
+Current evidence does not support `libLiteRtRuntimeCApi.so` as the immediate missing dependency:
+
+- `libLiteRtRuntimeCApi.so` is not present in Gallery SM8750 APK.
+- `libLiteRtRuntimeCApi.so` is not present in `galleryStackExperimentDebug`.
+- static string search found no `LiteRtRuntimeCApi` / `libLiteRtRuntimeCApi.so` hits.
+- `libLiteRtDispatch_Qualcomm.so` has no `NEEDED` edge to `libLiteRtRuntimeCApi.so`.
+- dispatch undefined `LiteRt*` symbols resolve against `libLiteRt.so`.
+
+Decision: do not add `libLiteRtRuntimeCApi.so` yet.
+
+### Dispatch compatibility / capability
+
+Evidence points most strongly here:
+
+- `libLiteRtDispatch_Qualcomm.so` exports `LiteRtDispatchGetApi@@VERS_1.0`.
+- `libLiteRt.so` exports `LiteRtDispatchCheckRuntimeCompatibility@@VERS_1.0`, `LiteRtDispatchGetApiVersion@@VERS_1.0`, and `LiteRtDispatchGetCapabilities@@VERS_1.0`.
+- `libLiteRt.so` contains the exact failure string:
+
+```text
+Failed to create a dispatch delegate kernel: No usable Dispatch runtime found
+```
+
+- latest tombstone register ASCII fragments reconstruct:
+
+```text
+] Failed
+ to crea
+legate k
+ernel: N
+ch runti
+me found
+```
+
+Interpreted as:
+
+```text
+Failed to create a dispatch delegate kernel: No usable Dispatch runtime found
+```
+
+### QNN / HTP / ADSP path
+
+Evidence:
+
+- `libQnnSystem.so` and `libQnnHtp.so` are mapped in the tombstone.
+- `libQnnHtpPrepare.so`, `libQnnHtpV79Stub.so`, and `libQnnHtpV79Skel.so` are present but not mapped in the latest tombstone.
+- dispatch runtime strings include `ADSP_LIBRARY_PATH`, `LD_LIBRARY_PATH`, `Loading qnn shared library from "%s"`, and QNN version mismatch messages.
+- latest logcat extract contains no direct QNN path, missing library, version mismatch, or ADSP failure line.
+
+Decision: QNN/ADSP path remains possible but not the best-supported primary cause.
+
+### Classification table
+
+| Candidate | Current weight | Evidence |
+| --- | --- | --- |
+| `runtime-c-api-missing` | low | no NEEDED/string/symbol evidence |
+| `dispatch-runtime-compatibility-mismatch` | high | no-usable-dispatch abort fragments, compatibility symbols present |
+| `qnn-adsp-path-problem` | medium-low | static path strings exist, no direct runtime error |
+| `model-runtime-schema-mismatch` | low-medium | possible, no direct schema/context error |
+| `unsupported-sm8750-capability` | medium | possible via compatibility/capability check, no direct insufficient-capabilities line |
+| `unknown` | low | crash text is now partially recovered |
+
+Final recommendation before source builds:
+
+1. File or prepare an upstream LiteRT-LM/Gallery issue with Build IDs, model name, SM8750 device info, and artifacts.
+2. Continue source/tag identification for the Gallery SM8750 native generation.
+3. Only after that, consider a same-generation source build of `liblitertlm_jni.so`, `libLiteRt.so`, and `libLiteRtDispatch_Qualcomm.so` together.
+4. Do not build public HEAD `dispatch_api_so` alone; it is unlikely to resolve a dispatch compatibility mismatch and could reintroduce ABI/layout drift.
