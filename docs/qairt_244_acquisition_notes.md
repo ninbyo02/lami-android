@@ -87,6 +87,22 @@ Do not substitute arbitrary QNN libraries from another device or APK as an "exac
 The existing 2.46 symlink overlay is not acceptable for an exact-match QAIRT
 2.44 rebuild.
 
+QPM workflow docs:
+
+```text
+docs/qpm_installation_notes.md
+docs/qpm_qairt244_install_workflow.md
+scripts/qpm_search_qairt_versions.sh
+```
+
+Current QPM search status:
+
+```text
+artifacts/qpm_search/20260517_085749/
+```
+
+`qpm-cli` is still missing, so the QAIRT catalog has not yet been queried.
+
 ## QPM / Software Center Search Guidance
 
 Search terms to use in Qualcomm Package Manager or Qualcomm Software Center:
