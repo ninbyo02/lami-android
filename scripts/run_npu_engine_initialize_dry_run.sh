@@ -124,5 +124,11 @@ echo
 echo "[npu-engine-dry-run] Tombstone listing, if permitted:"
 adb shell ls -lt /data/tombstones 2>&1 | head -n 20 || true
 
+if [ "$CRASH_SUSPECTED" = "true" ] && [ -f "$ROOT_DIR/scripts/collect_npu_tombstone_diagnostics.sh" ]; then
+  echo
+  echo "[npu-engine-dry-run] crash suspected; collecting full diagnostics..."
+  bash "$ROOT_DIR/scripts/collect_npu_tombstone_diagnostics.sh" || true
+fi
+
 echo
 echo "[npu-engine-dry-run] Done. This script does not call Conversation or generateResponse."
