@@ -390,3 +390,33 @@ bash scripts/build_litert_custom_artifacts.sh \
 ```
 
 No exact-match rebuild was performed.
+
+## QAIRT 2.46 Source/Ref Search Result
+
+Result date: 2026-05-17
+
+Artifact:
+
+```text
+artifacts/litert_qairt246_ref_search/20260517_062055/
+```
+
+Result:
+
+- no exact QAIRT `2.46.0.260424` source/ref evidence was found in public LiteRT QAIRT metadata
+- public LiteRT `origin/main` still expects QAIRT `2.44.0.260225`
+- public LiteRT-LM `origin/main` pins LiteRT `d865fd82cd7fe6752908b3a0836895461c305679`
+- that pinned LiteRT ref also expects QAIRT `2.44.0.260225`
+- query/cquery for a QAIRT 2.46 candidate was skipped because no candidate ref was identified
+
+Docs:
+
+- `docs/litert_qairt246_source_ref_candidates.md`
+- `docs/litert_qairt246_ref_search_results.md`
+
+Investigation impact:
+
+QAIRT 2.46 remains a possible runtime generation on the device, but not a
+source-matched build path with the public refs currently inspected. Do not build
+another QAIRT 2.46 overlay stack unless maintainers identify the matching
+LiteRT/LiteRT-LM source ref.

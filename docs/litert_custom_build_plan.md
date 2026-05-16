@@ -316,6 +316,36 @@ artifacts/litert_custom_build/<timestamp>_qairt244/
 
 Until QAIRT 2.44 is acquired, do not run another app insertion or `Engine.initialize` dry-run for this path.
 
+## QAIRT 2.46 Source/Ref Search Gate
+
+Result date: 2026-05-17
+
+Artifact:
+
+```text
+artifacts/litert_qairt246_ref_search/20260517_062055/
+```
+
+Docs:
+
+- `docs/litert_qairt246_source_ref_candidates.md`
+- `docs/litert_qairt246_ref_search_results.md`
+
+Result:
+
+- local QAIRT `2.46.0.260424` exists
+- public LiteRT `origin/main` still advertises QAIRT `2.44.0.260225`
+- public LiteRT-LM `origin/main` pins LiteRT `d865fd82cd7fe6752908b3a0836895461c305679`
+- that pinned LiteRT ref also advertises QAIRT `2.44.0.260225`
+- no exact `2.46.0.260424`, `260424`, or `260424121129` evidence was found in bounded public LiteRT metadata refs
+- query/cquery was not run because no QAIRT 2.46 source candidate was identified
+
+Build decision:
+
+Do not build another QAIRT 2.46 overlay stack as the next primary path. The
+current public evidence favors exact QAIRT `2.44.0.260225` acquisition or
+maintainer guidance for a QAIRT 2.46 source/ref.
+
 ## Limited Build Phase Result
 
 Result date: 2026-05-16

@@ -216,8 +216,6 @@ Local search artifact:
 artifacts/qairt_244_exact_match/20260517_013958/local_search.txt
 ```
 
-Status:
-
 ```text
 blocked-awaiting-qairt244
 ```
@@ -258,3 +256,34 @@ bash scripts/build_litert_custom_artifacts.sh \
 ```
 
 This creates a per-run overlay under the build artifact directory and does not overwrite the existing 2.46 overlay.
+
+## QAIRT 2.46 Source/Ref Search Status
+
+Result date: 2026-05-17
+
+Artifact:
+
+```text
+artifacts/litert_qairt246_ref_search/20260517_062055/
+```
+
+Docs:
+
+- `docs/litert_qairt246_source_ref_candidates.md`
+- `docs/litert_qairt246_ref_search_results.md`
+
+Result:
+
+- local QAIRT `2.46.0.260424` is available
+- public LiteRT `origin/main` still references QAIRT `2.44.0.260225`
+- LiteRT-LM `origin/main` pins LiteRT `d865fd82cd7fe6752908b3a0836895461c305679`
+- that pinned LiteRT ref also references QAIRT `2.44.0.260225`
+- no exact `2.46.0.260424`, `260424`, or `260424121129` evidence was found in bounded public LiteRT QAIRT metadata refs
+- no query/cquery was run for a QAIRT 2.46 candidate because no exact candidate source ref was identified
+
+Updated reading:
+
+The local QAIRT 2.46 path remains useful as an installed SDK, but there is no
+public source/ref evidence that it is the intended SDK generation for the
+available LiteRT/LiteRT-LM refs. The strongest next path is still exact QAIRT
+`2.44.0.260225` acquisition or maintainer guidance for a QAIRT 2.46 source/ref.

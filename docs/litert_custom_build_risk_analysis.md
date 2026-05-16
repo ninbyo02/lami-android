@@ -287,3 +287,27 @@ exact-qairt244-build-blocked
 ```
 
 Do not treat the current overlay build as an exact-match QAIRT 2.44 result. Any runtime conclusion from that build remains subject to QAIRT 2.44 vs 2.46 coupling risk.
+
+## QAIRT 2.46 Source/Ref Risk
+
+Result date: 2026-05-17
+
+The local SDK `2.46.0.260424` is available, but the public LiteRT/LiteRT-LM refs
+inspected do not advertise that SDK generation:
+
+- LiteRT `origin/main` still points to QAIRT `2.44.0.260225`
+- LiteRT-LM `origin/main` pins LiteRT `d865fd82cd7fe6752908b3a0836895461c305679`
+- that pinned LiteRT ref also points to QAIRT `2.44.0.260225`
+- no exact `2.46.0.260424`, `260424`, or `260424121129` evidence was found in bounded public metadata refs
+
+Risk implication:
+
+```text
+qairt246-overlay-risk
+```
+
+Building public refs with QAIRT 2.46 would remain an overlay experiment, not an
+exact source/ref match. Since the previous 2.46 overlay build already reached
+`Engine.initialize` and still failed with no usable dispatch runtime, another
+2.46 overlay build should not be the next default step without maintainer
+guidance.
