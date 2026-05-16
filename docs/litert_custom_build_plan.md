@@ -316,6 +316,32 @@ artifacts/litert_custom_build/<timestamp>_qairt244/
 
 Until QAIRT 2.44 is acquired, do not run another app insertion or `Engine.initialize` dry-run for this path.
 
+### Acquisition Workflow Prepared
+
+Probe artifact:
+
+```text
+artifacts/qairt244_acquisition/20260517_074537/
+```
+
+Result:
+
+- QPM / Qualcomm Software Center CLI was not found locally
+- `/opt/qcom/aistack/qairt/` was not present
+- exact QAIRT `2.44.0.260225` was not found
+- only QAIRT `2.46.0.260424` is currently installed
+
+Prepared helpers:
+
+```bash
+bash scripts/check_qairt244_sdk.sh /path/to/qairt/2.44.0.260225
+bash scripts/stage_qairt244_sdk_from_download.sh ~/Downloads/v2.44.0.260225.zip
+bash scripts/run_qairt244_rebuild_compare.sh
+```
+
+The first two helpers are acquisition/staging only. They do not build LiteRT, do
+not stage app native libraries, and do not run `Engine.initialize`.
+
 ## QAIRT 2.46 Source/Ref Search Gate
 
 Result date: 2026-05-17

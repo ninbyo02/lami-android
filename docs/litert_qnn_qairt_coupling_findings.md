@@ -291,20 +291,57 @@ available LiteRT/LiteRT-LM refs. The strongest next path is still exact QAIRT
 ## Current Recommended Path
 
 1. Acquire exact QAIRT `2.44.0.260225` through Qualcomm official / QPM channels.
-2. Run:
+2. If the SDK is provided as a zip or extracted directory, stage and verify it:
+
+   ```bash
+   bash scripts/stage_qairt244_sdk_from_download.sh ~/Downloads/v2.44.0.260225.zip
+   ```
+
+   or verify an existing directory directly:
+
+   ```bash
+   bash scripts/check_qairt244_sdk.sh \
+     /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+   ```
+
+3. Run:
 
    ```bash
    bash scripts/run_qairt244_rebuild_compare.sh
    ```
 
-3. If the exact build succeeds, review the static compare output before any
+4. If the exact build succeeds, review the static compare output before any
    isolated insertion.
-4. If static compare is acceptable, prepare a later isolated
+5. If static compare is acceptable, prepare a later isolated
    `Engine.initialize` dry-run only.
-5. If QAIRT 2.44 acquisition remains blocked, post the official issue with:
+6. If QAIRT 2.44 acquisition remains blocked, post the official issue with:
    - no public QAIRT 2.46 source/ref found
    - QAIRT 2.44 required by public metadata
    - same-source/tag 2.46-overlay build still fails with no usable dispatch runtime
+
+## QAIRT 2.44 Acquisition Probe
+
+Probe date: 2026-05-17
+
+Artifact:
+
+```text
+artifacts/qairt244_acquisition/20260517_074537/
+```
+
+Result:
+
+- `qpm`, `qpm-cli`, `qualcomm-package-manager`, and `software-center` were not found
+- `qpm search` could not be run
+- no `/opt/qcom/aistack/qairt/` install was found
+- exact QAIRT `2.44.0.260225` remains missing
+- local QAIRT `2.46.0.260424` remains the only full SDK found
+
+Prepared workflow:
+
+- `scripts/check_qairt244_sdk.sh`
+- `scripts/stage_qairt244_sdk_from_download.sh`
+- `scripts/run_qairt244_rebuild_compare.sh`
 
 Safety status remains unchanged: no normal UI NPU path, no `selectedPath=npu`,
 no `Conversation`, no `Session`, and no `generateResponse`.
