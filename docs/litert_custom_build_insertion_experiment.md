@@ -102,6 +102,47 @@ Use this classification for `Engine.initialize` dry-run:
 - `model schema / unsupported model`: model/runtime mismatch.
 - `unknown`: insufficient evidence.
 
+## Engine.initialize Dry-Run Result
+
+Run date: 2026-05-17
+
+Artifact:
+
+```text
+artifacts/npu_diagnostics/20260517_005032_customnpu/
+```
+
+Run summary:
+
+- runId: `1778946611930`
+- model path: `/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+- model exists: `true`
+- model length: `3016294400`
+- model canRead: `true`
+- dispatch present check: `true`
+- `Backend.NPU(String)`: created successfully
+- `EngineConfig`: created successfully with `EngineConfig(String, Backend, Backend, Backend, Integer, Integer, String)`
+- `Engine(EngineConfig)`: constructor returned successfully
+- final stage: `Engine.initialize invoking method=Engine.initialize(): void`
+- process after probe: `not-running`
+- signal: `SIGABRT`
+- explicit abort message line: `not-found`
+- register fragments: `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found`
+- top native frame: `liblitertlm_jni.so` / `DispatchDelegate::CreateDelegateKernelInterface()+312`
+- classification: `no-usable-dispatch-runtime`
+- confidence: `medium`
+
+The same-source/tag custom native stack reached the same failure class as the earlier Gallery stack investigation. The result did not produce `SIGSEGV` or `CheckJNI`, and it did not return from `Engine.initialize`.
+
+Still not executed:
+
+- `Conversation`
+- `Session`
+- `generateResponse`
+- token generation
+- normal UI NPU path
+- `selectedPath=npu`
+
 ## Safety
 
 `customBuildExperimentDebug` is a separate app id. Normal `standardDebug` GPU inference and existing `npuExperimentDebug` / `galleryStackExperimentDebug` experiments are not modified by this insertion path.

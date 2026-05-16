@@ -74,7 +74,10 @@ for lib in "${REQUIRED_LIBS[@]}"; do
     log "ERROR: required custom build library not found: $lib"
     exit 3
   fi
-  cp "$source_path" "$TARGET_DIR/$lib"
+  if [ -e "$TARGET_DIR/$lib" ]; then
+    chmod u+w "$TARGET_DIR/$lib" 2>/dev/null || true
+  fi
+  cp -f "$source_path" "$TARGET_DIR/$lib"
   printf '%s\tstaged\t%s\t%s\t%s\t%s\t%s\n' \
     "$lib" \
     "$source_path" \

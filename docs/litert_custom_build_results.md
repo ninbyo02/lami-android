@@ -155,3 +155,43 @@ Flavor details:
 - release: disabled
 
 The probe path remains explicit opt-in and calls only `Engine.initialize`; it does not create `Conversation`/`Session` and does not call `generateResponse`.
+
+### Custom Build Experiment Dry-Run Result
+
+Result date: 2026-05-17
+
+Crash artifact:
+
+```text
+artifacts/npu_diagnostics/20260517_005032_customnpu/
+```
+
+Observed stages:
+
+- model file exists: `true`
+- model length: `3016294400`
+- `Backend.NPU(String)`: success
+- `EngineConfig`: success
+- `Engine(EngineConfig)`: returned
+- last stage: `Engine.initialize invoking method=Engine.initialize(): void`
+- process after probe: `not-running`
+- signal: `SIGABRT`
+- likely abort text: `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found`
+- top native frame: `liblitertlm_jni.so` / `DispatchDelegate::CreateDelegateKernelInterface()+312`
+- classification: `no-usable-dispatch-runtime`
+- confidence: `medium`
+
+Interpretation:
+
+- The custom source-matched stack avoids the earlier Java/native descriptor `SIGSEGV` class.
+- It still fails during dispatch delegate kernel creation.
+- `Engine.initialize` did not return.
+- No `Conversation`, `Session`, `generateResponse`, token generation, or normal UI NPU path was executed.
+
+Current status:
+
+```text
+build-success-but-runtime-dispatch-unusable
+```
+
+The next investigation should focus on dispatch runtime usability, QAIRT/QNN version/capability expectations, model/runtime schema compatibility, or upstream guidance. The result does not justify wiring NPU into normal inference.

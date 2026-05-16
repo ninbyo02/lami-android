@@ -209,3 +209,44 @@ ready-for-isolated-insertion
 ```
 
 This readiness applies only to a future explicit debug-only experiment. It does not apply to `standardDebug`, release, or normal GPU inference.
+
+## Custom Build Experiment Runtime Result
+
+The isolated custom stack was staged into:
+
+```text
+customBuildExperimentDebug / io.github.ninbyo02.lami.customnpu
+```
+
+Dry-run artifact:
+
+```text
+artifacts/npu_diagnostics/20260517_005032_customnpu/
+```
+
+The probe reached:
+
+- `Backend.NPU(String)` success
+- `EngineConfig` success
+- `Engine(EngineConfig)` returned
+- `Engine.initialize` invoking
+
+Then the process terminated with `SIGABRT`. Tombstone/register evidence is consistent with:
+
+```text
+Failed to create a dispatch delegate kernel: No usable Dispatch runtime found
+```
+
+This changes the custom build experiment classification from `ready-for-isolated-insertion` to:
+
+```text
+build-success-but-runtime-dispatch-unusable
+```
+
+Risk implication:
+
+- the built same-source/tag stack is complete enough to load and reach dispatch delegate creation
+- the failure is still below Java/Kotlin and before any generation
+- the remaining risk is likely runtime/capability compatibility, QAIRT/QNN version coupling, or model/runtime schema support
+- it is still unsafe to wire `Backend.NPU` into normal inference
+- no `Conversation`, `Session`, `generateResponse`, token generation, or `selectedPath=npu` was used

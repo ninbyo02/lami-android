@@ -229,6 +229,25 @@ Next decision depends on the dry-run classification:
 - if `UnsatisfiedLinkError`: add only the missing same-stack dependency after review
 - if QNN/ADSP path appears: design path-specific experiment without touching standard flavor
 
+Dry-run result on 2026-05-17:
+
+- artifact: `artifacts/npu_diagnostics/20260517_005032_customnpu/`
+- `Backend.NPU(String)`: success
+- `EngineConfig`: success
+- `Engine(EngineConfig)`: returned
+- `Engine.initialize`: did not return
+- signal: `SIGABRT`
+- register fragments: `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found`
+- classification: `no-usable-dispatch-runtime`
+- confidence: `medium`
+
+The next phase is not single-token smoke testing. The custom stack still fails before generation can be considered. Recommended next work:
+
+1. Compare QAIRT/QNN version assumptions between the built stack, model, device runtime, and Gallery payload.
+2. Inspect dispatch/runtime capability checks around `DispatchDelegate::CreateDelegateKernelInterface`.
+3. Ask upstream maintainers whether additional QNN/HTP runtime setup or model/runtime pairing is required for SM8750.
+4. Keep all further experiments in `customBuildExperimentDebug` or a new isolated flavor.
+
 ## Limited Build Phase Result
 
 Result date: 2026-05-16
