@@ -54,6 +54,15 @@ Current classification:
 - likely underlying: `dispatch-runtime-compatibility-mismatch`
 - confidence: medium
 
+Additional source/version findings:
+
+- same-source/tag LiteRT-LM `v0.11.0` + pinned LiteRT custom stack also failed at `Engine.initialize`
+- failure frame: `DispatchDelegate::CreateDelegateKernelInterface()+312`
+- public LiteRT metadata still points to QAIRT `2.44.0.260225`
+- public LiteRT-LM `origin/main` pins a LiteRT ref that also points to QAIRT `2.44.0.260225`
+- bounded search found no public QAIRT `2.46.0.260424` source/ref evidence
+- exact QAIRT `2.44.0.260225` SDK is not available locally, so exact-match rebuild is blocked
+
 What seems unlikely:
 
 - `libLiteRtRuntimeCApi.so` missing: weak evidence
@@ -64,4 +73,6 @@ Maintainer ask:
 - Which `litertlm-android` Maven artifact or source tag matches Gallery SM8750 native stack?
 - Is Gallery `libLiteRtDispatch_Qualcomm.so` intended for external app reuse?
 - What is the supported Qualcomm dispatch runtime distribution/build path for Android SM8750?
+- Is QAIRT `2.44.0.260225` the expected SDK for current public Qualcomm dispatch builds?
+- Is there a public source/ref for QAIRT `2.46.0.260424`?
 - Should `Engine.initialize()` return a Java exception instead of aborting for this class?

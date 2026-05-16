@@ -34,7 +34,9 @@ The LiteRT source pinned by LiteRT-LM `v0.11.0` expects:
 QAIRT 2.44.0.260225
 ```
 
-Acquire it only from Qualcomm official distribution channels, such as Qualcomm Package Manager / QPM or the official Qualcomm AI Runtime SDK download path available to the developer account.
+Acquire it only from Qualcomm official distribution channels, such as Qualcomm
+Package Manager / QPM or the official Qualcomm AI Runtime SDK download path
+available to the developer account.
 
 Likely requirements:
 
@@ -42,7 +44,16 @@ Likely requirements:
 - acceptance of Qualcomm SDK license terms
 - QPM or official SDK package access
 
+Typical QPM install paths may look like:
+
+```text
+/opt/qcom/aistack/qairt/<version>
+/opt/qcom/aistack/qairt/2.44.0.260225
+```
+
 Do not substitute arbitrary QNN libraries from another device or APK as an "exact" SDK.
+The existing 2.46 symlink overlay is not acceptable for an exact-match QAIRT
+2.44 rebuild.
 
 ## Recommended Local Placement
 
@@ -64,6 +75,18 @@ Do not replace, edit, or overwrite the existing 2.46 SDK or the current overlay.
 
 After installing QAIRT `2.44.0.260225`, verify at minimum:
 
+```bash
+ls -la /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+
+find /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+  \( -name 'libQnnSystem.so' \
+  -o -name 'libQnnHtp.so' \
+  -o -name 'libQnnHtpPrepare.so' \
+  -o -name 'libQnnHtpV79Stub.so' \)
+```
+
+Expected key files:
+
 ```text
 bin/envsetup.sh
 bin/x86_64-linux-clang/qnn-net-run
@@ -75,7 +98,15 @@ lib/aarch64-android/libQnnHtpV79Stub.so
 lib/hexagon-v79/unsigned/libQnnHtpV79Skel.so
 ```
 
-Then record:
+Then record ELF metadata for at least `libQnnSystem.so`:
+
+```bash
+file /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnSystem.so
+readelf -n /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnSystem.so
+sha256sum /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnSystem.so
+```
+
+Also record:
 
 - file sizes
 - SHA-256
@@ -83,9 +114,16 @@ Then record:
 - `NEEDED`
 - version/manifest metadata
 
-## Exact-Match Build Command
+## Exact-Match Rebuild and Compare Command
 
 After QAIRT `2.44.0.260225` exists locally:
+
+```bash
+bash scripts/run_qairt244_rebuild_compare.sh
+```
+
+This wrapper refuses to run if the QAIRT 2.44 path is missing or resolves to the
+known 2.46 overlay. If the exact SDK is present, it runs:
 
 ```bash
 bash scripts/build_litert_custom_artifacts.sh \
@@ -94,12 +132,14 @@ bash scripts/build_litert_custom_artifacts.sh \
   --label qairt244
 ```
 
-The script creates a per-run overlay under the build artifact directory and does not modify the existing 2.46 overlay.
+The build helper creates a per-run overlay under the build artifact directory
+and does not modify the existing 2.46 overlay.
 
 Expected output shape:
 
 ```text
 artifacts/litert_custom_build/<timestamp>_qairt244/
+artifacts/qairt244_rebuild_compare/<timestamp>/
 ```
 
 ## Safety Rules

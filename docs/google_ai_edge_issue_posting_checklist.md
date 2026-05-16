@@ -91,7 +91,16 @@ Must include in the issue body:
 - native library Build IDs
 - Java/native descriptor mismatch was fixed
 - current `SIGABRT` frame and register-fragment error
+- same-source/tag custom stack also fails at dispatch delegate creation
+- QAIRT 2.46 public source/ref search found no matching public ref
+- QAIRT 2.44 exact SDK is required by public metadata but not locally available
 - exact maintainer questions
+
+Also attach or mention:
+
+- `artifacts/litert_qairt246_ref_search/20260517_062055/`
+- `docs/litert_qairt246_ref_search_results.md`
+- `docs/litert_custom_build_qairt244_compare.md`
 
 Optional attach:
 
@@ -104,6 +113,7 @@ Optional attach:
 Too large for initial GitHub issue:
 
 - full `artifacts/npu_issue_bundle/20260516_212934.zip` at about 193MB
+- any regenerated full bundle of similar size
 - complete untrimmed `logcat_all_tail.txt`
 - full tombstone/dropbox dumps if GitHub rejects size
 - full APKs
@@ -149,6 +159,8 @@ Before posting:
 - Use the issue body file, not the longer Japanese/English report file.
 - Put the recommended title in the GitHub title field.
 - Attach the light bundle first.
+- Do not attach the 193MB full bundle initially.
+- Regenerate a light bundle in a follow-up if the QAIRT 2.46/2.44 notes need to be included as a zip.
 - Mention that the full 193MB bundle is available if maintainers need it.
 - Do not attach native `.so` files unless maintainers explicitly request them and licensing permits.
 
@@ -161,6 +173,8 @@ Expected maintainer follow-up questions:
 - whether ADSP path is configured by Gallery but not the test app
 - whether the dispatch runtime is intended for third-party apps
 - whether the Maven artifact version matches the Gallery native stack
+- whether public LiteRT currently expects QAIRT `2.44.0.260225`
+- whether a QAIRT `2.46.0.260424` source/ref exists outside public metadata
 - whether the crash reproduces with a minimal official sample
 
 ## Questions to ask before custom build
@@ -170,6 +184,9 @@ Ask maintainers:
 - Which source tag/commit matches `liblitertlm_jni.so` Build ID `76e4dccd9c5f9cba468d9cae7becfec0`?
 - Which source tag/commit matches `libLiteRt.so` Build ID `869121bd7f4b0b77fa581218117a5c14`?
 - Which source tag/commit and QNN SDK version should build `libLiteRtDispatch_Qualcomm.so` Build ID-compatible output?
+- Is QAIRT `2.44.0.260225` the expected SDK for current public Qualcomm dispatch builds?
+- Is there a public LiteRT/LiteRT-LM source ref for QAIRT `2.46.0.260424`?
+- Is `No usable Dispatch runtime found` expected when dispatch is built against a mismatched QAIRT/QNN generation?
 - Is `@litert//litert/vendors/qualcomm/dispatch:dispatch_api_so` sufficient for LiteRT-LM Android, or must `liblitertlm_jni.so` / `libLiteRt.so` / dispatch be built as one matched stack?
 - Are Android app environment settings required for `libQnnHtpV79Stub.so` / `libQnnHtpV79Skel.so` discovery?
 

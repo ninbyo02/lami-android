@@ -79,13 +79,20 @@ Once the SDK exists at:
 run:
 
 ```bash
+bash scripts/run_qairt244_rebuild_compare.sh
+```
+
+The wrapper will refuse to run if the QAIRT 2.44 path is missing or resolves to
+the known QAIRT 2.46 overlay. If the exact SDK is present, it calls:
+
+```bash
 bash scripts/build_litert_custom_artifacts.sh \
   ~/project/litert-custom-build/LiteRT-LM \
   --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
   --label qairt244
 ```
 
-The updated build script will write:
+The build helper will write:
 
 ```text
 artifacts/litert_custom_build/<timestamp>_qairt244/
@@ -98,6 +105,12 @@ artifacts/litert_custom_build/<timestamp>_qairt244/qairt_overlay/qairt/2.44.0.26
 ```
 
 This avoids modifying the existing 2.46 overlay.
+
+The wrapper will write the compare summary to:
+
+```text
+artifacts/qairt244_rebuild_compare/<timestamp>/
+```
 
 ## Compare Criteria After Build
 
@@ -121,6 +134,67 @@ Required checks:
 - QNN API/version/capability strings
 - V79/SM8750 strings
 - ADSP/LD path strings
+
+## Expected Outcomes
+
+### 1. QAIRT 2.44 artifacts differ from the 2.46-overlay build
+
+This is the most useful outcome. It means the exact SDK affected at least one
+native output and an isolated insertion test may be worth preparing after static
+review.
+
+Do not insert automatically. First compare:
+
+- `libLiteRtDispatch_Qualcomm.so`
+- `libLiteRt.so`
+- `liblitertlm_jni.so`
+- `libLiteRtCompilerPlugin_Qualcomm.so`
+- QNN/HTP library metadata
+
+### 2. QAIRT 2.44 artifacts are identical to the previous 2.46-overlay build
+
+This weakens the SDK-header mismatch hypothesis for the built LiteRT artifacts.
+The next question becomes runtime QNN library packaging/capability or model
+schema compatibility.
+
+Do not run `Engine.initialize` until the identical-output result is documented.
+
+### 3. Build fails due to SDK mismatch or missing files
+
+Record the build failure under `artifacts/qairt244_rebuild_compare/<timestamp>/`
+and do not proceed to insertion. The failure itself becomes evidence for the
+maintainer issue.
+
+### 4. Build succeeds but still requires isolated insertion
+
+A successful exact build is not runtime proof. It only unlocks a later
+debug-only isolated insertion phase. That later phase must still run only:
+
+- `Backend.NPU(String)` instantiate
+- `EngineConfig` dry-build
+- explicit opt-in `Engine.initialize` dry-run
+
+It must not run `Conversation`, `Session`, or `generateResponse`.
+
+## Isolated Insertion Gate
+
+Proceed only if all are true:
+
+- QAIRT 2.44 exact SDK was used, not a symlink to QAIRT 2.46.
+- limited build targets succeeded.
+- static compare has no obvious missing `NEEDED` libraries.
+- built JNI, LiteRT, dispatch, compiler plugin, and Gemma constraint provider
+  are generation-consistent.
+- insertion is limited to an isolated debug flavor.
+
+Do not proceed if:
+
+- the SDK path is missing or resolves to the 2.46 overlay.
+- `liblitertlm_jni.so` fails to build.
+- `libGemmaModelConstraintProvider.so` is missing.
+- static compare shows unresolved runtime dependencies.
+- the next step would affect `standardDebug`, `npuExperimentDebug`, or
+  `galleryStackExperimentDebug`.
 
 ## Current Decision
 

@@ -117,6 +117,31 @@ Gallery native libraries staged only in `galleryStackExperimentDebug`:
    - signal: `SIGABRT`
    - classification: `no-usable-dispatch-runtime` / `dispatch-runtime-compatibility-mismatch`
 
+6. Same-source/tag custom build experiment:
+   - built LiteRT-LM `v0.11.0` and its pinned LiteRT ref
+     `47615eb6eaec25e8dfcd1aba922c560a57cba0a2`
+   - generated a matched stack containing `liblitertlm_jni.so`, `libLiteRt.so`,
+     `libLiteRtDispatch_Qualcomm.so`, `libLiteRtCompilerPlugin_Qualcomm.so`,
+     and `libGemmaModelConstraintProvider.so`
+   - build used local QAIRT `2.46.0.260424` through an overlay because exact
+     QAIRT `2.44.0.260225` was not available locally
+   - isolated `customBuildExperimentDebug` still failed in `Engine.initialize`
+     with `SIGABRT`
+   - top frame: `DispatchDelegate::CreateDelegateKernelInterface()+312`
+   - register fragments again matched
+     `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found`
+
+7. QAIRT source/ref investigation:
+   - LiteRT-LM `v0.11.0` pins LiteRT
+     `47615eb6eaec25e8dfcd1aba922c560a57cba0a2`
+   - that LiteRT ref expects QAIRT `2.44.0.260225`
+   - local exact QAIRT `2.44.0.260225` SDK is not currently available
+   - searched public LiteRT / LiteRT-LM refs for QAIRT `2.46.0.260424`,
+     `260424`, and `260424121129`
+   - no public ref with QAIRT 2.46 evidence was found in the bounded search
+   - public LiteRT `origin/main` and LiteRT-LM `origin/main` still appear to
+     reference QAIRT `2.44.0.260225` metadata
+
 ## Reproduction Steps
 
 The repro is intentionally isolated to a debug-only flavor and explicit dry-run command.
@@ -309,6 +334,14 @@ Most likely cause at the moment:
 2. SM8750 Qualcomm dispatch runtime capability not recognized as usable through this third-party app path, or
 3. a model/runtime/schema compatibility condition that currently surfaces only as `No usable Dispatch runtime found`.
 
+Additional source/version finding:
+
+- public LiteRT metadata currently points to QAIRT `2.44.0.260225`
+- no public LiteRT/LiteRT-LM ref with QAIRT `2.46.0.260424` evidence was found
+- exact QAIRT `2.44.0.260225` rebuild is blocked locally until that SDK is acquired
+- the previous same-source/tag build used a QAIRT 2.46 overlay and may still be
+  affected by QNN/QAIRT generation coupling
+
 ## Questions for Maintainers
 
 1. Is `libLiteRtDispatch_Qualcomm.so` from the Gallery SM8750 APK intended to be reusable by third-party LiteRT-LM Android apps?
@@ -324,6 +357,9 @@ Most likely cause at the moment:
    - QNN library/version/path issue,
    - model/runtime schema mismatch, or
    - unsupported SoC/model compiled graph?
+9. Is QAIRT `2.44.0.260225` the expected SDK version for current public LiteRT Qualcomm dispatch builds?
+10. Is there a public LiteRT / LiteRT-LM source ref intended for QAIRT `2.46.0.260424`?
+11. Is `No usable Dispatch runtime found` expected if the dispatch runtime was built with a mismatched QAIRT/QNN generation?
 
 ## Attachments / Artifacts
 
@@ -333,6 +369,9 @@ Relevant local artifact directories:
 - `artifacts/npu_diagnostics/20260516_210643_gallerynpu/`
 - `artifacts/litertlm_api_surface_compare/20260516_201159/`
 - `artifacts/litertlm_flavor_dependencies/20260516_204821/`
+- `artifacts/litert_qairt246_ref_search/20260517_062055/`
+- `docs/litert_qairt246_ref_search_results.md`
+- `docs/litert_custom_build_qairt244_compare.md`
 
 These include:
 

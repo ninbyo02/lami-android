@@ -287,3 +287,24 @@ The local QAIRT 2.46 path remains useful as an installed SDK, but there is no
 public source/ref evidence that it is the intended SDK generation for the
 available LiteRT/LiteRT-LM refs. The strongest next path is still exact QAIRT
 `2.44.0.260225` acquisition or maintainer guidance for a QAIRT 2.46 source/ref.
+
+## Current Recommended Path
+
+1. Acquire exact QAIRT `2.44.0.260225` through Qualcomm official / QPM channels.
+2. Run:
+
+   ```bash
+   bash scripts/run_qairt244_rebuild_compare.sh
+   ```
+
+3. If the exact build succeeds, review the static compare output before any
+   isolated insertion.
+4. If static compare is acceptable, prepare a later isolated
+   `Engine.initialize` dry-run only.
+5. If QAIRT 2.44 acquisition remains blocked, post the official issue with:
+   - no public QAIRT 2.46 source/ref found
+   - QAIRT 2.44 required by public metadata
+   - same-source/tag 2.46-overlay build still fails with no usable dispatch runtime
+
+Safety status remains unchanged: no normal UI NPU path, no `selectedPath=npu`,
+no `Conversation`, no `Session`, and no `generateResponse`.
