@@ -31,6 +31,9 @@ internal object AcceleratorProbe {
     private const val GALLERY_SM8750_DISPATCH_BUILD_ID = "643ad77b8ac2f54bd1b61e4133c77b3a"
     private const val GALLERY_SM8750_LITERT_BUILD_ID = "869121bd7f4b0b77fa581218117a5c14"
     private const val GALLERY_SM8750_LITERTLM_JNI_BUILD_ID = "76e4dccd9c5f9cba468d9cae7becfec0"
+    private const val GALLERY_SM8750_QNN_SYSTEM_BUILD_ID = "0d409cdd664b8b0a"
+    private const val GALLERY_SM8750_QNN_HTP_BUILD_ID = "f2c90c1775a109e1"
+    private const val GALLERY_SM8750_QNN_HTP_V79_STUB_BUILD_ID = "10d7ad6f9195411a"
     private const val GALLERY_SM8750_DISPATCH_SHA256 = "92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777"
     private const val LAMI_LITERTLM_011_LITERT_BUILD_ID = "80fa0688ac32301185275c903cec97bd"
     private const val LAMI_LITERTLM_011_JNI_BUILD_ID = "c2c27170ba409dbd0bc01820fa738580"
@@ -313,6 +316,10 @@ internal object AcceleratorProbe {
             liteRtLmRuntimeComparisonToMaven010 = dispatchRuntimeCompatibility.comparisonToMaven010,
             liteRtLmRuntimeComparisonToGallerySm8750 = dispatchRuntimeCompatibility.comparisonToGallerySm8750,
             liteRtLmRuntimeStackNote = dispatchRuntimeCompatibility.runtimeStackNote,
+            galleryStackQnnSystemBuildId = dispatchRuntimeCompatibility.qnnSystemBuildId,
+            galleryStackQnnHtpBuildId = dispatchRuntimeCompatibility.qnnHtpBuildId,
+            galleryStackQnnHtpV79StubBuildId = dispatchRuntimeCompatibility.qnnHtpV79StubBuildId,
+            galleryStackExpectedBuildIdMatch = dispatchRuntimeCompatibility.galleryStackExpectedBuildIdMatch,
             backendNpuInstantiateProbeEnabled = backendNpuInstantiateProbeResult.enabled,
             backendNpuInstantiateProbeSkipReason = backendNpuInstantiateProbeResult.skipReason,
             backendNpuInstantiateNativeLibraryDirArgument = backendNpuInstantiateProbeResult.nativeLibraryDirArgument,
@@ -435,6 +442,9 @@ internal object AcceleratorProbe {
             val liteRtFile = nativeLibraryDirectory?.resolve("libLiteRt.so")
             val liteRtBuildId = liteRtFile?.let(::readElfBuildIdSafely)
             val liteRtLmJniBuildId = nativeLibraryDirectory?.resolve("liblitertlm_jni.so")?.let(::readElfBuildIdSafely)
+            val qnnSystemBuildId = nativeLibraryDirectory?.resolve("libQnnSystem.so")?.let(::readElfBuildIdSafely)
+            val qnnHtpBuildId = nativeLibraryDirectory?.resolve("libQnnHtp.so")?.let(::readElfBuildIdSafely)
+            val qnnHtpV79StubBuildId = nativeLibraryDirectory?.resolve("libQnnHtpV79Stub.so")?.let(::readElfBuildIdSafely)
             val dispatchCandidate = packagedLibraries.dispatchApiSelectedCandidate
                 ?: packagedLibraries.dispatchApiCandidates.firstOrNull()
             val dispatchRuntimeFile = dispatchCandidate?.let { nativeLibraryDirectory?.resolve(it) }
@@ -485,6 +495,17 @@ internal object AcceleratorProbe {
                     expectedLiteRtLmJniBuildId = GALLERY_SM8750_LITERTLM_JNI_BUILD_ID,
                     missingLiteRtAllowed = false,
                 ),
+                qnnSystemBuildId = qnnSystemBuildId,
+                qnnHtpBuildId = qnnHtpBuildId,
+                qnnHtpV79StubBuildId = qnnHtpV79StubBuildId,
+                galleryStackExpectedBuildIdMatch = galleryStackExpectedBuildIdsMatch(
+                    liteRtBuildId = liteRtBuildId,
+                    liteRtLmJniBuildId = liteRtLmJniBuildId,
+                    dispatchRuntimeBuildId = dispatchRuntimeBuildId,
+                    qnnSystemBuildId = qnnSystemBuildId,
+                    qnnHtpBuildId = qnnHtpBuildId,
+                    qnnHtpV79StubBuildId = qnnHtpV79StubBuildId,
+                ),
                 runtimeStackNote = buildLiteRtLmRuntimeStackNote(liteRtFile?.isFile == true),
             )
         }.getOrElse {
@@ -521,11 +542,42 @@ internal object AcceleratorProbe {
     }
 
     private fun buildLiteRtLmRuntimeStackNote(liteRtSoPresent: Boolean): String {
-        return if (BuildConfig.CURRENT_FLAVOR == "npuExperiment" && BuildConfig.DEBUG) {
-            "npuExperimentDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; Maven 0.10.0 may still differ from Gallery SM8750 native payload; libLiteRt.so present=$liteRtSoPresent"
-        } else {
-            "standard/debug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; normal inference remains GPU path"
+        return when {
+            BuildConfig.CURRENT_FLAVOR == "galleryStackExperiment" && BuildConfig.DEBUG ->
+                "galleryStackExperimentDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; Gallery SM8750 native stack staged only for diagnostics; libLiteRt.so present=$liteRtSoPresent"
+            BuildConfig.CURRENT_FLAVOR == "npuExperiment" && BuildConfig.DEBUG ->
+                "npuExperimentDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; Maven 0.10.0 may still differ from Gallery SM8750 native payload; libLiteRt.so present=$liteRtSoPresent"
+            else ->
+                "standard/debug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; normal inference remains GPU path"
         }
+    }
+
+    private fun isNpuProbeFlavor(): Boolean {
+        return BuildConfig.CURRENT_FLAVOR == "npuExperiment" || BuildConfig.CURRENT_FLAVOR == "galleryStackExperiment"
+    }
+
+    private fun npuProbeFlavorSkipReason(): String {
+        return if (BuildConfig.CURRENT_FLAVOR == "galleryStackExperiment") {
+            "not-galleryStackExperiment-or-npuExperiment-flavor"
+        } else {
+            "not-npuExperiment-flavor"
+        }
+    }
+
+    private fun galleryStackExpectedBuildIdsMatch(
+        liteRtBuildId: String?,
+        liteRtLmJniBuildId: String?,
+        dispatchRuntimeBuildId: String?,
+        qnnSystemBuildId: String?,
+        qnnHtpBuildId: String?,
+        qnnHtpV79StubBuildId: String?,
+    ): Boolean {
+        return liteRtBuildId.equals(GALLERY_SM8750_LITERT_BUILD_ID, ignoreCase = true) &&
+            liteRtLmJniBuildId.equals(GALLERY_SM8750_LITERTLM_JNI_BUILD_ID, ignoreCase = true) &&
+            dispatchRuntimeBuildId.equals(GALLERY_SM8750_DISPATCH_BUILD_ID, ignoreCase = true) &&
+            qnnSystemBuildId.equals(GALLERY_SM8750_QNN_SYSTEM_BUILD_ID, ignoreCase = true) &&
+            qnnHtpBuildId.equals(GALLERY_SM8750_QNN_HTP_BUILD_ID, ignoreCase = true) &&
+            qnnHtpV79StubBuildId.equals(GALLERY_SM8750_QNN_HTP_V79_STUB_BUILD_ID, ignoreCase = true)
     }
 
     private fun classifyDispatchRuntimeAbiCompatibility(
@@ -556,7 +608,7 @@ internal object AcceleratorProbe {
         val warning = "instantiate-only; object not passed to engine; no inference"
         val skipReason = when {
             !BuildConfig.DEBUG -> "not-debug"
-            BuildConfig.CURRENT_FLAVOR != "npuExperiment" -> "not-npuExperiment-flavor"
+            !isNpuProbeFlavor() -> npuProbeFlavorSkipReason()
             !BuildConfig.NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED -> "build-config-disabled"
             dispatchRuntimeCompatibility.dispatchRuntimePresent != true -> "dispatch-runtime-not-present"
             nativeLibraryDir.isNullOrBlank() -> "native-library-dir-missing"
@@ -613,7 +665,7 @@ internal object AcceleratorProbe {
         val warning = "attach-dry-run only; no Engine; no Conversation; no inference"
         val skipReason = when {
             !BuildConfig.DEBUG -> "not-debug"
-            BuildConfig.CURRENT_FLAVOR != "npuExperiment" -> "not-npuExperiment-flavor"
+            !isNpuProbeFlavor() -> npuProbeFlavorSkipReason()
             !BuildConfig.NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED -> "build-config-disabled"
             dispatchRuntimeCompatibility.dispatchRuntimePresent != true -> "dispatch-runtime-not-present"
             instantiateProbeResult.result != "success" -> "npu-instantiate-failed"
@@ -735,7 +787,7 @@ internal object AcceleratorProbe {
     ): LiteRtLmNpuApiInventoryProbeResult {
         val skipReason = when {
             !BuildConfig.DEBUG -> "not-debug"
-            BuildConfig.CURRENT_FLAVOR != "npuExperiment" -> "not-npuExperiment-flavor"
+            !isNpuProbeFlavor() -> npuProbeFlavorSkipReason()
             !BuildConfig.NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED -> "build-config-disabled"
             dispatchRuntimeCompatibility.dispatchRuntimePresent != true -> "dispatch-runtime-not-present"
             instantiateProbeResult.result != "success" -> "npu-instantiate-failed"
@@ -854,7 +906,7 @@ internal object AcceleratorProbe {
         val warning = "config-only; not passed to Engine; no inference"
         val skipReason = when {
             !BuildConfig.DEBUG -> "not-debug"
-            BuildConfig.CURRENT_FLAVOR != "npuExperiment" -> "not-npuExperiment-flavor"
+            !isNpuProbeFlavor() -> npuProbeFlavorSkipReason()
             !BuildConfig.NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED -> "build-config-disabled"
             dispatchRuntimeCompatibility.dispatchRuntimePresent != true -> "dispatch-runtime-not-present"
             instantiateProbeResult.result != "success" -> "npu-instantiate-failed"
@@ -952,7 +1004,7 @@ internal object AcceleratorProbe {
     ): EngineApiInventoryProbeResult {
         val skipReason = when {
             !BuildConfig.DEBUG -> "not-debug"
-            BuildConfig.CURRENT_FLAVOR != "npuExperiment" -> "not-npuExperiment-flavor"
+            !isNpuProbeFlavor() -> npuProbeFlavorSkipReason()
             dispatchRuntimeCompatibility.dispatchRuntimePresent != true -> "dispatch-runtime-not-present"
             instantiateProbeResult.result != "success" -> "npu-instantiate-failed"
             engineConfigDryBuildProbeResult.result != "success" -> "engineconfig-npu-dry-build-not-success"
@@ -1065,7 +1117,7 @@ internal object AcceleratorProbe {
         }
         val skipReason = when {
             !BuildConfig.DEBUG -> "not-debug"
-            BuildConfig.CURRENT_FLAVOR != "npuExperiment" -> "not-npuExperiment-flavor"
+            !isNpuProbeFlavor() -> npuProbeFlavorSkipReason()
             dispatchRuntimeCompatibility.dispatchRuntimePresent != true -> "dispatch-runtime-not-present"
             dispatchRuntimeCompatibility.dispatchRuntimeExpectedSha256Match != true -> "dispatch-sha256-mismatch"
             instantiateProbeResult.result != "success" -> "npu-instantiate-failed"
@@ -2829,6 +2881,10 @@ internal object AcceleratorProbe {
         val comparisonToLami011: String = "unknown",
         val comparisonToMaven010: String = "unknown",
         val comparisonToGallerySm8750: String = "unknown",
+        val qnnSystemBuildId: String? = null,
+        val qnnHtpBuildId: String? = null,
+        val qnnHtpV79StubBuildId: String? = null,
+        val galleryStackExpectedBuildIdMatch: Boolean? = null,
         val runtimeStackNote: String = "unknown",
     )
 

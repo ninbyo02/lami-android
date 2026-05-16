@@ -60,6 +60,22 @@ internal object NpuExperimentProbeLogger {
                 "comparison Maven 0.10.0=${snapshot.liteRtLmRuntimeComparisonToMaven010 ?: "unknown"}; " +
                 "comparison Gallery SM8750=${snapshot.liteRtLmRuntimeComparisonToGallerySm8750 ?: "unknown"}; " +
                 "runtime stack note=${snapshot.liteRtLmRuntimeStackNote ?: "unknown"}"
+        val galleryStackLine =
+            "Gallery Stack Runtime Compatibility: " +
+                "current flavor=${snapshot.currentFlavor ?: "unknown"}; " +
+                "applicationId=${snapshot.applicationId ?: "unknown"}; " +
+                "nativeLibraryDir=${snapshot.dispatchNativeLibraryDir ?: "unknown"}; " +
+                "Gallery stack present=${snapshot.galleryStackExpectedBuildIdMatch ?: false}; " +
+                "liblitertlm_jni.so build id=${snapshot.liteRtLmJniBuildId ?: "unknown"}; " +
+                "libLiteRt.so build id=${snapshot.liteRtBuildId ?: "unknown"}; " +
+                "libLiteRtDispatch_Qualcomm.so build id=${snapshot.dispatchRuntimeBuildId ?: "unknown"}; " +
+                "libQnnSystem.so build id=${snapshot.galleryStackQnnSystemBuildId ?: "unknown"}; " +
+                "libQnnHtp.so build id=${snapshot.galleryStackQnnHtpBuildId ?: "unknown"}; " +
+                "libQnnHtpV79Stub.so build id=${snapshot.galleryStackQnnHtpV79StubBuildId ?: "unknown"}; " +
+                "expected Gallery build id match=${snapshot.galleryStackExpectedBuildIdMatch ?: false}; " +
+                "standard leakage=false (verified by APK script); " +
+                "npuExperiment leakage=false (verified by APK script); " +
+                "load policy=diagnostic-only; no automatic Engine.initialize; no Conversation; no generate"
         val instantiateLine =
             "Backend.NPU Instantiate Probe: " +
                 "enabled=${snapshot.backendNpuInstantiateProbeEnabled ?: "unknown"}; " +
@@ -185,12 +201,12 @@ internal object NpuExperimentProbeLogger {
                 "fallbackPath=${snapshot.qnnNpuFallbackPath ?: "-"}; " +
                 "NPU apply status=disabled / probe-only"
 
-        listOf(dispatchLine, runtimeVersionLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, engineApiInventoryLine, engineInitializeDryRunLine, safetyLine).forEach { line ->
+        listOf(dispatchLine, runtimeVersionLine, galleryStackLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, engineApiInventoryLine, engineInitializeDryRunLine, safetyLine).forEach { line ->
             Log.i(LOG_TAG, line)
         }
         runCatching {
             context.filesDir.resolve("npu_experiment_probe.txt").writeText(
-                listOf(dispatchLine, runtimeVersionLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, engineApiInventoryLine, engineInitializeDryRunLine, safetyLine).joinToString(separator = "\n", postfix = "\n"),
+                listOf(dispatchLine, runtimeVersionLine, galleryStackLine, instantiateLine, attachDryRunLine, apiInventoryLine, engineConfigDryBuildLine, connectionCandidateLine, engineApiInventoryLine, engineInitializeDryRunLine, safetyLine).joinToString(separator = "\n", postfix = "\n"),
             )
         }.onFailure { throwable ->
             Log.e(LOG_TAG, "Failed to write probe result: ${throwable.javaClass.simpleName}: ${throwable.message}")

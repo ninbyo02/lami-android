@@ -2,7 +2,7 @@
 
 Date: 2026-05-16
 
-This plan prepares the next isolated experiment after `npuExperimentDebug` was switched to Maven `litertlm-android:0.10.0` and still aborted during `Engine.initialize`. It does not copy Gallery native libraries into the app, replace Lami native libraries, build `dispatch_api_so`, run NPU inference, create `Conversation` / `Session`, or call `generateResponse`.
+This plan prepares the next isolated experiment after `npuExperimentDebug` was switched to Maven `litertlm-android:0.10.0` and still aborted during `Engine.initialize`. It keeps Gallery native libraries isolated in `galleryStackExperimentDebug`, does not replace standard or `npuExperiment` native libraries, does not build `dispatch_api_so`, does not run NPU inference, does not create `Conversation` / `Session`, and does not call `generateResponse`.
 
 ## Why this experiment is needed
 
@@ -121,7 +121,7 @@ Suggested BuildConfig policy:
 | `GALLERY_STACK_EXPERIMENT` | `true` |
 | `DISPATCH_RUNTIME_SOURCE` | `gallery-sm8750 full-stack candidate, detection-only` |
 
-This repository change intentionally does not create the flavor yet. Adding the flavor changes the Gradle variant graph and should be done in the next phase together with explicit dependency and packaging checks.
+This flavor has now been implemented as `galleryStackExperimentDebug`. Release is disabled, and the source set is isolated from `standardDebug` and `npuExperimentDebug`.
 
 ## Experiment phases
 
@@ -155,6 +155,81 @@ This repository change intentionally does not create the flavor yet. Adding the 
 
 8. Phase 8: only if initialize succeeds, design a separate single-token smoke test.
    - This is not part of the current plan.
+
+## Implementation result
+
+Implementation date: 2026-05-16
+
+Flavor:
+
+- name: `galleryStackExperiment`
+- installable variant: `galleryStackExperimentDebug`
+- release variant: disabled
+- applicationId: `io.github.ninbyo02.lami.gallerynpu`
+- LiteRT-LM dependency: `com.google.ai.edge.litertlm:litertlm-android:0.10.0`
+- native source set: `app/src/galleryStackExperimentDebug/jniLibs/arm64-v8a/`
+- probe source: existing `NpuExperimentProbeActivity` shared from `src/npuExperimentDebug/java`
+- manifest source: existing debug probe manifest shared from `src/npuExperimentDebug/AndroidManifest.xml`
+
+BuildConfig:
+
+| Field | Value |
+| --- | --- |
+| `CURRENT_FLAVOR` | `galleryStackExperiment` |
+| `QUALCOMM_DISPATCH_EXPERIMENT` | `true` |
+| `NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED` | `true` |
+| `GALLERY_STACK_EXPERIMENT` | `true` |
+| `DISPATCH_RUNTIME_SOURCE` | `gallery-sm8750 full native stack staged in app/src/galleryStackExperimentDebug/jniLibs/arm64-v8a` |
+
+Staged with:
+
+```bash
+bash scripts/stage_gallery_native_stack_for_experiment.sh /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk
+```
+
+Staging artifact:
+
+- `artifacts/gallery_native_stack_stage/20260516_190657/`
+
+Staged libraries:
+
+| Library | Build ID | SHA-256 |
+| --- | --- | --- |
+| `liblitertlm_jni.so` | `76e4dccd9c5f9cba468d9cae7becfec0` | `607c4af2d405ff53a2a01415b47e202594b4e0dcce7f08f270bdfa7dd900c6d7` |
+| `libLiteRt.so` | `869121bd7f4b0b77fa581218117a5c14` | `146f699ef6822a1e1f9489101a9dc5733e3788643396cab4fc768063cfde346c` |
+| `libLiteRtDispatch_Qualcomm.so` | `643ad77b8ac2f54bd1b61e4133c77b3a` | `92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777` |
+| `libQnnSystem.so` | `0d409cdd664b8b0a` | `7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8` |
+| `libQnnHtp.so` | `f2c90c1775a109e1` | `090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a` |
+| `libQnnHtpV79Stub.so` | `10d7ad6f9195411a` | `005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1` |
+| `libQnnHtpV79Skel.so` | no GNU Build ID | `41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98` |
+
+Optional Gallery libs were not present in the APK and were not sourced elsewhere:
+
+- `libQnnHtpPrepare.so`
+- `libQnnGpu.so`
+- `libQnnDsp.so`
+- V75/V73/V69/V68 HTP skel/stub
+- `libQnnDspV66Skel.so`
+- `libQnnDspV66Stub.so`
+
+Packaging result:
+
+- `assembleGalleryStackExperimentDebug` succeeded.
+- AGP reported same-path native library warnings for `liblitertlm_jni.so`, `libQnnSystem.so`, `libQnnHtp.so`, `libQnnHtpV79Stub.so`, and `libQnnHtpV79Skel.so`.
+- The current AGP version selected the app/source-set files for those duplicates. This is acceptable for the isolated flavor, but should not be hidden with global `packagingOptions`.
+- Final APK extraction confirmed the Gallery Build IDs for the staged required libraries.
+
+Leakage result:
+
+- `standardDebug` still has its existing QNN runtime libraries from shared dependencies, but no Gallery Qualcomm dispatch runtime and no Gallery `liblitertlm_jni.so`.
+- `npuExperimentDebug` still has Maven `0.10.0` `liblitertlm_jni.so` and the previously staged dispatch-only experiment. It does not receive Gallery `libLiteRt.so` or Gallery QNN/V79 replacements.
+
+Probe policy:
+
+- `Gallery Stack Runtime Compatibility` is written by the probe Activity.
+- `Backend.NPU(String)` instantiate-only and `EngineConfig` dry-build are allowed in `galleryStackExperimentDebug`.
+- `Engine.initialize` remains explicit opt-in only.
+- Normal UI inference remains GPU/fallback oriented and is not wired to `Backend.NPU`.
 
 ## Native crash risks
 

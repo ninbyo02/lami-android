@@ -40,6 +40,7 @@ fun resolveBuildPrNumber(): String {
 val liteRtLmAndroidReleaseVersion = "0.10.0"
 val liteRtLmAndroidDebugVersion = "0.11.0"
 val liteRtLmAndroidNpuExperimentDebugVersion = "0.10.0"
+val liteRtLmAndroidGalleryStackExperimentDebugVersion = "0.10.0"
 
 android {
 
@@ -64,6 +65,7 @@ android {
         buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
         buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
         buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+        buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
     }
 
     flavorDimensions += "dispatchExperiment"
@@ -74,6 +76,7 @@ android {
             buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
         }
         create("npuExperiment") {
             dimension = "dispatchExperiment"
@@ -83,6 +86,17 @@ android {
             buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "true")
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"gallery-sm8750 detection-only staged in app/src/npuExperimentDebug/jniLibs/arm64-v8a\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+        }
+        create("galleryStackExperiment") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".gallerynpu"
+            versionNameSuffix = "-galleryStackExperiment"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"galleryStackExperiment\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "true")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"gallery-sm8750 full native stack staged in app/src/galleryStackExperimentDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "true")
         }
     }
 
@@ -117,18 +131,24 @@ android {
         create("npuExperimentDebug") {
             jniLibs.srcDir("src/npuExperimentDebug/jniLibs")
         }
+        create("galleryStackExperimentDebug") {
+            java.srcDir("src/npuExperimentDebug/java")
+            manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
+            jniLibs.srcDir("src/galleryStackExperimentDebug/jniLibs")
+        }
     }
 }
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) { variantBuilder ->
-        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && it.second == "npuExperiment" }) {
+        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment") }) {
             variantBuilder.enable = false
         }
     }
     onVariants { variant ->
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
         val liteRtLmVersion = when {
+            variant.buildType == "debug" && flavor == "galleryStackExperiment" -> liteRtLmAndroidGalleryStackExperimentDebugVersion
             variant.buildType == "debug" && flavor == "npuExperiment" -> liteRtLmAndroidNpuExperimentDebugVersion
             variant.buildType == "debug" -> liteRtLmAndroidDebugVersion
             else -> liteRtLmAndroidReleaseVersion
@@ -370,7 +390,11 @@ tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
 }
 
-tasks.matching { it.name == "mergeStandardDebugJniLibFolders" || it.name == "mergeNpuExperimentDebugJniLibFolders" }.configureEach {
+tasks.matching {
+    it.name == "mergeStandardDebugJniLibFolders" ||
+        it.name == "mergeNpuExperimentDebugJniLibFolders" ||
+        it.name == "mergeGalleryStackExperimentDebugJniLibFolders"
+}.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
 }
 
@@ -479,6 +503,7 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     add("standardImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
     add("npuExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidNpuExperimentDebugVersion")
+    add("galleryStackExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryStackExperimentDebugVersion")
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
     implementation("com.qualcomm.qti:qnn-runtime:2.34.0")
     implementation("com.qualcomm.qti:qnn-litert-delegate:2.34.0")
