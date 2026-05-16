@@ -180,3 +180,49 @@ Independent build decision:
 
 - If Java/native API surface is mismatched, `dispatch_api_so` alone is insufficient.
 - A meaningful build or staged payload must align `liblitertlm_jni.so`, Java/Kotlin classes, `libLiteRt.so`, and dispatch runtime from the same source generation.
+
+## Follow-up: galleryStackExperimentDebug with Maven 0.11.0 Java API
+
+Date: 2026-05-16
+
+`galleryStackExperimentDebug` was moved back to the Maven `litertlm-android:0.11.0` Java/Kotlin API while keeping the Gallery SM8750 native stack isolated under the `galleryStackExperimentDebug` source set.
+
+Dependency split confirmed by `scripts/check_litertlm_flavor_dependencies.sh`:
+
+```text
+standardDebugRuntimeClasspath has litertlm-android:0.11.0: yes
+standardDebugRuntimeClasspath selects litertlm-android:0.10.0: no
+npuExperimentDebugRuntimeClasspath has litertlm-android:0.10.0: yes
+npuExperimentDebugRuntimeClasspath selects litertlm-android:0.11.0: no
+galleryStackExperimentDebugRuntimeClasspath has litertlm-android:0.11.0: yes
+galleryStackExperimentDebugRuntimeClasspath selects litertlm-android:0.10.0: no
+overall: expected-split
+```
+
+Probe-only descriptor check from `io.github.ninbyo02.lami.gallerynpu`:
+
+```text
+Java side nativeCreateEngine descriptor:
+(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;ZLjava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)J
+
+expected Gallery JNI descriptor:
+(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;ZLjava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)J
+
+descriptor match: true
+EngineConfig constructor selected: EngineConfig(String, Backend, Backend, Backend, Integer, Integer, String)
+EngineConfig constructor match: true
+```
+
+This resolves the earlier Maven `0.10.0` Java/native descriptor mismatch. The earlier CheckJNI `SIGSEGV` is no longer the active failure mode for the aligned `0.11.0` Java API experiment.
+
+The explicit opt-in `Engine.initialize` dry-run still crashed, but it changed to `SIGABRT` at `LiteRtLmJni_nativeCreateEngine+1668`. The tombstone register fragments include the same error text pattern as the earlier dispatch failure, consistent with:
+
+```text
+Failed to create a dispatch delegate kernel: No usable Dispatch runtime found
+```
+
+Current conclusion:
+
+- Gallery JNI plus Maven `0.11.0` Java descriptor is aligned at the `nativeCreateEngine` signature level.
+- The remaining failure is no longer explained by the Maven `0.10.0` argument layout mismatch.
+- The next investigation should return to dispatch runtime usability and LiteRT/QNN capability/runtime compatibility, not Java descriptor matching.

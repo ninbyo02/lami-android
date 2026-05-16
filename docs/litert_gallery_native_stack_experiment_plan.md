@@ -381,3 +381,81 @@ Next actions:
 - Disable or remove the `galleryStackExperiment` flavor.
 - Keep `standardDebug` and `npuExperimentDebug` dependency checks as the guardrail.
 - Verify `app-standard-debug.apk` does not contain `libLiteRtDispatch_Qualcomm.so` or Gallery `liblitertlm_jni.so`.
+
+## galleryStackExperimentDebug 0.11.0 Java API alignment result
+
+Date: 2026-05-16
+
+`galleryStackExperimentDebug` now uses Maven `litertlm-android:0.11.0` for Java/Kotlin classes, while `standardDebug` remains on `0.11.0` and `npuExperimentDebug` remains on `0.10.0`.
+
+The Gallery native stack remains isolated to:
+
+```text
+app/src/galleryStackExperimentDebug/jniLibs/arm64-v8a/
+```
+
+No Gallery native library was moved into `main`, `standard`, or `npuExperiment`.
+
+Probe-only compatibility snapshot:
+
+```text
+current flavor=galleryStackExperiment
+resolved expected Java API version=0.11.0
+descriptor match=true
+EngineConfig constructor selected=EngineConfig(String, Backend, Backend, Backend, Integer, Integer, String)
+EngineConfig constructor match=true
+Gallery stack present=true
+expected Gallery build id match=true
+selectedPath=gpu
+QNN/NPU attempted=no
+```
+
+Explicit opt-in Engine.initialize dry-run:
+
+```bash
+bash scripts/run_gallery_stack_probe.sh \
+  /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk \
+  --engine-dry-run \
+  --model-path /data/user/0/io.github.ninbyo02.lami.gallerynpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+```
+
+Result:
+
+```text
+final stage: Engine.initialize invoking method=Engine.initialize(): void
+process alive after probe: not-running
+signal: SIGABRT
+top native frame: liblitertlm_jni.so Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+1668
+artifact: artifacts/npu_diagnostics/20260516_203939_gallerynpu/
+```
+
+The earlier CheckJNI `SIGSEGV` from Maven `0.10.0` Java/native API mismatch is no longer the active result. With Maven `0.11.0` classes, the dry-run progresses to a dispatch-runtime abort. The tombstone did not print a clean abort message line, but register fragments are consistent with:
+
+```text
+Failed to create a dispatch delegate kernel: No usable Dispatch runtime found
+```
+
+Classification:
+
+- `no-usable-dispatch-runtime`
+- confidence: `medium`
+
+Why not high confidence:
+
+- The collector did not extract a direct abort message line.
+- The classification depends on register ASCII fragments and the known previous LiteRT-LM failure text.
+
+Implications:
+
+1. Java/native descriptor mismatch has been addressed for this flavor.
+2. Gallery native stack is present and loaded far enough for `libLiteRt.so`, `libLiteRtDispatch_Qualcomm.so`, `libQnnSystem.so`, and `libQnnHtp.so` to appear in the tombstone mappings.
+3. `libLiteRtRuntimeCApi.so` is still absent from the APK/nativeLibraryDir.
+4. The next question is dispatch runtime usability/capability, Runtime C API expectations, or QNN/HTP runtime search behavior.
+
+Still forbidden:
+
+- `Conversation`
+- `Session`
+- `generateResponse`
+- normal app inference wiring
+- `selectedPath=npu`

@@ -35,6 +35,10 @@ internal object AcceleratorProbe {
     private const val GALLERY_SM8750_QNN_HTP_BUILD_ID = "f2c90c1775a109e1"
     private const val GALLERY_SM8750_QNN_HTP_V79_STUB_BUILD_ID = "10d7ad6f9195411a"
     private const val GALLERY_SM8750_DISPATCH_SHA256 = "92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777"
+    private const val GALLERY_NATIVE_CREATE_ENGINE_DESCRIPTOR =
+        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;ZLjava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)J"
+    private const val GALLERY_ENGINE_CONFIG_CONSTRUCTOR_SIGNATURE =
+        "EngineConfig(String, Backend, Backend, Backend, Integer, Integer, String)"
     private const val LAMI_LITERTLM_011_LITERT_BUILD_ID = "80fa0688ac32301185275c903cec97bd"
     private const val LAMI_LITERTLM_011_JNI_BUILD_ID = "c2c27170ba409dbd0bc01820fa738580"
     private const val MAVEN_LITERTLM_010_JNI_BUILD_ID = "ecacedccf835d7674c95bd40186d0fde"
@@ -170,6 +174,10 @@ internal object AcceleratorProbe {
             packagedLibraries = npuPackagedLibraryProbeResult,
             dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
             instantiateProbeResult = backendNpuInstantiateProbeResult,
+        )
+        val galleryStackJavaNativeApiCompatibilityProbeResult = probeGalleryStackJavaNativeApiCompatibilitySafely(
+            dispatchRuntimeCompatibility = dispatchRuntimeCompatibility,
+            engineConfigDryBuild = engineConfigNpuDryBuildProbeResult,
         )
         val backendNpuConnectionCandidateProbeResult = buildBackendNpuConnectionCandidate(
             apiInventory = liteRtLmNpuApiInventoryProbeResult,
@@ -320,6 +328,14 @@ internal object AcceleratorProbe {
             galleryStackQnnHtpBuildId = dispatchRuntimeCompatibility.qnnHtpBuildId,
             galleryStackQnnHtpV79StubBuildId = dispatchRuntimeCompatibility.qnnHtpV79StubBuildId,
             galleryStackExpectedBuildIdMatch = dispatchRuntimeCompatibility.galleryStackExpectedBuildIdMatch,
+            galleryStackJavaApiExpectedVersion = galleryStackJavaNativeApiCompatibilityProbeResult.expectedJavaApiVersion,
+            galleryStackJavaNativeCreateEngineDescriptor = galleryStackJavaNativeApiCompatibilityProbeResult.javaNativeCreateEngineDescriptor,
+            galleryStackExpectedJniNativeCreateEngineDescriptor = galleryStackJavaNativeApiCompatibilityProbeResult.expectedGalleryJniDescriptor,
+            galleryStackNativeCreateEngineDescriptorMatch = galleryStackJavaNativeApiCompatibilityProbeResult.descriptorMatch,
+            galleryStackEngineConfigExpectedConstructor = galleryStackJavaNativeApiCompatibilityProbeResult.expectedEngineConfigConstructor,
+            galleryStackEngineConfigSelectedConstructor = galleryStackJavaNativeApiCompatibilityProbeResult.engineConfigSelectedConstructor,
+            galleryStackEngineConfigConstructorMatch = galleryStackJavaNativeApiCompatibilityProbeResult.engineConfigConstructorMatch,
+            galleryStackJavaNativeApiCompatibilityNote = galleryStackJavaNativeApiCompatibilityProbeResult.note,
             backendNpuInstantiateProbeEnabled = backendNpuInstantiateProbeResult.enabled,
             backendNpuInstantiateProbeSkipReason = backendNpuInstantiateProbeResult.skipReason,
             backendNpuInstantiateNativeLibraryDirArgument = backendNpuInstantiateProbeResult.nativeLibraryDirArgument,
@@ -550,6 +566,74 @@ internal object AcceleratorProbe {
             else ->
                 "standard/debug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; normal inference remains GPU path"
         }
+    }
+
+    private fun probeGalleryStackJavaNativeApiCompatibilitySafely(
+        dispatchRuntimeCompatibility: DispatchRuntimeCompatibilityProbeResult,
+        engineConfigDryBuild: EngineConfigNpuDryBuildProbeResult,
+    ): GalleryStackJavaNativeApiCompatibilityProbeResult {
+        if (BuildConfig.CURRENT_FLAVOR != "galleryStackExperiment" || !BuildConfig.DEBUG) {
+            return GalleryStackJavaNativeApiCompatibilityProbeResult(
+                expectedJavaApiVersion = BuildConfig.LITERTLM_ANDROID_VERSION,
+                skipReason = "not-galleryStackExperiment-debug",
+            )
+        }
+        return runCatching {
+            val jniClass = Class.forName("com.google.ai.edge.litertlm.LiteRtLmJni")
+            val nativeCreateEngine = (jniClass.declaredMethods.asList() + jniClass.methods.asList())
+                .distinctBy { method -> method.name + method.parameterTypes.joinToString("#") { it.name } }
+                .firstOrNull { method -> method.name == "nativeCreateEngine" }
+            val javaDescriptor = nativeCreateEngine?.let(::methodDescriptor)
+            val selectedConstructor = engineConfigDryBuild.selectedConstructor
+            GalleryStackJavaNativeApiCompatibilityProbeResult(
+                expectedJavaApiVersion = BuildConfig.LITERTLM_ANDROID_VERSION,
+                javaNativeCreateEngineDescriptor = javaDescriptor,
+                expectedGalleryJniDescriptor = GALLERY_NATIVE_CREATE_ENGINE_DESCRIPTOR,
+                descriptorMatch = javaDescriptor?.equals(GALLERY_NATIVE_CREATE_ENGINE_DESCRIPTOR, ignoreCase = false),
+                engineConfigSelectedConstructor = selectedConstructor,
+                expectedEngineConfigConstructor = GALLERY_ENGINE_CONFIG_CONSTRUCTOR_SIGNATURE,
+                engineConfigConstructorMatch = selectedConstructor?.contains(GALLERY_ENGINE_CONFIG_CONSTRUCTOR_SIGNATURE) == true,
+                liteRtLmJniBuildId = dispatchRuntimeCompatibility.liteRtLmJniBuildId,
+                liteRtBuildId = dispatchRuntimeCompatibility.liteRtBuildId,
+                dispatchRuntimeBuildId = dispatchRuntimeCompatibility.dispatchRuntimeBuildId,
+                note = "diagnostic-only; descriptor match does not imply NPU inference readiness",
+            )
+        }.getOrElse { throwable ->
+            GalleryStackJavaNativeApiCompatibilityProbeResult(
+                expectedJavaApiVersion = BuildConfig.LITERTLM_ANDROID_VERSION,
+                expectedGalleryJniDescriptor = GALLERY_NATIVE_CREATE_ENGINE_DESCRIPTOR,
+                engineConfigSelectedConstructor = engineConfigDryBuild.selectedConstructor,
+                expectedEngineConfigConstructor = GALLERY_ENGINE_CONFIG_CONSTRUCTOR_SIGNATURE,
+                liteRtLmJniBuildId = dispatchRuntimeCompatibility.liteRtLmJniBuildId,
+                liteRtBuildId = dispatchRuntimeCompatibility.liteRtBuildId,
+                dispatchRuntimeBuildId = dispatchRuntimeCompatibility.dispatchRuntimeBuildId,
+                note = "probe-error:${throwable.javaClass.simpleName}:${throwable.message.orEmpty().take(160)}",
+            )
+        }
+    }
+
+    private fun methodDescriptor(method: Method): String {
+        return method.parameterTypes.joinToString(separator = "", prefix = "(", postfix = ")") { type -> typeDescriptor(type) } +
+            typeDescriptor(method.returnType)
+    }
+
+    private fun typeDescriptor(type: Class<*>): String {
+        if (type.isArray) return type.name.replace('.', '/')
+        if (type.isPrimitive) {
+            return when (type) {
+                java.lang.Void.TYPE -> "V"
+                java.lang.Boolean.TYPE -> "Z"
+                java.lang.Byte.TYPE -> "B"
+                java.lang.Character.TYPE -> "C"
+                java.lang.Short.TYPE -> "S"
+                java.lang.Integer.TYPE -> "I"
+                java.lang.Long.TYPE -> "J"
+                java.lang.Float.TYPE -> "F"
+                java.lang.Double.TYPE -> "D"
+                else -> "?"
+            }
+        }
+        return "L${type.name.replace('.', '/')};"
     }
 
     private fun isNpuProbeFlavor(): Boolean {
@@ -1732,15 +1816,44 @@ internal object AcceleratorProbe {
         }
         val summary = constructor.parameterTypes.mapIndexed { index, type ->
             val value = values[index]
+            val role = engineConfigConstructorArgRole(constructor.parameterTypes, index, npuClass)
             val valueSummary = when (value) {
                 null -> "null"
                 npuObject -> "Backend.NPU"
                 is String -> if (value == modelPath) "model-path" else "string"
                 else -> value.javaClass.simpleName
             }
-            "arg$index:${type.simpleName}=$valueSummary"
+            "arg$index:${type.simpleName}:$role=$valueSummary"
         }
         return EngineConfigDryBuildArgs(values = values, summary = summary)
+    }
+
+    private fun engineConfigConstructorArgRole(
+        parameterTypes: Array<Class<*>>,
+        index: Int,
+        npuClass: Class<*>,
+    ): String {
+        val type = parameterTypes[index]
+        if (type == String::class.java) {
+            val stringOrdinal = parameterTypes.take(index + 1).count { it == String::class.java }
+            return if (stringOrdinal == 1) "modelPath" else "cacheDir-or-extraString"
+        }
+        if (type.isAssignableFrom(npuClass)) {
+            return when (parameterTypes.take(index + 1).count { it.isAssignableFrom(npuClass) }) {
+                1 -> "backend"
+                2 -> "visionBackend"
+                3 -> "audioBackend"
+                else -> "backend-extra"
+            }
+        }
+        if (type.name == "java.lang.Integer" || type == java.lang.Integer.TYPE) {
+            return when (parameterTypes.take(index + 1).count { it.name == "java.lang.Integer" || it == java.lang.Integer.TYPE }) {
+                1 -> "maxNumTokens"
+                2 -> "maxNumImages"
+                else -> "integer-extra"
+            }
+        }
+        return "extra"
     }
 
     private fun readEngineConfigBackendClassSafely(config: Any): String? {
@@ -2886,6 +2999,21 @@ internal object AcceleratorProbe {
         val qnnHtpV79StubBuildId: String? = null,
         val galleryStackExpectedBuildIdMatch: Boolean? = null,
         val runtimeStackNote: String = "unknown",
+    )
+
+    private data class GalleryStackJavaNativeApiCompatibilityProbeResult(
+        val expectedJavaApiVersion: String = "unknown",
+        val skipReason: String? = null,
+        val javaNativeCreateEngineDescriptor: String? = null,
+        val expectedGalleryJniDescriptor: String = GALLERY_NATIVE_CREATE_ENGINE_DESCRIPTOR,
+        val descriptorMatch: Boolean? = null,
+        val engineConfigSelectedConstructor: String? = null,
+        val expectedEngineConfigConstructor: String = GALLERY_ENGINE_CONFIG_CONSTRUCTOR_SIGNATURE,
+        val engineConfigConstructorMatch: Boolean? = null,
+        val liteRtLmJniBuildId: String? = null,
+        val liteRtBuildId: String? = null,
+        val dispatchRuntimeBuildId: String? = null,
+        val note: String = "diagnostic-only; descriptor match does not imply NPU inference readiness",
     )
 
     private data class BackendNpuInstantiateProbeResult(

@@ -565,6 +565,14 @@ internal fun buildInferenceDetailSections(
                 )
             },
         acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.currentFlavor == "galleryStackExperiment" }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Gallery Stack Java/Native API Compatibility",
+                    items = buildGalleryStackJavaNativeApiCompatibilityItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
             ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
             ?.let { probe ->
                 InferenceStatsSectionUi(
@@ -1573,6 +1581,25 @@ private fun buildLiteRtLmRuntimeVersionItems(
         InferenceStatItemUi(label = "comparison: Maven 0.10.0 known ids", value = probe.liteRtLmRuntimeComparisonToMaven010?.ifBlank { "unknown" } ?: "unknown"),
         InferenceStatItemUi(label = "comparison: Gallery SM8750 known ids", value = probe.liteRtLmRuntimeComparisonToGallerySm8750?.ifBlank { "unknown" } ?: "unknown"),
         InferenceStatItemUi(label = "runtime stack note", value = probe.liteRtLmRuntimeStackNote?.ifBlank { "unknown" } ?: "unknown"),
+    )
+}
+
+private fun buildGalleryStackJavaNativeApiCompatibilityItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "current flavor", value = probe.currentFlavor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "resolved expected Java API version", value = probe.galleryStackJavaApiExpectedVersion?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "Java side nativeCreateEngine descriptor", value = probe.galleryStackJavaNativeCreateEngineDescriptor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "expected Gallery JNI descriptor", value = probe.galleryStackExpectedJniNativeCreateEngineDescriptor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "descriptor match", value = probe.galleryStackNativeCreateEngineDescriptorMatch?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "EngineConfig constructor selected", value = probe.galleryStackEngineConfigSelectedConstructor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "EngineConfig constructor expected", value = probe.galleryStackEngineConfigExpectedConstructor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "EngineConfig constructor match", value = probe.galleryStackEngineConfigConstructorMatch?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "liblitertlm_jni.so build id", value = probe.liteRtLmJniBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRt.so build id", value = probe.liteRtBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRtDispatch_Qualcomm.so build id", value = probe.dispatchRuntimeBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "note", value = probe.galleryStackJavaNativeApiCompatibilityNote?.ifBlank { "unknown" } ?: "unknown"),
     )
 }
 

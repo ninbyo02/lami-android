@@ -365,3 +365,55 @@ Updated recommendation:
 2. Do not add more native libraries or change standard/npuExperiment.
 3. Identify the exact Gallery Java/Kotlin source or AAR generation that matches Gallery `liblitertlm_jni.so` Build ID `76e4dccd9c5f9cba468d9cae7becfec0`.
 4. If another experiment is needed, isolate it under a separate app id and verify `EngineConfig` constructor/JNI argument layout before calling `Engine.initialize`.
+
+## galleryStackExperimentDebug with 0.11.0 Java API
+
+Date: 2026-05-16
+
+The Gallery SM8750 `liblitertlm_jni.so` native method descriptor matches Maven `litertlm-android:0.11.0`, not Maven `0.10.0`. `galleryStackExperimentDebug` was therefore changed to use Maven `0.11.0` Java/Kotlin classes while keeping the Gallery native stack isolated.
+
+Dependency split:
+
+```text
+standardDebug: litertlm-android:0.11.0
+npuExperimentDebug: litertlm-android:0.10.0
+galleryStackExperimentDebug: litertlm-android:0.11.0
+```
+
+Probe-only Java/native compatibility result:
+
+```text
+nativeCreateEngine descriptor match=true
+EngineConfig constructor selected=EngineConfig(String, Backend, Backend, Backend, Integer, Integer, String)
+EngineConfig constructor match=true
+```
+
+Engine.initialize dry-run result:
+
+```text
+artifact: artifacts/npu_diagnostics/20260516_203939_gallerynpu/
+signal: SIGABRT
+last stage: Engine.initialize invoking method=Engine.initialize(): void
+nativeCreateEngine frame: Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+1668
+```
+
+The previous CheckJNI `SIGSEGV` is resolved by the Java API alignment. The new crash is back in the dispatch-runtime failure family. The tombstone lacks a direct abort message line, but register fragments decode to the known error pattern:
+
+```text
+Failed to create a dispatch delegate kernel: No usable Dispatch runtime found
+```
+
+Updated classification:
+
+1. dispatch runtime usability/capability mismatch: likely
+2. `libLiteRtRuntimeCApi.so` missing or runtime C API search issue: possible
+3. QNN/HTP path or capability issue: possible
+4. model/runtime schema mismatch: possible but less directly supported by this artifact
+5. Java/native descriptor mismatch: no longer the active explanation for `galleryStackExperimentDebug`
+
+Recommended next action:
+
+- Do not build `dispatch_api_so` from public HEAD yet.
+- Preserve `galleryStackExperimentDebug` as the isolated repro.
+- Use the artifact and Build IDs in an upstream LiteRT-LM/Gallery issue or continue with Runtime C API / dispatch compatibility inspection before any native replacement.
+- Continue keeping `standardDebug` and normal GPU inference untouched.
