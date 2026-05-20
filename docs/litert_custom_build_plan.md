@@ -277,7 +277,7 @@ Do not proceed to single-token smoke until `Engine.initialize` returns successfu
 
 ## QAIRT 2.44 Exact-Match Rebuild Gate
 
-Result date: 2026-05-17
+Result dates: 2026-05-17, updated 2026-05-21
 
 Local search artifact:
 
@@ -285,21 +285,64 @@ Local search artifact:
 artifacts/qairt_244_exact_match/20260517_013958/local_search.txt
 ```
 
-The exact QAIRT `2.44.0.260225` SDK is not currently installed. The existing path:
+Initial 2026-05-17 state: the exact QAIRT `2.44.0.260225` SDK was not
+installed. The existing path:
 
 ```text
 /home/sato/project/litert-custom-build/qairt_overlay/qairt/2.44.0.260225
 ```
 
-is a symlink to QAIRT `2.46.0.260424`, so it is not an exact-match input.
+was a symlink to QAIRT `2.46.0.260424`, so it was not an exact-match input.
 
-Status:
+Initial status:
 
 ```text
 blocked-awaiting-qairt244
 ```
 
-The build script is prepared for the exact SDK once available:
+Current status:
+
+```text
+qairt244-initialize-invoked-sigabrt-no-usable-dispatch-runtime
+```
+
+Update 2026-05-21:
+
+- Exact QAIRT `2.44.0.260225` was acquired through QPM and installed at `/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225`.
+- The limited qairt244 rebuild succeeded: `artifacts/litert_custom_build/20260517_230448_qairt244/`.
+- The qairt244 native stack was staged only into `customBuildExperimentDebug`: `artifacts/litert_custom_build_stage/20260521_015803/`.
+- `customBuildExperimentDebug` APK packaging and install succeeded.
+- First initialize-only dry-run attempt `runId=1779296283194` was skipped with `custom-stack-build-id-mismatch` because expected Build IDs still pointed at the previous 2.46-overlay dispatch/compiler outputs.
+- `Engine.initialize` was not invoked. No `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, normal UI `Backend.NPU` wiring, or single-token smoke test was run.
+
+Current qairt244 expected custom stack:
+
+| Library | Build ID | SHA-256 |
+| --- | --- | --- |
+| `libLiteRt.so` | `a03032ad1eeefda446478aea308c2ed0` | `84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553` |
+| `libLiteRtDispatch_Qualcomm.so` | `a8006da3bd9b4fdf5b7131f8d864b6ee` | `00c26484621ab42bea6e3bee0d7e908451a428cf19cbd1ebfecf4ccee79e1739` |
+| `liblitertlm_jni.so` | `b78167f717866bbc1d9a981f01fb0334` | `310e37ff7cf770c24d636bbb0f9647a0d59dd893ba0c2530acdfc06569704230` |
+| `libLiteRtCompilerPlugin_Qualcomm.so` | `443391d4c4348191230b67a3ab8a6037` | `c56c7cd5ea3aaee69bae18085b270491507e5736ba8ec1af18aa798f7ac1a64c` |
+| `libGemmaModelConstraintProvider.so` | `f9e5e73e668032550042319e43012011` | `45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6` |
+
+Next run will execute only the explicit opt-in `Engine.initialize` dry-run
+candidate in `customBuildExperimentDebug`.
+
+Dry-run update 2026-05-21:
+
+- stage artifact: `artifacts/litert_custom_build_stage/20260521_074601/`
+- runId: `1779317161924`
+- diagnostics artifact: `artifacts/npu_diagnostics/20260521_074641_customnpu/`
+- device tombstone: `/data/tombstones/tombstone_11`
+- final stage: `Engine.initialize invoking method=Engine.initialize(): void`
+- `Engine.initialize` invoked: yes
+- `Engine.initialize` returned: no
+- signal: `SIGABRT`
+- classification: `no-usable-dispatch-runtime`
+- evidence text: `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found`
+- no `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, normal UI NPU inference, or single-token smoke test was run.
+
+The build script used for the exact SDK was:
 
 ```bash
 bash scripts/build_litert_custom_artifacts.sh \
@@ -308,13 +351,15 @@ bash scripts/build_litert_custom_artifacts.sh \
   --label qairt244
 ```
 
-Expected output:
+Actual qairt244 output:
 
 ```text
-artifacts/litert_custom_build/<timestamp>_qairt244/
+artifacts/litert_custom_build/20260517_230448_qairt244/
 ```
 
-Until QAIRT 2.44 is acquired, do not run another app insertion or `Engine.initialize` dry-run for this path.
+After the expected Build ID guard update, the isolated
+`customBuildExperimentDebug` explicit opt-in `Engine.initialize` dry-run reached
+the initialize call and reproduced `No usable Dispatch runtime found`.
 
 ### Acquisition Workflow Prepared
 

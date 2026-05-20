@@ -231,7 +231,7 @@ The most likely next direction is not another Java/native ABI fix. It is QNN/QAI
 
 ## QAIRT 2.44 Exact-Match Rebuild Check
 
-Result date: 2026-05-17
+Result dates: 2026-05-17, updated 2026-05-21
 
 Search artifact:
 
@@ -240,6 +240,43 @@ artifacts/qairt_244_exact_match/20260517_013958/local_search.txt
 ```
 
 Exact QAIRT `2.44.0.260225` was not found locally. The matching overlay path is a symlink to QAIRT `2.46.0.260424`, so no exact-match rebuild was performed.
+
+Update 2026-05-21:
+
+- Exact QAIRT `2.44.0.260225` was obtained through QPM and installed at `/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225`.
+- The limited qairt244 rebuild succeeded and produced `artifacts/litert_custom_build/20260517_230448_qairt244/`.
+- The qairt244 stack was staged and packaged only into `customBuildExperimentDebug`; the latest staging artifact is `artifacts/litert_custom_build_stage/20260521_015803/`.
+- `customBuildExperimentDebug` packaging and install succeeded.
+- First initialize-only dry-run attempt `runId=1779296283194` was skipped by the stale expected Build ID guard: `custom-stack-build-id-mismatch`.
+- `Engine.initialize` was not invoked in that attempt. No `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, or normal UI NPU inference path was used.
+
+Current qairt244 expected custom stack:
+
+| Library | Build ID | SHA-256 |
+| --- | --- | --- |
+| `libLiteRt.so` | `a03032ad1eeefda446478aea308c2ed0` | `84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553` |
+| `libLiteRtDispatch_Qualcomm.so` | `a8006da3bd9b4fdf5b7131f8d864b6ee` | `00c26484621ab42bea6e3bee0d7e908451a428cf19cbd1ebfecf4ccee79e1739` |
+| `liblitertlm_jni.so` | `b78167f717866bbc1d9a981f01fb0334` | `310e37ff7cf770c24d636bbb0f9647a0d59dd893ba0c2530acdfc06569704230` |
+| `libLiteRtCompilerPlugin_Qualcomm.so` | `443391d4c4348191230b67a3ab8a6037` | `c56c7cd5ea3aaee69bae18085b270491507e5736ba8ec1af18aa798f7ac1a64c` |
+| `libGemmaModelConstraintProvider.so` | `f9e5e73e668032550042319e43012011` | `45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6` |
+
+Previous 2.46-overlay custom stack values remain recorded above as the 2026-05-16 build output.
+
+### QAIRT 2.44 Initialize-Only Dry-Run Result
+
+Result date: 2026-05-21
+
+- stage artifact: `artifacts/litert_custom_build_stage/20260521_074601/`
+- runId: `1779317161924`
+- diagnostics artifact: `artifacts/npu_diagnostics/20260521_074641_customnpu/`
+- device tombstone: `/data/tombstones/tombstone_11`
+- final stage: `Engine.initialize invoking method=Engine.initialize(): void`
+- `Engine.initialize` invoked: yes
+- `Engine.initialize` returned: no
+- signal: `SIGABRT`
+- classification: `no-usable-dispatch-runtime`
+- likely abort/register text: `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found`
+- `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, and normal UI NPU inference were not used.
 
 Prepared acquisition and compare docs:
 

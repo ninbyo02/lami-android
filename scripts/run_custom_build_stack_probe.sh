@@ -13,6 +13,16 @@ DRY_RUN_FILE="files/npu_engine_initialize_dry_run.txt"
 CRASH_MARKER_FILE="files/npu_engine_initialize_crash_marker.txt"
 LAST_STAGE_FILE="files/npu_engine_initialize_last_stage.txt"
 DEFAULT_MODEL_BASENAME="gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+EXPECTED_QAIRT244_LITERT_BUILD_ID="a03032ad1eeefda446478aea308c2ed0"
+EXPECTED_QAIRT244_DISPATCH_BUILD_ID="a8006da3bd9b4fdf5b7131f8d864b6ee"
+EXPECTED_QAIRT244_LITERTLM_JNI_BUILD_ID="b78167f717866bbc1d9a981f01fb0334"
+EXPECTED_QAIRT244_COMPILER_PLUGIN_BUILD_ID="443391d4c4348191230b67a3ab8a6037"
+EXPECTED_QAIRT244_GEMMA_PROVIDER_BUILD_ID="f9e5e73e668032550042319e43012011"
+EXPECTED_QAIRT244_LITERT_SHA256="84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553"
+EXPECTED_QAIRT244_DISPATCH_SHA256="00c26484621ab42bea6e3bee0d7e908451a428cf19cbd1ebfecf4ccee79e1739"
+EXPECTED_QAIRT244_LITERTLM_JNI_SHA256="310e37ff7cf770c24d636bbb0f9647a0d59dd893ba0c2530acdfc06569704230"
+EXPECTED_QAIRT244_COMPILER_PLUGIN_SHA256="c56c7cd5ea3aaee69bae18085b270491507e5736ba8ec1af18aa798f7ac1a64c"
+EXPECTED_QAIRT244_GEMMA_PROVIDER_SHA256="45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6"
 
 shift $(( $# > 0 ? 1 : 0 ))
 while [ "$#" -gt 0 ]; do
@@ -33,6 +43,26 @@ while [ "$#" -gt 0 ]; do
 done
 
 cd "$ROOT_DIR" || exit 1
+
+print_expected_qairt244_stack() {
+  cat <<EOF
+[custom-build-probe] expected QAIRT 2.44 custom stack:
+  libLiteRt.so build_id=$EXPECTED_QAIRT244_LITERT_BUILD_ID sha256=$EXPECTED_QAIRT244_LITERT_SHA256
+  libLiteRtDispatch_Qualcomm.so build_id=$EXPECTED_QAIRT244_DISPATCH_BUILD_ID sha256=$EXPECTED_QAIRT244_DISPATCH_SHA256
+  liblitertlm_jni.so build_id=$EXPECTED_QAIRT244_LITERTLM_JNI_BUILD_ID sha256=$EXPECTED_QAIRT244_LITERTLM_JNI_SHA256
+  libLiteRtCompilerPlugin_Qualcomm.so build_id=$EXPECTED_QAIRT244_COMPILER_PLUGIN_BUILD_ID sha256=$EXPECTED_QAIRT244_COMPILER_PLUGIN_SHA256
+  libGemmaModelConstraintProvider.so build_id=$EXPECTED_QAIRT244_GEMMA_PROVIDER_BUILD_ID sha256=$EXPECTED_QAIRT244_GEMMA_PROVIDER_SHA256
+EOF
+}
+
+print_actual_custom_stack_from_snapshot() {
+  if [ -n "${SNAPSHOT:-}" ]; then
+    echo "[custom-build-probe] actual custom stack line from probe snapshot:"
+    printf '%s\n' "$SNAPSHOT" | grep -F "Custom Build Stack Compatibility:" || true
+  else
+    echo "[custom-build-probe] actual custom stack snapshot is missing."
+  fi
+}
 
 echo "[custom-build-probe] staging custom built native stack..."
 bash scripts/stage_litert_custom_build_stack_for_experiment.sh "$ARTIFACT_DIR" || exit $?
@@ -145,7 +175,21 @@ fi
 if [ "$RUN_ENGINE_DRY_RUN" = "true" ]; then
   echo
   echo "[custom-build-probe] engine dry-run stage file:"
-  adb shell run-as "$APP_ID" cat "$DRY_RUN_FILE" || true
+  DRY_RUN_STAGE="$(adb shell run-as "$APP_ID" cat "$DRY_RUN_FILE" 2>/dev/null | tr -d '\r' || true)"
+  if [ -n "$DRY_RUN_STAGE" ]; then
+    printf '%s\n' "$DRY_RUN_STAGE"
+  else
+    echo "<missing>"
+  fi
+  if printf '%s\n%s\n' "$SNAPSHOT" "$DRY_RUN_STAGE" | grep -q "custom-stack-build-id-mismatch"; then
+    echo
+    echo "[custom-build-probe] ERROR: Engine.initialize dry-run skipped because packaged custom stack Build IDs did not match expected values." >&2
+    print_expected_qairt244_stack >&2
+    print_actual_custom_stack_from_snapshot >&2
+    CUSTOM_STACK_BUILD_ID_MISMATCH=true
+  else
+    CUSTOM_STACK_BUILD_ID_MISMATCH=false
+  fi
 fi
 
 echo
@@ -170,4 +214,8 @@ if [ "$RUN_ENGINE_DRY_RUN" = "true" ]; then
   echo "[custom-build-probe] Done. Explicit Engine.initialize dry-run was requested; Conversation/generateResponse were not called."
 else
   echo "[custom-build-probe] Done. Engine.initialize dry-run was not requested."
+fi
+
+if [ "${CUSTOM_STACK_BUILD_ID_MISMATCH:-false}" = "true" ]; then
+  exit 6
 fi

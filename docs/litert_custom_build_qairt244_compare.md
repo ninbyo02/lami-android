@@ -5,18 +5,64 @@ Date: 2026-05-17
 ## Status
 
 ```text
-blocked-awaiting-qairt244
+qairt244-initialize-invoked-sigabrt-no-usable-dispatch-runtime
 ```
 
-QAIRT `2.44.0.260225` is not currently installed as a real SDK on this machine.
+QAIRT `2.44.0.260225` is now installed as a real SDK on this machine:
 
-The path below exists, but it is only an investigation overlay pointing to QAIRT `2.46.0.260424`:
+```text
+/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+```
+
+The limited exact qairt244 rebuild succeeded:
+
+```text
+artifacts/litert_custom_build/20260517_230448_qairt244/
+```
+
+The qairt244 stack was staged and packaged only into `customBuildExperimentDebug`.
+The latest staging artifact is:
+
+```text
+artifacts/litert_custom_build_stage/20260521_015803/
+```
+
+Packaging and install succeeded. First initialize-only dry-run attempt
+`runId=1779296283194` was skipped by the stale expected Build ID guard:
+
+```text
+custom-stack-build-id-mismatch
+```
+
+At that point, `Engine.initialize` had not yet been invoked for the qairt244
+expected stack. The next run was limited to the explicit opt-in
+`Engine.initialize` dry-run candidate. It still did not create
+`Conversation`/`Session`, call
+`generateResponse`, set `selectedPath=npu`, or wire `Backend.NPU` into the
+normal UI inference path.
+
+Update after expected ID refresh:
+
+- stage artifact: `artifacts/litert_custom_build_stage/20260521_074601/`
+- dry-run runId: `1779317161924`
+- diagnostics artifact: `artifacts/npu_diagnostics/20260521_074641_customnpu/`
+- `Engine.initialize` invoked: yes
+- `Engine.initialize` returned: no
+- signal: `SIGABRT`
+- classification: `no-usable-dispatch-runtime`
+- likely abort/register text: `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found`
+- `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, and normal UI NPU inference remained unused.
+
+Initial 2026-05-17 state: the path below existed, but it was only an
+investigation overlay pointing to QAIRT `2.46.0.260424`:
 
 ```text
 /home/sato/project/litert-custom-build/qairt_overlay/qairt/2.44.0.260225
 ```
 
-Because the exact QAIRT `2.44.0.260225` payload is not available, no exact-match rebuild was performed and no new native artifacts were produced.
+At that time, the exact QAIRT `2.44.0.260225` payload was not available, so no
+exact-match rebuild had been performed and no qairt244 native artifacts had
+been produced.
 
 Local search artifact:
 
@@ -30,9 +76,50 @@ Acquisition notes:
 docs/qairt_244_acquisition_notes.md
 ```
 
-## Previous Build Under Comparison
+## Current QAIRT 2.44 Build
 
-Previous custom build:
+Current exact qairt244 custom build:
+
+```text
+artifacts/litert_custom_build/20260517_230448_qairt244/
+```
+
+Current qairt244 native stack:
+
+| Library | Build ID | SHA-256 |
+| --- | --- | --- |
+| `libLiteRt.so` | `a03032ad1eeefda446478aea308c2ed0` | `84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553` |
+| `libLiteRtDispatch_Qualcomm.so` | `a8006da3bd9b4fdf5b7131f8d864b6ee` | `00c26484621ab42bea6e3bee0d7e908451a428cf19cbd1ebfecf4ccee79e1739` |
+| `liblitertlm_jni.so` | `b78167f717866bbc1d9a981f01fb0334` | `310e37ff7cf770c24d636bbb0f9647a0d59dd893ba0c2530acdfc06569704230` |
+| `libLiteRtCompilerPlugin_Qualcomm.so` | `443391d4c4348191230b67a3ab8a6037` | `c56c7cd5ea3aaee69bae18085b270491507e5736ba8ec1af18aa798f7ac1a64c` |
+| `libGemmaModelConstraintProvider.so` | `f9e5e73e668032550042319e43012011` | `45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6` |
+
+## QAIRT 2.44 Initialize-Only Dry-Run Result
+
+Result date: 2026-05-21
+
+The expected Build ID guard passed far enough to invoke `Engine.initialize`.
+The process then aborted during dispatch delegate creation.
+
+| Field | Value |
+| --- | --- |
+| Run ID | `1779317161924` |
+| Stage artifact | `artifacts/litert_custom_build_stage/20260521_074601/` |
+| Diagnostics artifact | `artifacts/npu_diagnostics/20260521_074641_customnpu/` |
+| Device tombstone | `/data/tombstones/tombstone_11` |
+| Final stage | `Engine.initialize invoking method=Engine.initialize(): void` |
+| `Engine.initialize` invoked | yes |
+| `Engine.initialize` returned | no |
+| Signal | `SIGABRT` |
+| Classification | `no-usable-dispatch-runtime` |
+| Main text | `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found` |
+
+No generation path was exercised: no `Conversation`, no `Session`, no
+`generateResponse`, no `selectedPath=npu`, and no normal UI NPU inference.
+
+## Previous 2.46-Overlay Build Under Comparison
+
+Previous 2.46-overlay custom build:
 
 ```text
 artifacts/litert_custom_build/20260516_235244/
@@ -69,6 +156,8 @@ Failed to create a dispatch delegate kernel: No usable Dispatch runtime found
 ```
 
 ## Exact QAIRT 2.44 Build Plan
+
+Status: completed for the limited rebuild.
 
 Once the SDK exists at:
 
@@ -198,6 +287,9 @@ Do not proceed if:
 
 ## Current Decision
 
-Do not proceed to isolated insertion. Exact QAIRT 2.44 is missing, so the next action is acquisition, not app testing.
+Isolated insertion has now proceeded only for `customBuildExperimentDebug`
+after exact QAIRT 2.44 acquisition and limited rebuild. The remaining next
+action is the explicit opt-in initialize-only dry-run; app generation and normal
+UI NPU inference remain out of scope.
 
 No app integration, `Engine.initialize`, NPU inference, `Conversation`, `Session`, `generateResponse`, or `selectedPath=npu` was performed for this compare step.

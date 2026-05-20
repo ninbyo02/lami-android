@@ -47,7 +47,48 @@ Key files:
 
 ## Build ID Comparison
 
-### Custom built LiteRT stack
+### Current QAIRT 2.44 custom built LiteRT stack
+
+| Library | Build ID | SHA-256 |
+| --- | --- | --- |
+| `libLiteRt.so` | `a03032ad1eeefda446478aea308c2ed0` | `84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553` |
+| `libLiteRtDispatch_Qualcomm.so` | `a8006da3bd9b4fdf5b7131f8d864b6ee` | `00c26484621ab42bea6e3bee0d7e908451a428cf19cbd1ebfecf4ccee79e1739` |
+| `liblitertlm_jni.so` | `b78167f717866bbc1d9a981f01fb0334` | `310e37ff7cf770c24d636bbb0f9647a0d59dd893ba0c2530acdfc06569704230` |
+| `libLiteRtCompilerPlugin_Qualcomm.so` | `443391d4c4348191230b67a3ab8a6037` | `c56c7cd5ea3aaee69bae18085b270491507e5736ba8ec1af18aa798f7ac1a64c` |
+| `libGemmaModelConstraintProvider.so` | `f9e5e73e668032550042319e43012011` | `45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6` |
+
+This stack came from exact QAIRT `2.44.0.260225` installed at
+`/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225` and the limited
+build artifact `artifacts/litert_custom_build/20260517_230448_qairt244/`.
+Packaging/install into `customBuildExperimentDebug` succeeded. First dry-run
+attempt `runId=1779296283194` was skipped by stale expected IDs
+(`custom-stack-build-id-mismatch`), so `Engine.initialize` was still uninvoked
+for this expected stack at that point.
+
+After refreshing the expected IDs, initialize-only dry-run `runId=1779317161924`
+invoked `Engine.initialize` and aborted with `SIGABRT`. Diagnostics are in
+`artifacts/npu_diagnostics/20260521_074641_customnpu/`; the result class is
+`no-usable-dispatch-runtime`.
+
+### QAIRT 2.44 initialize-only dry-run
+
+| Field | Value |
+| --- | --- |
+| Run ID | `1779317161924` |
+| Stage artifact | `artifacts/litert_custom_build_stage/20260521_074601/` |
+| Diagnostics artifact | `artifacts/npu_diagnostics/20260521_074641_customnpu/` |
+| Device tombstone | `/data/tombstones/tombstone_11` |
+| Final stage | `Engine.initialize invoking method=Engine.initialize(): void` |
+| `Engine.initialize` invoked | yes |
+| `Engine.initialize` returned | no |
+| Signal | `SIGABRT` |
+| Classification | `no-usable-dispatch-runtime` |
+| Evidence text | `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found` |
+
+No `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, or normal
+UI NPU inference path was used.
+
+### Previous 2.46-overlay custom built LiteRT stack
 
 | Library | Build ID |
 | --- | --- |
@@ -97,17 +138,23 @@ Key files:
 
 ### H1: QAIRT 2.44 expected vs 2.46 built/runtime mismatch
 
-Status: likely.
+Status: resolved for LiteRT custom build artifacts; runtime still fails with no usable dispatch runtime.
 
 Evidence:
 
 - LiteRT source expects QAIRT `2.44.0.260225`.
-- Local build used an overlay to QAIRT `2.46.0.260424`.
+- The older local build used an overlay to QAIRT `2.46.0.260424`.
+- Exact QAIRT `2.44.0.260225` has now been obtained through QPM.
+- Limited qairt244 rebuild, stage, APK packaging, and install succeeded.
+- The first dry-run attempt was skipped before `Engine.initialize` because the app guard still expected the old 2.46-overlay dispatch/compiler Build IDs.
+- After updating the expected qairt244 IDs, `Engine.initialize` was invoked and aborted with `No usable Dispatch runtime found`.
 - QAIRT 2.46 headers report QNN core `2.35.0` and HTP `5.46.0`.
 - custom APK packaged QNN libs are not the same Build IDs as local QAIRT 2.46 and not the same as Gallery SM8750.
 - Dispatch strings explicitly contain QNN library/backend/system version mismatch checks.
 
-This is currently the most actionable hypothesis.
+The next evidence point is no longer the stale guard. The current failure is
+inside dispatch delegate creation after `Engine.initialize` starts. This remains
+isolated to `customBuildExperimentDebug` and did not run generation.
 
 ### H2: SM8750/V79 dispatch capability mismatch
 
@@ -208,7 +255,7 @@ Safety remains unchanged:
 
 ## QAIRT 2.44 Exact-Match Rebuild Status
 
-Result date: 2026-05-17
+Result dates: 2026-05-17, updated 2026-05-21
 
 Local search artifact:
 
@@ -217,22 +264,25 @@ artifacts/qairt_244_exact_match/20260517_013958/local_search.txt
 ```
 
 ```text
-blocked-awaiting-qairt244
+qairt244-initialize-invoked-sigabrt-no-usable-dispatch-runtime
 ```
 
-The exact QAIRT `2.44.0.260225` SDK was not found locally. The only matching path is:
+Initial 2026-05-17 state: the exact QAIRT `2.44.0.260225` SDK was not found
+locally. The only matching path was:
 
 ```text
 /home/sato/project/litert-custom-build/qairt_overlay/qairt/2.44.0.260225
 ```
 
-That is a symlink to:
+That was a symlink to:
 
 ```text
 /home/sato/compose/qairt/workspace/sdk/qairt/2.46.0.260424
 ```
 
-No QAIRT 2.44 exact-match rebuild was performed.
+At that time, no QAIRT 2.44 exact-match rebuild had been performed. The exact
+qairt244 limited rebuild later succeeded at
+`artifacts/litert_custom_build/20260517_230448_qairt244/`.
 
 Acquisition notes:
 
@@ -246,7 +296,7 @@ Prepared compare doc:
 docs/litert_custom_build_qairt244_compare.md
 ```
 
-The build helper now supports:
+The build helper used for the exact SDK was:
 
 ```bash
 bash scripts/build_litert_custom_artifacts.sh \
@@ -255,7 +305,8 @@ bash scripts/build_litert_custom_artifacts.sh \
   --label qairt244
 ```
 
-This creates a per-run overlay under the build artifact directory and does not overwrite the existing 2.46 overlay.
+This created a per-run overlay under the build artifact directory and did not
+overwrite the existing 2.46 overlay.
 
 ## QAIRT 2.46 Source/Ref Search Status
 
@@ -290,34 +341,11 @@ available LiteRT/LiteRT-LM refs. The strongest next path is still exact QAIRT
 
 ## Current Recommended Path
 
-1. Acquire exact QAIRT `2.44.0.260225` through Qualcomm official / QPM channels.
-2. If the SDK is provided as a zip or extracted directory, stage and verify it:
-
-   ```bash
-   bash scripts/stage_qairt244_sdk_from_download.sh ~/Downloads/v2.44.0.260225.zip
-   ```
-
-   or verify an existing directory directly:
-
-   ```bash
-   bash scripts/check_qairt244_sdk.sh \
-     /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225
-   ```
-
-3. Run:
-
-   ```bash
-   bash scripts/run_qairt244_rebuild_compare.sh
-   ```
-
-4. If the exact build succeeds, review the static compare output before any
-   isolated insertion.
-5. If static compare is acceptable, prepare a later isolated
-   `Engine.initialize` dry-run only.
-6. If QAIRT 2.44 acquisition remains blocked, post the official issue with:
-   - no public QAIRT 2.46 source/ref found
-   - QAIRT 2.44 required by public metadata
-   - same-source/tag 2.46-overlay build still fails with no usable dispatch runtime
+1. Treat the stale expected Build ID guard as unblocked.
+2. Investigate why qairt244 still reports no usable dispatch runtime after `Engine.initialize` starts.
+3. Compare QNN runtime packaging/capability expectations against the qairt244 build and Gallery SM8750 stack before any further isolated experiment.
+4. Do not run generation, create `Conversation`/`Session`, set
+   `selectedPath=npu`, or wire `Backend.NPU` into normal UI inference.
 
 ## QAIRT 2.42 Comparison Status
 
@@ -374,12 +402,12 @@ Artifact:
 artifacts/qairt244_acquisition/20260517_074537/
 ```
 
-Result:
+Initial 2026-05-17 result:
 
 - `qpm`, `qpm-cli`, `qualcomm-package-manager`, and `software-center` were not found
 - `qpm search` could not be run
 - no `/opt/qcom/aistack/qairt/` install was found
-- exact QAIRT `2.44.0.260225` remains missing
+- exact QAIRT `2.44.0.260225` was missing at that time
 - local QAIRT `2.46.0.260424` remains the only full SDK found
 
 Prepared workflow:
@@ -428,7 +456,6 @@ Generation comparison after adding Radxa evidence:
 
 This makes `No usable Dispatch runtime found` consistent with a generation or
 capability acceptance failure even when the dispatch `.so`, `libLiteRt.so`, and
-QNN files are present. The best next path remains exact QAIRT `2.44.0.260225`
-acquisition or maintainer guidance; a QAIRT 2.42 downgrade is informative but
-lower confidence for SM8750/V79 because Radxa documents QCS6490/V68 and
-QCS9075/V73 rather than SM8750/V79.
+QNN files are present. Exact QAIRT `2.44.0.260225` has since been acquired and
+rebuilt; the initialize-only dry-run now reaches `Engine.initialize` and still
+classifies as `no-usable-dispatch-runtime`.

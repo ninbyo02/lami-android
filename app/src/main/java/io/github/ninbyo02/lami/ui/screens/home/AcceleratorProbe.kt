@@ -36,9 +36,9 @@ internal object AcceleratorProbe {
     private const val GALLERY_SM8750_QNN_HTP_V79_STUB_BUILD_ID = "10d7ad6f9195411a"
     private const val GALLERY_SM8750_DISPATCH_SHA256 = "92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777"
     private const val CUSTOM_BUILD_LITERT_BUILD_ID = "a03032ad1eeefda446478aea308c2ed0"
-    private const val CUSTOM_BUILD_DISPATCH_BUILD_ID = "e999216e6d32c2f38702cd8538299e7d"
+    private const val CUSTOM_BUILD_DISPATCH_BUILD_ID = "a8006da3bd9b4fdf5b7131f8d864b6ee"
     private const val CUSTOM_BUILD_LITERTLM_JNI_BUILD_ID = "b78167f717866bbc1d9a981f01fb0334"
-    private const val CUSTOM_BUILD_COMPILER_PLUGIN_BUILD_ID = "9053b81d7cbccdc3b5460c5e7395e293"
+    private const val CUSTOM_BUILD_COMPILER_PLUGIN_BUILD_ID = "443391d4c4348191230b67a3ab8a6037"
     private const val CUSTOM_BUILD_GEMMA_MODEL_CONSTRAINT_PROVIDER_BUILD_ID = "f9e5e73e668032550042319e43012011"
     private const val GALLERY_NATIVE_CREATE_ENGINE_DESCRIPTOR =
         "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;ZLjava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)J"
