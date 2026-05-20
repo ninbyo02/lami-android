@@ -361,6 +361,45 @@ After the expected Build ID guard update, the isolated
 `customBuildExperimentDebug` explicit opt-in `Engine.initialize` dry-run reached
 the initialize call and reproduced `No usable Dispatch runtime found`.
 
+### Post-Failure Root Cause Split
+
+Result date: 2026-05-21
+
+Coordinator artifact:
+
+```text
+artifacts/qairt244_failure_analysis/20260521_081545/
+```
+
+Docs:
+
+- `docs/litert_qairt244_tombstone_runtime_mapping.md`
+- `docs/litert_qairt244_android_qnn_path_analysis.md`
+- `docs/litert_dispatch_capability_source_trace.md`
+- `docs/litert_lm_main_npu_cli_proof_plan.md`
+- `docs/litert_qualcomm_sm8750_model_schema_probe.md`
+- `docs/litert_qairt244_failure_root_cause_matrix.md`
+
+Findings:
+
+- qairt244 `customBuildExperimentDebug` mapped `liblitertlm_jni.so` and
+  `libGemmaModelConstraintProvider.so` before abort, but did not map
+  `libLiteRtDispatch_Qualcomm.so` or QNN/HTP libraries in the tombstone.
+- The model contains `LITERTLM`, `DISPATCH_OP`, `qnn_partition_*`,
+  `soc_type=SM8750`, `min_arch=79`, and `v2.44.0.260225143659` markers.
+- Source trace shows the observed fatal is emitted after
+  `InitializeDispatchApi()` fails and `has_dispatch_runtime_` is set false.
+- Upstream `//runtime/engine:litert_lm_main` exists but is not safe to execute
+  for this task because it creates a `Conversation` and sends a prompt.
+
+Current next recommendation:
+
+1. Add high-signal dispatch/QNN initialization logging and rebuild only the
+   isolated qairt244 custom stack.
+2. Refresh rootless device QNN/CDSP path collection when adb is connected.
+3. Do not run CLI NPU proof until an initialize-only, non-generating CLI target
+   exists.
+
 ### Acquisition Workflow Prepared
 
 Probe artifact:

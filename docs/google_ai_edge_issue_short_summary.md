@@ -67,6 +67,11 @@ Additional source/version findings:
 - same-source/tag LiteRT-LM `v0.11.0` + pinned LiteRT custom stack also failed at `Engine.initialize`
 - failure frame: `DispatchDelegate::CreateDelegateKernelInterface()+312`
 - custom built stack includes `libLiteRt.so`, `libLiteRtDispatch_Qualcomm.so`, `liblitertlm_jni.so`, `libLiteRtCompilerPlugin_Qualcomm.so`, and `libGemmaModelConstraintProvider.so`
+- exact QAIRT `2.44.0.260225` was obtained through QPM and used for the latest limited rebuild
+- latest qairt244 artifact: `artifacts/litert_custom_build/20260517_230448_qairt244`
+- latest diagnostics: `artifacts/npu_diagnostics/20260521_074641_customnpu/`
+- qairt244 tombstone maps `liblitertlm_jni.so` and `libGemmaModelConstraintProvider.so`, but not `libLiteRtDispatch_Qualcomm.so` or QNN/HTP libraries before abort
+- model metadata contains `DISPATCH_OP`, `qnn_partition_*`, `soc_type=SM8750`, `min_arch=79`, and `v2.44.0.260225143659`
 - Java/native ABI mismatch is no longer likely
 - missing dispatch `.so` is no longer likely
 - missing `libLiteRt.so` is no longer likely
@@ -74,9 +79,6 @@ Additional source/version findings:
 - public LiteRT metadata still points to QAIRT `2.44.0.260225`
 - public LiteRT-LM `origin/main` pins a LiteRT ref that also points to QAIRT `2.44.0.260225`
 - bounded search found no public QAIRT `2.46.0.260424` source/ref evidence
-- exact QAIRT `2.44.0.260225` SDK is not available locally, so exact-match rebuild is blocked
-- existing `2.44.0.260225` path was only a 2.46 overlay symlink
-- QPM / Qualcomm Software Center CLI was not detected locally
 
 What seems unlikely:
 

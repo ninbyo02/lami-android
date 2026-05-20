@@ -1,0 +1,144 @@
+LiteRT-LM Qualcomm SM8750 model metadata probe
+Date: 2026-05-21
+
+Scope
+- Read-only metadata/container inspection only.
+- No inference.
+- No model modification.
+
+Device availability
+- adb devices:
+  List of devices attached
+- /data/local/tmp/gemma-4-E2B-it_qualcomm_sm8750.litertlm:
+  adb: no devices/emulators found
+- app-private run-as probe:
+  skipped because no connected device was available.
+
+Local model found
+- /home/sato/Downloads/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+
+File metadata
+- file: data
+- size_bytes: 3016294400
+- mtime: 2026-05-10 19:16:59.883337791 +0900
+- mode: -rw-rw-r--
+- sha256: 41dd675fbe735b6029012b5576a5716bac614fd8156de0128db4c9dff3cebd4e
+
+Header bytes
+00000000: 4c49 5445 5254 4c4d 0100 0000 0500 0000  LITERTLM........
+00000010: 0000 0000 0000 0000 f005 0000 0000 0000  ................
+00000020: 1000 0000 0000 0000 0800 0c00 0800 0400  ................
+00000030: 0800 0000 0800 0000 a804 0000 76fa ffff  ............v...
+00000040: 0400 0000 0c00 0000 3004 0000 c403 0000  ........0.......
+00000050: 4803 0000 dc02 0000 7002 0000 0402 0000  H.......p.......
+00000060: 9801 0000 2401 0000 b800 0000 4c00 0000  ....$.......L...
+00000070: 2800 0000 0400 0000 74fc ffff 0000 0004  (.......t.......
+00000080: 75cc c8b3 0000 0000 0040 81b3 0000 0000  u........@......
+00000090: 0400 0000 0000 0000 94fc ffff 0000 0005  ................
+000000a0: a02f 81b3 0000 0000 0000 81b3 0000 0000  ./..............
+000000b0: 0400 0000 0000 0000 b4fc ffff 0000 0003  ................
+000000c0: 74da 80b3 0000 0000 00c0 80b3 0000 0000  t...............
+000000d0: 0400 0000 0100 0000 0400 0000 8afb ffff  ................
+000000e0: 0c00 0000 0000 0009 2800 0000 26fb ffff  ........(...&...
+000000f0: 0400 0000 1400 0000 7466 5f6c 6974 655f  ........tf_lite_
+
+Archive/container checks
+- zipinfo -l:
+  End-of-central-directory signature not found.
+- tar -tf:
+  This does not look like a tar archive.
+- Container reading:
+  starts with LITERTLM; not zip/tar/ELF/plain TFLite by these probes.
+
+Early section/name strings
+- LITERTLM
+- tf_lite_end_of_audio
+- tf_lite_audio_adapter
+- tf_lite_audio_encoder_hw
+- tf_lite_end_of_vision
+- tf_lite_vision_adapter
+- tf_lite_vision_encoder
+- tf_lite_prefill_decode
+- tf_lite_per_layer_embedder
+- tf_lite_aux
+- tf_lite_embedder
+
+Bounded target string hits
+- CONVERSION_METADATA
+- LiteRtStamp
+- Qualcomm
+- SM8750
+- qnn_partition_0
+- qnn_partition_1
+- DISPATCH_OP
+- min_arch=79
+- soc_type=SM8750
+- training_mode=inference
+- v2.44.0.260225143659
+- Vrv2.44.0.260225143659.64312b4030
+
+Keyword occurrence summary
+     10 CONVERSION_METADATA
+      2 DISPATCH_OP
+      1 LITERTLM
+      2 LiteRtStamp
+      3 Qualcomm
+      2 SM8750
+      8 min_arch=79
+     10 model_type
+      6 qnn_partition_0
+      6 qnn_partition_1
+      8 soc_type=SM8750
+      1 tf_lite_audio_adapter
+      1 tf_lite_audio_encoder_hw
+      1 tf_lite_aux
+      1 tf_lite_embedder
+      1 tf_lite_end_of_audio
+      1 tf_lite_end_of_vision
+      1 tf_lite_per_layer_embedder
+      1 tf_lite_prefill_decode
+      1 tf_lite_vision_adapter
+      1 tf_lite_vision_encoder
+      8 training_mode=inference
+
+Late schema/backend/compiled strings observed
+- schema
+- Schema
+- backend
+- Backend
+- compiled
+- schemas
+- schematic
+- XMLSchema
+
+Compiled/runtime reading
+- Observed DISPATCH_OP plus qnn_partition_0/qnn_partition_1.
+- Observed Qualcomm, SM8750, soc_type=SM8750, min_arch=79.
+- Observed explicit QAIRT/QNN generation-looking marker v2.44.0.260225143659.
+- Reading: the file appears to include precompiled Qualcomm SM8750/V79 dispatch
+  payload metadata rather than requiring app-side runtime compilation from a
+  generic model. A compatible LiteRT dispatch runtime and QNN/HTP runtime are
+  still required to load/execute it.
+
+Gallery handling context checked
+- docs/litert_gallery_dispatch_runtime_investigation.md
+- docs/litertlm_gallery_java_api_surface_mismatch.md
+- docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md
+- docs/radxa_qairt_ecosystem_analysis.md
+- docs/litert_qnn_qairt_coupling_findings.md
+- docs/litert_qnn_qairt_coupling_investigation_plan.md
+
+Relevant existing-doc context
+- Gallery SM8750 APK includes a special Qualcomm dispatch/QNN native payload.
+- Gallery payload Build IDs differ from public Maven and custom/local stacks.
+- After Java/JNI descriptor alignment, Gallery/custom probes still failed in the
+  No usable Dispatch runtime found class.
+- Prior docs identified model/runtime schema as unresolved because no local
+  model metadata strings had been collected.
+- This probe resolves that specific gap by recording direct model strings.
+
+Limits
+- No connected Android device.
+- No /data/local/tmp or app-private read.
+- No structured LiteRT-LM schema decode.
+- No inference or Engine.initialize.

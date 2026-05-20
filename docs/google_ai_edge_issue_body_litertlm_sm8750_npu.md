@@ -25,6 +25,20 @@ Classification:
   QAIRT/QNN generation/capability mismatch
 - confidence: medium
 
+Update after exact QAIRT 2.44 rebuild:
+
+- Exact QAIRT `2.44.0.260225` was acquired through QPM and used for the limited
+  custom rebuild.
+- qairt244 artifact: `artifacts/litert_custom_build/20260517_230448_qairt244`
+- qairt244 diagnostics: `artifacts/npu_diagnostics/20260521_074641_customnpu/`
+- the isolated `customBuildExperimentDebug` `Engine.initialize` dry-run still
+  aborts with `No usable Dispatch runtime found`
+- tombstone mapping shows `liblitertlm_jni.so` and
+  `libGemmaModelConstraintProvider.so` mapped before abort, but not
+  `libLiteRtDispatch_Qualcomm.so` or QNN/HTP libraries
+- local model metadata contains `DISPATCH_OP`, `qnn_partition_*`,
+  `soc_type=SM8750`, `min_arch=79`, and `v2.44.0.260225143659`
+
 What I need from maintainers:
 
 - the supported way to obtain or build a Qualcomm dispatch runtime matching LiteRT-LM Android,
@@ -97,14 +111,13 @@ Same-source/tag custom native stack staged only in `customBuildExperimentDebug`:
 | Library | Build ID | Notes |
 | --- | --- | --- |
 | `liblitertlm_jni.so` | `b78167f717866bbc1d9a981f01fb0334` | built from LiteRT-LM `v0.11.0` |
-| `libLiteRt.so` | `a03032ad1eeefda446478aea308c2ed0` | built from LiteRT pinned ref `47615eb6eaec25e8dfcd1aba922c560a57cba0a2` |
-| `libLiteRtDispatch_Qualcomm.so` | `e999216e6d32c2f38702cd8538299e7d` | same source/ref Qualcomm dispatch |
-| `libLiteRtCompilerPlugin_Qualcomm.so` | `9053b81d7cbccdc3b5460c5e7395e293` | same source/ref Qualcomm compiler plugin |
+| `libLiteRt.so` | `a03032ad1eeefda446478aea308c2ed0` | built from LiteRT pinned ref `47615eb6eaec25e8dfcd1aba922c560a57cba0a2` with exact QAIRT 2.44 |
+| `libLiteRtDispatch_Qualcomm.so` | `a8006da3bd9b4fdf5b7131f8d864b6ee` | same source/ref Qualcomm dispatch with exact QAIRT 2.44 |
+| `libLiteRtCompilerPlugin_Qualcomm.so` | `443391d4c4348191230b67a3ab8a6037` | same source/ref Qualcomm compiler plugin with exact QAIRT 2.44 |
 | `libGemmaModelConstraintProvider.so` | `f9e5e73e668032550042319e43012011` | required by built JNI |
 
-That custom build used local QAIRT `2.46.0.260424` through an overlay because
-the public LiteRT metadata expects QAIRT `2.44.0.260225`, but that exact SDK is
-not available locally.
+The current custom build uses exact QAIRT `2.44.0.260225`, matching the public
+LiteRT metadata and the model's embedded `v2.44.0.260225143659` marker.
 
 ## What I Tried
 
@@ -148,8 +161,7 @@ not available locally.
    - generated a matched stack containing `liblitertlm_jni.so`, `libLiteRt.so`,
      `libLiteRtDispatch_Qualcomm.so`, `libLiteRtCompilerPlugin_Qualcomm.so`,
      and `libGemmaModelConstraintProvider.so`
-   - build used local QAIRT `2.46.0.260424` through an overlay because exact
-     QAIRT `2.44.0.260225` was not available locally
+   - the latest rebuild used exact QAIRT `2.44.0.260225`
    - isolated `customBuildExperimentDebug` still failed in `Engine.initialize`
      with `SIGABRT`
    - top frame: `DispatchDelegate::CreateDelegateKernelInterface()+312`
@@ -160,21 +172,26 @@ not available locally.
    - LiteRT-LM `v0.11.0` pins LiteRT
      `47615eb6eaec25e8dfcd1aba922c560a57cba0a2`
    - that LiteRT ref expects QAIRT `2.44.0.260225`
-   - local exact QAIRT `2.44.0.260225` SDK is not currently available
+   - exact QAIRT `2.44.0.260225` was acquired through QPM and is installed at
+     `/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225`
    - searched public LiteRT / LiteRT-LM refs for QAIRT `2.46.0.260424`,
      `260424`, and `260424121129`
    - no public ref with QAIRT 2.46 evidence was found in the bounded search
    - public LiteRT `origin/main` and LiteRT-LM `origin/main` still appear to
      reference QAIRT `2.44.0.260225` metadata
 
-8. QAIRT 2.44 acquisition probe:
-   - exact QAIRT `2.44.0.260225` SDK is not installed locally
-   - the existing `2.44.0.260225` path was only a symlink/overlay to local
-     QAIRT `2.46.0.260424`
-   - `qpm`, `qpm-cli`, `qualcomm-package-manager`, and `software-center` were
-     not detected locally
-   - exact-match rebuild is blocked until QAIRT `2.44.0.260225` is obtained
-     from an official Qualcomm/QPM channel
+8. QAIRT 2.44 exact rebuild:
+   - exact QAIRT `2.44.0.260225` SDK was obtained through QPM
+   - SDK path:
+     `/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225`
+   - limited rebuild artifact:
+     `artifacts/litert_custom_build/20260517_230448_qairt244`
+   - the isolated `customBuildExperimentDebug` dry-run reached
+     `Engine.initialize`
+   - `Engine.initialize` did not return and aborted with
+     `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found`
+   - no `Conversation`, `Session`, `generateResponse`, normal UI NPU wiring, or
+     single-token smoke test was run
 
 ## Reproduction Steps
 
