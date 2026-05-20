@@ -164,6 +164,8 @@ import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.text.MarkdownCodeRepair
+import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
+import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
 import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
 import io.github.ninbyo02.lami.ui.util.formatOutputTokens
 import io.github.ninbyo02.lami.ui.util.formatInferenceTime
@@ -665,7 +667,15 @@ fun Home(
     val preferredBackendDryRunSetting by settingsPreferences.preferredBackendDryRunSettingFlow.collectAsState(
         initial = PreferredBackendDryRunSetting.DEFAULT,
     )
-    val localStreamingRunner = remember(context.applicationContext, settingsPreferences, preferredBackendDryRunSetting) {
+    val markdownStreamingMode by settingsPreferences.markdownStreamingModeFlow.collectAsState(
+        initial = MarkdownStreamingMode.DEFAULT,
+    )
+    val localStreamingRunner = remember(
+        context.applicationContext,
+        settingsPreferences,
+        preferredBackendDryRunSetting,
+        markdownStreamingMode,
+    ) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
         ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, runMediaPipeProbeContext, onPartial ->
@@ -682,6 +692,7 @@ fun Home(
                 resolvedCacheDirPath = runCacheDirPath,
                 mediaPipeProbeContext = runMediaPipeProbeContext,
                 preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                markdownStreamingMode = markdownStreamingMode,
                 prompt = runPrompt,
                 onPartial = onPartial,
             )
@@ -1162,6 +1173,7 @@ fun Home(
         // finalize 経路は「保存してよい最終本文」のみを受け取る想定。
         val finalizedResponseForPersist = buildFinalizedStreamingResponseForPersist(
             response = response,
+            markdownStreamingMode = markdownStreamingMode,
             onMarkdownRepair = {
                 if (BuildConfig.DEBUG) {
                     localStreamingUiMetricsForDev.recordMarkdownRepair()
@@ -2582,9 +2594,13 @@ fun Home(
                                                                         localModelDisplayName = modelResolution.displayName,
                                                                         mediaPipeProbeModelPath = mediaPipeProbeModelPathForRun,
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
+                                                                        markdownStreamingMode = markdownStreamingMode,
                                                                         onPartial = { partial ->
                                                                             if (localStopRequested) return@runWithHeldEngine
-                                                                            val normalizedPartial = normalizeStreamingPartialForRender(partial)
+                                                                            val normalizedPartial = normalizeStreamingPartialForRender(
+                                                                                partial = partial,
+                                                                                markdownStreamingMode = markdownStreamingMode,
+                                                                            )
                                                                             val debugText = buildString {
                                                                                 appendLine("=== WS TRACE ===")
                                                                                 appendLine("RAW:")
@@ -2685,7 +2701,10 @@ fun Home(
                                                                                 mediaPipeProbeContext = mediaPipeProbeContext,
                                                                                 onPartial = legacyPartial@{ partial ->
                                                                                     if (localStopRequested) return@legacyPartial
-                                                                                    val normalizedPartial = normalizeStreamingPartialForRender(partial)
+                                                                                    val normalizedPartial = normalizeStreamingPartialForRender(
+                                                                                        partial = partial,
+                                                                                        markdownStreamingMode = markdownStreamingMode,
+                                                                                    )
                                                                                     val debugText = buildString {
                                                                                         appendLine("=== WS TRACE ===")
                                                                                         appendLine("RAW:")
@@ -2784,7 +2803,10 @@ fun Home(
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         onPartial = legacyPartial@{ partial ->
                                                                             if (localStopRequested) return@legacyPartial
-                                                                            val normalizedPartial = normalizeStreamingPartialForRender(partial)
+                                                                            val normalizedPartial = normalizeStreamingPartialForRender(
+                                                                                partial = partial,
+                                                                                markdownStreamingMode = markdownStreamingMode,
+                                                                            )
                                                                             val debugText = buildString {
                                                                                 appendLine("=== WS TRACE ===")
                                                                                 appendLine("RAW:")
@@ -3945,6 +3967,7 @@ fun Home(
                     devCloseLifecycleText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devCloseLifecycleText else null,
                     devDebugText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devDebugText else null,
                     preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                    markdownStreamingMode = markdownStreamingMode,
                     showDevManualEngineRecreate = BuildConfig.DEBUG,
                     manualEngineRecreateBusy = preferredBackendManualRecreateInProgress,
                     manualEngineRecreateResult = preferredBackendManualRecreateResult,
@@ -4044,15 +4067,25 @@ fun Home(
 
 
 
-internal fun normalizeStreamingPartialForRender(partial: String): String {
-    return partial.trim()
+internal fun normalizeStreamingPartialForRender(
+    partial: String,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+): String {
+    return when (markdownStreamingMode) {
+        MarkdownStreamingMode.LAMI_RECOVERY_V1 -> partial.trim()
+        MarkdownStreamingMode.EDGE_GALLERY_COMPAT -> processEdgeGalleryCompatibleMarkdown(partial)
+    }
 }
 
 internal fun buildFinalizedStreamingResponseForPersist(
     response: String,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     onMarkdownRepair: (() -> Unit)? = null,
 ): String {
     val normalizedFinalText = response.trim()
+    if (markdownStreamingMode == MarkdownStreamingMode.EDGE_GALLERY_COMPAT) {
+        return processEdgeGalleryCompatibleMarkdown(normalizedFinalText).trim()
+    }
     val repaired = MarkdownCodeRepair.repair(normalizedFinalText).trim()
     if (repaired != normalizedFinalText) {
         onMarkdownRepair?.invoke()
@@ -4138,6 +4171,7 @@ private suspend fun runLocalInferenceOnceEntry(
     resolvedCacheDirPath: String? = null,
     mediaPipeProbeContext: Context? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     prompt: String,
     onPartial: (String) -> Unit = {},
 ): LocalInferenceRunResult {
@@ -4202,6 +4236,7 @@ private suspend fun runLocalInferenceOnceEntry(
             cacheDirPath = modelResolution.cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            markdownStreamingMode = markdownStreamingMode,
             onPreferredBackendApplied = { result -> preferredBackendApplyResult = result },
             onPartial = { partial ->
                 officialFlowObservedPartialCount += 1
@@ -6690,6 +6725,7 @@ private fun InferenceStatsSheetContent(
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     showDevManualEngineRecreate: Boolean = false,
     manualEngineRecreateEnabled: Boolean = false,
     manualEngineRecreateBusy: Boolean = false,
@@ -6833,6 +6869,14 @@ private fun InferenceStatsSheetContent(
                             }
                         }
                     }
+                }
+            }
+            if (selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
+                InferenceStatsSection(title = "DEV Markdown") {
+                    InferenceStatRow(
+                        label = "Markdown mode",
+                        value = markdownStreamingMode.displayLabel,
+                    )
                 }
             }
             if (showDevManualEngineRecreate && selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {

@@ -21,6 +21,8 @@ import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.ErrorCause
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
+import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
 import io.github.ninbyo02.lami.util.RuntimeFlags
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -75,6 +77,8 @@ class OllamaViewModel(
     val latestInferenceStats: StateFlow<InferenceStats?> = _latestInferenceStats.asStateFlow()
     @Volatile
     private var activeRemoteCall: Call<ResponseBody>? = null
+    @Volatile
+    private var markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT
     private val effectiveContextWindowCache = mutableMapOf<String, Int?>()
     private val effectiveContextWindowRequestState = mutableMapOf<String, ContextWindowResolutionState>()
 
@@ -128,6 +132,13 @@ class OllamaViewModel(
         }
         viewModelScope.launch {
             chatRepository.cleanupEmptyTempPlaceholderChats()
+        }
+        viewModelScope.launch {
+            settingsPreferences.markdownStreamingModeFlow
+                .distinctUntilChanged()
+                .collect { mode ->
+                    markdownStreamingMode = mode
+                }
         }
         if (shouldAutoLoadModels) {
             viewModelScope.launch {
@@ -386,7 +397,12 @@ class OllamaViewModel(
             }
 
             val body = response.body() ?: throw IOException("Empty response")
-            val streamAssembler = SafeMarkdownStreamAssembler()
+            val activeMarkdownStreamingMode = markdownStreamingMode
+            val streamAssembler = when (activeMarkdownStreamingMode) {
+                MarkdownStreamingMode.LAMI_RECOVERY_V1 -> SafeMarkdownStreamAssembler()
+                MarkdownStreamingMode.EDGE_GALLERY_COMPAT -> null
+            }
+            val edgeGalleryTextBuilder = StringBuilder()
             var doneReceived = false
             val streamingUiUpdateIntervalMs = 80L
             val priorityFlushChars = setOf('。', '、', '！', '？', '\n')
@@ -408,13 +424,28 @@ class OllamaViewModel(
                         // assistant 本文の最初の非空トークン受信時刻をアプリ側で確定する。
                         timeToFirstTokenMs = (SystemClock.elapsedRealtime() - requestStartedAtMs).coerceAtLeast(0L)
                     }
-                    if (!chunk.text.isNullOrBlank()) {
-                        streamAssembler.appendChunk(chunk.text)
-                        val currentText = streamAssembler.buildDisplayText()
+                    val chunkText = chunk.text
+                    val shouldAppendChunk = when (activeMarkdownStreamingMode) {
+                        MarkdownStreamingMode.LAMI_RECOVERY_V1 -> !chunkText.isNullOrBlank()
+                        MarkdownStreamingMode.EDGE_GALLERY_COMPAT -> !chunkText.isNullOrEmpty()
+                    }
+                    if (shouldAppendChunk && chunkText != null) {
+                        val currentText = when (activeMarkdownStreamingMode) {
+                            // Streaming Markdown Recovery Engine v1: legacy safe markdown recovery path.
+                            MarkdownStreamingMode.LAMI_RECOVERY_V1 -> {
+                                val assembler = checkNotNull(streamAssembler)
+                                assembler.appendChunk(chunkText)
+                                assembler.buildDisplayText()
+                            }
+                            MarkdownStreamingMode.EDGE_GALLERY_COMPAT -> {
+                                edgeGalleryTextBuilder.append(processEdgeGalleryCompatibleMarkdown(chunkText))
+                                edgeGalleryTextBuilder.toString()
+                            }
+                        }
                         val nowMs = System.currentTimeMillis()
                         val isIntervalElapsed = nowMs - lastUiUpdateAtMs >= streamingUiUpdateIntervalMs
                         val endsWithPriorityChar =
-                            chunk.text.lastOrNull() in priorityFlushChars ||
+                            chunkText.lastOrNull() in priorityFlushChars ||
                                 currentText.lastOrNull() in priorityFlushChars
                         if ((isIntervalElapsed || endsWithPriorityChar) && latestFlushedText != currentText) {
                             onResponseReceived(currentText.length)
@@ -426,7 +457,10 @@ class OllamaViewModel(
                     }
                     if (chunk.done) {
                         finalChunk = chunk
-                        val currentText = streamAssembler.buildDisplayText()
+                        val currentText = when (activeMarkdownStreamingMode) {
+                            MarkdownStreamingMode.LAMI_RECOVERY_V1 -> checkNotNull(streamAssembler).buildDisplayText()
+                            MarkdownStreamingMode.EDGE_GALLERY_COMPAT -> edgeGalleryTextBuilder.toString()
+                        }
                         if (currentText.isNotEmpty() && latestFlushedText != currentText) {
                             onResponseReceived(currentText.length)
                             _uiState.value = UiState.Streaming(currentText)
@@ -441,8 +475,11 @@ class OllamaViewModel(
             if (!doneReceived) {
                 throw IOException("Streaming response ended before done=true")
             }
-            // SafeMarkdownStreamAssembler の finalizeResult() は、保存に使ってよい最終本文を返す。
-            val finalizedTextForPersist = streamAssembler.finalizeResult()
+            val finalizedTextForPersist = when (activeMarkdownStreamingMode) {
+                // SafeMarkdownStreamAssembler の finalizeResult() は、保存に使ってよい最終本文を返す。
+                MarkdownStreamingMode.LAMI_RECOVERY_V1 -> checkNotNull(streamAssembler).finalizeResult()
+                MarkdownStreamingMode.EDGE_GALLERY_COMPAT -> edgeGalleryTextBuilder.toString().trim()
+            }
             if (finalizedTextForPersist.isEmpty()) {
                 throw IOException("Empty response")
             }

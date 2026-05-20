@@ -11,6 +11,8 @@ import com.google.ai.edge.litertlm.ExperimentalApi
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.local.buildLocalInferenceFailureDiagnosticsText
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
+import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Dispatchers
@@ -163,6 +165,7 @@ internal suspend fun runWithHeldEngine(
     localModelDisplayName: String?,
     mediaPipeProbeModelPath: String? = null,
     mediaPipeProbeContext: Context? = null,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
     onFailureDiagnostics: ((String) -> Unit)? = null,
@@ -243,10 +246,11 @@ internal suspend fun runWithHeldEngine(
                     heldFlowLastChunkElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     appendRunnerWhitespaceStage("append.boundary.before", builder.toString().takeLast(64))
                     appendRunnerWhitespaceStage("append.boundary.extracted", extracted)
-                    val joinApplied = appendStreamingChunk(
+                    val joinApplied = appendMarkdownStreamingChunk(
                         builder = builder,
                         extractedRaw = extracted,
                         context = appendContext,
+                        markdownStreamingMode = markdownStreamingMode,
                         appendTrace = appendTrace,
                     )
                     appendRunnerWhitespaceStage("lane", appendContext.lane.label)
@@ -2867,6 +2871,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     cacheDirPath: String,
     mediaPipeProbeContext: Context? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
@@ -2903,6 +2908,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
                 mediaPipeProbeContext = mediaPipeProbeContext,
                 startElapsedMs = startElapsedMs,
                 preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                markdownStreamingMode = markdownStreamingMode,
                 onPreferredBackendApplied = onPreferredBackendApplied,
                 onPartial = onPartial,
                 appendTrace = appendTrace,
@@ -3342,6 +3348,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+    markdownStreamingMode: MarkdownStreamingMode,
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit,
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
@@ -3355,6 +3362,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             cacheDirPath = cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            markdownStreamingMode = markdownStreamingMode,
             onPreferredBackendApplied = onPreferredBackendApplied,
             startElapsedMs = startElapsedMs,
             onPartial = onPartial,
@@ -3481,10 +3489,11 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
                 }
                 if (extracted == lastPartial) return@collect
                 lastPartial = extracted
-                appendStreamingChunk(
+                appendMarkdownStreamingChunk(
                     builder = builder,
                     extractedRaw = extracted,
                     context = appendContext,
+                    markdownStreamingMode = markdownStreamingMode,
                     appendTrace = appendTrace,
                 )
                 partialCount += 1
@@ -3788,6 +3797,7 @@ private suspend fun runOfficialLiteRtLmDirect(
     cacheDirPath: String,
     mediaPipeProbeContext: Context?,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
@@ -3873,10 +3883,11 @@ private suspend fun runOfficialLiteRtLmDirect(
                 if (!extractedText.isNullOrEmpty()) {
                     if (extractedText == lastChunk) return@collect
                     lastChunk = extractedText
-                    appendStreamingChunk(
+                    appendMarkdownStreamingChunk(
                         builder = builder,
                         extractedRaw = extractedText,
                         context = appendContext,
+                        markdownStreamingMode = markdownStreamingMode,
                         appendTrace = appendTrace,
                     )
                     if (firstPartialMs == null) {
@@ -3999,6 +4010,7 @@ private suspend fun runOfficialLiteRtLmDirect(
                 cacheDirPath = cacheDirPath,
                 mediaPipeProbeContext = mediaPipeProbeContext,
                 preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+                markdownStreamingMode = markdownStreamingMode,
                 onPreferredBackendApplied = {},
                 startElapsedMs = startElapsedMs,
                 onPartial = onPartial,
@@ -4847,6 +4859,31 @@ internal fun shouldInsertMinimalJoinBetween(
     if (nextFirst in STREAMING_NO_JOIN_NEXT_CHARS) return false
     if (isLikelyCodeJoinContext(previous, next)) return false
     return true
+}
+
+private fun appendMarkdownStreamingChunk(
+    builder: StringBuilder,
+    extractedRaw: String,
+    context: StreamingAppendContext? = null,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    appendTrace: ((String) -> Unit)? = null,
+): String {
+    return when (markdownStreamingMode) {
+        // Streaming Markdown Recovery Engine v1: legacy safe markdown recovery path.
+        MarkdownStreamingMode.LAMI_RECOVERY_V1 -> appendStreamingChunk(
+            builder = builder,
+            extractedRaw = extractedRaw,
+            context = context,
+            appendTrace = appendTrace,
+        )
+        MarkdownStreamingMode.EDGE_GALLERY_COMPAT -> {
+            builder.append(processEdgeGalleryCompatibleMarkdown(extractedRaw))
+            appendTrace?.let { trace ->
+                safeAppendTrace(trace, "UPSTREAM append-chunk mode=edge-gallery-compatible join=${summarizeWhitespaceForUi("")}")
+            }
+            ""
+        }
+    }
 }
 
 internal fun appendStreamingChunk(

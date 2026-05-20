@@ -100,6 +100,7 @@ import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
 import io.github.ninbyo02.lami.ui.common.BottomFadeOverlay
 import io.github.ninbyo02.lami.ui.common.TopFadeOverlay
+import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.util.PORT_ERROR_MESSAGE
 import io.github.ninbyo02.lami.util.normalizeUrlInput
 import io.github.ninbyo02.lami.util.validateUrlFormat
@@ -625,6 +626,68 @@ fun Settings(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(text = setting.name, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Card {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = "マークダウン表示モード",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = "DEBUGビルド限定の比較機能です。compose-markdownは変更せず、ストリーミング中の補正経路だけを切り替えます。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            val currentMarkdownMode = settingsData.markdownStreamingMode
+                            MarkdownStreamingMode.entries.forEach { mode ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            scope.launch {
+                                                settingsPreferences.saveMarkdownStreamingMode(mode)
+                                            }
+                                        }
+                                        .padding(vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = currentMarkdownMode == mode,
+                                        onClick = {
+                                            scope.launch {
+                                                settingsPreferences.saveMarkdownStreamingMode(mode)
+                                            }
+                                        },
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = when (mode) {
+                                                MarkdownStreamingMode.LAMI_RECOVERY_V1 -> "Lami Recovery v1（安全補正）"
+                                                MarkdownStreamingMode.EDGE_GALLERY_COMPAT -> "Edge Gallery互換（軽量）"
+                                            },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                        Text(
+                                            text = when (mode) {
+                                                MarkdownStreamingMode.LAMI_RECOVERY_V1 ->
+                                                    "既存のMarkdown補正と安全なストリーミング結合を使います"
+                                                MarkdownStreamingMode.EDGE_GALLERY_COMPAT ->
+                                                    "\\n を改行へ置換し、repairをバイパスします"
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         }

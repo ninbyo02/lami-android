@@ -2,6 +2,8 @@ package io.github.ninbyo02.lami.ui.text
 
 import java.util.Locale
 
+// Streaming Markdown Recovery Engine v1.
+// Legacy safe markdown recovery path used by MarkdownStreamingMode.LAMI_RECOVERY_V1.
 object MarkdownCodeRepair {
     fun repair(text: String): String {
         if (text.isEmpty()) return text
