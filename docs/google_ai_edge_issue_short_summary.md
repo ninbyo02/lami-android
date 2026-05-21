@@ -79,6 +79,10 @@ Additional source/version findings:
 - public LiteRT metadata still points to QAIRT `2.44.0.260225`
 - public LiteRT-LM `origin/main` pins a LiteRT ref that also points to QAIRT `2.44.0.260225`
 - bounded search found no public QAIRT `2.46.0.260424` source/ref evidence
+- Android-native `__android_log_print` diagnostics were added with marker
+  `qairt244_android_log_v1`; the rebuilt JNI library is in the tombstone
+  (`27bb6eaa5358f3c23f080cdd33023eac`), but no `QAIRT244_DIAG` lines were
+  captured in logcat/dropbox/tombstone artifacts
 
 What seems unlikely:
 

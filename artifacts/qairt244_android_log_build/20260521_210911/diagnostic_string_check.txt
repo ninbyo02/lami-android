@@ -1,0 +1,14 @@
+# QAIRT244 Android Log Build String Check
+
+- `built_libs/libLiteRt.so` contains `QAIRT244_DIAG`.
+- `built_libs/libLiteRt.so` contains `qairt244_android_log_v1`.
+- `built_libs/libLiteRtDispatch_Qualcomm.so` contains `QAIRT244_DIAG`.
+- `built_libs/libLiteRtDispatch_Qualcomm.so` contains `qairt244_android_log_v1`.
+- `built_libs/liblitertlm_jni.so` contains `QAIRT244_DIAG`.
+- `built_libs/liblitertlm_jni.so` contains `qairt244_android_log_v1`.
+- `built_libs/libLiteRtCompilerPlugin_Qualcomm.so` contains `QAIRT244_DIAG`.
+- `built_libs/libLiteRtCompilerPlugin_Qualcomm.so` contains
+  `qairt244_android_log_v1`.
+
+The direct Android log marker is present before APK staging. The actual dry-run
+still did not emit matching logcat lines in collected diagnostics.

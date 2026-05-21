@@ -39,6 +39,25 @@ Update after exact QAIRT 2.44 rebuild:
 - local model metadata contains `DISPATCH_OP`, `qnn_partition_*`,
   `soc_type=SM8750`, `min_arch=79`, and `v2.44.0.260225143659`
 
+Update after Android-native logcat diagnostics:
+
+- added Android-only `__android_log_print(ANDROID_LOG_ERROR, "QAIRT244_DIAG", ...)`
+  diagnostics with marker `qairt244_android_log_v1` around dispatch delegate
+  creation, dispatch `dlopen`/`dlsym`, compatibility checks, Qualcomm dispatch
+  init, and QNN manager load/init paths
+- android-log build artifact:
+  `artifacts/qairt244_android_log_build/20260521_210911`
+- `customBuildExperimentDebug` initialize-only dry-run artifact:
+  `artifacts/npu_diagnostics/20260521_211841_customnpu/`
+- the process still aborts at `Engine.initialize`
+- tombstone top frame is the rebuilt JNI library:
+  `DispatchDelegate::CreateDelegateKernelInterface()+464`,
+  BuildId `27bb6eaa5358f3c23f080cdd33023eac`
+- no `QAIRT244_DIAG` / `qairt244_android_log_v1` lines were captured in
+  logcat/dropbox/tombstone artifacts
+- tombstone still maps `liblitertlm_jni.so` but not `libLiteRt.so`,
+  `libLiteRtDispatch_Qualcomm.so`, or QNN/HTP libraries
+
 What I need from maintainers:
 
 - the supported way to obtain or build a Qualcomm dispatch runtime matching LiteRT-LM Android,

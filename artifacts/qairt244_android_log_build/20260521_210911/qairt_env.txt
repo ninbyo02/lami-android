@@ -1,0 +1,5 @@
+# QAIRT/QNN
+
+LITERT_QAIRT_SDK=/home/sato/project/lami-android/artifacts/qairt244_android_log_build/20260521_210911/qairt_overlay/
+QAIRT_ROOT=/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+Expected LiteRT strip path: /home/sato/project/lami-android/artifacts/qairt244_android_log_build/20260521_210911/qairt_overlay/qairt/2.44.0.260225

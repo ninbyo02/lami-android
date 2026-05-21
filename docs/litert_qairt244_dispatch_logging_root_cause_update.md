@@ -17,8 +17,17 @@ Qualcomm dispatch initialization, QNN manager setup, QNN library loading,
 `ADSP_LIBRARY_PATH`, compatibility checks, and `has_dispatch_runtime`
 transitions.
 
-No `Engine.initialize` dry-run was executed in this pass because no adb device
-was connected. Therefore no new dispatch/QNN runtime log result exists yet.
+An Android-native logcat follow-up build was later produced and tested once.
+That run is documented in:
+
+```text
+docs/litert_qairt244_android_logcat_root_cause_update.md
+artifacts/npu_diagnostics/20260521_211841_customnpu/
+```
+
+It still produced no visible `QAIRT244_DIAG` lines in collected logcat/dropbox
+artifacts, despite the tombstone resolving to the rebuilt
+`liblitertlm_jni.so`.
 
 ## What Changed
 
@@ -49,21 +58,13 @@ at `custom-stack-build-id-mismatch`.
 
 ## Next Single Step
 
-Run exactly one `customBuildExperimentDebug` explicit `Engine.initialize`
-dry-run with:
+The `20260521_085251` dry-run recommendation has been superseded by the
+Android-log build result. The next single step is to add a direct native
+sentinel in a guaranteed earlier LiteRT-LM JNI/engine entry, before dispatch
+delegate kernel creation, then repeat only an initialize dry-run.
+
+Previous build:
 
 ```text
 artifacts/qairt244_dispatch_logging_build/20260521_085251/
 ```
-
-Only do this when an adb device is connected. The dry-run should collect:
-
-- logcat lines containing `QAIRT244_DIAG`
-- stage file
-- probe snapshot
-- tombstone/dropbox if the process aborts
-- mapped library matrix
-- rootless QNN/CDSP path properties
-
-Do not run prompt generation, `Conversation`, `Session`, `generateResponse`, or
-single-token smoke.

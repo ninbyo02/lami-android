@@ -1,0 +1,17 @@
+1779364357619 runId=1779364308222 started explicitOptIn=true modelPath=/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+1779364357619 runId=1779364308222 modelPath received value=/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+1779364357619 runId=1779364308222 model file exists check start
+1779364357619 runId=1779364308222 model file exists true
+1779364357619 runId=1779364308222 model file length 3016294400
+1779364357619 runId=1779364308222 model file canRead true
+1779364357619 runId=1779364308222 model file parent exists true
+1779364357619 runId=1779364308222 model file parent list count 1
+1779364357619 runId=1779364308222 model file parent list sample gemma-4-E2B-it_qualcomm_sm8750.litertlm
+1779364357619 runId=1779364308222 dispatch present check true
+1779364357619 runId=1779364308222 Backend.NPU creating
+1779364357619 runId=1779364308222 Backend.NPU created class=com.google.ai.edge.litertlm.Backend$NPU
+1779364357619 runId=1779364308222 EngineConfig creating ctor=EngineConfig(String, Backend, Backend, Backend, Integer, Integer, String)
+1779364357620 runId=1779364308222 EngineConfig created class=com.google.ai.edge.litertlm.EngineConfig
+1779364357620 runId=1779364308222 Engine constructor invoking operation=Engine(EngineConfig)
+1779364357620 runId=1779364308222 Engine constructor returned resultClass=com.google.ai.edge.litertlm.Engine
+1779364357620 runId=1779364308222 Engine.initialize invoking method=Engine.initialize(): void

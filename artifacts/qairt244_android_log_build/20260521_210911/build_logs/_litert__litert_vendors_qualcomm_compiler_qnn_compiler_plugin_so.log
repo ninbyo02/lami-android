@@ -1,0 +1,29 @@
+$ /home/sato/.local/bin/bazelisk --output_base=/home/sato/project/litert-custom-build/bazel_output_base/build_20260521_091804 build --repo_env=ANDROID_HOME=/home/sato/Android/Sdk --repo_env=ANDROID_SDK_ROOT=/home/sato/Android/Sdk --repo_env=ANDROID_NDK_HOME=/home/sato/Android/Sdk/ndk/28.2.13676358 --repo_env=LITERT_QAIRT_SDK=/home/sato/project/lami-android/artifacts/qairt244_android_log_build/20260521_210911/qairt_overlay/ --repo_env=HERMETIC_PYTHON_VERSION=3.12 @litert//litert/vendors/qualcomm/compiler:qnn_compiler_plugin_so --config=android_arm64
+
+INFO: Reading 'startup' options from /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc: --windows_enable_symlinks
+INFO: Options provided by the client:
+  Inherited 'common' options: --isatty=0 --terminal_columns=80
+INFO: Reading rc options for 'build' from /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc:
+  Inherited 'common' options: --experimental_repo_remote_exec --registry=https://raw.githubusercontent.com/bazelbuild/bazel-central-registry/main/ --experimental_repo_remote_exec --noenable_bzlmod
+INFO: Reading rc options for 'build' from /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc:
+  'build' options: --define=resolve_symbols_in_exec=true --repo_env=USE_PYWRAP_RULES=True --copt=-DGRPC_BAZEL_BUILD --host_copt=-DGRPC_BAZEL_BUILD --action_env=GRPC_BAZEL_RUNTIME=1 --repo_env=PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=upb --action_env=PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=upb --@rules_python//python/config_settings:precompile=force_disabled --define framework_shared_object=true --define tsl_protobuf_header_only=true --define=allow_oversize_protos=true --spawn_strategy=standalone -c opt --announce_rc --define=grpc_no_ares=true --noincompatible_remove_legacy_whole_archive --features=-force_no_whole_archive --host_features=-force_no_whole_archive --enable_platform_specific_config --define=with_xla_support=true --config=short_logs --experimental_cc_shared_library --experimental_link_static_libraries_once=false --incompatible_enforce_config_setting_visibility --@rules_ml_toolchain//common:enable_hermetic_cc=False --repo_env USE_HERMETIC_CC_TOOLCHAIN=0 --repo_env=HERMETIC_PYTHON_VERSION=3.13 --config=v2 --config=litert_prefixes --features=-layering_check --host_features=-layering_check --features=-header_modules --host_features=-header_modules
+INFO: Found applicable config definition build:short_logs in file /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc: --output_filter=DONT_MATCH_ANYTHING
+INFO: Found applicable config definition build:v2 in file /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc: --define=tf_api_version=2 --action_env=TF2_BEHAVIOR=1
+INFO: Found applicable config definition build:litert_prefixes in file /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc: --define=litert_prefixes=external/org_tensorflow/
+INFO: Found applicable config definition build:android_arm64 in file /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc: --config=android --cpu=arm64-v8a --fat_apk_cpu=arm64-v8a --platforms=@org_tensorflow//tensorflow/tools/toolchains/android:arm64-v8a
+INFO: Found applicable config definition build:android in file /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc: --crosstool_top=//external:android/crosstool --host_crosstool_top=@bazel_tools//tools/cpp:toolchain --dynamic_mode=off --define=xnn_enable_avxvnniint8=false --noenable_platform_specific_config --copt=-w --cxxopt=-std=c++20 --host_cxxopt=-std=c++20 --define=with_xla_support=false --copt=-DABSL_FLAGS_STRIP_NAMES=0
+Computing main repo mapping:
+Loading:
+Loading: 0 packages loaded
+Analyzing: target @@litert//litert/vendors/qualcomm/compiler:qnn_compiler_plugin_so (1 packages loaded, 0 targets configured)
+Analyzing: target @@litert//litert/vendors/qualcomm/compiler:qnn_compiler_plugin_so (1 packages loaded, 0 targets configured)
+
+INFO: Analyzed target @@litert//litert/vendors/qualcomm/compiler:qnn_compiler_plugin_so (7 packages loaded, 231 targets configured).
+INFO: Found 1 target...
+Target @@litert//litert/vendors/qualcomm/compiler:qnn_compiler_plugin_so up-to-date:
+  bazel-bin/external/litert/litert/vendors/qualcomm/compiler/libLiteRtCompilerPlugin_Qualcomm.so
+INFO: Elapsed time: 0.268s, Critical Path: 0.05s
+INFO: 3 processes: 2 internal, 1 local.
+INFO: Build completed successfully, 3 total actions
+
+exit_code=0
