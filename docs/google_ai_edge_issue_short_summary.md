@@ -83,6 +83,10 @@ Additional source/version findings:
   `qairt244_android_log_v1`; the rebuilt JNI library is in the tombstone
   (`27bb6eaa5358f3c23f080cdd33023eac`), but no `QAIRT244_DIAG` lines were
   captured in logcat/dropbox/tombstone artifacts
+- a follow-up JNI entry sentinel was added at `nativeCreateEngine` with tag
+  `QAIRT244_SENTINEL` and marker `qairt244_jni_entry_v1`; the tombstone shows
+  the sentinel JNI Build ID `8faff14dc850b7fb1986a300ac465fa4` and
+  `nativeCreateEngine+1992`, but no sentinel lines were captured
 
 What seems unlikely:
 

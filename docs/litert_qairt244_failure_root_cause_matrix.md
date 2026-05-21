@@ -3,8 +3,8 @@
 Date: 2026-05-21
 
 Scope: coordinator synthesis of the tombstone/runtime mapping, Android QNN path
-review, LiteRT source trace, CLI proof planning, model schema probe, and the
-2026-05-21 Android-native logcat dry-run.
+review, LiteRT source trace, CLI proof planning, model schema probe, the
+2026-05-21 Android-native logcat dry-run, and the JNI sentinel dry-run.
 
 ## Current Failure Boundary
 
@@ -50,6 +50,39 @@ Result:
 - `libLiteRt.so`, `libLiteRtDispatch_Qualcomm.so`, and QNN/HTP libraries were
   still not mapped in the tombstone
 
+## JNI Sentinel Dry-Run Update
+
+Artifact:
+
+```text
+artifacts/qairt244_jni_sentinel_build/20260521_214511/
+```
+
+Dry-run diagnostics:
+
+```text
+artifacts/npu_diagnostics/20260521_215004_customnpu/
+```
+
+Result:
+
+- executed exactly one `customBuildExperimentDebug` explicit
+  `Engine.initialize` dry-run
+- final stage remained `Engine.initialize invoking`
+- tombstone top app frame:
+  `DispatchDelegate::CreateDelegateKernelInterface()+464`
+- tombstone app BuildId:
+  `8faff14dc850b7fb1986a300ac465fa4`
+- `nativeCreateEngine` is present in the tombstone:
+  `Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+1992`
+- no `QAIRT244_SENTINEL`, `qairt244_jni_entry_v1`, `QAIRT244_DIAG`, or
+  `qairt244_android_log_v1` lines were found in collected artifacts
+- `libLiteRt.so`, `libLiteRtDispatch_Qualcomm.so`, and QNN/HTP libraries were
+  still not mapped in the tombstone
+
+Interpretation: the JNI entry is reached, but app-native log lines are still not
+visible in the current collected artifacts.
+
 ## Cross-Agent Findings
 
 | Agent | Output | Key result |
@@ -65,22 +98,22 @@ Result:
 | Hypothesis | Evidence | Confidence | Next action |
 | --- | --- | --- | --- |
 | H1. SM8750/V79 dispatch capability mismatch | Source trace shows SM8750 maps to V79, but dispatch usability depends on QNN manager, API versions, HTP device creation, and capability bits. Model declares `soc_type=SM8750` and `min_arch=79`. | medium | Add source logging around dispatch API initialization or get upstream guidance on expected SM8750/V79 capability checks. |
-| H2. Android app nativeLibraryDir QNN/HTP search problem | qairt244 APK metadata contains dispatch/QNN/HTP/V79 libs, but tombstone does not map them before abort. The Android-log dry-run still did not reach visible QNN/dispatch load logs. | medium | Do not change paths yet. First prove direct native log visibility from an earlier, guaranteed JNI path. |
+| H2. Android app nativeLibraryDir QNN/HTP search problem | qairt244 APK metadata contains dispatch/QNN/HTP/V79 libs, but tombstone does not map them before abort. Android-log and JNI-sentinel dry-runs still did not expose visible native logs. | medium | Do not change paths yet. First prove the collector can capture a trivial app-owned native logcat tag. |
 | H3. ADSP_LIBRARY_PATH / FastRPC / skel-stub path problem | V79 stub depends on `libcdsprpc.so`; source mutates `ADSP_LIBRARY_PATH`; tombstones contain `vendor_adsprpc_prop`. No direct missing skel/FastRPC log was captured, and qairt244 aborts before V79 stub/skel mapping. | medium-low | Refresh rootless device collection and inspect logs for skel/CDSP failures. Do not change app packaging until a path-specific failure is visible. |
 | H4. Qualcomm SM8750 model/runtime schema mismatch | Model directly carries QAIRT 2.44, SM8750, V79, and dispatch/QNN partition markers. That argues against a generic or wrong-SoC model, but context binary compatibility can still fail later. | low-medium | Defer deeper schema decode until dispatch API initialization logs show runtime accepted and invocation context creation is reached. |
-| H5. Dispatch runtime registration / capability check failure | Strong source evidence: `No usable Dispatch runtime found` is the generic fatal after dispatch API init failure. The Android-log dry-run tombstone is inside the rebuilt `CreateDelegateKernelInterface`, but no direct logcat lines are visible and dispatch/QNN libraries are still not mapped. | high | Move one direct native sentinel earlier than delegate kernel creation, ideally to a guaranteed LiteRT-LM JNI/engine entry, then repeat initialize-only dry-run. |
+| H5. Dispatch runtime registration / capability check failure | Strong source evidence: `No usable Dispatch runtime found` is the generic fatal after dispatch API init failure. The JNI-sentinel dry-run proves `nativeCreateEngine` is reached in the rebuilt JNI library, but no direct native logcat lines are visible and dispatch/QNN libraries are still not mapped. | high | Fix/prove native logcat capture with an app-owned JNI logger before adding more dispatch/QNN instrumentation. |
 | H6. CLI litert_lm_main works while Android app fails | Not tested. Existing upstream CLI is unsafe because it creates a `Conversation` and sends a prompt. CLI could later isolate linker namespace and explicit `LD_LIBRARY_PATH`/`ADSP_LIBRARY_PATH`. | unknown | First create an initialize-only CLI target that cannot generate, then build/query Android arm64 with explicit SDK/NDK setup. |
 
 ## Ranked Next Moves
 
-1. Add an earlier native sentinel in a guaranteed LiteRT-LM JNI/engine entry
-   before delegate kernel creation, then repeat only an initialize dry-run.
-   The current direct logcat calls did not appear even though the rebuilt JNI
-   library was in the tombstone.
+1. Prove native logcat capture with a minimal app-owned JNI logger that does not
+   touch LiteRT, dispatch, QNN, NPU, `Engine.initialize`, `Conversation`,
+   `Session`, or generation. The JNI sentinel build proves execution reaches
+   `nativeCreateEngine`, yet no native log lines are captured.
 2. Fix the diagnostics collector's local APK metadata path so customnpu native
    metadata is not mixed with `standardDebug` APK extraction.
-3. Design an isolated ADSP/QNN path dry-run only if an earlier sentinel proves
-   logcat visibility and later logs reach QNN path setup.
+3. Design an isolated ADSP/QNN path dry-run only after native logcat capture is
+   proven and later dispatch logs reach QNN path setup.
    Do not do this speculatively before the missing initialization log is known.
 4. Implement the non-generating C++ initialize-only CLI target only after the
    Android dry-run logs are inspected.
@@ -136,5 +169,5 @@ This coordinator pass did not run:
 - `selectedPath=npu`
 - normal UI `Backend.NPU` wiring
 - single-token smoke test
-- a new `Engine.initialize` dry-run
+- more than the single allowed JNI-sentinel `Engine.initialize` dry-run
 - unsafe native library replacement

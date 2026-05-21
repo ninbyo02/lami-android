@@ -58,6 +58,27 @@ Update after Android-native logcat diagnostics:
 - tombstone still maps `liblitertlm_jni.so` but not `libLiteRt.so`,
   `libLiteRtDispatch_Qualcomm.so`, or QNN/HTP libraries
 
+Update after JNI-entry sentinel diagnostics:
+
+- added an earlier Android-native sentinel at
+  `Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine`
+- sentinel tag: `QAIRT244_SENTINEL`
+- sentinel marker: `qairt244_jni_entry_v1`
+- sentinel build artifact:
+  `artifacts/qairt244_jni_sentinel_build/20260521_214511`
+- initialize-only dry-run artifact:
+  `artifacts/npu_diagnostics/20260521_215004_customnpu/`
+- tombstone top frame is still:
+  `DispatchDelegate::CreateDelegateKernelInterface()+464`
+- tombstone BuildId is the sentinel JNI build:
+  `8faff14dc850b7fb1986a300ac465fa4`
+- the same tombstone includes
+  `Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+1992`
+- no `QAIRT244_SENTINEL`, `qairt244_jni_entry_v1`, `QAIRT244_DIAG`, or
+  `qairt244_android_log_v1` lines were captured in the collected artifacts
+- this suggests the current blocker includes native logcat visibility/capture;
+  it does not look like the JNI entry is missing
+
 What I need from maintainers:
 
 - the supported way to obtain or build a Qualcomm dispatch runtime matching LiteRT-LM Android,

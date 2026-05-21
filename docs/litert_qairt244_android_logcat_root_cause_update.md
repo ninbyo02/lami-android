@@ -55,3 +55,51 @@ entry. Then repeat only an initialize dry-run.
 
 Do not change QNN paths, `ADSP_LIBRARY_PATH`, normal UI NPU routing, or run
 generation until direct native log visibility is proven.
+
+## JNI Sentinel Follow-Up
+
+Result date: 2026-05-21
+
+The recommended earlier sentinel was added at:
+
+```text
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine
+```
+
+Build artifact:
+
+```text
+artifacts/qairt244_jni_sentinel_build/20260521_214511/
+```
+
+Dry-run diagnostics:
+
+```text
+artifacts/npu_diagnostics/20260521_215004_customnpu/
+```
+
+The dry-run again stopped at:
+
+```text
+Engine.initialize invoking method=Engine.initialize(): void
+```
+
+No `QAIRT244_SENTINEL`, `qairt244_jni_entry_v1`, `QAIRT244_DIAG`, or
+`qairt244_android_log_v1` lines were captured. However, the tombstone resolves
+the crash through the new sentinel JNI library:
+
+```text
+DispatchDelegate::CreateDelegateKernelInterface()+464
+BuildId: 8faff14dc850b7fb1986a300ac465fa4
+Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+1992
+BuildId: 8faff14dc850b7fb1986a300ac465fa4
+```
+
+This proves the new JNI library is installed and `nativeCreateEngine` was
+entered. The absence of the sentinel therefore points to native log visibility
+or collector capture, not to a missing JNI entry.
+
+Updated recommendation: before any further QNN/ADSP/path experiment, add or use
+an app-owned native logcat smoke logger that does not initialize LiteRT or NPU,
+then verify the collector captures its tag.

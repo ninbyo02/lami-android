@@ -159,7 +159,27 @@ Next phase would be designing a fully isolated single-token smoke test:
 
 ## Current Recommendation
 
-Before building:
+Current status update, 2026-05-21:
+
+- QAIRT 2.44 exact limited rebuild was completed.
+- Android-native dispatch/QNN logging build was completed.
+- JNI-entry sentinel build was completed:
+  `artifacts/qairt244_jni_sentinel_build/20260521_214511/`
+- the allowed initialize-only dry-run still aborts at `Engine.initialize`
+  without returning:
+  `artifacts/npu_diagnostics/20260521_215004_customnpu/`
+- tombstone proves the sentinel `liblitertlm_jni.so` is installed and
+  `nativeCreateEngine` is on the stack, but `QAIRT244_SENTINEL` is still not
+  captured
+
+Next recommendation:
+
+1. Prove native logcat capture using a minimal app-owned JNI logger that does
+   not initialize LiteRT/NPU.
+2. Fix the collector/APK metadata path mismatch if needed.
+3. Only after native log capture is proven, return to dispatch/QNN path logging.
+
+Original pre-build guidance:
 
 1. Ask maintainers which source tag/native artifact generation matches Gallery SM8750 and `litertlm-android:0.11.0`.
 2. Install/configure Bazel/Bazelisk, Android NDK, and QAIRT/QNN SDK paths.

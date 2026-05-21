@@ -1,0 +1,8 @@
+artifact=artifacts/qairt244_jni_sentinel_build/20260521_214511
+library=liblitertlm_jni.so
+qa_marker=QAIRT244_SENTINEL
+sentinel_marker=qairt244_jni_entry_v1
+marker_present=true
+build_id=8faff14dc850b7fb1986a300ac465fa4
+sha256=2971f268c7f8944527f4fb59a4cf9d38af2570af63f59ebbfa34b413e8fab45f
+needed=libGemmaModelConstraintProvider.so,libdl.so,liblog.so,libandroid.so,libGLESv3.so,libEGL.so,libm.so,libc.so
