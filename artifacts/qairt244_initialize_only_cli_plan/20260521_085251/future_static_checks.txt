@@ -1,0 +1,5 @@
+# Future checks only. Do not run a CLI or inference for the initialize-only design pass.
+bazel query //runtime/engine:litert_lm_initialize_only_main
+bazel cquery --config=android_arm64 //runtime/engine:litert_lm_initialize_only_main
+bazel build --config=android_arm64 //runtime/engine:litert_lm_initialize_only_main
+rg -n 'Conversation::Create|ConversationConfig|SessionConfig|CreateSession|SendMessageAsync|GenerateContent|GenerateContentStream|RunPrefill|RunDecode|input_prompt|default prompt' runtime/engine/litert_lm_initialize_only_main.cc

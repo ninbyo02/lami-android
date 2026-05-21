@@ -45,20 +45,43 @@ normal UI inference to NPU, and did not run a single-token smoke test.
 
 ## Ranked Next Moves
 
-1. Add detailed dispatch initialization logging and rebuild only the isolated
-   qairt244 custom stack.
-   This is the highest-value next step because the source trace shows the
-   useful error is swallowed into `has_dispatch_runtime_=false` before the
-   fatal.
-2. Refresh rootless device path collection when adb is connected.
+1. Run exactly one detailed-logging `customBuildExperimentDebug`
+   `Engine.initialize` dry-run with
+   `artifacts/qairt244_dispatch_logging_build/20260521_085251/` when an adb
+   device is connected.
+   The detailed logging stack is already built and contains `QAIRT244_DIAG`
+   markers.
+2. Refresh rootless device path collection during that same connected-device
+   pass.
    This should capture `/dev/*rpc*`, vendor/system QNN files, RFSA/DSP paths,
    and qcom/adsp/cdsp properties without running the app.
 3. Design an isolated ADSP/QNN path dry-run only if path evidence appears.
    Do not do this speculatively before the missing initialization log is known.
-4. Create a non-generating C++ initialize-only CLI target.
+4. Implement the non-generating C++ initialize-only CLI target only after the
+   Android dry-run logs are inspected.
    Do not execute upstream `litert_lm_main`.
 5. Prepare an upstream issue update with the exact QAIRT 2.44 rebuild result and
    the model's `v2.44.0.260225143659` marker.
+
+## Dispatch Logging Update
+
+Result date: 2026-05-21
+
+Artifact:
+
+```text
+artifacts/qairt244_dispatch_logging_build/20260521_085251/
+```
+
+The logging build adds `QAIRT244_DIAG` lines for dispatch library discovery,
+dispatch `dlopen`/`dlsym`, `LiteRtDispatchGetApi`,
+`LiteRtDispatchCheckRuntimeCompatibility`, Qualcomm `QnnManager::Create`,
+QNN library loading, `ADSP_LIBRARY_PATH`, HTP init, device context creation, and
+`has_dispatch_runtime` transitions.
+
+The dry-run was not executed because no adb device was connected, so H1-H6
+confidence does not change yet. The next evidence-producing step is the single
+allowed connected-device dry-run with this artifact.
 
 ## Most Likely Cause
 

@@ -1,0 +1,22 @@
+QAIRT 2.44 dispatch logging dry-run preflight device properties
+Timestamp: 2026-05-21 08:52:51 Asia/Tokyo
+Workspace: /home/sato/project/lami-android
+Collection mode: rootless/read-only adb
+
+ADB status:
+NO_CONNECTED_ADB_DEVICE
+
+Command attempted:
+adb devices
+
+Command planned when a device is connected:
+adb shell getprop | grep -Ei 'qcom|adsp|cdsp|dsp|soc|ro.vendor'
+
+Result:
+Not collected. `adb devices` reported no connected device at preflight time.
+
+Notes:
+- No root-required command was used.
+- No app Activity was started.
+- Engine.initialize was not run.
+- Conversation, Session, generateResponse, selectedPath=npu, and UI NPU wiring were not used.

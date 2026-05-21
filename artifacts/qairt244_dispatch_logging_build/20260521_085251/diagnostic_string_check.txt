@@ -1,0 +1,21 @@
+QAIRT 2.44 dispatch logging string check
+timestamp: 20260521_085251
+
+Result:
+- built_libs/libLiteRt.so contains QAIRT244_DIAG strings.
+- built_libs/libLiteRtDispatch_Qualcomm.so contains QAIRT244_DIAG strings.
+
+Key marker groups:
+- dispatch library dir and candidate discovery
+- dispatch dlopen and LiteRtDispatchGetApi dlsym
+- LiteRtDispatchCheckRuntimeCompatibility status
+- dispatch vendor initialize status
+- has_dispatch_runtime transitions
+- Qualcomm QnnManager::Create status
+- QNN libQnnSystem/libQnnHtp dlopen status
+- QNN provider dlsym status
+- ADSP_LIBRARY_PATH
+- HTP init begin/end
+
+Dry-run status:
+- not run; adb devices reported no connected device.
