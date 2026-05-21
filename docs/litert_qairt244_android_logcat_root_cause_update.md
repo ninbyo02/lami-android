@@ -103,3 +103,39 @@ or collector capture, not to a missing JNI entry.
 Updated recommendation: before any further QNN/ADSP/path experiment, add or use
 an app-owned native logcat smoke logger that does not initialize LiteRT or NPU,
 then verify the collector captures its tag.
+
+## App-Owned JNI Smoke Follow-Up
+
+Result date: 2026-05-22
+
+Implemented a `customBuildExperimentDebug`-only app-owned JNI smoke library:
+
+```text
+liblami_qairt244_smoke.so
+```
+
+Source:
+
+```text
+app/src/customBuildExperimentDebug/cpp/lami_qairt244_smoke.cpp
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244AppJniSmoke.kt
+```
+
+Run artifact:
+
+```text
+artifacts/qairt244_app_jni_smoke/20260522_071945/
+```
+
+Result:
+
+- APK contains `liblami_qairt244_smoke.so`: yes
+- app-private smoke file exists: yes
+- native marker in smoke file: yes
+- `QAIRT244_SMOKE` in `adb logcat -b all -d -v time`: no
+- classification: `native-executed-logcat-missing`
+
+The smoke path does not touch LiteRT, QAIRT, QNN, `Backend.NPU`, or
+`Engine.initialize`. This confirms that the logging problem is broader than
+LiteRT-LM dispatch logging: app-owned native code executes, but direct logcat
+collection still misses its tag.

@@ -154,6 +154,7 @@ android {
         }
         create("customBuildExperimentDebug") {
             java.srcDir("src/npuExperimentDebug/java")
+            java.srcDir("src/customBuildExperimentDebug/java")
             manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
             jniLibs.srcDir("src/customBuildExperimentDebug/jniLibs")
         }
@@ -305,6 +306,8 @@ tasks.register("printQnnNpuReadiness") {
 
 val qnnDirectProbeDebugJniSource = layout.projectDirectory.file("src/debug/cpp/qnn_direct_probe_debug.cpp")
 val qnnDirectProbeDebugJniOutputDir = layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs/arm64-v8a")
+val qairt244AppJniSmokeSource = layout.projectDirectory.file("src/customBuildExperimentDebug/cpp/lami_qairt244_smoke.cpp")
+val qairt244AppJniSmokeOutputDir = layout.projectDirectory.dir("src/customBuildExperimentDebug/jniLibs/arm64-v8a")
 
 fun findAndroidNdkClang(): File? {
     val explicitNdk = listOfNotNull(
@@ -408,6 +411,80 @@ tasks.register("buildQnnDirectProbeDebugJni") {
     }
 }
 
+tasks.register("buildQairt244AppJniSmokeCustomBuildExperimentDebugJni") {
+    group = "build"
+    description = "Builds the customBuildExperimentDebug-only QAIRT 2.44 app JNI logcat smoke library."
+    inputs.file(qairt244AppJniSmokeSource)
+    outputs.file(qairt244AppJniSmokeOutputDir.file("liblami_qairt244_smoke.so"))
+
+    doLast {
+        val outputDir = qairt244AppJniSmokeOutputDir.asFile
+        outputDir.mkdirs()
+        val outputFile = File(outputDir, "liblami_qairt244_smoke.so")
+        val clangArgs = listOf(
+            "-shared",
+            "-fPIC",
+            "-std=c++17",
+            "-fno-exceptions",
+            "-fno-rtti",
+            "-O0",
+            "-g",
+            "-Wall",
+            "-Wextra",
+            "-nostdlib++",
+            "-Wl,--build-id=sha1",
+        )
+        val localClang = findAndroidNdkClang()
+        if (localClang != null) {
+            exec {
+                commandLine(
+                    listOf(localClang.absolutePath) +
+                        clangArgs +
+                        listOf(
+                            qairt244AppJniSmokeSource.asFile.absolutePath,
+                            "-o",
+                            outputFile.absolutePath,
+                            "-llog",
+                        ),
+                )
+            }
+        } else {
+            val uid = runCatching { Files.getAttribute(projectDir.toPath(), "unix:uid").toString() }
+                .getOrDefault("1000")
+            val gid = runCatching { Files.getAttribute(projectDir.toPath(), "unix:gid").toString() }
+                .getOrDefault("1000")
+            exec {
+                commandLine(
+                    listOf(
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--user",
+                        "$uid:$gid",
+                        "-v",
+                        "${projectDir.parentFile.absolutePath}:/work",
+                        "-w",
+                        "/work/${projectDir.name}",
+                        "litert-build:ubuntu22",
+                        "/opt/android-sdk/ndk/28.1.13356709/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang++",
+                    ) +
+                        clangArgs +
+                        listOf(
+                            "src/customBuildExperimentDebug/cpp/lami_qairt244_smoke.cpp",
+                            "-o",
+                            "src/customBuildExperimentDebug/jniLibs/arm64-v8a/liblami_qairt244_smoke.so",
+                            "-llog",
+                        ),
+                )
+            }
+        }
+        exec {
+            commandLine("readelf", "-d", outputFile.absolutePath)
+            isIgnoreExitValue = true
+        }
+    }
+}
+
 tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
 }
@@ -419,6 +496,12 @@ tasks.matching {
         it.name == "mergeCustomBuildExperimentDebugJniLibFolders"
 }.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
+}
+
+tasks.matching {
+    it.name == "mergeCustomBuildExperimentDebugJniLibFolders"
+}.configureEach {
+    dependsOn("buildQairt244AppJniSmokeCustomBuildExperimentDebugJni")
 }
 
 afterEvaluate {

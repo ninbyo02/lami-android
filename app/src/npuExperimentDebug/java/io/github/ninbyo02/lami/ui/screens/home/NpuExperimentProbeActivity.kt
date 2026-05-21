@@ -3,10 +3,19 @@ package io.github.ninbyo02.lami.ui.screens.home
 import android.app.Activity
 import android.os.Bundle
 import android.util.Log
+import io.github.ninbyo02.lami.BuildConfig
 
 class NpuExperimentProbeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent?.getBooleanExtra("run_app_jni_smoke", false) == true) {
+            NpuExperimentProbeLogger.runAppJniSmokeOnly(
+                context = applicationContext,
+                runId = intent?.getStringExtra("run_id").orEmpty(),
+            )
+            finish()
+            return
+        }
         NpuExperimentProbeLogger.logSnapshot(
             context = applicationContext,
             runEngineInitializeDryRun = intent?.getBooleanExtra("run_engine_initialize_dry_run", false) == true,
@@ -19,6 +28,33 @@ class NpuExperimentProbeActivity : Activity() {
 }
 
 internal object NpuExperimentProbeLogger {
+    private const val APP_JNI_SMOKE_FILE_NAME = "qairt244_app_jni_smoke.txt"
+
+    fun runAppJniSmokeOnly(
+        context: android.content.Context,
+        runId: String,
+    ) {
+        val outputFile = context.filesDir.resolve(APP_JNI_SMOKE_FILE_NAME)
+        val result = runCatching {
+            check(BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
+                "app-jni-smoke is customBuildExperimentDebug-only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            val smokeClass = Class.forName(
+                "io.github.ninbyo02.lami.ui.screens.home.Qairt244AppJniSmoke",
+            )
+            val runMethod = smokeClass.getMethod(
+                "run",
+                android.content.Context::class.java,
+                String::class.java,
+            )
+            runMethod.invoke(null, context.applicationContext, runId) as String
+        }.getOrElse { throwable ->
+            "qairt244_app_jni_smoke_v1 kotlin failure class=${throwable.javaClass.name} message=${throwable.message ?: "-"}"
+        }
+        Log.e("QAIRT244_SMOKE", result)
+        outputFile.writeText(result + "\n")
+    }
+
     fun logSnapshot(
         context: android.content.Context,
         runEngineInitializeDryRun: Boolean = false,

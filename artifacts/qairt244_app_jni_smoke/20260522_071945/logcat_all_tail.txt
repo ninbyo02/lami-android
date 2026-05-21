@@ -1,0 +1,66 @@
+--------- beginning of events
+05-26 16:38:38.439 I/auditd  (  907): Multiple same specifications for android.hardware.media.c2.IComponentStore/default2.
+05-26 16:38:38.439 I/auditd  (  907): Multiple same specifications for vendor.nxp.nxpnfc_aidl.INxpNfc/default.
+05-26 16:38:38.439 I/auditd  (  907): Multiple same specifications for vendor.qti.gnss.ILocAidlGnss/default.
+05-26 16:38:38.439 I/auditd  (  907): Multiple same specifications for nfc_settings.
+05-26 16:38:38.439 I/auditd  (  907): Multiple same specifications for nfc.st_ext.
+05-26 16:38:38.440 I/auditd  (  907): SELinux: Loaded service context from:
+05-26 16:38:38.440 I/auditd  (  907): 		/system/etc/selinux/plat_service_contexts
+05-26 16:38:38.440 I/auditd  (  907): 		/system_ext/etc/selinux/system_ext_service_contexts
+05-26 16:38:38.440 I/auditd  (  907): 		/product/etc/selinux/product_service_contexts
+05-26 16:38:38.440 I/auditd  (  907): 		/vendor/etc/selinux/vendor_service_contexts
+01-01 09:00:00.044 I/auditd  (  902): type=2000 audit(0.0:1): state=initialized audit_enabled=0 res=1
+05-26 16:38:38.448 I/snet_event_log(  911): [121035042,-1,]
+05-26 16:38:37.775 I/auditd  (  902): type=1403 audit(0.0:2): auid=4294967295 ses=4294967295 lsm=selinux res=1
+05-26 16:38:37.779 I/auditd  (  902): type=1404 audit(0.0:3): enforcing=1 old_enforcing=0 auid=4294967295 ses=4294967295 enabled=1 old-enabled=1 lsm=selinux res=1
+05-26 16:38:37.791 I/auditd  (    1): type=1107 audit(0.0:4): uid=0 auid=4294967295 ses=4294967295 subj=u:r:init:s0 msg='avc:  denied  { set } for property=ro.adb.secure pid=1 uid=0 gid=0 scontext=u:r:vendor_init:s0 tcontext=u:object_r:build_prop:s0 tclass=property_service permissive=0'
+05-26 16:38:37.791 I/auditd  (    1): type=1107 audit(0.0:5): uid=0 auid=4294967295 ses=4294967295 subj=u:r:init:s0 msg='avc:  denied  { set } for property=vendor.display.disable_rounded_corner pid=1 uid=0 gid=0 scontext=u:r:vendor_init:s0 tcontext=u:object_r:vendor_display_notch_prop:s0 tclass=property_service permissive=0'
+05-26 16:38:37.791 I/auditd  (    1): type=1107 audit(0.0:6): uid=0 auid=4294967295 ses=4294967295 subj=u:r:init:s0 msg='avc:  denied  { set } for property=vendor.camera.aux.packagelist pid=1 uid=0 gid=0 scontext=u:r:vendor_init:s0 tcontext=u:object_r:vendor_persist_camera_prop:s0 tclass=property_service permissive=0'
+05-26 16:38:37.791 I/auditd  (    1): type=1107 audit(0.0:7): uid=0 auid=4294967295 ses=4294967295 subj=u:r:init:s0 msg='avc:  denied  { set } for property=persist.vendor.camera.privapp.list pid=1 uid=0 gid=0 scontext=u:r:vendor_init:s0 tcontext=u:object_r:vendor_persist_camera_prop:s0 tclass=property_service permissive=0'
+05-26 16:38:37.791 I/auditd  (    1): type=1107 audit(0.0:8): uid=0 auid=4294967295 ses=4294967295 subj=u:r:init:s0 msg='avc:  denied  { set } for property=persist.vendor.qcom.bluetooth.enable.swbpm pid=1 uid=0 gid=0 scontext=u:r:vendor_init:s0 tcontext=u:object_r:vendor_swb_default_prop:s0 tclass=property_service permissive=0'
+05-26 16:38:37.791 I/auditd  (    1): type=1107 audit(0.0:9): uid=0 auid=4294967295 ses=4294967295 subj=u:r:init:s0 msg='avc:  denied  { set } for property=persist.vendor.qcom.bluetooth.enable.swb pid=1 uid=0 gid=0 scontext=u:r:vendor_init:s0 tcontext=u:object_r:vendor_swb_default_prop:s0 tclass=property_service permissive=0'
+05-26 16:38:37.791 I/auditd  (    1): type=1107 audit(0.0:10): uid=0 auid=4294967295 ses=4294967295 subj=u:r:init:s0 msg='avc:  denied  { set } for property=persist.vendor.bt.a2dp_offload_cap pid=1 uid=0 gid=0 scontext=u:r:vendor_init:s0 tcontext=u:object_r:bluetooth_prop:s0 tclass=property_service permissive=0'
+05-26 16:38:38.963 I/auditd  (  809): type=1400 audit(0.0:24): avc:  denied  { sys_nice } for  comm="modprobe" capability=23  scontext=u:r:vendor_modprobe:s0 tcontext=u:r:vendor_modprobe:s0 tclass=capability permissive=0
+05-26 16:38:38.963 I/auditd  (  809): type=1400 audit(0.0:25): avc:  denied  { sys_nice } for  comm="modprobe" capability=23  scontext=u:r:vendor_modprobe:s0 tcontext=u:r:vendor_modprobe:s0 tclass=capability permissive=0
+05-26 16:38:39.123 I/auditd  (  927): type=1400 audit(0.0:26): avc:  denied  { read write } for  comm="qseecomd" name="0:0:0:0" dev="tmpfs" ino=1128 scontext=u:r:tee:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=0
+05-26 16:38:39.123 I/auditd  (  927): type=1400 audit(0.0:27): avc:  denied  { read } for  comm="qseecomd" name="sda" dev="tmpfs" ino=967 scontext=u:r:tee:s0 tcontext=u:object_r:vendor_gpt_block_device:s0 tclass=blk_file permissive=0
+05-26 16:38:39.123 I/auditd  (  927): type=1400 audit(0.0:28): avc:  denied  { read write } for  comm="qseecomd" name="0:0:0:2" dev="tmpfs" ino=870 scontext=u:r:tee:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=0
+05-26 16:38:39.123 I/auditd  (  927): type=1400 audit(0.0:29): avc:  denied  { read } for  comm="qseecomd" name="sdc" dev="tmpfs" ino=981 scontext=u:r:tee:s0 tcontext=u:object_r:vendor_xbl_block_device:s0 tclass=blk_file permissive=0
+05-26 16:38:39.123 I/auditd  (  927): type=1400 audit(0.0:30): avc:  denied  { read write } for  comm="qseecomd" name="0:0:0:5" dev="tmpfs" ino=639 scontext=u:r:tee:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=0
+05-26 16:38:39.123 I/auditd  (  927): type=1400 audit(0.0:31): avc:  denied  { read } for  comm="qseecomd" name="sde" dev="tmpfs" ino=641 scontext=u:r:tee:s0 tcontext=u:object_r:boot_block_device:s0 tclass=blk_file permissive=0
+05-26 16:38:39.123 I/auditd  (  927): type=1400 audit(0.0:32): avc:  denied  { read write } for  comm="qseecomd" name="0:0:0:1" dev="tmpfs" ino=678 scontext=u:r:tee:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=0
+05-26 16:38:39.123 I/auditd  (  927): type=1400 audit(0.0:33): avc:  denied  { read } for  comm="qseecomd" name="sdb" dev="tmpfs" ino=930 scontext=u:r:tee:s0 tcontext=u:object_r:vendor_xbl_block_device:s0 tclass=blk_file permissive=0
+05-26 16:38:39.123 I/auditd  (  927): type=1400 audit(0.0:34): avc:  denied  { read write } for  comm="qseecomd" name="0:0:0:3" dev="tmpfs" ino=647 scontext=u:r:tee:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=0
+05-26 16:38:39.123 I/auditd  (  927): type=1400 audit(0.0:35): avc:  denied  { read } for  comm="qseecomd" name="sdd" dev="tmpfs" ino=700 scontext=u:r:tee:s0 tcontext=u:object_r:vendor_gpt_block_device:s0 tclass=blk_file permissive=0
+05-26 16:38:39.299 I/auditd  (  974): SELinux: Loaded keystore2 context from:
+05-26 16:38:39.299 I/auditd  (  974): 		/system/etc/selinux/plat_keystore2_key_contexts
+05-26 16:38:39.299 I/auditd  (  974): 		/system_ext/etc/selinux/system_ext_keystore2_key_contexts
+05-26 16:38:39.299 I/auditd  (  974): 		/product/etc/selinux/product_keystore2_key_contexts
+05-26 16:38:39.299 I/auditd  (  974): 		/vendor/etc/selinux/vendor_keystore2_key_contexts
+05-26 16:38:39.852 I/liblog  (  557): 8
+05-26 16:38:54.226 I/auditd  ( 1318): SELinux: Loaded file context from:
+05-26 16:38:54.226 I/auditd  ( 1318): 		/system/etc/selinux/plat_file_contexts
+05-26 16:38:54.226 I/auditd  ( 1318): 		/system_ext/etc/selinux/system_ext_file_contexts
+05-26 16:38:54.226 I/auditd  ( 1318): 		/product/etc/selinux/product_file_contexts
+05-26 16:38:54.226 I/auditd  ( 1318): 		/vendor/etc/selinux/vendor_file_contexts
+05-26 16:38:58.015 I/auditd  (    1): type=1400 audit(0.0:36): avc:  denied  { getattr } for  comm="init" path="/product/bin/init.qti.display.sh" dev="dm-16" ino=33677019 scontext=u:r:init:s0 tcontext=u:object_r:vendor_sys_qti_display_exec:s0 tclass=file permissive=0
+05-10 00:13:48.166 I/boot_progress_start( 1784): 21155
+05-10 00:13:48.176 I/auditd  (    1): type=1400 audit(0.0:37): avc:  denied  { write } for  comm="init" name="discard_max_bytes" dev="sysfs" ino=99949 scontext=u:r:init:s0 tcontext=u:object_r:sysfs:s0 tclass=file permissive=0
+05-10 00:13:48.308 I/auditd  (  312): type=1400 audit(0.0:38): avc:  denied  { setattr } for  comm="init" name="rawdump" dev="tmpfs" ino=1023 scontext=u:r:vendor_init:s0 tcontext=u:object_r:vendor_rawdump_block_device:s0 tclass=lnk_file permissive=0
+05-10 00:13:48.320 I/auditd  (  312): type=1400 audit(0.0:39): avc:  denied  { getattr } for  comm="init" path="/dev/cpuset/cpus" dev="cgroup" ino=8 scontext=u:r:vendor_init:s0 tcontext=u:object_r:cgroup:s0 tclass=file permissive=0
+05-10 00:13:48.320 I/auditd  (  312): type=1400 audit(0.0:40): avc:  denied  { getattr } for  comm="init" path="/dev/cpuset/mems" dev="cgroup" ino=9 scontext=u:r:vendor_init:s0 tcontext=u:object_r:cgroup:s0 tclass=file permissive=0
+05-10 00:13:48.320 I/auditd  (  312): type=1400 audit(0.0:41): avc:  denied  { getattr } for  comm="init" path="/dev/cpuset/cpus" dev="cgroup" ino=8 scontext=u:r:vendor_init:s0 tcontext=u:object_r:cgroup:s0 tclass=file permissive=0
+05-10 00:13:48.320 I/auditd  (  312): type=1400 audit(0.0:42): avc:  denied  { getattr } for  comm="init" path="/dev/cpuset/mems" dev="cgroup" ino=9 scontext=u:r:vendor_init:s0 tcontext=u:object_r:cgroup:s0 tclass=file permissive=0
+05-10 00:13:48.328 I/auditd  (  312): type=1400 audit(0.0:43): avc:  denied  { setattr } for  comm="init" name="tmp" dev="dm-59" ino=103 scontext=u:r:vendor_init:s0 tcontext=u:object_r:shell_data_file:s0 tclass=dir permissive=0
+05-10 00:13:48.336 I/auditd  ( 1880): type=1400 audit(0.0:44): avc:  denied  { read } for  comm="pmCoreThread" name="u:object_r:vendor_soc_name_prop:s0" dev="tmpfs" ino=574 scontext=u:r:vendor_hal_poweroptservice_qti:s0 tcontext=u:object_r:vendor_soc_name_prop:s0 tclass=file permissive=0
+05-10 00:13:48.360 I/auditd  ( 1880): type=1400 audit(0.0:45): avc:  denied  { search } for  comm="pmCoreThread" name="android0" dev="sysfs" ino=165309 scontext=u:r:vendor_hal_poweroptservice_qti:s0 tcontext=u:object_r:sysfs_usbscript:s0 tclass=dir permissive=0
+05-10 00:13:48.364 I/auditd  ( 1880): type=1400 audit(0.0:46): avc:  denied  { read } for  comm="pmCoreThread" name="u:object_r:vendor_soc_name_prop:s0" dev="tmpfs" ino=574 scontext=u:r:vendor_hal_poweroptservice_qti:s0 tcontext=u:object_r:vendor_soc_name_prop:s0 tclass=file permissive=0
+05-10 00:13:48.364 I/auditd  ( 1900): type=1400 audit(0.0:47): avc:  denied  { read } for  comm="vendor.qti.hard" name="display" dev="sysfs" ino=78615 scontext=u:r:vendor_hal_perf_default:s0 tcontext=u:object_r:vendor_sys_nonsp_comp:s0 tclass=file permissive=0
+05-10 00:13:48.364 I/auditd  ( 1900): type=1400 audit(0.0:48): avc:  denied  { read } for  comm="vendor.qti.hard" name="gpu" dev="sysfs" ino=78612 scontext=u:r:vendor_hal_perf_default:s0 tcontext=u:object_r:vendor_sys_sp_comp:s0 tclass=file permissive=0
+05-10 00:13:48.372 I/auditd  ( 1880): type=1400 audit(0.0:49): avc:  denied  { search } for  comm="pmCoreThread" name="android0" dev="sysfs" ino=165309 scontext=u:r:vendor_hal_poweroptservice_qti:s0 tcontext=u:object_r:sysfs_usbscript:s0 tclass=dir permissive=0
+05-10 00:13:48.416 I/auditd  (  907): type=1400 audit(0.0:50): avc:  denied  { call } for  comm="servicemanager" scontext=u:r:servicemanager:s0 tcontext=u:r:vendor_hal_poweroptservice_qti:s0 tclass=binder permissive=0
+05-10 00:13:48.416 I/auditd  ( 1962): type=1400 audit(0.0:51): avc:  denied  { read } for  comm="vendordiag" name="u:object_r:vendor_system_prop:s0" dev="tmpfs" ino=584 scontext=u:r:vendordiag:s0 tcontext=u:object_r:vendor_system_prop:s0 tclass=file permissive=0
+05-10 00:13:48.416 I/auditd  (    1): type=1107 audit(0.0:52): uid=0 auid=4294967295 ses=4294967295 subj=u:r:init:s0 msg='avc:  denied  { set } for property=persist.vendor.sys.device.auxlcdcurrent pid=1962 uid=0 gid=1001 scontext=u:r:vendordiag:s0 tcontext=u:object_r:vendor_system_prop:s0 tclass=property_service permissive=0'
+05-10 00:13:48.476 I/auditd  ( 1877): type=1400 audit(0.0:53): avc:  denied  { read } for  comm="binder:1877_2" name="u:object_r:vendor_pd_locater_dbg_prop:s0" dev="tmpfs" ino=532 scontext=u:r:hal_audio_default:s0 tcontext=u:object_r:vendor_pd_locater_dbg_prop:s0 tclass=file permissive=0
+05-10 00:13:48.476 I/auditd  ( 1877): type=1400 audit(0.0:54): avc:  denied  { read } for  comm="binder:1877_2" name="u:object_r:vendor_pd_locater_dbg_prop:s0" dev="tmpfs" ino=532 scontext=u:r:hal_audio_default:s0 tcontext=u:object_r:vendor_pd_locater_dbg_prop:s0 tclass=file permissive=0
+05-10 00:13:48.504 I/auditd  (    1): type=1400 audit(0.0:55): avc:  denied  { open } for  comm="init" path="/sys/kernel/ramdiskboot/ramdisk_nvmem" dev="sysfs" ino=81638 scontext=u:r:init:s0 tcontext=u:object_r:sysfs:s0 tclass=file permissive=0
