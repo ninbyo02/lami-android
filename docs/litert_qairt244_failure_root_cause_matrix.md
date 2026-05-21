@@ -4,8 +4,9 @@ Date: 2026-05-21
 
 Scope: coordinator synthesis of the tombstone/runtime mapping, Android QNN path
 review, LiteRT source trace, CLI proof planning, model schema probe, the
-2026-05-21 Android-native logcat dry-run, the JNI sentinel dry-run, and the
-2026-05-22 app-owned JNI logcat smoke.
+2026-05-21 Android-native logcat dry-run, the JNI sentinel dry-run, the
+2026-05-22 app-owned JNI logcat smoke, and the 2026-05-22 native file logger
+dry-run.
 
 ## Current Failure Boundary
 
@@ -107,6 +108,48 @@ Interpretation: the missing `QAIRT244_SENTINEL` / `QAIRT244_DIAG` evidence is
 now primarily a logcat capture/visibility problem. The absence of those tags can
 no longer be used to infer that the LiteRT-LM logging locations were not reached.
 
+## Native File Logger Update
+
+Build artifact:
+
+```text
+artifacts/qairt244_native_file_logger_build/20260522_074639/
+```
+
+Dry-run diagnostics:
+
+```text
+artifacts/npu_diagnostics/20260522_074944_customnpu/
+```
+
+Curated dry-run artifact:
+
+```text
+artifacts/qairt244_native_file_logger_dry_run/20260522_074944/
+```
+
+Result:
+
+- app-private file logger created `qairt244_native_diag.txt`
+- `nativeCreateEngine` was reached
+- `ModelAssets::Create` succeeded
+- backend enum conversion succeeded
+- `EngineSettings::CreateDefault` succeeded
+- `SetLitertDispatchLibDir` was called with the app native library directory
+- `EngineFactory::CreateDefault` was entered and did not return
+- `DispatchDelegate::Initialize` was reached
+- `InitializeDispatchApi` was reached
+- `LiteRtDispatchInitialize` failed with
+  `kLiteRtStatusErrorDynamicLoading(502)`
+- `LiteRtDispatchCheckRuntimeCompatibility` was not reached in this log
+- QNN manager / QNN `dlopen` was not reached in this log
+- `CreateDelegateKernelInterface` then aborted because
+  `has_dispatch_runtime_ == false`
+
+Interpretation: the immediate failure is now known to be dispatch runtime
+dynamic loading inside `LiteRtDispatchInitialize`, before compatibility checking
+and before visible QNN/HTP/skel initialization.
+
 ## Cross-Agent Findings
 
 | Agent | Output | Key result |
@@ -121,19 +164,18 @@ no longer be used to infer that the LiteRT-LM logging locations were not reached
 
 | Hypothesis | Evidence | Confidence | Next action |
 | --- | --- | --- | --- |
-| H1. SM8750/V79 dispatch capability mismatch | Source trace shows SM8750 maps to V79, but dispatch usability depends on QNN manager, API versions, HTP device creation, and capability bits. Model declares `soc_type=SM8750` and `min_arch=79`. | medium | Add source logging around dispatch API initialization or get upstream guidance on expected SM8750/V79 capability checks. |
-| H2. Android app nativeLibraryDir QNN/HTP search problem | qairt244 APK metadata contains dispatch/QNN/HTP/V79 libs, but tombstone does not map them before abort. Android-log and JNI-sentinel dry-runs did not expose visible native logs. App-owned JNI smoke proves native code can execute while logcat capture misses the tag. | medium | Prefer file-backed dispatch diagnostics or fix logcat capture before QNN path changes. |
-| H3. ADSP_LIBRARY_PATH / FastRPC / skel-stub path problem | V79 stub depends on `libcdsprpc.so`; source mutates `ADSP_LIBRARY_PATH`; tombstones contain `vendor_adsprpc_prop`. No direct missing skel/FastRPC log was captured, and qairt244 aborts before V79 stub/skel mapping. | medium-low | Refresh rootless device collection and inspect logs for skel/CDSP failures. Do not change app packaging until a path-specific failure is visible. |
+| H1. SM8750/V79 dispatch capability mismatch | File logger shows `LiteRtDispatchInitialize` fails with dynamic-loading status before `LiteRtDispatchCheckRuntimeCompatibility`; model still declares `soc_type=SM8750` and `min_arch=79`. | low-medium | Defer capability/schema hypotheses until lower-level dispatch loading succeeds or reaches compatibility checking. |
+| H2. Android app nativeLibraryDir QNN/HTP search problem | qairt244 APK metadata contains dispatch/QNN/HTP/V79 libs, but tombstone does not map them before abort. File logger proves `SetLitertDispatchLibDir` is called, then `LiteRtDispatchInitialize` returns `kLiteRtStatusErrorDynamicLoading(502)`. | high | Add file-backed logs inside lower-level dispatch dynamic loading to capture candidate path and `dlerror`. |
+| H3. ADSP_LIBRARY_PATH / FastRPC / skel-stub path problem | V79 stub depends on `libcdsprpc.so`; source mutates `ADSP_LIBRARY_PATH`; tombstones contain `vendor_adsprpc_prop`. File logger does not reach visible QNN/HTP/skel init, so this remains possible but not the immediate observed boundary. | medium-low | Do not change ADSP/skel paths until dispatch dynamic loader logs show QNN/HTP loading is reached. |
 | H4. Qualcomm SM8750 model/runtime schema mismatch | Model directly carries QAIRT 2.44, SM8750, V79, and dispatch/QNN partition markers. That argues against a generic or wrong-SoC model, but context binary compatibility can still fail later. | low-medium | Defer deeper schema decode until dispatch API initialization logs show runtime accepted and invocation context creation is reached. |
-| H5. Dispatch runtime registration / capability check failure | Strong source evidence: `No usable Dispatch runtime found` is the generic fatal after dispatch API init failure. The JNI-sentinel dry-run proves `nativeCreateEngine` is reached in the rebuilt JNI library. App-owned JNI smoke shows logcat misses even a trivial native tag, so lack of `QAIRT244_DIAG` is not reliable reachability evidence. | high | Add file-backed dispatch diagnostics or repair logcat capture, then inspect dispatch init status. |
+| H5. Dispatch runtime registration / capability check failure | File logger confirms `InitializeDispatchApi` is reached and `LiteRtDispatchInitialize` fails with `kLiteRtStatusErrorDynamicLoading(502)`. `has_dispatch_runtime_` remains false and delegate kernel creation aborts. | high | Instrument lower-level `LiteRtDispatchInitialize` / dynamic loading with file-backed candidate path and error logging. |
 | H6. CLI litert_lm_main works while Android app fails | Not tested. Existing upstream CLI is unsafe because it creates a `Conversation` and sends a prompt. CLI could later isolate linker namespace and explicit `LD_LIBRARY_PATH`/`ADSP_LIBRARY_PATH`. | unknown | First create an initialize-only CLI target that cannot generate, then build/query Android arm64 with explicit SDK/NDK setup. |
 
 ## Ranked Next Moves
 
-1. Add file-backed diagnostics at the same LiteRT-LM JNI and dispatch
-   boundaries, or repair the device logcat capture path first. The app-owned
-   JNI smoke executed and wrote its marker to a file, but logcat still missed
-   `QAIRT244_SMOKE`.
+1. Add file-backed diagnostics inside the lower-level `LiteRtDispatchInitialize`
+   implementation and dynamic loader path selection to capture the exact
+   candidate path and `dlerror`.
 2. Fix the diagnostics collector's local APK metadata path so customnpu native
    metadata is not mixed with `standardDebug` APK extraction.
 3. Design an isolated ADSP/QNN path dry-run only after native logcat capture is
@@ -167,16 +209,15 @@ allowed connected-device dry-run with this artifact.
 
 ## Most Likely Cause
 
-The strongest current classification is dispatch runtime initialization failure
-inside the Qualcomm/LiteRT dispatch path, before a usable dispatch runtime is
+The strongest current classification is dispatch runtime dynamic-loading
+failure inside `LiteRtDispatchInitialize`, before a usable dispatch runtime is
 registered for delegate kernel creation.
 
-The most likely underlying causes are either:
-
-- QNN/HTP runtime/provider/API/device setup failing inside
-  `QnnManager::Create` or HTP backend initialization, or
-- Android app namespace/path state preventing the dispatch runtime from loading
-  the QNN pieces it needs, with the specific status hidden by the current fatal.
+The most likely underlying cause is Android app namespace/path state preventing
+the dispatch runtime or one of its direct dependencies from being opened. The
+current native file log does not yet reach compatibility checking or visible
+QNN/HTP manager initialization, so QNN/HTP/FastRPC remains a second-order branch
+rather than the immediate observed failure.
 
 The model appears aligned with QAIRT 2.44 and SM8750/V79, so model generation
 mismatch is no longer the lead hypothesis unless later logs show context binary
@@ -193,5 +234,5 @@ This coordinator pass did not run:
 - `selectedPath=npu`
 - normal UI `Backend.NPU` wiring
 - single-token smoke test
-- more than the single allowed JNI-sentinel `Engine.initialize` dry-run
+- more than the single allowed native file logger `Engine.initialize` dry-run
 - unsafe native library replacement

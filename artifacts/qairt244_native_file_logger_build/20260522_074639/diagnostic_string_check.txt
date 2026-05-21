@@ -1,0 +1,4 @@
+liblitertlm_jni.so contains qairt244_native_file_v1: yes
+libLiteRt.so contains qairt244_native_file_v1: yes
+libLiteRtDispatch_Qualcomm.so contains qairt244_native_file_v1: no
+libLiteRtCompilerPlugin_Qualcomm.so contains qairt244_native_file_v1: no

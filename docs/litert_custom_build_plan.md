@@ -174,10 +174,34 @@ Current status update, 2026-05-21:
 
 Next recommendation:
 
-1. Prove native logcat capture using a minimal app-owned JNI logger that does
-   not initialize LiteRT/NPU.
-2. Fix the collector/APK metadata path mismatch if needed.
-3. Only after native log capture is proven, return to dispatch/QNN path logging.
+1. Use file-backed native diagnostics rather than logcat for this device.
+2. Instrument lower-level `LiteRtDispatchInitialize` / dynamic loader path
+   selection to capture candidate paths and `dlerror`.
+3. Only after dispatch dynamic loading reaches QNN/HTP code, evaluate
+   ADSP/QNN path changes.
+
+Current status update, 2026-05-22:
+
+- app-owned JNI smoke proved native code executes and can write app-private
+  files while `__android_log_print` tags are not captured
+- native file logger build was completed:
+  `artifacts/qairt244_native_file_logger_build/20260522_074639/`
+- the allowed initialize-only dry-run still aborts at `Engine.initialize`
+  without returning:
+  `artifacts/npu_diagnostics/20260522_074944_customnpu/`
+- the app-private file logger reached `nativeCreateEngine`,
+  `ModelAssets::Create`, `EngineSettings::CreateDefault`,
+  `SetLitertDispatchLibDir`, `EngineFactory::CreateDefault`,
+  `DispatchDelegate::Initialize`, and `InitializeDispatchApi`
+- the first concrete native failure is
+  `LiteRtDispatchInitialize failure status=kLiteRtStatusErrorDynamicLoading(502)`
+
+Updated next recommendation:
+
+Add file-backed diagnostics inside the lower-level dispatch dynamic loader to
+capture the exact library candidate path and `dlerror`. Do not run generation,
+Conversation, Session, single-token smoke, or speculative ADSP/QNN path changes
+until that evidence is collected.
 
 Original pre-build guidance:
 

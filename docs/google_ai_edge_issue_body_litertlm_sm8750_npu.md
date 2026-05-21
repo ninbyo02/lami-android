@@ -79,6 +79,29 @@ Update after JNI-entry sentinel diagnostics:
 - this suggests the current blocker includes native logcat visibility/capture;
   it does not look like the JNI entry is missing
 
+Update after native file logger diagnostics:
+
+- app-owned JNI smoke first proved native code can execute and write an
+  app-private file while native logcat tags are not captured on this device
+- added file-backed native diagnostics with marker `qairt244_native_file_v1`
+  to `nativeCreateEngine` and the dispatch delegate initialization boundary
+- native file logger build artifact:
+  `artifacts/qairt244_native_file_logger_build/20260522_074639`
+- initialize-only dry-run artifact:
+  `artifacts/npu_diagnostics/20260522_074944_customnpu/`
+- diagnostic file was written at:
+  `/data/user/0/io.github.ninbyo02.lami.customnpu/files/qairt244_native_diag.txt`
+- native file confirms `nativeCreateEngine`, `ModelAssets::Create`,
+  `EngineSettings::CreateDefault`, `SetLitertDispatchLibDir`,
+  `EngineFactory::CreateDefault`, `DispatchDelegate::Initialize`, and
+  `InitializeDispatchApi` were reached
+- first concrete native failure:
+  `LiteRtDispatchInitialize failure status=kLiteRtStatusErrorDynamicLoading(502)`
+- `LiteRtDispatchCheckRuntimeCompatibility` is not reached in this log
+- visible QNN/HTP/skel initialization is not reached in this log
+- the process then aborts at
+  `DispatchDelegate::CreateDelegateKernelInterface FATAL no usable dispatch runtime`
+
 What I need from maintainers:
 
 - the supported way to obtain or build a Qualcomm dispatch runtime matching LiteRT-LM Android,

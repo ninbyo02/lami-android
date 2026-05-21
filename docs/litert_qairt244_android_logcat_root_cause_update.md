@@ -139,3 +139,61 @@ The smoke path does not touch LiteRT, QAIRT, QNN, `Backend.NPU`, or
 `Engine.initialize`. This confirms that the logging problem is broader than
 LiteRT-LM dispatch logging: app-owned native code executes, but direct logcat
 collection still misses its tag.
+
+## Native File Logger Follow-Up
+
+Result date: 2026-05-22
+
+Because app-owned JNI smoke proved native code can write an app-private file
+while logcat still misses `__android_log_print` tags, the next diagnostic build
+uses file-backed native logging.
+
+Build artifact:
+
+```text
+artifacts/qairt244_native_file_logger_build/20260522_074639/
+```
+
+Dry-run diagnostics:
+
+```text
+artifacts/npu_diagnostics/20260522_074944_customnpu/
+```
+
+Curated dry-run artifact:
+
+```text
+artifacts/qairt244_native_file_logger_dry_run/20260522_074944/
+```
+
+Diagnostic file:
+
+```text
+/data/user/0/io.github.ninbyo02.lami.customnpu/files/qairt244_native_diag.txt
+```
+
+The file logger reached:
+
+- `nativeCreateEngine ENTRY`
+- `ModelAssets::Create success`
+- `EngineSettings::CreateDefault success`
+- `SetLitertDispatchLibDir`
+- `EngineFactory::CreateDefault` entry
+- `DispatchDelegate::Initialize`
+- `InitializeDispatchApi`
+
+The first concrete native failure status is:
+
+```text
+LiteRtDispatchInitialize failure status=kLiteRtStatusErrorDynamicLoading(502)
+```
+
+The log then records:
+
+```text
+DispatchDelegate::CreateDelegateKernelInterface FATAL no usable dispatch runtime
+```
+
+This changes the active failure boundary from "native log visibility unknown" to
+"dispatch runtime dynamic loading fails inside `LiteRtDispatchInitialize` before
+compatibility checking or visible QNN/HTP initialization."

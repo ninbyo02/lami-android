@@ -1,0 +1,9 @@
+path=/home/sato/project/lami-android/artifacts/qairt244_native_file_logger_build/20260522_074639/built_libs/libLiteRt.so
+label=built
+present=true
+size=5421464
+sha256=215ecfebc89f25adae32de7b0189e81264a5e1317160ff327dfb127702c801c0
+build_id=8e2c846a217663487c7163a3c596688c
+soname=libLiteRt.so
+needed=libdl.so,libGLESv3.so,libEGL.so,libm.so,liblog.so,libc.so
+/home/sato/project/lami-android/artifacts/qairt244_native_file_logger_build/20260522_074639/built_libs/libLiteRt.so: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[md5/uuid]=8e2c846a217663487c7163a3c596688c, stripped

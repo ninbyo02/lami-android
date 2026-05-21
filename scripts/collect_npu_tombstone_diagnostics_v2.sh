@@ -8,7 +8,7 @@ RUN_ID="${RUN_ID:-}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 OUT_DIR=""
 
-KEYWORDS="gallerynpu|LiteRt|LiteRT|litert|liblitertlm|libLiteRt|libLiteRtDispatch|Dispatch|dispatch|QNN|Qnn|HTP|Htp|NPU|nativeCreateEngine|No usable Dispatch runtime found|Failed to initialize Dispatch API|insufficient capabilities|capabilities|LiteRtRuntimeCApi|LiteRtDispatchCheckRuntimeCompatibility|CheckRuntimeCompatibility|RuntimeCApi|QNN manager|ADSP|LD_LIBRARY_PATH|dlopen|linker|cannot locate|library not found|symbol not found|version mismatch|FATAL|SIGABRT|Abort message|tombstone|DEBUG"
+KEYWORDS="gallerynpu|customnpu|LiteRt|LiteRT|litert|liblitertlm|libLiteRt|libLiteRtDispatch|Dispatch|dispatch|QNN|Qnn|HTP|Htp|NPU|nativeCreateEngine|No usable Dispatch runtime found|Failed to initialize Dispatch API|insufficient capabilities|capabilities|LiteRtRuntimeCApi|LiteRtDispatchCheckRuntimeCompatibility|CheckRuntimeCompatibility|RuntimeCApi|QNN manager|ADSP|LD_LIBRARY_PATH|dlopen|linker|cannot locate|library not found|symbol not found|version mismatch|FATAL|SIGABRT|Abort message|tombstone|DEBUG|QAIRT244_SMOKE|QAIRT244_SENTINEL|QAIRT244_DIAG|qairt244_app_jni_smoke_v1|qairt244_jni_entry_v1|qairt244_android_log_v1|qairt244_native_file_v1"
 LIBS=(
   "liblitertlm_jni.so"
   "libLiteRt.so"
@@ -139,6 +139,7 @@ decode_register_ascii() {
 
 pick_local_apk() {
   case "$APP_ID" in
+    *customnpu) printf 'app/build/outputs/apk/customBuildExperiment/debug/app-customBuildExperiment-debug.apk' ;;
     *gallerynpu) printf 'app/build/outputs/apk/galleryStackExperiment/debug/app-galleryStackExperiment-debug.apk' ;;
     *.npu) printf 'app/build/outputs/apk/npuExperiment/debug/app-npuExperiment-debug.apk' ;;
     *) printf 'app/build/outputs/apk/standard/debug/app-standard-debug.apk' ;;
@@ -181,6 +182,7 @@ log "appId=$APP_ID label=$LABEL out=$OUT_DIR"
 write_missing_or_file files/npu_engine_initialize_dry_run.txt "$OUT_DIR/stage_file.txt"
 write_missing_or_file files/npu_engine_initialize_last_stage.txt "$OUT_DIR/last_stage.txt"
 write_missing_or_file files/npu_engine_initialize_crash_marker.txt "$OUT_DIR/crash_marker.txt"
+write_missing_or_file files/qairt244_native_diag.txt "$OUT_DIR/qairt244_native_diag.txt"
 write_missing_or_file files/npu_experiment_probe.txt "$OUT_DIR/probe_snapshot.txt"
 
 adb shell dumpsys package "$APP_ID" >"$OUT_DIR/package_dump.txt" 2>"$OUT_DIR/package_dump.err" || true

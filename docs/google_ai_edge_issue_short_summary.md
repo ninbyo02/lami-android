@@ -87,11 +87,23 @@ Additional source/version findings:
   `QAIRT244_SENTINEL` and marker `qairt244_jni_entry_v1`; the tombstone shows
   the sentinel JNI Build ID `8faff14dc850b7fb1986a300ac465fa4` and
   `nativeCreateEngine+1992`, but no sentinel lines were captured
+- app-owned JNI smoke then proved native code executes and writes app-private
+  files while native logcat tags are not captured
+- native file logger diagnostics with marker `qairt244_native_file_v1` reached
+  `nativeCreateEngine`, `ModelAssets::Create`, `EngineSettings::CreateDefault`,
+  `SetLitertDispatchLibDir`, `EngineFactory::CreateDefault`,
+  `DispatchDelegate::Initialize`, and `InitializeDispatchApi`
+- first concrete native failure:
+  `LiteRtDispatchInitialize failure status=kLiteRtStatusErrorDynamicLoading(502)`
+- `LiteRtDispatchCheckRuntimeCompatibility` and visible QNN/HTP/skel
+  initialization were not reached in this log
 
 What seems unlikely:
 
 - `libLiteRtRuntimeCApi.so` missing: weak evidence
-- QNN/ADSP path problem: possible, but no direct missing-library/path/version log
+- model schema mismatch: low priority after the native file logger reached the
+  dispatch runtime dynamic-loading boundary
+- QNN/ADSP path problem: possible, but not yet the immediate observed boundary
 
 Maintainer ask:
 
