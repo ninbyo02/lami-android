@@ -246,11 +246,14 @@ artifacts/npu_diagnostics/20260522_222434_customnpu/
 
 Updated next recommendation:
 
-1. Identify the QAIRT/QNN meaning of `QnnDevice_create` status `14001`.
-2. Capture QNN backend log callback output or vendor error text at the same
-   initialize-only boundary.
-3. Only then test a customBuildExperimentDebug-only HTP/FastRPC setting such as
-   unsigned-PD or skel path handling if the error points there.
+1. Treat `QnnDevice_create` status `14001` as
+   `QNN_DEVICE_ERROR_INVALID_CONFIG`; backend logs now show this is caused by
+   `libQnnHtpV79Stub.so` failing to resolve `libcdsprpc.so` in Android linker
+   namespace `clns-9`.
+2. Design the next customBuildExperimentDebug-only experiment around
+   `libcdsprpc.so` visibility or supported vendor namespace access.
+3. Only after the V79 stub loads should unsigned-PD or skel path config be
+   changed.
 4. Continue to avoid `Conversation`, `Session`, `generateResponse`, normal UI
    NPU wiring, and single-token smoke until `Engine.initialize` returns.
 

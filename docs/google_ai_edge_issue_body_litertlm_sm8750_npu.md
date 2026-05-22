@@ -652,3 +652,31 @@ The concrete question is now what QNN HTP `QnnDevice_create` status `14001`
 means on QAIRT `2.44.0.260225` for SM8750/V79, and which device config,
 domain/transport, unsigned-PD, or skel-path setup is expected before
 `LiteRtDispatchCheckRuntimeCompatibility` can be reached.
+
+## 2026-05-22 QNN Backend Log Callback Update
+
+`14001` maps to `QNN_DEVICE_ERROR_INVALID_CONFIG` in QAIRT 2.44 headers. Adding
+a QNN backend log callback revealed the concrete invalid config path:
+
+```text
+QnnDevice_create started
+Create device with id 0x1
+Specified config SOC, ignoring on real target
+Setting default value for unsigned PD usage
+Attempting to open dynamically linked so:
+  .../lib/arm64/libQnnHtpV79Stub.so using absolute filename
+Attempting to open dynamically linked so:
+  libQnnHtpV79Stub.so using base filename
+Failed in loading stub: dlopen failed: library "libcdsprpc.so" not found:
+  needed by .../libQnnHtpV79Stub.so in namespace clns-9
+loadRemoteSymbols failed with err 4000
+Failed to create transport for device, error: 4000
+Failed to load skel, error: 4000
+Transport layer setup failed: 14001
+QnnDevice_create done. status 0x36b1
+```
+
+So the current boundary is not model schema or LiteRT compatibility checking.
+The app process cannot resolve `libcdsprpc.so` for `libQnnHtpV79Stub.so` in the
+Android linker namespace used by the custom APK. `LiteRtDispatchCheckRuntimeCompatibility`
+is still not reached.
