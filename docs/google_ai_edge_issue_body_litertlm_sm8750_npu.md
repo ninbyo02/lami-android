@@ -677,6 +677,23 @@ QnnDevice_create done. status 0x36b1
 ```
 
 So the current boundary is not model schema or LiteRT compatibility checking.
-The app process cannot resolve `libcdsprpc.so` for `libQnnHtpV79Stub.so` in the
-Android linker namespace used by the custom APK. `LiteRtDispatchCheckRuntimeCompatibility`
-is still not reached.
+The app process could not resolve `libcdsprpc.so` for `libQnnHtpV79Stub.so` in
+the Android linker namespace used by the custom APK until the APK manifest added
+an optional native-library declaration:
+
+```xml
+<uses-native-library android:name="libcdsprpc.so" android:required="false" />
+```
+
+With that declaration isolated to `customBuildExperimentDebug`, the APK does not
+package `libcdsprpc.so`, but the installed package dump lists it under optional
+native libraries and library files. The initialize-only dry-run then advanced:
+
+```text
+QnnDevice_create done. device = 0x1. status 0x0
+LiteRtDispatchCheckRuntimeCompatibility status=kLiteRtStatusOk(0)
+Engine.initialize returned
+```
+
+No `Conversation`, `Session`, `generateResponse`, normal UI NPU wiring, or token
+generation test has been run.

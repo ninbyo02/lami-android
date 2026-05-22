@@ -8,26 +8,49 @@ review, LiteRT source trace, CLI proof planning, model schema probe, the
 2026-05-22 app-owned JNI logcat smoke, the 2026-05-22 native file logger
 dry-run, the dlopen trace build, the dispatch symbol-resolution experiments,
 the QNN provider trace dry-run, the QNN runtime alignment dry-run, the HTP
-backend trace dry-run, and the QNN backend log callback dry-run.
+backend trace dry-run, the QNN backend log callback dry-run, and the
+libcdsprpc manifest visibility dry-run.
 
-## Current Failure Boundary
+## Current Boundary
 
 - flavor: `customBuildExperimentDebug`
 - applicationId: `io.github.ninbyo02.lami.customnpu`
-- runId: latest connected dry-run artifact
-- diagnostic artifact: `artifacts/npu_diagnostics/20260522_225623_customnpu/`
-- curated artifact: `artifacts/qairt244_htp_log_callback_dry_run/20260522_225623/`
-- tombstone: latest collected tombstone in the diagnostic artifact
-- final stage: `Engine.initialize invoking method=Engine.initialize(): void`
-- returned: no
-- signal: `SIGABRT`
-- reconstructed text: `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found`
+- runId: `1779459136669`
+- diagnostic artifact: `artifacts/qairt244_libcdsprpc_manifest_experiment/20260522_231302/`
+- final stage: `done`
+- returned: yes
+- signal: none
 - immediate native boundary:
-  `HtpBackend::Init -> QnnDevice_create -> libQnnHtpV79Stub.so cannot resolve libcdsprpc.so -> status=14001`
+  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success`
 
 The dry-run stopped at the allowed initialize boundary. It did not create a
 `Conversation` or `Session`, did not call `generateResponse`, did not wire
 normal UI inference to NPU, and did not run a single-token smoke test.
+
+## libcdsprpc Manifest Visibility Update
+
+Artifact:
+
+```text
+artifacts/qairt244_libcdsprpc_manifest_experiment/20260522_231302/
+```
+
+Result:
+
+- `customBuildExperimentDebug` now uses a dedicated manifest.
+- The dedicated manifest declares
+  `<uses-native-library android:name="libcdsprpc.so" android:required="false" />`.
+- APK manifest and installed package dumps confirm `libcdsprpc.so` as an
+  optional native library.
+- `libcdsprpc.so` was not packaged in the APK.
+- `QnnDevice_create` now succeeds with `status 0x0`.
+- `LiteRtDispatchCheckRuntimeCompatibility` is reached and returns
+  `kLiteRtStatusOk(0)`.
+- `Engine.initialize` returns successfully in the explicit dry-run path.
+
+Classification: the previous `QNN_DEVICE_ERROR_INVALID_CONFIG` / `14001`
+boundary was caused by app namespace visibility of the FastRPC host dependency
+`libcdsprpc.so`, not by SM8750/V79 model metadata or QNN System API mismatch.
 
 ## Android Logcat Dry-Run Update
 
@@ -410,27 +433,25 @@ It is Android app namespace resolution of the FastRPC host dependency
 
 | Hypothesis | Evidence | Confidence | Next action |
 | --- | --- | --- | --- |
-| H1. SM8750/V79 dispatch capability mismatch | `LiteRtDispatchCheckRuntimeCompatibility` is still not reached. Current failure is `HtpBackendInit` before compatibility logic. | low | Defer capability/schema hypotheses until HTP backend init succeeds. |
-| H2. Android app nativeLibraryDir QNN/HTP search problem | `SetLitertDispatchLibDir` propagates the app native library directory correctly. Dispatch, `libQnnSystem.so`, and `libQnnHtp.so` now load from the custom APK. | low | Do not change generic nativeLibraryDir behavior; focus on HTP backend init detail. |
-| H3. ADSP_LIBRARY_PATH / FastRPC / skel-stub path problem | Backend log shows `libQnnHtpV79Stub.so` load fails because `libcdsprpc.so` is not found in Android linker namespace `clns-9`. Device has vendor `libcdsprpc.so`, but app namespace cannot resolve it. | high | Decide whether to package/provide `libcdsprpc.so` for customBuildExperimentDebug or access vendor FastRPC through a supported namespace path. |
-| H4. Qualcomm SM8750 model/runtime schema mismatch | Model directly carries QAIRT 2.44, SM8750, V79, and dispatch/QNN partition markers. That argues against a generic or wrong-SoC model, but context binary compatibility can still fail later. | low-medium | Defer deeper schema decode until dispatch API initialization logs show runtime accepted and invocation context creation is reached. |
-| H5. Dispatch runtime registration / capability check failure | `DT_NEEDED [libLiteRt.so]` fixed the first dispatch dynamic-link failure. QAIRT 2.44 QNN runtime alignment fixed the System API mismatch. HTP trace reaches `QnnBackend_create` and fails at `QnnDevice_create` with status `14001`. Capability check is still not reached. | high | Treat dispatch registration as blocked by HTP device creation, not by dispatch API discovery. |
-| H6. CLI litert_lm_main works while Android app fails | Not tested. Existing upstream CLI is unsafe because it creates a `Conversation` and sends a prompt. CLI could later isolate linker namespace and explicit `LD_LIBRARY_PATH`/`ADSP_LIBRARY_PATH`. | unknown | First create an initialize-only CLI target that cannot generate, then build/query Android arm64 with explicit SDK/NDK setup. |
+| H1. SM8750/V79 dispatch capability mismatch | With `libcdsprpc.so` declared as an optional native library, `LiteRtDispatchCheckRuntimeCompatibility` is reached and returns `kLiteRtStatusOk(0)`. | low for initialize | Keep as a later inference/runtime risk, not an initialize blocker. |
+| H2. Android app nativeLibraryDir QNN/HTP search problem | `SetLitertDispatchLibDir` propagates the app native library directory correctly. Dispatch, QNN System, QNN HTP, and V79 stub now load far enough for initialize to return. | low | Keep current nativeLibraryDir propagation unchanged. |
+| H3. ADSP_LIBRARY_PATH / FastRPC / skel-stub path problem | Previous backend log showed `libQnnHtpV79Stub.so` failed because `libcdsprpc.so` was not visible in namespace `clns-9`. Adding `uses-native-library libcdsprpc.so` fixes that boundary and `QnnDevice_create` returns `0`. | resolved for initialize | Keep the manifest declaration isolated to `customBuildExperimentDebug`; do not stage vendor `libcdsprpc.so` unless a future device lacks manifest visibility. |
+| H4. Qualcomm SM8750 model/runtime schema mismatch | Model carries QAIRT 2.44, SM8750, V79, and dispatch/QNN partition markers. Initialize and compatibility now succeed. | low for initialize | Defer any deeper schema questions until a separately approved non-generating runtime/capability probe needs it. |
+| H5. Dispatch runtime registration / capability check failure | `DT_NEEDED [libLiteRt.so]`, QAIRT 2.44 QNN runtime alignment, QNN backend init, and compatibility check now all succeed in the explicit dry-run. | resolved for initialize | Preserve the diagnostic baseline and do not wire NPU into normal UI yet. |
+| H6. CLI litert_lm_main works while Android app fails | Android app initialize-only path now succeeds. Existing upstream CLI is still unsafe because it creates a `Conversation` and sends a prompt. | lower priority | CLI proof remains useful only if implemented as initialize-only and non-generating. |
 
 ## Ranked Next Moves
 
-1. Investigate a customBuildExperimentDebug-only `libcdsprpc.so` visibility
-   experiment or supported vendor namespace approach; do not touch
-   `app/src/main/jniLibs`.
-2. Preserve the backend log callback until the stub loads and the next boundary
-   is known.
+1. Preserve the `customBuildExperimentDebug`-only
+   `uses-native-library libcdsprpc.so` manifest declaration.
+2. Treat explicit `Engine.initialize` as proven for this diagnostic path only;
+   do not connect NPU to normal UI inference yet.
 3. Keep QAIRT 2.44 QNN runtime alignment and the dispatch `DT_NEEDED
    [libLiteRt.so]` fix as required baseline conditions.
-4. Implement the non-generating C++ initialize-only CLI target after Android app
-   QNN provider initialization is understood.
-   Do not execute upstream `litert_lm_main`.
-5. Prepare an upstream issue update with the exact `QnnDevice_create=14001`
-   boundary and the model's `v2.44.0.260225143659` marker.
+4. If the next phase needs app execution, make it another explicit,
+   initialize-only or capability-only probe before any generation test.
+5. Keep the fallback device `libcdsprpc.so` staging script for investigation
+   only; do not commit or redistribute pulled vendor libraries.
 
 ## Dispatch Logging Update
 
@@ -454,12 +475,13 @@ allowed connected-device dry-run with this artifact.
 
 ## Most Likely Cause
 
-The strongest current classification is HTP V79 stub/FastRPC dependency
-resolution failure inside QNN backend initialization:
+The strongest current classification is now resolved for initialize:
 
 ```text
-HtpBackend::Init -> QnnDevice_create -> libQnnHtpV79Stub.so needs libcdsprpc.so
--> Android linker namespace clns-9 cannot resolve libcdsprpc.so -> status=14001
+customBuildExperimentDebug manifest -> uses-native-library libcdsprpc.so
+-> V79 stub can resolve libcdsprpc.so -> QnnDevice_create status=0
+-> LiteRtDispatchCheckRuntimeCompatibility status=kLiteRtStatusOk(0)
+-> Engine.initialize returned
 ```
 
 Earlier blockers are now understood and bypassed in the diagnostic baseline:
@@ -468,11 +490,12 @@ Earlier blockers are now understood and bypassed in the diagnostic baseline:
 - packaged QNN System had to be aligned to QAIRT 2.44 so System API reached
   `1.8.0`
 - `libQnnHtp.so` now loads and the HTP API resolves
+- the app manifest must declare optional `libcdsprpc.so` for FastRPC host
+  dependency visibility
 
-The remaining leading branch is Android linker namespace / FastRPC host library
-visibility for `libcdsprpc.so`. Device config is the public QNN error class,
-but backend logs show the concrete failure is stub transport dependency
-resolution before compatibility checking.
+The previous `QNN_DEVICE_ERROR_INVALID_CONFIG` / `14001` was the public QNN
+error surfaced from the missing FastRPC host dependency visibility. With
+manifest visibility fixed, it is no longer the current boundary.
 
 The model appears aligned with QAIRT 2.44 and SM8750/V79, so model generation
 mismatch is not the lead hypothesis at this boundary.

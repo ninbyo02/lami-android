@@ -1,0 +1,24 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
+        <!--
+            Debug-only explicit ADB probe for the isolated customBuildExperiment variant.
+            This keeps libcdsprpc visibility experiments out of npuExperiment,
+            galleryStackExperiment, standard, and release variants.
+        -->
+        <receiver
+            android:name="io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.npu.PROBE_DISPATCH" />
+            </intent-filter>
+        </receiver>
+        <activity
+            android:name="io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+    </application>
+</manifest>

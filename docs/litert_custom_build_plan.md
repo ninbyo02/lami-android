@@ -221,7 +221,33 @@ Updated next recommendation:
 Superseded by connected-device symbol-resolution, QNN runtime alignment, and
 HTP backend trace runs.
 
-Current status update, 2026-05-22 HTP backend trace:
+Current status update, 2026-05-22 libcdsprpc manifest visibility:
+
+- adding
+  `<uses-native-library android:name="libcdsprpc.so" android:required="false" />`
+  to a `customBuildExperimentDebug`-only manifest makes the vendor FastRPC host
+  library visible to the app linker namespace
+- `libcdsprpc.so` is not packaged or redistributed by the APK
+- `QnnDevice_create` now succeeds
+- `LiteRtDispatchCheckRuntimeCompatibility` returns `kLiteRtStatusOk(0)`
+- explicit initialize-only dry-run returns successfully and closes the engine
+
+Current artifact:
+
+```text
+artifacts/qairt244_libcdsprpc_manifest_experiment/20260522_231302/
+```
+
+Updated next recommendation:
+
+1. Keep the `uses-native-library libcdsprpc.so` declaration isolated to
+   `customBuildExperimentDebug`.
+2. Treat `Engine.initialize` as proven only for the explicit dry-run path.
+3. Do not connect `Backend.NPU` to normal UI inference yet.
+4. Next, design a separate initialize-only or CLI proof plan for capability and
+   runtime stability before any generation test.
+
+Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real
   `DT_NEEDED [libLiteRt.so]` edge on `libLiteRtDispatch_Qualcomm.so`

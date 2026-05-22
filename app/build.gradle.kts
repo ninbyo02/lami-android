@@ -155,7 +155,7 @@ android {
         create("customBuildExperimentDebug") {
             java.srcDir("src/npuExperimentDebug/java")
             java.srcDir("src/customBuildExperimentDebug/java")
-            manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
+            manifest.srcFile("src/customBuildExperimentDebug/AndroidManifest.xml")
             jniLibs.srcDir("src/customBuildExperimentDebug/jniLibs")
         }
     }
