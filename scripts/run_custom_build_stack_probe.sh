@@ -13,25 +13,27 @@ DRY_RUN_FILE="files/npu_engine_initialize_dry_run.txt"
 CRASH_MARKER_FILE="files/npu_engine_initialize_crash_marker.txt"
 LAST_STAGE_FILE="files/npu_engine_initialize_last_stage.txt"
 NATIVE_DIAG_FILE="files/qairt244_native_diag.txt"
+LINKER_DEBUG_PROP="debug.ld.app.$APP_ID"
+LINKER_DEBUG_VALUE="dlerror,dlopen,dlsym"
 DEFAULT_MODEL_BASENAME="gemma-4-E2B-it_qualcomm_sm8750.litertlm"
 EXPECTED_QAIRT244_LITERT_BUILD_ID="a03032ad1eeefda446478aea308c2ed0"
 EXPECTED_QAIRT244_DISPATCH_BUILD_ID="a8006da3bd9b4fdf5b7131f8d864b6ee"
 EXPECTED_QAIRT244_LITERTLM_JNI_BUILD_ID="b78167f717866bbc1d9a981f01fb0334"
 EXPECTED_QAIRT244_COMPILER_PLUGIN_BUILD_ID="443391d4c4348191230b67a3ab8a6037"
 EXPECTED_QAIRT244_GEMMA_PROVIDER_BUILD_ID="f9e5e73e668032550042319e43012011"
-EXPECTED_QAIRT244_LOGGING_LITERT_BUILD_ID="8e2c846a217663487c7163a3c596688c"
-EXPECTED_QAIRT244_LOGGING_DISPATCH_BUILD_ID="e249453cf79d19c37af2b2019fea71f1"
-EXPECTED_QAIRT244_LOGGING_LITERTLM_JNI_BUILD_ID="38b795aeb83183c12361f108dc2308bc"
-EXPECTED_QAIRT244_LOGGING_COMPILER_PLUGIN_BUILD_ID="696d69bb8a9de9988bc5a24efec61a2e"
+EXPECTED_QAIRT244_LOGGING_LITERT_BUILD_ID="bf8a68f5348fc68674f1e659da138f71"
+EXPECTED_QAIRT244_LOGGING_DISPATCH_BUILD_ID="b08e70f378f3b2b3c0354375fa6fb532"
+EXPECTED_QAIRT244_LOGGING_LITERTLM_JNI_BUILD_ID="0097e57889e5b09095d791a62b0a2506"
+EXPECTED_QAIRT244_LOGGING_COMPILER_PLUGIN_BUILD_ID="e0e6b5ff68ad6db654ac1ac3ef2a7aaa"
 EXPECTED_QAIRT244_LITERT_SHA256="84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553"
 EXPECTED_QAIRT244_DISPATCH_SHA256="00c26484621ab42bea6e3bee0d7e908451a428cf19cbd1ebfecf4ccee79e1739"
 EXPECTED_QAIRT244_LITERTLM_JNI_SHA256="310e37ff7cf770c24d636bbb0f9647a0d59dd893ba0c2530acdfc06569704230"
 EXPECTED_QAIRT244_COMPILER_PLUGIN_SHA256="c56c7cd5ea3aaee69bae18085b270491507e5736ba8ec1af18aa798f7ac1a64c"
 EXPECTED_QAIRT244_GEMMA_PROVIDER_SHA256="45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6"
-EXPECTED_QAIRT244_LOGGING_LITERT_SHA256="215ecfebc89f25adae32de7b0189e81264a5e1317160ff327dfb127702c801c0"
-EXPECTED_QAIRT244_LOGGING_DISPATCH_SHA256="ec12f96959b543782d906afc5cc2caa888dc3b29ea2403ff175088d88acdf093"
-EXPECTED_QAIRT244_LOGGING_LITERTLM_JNI_SHA256="b4380c0d8ad06ef4bf6951ee66485d94ddb7173c5bad2fc1ede393027e2c06ee"
-EXPECTED_QAIRT244_LOGGING_COMPILER_PLUGIN_SHA256="22ce807533dc659c3f482f6943f2a8b7311869e0a2c61ab8629d15bcaf3d496d"
+EXPECTED_QAIRT244_LOGGING_LITERT_SHA256="a4b9ec1ab6b4c2d94680d3f63f4fa768dfa0151d6b2012629b1f44b0697290b0"
+EXPECTED_QAIRT244_LOGGING_DISPATCH_SHA256="9cc63a7c5d441c969a6733373db7dd1c189e6679470b0f7a6ed8d4d378c67ca1"
+EXPECTED_QAIRT244_LOGGING_LITERTLM_JNI_SHA256="cf059d354b473d73d35324a02795e804325ab3cd982d278b559e14fbfc3eda48"
+EXPECTED_QAIRT244_LOGGING_COMPILER_PLUGIN_SHA256="d68b13f99852ddf1ee68f97b4f2f66a97375fedf7a8ea8885614a3f1f1d1fa30"
 
 shift $(( $# > 0 ? 1 : 0 ))
 while [ "$#" -gt 0 ]; do
@@ -52,6 +54,14 @@ while [ "$#" -gt 0 ]; do
 done
 
 cd "$ROOT_DIR" || exit 1
+
+clear_linker_debug_prop() {
+  if [ "${LINKER_DEBUG_PROP_SET:-false}" = "true" ]; then
+    adb shell setprop "$LINKER_DEBUG_PROP" "" >/dev/null 2>&1 || true
+  fi
+}
+
+trap clear_linker_debug_prop EXIT
 
 print_expected_qairt244_stack() {
   cat <<EOF
@@ -139,6 +149,14 @@ echo "[custom-build-probe] clearing probe files..."
 adb shell run-as "$APP_ID" rm -f "$SNAPSHOT_FILE" "$DRY_RUN_FILE" "$CRASH_MARKER_FILE" "$LAST_STAGE_FILE" "$NATIVE_DIAG_FILE" >/dev/null 2>&1 || true
 adb logcat -c >/dev/null 2>&1 || true
 
+if [ "$RUN_ENGINE_DRY_RUN" = "true" ]; then
+  echo "[custom-build-probe] enabling linker debug property: $LINKER_DEBUG_PROP=$LINKER_DEBUG_VALUE"
+  adb shell setprop "$LINKER_DEBUG_PROP" "$LINKER_DEBUG_VALUE" >/dev/null 2>&1 || true
+  LINKER_DEBUG_PROP_SET=true
+  echo "[custom-build-probe] linker debug property now:"
+  adb shell getprop "$LINKER_DEBUG_PROP" 2>/dev/null | tr -d '\r' || true
+fi
+
 if [ -z "$MODEL_PATH" ]; then
   MODEL_PATH="/data/user/0/$APP_ID/files/local_models/$DEFAULT_MODEL_BASENAME"
 fi
@@ -217,7 +235,13 @@ fi
 
 echo
 echo "[custom-build-probe] related logcat lines:"
-adb logcat -b all -d -t 5000 2>/dev/null | grep -Ei "Custom Build Stack|NpuExperimentProbe|AcceleratorProbe|LiteRt|LiteRT|litert|Dispatch|dispatch|QNN|Qnn|HTP|Htp|ADSP|nativeCreateEngine|customnpu|linker|dlopen|CheckRuntimeCompatibility|RuntimeCApi|NPU|lami|FATAL|SIGABRT|SIGSEGV" || true
+adb logcat -b all -d -t 5000 2>/dev/null | grep -Ei "Custom Build Stack|NpuExperimentProbe|AcceleratorProbe|LiteRt|LiteRT|litert|Dispatch|dispatch|QNN|Qnn|HTP|Htp|ADSP|nativeCreateEngine|customnpu|linker|linker64|dlopen|dlerror|dlsym|cannot locate|library .* not found|needed by|namespace|qairt244_dlopen_trace_v1|CheckRuntimeCompatibility|RuntimeCApi|NPU|lami|FATAL|SIGABRT|SIGSEGV" || true
+
+if [ "$RUN_ENGINE_DRY_RUN" = "true" ]; then
+  echo
+  echo "[custom-build-probe] linker debug property after run:"
+  adb shell getprop "$LINKER_DEBUG_PROP" 2>/dev/null | tr -d '\r' || true
+fi
 
 if [ "$RUN_ENGINE_DRY_RUN" = "true" ] && { [ -z "$PID" ] || [ -z "$SNAPSHOT" ]; }; then
   echo

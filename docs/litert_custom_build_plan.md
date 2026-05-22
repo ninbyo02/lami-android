@@ -203,6 +203,24 @@ capture the exact library candidate path and `dlerror`. Do not run generation,
 Conversation, Session, single-token smoke, or speculative ADSP/QNN path changes
 until that evidence is collected.
 
+Current status update, 2026-05-22 dlopen trace:
+
+- lower-level dispatch dynamic loading diagnostics were added:
+  `qairt244_dlopen_trace_v1`
+- build artifact:
+  `artifacts/qairt244_dlopen_trace_build/20260522_083658/`
+- custom probe now sets and clears the customnpu-only linker debug property:
+  `debug.ld.app.io.github.ninbyo02.lami.customnpu=dlerror,dlopen,dlsym`
+- the connected-device dry-run was not executed because no adb device was
+  connected
+- attempt artifact:
+  `artifacts/qairt244_dlopen_trace_dry_run/20260522_083818_no_device/`
+
+Updated next recommendation:
+
+Connect the Nubia device and run the prepared dlopen trace build once. The
+allowed connected-device dry-run for this build remains unused.
+
 Original pre-build guidance:
 
 1. Ask maintainers which source tag/native artifact generation matches Gallery SM8750 and `litertlm-android:0.11.0`.

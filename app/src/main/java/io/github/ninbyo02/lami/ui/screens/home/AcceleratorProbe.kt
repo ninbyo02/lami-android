@@ -40,10 +40,10 @@ internal object AcceleratorProbe {
     private const val CUSTOM_BUILD_LITERTLM_JNI_BUILD_ID = "b78167f717866bbc1d9a981f01fb0334"
     private const val CUSTOM_BUILD_COMPILER_PLUGIN_BUILD_ID = "443391d4c4348191230b67a3ab8a6037"
     private const val CUSTOM_BUILD_GEMMA_MODEL_CONSTRAINT_PROVIDER_BUILD_ID = "f9e5e73e668032550042319e43012011"
-    private const val CUSTOM_BUILD_LOGGING_LITERT_BUILD_ID = "8e2c846a217663487c7163a3c596688c"
-    private const val CUSTOM_BUILD_LOGGING_DISPATCH_BUILD_ID = "e249453cf79d19c37af2b2019fea71f1"
-    private const val CUSTOM_BUILD_LOGGING_LITERTLM_JNI_BUILD_ID = "38b795aeb83183c12361f108dc2308bc"
-    private const val CUSTOM_BUILD_LOGGING_COMPILER_PLUGIN_BUILD_ID = "696d69bb8a9de9988bc5a24efec61a2e"
+    private const val CUSTOM_BUILD_LOGGING_LITERT_BUILD_ID = "bf8a68f5348fc68674f1e659da138f71"
+    private const val CUSTOM_BUILD_LOGGING_DISPATCH_BUILD_ID = "b08e70f378f3b2b3c0354375fa6fb532"
+    private const val CUSTOM_BUILD_LOGGING_LITERTLM_JNI_BUILD_ID = "0097e57889e5b09095d791a62b0a2506"
+    private const val CUSTOM_BUILD_LOGGING_COMPILER_PLUGIN_BUILD_ID = "e0e6b5ff68ad6db654ac1ac3ef2a7aaa"
     private const val GALLERY_NATIVE_CREATE_ENGINE_DESCRIPTOR =
         "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;ZLjava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)J"
     private const val GALLERY_ENGINE_CONFIG_CONSTRUCTOR_SIGNATURE =

@@ -1,0 +1,9 @@
+path=/home/sato/project/lami-android/artifacts/qairt244_dlopen_trace_build/20260522_083658/built_libs/libLiteRtCompilerPlugin_Qualcomm.so
+label=built
+present=true
+size=1018704
+sha256=d68b13f99852ddf1ee68f97b4f2f66a97375fedf7a8ea8885614a3f1f1d1fa30
+build_id=e0e6b5ff68ad6db654ac1ac3ef2a7aaa
+soname=libLiteRtCompilerPlugin_Qualcomm.so
+needed=libandroid.so,liblog.so,libdl.so,libc.so,libm.so
+/home/sato/project/lami-android/artifacts/qairt244_dlopen_trace_build/20260522_083658/built_libs/libLiteRtCompilerPlugin_Qualcomm.so: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[md5/uuid]=e0e6b5ff68ad6db654ac1ac3ef2a7aaa, stripped

@@ -8,7 +8,7 @@ RUN_ID="${RUN_ID:-}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 OUT_DIR=""
 
-KEYWORDS="gallerynpu|customnpu|LiteRt|LiteRT|litert|liblitertlm|libLiteRt|libLiteRtDispatch|Dispatch|dispatch|QNN|Qnn|HTP|Htp|NPU|nativeCreateEngine|No usable Dispatch runtime found|Failed to initialize Dispatch API|insufficient capabilities|capabilities|LiteRtRuntimeCApi|LiteRtDispatchCheckRuntimeCompatibility|CheckRuntimeCompatibility|RuntimeCApi|QNN manager|ADSP|LD_LIBRARY_PATH|dlopen|linker|cannot locate|library not found|symbol not found|version mismatch|FATAL|SIGABRT|Abort message|tombstone|DEBUG|QAIRT244_SMOKE|QAIRT244_SENTINEL|QAIRT244_DIAG|qairt244_app_jni_smoke_v1|qairt244_jni_entry_v1|qairt244_android_log_v1|qairt244_native_file_v1"
+KEYWORDS="gallerynpu|customnpu|LiteRt|LiteRT|litert|liblitertlm|libLiteRt|libLiteRtDispatch|Dispatch|dispatch|QNN|Qnn|HTP|Htp|NPU|nativeCreateEngine|No usable Dispatch runtime found|Failed to initialize Dispatch API|insufficient capabilities|capabilities|LiteRtRuntimeCApi|LiteRtDispatchCheckRuntimeCompatibility|CheckRuntimeCompatibility|RuntimeCApi|QNN manager|ADSP|LD_LIBRARY_PATH|dlopen|dlerror|dlsym|linker|linker64|cannot locate|library .* not found|needed by|namespace|symbol not found|version mismatch|FATAL|SIGABRT|Abort message|tombstone|DEBUG|QAIRT244_SMOKE|QAIRT244_SENTINEL|QAIRT244_DIAG|qairt244_app_jni_smoke_v1|qairt244_jni_entry_v1|qairt244_android_log_v1|qairt244_native_file_v1|qairt244_dlopen_trace_v1"
 LIBS=(
   "liblitertlm_jni.so"
   "libLiteRt.so"
@@ -177,6 +177,8 @@ log "appId=$APP_ID label=$LABEL out=$OUT_DIR"
     printf '%s=' "$prop"
     adb shell getprop "$prop" 2>/dev/null | tr -d '\r'
   done
+  printf 'debug.ld.app.%s=' "$APP_ID"
+  adb shell getprop "debug.ld.app.$APP_ID" 2>/dev/null | tr -d '\r'
 } >"$OUT_DIR/device_props.txt"
 
 write_missing_or_file files/npu_engine_initialize_dry_run.txt "$OUT_DIR/stage_file.txt"

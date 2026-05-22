@@ -97,6 +97,10 @@ Additional source/version findings:
   `LiteRtDispatchInitialize failure status=kLiteRtStatusErrorDynamicLoading(502)`
 - `LiteRtDispatchCheckRuntimeCompatibility` and visible QNN/HTP/skel
   initialization were not reached in this log
+- lower-level `qairt244_dlopen_trace_v1` diagnostics are now built to capture
+  dispatch candidate path, raw `dlopen`, `dlerror`, and
+  `dlsym("LiteRtDispatchGetApi")`; connected-device dry-run is pending because
+  no adb device was connected during the build attempt
 
 What seems unlikely:
 

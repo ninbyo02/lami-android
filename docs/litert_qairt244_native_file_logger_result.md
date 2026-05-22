@@ -135,3 +135,29 @@ mismatch and not yet a confirmed QNN/HTP/FastRPC failure.
 Add the same file-backed logger inside the lower-level
 `LiteRtDispatchInitialize` implementation and dynamic loader path selection to
 capture the exact dispatch library candidate path and `dlerror`.
+
+## dlopen Trace Follow-Up
+
+Result date: 2026-05-22
+
+The lower-level dynamic loading file logger was added with marker:
+
+```text
+qairt244_dlopen_trace_v1
+```
+
+Build artifact:
+
+```text
+artifacts/qairt244_dlopen_trace_build/20260522_083658/
+```
+
+The build succeeded and the custom probe script now also enables the
+customnpu-only linker debug property during an explicit dry-run:
+
+```text
+debug.ld.app.io.github.ninbyo02.lami.customnpu=dlerror,dlopen,dlsym
+```
+
+The connected-device dry-run was not executed because no adb device was
+connected. The one allowed dry-run for the dlopen trace build remains unused.

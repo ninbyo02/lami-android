@@ -102,6 +102,18 @@ Update after native file logger diagnostics:
 - the process then aborts at
   `DispatchDelegate::CreateDelegateKernelInterface FATAL no usable dispatch runtime`
 
+Update after preparing lower-level dlopen diagnostics:
+
+- added file-backed dynamic loader trace marker `qairt244_dlopen_trace_v1`
+  around dispatch candidate selection, raw `dlopen`, raw `dlerror`,
+  `dlsym("LiteRtDispatchGetApi")`, and API version reporting
+- dlopen trace build artifact:
+  `artifacts/qairt244_dlopen_trace_build/20260522_083658`
+- the connected-device dry-run has not been executed yet because no adb device
+  was connected during the build attempt
+- the next run should determine whether this is an Android linker namespace,
+  wrong candidate path, missing transitive dependency, or dlsym/export issue
+
 What I need from maintainers:
 
 - the supported way to obtain or build a Qualcomm dispatch runtime matching LiteRT-LM Android,

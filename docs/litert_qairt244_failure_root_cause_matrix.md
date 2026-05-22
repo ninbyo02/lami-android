@@ -6,7 +6,7 @@ Scope: coordinator synthesis of the tombstone/runtime mapping, Android QNN path
 review, LiteRT source trace, CLI proof planning, model schema probe, the
 2026-05-21 Android-native logcat dry-run, the JNI sentinel dry-run, the
 2026-05-22 app-owned JNI logcat smoke, and the 2026-05-22 native file logger
-dry-run.
+dry-run, plus the 2026-05-22 dlopen trace build.
 
 ## Current Failure Boundary
 
@@ -150,6 +150,42 @@ Interpretation: the immediate failure is now known to be dispatch runtime
 dynamic loading inside `LiteRtDispatchInitialize`, before compatibility checking
 and before visible QNN/HTP/skel initialization.
 
+## dlopen Trace Build Update
+
+Build artifact:
+
+```text
+artifacts/qairt244_dlopen_trace_build/20260522_083658/
+```
+
+The lower-level dynamic loader trace was added with marker
+`qairt244_dlopen_trace_v1` at:
+
+```text
+litert/runtime/dispatch/litert_dispatch.cc
+litert/cc/internal/litert_shared_library.cc
+```
+
+It records dispatch library directory propagation, selected candidate path,
+raw `dlopen`, raw `dlerror`, `dlsym("LiteRtDispatchGetApi")`, and the dispatch
+API version if reached.
+
+The connected-device dry-run was not executed because no adb device was
+connected:
+
+```text
+List of devices attached
+```
+
+Attempt artifact:
+
+```text
+artifacts/qairt244_dlopen_trace_dry_run/20260522_083818_no_device/
+```
+
+The one allowed connected-device dry-run for this dlopen trace build remains
+unused.
+
 ## Cross-Agent Findings
 
 | Agent | Output | Key result |
@@ -165,17 +201,16 @@ and before visible QNN/HTP/skel initialization.
 | Hypothesis | Evidence | Confidence | Next action |
 | --- | --- | --- | --- |
 | H1. SM8750/V79 dispatch capability mismatch | File logger shows `LiteRtDispatchInitialize` fails with dynamic-loading status before `LiteRtDispatchCheckRuntimeCompatibility`; model still declares `soc_type=SM8750` and `min_arch=79`. | low-medium | Defer capability/schema hypotheses until lower-level dispatch loading succeeds or reaches compatibility checking. |
-| H2. Android app nativeLibraryDir QNN/HTP search problem | qairt244 APK metadata contains dispatch/QNN/HTP/V79 libs, but tombstone does not map them before abort. File logger proves `SetLitertDispatchLibDir` is called, then `LiteRtDispatchInitialize` returns `kLiteRtStatusErrorDynamicLoading(502)`. | high | Add file-backed logs inside lower-level dispatch dynamic loading to capture candidate path and `dlerror`. |
+| H2. Android app nativeLibraryDir QNN/HTP search problem | qairt244 APK metadata contains dispatch/QNN/HTP/V79 libs, but tombstone does not map them before abort. File logger proves `SetLitertDispatchLibDir` is called, then `LiteRtDispatchInitialize` returns `kLiteRtStatusErrorDynamicLoading(502)`. The dlopen trace build is ready but not yet run because no adb device was connected. | high | Run the prepared dlopen trace build once with the Nubia device connected to capture candidate path and `dlerror`. |
 | H3. ADSP_LIBRARY_PATH / FastRPC / skel-stub path problem | V79 stub depends on `libcdsprpc.so`; source mutates `ADSP_LIBRARY_PATH`; tombstones contain `vendor_adsprpc_prop`. File logger does not reach visible QNN/HTP/skel init, so this remains possible but not the immediate observed boundary. | medium-low | Do not change ADSP/skel paths until dispatch dynamic loader logs show QNN/HTP loading is reached. |
 | H4. Qualcomm SM8750 model/runtime schema mismatch | Model directly carries QAIRT 2.44, SM8750, V79, and dispatch/QNN partition markers. That argues against a generic or wrong-SoC model, but context binary compatibility can still fail later. | low-medium | Defer deeper schema decode until dispatch API initialization logs show runtime accepted and invocation context creation is reached. |
-| H5. Dispatch runtime registration / capability check failure | File logger confirms `InitializeDispatchApi` is reached and `LiteRtDispatchInitialize` fails with `kLiteRtStatusErrorDynamicLoading(502)`. `has_dispatch_runtime_` remains false and delegate kernel creation aborts. | high | Instrument lower-level `LiteRtDispatchInitialize` / dynamic loading with file-backed candidate path and error logging. |
+| H5. Dispatch runtime registration / capability check failure | File logger confirms `InitializeDispatchApi` is reached and `LiteRtDispatchInitialize` fails with `kLiteRtStatusErrorDynamicLoading(502)`. `has_dispatch_runtime_` remains false and delegate kernel creation aborts. Lower-level dlopen trace instrumentation is now built. | high | Execute the prepared connected-device dry-run and classify the `dlopen` / `dlsym` result. |
 | H6. CLI litert_lm_main works while Android app fails | Not tested. Existing upstream CLI is unsafe because it creates a `Conversation` and sends a prompt. CLI could later isolate linker namespace and explicit `LD_LIBRARY_PATH`/`ADSP_LIBRARY_PATH`. | unknown | First create an initialize-only CLI target that cannot generate, then build/query Android arm64 with explicit SDK/NDK setup. |
 
 ## Ranked Next Moves
 
-1. Add file-backed diagnostics inside the lower-level `LiteRtDispatchInitialize`
-   implementation and dynamic loader path selection to capture the exact
-   candidate path and `dlerror`.
+1. Connect the Nubia device and execute the prepared dlopen trace dry-run once
+   to capture the exact candidate path and `dlerror`.
 2. Fix the diagnostics collector's local APK metadata path so customnpu native
    metadata is not mixed with `standardDebug` APK extraction.
 3. Design an isolated ADSP/QNN path dry-run only after native logcat capture is
