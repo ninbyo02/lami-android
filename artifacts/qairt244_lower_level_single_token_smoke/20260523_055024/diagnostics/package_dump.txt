@@ -1,0 +1,197 @@
+Activity Resolver Table:
+  Non-Data Actions:
+      android.intent.action.MAIN:
+        f72f164 io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.MainActivity filter d56fcd
+          Action: "android.intent.action.MAIN"
+          Category: "android.intent.category.LAUNCHER"
+
+Receiver Resolver Table:
+  Non-Data Actions:
+      androidx.profileinstaller.action.SAVE_PROFILE:
+        31fbfd0 io.github.ninbyo02.lami.customnpu/androidx.profileinstaller.ProfileInstallReceiver filter 5e385ef
+          Action: "androidx.profileinstaller.action.SAVE_PROFILE"
+      androidx.profileinstaller.action.INSTALL_PROFILE:
+        31fbfd0 io.github.ninbyo02.lami.customnpu/androidx.profileinstaller.ProfileInstallReceiver filter bd63bc9
+          Action: "androidx.profileinstaller.action.INSTALL_PROFILE"
+      androidx.profileinstaller.action.SKIP_FILE:
+        31fbfd0 io.github.ninbyo02.lami.customnpu/androidx.profileinstaller.ProfileInstallReceiver filter 6e4e2ce
+          Action: "androidx.profileinstaller.action.SKIP_FILE"
+      androidx.profileinstaller.action.BENCHMARK_OPERATION:
+        31fbfd0 io.github.ninbyo02.lami.customnpu/androidx.profileinstaller.ProfileInstallReceiver filter a8908fc
+          Action: "androidx.profileinstaller.action.BENCHMARK_OPERATION"
+      io.github.ninbyo02.lami.npu.PROBE_DISPATCH:
+        87f4082 io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeReceiver filter a624393
+          Action: "io.github.ninbyo02.lami.npu.PROBE_DISPATCH"
+
+Domain verification status:
+
+Permissions:
+  Permission [io.github.ninbyo02.lami.customnpu.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION] (d3b62e7):
+    sourcePackage=io.github.ninbyo02.lami.customnpu
+    uid=10631 gids=[] type=0 prot=signature
+    perm=PermissionInfo{15ae94 io.github.ninbyo02.lami.customnpu.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION}
+    flags=0x0
+
+Registered ContentProviders:
+  io.github.ninbyo02.lami.customnpu/androidx.startup.InitializationProvider:
+    Provider{ee49d3d io.github.ninbyo02.lami.customnpu/androidx.startup.InitializationProvider}
+
+ContentProvider Authorities:
+  [io.github.ninbyo02.lami.customnpu.androidx-startup]:
+    Provider{ee49d3d io.github.ninbyo02.lami.customnpu/androidx.startup.InitializationProvider}
+      applicationInfo=ApplicationInfo{96db932 io.github.ninbyo02.lami.customnpu}
+
+Key Set Manager:
+  [io.github.ninbyo02.lami.customnpu]
+      Signing KeySets: 771
+
+Packages:
+  Package [io.github.ninbyo02.lami.customnpu] (7b59b7e):
+    appId=10631
+    pkg=Package{d14683 io.github.ninbyo02.lami.customnpu}
+    codePath=/data/app/~~WTmtQsNtYT2CGHIukEv-6A==/io.github.ninbyo02.lami.customnpu-C1rBwFtnwqC-YqqCll4Xdg==
+    resourcePath=/data/app/~~WTmtQsNtYT2CGHIukEv-6A==/io.github.ninbyo02.lami.customnpu-C1rBwFtnwqC-YqqCll4Xdg==
+    legacyNativeLibraryDir=/data/app/~~WTmtQsNtYT2CGHIukEv-6A==/io.github.ninbyo02.lami.customnpu-C1rBwFtnwqC-YqqCll4Xdg==/lib
+    extractNativeLibs=true
+    primaryCpuAbi=arm64-v8a
+    secondaryCpuAbi=null
+    cpuAbiOverride=null
+    versionCode=1 minSdk=34 targetSdk=35
+    minExtensionVersions=[]
+    versionName=1.0.0-customBuildExperiment
+    hiddenApiEnforcementPolicy=2
+    usesNonSdkApi=false
+    splits=[base]
+    apkSigningVersion=2
+    flags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP ]
+    privateFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PARTIALLY_DIRECT_BOOT_AWARE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    forceQueryable=false
+    pageSizeCompat=0
+    scannedAsStoppedSystemApp=false
+    supportsScreens=[small, medium, large, xlarge, resizeable, anyDensity]
+    usesOptionalNativeLibraries:
+      libcdsprpc.so
+      libvndksupport.so
+      libOpenCL.so
+      libOpenCL-car.so
+      libOpenCL-pixel.so
+    usesLibraryFiles:
+      libcdsprpc.so
+      libOpenCL.so
+    timeStamp=2026-05-23 05:50:51
+    lastUpdateTime=2026-05-23 05:50:53
+    installerPackageName=null
+    installerPackageUid=-1
+    initiatingPackageName=com.android.shell
+    originatingPackageName=null
+    packageSource=1
+    appMetadataFilePath=null
+    appMetadataSource=0
+    signatures=PackageSignatures{38507b9 version:2, signatures:[8a813f09], past signatures:[]}
+    installPermissionsFixed=false
+    pkgFlags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP ]
+    privatePkgFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PARTIALLY_DIRECT_BOOT_AWARE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    apexModuleName=null
+    declared permissions:
+      io.github.ninbyo02.lami.customnpu.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: prot=signature
+    requested permissions:
+      android.permission.INTERNET
+      android.permission.ACCESS_NETWORK_STATE
+      io.github.ninbyo02.lami.customnpu.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+    install permissions:
+      android.permission.INTERNET: granted=true
+      android.permission.ACCESS_NETWORK_STATE: granted=true
+      io.github.ninbyo02.lami.customnpu.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: granted=true
+    User 0: ceDataInode=415839 deDataInode=356413 installed=true hidden=false suspended=false distractionFlags=0 stopped=false notLaunched=false enabled=0 instant=false virtual=false quarantined=false
+      installReason=0
+      dataDir=/data/user/0/io.github.ninbyo02.lami.customnpu
+      firstInstallTime=2026-05-17 00:49:48
+      uninstallReason=0
+      overlay paths:
+        /product/overlay/NavigationBarMode3Button/NavigationBarMode3ButtonOverlay.apk
+        /data/resource-cache/com.android.systemui-neutral-IkpS.frro
+        /data/resource-cache/com.android.systemui-accent-0Pwc.frro
+        /data/resource-cache/com.android.systemui-dynamic-NJrz.frro
+      legacy overlay paths:
+        /product/overlay/NavigationBarMode3Button/NavigationBarMode3ButtonOverlay.apk
+      gids=[3003]
+      runtime permissions:
+
+Queries:
+  system apps queryable: false
+  queries via forceQueryable:
+  queries via package name:
+  queries via component:
+    com.zte.nubrowser:
+      io.github.ninbyo02.lami.customnpu
+    com.zte.mifavor.globalzboard:
+      io.github.ninbyo02.lami.customnpu
+    cn.nubia.gamehelperline:
+      io.github.ninbyo02.lami.customnpu
+    cn.zte.gamefloat:
+      io.github.ninbyo02.lami.customnpu
+    com.zte.storagecleanup:
+      io.github.ninbyo02.lami.customnpu
+    com.zte.weather:
+      io.github.ninbyo02.lami.customnpu
+    com.google.android.as:
+      io.github.ninbyo02.lami.customnpu
+    com.google.android.as.oss:
+      io.github.ninbyo02.lami.customnpu
+    com.android.settings.intelligence:
+      io.github.ninbyo02.lami.customnpu
+    com.whatsapp:
+      io.github.ninbyo02.lami.customnpu
+    com.vrchat.mobile.playstore:
+      io.github.ninbyo02.lami.customnpu
+    jp.co.dwango.seiga.manga.android:
+      io.github.ninbyo02.lami.customnpu
+    jp.naver.line.android:
+      io.github.ninbyo02.lami.customnpu
+    com.amazon.mShop.android.shopping:
+      io.github.ninbyo02.lami.customnpu
+    com.dencreak.esmemo:
+      io.github.ninbyo02.lami.customnpu
+    jp.co.yahoo.android.apps.transit:
+      io.github.ninbyo02.lami.customnpu
+    com.facebook.orca:
+      io.github.ninbyo02.lami.customnpu
+    com.adobe.reader:
+      io.github.ninbyo02.lami.customnpu
+    com.nttdocomo.android.dpoint:
+      io.github.ninbyo02.lami.customnpu
+    com.moonshot.kimichat:
+      io.github.ninbyo02.lami.customnpu
+    com.amazon.kindle:
+      io.github.ninbyo02.lami.customnpu
+    com.wireguard.android:
+      io.github.ninbyo02.lami.customnpu
+    com.sony.songpal:
+      io.github.ninbyo02.lami.customnpu
+    com.appmind.radios.jp:
+      io.github.ninbyo02.lami.customnpu
+    jp.co.yahoo.android.apps.map:
+      io.github.ninbyo02.lami.customnpu
+    com.jalglobalwallet.jgw:
+      io.github.ninbyo02.lami.customnpu
+    jp.co.ccc.Tsite:
+      io.github.ninbyo02.lami.customnpu
+    net.wrightflyer.le.reality:
+      io.github.ninbyo02.lami.customnpu
+    jp.ponta.myponta:
+      io.github.ninbyo02.lami.customnpu
+  queryable via interaction:
+    User 0:
+      [com.zte.linkspeedup,com.android.keychain,com.zte.zbackup.platservice,com.zte.zdmdaemon,com.android.settings,com.zte.fingerprints,zpub.res,com.android.localtransport,com.zte.easymode,com.zte.zgesture,vendor.qti.frameworks.utils,com.fingerprint.sensorservice,com.android.dynsystem,cn.nubia.gpu.drivers,com.qualcomm.qti.services.systemhelper,com.zte.aimemory,com.ztefingerprint.service,com.android.mipop,androidzte,com.westalgo.aftersalecamera,com.android.subsys,com.qualcomm.qti.xrvd.service,com.zte.emode,android,com.android.DeviceAsWebcam,com.zte.wlansniffertool,cn.nubia.gamepi,com.zte.mifavor.launcher.adapter,com.android.server.telecom,com.zte.zsound,com.android.inputdevices,com.zte.burntest.camera,com.zte.vendor.ifaa,com.android.ztescreenshot,com.android.location.fused,com.zte.thermald,com.zte.fastpair,zte.com.cn.alarmclock,com.zte.zdm.omacp,com.android.aftersaleservice,com.zte.powersavemode,com.qti.snapdragon.qdcm_ff,com.android.providers.settings,com.zte.floatassist]:
+        io.github.ninbyo02.lami.customnpu
+  queryable via uses-library:
+
+Dexopt state:
+  [io.github.ninbyo02.lami.customnpu]
+    path: /data/app/~~WTmtQsNtYT2CGHIukEv-6A==/io.github.ninbyo02.lami.customnpu-C1rBwFtnwqC-YqqCll4Xdg==/base.apk
+      arm64: [status=run-from-apk] [reason=unknown] [primary-abi]
+        [location is error]
+
+Compiler stats:
+  [io.github.ninbyo02.lami.customnpu]
+     base.apk - 2815

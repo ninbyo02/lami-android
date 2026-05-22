@@ -2,15 +2,22 @@
 
 Date: 2026-05-23
 
-Scope: one explicit `customBuildExperimentDebug` lower-level NPU smoke run using
-the isolated JNI entrypoint. This did not connect NPU to the normal UI path.
+Scope: two explicit `customBuildExperimentDebug` lower-level NPU smoke runs
+using the isolated JNI entrypoint. This did not connect NPU to the normal UI
+path.
 
 ## Result
 
-Execution artifact:
+First execution artifact:
 
 ```text
 artifacts/qairt244_lower_level_single_token_smoke/20260523_053258/
+```
+
+Reproducibility execution artifact:
+
+```text
+artifacts/qairt244_lower_level_single_token_smoke/20260523_055024/
 ```
 
 Build artifact:
@@ -26,7 +33,7 @@ artifacts/qairt244_single_token_entrypoint_build/20260523_052106/litertlm_extern
 artifacts/qairt244_single_token_entrypoint_build/20260523_052106/litertlm_external_diff.patch
 ```
 
-Outcome:
+First outcome:
 
 ```text
 classification=executed
@@ -39,11 +46,24 @@ elapsed_ms=1115
 output=!
 ```
 
-The native diagnostic file confirms the hard cap path:
+Second outcome:
+
+```text
+classification=executed
+executed=true
+marker=qairt244_lower_level_single_token_smoke_v1
+result=success
+prompt=Hi
+max_output_tokens=1
+elapsed_ms=907
+output=!
+```
+
+Both native diagnostic files confirm the hard cap path. The second run shows:
 
 ```text
 before RunDecode SetMaxOutputTokens(1)
-success output_candidates=1 output_bytes=1 elapsed_ms=1115 Engine.close=unique_ptr_cleanup
+success output_candidates=1 output_bytes=1 elapsed_ms=907 Engine.close=unique_ptr_cleanup
 ```
 
 ## Native IDs
@@ -96,23 +116,27 @@ It does not create a Kotlin/public `Session` object and does not create a
 - high-level `generateResponse`: not used
 - normal UI route: not used
 - app DB/TTS/Markdown/chat UI: not used
-- process alive after smoke: `18212`
+- process alive after first smoke: `18212`
+- process alive after second smoke: `22071`
 - `Engine.close`: represented by native `unique_ptr` cleanup after successful
   decode
 
-The diagnostics collector selected an older tombstone from a previous
-initialize dry-run. Its stage/run id does not match this smoke run, while this
-run's result file reports success and the process remained alive. See:
+The runner now writes run metadata and classifies collector-selected tombstones
+against the current smoke run id. In the second run, the collector again
+selected an older initialize tombstone, but the raw tombstone did not contain
+the current smoke run id `1779483024756`; the app-private result did contain
+that run id and reported success. The tombstone is therefore classified as
+stale and ignored for the smoke outcome. See:
 
 ```text
-artifacts/qairt244_lower_level_single_token_smoke/20260523_053258/diagnostics/stale_tombstone_note.md
+artifacts/qairt244_lower_level_single_token_smoke/20260523_055024/stale_tombstone_note.md
 ```
 
-Classification for this smoke: one-token lower-level NPU smoke succeeded once;
-no new crash evidence; no normal UI NPU wiring.
+Classification: lower-level one-token NPU smoke succeeded twice consecutively;
+no fresh crash evidence; no normal UI NPU wiring.
 
 ## Next Step
 
-Do not connect this to the normal UI yet. The next safe step is a second
-isolated smoke with stricter live crash/tombstone filtering or a similarly
-isolated slightly richer result verifier, still outside the normal chat path.
+Do not connect this to the normal UI yet. The next safe step is a similarly
+isolated verifier that records token accounting/backend timing more explicitly,
+still outside the normal chat path.

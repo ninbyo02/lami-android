@@ -305,6 +305,26 @@ Updated next recommendation:
   run's result file and native diag show success and the process remained
   alive.
 
+2026-05-23 lower-level single-token smoke reproducibility:
+
+- `scripts/run_qairt244_lower_level_single_token_smoke.sh` was updated to write
+  run metadata and classify collector-selected tombstones as stale when they do
+  not contain the current smoke run id.
+- The smoke was run exactly once more with `--run`.
+- Execution artifact:
+  `artifacts/qairt244_lower_level_single_token_smoke/20260523_055024/`
+- Result: `success`.
+- Prompt: `Hi`.
+- Hard cap: `max_output_tokens=1`.
+- Output: `!`.
+- Elapsed: `907 ms`.
+- Native diag confirms `before RunDecode SetMaxOutputTokens(1)` and
+  `success output_candidates=1 output_bytes=1`.
+- Tombstone classification: `stale-tombstone-ignored`.
+- Overall reproducibility: `2/2` lower-level one-token NPU smoke success.
+- Still no `Conversation`, no high-level `generateResponse`, and no normal UI
+  NPU connection.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

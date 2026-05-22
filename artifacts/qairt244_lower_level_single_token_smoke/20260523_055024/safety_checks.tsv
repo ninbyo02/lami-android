@@ -1,0 +1,20 @@
+check	status	detail
+customBuildExperimentDebug_only	pass_planned	Target app id is io.github.ninbyo02.lami.customnpu; no standard/npuExperiment/galleryStackExperiment/release path is launched.
+prompt_fixed_short	pass_planned	Prompt is fixed to Hi.
+timeout_configured	pass_planned	Script timeout budget is 30 seconds for the future executable path.
+cxx_decode_config_capability	pass	LiteRT-LM C++ source exposes DecodeConfig.SetMaxOutputTokens and RunDecode.
+lami_lower_level_entrypoint	pass	customBuildExperimentDebug app-side JNI/CLI entry marker qairt244_lower_level_single_token_smoke_v1.
+max_output_tokens_eq_1_static	pass	No execution allowed unless the runnable app path contains SetMaxOutputTokens(1).
+explicit_run_requested	pass	Execution requires --run.
+custom_build_artifact_present	pass	Execution requires --artifact with a rebuilt custom stack.
+normal_ui_disconnected	pass	This preflight does not touch normal UI inference.
+conversation_created	pass_not_run	No Conversation was created.
+session_created	pass_not_run	No Session was created.
+generate_response_called	pass_not_run	No generateResponse or token generation was run.
+build_actual	pass	customBuildExperimentDebug APK was assembled.
+install_actual	pass	customBuildExperimentDebug APK was installed.
+app_launch_actual	pass	NpuExperimentProbeActivity was launched with runLowerLevelSingleTokenSmoke=true.
+conversation_created_actual	pass	No Conversation was created.
+session_created_actual	pass	A lower-level native session was created for the isolated smoke only; no Kotlin/public Session object was created.
+generate_response_actual	pass	No high-level generateResponse was called.
+token_generation_actual	pass	Exactly one lower-level RunDecode call was allowed with maxOutputTokens=1.

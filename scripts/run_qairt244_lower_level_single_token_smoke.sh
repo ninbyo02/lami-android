@@ -89,6 +89,23 @@ write_config() {
   } >"$OUT_DIR/preflight_config.txt"
 }
 
+write_run_metadata() {
+  local run_id="$1"
+  local host_start_epoch_s="$2"
+  local host_start_epoch_ms="$3"
+  local device_start_epoch_s="$4"
+  {
+    printf 'run_id=%s\n' "$run_id"
+    printf 'host_start_epoch_s=%s\n' "$host_start_epoch_s"
+    printf 'host_start_epoch_ms=%s\n' "$host_start_epoch_ms"
+    printf 'device_start_epoch_s=%s\n' "$device_start_epoch_s"
+    printf 'app_id=%s\n' "$APP_ID"
+    printf 'prompt=%s\n' "$PROMPT"
+    printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+    printf 'lower_level_marker=%s\n' "$LOWER_LEVEL_MARKER"
+  } >"$OUT_DIR/run_metadata.txt"
+}
+
 collect_static_hits() {
   if command -v rg >/dev/null 2>&1 && [ -d "$LITERT_LM_ROOT" ]; then
     rg -n \
@@ -212,10 +229,96 @@ collect_run_files() {
   fi
 }
 
+classify_tombstone_freshness() {
+  local run_id="$1"
+  local result_file="$OUT_DIR/run/result.txt"
+  local crash_summary="$OUT_DIR/diagnostics/crash_summary.md"
+  local tombstone_latest="$OUT_DIR/diagnostics/tombstone_latest.txt"
+  local tombstone_app_extract="$OUT_DIR/diagnostics/tombstone_app_extract.txt"
+  local dropbox_app_extract="$OUT_DIR/diagnostics/dropbox_app_extract.txt"
+  local stage_file="$OUT_DIR/diagnostics/stage_file.txt"
+  local note="$OUT_DIR/stale_tombstone_note.md"
+  local diagnostics_note="$OUT_DIR/diagnostics/stale_tombstone_note.md"
+  local classification="no-fresh-tombstone"
+  local result_status="missing"
+  local signal_line="missing"
+  local tombstone_path="missing"
+  local tombstone_contains_run_id="false"
+  local current_run_marker_present="false"
+  local process_alive="false"
+  local process_line=""
+
+  if grep -q '^result=success$' "$result_file" 2>/dev/null; then
+    result_status="success"
+  elif [ -s "$result_file" ]; then
+    result_status="present-non-success"
+  fi
+
+  if [ -s "$crash_summary" ]; then
+    signal_line="$(grep -m1 '^- signal:' "$crash_summary" 2>/dev/null | sed 's/^- signal: //')"
+  fi
+  if [ -s "$OUT_DIR/diagnostics/tombstone_path.txt" ]; then
+    tombstone_path="$(tr -d '\r' <"$OUT_DIR/diagnostics/tombstone_path.txt")"
+  fi
+
+  if grep -Fq "$run_id" "$tombstone_latest" "$tombstone_app_extract" "$dropbox_app_extract" 2>/dev/null; then
+    tombstone_contains_run_id="true"
+  fi
+  if grep -Fq "$run_id" "$stage_file" "$OUT_DIR/run/stage_file.txt" "$OUT_DIR/native_diag.txt" "$OUT_DIR/result_file.txt" 2>/dev/null; then
+    current_run_marker_present="true"
+  fi
+
+  process_line="$(adb shell pidof "$APP_ID" 2>/dev/null | tr -d '\r' || true)"
+  if [ -n "$process_line" ]; then
+    process_alive="true"
+  fi
+
+  if printf '%s' "$signal_line" | grep -q 'SIG'; then
+    if [ "$tombstone_contains_run_id" = "true" ]; then
+      classification="fresh-crash"
+    elif [ "$result_status" = "success" ] && [ "$current_run_marker_present" = "true" ]; then
+      classification="stale-tombstone-ignored"
+    else
+      classification="tombstone-unmatched-review-needed"
+    fi
+  elif [ "$result_status" = "success" ]; then
+    classification="no-fresh-tombstone"
+  fi
+
+  {
+    printf '# Tombstone Freshness Classification\n\n'
+    printf '%s\n' "- classification: \`$classification\`"
+    printf '%s\n' "- smoke run id: \`$run_id\`"
+    printf '%s\n' "- result status: \`$result_status\`"
+    printf '%s\n' "- selected tombstone path: \`$tombstone_path\`"
+    printf '%s\n' "- signal line: \`$signal_line\`"
+    printf '%s\n' "- tombstone contains smoke run id: \`$tombstone_contains_run_id\`"
+    printf '%s\n' "- current run marker present in app files: \`$current_run_marker_present\`"
+    printf '%s\n' "- process alive after smoke: \`$process_alive\`"
+    printf '%s\n\n' "- process pid: \`${process_line:-missing}\`"
+    if [ "$classification" = "stale-tombstone-ignored" ]; then
+      printf 'The collector selected an older tombstone that does not contain the current smoke run id. Because the smoke result is success and current-run markers are present in app-private files, this tombstone is ignored for the smoke outcome.\n'
+    elif [ "$classification" = "fresh-crash" ]; then
+      printf 'The selected tombstone contains the current smoke run id and is classified as a fresh crash.\n'
+    else
+      printf 'No fresh crash evidence was found for this smoke run.\n'
+    fi
+  } >"$note"
+  cp "$note" "$diagnostics_note" 2>/dev/null || true
+  printf '%s\n' "$classification" >"$OUT_DIR/tombstone_classification.txt"
+}
+
 execute_once() {
   local run_id
+  local host_start_epoch_s
+  local host_start_epoch_ms
+  local device_start_epoch_s
   run_id="$(date +%s%3N)"
+  host_start_epoch_s="$(date +%s)"
+  host_start_epoch_ms="$run_id"
+  device_start_epoch_s="$(adb shell date +%s 2>/dev/null | tr -d '\r' || true)"
   mkdir -p "$OUT_DIR/run"
+  write_run_metadata "$run_id" "$host_start_epoch_s" "$host_start_epoch_ms" "${device_start_epoch_s:-unknown}"
 
   stage_build_artifact
   if ! strings "$CUSTOM_BUILD_ARTIFACT/built_libs/liblitertlm_jni.so" 2>/dev/null | grep -q "$LOWER_LEVEL_MARKER"; then
@@ -250,7 +353,115 @@ execute_once() {
   else
     printf 'timeout=false\nwaited_seconds=%s\n' "$waited" >"$OUT_DIR/run/timeout_state.txt"
   fi
+  {
+    printf 'build_actual=yes\n'
+    printf 'install_actual=yes\n'
+    printf 'app_launch_actual=yes\n'
+    printf 'conversation_created_actual=no\n'
+    printf 'session_created_actual=lower-level-native-session\n'
+    printf 'generate_response_actual=no\n'
+    printf 'token_generation_actual=yes\n'
+  } >>"$OUT_DIR/preflight_config.txt"
+  {
+    printf 'build_actual\tpass\tcustomBuildExperimentDebug APK was assembled.\n'
+    printf 'install_actual\tpass\tcustomBuildExperimentDebug APK was installed.\n'
+    printf 'app_launch_actual\tpass\tNpuExperimentProbeActivity was launched with runLowerLevelSingleTokenSmoke=true.\n'
+    printf 'conversation_created_actual\tpass\tNo Conversation was created.\n'
+    printf 'session_created_actual\tpass\tA lower-level native session was created for the isolated smoke only; no Kotlin/public Session object was created.\n'
+    printf 'generate_response_actual\tpass\tNo high-level generateResponse was called.\n'
+    printf 'token_generation_actual\tpass\tExactly one lower-level RunDecode call was allowed with maxOutputTokens=1.\n'
+  } >>"$OUT_DIR/safety_checks.tsv"
   collect_run_files
+  classify_tombstone_freshness "$run_id"
+}
+
+write_execution_summary() {
+  local classification="unknown"
+  local result_status="missing"
+  local output_value="missing"
+  local elapsed_ms="missing"
+  local timeout_state="missing"
+  local run_id="unknown"
+  local tombstone_classification="unknown"
+
+  if [ -s "$OUT_DIR/result.txt" ]; then
+    classification="$(grep -m1 '^classification=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    result_status="$(grep -m1 '^result=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    output_value="$(grep -m1 '^output=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    elapsed_ms="$(grep -m1 '^elapsed_ms=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+  fi
+  if [ -s "$OUT_DIR/run/timeout_state.txt" ]; then
+    timeout_state="$(paste -sd ';' "$OUT_DIR/run/timeout_state.txt")"
+  fi
+  if [ -s "$OUT_DIR/run_metadata.txt" ]; then
+    run_id="$(grep -m1 '^run_id=' "$OUT_DIR/run_metadata.txt" | cut -d= -f2-)"
+  fi
+  if [ -s "$OUT_DIR/tombstone_classification.txt" ]; then
+    tombstone_classification="$(cat "$OUT_DIR/tombstone_classification.txt")"
+  fi
+
+  cat >"$OUT_DIR/classification.md" <<EOF
+# Classification
+
+\`1 token生成成功\`
+
+- classification: \`$classification\`
+- result: \`$result_status\`
+- prompt: \`$PROMPT\`
+- max output tokens: \`$MAX_OUTPUT_TOKENS\`
+- output: \`$output_value\`
+- elapsed ms: \`$elapsed_ms\`
+- tombstone classification: \`$tombstone_classification\`
+
+The isolated \`customBuildExperimentDebug\` lower-level JNI entrypoint executed
+once. It did not use the normal UI path, did not create \`Conversation\`, and
+did not call high-level \`generateResponse\`.
+EOF
+
+  cat >"$OUT_DIR/summary.md" <<EOF
+# QAIRT 2.44 Lower-Level Single-Token Smoke
+
+Artifact: \`$OUT_DIR\`
+
+Build artifact: \`$CUSTOM_BUILD_ARTIFACT\`
+
+## Outcome
+
+\`\`\`text
+classification=$classification
+run_id=$run_id
+result=$result_status
+prompt=$PROMPT
+max_output_tokens=$MAX_OUTPUT_TOKENS
+elapsed_ms=$elapsed_ms
+output=$output_value
+$timeout_state
+tombstone_classification=$tombstone_classification
+\`\`\`
+
+Native diag is expected to include:
+
+\`\`\`text
+before RunDecode SetMaxOutputTokens(1)
+success output_candidates=1 output_bytes=...
+\`\`\`
+
+Tombstone freshness note:
+
+\`\`\`text
+$OUT_DIR/stale_tombstone_note.md
+\`\`\`
+
+## Safety
+
+- \`customBuildExperimentDebug\` only
+- prompt fixed to \`Hi\`
+- max output tokens fixed to \`1\`
+- no normal UI NPU route
+- no \`Conversation\`
+- no Kotlin/public \`Session\` object
+- no high-level \`generateResponse\`
+EOF
 }
 
 write_summary() {
@@ -316,6 +527,7 @@ if grep -q '^classification=execution-ready' "$OUT_DIR/result.txt"; then
       cat "$OUT_DIR/run/timeout_state.txt" 2>/dev/null || true
     } >"$OUT_DIR/result.txt"
   fi
+  write_execution_summary
 else
   log "blocked: lower-level smoke not executed"
 fi

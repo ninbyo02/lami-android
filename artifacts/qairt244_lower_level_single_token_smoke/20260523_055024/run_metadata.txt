@@ -1,0 +1,8 @@
+run_id=1779483024756
+host_start_epoch_s=1779483024
+host_start_epoch_ms=1779483024756
+device_start_epoch_s=1779483022
+app_id=io.github.ninbyo02.lami.customnpu
+prompt=Hi
+max_output_tokens=1
+lower_level_marker=qairt244_lower_level_single_token_smoke_v1

@@ -10,19 +10,19 @@ dry-run, the dlopen trace build, the dispatch symbol-resolution experiments,
 the QNN provider trace dry-run, the QNN runtime alignment dry-run, the HTP
 backend trace dry-run, the QNN backend log callback dry-run, and the
 libcdsprpc manifest visibility dry-run, the 2026-05-23 initialize stability
-probe, the single-token smoke implementation-prep pass, and the first
-lower-level single-token smoke execution.
+probe, the single-token smoke implementation-prep pass, and two lower-level
+single-token smoke executions.
 
 ## Current Boundary
 
 - flavor: `customBuildExperimentDebug`
 - applicationId: `io.github.ninbyo02.lami.customnpu`
-- runId: `1779481978822`
-- diagnostic artifact: `artifacts/qairt244_lower_level_single_token_smoke/20260523_053258/`
+- runId: `1779483024756`
+- diagnostic artifact: `artifacts/qairt244_lower_level_single_token_smoke/20260523_055024/`
 - final stage: `done`
 - returned: yes
-- signal: no new crash evidence; diagnostics collector selected a stale older
-  tombstone from a previous initialize run
+- signal: no fresh crash evidence; diagnostics collector selected a stale older
+  tombstone that does not contain the current smoke run id
 - immediate native boundary:
   `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success -> lower-level RunDecode maxOutputTokens=1 success`
 
@@ -142,6 +142,32 @@ Result:
 The diagnostics collector selected an older initialize tombstone whose run id
 does not match the smoke run. That tombstone is treated as stale; the smoke
 result file and native diag are the primary evidence for this run.
+
+## Lower-Level Single-Token Smoke Reproducibility Update
+
+Artifact:
+
+```text
+artifacts/qairt244_lower_level_single_token_smoke/20260523_055024/
+```
+
+Result:
+
+- `classification=executed`
+- `result=success`
+- prompt: `Hi`
+- hard cap: `max_output_tokens=1`
+- elapsed: `907 ms`
+- output: `!`
+- native diag reached `before RunDecode SetMaxOutputTokens(1)`
+- native diag ended with `success output_candidates=1 output_bytes=1`
+- timeout: `false`
+- process remained alive after the smoke
+- tombstone classification: `stale-tombstone-ignored`
+- no normal UI route was used
+
+Reproducibility classification: the isolated lower-level NPU one-token smoke has
+now succeeded `2/2` with the same output and no fresh crash evidence.
 
 ## Android Logcat Dry-Run Update
 

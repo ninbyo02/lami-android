@@ -2,8 +2,8 @@
 
 Date: 2026-05-23
 
-Scope: implementation preparation, safety gating, and the first explicitly
-approved lower-level one-token smoke run.
+Scope: implementation preparation, safety gating, and two explicitly approved
+lower-level one-token smoke runs.
 
 ## Current Boundary
 
@@ -16,7 +16,8 @@ approved lower-level one-token smoke run.
 - V79 stub / FastRPC path active
 - no crash/tombstone
 
-This does not prove generation.
+This proves only the isolated lower-level one-token path, not the normal app
+generation path.
 
 ## API Finding
 
@@ -69,10 +70,11 @@ scripts/run_qairt244_lower_level_single_token_smoke.sh
 ```
 
 This stricter runner checks the lower-level requirement directly and only runs
-when `--run` is explicitly supplied. Execution artifact:
+when `--run` is explicitly supplied. Execution artifacts:
 
 ```text
 artifacts/qairt244_lower_level_single_token_smoke/20260523_053258/
+artifacts/qairt244_lower_level_single_token_smoke/20260523_055024/
 ```
 
 Result:
@@ -87,12 +89,25 @@ elapsed_ms=1115
 output=!
 ```
 
+Reproducibility result:
+
+```text
+classification=executed
+executed=true
+result=success
+prompt=Hi
+max_output_tokens=1
+elapsed_ms=907
+output=!
+tombstone_classification=stale-tombstone-ignored
+```
+
 LiteRT-LM C++ exposes the needed primitive and the isolated native entrypoint
 statically calls `SetMaxOutputTokens(1)`. The native diagnostic file confirms:
 
 ```text
 before RunDecode SetMaxOutputTokens(1)
-success output_candidates=1 output_bytes=1 elapsed_ms=1115 Engine.close=unique_ptr_cleanup
+success output_candidates=1 output_bytes=1 elapsed_ms=907 Engine.close=unique_ptr_cleanup
 ```
 
 Build artifact:
@@ -169,7 +184,13 @@ if text is produced.
 
 ## Execution Status
 
-Executed once:
+Executed lower-level smoke runs:
+```
+20260523_053258: success, output=!, elapsed_ms=1115
+20260523_055024: success, output=!, elapsed_ms=907
+```
+
+Each execution used:
 
 - lower-level native session creation required for LiteRT-LM decode
 - `Session::RunPrefill("Hi")`
@@ -187,5 +208,5 @@ Not executed:
 Current classification:
 
 ```text
-1 token生成成功
+2回連続 1 token生成成功
 ```
