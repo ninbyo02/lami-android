@@ -57,7 +57,7 @@ cd "$ROOT_DIR" || exit 1
 
 clear_linker_debug_prop() {
   if [ "${LINKER_DEBUG_PROP_SET:-false}" = "true" ]; then
-    adb shell setprop "$LINKER_DEBUG_PROP" "" >/dev/null 2>&1 || true
+    adb shell "setprop '$LINKER_DEBUG_PROP' ''" >/dev/null 2>&1 || true
   fi
 }
 
