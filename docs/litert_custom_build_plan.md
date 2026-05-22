@@ -374,6 +374,22 @@ Updated next recommendation:
 - Design:
   `docs/litert_qairt244_npu_diagnostic_chat_design.md`
 
+2026-05-23 NPU Diagnostic Chat read-only launch verification:
+
+- `customBuildExperimentDebug` was assembled and installed on Nubia `NX733J`.
+- `NpuDiagnosticChatActivity` was launched directly by ADB.
+- Artifact:
+  `artifacts/qairt244_npu_diagnostic_chat_readonly/20260523_065214/`
+- UIAutomator dump confirmed the diagnostic screen was foregrounded under
+  `io.github.ninbyo02.lami.customnpu`.
+- Run button remained disabled.
+- Prompt remained fixed to `Hi`.
+- `maxOutputTokens=1`, previous verifier result, timing, and native diag
+  summary were visible.
+- No launch extra was provided, and no generation, `Engine.initialize`, or
+  `RunDecode` was executed by this verification.
+- Normal `ChatScreen` and `selectedPath=npu` routes remain disconnected.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

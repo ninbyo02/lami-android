@@ -90,6 +90,36 @@ adb shell am start \
 This should remain a debug-only launch path until another explicit approval
 adds a custom diagnostic launcher.
 
+## Read-Only Launch Verification
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_readonly/20260523_065214/
+```
+
+Result:
+
+- `customBuildExperimentDebug` APK assembled and installed on Nubia `NX733J`.
+- `NpuDiagnosticChatActivity` launched by explicit ADB component.
+- `window.xml` confirmed package `io.github.ninbyo02.lami.customnpu`.
+- title `NPU Diagnostic Chat` was visible.
+- prompt display stayed fixed to `Hi`.
+- `maxOutputTokens=1` was visible.
+- `RUN 1-TOKEN SMOKE DISABLED` was visible with `enabled=false`.
+- last isolated verifier result was visible:
+  `result=success`, `output=!`, `elapsed_ms=1053`, `npu_backend=NPU`.
+- timing fields were visible:
+  `engine_create=905 ms`, `session_create=0 ms`, `prefill=13 ms`,
+  `decode=22 ms`, `cleanup=111 ms`.
+- native diagnostic summary was visible:
+  `QNN=true`, `HTP=true`, `V79Stub=true`, `FastRPC=true`.
+- screenshot captured: `screenshot.png`.
+
+No launch extra was provided, the disabled button was not clicked, and this
+verification did not run `Engine.initialize`, `RunDecode`, generation, or the
+normal chat UI path.
+
 ## Future Run Button Design
 
 The run button is intentionally disabled in the current skeleton. Before it is
