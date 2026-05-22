@@ -20,10 +20,15 @@ Failed to create a dispatch delegate kernel: No usable Dispatch runtime found
 
 Classification:
 
-- primary: `no-usable-dispatch-runtime`
-- likely underlying: `dispatch-runtime-compatibility-mismatch` or
-  QAIRT/QNN generation/capability mismatch
-- confidence: medium
+- top-level: `no-usable-dispatch-runtime`
+- confirmed fixed blockers in the diagnostic baseline:
+  missing dispatch `DT_NEEDED [libLiteRt.so]`, then mismatched QNN System API
+- current native boundary:
+  `HtpBackend::Init -> QnnDevice_create -> status=14001`
+- likely underlying area: QNN HTP device/domain/transport initialization before
+  LiteRT dispatch compatibility checking
+- confidence: high for the observed boundary, low for the final device-policy
+  cause until QNN status `14001` is decoded
 
 Update after exact QAIRT 2.44 rebuild:
 
@@ -613,3 +618,37 @@ QnnManager::Init returning status=kLiteRtStatusErrorRuntimeFailure(3) reason=Htp
 `libQnnHtpPrepare.so`, V79 stub/skel, and
 `LiteRtDispatchCheckRuntimeCompatibility` were still not reached before the
 same top-level `No usable Dispatch runtime found` abort.
+
+## 2026-05-22 HTP Backend Init Update
+
+Additional file diagnostics around LiteRT's Qualcomm HTP backend narrowed the
+next boundary:
+
+- `HtpBackend::Init` was reached
+- `QnnBackend_create` succeeded with handle `0x1`
+- `QnnDevice_getPlatformInfo` succeeded and reported one hardware device
+- runtime SoC detection selected `SM8750`
+- selected DSP architecture was `79`
+- selected VTCM was `8` MB
+- `QnnDevice_create` failed
+- raw `QnnDevice_create` status was `14001`
+- `QNN_GET_ERROR_CODE(QnnDevice_create)` was also `14001`
+- `libQnnHtpPrepare.so`, `libQnnHtpV79Stub.so`,
+  `libQnnHtpV79Skel.so`, and `LiteRtDispatchCheckRuntimeCompatibility` were
+  still not reached
+
+The current most precise boundary is:
+
+```text
+HtpBackend::Init -> QnnDevice_create -> 14001
+```
+
+Static dependency review shows `libQnnHtp.so` does not directly
+`DT_NEEDED` prepare/stub/skel; those appear to be runtime-loaded later. The
+device exposes SM8750/CDSP/FastRPC files under rootless read-only inspection,
+including `libcdsprpc.so` and `/dev/fastrpc-cdsp*`.
+
+The concrete question is now what QNN HTP `QnnDevice_create` status `14001`
+means on QAIRT `2.44.0.260225` for SM8750/V79, and which device config,
+domain/transport, unsigned-PD, or skel-path setup is expected before
+`LiteRtDispatchCheckRuntimeCompatibility` can be reached.

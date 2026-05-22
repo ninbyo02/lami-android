@@ -6,21 +6,24 @@ Scope: coordinator synthesis of the tombstone/runtime mapping, Android QNN path
 review, LiteRT source trace, CLI proof planning, model schema probe, the
 2026-05-21 Android-native logcat dry-run, the JNI sentinel dry-run, the
 2026-05-22 app-owned JNI logcat smoke, the 2026-05-22 native file logger
-dry-run, the dlopen trace build, and the dispatch symbol-resolution
-experiments, the QNN provider trace dry-run, and the QNN runtime alignment
-dry-run.
+dry-run, the dlopen trace build, the dispatch symbol-resolution experiments,
+the QNN provider trace dry-run, the QNN runtime alignment dry-run, and the HTP
+backend trace dry-run.
 
 ## Current Failure Boundary
 
 - flavor: `customBuildExperimentDebug`
 - applicationId: `io.github.ninbyo02.lami.customnpu`
-- runId: `1779317161924`
-- diagnostic artifact: `artifacts/npu_diagnostics/20260521_074641_customnpu/`
-- tombstone: `/data/tombstones/tombstone_11`
+- runId: latest connected dry-run artifact
+- diagnostic artifact: `artifacts/npu_diagnostics/20260522_222434_customnpu/`
+- curated artifact: `artifacts/qairt244_htp_backend_trace_dry_run/20260522_222434/`
+- tombstone: latest collected tombstone in the diagnostic artifact
 - final stage: `Engine.initialize invoking method=Engine.initialize(): void`
 - returned: no
 - signal: `SIGABRT`
 - reconstructed text: `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found`
+- immediate native boundary:
+  `HtpBackend::Init -> QnnDevice_create -> status=14001`
 
 The dry-run stopped at the allowed initialize boundary. It did not create a
 `Conversation` or `Session`, did not call `generateResponse`, did not wire
@@ -310,6 +313,53 @@ and is now resolved by QAIRT 2.44 runtime alignment. The current boundary is HTP
 backend initialization, before prepare/stub/skel loading is visible and before
 LiteRT dispatch compatibility checking.
 
+## HTP Backend Trace Update
+
+Docs:
+
+```text
+docs/litert_qairt244_htp_backend_trace_result.md
+docs/litert_qairt244_htp_dependency_analysis.md
+```
+
+Build and dry-run artifacts:
+
+```text
+artifacts/qairt244_htp_backend_trace_aligned_build/20260522_222215/
+artifacts/qairt244_htp_backend_trace_dry_run/20260522_222434/
+artifacts/npu_diagnostics/20260522_222434_customnpu/
+```
+
+Result:
+
+- `HtpBackend::Init` was reached
+- `QnnBackend_create` succeeded and returned handle `0x1`
+- `QnnDevice_getPlatformInfo` succeeded
+- runtime SoC detection selected `SM8750`, DSP architecture `79`, and
+  VTCM `8` MB
+- `QnnDevice_create` failed
+- raw `QnnDevice_create` status was `14001`
+- `QNN_GET_ERROR_CODE(QnnDevice_create)` was `14001`
+- `libQnnHtpPrepare.so`, `libQnnHtpV79Stub.so`, and
+  `libQnnHtpV79Skel.so` were still not mapped before abort
+- `LiteRtDispatchCheckRuntimeCompatibility` was not reached
+- the top-level process still aborted at
+  `DispatchDelegate::CreateDelegateKernelInterface`
+
+Dependency analysis result:
+
+- aligned build and APK-extracted QNN/HTP libraries are byte-identical
+- `libQnnHtp.so` does not statically `DT_NEEDED` prepare/stub/skel; that path
+  is runtime-loaded
+- direct FastRPC dependency appears at
+  `libQnnHtpV79Stub.so -> libcdsprpc.so`
+- the device exposes SM8750/CDSP/FastRPC surface and vendor `libcdsprpc.so`
+  under rootless read-only inspection
+
+Interpretation: the current immediate failure is specifically
+`HtpBackend::Init -> QnnDevice_create -> 14001`, before prepare/stub/skel are
+visibly loaded and before LiteRT dispatch compatibility checking.
+
 ## Cross-Agent Findings
 
 | Agent | Output | Key result |
@@ -326,24 +376,25 @@ LiteRT dispatch compatibility checking.
 | --- | --- | --- | --- |
 | H1. SM8750/V79 dispatch capability mismatch | `LiteRtDispatchCheckRuntimeCompatibility` is still not reached. Current failure is `HtpBackendInit` before compatibility logic. | low | Defer capability/schema hypotheses until HTP backend init succeeds. |
 | H2. Android app nativeLibraryDir QNN/HTP search problem | `SetLitertDispatchLibDir` propagates the app native library directory correctly. Dispatch, `libQnnSystem.so`, and `libQnnHtp.so` now load from the custom APK. | low | Do not change generic nativeLibraryDir behavior; focus on HTP backend init detail. |
-| H3. ADSP_LIBRARY_PATH / FastRPC / skel-stub path problem | V79 stub depends on `libcdsprpc.so`; source mutates `ADSP_LIBRARY_PATH`. The aligned run reaches HTP provider selection, but prepare/stub/skel are not mapped before `HtpBackendInit` failure. | medium | Add HTP backend init status logging first; then test ADSP/FastRPC/skel paths only if the status indicates path or transport failure. |
+| H3. ADSP_LIBRARY_PATH / FastRPC / skel-stub path problem | V79 stub depends on `libcdsprpc.so`; source mutates `ADSP_LIBRARY_PATH`. HTP trace shows failure at `QnnDevice_create` status `14001` before prepare/stub/skel are visibly mapped. Device has `/dev/fastrpc-cdsp*` and vendor `libcdsprpc.so`, but app access/domain policy is still unresolved. | medium-high | Identify QNN status `14001` and capture QNN backend log output; test ADSP/FastRPC/unsigned-PD/skel settings only if that status maps to transport/domain setup. |
 | H4. Qualcomm SM8750 model/runtime schema mismatch | Model directly carries QAIRT 2.44, SM8750, V79, and dispatch/QNN partition markers. That argues against a generic or wrong-SoC model, but context binary compatibility can still fail later. | low-medium | Defer deeper schema decode until dispatch API initialization logs show runtime accepted and invocation context creation is reached. |
-| H5. Dispatch runtime registration / capability check failure | `DT_NEEDED [libLiteRt.so]` fixed the first dispatch dynamic-link failure. QAIRT 2.44 QNN runtime alignment fixed the System API mismatch and reaches HTP provider selection. The remaining dispatch-vendor init failure is `HtpBackendInit`. | high | Instrument exact HTP backend init QNN call and returned QNN status/error. |
+| H5. Dispatch runtime registration / capability check failure | `DT_NEEDED [libLiteRt.so]` fixed the first dispatch dynamic-link failure. QAIRT 2.44 QNN runtime alignment fixed the System API mismatch. HTP trace reaches `QnnBackend_create` and fails at `QnnDevice_create` with status `14001`. Capability check is still not reached. | high | Treat dispatch registration as blocked by HTP device creation, not by dispatch API discovery. |
 | H6. CLI litert_lm_main works while Android app fails | Not tested. Existing upstream CLI is unsafe because it creates a `Conversation` and sends a prompt. CLI could later isolate linker namespace and explicit `LD_LIBRARY_PATH`/`ADSP_LIBRARY_PATH`. | unknown | First create an initialize-only CLI target that cannot generate, then build/query Android arm64 with explicit SDK/NDK setup. |
 
 ## Ranked Next Moves
 
-1. Add file logging around the exact HTP backend initialization call, including
-   QNN status/error and any backend configuration inputs.
-2. Preserve the QAIRT 2.44 QNN runtime alignment and repeat only the explicit
-   initialize dry-run after that logging is added.
-3. Investigate ADSP/FastRPC/skel path changes only if HTP backend init status
-   points to path, transport, or prepare/stub/skel loading failure.
+1. Identify QAIRT/QNN meaning for `QnnDevice_create` status `14001` and capture
+   QNN backend log callback output during the same initialize-only boundary.
+2. If `14001` maps to transport/domain setup, run one isolated
+   customBuildExperimentDebug HTP/FastRPC setting experiment, starting with the
+   least invasive unsigned-PD or skel path setting indicated by QNN docs/logs.
+3. Keep QAIRT 2.44 QNN runtime alignment and the dispatch `DT_NEEDED
+   [libLiteRt.so]` fix as required baseline conditions.
 4. Implement the non-generating C++ initialize-only CLI target after Android app
    QNN provider initialization is understood.
    Do not execute upstream `litert_lm_main`.
-5. Prepare an upstream issue update with the exact QAIRT 2.44 rebuild result and
-   the model's `v2.44.0.260225143659` marker.
+5. Prepare an upstream issue update with the exact `QnnDevice_create=14001`
+   boundary and the model's `v2.44.0.260225143659` marker.
 
 ## Dispatch Logging Update
 
@@ -367,19 +418,27 @@ allowed connected-device dry-run with this artifact.
 
 ## Most Likely Cause
 
-The strongest current classification is dispatch runtime dynamic-loading
-failure inside `LiteRtDispatchInitialize`, before a usable dispatch runtime is
-registered for delegate kernel creation.
+The strongest current classification is HTP device creation failure inside QNN
+backend initialization:
 
-The most likely underlying cause is Android app namespace/path state preventing
-the dispatch runtime or one of its direct dependencies from being opened. The
-current native file log does not yet reach compatibility checking or visible
-QNN/HTP manager initialization, so QNN/HTP/FastRPC remains a second-order branch
-rather than the immediate observed failure.
+```text
+HtpBackend::Init -> QnnDevice_create -> status=14001
+```
+
+Earlier blockers are now understood and bypassed in the diagnostic baseline:
+
+- dispatch needed a real `DT_NEEDED [libLiteRt.so]`
+- packaged QNN System had to be aligned to QAIRT 2.44 so System API reached
+  `1.8.0`
+- `libQnnHtp.so` now loads and the HTP API resolves
+
+The remaining leading branch is QNN HTP device/domain/transport setup for
+SM8750/V79 in the Android app process. This may involve QNN device config,
+FastRPC/CDSP access, unsigned-PD policy, or skel resolution, but the exact
+meaning of status `14001` must be confirmed before changing paths or configs.
 
 The model appears aligned with QAIRT 2.44 and SM8750/V79, so model generation
-mismatch is no longer the lead hypothesis unless later logs show context binary
-loading is actually reached.
+mismatch is not the lead hypothesis at this boundary.
 
 ## No-Run Confirmation
 

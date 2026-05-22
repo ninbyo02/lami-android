@@ -8,7 +8,7 @@ RUN_ID="${RUN_ID:-}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 OUT_DIR=""
 
-KEYWORDS="gallerynpu|customnpu|LiteRt|LiteRT|litert|liblitertlm|libLiteRt|libLiteRtDispatch|Dispatch|dispatch|QNN|Qnn|HTP|Htp|NPU|nativeCreateEngine|No usable Dispatch runtime found|Failed to initialize Dispatch API|insufficient capabilities|capabilities|LiteRtRuntimeCApi|LiteRtDispatchCheckRuntimeCompatibility|CheckRuntimeCompatibility|RuntimeCApi|QNN manager|ADSP|LD_LIBRARY_PATH|dlopen|dlerror|dlsym|linker|linker64|cannot locate|library .* not found|needed by|namespace|symbol not found|version mismatch|FATAL|SIGABRT|Abort message|tombstone|DEBUG|QAIRT244_SMOKE|QAIRT244_SENTINEL|QAIRT244_DIAG|qairt244_app_jni_smoke_v1|qairt244_jni_entry_v1|qairt244_android_log_v1|qairt244_native_file_v1|qairt244_dlopen_trace_v1|qairt244_qnn_provider_trace_v1"
+KEYWORDS="gallerynpu|customnpu|LiteRt|LiteRT|litert|liblitertlm|libLiteRt|libLiteRtDispatch|Dispatch|dispatch|QNN|Qnn|HTP|Htp|NPU|nativeCreateEngine|No usable Dispatch runtime found|Failed to initialize Dispatch API|insufficient capabilities|capabilities|LiteRtRuntimeCApi|LiteRtDispatchCheckRuntimeCompatibility|CheckRuntimeCompatibility|RuntimeCApi|QNN manager|ADSP|LD_LIBRARY_PATH|dlopen|dlerror|dlsym|linker|linker64|cannot locate|library .* not found|needed by|namespace|symbol not found|version mismatch|FATAL|SIGABRT|Abort message|tombstone|DEBUG|QAIRT244_SMOKE|QAIRT244_SENTINEL|QAIRT244_DIAG|qairt244_app_jni_smoke_v1|qairt244_jni_entry_v1|qairt244_android_log_v1|qairt244_native_file_v1|qairt244_dlopen_trace_v1|qairt244_qnn_provider_trace_v1|qairt244_htp_backend_trace_v1"
 LIBS=(
   "liblitertlm_jni.so"
   "libLiteRt.so"

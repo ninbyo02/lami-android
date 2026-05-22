@@ -218,8 +218,41 @@ Current status update, 2026-05-22 dlopen trace:
 
 Updated next recommendation:
 
-Connect the Nubia device and run the prepared dlopen trace build once. The
-allowed connected-device dry-run for this build remains unused.
+Superseded by connected-device symbol-resolution, QNN runtime alignment, and
+HTP backend trace runs.
+
+Current status update, 2026-05-22 HTP backend trace:
+
+- dispatch `dlopen` works only after keeping a real
+  `DT_NEEDED [libLiteRt.so]` edge on `libLiteRtDispatch_Qualcomm.so`
+- QAIRT 2.44 QNN runtime alignment is required; it advances QNN System API to
+  `1.8.0`
+- `libQnnHtp.so` now loads and HTP provider API resolution succeeds
+- HTP backend initialization reaches `QnnBackend_create`, which succeeds
+- SoC detection selects `SM8750`, DSP arch `79`, and VTCM `8` MB
+- the current immediate failure is:
+
+```text
+HtpBackend::Init -> QnnDevice_create -> status=14001
+```
+
+Current build/dry-run artifacts:
+
+```text
+artifacts/qairt244_htp_backend_trace_aligned_build/20260522_222215/
+artifacts/qairt244_htp_backend_trace_dry_run/20260522_222434/
+artifacts/npu_diagnostics/20260522_222434_customnpu/
+```
+
+Updated next recommendation:
+
+1. Identify the QAIRT/QNN meaning of `QnnDevice_create` status `14001`.
+2. Capture QNN backend log callback output or vendor error text at the same
+   initialize-only boundary.
+3. Only then test a customBuildExperimentDebug-only HTP/FastRPC setting such as
+   unsigned-PD or skel path handling if the error points there.
+4. Continue to avoid `Conversation`, `Session`, `generateResponse`, normal UI
+   NPU wiring, and single-token smoke until `Engine.initialize` returns.
 
 Original pre-build guidance:
 

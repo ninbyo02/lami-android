@@ -11,7 +11,7 @@ APP_ID="${APP_ID:-io.github.ninbyo02.lami.npu}"
 APK_PATH="${APK_PATH:-app/build/outputs/apk/npuExperiment/debug/app-npuExperiment-debug.apk}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 OUT_DIR="${OUT_DIR:-artifacts/npu_diagnostics/$TIMESTAMP}"
-KEYWORDS="FATAL|SIGABRT|Abort message|DEBUG|tombstone|litert|LiteRt|LiteRT|LiteRtDispatch|Dispatch|dispatch|QNN|Qnn|HTP|Htp|NPU|nativeCreateEngine|liblitertlm_jni|libLiteRt|libLiteRtDispatch_Qualcomm|No usable Dispatch runtime found|Failed to initialize Dispatch API|insufficient capabilities|version mismatch|symbol mismatch|LiteRtQualcommOptionsGet|LiteRtDispatchGetApi|QAIRT244_SMOKE|QAIRT244_SENTINEL|QAIRT244_DIAG|qairt244_app_jni_smoke_v1|qairt244_jni_entry_v1|qairt244_android_log_v1|qairt244_qnn_provider_trace_v1"
+KEYWORDS="FATAL|SIGABRT|Abort message|DEBUG|tombstone|litert|LiteRt|LiteRT|LiteRtDispatch|Dispatch|dispatch|QNN|Qnn|HTP|Htp|NPU|nativeCreateEngine|liblitertlm_jni|libLiteRt|libLiteRtDispatch_Qualcomm|No usable Dispatch runtime found|Failed to initialize Dispatch API|insufficient capabilities|version mismatch|symbol mismatch|LiteRtQualcommOptionsGet|LiteRtDispatchGetApi|QAIRT244_SMOKE|QAIRT244_SENTINEL|QAIRT244_DIAG|qairt244_app_jni_smoke_v1|qairt244_jni_entry_v1|qairt244_android_log_v1|qairt244_qnn_provider_trace_v1|qairt244_htp_backend_trace_v1"
 LIBS=(
   "libLiteRtDispatch_Qualcomm.so"
   "libLiteRt.so"
