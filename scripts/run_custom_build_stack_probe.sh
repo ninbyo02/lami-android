@@ -34,6 +34,16 @@ EXPECTED_QAIRT244_LOGGING_LITERT_SHA256="3ba100245ed79d45abf3c34230aee77d6aabd0b
 EXPECTED_QAIRT244_LOGGING_DISPATCH_SHA256="1491a945fff9858861c5c75fa071a111dcd9870a82d92b9801c59dc7b2e9ebe8"
 EXPECTED_QAIRT244_LOGGING_LITERTLM_JNI_SHA256="462d69fbb71a7bb5e2aa74562959885e7d4f647fc92f4725e726039bbae57474"
 EXPECTED_QAIRT244_LOGGING_COMPILER_PLUGIN_SHA256="3b25d9739c998b294fb92e7406edcf49ec0cc7f148fb5d67f2e9da32ab2f6583"
+EXPECTED_QAIRT244_QNN_SYSTEM_BUILD_ID="0d409cdd664b8b0a"
+EXPECTED_QAIRT244_QNN_HTP_BUILD_ID="f2c90c1775a109e1"
+EXPECTED_QAIRT244_QNN_HTP_PREPARE_BUILD_ID="edb612e67d6d27c2"
+EXPECTED_QAIRT244_QNN_HTP_V79_STUB_BUILD_ID="10d7ad6f9195411a"
+EXPECTED_QAIRT244_QNN_HTP_V79_SKEL_BUILD_ID="<none>"
+EXPECTED_QAIRT244_QNN_SYSTEM_SHA256="7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8"
+EXPECTED_QAIRT244_QNN_HTP_SHA256="090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a"
+EXPECTED_QAIRT244_QNN_HTP_PREPARE_SHA256="09b1c15c62b6875af49ffd3d841961c098b85c367f584fee370f986c62511298"
+EXPECTED_QAIRT244_QNN_HTP_V79_STUB_SHA256="005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1"
+EXPECTED_QAIRT244_QNN_HTP_V79_SKEL_SHA256="41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98"
 
 shift $(( $# > 0 ? 1 : 0 ))
 while [ "$#" -gt 0 ]; do
@@ -77,6 +87,12 @@ print_expected_qairt244_stack() {
   liblitertlm_jni.so build_id=$EXPECTED_QAIRT244_LOGGING_LITERTLM_JNI_BUILD_ID sha256=$EXPECTED_QAIRT244_LOGGING_LITERTLM_JNI_SHA256
   libLiteRtCompilerPlugin_Qualcomm.so build_id=$EXPECTED_QAIRT244_LOGGING_COMPILER_PLUGIN_BUILD_ID sha256=$EXPECTED_QAIRT244_LOGGING_COMPILER_PLUGIN_SHA256
   libGemmaModelConstraintProvider.so build_id=$EXPECTED_QAIRT244_GEMMA_PROVIDER_BUILD_ID sha256=$EXPECTED_QAIRT244_GEMMA_PROVIDER_SHA256
+  expected QAIRT 2.44 aligned QNN runtime:
+  libQnnSystem.so build_id=$EXPECTED_QAIRT244_QNN_SYSTEM_BUILD_ID sha256=$EXPECTED_QAIRT244_QNN_SYSTEM_SHA256
+  libQnnHtp.so build_id=$EXPECTED_QAIRT244_QNN_HTP_BUILD_ID sha256=$EXPECTED_QAIRT244_QNN_HTP_SHA256
+  libQnnHtpPrepare.so build_id=$EXPECTED_QAIRT244_QNN_HTP_PREPARE_BUILD_ID sha256=$EXPECTED_QAIRT244_QNN_HTP_PREPARE_SHA256
+  libQnnHtpV79Stub.so build_id=$EXPECTED_QAIRT244_QNN_HTP_V79_STUB_BUILD_ID sha256=$EXPECTED_QAIRT244_QNN_HTP_V79_STUB_SHA256
+  libQnnHtpV79Skel.so build_id=$EXPECTED_QAIRT244_QNN_HTP_V79_SKEL_BUILD_ID sha256=$EXPECTED_QAIRT244_QNN_HTP_V79_SKEL_SHA256
 EOF
 }
 
@@ -86,6 +102,53 @@ print_actual_custom_stack_from_snapshot() {
     printf '%s\n' "$SNAPSHOT" | grep -F "Custom Build Stack Compatibility:" || true
   else
     echo "[custom-build-probe] actual custom stack snapshot is missing."
+  fi
+}
+
+sha_for() {
+  local file="$1"
+  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+    sha256sum "$file" | awk '{print $1}'
+  fi
+}
+
+build_id_for() {
+  local file="$1"
+  if command -v readelf >/dev/null 2>&1 && [ -f "$file" ]; then
+    readelf -n "$file" 2>/dev/null | awk '/Build ID:/ {print $3; exit}'
+  fi
+}
+
+check_apk_lib() {
+  local apk="$1"
+  local lib="$2"
+  local expected_build_id="$3"
+  local expected_sha="$4"
+  local out_dir="$5"
+  local extracted="$out_dir/$lib"
+  if ! unzip -p "$apk" "lib/arm64-v8a/$lib" >"$extracted" 2>/dev/null; then
+    echo "[custom-build-probe] ERROR: packaged library missing: $lib" >&2
+    return 1
+  fi
+  local actual_sha
+  actual_sha="$(sha_for "$extracted")"
+  local actual_build_id
+  actual_build_id="$(build_id_for "$extracted")"
+  if [ -z "$actual_build_id" ]; then
+    actual_build_id="<none>"
+  fi
+  printf '[custom-build-probe] packaged %s build_id=%s sha256=%s\n' "$lib" "$actual_build_id" "$actual_sha"
+  if [ "$actual_sha" != "$expected_sha" ]; then
+    echo "[custom-build-probe] ERROR: packaged $lib SHA mismatch: expected $expected_sha actual $actual_sha" >&2
+    return 1
+  fi
+  if [ "$expected_build_id" != "<none>" ] && [ "$actual_build_id" != "$expected_build_id" ]; then
+    echo "[custom-build-probe] ERROR: packaged $lib Build ID mismatch: expected $expected_build_id actual $actual_build_id" >&2
+    return 1
+  fi
+  if [ "$expected_build_id" = "<none>" ] && [ "$actual_build_id" != "<none>" ]; then
+    echo "[custom-build-probe] ERROR: packaged $lib unexpectedly has Build ID: $actual_build_id" >&2
+    return 1
   fi
 }
 
@@ -103,6 +166,16 @@ GALLERY_APK="app/build/outputs/apk/galleryStackExperiment/debug/app-galleryStack
 echo
 echo "[custom-build-probe] customBuildExperiment APK native stack:"
 unzip -l "$CUSTOM_APK" 2>/dev/null | grep -E "libLiteRt|liblitertlm|libGemma|libQnn" || true
+
+echo
+echo "[custom-build-probe] customBuildExperiment packaged QAIRT 2.44 QNN runtime guard:"
+APK_QNN_CHECK_DIR="artifacts/custom_build_stack_probe_apk_check/$RUN_ID"
+mkdir -p "$APK_QNN_CHECK_DIR"
+check_apk_lib "$CUSTOM_APK" "libQnnSystem.so" "$EXPECTED_QAIRT244_QNN_SYSTEM_BUILD_ID" "$EXPECTED_QAIRT244_QNN_SYSTEM_SHA256" "$APK_QNN_CHECK_DIR" || exit 7
+check_apk_lib "$CUSTOM_APK" "libQnnHtp.so" "$EXPECTED_QAIRT244_QNN_HTP_BUILD_ID" "$EXPECTED_QAIRT244_QNN_HTP_SHA256" "$APK_QNN_CHECK_DIR" || exit 7
+check_apk_lib "$CUSTOM_APK" "libQnnHtpPrepare.so" "$EXPECTED_QAIRT244_QNN_HTP_PREPARE_BUILD_ID" "$EXPECTED_QAIRT244_QNN_HTP_PREPARE_SHA256" "$APK_QNN_CHECK_DIR" || exit 7
+check_apk_lib "$CUSTOM_APK" "libQnnHtpV79Stub.so" "$EXPECTED_QAIRT244_QNN_HTP_V79_STUB_BUILD_ID" "$EXPECTED_QAIRT244_QNN_HTP_V79_STUB_SHA256" "$APK_QNN_CHECK_DIR" || exit 7
+check_apk_lib "$CUSTOM_APK" "libQnnHtpV79Skel.so" "$EXPECTED_QAIRT244_QNN_HTP_V79_SKEL_BUILD_ID" "$EXPECTED_QAIRT244_QNN_HTP_V79_SKEL_SHA256" "$APK_QNN_CHECK_DIR" || exit 7
 
 echo
 echo "[custom-build-probe] standardDebug leakage check:"
@@ -235,7 +308,7 @@ fi
 
 echo
 echo "[custom-build-probe] related logcat lines:"
-adb logcat -b all -d -t 5000 2>/dev/null | grep -Ei "Custom Build Stack|NpuExperimentProbe|AcceleratorProbe|LiteRt|LiteRT|litert|Dispatch|dispatch|QNN|Qnn|HTP|Htp|ADSP|nativeCreateEngine|customnpu|linker|linker64|dlopen|dlerror|dlsym|cannot locate|library .* not found|needed by|namespace|qairt244_dlopen_trace_v1|CheckRuntimeCompatibility|RuntimeCApi|NPU|lami|FATAL|SIGABRT|SIGSEGV" || true
+adb logcat -b all -d -t 5000 2>/dev/null | grep -Ei "Custom Build Stack|NpuExperimentProbe|AcceleratorProbe|LiteRt|LiteRT|litert|Dispatch|dispatch|QNN|Qnn|HTP|Htp|ADSP|nativeCreateEngine|customnpu|linker|linker64|dlopen|dlerror|dlsym|cannot locate|library .* not found|needed by|namespace|qairt244_dlopen_trace_v1|qairt244_qnn_provider_trace_v1|CheckRuntimeCompatibility|RuntimeCApi|NPU|lami|FATAL|SIGABRT|SIGSEGV" || true
 
 if [ "$RUN_ENGINE_DRY_RUN" = "true" ]; then
   echo

@@ -44,6 +44,9 @@ internal object AcceleratorProbe {
     private const val CUSTOM_BUILD_LOGGING_DISPATCH_BUILD_ID = "042452227c659a546d4008455d231580"
     private const val CUSTOM_BUILD_LOGGING_LITERTLM_JNI_BUILD_ID = "8554bcd057031088ad9bb2100f1f8f94"
     private const val CUSTOM_BUILD_LOGGING_COMPILER_PLUGIN_BUILD_ID = "e566cda2e3179428c73cdd5e33c5d702"
+    private const val CUSTOM_BUILD_QAIRT244_QNN_SYSTEM_BUILD_ID = "0d409cdd664b8b0a"
+    private const val CUSTOM_BUILD_QAIRT244_QNN_HTP_BUILD_ID = "f2c90c1775a109e1"
+    private const val CUSTOM_BUILD_QAIRT244_QNN_HTP_V79_STUB_BUILD_ID = "10d7ad6f9195411a"
     private const val GALLERY_NATIVE_CREATE_ENGINE_DESCRIPTOR =
         "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;ZLjava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)J"
     private const val GALLERY_ENGINE_CONFIG_CONSTRUCTOR_SIGNATURE =
@@ -544,6 +547,9 @@ internal object AcceleratorProbe {
                     dispatchRuntimeBuildId = dispatchRuntimeBuildId,
                     compilerPluginBuildId = customCompilerPluginBuildId,
                     gemmaModelConstraintProviderBuildId = customGemmaModelConstraintProviderBuildId,
+                    qnnSystemBuildId = qnnSystemBuildId,
+                    qnnHtpBuildId = qnnHtpBuildId,
+                    qnnHtpV79StubBuildId = qnnHtpV79StubBuildId,
                 ),
                 runtimeStackNote = buildLiteRtLmRuntimeStackNote(liteRtFile?.isFile == true),
             )
@@ -697,17 +703,25 @@ internal object AcceleratorProbe {
         dispatchRuntimeBuildId: String?,
         compilerPluginBuildId: String?,
         gemmaModelConstraintProviderBuildId: String?,
+        qnnSystemBuildId: String?,
+        qnnHtpBuildId: String?,
+        qnnHtpV79StubBuildId: String?,
     ): Boolean {
+        val qnnRuntimeMatch = qnnSystemBuildId.equals(CUSTOM_BUILD_QAIRT244_QNN_SYSTEM_BUILD_ID, ignoreCase = true) &&
+            qnnHtpBuildId.equals(CUSTOM_BUILD_QAIRT244_QNN_HTP_BUILD_ID, ignoreCase = true) &&
+            qnnHtpV79StubBuildId.equals(CUSTOM_BUILD_QAIRT244_QNN_HTP_V79_STUB_BUILD_ID, ignoreCase = true)
         val exactQairt244Match = liteRtBuildId.equals(CUSTOM_BUILD_LITERT_BUILD_ID, ignoreCase = true) &&
             liteRtLmJniBuildId.equals(CUSTOM_BUILD_LITERTLM_JNI_BUILD_ID, ignoreCase = true) &&
             dispatchRuntimeBuildId.equals(CUSTOM_BUILD_DISPATCH_BUILD_ID, ignoreCase = true) &&
             compilerPluginBuildId.equals(CUSTOM_BUILD_COMPILER_PLUGIN_BUILD_ID, ignoreCase = true) &&
-            gemmaModelConstraintProviderBuildId.equals(CUSTOM_BUILD_GEMMA_MODEL_CONSTRAINT_PROVIDER_BUILD_ID, ignoreCase = true)
+            gemmaModelConstraintProviderBuildId.equals(CUSTOM_BUILD_GEMMA_MODEL_CONSTRAINT_PROVIDER_BUILD_ID, ignoreCase = true) &&
+            qnnRuntimeMatch
         val loggingQairt244Match = liteRtBuildId.equals(CUSTOM_BUILD_LOGGING_LITERT_BUILD_ID, ignoreCase = true) &&
             liteRtLmJniBuildId.equals(CUSTOM_BUILD_LOGGING_LITERTLM_JNI_BUILD_ID, ignoreCase = true) &&
             dispatchRuntimeBuildId.equals(CUSTOM_BUILD_LOGGING_DISPATCH_BUILD_ID, ignoreCase = true) &&
             compilerPluginBuildId.equals(CUSTOM_BUILD_LOGGING_COMPILER_PLUGIN_BUILD_ID, ignoreCase = true) &&
-            gemmaModelConstraintProviderBuildId.equals(CUSTOM_BUILD_GEMMA_MODEL_CONSTRAINT_PROVIDER_BUILD_ID, ignoreCase = true)
+            gemmaModelConstraintProviderBuildId.equals(CUSTOM_BUILD_GEMMA_MODEL_CONSTRAINT_PROVIDER_BUILD_ID, ignoreCase = true) &&
+            qnnRuntimeMatch
         return exactQairt244Match || loggingQairt244Match
     }
 

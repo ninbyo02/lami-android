@@ -591,3 +591,25 @@ Static comparison also shows the custom APK's `libQnnSystem.so` Build ID
 `0d409cdd664b8b0a`. This suggests the current custom Android package is still
 using a QNN System library generation older than the headers/runtime expectation
 used by the rebuilt LiteRT Qualcomm dispatch.
+
+## 2026-05-22 QNN Runtime Alignment Update
+
+After staging the QAIRT 2.44 SDK QNN runtime set into only
+`customBuildExperimentDebug`, the System provider mismatch was resolved:
+
+- `libQnnSystem.so` Build ID became `0d409cdd664b8b0a`
+- selected provider `SYSTEM_QTI_AISW` reported System API `1.8.0`
+- `ResolveSystemApi` returned OK
+- `libQnnHtp.so` loaded successfully
+- selected provider `HTP_QTI_AISW` reported core `2.33.0`, backend `5.44.0`
+- `ResolveApi` returned OK
+
+The next failure is now:
+
+```text
+QnnManager::Init returning status=kLiteRtStatusErrorRuntimeFailure(3) reason=HtpBackendInit
+```
+
+`libQnnHtpPrepare.so`, V79 stub/skel, and
+`LiteRtDispatchCheckRuntimeCompatibility` were still not reached before the
+same top-level `No usable Dispatch runtime found` abort.

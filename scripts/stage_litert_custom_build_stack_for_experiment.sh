@@ -4,6 +4,7 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARTIFACT_DIR="${1:-artifacts/litert_custom_build/20260516_235244}"
 SOURCE_DIR="$ROOT_DIR/$ARTIFACT_DIR/built_libs"
+QNN_RUNTIME_SOURCE_DIR="$ROOT_DIR/$ARTIFACT_DIR/qnn_runtime_libs"
 TARGET_DIR="$ROOT_DIR/app/src/customBuildExperimentDebug/jniLibs/arm64-v8a"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 OUT_DIR="$ROOT_DIR/artifacts/litert_custom_build_stage/$TIMESTAMP"
@@ -15,6 +16,16 @@ REQUIRED_LIBS=(
   liblitertlm_jni.so
   libLiteRtCompilerPlugin_Qualcomm.so
   libGemmaModelConstraintProvider.so
+)
+
+QNN_RUNTIME_LIBS=(
+  libQnnSystem.so
+  libQnnHtp.so
+  libQnnHtpPrepare.so
+  libQnnHtpV79Stub.so
+  libQnnHtpV79Skel.so
+  libQnnDsp.so
+  libQnnGpu.so
 )
 
 cd "$ROOT_DIR" || exit 1
@@ -66,6 +77,7 @@ fi
 mkdir -p "$OUT_DIR" "$TARGET_DIR"
 touch "$TARGET_DIR/.gitkeep"
 printf 'library\tstatus\tsource\tsize\tsha256\tbuild_id\tneeded\n' >"$OUT_DIR/staged_libs.tsv"
+printf 'library\tstatus\tsource\tsize\tsha256\tbuild_id\tneeded\n' >"$OUT_DIR/staged_qnn_runtime_libs.tsv"
 
 for lib in "${REQUIRED_LIBS[@]}"; do
   source_path="$(source_for_lib "$lib" || true)"
@@ -87,6 +99,36 @@ for lib in "${REQUIRED_LIBS[@]}"; do
     "$(needed_for "$TARGET_DIR/$lib")" >>"$OUT_DIR/staged_libs.tsv"
   log "staged $lib build_id=$(build_id_for "$TARGET_DIR/$lib") sha256=$(sha_for "$TARGET_DIR/$lib")"
 done
+
+QNN_RUNTIME_STAGED=0
+if [ -d "$QNN_RUNTIME_SOURCE_DIR" ]; then
+  for lib in "${QNN_RUNTIME_LIBS[@]}"; do
+    source_path="$QNN_RUNTIME_SOURCE_DIR/$lib"
+    if [ ! -f "$source_path" ]; then
+      printf '%s\tmissing\t-\t-\t-\t-\t-\n' "$lib" >>"$OUT_DIR/staged_qnn_runtime_libs.tsv"
+      log "QNN runtime library not provided by artifact: $lib"
+      continue
+    fi
+    if [ -e "$TARGET_DIR/$lib" ]; then
+      chmod u+w "$TARGET_DIR/$lib" 2>/dev/null || true
+    fi
+    cp -f "$source_path" "$TARGET_DIR/$lib"
+    QNN_RUNTIME_STAGED=1
+    printf '%s\tstaged\t%s\t%s\t%s\t%s\t%s\n' \
+      "$lib" \
+      "$source_path" \
+      "$(wc -c <"$TARGET_DIR/$lib" 2>/dev/null | tr -d ' ')" \
+      "$(sha_for "$TARGET_DIR/$lib")" \
+      "$(build_id_for "$TARGET_DIR/$lib")" \
+      "$(needed_for "$TARGET_DIR/$lib")" >>"$OUT_DIR/staged_qnn_runtime_libs.tsv"
+    log "staged QNN runtime $lib build_id=$(build_id_for "$TARGET_DIR/$lib") sha256=$(sha_for "$TARGET_DIR/$lib")"
+  done
+else
+  for lib in "${QNN_RUNTIME_LIBS[@]}"; do
+    printf '%s\tnot-requested\t-\t-\t-\t-\t-\n' "$lib" >>"$OUT_DIR/staged_qnn_runtime_libs.tsv"
+  done
+  log "QNN runtime artifact directory not present; leaving existing dependency-provided QNN libs unchanged."
+fi
 
 POLLUTION=0
 STANDARD_POLLUTED="$(find "$ROOT_DIR/app/src/main/jniLibs" "$ROOT_DIR/app/src/standardDebug" -type f \( -name 'libLiteRt*.so' -o -name 'liblitertlm_jni.so' -o -name 'libGemmaModelConstraintProvider.so' \) 2>/dev/null || true)"
@@ -113,12 +155,16 @@ fi
   printf '%s\n' "- Artifact dir: \`$ROOT_DIR/$ARTIFACT_DIR\`"
   printf '%s\n' "- Target dir: \`$TARGET_DIR\`"
   printf '%s\n' "- Action: staged only into customBuildExperimentDebug."
-  printf '%s\n' "- QNN SDK libs copied: \`no\`"
+  printf '%s\n' "- QNN SDK libs copied: \`$(if [ "$QNN_RUNTIME_STAGED" -eq 1 ]; then printf yes; else printf no; fi)\`"
   printf '%s\n' "- Gallery libs copied: \`no\`"
   printf '\n## Staged libraries\n\n'
   printf '| Library | Status | Build ID | SHA-256 | NEEDED |\n'
   printf '| --- | --- | --- | --- | --- |\n'
   awk -F '\t' 'NR > 1 {printf "| `%s` | `%s` | `%s` | `%s` | `%s` |\n", $1, $2, $6, $5, $7}' "$OUT_DIR/staged_libs.tsv"
+  printf '\n## Staged QNN runtime libraries\n\n'
+  printf '| Library | Status | Build ID | SHA-256 | NEEDED |\n'
+  printf '| --- | --- | --- | --- | --- |\n'
+  awk -F '\t' 'NR > 1 {printf "| `%s` | `%s` | `%s` | `%s` | `%s` |\n", $1, $2, $6, $5, $7}' "$OUT_DIR/staged_qnn_runtime_libs.tsv"
   printf '\n## Leakage check\n\n'
   printf '%s\n' "- standard/main source-set pollution: \`$(if [ -n "$STANDARD_POLLUTED" ]; then printf yes; else printf no; fi)\`"
   printf '%s\n' "- npuExperiment forbidden custom stack libs: \`$(if [ -n "$NPU_FORBIDDEN" ]; then printf yes; else printf no; fi)\`"

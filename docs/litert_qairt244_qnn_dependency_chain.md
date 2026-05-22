@@ -163,3 +163,28 @@ This matches the static Build ID mismatch: the executed custom/npu QNN System
 library differs from the QAIRT 2.44 SDK/Gallery `libQnnSystem.so`
 (`0d409cdd664b8b0a`), while the rebuilt dispatch expects the newer QNN System
 API.
+
+## Runtime Alignment Correlation
+
+The QAIRT 2.44 runtime alignment dry-run staged the SDK/Gallery matching
+QNN/HTP set into only `customBuildExperimentDebug`:
+
+```text
+artifacts/qairt244_qnn_aligned_build/20260522_215238/
+artifacts/qairt244_qnn_aligned_dry_run/20260522_215421/
+```
+
+Runtime result:
+
+- `libQnnSystem.so` Build ID `0d409cdd664b8b0a` reported System API `1.8.0`
+- `libQnnHtp.so` Build ID `f2c90c1775a109e1` loaded successfully
+- HTP provider `HTP_QTI_AISW` reported core `2.33.0`, backend `5.44.0`
+- `ResolveSystemApi` and `ResolveApi` returned OK
+- the new boundary is `HtpBackendInit` returning
+  `kLiteRtStatusErrorRuntimeFailure(3)`
+- `libQnnHtpPrepare.so`, V79 stub, and V79 skel were present but not mapped
+  before the abort
+
+This confirms the previous QNN System generation mismatch was real and that the
+next investigation should focus on the HTP backend initialization call rather
+than generic packaging absence.

@@ -673,3 +673,41 @@ Next recommended phase:
 2. stage a generation-consistent QNN runtime set matching QAIRT 2.44/Gallery
    before making ADSP/FastRPC changes
 3. repeat only the explicit `Engine.initialize` dry-run
+
+## QAIRT 2.44 QNN Runtime Alignment Result
+
+Result date: 2026-05-22
+
+Docs:
+
+- `docs/litert_qairt244_qnn_runtime_alignment_result.md`
+
+Artifacts:
+
+```text
+artifacts/qairt244_qnn_aligned_build/20260522_215238/
+artifacts/qairt244_qnn_aligned_dry_run/20260522_215421/
+artifacts/npu_diagnostics/20260522_215421_customnpu/
+```
+
+Result:
+
+- staged QAIRT 2.44 SDK `libQnnSystem.so`, `libQnnHtp.so`,
+  `libQnnHtpPrepare.so`, `libQnnHtpV79Stub.so`, and V79 skel into
+  `customBuildExperimentDebug` only
+- QNN System provider now reports API `1.8.0`
+- `ResolveSystemApi` succeeds
+- `libQnnHtp.so` loads successfully
+- HTP provider `HTP_QTI_AISW` reports core `2.33.0`, backend `5.44.0`
+- `ResolveApi` succeeds
+- initialization now fails at `HtpBackendInit` with
+  `kLiteRtStatusErrorRuntimeFailure(3)`
+- `libQnnHtpPrepare.so`, V79 stub, V79 skel, and
+  `LiteRtDispatchCheckRuntimeCompatibility` are still not reached
+
+Next recommended phase:
+
+1. keep the QAIRT 2.44 QNN runtime alignment
+2. add focused file logging around the exact HTP backend initialization call and
+   its QNN status/error return
+3. only after that, test ADSP/FastRPC/skel path changes
