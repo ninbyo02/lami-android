@@ -1,0 +1,10 @@
+library	sha256	build_id	needed
+libLiteRt.so	3ba100245ed79d45abf3c34230aee77d6aabd0b6c302a1ce8dd060b95575e7ec	731b74da505bef341a184b3778d0412d	libdl.so,libGLESv3.so,libEGL.so,libm.so,liblog.so,libc.so
+libLiteRtCompilerPlugin_Qualcomm.so	299769ef90f9ee4b74b357bd867545e1f48312bb8b1d97f9d16968a2be175655	12a6ac7197aff7045fc5f5c263b35f9f	libandroid.so,liblog.so,libdl.so,libc.so,libm.so
+libLiteRtDispatch_Qualcomm.so	459ceb6e3912fa72b43363c763315b2fbf5d336e744e82e4850f33967c7bbeba	a1b66b12e643f15a94cb34093f9efcac	libLiteRt.so,libandroid.so,liblog.so,libdl.so,libc.so,libm.so
+liblitertlm_jni.so	04021709850a0e4ac5b0766a91b5bedf9f63c77a1b9b226fabf3d2b2e59f938f	a85bf0969d55648d9c11c25d2a1f2e6b	libGemmaModelConstraintProvider.so,libdl.so,liblog.so,libandroid.so,libGLESv3.so,libEGL.so,libm.so,libc.so
+libQnnHtp.so	090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a	f2c90c1775a109e1	libc.so,libm.so,libdl.so,liblog.so
+libQnnHtpPrepare.so	09b1c15c62b6875af49ffd3d841961c098b85c367f584fee370f986c62511298	edb612e67d6d27c2	libc.so,libm.so,libdl.so,liblog.so
+libQnnHtpV79Skel.so	41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98		libc++.so.1,libc++abi.so.1
+libQnnHtpV79Stub.so	005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1	10d7ad6f9195411a	libc.so,libm.so,libdl.so,liblog.so,libcdsprpc.so
+libQnnSystem.so	7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8	0d409cdd664b8b0a	libc.so,libm.so,libdl.so,liblog.so

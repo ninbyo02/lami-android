@@ -10,8 +10,9 @@ dry-run, the dlopen trace build, the dispatch symbol-resolution experiments,
 the QNN provider trace dry-run, the QNN runtime alignment dry-run, the HTP
 backend trace dry-run, the QNN backend log callback dry-run, and the
 libcdsprpc manifest visibility dry-run, the 2026-05-23 initialize stability
-probe, the single-token smoke implementation-prep pass, and two lower-level
-single-token smoke executions.
+probe, the single-token smoke implementation-prep pass, two lower-level
+single-token smoke executions, and token timing verifier implementation
+preflight.
 
 ## Current Boundary
 
@@ -168,6 +169,30 @@ Result:
 
 Reproducibility classification: the isolated lower-level NPU one-token smoke has
 now succeeded `2/2` with the same output and no fresh crash evidence.
+
+## Token Timing Verifier Update
+
+Build artifact:
+
+```text
+artifacts/qairt244_token_timing_verifier_build/20260523_060634/
+```
+
+Preflight artifact:
+
+```text
+artifacts/qairt244_token_timing_verifier/20260523_061525/
+```
+
+Result:
+
+- verifier marker: `qairt244_token_timing_verifier_v1`
+- native result writer now records prompt/output bytes and per-stage elapsed
+  fields
+- token counts are recorded as `unavailable` with explicit source strings
+- NPU backend evidence remains `QNN_HTP_V79_FastRPC_native_diag`
+- one allowed verifier generation run was not attempted because no Nubia device
+  was visible in `adb devices`
 
 ## Android Logcat Dry-Run Update
 

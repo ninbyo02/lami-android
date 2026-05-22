@@ -1,0 +1,3 @@
+classification=entrypoint-implemented-not-executed
+executed=false
+reason=Static markers are present, but --run was not requested. This is the expected implementation+preflight outcome.

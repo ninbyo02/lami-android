@@ -182,6 +182,29 @@ result=success
 If this contract is absent, the runner must classify the smoke as invalid even
 if text is produced.
 
+## Token Timing Verifier
+
+The same isolated runner now accepts `--verifier`. In verifier mode it writes
+artifacts under:
+
+```text
+artifacts/qairt244_token_timing_verifier/<timestamp>/
+```
+
+The verifier native artifact is:
+
+```text
+artifacts/qairt244_token_timing_verifier_build/20260523_060634/
+```
+
+The rebuilt JNI library contains marker
+`qairt244_token_timing_verifier_v1` and records prompt/output bytes,
+per-stage timing fields, explicit token-count availability, and
+`QNN_HTP_V79_FastRPC_native_diag` as the backend evidence source.
+
+The verifier run was not executed in this commit because no Nubia device was
+visible in `adb devices`.
+
 ## Execution Status
 
 Executed lower-level smoke runs:

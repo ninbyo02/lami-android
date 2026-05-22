@@ -1,0 +1,28 @@
+# LiteRT Custom Build Environment
+
+date=2026-05-23T06:06:34+09:00
+checkout=/home/sato/project/litert-custom-build/LiteRT-LM
+head=c87189528a758db32ead241f4fc9c64836398ee7
+describe=v0.11.0-dirty
+bazelversion=7.6.1
+
+ANDROID_HOME=/home/sato/Android/Sdk
+ANDROID_SDK_ROOT=/home/sato/Android/Sdk
+ANDROID_NDK_HOME=/home/sato/Android/Sdk/ndk/28.2.13676358
+LITERT_QAIRT_SDK=/home/sato/project/lami-android/artifacts/litert_custom_build/20260523_060634_qairt244_token_timing_verifier/qairt_overlay/
+QAIRT_ROOT=/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+LABEL=qairt244_token_timing_verifier
+BAZEL_OUTPUT_BASE=/home/sato/project/litert-custom-build/bazel_output_base/build_20260523_060634
+BAZEL_BUILD_TIMEOUT=7200
+
+WORKSPACE refs:
+6:LITERT_REF = "47615eb6eaec25e8dfcd1aba922c560a57cba0a2"
+8:LITERT_SHA256 = "1d198ae395ba47d64dec282602de56b568ea964963861451933f00c6a39fbf2d"
+381:    sha256 = LITERT_SHA256,
+382:    strip_prefix = "LiteRT-" + LITERT_REF,
+383:    url = "https://github.com/google-ai-edge/LiteRT/archive/" + LITERT_REF + ".tar.gz",
+440:load("@rules_android_ndk//:rules.bzl", "android_ndk_repository")
+442:android_ndk_repository(name = "androidndk")
+444:android_sdk_repository(name = "androidsdk")
+464:load("@litert//third_party/qairt:workspace.bzl", "qairt")
+466:qairt()

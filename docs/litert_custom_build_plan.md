@@ -325,6 +325,21 @@ Updated next recommendation:
 - Still no `Conversation`, no high-level `generateResponse`, and no normal UI
   NPU connection.
 
+2026-05-23 token timing verifier implementation:
+
+- External LiteRT-LM JNI instrumentation was updated with marker
+  `qairt244_token_timing_verifier_v1`.
+- Verifier build artifact:
+  `artifacts/qairt244_token_timing_verifier_build/20260523_060634/`
+- Preflight artifact:
+  `artifacts/qairt244_token_timing_verifier/20260523_061525/`
+- The verifier result writer records prompt/output bytes, explicit unavailable
+  token count sources, stage timings, and NPU backend evidence.
+- The verifier was not executed because `adb devices` returned no connected
+  Nubia device and the previous TCP endpoint refused connection.
+- Next run remains exactly one isolated verifier run with `--run --verifier`;
+  still no normal UI NPU connection.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

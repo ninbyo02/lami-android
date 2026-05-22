@@ -735,3 +735,9 @@ The native diagnostic file shows `before RunDecode SetMaxOutputTokens(1)` and
 finished in `907 ms`. This used an isolated `customBuildExperimentDebug`
 lower-level entrypoint and did not create `Conversation`, did not call
 high-level `generateResponse`, and did not connect NPU to the normal UI path.
+
+A follow-up token timing verifier has been implemented but not executed yet
+because the Nubia device was not visible to `adb` at the time of the verifier
+turn. The verifier records prompt/output bytes, explicit token-count
+availability, stage timings, and QNN/HTP/V79/FastRPC backend evidence while
+keeping the same isolated lower-level path.

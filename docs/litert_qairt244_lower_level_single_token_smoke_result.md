@@ -137,6 +137,10 @@ no fresh crash evidence; no normal UI NPU wiring.
 
 ## Next Step
 
-Do not connect this to the normal UI yet. The next safe step is a similarly
-isolated verifier that records token accounting/backend timing more explicitly,
-still outside the normal chat path.
+Do not connect this to the normal UI yet. A similarly isolated verifier that
+records token accounting/backend timing has been implemented and rebuilt, but
+its one allowed execution is pending a connected Nubia device:
+
+```text
+artifacts/qairt244_token_timing_verifier_build/20260523_060634/
+```

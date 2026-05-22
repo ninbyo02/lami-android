@@ -4,14 +4,15 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LITERT_LM_ROOT="${LITERT_LM_ROOT:-/home/sato/project/litert-custom-build/LiteRT-LM}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
-OUT_DIR="$ROOT_DIR/artifacts/qairt244_lower_level_single_token_smoke/$TIMESTAMP"
 APP_ID="io.github.ninbyo02.lami.customnpu"
 PROMPT="Hi"
 MAX_OUTPUT_TOKENS=1
 TIMEOUT_SECONDS=30
 LOWER_LEVEL_MARKER="qairt244_lower_level_single_token_smoke_v1"
+VERIFIER_MARKER="qairt244_token_timing_verifier_v1"
 ACTIVITY="io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeActivity"
 RUN_REQUESTED=false
+VERIFIER_REQUESTED=false
 CUSTOM_BUILD_ARTIFACT=""
 MODEL_PATH="/data/user/0/$APP_ID/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm"
 
@@ -19,6 +20,10 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --run)
       RUN_REQUESTED=true
+      shift
+      ;;
+    --verifier)
+      VERIFIER_REQUESTED=true
       shift
       ;;
     --artifact)
@@ -36,7 +41,7 @@ while [ $# -gt 0 ]; do
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_qairt244_lower_level_single_token_smoke.sh [--run --artifact <custom-build-artifact>] [--model-path <device-path>] [--timeout <seconds>]
+  scripts/run_qairt244_lower_level_single_token_smoke.sh [--run --artifact <custom-build-artifact>] [--verifier] [--model-path <device-path>] [--timeout <seconds>]
 
 Default mode is preflight-only. It does not build, install, launch the app,
 create Conversation, create Session, call generateResponse, or generate tokens.
@@ -63,6 +68,11 @@ EOF
 done
 
 cd "$ROOT_DIR" || exit 1
+if [ "$VERIFIER_REQUESTED" = true ]; then
+  OUT_DIR="$ROOT_DIR/artifacts/qairt244_token_timing_verifier/$TIMESTAMP"
+else
+  OUT_DIR="$ROOT_DIR/artifacts/qairt244_lower_level_single_token_smoke/$TIMESTAMP"
+fi
 mkdir -p "$OUT_DIR"
 
 log() {
@@ -76,6 +86,8 @@ write_config() {
     printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
     printf 'timeout_seconds=%s\n' "$TIMEOUT_SECONDS"
     printf 'lower_level_marker=%s\n' "$LOWER_LEVEL_MARKER"
+    printf 'verifier_marker=%s\n' "$VERIFIER_MARKER"
+    printf 'verifier_requested=%s\n' "$VERIFIER_REQUESTED"
     printf 'mode=%s\n' "$([ "$RUN_REQUESTED" = true ] && printf execution-requested || printf static-preflight)"
     printf 'custom_build_artifact=%s\n' "${CUSTOM_BUILD_ARTIFACT:-none}"
     printf 'model_path=%s\n' "$MODEL_PATH"
@@ -165,6 +177,7 @@ classify() {
     printf 'explicit_run_requested\t%s\tExecution requires --run.\n' "$([ "$RUN_REQUESTED" = true ] && printf pass || printf blocked_preflight)"
     printf 'custom_build_artifact_present\t%s\tExecution requires --artifact with a rebuilt custom stack.\n' "$([ -n "$CUSTOM_BUILD_ARTIFACT" ] && [ -d "$CUSTOM_BUILD_ARTIFACT" ] && printf pass || printf blocked_preflight)"
     printf 'normal_ui_disconnected\tpass\tThis preflight does not touch normal UI inference.\n'
+    printf 'verifier_requested\t%s\tToken timing verifier marker is required only when --verifier is supplied.\n' "$([ "$VERIFIER_REQUESTED" = true ] && printf pass || printf not_requested)"
     printf 'conversation_created\tpass_not_run\tNo Conversation was created.\n'
     printf 'session_created\tpass_not_run\tNo Session was created.\n'
     printf 'generate_response_called\tpass_not_run\tNo generateResponse or token generation was run.\n'
@@ -325,6 +338,11 @@ execute_once() {
     printf 'missing lower-level marker in artifact liblitertlm_jni.so\n' >"$OUT_DIR/run/artifact_marker_check.txt"
     return 1
   fi
+  if [ "$VERIFIER_REQUESTED" = true ] &&
+    ! strings "$CUSTOM_BUILD_ARTIFACT/built_libs/liblitertlm_jni.so" 2>/dev/null | grep -q "$VERIFIER_MARKER"; then
+    printf 'missing verifier marker in artifact liblitertlm_jni.so\n' >"$OUT_DIR/run/artifact_marker_check.txt"
+    return 1
+  fi
   ./gradlew :app:assembleCustomBuildExperimentDebug >"$OUT_DIR/run/assemble.log" 2>&1
   adb install -r app/build/outputs/apk/customBuildExperiment/debug/app-customBuildExperiment-debug.apk >"$OUT_DIR/run/install.log" 2>&1
   adb logcat -c >/dev/null 2>&1 || true
@@ -361,6 +379,7 @@ execute_once() {
     printf 'session_created_actual=lower-level-native-session\n'
     printf 'generate_response_actual=no\n'
     printf 'token_generation_actual=yes\n'
+    printf 'verifier_actual=%s\n' "$VERIFIER_REQUESTED"
   } >>"$OUT_DIR/preflight_config.txt"
   {
     printf 'build_actual\tpass\tcustomBuildExperimentDebug APK was assembled.\n'
@@ -370,6 +389,9 @@ execute_once() {
     printf 'session_created_actual\tpass\tA lower-level native session was created for the isolated smoke only; no Kotlin/public Session object was created.\n'
     printf 'generate_response_actual\tpass\tNo high-level generateResponse was called.\n'
     printf 'token_generation_actual\tpass\tExactly one lower-level RunDecode call was allowed with maxOutputTokens=1.\n'
+    if [ "$VERIFIER_REQUESTED" = true ]; then
+      printf 'verifier_actual\tpass\tToken timing verifier mode was requested and the artifact marker was verified before launch.\n'
+    fi
   } >>"$OUT_DIR/safety_checks.tsv"
   collect_run_files
   classify_tombstone_freshness "$run_id"
@@ -380,6 +402,16 @@ write_execution_summary() {
   local result_status="missing"
   local output_value="missing"
   local elapsed_ms="missing"
+  local prompt_bytes="missing"
+  local prompt_token_count="missing"
+  local output_bytes="missing"
+  local output_token_count="missing"
+  local engine_create_elapsed_ms="missing"
+  local session_create_elapsed_ms="missing"
+  local prefill_elapsed_ms="missing"
+  local decode_elapsed_ms="missing"
+  local cleanup_elapsed_ms="missing"
+  local npu_backend_evidence="missing"
   local timeout_state="missing"
   local run_id="unknown"
   local tombstone_classification="unknown"
@@ -389,6 +421,16 @@ write_execution_summary() {
     result_status="$(grep -m1 '^result=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
     output_value="$(grep -m1 '^output=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
     elapsed_ms="$(grep -m1 '^elapsed_ms=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    prompt_bytes="$(grep -m1 '^prompt_bytes=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    prompt_token_count="$(grep -m1 '^prompt_token_count=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    output_bytes="$(grep -m1 '^output_bytes=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    output_token_count="$(grep -m1 '^output_token_count=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    engine_create_elapsed_ms="$(grep -m1 '^engine_create_elapsed_ms=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    session_create_elapsed_ms="$(grep -m1 '^session_create_elapsed_ms=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    prefill_elapsed_ms="$(grep -m1 '^prefill_elapsed_ms=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    decode_elapsed_ms="$(grep -m1 '^decode_elapsed_ms=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    cleanup_elapsed_ms="$(grep -m1 '^cleanup_elapsed_ms=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
+    npu_backend_evidence="$(grep -m1 '^npu_backend_evidence=' "$OUT_DIR/result.txt" | cut -d= -f2-)"
   fi
   if [ -s "$OUT_DIR/run/timeout_state.txt" ]; then
     timeout_state="$(paste -sd ';' "$OUT_DIR/run/timeout_state.txt")"
@@ -410,7 +452,12 @@ write_execution_summary() {
 - prompt: \`$PROMPT\`
 - max output tokens: \`$MAX_OUTPUT_TOKENS\`
 - output: \`$output_value\`
+- prompt bytes: \`$prompt_bytes\`
+- prompt token count: \`$prompt_token_count\`
+- output bytes: \`$output_bytes\`
+- output token count: \`$output_token_count\`
 - elapsed ms: \`$elapsed_ms\`
+- decode elapsed ms: \`$decode_elapsed_ms\`
 - tombstone classification: \`$tombstone_classification\`
 
 The isolated \`customBuildExperimentDebug\` lower-level JNI entrypoint executed
@@ -435,6 +482,16 @@ prompt=$PROMPT
 max_output_tokens=$MAX_OUTPUT_TOKENS
 elapsed_ms=$elapsed_ms
 output=$output_value
+prompt_bytes=$prompt_bytes
+prompt_token_count=$prompt_token_count
+output_bytes=$output_bytes
+output_token_count=$output_token_count
+engine_create_elapsed_ms=$engine_create_elapsed_ms
+session_create_elapsed_ms=$session_create_elapsed_ms
+prefill_elapsed_ms=$prefill_elapsed_ms
+decode_elapsed_ms=$decode_elapsed_ms
+cleanup_elapsed_ms=$cleanup_elapsed_ms
+npu_backend_evidence=$npu_backend_evidence
 $timeout_state
 tombstone_classification=$tombstone_classification
 \`\`\`
@@ -518,7 +575,7 @@ if grep -q '^classification=execution-ready' "$OUT_DIR/result.txt"; then
     {
       printf 'classification=executed\n'
       printf 'executed=true\n'
-      grep -E '^(result|marker|max_output_tokens|output|elapsed_ms)=' "$OUT_DIR/run/result.txt" || true
+      grep -E '^(result|marker|verifier_marker|prompt|max_output_tokens|prompt_bytes|prompt_token_count|prompt_token_count_source|output|output_bytes|output_token_count|output_token_count_source|elapsed_ms|model_assets_elapsed_ms|engine_settings_elapsed_ms|engine_create_elapsed_ms|session_create_elapsed_ms|prefill_elapsed_ms|decode_elapsed_ms|cleanup_elapsed_ms|npu_backend|npu_backend_evidence)=' "$OUT_DIR/run/result.txt" || true
     } >"$OUT_DIR/result.txt"
   else
     {
