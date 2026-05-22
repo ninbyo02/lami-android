@@ -12,20 +12,21 @@ backend trace dry-run, the QNN backend log callback dry-run, and the
 libcdsprpc manifest visibility dry-run, the 2026-05-23 initialize stability
 probe, the single-token smoke implementation-prep pass, two lower-level
 single-token smoke executions, token timing verifier implementation preflight,
-and the 2026-05-23 connected-device token timing verifier run.
+the 2026-05-23 connected-device token timing verifier run, and two isolated
+short multi-token smoke executions.
 
 ## Current Boundary
 
 - flavor: `customBuildExperimentDebug`
 - applicationId: `io.github.ninbyo02.lami.customnpu`
-- runId: `1779485001728`
-- diagnostic artifact: `artifacts/qairt244_token_timing_verifier/20260523_062321/`
+- runId: `1779493804631`
+- diagnostic artifact: `artifacts/qairt244_short_multitoken_smoke/20260523_085004/`
 - final stage: `done`
 - returned: yes
 - signal: no fresh crash evidence; diagnostics collector selected a stale older
   tombstone that does not contain the current smoke run id
 - immediate native boundary:
-  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success -> lower-level RunDecode maxOutputTokens=1 success -> token/timing verifier success`
+  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success -> lower-level RunDecode maxOutputTokens=1 success -> token/timing verifier success -> lower-level RunDecode maxOutputTokens=3 success 2/2`
 
 The explicit smoke created only the lower-level native LiteRT-LM session needed
 for decode. It did not create `Conversation`, did not create a Kotlin/public
@@ -251,6 +252,7 @@ Artifact:
 ```text
 build: artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/
 run:   artifacts/qairt244_short_multitoken_smoke/20260523_075743/
+rerun: artifacts/qairt244_short_multitoken_smoke/20260523_085004/
 ```
 
 Status:
@@ -267,6 +269,23 @@ Status:
 - no normal UI route
 - no high-level `generateResponse`
 - no fresh crash/tombstone evidence from this run
+
+Reproducibility rerun:
+
+- result: `success`
+- output: `! How Hi`
+- elapsed: `1579 ms`
+- decode elapsed: `78 ms`
+- tombstone classification: `stale-tombstone-ignored`
+- overall: `2/2` isolated lower-level three-token NPU smoke success
+
+Artifact cleanup:
+
+- large rebuilt and APK-extracted native binaries under the short multi-token
+  artifacts were removed from Git tracking without deleting local files
+- future short multi-token smoke artifacts write a local-only binary policy note
+- commit text evidence only: summaries, result/native diag, stale tombstone
+  notes, Build IDs, hashes, and external diff patches
 
 ## Android Logcat Dry-Run Update
 

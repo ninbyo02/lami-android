@@ -409,6 +409,25 @@ Updated next recommendation:
 - The run used only the isolated lower-level native path. It did not call
   high-level `generateResponse` or connect NPU to the normal UI route.
 
+2026-05-23 short multi-token smoke reproducibility and artifact cleanup:
+
+- `scripts/run_qairt244_short_multitoken_smoke.sh` now writes an artifact
+  tracking policy note into every short multi-token artifact.
+- Large rebuilt native binaries remain local-only. Commit only text summaries,
+  Build IDs, hashes, run metadata, stale tombstone notes, and external diff
+  patches.
+- Previously tracked `.so` files under the short multi-token build/run
+  artifacts were removed from Git tracking without deleting local files.
+- Reproducibility run artifact:
+  `artifacts/qairt244_short_multitoken_smoke/20260523_085004/`
+- Result: `success`, output `! How Hi`, elapsed `1579 ms`,
+  decode elapsed `78 ms`.
+- Tombstone classification: `stale-tombstone-ignored`; no fresh crash evidence.
+- Overall reproducibility: `2/2` isolated lower-level three-token NPU smoke
+  success.
+- Still no normal UI NPU route, no `selectedPath=npu` normal path, and no
+  high-level `generateResponse`.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

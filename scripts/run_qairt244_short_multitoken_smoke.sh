@@ -405,6 +405,18 @@ This artifact is preflight-first. It does not connect NPU to the normal UI,
 does not call high-level \`generateResponse\`, and does not run generation
 unless \`--run\` is supplied and static evidence proves \`SetMaxOutputTokens(3)\`.
 
+## Artifact Tracking Policy
+
+Large rebuilt native binaries are local-only and must not be committed:
+
+- \`built_libs/*.so\`
+- \`qnn_runtime_libs/*.so\`
+- \`reference_libs/**/*.so\`
+- \`diagnostics/apk_libs/*.so\`
+
+Commit only text evidence such as summaries, Build IDs, hashes, run metadata,
+and external diff patches.
+
 Required next build input:
 
 \`\`\`text
@@ -412,6 +424,16 @@ custom LiteRT-LM JNI artifact containing:
 - $MARKER
 - DecodeConfig.SetMaxOutputTokens(3)
 \`\`\`
+EOF
+
+  cat >"$OUT_DIR/large_artifacts_local_only.md" <<'EOF'
+# Large Artifacts Are Local-Only
+
+This smoke artifact can contain APK-extracted or rebuilt native libraries under
+`diagnostics/apk_libs`, `built_libs`, `qnn_runtime_libs`, or `reference_libs`.
+Those binaries are intentionally excluded from Git tracking. Preserve only text
+metadata such as `summary.md`, `result.txt`, `native_diag.txt`, Build IDs,
+hashes, and diff patches in commits.
 EOF
 }
 

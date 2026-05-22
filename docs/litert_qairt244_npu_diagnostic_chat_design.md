@@ -137,23 +137,24 @@ enabled, the implementation must:
 ## Short Multi-Token Follow-up
 
 The next smoke was run as a separate short multi-token path with
-`maxOutputTokens=3`. Run artifact:
+`maxOutputTokens=3`. Run artifacts:
 
 ```text
 artifacts/qairt244_short_multitoken_smoke/20260523_075743/
+artifacts/qairt244_short_multitoken_smoke/20260523_085004/
 ```
 
 Current classification:
 
 ```text
-result=success
+result=success 2/2
 output=! How Hi
 fresh_crash=false
 ```
 
 The Diagnostic Chat remains read-only. It should not expose a runnable
-multi-token button from a single success. The next step should be an explicitly
-approved reproducibility run or a separate diagnostic-only UI design update,
+multi-token button from isolated smoke success alone. The next step should be a
+separate diagnostic-only UI design update or another explicitly bounded smoke,
 still disconnected from the normal `ChatScreen` route.
 
 ## Non-Goals

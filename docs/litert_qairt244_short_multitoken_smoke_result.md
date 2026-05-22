@@ -10,6 +10,7 @@ smoke. This is not normal UI integration.
 ```text
 build: artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/
 run:   artifacts/qairt244_short_multitoken_smoke/20260523_075743/
+rerun: artifacts/qairt244_short_multitoken_smoke/20260523_085004/
 ```
 
 ## Outcome
@@ -28,6 +29,25 @@ timeout=false
 tombstone_classification=stale-tombstone-ignored
 ```
 
+Reproducibility rerun:
+
+```text
+classification=executed
+executed=true
+result=success
+prompt=Hi
+max_output_tokens=3
+marker=qairt244_short_multitoken_smoke_v1
+output=! How Hi
+elapsed_ms=1579
+decode_elapsed_ms=78
+timeout=false
+tombstone_classification=stale-tombstone-ignored
+```
+
+Reproducibility classification: the isolated lower-level NPU three-token smoke
+has now succeeded `2/2` with the same output and no fresh crash evidence.
+
 The rebuilt LiteRT-LM JNI artifact contains both required static markers:
 
 ```text
@@ -43,6 +63,25 @@ DT_NEEDED [libLiteRt.so]
 
 which is required for Android symbol resolution of dispatch references to
 `LiteRtGetEnvironmentOptions`.
+
+## Artifact Tracking Policy
+
+Large native artifacts are local-only. The 2026-05-23 reproducibility cleanup
+removes rebuilt `.so` files and APK-extracted `.so` files from Git tracking and
+keeps only text evidence in commits:
+
+- `summary.md`
+- `result.txt`
+- `native_diag.txt`
+- stale tombstone notes
+- Build IDs / sha256 / metadata
+- external diff patches
+
+The local build artifact remains usable for reruns at:
+
+```text
+artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/
+```
 
 ## Safety Check Summary
 
@@ -79,6 +118,19 @@ cleanup_elapsed_ms=102
 elapsed_ms=1358
 ```
 
+Reproducibility rerun timing:
+
+```text
+model_assets_elapsed_ms=0
+engine_settings_elapsed_ms=0
+engine_create_elapsed_ms=1376
+session_create_elapsed_ms=0
+prefill_elapsed_ms=28
+decode_elapsed_ms=78
+cleanup_elapsed_ms=95
+elapsed_ms=1579
+```
+
 Token counts remain unavailable from this lower-level entrypoint. The result
 records byte counts instead:
 
@@ -111,8 +163,9 @@ libQnnHtp.so f2c90c1775a109e1
 ## Tombstone Classification
 
 The collector selected `/data/tombstones/tombstone_22`, but it does not contain
-the current smoke run id. The current result/native diag files contain the
-current marker and the process was still alive after the smoke:
+the current smoke run id for both short multi-token runs. The current
+result/native diag files contain the current marker and the process was still
+alive after each smoke:
 
 ```text
 classification=stale-tombstone-ignored
