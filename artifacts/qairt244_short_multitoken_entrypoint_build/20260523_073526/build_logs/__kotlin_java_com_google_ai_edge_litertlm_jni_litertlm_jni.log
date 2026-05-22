@@ -1,0 +1,173 @@
+$ /home/sato/.local/bin/bazelisk --output_base=/home/sato/project/litert-custom-build/bazel_output_base/build_20260523_073526_needed2 build --repo_env=ANDROID_HOME=/home/sato/Android/Sdk --repo_env=ANDROID_SDK_ROOT=/home/sato/Android/Sdk --repo_env=ANDROID_NDK_HOME=/home/sato/Android/Sdk/ndk/28.2.13676358 --repo_env=LITERT_QAIRT_SDK=/home/sato/project/lami-android/artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/qairt_overlay/ --repo_env=HERMETIC_PYTHON_VERSION=3.12 //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni --config=android_arm64
+
+INFO: Reading 'startup' options from /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc: --windows_enable_symlinks
+INFO: Options provided by the client:
+  Inherited 'common' options: --isatty=0 --terminal_columns=80
+INFO: Reading rc options for 'build' from /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc:
+  Inherited 'common' options: --experimental_repo_remote_exec --registry=https://raw.githubusercontent.com/bazelbuild/bazel-central-registry/main/ --experimental_repo_remote_exec --noenable_bzlmod
+INFO: Reading rc options for 'build' from /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc:
+  'build' options: --define=resolve_symbols_in_exec=true --repo_env=USE_PYWRAP_RULES=True --copt=-DGRPC_BAZEL_BUILD --host_copt=-DGRPC_BAZEL_BUILD --action_env=GRPC_BAZEL_RUNTIME=1 --repo_env=PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=upb --action_env=PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=upb --@rules_python//python/config_settings:precompile=force_disabled --define framework_shared_object=true --define tsl_protobuf_header_only=true --define=allow_oversize_protos=true --spawn_strategy=standalone -c opt --announce_rc --define=grpc_no_ares=true --noincompatible_remove_legacy_whole_archive --features=-force_no_whole_archive --host_features=-force_no_whole_archive --enable_platform_specific_config --define=with_xla_support=true --config=short_logs --experimental_cc_shared_library --experimental_link_static_libraries_once=false --incompatible_enforce_config_setting_visibility --@rules_ml_toolchain//common:enable_hermetic_cc=False --repo_env USE_HERMETIC_CC_TOOLCHAIN=0 --repo_env=HERMETIC_PYTHON_VERSION=3.13 --config=v2 --config=litert_prefixes --features=-layering_check --host_features=-layering_check --features=-header_modules --host_features=-header_modules
+INFO: Found applicable config definition build:short_logs in file /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc: --output_filter=DONT_MATCH_ANYTHING
+INFO: Found applicable config definition build:v2 in file /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc: --define=tf_api_version=2 --action_env=TF2_BEHAVIOR=1
+INFO: Found applicable config definition build:litert_prefixes in file /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc: --define=litert_prefixes=external/org_tensorflow/
+INFO: Found applicable config definition build:android_arm64 in file /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc: --config=android --cpu=arm64-v8a --fat_apk_cpu=arm64-v8a --platforms=@org_tensorflow//tensorflow/tools/toolchains/android:arm64-v8a
+INFO: Found applicable config definition build:android in file /home/sato/project/litert-custom-build/LiteRT-LM/.bazelrc: --crosstool_top=//external:android/crosstool --host_crosstool_top=@bazel_tools//tools/cpp:toolchain --dynamic_mode=off --define=xnn_enable_avxvnniint8=false --noenable_platform_specific_config --copt=-w --cxxopt=-std=c++20 --host_cxxopt=-std=c++20 --define=with_xla_support=false --copt=-DABSL_FLAGS_STRIP_NAMES=0
+Computing main repo mapping:
+Loading:
+Loading: 0 packages loaded
+Analyzing: target //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni (1 packages loaded, 0 targets configured)
+Analyzing: target //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni (1 packages loaded, 0 targets configured)
+
+Analyzing: target //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni (261 packages loaded, 9287 targets configured)
+
+Analyzing: target //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni (261 packages loaded, 9287 targets configured)
+
+Analyzing: target //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni (261 packages loaded, 9287 targets configured)
+
+Analyzing: target //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni (261 packages loaded, 9287 targets configured)
+
+Analyzing: target //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni (261 packages loaded, 9287 targets configured)
+
+INFO: Analyzed target //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni (262 packages loaded, 9524 targets configured).
+[423 / 1,779] Compiling runtime/util/logging.cc; 0s local ... (16 actions, 15 running)
+[451 / 1,779] Compiling runtime/executor/llm_executor_processed_tokens.cc; 1s local ... (16 actions, 15 running)
+[525 / 1,779] Compiling src/google/protobuf/compiler/rust/relative_path.cc [for tool]; 1s local ... (16 actions, 15 running)
+[535 / 1,779] Compiling absl/status/internal/status_internal.cc [for tool]; 2s local ... (16 actions, 15 running)
+[547 / 1,779] Compiling miniaudio.c; 3s local ... (16 actions, 15 running)
+[562 / 1,779] Compiling miniaudio.c; 4s local ... (16 actions, 15 running)
+[614 / 1,779] Compiling miniaudio.c; 5s local ... (17 actions, 16 running)
+[631 / 1,779] Compiling miniaudio.c; 6s local ... (16 actions, 15 running)
+[648 / 1,779] Compiling litert/cc/litert_options.cc; 2s local ... (16 actions running)
+[664 / 1,779] Compiling runtime/executor/llm_litert_compiled_model_cache_utils.cc; 1s local ... (16 actions running)
+[669 / 1,779] Compiling re2/dfa.cc; 2s local ... (17 actions, 16 running)
+[678 / 1,779] Compiling src/google/protobuf/io/zero_copy_stream_impl_lite.cc [for tool]; 2s local ... (16 actions, 15 running)
+[688 / 1,779] Compiling litert/cc/litert_compiled_model.cc; 3s local ... (16 actions, 15 running)
+[707 / 1,779] Compiling runtime/components/embedding_lookup/embedding_lookup_text.cc; 2s local ... (16 actions, 15 running)
+[721 / 1,779] Compiling runtime/components/embedding_lookup/embedding_lookup_text.cc; 3s local ... (17 actions, 15 running)
+[746 / 1,779] Compiling src/google/protobuf/io/printer.cc [for tool]; 3s local ... (16 actions, 15 running)
+[760 / 1,779] Compiling src/google/protobuf/io/printer.cc [for tool]; 4s local ... (16 actions, 15 running)
+[777 / 1,779] Compiling runtime/components/constrained_decoding/constrained_decoder.cc; 2s local ... (16 actions, 15 running)
+[800 / 1,779] Compiling runtime/util/executor_data_util.cc; 2s local ... (17 actions, 16 running)
+[807 / 1,779] Compiling runtime/components/tool_use/python_tool_format_utils.cc; 2s local ... (17 actions, 16 running)
+[818 / 1,779] Compiling runtime/components/tool_use/python_tool_format_utils.cc; 3s local ... (17 actions, 16 running)
+[840 / 1,779] Compiling runtime/components/constrained_decoding/llg_constraint_provider.cc; 2s local ... (16 actions, 15 running)
+[856 / 1,779] Compiling src/google/protobuf/port.cc [for tool]; 1s local ... (16 actions, 15 running)
+[879 / 1,779] Compiling runtime/util/logging_tensor_buffer.cc; 2s local ... (16 actions, 15 running)
+[912 / 1,779] Compiling runtime/executor/llm_executor_io_types.cc; 2s local ... (17 actions, 15 running)
+[938 / 1,779] Compiling src/google/protobuf/io/tokenizer.cc [for tool]; 3s local ... (16 actions, 15 running)
+[954 / 1,779] Compiling src/google/protobuf/arenastring.cc [for tool]; 3s local ... (16 actions, 15 running)
+[963 / 1,779] Compiling src/google/protobuf/extension_set.cc [for tool]; 3s local ... (17 actions, 16 running)
+[973 / 1,779] Compiling src/google/protobuf/extension_set.cc [for tool]; 4s local ... (16 actions, 15 running)
+[984 / 1,779] Compiling src/google/protobuf/extension_set.cc [for tool]; 5s local ... (17 actions, 15 running)
+[993 / 1,779] Compiling src/google/protobuf/generated_message_tctable_lite.cc [for tool]; 6s local ... (17 actions, 16 running)
+[999 / 1,779] Compiling src/google/protobuf/generated_message_tctable_lite.cc [for tool]; 7s local ... (16 actions, 15 running)
+[1,004 / 1,779] Compiling src/google/protobuf/generated_message_tctable_lite.cc [for tool]; 8s local ... (16 actions, 15 running)
+[1,006 / 1,779] Compiling src/google/protobuf/generated_message_tctable_lite.cc [for tool]; 9s local ... (16 actions, 15 running)
+[1,007 / 1,779] Compiling src/google/protobuf/descriptor.cc; 5s local ... (17 actions, 15 running)
+[1,014 / 1,779] Compiling src/google/protobuf/descriptor.cc; 6s local ... (16 actions, 15 running)
+[1,020 / 1,779] Compiling src/google/protobuf/descriptor.cc; 8s local ... (17 actions, 15 running)
+[1,022 / 1,779] Compiling src/google/protobuf/descriptor.cc; 9s local ... (17 actions, 16 running)
+[1,025 / 1,779] Compiling src/google/protobuf/descriptor.cc; 10s local ... (16 actions, 15 running)
+[1,030 / 1,779] Compiling src/google/protobuf/descriptor.cc; 12s local ... (16 actions, 15 running)
+[1,030 / 1,779] Compiling src/google/protobuf/descriptor.cc; 13s local ... (17 actions, 16 running)
+[1,038 / 1,779] Compiling src/google/protobuf/descriptor.cc; 14s local ... (17 actions, 16 running)
+[1,043 / 1,779] Compiling src/google/protobuf/descriptor.cc; 15s local ... (17 actions, 15 running)
+[1,048 / 1,779] Compiling src/google/protobuf/descriptor.cc; 16s local ... (16 actions, 15 running)
+[1,056 / 1,779] Compiling src/google/protobuf/text_format.cc [for tool]; 10s local ... (16 actions, 15 running)
+[1,062 / 1,779] Compiling src/google/protobuf/text_format.cc [for tool]; 11s local ... (16 actions, 15 running)
+[1,068 / 1,779] Compiling src/google/protobuf/compiler/php/php_generator.cc [for tool]; 6s local ... (16 actions, 15 running)
+[1,071 / 1,779] Compiling src/google/protobuf/compiler/php/php_generator.cc [for tool]; 7s local ... (17 actions, 16 running)
+[1,079 / 1,779] Compiling src/google/protobuf/compiler/csharp/csharp_wrapper_field.cc [for tool]; 4s local ... (16 actions, 15 running)
+[1,081 / 1,779] Compiling src/google/protobuf/compiler/objectivec/names.cc [for tool]; 5s local ... (16 actions, 15 running)
+[1,083 / 1,779] Compiling src/google/protobuf/compiler/objectivec/names.cc [for tool]; 6s local ... (16 actions, 15 running)
+[1,087 / 1,779] Compiling src/google/protobuf/compiler/rust/enum.cc [for tool]; 5s local ... (16 actions, 15 running)
+[1,091 / 1,779] Compiling src/google/protobuf/compiler/java/name_resolver.cc [for tool]; 5s local ... (16 actions, 15 running)
+[1,095 / 1,779] Compiling src/google/protobuf/compiler/parser.cc [for tool]; 6s local ... (17 actions, 15 running)
+[1,098 / 1,779] Compiling src/google/protobuf/compiler/parser.cc [for tool]; 7s local ... (17 actions, 16 running)
+[1,104 / 1,779] Compiling src/google/protobuf/compiler/cpp/enum.cc [for tool]; 8s local ... (16 actions, 15 running)
+[1,107 / 1,779] Compiling src/google/protobuf/compiler/cpp/enum.cc [for tool]; 9s local ... (17 actions, 15 running)
+[1,112 / 1,779] Compiling src/google/protobuf/compiler/java/helpers.cc [for tool]; 5s local ... (16 actions, 15 running)
+[1,115 / 1,779] Compiling src/google/protobuf/compiler/cpp/field.cc [for tool]; 6s local ... (16 actions, 15 running)
+[1,117 / 1,779] Compiling src/google/protobuf/compiler/java/field_common.cc [for tool]; 5s local ... (17 actions, 16 running)
+[1,122 / 1,779] Compiling src/google/protobuf/compiler/csharp/csharp_field_base.cc [for tool]; 7s local ... (16 actions, 15 running)
+[1,126 / 1,779] Compiling src/google/protobuf/compiler/objectivec/enum_field.cc [for tool]; 6s local ... (17 actions, 16 running)
+[1,129 / 1,779] Compiling src/google/protobuf/compiler/objectivec/enum_field.cc [for tool]; 7s local ... (17 actions, 16 running)
+[1,131 / 1,779] Compiling Rust bin cargo_toml_variable_extractor (1 files) [for tool]; 8s local ... (17 actions, 16 running)
+[1,134 / 1,779] Compiling Rust bin cargo_toml_variable_extractor (1 files) [for tool]; 9s local ... (17 actions, 16 running)
+[1,140 / 1,779] Compiling Rust bin cargo_toml_variable_extractor (1 files) [for tool]; 10s local ... (17 actions, 16 running)
+[1,141 / 1,779] Compiling Rust bin cargo_toml_variable_extractor (1 files) [for tool]; 11s local ... (17 actions, 16 running)
+[1,150 / 1,779] Compiling src/google/protobuf/descriptor.cc [for tool]; 12s local ... (16 actions, 15 running)
+[1,155 / 1,779] Compiling src/google/protobuf/descriptor.cc [for tool]; 13s local ... (17 actions, 16 running)
+[1,165 / 1,779] Compiling src/google/protobuf/descriptor.cc [for tool]; 14s local ... (16 actions, 15 running)
+[1,169 / 1,779] Compiling src/google/protobuf/descriptor.cc [for tool]; 15s local ... (16 actions, 15 running)
+[1,174 / 1,779] Compiling src/google/protobuf/descriptor.cc [for tool]; 17s local ... (16 actions running)
+[1,185 / 1,779] Compiling src/google/protobuf/descriptor.cc [for tool]; 18s local ... (17 actions, 16 running)
+[1,188 / 1,779] Compiling src/google/protobuf/descriptor.cc [for tool]; 19s local ... (16 actions, 15 running)
+[1,192 / 1,779] Compiling src/google/protobuf/descriptor.cc [for tool]; 20s local ... (16 actions, 15 running)
+[1,200 / 1,779] Compiling src/google/protobuf/descriptor.cc [for tool]; 21s local ... (16 actions, 15 running)
+[1,213 / 1,779] Compiling src/google/protobuf/descriptor.cc [for tool]; 23s local ... (16 actions running)
+[1,230 / 1,779] Compiling src/google/protobuf/descriptor.cc [for tool]; 24s local ... (16 actions, 15 running)
+[1,254 / 1,779] Compiling src/google/protobuf/descriptor.cc [for tool]; 25s local ... (16 actions, 15 running)
+[1,285 / 1,779] Compiling src/google/protobuf/compiler/cpp/message.cc [for tool]; 17s local ... (16 actions, 15 running)
+[1,309 / 1,779] Compiling src/google/protobuf/compiler/cpp/message.cc [for tool]; 19s local ... (17 actions, 15 running)
+[1,317 / 1,779] Compiling src/google/protobuf/compiler/cpp/message.cc [for tool]; 20s local ... (16 actions running)
+[1,324 / 1,779] Compiling src/google/protobuf/compiler/java/full/primitive_field.cc [for tool]; 4s local ... (17 actions, 15 running)
+[1,329 / 1,779] Compiling src/google/protobuf/compiler/java/full/primitive_field.cc [for tool]; 6s local ... (16 actions, 15 running)
+[1,343 / 1,779] Compiling src/google/protobuf/compiler/java/full/message_builder.cc [for tool]; 7s local ... (16 actions, 15 running)
+[1,373 / 1,779] Compiling src/google/protobuf/compiler/java/lite/primitive_field.cc [for tool]; 7s local ... (16 actions running)
+[1,378 / 1,779] Compiling src/google/protobuf/compiler/kotlin/message.cc [for tool]; 6s local ... (17 actions, 16 running)
+[1,386 / 1,779] Compiling Rust rlib syn v2.0.114 (97 files) [for tool]; 7s local ... (16 actions running)
+[1,396 / 1,779] Compiling Rust rlib syn v2.0.114 (97 files) [for tool]; 8s local ... (16 actions running)
+[1,404 / 1,779] Compiling Rust rlib syn v2.0.114 (97 files) [for tool]; 10s local ... (16 actions, 15 running)
+[1,437 / 1,779] Compiling src/google/protobuf/compiler/java/full/message_field.cc [for tool]; 7s local ... (16 actions running)
+[1,459 / 1,779] Compiling src/google/protobuf/compiler/java/full/message_field.cc [for tool]; 8s local ... (16 actions running)
+[1,491 / 1,779] Compiling src/google/protobuf/compiler/java/lite/message_field.cc [for tool]; 6s local ... (16 actions running)
+[1,505 / 1,779] Compiling src/google/protobuf/compiler/java/lite/message_field.cc [for tool]; 7s local ... (16 actions running)
+[1,511 / 1,779] Compiling src/google/protobuf/compiler/java/lite/message_field.cc [for tool]; 8s local ... (16 actions running)
+[1,512 / 1,779] Compiling src/google/protobuf/compiler/java/lite/message_field.cc [for tool]; 9s local ... (16 actions, 15 running)
+[1,526 / 1,779] Compiling src/google/protobuf/compiler/java/lite/message_field.cc [for tool]; 10s local ... (16 actions, 15 running)
+[1,549 / 1,779] Compiling src/google/protobuf/compiler/java/file.cc [for tool]; 9s local ... (16 actions, 15 running)
+[1,555 / 1,779] Compiling src/google/protobuf/compiler/java/file.cc [for tool]; 11s local ... (16 actions, 15 running)
+[1,561 / 1,779] Compiling src/google/protobuf/compiler/kotlin/generator.cc [for tool]; 10s local ... (16 actions running)
+[1,566 / 1,779] Compiling src/google/protobuf/compiler/main.cc [for tool]; 9s local ... (15 actions running)
+[1,571 / 1,779] Compiling src/google/protobuf/compiler/kotlin/field.cc [for tool]; 10s local ... (15 actions running)
+[1,578 / 1,779] Compiling src/google/protobuf/compiler/kotlin/field.cc [for tool]; 11s local ... (12 actions running)
+[1,584 / 1,779] Compiling src/google/protobuf/compiler/kotlin/field.cc [for tool]; 13s local ... (11 actions running)
+[1,592 / 1,779] Compiling src/google/protobuf/compiler/kotlin/field.cc [for tool]; 14s local ... (11 actions running)
+[1,596 / 1,779] Compiling src/google/protobuf/compiler/kotlin/field.cc [for tool]; 15s local ... (9 actions running)
+[1,597 / 1,779] Compiling src/google/protobuf/compiler/kotlin/field.cc [for tool]; 16s local ... (9 actions running)
+[1,610 / 1,779] Compiling src/google/protobuf/compiler/kotlin/field.cc [for tool]; 17s local ... (15 actions running)
+[1,617 / 1,779] Compiling Rust rlib regex_automata v0.4.14 (98 files); 9s local ... (16 actions running)
+[1,642 / 1,779] Compiling Rust rlib minijinja v2.14.0 (41 files); 2s local ... (17 actions, 16 running)
+[1,654 / 1,779] Compiling Rust rlib minijinja v2.14.0 (41 files); 3s local ... (13 actions running)
+[1,658 / 1,779] Compiling Rust rlib minijinja v2.14.0 (41 files); 4s local ... (9 actions running)
+[1,661 / 1,779] Compiling Rust rlib minijinja v2.14.0 (41 files); 5s local ... (6 actions running)
+[1,663 / 1,779] Compiling Rust rlib minijinja v2.14.0 (41 files); 7s local ... (4 actions running)
+[1,695 / 1,779] Compiling Rust rlib llguidance v1.3.0 (44 files); 6s local ... (17 actions, 16 running)
+[1,696 / 1,779] Compiling Rust rlib llguidance v1.3.0 (44 files); 8s local ... (16 actions, 15 running)
+[1,701 / 1,779] Compiling Rust rlib tokenizers v0.21.0 (87 files); 9s local ... (17 actions, 16 running)
+[1,706 / 1,779] Compiling Rust rlib tokenizers v0.21.0 (87 files); 10s local ... (17 actions, 16 running)
+[1,713 / 1,779] Compiling Rust rlib tokenizers v0.21.0 (87 files); 11s local ... (17 actions, 15 running)
+[1,716 / 1,779] Compiling runtime/proto/llm_metadata.pb.cc; 3s local ... (16 actions, 15 running)
+[1,723 / 1,779] Compiling runtime/conversation/prompt_utils.cc; 3s local ... (16 actions, 15 running)
+[1,727 / 1,779] Compiling runtime/conversation/internal_callback_util.cc; 4s local ... (16 actions, 14 running)
+[1,734 / 1,779] Compiling runtime/components/preprocessor/stb_image_preprocessor.cc; 4s local ... (16 actions, 15 running)
+[1,738 / 1,779] Compiling runtime/components/preprocessor/stb_image_preprocessor.cc; 6s local ... (16 actions, 15 running)
+[1,741 / 1,779] Compiling runtime/components/preprocessor/stb_image_preprocessor.cc; 7s local ... (17 actions, 16 running)
+[1,748 / 1,779] Compiling runtime/components/model_resources_litert_lm.cc; 4s local ... (16 actions, 15 running)
+[1,752 / 1,779] Compiling unigram_model.cc; 4s local ... (16 actions, 15 running)
+[1,756 / 1,779] Compiling runtime/conversation/model_data_processor/gemma3_data_processor.cc; 5s local ... (16 actions, 15 running)
+[1,759 / 1,779] Compiling runtime/conversation/model_data_processor/gemma3_data_processor.cc; 6s local ... (16 actions, 15 running)
+[1,762 / 1,779] Compiling runtime/conversation/model_data_processor/model_data_processor_factory.cc; 5s local ... (16 actions, 15 running)
+[1,763 / 1,779] Compiling runtime/executor/litert_compiled_model_executor_utils.cc; 6s local ... (15 actions running)
+[1,766 / 1,779] Compiling runtime/conversation/conversation.cc; 6s local ... (12 actions running)
+[1,775 / 1,779] Compiling runtime/executor/llm_litert_compiled_model_executor.cc; 6s local ... (3 actions running)
+[1,777 / 1,779] Compiling kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc; 5s local
+INFO: Found 1 target...
+Target //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni up-to-date:
+  bazel-bin/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so
+INFO: Elapsed time: 166.535s, Critical Path: 96.34s
+INFO: 1779 processes: 700 internal, 1079 local.
+INFO: Build completed successfully, 1779 total actions
+
+exit_code=0

@@ -1,0 +1,103 @@
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preCustomBuildExperimentDebugBuild UP-TO-DATE
+> Task :app:mergeCustomBuildExperimentDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateCustomBuildExperimentDebugBuildConfig
+> Task :app:checkCustomBuildExperimentDebugAarMetadata UP-TO-DATE
+> Task :app:processCustomBuildExperimentDebugNavigationResources UP-TO-DATE
+> Task :app:compileCustomBuildExperimentDebugNavigationResources UP-TO-DATE
+> Task :app:generateCustomBuildExperimentDebugResValues UP-TO-DATE
+> Task :app:mapCustomBuildExperimentDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateCustomBuildExperimentDebugResources UP-TO-DATE
+> Task :app:mergeCustomBuildExperimentDebugResources UP-TO-DATE
+> Task :app:packageCustomBuildExperimentDebugResources UP-TO-DATE
+> Task :app:parseCustomBuildExperimentDebugLocalResources UP-TO-DATE
+> Task :app:createCustomBuildExperimentDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:processCustomBuildExperimentDebugMainManifest UP-TO-DATE
+> Task :app:processCustomBuildExperimentDebugManifest UP-TO-DATE
+> Task :app:processCustomBuildExperimentDebugManifestForPackage UP-TO-DATE
+> Task :app:processCustomBuildExperimentDebugResources UP-TO-DATE
+> Task :app:javaPreCompileCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:mergeCustomBuildExperimentDebugShaders UP-TO-DATE
+> Task :app:compileCustomBuildExperimentDebugShaders NO-SOURCE
+> Task :app:generateCustomBuildExperimentDebugAssets UP-TO-DATE
+> Task :app:mergeCustomBuildExperimentDebugAssets UP-TO-DATE
+> Task :app:compressCustomBuildExperimentDebugAssets UP-TO-DATE
+> Task :app:checkCustomBuildExperimentDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarCustomBuildExperimentDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:mergeLibDexCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:buildQairt244AppJniSmokeCustomBuildExperimentDebugJni UP-TO-DATE
+> Task :app:buildQnnDirectProbeDebugJni UP-TO-DATE
+> Task :app:mergeCustomBuildExperimentDebugJniLibFolders
+> Task :app:validateSigningCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:writeCustomBuildExperimentDebugAppMetadata UP-TO-DATE
+> Task :app:writeCustomBuildExperimentDebugSigningConfigVersions UP-TO-DATE
+> Task :app:kspCustomBuildExperimentDebugKotlin
+
+> Task :app:mergeCustomBuildExperimentDebugNativeLibs
+2 files found for path 'lib/arm64-v8a/libLiteRt.so'. This version of the Android Gradle Plugin chooses the file from the app or dynamic-feature module, but this can cause unexpected behavior or errors at runtime. Future versions of the Android Gradle Plugin may throw an error in this case.
+Inputs:
+ - /home/sato/project/lami-android/app/build/intermediates/merged_jni_libs/customBuildExperimentDebug/mergeCustomBuildExperimentDebugJniLibFolders/out/arm64-v8a/libLiteRt.so
+ - /home/sato/.gradle/caches/8.13/transforms/e789bf6abb4dd8e75b25174b3f04188c/transformed/litertlm-android-0.11.0/jni/arm64-v8a/libLiteRt.so
+
+2 files found for path 'lib/arm64-v8a/libQnnDsp.so'. This version of the Android Gradle Plugin chooses the file from the app or dynamic-feature module, but this can cause unexpected behavior or errors at runtime. Future versions of the Android Gradle Plugin may throw an error in this case.
+Inputs:
+ - /home/sato/project/lami-android/app/build/intermediates/merged_jni_libs/customBuildExperimentDebug/mergeCustomBuildExperimentDebugJniLibFolders/out/arm64-v8a/libQnnDsp.so
+ - /home/sato/.gradle/caches/8.13/transforms/ba37d1f69bbf63eef6f6af5f7165d2a0/transformed/qnn-runtime-2.34.0/jni/arm64-v8a/libQnnDsp.so
+
+2 files found for path 'lib/arm64-v8a/libQnnGpu.so'. This version of the Android Gradle Plugin chooses the file from the app or dynamic-feature module, but this can cause unexpected behavior or errors at runtime. Future versions of the Android Gradle Plugin may throw an error in this case.
+Inputs:
+ - /home/sato/project/lami-android/app/build/intermediates/merged_jni_libs/customBuildExperimentDebug/mergeCustomBuildExperimentDebugJniLibFolders/out/arm64-v8a/libQnnGpu.so
+ - /home/sato/.gradle/caches/8.13/transforms/ba37d1f69bbf63eef6f6af5f7165d2a0/transformed/qnn-runtime-2.34.0/jni/arm64-v8a/libQnnGpu.so
+
+2 files found for path 'lib/arm64-v8a/libQnnHtp.so'. This version of the Android Gradle Plugin chooses the file from the app or dynamic-feature module, but this can cause unexpected behavior or errors at runtime. Future versions of the Android Gradle Plugin may throw an error in this case.
+Inputs:
+ - /home/sato/project/lami-android/app/build/intermediates/merged_jni_libs/customBuildExperimentDebug/mergeCustomBuildExperimentDebugJniLibFolders/out/arm64-v8a/libQnnHtp.so
+ - /home/sato/.gradle/caches/8.13/transforms/ba37d1f69bbf63eef6f6af5f7165d2a0/transformed/qnn-runtime-2.34.0/jni/arm64-v8a/libQnnHtp.so
+
+2 files found for path 'lib/arm64-v8a/libQnnHtpPrepare.so'. This version of the Android Gradle Plugin chooses the file from the app or dynamic-feature module, but this can cause unexpected behavior or errors at runtime. Future versions of the Android Gradle Plugin may throw an error in this case.
+Inputs:
+ - /home/sato/project/lami-android/app/build/intermediates/merged_jni_libs/customBuildExperimentDebug/mergeCustomBuildExperimentDebugJniLibFolders/out/arm64-v8a/libQnnHtpPrepare.so
+ - /home/sato/.gradle/caches/8.13/transforms/ba37d1f69bbf63eef6f6af5f7165d2a0/transformed/qnn-runtime-2.34.0/jni/arm64-v8a/libQnnHtpPrepare.so
+
+2 files found for path 'lib/arm64-v8a/libQnnHtpV79Skel.so'. This version of the Android Gradle Plugin chooses the file from the app or dynamic-feature module, but this can cause unexpected behavior or errors at runtime. Future versions of the Android Gradle Plugin may throw an error in this case.
+Inputs:
+ - /home/sato/project/lami-android/app/build/intermediates/merged_jni_libs/customBuildExperimentDebug/mergeCustomBuildExperimentDebugJniLibFolders/out/arm64-v8a/libQnnHtpV79Skel.so
+ - /home/sato/.gradle/caches/8.13/transforms/ba37d1f69bbf63eef6f6af5f7165d2a0/transformed/qnn-runtime-2.34.0/jni/arm64-v8a/libQnnHtpV79Skel.so
+
+2 files found for path 'lib/arm64-v8a/libQnnHtpV79Stub.so'. This version of the Android Gradle Plugin chooses the file from the app or dynamic-feature module, but this can cause unexpected behavior or errors at runtime. Future versions of the Android Gradle Plugin may throw an error in this case.
+Inputs:
+ - /home/sato/project/lami-android/app/build/intermediates/merged_jni_libs/customBuildExperimentDebug/mergeCustomBuildExperimentDebugJniLibFolders/out/arm64-v8a/libQnnHtpV79Stub.so
+ - /home/sato/.gradle/caches/8.13/transforms/ba37d1f69bbf63eef6f6af5f7165d2a0/transformed/qnn-runtime-2.34.0/jni/arm64-v8a/libQnnHtpV79Stub.so
+
+2 files found for path 'lib/arm64-v8a/libQnnSystem.so'. This version of the Android Gradle Plugin chooses the file from the app or dynamic-feature module, but this can cause unexpected behavior or errors at runtime. Future versions of the Android Gradle Plugin may throw an error in this case.
+Inputs:
+ - /home/sato/project/lami-android/app/build/intermediates/merged_jni_libs/customBuildExperimentDebug/mergeCustomBuildExperimentDebugJniLibFolders/out/arm64-v8a/libQnnSystem.so
+ - /home/sato/.gradle/caches/8.13/transforms/ba37d1f69bbf63eef6f6af5f7165d2a0/transformed/qnn-runtime-2.34.0/jni/arm64-v8a/libQnnSystem.so
+
+2 files found for path 'lib/arm64-v8a/liblitertlm_jni.so'. This version of the Android Gradle Plugin chooses the file from the app or dynamic-feature module, but this can cause unexpected behavior or errors at runtime. Future versions of the Android Gradle Plugin may throw an error in this case.
+Inputs:
+ - /home/sato/project/lami-android/app/build/intermediates/merged_jni_libs/customBuildExperimentDebug/mergeCustomBuildExperimentDebugJniLibFolders/out/arm64-v8a/liblitertlm_jni.so
+ - /home/sato/.gradle/caches/8.13/transforms/e789bf6abb4dd8e75b25174b3f04188c/transformed/litertlm-android-0.11.0/jni/arm64-v8a/liblitertlm_jni.so
+
+
+> Task :app:stripCustomBuildExperimentDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libLiteRt.so, libLiteRtCompilerPlugin_Qualcomm.so, libLiteRtDispatch_Qualcomm.so, libQnnDsp.so, libQnnGpu.so, liblitertlm_jni.so. Run with --info option to learn more.
+
+> Task :app:compileCustomBuildExperimentDebugKotlin
+> Task :app:compileCustomBuildExperimentDebugJavaWithJavac
+> Task :app:processCustomBuildExperimentDebugJavaRes UP-TO-DATE
+> Task :app:mergeCustomBuildExperimentDebugJavaResource UP-TO-DATE
+> Task :app:dexBuilderCustomBuildExperimentDebug
+> Task :app:mergeProjectDexCustomBuildExperimentDebug
+
+> Task :app:packageCustomBuildExperimentDebug
+PackagingOptions.jniLibs.useLegacyPackaging should be set to true because android:extractNativeLibs is set to "true" in AndroidManifest.xml.
+
+> Task :app:createCustomBuildExperimentDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleCustomBuildExperimentDebug
+
+BUILD SUCCESSFUL in 13s
+41 actionable tasks: 10 executed, 31 up-to-date

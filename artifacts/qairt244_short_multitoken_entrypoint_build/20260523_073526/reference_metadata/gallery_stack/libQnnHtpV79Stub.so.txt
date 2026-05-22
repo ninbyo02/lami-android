@@ -1,0 +1,9 @@
+path=/home/sato/project/lami-android/artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/reference_libs/gallery_stack/libQnnHtpV79Stub.so
+label=gallery_stack
+present=true
+size=679168
+sha256=005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1
+build_id=10d7ad6f9195411a
+soname=libQnnHtpV79Stub.so
+needed=libc.so,libm.so,libdl.so,liblog.so,libcdsprpc.so
+/home/sato/project/lami-android/artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/reference_libs/gallery_stack/libQnnHtpV79Stub.so: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[xxHash]=10d7ad6f9195411a, stripped

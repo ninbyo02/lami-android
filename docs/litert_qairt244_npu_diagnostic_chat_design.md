@@ -136,23 +136,25 @@ enabled, the implementation must:
 
 ## Short Multi-Token Follow-up
 
-The next proposed smoke is a separate short multi-token path with
-`maxOutputTokens=3`. Preparation artifact:
+The next smoke was run as a separate short multi-token path with
+`maxOutputTokens=3`. Run artifact:
 
 ```text
-artifacts/qairt244_short_multitoken_smoke/20260523_071934/
+artifacts/qairt244_short_multitoken_smoke/20260523_075743/
 ```
 
 Current classification:
 
 ```text
-preflight-blocked-native-artifact-required
+result=success
+output=! How Hi
+fresh_crash=false
 ```
 
 The Diagnostic Chat remains read-only. It should not expose a runnable
-multi-token button until a rebuilt native artifact proves
-`DecodeConfig.SetMaxOutputTokens(3)` and a separate one-run artifact succeeds
-without fresh crash evidence.
+multi-token button from a single success. The next step should be an explicitly
+approved reproducibility run or a separate diagnostic-only UI design update,
+still disconnected from the normal `ChatScreen` route.
 
 ## Non-Goals
 

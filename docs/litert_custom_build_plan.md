@@ -390,20 +390,24 @@ Updated next recommendation:
   `RunDecode` was executed by this verification.
 - Normal `ChatScreen` and `selectedPath=npu` routes remain disconnected.
 
-2026-05-23 short multi-token smoke preparation:
+2026-05-23 short multi-token smoke execution:
 
 - Added `customBuildExperimentDebug` app-side skeleton for
   `qairt244_short_multitoken_smoke_v1`.
 - Added preflight runner:
   `scripts/run_qairt244_short_multitoken_smoke.sh`
-- Preflight artifact:
-  `artifacts/qairt244_short_multitoken_smoke/20260523_071934/`
-- Result: `preflight-blocked-native-artifact-required`.
-- The app-side wrapper exists, but execution is blocked until a rebuilt
-  LiteRT-LM JNI artifact proves `DecodeConfig.SetMaxOutputTokens(3)` and
-  includes the short multi-token marker.
-- No generation, `Engine.initialize`, `RunDecode`, high-level
-  `generateResponse`, or normal UI route was executed by this preflight.
+- Built QAIRT 2.44 short multi-token native artifact:
+  `artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/`
+- The native artifact proves `DecodeConfig.SetMaxOutputTokens(3)` and includes
+  `qairt244_short_multitoken_smoke_v1`.
+- Dispatch still preserves `DT_NEEDED [libLiteRt.so]`.
+- Run artifact:
+  `artifacts/qairt244_short_multitoken_smoke/20260523_075743/`
+- Result: `success`, output `! How Hi`, elapsed `1358 ms`,
+  decode elapsed `164 ms`.
+- Tombstone classification: `stale-tombstone-ignored`; no fresh crash evidence.
+- The run used only the isolated lower-level native path. It did not call
+  high-level `generateResponse` or connect NPU to the normal UI route.
 
 Previous status update, 2026-05-22 HTP backend trace:
 

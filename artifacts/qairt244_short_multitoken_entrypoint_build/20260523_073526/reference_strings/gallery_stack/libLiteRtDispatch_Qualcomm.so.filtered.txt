@@ -1,0 +1,97 @@
+-N3qnn10HtpBackendE
+//third_party/odml/litert/litert/vendors/qualcomm/dispatch:dispatch_api_so
+::qnn::Options:
+;NSt6__ndk110__function6__funcIZ32LrtCreateQualcommOptionsFromTomlE3$_0NS_9allocatorIS2_EEF12LiteRtStatusN4absl11string_viewES7_EEE
+ADSP_LIBRARY_PATH
+Cannot resolve functions: libQnn*.so has not been loaded.
+ERROR: [Qnn] %s
+ERROR: [Qnn] DSP backend unable to create device infrastructure. Error %d
+ERROR: [Qnn] DSP backend unable to create power config. Error %d
+ERROR: [Qnn] Failed to create QNN logger: %d
+ERROR: [Qnn] Failed to create backend handle!
+ERROR: [Qnn] Failed to create backend handle.
+ERROR: [Qnn] Failed to create device handle.
+ERROR: [Qnn] Failed to create log handle!
+ERROR: [Qnn] Failed to create log handle.
+ERROR: [Qnn] Failed to init RPC polling power config.
+ERROR: [Qnn] Failed to initialize DSP performance Control.
+ERROR: [Qnn] Failed to initialize HTP RPC polling.
+ERROR: [Qnn] Failed to initialize HTP performance Control, using default performance mode.
+ERROR: [Qnn] HTP backend unable to create power config. Error %d
+ERROR: [Qnn] HTP infra type = %d, which is not perf infra type.
+ERROR: [Qnn] Invalid performance profile %d to set power configs
+ERROR: [Qnn] Invalid performance profile %d to set power configs during downvote.
+ERROR: [Qnn] Invalid performance profile %d to set power configs during upvote.
+ERROR: [Qnn] SoC info was not configured successfully.
+ERROR: [Qnn] Unsupported quantization encoding: %d
+ERROR: [Qnn] failed to call backend create, %d
+ERROR: [Qnn] failed to call device create, %d
+ERROR: [Qnn] failed to get device platform info, %d
+Failed to create QNN context
+Failed to create QNN system context
+Failed to register tensor buffer, QNN error code: %d
+Failed to set up QNN manager
+Failed to unregister tensor buffer, QNN error code: %d
+HtpPerformanceMode: %d
+INFO: [Qnn] Initializing QNN backend for SoC model: %s
+INFO: [Qnn] Set HTP performance mode: %d
+INFO: [Qnn] Unknown perf mode %d, use default.
+LD_LIBRARY_PATH
+LiteRtDispatchGetApi
+N3qnn10DspBackendE
+N3qnn10QnnBackendE
+N3qnn9IrBackendE
+Null Qualcomm options
+QnnInterface_getProviders
+QnnSaver_initialize
+QnnSystemInterface_getProviders
+Qualcomm
+Qualcomm Dispatch API version %d.%d.%d, QNN API version %d.%d.%d, build id: %s
+SM8750
+Tensor strides are not supported by QNN
+Unsupported QNN tensor version
+UseHtpPreference: %v
+Z32LrtCreateQualcommOptionsFromTomlE3$_0
+[%s:%d] ADSP_LIBRARY_PATH: %s
+[%s:%d] Adding %s to LD_LIBRARY_PATH
+[%s:%d] Creating new QNN context for bytecode %p (size %zu)
+[%s:%d] Failed to create QNN context: %d
+[%s:%d] Failed to create QNN system context: %d
+[%s:%d] Failed to get QNN API version: %d
+[%s:%d] Failed to get QNN build ID: %d
+[%s:%d] Failed to parse qnn options, using default settings. %s
+[%s:%d] Found qnn graph: %s
+[%s:%d] Loaded qnn shared library
+[%s:%d] Loading qnn shared library from "%s"
+[%s:%d] Qnn System library version %u.%u.%u is mismatched. The minimum supported version is %u.%u.%u. Please make sure you have the correct library version.
+[%s:%d] Qnn System library version %u.%u.%u is not supported. The minimum supported version is %u.%u.%u. Please make sure you have the correct library version.
+[%s:%d] Qnn System library version %u.%u.%u is used. The version LiteRT using is %u.%u.%u.
+[%s:%d] Qnn backend library version %u.%u.%u is mismatched. The minimum supported version is %u.%u.%u. Please make sure you have the correct library version.
+[%s:%d] Qnn backend library version %u.%u.%u is not supported. The minimum supported version is %u.%u.%u. Please make sure you have the correct library version.
+[%s:%d] Qnn backend library version %u.%u.%u is used. The version LiteRT using is %u.%u.%u.
+[%s:%d] Qnn library version %u.%u.%u is mismatched. The minimum supported version is %u.%u.%u. Please make sure you have the correct library version.
+[%s:%d] Qnn library version %u.%u.%u is not supported. The minimum supported version is %u.%u.%u. Please make sure you have the correct library version.
+[%s:%d] Qnn library version %u.%u.%u is used. The version LiteRT using is %u.%u.%u.
+[%s:%d] Qnn saver backend failed to initialize. Error code: %d.
+[%s:%d] Reusing cached QNN context for bytecode %p (size %zu)
+[%s:%d] dir already in LD_LIBRARY_PATH
+blaze-out/arm64-v8a-opt-android-ST-02e23770d8ba/bin/third_party/odml/litert/litert/vendors/qualcomm/dispatch/libLiteRtDispatch_Qualcomm.so
+dispatch_api.cc
+htp_performance_mode
+libLiteRtDispatch_Qualcomm.so
+libQnnDsp.so
+libQnnHtp.so
+libQnnIr.so
+libQnnSaver.so
+libQnnSystem.so
+qnn_backend
+qnn_manager.cc
+qnn_manager.h
+qnn_saver_utils.cc
+qualcomm
+third_party/odml/litert/litert/vendors/qualcomm/context_binary_info.cc
+third_party/odml/litert/litert/vendors/qualcomm/dispatch/litert_dispatch_device_context.cc
+third_party/odml/litert/litert/vendors/qualcomm/dispatch/litert_dispatch_invocation_context.cc
+third_party/odml/litert/litert/vendors/qualcomm/qnn_manager.cc
+third_party/odml/litert/litert/vendors/qualcomm/qnn_saver_utils.cc
+use_htp_preference

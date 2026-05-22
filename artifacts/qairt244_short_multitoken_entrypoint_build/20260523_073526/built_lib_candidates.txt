@@ -1,0 +1,8 @@
+/home/sato/project/litert-custom-build/LiteRT-LM/bazel-bin/_solib_arm64-v8a/_Uexternal_Slitert_Slitert_Sc/libLiteRt.so
+/home/sato/project/litert-custom-build/LiteRT-LM/bazel-bin/_solib_arm64-v8a/_Uexternal_Slitert_Slitert_Svendors_Squalcomm_Scompiler/libLiteRtCompilerPlugin_Qualcomm.so
+/home/sato/project/litert-custom-build/LiteRT-LM/bazel-bin/_solib_arm64-v8a/_Uexternal_Slitert_Slitert_Svendors_Squalcomm_Sdispatch/libLiteRtDispatch_Qualcomm.so
+/home/sato/project/litert-custom-build/LiteRT-LM/bazel-bin/external/litert/litert/c/libLiteRt.so
+/home/sato/project/litert-custom-build/LiteRT-LM/bazel-bin/external/litert/litert/vendors/qualcomm/compiler/libLiteRtCompilerPlugin_Qualcomm.so
+/home/sato/project/litert-custom-build/LiteRT-LM/bazel-bin/external/litert/litert/vendors/qualcomm/dispatch/libLiteRtDispatch_Qualcomm.so
+/home/sato/project/litert-custom-build/LiteRT-LM/bazel-bin/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so
+/home/sato/project/litert-custom-build/LiteRT-LM/bazel-bin/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so.runfiles/litert_lm/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so

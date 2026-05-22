@@ -1,0 +1,16 @@
+000000000005a454 T LiteRtCompiledResultNumByteCodeModules@@VERS_1.0
+000000000005c570 T LiteRtCompilerPluginCheckCompilerCompatibility@@VERS_1.0
+000000000005b00c T LiteRtCompilerPluginCompile@@VERS_1.0
+000000000005a8d0 T LiteRtCompilerPluginPartition@@VERS_1.0
+000000000005c564 T LiteRtCompilerPluginRegisterAllTransformations@@VERS_1.0
+000000000005a478 T LiteRtCreateCompilerPlugin@@VERS_1.0
+000000000005a404 T LiteRtDestroyCompiledResult@@VERS_1.0
+000000000005a858 T LiteRtDestroyCompilerPlugin@@VERS_1.0
+000000000005a2e0 T LiteRtGetCompiledResultByteCode@@VERS_1.0
+000000000005a320 T LiteRtGetCompiledResultCallInfo@@VERS_1.0
+000000000005a248 T LiteRtGetCompilerPluginSocManufacturer@@VERS_1.0
+000000000005a254 T LiteRtGetCompilerPluginSupportedHardware@@VERS_1.0
+000000000005a29c T LiteRtGetCompilerPluginSupportedSocModel@@VERS_1.0
+000000000005a220 T LiteRtGetCompilerPluginVersion@@VERS_1.0
+000000000005a3d0 T LiteRtGetNumCompiledResultCalls@@VERS_1.0
+000000000005a274 T LiteRtGetNumCompilerPluginSupportedSocModels@@VERS_1.0

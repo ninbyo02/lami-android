@@ -234,7 +234,7 @@ Status:
 - no high-level `generateResponse`
 - no additional generation run
 
-## Short Multi-Token Smoke Preparation
+## Short Multi-Token Smoke Execution
 
 Files:
 
@@ -249,20 +249,24 @@ docs/litert_qairt244_short_multitoken_smoke_result.md
 Artifact:
 
 ```text
-artifacts/qairt244_short_multitoken_smoke/20260523_071934/
+build: artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/
+run:   artifacts/qairt244_short_multitoken_smoke/20260523_075743/
 ```
 
 Status:
 
 - `customBuildExperimentDebug` app-side wrapper present
 - prompt fixed to `Hi`
-- requested hard cap: `maxOutputTokens=3`
-- execution blocked until rebuilt native artifact proves
-  `DecodeConfig.SetMaxOutputTokens(3)`
-- no additional generation run
+- native artifact proves `DecodeConfig.SetMaxOutputTokens(3)`
+- dispatch preserves `DT_NEEDED [libLiteRt.so]`
+- result: `success`
+- output: `! How Hi`
+- elapsed: `1358 ms`
+- decode elapsed: `164 ms`
+- tombstone classification: `stale-tombstone-ignored`
 - no normal UI route
 - no high-level `generateResponse`
-- no fresh crash/tombstone evidence from this preflight
+- no fresh crash/tombstone evidence from this run
 
 ## Android Logcat Dry-Run Update
 

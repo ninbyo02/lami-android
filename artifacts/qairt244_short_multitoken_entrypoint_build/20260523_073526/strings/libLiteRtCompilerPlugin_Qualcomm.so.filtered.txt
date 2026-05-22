@@ -1,0 +1,222 @@
+,N3qnn10HtpBackendE
+::qnn::Options:
+;NSt6__ndk110__function6__funcIZ32LrtCreateQualcommOptionsFromTomlE3$_0NS_9allocatorIS2_EEF12LiteRtStatusNS_17basic_string_viewIcNS_11char_traitsIcEEEES9_EEE
+ADSP_LIBRARY_PATH
+Cannot resolve functions: libQnn*.so has not been loaded.
+Copyright (c) Qualcomm Innovation Center, Inc. All Rights Reserved.
+Creating QNN manager
+DEBUG: [Qnn] 2-bit Qunat, converting data to 8-bit for QNN.
+DEBUG: [Qnn] 4-bit Qunat, converting data to 8-bit for QNN.
+Dynamic Update Slice only supports QNN_DATATYPE_INT_32 start_indices.
+ERROR: [Qnn] %s
+ERROR: [Qnn] Axis tensor must be static in Cumsum op.
+ERROR: [Qnn] Cannot GetTensorData() on a non-static tensor, tensor type %d.
+ERROR: [Qnn] Cannot convert non-static tensor to static tensor.
+ERROR: [Qnn] Could not find MatMul op with the given output tensor
+ERROR: [Qnn] Could not find Select op with the given input tensor
+ERROR: [Qnn] DSP backend unable to create device infrastructure. Error %d
+ERROR: [Qnn] DSP backend unable to create power config. Error %d
+ERROR: [Qnn] Datatype: %u is not supported for tensor_params in Qnn Json dump
+ERROR: [Qnn] Depth, on value, and off value must be static scalars.
+ERROR: [Qnn] Embedding lookup get int8 table failed.
+ERROR: [Qnn] Empty static tensor data.
+ERROR: [Qnn] Failed to add build scatterNd, shape tensor must be static.
+ERROR: [Qnn] Failed to convert uint32 pad amount tensor.
+ERROR: [Qnn] Failed to create QNN logger: %d
+ERROR: [Qnn] Failed to create alpha tensor for LeakyRelu op.
+ERROR: [Qnn] Failed to create backend handle!
+ERROR: [Qnn] Failed to create backend handle.
+ERROR: [Qnn] Failed to create data tensor for scatterNd op.
+ERROR: [Qnn] Failed to create device handle.
+ERROR: [Qnn] Failed to create log handle!
+ERROR: [Qnn] Failed to create log handle.
+ERROR: [Qnn] Failed to get axis value from axis tensor, only support int32/int64 axis tensor.
+ERROR: [Qnn] Failed to get pad const value data.
+ERROR: [Qnn] Failed to get static axis tensor data.
+ERROR: [Qnn] Failed to get static tensor data when filling data.
+ERROR: [Qnn] Failed to init RPC polling power config.
+ERROR: [Qnn] Failed to initialize DSP performance Control.
+ERROR: [Qnn] Failed to initialize HTP RPC polling.
+ERROR: [Qnn] Failed to initialize HTP performance Control, using default performance mode.
+ERROR: [Qnn] Failed to read OneHot depth value.
+ERROR: [Qnn] Failed to read OneHot on/off values.
+ERROR: [Qnn] Fill value out of range when CreateStaticTensorWithValue.
+ERROR: [Qnn] Get axis_data failed.
+ERROR: [Qnn] Get begin_data failed.
+ERROR: [Qnn] Get size_data failed.
+ERROR: [Qnn] GetTensorData() with incorrect template type.
+ERROR: [Qnn] HTP backend unable to create power config. Error %d
+ERROR: [Qnn] HTP infra type = %d, which is not perf infra type.
+ERROR: [Qnn] Invalid performance profile %d to set power configs
+ERROR: [Qnn] Invalid performance profile %d to set power configs during downvote.
+ERROR: [Qnn] Invalid performance profile %d to set power configs during upvote.
+ERROR: [Qnn] No element in this tensor.
+ERROR: [Qnn] On value and off value and output tensor must have the same data type.
+ERROR: [Qnn] OneHot axis is out of range.
+ERROR: [Qnn] OneHot depth must be non-negative.
+ERROR: [Qnn] OneHot depth tensor must be INT32 or UINT32.
+ERROR: [Qnn] OneHot op expects 4 inputs and 1 output.
+ERROR: [Qnn] Only ellipsis_mask with a value of 0 is supported.
+ERROR: [Qnn] Only static tensors are accepted for the begin, end, and strides tensors.
+ERROR: [Qnn] Prelu op must have exactly one output tensor.
+ERROR: [Qnn] QNN only support reflect and symmetric mode for mirror pad op.
+ERROR: [Qnn] QNN only support static pad amount tensor.
+ERROR: [Qnn] Qnn supports ReverseV2 with a single axis for now.
+ERROR: [Qnn] ReverseV2 axis tensor must be int32 datatype.
+ERROR: [Qnn] ReverseV2 axis tensor must be static.
+ERROR: [Qnn] ReverseV2 axis tensor not contain static tensor.
+ERROR: [Qnn] ReverseV2 axis_value %d larger than input rank %u
+ERROR: [Qnn] SoC info was not configured successfully.
+ERROR: [Qnn] Source data exceeds the range of destination data type.
+ERROR: [Qnn] Stride is 0
+ERROR: [Qnn] Tensor bytes != stored data bytes.
+ERROR: [Qnn] The axis tensor is not static, or the rank of axis tensor is not equal to 1.
+ERROR: [Qnn] The batch dimension of Gather OP is not equal to 0.
+ERROR: [Qnn] The begin tensor and size tensor of Slice OP is not static.
+ERROR: [Qnn] The data size for tensor_params does not match.
+ERROR: [Qnn] The multiples param of Tile OP is not static.
+ERROR: [Qnn] The param 'k' of TopK OP is not static or not 1 element
+ERROR: [Qnn] The param 'perm' of Transpose OP is not static.
+ERROR: [Qnn] Tile OP get int64 multiples param failed.
+ERROR: [Qnn] Unable to open qnn_litert.json for writing.
+ERROR: [Qnn] Unable to retrieve data from the begin, end, or strides tensors.
+ERROR: [Qnn] Unknown padding type
+ERROR: [Qnn] Unsupported QNN data type when CreateStaticTensorWithValue.
+ERROR: [Qnn] Unsupported QNN data type when creating LeakyRelu alpha tensor in per-tensor quantization.
+ERROR: [Qnn] Unsupported QNN data type when creating static tensor
+ERROR: [Qnn] Unsupported QNN type for conversion.
+ERROR: [Qnn] Unsupported data type for OneHot on/off values.
+ERROR: [Qnn] Unsupported data type for multiples param.
+ERROR: [Qnn] Unsupported data type: %d for k in TopK OP
+ERROR: [Qnn] Unsupported input tensor type.
+ERROR: [Qnn] Unsupported non static axis tensor
+ERROR: [Qnn] Unsupported quantization encoding when CreateStaticTensorWithValue.
+ERROR: [Qnn] Unsupported quantization type type for pad const value tensor.
+ERROR: [Qnn] Unsupported quantization type when creating LeakyRelu alpha tensor.
+ERROR: [Qnn] [G2G] Connection check failed.
+ERROR: [Qnn] [G2G] Get tensor data failed when transforming mask model.
+ERROR: [Qnn] [G2G] Num heads mismatches.
+ERROR: [Qnn] [G2G] Validation failed. Rolling back to the original graph.
+ERROR: [Qnn] failed to call backend create, %d
+ERROR: [Qnn] failed to call device create, %d
+ERROR: [Qnn] failed to get device platform info, %d
+Failed to create QNN context
+Failed to set up QNN manager
+FvP12LiteRtModelTE
+HtpPerformanceMode: %d
+INFO: [Qnn] Initializing QNN backend for SoC model: %s
+INFO: [Qnn] Qnn Json Path: %s
+INFO: [Qnn] Set HTP performance mode: %d
+INFO: [Qnn] Unknown perf mode %d, use default.
+INFO: [Qnn] [G2G] Done transforming MHA to SHA in Embedding Gemma!
+INFO: [Qnn] [G2G] FastVLM decode optimization done.
+INFO: [Qnn] [G2G] Kv-swapped attention pattern matched.
+INFO: [Qnn] [G2G] MHA Optimization (FastVLM Prefill).
+INFO: [Qnn] [G2G] MHA optimization (Attn)
+INFO: [Qnn] [G2G] MHA optimization (Decode)
+INFO: [Qnn] [G2G] MHA optimization (Prefill)
+INFO: [Qnn] [G2G] MHA optimization (TinyGemma Prefill)
+INFO: [Qnn] [G2G] MHA optimization (fast vlm decode)
+INFO: [Qnn] [G2G] MatMul-convert fusion (Decode)
+INFO: [Qnn] [G2G] MatMul-convert fusion (Prefill)
+INFO: [Qnn] [G2G] Optimized kv-swapped attention.
+INFO: [Qnn] [G2G] Transform quant ops in Gemma mask models
+INFO: [Qnn] [G2G] Transforming MHA to SHA in Embedding Gemma
+LD_LIBRARY_PATH
+LiteRtDestroyModel
+LiteRtGetCompilerPluginSupportedSocModel
+LiteRtGetModelSubgraph
+LiteRtGetNumCompilerPluginSupportedSocModels
+LiteRtGetNumModelSubgraphs
+N3qnn10DspBackendE
+N3qnn10QnnBackendE
+N3qnn9IrBackendE
+NSt6__ndk110__function6__baseIFbRN3qnn9OpWrapperEEEE
+NSt6__ndk110__function6__baseIFvP12LiteRtModelTEEE
+NSt6__ndk110__function6__funcIPFvP12LiteRtModelTENS_9allocatorIS5_EES4_EE
+NSt6__ndk110__function6__funcIZN6litert3qnn8MapGraphERNS3_10QnnManagerEPvS6_P15LiteRtSubgraphTNS_17basic_string_viewIcNS_11char_traitsIcEEEERKN3qnn7OptionsEE3$_0NS_9allocatorISH_EEFbRNSD_9OpWrapperEEEE
+Null Qualcomm options
+PFvP12LiteRtModelTE
+QNN manager created
+QnnInterface_getProviders
+QnnSaver_initialize
+QnnSystemInterface_getProviders
+Qualcomm
+SM8750
+WARNING: [Qnn] Add a Convert op after the Gather op since the table's quant params do not match the output's.
+WARNING: [Qnn] Aggressively convert the a8w2 Fully Connected Op to a8w4.
+WARNING: [Qnn] Bytes: %d != GetTensorBytes(): %d, use GetTensorBytes() instead.
+WARNING: [Qnn] Cannot update bitwidth for non bitwidth-based quantization.
+WARNING: [Qnn] Conv3d only supports group==1.
+WARNING: [Qnn] Convert bias tensor in conv2d op from int64 to int32.
+WARNING: [Qnn] Convert bias tensor in fully connected op from int64 to int32.
+WARNING: [Qnn] Convert multiples param of Tile OP from INT64 to UINT32.
+WARNING: [Qnn] Datatype: %u is not supported for scalar_params in Qnn Json dump
+WARNING: [Qnn] Filter input channel cannot be a factor of channels of input (grouped conv) or equals (normal conv). Input channel is %d and filter input channel is %d.
+WARNING: [Qnn] Fused activation function: %d is not None but the size of output tensors is not 1.
+WARNING: [Qnn] Quantization encoding: %u is not supported in Qnn Json dump
+WARNING: [Qnn] The channels of the input tensor cannot be evenly divided by the channels of the filter tensor.
+WARNING: [Qnn] The data type of embedding lookup table is int8, but output data type is int16. Int8 table will be cast to int16.
+WARNING: [Qnn] Unsupported fused activation function: %d
+WARNING: [Qnn] UpdateTensors skipped due to incorrect tensor count.
+WARNING: [Qnn] [G2G] Failed to check connectivity when doing MHA-SHA transformation for FastVLM decode.
+WARNING: [Qnn] [G2G] Failed to check dimensions when doing MHA-SHA transformation for FastVLM decode.
+WARNING: [Qnn] [G2G] Failed to construct transformed Select op.
+WARNING: [Qnn] [G2G] Pattern does not match Q heads: %d, KV heads &d. In pattern, k_slice_add_in_0_dims[1]: %d, k_slice_add_in_1_dims[1]: %d,q_scale_mul_dims[1]: %d, v_cache_dims[1]: %d, v_slice_dims[1]: %d
+WARNING: [Qnn] [G2G] Static min value in Mul (%f) does not match expected value (%f)
+WARNING: [Qnn] [G2G] Transformation failed. Rolling back to the original graph.
+WARNING: [Qnn] [G2G] Validation failed in OptimizeMHATinyGemmaPrefillPattern. Rolling back to the original graph.
+WARNING: [Qnn] [G2G] Validation failed in OptimizeMHATinyGemmaPrefillPatternWithGlobalMask. Rolling back to the original graph.
+WARNING: [Qnn] [G2G] Validation failed. Rolling back to the original graph.
+WARNING: [Qnn] [G2G] num_kv heads: %d does not match heads in [k_cache: %d, k_slice: %d, v_cache: %d, v_slice: %d]
+Z32LrtCreateQualcommOptionsFromTomlE3$_0
+ZN6litert3qnn8MapGraphERNS0_10QnnManagerEPvS3_P15LiteRtSubgraphTNSt6__ndk117basic_string_viewIcNS6_11char_traitsIcEEEERKN3qnn7OptionsEE3$_0
+[%s:%d] ADSP_LIBRARY_PATH: %s
+[%s:%d] Adding %s to LD_LIBRARY_PATH
+[%s:%d] Compiling QNN SoC model: %s
+[%s:%d] Failed to create QNN context: %d
+[%s:%d] LiteRT Op Code: %d is not supported in Qualcomm Compiler.
+[%s:%d] Loaded qnn shared library
+[%s:%d] Loading qnn shared library from "%s"
+[%s:%d] Only support weight sharing feature in Htp Backend, disable weight sharing feature
+[%s:%d] QNN Unsupported data type, litert type: %d
+[%s:%d] QNN compiler plugin created with null options, these will be defaulted.
+[%s:%d] Qnn System library version %u.%u.%u is mismatched. The minimum supported version is %u.%u.%u. Please make sure you have the correct library version.
+[%s:%d] Qnn System library version %u.%u.%u is not supported. The minimum supported version is %u.%u.%u. Please make sure you have the correct library version.
+[%s:%d] Qnn System library version %u.%u.%u is used. The version LiteRT using is %u.%u.%u.
+[%s:%d] Qnn backend library version %u.%u.%u is mismatched. The minimum supported version is %u.%u.%u. Please make sure you have the correct library version.
+[%s:%d] Qnn backend library version %u.%u.%u is not supported. The minimum supported version is %u.%u.%u. Please make sure you have the correct library version.
+[%s:%d] Qnn backend library version %u.%u.%u is used. The version LiteRT using is %u.%u.%u.
+[%s:%d] Qnn library version %u.%u.%u is mismatched. The minimum supported version is %u.%u.%u. Please make sure you have the correct library version.
+[%s:%d] Qnn library version %u.%u.%u is not supported. The minimum supported version is %u.%u.%u. Please make sure you have the correct library version.
+[%s:%d] Qnn library version %u.%u.%u is used. The version LiteRT using is %u.%u.%u.
+[%s:%d] Qnn saver backend failed to initialize. Error code: %d.
+[%s:%d] SoC model name is not specified.
+[%s:%d] Starting QNN Compilation for %d subgraphs, soc_model=%s
+[%s:%d] Unexpected SoC model: %s
+[%s:%d] Unsupported SoC model: %s
+[%s:%d] dir already in LD_LIBRARY_PATH
+_qnn
+external/litert/litert/cc/internal/litert_extended_model.cc
+external/litert/litert/vendors/qualcomm/compiler/qnn_compiler_plugin.cc
+external/litert/litert/vendors/qualcomm/compiler/qnn_compose_graph.cc
+external/litert/litert/vendors/qualcomm/qnn_manager.cc
+external/litert/litert/vendors/qualcomm/qnn_saver_utils.cc
+htp_performance_mode
+libLiteRtCompilerPlugin_Qualcomm.so
+libQnnDsp.so
+libQnnHtp.so
+libQnnIr.so
+libQnnSaver.so
+libQnnSystem.so
+model.bin
+model.cpp
+qnn_backend
+qnn_compiler_plugin.cc
+qnn_compose_graph.cc
+qnn_manager.cc
+qnn_manager.h
+qnn_partition_%d
+qnn_saver_utils.cc
+qualcomm
+use_htp_preference

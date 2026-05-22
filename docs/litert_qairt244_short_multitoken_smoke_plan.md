@@ -51,8 +51,13 @@ available from standard, galleryStackExperiment, npuExperiment, or release.
 
 ## Native Requirement
 
-The current known-good native artifact is still one-token-only. Before a run is
-allowed, a new LiteRT-LM JNI artifact must include both:
+A QAIRT 2.44 short multi-token native artifact was built at:
+
+```text
+artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/
+```
+
+It includes both:
 
 ```text
 qairt244_short_multitoken_smoke_v1
@@ -60,7 +65,9 @@ DecodeConfig.SetMaxOutputTokens(3)
 ```
 
 The runner blocks execution unless static scan finds this evidence in the
-external LiteRT-LM checkout or supplied custom artifact metadata.
+external LiteRT-LM checkout and the supplied custom artifact metadata. For
+execution, the supplied artifact must also contain the marker in
+`built_libs/liblitertlm_jni.so`.
 
 ## Runner
 
@@ -76,11 +83,11 @@ Default behavior is preflight-only:
 bash scripts/run_qairt244_short_multitoken_smoke.sh
 ```
 
-Future execution command, only after a rebuilt artifact exists:
+Execution command, used once for the recorded smoke:
 
 ```bash
 bash scripts/run_qairt244_short_multitoken_smoke.sh \
-  --artifact artifacts/<qairt244_short_multitoken_build> \
+  --artifact artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526 \
   --run
 ```
 
@@ -104,3 +111,21 @@ bash scripts/run_qairt244_short_multitoken_smoke.sh \
 Execution is maximum one run after all static gates pass. If any gate fails,
 the script creates a blocked preflight artifact and exits without generation.
 
+## Recorded Run
+
+Artifact:
+
+```text
+artifacts/qairt244_short_multitoken_smoke/20260523_075743/
+```
+
+Result:
+
+```text
+result=success
+output=! How Hi
+max_output_tokens=3
+elapsed_ms=1358
+decode_elapsed_ms=164
+tombstone_classification=stale-tombstone-ignored
+```

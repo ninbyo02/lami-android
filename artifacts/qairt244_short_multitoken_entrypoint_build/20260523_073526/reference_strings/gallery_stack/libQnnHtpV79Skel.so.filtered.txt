@@ -1,0 +1,1031 @@
+	CbsModel =
+ <%c> Failed to get HTP info
+ <%c> Failed to parse qnn htp context binary
+ <%c> Failed to read out graph %d htp features in the binary
+ <%c> Failed to read out htp feature version in the binary
+ <%c> Failed to read out htp features in the binary
+ <%c> HAP_mmap_get OK, returned htpVA: %p
+ <%c> HTP Config option: %lu not supported for this target
+ <%c> HTP Prepare backend loading failed. Aborting
+ <%c> HTP Register OpPackage complete
+ <%c> HTP context blob size: %lu, total context bin size: %lu
+ <%c> Invalid qnn htp feature version
+ <%c> NULL ptr to HTP custom config option
+ <%c> PRE_POST_QNN_API_CALL_CHECKS failed
+ <%c> QNN binary blob version check failed
+ <%c> QNN skel has an additional connection
+ <%c> QnnBackend_registerOpPackage failure
+ <%c> QnnPerf API is not supported
+ <%c> QnnTensor_createContextTensor unsupported
+ <%c> QnnTensor_createGraphTensor graph %llu
+ <%c> SignalHandle not supported in QnnGraph_finalize
+ <%c> There are %llu graphs but %zu sets of qnn::htp::object::HtpFeatures were initialized
+ <%c> Unsupported SnapdragonModel = %d by HTP backend
+ <%c> qnnProfileReset %p
+ <%c> running unencrypted model.
+ <E> Backend does not support QnnContext_createFromBinaryListAsync
+ <E> Backend does not support QnnContext_validateBinary
+ <E> Chip family id translated to unknown SnapdragonModel %d
+ <E> Chip family id translated to unsupported SnapdragonModel %d
+ <E> Context binary is not guaranteed to be persistent. Cannot execute graph switching.Set QNN_CONTEXT_CONFIG_PERSISTENT_BINARY to true in QnnContext_Config_t
+ <E> Exceeds space allocated for qnn graphs.
+ <E> Fail to initialize supported HTP features with err %d
+ <E> Fail to set platform socModel
+ <E> Failed to clean up hexNNGraph in htpGraph 0x%x with error %d
+ <E> Failed to create static tensors for QNN_QUANTIZATION_ENCODING_BLOCK
+ <E> Failed to create static tensors for QNN_QUANTIZATION_ENCODING_BLOCKWISE_EXPANSION
+ <E> Failed to create static tensors for QNN_QUANTIZATION_ENCODING_BW_FLOAT_BLOCK
+ <E> Failed to create static tensors for QNN_QUANTIZATION_ENCODING_VECTOR
+ <E> Failed to find htp device in powerDeviceMap for %u
+ <E> Failed to get request htp features
+ <E> Failed to init support HTP features
+ <E> Failed to map QNN graph with HexagonNN graph
+ <E> Failed to parse qnn htp context binary
+ <E> Failed to populate QNN_HTP_CONTEXT_BLOB_VERSION
+ <E> Failed to read out graph %d htp features in the binary
+ <E> Failed to read out htp feature version in the binary
+ <E> Failed to read out htp features in the binary
+ <E> Failed to set QnnContext config
+ <E> Failed to write QNN Accelerator time for ApplyBinaryPatch
+ <E> For encoding QNN_QUANTIZATION_ENCODING_BW_AXIS_SCALE_OFFSET_MAPPED, bitwidth 2 expected at axis 3, but bitwidth %u provided for axis %d for node %s.
+ <E> HTP Prepare backend loading failed. Aborting
+ <E> HTP Prepare backend missing. Aborting Serialization
+ <E> HTP queue pop failed - Queue is empty
+ <E> HTP queue push failed - Queue is full
+ <E> Hexagon does not support subgraphs. Cannot map QNN and Hexagon Graphs
+ <E> Hexagon does not support subgraphs. Cannot unmap QNN and Hexagon Graphs
+ <E> Htp Device get infrastructure memory allocation failed
+ <E> Htp startup on load failed
+ <E> Init graph request and configured htp features failed
+ <E> Init graph request or configured htp features failed
+ <E> Input GraphHtpSetting value %lu is out of bound
+ <E> Invalid NULL execution environment being passed into QnnGraph_prepareExecutionEnvironment
+ <E> Invalid execution environment params being passed into QnnGraph_prepareExecutionEnvironment
+ <E> Invalid qnn htp feature version
+ <E> Op does not support QNN_QUANTIZATION_ENCODING_BLOCK encoding for dsp arch v%d
+ <E> Op does not support QNN_QUANTIZATION_ENCODING_BLOCKWISE_EXPANSION encoding for dsp arch v%d
+ <E> Op does not support QNN_QUANTIZATION_ENCODING_BW_FLOAT_BLOCK encoding for dsp arch v%d
+ <E> Op does not support QNN_QUANTIZATION_ENCODING_VECTOR encoding for dsp arch v%d
+ <E> PRE_POST_QNN_API_CALL_CHECKS failed
+ <E> Passed unsupported config option, %d: QNN_GRAPH_CONFIG_OPTION_PRIORITY
+ <E> Passed unsupported config option, %d: QNN_GRAPH_CONFIG_OPTION_PROFILE_HANDLE
+ <E> Passed unsupported config option, %d: QNN_GRAPH_CONFIG_OPTION_SET_PROFILING_NUM_EXECUTIONS
+ <E> Passed unsupported config option, %d: QNN_GRAPH_CONFIG_OPTION_SET_PROFILING_STATE
+ <E> QNN binary blob version check failed
+ <E> QNN_CONTEXT_CONFIG_BINARY_COMPATIBILITY is not supported
+ <E> QnnBackend platform setup error
+ <E> QnnBackend_validateOpConfig failed %d
+ <E> QnnContext_getBinary context info serialization failed.
+ <E> QnnDevice_freePlatformInfo API not supported
+ <E> QnnDevice_getInfrastructure API not supported on this platform
+ <E> QnnDevice_getInfrastructure Failed with error: %d
+ <E> QnnDevice_getPlatformInfo API not supported
+ <E> QnnGraph Prepare Execution Environment is not supported
+ <E> QnnGraph Release Execution Environment is not supported
+ <E> QnnMem APIs are not supported
+ <E> QnnTensor Info:
+ <E> Set opvalidation socModel %d failed
+ <E> Skel QNN_SAFE_TRANSPORT_RUN crcRX failed  crcRx:%d
+ <E> SoC model name not found for config socModel: %u
+ <E> SoC model name not found for socModel: %u
+ <E> Tensor defined with QNN_DEFINITION_IMPL_GENERATED encodingDefinition must be QNN_TENSOR_TYPE_NATIVE
+ <E> Tried to deserialize malformed QNN binary blob
+ <E> Unexpected GraphHtpSettings option %zu
+ <E> Unknown config socModel %u
+ <E> Unknown qnn htpcontext custom config option: %d
+ <E> Unsupported Qnn Context config option type: %lu
+ <E> Unsupported SnapdragonModel = %d by HTP backend
+ <E> Unsupported SnapdragonModel = %d by HTP backend, assuming fp16 is not supported
+ <E> Unsupported SnapdragonModel by HTP backend
+ <E> Unsupported feature %zu by HTP backend
+ <E> Use of QNN_DEFINITION_IMPL_GENERATED tensor not supported as input for %s.
+ <E> Use of QNN_DEFINITION_IMPL_GENERATED tensor not supported as output for %s
+ <E> failed to parse htp_api_id
+ <E> failed to parse htp_info
+ <E> failed to parse segment info for encrypted model.!
+ <E> op package registration failed. shared object %s has unsupported QNN op package API version
+ <E> op package registration failed. shared object %s is not allowed to list per-channel quantized HTP core opsorders
+ <E> qnnContext is nullptr
+ <E> qnnOpPackageManager: failed to get default op package name when check param order validity since hexagon function pointer is nullptr!
+ <E> qnnOpPackageManager: failed to get default op package name when insert axis params since hexagon function pointer is nullptr!
+ <E> qnnOpPackageManager: failed to get default op package name when insert per channel quant ops since hexagon function pointer is nullptr!
+ <E> qnnOpPackageManager: failed to get default op package name, err = %d
+ <E> qnnOpPackageManager: failed to unload OpPackage %s in hexNN, err = %d
+ <E> qnnOpPackageManager: hexagon unload op package function pointer is nullptr!
+ <E> supportHtpFeatures map is empty, cannot determine the socModel
+ <E> unexpected GraphHtpSettings option %zu
+ <V> Cleaning up HtpProvider
+ <V> Created spill-fill buffer group info: context %llu from ContextGroup %llu, QNN graph id %llu, hexagon graph id %llu in graph info, graph name: %s
+ <V> Deleted graph, graph name: %s, context id %llu, QNN graph id %llu, hexagon graph id %llu in graph info
+ <V> Deserialized and added graph, graph name: %s, context id %llu, QNN graph id %llu, hexagon graph id %llu in graph info, hexagon graph id %llu in runtime, hexNNGraphHandle %llu
+ <V> Get HTP power device instance for device id %lu core id %lu processDomain id %lu coreType %lu
+ <V> HTP ARCH not specified. Setting to default value %u according to soc %s
+ <V> HTP: FinalCleanupFn fnPtr is nullptr
+ <V> HTP: Initializing the context registry
+ <V> HTP: Initializing the device registry
+ <V> HTP: Initializing the graph registry
+ <V> HTP: Initializing the logger lifecycle manager
+ <V> HTP: Initializing the router
+ <V> HTP: Initializing the tensor counter
+ <V> HTP: constructing bundle
+ <V> HTP: initialization completed successfully
+ <V> HTP: initializing mem registry
+ <V> HTP: initializing mmap registry
+ <V> HTP: initializing op package maps
+ <V> HTP: setting FinalCleanupFn fnPtr
+ <V> HTP: setting isExitCalled to false
+ <V> HTP: setting ssrInProgress to false
+ <V> Op GatherNd adding HTP custom param indices_rank
+ <V> Op GatherNd adding HTP custom param input_rank
+ <V> Op ScatterNd adding HTP custom param input_real_rank
+ <V> Precision custom config and fp16_relaxed_precision values are ignored in HTP backend. HTP backend uses fp16 math for fp operations on SoCs with FP support.
+ <V> RouterHexagon set opvalidator socModel disabled
+ <V> SocModel %s FP16
+ <V> TypicalOp %s::%s Translating encodingDefinition == QNN_DEFINITION_IMPL_GENERATED to opString
+ <V> qnnOpPackageManager: OpPackge already unloaded.
+ <V> qnnOpPackageManager: unloading OpPackages...
+ <V> qnn_quint_32 to htp_qint32
+ <V> qnn_uint_32 to htp_int32
+ <W> Initializing HtpProvider
+ <W> Invalid block size (= 0) passed in HTP tensor constructor!
+ <W> QNN_HTP_GRAPH_CONFIG_OPTION_NUM_HVX_THREADS set config can only be set at graph creation
+ <W> Undefined block scale storage type in HTP tensor constructor
+ <W> Unknown core type %u of htpDevice; returning default core type 0(QNN_HTP_CORE_TYPE_NSP)
+ <W> Unrecognized block scale storage type %u in HTP tensor constructor
+ <W> op package registration API version check failed. shared object %s may have incompatible QNN API and/or QNN HTP API
+ <W> qnnOpPackageManager: hexagon unload op package function pointer is set as nullptr!
+%s:1038::ERROR:get_option_item 'enable_htpcore_optrace' failed
+%s:103:HTP_PERF: HMX hysteresis status %d event 0x%08x
+%s:1066::ERROR:get_option_item 'enable_htpcore_optrace' failed
+%s:121:HTP_PERF: HMX hysteresis turning off HMX
+%s:129::ERROR:HTP_PERF: Signal timeout but hmx vote count is not zero (%d) and/or hmx is off
+%s:136:HTP_PERF: Mutex occupied by other thread.
+%s:1465::ERROR:Combined aperture feature currently not supported on V79 and above
+%s:151:HTP_PERF: thread exit
+%s:179::ERROR:HTP_PERF:Could not create voter thread:: %d
+%s:206:HTP_PERF: HMX hysteresis turning off HMX deinit
+%s:209::ERROR:HTP_PERF: Unable to turn off HMX
+%s:228:HTP_PERF: stopPerfHysteresisThread status %d
+%s:247:HTP_PERF: hmx powered on with no hysteresis
+%s:250:HTP_PERF: hmx client added %lu
+%s:260::ERROR:HTP_PERF: number of clients is less than 0 (%lu)
+%s:262:HTP_PERF: hmx client destroyed %lu
+%s:264::ERROR:HTP_PERF: couldn't power off hmx ret=%x
+%s:266::ERROR:HTP_PERF: error cleaning HTP_PERF thread
+%s:266:HTP_PERF: hmx powered off with no hysteresis
+%s:2735::ERROR:get_option_item 'enable_htpcore_optrace' failed
+%s:290:HTP_PERF: HMX power is ON.
+%s:295::ERROR:HTP_PERF: error power on hmx
+%s:299::ERROR:HTP_PERF: hmx should already be on                         when hmxVoteCounter is non-zero
+%s:305:HTP_PERF: hmx already powered on
+%s:320:HTP_PERF: start timer to turn off hmx
+%s:323:HTP_PERF: inference already in progress
+%s:48::ERROR:HTP_PERF: couldn't power hmx enable %d ret=%x
+%s:61::ERROR:HTP_PERF: couldn't power off hmx ret=%x
+%s:63:HTP_PERF: HMX power is OFF.
+%s:68::ERROR:HTP_PERF: cannot destroy context id ret=%x
+%s:73:HTP_PERF: hmx power off ret=%x
+**.,#%%$lld`egabfbb`caa`/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/src/log.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_abs.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_add.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_argminmax.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_asin.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_atan.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_avgpool.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_batchnorm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_buffer.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_channelshuffle.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_compare.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_conv.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_conv_activations.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_cos_sin.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_cumsum.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_dilated_conv.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_div.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_elementwise_floordiv.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_elementwise_sign.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_elementwiseceil.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_elementwisefloor.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_elementwiseneg.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_elementwiseround.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_elementwiseselect.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_elu.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_exp.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_extractglimpse.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_gather.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_gelu.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_grid_sample.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_groupnorm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_groupnorm_compat.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_gru.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_hardsigmoid.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_hardswish.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_instance_norm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_instance_norm_compat.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_isinf.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_l2norm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_layernorm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_layernorm_compat.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_layernorm_short_depth.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_layernorm_va_reduce.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_layernorm_va_reduce_compat.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_log.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_logit.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_logsoftmax.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_lrn.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_lstm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_matmul.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_maxpool.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_minmax.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_mirrorpad.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_monolithic_lstm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_mul.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_nms.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_nms_bitonic.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_nms_score_filter.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_onehot.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_partial_sum.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_partial_sum_reduce.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_power.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_prelu.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_reduce.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_reduce_minmax.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_relu.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_resize_bilinear.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_resize_nearest.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_resize_trilinear.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_rms_norm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_roialign.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_rope.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_short_height_utils.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_softmax.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_softplus.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_sqrt_rsqrt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_squared_difference.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_stft.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_swish.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_tanh.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_va_qf32_depth_accumulate.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp16_va_qf32_depth_accumulate_compat.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp_cast_op.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/fp_cast_op_crouton.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/mxfp4.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/mxfp6_dequantize.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/mxfp6_quantize.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_abs_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_add_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_argminmax_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_asin_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_atan_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_autoconvert_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_avgpool_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_batchnorm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_buffer_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_channelshuffle_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_compare_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_conditional_add.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_conv_activations_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_conv_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_conv_tiling_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_cos_sin_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_cumsum_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_dilated_conv_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_div_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_elementwise_floordiv_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_elementwise_sign_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_elementwiseceil_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_elementwisefloor_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_elementwiseneg_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_elementwiseround_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_elementwiseselect_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_elu_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_exp_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_extractglimpse_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_gather_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_gelu_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_graph_cleanup_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_grid_sample_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_groupnorm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_gru_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_hardsigmoid_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_hardswish_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_instance_norm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_isinf_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_isnan_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_l2norm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_layernorm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_layernorm_short_depth_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_layernorm_va_reduce_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_log_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_logit_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_logsoftmax_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_lrn_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_lstm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_matmul_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_maxpool3d_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_maxpool_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_minmax_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_mirrorpad_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_monolithic_lstm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_monolithic_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_mul_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_nms_bitonic_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_nms_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_onehot_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_partial_sum_reduce_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_power_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_prelu_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_reduce_minmax_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_reduce_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_relu_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_resize_bilinear_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_resize_nearest_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_resize_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_resize_trilinear_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_rms_norm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_roialign_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_rope_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_short_height_utils_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_softmax_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_softplus_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_sqrt_rsqrt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_squared_difference_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_stft_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_swish_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_tanh_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp16_va_qf32_depth_accumulate_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp_cast_op_crouton_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/fp_cast_op_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/mxfp4_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/fp/optimizations/mxfp6_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/abs.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/aligned_slicepad.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/all_true.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/argminmax.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/argminmax_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/asin.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/atan.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/avgpool.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/avgpool3d.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/batch_to_space.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/batch_to_space_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/batched_format_memory_convert.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/batchfilter.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/batchnorm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/biasadd.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/bitrearrange.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/broadcast.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/buffer.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/cast.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/ceiling.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/chanshuffle.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/check.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/clamp.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/close.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/compare.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/compare_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/compose_weights.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/concat.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conditional.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conv.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conv3d.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conv_activations.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conv_activations_16.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conv_activations_q16.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conv_convert_transpose.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conv_fused_biasscale.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conv_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conv_opt_weight_sum.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conv_residual_scaling.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conv_special_encodings.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/conv_weights.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/convert.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/cos_sin_16.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/cumsum.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/dataprepare.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/decimate.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/decode_bbox.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/dense.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/depth_to_frame.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/depth_to_space.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/dequantize.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/dilated_conv_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/dwconv.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/dwconv_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/edgepad.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/einsum.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/elementwise.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/elementwise_no_requant.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/elementwise_sign.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/elu.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/exp.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/extract_glimpse.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/flatten.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/floor.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/frame_to_depth.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/gather.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/gather_elements.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/gather_nd.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/gelu.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/grid_sample.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/group_norm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/grouped_conv.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/gru.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/hadamard.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/hardsigmoid.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/hardswish.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/hashtable_lookup.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/indice_conv.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/input.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/input_contiguous.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/input_dma_gather.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/instancenorm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/l2norm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/l2norm_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/layernorm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/layernorm_16.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/layernorm_qu16_compat.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/layernorm_qu8_compat.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/layernorm_va_moments.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/layernorm_va_moments_compat.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/linearclip.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/ln.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/logical.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/logical_compare.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/logit.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/logsoftmax.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/lrn.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/lrn_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/lstm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/masked_softmax.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/matmul.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/matmul_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/maxpool.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/maxpool3d.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/memory_format_convert.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/mirrorpad.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/monolithic_lstm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/monolithic_lstm_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/mux_predication.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/nms.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/nms_score_filter.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/non_max_supression.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/nonzero.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/nop.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/normalize_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/nv12_to_rgb.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/onehot.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/abs_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/aligned_slicepad_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/argminmax_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/argminmax_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/asin_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/atan_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/avgpool3d_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/avgpool_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/batch_to_space_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/batch_to_space_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/batched_format_memory_convert_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/batchfilter_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/batchnorm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/biasadd_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/bitrearrange_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/broadcast_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/buffer_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/cast_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/ceiling_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/chanshuffle_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/check_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/clamp_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/cleanup_aux.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/close_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/compare_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/compare_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/concat_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/concat_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conditional_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conv3d_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conv_a16prime_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conv_activations_16_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conv_activations_q16.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conv_convert_transpose_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conv_fused_biasscale_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conv_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conv_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conv_residual_scaling_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conv_special_encodings_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conv_tiling_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/conv_weights_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/convert_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/cos_sin_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/cumsum_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/custom_graph_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/dataprepare_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/decimate_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/decode_bbox_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/dense_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/depth_to_frame_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/depth_to_space_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/dequantize_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/dilated_conv_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/dwconv_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/dwconv_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/edgepad_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/einsum_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/elementwise_binary_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/elementwise_neuron_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/elementwise_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/elementwise_sign_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/elemenwise_no_requant_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/elu_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/exp_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/extract_glimpse_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/extract_patches_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/flatten_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/floor_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/frame_to_depth_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/gather_elements_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/gather_nd_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/gather_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/gelu_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/general_graph_cleanup_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/grid_sample_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/group_norm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/grouped_conv_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/gru_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/hadamard_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/hardsigmoid_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/hardswish_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/hashtable_lookup_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/indice_conv_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/input_contiguous_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/input_dma_gather_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/input_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/instancenorm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/l2_norm_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/l2_norm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/layernorm_16_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/layernorm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/layernorm_qu16_compat_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/layernorm_qu8_compat_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/layernorm_va_moments_compat_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/layernorm_va_moments_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/leaky_relu_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/linearclip_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/ln_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/logical_compare_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/logical_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/logit_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/logsoftmax_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/lrn_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/lrn_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/lstm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/masked_softmax_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/matmul_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/matmul_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/maxpool3d_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/maxpool_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/memory_format_convert_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/mha_to_sha_quant_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/mirrorpad_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/monolithic_lstm_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/monolithic_lstm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/mux_predication_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/nms_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/nms_score_filter_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/non_max_supression_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/nonzero_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/nop_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/normalize_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/nv12_to_rgb_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/onehot_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/output_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/pack_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/pad_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/partial_sum_reduce_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/power_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/pprint_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/prelu_opt_16b_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/prelu_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/prelu_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/q_clamp_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/q_div_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/q_elementwise_mp_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/q_elementwise_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/quantize_for_test_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/quantize_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/random_uniform_like_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/rearrange_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/recip_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/reduce_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/reduce_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/relu_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/requantize_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/requantize_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/resize_bilinear_general_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/resize_bilinear_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/resize_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/resizecubic_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/resizenear_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/resizenear_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/rms_norm_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/rms_norm_qu8_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/roi_align_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/roi_align_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/roi_pooling_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/rope_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/round_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/rsqrt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/scatter_conv_weight_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/scatter_elements_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/scatternd_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/scatternd_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/select_opt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/select_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/select_scalar_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/sink_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/slice_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/softmax_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/softmax_smalld_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/softplus_16_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/softplus_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/space_to_batch_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/space_to_depth_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/sparse_conv_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/split_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/sqrt_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/state_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/stridedslice_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/swish_16_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/tablegen_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/tanh_16_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/tanh_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/tile_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/topk_16_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/topk_bitonic_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/topk_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/transpose_conv2d_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/transpose_conv3d_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/transpose_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/unary_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/unpack_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/updateable_quant_marker_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/used_as_weights_marker_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/optimizations/vararg_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/output.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/pad.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/partial_sum_reduce.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/power.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/pprint.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/prelu.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/prelu_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/prelu_opt_16b.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/q_clamp_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/q_div.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/q_elementwise.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/q_elementwise_mp.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/quantize.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/quantize_for_test.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/random_uniform_like.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/rearrange.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/reduce.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/reduce_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/relu.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/requantize.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/requantize_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/reshape.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/resize_bilinear.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/resize_bilinear_general.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/resizecubic.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/resizenear.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/resizenear_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/rms_norm.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/rms_norm_qu8.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/roi_align.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/roi_align_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/roi_pooling.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/rope.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/round.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/rsqrt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/scatter_conv_weight.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/scatter_elements.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/scatternd.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/scatternd_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/select.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/select_opt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/select_scalar.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/sink.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/slice.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/softmax.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/softmax_smalld.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/softplus.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/softplus_16.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/space_to_batch.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/space_to_depth.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/sparse_conv.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/split.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/sqrt.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/stridedslice.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/swish_16.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/tablegen.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/tanh_16.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/tile.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/topk.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/topk_16.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/topk_bitonic.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/transpose.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/transpose_conv2d.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/transpose_conv3d.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/unary.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/unpack.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/ops/2048-byte/int/vararg.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/src/optimizations.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/src/super_groups_opts.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/QAISW/FirstParty/QNN/HTP/HTP/src/hexagon/src/width_to_height.cc
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/hexagon_v79/FirstParty/QNN/HTP/src/log/include/log/HexagonLog.hpp
+15HtpBinaryBuffer
+18QnnHtpOpProfileObj
+25QnnHtpOpLintingProfileObj
+26QnnHtpOpDetailedProfileObj
+28HtpSingletonProviderInternal
+FlatDataType_t::FLAT_DATA_TYPE_HTP_ASYNC_EXECUTE_SETUP
+FlatDataType_t::FLAT_DATA_TYPE_HTP_TERMINATE_ASYNC_EXECUTE_SETUP
+FlatDataType_t::FLAT_DATA_TYPE_HTP_TERMINATE_POLLING
+HTP_PERF
+N3qnn10KeyManagerIjEE
+N3qnn10KeyManagerIyEE
+N3qnn12BinaryBufferE
+N3qnn13DspThreadBaseE
+N3qnn15IDspqueueCbInfoE
+N3qnn18IDspQueueMsgCbInfoE
+N3qnn18QnnHtpBinaryBufferE
+N3qnn19RecyclingKeyManagerIjvEE
+N3qnn19RecyclingKeyManagerIyvEE
+N3qnn25StaticRecyclingKeyManagerIyvEE
+N3qnn26BoundedRecyclingKeyManagerIjvEE
+N3qnn3htp15VaResBufMapInfoE
+N3qnn3htp17SwVaResBufMapInfoE
+N3qnn3htp18NswVaResBufMapInfoE
+N3qnn3htp5async16DspQueueCbParamsE
+N3qnn3htp6RouterE
+N3qnn3htp6object10HtpContextE
+N3qnn9DspThreadE
+N4hnnx9TypicalOpIXadL_Z21pack_4bit_weights_v79I14ConcreteTensorIN5Tdefs10pkSWeightsEEE11GraphStatusRT_RKS7_RK12TensorSclrDTIL5DType5EEEEEE
+N4hnnx9TypicalOpIXadL_Z21pack_4bit_weights_v79I14ConcreteTensorIN5Tdefs12SWeights_TCMEEE11GraphStatusRT_RKS7_RK12TensorSclrDTIL5DType5EEEEEE
+N4hnnx9TypicalOpIXadL_Z21pack_4bit_weights_v79I14ConcreteTensorIN5Tdefs12shflSWeightsEEE11GraphStatusRT_RKS7_RK12TensorSclrDTIL5DType5EEEEEE
+N4hnnx9TypicalOpIXadL_Z21pack_4bit_weights_v79I14ConcreteTensorIN5Tdefs14pkSWeights_TCMEEE11GraphStatusRT_RKS7_RK12TensorSclrDTIL5DType5EEEEEE
+N4hnnx9TypicalOpIXadL_Z21pack_4bit_weights_v79I14ConcreteTensorIN5Tdefs16shflSWeights_TCMEEE11GraphStatusRT_RKS7_RK12TensorSclrDTIL5DType5EEEEEE
+N4hnnx9TypicalOpIXadL_Z21pack_4bit_weights_v79I14ConcreteTensorIN5Tdefs8SWeightsEEE11GraphStatusRT_RKS7_RK12TensorSclrDTIL5DType5EEEEEE
+NSt3__110__function6__baseIFvyRN3qnn3htp6object9HtpSignalEEEE
+NSt3__110__function6__funcIZL11checkForSSRR6BundleyRNS_6vectorIN3qnn12HtpDeviceKeyENS_9allocatorIS6_EEEESA_E3$_0NS7_ISB_EEFbvEEE
+NSt3__110__function6__funcIZL29invalidateGraphContextHandlesR6BundleRKNS_6vectorIN3qnn12HtpDeviceKeyENS_9allocatorIS6_EEEESB_E3$_0NS7_ISC_EEFvyRNS5_3htp6object9HtpSignalEEEE
+Please allocate larger memory. Please use QnnContext_getBinarySize to get accurate size needed
+Please allocate larger memoryPlease use QnnContext_getBinaryUpdateSize to get accurate size needed
+QNN (ApplyBinarySection) time
+QNN (deinit) time
+QNN (execute) time
+QNN (finalize) time
+QNN (load binary) time
+QNN Accelerator (deinit) time
+QNN accelerator (ApplyBinarySection) time
+QNN accelerator (execute) time
+QNN accelerator (finalize) time
+QNN accelerator (load binary) time
+QNN_
+QNN_CastCustomInt2ToInt8
+QNN_CastCustomInt2ToInt8@fB*2.fi
+QNN_CastInt2ToInt8
+QNN_CastInt2ToInt8@fB*2
+QNN_CastInt4ToInt8
+QNN_CastInt4ToInt8@fB*2
+QNN_Conv3d_w_scale@t*9
+QNN_Conv3d_w_scale_batch@t*9
+QNN_DATATYPE_BFLOAT_16
+QNN_DATATYPE_BOOL_8
+QNN_DATATYPE_FLOAT_16
+QNN_DATATYPE_FLOAT_32
+QNN_DATATYPE_FLOAT_64
+QNN_DATATYPE_INT_16
+QNN_DATATYPE_INT_32
+QNN_DATATYPE_INT_64
+QNN_DATATYPE_INT_8
+QNN_DATATYPE_SFIXED_POINT_16
+QNN_DATATYPE_SFIXED_POINT_32
+QNN_DATATYPE_SFIXED_POINT_4
+QNN_DATATYPE_SFIXED_POINT_8
+QNN_DATATYPE_STRING
+QNN_DATATYPE_UFIXED_POINT_16
+QNN_DATATYPE_UFIXED_POINT_32
+QNN_DATATYPE_UFIXED_POINT_4
+QNN_DATATYPE_UFIXED_POINT_8
+QNN_DATATYPE_UINT_16
+QNN_DATATYPE_UINT_32
+QNN_DATATYPE_UINT_64
+QNN_DATATYPE_UINT_8
+QNN_DATATYPE_UNDEFINED
+QNN_DEFINITION_DEFINED
+QNN_DEFINITION_IMPL_GENERATED
+QNN_DEFINITION_UNDEFINED
+QNN_DEVICE_CORE_INFO_VERSION_1
+QNN_DEVICE_HARDWARE_DEVICE_INFO_VERSION_1
+QNN_DEVICE_PLATFORM_INFO_VERSION_1
+QNN_OneHot@t.fi.t*4
+QNN_PRIORITY_CRITICAL
+QNN_PRIORITY_CRITICAL_PLUS
+QNN_PRIORITY_DEFAULT
+QNN_PRIORITY_HIGH
+QNN_PRIORITY_HIGHEST
+QNN_PRIORITY_HIGH_PLUS
+QNN_PRIORITY_LOW
+QNN_PRIORITY_NORMAL
+QNN_PRIORITY_NORMAL_HIGH
+QNN_PRIORITY_NORMAL_LOW
+QNN_PRIORITY_UNDEFINED
+QNN_PROPERTY_BACKEND_SUPPORT_COMPOSITION
+QNN_PROPERTY_BACKEND_SUPPORT_OP_PACKAGE
+QNN_PROPERTY_BACKEND_SUPPORT_PLATFORM_OPTIONS
+QNN_PROPERTY_CONTEXT_SUPPORT_CACHING
+QNN_PROPERTY_CONTEXT_SUPPORT_CONFIGURATION
+QNN_PROPERTY_CONTEXT_SUPPORT_CONFIG_BINARY_COMPATIBILITY_TYPE
+QNN_PROPERTY_CONTEXT_SUPPORT_CONFIG_ENABLE_GRAPHS
+QNN_PROPERTY_CONTEXT_SUPPORT_CONFIG_MEMORY_LIMIT_HINT
+QNN_PROPERTY_CONTEXT_SUPPORT_CONFIG_PERSISTENT_BINARY
+QNN_PROPERTY_CONTEXT_SUPPORT_CREATE_FROM_BINARY_WITH_SIGNALS
+QNN_PROPERTY_CONTEXT_SUPPORT_VALIDATE_BINARY
+QNN_PROPERTY_DEVICE_SUPPORT_INFRASTRUCTURE
+QNN_PROPERTY_ERROR_GET_VERBOSE_MESSAGE
+QNN_PROPERTY_GRAPH_SUPPORT_ASYNC_EXECUTION
+QNN_PROPERTY_GRAPH_SUPPORT_BATCH_MULTIPLE
+QNN_PROPERTY_GRAPH_SUPPORT_CONFIG
+QNN_PROPERTY_GRAPH_SUPPORT_CONTINUOUS_PROFILING
+QNN_PROPERTY_GRAPH_SUPPORT_CUSTOM_PROPERTY
+QNN_PROPERTY_GRAPH_SUPPORT_EARLY_TERMINATION
+QNN_PROPERTY_GRAPH_SUPPORT_ENV_OPTION_BIND_MEM_HANDLES
+QNN_PROPERTY_GRAPH_SUPPORT_ENV_OPTION_POPULATE_CLIENT_BUFS
+QNN_PROPERTY_GRAPH_SUPPORT_EXECUTE
+QNN_PROPERTY_GRAPH_SUPPORT_EXECUTE_ASYNC_SIGNAL
+QNN_PROPERTY_GRAPH_SUPPORT_EXECUTE_PER_API_PROFILING
+QNN_PROPERTY_GRAPH_SUPPORT_EXECUTE_SIGNAL
+QNN_PROPERTY_GRAPH_SUPPORT_FINALIZE_DESERIALIZED_GRAPH
+QNN_PROPERTY_GRAPH_SUPPORT_FINALIZE_SIGNAL
+QNN_PROPERTY_GRAPH_SUPPORT_NULL_INPUTS
+QNN_PROPERTY_GRAPH_SUPPORT_PRIORITY_CONTROL
+QNN_PROPERTY_GRAPH_SUPPORT_PROFILING_STATE
+QNN_PROPERTY_GRAPH_SUPPORT_SET_PROFILING_NUM_EXECUTIONS
+QNN_PROPERTY_GRAPH_SUPPORT_SIGNALS
+QNN_PROPERTY_GRAPH_SUPPORT_SUBGRAPH
+QNN_PROPERTY_GROUP_BACKEND
+QNN_PROPERTY_GROUP_CONTEXT
+QNN_PROPERTY_GROUP_CORE
+QNN_PROPERTY_GROUP_CUSTOM
+QNN_PROPERTY_GROUP_DEVICE
+QNN_PROPERTY_GROUP_ERROR
+QNN_PROPERTY_GROUP_GRAPH
+QNN_PROPERTY_GROUP_LOG
+QNN_PROPERTY_GROUP_MEMORY
+QNN_PROPERTY_GROUP_OP_PACKAGE
+QNN_PROPERTY_GROUP_PROFILE
+QNN_PROPERTY_GROUP_SIGNAL
+QNN_PROPERTY_GROUP_TENSOR
+QNN_PROPERTY_LOG_SUPPORTS_DEFAULT_STREAM
+QNN_PROPERTY_MEMORY_SUPPORT_MEM_TYPE_CUSTOM
+QNN_PROPERTY_MEMORY_SUPPORT_MEM_TYPE_DMA_BUF
+QNN_PROPERTY_MEMORY_SUPPORT_MEM_TYPE_ION
+QNN_PROPERTY_OP_PACKAGE_SUPPORTS_DUPLICATE_NAMES
+QNN_PROPERTY_OP_PACKAGE_SUPPORTS_OP_IMPLS
+QNN_PROPERTY_OP_PACKAGE_SUPPORTS_VALIDATION
+QNN_PROPERTY_PROFILE_SUPPORTS_EXTENDED_EVENT
+QNN_PROPERTY_PROFILE_SUPPORT_CUSTOM_CONFIG
+QNN_PROPERTY_PROFILE_SUPPORT_MAX_EVENTS_CONFIG
+QNN_PROPERTY_PROFILE_SUPPORT_OPTRACE_CONFIG
+QNN_PROPERTY_SIGNAL_SUPPORT_ABORT
+QNN_PROPERTY_SIGNAL_SUPPORT_TIMEOUT
+QNN_PROPERTY_TENSOR_SUPPORT_CONTEXT_TENSORS
+QNN_PROPERTY_TENSOR_SUPPORT_DYNAMIC_DIMENSIONS
+QNN_PROPERTY_TENSOR_SUPPORT_MEMHANDLE_TYPE
+QNN_PROPERTY_TENSOR_SUPPORT_SPARSITY
+QNN_QUANTIZATION_ENCODING_AXIS_SCALE_OFFSET
+QNN_QUANTIZATION_ENCODING_BLOCK
+QNN_QUANTIZATION_ENCODING_BLOCKWISE_EXPANSION
+QNN_QUANTIZATION_ENCODING_BW_AXIS_SCALE_OFFSET
+QNN_QUANTIZATION_ENCODING_BW_AXIS_SCALE_OFFSET_MAPPED
+QNN_QUANTIZATION_ENCODING_BW_BLOCKWISE_EXPANSION_MAPPED
+QNN_QUANTIZATION_ENCODING_BW_BLOCK_MAPPED
+QNN_QUANTIZATION_ENCODING_BW_SCALE_OFFSET
+QNN_QUANTIZATION_ENCODING_MAPPING_ASYMMETRIC_PLUS_ONE
+QNN_QUANTIZATION_ENCODING_MAPPING_LINEAR_SYMMETRIC_EXCLUDE_ZERO
+QNN_QUANTIZATION_ENCODING_MAPPING_STANDARD_SYMMETRIC
+QNN_QUANTIZATION_ENCODING_MAPPING_UNDEFINED
+QNN_QUANTIZATION_ENCODING_SCALE_OFFSET
+QNN_QUANTIZATION_ENCODING_UNDEFINED
+QNN_QUANTIZATION_ENCODING_VECTOR
+QNN_Reshape
+QNN_SPARSE_LAYOUT_HYBRID_COO
+QNN_SPARSE_LAYOUT_UNDEFINED
+QNN_SYSTEM_CONTEXT_BINARY_INFO_UNDEFINED
+QNN_SYSTEM_CONTEXT_BINARY_INFO_VERSION_1
+QNN_SYSTEM_CONTEXT_BINARY_INFO_VERSION_2
+QNN_SYSTEM_CONTEXT_BINARY_INFO_VERSION_3
+QNN_SYSTEM_CONTEXT_GRAPH_INFO_UNDEFINED
+QNN_SYSTEM_CONTEXT_GRAPH_INFO_VERSION_1
+QNN_SYSTEM_CONTEXT_GRAPH_INFO_VERSION_2
+QNN_SYSTEM_CONTEXT_GRAPH_INFO_VERSION_3
+QNN_TENSORMEMTYPE_MEMHANDLE
+QNN_TENSORMEMTYPE_RAW
+QNN_TENSORMEMTYPE_RETRIEVE_RAW
+QNN_TENSORMEMTYPE_UNDEFINED
+QNN_TENSOR_DATA_FORMAT_FLAT_BUFFER
+QNN_TENSOR_DATA_FORMAT_HMX_WEIGHT_LAYOUT
+QNN_TENSOR_DATA_FORMAT_MX
+QNN_TENSOR_DATA_FORMAT_SPARSE
+QNN_TENSOR_DATA_FORMAT_UBWC_NV12
+QNN_TENSOR_DATA_FORMAT_UBWC_NV124R
+QNN_TENSOR_DATA_FORMAT_UBWC_NV124R_UV
+QNN_TENSOR_DATA_FORMAT_UBWC_NV124R_Y
+QNN_TENSOR_DATA_FORMAT_UBWC_NV12_UV
+QNN_TENSOR_DATA_FORMAT_UBWC_NV12_Y
+QNN_TENSOR_DATA_FORMAT_UBWC_RGBA8888
+QNN_TENSOR_TYPE_APP_READ
+QNN_TENSOR_TYPE_APP_READWRITE
+QNN_TENSOR_TYPE_APP_WRITE
+QNN_TENSOR_TYPE_NATIVE
+QNN_TENSOR_TYPE_NULL
+QNN_TENSOR_TYPE_OPTIONAL_APP_READ
+QNN_TENSOR_TYPE_OPTIONAL_APP_READWRITE
+QNN_TENSOR_TYPE_OPTIONAL_APP_WRITE
+QNN_TENSOR_TYPE_STATIC
+QNN_TENSOR_TYPE_UNDEFINED
+QNN_TENSOR_TYPE_UPDATEABLE_APP_READ
+QNN_TENSOR_TYPE_UPDATEABLE_APP_READWRITE
+QNN_TENSOR_TYPE_UPDATEABLE_APP_WRITE
+QNN_TENSOR_TYPE_UPDATEABLE_NATIVE
+QNN_TENSOR_TYPE_UPDATEABLE_STATIC
+QNN_TENSOR_VERSION_1
+QNN_TENSOR_VERSION_2
+QNN_TENSOR_VERSION_UNDEFINED
+QNN_Transpose_Conv3d_w_scale@t*8
+QNN_Transpose_Conv3d_w_scale_batch@t*8
+QnnBackend_create
+QnnBackend_free
+QnnBackend_getSupportedOperations
+QnnBackend_registerOpPackage
+QnnBackend_setConfig
+QnnBackend_validateOpConfig
+SM8750
+SM8750P
+Validate QNN tensors
+WARNING!!! In gather_out_of_bounds - model has index values out of bounds - gathering 0's for all bad indices!!!
+ZL11checkForSSRR6BundleyRNSt3__16vectorIN3qnn12HtpDeviceKeyENS1_9allocatorIS4_EEEES8_E3$_0
+ZL29invalidateGraphContextHandlesR6BundleRKNSt3__16vectorIN3qnn12HtpDeviceKeyENS1_9allocatorIS4_EEEES9_E3$_0
+adsp
+adsp1
+adsp2
+adsp_mmap_fd_getinfo
+conv_cost_model_test_csv
+deleteHtpPowerDeviceInstance
+enable_htpcore_optrace
+file:///libqnn_skel.so?qnn_skel_handle_invoke&_modver=1.0
+hmx_v79_convbnb_stride1
+hmx_v79_convbnb_stride1_aligned
+hmx_v79_convbnb_stride1_aligned_sparsity
+hmx_v79_convbnb_stride1_sparsity
+hmx_v79_convbnb_stride2
+hmx_v79_convbnb_stride2_sparsity
+htpPerfInfrastructureCreatePowerConfigId
+htpPerfInfrastructureDestroyPowerConfigId
+htpPerfInfrastructureSetMemoryConfig
+htpPerfInfrastructureSetPowerConfig
+htpVa
+htp_
+htp_signal_worker_
+htp_skel_poll
+htp_wp_
+lib.ver.1.0.0.libQnnHtpV79Skel.so:1.0.0
+libQnnHtpV79Skel.so
+m_socModel =
+mlh_model_debug
+model
+q::QNN_CastCustomInt2ToInt8
+q::QNN_CastInt2ToInt8
+q::QNN_CastInt4ToInt8
+q::QNN_Conv3d_w_scale
+q::QNN_OneHot
+q::QNN_Transpose_Conv3d_w_scale
+qnnHtpPerfInfrastructureGet
+qnn_close
+qnn_open
+qnn_skel_handle_invoke
+qnn_skel_handle_invoke_qaic_version
+qnn_skel_handle_invoke_uri
+qnn_transport_clean_dmahandles
+qnn_transport_config
+qnn_transport_dmahandles
+qnn_transport_execute_dmahandles
+qnn_transport_execute_fasterIpc_start_polling
+qnn_transport_run
+qnn_transport_shared_buffer
+qnn_transport_teardown
+qnndsp_log
+setHtpPowerDeviceInstance
+sim_model_stats
+softmax_b_approx_crouton_v79
