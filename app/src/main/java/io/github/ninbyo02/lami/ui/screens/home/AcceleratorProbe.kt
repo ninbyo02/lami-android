@@ -41,9 +41,9 @@ internal object AcceleratorProbe {
     private const val CUSTOM_BUILD_COMPILER_PLUGIN_BUILD_ID = "443391d4c4348191230b67a3ab8a6037"
     private const val CUSTOM_BUILD_GEMMA_MODEL_CONSTRAINT_PROVIDER_BUILD_ID = "f9e5e73e668032550042319e43012011"
     private const val CUSTOM_BUILD_LOGGING_LITERT_BUILD_ID = "731b74da505bef341a184b3778d0412d"
-    private const val CUSTOM_BUILD_LOGGING_DISPATCH_BUILD_ID = "81390964c1c2ddf43e4f16b4f84cd605"
+    private const val CUSTOM_BUILD_LOGGING_DISPATCH_BUILD_ID = "042452227c659a546d4008455d231580"
     private const val CUSTOM_BUILD_LOGGING_LITERTLM_JNI_BUILD_ID = "8554bcd057031088ad9bb2100f1f8f94"
-    private const val CUSTOM_BUILD_LOGGING_COMPILER_PLUGIN_BUILD_ID = "e0e6b5ff68ad6db654ac1ac3ef2a7aaa"
+    private const val CUSTOM_BUILD_LOGGING_COMPILER_PLUGIN_BUILD_ID = "e566cda2e3179428c73cdd5e33c5d702"
     private const val GALLERY_NATIVE_CREATE_ENGINE_DESCRIPTOR =
         "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;ZLjava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)J"
     private const val GALLERY_ENGINE_CONFIG_CONSTRUCTOR_SIGNATURE =

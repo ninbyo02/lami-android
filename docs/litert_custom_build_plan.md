@@ -636,3 +636,40 @@ Next recommended phase:
    backend selection
 3. continue to avoid `Conversation`, `Session`, `generateResponse`, normal UI
    NPU wiring, and single-token smoke tests
+
+## QAIRT 2.44 QNN Provider Trace Result
+
+Result date: 2026-05-22
+
+Docs:
+
+- `docs/litert_qairt244_qnn_provider_trace_result.md`
+- `docs/litert_qairt244_qnn_dependency_chain.md`
+
+Artifacts:
+
+```text
+artifacts/qairt244_qnn_provider_trace_build/20260522_212620/
+artifacts/qairt244_qnn_provider_trace_dry_run/20260522_212949/
+artifacts/qairt244_qnn_dependency_analysis/20260522_212110/
+artifacts/qairt244_qnn_dependency_analysis/20260522_212949/
+```
+
+Result:
+
+- dispatch `dlopen`, `LiteRtDispatchGetApi`, and API version acceptance still
+  succeed with `DT_NEEDED [libLiteRt.so]`
+- `libQnnSystem.so` loads and `QnnSystemInterface_getProviders` succeeds
+- provider count is `1`
+- selected provider is `SYSTEM_QTI_AISW`
+- detected QNN System API is `1.4.0`
+- LiteRT expects QNN System API minimum `1.8.0`
+- initialization fails before `libQnnHtp.so`, prepare, V79 stub/skel, or
+  `LiteRtDispatchCheckRuntimeCompatibility`
+
+Next recommended phase:
+
+1. keep the dispatch `DT_NEEDED [libLiteRt.so]` fix
+2. stage a generation-consistent QNN runtime set matching QAIRT 2.44/Gallery
+   before making ADSP/FastRPC changes
+3. repeat only the explicit `Engine.initialize` dry-run

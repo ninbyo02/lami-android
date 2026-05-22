@@ -571,3 +571,23 @@ Experiment results:
 This makes the missing `DT_NEEDED [libLiteRt.so]` edge a confirmed first
 failure in the custom build. The next unresolved boundary is QNN System provider
 initialization inside the Qualcomm dispatch runtime.
+
+## 2026-05-22 QNN System Provider Update
+
+Additional file diagnostics traced the QNN System provider initialization:
+
+- `QnnSystemInterface_getProviders` returned success (`qnn_status=0`)
+- provider count was `1`
+- selected provider was `SYSTEM_QTI_AISW`
+- reported QNN System API version was `1.4.0`
+- the LiteRT build expected QNN System API minimum `1.8.0`
+- initialization returned `kLiteRtStatusErrorDynamicLoading(502)` with
+  `reason=system_minor actual=4 expected_min=8`
+- `libQnnHtp.so`, `libQnnHtpPrepare.so`, V79 stub/skel, and
+  `LiteRtDispatchCheckRuntimeCompatibility` were not reached
+
+Static comparison also shows the custom APK's `libQnnSystem.so` Build ID
+`94d63184c6b1f968` differs from the QAIRT 2.44 SDK/Gallery Build ID
+`0d409cdd664b8b0a`. This suggests the current custom Android package is still
+using a QNN System library generation older than the headers/runtime expectation
+used by the rebuilt LiteRT Qualcomm dispatch.
