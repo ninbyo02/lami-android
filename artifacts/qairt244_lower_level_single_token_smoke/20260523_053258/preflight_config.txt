@@ -1,0 +1,15 @@
+app_id=io.github.ninbyo02.lami.customnpu
+prompt=Hi
+max_output_tokens=1
+timeout_seconds=30
+lower_level_marker=qairt244_lower_level_single_token_smoke_v1
+mode=execution-requested
+custom_build_artifact=artifacts/qairt244_single_token_entrypoint_build/20260523_052106
+model_path=/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+build=yes
+install=yes
+app_launch=yes
+conversation_created=no
+session_created=lower-level-native-session
+generate_response=no
+token_generation=yes

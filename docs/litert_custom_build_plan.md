@@ -285,6 +285,26 @@ Updated next recommendation:
 - No install, app launch, `Conversation`, `generateResponse`, or token
   generation was run.
 
+2026-05-23 lower-level single-token smoke execution:
+
+- `scripts/run_qairt244_lower_level_single_token_smoke.sh` was run once with
+  `--run`.
+- Execution artifact:
+  `artifacts/qairt244_lower_level_single_token_smoke/20260523_053258/`
+- Result: `success`.
+- Prompt: `Hi`.
+- Hard cap: `max_output_tokens=1`.
+- Output: `!`.
+- Elapsed: `1115 ms`.
+- Native diag confirms `before RunDecode SetMaxOutputTokens(1)` and
+  `success output_candidates=1 output_bytes=1`.
+- The run used the lower-level native session required for decode, but did not
+  create a `Conversation`, did not call high-level `generateResponse`, and did
+  not connect NPU to the normal UI.
+- The diagnostics collector selected an older initialize tombstone; the smoke
+  run's result file and native diag show success and the process remained
+  alive.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

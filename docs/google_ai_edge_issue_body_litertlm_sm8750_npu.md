@@ -711,14 +711,20 @@ hard `maxOutputTokens=1` decode cap. Lower-level C++ has
 `DecodeConfig.SetMaxOutputTokens(1)`, so the next safe step is an isolated
 customBuildExperimentDebug-only JNI/CLI entrypoint that calls that API directly.
 
-A follow-up lower-level preflight confirmed that boundary:
+A follow-up lower-level preflight and one explicitly approved lower-level smoke
+run confirmed that the one-token path can be executed outside the app UI:
 
 ```text
-artifacts/qairt244_lower_level_single_token_smoke/20260523_045952/
-classification=lower-level-entrypoint-missing
-executed=false
+artifacts/qairt244_lower_level_single_token_smoke/20260523_053258/
+classification=executed
+result=success
+prompt=Hi
+max_output_tokens=1
+output=!
 ```
 
-It found the C++ capability but no runnable app-side JNI/CLI entrypoint with a
-static `SetMaxOutputTokens(1)` call. No app launch, `Conversation`, `Session`,
-`generateResponse`, or token generation occurred.
+The native diagnostic file shows `before RunDecode SetMaxOutputTokens(1)` and
+`success output_candidates=1 output_bytes=1 elapsed_ms=1115`. This used an
+isolated `customBuildExperimentDebug` lower-level entrypoint and did not create
+`Conversation`, did not call high-level `generateResponse`, and did not connect
+NPU to the normal UI path.

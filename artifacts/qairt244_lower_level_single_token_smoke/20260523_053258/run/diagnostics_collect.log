@@ -1,0 +1,7 @@
+Unknown argument: customnpu-lower-level-single-token
+Usage:
+  collect_npu_tombstone_diagnostics.sh [--app-id APP_ID] [--label LABEL] [--run-id RUN_ID] [--output-dir DIR]
+
+Defaults:
+  --app-id io.github.ninbyo02.lami.npu
+  --label npu

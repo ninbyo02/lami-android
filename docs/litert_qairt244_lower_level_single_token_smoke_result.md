@@ -2,26 +2,16 @@
 
 Date: 2026-05-23
 
-Scope: `customBuildExperimentDebug` lower-level smoke implementation preflight.
-No app launch or generation was executed.
+Scope: one explicit `customBuildExperimentDebug` lower-level NPU smoke run using
+the isolated JNI entrypoint. This did not connect NPU to the normal UI path.
 
 ## Result
 
-Artifact:
+Execution artifact:
 
 ```text
-artifacts/qairt244_lower_level_single_token_smoke/20260523_052224/
+artifacts/qairt244_lower_level_single_token_smoke/20260523_053258/
 ```
-
-Classification:
-
-```text
-entrypoint-implemented-not-executed
-```
-
-The preflight found the required LiteRT-LM C++ primitive and a runnable
-`customBuildExperimentDebug` wrapper. It did not execute because `--run` was not
-requested.
 
 Build artifact:
 
@@ -29,12 +19,34 @@ Build artifact:
 artifacts/qairt244_single_token_entrypoint_build/20260523_052106/
 ```
 
-The build artifact is a QAIRT 2.44 execution candidate composed from the
-previous initialize-success stack plus the rebuilt `liblitertlm_jni.so` that
-contains the lower-level entrypoint. The dispatch library keeps
-`DT_NEEDED [libLiteRt.so]`.
+External LiteRT-LM patch snapshot:
 
-Key native IDs:
+```text
+artifacts/qairt244_single_token_entrypoint_build/20260523_052106/litertlm_external_status.txt
+artifacts/qairt244_single_token_entrypoint_build/20260523_052106/litertlm_external_diff.patch
+```
+
+Outcome:
+
+```text
+classification=executed
+executed=true
+marker=qairt244_lower_level_single_token_smoke_v1
+result=success
+prompt=Hi
+max_output_tokens=1
+elapsed_ms=1115
+output=!
+```
+
+The native diagnostic file confirms the hard cap path:
+
+```text
+before RunDecode SetMaxOutputTokens(1)
+success output_candidates=1 output_bytes=1 elapsed_ms=1115 Engine.close=unique_ptr_cleanup
+```
+
+## Native IDs
 
 | Library | Build ID | SHA-256 |
 | --- | --- | --- |
@@ -43,69 +55,64 @@ Key native IDs:
 | `liblitertlm_jni.so` | `a5f78bc1fb6839abead290eebd139860` | `b5a74c656c99830fbc8f0888f71643078d71c2957712eef2dfff06d991ad286b` |
 | `libLiteRtCompilerPlugin_Qualcomm.so` | `12a6ac7197aff7045fc5f5c263b35f9f` | `299769ef90f9ee4b74b357bd867545e1f48312bb8b1d97f9d16968a2be175655` |
 
-## Static Findings
+The dispatch library keeps `DT_NEEDED [libLiteRt.so]`, and the
+`customBuildExperimentDebug` manifest keeps optional
+`uses-native-library libcdsprpc.so`.
 
-LiteRT-LM C++ has the required hard cap path:
+## Execution Path
 
-- `runtime/engine/io_types.h`: `DecodeConfig::CreateDefault()` and
-  `DecodeConfig::SetMaxOutputTokens(int)`
-- `runtime/core/session_basic.cc`: `SessionBasic::DecodeInternal` consumes
-  `decode_config.GetMaxOutputTokens()`
-- `runtime/core/tasks.cc`: decode stop logic stops when decoded steps reach the
-  configured max output token count
-- `runtime/engine/litert_lm_lib.cc`: session path creates a `DecodeConfig`,
-  applies `decode_config.SetMaxOutputTokens(settings.max_output_tokens)`, then
-  calls `session->RunPrefill(inputs)` and `session->RunDecode(decode_config)`
+Entrypoint:
 
-The app-accessible Kotlin/JNI path is still not sufficient:
+```text
+Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244LowerLevelSingleTokenSmoke_nativeRun
+```
 
-- `Session.runDecode()` calls `LiteRtLmJni.nativeRunDecode(handle)`
-- JNI `nativeRunDecode` calls `session->RunDecode()` without a `DecodeConfig`
-- the staged `liblitertlm_jni.so` exposes C++/JNI decode symbols, but not a
-  stable app-owned C API such as
-  `litert_lm_session_config_set_max_output_tokens`
+Path:
 
-The new lower-level entrypoint avoids that public Kotlin surface:
+```text
+ModelAssets::Create
+EngineSettings::CreateDefault(NPU)
+EngineFactory::CreateDefault
+Engine::CreateSession
+Session::RunPrefill("Hi")
+DecodeConfig::CreateDefault()
+DecodeConfig.SetMaxOutputTokens(1)
+Session::RunDecode(decode_config)
+unique_ptr cleanup
+```
 
-- native symbol:
-  `Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244LowerLevelSingleTokenSmoke_nativeRun`
-- marker: `qairt244_lower_level_single_token_smoke_v1`
-- prompt: `Hi`
-- hard cap: `decode_config.SetMaxOutputTokens(1)`
-- path: `ModelAssets::Create -> EngineSettings::CreateDefault(NPU) ->
-  EngineFactory::CreateDefault -> Engine::CreateSession ->
-  Session::RunPrefill -> Session::RunDecode(decode_config)`
-- cleanup: native `unique_ptr` ownership releases session and engine on return
-
-App wrapper:
-
-- `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244LowerLevelSingleTokenSmoke.kt`
-- Activity extra: `runLowerLevelSingleTokenSmoke=true`
-- result file: `files/qairt244_single_token_smoke_result.txt`
-- native diag file: `files/qairt244_native_diag.txt`
+This creates the lower-level native session required by LiteRT-LM generation.
+It does not create a Kotlin/public `Session` object and does not create a
+`Conversation`.
 
 ## Safety Outcome
 
-The runner intentionally did not:
+- `maxOutputTokens=1`: confirmed statically and in native diag.
+- prompt: `Hi`
+- timeout: `false`
+- wait time: `2` seconds
+- result file: created
+- output: `!`
+- high-level `generateResponse`: not used
+- normal UI route: not used
+- app DB/TTS/Markdown/chat UI: not used
+- process alive after smoke: `18212`
+- `Engine.close`: represented by native `unique_ptr` cleanup after successful
+  decode
 
-- build or install the APK
-- launch the app
-- create `Conversation`
-- create `Session`
-- call `generateResponse`
-- run token generation
-- connect NPU to the normal UI path
+The diagnostics collector selected an older tombstone from a previous
+initialize dry-run. Its stage/run id does not match this smoke run, while this
+run's result file reports success and the process remained alive. See:
 
-## Next Required Implementation
-
-The isolated entrypoint now exists and the custom native artifacts were rebuilt.
-The next step is the first execution, but only with an explicit one-run command:
-
-```bash
-bash scripts/run_qairt244_lower_level_single_token_smoke.sh \
-  --artifact artifacts/qairt244_single_token_entrypoint_build/20260523_052106 \
-  --run
+```text
+artifacts/qairt244_lower_level_single_token_smoke/20260523_053258/diagnostics/stale_tombstone_note.md
 ```
 
-That command is still limited to `customBuildExperimentDebug`, uses a 30 second
-timeout, and collects result/native diag/stage/logcat/tombstone artifacts.
+Classification for this smoke: one-token lower-level NPU smoke succeeded once;
+no new crash evidence; no normal UI NPU wiring.
+
+## Next Step
+
+Do not connect this to the normal UI yet. The next safe step is a second
+isolated smoke with stricter live crash/tombstone filtering or a similarly
+isolated slightly richer result verifier, still outside the normal chat path.

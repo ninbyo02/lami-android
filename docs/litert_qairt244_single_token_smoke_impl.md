@@ -2,8 +2,8 @@
 
 Date: 2026-05-23
 
-Scope: implementation preparation and safety gating only. The single-token
-smoke was not executed.
+Scope: implementation preparation, safety gating, and the first explicitly
+approved lower-level one-token smoke run.
 
 ## Current Boundary
 
@@ -62,29 +62,38 @@ It records:
 - executed: `false`
 - safety checks in `safety_checks.tsv`
 
-## Lower-Level Preflight
+## Lower-Level Execution
 
 ```text
 scripts/run_qairt244_lower_level_single_token_smoke.sh
 ```
 
-This stricter runner checks the lower-level requirement directly. Latest
-artifact:
+This stricter runner checks the lower-level requirement directly and only runs
+when `--run` is explicitly supplied. Execution artifact:
 
 ```text
-artifacts/qairt244_lower_level_single_token_smoke/20260523_052224/
+artifacts/qairt244_lower_level_single_token_smoke/20260523_053258/
 ```
 
 Result:
 
 ```text
-classification=entrypoint-implemented-not-executed
-executed=false
+classification=executed
+executed=true
+result=success
+prompt=Hi
+max_output_tokens=1
+elapsed_ms=1115
+output=!
 ```
 
-LiteRT-LM C++ exposes the needed primitive and the new isolated native
-entrypoint statically calls `SetMaxOutputTokens(1)`. The runner stopped because
-`--run` was not requested, which is the intended implementation-prep boundary.
+LiteRT-LM C++ exposes the needed primitive and the isolated native entrypoint
+statically calls `SetMaxOutputTokens(1)`. The native diagnostic file confirms:
+
+```text
+before RunDecode SetMaxOutputTokens(1)
+success output_candidates=1 output_bytes=1 elapsed_ms=1115 Engine.close=unique_ptr_cleanup
+```
 
 Build artifact:
 
@@ -103,10 +112,9 @@ Entrypoint:
 - hard cap: `DecodeConfig.SetMaxOutputTokens(1)`
 - normal UI routing: none
 
-## Required Future Implementation
+## Implemented Lower-Level Contract
 
-The next implementation should add an isolated `customBuildExperimentDebug`-only
-native/JNI or initialize-only CLI entrypoint that:
+The isolated `customBuildExperimentDebug`-only native/JNI entrypoint:
 
 1. constructs the same NPU-backed engine used by the initialize probe
 2. initializes it
@@ -115,7 +123,7 @@ native/JNI or initialize-only CLI entrypoint that:
 5. runs decode with `DecodeConfig.SetMaxOutputTokens(1)`
 6. records output text, elapsed time, and backend diagnostics to app-private
    files
-7. closes session and engine in `finally`
+7. releases session and engine through native ownership cleanup
 
 The source must be statically checkable for:
 
@@ -125,9 +133,9 @@ The source must be statically checkable for:
 - no `LocalStreamingRunner`
 - no unconstrained `Conversation.sendMessage*`
 
-## Future Runner Contract
+## Runner Contract
 
-Before the script is allowed to run generation, it should require all of the
+Before the script is allowed to run generation, it requires all of the
 following:
 
 - explicit command acknowledgement
@@ -161,12 +169,17 @@ if text is produced.
 
 ## Execution Status
 
+Executed once:
+
+- lower-level native session creation required for LiteRT-LM decode
+- `Session::RunPrefill("Hi")`
+- `Session::RunDecode(decode_config)` with `maxOutputTokens=1`
+
 Not executed:
 
 - `Conversation` creation
-- `Session` creation
-- `generateResponse`
-- token generation
+- Kotlin/public `Session` object creation
+- high-level `generateResponse`
 - normal UI NPU path
 
 ## Classification
@@ -174,5 +187,5 @@ Not executed:
 Current classification:
 
 ```text
-maxOutputTokens=1を保証できず、未実行
+1 token生成成功
 ```

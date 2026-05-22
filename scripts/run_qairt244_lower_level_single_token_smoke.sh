@@ -51,8 +51,13 @@ EOF
       exit 0
       ;;
     *)
-      printf 'ERROR: unknown argument: %s\n' "$1" >&2
-      exit 2
+      if [ -z "$CUSTOM_BUILD_ARTIFACT" ] && [ -d "$1" ]; then
+        CUSTOM_BUILD_ARTIFACT="$1"
+        shift
+      else
+        printf 'ERROR: unknown argument: %s\n' "$1" >&2
+        exit 2
+      fi
       ;;
   esac
 done
@@ -193,8 +198,17 @@ collect_run_files() {
   adb shell run-as "$APP_ID" cat "files/qairt244_native_diag.txt" >"$OUT_DIR/run/native_diag.txt" 2>"$OUT_DIR/run/native_diag.pull.err" || true
   adb shell run-as "$APP_ID" cat "files/npu_engine_initialize_last_stage.txt" >"$OUT_DIR/run/stage_file.txt" 2>"$OUT_DIR/run/stage_file.pull.err" || true
   adb logcat -d -t 500 >"$OUT_DIR/run/logcat_tail.txt" 2>/dev/null || true
+  cp "$OUT_DIR/run/result.txt" "$OUT_DIR/result_file.txt" 2>/dev/null || true
+  cp "$OUT_DIR/run/native_diag.txt" "$OUT_DIR/native_diag.txt" 2>/dev/null || true
+  cp "$OUT_DIR/run/stage_file.txt" "$OUT_DIR/stage_file.txt" 2>/dev/null || true
+  cp "$OUT_DIR/run/logcat_tail.txt" "$OUT_DIR/logcat_tail.txt" 2>/dev/null || true
   if [ -x scripts/collect_npu_tombstone_diagnostics_v2.sh ]; then
-    bash scripts/collect_npu_tombstone_diagnostics_v2.sh customnpu-lower-level-single-token >"$OUT_DIR/run/diagnostics_collect.log" 2>&1 || true
+    bash scripts/collect_npu_tombstone_diagnostics_v2.sh \
+      --app-id "$APP_ID" \
+      --label customnpu-lower-level-single-token \
+      --run-id "$run_id" \
+      --output-dir "$OUT_DIR/diagnostics" \
+      >"$OUT_DIR/run/diagnostics_collect.log" 2>&1 || true
   fi
 }
 
@@ -204,6 +218,10 @@ execute_once() {
   mkdir -p "$OUT_DIR/run"
 
   stage_build_artifact
+  if ! strings "$CUSTOM_BUILD_ARTIFACT/built_libs/liblitertlm_jni.so" 2>/dev/null | grep -q "$LOWER_LEVEL_MARKER"; then
+    printf 'missing lower-level marker in artifact liblitertlm_jni.so\n' >"$OUT_DIR/run/artifact_marker_check.txt"
+    return 1
+  fi
   ./gradlew :app:assembleCustomBuildExperimentDebug >"$OUT_DIR/run/assemble.log" 2>&1
   adb install -r app/build/outputs/apk/customBuildExperiment/debug/app-customBuildExperiment-debug.apk >"$OUT_DIR/run/install.log" 2>&1
   adb logcat -c >/dev/null 2>&1 || true

@@ -9,24 +9,27 @@ review, LiteRT source trace, CLI proof planning, model schema probe, the
 dry-run, the dlopen trace build, the dispatch symbol-resolution experiments,
 the QNN provider trace dry-run, the QNN runtime alignment dry-run, the HTP
 backend trace dry-run, the QNN backend log callback dry-run, and the
-libcdsprpc manifest visibility dry-run, and the 2026-05-23 initialize stability
-probe and single-token smoke implementation-prep pass.
+libcdsprpc manifest visibility dry-run, the 2026-05-23 initialize stability
+probe, the single-token smoke implementation-prep pass, and the first
+lower-level single-token smoke execution.
 
 ## Current Boundary
 
 - flavor: `customBuildExperimentDebug`
 - applicationId: `io.github.ninbyo02.lami.customnpu`
-- runId: `1779459136669`
-- diagnostic artifact: `artifacts/qairt244_initialize_stability/20260523_043345/`
+- runId: `1779481978822`
+- diagnostic artifact: `artifacts/qairt244_lower_level_single_token_smoke/20260523_053258/`
 - final stage: `done`
 - returned: yes
-- signal: none
+- signal: no new crash evidence; diagnostics collector selected a stale older
+  tombstone from a previous initialize run
 - immediate native boundary:
-  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success`
+  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success -> lower-level RunDecode maxOutputTokens=1 success`
 
-The dry-run stopped at the allowed initialize boundary. It did not create a
-`Conversation` or `Session`, did not call `generateResponse`, did not wire
-normal UI inference to NPU, and did not run a single-token smoke test.
+The explicit smoke created only the lower-level native LiteRT-LM session needed
+for decode. It did not create `Conversation`, did not create a Kotlin/public
+`Session` object, did not call high-level `generateResponse`, and did not wire
+normal UI inference to NPU.
 
 ## libcdsprpc Manifest Visibility Update
 
@@ -113,6 +116,32 @@ Result:
 Next boundary: run exactly one lower-level smoke with `--run` if approved. This
 will create a lower-level session by design, but still avoids `Conversation`,
 `generateResponse`, and normal UI routing.
+
+## Lower-Level Single-Token Smoke Execution Update
+
+Artifact:
+
+```text
+artifacts/qairt244_lower_level_single_token_smoke/20260523_053258/
+```
+
+Result:
+
+- `classification=executed`
+- `result=success`
+- prompt: `Hi`
+- hard cap: `max_output_tokens=1`
+- elapsed: `1115 ms`
+- output: `!`
+- native diag reached `before RunDecode SetMaxOutputTokens(1)`
+- native diag ended with `success output_candidates=1 output_bytes=1`
+- timeout: `false`
+- process remained alive after the smoke
+- no normal UI route was used
+
+The diagnostics collector selected an older initialize tombstone whose run id
+does not match the smoke run. That tombstone is treated as stale; the smoke
+result file and native diag are the primary evidence for this run.
 
 ## Android Logcat Dry-Run Update
 
@@ -498,8 +527,8 @@ It is Android app namespace resolution of the FastRPC host dependency
 | H1. SM8750/V79 dispatch capability mismatch | With `libcdsprpc.so` declared as an optional native library, `LiteRtDispatchCheckRuntimeCompatibility` is reached and returns `kLiteRtStatusOk(0)`. | low for initialize | Keep as a later inference/runtime risk, not an initialize blocker. |
 | H2. Android app nativeLibraryDir QNN/HTP search problem | `SetLitertDispatchLibDir` propagates the app native library directory correctly. Dispatch, QNN System, QNN HTP, and V79 stub now load far enough for initialize to return. | low | Keep current nativeLibraryDir propagation unchanged. |
 | H3. ADSP_LIBRARY_PATH / FastRPC / skel-stub path problem | Previous backend log showed `libQnnHtpV79Stub.so` failed because `libcdsprpc.so` was not visible in namespace `clns-9`. Adding `uses-native-library libcdsprpc.so` fixes that boundary and `QnnDevice_create` returns `0`. | resolved for initialize | Keep the manifest declaration isolated to `customBuildExperimentDebug`; do not stage vendor `libcdsprpc.so` unless a future device lacks manifest visibility. |
-| H4. Qualcomm SM8750 model/runtime schema mismatch | Model carries QAIRT 2.44, SM8750, V79, and dispatch/QNN partition markers. Initialize and compatibility now succeed. | low for initialize | Defer any deeper schema questions until a separately approved non-generating runtime/capability probe needs it. |
-| H5. Dispatch runtime registration / capability check failure | `DT_NEEDED [libLiteRt.so]`, QAIRT 2.44 QNN runtime alignment, QNN backend init, and compatibility check now all succeed in the explicit dry-run. | resolved for initialize | Preserve the diagnostic baseline and do not wire NPU into normal UI yet. |
+| H4. Qualcomm SM8750 model/runtime schema mismatch | Model carries QAIRT 2.44, SM8750, V79, and dispatch/QNN partition markers. Initialize, compatibility, and one lower-level one-token decode now succeed. | low for current smoke | Defer deeper schema questions until a broader isolated prompt/decode verifier needs it. |
+| H5. Dispatch runtime registration / capability check failure | `DT_NEEDED [libLiteRt.so]`, QAIRT 2.44 QNN runtime alignment, QNN backend init, compatibility check, and lower-level one-token decode now all succeed in the explicit path. | resolved for current smoke | Preserve the diagnostic baseline and do not wire NPU into normal UI yet. |
 | H6. CLI litert_lm_main works while Android app fails | Android app initialize-only path now succeeds. Existing upstream CLI is still unsafe because it creates a `Conversation` and sends a prompt. | lower priority | CLI proof remains useful only if implemented as initialize-only and non-generating. |
 
 ## Ranked Next Moves
@@ -510,8 +539,8 @@ It is Android app namespace resolution of the FastRPC host dependency
    do not connect NPU to normal UI inference yet.
 3. Keep QAIRT 2.44 QNN runtime alignment and the dispatch `DT_NEEDED
    [libLiteRt.so]` fix as required baseline conditions.
-4. If the next phase needs app execution, make it another explicit,
-   initialize-only or capability-only probe before any generation test.
+4. If the next phase needs app execution, keep it isolated from the normal UI
+   and improve live tombstone filtering before expanding beyond one token.
 5. Keep the fallback device `libcdsprpc.so` staging script for investigation
    only; do not commit or redistribute pulled vendor libraries.
 
