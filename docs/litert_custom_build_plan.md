@@ -598,3 +598,41 @@ Next recommended phase, only after explicit approval:
 3. run detection and `Backend.NPU` instantiate first
 4. run explicit opt-in `Engine.initialize` dry-run only
 5. do not run `Conversation`, `Session`, or `generateResponse`
+
+## QAIRT 2.44 Symbol Resolution Experiment Result
+
+Result date: 2026-05-22
+
+Docs:
+
+- `docs/litert_qairt244_symbol_resolution_experiment.md`
+
+Artifacts:
+
+```text
+artifacts/qairt244_rtld_global_build/20260522_210118/
+artifacts/qairt244_rtld_global_dry_run/20260522_210355/
+artifacts/qairt244_dispatch_needed_build/20260522_210902/
+artifacts/qairt244_dispatch_needed_dry_run/20260522_211136/
+```
+
+Result:
+
+- `libLiteRtDispatch_Qualcomm.so` from the custom QAIRT 2.44 build originally
+  lacked `DT_NEEDED [libLiteRt.so]`.
+- preloading sibling `libLiteRt.so` with `RTLD_NOW | RTLD_GLOBAL` did not allow
+  Android linker resolution of dispatch's undefined `LiteRtGetEnvironmentOptions`.
+- adding `dynamic_deps = ["//litert/c:litert_runtime_c_api_so"]` to the
+  Qualcomm dispatch shared library experiment produced `DT_NEEDED [libLiteRt.so]`.
+- with that NEEDED edge, dispatch `dlopen`, `LiteRtDispatchGetApi`, and dispatch
+  API version acceptance succeeded.
+- the next failure is inside dispatch vendor initialization after
+  `libQnnSystem.so` and `QnnSystemInterface_getProviders` load successfully.
+
+Next recommended phase:
+
+1. keep the NEEDED build as the next diagnostic baseline
+2. add focused file logging around Qualcomm QNN System provider enumeration and
+   backend selection
+3. continue to avoid `Conversation`, `Session`, `generateResponse`, normal UI
+   NPU wiring, and single-token smoke tests

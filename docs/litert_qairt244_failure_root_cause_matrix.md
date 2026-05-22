@@ -5,8 +5,9 @@ Date: 2026-05-21
 Scope: coordinator synthesis of the tombstone/runtime mapping, Android QNN path
 review, LiteRT source trace, CLI proof planning, model schema probe, the
 2026-05-21 Android-native logcat dry-run, the JNI sentinel dry-run, the
-2026-05-22 app-owned JNI logcat smoke, and the 2026-05-22 native file logger
-dry-run, plus the 2026-05-22 dlopen trace build.
+2026-05-22 app-owned JNI logcat smoke, the 2026-05-22 native file logger
+dry-run, the dlopen trace build, and the dispatch symbol-resolution
+experiments.
 
 ## Current Failure Boundary
 
@@ -183,8 +184,60 @@ Attempt artifact:
 artifacts/qairt244_dlopen_trace_dry_run/20260522_083818_no_device/
 ```
 
-The one allowed connected-device dry-run for this dlopen trace build remains
-unused.
+That original no-device run was superseded by the connected-device symbol
+resolution experiments below.
+
+## Symbol Resolution Experiment Update
+
+Docs:
+
+```text
+docs/litert_qairt244_symbol_resolution_experiment.md
+```
+
+RTLD_GLOBAL build and dry-run:
+
+```text
+artifacts/qairt244_rtld_global_build/20260522_210118/
+artifacts/qairt244_rtld_global_dry_run/20260522_210355/
+artifacts/npu_diagnostics/20260522_210355_customnpu/
+```
+
+Result:
+
+- sibling `libLiteRt.so` preload with `RTLD_NOW | RTLD_GLOBAL` succeeded
+- dispatch `dlopen` with `RTLD_NOW | RTLD_GLOBAL` still failed with unresolved
+  `LiteRtGetEnvironmentOptions`
+- `LiteRtDispatchGetApi`, compatibility check, and QNN loading were not reached
+
+DT_NEEDED build and dry-run:
+
+```text
+artifacts/qairt244_dispatch_needed_build/20260522_210902/
+artifacts/qairt244_dispatch_needed_dry_run/20260522_211136/
+artifacts/npu_diagnostics/20260522_211136_customnpu/
+```
+
+Result:
+
+- dispatch was rebuilt with `DT_NEEDED [libLiteRt.so]`
+- dispatch `dlopen` succeeded
+- `dlsym("LiteRtDispatchGetApi")` succeeded
+- `LiteRtDispatchGetApi` returned API version `0.1.0`
+- dispatch runtime version was accepted
+- dispatch vendor initialization began
+- `libQnnSystem.so` `dlopen` succeeded
+- `dlsym("QnnSystemInterface_getProviders")` succeeded
+- dispatch vendor initialization returned
+  `kLiteRtStatusErrorDynamicLoading(502)`
+- `LiteRtDispatchCheckRuntimeCompatibility` was still not reached
+- `libQnnHtp.so`, `libQnnHtpPrepare.so`, and V79 stub/skel were still not mapped
+
+Interpretation: the initial unresolved LiteRT symbol boundary is fixed by a real
+`DT_NEEDED` edge from Qualcomm dispatch to `libLiteRt.so`. `RTLD_GLOBAL`
+preload alone is not sufficient in this Android app path. The new immediate
+boundary is Qualcomm dispatch/QNN System provider initialization, before HTP
+backend and compatibility checking.
 
 ## Cross-Agent Findings
 
@@ -201,23 +254,25 @@ unused.
 | Hypothesis | Evidence | Confidence | Next action |
 | --- | --- | --- | --- |
 | H1. SM8750/V79 dispatch capability mismatch | File logger shows `LiteRtDispatchInitialize` fails with dynamic-loading status before `LiteRtDispatchCheckRuntimeCompatibility`; model still declares `soc_type=SM8750` and `min_arch=79`. | low-medium | Defer capability/schema hypotheses until lower-level dispatch loading succeeds or reaches compatibility checking. |
-| H2. Android app nativeLibraryDir QNN/HTP search problem | qairt244 APK metadata contains dispatch/QNN/HTP/V79 libs, but tombstone does not map them before abort. File logger proves `SetLitertDispatchLibDir` is called, then `LiteRtDispatchInitialize` returns `kLiteRtStatusErrorDynamicLoading(502)`. The dlopen trace build is ready but not yet run because no adb device was connected. | high | Run the prepared dlopen trace build once with the Nubia device connected to capture candidate path and `dlerror`. |
-| H3. ADSP_LIBRARY_PATH / FastRPC / skel-stub path problem | V79 stub depends on `libcdsprpc.so`; source mutates `ADSP_LIBRARY_PATH`; tombstones contain `vendor_adsprpc_prop`. File logger does not reach visible QNN/HTP/skel init, so this remains possible but not the immediate observed boundary. | medium-low | Do not change ADSP/skel paths until dispatch dynamic loader logs show QNN/HTP loading is reached. |
+| H2. Android app nativeLibraryDir QNN/HTP search problem | `SetLitertDispatchLibDir` propagates the app native library directory correctly. With `DT_NEEDED [libLiteRt.so]`, dispatch `dlopen` succeeds and `libQnnSystem.so` loads from the app namespace. HTP/Prepare/V79 libs are still not mapped before failure. | medium-high | Add focused file logging around Qualcomm dispatch vendor initialization after `QnnSystemInterface_getProviders`, including provider enumeration and backend library selection. |
+| H3. ADSP_LIBRARY_PATH / FastRPC / skel-stub path problem | V79 stub depends on `libcdsprpc.so`; source mutates `ADSP_LIBRARY_PATH`; tombstones contain `vendor_adsprpc_prop`. The NEEDED experiment reaches QNN System, but does not yet map HTP/Prepare/V79 libs, so ADSP/FastRPC remains a later-stage possibility rather than the current proven boundary. | medium-low | Defer ADSP/skel path changes until QNN provider/backend selection logs prove HTP load is attempted. |
 | H4. Qualcomm SM8750 model/runtime schema mismatch | Model directly carries QAIRT 2.44, SM8750, V79, and dispatch/QNN partition markers. That argues against a generic or wrong-SoC model, but context binary compatibility can still fail later. | low-medium | Defer deeper schema decode until dispatch API initialization logs show runtime accepted and invocation context creation is reached. |
-| H5. Dispatch runtime registration / capability check failure | File logger confirms `InitializeDispatchApi` is reached and `LiteRtDispatchInitialize` fails with `kLiteRtStatusErrorDynamicLoading(502)`. `has_dispatch_runtime_` remains false and delegate kernel creation aborts. Lower-level dlopen trace instrumentation is now built. | high | Execute the prepared connected-device dry-run and classify the `dlopen` / `dlsym` result. |
+| H5. Dispatch runtime registration / capability check failure | `RTLD_GLOBAL` preload did not solve unresolved `LiteRtGetEnvironmentOptions`; adding `DT_NEEDED [libLiteRt.so]` did. Dispatch API lookup then succeeds and QNN System provider symbol lookup succeeds, but dispatch vendor initialization still returns `kLiteRtStatusErrorDynamicLoading(502)`. | high | Treat missing `DT_NEEDED [libLiteRt.so]` as confirmed first failure. Next instrument Qualcomm dispatch/QNN manager immediately after QNN System provider lookup. |
 | H6. CLI litert_lm_main works while Android app fails | Not tested. Existing upstream CLI is unsafe because it creates a `Conversation` and sends a prompt. CLI could later isolate linker namespace and explicit `LD_LIBRARY_PATH`/`ADSP_LIBRARY_PATH`. | unknown | First create an initialize-only CLI target that cannot generate, then build/query Android arm64 with explicit SDK/NDK setup. |
 
 ## Ranked Next Moves
 
-1. Connect the Nubia device and execute the prepared dlopen trace dry-run once
-   to capture the exact candidate path and `dlerror`.
-2. Fix the diagnostics collector's local APK metadata path so customnpu native
-   metadata is not mixed with `standardDebug` APK extraction.
-3. Design an isolated ADSP/QNN path dry-run only after native logcat capture is
-   proven and later dispatch logs reach QNN path setup.
-   Do not do this speculatively before the missing initialization log is known.
-4. Implement the non-generating C++ initialize-only CLI target only after the
-   Android dry-run logs are inspected.
+1. Add focused app-private file logging inside Qualcomm dispatch/QNN manager
+   after `QnnSystemInterface_getProviders`, including provider count/API choice,
+   QNN System init status, backend candidate names, and the next returned
+   status.
+2. Keep the `DT_NEEDED [libLiteRt.so]` experiment as the active custom build
+   baseline for further diagnosis, because it fixes the first dynamic linker
+   failure.
+3. Design an isolated ADSP/QNN path dry-run only after logs prove HTP/skel load
+   is attempted.
+4. Implement the non-generating C++ initialize-only CLI target after Android app
+   QNN provider initialization is understood.
    Do not execute upstream `litert_lm_main`.
 5. Prepare an upstream issue update with the exact QAIRT 2.44 rebuild result and
    the model's `v2.44.0.260225143659` marker.

@@ -537,3 +537,37 @@ These include:
 No NPU generation was attempted.
 
 The isolated dry-run only reaches `Engine.initialize()`. It does not create `Conversation` or `Session`, does not call `generateResponse`, does not evaluate a prompt, and does not wire `Backend.NPU` into normal app inference. Normal `standardDebug` GPU inference remains separate and working.
+
+## 2026-05-22 Symbol Resolution Update
+
+Further file-based diagnostics narrowed the first failure to Android dynamic
+linking of `libLiteRtDispatch_Qualcomm.so`.
+
+Observed with the plain custom QAIRT 2.44 build:
+
+```text
+dlopen failed: cannot locate symbol "LiteRtGetEnvironmentOptions"
+referenced by libLiteRtDispatch_Qualcomm.so
+```
+
+`libLiteRt.so` exports that symbol and the dispatch library references it as an
+undefined symbol. The custom dispatch library did not initially contain
+`DT_NEEDED [libLiteRt.so]`; the Gallery dispatch library does.
+
+Experiment results:
+
+- preloading `libLiteRt.so` with `RTLD_NOW | RTLD_GLOBAL` did not fix dispatch
+  `dlopen`
+- rebuilding Qualcomm dispatch with a real `DT_NEEDED [libLiteRt.so]` fixed the
+  unresolved `LiteRtGetEnvironmentOptions` failure
+- after that, dispatch `dlopen`, `LiteRtDispatchGetApi`, and API version
+  acceptance succeeded
+- the next failure occurred inside Qualcomm dispatch vendor initialization:
+  `libQnnSystem.so` loaded and `QnnSystemInterface_getProviders` resolved, then
+  vendor initialization returned `kLiteRtStatusErrorDynamicLoading(502)`
+- `LiteRtDispatchCheckRuntimeCompatibility` was still not reached
+- HTP/Prepare/V79 stub/skel libraries were not mapped before the abort
+
+This makes the missing `DT_NEEDED [libLiteRt.so]` edge a confirmed first
+failure in the custom build. The next unresolved boundary is QNN System provider
+initialization inside the Qualcomm dispatch runtime.
