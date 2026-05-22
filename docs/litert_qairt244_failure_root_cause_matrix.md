@@ -10,7 +10,7 @@ dry-run, the dlopen trace build, the dispatch symbol-resolution experiments,
 the QNN provider trace dry-run, the QNN runtime alignment dry-run, the HTP
 backend trace dry-run, the QNN backend log callback dry-run, and the
 libcdsprpc manifest visibility dry-run, and the 2026-05-23 initialize stability
-probe.
+probe and single-token smoke implementation-prep pass.
 
 ## Current Boundary
 
@@ -75,6 +75,21 @@ Result:
 The first script revision misread the app crash marker file. The file contained
 a normal `completed=true` update, not a crash. The script was corrected to flag
 crash only when `completed=false` has no later `completed=true`.
+
+## Single-Token Smoke Prep Update
+
+The single-token smoke was not executed. The inspected Kotlin/JNI app surface
+does not expose a hard `maxOutputTokens=1` decode cap:
+
+- `Session.runDecode()` calls JNI `nativeRunDecode(handle)` with no
+  `DecodeConfig`.
+- `Conversation` / `sendMessage*` / `generateContent*` can generate but are not
+  the safe first path because a one-token hard cap is not visible.
+- Lower-level C++ does expose `DecodeConfig.SetMaxOutputTokens(1)`.
+
+The prepared script `scripts/run_qairt244_single_token_smoke.sh` is therefore a
+blocking preflight and records `maxOutputTokens=1-not-guaranteed` instead of
+launching the app.
 
 ## Android Logcat Dry-Run Update
 

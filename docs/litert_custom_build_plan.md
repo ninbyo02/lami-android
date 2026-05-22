@@ -260,6 +260,16 @@ Updated next recommendation:
 - The next phase remains a separately approved single-token smoke design, not
   normal UI wiring.
 
+2026-05-23 single-token smoke prep:
+
+- `scripts/run_qairt244_single_token_smoke.sh` was added as a blocking preflight
+  script.
+- Current classification: `maxOutputTokens=1-not-guaranteed`.
+- The current Kotlin/JNI app surface does not expose a hard one-token decode
+  cap; future implementation should use a customBuildExperimentDebug-only
+  lower-level JNI or CLI path that calls `DecodeConfig.SetMaxOutputTokens(1)`.
+- No `Conversation`, `Session`, `generateResponse`, or token generation was run.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

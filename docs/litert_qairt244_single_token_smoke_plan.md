@@ -3,7 +3,9 @@
 Date: 2026-05-23
 
 This is a design-only document. The smoke test was not implemented or run in
-this phase.
+the initialize-stability phase. The follow-up implementation-prep phase added a
+blocking preflight script, but still did not run generation because a hard
+one-token cap is not yet available from the app-accessible Kotlin/JNI surface.
 
 ## Preconditions
 
@@ -67,3 +69,15 @@ Do not run if any of these are true:
 ```text
 artifacts/qairt244_single_token_smoke_plan/20260523_043907/
 ```
+
+## Implementation Prep Update
+
+```text
+docs/litert_qairt244_single_token_smoke_impl.md
+scripts/run_qairt244_single_token_smoke.sh
+```
+
+The script is currently a safety preflight. It records
+`classification=maxOutputTokens=1-not-guaranteed` and does not build, install,
+launch the app, create a `Conversation`, create a `Session`, call
+`generateResponse`, or generate tokens.

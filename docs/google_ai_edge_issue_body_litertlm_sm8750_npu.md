@@ -704,3 +704,9 @@ once and launched the explicit dry-run Activity twice. Both runs returned from
 `LiteRtDispatchCheckRuntimeCompatibility` remained `kLiteRtStatusOk(0)`. This is
 still only an initialization proof; no conversation/session/generation path has
 been exercised.
+
+The next single-token smoke was intentionally blocked during implementation
+prep because the current app-accessible Kotlin/JNI surface does not expose a
+hard `maxOutputTokens=1` decode cap. Lower-level C++ has
+`DecodeConfig.SetMaxOutputTokens(1)`, so the next safe step is an isolated
+customBuildExperimentDebug-only JNI/CLI entrypoint that calls that API directly.
