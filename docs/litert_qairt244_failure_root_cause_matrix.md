@@ -234,6 +234,36 @@ Status:
 - no high-level `generateResponse`
 - no additional generation run
 
+## Short Multi-Token Smoke Preparation
+
+Files:
+
+```text
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmokeActivity.kt
+scripts/run_qairt244_short_multitoken_smoke.sh
+docs/litert_qairt244_short_multitoken_smoke_plan.md
+docs/litert_qairt244_short_multitoken_smoke_result.md
+```
+
+Artifact:
+
+```text
+artifacts/qairt244_short_multitoken_smoke/20260523_071934/
+```
+
+Status:
+
+- `customBuildExperimentDebug` app-side wrapper present
+- prompt fixed to `Hi`
+- requested hard cap: `maxOutputTokens=3`
+- execution blocked until rebuilt native artifact proves
+  `DecodeConfig.SetMaxOutputTokens(3)`
+- no additional generation run
+- no normal UI route
+- no high-level `generateResponse`
+- no fresh crash/tombstone evidence from this preflight
+
 ## Android Logcat Dry-Run Update
 
 Artifact:

@@ -1,0 +1,10 @@
+app/src/customBuildExperimentDebug/AndroidManifest.xml:28:            android:name="io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity"
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmokeActivity.kt:7:class Qairt244ShortMultitokenSmokeActivity : Activity() {
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmokeActivity.kt:10:        val resultFile = applicationContext.filesDir.resolve("qairt244_short_multitoken_smoke_result.txt")
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmokeActivity.kt:15:            check(intent?.getBooleanExtra("runShortMultitokenSmoke", false) == true) {
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmokeActivity.kt:16:                "missing explicit runShortMultitokenSmoke=true"
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmokeActivity.kt:18:            Qairt244ShortMultitokenSmoke.run(
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmokeActivity.kt:24:            "qairt244_short_multitoken_smoke_v1 kotlin failure class=${throwable.javaClass.name} message=${throwable.message ?: "-"}"
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt:6:internal class Qairt244ShortMultitokenSmoke private constructor() {
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt:8:        private const val RESULT_FILE_NAME = "qairt244_short_multitoken_smoke_result.txt"
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt:39:            return "qairt244_short_multitoken_smoke_v1 runId=$runId result=success output=$output"

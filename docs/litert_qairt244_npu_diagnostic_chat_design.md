@@ -134,6 +134,26 @@ enabled, the implementation must:
 - preserve stale tombstone classification
 - never write to normal chat DB, TTS, Markdown, or message UI state
 
+## Short Multi-Token Follow-up
+
+The next proposed smoke is a separate short multi-token path with
+`maxOutputTokens=3`. Preparation artifact:
+
+```text
+artifacts/qairt244_short_multitoken_smoke/20260523_071934/
+```
+
+Current classification:
+
+```text
+preflight-blocked-native-artifact-required
+```
+
+The Diagnostic Chat remains read-only. It should not expose a runnable
+multi-token button until a rebuilt native artifact proves
+`DecodeConfig.SetMaxOutputTokens(3)` and a separate one-run artifact succeeds
+without fresh crash evidence.
+
 ## Non-Goals
 
 This work intentionally does not:

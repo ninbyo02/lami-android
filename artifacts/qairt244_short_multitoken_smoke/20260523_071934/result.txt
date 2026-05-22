@@ -1,0 +1,3 @@
+classification=preflight-blocked-native-artifact-required
+executed=false
+reason=A custom LiteRT-LM native rebuild with qairt244_short_multitoken_smoke_v1 and DecodeConfig.SetMaxOutputTokens(3) is required before one allowed run.

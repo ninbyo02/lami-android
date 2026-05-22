@@ -390,6 +390,21 @@ Updated next recommendation:
   `RunDecode` was executed by this verification.
 - Normal `ChatScreen` and `selectedPath=npu` routes remain disconnected.
 
+2026-05-23 short multi-token smoke preparation:
+
+- Added `customBuildExperimentDebug` app-side skeleton for
+  `qairt244_short_multitoken_smoke_v1`.
+- Added preflight runner:
+  `scripts/run_qairt244_short_multitoken_smoke.sh`
+- Preflight artifact:
+  `artifacts/qairt244_short_multitoken_smoke/20260523_071934/`
+- Result: `preflight-blocked-native-artifact-required`.
+- The app-side wrapper exists, but execution is blocked until a rebuilt
+  LiteRT-LM JNI artifact proves `DecodeConfig.SetMaxOutputTokens(3)` and
+  includes the short multi-token marker.
+- No generation, `Engine.initialize`, `RunDecode`, high-level
+  `generateResponse`, or normal UI route was executed by this preflight.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

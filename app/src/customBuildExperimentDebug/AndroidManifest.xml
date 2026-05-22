@@ -24,5 +24,12 @@
             android:name="io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity"
             android:exported="true"
             android:theme="@style/Theme.Ollama" />
+        <activity
+            android:name="io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 </manifest>
