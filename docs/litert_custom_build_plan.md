@@ -275,12 +275,15 @@ Updated next recommendation:
 - `scripts/run_qairt244_lower_level_single_token_smoke.sh` checks the exact
   lower-level requirement.
 - Artifact:
-  `artifacts/qairt244_lower_level_single_token_smoke/20260523_045952/`
-- Classification: `lower-level-entrypoint-missing`.
-- LiteRT-LM C++ has the required `DecodeConfig.SetMaxOutputTokens(1)` primitive,
-  but no runnable `customBuildExperimentDebug` JNI/CLI entrypoint is wired yet.
-- No build, install, app launch, `Conversation`, `Session`, `generateResponse`,
-  or token generation was run.
+  `artifacts/qairt244_lower_level_single_token_smoke/20260523_052224/`
+- Classification: `entrypoint-implemented-not-executed`.
+- LiteRT-LM C++ has the required `DecodeConfig.SetMaxOutputTokens(1)` primitive.
+- A custom `liblitertlm_jni.so` entrypoint and `customBuildExperimentDebug`
+  wrapper are wired for explicit `runLowerLevelSingleTokenSmoke=true` only.
+- Build artifact:
+  `artifacts/qairt244_single_token_entrypoint_build/20260523_052106/`
+- No install, app launch, `Conversation`, `generateResponse`, or token
+  generation was run.
 
 Previous status update, 2026-05-22 HTP backend trace:
 

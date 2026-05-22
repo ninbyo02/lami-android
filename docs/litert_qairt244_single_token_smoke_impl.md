@@ -72,20 +72,36 @@ This stricter runner checks the lower-level requirement directly. Latest
 artifact:
 
 ```text
-artifacts/qairt244_lower_level_single_token_smoke/20260523_045952/
+artifacts/qairt244_lower_level_single_token_smoke/20260523_052224/
 ```
 
 Result:
 
 ```text
-classification=lower-level-entrypoint-missing
+classification=entrypoint-implemented-not-executed
 executed=false
 ```
 
-LiteRT-LM C++ exposes the needed primitive, but `customBuildExperimentDebug`
-does not yet have a runnable JNI/CLI entrypoint that statically calls
-`SetMaxOutputTokens(1)`. The runner therefore stopped before build/install/app
-launch and did not create `Conversation` or `Session`.
+LiteRT-LM C++ exposes the needed primitive and the new isolated native
+entrypoint statically calls `SetMaxOutputTokens(1)`. The runner stopped because
+`--run` was not requested, which is the intended implementation-prep boundary.
+
+Build artifact:
+
+```text
+artifacts/qairt244_single_token_entrypoint_build/20260523_052106/
+```
+
+Entrypoint:
+
+- native:
+  `Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244LowerLevelSingleTokenSmoke_nativeRun`
+- wrapper:
+  `Qairt244LowerLevelSingleTokenSmoke.run(...)`
+- Activity extra: `runLowerLevelSingleTokenSmoke=true`
+- prompt: `Hi`
+- hard cap: `DecodeConfig.SetMaxOutputTokens(1)`
+- normal UI routing: none
 
 ## Required Future Implementation
 

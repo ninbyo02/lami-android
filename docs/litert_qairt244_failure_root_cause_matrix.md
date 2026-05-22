@@ -96,21 +96,23 @@ launching the app.
 Artifact:
 
 ```text
-artifacts/qairt244_lower_level_single_token_smoke/20260523_045952/
+artifacts/qairt244_lower_level_single_token_smoke/20260523_052224/
 ```
 
 Result:
 
-- `classification=lower-level-entrypoint-missing`
+- `classification=entrypoint-implemented-not-executed`
 - LiteRT-LM C++ has `DecodeConfig.SetMaxOutputTokens(1)` capability.
-- No current `customBuildExperimentDebug` runnable JNI/CLI path statically calls
-  `SetMaxOutputTokens(1)`.
-- The preflight did not build, install, launch the app, create `Conversation`,
-  create `Session`, call `generateResponse`, or generate tokens.
+- A new isolated `customBuildExperimentDebug` wrapper and native JNI symbol now
+  statically call `SetMaxOutputTokens(1)`.
+- Build artifact:
+  `artifacts/qairt244_single_token_entrypoint_build/20260523_052106/`
+- The preflight did not install, launch the app, create `Conversation`, call
+  `generateResponse`, or generate tokens.
 
-Next boundary: add an isolated lower-level entrypoint inside the custom
-LiteRT-LM stack, then rerun the preflight before the single allowed generation
-attempt.
+Next boundary: run exactly one lower-level smoke with `--run` if approved. This
+will create a lower-level session by design, but still avoids `Conversation`,
+`generateResponse`, and normal UI routing.
 
 ## Android Logcat Dry-Run Update
 

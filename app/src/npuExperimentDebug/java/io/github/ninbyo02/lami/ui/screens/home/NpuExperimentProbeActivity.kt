@@ -16,6 +16,15 @@ class NpuExperimentProbeActivity : Activity() {
             finish()
             return
         }
+        if (intent?.getBooleanExtra("runLowerLevelSingleTokenSmoke", false) == true) {
+            NpuExperimentProbeLogger.runLowerLevelSingleTokenSmokeOnly(
+                context = applicationContext,
+                modelPath = intent?.getStringExtra("model_path").orEmpty(),
+                runId = intent?.getStringExtra("run_id").orEmpty(),
+            )
+            finish()
+            return
+        }
         NpuExperimentProbeLogger.logSnapshot(
             context = applicationContext,
             runEngineInitializeDryRun = intent?.getBooleanExtra("run_engine_initialize_dry_run", false) == true,
@@ -29,6 +38,7 @@ class NpuExperimentProbeActivity : Activity() {
 
 internal object NpuExperimentProbeLogger {
     private const val APP_JNI_SMOKE_FILE_NAME = "qairt244_app_jni_smoke.txt"
+    private const val SINGLE_TOKEN_SMOKE_FILE_NAME = "qairt244_single_token_smoke_result.txt"
 
     fun runAppJniSmokeOnly(
         context: android.content.Context,
@@ -53,6 +63,32 @@ internal object NpuExperimentProbeLogger {
         }
         Log.e("QAIRT244_SMOKE", result)
         outputFile.writeText(result + "\n")
+    }
+
+    fun runLowerLevelSingleTokenSmokeOnly(
+        context: android.content.Context,
+        modelPath: String,
+        runId: String,
+    ) {
+        val outputFile = context.filesDir.resolve(SINGLE_TOKEN_SMOKE_FILE_NAME)
+        val result = runCatching {
+            check(BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
+                "lower-level single-token smoke is customBuildExperimentDebug-only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            val smokeClass = Class.forName(
+                "io.github.ninbyo02.lami.ui.screens.home.Qairt244LowerLevelSingleTokenSmoke",
+            )
+            val runMethod = smokeClass.getMethod(
+                "run",
+                android.content.Context::class.java,
+                String::class.java,
+                String::class.java,
+            )
+            runMethod.invoke(null, context.applicationContext, modelPath, runId) as String
+        }.getOrElse { throwable ->
+            "qairt244_lower_level_single_token_smoke_v1 kotlin failure class=${throwable.javaClass.name} message=${throwable.message ?: "-"}"
+        }
+        outputFile.appendText("kotlin_result=$result\n")
     }
 
     fun logSnapshot(
