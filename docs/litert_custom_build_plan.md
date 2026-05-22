@@ -361,6 +361,19 @@ Updated next recommendation:
 - Still no high-level `generateResponse`, no `Conversation`, and no normal UI
   NPU connection.
 
+2026-05-23 NPU Diagnostic Chat preparation:
+
+- Added a `customBuildExperimentDebug`-only `NpuDiagnosticChatActivity`.
+- The screen is a read-only skeleton for the latest isolated NPU smoke result
+  and native diagnostics.
+- The prompt field is disabled and fixed to `Hi`.
+- The run button is disabled; no generation is launched by the screen.
+- The screen has no normal navigation entry and does not touch `ChatScreen`.
+- Safety plan:
+  `docs/litert_qairt244_ui_integration_safety_plan.md`
+- Design:
+  `docs/litert_qairt244_npu_diagnostic_chat_design.md`
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

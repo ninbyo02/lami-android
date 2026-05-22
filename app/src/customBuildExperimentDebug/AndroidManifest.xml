@@ -20,5 +20,9 @@
             android:finishOnTaskLaunch="true"
             android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity
+            android:name="io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Ollama" />
     </application>
 </manifest>

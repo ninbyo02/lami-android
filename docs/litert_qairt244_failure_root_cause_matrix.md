@@ -211,6 +211,29 @@ Result:
 - tombstone classification: `stale-tombstone-ignored`
 - no fresh crash evidence
 
+## NPU Diagnostic Chat Preparation
+
+Files:
+
+```text
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt
+docs/litert_qairt244_npu_diagnostic_chat_design.md
+docs/litert_qairt244_ui_integration_safety_plan.md
+```
+
+Status:
+
+- `customBuildExperimentDebug` only
+- read-only UI skeleton
+- fixed prompt display: `Hi`
+- fixed cap display: `maxOutputTokens=1`
+- run button disabled
+- reads only app-private result/native diag files
+- no `ChatScreen` inference path changes
+- no `selectedPath=npu` normal route
+- no high-level `generateResponse`
+- no additional generation run
+
 ## Android Logcat Dry-Run Update
 
 Artifact:
