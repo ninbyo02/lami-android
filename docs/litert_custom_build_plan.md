@@ -247,6 +247,19 @@ Updated next recommendation:
 4. Next, design a separate initialize-only or CLI proof plan for capability and
    runtime stability before any generation test.
 
+2026-05-23 initialize stability update:
+
+- `scripts/run_qairt244_initialize_stability_probe.sh` was added for
+  customBuildExperimentDebug-only repeated initialize/close checks.
+- Artifact:
+  `artifacts/qairt244_initialize_stability/20260523_043345/`
+- Results: `Engine.initialize` returned successfully `2/2`; `Engine.close`
+  returned successfully `2/2`; the APK was installed once and the Activity was
+  launched twice.
+- No `Conversation`, `Session`, `generateResponse`, or NPU inference was run.
+- The next phase remains a separately approved single-token smoke design, not
+  normal UI wiring.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

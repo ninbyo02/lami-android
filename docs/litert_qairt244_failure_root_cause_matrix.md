@@ -9,14 +9,15 @@ review, LiteRT source trace, CLI proof planning, model schema probe, the
 dry-run, the dlopen trace build, the dispatch symbol-resolution experiments,
 the QNN provider trace dry-run, the QNN runtime alignment dry-run, the HTP
 backend trace dry-run, the QNN backend log callback dry-run, and the
-libcdsprpc manifest visibility dry-run.
+libcdsprpc manifest visibility dry-run, and the 2026-05-23 initialize stability
+probe.
 
 ## Current Boundary
 
 - flavor: `customBuildExperimentDebug`
 - applicationId: `io.github.ninbyo02.lami.customnpu`
 - runId: `1779459136669`
-- diagnostic artifact: `artifacts/qairt244_libcdsprpc_manifest_experiment/20260522_231302/`
+- diagnostic artifact: `artifacts/qairt244_initialize_stability/20260523_043345/`
 - final stage: `done`
 - returned: yes
 - signal: none
@@ -51,6 +52,29 @@ Result:
 Classification: the previous `QNN_DEVICE_ERROR_INVALID_CONFIG` / `14001`
 boundary was caused by app namespace visibility of the FastRPC host dependency
 `libcdsprpc.so`, not by SM8750/V79 model metadata or QNN System API mismatch.
+
+## Initialize Stability Update
+
+Artifact:
+
+```text
+artifacts/qairt244_initialize_stability/20260523_043345/
+```
+
+Result:
+
+- one install, two Activity launches
+- `Engine.initialize` returned successfully in both runs
+- `Engine.close` returned successfully in both runs
+- run 1 elapsed: `1764 ms`
+- run 2 elapsed: `1527 ms`
+- `LiteRtDispatchCheckRuntimeCompatibility` remained `kLiteRtStatusOk(0)`
+- no `Conversation`, `Session`, `generateResponse`, token generation, or normal
+  UI NPU route was used
+
+The first script revision misread the app crash marker file. The file contained
+a normal `completed=true` update, not a crash. The script was corrected to flag
+crash only when `completed=false` has no later `completed=true`.
 
 ## Android Logcat Dry-Run Update
 

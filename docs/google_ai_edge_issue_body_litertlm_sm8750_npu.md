@@ -697,3 +697,10 @@ Engine.initialize returned
 
 No `Conversation`, `Session`, `generateResponse`, normal UI NPU wiring, or token
 generation test has been run.
+
+A follow-up initialize-only stability probe installed `customBuildExperimentDebug`
+once and launched the explicit dry-run Activity twice. Both runs returned from
+`Engine.initialize`, both called `Engine.close` successfully, and
+`LiteRtDispatchCheckRuntimeCompatibility` remained `kLiteRtStatusOk(0)`. This is
+still only an initialization proof; no conversation/session/generation path has
+been exercised.
