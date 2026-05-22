@@ -135,12 +135,40 @@ artifacts/qairt244_lower_level_single_token_smoke/20260523_055024/stale_tombston
 Classification: lower-level one-token NPU smoke succeeded twice consecutively;
 no fresh crash evidence; no normal UI NPU wiring.
 
-## Next Step
+## Token Timing Verifier Follow-up
 
-Do not connect this to the normal UI yet. A similarly isolated verifier that
-records token accounting/backend timing has been implemented and rebuilt, but
-its one allowed execution is pending a connected Nubia device:
+A similarly isolated verifier that records token accounting/backend timing was
+implemented, rebuilt, and executed exactly once after the Nubia device was
+available:
 
 ```text
 artifacts/qairt244_token_timing_verifier_build/20260523_060634/
+artifacts/qairt244_token_timing_verifier/20260523_062321/
 ```
+
+Verifier result:
+
+```text
+result=success
+prompt=Hi
+max_output_tokens=1
+elapsed_ms=1053
+output=!
+prompt_bytes=2
+prompt_token_count=unavailable
+output_bytes=1
+output_token_count=unavailable
+engine_create_elapsed_ms=905
+session_create_elapsed_ms=0
+prefill_elapsed_ms=13
+decode_elapsed_ms=22
+cleanup_elapsed_ms=111
+npu_backend=NPU
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+```
+
+Token counts remain explicitly unavailable because this lower-level entrypoint
+does not expose tokenizer counts and the decode response returns text rather
+than a token-count field. No token count was inferred from bytes or output text.
+
+Do not connect this to the normal UI yet.

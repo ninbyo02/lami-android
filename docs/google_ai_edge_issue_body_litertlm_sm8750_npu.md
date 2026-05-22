@@ -119,6 +119,28 @@ Update after preparing lower-level dlopen diagnostics:
 - the next run should determine whether this is an Android linker namespace,
   wrong candidate path, missing transitive dependency, or dlsym/export issue
 
+Update after completing the customBuildExperimentDebug diagnostic path:
+
+- the initial blockers were isolated and fixed in the debug-only experiment:
+  missing `DT_NEEDED [libLiteRt.so]` on the Qualcomm dispatch library, QNN
+  runtime generation mismatch, and app namespace visibility for
+  `libcdsprpc.so`
+- `customBuildExperimentDebug` now declares optional
+  `<uses-native-library android:name="libcdsprpc.so" android:required="false" />`
+  without packaging or redistributing the vendor library
+- `Engine.initialize` returns successfully in the isolated custom path
+- isolated lower-level NPU single-token smoke succeeded twice with prompt `Hi`,
+  `max_output_tokens=1`, output `!`, and no normal UI wiring
+- token timing verifier artifact:
+  `artifacts/qairt244_token_timing_verifier/20260523_062321/`
+- verifier result: `success`, `elapsed_ms=1053`, `prefill_elapsed_ms=13`,
+  `decode_elapsed_ms=22`, `cleanup_elapsed_ms=111`
+- native diagnostics include QNN HTP V79 FastRPC evidence, including
+  `QnnDevice_create status 0x0`, V79 stub connection, FastRPC transport, and
+  graph DSP arch `79`
+- no high-level `generateResponse`, `Conversation`, or normal UI NPU route has
+  been used
+
 What I need from maintainers:
 
 - the supported way to obtain or build a Qualcomm dispatch runtime matching LiteRT-LM Android,

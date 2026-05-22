@@ -340,6 +340,27 @@ Updated next recommendation:
 - Next run remains exactly one isolated verifier run with `--run --verifier`;
   still no normal UI NPU connection.
 
+2026-05-23 token timing verifier execution:
+
+- `scripts/run_qairt244_lower_level_single_token_smoke.sh` was run exactly once
+  with `--run --verifier` after the Nubia `NX733J` device was visible in
+  `adb devices`.
+- Execution artifact:
+  `artifacts/qairt244_token_timing_verifier/20260523_062321/`
+- Result: `success`.
+- Prompt: `Hi`.
+- Hard cap: `max_output_tokens=1`.
+- Output: `!`.
+- Total elapsed: `1053 ms`.
+- Timings: `engine_create=905 ms`, `session_create=0 ms`,
+  `prefill=13 ms`, `decode=22 ms`, `cleanup=111 ms`.
+- Token counts are explicitly `unavailable`; the verifier records the source
+  strings and does not infer counts from bytes or text.
+- Native diagnostics show QNN HTP V79 FastRPC execution evidence.
+- Tombstone classification: `stale-tombstone-ignored`; no fresh crash evidence.
+- Still no high-level `generateResponse`, no `Conversation`, and no normal UI
+  NPU connection.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

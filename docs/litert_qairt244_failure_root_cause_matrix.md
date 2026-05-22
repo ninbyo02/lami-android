@@ -11,21 +11,21 @@ the QNN provider trace dry-run, the QNN runtime alignment dry-run, the HTP
 backend trace dry-run, the QNN backend log callback dry-run, and the
 libcdsprpc manifest visibility dry-run, the 2026-05-23 initialize stability
 probe, the single-token smoke implementation-prep pass, two lower-level
-single-token smoke executions, and token timing verifier implementation
-preflight.
+single-token smoke executions, token timing verifier implementation preflight,
+and the 2026-05-23 connected-device token timing verifier run.
 
 ## Current Boundary
 
 - flavor: `customBuildExperimentDebug`
 - applicationId: `io.github.ninbyo02.lami.customnpu`
-- runId: `1779483024756`
-- diagnostic artifact: `artifacts/qairt244_lower_level_single_token_smoke/20260523_055024/`
+- runId: `1779485001728`
+- diagnostic artifact: `artifacts/qairt244_token_timing_verifier/20260523_062321/`
 - final stage: `done`
 - returned: yes
 - signal: no fresh crash evidence; diagnostics collector selected a stale older
   tombstone that does not contain the current smoke run id
 - immediate native boundary:
-  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success -> lower-level RunDecode maxOutputTokens=1 success`
+  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success -> lower-level RunDecode maxOutputTokens=1 success -> token/timing verifier success`
 
 The explicit smoke created only the lower-level native LiteRT-LM session needed
 for decode. It did not create `Conversation`, did not create a Kotlin/public
@@ -187,12 +187,29 @@ artifacts/qairt244_token_timing_verifier/20260523_061525/
 Result:
 
 - verifier marker: `qairt244_token_timing_verifier_v1`
-- native result writer now records prompt/output bytes and per-stage elapsed
-  fields
-- token counts are recorded as `unavailable` with explicit source strings
+- execution artifact:
+  `artifacts/qairt244_token_timing_verifier/20260523_062321/`
+- `result=success`
+- prompt: `Hi`
+- hard cap: `max_output_tokens=1`
+- output: `!`
+- total elapsed: `1053 ms`
+- engine create elapsed: `905 ms`
+- session create elapsed: `0 ms`
+- prefill elapsed: `13 ms`
+- decode elapsed: `22 ms`
+- cleanup elapsed: `111 ms`
+- prompt bytes: `2`
+- output bytes: `1`
+- token counts are recorded as `unavailable` with explicit source strings:
+  the lower-level entrypoint does not expose tokenizer counts and `RunDecode`
+  returns text, not a decoded token count
 - NPU backend evidence remains `QNN_HTP_V79_FastRPC_native_diag`
-- one allowed verifier generation run was not attempted because no Nubia device
-  was visible in `adb devices`
+- native diag includes `QnnDevice_create status 0x0`, V79 stub connection,
+  FastRPC transport success, `QnnContext_createFromBinary`, and graph DSP arch
+  `79`
+- tombstone classification: `stale-tombstone-ignored`
+- no fresh crash evidence
 
 ## Android Logcat Dry-Run Update
 

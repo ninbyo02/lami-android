@@ -1,0 +1,3 @@
+[npu-tombstone-collect] appId=io.github.ninbyo02.lami.customnpu label=customnpu-lower-level-single-token out=/home/sato/project/lami-android/artifacts/qairt244_token_timing_verifier/20260523_062321/diagnostics
+[npu-tombstone-collect] wrote /home/sato/project/lami-android/artifacts/qairt244_token_timing_verifier/20260523_062321/diagnostics
+/home/sato/project/lami-android/artifacts/qairt244_token_timing_verifier/20260523_062321/diagnostics
