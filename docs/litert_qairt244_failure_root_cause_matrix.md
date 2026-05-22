@@ -91,6 +91,27 @@ The prepared script `scripts/run_qairt244_single_token_smoke.sh` is therefore a
 blocking preflight and records `maxOutputTokens=1-not-guaranteed` instead of
 launching the app.
 
+## Lower-Level Single-Token Smoke Preflight Update
+
+Artifact:
+
+```text
+artifacts/qairt244_lower_level_single_token_smoke/20260523_045952/
+```
+
+Result:
+
+- `classification=lower-level-entrypoint-missing`
+- LiteRT-LM C++ has `DecodeConfig.SetMaxOutputTokens(1)` capability.
+- No current `customBuildExperimentDebug` runnable JNI/CLI path statically calls
+  `SetMaxOutputTokens(1)`.
+- The preflight did not build, install, launch the app, create `Conversation`,
+  create `Session`, call `generateResponse`, or generate tokens.
+
+Next boundary: add an isolated lower-level entrypoint inside the custom
+LiteRT-LM stack, then rerun the preflight before the single allowed generation
+attempt.
+
 ## Android Logcat Dry-Run Update
 
 Artifact:

@@ -270,6 +270,18 @@ Updated next recommendation:
   lower-level JNI or CLI path that calls `DecodeConfig.SetMaxOutputTokens(1)`.
 - No `Conversation`, `Session`, `generateResponse`, or token generation was run.
 
+2026-05-23 lower-level single-token smoke preflight:
+
+- `scripts/run_qairt244_lower_level_single_token_smoke.sh` checks the exact
+  lower-level requirement.
+- Artifact:
+  `artifacts/qairt244_lower_level_single_token_smoke/20260523_045952/`
+- Classification: `lower-level-entrypoint-missing`.
+- LiteRT-LM C++ has the required `DecodeConfig.SetMaxOutputTokens(1)` primitive,
+  but no runnable `customBuildExperimentDebug` JNI/CLI entrypoint is wired yet.
+- No build, install, app launch, `Conversation`, `Session`, `generateResponse`,
+  or token generation was run.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

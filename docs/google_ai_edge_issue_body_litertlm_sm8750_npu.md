@@ -710,3 +710,15 @@ prep because the current app-accessible Kotlin/JNI surface does not expose a
 hard `maxOutputTokens=1` decode cap. Lower-level C++ has
 `DecodeConfig.SetMaxOutputTokens(1)`, so the next safe step is an isolated
 customBuildExperimentDebug-only JNI/CLI entrypoint that calls that API directly.
+
+A follow-up lower-level preflight confirmed that boundary:
+
+```text
+artifacts/qairt244_lower_level_single_token_smoke/20260523_045952/
+classification=lower-level-entrypoint-missing
+executed=false
+```
+
+It found the C++ capability but no runnable app-side JNI/CLI entrypoint with a
+static `SetMaxOutputTokens(1)` call. No app launch, `Conversation`, `Session`,
+`generateResponse`, or token generation occurred.

@@ -62,6 +62,31 @@ It records:
 - executed: `false`
 - safety checks in `safety_checks.tsv`
 
+## Lower-Level Preflight
+
+```text
+scripts/run_qairt244_lower_level_single_token_smoke.sh
+```
+
+This stricter runner checks the lower-level requirement directly. Latest
+artifact:
+
+```text
+artifacts/qairt244_lower_level_single_token_smoke/20260523_045952/
+```
+
+Result:
+
+```text
+classification=lower-level-entrypoint-missing
+executed=false
+```
+
+LiteRT-LM C++ exposes the needed primitive, but `customBuildExperimentDebug`
+does not yet have a runnable JNI/CLI entrypoint that statically calls
+`SetMaxOutputTokens(1)`. The runner therefore stopped before build/install/app
+launch and did not create `Conversation` or `Session`.
+
 ## Required Future Implementation
 
 The next implementation should add an isolated `customBuildExperimentDebug`-only
