@@ -528,3 +528,25 @@ This pass implemented only the blocked adapter schema and tests. It did not
 connect normal `ChatScreen`, set normal `selectedPath=npu`, run NPU generation,
 call `Engine.initialize`, call `RunDecode`, call high-level
 `generateResponse`, or run streaming.
+
+## Disabled ChatScreen Branch Verification
+
+The disabled branch was verified with the toggle left false:
+
+```text
+artifacts/qairt244_chat_screen_blocked_branch_disabled_verify/20260523_215825/
+```
+
+Observed state:
+
+- `customBuildExperimentDebug` installed and launched normally.
+- `ChatScreen` showed the normal prompt composer and Ready state.
+- The runtime marker scan found no `adapter_not_connected`, `DEV NPU blocked`,
+  `Engine.initialize`, `RunDecode`, `selectedPath=npu`, QNN, HTP, or FastRPC
+  marker in the captured launch artifacts.
+- The source grep confirms the main `ChatScreen` still has only the false
+  toggle, marker comment, and reflection string; no direct NPU package import
+  was added.
+
+This keeps the adapter boundary present in code while preserving existing
+behavior until a later explicit DEV toggle phase.

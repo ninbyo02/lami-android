@@ -199,6 +199,29 @@ Summary freshness indicator:
 - Engine.initialize: not run
 - RunDecode: not run
 
+ChatScreen disabled blocked branch verification:
+
+- artifact:
+  `artifacts/qairt244_chat_screen_blocked_branch_disabled_verify/20260523_215825/`
+- build/install:
+  `customBuildExperimentDebug`
+- launch:
+  normal `MainActivity` / `ChatScreen`
+- toggle:
+  `DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED=false`
+- blocked branch:
+  not fired
+- blocked Snackbar / `adapter_not_connected`:
+  not observed on normal launch
+- normal `selectedPath=npu`:
+  not applied
+- NPU generation:
+  not run
+- `Engine.initialize`:
+  not run
+- `RunDecode`:
+  not run
+
 Short prompt DEV guard spec:
 
 - spec:

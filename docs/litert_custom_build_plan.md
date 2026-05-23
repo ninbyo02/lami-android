@@ -1569,3 +1569,24 @@ ChatScreen DEV-only NPU blocked branch:
 - NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
   normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
   paths remain untouched
+
+ChatScreen disabled-state verification:
+
+- artifact:
+  `artifacts/qairt244_chat_screen_blocked_branch_disabled_verify/20260523_215825/`
+- build/install:
+  `customBuildExperimentDebug`
+- launched Activity:
+  `io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.MainActivity`
+- observed screen:
+  normal ChatScreen prompt composer and Ready state
+- toggle:
+  `DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED=false`
+- blocked branch:
+  not fired
+- `adapter_not_connected`:
+  not shown in normal launch artifacts
+- selected path:
+  no `selectedPath=npu` evidence from this path
+- NPU execution:
+  not run; no `Engine.initialize` or `RunDecode`

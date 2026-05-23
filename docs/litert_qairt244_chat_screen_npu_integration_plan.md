@@ -289,3 +289,27 @@ Before code implementation starts:
 This planning pass did not run NPU generation, `Engine.initialize`,
 `RunDecode`, high-level `generateResponse`, normal `ChatScreen` NPU routing, or
 normal `selectedPath=npu`.
+
+## Disabled Branch Launch Verification
+
+Artifact:
+
+```text
+artifacts/qairt244_chat_screen_blocked_branch_disabled_verify/20260523_215825/
+```
+
+Result:
+
+- build/install: `customBuildExperimentDebug` succeeded
+- launch target: `io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.MainActivity`
+- normal `ChatScreen` launch: succeeded
+- current toggle: `DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED=false`
+- blocked branch fired: no
+- `adapter_not_connected` visible on normal launch: no
+- `selectedPath=npu` applied by this path: no evidence
+- NPU generation: not run
+- `Engine.initialize`: not run
+- `RunDecode`: not run
+
+No prompt was sent in this verification. The result only confirms the disabled
+branch does not alter normal ChatScreen launch state.
