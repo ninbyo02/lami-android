@@ -250,8 +250,10 @@ Initial code now exists only in the `customBuildExperimentDebug` source set:
 - `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapter.kt`
 - `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/BlockedDevOnlyNpuRouteAdapter.kt`
 - `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGate.kt`
+- `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlanner.kt`
 - `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapterTest.kt`
 - `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGateTest.kt`
+- `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlannerTest.kt`
 
 The current implementation is deliberately blocked:
 
@@ -293,6 +295,20 @@ The fixed failure reasons are:
 - `NATIVE_PROMPT_UNSUPPORTED`
 - `RUN_ALREADY_IN_PROGRESS`
 - `INVALID_MAX_OUTPUT_TOKENS`
+
+The route planner combines the gate and adapter without any ChatScreen call
+site:
+
+- gate blocked: returns `success=false` and
+  `reasonCode=gate_blocked:<REASON>`
+- gate blocked: adapter is not called
+- gate OK: adapter `runOnce(...)` is called
+- current adapter: `BlockedDevOnlyNpuRouteAdapter`, so gate OK still returns
+  `reasonCode=adapter_not_connected`
+
+Planner unit tests use a recording fake adapter to prove gate failures do not
+call the adapter and the planner itself does not call Engine.initialize or
+RunDecode.
 
 ## Remaining Steps To Normal UI
 

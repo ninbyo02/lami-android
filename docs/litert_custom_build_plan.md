@@ -1420,3 +1420,18 @@ DEV-only NPU route gate:
 - NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
   normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
   paths remain untouched
+
+DEV-only NPU route planner:
+
+- implementation:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlanner.kt`
+- tests:
+  `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlannerTest.kt`
+- gate NG: returns `gate_blocked:<REASON>` and does not call adapter
+- gate OK: calls adapter
+- current default adapter is blocked, so gate OK returns
+  `adapter_not_connected`
+- ChatScreen call site: none
+- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+  paths remain untouched

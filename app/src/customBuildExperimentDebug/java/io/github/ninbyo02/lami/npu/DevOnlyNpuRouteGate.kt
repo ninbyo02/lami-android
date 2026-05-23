@@ -30,8 +30,12 @@ data class DevOnlyNpuRouteGateResult(
     val reason: DevOnlyNpuRouteGateReason,
 )
 
-object DevOnlyNpuRouteGate {
-    fun evaluate(input: DevOnlyNpuRouteGateInput): DevOnlyNpuRouteGateResult {
+interface DevOnlyNpuRouteGateEvaluator {
+    fun evaluate(input: DevOnlyNpuRouteGateInput): DevOnlyNpuRouteGateResult
+}
+
+object DevOnlyNpuRouteGate : DevOnlyNpuRouteGateEvaluator {
+    override fun evaluate(input: DevOnlyNpuRouteGateInput): DevOnlyNpuRouteGateResult {
         val reason = when {
             !input.customBuildExperiment -> DevOnlyNpuRouteGateReason.NOT_CUSTOM_BUILD_EXPERIMENT
             !input.allowEditablePromptPreview -> DevOnlyNpuRouteGateReason.EDITABLE_PREVIEW_DISABLED

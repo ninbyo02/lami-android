@@ -468,3 +468,17 @@ integration. It requires:
 
 The gate exposes typed failure reasons and has unit coverage for every
 rejection path. It is not connected to `ChatScreen` and runs no NPU work.
+
+## DEV-Only NPU Route Planner - 2026-05-23
+
+`DevOnlyNpuRoutePlanner` now composes the gate and adapter without any
+`ChatScreen` call site:
+
+- gate NG returns `reasonCode=gate_blocked:<REASON>`
+- gate NG does not call the adapter
+- gate OK calls the adapter
+- the default adapter remains `BlockedDevOnlyNpuRouteAdapter`
+- gate OK therefore still returns `reasonCode=adapter_not_connected`
+
+Unit tests verify that blocked gates do not call the adapter and that the
+planner does not call Engine.initialize or RunDecode by itself.

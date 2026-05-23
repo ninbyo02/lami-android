@@ -170,8 +170,12 @@ Current implementation status:
   `reasonCode=adapter_not_connected`.
 - `DevOnlyNpuRouteGate` fixes the DEV hidden toggle and prompt/native support
   gate reasons in pure Kotlin.
+- `DevOnlyNpuRoutePlanner` combines the gate and blocked adapter while still
+  having no `ChatScreen` call site.
 - Unit tests cover the blocked result and result schema flags.
 - Gate tests cover every current failure reason.
+- Planner tests cover gate-blocked no-adapter-call behavior and gate-OK
+  blocked-adapter behavior.
 - No `ChatScreen` call site exists yet.
 - No NPU work is run by the adapter stub.
 
