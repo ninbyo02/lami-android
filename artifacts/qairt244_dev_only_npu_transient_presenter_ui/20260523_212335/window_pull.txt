@@ -1,0 +1,1 @@
+/sdcard/qairt244_dev_only_npu_transient_presenter_ui.xml: 1 file pulled, 0 skipped. 0.4 MB/s (6964 bytes in 0.019s)

@@ -23,6 +23,7 @@ import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteAdapter
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteDisplayModelMapper
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteGateInput
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRoutePlanner
+import io.github.ninbyo02.lami.npu.DevOnlyNpuTransientPresenter
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
@@ -578,6 +579,7 @@ class NpuDiagnosticChatActivity : Activity() {
             )
         }
         val displayModel = DevOnlyNpuRouteDisplayModelMapper.from(result)
+        val transientState = DevOnlyNpuTransientPresenter.present(displayModel)
         return listOf(
             "preview=dev_only_route_planner_blocked",
             "display_title=${displayModel.title}",
@@ -588,6 +590,17 @@ class NpuDiagnosticChatActivity : Activity() {
             "display_elapsedText=${displayModel.elapsedText}",
             "display_backendEvidence=${displayModel.backendEvidenceText}",
             "display_artifact=${displayModel.artifactText}",
+            "transient_visible=${transientState.visible}",
+            "transient_title=${transientState.title}",
+            "transient_status=${transientState.status}",
+            "transient_message=${transientState.message}",
+            "transient_reasonCode=${transientState.reasonCode}",
+            "transient_outputPreview=${transientState.outputPreview ?: "none"}",
+            "transient_debugDetails=${transientState.debugDetails.replace("\n", " | ")}",
+            "shouldPersistToDb=${transientState.shouldPersistToDb}",
+            "shouldSpeakTts=${transientState.shouldSpeakTts}",
+            "shouldRenderMarkdown=${transientState.shouldRenderMarkdown}",
+            "shouldStream=${transientState.shouldStream}",
             "gate_customBuildExperiment=${gateInput.customBuildExperiment}",
             "gate_allowEditablePromptPreview=${gateInput.allowEditablePromptPreview}",
             "gate_allowGuardedNpuRun=${gateInput.allowGuardedNpuRun}",

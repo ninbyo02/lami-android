@@ -217,6 +217,19 @@ Those flags remain false even for `SUCCESS`. This prevents a future initial
 ChatScreen experiment from accidentally entering message persistence, TTS,
 Markdown, or streaming before the explicit integration phase.
 
+Diagnostic Chat now applies the presenter to the planner preview. The current
+blocked adapter preview renders:
+
+- `transient_status=BLOCKED`
+- `transient_reasonCode=adapter_not_connected`
+- `shouldPersistToDb=false`
+- `shouldSpeakTts=false`
+- `shouldRenderMarkdown=false`
+- `shouldStream=false`
+
+This confirms the transient state shape before any normal ChatScreen branch is
+introduced.
+
 ## Implementation Checklist
 
 Before code implementation starts:

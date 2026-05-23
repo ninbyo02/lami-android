@@ -565,3 +565,21 @@ always keeps integration side effects disabled:
 This applies to `SUCCESS`, `BLOCKED`, `TIMEOUT`, `CRASH`, and `ERROR`. The
 presenter does not call the planner or adapter, does not run native NPU work,
 and has no normal ChatScreen call site.
+
+## Transient Presenter Diagnostic Preview - 2026-05-23
+
+The Diagnostic Chat `Planner Preview (blocked)` section now renders the
+presenter output in addition to the display model. The current blocked adapter
+state is visible as:
+
+- `transient_visible=true`
+- `transient_status=BLOCKED`
+- `transient_message=NPU route adapter is not connected`
+- `transient_reasonCode=adapter_not_connected`
+- `shouldPersistToDb=false`
+- `shouldSpeakTts=false`
+- `shouldRenderMarkdown=false`
+- `shouldStream=false`
+
+This is still a read-only Diagnostic Chat preview and does not introduce a
+normal ChatScreen route.

@@ -436,6 +436,33 @@ The presenter is still not connected to normal `ChatScreen` and does not call
 the planner, adapter, NPU generation, `Engine.initialize`, `RunDecode`,
 high-level `generateResponse`, or normal `selectedPath=npu`.
 
+## Transient Presenter Applied To Diagnostic Preview
+
+`NpuDiagnosticChatActivity` now renders the planner preview through the full
+transient path:
+
+```text
+DevOnlyNpuRouteResult
+-> DevOnlyNpuRouteDisplayModel
+-> DevOnlyNpuTransientUiState
+```
+
+The blocked preview shows:
+
+- `transient_visible=true`
+- `transient_status=BLOCKED`
+- `transient_reasonCode=adapter_not_connected`
+- `transient_message=NPU route adapter is not connected`
+- `transient_outputPreview=none`
+- `shouldPersistToDb=false`
+- `shouldSpeakTts=false`
+- `shouldRenderMarkdown=false`
+- `shouldStream=false`
+
+This is still Diagnostic Chat display only. It does not connect normal
+`ChatScreen`, apply normal `selectedPath=npu`, run NPU generation, call
+`Engine.initialize`, call `RunDecode`, or invoke high-level `generateResponse`.
+
 ## Remaining Steps To Normal UI
 
 1. Implement adapter as `customBuildExperimentDebug` only, with no ChatScreen

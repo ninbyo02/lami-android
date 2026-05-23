@@ -1515,3 +1515,24 @@ DEV-only transient presenter:
 - NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
   normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
   paths remain untouched
+
+DEV-only transient presenter UI application:
+
+- implementation:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt`
+- section:
+  `Planner Preview (blocked)`
+- flow:
+  `DevOnlyNpuRouteResult -> DevOnlyNpuRouteDisplayModel ->
+  DevOnlyNpuTransientUiState`
+- current transient status:
+  `BLOCKED`
+- current reason:
+  `adapter_not_connected`
+- side-effect flags shown:
+  `shouldPersistToDb=false`, `shouldSpeakTts=false`,
+  `shouldRenderMarkdown=false`, `shouldStream=false`
+- normal ChatScreen call site: none
+- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+  paths remain untouched
