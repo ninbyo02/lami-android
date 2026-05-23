@@ -1537,11 +1537,15 @@ DEV-only transient presenter UI application:
   normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
   paths remain untouched
 
-ChatScreen DEV-only NPU insertion marker:
+ChatScreen DEV-only NPU blocked branch:
 
 - implementation:
-  comment-only marker in
+  disabled guarded branch in
   `app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt`
+- custom target:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt`
+- tests:
+  `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranchTest.kt`
 - location:
   line 2349, inside `InferenceTarget.LOCAL`
 - placement:
@@ -1549,8 +1553,17 @@ ChatScreen DEV-only NPU insertion marker:
 - before:
   input clearing, chat/user message DB insert, TTS cleanup, Markdown,
   streaming, stop-button ownership, and persistent `selectedPath=npu`
-- executable code:
-  none
+- guard:
+  `BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+  DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED`
+- current toggle:
+  `DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED=false`
+- false toggle behavior:
+  existing LOCAL path continues unchanged
+- true path:
+  reflection-only call into `DevOnlyNpuChatScreenBlockedBranch`
+- true path result:
+  `adapter_not_connected`, transient Snackbar summary only
 - imports:
   no NPU package import in main `ChatScreen`
 - NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,

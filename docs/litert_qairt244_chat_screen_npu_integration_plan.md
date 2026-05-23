@@ -230,9 +230,9 @@ blocked adapter preview renders:
 This confirms the transient state shape before any normal ChatScreen branch is
 introduced.
 
-## Code Marker
+## Disabled Blocked Branch
 
-The future insertion point is now marked in code without executable behavior:
+The insertion point now has a disabled blocked branch:
 
 ```text
 app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:2349
@@ -258,9 +258,15 @@ Reason:
 
 Current status:
 
-- comment marker only
-- no planner or presenter call from `ChatScreen`
-- no `io.github.ninbyo02.lami.npu` import in main `ChatScreen`
+- disabled by `DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED=false`
+- false toggle preserves the existing LOCAL path exactly
+- no direct `io.github.ninbyo02.lami.npu` import in main `ChatScreen`
+- branch target is reached only through reflection and only if the guard is
+  later enabled
+- true path uses `BlockedDevOnlyNpuRouteAdapter`, so the result remains
+  `adapter_not_connected`
+- true path returns only a transient Snackbar summary and returns before DB,
+  TTS, Markdown, streaming, stop-button ownership, or selected-path state
 - no NPU generation, `Engine.initialize`, or `RunDecode`
 
 ## Implementation Checklist

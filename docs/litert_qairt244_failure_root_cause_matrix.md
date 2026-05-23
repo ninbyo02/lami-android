@@ -1168,6 +1168,25 @@ Root-cause interpretation is unchanged: QAIRT 2.44 NPU is proven for bounded
 isolated Diagnostic Chat smoke runs, while normal chat integration remains a
 separate future gate.
 
+ChatScreen DEV-only blocked branch:
+
+- location:
+  `app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:2349`
+- current toggle:
+  `DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED=false`
+- false toggle behavior:
+  existing LOCAL path unchanged
+- true path:
+  `customBuildExperimentDebug` reflection target only
+- true path result:
+  `adapter_not_connected`
+- side effects:
+  DB/TTS/Markdown/streaming/stop-button/selectedPath all disabled
+- real NPU adapter:
+  not connected
+- Engine.initialize / RunDecode / high-level generateResponse:
+  not executed by this branch
+
 ## No-Run Confirmation
 
 This coordinator pass did not run:

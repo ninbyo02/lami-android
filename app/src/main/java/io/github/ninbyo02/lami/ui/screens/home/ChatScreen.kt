@@ -240,6 +240,7 @@ private const val DEV_UI_DEBUG_MODE = false
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED = true
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
 private const val DEV_USE_HELD_PATH_ONLY = false
+private const val DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED = false
 private const val LOCAL_UI_APPEND_DEBOUNCE_MS = 0L
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
 
@@ -2355,6 +2356,21 @@ fun Home(
                                                     // or any persistent selectedPath=npu state. Do not call the
                                                     // planner/presenter here until the blocked-adapter phase is
                                                     // explicitly implemented.
+                                                    if (
+                                                        BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+                                                        DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED
+                                                    ) {
+                                                        val blockedSummary =
+                                                            runDevOnlyNpuChatScreenBlockedBranchViaReflection(requestPrompt)
+                                                        coroutineScope.launch {
+                                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                                            snackbarHostState.showSnackbar(
+                                                                message = blockedSummary,
+                                                                duration = SnackbarDuration.Short,
+                                                            )
+                                                        }
+                                                        return@IconButton
+                                                    }
                                                     debugLocalUiTrace(
                                                         label = "LOCAL_UI_SEND_TAPPED",
                                                         extra = "selectedInferenceTarget=$selectedInferenceTarget effectiveChatId=$effectiveChatId userPromptLength=${userPrompt.length}",
@@ -7679,6 +7695,18 @@ private fun isStopCancellationLikeMessage(message: String?): Boolean {
         "stream was reset" in text
 }
 
+private fun runDevOnlyNpuChatScreenBlockedBranchViaReflection(prompt: String): String {
+    return runCatching {
+        val branchClass = Class.forName(
+            "io.github.ninbyo02.lami.npu.DevOnlyNpuChatScreenBlockedBranch",
+        )
+        branchClass
+            .getMethod("run", String::class.java)
+            .invoke(null, prompt) as String
+    }.getOrElse { throwable ->
+        "DEV NPU blocked branch unavailable: ${throwable.javaClass.simpleName}"
+    }
+}
 
 private fun List<String>.toAttachmentUriStringsJson(): String =
     JSONArray().apply { forEach { uri -> put(uri) } }.toString()

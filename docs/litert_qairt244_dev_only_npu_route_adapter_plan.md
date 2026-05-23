@@ -344,10 +344,10 @@ Refresh re-runs only this blocked planner preview. Because the adapter remains
 `BlockedDevOnlyNpuRouteAdapter`, Refresh does not execute NPU generation,
 `Engine.initialize`, `RunDecode`, or any normal inference path.
 
-## ChatScreen Insertion Marker
+## ChatScreen Blocked Branch
 
-The normal ChatScreen code now contains a comment-only marker for the future
-DEV-only branch:
+The normal ChatScreen code now contains the first disabled DEV-only blocked
+branch at:
 
 ```text
 app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:2349
@@ -364,10 +364,35 @@ The marker is inside the `InferenceTarget.LOCAL` branch immediately after
 - stop-button ownership
 - any persistent `selectedPath=npu` state
 
-The marker does not call `DevOnlyNpuRoutePlanner`,
-`DevOnlyNpuTransientPresenter`, or any NPU code. It is documentation in code
-only. The next executable phase must still start with the blocked adapter and
-must preserve all transient-only side-effect flags.
+The branch is guarded by:
+
+```text
+BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED
+```
+
+`DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED` is `false`, so current runtime
+behavior is unchanged. If explicitly enabled in a later phase, the branch calls
+only the `customBuildExperimentDebug` reflection target:
+
+```text
+io.github.ninbyo02.lami.npu.DevOnlyNpuChatScreenBlockedBranch
+```
+
+That target uses `BlockedDevOnlyNpuRouteAdapter`, maps the result through the
+DisplayModel and transient presenter, and returns a Snackbar summary with:
+
+- `status=BLOCKED`
+- `reason=adapter_not_connected` for a valid prompt
+- `db=false`
+- `tts=false`
+- `markdown=false`
+- `stream=false`
+
+The branch still does not connect a real NPU adapter, apply normal
+`selectedPath=npu`, run NPU generation, call `Engine.initialize`, call
+`RunDecode`, call high-level `generateResponse`, write DB messages, speak TTS,
+render Markdown, or start streaming.
 
 ## Transient Result Display Model
 
