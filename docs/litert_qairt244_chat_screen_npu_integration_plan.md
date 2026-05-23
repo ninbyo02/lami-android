@@ -163,6 +163,15 @@ The first candidate call site is the `InferenceTarget.LOCAL` branch in
 The adapter must return before user message insert, assistant message insert,
 streaming placeholder updates, TTS, Markdown, and stop button ownership.
 
+Current implementation status:
+
+- `DevOnlyNpuRouteAdapter` schema exists in `customBuildExperimentDebug`.
+- `BlockedDevOnlyNpuRouteAdapter` always returns
+  `reasonCode=adapter_not_connected`.
+- Unit tests cover the blocked result and result schema flags.
+- No `ChatScreen` call site exists yet.
+- No NPU work is run by the adapter stub.
+
 ## Implementation Checklist
 
 Before code implementation starts:

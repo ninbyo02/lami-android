@@ -1392,3 +1392,18 @@ DEV-only NPU route adapter boundary:
 - explicitly detached from DB, TTS, Markdown, streaming, stop button,
   high-level `generateResponse`, and normal `selectedPath=npu`
 - no code was connected and no NPU generation was run
+
+DEV-only NPU route adapter stub:
+
+- implementation source:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/`
+- test source:
+  `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapterTest.kt`
+- current implementation: blocked/no-op
+- result: `success=false`, `reasonCode=adapter_not_connected`,
+  `artifactPath=null`, `backendEvidence=null`, `freshCrash=false`,
+  `timeout=false`
+- ChatScreen call site: none
+- NPU generation, Engine.initialize, RunDecode, high-level
+  `generateResponse`, normal `selectedPath=npu`, DB, TTS, Markdown,
+  streaming, and stop button paths remain untouched

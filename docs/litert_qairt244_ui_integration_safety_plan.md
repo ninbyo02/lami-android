@@ -432,3 +432,21 @@ streaming partials, stop button ownership, high-level `generateResponse`, and
 normal `selectedPath=npu`.
 
 This pass is design only and executed no NPU work.
+
+## DEV-Only NPU Route Adapter Stub - 2026-05-23
+
+The `customBuildExperimentDebug` source set now contains a blocked adapter
+schema:
+
+- `DevOnlyNpuRouteAdapter`
+- `DevOnlyNpuRouteResult`
+- `BlockedDevOnlyNpuRouteAdapter`
+
+The blocked implementation always returns `success=false` and
+`reasonCode=adapter_not_connected`. It has no `ChatScreen` call site and does
+not call NPU generation, `Engine.initialize`, `RunDecode`, high-level
+`generateResponse`, normal `selectedPath=npu`, DB, TTS, Markdown, streaming, or
+stop button code.
+
+Unit tests verify the default `maxOutputTokens=3`, nullable fields, timeout and
+fresh crash flags, and blocked result mapping.

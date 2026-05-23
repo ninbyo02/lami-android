@@ -243,6 +243,30 @@ Before writing code:
 - Verify `standard`, `npuExperiment`, `galleryStackExperiment`, and `release`
   remain unaffected.
 
+## Stub Implementation Status
+
+Initial code now exists only in the `customBuildExperimentDebug` source set:
+
+- `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapter.kt`
+- `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/BlockedDevOnlyNpuRouteAdapter.kt`
+- `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapterTest.kt`
+
+The current implementation is deliberately blocked:
+
+- `success=false`
+- `reasonCode=adapter_not_connected`
+- `output=null`
+- `elapsedMs=null`
+- `decodeElapsedMs=null`
+- `backendEvidence=null`
+- `artifactPath=null`
+- `freshCrash=false`
+- `timeout=false`
+
+The blocked adapter does not call NPU generation, `Engine.initialize`,
+`RunDecode`, high-level `generateResponse`, `selectedPath=npu`, DB, TTS,
+Markdown, streaming, or stop button code. It is not connected to `ChatScreen`.
+
 ## Remaining Steps To Normal UI
 
 1. Implement adapter as `customBuildExperimentDebug` only, with no ChatScreen
@@ -254,6 +278,7 @@ Before writing code:
 
 ## No-Run Confirmation
 
-This design pass did not implement the adapter, connect normal `ChatScreen`,
-set normal `selectedPath=npu`, run NPU generation, call `Engine.initialize`,
-call `RunDecode`, call high-level `generateResponse`, or run streaming.
+This pass implemented only the blocked adapter schema and tests. It did not
+connect normal `ChatScreen`, set normal `selectedPath=npu`, run NPU generation,
+call `Engine.initialize`, call `RunDecode`, call high-level
+`generateResponse`, or run streaming.
