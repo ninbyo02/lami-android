@@ -218,6 +218,14 @@ Short prompt DEV guard spec:
 - normal `ChatScreen`, normal `selectedPath=npu`, high-level
   `generateResponse`, and streaming remain forbidden
 - validator is not connected to Run button or native execution in this phase
+- preview-only UI displays the fixed `Hi` validation result with
+  `input_enabled=false`
+- route guard display includes `prompt_input_execution=disabled` and
+  `editable_prompt_phase=not_enabled`
+- default Diagnostic Chat launch leaves the guarded Run button disabled and
+  disconnected unless `allowGuardedNpuRun=true` is explicitly supplied
+- existing Diagnostic Chat UI runner scripts pass this explicit extra when they
+  intentionally run guarded smoke tests; read-only launches omit it
 
 ## Fallback Policy
 

@@ -107,6 +107,26 @@ Reason codes:
 The validator is not connected to an editable input field or Run button in this
 phase.
 
+## Preview-Only UI Status
+
+The Diagnostic Chat screen now shows a disabled prompt preview and validation
+result for the fixed `Hi` prompt:
+
+- section: `Short prompt input preview`
+- displayed value: `Hi`
+- `input_enabled=false`
+- `preview_only=true`
+- `isValid=true`
+- `reasonCode=ok`
+- `normalizedPrompt=Hi`
+- `run_button_connected=false`
+- `npu_generation=false`
+- guarded run button requires `allowGuardedNpuRun=true` intent extra before it
+  can be connected
+
+This is display-only. The editable prompt phase is still not enabled, and the
+guarded Run button remains disconnected on default Activity launch.
+
 ## Generation Limits
 
 Hard limits:

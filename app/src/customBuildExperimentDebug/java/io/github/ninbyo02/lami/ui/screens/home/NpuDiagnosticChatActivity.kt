@@ -36,6 +36,7 @@ class NpuDiagnosticChatActivity : Activity() {
         val nativeDiagFile = filesDir.resolve("qairt244_native_diag.txt")
         val latestRunnerSummaryFile = filesDir.resolve("qairt244_diagnostic_runner_summary.txt")
         val timeoutMs = 30_000L
+        val guardedRunAllowed = intent.getBooleanExtra("allowGuardedNpuRun", false)
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -80,6 +81,10 @@ class NpuDiagnosticChatActivity : Activity() {
                 )
             },
         )
+        content.addSection(
+            "Short prompt input preview",
+            readPromptPreviewSummary("Hi"),
+        )
 
         val statusText = TextView(this).apply {
             text = "status=idle"
@@ -89,10 +94,15 @@ class NpuDiagnosticChatActivity : Activity() {
         val confirmCheck = CheckBox(this).apply {
             text = "DEV confirm isolated 3-token NPU smoke"
             isChecked = false
+            isEnabled = guardedRunAllowed
             setPadding(0, 14, 0, 6)
         }
         val runButton = Button(this).apply {
-            text = "Run 3-token smoke"
+            text = if (guardedRunAllowed) {
+                "Run 3-token smoke"
+            } else {
+                "Run 3-token smoke disabled"
+            }
             isEnabled = false
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -142,22 +152,24 @@ class NpuDiagnosticChatActivity : Activity() {
             },
         )
         confirmCheck.setOnCheckedChangeListener { _, isChecked ->
-            runButton.isEnabled = isChecked && !running.get()
+            runButton.isEnabled = guardedRunAllowed && isChecked && !running.get()
         }
-        runButton.setOnClickListener {
-            if (!confirmCheck.isChecked || running.get()) return@setOnClickListener
-            startGuardedShortMultitokenSmoke(
-                modelPath = modelPath,
-                resultFile = resultFile,
-                nativeDiagFile = nativeDiagFile,
-                statusText = statusText,
-                resultSummary = resultSummary,
-                timingSummary = timingSummary,
-                nativeDiagSummary = nativeDiagSummary,
-                runButton = runButton,
-                confirmCheck = confirmCheck,
-                timeoutMs = timeoutMs,
-            )
+        if (guardedRunAllowed) {
+            runButton.setOnClickListener {
+                if (!confirmCheck.isChecked || running.get()) return@setOnClickListener
+                startGuardedShortMultitokenSmoke(
+                    modelPath = modelPath,
+                    resultFile = resultFile,
+                    nativeDiagFile = nativeDiagFile,
+                    statusText = statusText,
+                    resultSummary = resultSummary,
+                    timingSummary = timingSummary,
+                    nativeDiagSummary = nativeDiagSummary,
+                    runButton = runButton,
+                    confirmCheck = confirmCheck,
+                    timeoutMs = timeoutMs,
+                )
+            }
         }
         content.addSection(
             "Memory cleanup",
@@ -172,6 +184,7 @@ class NpuDiagnosticChatActivity : Activity() {
             listOf(
                 "customBuildExperimentDebug only",
                 "DEV confirmation required before run",
+                "guarded run requires allowGuardedNpuRun=true intent extra",
                 "running lock prevents double run",
                 "timeout=${timeoutMs / 1000}s",
                 "no selectedPath=npu normal route",
@@ -379,8 +392,28 @@ class NpuDiagnosticChatActivity : Activity() {
             "high-level generateResponse=false",
             "streaming=false",
             "refresh_runs_npu=false",
+            "prompt_input_execution=disabled",
+            "editable_prompt_phase=not_enabled",
+            "run_button_uses_fixed_prompt=Hi",
+            "guarded_run_intent_extra_required=true",
             "run_button_requires_dev_checkbox=true",
         )
+
+    private fun readPromptPreviewSummary(prompt: String): List<String> {
+        val result = NpuDiagnosticPromptValidator.validate(prompt)
+        return listOf(
+            "label=Diagnostic prompt preview",
+            "value=$prompt",
+            "input_enabled=false",
+            "preview_only=true",
+            "isValid=${result.isValid}",
+            "reasonCode=${result.reasonCode}",
+            "normalizedPrompt=${result.normalizedPrompt}",
+            "message=${result.message}",
+            "run_button_connected=false",
+            "npu_generation=false",
+        )
+    }
 
     private fun latestCommittedRunnerValues(): Map<String, String> =
         mapOf(

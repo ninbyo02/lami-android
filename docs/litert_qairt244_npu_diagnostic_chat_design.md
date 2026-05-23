@@ -472,6 +472,19 @@ Validator status:
 - not connected to the guarded Run button
 - does not run NPU generation
 
+Prompt preview status:
+
+- section: `Short prompt input preview`
+- value: `Hi`
+- input state: `enabled=false`
+- validation preview: `isValid=true`, `reasonCode=ok`,
+  `normalizedPrompt=Hi`
+- execution state: `run_button_connected=false`,
+  `prompt_input_execution=disabled`
+- default Activity launch keeps the guarded Run button disconnected
+- any future guarded run must pass an explicit `allowGuardedNpuRun=true`
+  intent extra and still must not read from the preview field
+
 ## Non-Goals
 
 This work intentionally does not:

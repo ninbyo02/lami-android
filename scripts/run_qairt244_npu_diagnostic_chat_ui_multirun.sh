@@ -360,7 +360,7 @@ run_one() {
   local waited run_id result_status classification
 
   clear_app_files
-  adb_cmd shell am start -W -n "$PACKAGE_ACTIVITY" >"$OUT_DIR/run${run_index}_activity_start.txt" 2>&1 || true
+  adb_cmd shell am start -W -n "$PACKAGE_ACTIVITY" --ez allowGuardedNpuRun true >"$OUT_DIR/run${run_index}_activity_start.txt" 2>&1 || true
   sleep 1
   if [ "$run_index" = "1" ]; then
     adb_cmd shell sh -c "input tap $CHECKBOX_X $CHECKBOX_Y; sleep 1; input tap $RUN_X $RUN_Y" >"$OUT_DIR/run${run_index}_tap_sequence.txt" 2>&1 || true
@@ -430,7 +430,7 @@ adb_cmd logcat -c >/dev/null 2>&1 || true
 collect_package_dump_extract
 clear_app_files
 
-adb_cmd shell am start -W -n "$PACKAGE_ACTIVITY" >"$OUT_DIR/activity_start.txt" 2>&1 || {
+adb_cmd shell am start -W -n "$PACKAGE_ACTIVITY" --ez allowGuardedNpuRun true >"$OUT_DIR/activity_start.txt" 2>&1 || {
   fail_summary "Activity launch failed."
   exit 1
 }

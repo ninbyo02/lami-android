@@ -1260,3 +1260,14 @@ Key requirements:
 
 The validator is intentionally not connected to the editable UI field or the
 guarded Run button in this phase.
+
+Prompt preview update:
+
+- `NpuDiagnosticChatActivity` displays `Short prompt input preview`
+- fixed preview value: `Hi`
+- validation result: `isValid=true`, `reasonCode=ok`,
+  `normalizedPrompt=Hi`
+- input state: `enabled=false`
+- Run button connection on default Activity launch: `false`
+- guarded run requires explicit `allowGuardedNpuRun=true` intent extra
+- NPU generation: not run

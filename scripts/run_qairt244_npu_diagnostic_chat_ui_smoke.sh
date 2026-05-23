@@ -336,7 +336,7 @@ adb_cmd shell run-as "$APP_ID" rm -f \
 adb_cmd logcat -c >/dev/null 2>&1 || true
 
 collect_package_dump_extract
-adb_cmd shell am start -W -n "$PACKAGE_ACTIVITY" >"$OUT_DIR/activity_start.txt" 2>&1 || {
+adb_cmd shell am start -W -n "$PACKAGE_ACTIVITY" --ez allowGuardedNpuRun true >"$OUT_DIR/activity_start.txt" 2>&1 || {
   write_failure_summary "Activity launch failed; see activity_start.txt."
   exit 1
 }

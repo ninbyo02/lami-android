@@ -970,6 +970,10 @@ Short prompt DEV guard spec:
   `docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md`
 - status: design only
 - editable input: not enabled
+- preview-only validation UI: enabled for fixed `Hi`
+- preview input state: disabled
+- Run button connection on default Activity launch: false
+- guarded run intent extra required: true
 - NPU generation: not run
 - Engine.initialize: not run
 - RunDecode: not run
