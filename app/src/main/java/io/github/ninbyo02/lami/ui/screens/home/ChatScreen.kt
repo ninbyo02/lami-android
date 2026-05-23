@@ -2346,6 +2346,15 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
+                                                    // DEV-only NPU route adapter insertion point (disabled).
+                                                    // See docs/litert_qairt244_dev_only_npu_route_adapter_plan.md and
+                                                    // docs/litert_qairt244_chat_screen_npu_integration_plan.md.
+                                                    // Future customBuildExperimentDebug-only work must run after
+                                                    // requestPrompt capture and before input clearing, chat/message DB
+                                                    // inserts, TTS cleanup, Markdown, streaming, stop-button ownership,
+                                                    // or any persistent selectedPath=npu state. Do not call the
+                                                    // planner/presenter here until the blocked-adapter phase is
+                                                    // explicitly implemented.
                                                     debugLocalUiTrace(
                                                         label = "LOCAL_UI_SEND_TAPPED",
                                                         extra = "selectedInferenceTarget=$selectedInferenceTarget effectiveChatId=$effectiveChatId userPromptLength=${userPrompt.length}",

@@ -344,6 +344,31 @@ Refresh re-runs only this blocked planner preview. Because the adapter remains
 `BlockedDevOnlyNpuRouteAdapter`, Refresh does not execute NPU generation,
 `Engine.initialize`, `RunDecode`, or any normal inference path.
 
+## ChatScreen Insertion Marker
+
+The normal ChatScreen code now contains a comment-only marker for the future
+DEV-only branch:
+
+```text
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:2349
+```
+
+The marker is inside the `InferenceTarget.LOCAL` branch immediately after
+`requestPrompt` capture and blank validation. It is intentionally before:
+
+- input clearing
+- chat creation / user message DB insert
+- TTS cleanup
+- Markdown handling
+- streaming setup
+- stop-button ownership
+- any persistent `selectedPath=npu` state
+
+The marker does not call `DevOnlyNpuRoutePlanner`,
+`DevOnlyNpuTransientPresenter`, or any NPU code. It is documentation in code
+only. The next executable phase must still start with the blocked adapter and
+must preserve all transient-only side-effect flags.
+
 ## Transient Result Display Model
 
 The DEV-only route now has a pure Kotlin display mapper for pre-ChatScreen

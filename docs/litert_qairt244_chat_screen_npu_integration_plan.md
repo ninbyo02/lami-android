@@ -230,6 +230,39 @@ blocked adapter preview renders:
 This confirms the transient state shape before any normal ChatScreen branch is
 introduced.
 
+## Code Marker
+
+The future insertion point is now marked in code without executable behavior:
+
+```text
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:2349
+```
+
+Location:
+
+- `InferenceTarget.LOCAL` branch
+- after `val requestPrompt = userPrompt`
+- after blank-prompt early return
+- before input clearing
+- before new-chat creation and user message DB insert
+- before TTS cleanup, Markdown, streaming, stop-button ownership, and any
+  selected-path state changes
+
+Reason:
+
+- The DEV-only route can inspect the captured prompt before normal persistence
+  or side effects.
+- A blocked-adapter branch can return a transient `DevOnlyNpuTransientUiState`
+  without saving messages, speaking TTS, rendering Markdown, streaming, or
+  persisting `selectedPath=npu`.
+
+Current status:
+
+- comment marker only
+- no planner or presenter call from `ChatScreen`
+- no `io.github.ninbyo02.lami.npu` import in main `ChatScreen`
+- no NPU generation, `Engine.initialize`, or `RunDecode`
+
 ## Implementation Checklist
 
 Before code implementation starts:

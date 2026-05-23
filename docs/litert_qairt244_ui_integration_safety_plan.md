@@ -583,3 +583,18 @@ state is visible as:
 
 This is still a read-only Diagnostic Chat preview and does not introduce a
 normal ChatScreen route.
+
+## ChatScreen Comment-Only Insertion Marker - 2026-05-23
+
+`ChatScreen.kt` now has a comment-only marker at the future DEV-only NPU branch
+candidate:
+
+```text
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:2349
+```
+
+The marker is deliberately placed after prompt capture and blank validation,
+but before input clearing, DB persistence, TTS cleanup, Markdown, streaming,
+stop-button ownership, and selected-path persistence. No imports, calls, or
+control-flow changes were added. The next phase must still use the blocked
+adapter first and keep all presenter side-effect flags false.

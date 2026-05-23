@@ -1536,3 +1536,23 @@ DEV-only transient presenter UI application:
 - NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
   normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
   paths remain untouched
+
+ChatScreen DEV-only NPU insertion marker:
+
+- implementation:
+  comment-only marker in
+  `app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt`
+- location:
+  line 2349, inside `InferenceTarget.LOCAL`
+- placement:
+  after `requestPrompt` capture and blank validation
+- before:
+  input clearing, chat/user message DB insert, TTS cleanup, Markdown,
+  streaming, stop-button ownership, and persistent `selectedPath=npu`
+- executable code:
+  none
+- imports:
+  no NPU package import in main `ChatScreen`
+- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+  paths remain untouched
