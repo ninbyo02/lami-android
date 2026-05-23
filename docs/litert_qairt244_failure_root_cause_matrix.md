@@ -1217,3 +1217,14 @@ This coordinator pass did not run:
 - single-token smoke test
 - more than the single allowed native file logger `Engine.initialize` dry-run
 - unsafe native library replacement
+## ChatScreen DEV Toggle Boundary (2026-05-23)
+
+| Area | Result | Evidence | Status |
+| --- | --- | --- | --- |
+| Hidden toggle default/recovery | OFF after verification | `toggle_state_before.txt`, `toggle_state_after_off.txt` | OK |
+| Toggle ON branch | Blocked branch fired | `screenshot_after.png` | OK |
+| Adapter result | `adapter_not_connected` transient display | `summary.md`, screenshot | Expected |
+| DB/TTS/Markdown/streaming | Not connected | blocked branch side-effect flags and prompt not cleared | OK |
+| `selectedPath=npu` | Not applied | toggle state files and runtime marker scan | OK |
+| NPU execution | Not executed | empty `runtime_marker_scan.txt` for Engine/RunDecode/QNN/HTP markers | OK |
+| Final state | Toggle restored OFF | `toggle_state_after_off.txt` | OK |

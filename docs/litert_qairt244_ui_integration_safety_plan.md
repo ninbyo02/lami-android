@@ -677,3 +677,17 @@ blocked transient Snackbar summary:
 - `stream=false`
 
 The main `ChatScreen` still has no NPU package import and no real NPU adapter.
+## DEV Toggle ON Blocked Branch Safety Result (2026-05-23)
+
+- Artifact: `artifacts/qairt244_chat_screen_toggle_on_blocked_branch_verify/20260523_223850/`
+- The hidden DEV toggle was verified in all three states: reset OFF, ON for one blocked-branch probe, and final OFF recovery.
+- The ChatScreen branch produced only a transient blocked result:
+  - `adapter_not_connected`
+  - DB disabled
+  - TTS disabled
+  - Markdown disabled
+  - streaming disabled
+- The prompt stayed in the input field, confirming the branch returned before normal message insert/clear behavior.
+- No NPU generation, `Engine.initialize`, or `RunDecode` was executed.
+- No `selectedPath=npu` normal-route state was applied or persisted.
+- Final toggle state was restored to `false`.

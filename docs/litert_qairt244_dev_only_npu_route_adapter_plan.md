@@ -604,3 +604,15 @@ The captured Settings window shows the DEV toggle and boundary text, with the
 switch unchecked. The switch was not toggled during verification. The
 forbidden logcat marker scan was empty for blocked branch and NPU execution
 markers.
+## Toggle ON Blocked Branch Verification (2026-05-23)
+
+- Artifact: `artifacts/qairt244_chat_screen_toggle_on_blocked_branch_verify/20260523_223850/`
+- The DEV hidden toggle `dev_enable_npu_chatscreen_route` was explicitly set ON in customBuildExperimentDebug and then restored OFF.
+- With the toggle ON, ChatScreen reached the DEV-only blocked branch and produced transient UI output only:
+  - `status=BLOCKED`
+  - `reasonCode=adapter_not_connected`
+  - `shouldPersistToDb=false`
+  - `shouldSpeakTts=false`
+- The adapter remains blocked. No real NPU adapter is connected.
+- The verification helper Activity only writes and verifies the toggle state. It does not call planner, adapter, Engine initialization, or decode.
+- This keeps the route boundary ready for the next staged experiment without changing the normal ChatScreen inference path.

@@ -384,3 +384,16 @@ Verification:
 
 This creates the DEV hidden toggle boundary while keeping current runtime
 behavior unchanged.
+## DEV Toggle ON Blocked Branch Verification (2026-05-23)
+
+- Artifact: `artifacts/qairt244_chat_screen_toggle_on_blocked_branch_verify/20260523_223850/`
+- Toggle key: `dev_enable_npu_chatscreen_route`
+- Toggle helper: `DevNpuChatScreenToggleActivity`, customBuildExperimentDebug only.
+- Precondition reset: `toggle_state_before.txt` records `requested_enabled=false` and `after=false`.
+- ON step: `toggle_state_after_on.txt` records `before=false` and `after=true`.
+- OFF recovery: `toggle_state_after_off.txt` records `before=true` and `after=false`.
+- ChatScreen prompt: `Hello`.
+- Result: the DEV-only blocked branch fired and displayed `status=BLOCKED` / `reason=adapter_not_connected`.
+- The branch remained transient only: no DB insert, no TTS, no Markdown path, and no streaming path.
+- `selectedPath=npu` was not applied or persisted.
+- Real NPU execution remained disconnected: no `Engine.initialize`, `RunDecode`, `Backend.NPU`, QNN, HTP, FastRPC, or QAIRT runtime markers were found in the post-run marker scan.

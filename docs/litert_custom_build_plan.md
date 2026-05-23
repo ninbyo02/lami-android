@@ -1638,3 +1638,11 @@ DEV hidden NPU ChatScreen toggle boundary:
   no `selectedPath=npu` evidence
 - NPU execution:
   not run
+## QAIRT DEV ChatScreen Toggle Boundary Verification (2026-05-23)
+
+- Artifact: `artifacts/qairt244_chat_screen_toggle_on_blocked_branch_verify/20260523_223850/`
+- customBuildExperimentDebug now has a test-only Activity to set/read `dev_enable_npu_chatscreen_route` for verification.
+- The toggle ON run confirmed the current ChatScreen branch remains blocked and transient with `adapter_not_connected`.
+- The verification did not run NPU generation, `Engine.initialize`, `RunDecode`, or `Backend.NPU`.
+- The toggle was restored OFF after the run.
+- Next planned step: keep the blocked branch as the ChatScreen boundary while designing a later real-adapter swap behind the same gate.
