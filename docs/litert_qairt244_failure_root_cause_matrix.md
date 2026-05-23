@@ -823,6 +823,40 @@ manifest visibility fixed, it is no longer the current boundary.
 The model appears aligned with QAIRT 2.44 and SM8750/V79, so model generation
 mismatch is not the lead hypothesis at this boundary.
 
+## Automated Diagnostic Chat UI Smoke
+
+Result date: 2026-05-23
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_ui_smoke/20260523_102810/
+```
+
+Result:
+
+- `scripts/run_qairt244_npu_diagnostic_chat_ui_smoke.sh` selected the
+  non-emulator Nubia device and ran the guarded Diagnostic Chat UI path.
+- The DEV checkbox was tapped once and `RUN 3-TOKEN SMOKE` was tapped once.
+- The isolated lower-level path returned:
+  `result=success`, `output=! How Hi`, `max_output_tokens=3`.
+- `npu_backend=NPU` with `QNN_HTP_V79_FastRPC_native_diag` evidence.
+- Tombstone classification: `stale-tombstone-ignored`; no current-run id was
+  present in the selected old tombstone/dropbox body.
+- The normal `ChatScreen` route remains disconnected, and the normal
+  `selectedPath=npu` route remains unused.
+
+Matrix update:
+
+| Hypothesis | UI runner evidence | Current status |
+| --- | --- | --- |
+| H1. SM8750/V79 dispatch capability mismatch | Reproducible 3-token Diagnostic Chat UI smoke reaches RunDecode with V79/FastRPC evidence. | Low for bounded smoke. |
+| H2. Android namespace/path issue | `libcdsprpc.so` manifest visibility plus QAIRT 2.44 aligned libs remain sufficient in UI-driven diagnostic path. | Resolved for diagnostic path. |
+| H3. ADSP/FastRPC/skel issue | Native diag reports QNN/HTP/V79/FastRPC evidence during the UI run. | Resolved for bounded smoke. |
+| H4. Model schema mismatch | Same SM8750/V79 model produces bounded 3-token output. | Low for current scope. |
+| H5. Dispatch registration/check failure | Compatibility and decode path remain functional through UI diagnostic runner. | Resolved for current scope. |
+| H6. CLI vs Android app difference | Android app diagnostic UI can run the isolated lower-level path. | Lower priority. |
+
 ## No-Run Confirmation
 
 This coordinator pass did not run:

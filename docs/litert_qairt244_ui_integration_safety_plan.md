@@ -87,6 +87,27 @@ Guarded UI smoke verification:
 The UI path remains diagnostic-only. It must not be promoted to the normal chat
 route without a separate integration review and host-side recovery plan.
 
+Automated guarded UI runner:
+
+- script:
+  `scripts/run_qairt244_npu_diagnostic_chat_ui_smoke.sh`
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_chat_ui_smoke/20260523_102810/`
+- result: `success`
+- output: `! How Hi`
+- hard cap: `max_output_tokens=3`
+- UI operations: `ui_dev_checkbox_taps=1`, `ui_run_button_taps=1`
+- timeout: `false`
+- native evidence: `QNN_HTP_V79_FastRPC_native_diag`
+- tombstone classification: `stale-tombstone-ignored`
+
+The runner is the preferred reproducible path for Diagnostic Chat UI evidence.
+It selects a non-emulator device, builds/installs `customBuildExperimentDebug`,
+launches only `NpuDiagnosticChatActivity`, drives the DEV checkbox and guarded
+run button once, captures screenshots/window dumps, pulls app-private result
+files, and runs the tombstone collector. Timeout handling force-stops only the
+`customnpu` package and records the timeout in the artifact.
+
 ## Fallback Policy
 
 Fallback is diagnostic-only:

@@ -1029,3 +1029,37 @@ Next recommended phase:
 2. add focused file logging around the exact HTP backend initialization call and
    its QNN status/error return
 3. only after that, test ADSP/FastRPC/skel path changes
+
+## QAIRT 2.44 Diagnostic Chat UI Smoke Runner
+
+Result date: 2026-05-23
+
+Script:
+
+```text
+scripts/run_qairt244_npu_diagnostic_chat_ui_smoke.sh
+```
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_ui_smoke/20260523_102810/
+```
+
+Result:
+
+- `customBuildExperimentDebug` assembled and installed on Nubia
+  `192.168.52.52:37859`.
+- `NpuDiagnosticChatActivity` launched directly by ADB.
+- The DEV checkbox and guarded run button were each tapped once by the script.
+- The isolated lower-level path returned:
+  `result=success`, `output=! How Hi`, `max_output_tokens=3`.
+- Timing:
+  `engine_create=986 ms`, `prefill=27 ms`, `decode=97 ms`,
+  `cleanup=155 ms`, total `1268 ms`.
+- `npu_backend=NPU` with `QNN_HTP_V79_FastRPC_native_diag` evidence.
+- Tombstone classification: `stale-tombstone-ignored`; no fresh crash evidence.
+
+This runner is diagnostic-only. It does not wire NPU into the normal chat UI,
+does not set `selectedPath=npu` in the normal route, does not call high-level
+`generateResponse`, and does not use streaming generation.

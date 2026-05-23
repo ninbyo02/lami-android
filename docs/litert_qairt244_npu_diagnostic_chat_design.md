@@ -226,6 +226,46 @@ in-memory completed guarded run state to appear in `screenshot_armed.png`.
 The final captured run in this artifact is the documented result above. No
 normal UI path was connected during either diagnostic-only interaction.
 
+## Automated Guarded UI Smoke Runner
+
+Script:
+
+```text
+scripts/run_qairt244_npu_diagnostic_chat_ui_smoke.sh
+```
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_ui_smoke/20260523_102810/
+```
+
+Result:
+
+- The runner selected the non-emulator Nubia device
+  `192.168.52.52:37859`.
+- It assembled and installed `customBuildExperimentDebug`.
+- It launched only `NpuDiagnosticChatActivity`.
+- It checked `DEV confirm isolated 3-token NPU smoke` once.
+- It tapped `RUN 3-TOKEN SMOKE` once.
+- The guarded UI path returned:
+  `result=success`, `output=! How Hi`, `max_output_tokens=3`.
+- Timing:
+  `engine_create=986 ms`, `prefill=27 ms`, `decode=97 ms`,
+  `cleanup=155 ms`, total `1268 ms`.
+- `npu_backend=NPU` with
+  `QNN_HTP_V79_FastRPC_native_diag` evidence.
+- Tombstone classification: `stale-tombstone-ignored`.
+- `screenshot_before.png` and `screenshot_after.png` were captured.
+- `window_before.xml` came from `uiautomator`; `window_after.xml` used the
+  runner's text fallback because `uiautomator` reported
+  `could not get idle state` after the completed run.
+
+The runner records `ui_dev_checkbox_taps=1` and `ui_run_button_taps=1` in
+`summary.md`. It does not connect the normal `ChatScreen`, does not set the
+normal `selectedPath=npu` route, does not call high-level `generateResponse`,
+and does not use streaming generation.
+
 ## Non-Goals
 
 This work intentionally does not:

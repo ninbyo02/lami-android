@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window-dump-fallback source="uiautomator-idle-failed" label="after" package="io.github.ninbyo02.lami.customnpu" activity="io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity">
+  <screenshot file="screenshot_after.png"/>
+  <result-line text="marker=qairt244_short_multitoken_smoke_v1"/>
+  <result-line text="result=success"/>
+  <result-line text="prompt=Hi"/>
+  <result-line text="prompt_bytes=2"/>
+  <result-line text="prompt_token_count=unavailable"/>
+  <result-line text="prompt_token_count_source=not_exposed_by_lower_level_entrypoint"/>
+  <result-line text="max_output_tokens=3"/>
+  <result-line text="conversation_created=no"/>
+  <result-line text="generate_response=no"/>
+  <result-line text="normal_ui_connected=no"/>
+  <result-line text="output_bytes=8"/>
+  <result-line text="output_token_count=unavailable"/>
+  <result-line text="output_token_count_source=not_exposed_by_RunDecode_response"/>
+  <result-line text="elapsed_ms=1268"/>
+  <result-line text="model_assets_elapsed_ms=0"/>
+  <result-line text="engine_settings_elapsed_ms=0"/>
+  <result-line text="engine_create_elapsed_ms=986"/>
+  <result-line text="session_create_elapsed_ms=0"/>
+  <result-line text="prefill_elapsed_ms=27"/>
+  <result-line text="decode_elapsed_ms=97"/>
+  <result-line text="cleanup_elapsed_ms=155"/>
+  <result-line text="npu_backend=NPU"/>
+  <result-line text="npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag"/>
+  <result-line text="detail=completed"/>
+  <result-line text="output=! How Hi"/>
+  <result-line text="qairt244_diagnostic_chat_guarded_run_v1 runId=diag-chat-1779499713497-a1f0822e-d06b-48b0-b067-3bbe089eb43b state=success elapsed_ms=1276 result=qairt244_short_multitoken_smoke_v1 runId=diag-chat-1779499713497-a1f0822e-d06b-48b0-b067-3bbe089eb43b result=success output=! How Hi"/>
+</window-dump-fallback>
