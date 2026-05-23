@@ -631,6 +631,47 @@ fun Settings(
                         }
                     }
                     Spacer(modifier = Modifier.height(2.dp))
+                    if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+                        Card {
+                            SettingsToggleRowItem(
+                                headline = "DEV: Enable NPU ChatScreen route",
+                                supporting = "customBuildExperimentDebug限定。既定はOFFです。現在はblocked adapter境界のみで、実NPU・selectedPath=npu・通常保存には接続しません。",
+                                leadingIcon = Icons.Filled.BugReport,
+                                checked = settingsData.devEnableNpuChatScreenRoute,
+                                enabled = true,
+                                onCheckedChange = { enabled ->
+                                    scope.launch {
+                                        settingsPreferences.saveDevEnableNpuChatScreenRoute(enabled)
+                                    }
+                                },
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Card {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(
+                                    text = "DEV NPU ChatScreen route boundary",
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Text(
+                                    text = "key=dev_enable_npu_chatscreen_route",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "default=false / blocked adapter only / normal selectedPath=npu disabled / real NPU not connected",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
                     Card {
                         Column(
                             modifier = Modifier

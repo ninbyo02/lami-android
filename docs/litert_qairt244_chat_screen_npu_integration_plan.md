@@ -351,3 +351,36 @@ Runtime result:
 This keeps the current verification non-invasive: it confirms the disabled
 branch has no launch-time side effect and the static send path still falls
 through to the existing implementation when the toggle is false.
+
+## DEV Hidden Toggle Boundary
+
+Artifact:
+
+```text
+artifacts/qairt244_dev_hidden_npu_chatscreen_toggle_boundary/20260523_222339/
+```
+
+Implementation:
+
+- setting key: `dev_enable_npu_chatscreen_route`
+- source: `SettingsPreferences.devEnableNpuChatScreenRouteFlow`
+- default: `false`
+- storage guard: value is effective only when
+  `BuildConfig.CUSTOM_BUILD_EXPERIMENT` is true
+- Settings UI: shown only in `customBuildExperimentDebug` DEBUG settings
+- ChatScreen guard:
+  `BuildConfig.CUSTOM_BUILD_EXPERIMENT && devEnableNpuChatScreenRoute`
+
+Verification:
+
+- the Settings UI shows `DEV: Enable NPU ChatScreen route`
+- the switch was observed as `checked=false`
+- the switch was not toggled
+- no prompt was sent
+- blocked branch did not fire
+- `adapter_not_connected` did not appear in logcat
+- `selectedPath=npu` was not applied
+- NPU generation, `Engine.initialize`, and `RunDecode` were not run
+
+This creates the DEV hidden toggle boundary while keeping current runtime
+behavior unchanged.

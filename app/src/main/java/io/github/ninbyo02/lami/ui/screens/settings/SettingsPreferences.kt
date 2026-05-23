@@ -376,6 +376,7 @@ class SettingsPreferences(private val context: Context) {
     private val inferenceStatsDisplayModeKey = stringPreferencesKey("inference_stats_display_mode")
     private val preferredBackendDryRunKey = stringPreferencesKey("lami_dev_preferred_backend_dry_run")
     private val markdownStreamingModeKey = stringPreferencesKey("dev_markdown_streaming_mode")
+    private val devEnableNpuChatScreenRouteKey = booleanPreferencesKey("dev_enable_npu_chatscreen_route")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
     // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
@@ -438,6 +439,9 @@ class SettingsPreferences(private val context: Context) {
                 storedMode = MarkdownStreamingMode.fromStorage(preferences[markdownStreamingModeKey]),
                 isDebugBuild = BuildConfig.DEBUG,
             ),
+            devEnableNpuChatScreenRoute =
+                BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+                    (preferences[devEnableNpuChatScreenRouteKey] ?: false),
         )
     }
 
@@ -547,6 +551,11 @@ class SettingsPreferences(private val context: Context) {
             storedMode = MarkdownStreamingMode.fromStorage(preferences[markdownStreamingModeKey]),
             isDebugBuild = BuildConfig.DEBUG,
         )
+    }
+
+    val devEnableNpuChatScreenRouteFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+            (preferences[devEnableNpuChatScreenRouteKey] ?: false)
     }
 
     val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -774,6 +783,13 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveMarkdownStreamingMode(mode: MarkdownStreamingMode) {
         context.dataStore.edit { preferences ->
             preferences[markdownStreamingModeKey] = mode.storageValue
+        }
+    }
+
+    suspend fun saveDevEnableNpuChatScreenRoute(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[devEnableNpuChatScreenRouteKey] =
+                BuildConfig.CUSTOM_BUILD_EXPERIMENT && enabled
         }
     }
 

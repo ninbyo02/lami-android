@@ -243,6 +243,29 @@ ChatScreen normal send path non-invasive verification:
   disabled branch has no observed launch-time side effect and remains
   non-invasive until a later explicit DEV toggle phase
 
+DEV hidden NPU ChatScreen toggle boundary:
+
+- artifact:
+  `artifacts/qairt244_dev_hidden_npu_chatscreen_toggle_boundary/20260523_222339/`
+- key:
+  `dev_enable_npu_chatscreen_route`
+- default:
+  `false`
+- UI:
+  visible only in `customBuildExperimentDebug` DEBUG Settings
+- observed switch state:
+  `checked=false`
+- switch toggled:
+  no
+- ChatScreen guard:
+  `BuildConfig.CUSTOM_BUILD_EXPERIMENT && devEnableNpuChatScreenRoute`
+- selected-path behavior:
+  normal `selectedPath=npu` is still not applied or persisted
+- NPU execution:
+  not run
+- `Engine.initialize` / `RunDecode`:
+  not run
+
 Short prompt DEV guard spec:
 
 - spec:

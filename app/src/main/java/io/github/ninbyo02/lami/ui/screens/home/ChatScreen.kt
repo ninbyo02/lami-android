@@ -240,7 +240,6 @@ private const val DEV_UI_DEBUG_MODE = false
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED = true
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
 private const val DEV_USE_HELD_PATH_ONLY = false
-private const val DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED = false
 private const val LOCAL_UI_APPEND_DEBOUNCE_MS = 0L
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
 
@@ -704,6 +703,9 @@ fun Home(
     )
     val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow.collectAsState(
         initial = true,
+    )
+    val devEnableNpuChatScreenRoute by settingsPreferences.devEnableNpuChatScreenRouteFlow.collectAsState(
+        initial = false,
     )
     val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(
         initial = true,
@@ -2358,7 +2360,7 @@ fun Home(
                                                     // explicitly implemented.
                                                     if (
                                                         BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
-                                                        DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED
+                                                        devEnableNpuChatScreenRoute
                                                     ) {
                                                         val blockedSummary =
                                                             runDevOnlyNpuChatScreenBlockedBranchViaReflection(requestPrompt)

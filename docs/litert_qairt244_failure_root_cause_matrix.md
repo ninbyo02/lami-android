@@ -1172,8 +1172,12 @@ ChatScreen DEV-only blocked branch:
 
 - location:
   `app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:2349`
-- current toggle:
-  `DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED=false`
+- current gate:
+  `BuildConfig.CUSTOM_BUILD_EXPERIMENT && devEnableNpuChatScreenRoute`
+- setting key:
+  `dev_enable_npu_chatscreen_route`
+- default:
+  `false`
 - false toggle behavior:
   existing LOCAL path unchanged
 - true path:
@@ -1186,6 +1190,19 @@ ChatScreen DEV-only blocked branch:
   not connected
 - Engine.initialize / RunDecode / high-level generateResponse:
   not executed by this branch
+
+DEV hidden toggle boundary:
+
+- artifact:
+  `artifacts/qairt244_dev_hidden_npu_chatscreen_toggle_boundary/20260523_222339/`
+- Settings UI:
+  visible only in customBuildExperimentDebug DEBUG settings
+- observed switch:
+  `checked=false`
+- switch toggled:
+  no
+- classification:
+  UI/settings boundary only; no backend behavior change
 
 ## No-Run Confirmation
 

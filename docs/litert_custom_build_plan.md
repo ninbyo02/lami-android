@@ -1612,3 +1612,29 @@ ChatScreen normal send path non-invasive verification:
   no `selectedPath=npu` evidence from this path
 - NPU execution:
   not run
+
+DEV hidden NPU ChatScreen toggle boundary:
+
+- artifact:
+  `artifacts/qairt244_dev_hidden_npu_chatscreen_toggle_boundary/20260523_222339/`
+- key:
+  `dev_enable_npu_chatscreen_route`
+- default:
+  `false`
+- Settings UI:
+  `DEV: Enable NPU ChatScreen route`
+- visibility:
+  `customBuildExperimentDebug` DEBUG settings only
+- observed UI state:
+  switch `checked=false`
+- ChatScreen connection:
+  reads `SettingsPreferences.devEnableNpuChatScreenRouteFlow`, still guarded
+  by `BuildConfig.CUSTOM_BUILD_EXPERIMENT`
+- switch action in verification:
+  not toggled
+- route result:
+  blocked branch not fired; no `adapter_not_connected` logcat marker
+- selected path:
+  no `selectedPath=npu` evidence
+- NPU execution:
+  not run

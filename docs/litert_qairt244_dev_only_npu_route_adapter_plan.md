@@ -581,3 +581,26 @@ Conclusion:
 No normal send was executed in this pass. That intentionally avoids any
 LOCAL/GPU generation while still proving the disabled branch has no visible
 runtime marker and no static connection to direct NPU imports.
+
+## DEV Hidden Toggle Boundary
+
+The first settings boundary now exists without enabling the route:
+
+- key: `dev_enable_npu_chatscreen_route`
+- default: `false`
+- flow: `SettingsPreferences.devEnableNpuChatScreenRouteFlow`
+- save method: `SettingsPreferences.saveDevEnableNpuChatScreenRoute(...)`
+- effective only for `customBuildExperimentDebug`
+- normal `standard` / `release` UI does not show the toggle
+- normal selected-path settings remain separate and are not modified
+
+Observed artifact:
+
+```text
+artifacts/qairt244_dev_hidden_npu_chatscreen_toggle_boundary/20260523_222339/
+```
+
+The captured Settings window shows the DEV toggle and boundary text, with the
+switch unchecked. The switch was not toggled during verification. The
+forbidden logcat marker scan was empty for blocked branch and NPU execution
+markers.
