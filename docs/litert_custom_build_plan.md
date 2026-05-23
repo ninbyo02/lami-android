@@ -1435,3 +1435,25 @@ DEV-only NPU route planner:
 - NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
   normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
   paths remain untouched
+
+DEV-only planner result UI boundary:
+
+- implementation:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt`
+- section: `Planner Preview (blocked)`
+- planner call:
+  `DevOnlyNpuRoutePlanner.runIfAllowed(gateInput, prompt="Hello",
+  maxOutputTokens=3, timeoutMs=30000)`
+- adapter:
+  `BlockedDevOnlyNpuRouteAdapter`
+- displayed result:
+  `success=false`, `reasonCode=adapter_not_connected`,
+  `prompt=Hello`, `maxOutputTokens=3`, `timeout=false`,
+  `freshCrash=false`
+- route status:
+  `ChatScreen route connected=false`, `selectedPathNpuApplied=false`,
+  `npuGeneration=false`, `engineInitialize=false`, `runDecode=false`
+- normal ChatScreen call site: none
+- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+  paths remain untouched

@@ -18,9 +18,14 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.npu.BlockedDevOnlyNpuRouteAdapter
+import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteAdapter
+import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteGateInput
+import io.github.ninbyo02.lami.npu.DevOnlyNpuRoutePlanner
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.runBlocking
 
 class NpuDiagnosticChatActivity : Activity() {
     private val running = AtomicBoolean(false)
@@ -82,6 +87,7 @@ class NpuDiagnosticChatActivity : Activity() {
                 "prompt=$initialPrompt",
             ),
         )
+        val plannerPreviewSummary = content.addSectionView("Planner Preview (blocked)", readPlannerPreviewSummary())
 
         content.addLabel("Prompt")
         val promptPreviewLines = readPromptPreviewSummary(
@@ -174,6 +180,7 @@ class NpuDiagnosticChatActivity : Activity() {
                     timingSummary.text = readTimingSummary(resultFile).joinToString("\n")
                     nativeDiagSummary.text = readNativeDiagSummary(nativeDiagFile).joinToString("\n")
                     runnerSummary.text = readLatestRunnerSummary(latestRunnerSummaryFile).joinToString("\n")
+                    plannerPreviewSummary.text = readPlannerPreviewSummary().joinToString("\n")
                     safetySummary.text = readRouteGuardSummary(
                         editablePromptPreviewAllowed,
                         editablePromptExecutionAllowed,
@@ -546,6 +553,60 @@ class NpuDiagnosticChatActivity : Activity() {
             "editable_prompt_execution_intent_extra_required=true",
             "run_button_requires_dev_checkbox=true",
         )
+
+    private fun readPlannerPreviewSummary(): List<String> {
+        val gateInput = DevOnlyNpuRouteGateInput(
+            customBuildExperiment = true,
+            allowEditablePromptPreview = true,
+            allowGuardedNpuRun = true,
+            allowEditablePromptExecution = true,
+            devCheckboxChecked = true,
+            validatorValid = true,
+            nativeEditablePromptSupported = true,
+            running = false,
+            maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+        )
+        val result = runBlocking {
+            DevOnlyNpuRoutePlanner(
+                adapter = BlockedDevOnlyNpuRouteAdapter(),
+            ).runIfAllowed(
+                gateInput = gateInput,
+                prompt = "Hello",
+                maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+                timeoutMs = DevOnlyNpuRouteAdapter.DEFAULT_TIMEOUT_MS,
+            )
+        }
+        return listOf(
+            "preview=dev_only_route_planner_blocked",
+            "gate_customBuildExperiment=${gateInput.customBuildExperiment}",
+            "gate_allowEditablePromptPreview=${gateInput.allowEditablePromptPreview}",
+            "gate_allowGuardedNpuRun=${gateInput.allowGuardedNpuRun}",
+            "gate_allowEditablePromptExecution=${gateInput.allowEditablePromptExecution}",
+            "gate_devCheckboxChecked=${gateInput.devCheckboxChecked}",
+            "gate_validatorValid=${gateInput.validatorValid}",
+            "gate_nativeEditablePromptSupported=${gateInput.nativeEditablePromptSupported}",
+            "gate_running=${gateInput.running}",
+            "success=${result.success}",
+            "reasonCode=${result.reasonCode}",
+            "prompt=${result.prompt}",
+            "maxOutputTokens=${result.maxOutputTokens}",
+            "timeout=${result.timeout}",
+            "freshCrash=${result.freshCrash}",
+            "backendEvidence=${result.backendEvidence ?: "none"}",
+            "artifactPath=${result.artifactPath ?: "none"}",
+            "adapter=${BlockedDevOnlyNpuRouteAdapter::class.java.simpleName}",
+            "ChatScreen route connected=false",
+            "selectedPathNpuApplied=false",
+            "npuGeneration=false",
+            "engineInitialize=false",
+            "runDecode=false",
+            "highLevelGenerateResponse=false",
+            "dbSave=false",
+            "tts=false",
+            "markdown=false",
+            "streaming=false",
+        )
+    }
 
     private fun readPromptPreviewSummary(
         prompt: String,

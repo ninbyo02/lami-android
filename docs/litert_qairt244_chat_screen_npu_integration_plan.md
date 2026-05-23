@@ -172,12 +172,19 @@ Current implementation status:
   gate reasons in pure Kotlin.
 - `DevOnlyNpuRoutePlanner` combines the gate and blocked adapter while still
   having no `ChatScreen` call site.
+- `NpuDiagnosticChatActivity` shows a display-only
+  `Planner Preview (blocked)` section. It calls the planner with a synthetic
+  OK gate and the blocked adapter, so the rendered result is
+  `adapter_not_connected`.
 - Unit tests cover the blocked result and result schema flags.
 - Gate tests cover every current failure reason.
 - Planner tests cover gate-blocked no-adapter-call behavior and gate-OK
   blocked-adapter behavior.
 - No `ChatScreen` call site exists yet.
 - No NPU work is run by the adapter stub.
+- The Diagnostic Chat planner preview displays
+  `ChatScreen route connected=false`, `selectedPathNpuApplied=false`,
+  `npuGeneration=false`, `engineInitialize=false`, and `runDecode=false`.
 
 ## Implementation Checklist
 

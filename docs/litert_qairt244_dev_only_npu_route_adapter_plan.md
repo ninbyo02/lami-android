@@ -310,6 +310,40 @@ Planner unit tests use a recording fake adapter to prove gate failures do not
 call the adapter and the planner itself does not call Engine.initialize or
 RunDecode.
 
+## Planner Result UI Boundary
+
+`NpuDiagnosticChatActivity` now contains a display-only section named
+`Planner Preview (blocked)`.
+
+The preview constructs a synthetic all-clear `DevOnlyNpuRouteGateInput` and
+calls `DevOnlyNpuRoutePlanner.runIfAllowed(...)` with the default
+`BlockedDevOnlyNpuRouteAdapter`:
+
+- prompt: `Hello`
+- `maxOutputTokens=3`
+- `timeoutMs=30000`
+- gate result: OK
+- adapter result: `success=false`
+- adapter reason: `adapter_not_connected`
+
+The preview is intentionally not a normal ChatScreen integration. It only
+renders the structured planner result and safety flags:
+
+- `ChatScreen route connected=false`
+- `selectedPathNpuApplied=false`
+- `npuGeneration=false`
+- `engineInitialize=false`
+- `runDecode=false`
+- `highLevelGenerateResponse=false`
+- `dbSave=false`
+- `tts=false`
+- `markdown=false`
+- `streaming=false`
+
+Refresh re-runs only this blocked planner preview. Because the adapter remains
+`BlockedDevOnlyNpuRouteAdapter`, Refresh does not execute NPU generation,
+`Engine.initialize`, `RunDecode`, or any normal inference path.
+
 ## Remaining Steps To Normal UI
 
 1. Implement adapter as `customBuildExperimentDebug` only, with no ChatScreen

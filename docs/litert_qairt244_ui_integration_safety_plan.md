@@ -482,3 +482,28 @@ rejection path. It is not connected to `ChatScreen` and runs no NPU work.
 
 Unit tests verify that blocked gates do not call the adapter and that the
 planner does not call Engine.initialize or RunDecode by itself.
+
+## DEV-Only Planner Result UI Boundary - 2026-05-23
+
+`NpuDiagnosticChatActivity` now renders a small `Planner Preview (blocked)`
+section. It is a UI boundary only:
+
+- gate input is synthetic and OK
+- adapter is explicitly `BlockedDevOnlyNpuRouteAdapter`
+- prompt is `Hello`
+- `maxOutputTokens=3`
+- result is `success=false`
+- reason is `adapter_not_connected`
+
+The preview also renders the safety status:
+
+- normal ChatScreen route is not connected
+- normal `selectedPath=npu` is not applied
+- NPU generation is false
+- `Engine.initialize` is false
+- `RunDecode` is false
+- high-level `generateResponse` is false
+- DB, TTS, Markdown, and streaming are false
+
+Refresh may recompute this blocked planner preview, but it cannot reach native
+NPU execution because no real NPU adapter is installed.
