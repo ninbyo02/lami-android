@@ -168,6 +168,20 @@ The existing DEV checkbox and guarded run button remain the only UI path that
 can trigger the isolated 3-token smoke. The normal chat route remains
 disconnected.
 
+Read-only summary display verification:
+
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_summary_readonly_verify/20260523_122946/`
+- displayed source: `app_private_file`
+- Activity launch state: `COLD`
+- DEV checkbox: not pressed
+- guarded run button: not pressed
+- NPU generation: not run
+- Engine.initialize: not run
+- RunDecode: not run
+- normal `ChatScreen`: not connected
+- normal `selectedPath=npu`: not used
+
 ## Fallback Policy
 
 Fallback is diagnostic-only:

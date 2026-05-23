@@ -78,10 +78,16 @@ fi
 
 if [[ -z "${ARTIFACT}" ]]; then
   ARTIFACT="$(
-    {
-      find artifacts/qairt244_npu_diagnostic_chat_ui_multirun -mindepth 1 -maxdepth 1 -type d 2>/dev/null || true
-      find artifacts/qairt244_npu_diagnostic_chat_ui_smoke -mindepth 1 -maxdepth 1 -type d 2>/dev/null || true
-    } | sort | tail -1
+    for root in \
+      artifacts/qairt244_npu_diagnostic_chat_ui_multirun \
+      artifacts/qairt244_npu_diagnostic_chat_ui_smoke
+    do
+      [[ -d "${root}" ]] || continue
+      for dir in "${root}"/*; do
+        [[ -d "${dir}" ]] || continue
+        printf '%s\t%s\n' "$(basename "${dir}")" "${dir}"
+      done
+    done | sort -k1,1 | tail -1 | cut -f2-
   )"
 fi
 

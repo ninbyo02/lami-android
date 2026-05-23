@@ -1186,3 +1186,15 @@ artifacts/qairt244_npu_diagnostic_summary_sync/20260523_121424/
 The app-private file was written successfully and read back with matching
 key-value content. No Activity launch or NPU execution was performed during the
 sync.
+
+Read-only UI verification:
+
+```text
+artifacts/qairt244_npu_diagnostic_summary_readonly_verify/20260523_122946/
+```
+
+The Activity displayed the synced summary with `source=app_private_file`,
+including run count, run1/run2 output and timing, final guard state,
+after-10s memory summary, tombstone classification, and disabled route status.
+The verification did not press the DEV checkbox or guarded run button, and did
+not run Engine.initialize or RunDecode.

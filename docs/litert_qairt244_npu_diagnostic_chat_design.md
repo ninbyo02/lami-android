@@ -384,6 +384,19 @@ artifacts/qairt244_npu_diagnostic_summary_sync/20260523_121424/
 The synced app-private file matched `synced_key_value.txt` and is ready for the
 screen's next read-only Refresh action.
 
+Read-only display verification:
+
+```text
+artifacts/qairt244_npu_diagnostic_summary_readonly_verify/20260523_122946/
+```
+
+The Diagnostic Chat Activity was cold-launched after syncing
+`qairt244_diagnostic_runner_summary.txt`. The UI showed
+`source=app_private_file`, the latest multi-run artifact, run1/run2 result and
+timing fields, final guard state, after-10s memory fields, stale tombstone
+classification, and disabled normal route status. The DEV checkbox and guarded
+run button were not pressed.
+
 ## Non-Goals
 
 This work intentionally does not:
