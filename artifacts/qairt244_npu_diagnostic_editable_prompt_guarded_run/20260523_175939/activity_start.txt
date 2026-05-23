@@ -1,0 +1,7 @@
+Starting: Intent { cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity (has extras) }
+Status: ok
+LaunchState: COLD
+Activity: io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity
+TotalTime: 374
+WaitTime: 379
+Complete

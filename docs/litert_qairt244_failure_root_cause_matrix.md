@@ -1008,11 +1008,18 @@ Editable prompt connection design:
   `allowEditablePromptExecution=true`, DEV checkbox checked, valid prompt,
   `running=false`
 - Run button enable condition: all gates pass and native
-  `maxOutputTokens=3` remains fixed
+  `maxOutputTokens=3` remains fixed and native editable prompt support exists
 - NG input behavior: Run disabled, reasonCode displayed, no native execution
+- current native state: fixed `prompt=Hi`, so
+  `native_editable_prompt_supported=false` and editable execution is
+  preflight-blocked
 - stale freshness behavior: warning visible, not a hard block
 - artifact target:
   `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/<timestamp>/`
+- preflight artifact:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_175939/`
+- observed preflight: `blocked_native_fixed_hi`, no Engine.initialize, no
+  RunDecode, no NPU generation
 
 Root-cause interpretation is unchanged: QAIRT 2.44 NPU is proven for bounded
 isolated Diagnostic Chat smoke runs, while normal chat integration remains a

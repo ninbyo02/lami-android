@@ -572,6 +572,11 @@ The planned execution connection requires a new explicit
 `allowEditablePromptPreview=true`, `allowGuardedNpuRun=true`, a checked DEV
 checkbox, valid prompt input, and `running=false`.
 
+Current implementation recognizes `allowEditablePromptExecution=true`, but the
+Run button remains disabled because the current native short multi-token
+entrypoint is fixed to prompt `Hi` and reports
+`native_editable_prompt_supported=false`.
+
 Run button policy for STEP 2B:
 
 - enabled only when all connection gates pass
@@ -580,9 +585,30 @@ Run button policy for STEP 2B:
 - displays `prompt_execution_connected=true` only in the fully armed state
 - records `prompt_source=editable_prompt`
 - still uses the lower-level isolated path with native `maxOutputTokens=3`
+- requires native editable prompt support before it can enable execution
 
 This review does not connect the editable prompt to execution and does not run
 NPU generation, Engine.initialize, or RunDecode.
+
+Preflight runner:
+
+```text
+scripts/run_qairt244_npu_diagnostic_editable_prompt_guarded_run.sh
+```
+
+The runner launches the Activity with all three DEV extras, captures
+read-only artifacts, and stops before tapping RUN while native editable prompt
+support is absent.
+
+Preflight artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_175939/
+```
+
+Result: `preflight_result=blocked_native_fixed_hi`,
+`run_executed=false`, `prompt_execution_connected=false`, and no
+Engine.initialize, RunDecode, or NPU generation evidence.
 
 ## Non-Goals
 

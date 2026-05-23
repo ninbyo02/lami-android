@@ -13,6 +13,9 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
         }
 
         @JvmStatic
+        fun supportsEditablePromptExecution(): Boolean = false
+
+        @JvmStatic
         fun run(
             context: Context,
             modelPath: String,

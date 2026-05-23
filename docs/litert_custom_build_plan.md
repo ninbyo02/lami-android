@@ -1298,11 +1298,20 @@ Editable prompt guarded execution plan:
   `allowEditablePromptPreview=true`, `allowGuardedNpuRun=true`,
   `allowEditablePromptExecution=true`
 - required UI state: DEV checkbox checked, validator valid, prompt length
-  `<=32`, `running=false`
+  `<=32`, native editable prompt support present, `running=false`
 - Run button disabled for invalid prompt or missing extra
+- current native entrypoint is fixed to `Hi`; Android gate reports
+  `native_editable_prompt_supported=false` and preflight-blocks execution
 - NG input displays `reasonCode` and starts no native execution
 - stale summary freshness remains a visible warning, not a hard block
 - result contract must include `actual_prompt`, `normalized_prompt`,
   `prompt_source=editable_prompt`, `max_output_tokens=3`, timing, native diag,
   and stale/fresh tombstone classification
 - no editable prompt connection or NPU generation was performed in this pass
+- preflight runner:
+  `scripts/run_qairt244_npu_diagnostic_editable_prompt_guarded_run.sh`
+- preflight artifact:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_175939/`
+- observed result: `preflight_result=blocked_native_fixed_hi`,
+  `run_executed=false`, `engine_initialize=false`, `run_decode=false`,
+  `npu_generation=false`

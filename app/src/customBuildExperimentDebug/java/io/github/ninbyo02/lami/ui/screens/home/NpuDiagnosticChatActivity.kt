@@ -43,6 +43,8 @@ class NpuDiagnosticChatActivity : Activity() {
         val timeoutMs = 30_000L
         val guardedRunAllowed = intent.getBooleanExtra("allowGuardedNpuRun", false)
         val editablePromptPreviewAllowed = intent.getBooleanExtra("allowEditablePromptPreview", false)
+        val editablePromptExecutionAllowed = intent.getBooleanExtra("allowEditablePromptExecution", false)
+        val editablePromptNativeSupported = Qairt244ShortMultitokenSmoke.supportsEditablePromptExecution()
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -79,52 +81,30 @@ class NpuDiagnosticChatActivity : Activity() {
         val promptPreviewLines = readPromptPreviewSummary(
             prompt = "Hi",
             editablePromptPreviewAllowed = editablePromptPreviewAllowed,
+            editablePromptExecutionAllowed = editablePromptExecutionAllowed,
+            editablePromptNativeSupported = editablePromptNativeSupported,
         )
-        writePromptPreviewState(promptPreviewStateFile, "Hi", editablePromptPreviewAllowed)
+        writePromptPreviewState(
+            file = promptPreviewStateFile,
+            prompt = "Hi",
+            editablePromptPreviewAllowed = editablePromptPreviewAllowed,
+            editablePromptExecutionAllowed = editablePromptExecutionAllowed,
+            editablePromptNativeSupported = editablePromptNativeSupported,
+        )
         val promptPreviewSummary = content.addSectionView("Short prompt input preview", promptPreviewLines)
-        content.addView(
-            EditText(this).apply {
-                setText("Hi")
-                isEnabled = editablePromptPreviewAllowed
-                isSingleLine = true
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-                filters = arrayOf(InputFilter.LengthFilter(NpuDiagnosticPromptValidator.MAX_LENGTH))
-                minLines = 1
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                )
-                addTextChangedListener(
-                    object : TextWatcher {
-                        override fun beforeTextChanged(
-                            s: CharSequence?,
-                            start: Int,
-                            count: Int,
-                            after: Int,
-                        ) = Unit
-
-                        override fun onTextChanged(
-                            s: CharSequence?,
-                            start: Int,
-                            before: Int,
-                            count: Int,
-                        ) {
-                            promptPreviewSummary.text = readPromptPreviewSummary(
-                                prompt = s?.toString().orEmpty(),
-                                editablePromptPreviewAllowed = editablePromptPreviewAllowed,
-                            ).joinToString("\n")
-                            writePromptPreviewState(
-                                promptPreviewStateFile,
-                                s?.toString().orEmpty(),
-                                editablePromptPreviewAllowed,
-                            )
-                        }
-
-                        override fun afterTextChanged(s: Editable?) = Unit
-                    },
-                )
-            },
-        )
+        val promptInput = EditText(this).apply {
+            setText("Hi")
+            isEnabled = editablePromptPreviewAllowed
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            filters = arrayOf(InputFilter.LengthFilter(NpuDiagnosticPromptValidator.MAX_LENGTH))
+            minLines = 1
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+        }
+        content.addView(promptInput)
 
         val statusText = TextView(this).apply {
             text = "status=idle"
@@ -170,7 +150,11 @@ class NpuDiagnosticChatActivity : Activity() {
         val runnerSummary = content.addSectionView("Latest runner", readLatestRunnerSummary(latestRunnerSummaryFile))
         val safetySummary = content.addSectionView(
             "Route guards",
-            readRouteGuardSummary(editablePromptPreviewAllowed),
+            readRouteGuardSummary(
+                editablePromptPreviewAllowed,
+                editablePromptExecutionAllowed,
+                editablePromptNativeSupported,
+            ),
         )
         content.addView(
             Button(this).apply {
@@ -184,7 +168,11 @@ class NpuDiagnosticChatActivity : Activity() {
                     timingSummary.text = readTimingSummary(resultFile).joinToString("\n")
                     nativeDiagSummary.text = readNativeDiagSummary(nativeDiagFile).joinToString("\n")
                     runnerSummary.text = readLatestRunnerSummary(latestRunnerSummaryFile).joinToString("\n")
-                    safetySummary.text = readRouteGuardSummary(editablePromptPreviewAllowed).joinToString("\n")
+                    safetySummary.text = readRouteGuardSummary(
+                        editablePromptPreviewAllowed,
+                        editablePromptExecutionAllowed,
+                        editablePromptNativeSupported,
+                    ).joinToString("\n")
                     statusText.text = listOf(
                         "status=refreshed",
                         "result_file=${resultFile.exists()}",
@@ -195,11 +183,69 @@ class NpuDiagnosticChatActivity : Activity() {
             },
         )
         confirmCheck.setOnCheckedChangeListener { _, isChecked ->
-            runButton.isEnabled = guardedRunAllowed && isChecked && !running.get()
+            runButton.isEnabled = canEnableRunButton(
+                guardedRunAllowed = guardedRunAllowed,
+                editablePromptExecutionAllowed = editablePromptExecutionAllowed,
+                editablePromptNativeSupported = editablePromptNativeSupported,
+                devConfirmed = isChecked,
+                prompt = promptInput.text?.toString().orEmpty(),
+            )
         }
+        promptInput.addTextChangedListener(
+            object : TextWatcher {
+                override fun beforeTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    count: Int,
+                    after: Int,
+                ) = Unit
+
+                override fun onTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    before: Int,
+                    count: Int,
+                ) {
+                    val prompt = s?.toString().orEmpty()
+                    promptPreviewSummary.text = readPromptPreviewSummary(
+                        prompt = prompt,
+                        editablePromptPreviewAllowed = editablePromptPreviewAllowed,
+                        editablePromptExecutionAllowed = editablePromptExecutionAllowed,
+                        editablePromptNativeSupported = editablePromptNativeSupported,
+                    ).joinToString("\n")
+                    writePromptPreviewState(
+                        file = promptPreviewStateFile,
+                        prompt = prompt,
+                        editablePromptPreviewAllowed = editablePromptPreviewAllowed,
+                        editablePromptExecutionAllowed = editablePromptExecutionAllowed,
+                        editablePromptNativeSupported = editablePromptNativeSupported,
+                    )
+                    runButton.isEnabled = canEnableRunButton(
+                        guardedRunAllowed = guardedRunAllowed,
+                        editablePromptExecutionAllowed = editablePromptExecutionAllowed,
+                        editablePromptNativeSupported = editablePromptNativeSupported,
+                        devConfirmed = confirmCheck.isChecked,
+                        prompt = prompt,
+                    )
+                }
+
+                override fun afterTextChanged(s: Editable?) = Unit
+            },
+        )
         if (guardedRunAllowed) {
             runButton.setOnClickListener {
                 if (!confirmCheck.isChecked || running.get()) return@setOnClickListener
+                if (editablePromptExecutionAllowed) {
+                    val validation = NpuDiagnosticPromptValidator.validate(promptInput.text?.toString().orEmpty())
+                    if (!editablePromptNativeSupported || !validation.isValid) {
+                        statusText.text = listOf(
+                            "status=preflight_blocked",
+                            "native_editable_prompt_supported=$editablePromptNativeSupported",
+                            "reasonCode=${validation.reasonCode}",
+                        ).joinToString(" ")
+                        return@setOnClickListener
+                    }
+                }
                 startGuardedShortMultitokenSmoke(
                     modelPath = modelPath,
                     resultFile = resultFile,
@@ -228,6 +274,8 @@ class NpuDiagnosticChatActivity : Activity() {
                 "customBuildExperimentDebug only",
                 "DEV confirmation required before run",
                 "guarded run requires allowGuardedNpuRun=true intent extra",
+                "editable execution requires allowEditablePromptExecution=true intent extra",
+                "native editable prompt supported=$editablePromptNativeSupported",
                 "running lock prevents double run",
                 "timeout=${timeoutMs / 1000}s",
                 "no selectedPath=npu normal route",
@@ -243,6 +291,18 @@ class NpuDiagnosticChatActivity : Activity() {
                 addView(content)
             },
         )
+    }
+
+    private fun canEnableRunButton(
+        guardedRunAllowed: Boolean,
+        editablePromptExecutionAllowed: Boolean,
+        editablePromptNativeSupported: Boolean,
+        devConfirmed: Boolean,
+        prompt: String,
+    ): Boolean {
+        if (!guardedRunAllowed || !devConfirmed || running.get()) return false
+        if (!editablePromptExecutionAllowed) return true
+        return editablePromptNativeSupported && NpuDiagnosticPromptValidator.validate(prompt).isValid
     }
 
     private fun startGuardedShortMultitokenSmoke(
@@ -428,7 +488,11 @@ class NpuDiagnosticChatActivity : Activity() {
         )
     }
 
-    private fun readRouteGuardSummary(editablePromptPreviewAllowed: Boolean): List<String> =
+    private fun readRouteGuardSummary(
+        editablePromptPreviewAllowed: Boolean,
+        editablePromptExecutionAllowed: Boolean,
+        editablePromptNativeSupported: Boolean,
+    ): List<String> =
         listOf(
             "normal ChatScreen route disabled=true",
             "selectedPath=npu disabled=true",
@@ -437,17 +501,23 @@ class NpuDiagnosticChatActivity : Activity() {
             "refresh_runs_npu=false",
             "prompt_input_execution=disabled",
             "editable_prompt_preview=$editablePromptPreviewAllowed",
-            "editable_prompt_phase=preview_only",
-            "run_button_uses_fixed_prompt=Hi",
+            "editable_prompt_execution_extra=$editablePromptExecutionAllowed",
+            "native_editable_prompt_supported=$editablePromptNativeSupported",
+            "editable_prompt_phase=${if (editablePromptExecutionAllowed) "preflight_blocked_native_fixed_hi" else "preview_only"}",
+            "run_button_uses_fixed_prompt=${if (editablePromptExecutionAllowed) "preflight_blocked" else "Hi"}",
             "guarded_run_intent_extra_required=true",
+            "editable_prompt_execution_intent_extra_required=true",
             "run_button_requires_dev_checkbox=true",
         )
 
     private fun readPromptPreviewSummary(
         prompt: String,
         editablePromptPreviewAllowed: Boolean,
+        editablePromptExecutionAllowed: Boolean,
+        editablePromptNativeSupported: Boolean,
     ): List<String> {
         val result = NpuDiagnosticPromptValidator.validate(prompt)
+        val promptExecutionConnected = editablePromptExecutionAllowed && editablePromptNativeSupported && result.isValid
         return listOf(
             "label=Diagnostic prompt preview",
             "value=$prompt",
@@ -458,9 +528,13 @@ class NpuDiagnosticChatActivity : Activity() {
             "normalizedPrompt=${result.normalizedPrompt}",
             "message=${result.message}",
             "editable_prompt_preview=$editablePromptPreviewAllowed",
-            "prompt_execution_connected=false",
-            "run_button_uses_fixed_prompt=Hi",
-            "run_button_connected=false",
+            "editable_prompt_execution_extra=$editablePromptExecutionAllowed",
+            "native_editable_prompt_supported=$editablePromptNativeSupported",
+            "prompt_execution_connected=$promptExecutionConnected",
+            "prompt_source=${if (promptExecutionConnected) "editable_prompt" else "fixed_hi"}",
+            "run_button_uses_fixed_prompt=${if (promptExecutionConnected) "false" else "Hi"}",
+            "run_button_connected=$promptExecutionConnected",
+            "maxOutputTokens=3",
             "npu_generation=false",
         )
     }
@@ -469,21 +543,28 @@ class NpuDiagnosticChatActivity : Activity() {
         file: File,
         prompt: String,
         editablePromptPreviewAllowed: Boolean,
+        editablePromptExecutionAllowed: Boolean,
+        editablePromptNativeSupported: Boolean,
     ) {
         val result = NpuDiagnosticPromptValidator.validate(prompt)
+        val promptExecutionConnected = editablePromptExecutionAllowed && editablePromptNativeSupported && result.isValid
         file.writeText(
             listOf(
                 "qairt244_editable_prompt_preview_v1",
                 "input_enabled=$editablePromptPreviewAllowed",
                 "editable_prompt_preview=$editablePromptPreviewAllowed",
+                "editable_prompt_execution_extra=$editablePromptExecutionAllowed",
+                "native_editable_prompt_supported=$editablePromptNativeSupported",
                 "value=$prompt",
                 "isValid=${result.isValid}",
                 "reasonCode=${result.reasonCode}",
                 "normalizedPrompt=${result.normalizedPrompt}",
                 "message=${result.message}",
-                "prompt_execution_connected=false",
-                "run_button_uses_fixed_prompt=Hi",
-                "run_button_connected=false",
+                "prompt_execution_connected=$promptExecutionConnected",
+                "prompt_source=${if (promptExecutionConnected) "editable_prompt" else "fixed_hi"}",
+                "run_button_uses_fixed_prompt=${if (promptExecutionConnected) "false" else "Hi"}",
+                "run_button_connected=$promptExecutionConnected",
+                "max_output_tokens=3",
                 "npu_generation=false",
                 "engine_initialize=false",
                 "run_decode=false",

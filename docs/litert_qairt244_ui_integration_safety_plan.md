@@ -250,8 +250,13 @@ Editable prompt execution connection plan:
   `allowGuardedNpuRun=true`
 - Run button may enable only when all extras are present, DEV checkbox is
   checked, validator status is valid, prompt length is within 32 characters,
-  `maxOutputTokens=3` remains fixed, and no run is active
+  `maxOutputTokens=3` remains fixed, native editable prompt support exists,
+  and no run is active
 - invalid prompt keeps Run disabled and starts no native execution
+- current native prompt support: absent; Android-side gate reports
+  `native_editable_prompt_supported=false` and keeps Run disabled
+- preflight artifact:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_175939/`
 - stale summary freshness is a visible warning, not a hard execution block
 - normal `ChatScreen`, normal `selectedPath=npu`, high-level
   `generateResponse`, DB writes, TTS, and Markdown remain forbidden

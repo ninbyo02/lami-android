@@ -7,6 +7,10 @@ conditions for connecting the Diagnostic Chat editable prompt preview to the
 guarded short NPU smoke path. It does not connect the prompt to execution and
 does not run NPU generation.
 
+Implementation update: the Android-side STEP 2B gates and runner preflight are
+implemented, but editable prompt execution remains blocked because the current
+QAIRT 2.44 native short multi-token entrypoint is still fixed to `prompt=Hi`.
+
 ## Current State
 
 Completed:
@@ -47,6 +51,7 @@ of these conditions are true:
 - `maxOutputTokens=3` remains fixed in the lower-level native path
 - `running=false`
 - prompt execution status is visible as `prompt_execution_connected=true`
+- native editable prompt support is present
 - normal `ChatScreen` route remains disconnected
 - normal `selectedPath=npu` route remains disabled
 
@@ -76,6 +81,7 @@ It must remain disabled when:
 - prompt length is greater than 32
 - a run is already active
 - native artifact preflight fails
+- native short multi-token entrypoint is fixed to `Hi`
 
 UI must display:
 
@@ -199,6 +205,55 @@ When input is invalid:
 - read-only artifact is sufficient if this is a validation-only check
 
 Invalid input must not create a native execution artifact that looks like a run.
+
+## Current Preflight Classification
+
+Current native artifact state:
+
+- Kotlin wrapper: `Qairt244ShortMultitokenSmoke.nativeRun(...)`
+- native entrypoint:
+  `Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRun`
+- current prompt handling: fixed `constexpr const char* kPrompt = "Hi"`
+- editable prompt parameter: not present
+- `supportsEditablePromptExecution()`: `false`
+
+Therefore, `allowEditablePromptExecution=true` currently results in:
+
+- `native_editable_prompt_supported=false`
+- `prompt_execution_connected=false`
+- Run disabled
+- no Engine.initialize
+- no RunDecode
+- no NPU generation
+
+Preflight artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_175939/
+```
+
+Observed:
+
+- `requested_prompt=Hi`
+- `input_enabled=true`
+- `editable_prompt_execution_extra=true`
+- `native_editable_prompt_supported=false`
+- `preflight_result=blocked_native_fixed_hi`
+- `prompt_execution_connected=false`
+- `run_button_connected=false`
+- `run_executed=false`
+- `engine_initialize=false`
+- `run_decode=false`
+- `npu_generation=false`
+
+Required next native change before a real editable prompt run:
+
+- add an editable prompt `jstring` parameter to the custom native entrypoint
+- validate/null-check the prompt before native use
+- write `actual_prompt`, `normalized_prompt`, and
+  `prompt_source=editable_prompt` to the result file
+- keep `DecodeConfig.SetMaxOutputTokens(3)` hard-coded
+- rebuild the QAIRT 2.44 custom artifact and update expected IDs
 
 ## Final Pre-Implementation Checklist
 

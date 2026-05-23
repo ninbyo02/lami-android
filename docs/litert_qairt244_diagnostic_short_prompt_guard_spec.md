@@ -289,10 +289,21 @@ checks all of these explicit gates:
 - normalized prompt length `<=32`
 - `running=false`
 - native hard cap `maxOutputTokens=3`
+- native editable prompt support
 
 When invalid input is present, the Run button must remain disabled, the
 validator `reasonCode` must be displayed, and no Engine.initialize, native
 session, RunDecode, or NPU generation may start.
+
+Current STEP 2B implementation status:
+
+- Android-side extra `allowEditablePromptExecution=true` is recognized.
+- The current native short multi-token entrypoint is fixed to `Hi`.
+- `supportsEditablePromptExecution()` returns `false`.
+- Run remains disabled in editable execution mode until a rebuilt native
+  entrypoint can accept an editable prompt parameter.
+- preflight artifact:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_175939/`
 
 ## Non-Goals
 
