@@ -998,6 +998,22 @@ Editable prompt preview:
 - NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
   normal `ChatScreen`, and normal `selectedPath=npu` remain unused
 
+Editable prompt connection design:
+
+- plan:
+  `docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md`
+- status: design review only
+- future connection requires:
+  `allowEditablePromptPreview=true`, `allowGuardedNpuRun=true`,
+  `allowEditablePromptExecution=true`, DEV checkbox checked, valid prompt,
+  `running=false`
+- Run button enable condition: all gates pass and native
+  `maxOutputTokens=3` remains fixed
+- NG input behavior: Run disabled, reasonCode displayed, no native execution
+- stale freshness behavior: warning visible, not a hard block
+- artifact target:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/<timestamp>/`
+
 Root-cause interpretation is unchanged: QAIRT 2.44 NPU is proven for bounded
 isolated Diagnostic Chat smoke runs, while normal chat integration remains a
 separate future gate.

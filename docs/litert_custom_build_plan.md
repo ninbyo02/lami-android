@@ -1287,3 +1287,22 @@ Editable prompt preview update:
 - `allowEditablePromptPreview` is independent from `allowGuardedNpuRun`
 - no NPU generation, Engine.initialize, or RunDecode is run by editing,
   refreshing, or launching this preview mode
+
+Editable prompt guarded execution plan:
+
+- plan:
+  `docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md`
+- status: design review only
+- new future Activity extra: `allowEditablePromptExecution=true`
+- required extras for execution:
+  `allowEditablePromptPreview=true`, `allowGuardedNpuRun=true`,
+  `allowEditablePromptExecution=true`
+- required UI state: DEV checkbox checked, validator valid, prompt length
+  `<=32`, `running=false`
+- Run button disabled for invalid prompt or missing extra
+- NG input displays `reasonCode` and starts no native execution
+- stale summary freshness remains a visible warning, not a hard block
+- result contract must include `actual_prompt`, `normalized_prompt`,
+  `prompt_source=editable_prompt`, `max_output_tokens=3`, timing, native diag,
+  and stale/fresh tombstone classification
+- no editable prompt connection or NPU generation was performed in this pass

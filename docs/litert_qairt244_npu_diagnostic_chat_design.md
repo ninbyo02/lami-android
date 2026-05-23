@@ -558,6 +558,32 @@ Observed result:
 - normal `ChatScreen` and normal `selectedPath=npu` routes remained
   disconnected
 
+## Editable Prompt Execution Connection Review
+
+STEP 2B is planned but not implemented in this commit. The final design review
+is documented in:
+
+```text
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md
+```
+
+The planned execution connection requires a new explicit
+`allowEditablePromptExecution=true` Activity extra in addition to
+`allowEditablePromptPreview=true`, `allowGuardedNpuRun=true`, a checked DEV
+checkbox, valid prompt input, and `running=false`.
+
+Run button policy for STEP 2B:
+
+- enabled only when all connection gates pass
+- disabled for invalid prompt input
+- disabled during execution
+- displays `prompt_execution_connected=true` only in the fully armed state
+- records `prompt_source=editable_prompt`
+- still uses the lower-level isolated path with native `maxOutputTokens=3`
+
+This review does not connect the editable prompt to execution and does not run
+NPU generation, Engine.initialize, or RunDecode.
+
 ## Non-Goals
 
 This work intentionally does not:

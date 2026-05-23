@@ -240,6 +240,22 @@ Short prompt DEV guard spec:
 - existing Diagnostic Chat UI runner scripts pass this explicit extra when they
   intentionally run guarded smoke tests; read-only launches omit it
 
+Editable prompt execution connection plan:
+
+- plan:
+  `docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md`
+- STEP 2B requires a new explicit `allowEditablePromptExecution=true` Activity
+  extra
+- this extra is separate from `allowEditablePromptPreview=true` and
+  `allowGuardedNpuRun=true`
+- Run button may enable only when all extras are present, DEV checkbox is
+  checked, validator status is valid, prompt length is within 32 characters,
+  `maxOutputTokens=3` remains fixed, and no run is active
+- invalid prompt keeps Run disabled and starts no native execution
+- stale summary freshness is a visible warning, not a hard execution block
+- normal `ChatScreen`, normal `selectedPath=npu`, high-level
+  `generateResponse`, DB writes, TTS, and Markdown remain forbidden
+
 ## Fallback Policy
 
 Fallback is diagnostic-only:

@@ -270,6 +270,30 @@ The verification recorded both the OK state for `Hi` and an NG preview state
 for `Hello/LamiHi` with `reasonCode=contains_disallowed_char`. The NG check was
 preview-only and did not invoke native execution.
 
+## STEP 2B Connection Gate
+
+The final connection plan is fixed in:
+
+```text
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md
+```
+
+Editable prompt execution remains disabled until a later implementation adds and
+checks all of these explicit gates:
+
+- `allowEditablePromptPreview=true`
+- `allowGuardedNpuRun=true`
+- `allowEditablePromptExecution=true`
+- DEV checkbox checked
+- validator `isValid=true`
+- normalized prompt length `<=32`
+- `running=false`
+- native hard cap `maxOutputTokens=3`
+
+When invalid input is present, the Run button must remain disabled, the
+validator `reasonCode` must be displayed, and no Engine.initialize, native
+session, RunDecode, or NPU generation may start.
+
 ## Non-Goals
 
 This spec does not authorize:
