@@ -1376,3 +1376,19 @@ Normal ChatScreen NPU integration design:
   unclear cleanup
 - this planning pass did not run NPU generation, Engine.initialize, RunDecode,
   high-level `generateResponse`, or normal UI NPU routing
+
+DEV-only NPU route adapter boundary:
+
+- plan:
+  `docs/litert_qairt244_dev_only_npu_route_adapter_plan.md`
+- status: design only
+- proposed API:
+  `DevOnlyNpuRouteAdapter.runOnce(prompt, maxOutputTokens=3, timeoutMs=30000)`
+- proposed result:
+  `success`, `output`, `reasonCode`, elapsed fields, prompt, token cap,
+  backend evidence, artifact path, fresh crash flag, and timeout flag
+- first candidate call site: normal `ChatScreen` `InferenceTarget.LOCAL` branch
+  before user message persistence
+- explicitly detached from DB, TTS, Markdown, streaming, stop button,
+  high-level `generateResponse`, and normal `selectedPath=npu`
+- no code was connected and no NPU generation was run

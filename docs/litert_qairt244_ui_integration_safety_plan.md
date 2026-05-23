@@ -414,3 +414,21 @@ Key safety constraints:
 
 This pass is documentation only. It does not connect normal `ChatScreen`, does
 not set normal `selectedPath=npu`, and does not run NPU generation.
+
+## DEV-Only NPU Route Adapter Boundary - 2026-05-23
+
+The adapter boundary for any first normal ChatScreen experiment is documented
+in:
+
+```text
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md
+```
+
+The planned adapter is a `customBuildExperimentDebug`-only `runOnce` API with
+`maxOutputTokens=3` and a structured result. Its first candidate call site is
+inside the `InferenceTarget.LOCAL` send branch before normal DB persistence.
+It must stay detached from message DB writes, TTS, Markdown processing,
+streaming partials, stop button ownership, high-level `generateResponse`, and
+normal `selectedPath=npu`.
+
+This pass is design only and executed no NPU work.

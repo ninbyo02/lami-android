@@ -151,6 +151,32 @@ normal setting persistence of `selectedPath=npu`, or unclear cleanup.
 
 No code path was connected and no NPU generation was run in this design pass.
 
+## DEV-Only NPU Route Adapter Boundary
+
+Documented in:
+
+```text
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md
+```
+
+The next implementation boundary is not direct `ChatScreen` NPU wiring. It is
+a `customBuildExperimentDebug`-only adapter API that can return structured
+success/failure without touching normal message persistence. The first
+candidate call site is before the normal local branch inserts the user message.
+
+The adapter must remain detached from:
+
+- normal `selectedPath=npu`
+- DB persistence
+- TTS
+- Markdown
+- streaming partials
+- stop button ownership
+- high-level `generateResponse`
+- automatic GPU/CPU fallback
+
+No implementation or NPU run was performed for this boundary definition.
+
 ## libcdsprpc Manifest Visibility Update
 
 Artifact:

@@ -152,6 +152,17 @@ NPU route adapter with a small surface:
 - no streaming
 - no persisted backend selection
 
+The adapter API boundary is defined separately in:
+
+```text
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md
+```
+
+The first candidate call site is the `InferenceTarget.LOCAL` branch in
+`ChatScreen.kt`, after prompt capture and before normal message persistence.
+The adapter must return before user message insert, assistant message insert,
+streaming placeholder updates, TTS, Markdown, and stop button ownership.
+
 ## Implementation Checklist
 
 Before code implementation starts:
