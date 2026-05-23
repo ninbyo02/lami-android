@@ -1,0 +1,7 @@
+sample	total_pss_kb	total_private_dirty_kb	native_heap_pss_kb	native_heap_private_dirty_kb	dalvik_heap_pss_kb	dalvik_heap_private_dirty_kb	code_pss_kb	code_private_dirty_kb	stack_pss_kb	stack_private_dirty_kb	graphics_pss_kb	graphics_private_dirty_kb	java_heap_summary_kb:native_heap_summary_kb
+before	130698	28820	14115	14104	928	816	96704	NA	520	520	420	NA	7936:14104
+after_install	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA:NA
+smoke_before	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA:NA
+after	136005	104552	13805	13784	1236	1172	98968	NA	516	516	420	NA	8276:13784
+after_3s	133062	101152	13911	13900	1052	940	98640	NA	524	524	420	NA	8060:13900
+after_10s	132854	100892	13903	13892	1000	888	98596	NA	524	524	420	NA	8008:13892

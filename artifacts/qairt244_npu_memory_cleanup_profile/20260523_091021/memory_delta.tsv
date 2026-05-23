@@ -1,0 +1,5 @@
+metric	before	after	after_3s	after_10s	delta_after_minus_before	delta_10s_minus_before
+total_pss_kb	130698	136005	133062	132854	5307	2156
+native_heap_pss_kb	14115	13805	13911	13903	-310	-212
+native_heap_private_dirty_kb	14104	13784	13900	13892	-320	-212
+dalvik_heap_pss_kb	928	1236	1052	1000	308	72

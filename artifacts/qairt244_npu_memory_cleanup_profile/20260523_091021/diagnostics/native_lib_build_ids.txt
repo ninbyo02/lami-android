@@ -1,0 +1,14 @@
+applicationId=io.github.ninbyo02.lami.customnpu
+nativeLibraryDir=/data/app/~~GOtnUucBIYeW6o_iPI2D3A==/io.github.ninbyo02.lami.customnpu-wck9yMbIRma8Z2cyHzfrIw==/lib/arm64
+localApk=app/build/outputs/apk/customBuildExperiment/debug/app-customBuildExperiment-debug.apk
+library	present	size	sha256	build_id	soname	needed	source
+liblitertlm_jni.so	true	55172880	32b58ee5b5c16e181897d10cd392fff0695c562bf4b578968387f20d6a80ff0a	bb6f8924e466e7039a1f54d7170a2eb2		libGemmaModelConstraintProvider.so,libdl.so,liblog.so,libandroid.so,libGLESv3.so,libEGL.so,libm.so,libc.so	apk
+libLiteRt.so	true	5405080	84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553	a03032ad1eeefda446478aea308c2ed0	libLiteRt.so	libdl.so,libGLESv3.so,libEGL.so,libm.so,liblog.so,libc.so	apk
+libLiteRtDispatch_Qualcomm.so	true	691184	7d3d37cb13cf88fc679ea8d07d271865db36e2f6f6eab80e3a1d02783000c34f	283f860170c8b970f14db885eab73a95	libLiteRtDispatch_Qualcomm.so	libLiteRt.so,libandroid.so,liblog.so,libdl.so,libc.so,libm.so	apk
+libQnnSystem.so	true	2983560	7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8	0d409cdd664b8b0a	libQnnSystem.so	libc.so,libm.so,libdl.so,liblog.so	apk
+libQnnHtp.so	true	2778176	090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a	f2c90c1775a109e1	libQnnHtp.so	libc.so,libm.so,libdl.so,liblog.so	apk
+libQnnHtpPrepare.so	true	85539184	09b1c15c62b6875af49ffd3d841961c098b85c367f584fee370f986c62511298	edb612e67d6d27c2	libQnnHtpPrepare.so	libc.so,libm.so,libdl.so,liblog.so	apk
+libQnnHtpV79Stub.so	true	679168	005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1	10d7ad6f9195411a	libQnnHtpV79Stub.so	libc.so,libm.so,libdl.so,liblog.so,libcdsprpc.so	apk
+libQnnHtpV79Skel.so	true	10975268	41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98		libQnnHtpV79Skel.so	libc++.so.1,libc++abi.so.1	apk
+libLiteRtRuntimeCApi.so	false	-	-	-	-	-	missing
+libllm_inference_engine_jni.so	true	26422184	51b27a87a4723172b2661d68c03de01d73aaea71909c9dd2b2c8d1ef149ca1f8	2f6f9104344966674bf6587935d27cc8	libllm_inference_engine_jni.so	libandroid.so,libGLESv2.so,libEGL.so,libz.so,libGLESv3.so,libdl.so,libm.so,liblog.so,libc.so	apk

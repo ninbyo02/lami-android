@@ -193,3 +193,24 @@ The smoke did not:
 Keep the path isolated and add one more reproducibility run only if explicitly
 approved. Do not enable any Diagnostic Chat run button or normal UI NPU route
 from a single short multi-token success.
+
+## Memory Cleanup Baseline
+
+A follow-up runtime memory cleanup profile reused the same isolated
+`maxOutputTokens=3` smoke once:
+
+```text
+artifact=artifacts/qairt244_npu_memory_cleanup_profile/20260523_091021/
+result=success
+output=! How Hi
+elapsed_ms=1423
+decode_elapsed_ms=84
+cleanup_elapsed_ms=110
+native_heap_pss_delta_after_10s=-212 KB
+total_pss_delta_after_10s=+2156 KB
+tombstone_classification=stale-tombstone-ignored
+```
+
+This is a baseline Android runtime/native heap profile only. It does not
+indicate an obvious Native Heap leak from one run, but repeated cold-start
+profiles would be needed before making a stronger cleanup claim.

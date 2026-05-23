@@ -428,6 +428,26 @@ Updated next recommendation:
 - Still no normal UI NPU route, no `selectedPath=npu` normal path, and no
   high-level `generateResponse`.
 
+2026-05-23 NPU runtime memory / cleanup profile:
+
+- Added `scripts/run_qairt244_npu_memory_cleanup_profile.sh`.
+- Artifact:
+  `artifacts/qairt244_npu_memory_cleanup_profile/20260523_091021/`
+- The script runs exactly one isolated short multi-token smoke with
+  `maxOutputTokens=3` and captures app `dumpsys meminfo` before install, after
+  install, before smoke launch, immediately after result, after 3 seconds, and
+  after 10 seconds.
+- Result: `success`, output `! How Hi`, elapsed `1423 ms`, decode elapsed
+  `84 ms`, cleanup elapsed `110 ms`.
+- Native cleanup evidence includes `Engine.close=unique_ptr_cleanup` and
+  `QNN_HTP_V79_FastRPC_native_diag`.
+- Native Heap PSS delta at 10 seconds versus the warm-process baseline was
+  `-212 KB`; TOTAL PSS delta was `+2156 KB`.
+- This is a baseline only. Retained PSS from a live process or mapped
+  QAIRT/QNN libraries is not treated as a leak from one sample.
+- Still no normal UI NPU route, no `selectedPath=npu` normal path, no
+  high-level `generateResponse`, and no streaming generation.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real
