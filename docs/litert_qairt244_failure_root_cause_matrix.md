@@ -964,6 +964,20 @@ Freshness indicator update:
 - no NPU generation, Engine.initialize, or RunDecode was executed for this
   verification
 
+Short prompt DEV guard spec:
+
+- spec:
+  `docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md`
+- status: design only
+- editable input: not enabled
+- NPU generation: not run
+- Engine.initialize: not run
+- RunDecode: not run
+- normal `ChatScreen`: not connected
+- normal `selectedPath=npu`: not used
+- hard future cap: `maxOutputTokens=3`
+- prompt limit: 32 ASCII-only characters for the first editable phase
+
 Root-cause interpretation is unchanged: QAIRT 2.44 NPU is proven for bounded
 isolated Diagnostic Chat smoke runs, while normal chat integration remains a
 separate future gate.

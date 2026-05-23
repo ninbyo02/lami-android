@@ -199,6 +199,23 @@ Summary freshness indicator:
 - Engine.initialize: not run
 - RunDecode: not run
 
+Short prompt DEV guard spec:
+
+- spec:
+  `docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md`
+- implementation status: not enabled
+- prompt maximum: 32 characters
+- allowed characters: ASCII letters, digits, space, `. , ? ! ' - _`
+- rejected: empty prompt, newline, tab/control characters, emoji, non-ASCII
+  symbols
+- hard generation cap: `maxOutputTokens=3`
+- timeout: 30 seconds
+- required guards: DEV checkbox, explicit confirmation, running lock, prompt
+  disabled while running
+- fallback: Diagnostic Chat-local failure only, no normal UI fallback
+- normal `ChatScreen`, normal `selectedPath=npu`, high-level
+  `generateResponse`, and streaming remain forbidden
+
 ## Fallback Policy
 
 Fallback is diagnostic-only:

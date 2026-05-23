@@ -439,6 +439,29 @@ The Activity displayed the freshness fields from the app-private file. The
 verification did not press the DEV checkbox or guarded run button, and did not
 run Engine.initialize, RunDecode, or token generation.
 
+## Short Prompt DEV Guard Spec
+
+STEP 2 is not implemented yet. The pre-enable specification is fixed in:
+
+```text
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md
+```
+
+Summary:
+
+- `customBuildExperimentDebug` Diagnostic Chat only
+- initial prompt remains `Hi`
+- future editable prompt maximum: 32 characters
+- allowed characters: ASCII letters, digits, space, `. , ? ! ' - _`
+- empty strings, newlines, tabs, control characters, emoji, and non-ASCII
+  symbols are rejected for the first editable phase
+- `maxOutputTokens=3` remains hard fixed
+- timeout remains 30 seconds
+- DEV checkbox, explicit confirmation, running lock, and artifact collection
+  are required
+- normal `ChatScreen`, normal `selectedPath=npu`, high-level
+  `generateResponse`, and streaming remain forbidden
+
 ## Non-Goals
 
 This work intentionally does not:

@@ -1218,3 +1218,30 @@ The stale threshold is 24 hours. If the source artifact timestamp cannot be
 parsed, the status is `unknown`; if it is older than 24 hours, the status is
 `stale` and the warning states that the source artifact is older than the
 freshness threshold.
+
+## QAIRT 2.44 Diagnostic Short Prompt Guard Spec
+
+Result date: 2026-05-23
+
+Spec:
+
+```text
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md
+```
+
+This is STEP 2 preparation only. No editable prompt field was enabled and no
+NPU generation was run.
+
+Key requirements:
+
+- `customBuildExperimentDebug` Diagnostic Chat only
+- initial prompt: `Hi`
+- maximum prompt length: 32 characters
+- allowed characters: ASCII letters, digits, space, `. , ? ! ' - _`
+- rejected: empty prompt, newline, control characters, emoji, non-ASCII symbols
+- native path must still enforce `maxOutputTokens=3`
+- timeout: 30 seconds
+- DEV checkbox, explicit confirmation, and running lock required
+- artifact collection and stale/fresh tombstone classification required
+- no normal `ChatScreen` route, no normal `selectedPath=npu`, no high-level
+  `generateResponse`, no streaming
