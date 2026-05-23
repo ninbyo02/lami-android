@@ -548,3 +548,20 @@ The preview continues to display route isolation flags:
 
 No normal UI route or native NPU execution is introduced by this display-only
 change.
+
+## DEV-Only Transient Presenter - 2026-05-23
+
+`DevOnlyNpuTransientPresenter` now provides the ViewModel-independent boundary
+between a DEV-only NPU result and any future ChatScreen transient UI display.
+
+It maps `DevOnlyNpuRouteDisplayModel` to `DevOnlyNpuTransientUiState` and
+always keeps integration side effects disabled:
+
+- `shouldPersistToDb=false`
+- `shouldSpeakTts=false`
+- `shouldRenderMarkdown=false`
+- `shouldStream=false`
+
+This applies to `SUCCESS`, `BLOCKED`, `TIMEOUT`, `CRASH`, and `ERROR`. The
+presenter does not call the planner or adapter, does not run native NPU work,
+and has no normal ChatScreen call site.

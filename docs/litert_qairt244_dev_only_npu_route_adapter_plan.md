@@ -400,6 +400,42 @@ is a transient result/error UI boundary only. It does not connect normal
 `ChatScreen`, apply normal `selectedPath=npu`, run NPU generation, call
 `Engine.initialize`, or call `RunDecode`.
 
+## Transient Presenter Boundary
+
+`DevOnlyNpuTransientPresenter` now converts `DevOnlyNpuRouteDisplayModel` into
+a ViewModel-independent `DevOnlyNpuTransientUiState`:
+
+- source:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuTransientPresenter.kt`
+- tests:
+  `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuTransientPresenterTest.kt`
+
+The transient UI state contains:
+
+- `visible`
+- `title`
+- `message`
+- `status`
+- `outputPreview`
+- `reasonCode`
+- `debugDetails`
+- `shouldPersistToDb`
+- `shouldSpeakTts`
+- `shouldRenderMarkdown`
+- `shouldStream`
+
+The last four flags are fixed to `false` for every status, including
+`SUCCESS`. This keeps the first future ChatScreen branch transient-only:
+
+- no DB persistence
+- no TTS
+- no Markdown rendering path
+- no streaming path
+
+The presenter is still not connected to normal `ChatScreen` and does not call
+the planner, adapter, NPU generation, `Engine.initialize`, `RunDecode`,
+high-level `generateResponse`, or normal `selectedPath=npu`.
+
 ## Remaining Steps To Normal UI
 
 1. Implement adapter as `customBuildExperimentDebug` only, with no ChatScreen

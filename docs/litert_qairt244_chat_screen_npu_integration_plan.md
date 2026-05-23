@@ -204,6 +204,19 @@ The current blocked adapter result is shown as:
 This keeps the future transient error/result appearance fixed without adding a
 normal ChatScreen call site.
 
+`DevOnlyNpuTransientPresenter` now defines the next boundary after the display
+model. It turns display models into `DevOnlyNpuTransientUiState` for a future
+DEV-only branch, while hard-coding:
+
+- `shouldPersistToDb=false`
+- `shouldSpeakTts=false`
+- `shouldRenderMarkdown=false`
+- `shouldStream=false`
+
+Those flags remain false even for `SUCCESS`. This prevents a future initial
+ChatScreen experiment from accidentally entering message persistence, TTS,
+Markdown, or streaming before the explicit integration phase.
+
 ## Implementation Checklist
 
 Before code implementation starts:

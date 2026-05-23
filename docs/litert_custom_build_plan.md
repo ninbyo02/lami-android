@@ -1495,3 +1495,23 @@ DEV-only display model UI application:
 - NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
   normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
   paths remain untouched
+
+DEV-only transient presenter:
+
+- implementation:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuTransientPresenter.kt`
+- tests:
+  `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuTransientPresenterTest.kt`
+- input:
+  `DevOnlyNpuRouteDisplayModel`
+- output:
+  `DevOnlyNpuTransientUiState`
+- side-effect flags:
+  `shouldPersistToDb=false`, `shouldSpeakTts=false`,
+  `shouldRenderMarkdown=false`, `shouldStream=false`
+- applies to:
+  `SUCCESS`, `BLOCKED`, `TIMEOUT`, `CRASH`, and `ERROR`
+- normal ChatScreen call site: none
+- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+  paths remain untouched
