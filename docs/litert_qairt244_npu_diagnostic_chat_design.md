@@ -397,6 +397,48 @@ timing fields, final guard state, after-10s memory fields, stale tombstone
 classification, and disabled normal route status. The DEV checkbox and guarded
 run button were not pressed.
 
+## Summary Freshness Indicator
+
+Freshness threshold: `86400` seconds, or 24 hours.
+
+The sync script now adds these metadata keys to
+`qairt244_diagnostic_runner_summary.txt`:
+
+- `synced_at_epoch_ms`
+- `synced_at_local`
+- `source_artifact`
+- `source_artifact_timestamp`
+- `source_artifact_age_seconds`
+- `source_artifact_age_human`
+- `freshness_status`
+- `freshness_warning`
+- `freshness_threshold_seconds`
+- `summary_source`
+
+Freshness states:
+
+- `fresh`: source artifact timestamp is parseable and no more than 24 hours old
+- `stale`: source artifact timestamp is parseable and older than 24 hours
+- `unknown`: source artifact timestamp cannot be parsed
+
+Verification artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_summary_freshness/20260523_124234/
+```
+
+Observed result:
+
+- `synced_at_local=2026-05-23 12:42:34 +0900`
+- `source_artifact_timestamp=20260523_114243`
+- `source_artifact_age_human=59m 51s`
+- `freshness_status=fresh`
+- `freshness_warning=none`
+
+The Activity displayed the freshness fields from the app-private file. The
+verification did not press the DEV checkbox or guarded run button, and did not
+run Engine.initialize, RunDecode, or token generation.
+
 ## Non-Goals
 
 This work intentionally does not:

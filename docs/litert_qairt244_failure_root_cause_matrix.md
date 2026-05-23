@@ -953,6 +953,17 @@ The sync path copies existing artifact evidence only. It records
 `npu_generation=not_run`, `engine_initialize=not_run`, `run_decode=not_run`,
 and `activity_launch=not_run`.
 
+Freshness indicator update:
+
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_summary_freshness/20260523_124234/`
+- threshold: 24 hours
+- observed source artifact age: `59m 51s`
+- observed status: `fresh`
+- observed warning: `none`
+- no NPU generation, Engine.initialize, or RunDecode was executed for this
+  verification
+
 Root-cause interpretation is unchanged: QAIRT 2.44 NPU is proven for bounded
 isolated Diagnostic Chat smoke runs, while normal chat integration remains a
 separate future gate.

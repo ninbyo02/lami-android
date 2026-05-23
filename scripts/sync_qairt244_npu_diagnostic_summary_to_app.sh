@@ -7,7 +7,9 @@ APP_PRIVATE_ABS="/data/user/0/${PACKAGE}/${APP_PRIVATE_FILE}"
 DEVICE=""
 ARTIFACT=""
 RUN_TS="$(date +%Y%m%d_%H%M%S)"
-OUT_DIR="artifacts/qairt244_npu_diagnostic_summary_sync/${RUN_TS}"
+OUT_ROOT="${OUT_ROOT:-artifacts/qairt244_npu_diagnostic_summary_freshness}"
+OUT_DIR="${OUT_ROOT}/${RUN_TS}"
+FRESHNESS_THRESHOLD_SECONDS=86400
 
 usage() {
   cat <<'USAGE'
@@ -165,6 +167,35 @@ first_non_empty() {
   done
 }
 
+artifact_epoch_seconds() {
+  local timestamp="$1"
+  if [[ ! "${timestamp}" =~ ^[0-9]{8}_[0-9]{6}$ ]]; then
+    return 0
+  fi
+  date -d "${timestamp:0:8} ${timestamp:9:2}:${timestamp:11:2}:${timestamp:13:2}" +%s 2>/dev/null || true
+}
+
+human_age() {
+  local seconds="$1"
+  if [[ ! "${seconds}" =~ ^[0-9]+$ ]]; then
+    echo "unknown"
+    return 0
+  fi
+  local days=$((seconds / 86400))
+  local hours=$(((seconds % 86400) / 3600))
+  local minutes=$(((seconds % 3600) / 60))
+  local secs=$((seconds % 60))
+  if (( days > 0 )); then
+    printf '%dd %02dh %02dm %02ds\n' "${days}" "${hours}" "${minutes}" "${secs}"
+  elif (( hours > 0 )); then
+    printf '%dh %02dm %02ds\n' "${hours}" "${minutes}" "${secs}"
+  elif (( minutes > 0 )); then
+    printf '%dm %02ds\n' "${minutes}" "${secs}"
+  else
+    printf '%ds\n' "${secs}"
+  fi
+}
+
 if [[ -f "${RUN1_FILE}" ]]; then
   RUN1_SOURCE="${RUN1_FILE}"
 else
@@ -185,10 +216,43 @@ TOMBSTONE="$(first_non_empty "$(summary_value run2_tombstone_classification)" "$
 FRESH_CRASH="$(first_non_empty "$(summary_value fresh_crash)" "false")"
 AFTER_10S_TOTAL="$(first_non_empty "$(summary_value after_10s_total_pss_kb)" "$(memory_after_10s_total)")"
 AFTER_10S_NATIVE="$(first_non_empty "$(summary_value after_10s_native_heap_pss_kb)" "$(memory_after_10s_native)")"
+SYNCED_AT_EPOCH_MS="$(date +%s%3N)"
+SYNCED_AT_LOCAL="$(date '+%Y-%m-%d %H:%M:%S %z')"
+SOURCE_ARTIFACT_TIMESTAMP="$(basename "${ARTIFACT}")"
+SOURCE_ARTIFACT_EPOCH="$(artifact_epoch_seconds "${SOURCE_ARTIFACT_TIMESTAMP}")"
+if [[ -n "${SOURCE_ARTIFACT_EPOCH}" ]]; then
+  SOURCE_ARTIFACT_AGE_SECONDS="$(($(date +%s) - SOURCE_ARTIFACT_EPOCH))"
+  if (( SOURCE_ARTIFACT_AGE_SECONDS < 0 )); then
+    SOURCE_ARTIFACT_AGE_SECONDS=0
+  fi
+  SOURCE_ARTIFACT_AGE_HUMAN="$(human_age "${SOURCE_ARTIFACT_AGE_SECONDS}")"
+  if (( SOURCE_ARTIFACT_AGE_SECONDS <= FRESHNESS_THRESHOLD_SECONDS )); then
+    FRESHNESS_STATUS="fresh"
+    FRESHNESS_WARNING="none"
+  else
+    FRESHNESS_STATUS="stale"
+    FRESHNESS_WARNING="source artifact is older than 24h freshness threshold"
+  fi
+else
+  SOURCE_ARTIFACT_AGE_SECONDS="unknown"
+  SOURCE_ARTIFACT_AGE_HUMAN="unknown"
+  FRESHNESS_STATUS="unknown"
+  FRESHNESS_WARNING="source artifact timestamp unavailable"
+fi
 
 {
+  echo "synced_at_epoch_ms=${SYNCED_AT_EPOCH_MS}"
+  echo "synced_at_local=${SYNCED_AT_LOCAL}"
   echo "latest_artifact=${ARTIFACT}"
   echo "artifact=${ARTIFACT}"
+  echo "source_artifact=${ARTIFACT}"
+  echo "source_artifact_timestamp=${SOURCE_ARTIFACT_TIMESTAMP}"
+  echo "source_artifact_age_seconds=${SOURCE_ARTIFACT_AGE_SECONDS}"
+  echo "source_artifact_age_human=${SOURCE_ARTIFACT_AGE_HUMAN}"
+  echo "freshness_status=${FRESHNESS_STATUS}"
+  echo "freshness_warning=${FRESHNESS_WARNING}"
+  echo "freshness_threshold_seconds=${FRESHNESS_THRESHOLD_SECONDS}"
+  echo "summary_source=app_private_file"
   echo "run_count=$(first_non_empty "$(summary_value run_count)" "$(if [[ -n "${RUN2_SOURCE}" ]]; then echo 2; else echo 1; fi)")"
   echo "prompt=$(first_non_empty "$(summary_value prompt)" "$(kv_get "${RUN1_SOURCE}" prompt)" "Hi")"
   echo "max_output_tokens=$(first_non_empty "$(summary_value max_output_tokens)" "$(kv_get "${RUN1_SOURCE}" max_output_tokens)" "3")"
@@ -237,6 +301,9 @@ AFTER_10S_NATIVE="$(first_non_empty "$(summary_value after_10s_native_heap_pss_k
   echo "result=success"
   echo "device=${DEVICE}"
   echo "source_artifact=${ARTIFACT}"
+  echo "synced_at_local=${SYNCED_AT_LOCAL}"
+  echo "source_artifact_age_human=${SOURCE_ARTIFACT_AGE_HUMAN}"
+  echo "freshness_status=${FRESHNESS_STATUS}"
   echo "app_private_file=${APP_PRIVATE_ABS}"
   echo "synced_key_value=${KV_FILE}"
   echo "npu_generation=not_run"

@@ -1198,3 +1198,23 @@ including run count, run1/run2 output and timing, final guard state,
 after-10s memory summary, tombstone classification, and disabled route status.
 The verification did not press the DEV checkbox or guarded run button, and did
 not run Engine.initialize or RunDecode.
+
+Freshness indicator update:
+
+```text
+artifacts/qairt244_npu_diagnostic_summary_freshness/20260523_124234/
+```
+
+The app-private summary now includes sync timestamp and source artifact age:
+
+- `synced_at_local=2026-05-23 12:42:34 +0900`
+- `source_artifact=artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_114243`
+- `source_artifact_timestamp=20260523_114243`
+- `source_artifact_age_human=59m 51s`
+- `freshness_status=fresh`
+- `freshness_warning=none`
+
+The stale threshold is 24 hours. If the source artifact timestamp cannot be
+parsed, the status is `unknown`; if it is older than 24 hours, the status is
+`stale` and the warning states that the source artifact is older than the
+freshness threshold.

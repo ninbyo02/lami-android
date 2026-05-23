@@ -182,6 +182,23 @@ Read-only summary display verification:
 - normal `ChatScreen`: not connected
 - normal `selectedPath=npu`: not used
 
+Summary freshness indicator:
+
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_summary_freshness/20260523_124234/`
+- threshold: `86400` seconds / 24 hours
+- displayed fields:
+  `synced_at_local`, `source_artifact_timestamp`,
+  `source_artifact_age_human`, `freshness_status`, and
+  `freshness_warning`
+- observed status: `fresh`
+- observed warning: `none`
+- DEV checkbox: not pressed
+- guarded run button: not pressed
+- NPU generation: not run
+- Engine.initialize: not run
+- RunDecode: not run
+
 ## Fallback Policy
 
 Fallback is diagnostic-only:
