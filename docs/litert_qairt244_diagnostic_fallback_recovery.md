@@ -94,3 +94,18 @@ RunDecode.
 The next step is to design normal ChatScreen integration constraints. Do not
 connect normal UI NPU execution until a separate design review fixes backend
 selection, fallback behavior, message persistence, and user-visible recovery.
+
+## ChatScreen Integration Boundary
+
+The follow-up design is recorded in:
+
+```text
+docs/litert_qairt244_chat_screen_npu_integration_plan.md
+```
+
+The fallback/recovery result is a prerequisite only. It does not by itself
+enable normal `ChatScreen` NPU routing. Any future normal UI integration must
+remain DEV-only, start with `maxOutputTokens=3`, avoid persistence of
+`selectedPath=npu`, avoid DB/TTS/Markdown/streaming integration in the first
+implementation, and roll back on timeout, fresh crash, duplicate marker, stale
+summary misuse, memory warning, UI freeze, or unclear cleanup.

@@ -1357,3 +1357,22 @@ Fallback/recovery verification:
 - after timeout/refresh: DEV checkbox off, Run disabled
 - normal ChatScreen route and normal `selectedPath=npu` route remained
   disconnected
+
+Normal ChatScreen NPU integration design:
+
+- plan:
+  `docs/litert_qairt244_chat_screen_npu_integration_plan.md`
+- status: design only
+- implementation: not started
+- normal `ChatScreen`: still disconnected
+- normal `selectedPath=npu`: still disabled
+- required initial phase: `customBuildExperimentDebug` DEV hidden toggle only
+- first candidate route: DEV-only adapter using the same lower-level isolated
+  QAIRT 2.44 path, prompt length `<=32`, and `maxOutputTokens=3`
+- first normal UI behavior: one non-streaming short run, no DB persistence, no
+  TTS, no Markdown pipeline, no stop button, and no automatic GPU retry
+- rollback conditions include fresh crash, duplicate marker, timeout, stale
+  summary misuse, memory warning, normal setting persistence, UI freeze, and
+  unclear cleanup
+- this planning pass did not run NPU generation, Engine.initialize, RunDecode,
+  high-level `generateResponse`, or normal UI NPU routing

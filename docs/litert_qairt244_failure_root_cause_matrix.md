@@ -116,6 +116,41 @@ Boundary update: Diagnostic Chat fallback/recovery behavior is verified for
 invalid input, unsupported native preflight, and timeout simulation. The next
 step is normal ChatScreen integration design only, not implementation.
 
+## Normal ChatScreen NPU Integration Design
+
+Documented in:
+
+```text
+docs/litert_qairt244_chat_screen_npu_integration_plan.md
+```
+
+Current interpretation:
+
+- QAIRT 2.44 NPU root causes are resolved for bounded Diagnostic Chat smoke.
+- Diagnostic Chat failure, timeout, and recovery behavior is verified.
+- Normal ChatScreen remains unconnected.
+- Normal `selectedPath=npu` remains unused and disabled.
+
+Future normal ChatScreen NPU work is gated by:
+
+- `customBuildExperimentDebug` only
+- DEV hidden toggle
+- Nubia / SM8750 check
+- QAIRT 2.44 aligned runtime stack
+- `libcdsprpc.so` manifest visibility
+- native marker `qairt244_editable_prompt_smoke_v1`
+- fixed `maxOutputTokens=3` evidence
+- fresh Diagnostic Chat success summary
+- fallback/recovery artifact pass
+- one-shot hardening pass
+- memory cleanup pass
+
+Rollback triggers include fresh crash, duplicate marker, residual
+`state=started`, timeout, stale summary misuse, memory warning, UI freeze,
+normal setting persistence of `selectedPath=npu`, or unclear cleanup.
+
+No code path was connected and no NPU generation was run in this design pass.
+
 ## libcdsprpc Manifest Visibility Update
 
 Artifact:

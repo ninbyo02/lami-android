@@ -388,3 +388,29 @@ Verified:
 - fresh crash evidence: none
 
 Normal ChatScreen integration remains a separate design phase.
+
+## Normal ChatScreen NPU Integration Design - 2026-05-23
+
+The normal ChatScreen NPU route remains unimplemented. The design boundary is
+now captured in:
+
+```text
+docs/litert_qairt244_chat_screen_npu_integration_plan.md
+```
+
+Key safety constraints:
+
+- `customBuildExperimentDebug` only
+- DEV hidden toggle required
+- default `selectedPath` remains CPU/GPU
+- normal `selectedPath=npu` is never persisted or auto-restored
+- latest Diagnostic Chat success and fallback/recovery artifacts must be fresh
+- `maxOutputTokens` starts fixed at 3
+- initial normal UI path is one non-streaming short run only
+- DB, TTS, Markdown, streaming, and stop button integration are out of scope
+  for the first implementation
+- timeout, fresh crash, duplicate marker, stale summary, memory warning, UI
+  freeze, or unclear cleanup disables the NPU route
+
+This pass is documentation only. It does not connect normal `ChatScreen`, does
+not set normal `selectedPath=npu`, and does not run NPU generation.
