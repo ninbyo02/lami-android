@@ -203,7 +203,9 @@ Short prompt DEV guard spec:
 
 - spec:
   `docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md`
-- implementation status: not enabled
+- validator implementation:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticPromptValidator.kt`
+- implementation status: validator only, editable input not enabled
 - prompt maximum: 32 characters
 - allowed characters: ASCII letters, digits, space, `. , ? ! ' - _`
 - rejected: empty prompt, newline, tab/control characters, emoji, non-ASCII
@@ -215,6 +217,7 @@ Short prompt DEV guard spec:
 - fallback: Diagnostic Chat-local failure only, no normal UI fallback
 - normal `ChatScreen`, normal `selectedPath=npu`, high-level
   `generateResponse`, and streaming remain forbidden
+- validator is not connected to Run button or native execution in this phase
 
 ## Fallback Policy
 

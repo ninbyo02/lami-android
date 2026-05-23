@@ -462,6 +462,16 @@ Summary:
 - normal `ChatScreen`, normal `selectedPath=npu`, high-level
   `generateResponse`, and streaming remain forbidden
 
+Validator status:
+
+- implemented:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticPromptValidator.kt`
+- tested:
+  `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticPromptValidatorTest.kt`
+- not connected to editable UI input
+- not connected to the guarded Run button
+- does not run NPU generation
+
 ## Non-Goals
 
 This work intentionally does not:

@@ -14,6 +14,8 @@ Completed:
 - Diagnostic Chat can display synced runner results from app-private files.
 - NPU initialize, 1-token smoke, 3-token smoke, UI smoke, UI multi-run, memory
   cleanup, and cold-start cleanup have diagnostic evidence.
+- The short prompt validator is implemented as a pure Kotlin
+  `customBuildExperimentDebug` helper and is covered by unit tests.
 
 Still prohibited in this phase:
 
@@ -71,6 +73,39 @@ A-Z a-z 0-9 space . , ? ! ' - _
 
 If validation fails, the UI must show an error in the Diagnostic Chat screen and
 must not call the native smoke entrypoint.
+
+Validator implementation:
+
+```text
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticPromptValidator.kt
+```
+
+Unit test:
+
+```text
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticPromptValidatorTest.kt
+```
+
+The validator returns:
+
+- `isValid`
+- `normalizedPrompt`
+- `reasonCode`
+- `message`
+
+Reason codes:
+
+- `ok`
+- `empty`
+- `too_long`
+- `contains_newline`
+- `contains_tab`
+- `contains_control_char`
+- `contains_non_ascii`
+- `contains_disallowed_char`
+
+The validator is not connected to an editable input field or Run button in this
+phase.
 
 ## Generation Limits
 
@@ -157,6 +192,7 @@ Before enabling editable prompt input:
 - input length validation implemented
 - allowed character validation implemented
 - newline/control character rejection implemented
+- validator tests pass for accepted and rejected examples
 - native path still hard-caps `maxOutputTokens=3`
 - timeout remains 30 seconds or tighter
 - artifact collection script updated

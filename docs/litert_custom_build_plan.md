@@ -1232,6 +1232,18 @@ docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md
 This is STEP 2 preparation only. No editable prompt field was enabled and no
 NPU generation was run.
 
+Validator:
+
+```text
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticPromptValidator.kt
+```
+
+Test:
+
+```text
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticPromptValidatorTest.kt
+```
+
 Key requirements:
 
 - `customBuildExperimentDebug` Diagnostic Chat only
@@ -1245,3 +1257,6 @@ Key requirements:
 - artifact collection and stale/fresh tombstone classification required
 - no normal `ChatScreen` route, no normal `selectedPath=npu`, no high-level
   `generateResponse`, no streaming
+
+The validator is intentionally not connected to the editable UI field or the
+guarded Run button in this phase.
