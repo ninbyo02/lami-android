@@ -21,6 +21,47 @@ The isolated lower-level verifier has already shown:
 
 The normal `ChatScreen` path remains disconnected from NPU.
 
+## Editable Prompt Preview
+
+STEP 2A adds editable preview mode without connecting prompt input to NPU
+execution.
+
+Default launch:
+
+```bash
+adb shell am start \
+  -n io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity
+```
+
+- prompt preview value: `Hi`
+- `input_enabled=false`
+- `editable_prompt_preview=false`
+- `prompt_execution_connected=false`
+- guarded Run button remains disconnected unless `allowGuardedNpuRun=true` is
+  supplied separately
+
+Editable preview launch:
+
+```bash
+adb shell am start \
+  -n io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity \
+  --ez allowEditablePromptPreview true
+```
+
+- prompt preview value starts as `Hi`
+- `input_enabled=true`
+- `editable_prompt_preview=true`
+- input is single-line and capped to 32 characters
+- `NpuDiagnosticPromptValidator.validate(...)` updates the preview after text
+  changes
+- invalid text is rejected in the preview with a validator reason code
+- preview state is mirrored to the app-private read-only verification file:
+  `files/qairt244_editable_prompt_preview_state.txt`
+
+The edited prompt is still not connected to the guarded Run button. The guarded
+Run button continues to use fixed prompt `Hi`, and this mode does not run
+Engine.initialize, RunDecode, or token generation.
+
 ## Skeleton Implementation
 
 Activity:
@@ -53,7 +94,8 @@ The screen displays:
 - fixed model path
 - fixed prompt: `Hi`
 - fixed `maxOutputTokens=3` for the short multi-token diagnostic path
-- disabled prompt field
+- prompt preview field, disabled by default and editable only with the
+  `allowEditablePromptPreview=true` Activity extra
 - `DEV confirm isolated 3-token NPU smoke` checkbox
 - `Run 3-token smoke` button, disabled until the DEV checkbox is checked
 - disabled `Normal ChatScreen NPU route disabled` button
@@ -468,7 +510,8 @@ Validator status:
   `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticPromptValidator.kt`
 - tested:
   `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticPromptValidatorTest.kt`
-- not connected to editable UI input
+- connected to editable UI input only for preview when
+  `allowEditablePromptPreview=true`
 - not connected to the guarded Run button
 - does not run NPU generation
 
@@ -484,6 +527,36 @@ Prompt preview status:
 - default Activity launch keeps the guarded Run button disconnected
 - any future guarded run must pass an explicit `allowGuardedNpuRun=true`
   intent extra and still must not read from the preview field
+
+Editable preview status:
+
+- launch extra: `allowEditablePromptPreview=true`
+- input state: `enabled=true`
+- validation updates after text edits
+- `prompt_execution_connected=false`
+- `run_button_uses_fixed_prompt=Hi`
+- no NPU generation, Engine.initialize, or RunDecode is triggered by editing or
+  refreshing the preview
+
+Verification artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_preview/20260523_133833/
+```
+
+Observed result:
+
+- default launch mirrored `input_enabled=false`
+- `allowEditablePromptPreview=true` launch mirrored `input_enabled=true`
+- default `Hi` preview showed `isValid=true`, `reasonCode=ok`
+- invalid preview text with `/` showed
+  `reasonCode=contains_disallowed_char`
+- `prompt_execution_connected=false`
+- `run_button_uses_fixed_prompt=Hi`
+- `run_button_connected=false`
+- `npu_generation=false`, `engine_initialize=false`, `run_decode=false`
+- normal `ChatScreen` and normal `selectedPath=npu` routes remained
+  disconnected
 
 ## Non-Goals
 

@@ -982,6 +982,22 @@ Short prompt DEV guard spec:
 - hard future cap: `maxOutputTokens=3`
 - prompt limit: 32 ASCII-only characters for the first editable phase
 
+Editable prompt preview:
+
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_preview/20260523_133833/`
+- Activity extra: `allowEditablePromptPreview=true`
+- default input state: disabled
+- extra-enabled input state: enabled
+- validation preview: connected to `NpuDiagnosticPromptValidator`
+- OK preview: `Hi`, `reasonCode=ok`
+- NG preview: `Hello/LamiHi`, `reasonCode=contains_disallowed_char`
+- prompt execution connection: false
+- guarded Run button input source: fixed `Hi`
+- `allowEditablePromptPreview` does not imply `allowGuardedNpuRun`
+- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+  normal `ChatScreen`, and normal `selectedPath=npu` remain unused
+
 Root-cause interpretation is unchanged: QAIRT 2.44 NPU is proven for bounded
 isolated Diagnostic Chat smoke runs, while normal chat integration remains a
 separate future gate.

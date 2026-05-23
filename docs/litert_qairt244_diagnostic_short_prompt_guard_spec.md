@@ -2,9 +2,11 @@
 
 Date: 2026-05-23
 
-Scope: STEP 2 preparation only. This document defines the requirements for a
-future `customBuildExperimentDebug` Diagnostic Chat short prompt input. It does
-not enable the input and does not run NPU generation.
+Scope: STEP 2 preparation only. This document defines the requirements for the
+`customBuildExperimentDebug` Diagnostic Chat short prompt input. STEP 2A enables
+editing only when the explicit `allowEditablePromptPreview=true` Activity extra
+is supplied. The edited value is used only for validator preview and does not
+run NPU generation.
 
 ## Current State
 
@@ -19,7 +21,7 @@ Completed:
 
 Still prohibited in this phase:
 
-- enabling editable short prompt input
+- connecting editable short prompt input to execution
 - NPU generation
 - Engine.initialize
 - RunDecode
@@ -104,13 +106,16 @@ Reason codes:
 - `contains_non_ascii`
 - `contains_disallowed_char`
 
-The validator is not connected to an editable input field or Run button in this
-phase.
+The validator is connected to the Diagnostic Chat preview field only when the
+Activity is launched with `allowEditablePromptPreview=true`. It is not connected
+to the guarded Run button or native execution in this phase.
 
 ## Preview-Only UI Status
 
-The Diagnostic Chat screen now shows a disabled prompt preview and validation
-result for the fixed `Hi` prompt:
+The Diagnostic Chat screen now shows a prompt preview and validation result for
+the fixed initial `Hi` prompt.
+
+Default launch:
 
 - section: `Short prompt input preview`
 - displayed value: `Hi`
@@ -124,8 +129,27 @@ result for the fixed `Hi` prompt:
 - guarded run button requires `allowGuardedNpuRun=true` intent extra before it
   can be connected
 
-This is display-only. The editable prompt phase is still not enabled, and the
-guarded Run button remains disconnected on default Activity launch.
+Editable preview launch:
+
+```bash
+adb shell am start \
+  -n io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity \
+  --ez allowEditablePromptPreview true
+```
+
+- `input_enabled=true`
+- `editable_prompt_preview=true`
+- `max length=32`
+- `singleLine=true`
+- validation result updates after each text change
+- valid input shows `reasonCode=ok`
+- invalid input shows the specific validator `reasonCode`
+- app-private verification mirror:
+  `files/qairt244_editable_prompt_preview_state.txt`
+
+This remains display-only. The edited prompt is not read by the guarded Run
+button, the guarded Run button still uses fixed `Hi`, and default Activity
+launch keeps the input disabled.
 
 ## Generation Limits
 
@@ -226,6 +250,25 @@ Before enabling editable prompt input:
 - normal `selectedPath=npu` untouched
 - high-level `generateResponse` not referenced
 - release and `app/src/main/jniLibs` untouched
+
+STEP 2A completion criteria:
+
+- default Activity launch keeps `input_enabled=false`
+- `allowEditablePromptPreview=true` launch sets `input_enabled=true`
+- validator OK and NG states are visible in the Diagnostic Chat preview
+- `prompt_execution_connected=false`
+- `run_button_uses_fixed_prompt=Hi`
+- no Engine.initialize, RunDecode, or NPU generation is invoked
+
+STEP 2A verification artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_preview/20260523_133833/
+```
+
+The verification recorded both the OK state for `Hi` and an NG preview state
+for `Hello/LamiHi` with `reasonCode=contains_disallowed_char`. The NG check was
+preview-only and did not invoke native execution.
 
 ## Non-Goals
 

@@ -205,7 +205,8 @@ Short prompt DEV guard spec:
   `docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md`
 - validator implementation:
   `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticPromptValidator.kt`
-- implementation status: validator only, editable input not enabled
+- implementation status: editable preview only, enabled exclusively by
+  `allowEditablePromptPreview=true`
 - prompt maximum: 32 characters
 - allowed characters: ASCII letters, digits, space, `. , ? ! ' - _`
 - rejected: empty prompt, newline, tab/control characters, emoji, non-ASCII
@@ -218,12 +219,24 @@ Short prompt DEV guard spec:
 - normal `ChatScreen`, normal `selectedPath=npu`, high-level
   `generateResponse`, and streaming remain forbidden
 - validator is not connected to Run button or native execution in this phase
-- preview-only UI displays the fixed `Hi` validation result with
+- default preview-only UI displays the fixed `Hi` validation result with
   `input_enabled=false`
+- editable preview launch displays `input_enabled=true` and updates validator
+  status on text changes
 - route guard display includes `prompt_input_execution=disabled` and
-  `editable_prompt_phase=not_enabled`
+  `editable_prompt_phase=preview_only`
 - default Diagnostic Chat launch leaves the guarded Run button disabled and
   disconnected unless `allowGuardedNpuRun=true` is explicitly supplied
+- `allowEditablePromptPreview=true` is separate from `allowGuardedNpuRun=true`;
+  it does not make the Run button read the prompt field
+- verification artifact:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_preview/20260523_133833/`
+- verified OK preview: `Hi`, `reasonCode=ok`
+- verified NG preview: `Hello/LamiHi`,
+  `reasonCode=contains_disallowed_char`
+- verified execution guards:
+  `prompt_execution_connected=false`, `run_button_uses_fixed_prompt=Hi`,
+  `npu_generation=false`, `engine_initialize=false`, `run_decode=false`
 - existing Diagnostic Chat UI runner scripts pass this explicit extra when they
   intentionally run guarded smoke tests; read-only launches omit it
 

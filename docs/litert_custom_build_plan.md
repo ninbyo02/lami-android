@@ -1271,3 +1271,19 @@ Prompt preview update:
 - Run button connection on default Activity launch: `false`
 - guarded run requires explicit `allowGuardedNpuRun=true` intent extra
 - NPU generation: not run
+
+Editable prompt preview update:
+
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_preview/20260523_133833/`
+- Activity extra: `allowEditablePromptPreview=true`
+- default launch input state: `enabled=false`
+- editable preview launch input state: `enabled=true`
+- validator updates on text changes
+- invalid text is shown as a validator reason code in the preview
+  (`contains_disallowed_char` verified with `Hello/LamiHi`)
+- prompt execution connection: `false`
+- guarded Run button still uses fixed `Hi`
+- `allowEditablePromptPreview` is independent from `allowGuardedNpuRun`
+- no NPU generation, Engine.initialize, or RunDecode is run by editing,
+  refreshing, or launching this preview mode

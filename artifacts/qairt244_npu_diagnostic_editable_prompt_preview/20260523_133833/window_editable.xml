@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qairt244EditablePromptPreviewVerification source="app-private-preview-state-mirror">
+  <activity>io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity</activity>
+  <mode>allowEditablePromptPreview</mode>
+  <input_enabled>true</input_enabled>
+  <editable_prompt_preview>true</editable_prompt_preview>
+  <ok_value>Hi</ok_value>
+  <ok_isValid>true</ok_isValid>
+  <ok_reasonCode>ok</ok_reasonCode>
+  <ng_value>Hello/LamiHi</ng_value>
+  <ng_isValid>false</ng_isValid>
+  <ng_reasonCode>contains_disallowed_char</ng_reasonCode>
+  <prompt_execution_connected>false</prompt_execution_connected>
+  <run_button_uses_fixed_prompt>Hi</run_button_uses_fixed_prompt>
+  <run_button_connected>false</run_button_connected>
+  <npu_generation>false</npu_generation>
+  <engine_initialize>false</engine_initialize>
+  <run_decode>false</run_decode>
+  <note>uiautomator dump returned "could not get idle state"; screenshot_editable.png, editable_prompt_preview_state.txt, and editable_prompt_preview_ng_state.txt are the primary captured evidence.</note>
+</qairt244EditablePromptPreviewVerification>

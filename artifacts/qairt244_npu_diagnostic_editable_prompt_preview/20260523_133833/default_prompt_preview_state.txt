@@ -1,0 +1,14 @@
+qairt244_editable_prompt_preview_v1
+input_enabled=false
+editable_prompt_preview=false
+value=Hi
+isValid=true
+reasonCode=ok
+normalizedPrompt=Hi
+message=OK
+prompt_execution_connected=false
+run_button_uses_fixed_prompt=Hi
+run_button_connected=false
+npu_generation=false
+engine_initialize=false
+run_decode=false

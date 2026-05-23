@@ -5,6 +5,10 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.text.Editable
+import android.text.InputFilter
+import android.text.InputType
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
@@ -35,8 +39,10 @@ class NpuDiagnosticChatActivity : Activity() {
         val resultFile = filesDir.resolve("qairt244_short_multitoken_smoke_result.txt")
         val nativeDiagFile = filesDir.resolve("qairt244_native_diag.txt")
         val latestRunnerSummaryFile = filesDir.resolve("qairt244_diagnostic_runner_summary.txt")
+        val promptPreviewStateFile = filesDir.resolve("qairt244_editable_prompt_preview_state.txt")
         val timeoutMs = 30_000L
         val guardedRunAllowed = intent.getBooleanExtra("allowGuardedNpuRun", false)
+        val editablePromptPreviewAllowed = intent.getBooleanExtra("allowEditablePromptPreview", false)
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -70,20 +76,54 @@ class NpuDiagnosticChatActivity : Activity() {
         )
 
         content.addLabel("Prompt")
+        val promptPreviewLines = readPromptPreviewSummary(
+            prompt = "Hi",
+            editablePromptPreviewAllowed = editablePromptPreviewAllowed,
+        )
+        writePromptPreviewState(promptPreviewStateFile, "Hi", editablePromptPreviewAllowed)
+        val promptPreviewSummary = content.addSectionView("Short prompt input preview", promptPreviewLines)
         content.addView(
             EditText(this).apply {
                 setText("Hi")
-                isEnabled = false
+                isEnabled = editablePromptPreviewAllowed
+                isSingleLine = true
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                filters = arrayOf(InputFilter.LengthFilter(NpuDiagnosticPromptValidator.MAX_LENGTH))
                 minLines = 1
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                 )
+                addTextChangedListener(
+                    object : TextWatcher {
+                        override fun beforeTextChanged(
+                            s: CharSequence?,
+                            start: Int,
+                            count: Int,
+                            after: Int,
+                        ) = Unit
+
+                        override fun onTextChanged(
+                            s: CharSequence?,
+                            start: Int,
+                            before: Int,
+                            count: Int,
+                        ) {
+                            promptPreviewSummary.text = readPromptPreviewSummary(
+                                prompt = s?.toString().orEmpty(),
+                                editablePromptPreviewAllowed = editablePromptPreviewAllowed,
+                            ).joinToString("\n")
+                            writePromptPreviewState(
+                                promptPreviewStateFile,
+                                s?.toString().orEmpty(),
+                                editablePromptPreviewAllowed,
+                            )
+                        }
+
+                        override fun afterTextChanged(s: Editable?) = Unit
+                    },
+                )
             },
-        )
-        content.addSection(
-            "Short prompt input preview",
-            readPromptPreviewSummary("Hi"),
         )
 
         val statusText = TextView(this).apply {
@@ -128,7 +168,10 @@ class NpuDiagnosticChatActivity : Activity() {
         val timingSummary = content.addSectionView("Timing", readTimingSummary(resultFile))
         val nativeDiagSummary = content.addSectionView("Native diag", readNativeDiagSummary(nativeDiagFile))
         val runnerSummary = content.addSectionView("Latest runner", readLatestRunnerSummary(latestRunnerSummaryFile))
-        val safetySummary = content.addSectionView("Route guards", readRouteGuardSummary())
+        val safetySummary = content.addSectionView(
+            "Route guards",
+            readRouteGuardSummary(editablePromptPreviewAllowed),
+        )
         content.addView(
             Button(this).apply {
                 text = "Refresh result view"
@@ -141,7 +184,7 @@ class NpuDiagnosticChatActivity : Activity() {
                     timingSummary.text = readTimingSummary(resultFile).joinToString("\n")
                     nativeDiagSummary.text = readNativeDiagSummary(nativeDiagFile).joinToString("\n")
                     runnerSummary.text = readLatestRunnerSummary(latestRunnerSummaryFile).joinToString("\n")
-                    safetySummary.text = readRouteGuardSummary().joinToString("\n")
+                    safetySummary.text = readRouteGuardSummary(editablePromptPreviewAllowed).joinToString("\n")
                     statusText.text = listOf(
                         "status=refreshed",
                         "result_file=${resultFile.exists()}",
@@ -385,7 +428,7 @@ class NpuDiagnosticChatActivity : Activity() {
         )
     }
 
-    private fun readRouteGuardSummary(): List<String> =
+    private fun readRouteGuardSummary(editablePromptPreviewAllowed: Boolean): List<String> =
         listOf(
             "normal ChatScreen route disabled=true",
             "selectedPath=npu disabled=true",
@@ -393,25 +436,58 @@ class NpuDiagnosticChatActivity : Activity() {
             "streaming=false",
             "refresh_runs_npu=false",
             "prompt_input_execution=disabled",
-            "editable_prompt_phase=not_enabled",
+            "editable_prompt_preview=$editablePromptPreviewAllowed",
+            "editable_prompt_phase=preview_only",
             "run_button_uses_fixed_prompt=Hi",
             "guarded_run_intent_extra_required=true",
             "run_button_requires_dev_checkbox=true",
         )
 
-    private fun readPromptPreviewSummary(prompt: String): List<String> {
+    private fun readPromptPreviewSummary(
+        prompt: String,
+        editablePromptPreviewAllowed: Boolean,
+    ): List<String> {
         val result = NpuDiagnosticPromptValidator.validate(prompt)
         return listOf(
             "label=Diagnostic prompt preview",
             "value=$prompt",
-            "input_enabled=false",
+            "input_enabled=$editablePromptPreviewAllowed",
             "preview_only=true",
             "isValid=${result.isValid}",
             "reasonCode=${result.reasonCode}",
             "normalizedPrompt=${result.normalizedPrompt}",
             "message=${result.message}",
+            "editable_prompt_preview=$editablePromptPreviewAllowed",
+            "prompt_execution_connected=false",
+            "run_button_uses_fixed_prompt=Hi",
             "run_button_connected=false",
             "npu_generation=false",
+        )
+    }
+
+    private fun writePromptPreviewState(
+        file: File,
+        prompt: String,
+        editablePromptPreviewAllowed: Boolean,
+    ) {
+        val result = NpuDiagnosticPromptValidator.validate(prompt)
+        file.writeText(
+            listOf(
+                "qairt244_editable_prompt_preview_v1",
+                "input_enabled=$editablePromptPreviewAllowed",
+                "editable_prompt_preview=$editablePromptPreviewAllowed",
+                "value=$prompt",
+                "isValid=${result.isValid}",
+                "reasonCode=${result.reasonCode}",
+                "normalizedPrompt=${result.normalizedPrompt}",
+                "message=${result.message}",
+                "prompt_execution_connected=false",
+                "run_button_uses_fixed_prompt=Hi",
+                "run_button_connected=false",
+                "npu_generation=false",
+                "engine_initialize=false",
+                "run_decode=false",
+            ).joinToString(separator = "\n", postfix = "\n"),
         )
     }
 
