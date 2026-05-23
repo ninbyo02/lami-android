@@ -1,0 +1,3 @@
+ M app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt
+ M app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt
+ M scripts/run_qairt244_npu_diagnostic_editable_prompt_guarded_run.sh

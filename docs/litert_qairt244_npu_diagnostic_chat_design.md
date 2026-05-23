@@ -610,6 +610,62 @@ Result: `preflight_result=blocked_native_fixed_hi`,
 `run_executed=false`, `prompt_execution_connected=false`, and no
 Engine.initialize, RunDecode, or NPU generation evidence.
 
+## Editable Prompt Native Smoke - 2026-05-23
+
+The Diagnostic Chat guarded run path now supports editable prompt execution only
+when all three DEV extras are present:
+
+- `allowEditablePromptPreview=true`
+- `allowGuardedNpuRun=true`
+- `allowEditablePromptExecution=true`
+
+The custom native artifact must also expose:
+
+- `qairt244_editable_prompt_smoke_v1`
+- `DecodeConfig.SetMaxOutputTokens(3)` evidence
+
+The runner can stage and verify that artifact:
+
+```text
+scripts/run_qairt244_npu_diagnostic_editable_prompt_guarded_run.sh \
+  --artifact artifacts/qairt244_editable_prompt_entrypoint_build/20260523_183705
+```
+
+The first guarded UI execution used `Hello` and succeeded through the isolated
+lower-level NPU path:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_184901/
+```
+
+Result summary:
+
+- `actual_prompt=Hello`
+- `normalized_prompt=Hello`
+- `prompt_source=editable_prompt`
+- `max_output_tokens=3`
+- `result=success`
+- `output=! How अच्छे`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fresh_crash=false`
+
+The run surfaced a UI runner hardening issue: two guarded run markers appeared
+in one Activity session. The Activity now clears the DEV checkbox and leaves the
+Run button disabled after completion to prevent accidental repeat execution.
+The normal `ChatScreen` route and normal `selectedPath=npu` route remain
+disconnected.
+
+One-shot hardening was reverified with:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_one_shot_verify/20260523_191757/
+```
+
+The re-run produced exactly one guarded `state=success` marker, no residual
+`state=started`, no duplicate success marker, DEV checkbox off, and Run button
+disabled after completion. Prompt remained `Hello`, `max_output_tokens=3`, and
+the normal ChatScreen route stayed disconnected.
+
 ## Non-Goals
 
 This work intentionally does not:

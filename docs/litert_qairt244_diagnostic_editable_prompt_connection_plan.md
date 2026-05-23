@@ -206,7 +206,122 @@ When input is invalid:
 
 Invalid input must not create a native execution artifact that looks like a run.
 
-## Current Preflight Classification
+## STEP 2B Implementation Recovery - 2026-05-23
+
+External LiteRT-LM JNI now has a custom editable prompt entrypoint:
+
+```text
+Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt
+marker=qairt244_editable_prompt_smoke_v1
+```
+
+The native entrypoint accepts a `jstring` prompt, validates it before model or
+engine work, and rejects invalid input with `result=invalid_prompt` without
+calling `EngineFactory::CreateDefault`, `RunPrefill`, or `RunDecode`.
+
+Native guard:
+
+- null prompt rejected
+- failed `GetStringUTFChars` rejected
+- trim-space normalized prompt must be non-empty
+- normalized prompt must be at most 32 ASCII bytes
+- newline, tab, control characters, non-ASCII, and disallowed punctuation are
+  rejected
+- allowed characters match the Kotlin validator:
+  ASCII letters, digits, space, `.`, `,`, `?`, `!`, `'`, `-`, `_`
+- valid execution keeps `DecodeConfig.SetMaxOutputTokens(3)` hard-coded
+
+Build artifact:
+
+```text
+artifacts/qairt244_editable_prompt_entrypoint_build/20260523_183705/
+```
+
+Tracked metadata:
+
+```text
+artifacts/qairt244_editable_prompt_entrypoint_build/20260523_183705/metadata/
+```
+
+Preflight artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_184614/
+```
+
+Preflight result:
+
+- `native_editable_prompt_supported=true`
+- `set_max_output_tokens_3_evidence=true`
+- `prompt=Hello`
+- `prompt_validation=ok`
+- Activity state reports `prompt_execution_connected=true`
+- preflight mode did not run NPU generation
+
+Guarded UI run artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_184901/
+```
+
+Observed result:
+
+- `actual_prompt=Hello`
+- `normalized_prompt=Hello`
+- `prompt_source=editable_prompt`
+- `max_output_tokens=3`
+- `result=success`
+- `output=! How अच्छे`
+- `Engine.close=unique_ptr_cleanup`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fresh_crash=false`
+- normal ChatScreen route remained disconnected
+- normal `selectedPath=npu` route remained disabled
+
+Runner caveat:
+
+The first guarded UI run observed two consecutive successful guarded run
+markers in the same Activity session. This is treated as a runner/UI lock issue,
+not as authorization for repeated generation. The Activity was hardened after
+the run to uncheck the DEV confirmation and leave the Run button disabled after
+completion. No further NPU generation was run in this recovery turn.
+
+## One-Shot Hardening Reverification - 2026-05-23
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_one_shot_verify/20260523_191757/
+```
+
+Source runner artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_191615/
+```
+
+Result:
+
+- `actual_prompt=Hello`
+- `normalized_prompt=Hello`
+- `prompt_source=editable_prompt`
+- `max_output_tokens=3`
+- `result=success`
+- `output=! How अच्छे`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- final guard marker: `state=success`
+- success marker count: `1`
+- residual `state=started`: `false`
+- duplicate success marker: `false`
+- DEV checkbox after completion: off
+- Run button after completion: disabled
+- timeout: `false`
+- fresh crash: `false`
+
+Classification: one-shot hardening passed. The next step is STEP 3
+fallback / timeout / recovery verification, still within Diagnostic Chat only.
+
+## Previous Preflight Classification
 
 Current native artifact state:
 

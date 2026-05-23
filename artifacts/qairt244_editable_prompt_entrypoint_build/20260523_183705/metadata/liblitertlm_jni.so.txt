@@ -1,0 +1,9 @@
+path=/home/sato/project/lami-android/artifacts/qairt244_editable_prompt_entrypoint_build/20260523_183705/built_libs/liblitertlm_jni.so
+label=built
+present=true
+size=55190520
+sha256=5042f18cc1ec4b1a5ec1434110028df1014e14a4806a82040daf916bd4fa7bc7
+build_id=dafa9c7d949897cf6086fbcea5fc45f7
+soname=
+needed=libGemmaModelConstraintProvider.so,libdl.so,liblog.so,libandroid.so,libGLESv3.so,libEGL.so,libm.so,libc.so
+/home/sato/project/lami-android/artifacts/qairt244_editable_prompt_entrypoint_build/20260523_183705/built_libs/liblitertlm_jni.so: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[md5/uuid]=dafa9c7d949897cf6086fbcea5fc45f7, with debug_info, not stripped

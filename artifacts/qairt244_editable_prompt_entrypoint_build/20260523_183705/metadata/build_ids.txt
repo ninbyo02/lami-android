@@ -1,0 +1,12 @@
+
+## libLiteRt.so
+    Build ID: a03032ad1eeefda446478aea308c2ed0
+
+## libLiteRtCompilerPlugin_Qualcomm.so
+    Build ID: 443391d4c4348191230b67a3ab8a6037
+
+## libLiteRtDispatch_Qualcomm.so
+    Build ID: 283f860170c8b970f14db885eab73a95
+
+## liblitertlm_jni.so
+    Build ID: dafa9c7d949897cf6086fbcea5fc45f7

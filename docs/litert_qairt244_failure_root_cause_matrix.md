@@ -14,25 +14,82 @@ probe, the single-token smoke implementation-prep pass, two lower-level
 single-token smoke executions, token timing verifier implementation preflight,
 the 2026-05-23 connected-device token timing verifier run, two isolated short
 multi-token smoke executions, the first NPU runtime memory cleanup profile, and
-the cold-start force-stop cleanup profile.
+the cold-start force-stop cleanup profile, and the guarded editable prompt
+Diagnostic Chat native smoke recovery.
 
 ## Current Boundary
 
 - flavor: `customBuildExperimentDebug`
 - applicationId: `io.github.ninbyo02.lami.customnpu`
 - runId: `1779496082843`
-- diagnostic artifact: `artifacts/qairt244_npu_coldstart_force_stop_profile/20260523_092801/`
+- diagnostic artifact:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_184901/`
 - final stage: `done`
 - returned: yes
 - signal: no fresh crash evidence; diagnostics collector selected a stale older
   tombstone that does not contain the current smoke run id
 - immediate native boundary:
-  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success -> lower-level RunDecode maxOutputTokens=1 success -> token/timing verifier success -> lower-level RunDecode maxOutputTokens=3 success 2/2 -> memory cleanup baseline collected -> cold-start force-stop cleanup passes`
+  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success -> lower-level RunDecode maxOutputTokens=1 success -> token/timing verifier success -> lower-level RunDecode maxOutputTokens=3 success 2/2 -> memory cleanup baseline collected -> cold-start force-stop cleanup passes -> Diagnostic Chat editable prompt guarded RunDecode maxOutputTokens=3 success`
 
 The explicit smoke created only the lower-level native LiteRT-LM session needed
 for decode. It did not create `Conversation`, did not create a Kotlin/public
 `Session` object, did not call high-level `generateResponse`, and did not wire
 normal UI inference to NPU.
+
+## Editable Prompt Guarded Smoke Update
+
+Artifacts:
+
+```text
+artifacts/qairt244_editable_prompt_entrypoint_build/20260523_183705/
+artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_184614/
+artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_184901/
+```
+
+Result:
+
+- native marker: `qairt244_editable_prompt_smoke_v1`
+- native cap: `DecodeConfig.SetMaxOutputTokens(3)`
+- `native_editable_prompt_supported=true`
+- `prompt_execution_connected=true` in preflight
+- guarded prompt: `Hello`
+- normalized prompt: `Hello`
+- `prompt_source=editable_prompt`
+- `result=success`
+- output: `! How अच्छे`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- fresh crash evidence: none
+
+Runner caveat: the first guarded UI execution recorded two successful guarded
+run markers in one Activity session. The Activity was hardened to clear DEV
+confirmation and keep the Run button disabled after completion. Treat this as a
+UI runner one-shot lock issue to reverify before proceeding to fallback/recovery
+STEP 3.
+
+One-shot hardening reverify:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_one_shot_verify/20260523_191757/
+```
+
+Result:
+
+- `result=success`
+- `actual_prompt=Hello`
+- `normalized_prompt=Hello`
+- `max_output_tokens=3`
+- final guard marker: `state=success`
+- guarded success marker count: `1`
+- residual `state=started`: `false`
+- duplicate success marker: `false`
+- DEV checkbox off: `true`
+- Run button disabled: `true`
+- fresh crash: `false`
+
+Boundary update: Diagnostic Chat editable prompt execution is proven for one
+bounded prompt with one-shot hardening. Next boundary is Diagnostic Chat-only
+fallback / timeout / recovery; normal ChatScreen NPU integration remains a
+separate design gate.
 
 ## libcdsprpc Manifest Visibility Update
 

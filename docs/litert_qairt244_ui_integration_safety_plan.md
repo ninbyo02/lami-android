@@ -316,3 +316,58 @@ that phase:
 - fallback behavior must be explicit and user-visible
 - memory pressure must be measured
 - normal chat state mutation must be reviewed independently
+
+## Editable Prompt Guarded Run Update - 2026-05-23
+
+STEP 2B is now implemented for the Diagnostic Chat only. It remains isolated
+from normal chat.
+
+Execution gates:
+
+- `customBuildExperimentDebug`
+- `allowEditablePromptPreview=true`
+- `allowGuardedNpuRun=true`
+- `allowEditablePromptExecution=true`
+- DEV checkbox checked
+- `NpuDiagnosticPromptValidator` valid
+- native marker `qairt244_editable_prompt_smoke_v1`
+- native `DecodeConfig.SetMaxOutputTokens(3)` evidence
+
+The guarded run artifact is:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_184901/
+```
+
+Result:
+
+- prompt `Hello` was normalized to `Hello`
+- `prompt_source=editable_prompt`
+- `result=success`
+- `max_output_tokens=3`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fresh_crash=false`
+
+Safety note: the initial UI runner observed two success markers in one Activity
+session. The Activity now clears the DEV confirmation and leaves the Run button
+disabled after completion. Do not proceed to normal `ChatScreen` integration
+until this one-shot UI lock is reverified in a separate run.
+
+One-shot reverify:
+
+```text
+artifacts/qairt244_npu_diagnostic_editable_prompt_one_shot_verify/20260523_191757/
+```
+
+Outcome:
+
+- exactly one guarded success marker
+- no residual `state=started`
+- duplicate success marker: `false`
+- DEV checkbox off after completion
+- Run button disabled after completion
+- fresh crash: `false`
+- normal `ChatScreen` route and normal `selectedPath=npu` route untouched
+
+STEP 3 can proceed as a Diagnostic Chat-only fallback / timeout / recovery
+verification. Normal ChatScreen integration remains out of scope.

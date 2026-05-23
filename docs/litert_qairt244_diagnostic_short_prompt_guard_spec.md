@@ -298,12 +298,23 @@ session, RunDecode, or NPU generation may start.
 Current STEP 2B implementation status:
 
 - Android-side extra `allowEditablePromptExecution=true` is recognized.
-- The current native short multi-token entrypoint is fixed to `Hi`.
-- `supportsEditablePromptExecution()` returns `false`.
-- Run remains disabled in editable execution mode until a rebuilt native
-  entrypoint can accept an editable prompt parameter.
+- Rebuilt native entrypoint accepts an editable prompt parameter.
+- native marker: `qairt244_editable_prompt_smoke_v1`.
+- native hard cap evidence: `DecodeConfig.SetMaxOutputTokens(3)`.
+- `supportsEditablePromptExecution()` returns `true` for the rebuilt custom
+  stack.
+- native validation mirrors the Kotlin validator and rejects invalid prompts
+  before Engine or RunDecode work.
 - preflight artifact:
-  `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_175939/`
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_184614/`
+- guarded run artifact:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_184901/`
+- successful guarded prompt: `Hello`.
+
+Safety caveat: the first guarded UI execution observed two success markers in
+one Activity session. The Activity now clears DEV confirmation and disables Run
+after completion. Reverify one-shot behavior before any broader prompt or UI
+step.
 
 ## Non-Goals
 

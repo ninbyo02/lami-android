@@ -1315,3 +1315,31 @@ Editable prompt guarded execution plan:
 - observed result: `preflight_result=blocked_native_fixed_hi`,
   `run_executed=false`, `engine_initialize=false`, `run_decode=false`,
   `npu_generation=false`
+
+Editable prompt native entrypoint recovery:
+
+- build artifact:
+  `artifacts/qairt244_editable_prompt_entrypoint_build/20260523_183705/`
+- external LiteRT-LM diff:
+  `artifacts/qairt244_editable_prompt_entrypoint_build/20260523_183705/metadata/litertlm_external_diff.patch`
+- marker: `qairt244_editable_prompt_smoke_v1`
+- native token cap evidence: `DecodeConfig.SetMaxOutputTokens(3)`
+- lami wrapper:
+  `Qairt244ShortMultitokenSmoke.nativeRunEditablePrompt(...)`
+- runner:
+  `scripts/run_qairt244_npu_diagnostic_editable_prompt_guarded_run.sh`
+- preflight artifact:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_184614/`
+- guarded run artifact:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_184901/`
+- guarded run result: `actual_prompt=Hello`, `normalized_prompt=Hello`,
+  `prompt_source=editable_prompt`, `max_output_tokens=3`,
+  `result=success`, `output=! How अच्छे`, `fresh_crash=false`
+- caveat: first UI runner execution produced two success markers in one
+  Activity session; the Activity now clears DEV confirmation and leaves Run
+  disabled after completion. Reverify one-shot behavior before broadening.
+- one-shot reverify artifact:
+  `artifacts/qairt244_npu_diagnostic_editable_prompt_one_shot_verify/20260523_191757/`
+- one-shot result: exactly one guarded `state=success` marker,
+  `duplicate_success_marker=false`, `state_started_residual=false`,
+  DEV checkbox off, Run button disabled, `fresh_crash=false`

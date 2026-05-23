@@ -45,6 +45,11 @@ class NpuDiagnosticChatActivity : Activity() {
         val editablePromptPreviewAllowed = intent.getBooleanExtra("allowEditablePromptPreview", false)
         val editablePromptExecutionAllowed = intent.getBooleanExtra("allowEditablePromptExecution", false)
         val editablePromptNativeSupported = Qairt244ShortMultitokenSmoke.supportsEditablePromptExecution()
+        val initialPrompt = if (editablePromptPreviewAllowed) {
+            intent.getStringExtra("editablePromptInitialValue") ?: "Hi"
+        } else {
+            "Hi"
+        }
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -73,27 +78,27 @@ class NpuDiagnosticChatActivity : Activity() {
                 "path=$modelPath",
                 "exists=${File(modelPath).exists()}",
                 "maxOutputTokens=3",
-                "prompt=Hi",
+                "prompt=$initialPrompt",
             ),
         )
 
         content.addLabel("Prompt")
         val promptPreviewLines = readPromptPreviewSummary(
-            prompt = "Hi",
+            prompt = initialPrompt,
             editablePromptPreviewAllowed = editablePromptPreviewAllowed,
             editablePromptExecutionAllowed = editablePromptExecutionAllowed,
             editablePromptNativeSupported = editablePromptNativeSupported,
         )
         writePromptPreviewState(
             file = promptPreviewStateFile,
-            prompt = "Hi",
+            prompt = initialPrompt,
             editablePromptPreviewAllowed = editablePromptPreviewAllowed,
             editablePromptExecutionAllowed = editablePromptExecutionAllowed,
             editablePromptNativeSupported = editablePromptNativeSupported,
         )
         val promptPreviewSummary = content.addSectionView("Short prompt input preview", promptPreviewLines)
         val promptInput = EditText(this).apply {
-            setText("Hi")
+            setText(initialPrompt)
             isEnabled = editablePromptPreviewAllowed
             isSingleLine = true
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
@@ -246,6 +251,9 @@ class NpuDiagnosticChatActivity : Activity() {
                         return@setOnClickListener
                     }
                 }
+                val validation = NpuDiagnosticPromptValidator.validate(promptInput.text?.toString().orEmpty())
+                val promptSource = if (editablePromptExecutionAllowed) "editable_prompt" else "fixed_hi"
+                val prompt = if (editablePromptExecutionAllowed) validation.normalizedPrompt else "Hi"
                 startGuardedShortMultitokenSmoke(
                     modelPath = modelPath,
                     resultFile = resultFile,
@@ -257,6 +265,8 @@ class NpuDiagnosticChatActivity : Activity() {
                     runButton = runButton,
                     confirmCheck = confirmCheck,
                     timeoutMs = timeoutMs,
+                    prompt = prompt,
+                    promptSource = promptSource,
                 )
             }
         }
@@ -316,6 +326,8 @@ class NpuDiagnosticChatActivity : Activity() {
         runButton: Button,
         confirmCheck: CheckBox,
         timeoutMs: Long,
+        prompt: String,
+        promptSource: String,
     ) {
         if (!running.compareAndSet(false, true)) return
 
@@ -324,7 +336,7 @@ class NpuDiagnosticChatActivity : Activity() {
         runButton.isEnabled = false
         confirmCheck.isEnabled = false
         resultFile.appendText(
-            "qairt244_diagnostic_chat_guarded_run_v1 runId=$runId state=started max_output_tokens=3 prompt=Hi\n",
+            "qairt244_diagnostic_chat_guarded_run_v1 runId=$runId state=started max_output_tokens=3 prompt_source=$promptSource actual_prompt=$prompt\n",
         )
 
         handler.postDelayed(
@@ -342,11 +354,20 @@ class NpuDiagnosticChatActivity : Activity() {
         Thread {
             val start = SystemClock.elapsedRealtime()
             val outcome = runCatching {
-                Qairt244ShortMultitokenSmoke.run(
-                    context = applicationContext,
-                    modelPath = modelPath,
-                    runId = runId,
-                )
+                if (promptSource == "editable_prompt") {
+                    Qairt244ShortMultitokenSmoke.runEditablePrompt(
+                        context = applicationContext,
+                        modelPath = modelPath,
+                        runId = runId,
+                        prompt = prompt,
+                    )
+                } else {
+                    Qairt244ShortMultitokenSmoke.run(
+                        context = applicationContext,
+                        modelPath = modelPath,
+                        runId = runId,
+                    )
+                }
             }
             val elapsed = SystemClock.elapsedRealtime() - start
             outcome.onSuccess { result ->
@@ -361,7 +382,8 @@ class NpuDiagnosticChatActivity : Activity() {
             handler.post {
                 running.set(false)
                 confirmCheck.isEnabled = true
-                runButton.isEnabled = confirmCheck.isChecked
+                confirmCheck.isChecked = false
+                runButton.isEnabled = false
                 statusText.text = listOf(
                     "status=finished",
                     "runId=$runId",

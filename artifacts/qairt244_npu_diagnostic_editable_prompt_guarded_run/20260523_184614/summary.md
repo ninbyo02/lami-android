@@ -1,0 +1,29 @@
+# QAIRT 2.44 NPU Diagnostic Editable Prompt Guarded Run
+
+Artifact: `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_184614`
+
+```text
+executed=false
+wait_status=preflight_only
+result=not_run
+actual_prompt=not_run
+normalized_prompt=not_run
+output=not_run
+timeout=false
+fresh_crash=false
+prompt=Hello
+prompt_validation=ok
+custom_build_artifact=artifacts/qairt244_editable_prompt_entrypoint_build/20260523_183705
+artifact_present=true
+native_marker=qairt244_editable_prompt_smoke_v1
+native_editable_prompt_supported=true
+set_max_output_tokens_3_evidence=true
+kotlin_supportsEditablePromptExecution=true
+max_output_tokens=3
+normal_chatscreen_connected=false
+selected_path_npu_normal_route=false
+prompt_execution_connected=false
+high_level_generateResponse=false
+normal_chatscreen_connected=false
+selected_path_npu_normal_route=false
+```

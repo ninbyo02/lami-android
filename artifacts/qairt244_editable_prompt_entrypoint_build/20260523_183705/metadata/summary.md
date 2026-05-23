@@ -1,0 +1,7 @@
+# QAIRT 2.44 editable prompt entrypoint build
+
+artifact=artifacts/qairt244_editable_prompt_entrypoint_build/20260523_183705
+marker=qairt244_editable_prompt_smoke_v1
+set_max_output_tokens_3_evidence=true
+native_marker_evidence=true
+large_binaries_git_tracked=false
