@@ -194,6 +194,16 @@ does not enter DB, TTS, Markdown, streaming, stop button, or selected-path
 state. It is only a shape for DEV error/result rendering once a guarded
 adapter branch exists.
 
+Diagnostic Chat now applies that display model to the existing planner preview.
+The current blocked adapter result is shown as:
+
+- `status=BLOCKED`
+- `reasonCode=adapter_not_connected`
+- `message=NPU route adapter is not connected`
+
+This keeps the future transient error/result appearance fixed without adding a
+normal ChatScreen call site.
+
 ## Implementation Checklist
 
 Before code implementation starts:

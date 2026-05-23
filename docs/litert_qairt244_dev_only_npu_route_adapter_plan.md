@@ -379,6 +379,27 @@ This is still not connected to normal `ChatScreen`. It does not call the
 adapter, NPU generation, `Engine.initialize`, `RunDecode`, high-level
 `generateResponse`, DB, TTS, Markdown, streaming, or normal `selectedPath=npu`.
 
+## Display Model Applied To Diagnostic Preview
+
+`NpuDiagnosticChatActivity` now renders `Planner Preview (blocked)` through
+`DevOnlyNpuRouteDisplayModelMapper`.
+
+The blocked preview displays:
+
+- `display_title=DEV NPU route blocked`
+- `display_status=BLOCKED`
+- `display_message=NPU route adapter is not connected`
+- `display_reasonCode=adapter_not_connected`
+- `display_output=none`
+- `display_elapsedText=elapsed_ms=unknown decode_elapsed_ms=unknown`
+- `display_backendEvidence=backendEvidence=none`
+- `display_artifact=artifactPath=none`
+
+The underlying planner still uses only `BlockedDevOnlyNpuRouteAdapter`, so this
+is a transient result/error UI boundary only. It does not connect normal
+`ChatScreen`, apply normal `selectedPath=npu`, run NPU generation, call
+`Engine.initialize`, or call `RunDecode`.
+
 ## Remaining Steps To Normal UI
 
 1. Implement adapter as `customBuildExperimentDebug` only, with no ChatScreen

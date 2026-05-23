@@ -60,7 +60,11 @@ object DevOnlyNpuRouteDisplayModelMapper {
             DevOnlyNpuRouteDisplayModel.Status.SUCCESS ->
                 "output=${result.output ?: "none"}"
             DevOnlyNpuRouteDisplayModel.Status.BLOCKED ->
-                "blocked reason=${result.reasonCode}"
+                if (result.reasonCode == BlockedDevOnlyNpuRouteAdapter.REASON_ADAPTER_NOT_CONNECTED) {
+                    "NPU route adapter is not connected"
+                } else {
+                    "blocked reason=${result.reasonCode}"
+                }
             DevOnlyNpuRouteDisplayModel.Status.TIMEOUT ->
                 "timeout reason=${result.reasonCode}"
             DevOnlyNpuRouteDisplayModel.Status.CRASH ->

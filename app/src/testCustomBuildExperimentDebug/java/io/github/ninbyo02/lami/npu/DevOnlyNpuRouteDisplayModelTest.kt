@@ -37,7 +37,7 @@ class DevOnlyNpuRouteDisplayModelTest {
 
         assertEquals(DevOnlyNpuRouteDisplayModel.Status.BLOCKED, model.status)
         assertEquals("DEV NPU route blocked", model.title)
-        assertEquals("blocked reason=adapter_not_connected", model.message)
+        assertEquals("NPU route adapter is not connected", model.message)
         assertNull(model.output)
     }
 

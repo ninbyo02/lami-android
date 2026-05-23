@@ -1476,3 +1476,22 @@ DEV-only route transient result/error model:
 - NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
   normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
   paths remain untouched
+
+DEV-only display model UI application:
+
+- implementation:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt`
+- section:
+  `Planner Preview (blocked)`
+- mapper:
+  `DevOnlyNpuRouteDisplayModelMapper.from(result)`
+- current displayed status:
+  `BLOCKED`
+- current displayed reason:
+  `adapter_not_connected`
+- current displayed message:
+  `NPU route adapter is not connected`
+- normal ChatScreen call site: none
+- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+  paths remain untouched

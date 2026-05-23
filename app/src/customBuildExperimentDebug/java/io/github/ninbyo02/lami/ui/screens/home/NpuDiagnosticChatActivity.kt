@@ -20,6 +20,7 @@ import android.widget.TextView
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.npu.BlockedDevOnlyNpuRouteAdapter
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteAdapter
+import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteDisplayModelMapper
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteGateInput
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRoutePlanner
 import java.io.File
@@ -576,8 +577,17 @@ class NpuDiagnosticChatActivity : Activity() {
                 timeoutMs = DevOnlyNpuRouteAdapter.DEFAULT_TIMEOUT_MS,
             )
         }
+        val displayModel = DevOnlyNpuRouteDisplayModelMapper.from(result)
         return listOf(
             "preview=dev_only_route_planner_blocked",
+            "display_title=${displayModel.title}",
+            "display_status=${displayModel.status}",
+            "display_message=${displayModel.message}",
+            "display_output=${displayModel.output ?: "none"}",
+            "display_reasonCode=${displayModel.reasonCode}",
+            "display_elapsedText=${displayModel.elapsedText}",
+            "display_backendEvidence=${displayModel.backendEvidenceText}",
+            "display_artifact=${displayModel.artifactText}",
             "gate_customBuildExperiment=${gateInput.customBuildExperiment}",
             "gate_allowEditablePromptPreview=${gateInput.allowEditablePromptPreview}",
             "gate_allowGuardedNpuRun=${gateInput.allowGuardedNpuRun}",
@@ -586,14 +596,10 @@ class NpuDiagnosticChatActivity : Activity() {
             "gate_validatorValid=${gateInput.validatorValid}",
             "gate_nativeEditablePromptSupported=${gateInput.nativeEditablePromptSupported}",
             "gate_running=${gateInput.running}",
-            "success=${result.success}",
-            "reasonCode=${result.reasonCode}",
             "prompt=${result.prompt}",
             "maxOutputTokens=${result.maxOutputTokens}",
             "timeout=${result.timeout}",
             "freshCrash=${result.freshCrash}",
-            "backendEvidence=${result.backendEvidence ?: "none"}",
-            "artifactPath=${result.artifactPath ?: "none"}",
             "adapter=${BlockedDevOnlyNpuRouteAdapter::class.java.simpleName}",
             "ChatScreen route connected=false",
             "selectedPathNpuApplied=false",

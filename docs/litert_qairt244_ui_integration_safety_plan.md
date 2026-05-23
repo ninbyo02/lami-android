@@ -526,3 +526,25 @@ The model preserves output, reason code, elapsed/decode timing text, backend
 evidence text, and artifact text. It remains detached from DB persistence, TTS,
 Markdown, streaming, stop button ownership, selected-path state, and native
 NPU execution.
+
+## Display Model Diagnostic Preview - 2026-05-23
+
+The Diagnostic Chat `Planner Preview (blocked)` section now uses the display
+model rather than raw planner fields. The current blocked adapter preview is:
+
+- title: `DEV NPU route blocked`
+- status: `BLOCKED`
+- message: `NPU route adapter is not connected`
+- reason: `adapter_not_connected`
+- output: `none`
+
+The preview continues to display route isolation flags:
+
+- `ChatScreen route connected=false`
+- `selectedPathNpuApplied=false`
+- `npuGeneration=false`
+- `engineInitialize=false`
+- `runDecode=false`
+
+No normal UI route or native NPU execution is introduced by this display-only
+change.
