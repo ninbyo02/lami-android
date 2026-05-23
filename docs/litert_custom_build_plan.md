@@ -1407,3 +1407,16 @@ DEV-only NPU route adapter stub:
 - NPU generation, Engine.initialize, RunDecode, high-level
   `generateResponse`, normal `selectedPath=npu`, DB, TTS, Markdown,
   streaming, and stop button paths remain untouched
+
+DEV-only NPU route gate:
+
+- implementation:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGate.kt`
+- tests:
+  `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGateTest.kt`
+- gate reasons are typed and cover flavor, hidden extras, DEV checkbox,
+  validator, native marker support, running lock, and `maxOutputTokens=3`
+- ChatScreen call site: none
+- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+  paths remain untouched

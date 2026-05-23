@@ -450,3 +450,21 @@ stop button code.
 
 Unit tests verify the default `maxOutputTokens=3`, nullable fields, timeout and
 fresh crash flags, and blocked result mapping.
+
+## DEV-Only NPU Route Gate - 2026-05-23
+
+`DevOnlyNpuRouteGate` now fixes the pure Kotlin gate before any ChatScreen
+integration. It requires:
+
+- `customBuildExperiment`
+- editable prompt preview allowed
+- guarded NPU run allowed
+- editable prompt execution allowed
+- DEV checkbox checked
+- validator valid
+- native editable prompt supported
+- not already running
+- `maxOutputTokens=3`
+
+The gate exposes typed failure reasons and has unit coverage for every
+rejection path. It is not connected to `ChatScreen` and runs no NPU work.

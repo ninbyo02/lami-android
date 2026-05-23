@@ -168,7 +168,10 @@ Current implementation status:
 - `DevOnlyNpuRouteAdapter` schema exists in `customBuildExperimentDebug`.
 - `BlockedDevOnlyNpuRouteAdapter` always returns
   `reasonCode=adapter_not_connected`.
+- `DevOnlyNpuRouteGate` fixes the DEV hidden toggle and prompt/native support
+  gate reasons in pure Kotlin.
 - Unit tests cover the blocked result and result schema flags.
+- Gate tests cover every current failure reason.
 - No `ChatScreen` call site exists yet.
 - No NPU work is run by the adapter stub.
 

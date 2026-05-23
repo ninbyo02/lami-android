@@ -249,7 +249,9 @@ Initial code now exists only in the `customBuildExperimentDebug` source set:
 
 - `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapter.kt`
 - `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/BlockedDevOnlyNpuRouteAdapter.kt`
+- `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGate.kt`
 - `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapterTest.kt`
+- `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGateTest.kt`
 
 The current implementation is deliberately blocked:
 
@@ -266,6 +268,31 @@ The current implementation is deliberately blocked:
 The blocked adapter does not call NPU generation, `Engine.initialize`,
 `RunDecode`, high-level `generateResponse`, `selectedPath=npu`, DB, TTS,
 Markdown, streaming, or stop button code. It is not connected to `ChatScreen`.
+
+The route gate is pure Kotlin and currently has no `ChatScreen` call site. It
+requires all of the following before a future route may run:
+
+- `customBuildExperiment=true`
+- `allowEditablePromptPreview=true`
+- `allowGuardedNpuRun=true`
+- `allowEditablePromptExecution=true`
+- DEV checkbox checked
+- validator valid
+- native editable prompt support present
+- `running=false`
+- `maxOutputTokens=3`
+
+The fixed failure reasons are:
+
+- `NOT_CUSTOM_BUILD_EXPERIMENT`
+- `EDITABLE_PREVIEW_DISABLED`
+- `GUARDED_RUN_DISABLED`
+- `EDITABLE_PROMPT_EXECUTION_DISABLED`
+- `DEV_CHECKBOX_NOT_CHECKED`
+- `VALIDATOR_INVALID`
+- `NATIVE_PROMPT_UNSUPPORTED`
+- `RUN_ALREADY_IN_PROGRESS`
+- `INVALID_MAX_OUTPUT_TOKENS`
 
 ## Remaining Steps To Normal UI
 
