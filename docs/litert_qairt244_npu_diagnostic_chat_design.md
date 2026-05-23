@@ -45,38 +45,49 @@ The Activity is declared only in the `customBuildExperimentDebug` manifest and
 has no normal navigation entry. It can be launched explicitly by ADB or a future
 debug-only launcher.
 
-The screen currently displays:
+The screen displays:
 
 - title: `NPU Diagnostic Chat`
 - current flavor and application id
 - native library directory
 - fixed model path
 - fixed prompt: `Hi`
-- fixed `maxOutputTokens=1`
+- fixed `maxOutputTokens=3` for the short multi-token diagnostic path
 - disabled prompt field
-- disabled `Run 1-token smoke` button
-- last result summary from `files/qairt244_single_token_smoke_result.txt`
+- `DEV confirm isolated 3-token NPU smoke` checkbox
+- `Run 3-token smoke` button, disabled until the DEV checkbox is checked
+- disabled `Normal ChatScreen NPU route disabled` button
+- last result summary from `files/qairt244_short_multitoken_smoke_result.txt`
 - timing fields from the same result file
 - native diagnostic summary from `files/qairt244_native_diag.txt`
+- warm/cold-start cleanup baseline status
 - safety status showing normal UI route disconnected
 
 ## Data Sources
 
-The skeleton is read-only. It reads app-private files produced by the already
-isolated runner:
+The screen reads app-private files produced by the already isolated runner:
 
 ```text
-files/qairt244_single_token_smoke_result.txt
+files/qairt244_short_multitoken_smoke_result.txt
 files/qairt244_native_diag.txt
 ```
 
-It does not call:
+The guarded button is implemented only in the `customBuildExperimentDebug`
+source set and calls the isolated lower-level short multi-token wrapper:
 
-- `Engine.initialize`
-- `RunDecode`
-- `Conversation`
+```text
+Qairt244ShortMultitokenSmoke.run(...)
+```
+
+The implementation does not call:
+
 - high-level `generateResponse`
 - any normal `ChatScreen` inference path
+- `selectedPath=npu` in the normal route
+
+`Engine.initialize` and `RunDecode` can be reached only if the DEV checkbox is
+explicitly checked and the guarded button is clicked. The default launch path
+remains read-only.
 
 ## Launch
 
@@ -122,17 +133,28 @@ normal chat UI path.
 
 ## Future Run Button Design
 
-The run button is intentionally disabled in the current skeleton. Before it is
-enabled, the implementation must:
+The first guarded button implementation is now present, but it defaults to a
+non-runnable state until the DEV confirmation checkbox is checked. It must
+continue to:
 
 - stay `customBuildExperimentDebug` only
 - require explicit confirmation or developer-only extra
-- keep prompt short and bounded
-- keep `maxOutputTokens` hard-capped
-- enforce timeout in the runner
+- keep prompt fixed to `Hi`
+- keep `maxOutputTokens` hard-capped to `3`
+- enforce a 30 second app-side timeout marker
+- use a running lock to prevent double execution
 - write result/native diag/stage/logcat/tombstone artifacts
 - preserve stale tombstone classification
 - never write to normal chat DB, TTS, Markdown, or message UI state
+
+The UI button is not a replacement for the host runner. Host-side execution with
+forced cleanup and tombstone collection should still use:
+
+```bash
+bash scripts/run_qairt244_short_multitoken_smoke.sh \
+  --artifact artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526 \
+  --run
+```
 
 ## Short Multi-Token Follow-up
 
@@ -152,10 +174,27 @@ output=! How Hi
 fresh_crash=false
 ```
 
-The Diagnostic Chat remains read-only. It should not expose a runnable
-multi-token button from isolated smoke success alone. The next step should be a
-separate diagnostic-only UI design update or another explicitly bounded smoke,
-still disconnected from the normal `ChatScreen` route.
+## Guarded Run Button Verification
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_guarded_run/20260523_094457/
+```
+
+Result:
+
+- `customBuildExperimentDebug` APK assembled and installed on Nubia `NX733J`.
+- `NpuDiagnosticChatActivity` launched by explicit ADB component.
+- `DEV confirm isolated 3-token NPU smoke` was visible and unchecked.
+- `RUN 3-TOKEN SMOKE` was visible with `enabled=false`.
+- `NORMAL CHATSCREEN NPU ROUTE DISABLED` remained disabled.
+- `prompt=Hi`, `maxOutputTokens=3`, last `output=! How Hi`, and timing fields
+  were visible.
+- screenshot captured: `screenshot.png`.
+
+No button was clicked. This verification did not run `Engine.initialize`,
+`RunDecode`, generation, or the normal chat UI path.
 
 ## Non-Goals
 

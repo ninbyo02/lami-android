@@ -1,0 +1,6 @@
+Package: io.github.ninbyo02.lami.customnpu
+Activity: io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity
+Manifest source set: customBuildExperimentDebug
+Activity exported: true
+Verification: package dump contained NpuDiagnosticChatActivity
+Native library visibility: uses-native-library libcdsprpc.so required=false

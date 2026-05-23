@@ -53,6 +53,27 @@ Recommended first diagnostic-chat run policy:
 - stale tombstones must not fail a successful current run unless the current
   run id is present in the tombstone.
 
+## Diagnostic Chat Guarded Button
+
+2026-05-23 update: `NpuDiagnosticChatActivity` now exposes a
+`customBuildExperimentDebug`-only guarded `Run 3-token smoke` control. The
+default launch remains read-only because the button is disabled until the
+developer checks `DEV confirm isolated 3-token NPU smoke`.
+
+The button is constrained to:
+
+- prompt `Hi`
+- `maxOutputTokens=3`
+- isolated lower-level `Qairt244ShortMultitokenSmoke.run(...)`
+- app-side running lock
+- app-side 30 second timeout marker
+- app-private result file only
+
+It still does not use `ChatScreen`, normal message DB writes, TTS, Markdown,
+`selectedPath=npu`, or high-level `generateResponse`. Host-side timeout,
+process kill, logcat, and tombstone artifact collection remain the authoritative
+path for evidence-producing runs.
+
 ## Fallback Policy
 
 Fallback is diagnostic-only:

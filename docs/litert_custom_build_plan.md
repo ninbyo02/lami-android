@@ -468,6 +468,25 @@ Updated next recommendation:
 - Still no normal UI NPU route, no `selectedPath=npu` normal path, no
   high-level `generateResponse`, and no streaming generation.
 
+2026-05-23 NPU Diagnostic Chat guarded run control:
+
+- Added a guarded `Run 3-token smoke` control to
+  `NpuDiagnosticChatActivity` in the `customBuildExperimentDebug` source set.
+- The button is disabled by default and requires the explicit
+  `DEV confirm isolated 3-token NPU smoke` checkbox.
+- The guarded path is fixed to prompt `Hi`, `maxOutputTokens=3`, and the
+  isolated lower-level `Qairt244ShortMultitokenSmoke.run(...)` wrapper.
+- The Activity records a diagnostic run marker, uses a running lock to prevent
+  double execution, and writes an app-side 30 second timeout marker if the run
+  does not complete in time.
+- Read-only verification artifact:
+  `artifacts/qairt244_npu_diagnostic_chat_guarded_run/20260523_094457/`
+- Verification launched the Activity and confirmed the DEV checkbox was
+  unchecked and the `RUN 3-TOKEN SMOKE` button was disabled. The button was not
+  clicked, so no generation ran.
+- Still no normal UI NPU route, no `selectedPath=npu` normal path, no
+  high-level `generateResponse`, and no streaming generation.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

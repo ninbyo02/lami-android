@@ -226,15 +226,30 @@ docs/litert_qairt244_ui_integration_safety_plan.md
 Status:
 
 - `customBuildExperimentDebug` only
-- read-only UI skeleton
+- diagnostic UI skeleton with guarded run control
 - fixed prompt display: `Hi`
-- fixed cap display: `maxOutputTokens=1`
-- run button disabled
-- reads only app-private result/native diag files
+- fixed cap display: `maxOutputTokens=3`
+- `Run 3-token smoke` button defaults disabled
+- explicit `DEV confirm isolated 3-token NPU smoke` checkbox required before
+  the button can be enabled
+- running lock and app-side 30 second timeout marker added
+- reads app-private short multi-token result/native diag files
+- guarded path calls only isolated lower-level
+  `Qairt244ShortMultitokenSmoke.run(...)`
 - no `ChatScreen` inference path changes
 - no `selectedPath=npu` normal route
 - no high-level `generateResponse`
+- guarded button read-only verification did not click the run button
 - no additional generation run
+
+Guarded run control verification:
+
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_chat_guarded_run/20260523_094457/`
+- Activity launch succeeded on `io.github.ninbyo02.lami.customnpu`
+- checkbox visible and unchecked
+- `RUN 3-TOKEN SMOKE` visible with `enabled=false`
+- normal ChatScreen NPU route disabled control visible
 
 ## Short Multi-Token Smoke Execution
 
