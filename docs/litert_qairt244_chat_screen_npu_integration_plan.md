@@ -313,3 +313,41 @@ Result:
 
 No prompt was sent in this verification. The result only confirms the disabled
 branch does not alter normal ChatScreen launch state.
+
+## Normal Send Path Non-Invasive Verification
+
+Artifact:
+
+```text
+artifacts/qairt244_chat_screen_normal_send_noninvasive_verify/20260523_221224/
+```
+
+Scope:
+
+- toggle stayed `DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED=false`
+- no DEV hidden toggle was added
+- no prompt was sent
+- no LOCAL/GPU/NPU generation was triggered
+
+Static result:
+
+- the blocked branch remains entirely under the false toggle
+- disabled flow falls through to the existing `InferenceTarget.LOCAL` path
+- the branch is still before DB/TTS/Markdown/streaming locations, but inactive
+  in the current build
+- main `ChatScreen` still has no direct NPU package import
+- `git_diff_summary.txt` is empty for `ChatScreen.kt`, so no code changed in
+  this verification
+
+Runtime result:
+
+- normal `MainActivity` / `ChatScreen` launch succeeded
+- runtime marker scan was empty for `adapter_not_connected`,
+  `DEV NPU blocked`, `Engine.initialize`, `RunDecode`, `selectedPath=npu`,
+  QNN, HTP, FastRPC, and `generateResponse`
+- normal `selectedPath=npu`: not applied
+- NPU generation: not run
+
+This keeps the current verification non-invasive: it confirms the disabled
+branch has no launch-time side effect and the static send path still falls
+through to the existing implementation when the toggle is false.

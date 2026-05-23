@@ -550,3 +550,34 @@ Observed state:
 
 This keeps the adapter boundary present in code while preserving existing
 behavior until a later explicit DEV toggle phase.
+
+## Normal Send Path Non-Invasive Verification
+
+Artifact:
+
+```text
+artifacts/qairt244_chat_screen_normal_send_noninvasive_verify/20260523_221224/
+```
+
+The follow-up verification kept the branch disabled and did not send a prompt.
+It recorded:
+
+- static grep for the disabled branch, blocked adapter, NPU markers, and
+  selected-path strings
+- a `ChatScreen.kt` send-path excerpt around the guarded branch and DB insert
+  boundary
+- an empty `git_diff_summary.txt` for `ChatScreen.kt`
+- a read-only runtime launch screenshot/window dump
+- an empty runtime marker scan for blocked branch and NPU execution markers
+
+Conclusion:
+
+- false toggle preserves the existing LOCAL path
+- the blocked adapter is not reached on normal launch
+- `adapter_not_connected` is not shown
+- `selectedPath=npu` is not applied
+- `Engine.initialize` and `RunDecode` are not run
+
+No normal send was executed in this pass. That intentionally avoids any
+LOCAL/GPU generation while still proving the disabled branch has no visible
+runtime marker and no static connection to direct NPU imports.

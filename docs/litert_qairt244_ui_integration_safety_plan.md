@@ -222,6 +222,27 @@ ChatScreen disabled blocked branch verification:
 - `RunDecode`:
   not run
 
+ChatScreen normal send path non-invasive verification:
+
+- artifact:
+  `artifacts/qairt244_chat_screen_normal_send_noninvasive_verify/20260523_221224/`
+- toggle:
+  `DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED=false`
+- verification type:
+  static send-path inspection plus read-only ChatScreen launch
+- prompt sent:
+  no
+- LOCAL/GPU generation:
+  not run
+- NPU generation:
+  not run
+- runtime marker scan:
+  empty for blocked branch, `Engine.initialize`, `RunDecode`,
+  `selectedPath=npu`, QNN, HTP, FastRPC, and `generateResponse`
+- current conclusion:
+  disabled branch has no observed launch-time side effect and remains
+  non-invasive until a later explicit DEV toggle phase
+
 Short prompt DEV guard spec:
 
 - spec:

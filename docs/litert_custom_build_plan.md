@@ -1590,3 +1590,25 @@ ChatScreen disabled-state verification:
   no `selectedPath=npu` evidence from this path
 - NPU execution:
   not run; no `Engine.initialize` or `RunDecode`
+
+ChatScreen normal send path non-invasive verification:
+
+- artifact:
+  `artifacts/qairt244_chat_screen_normal_send_noninvasive_verify/20260523_221224/`
+- build/install:
+  `customBuildExperimentDebug`
+- launched Activity:
+  `io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.MainActivity`
+- prompt sent:
+  no
+- toggle:
+  `DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED=false`
+- static path:
+  false toggle falls through to existing LOCAL code path
+- runtime markers:
+  none for `adapter_not_connected`, blocked branch, `selectedPath=npu`,
+  `Engine.initialize`, `RunDecode`, QNN/HTP/FastRPC, or `generateResponse`
+- selected path:
+  no `selectedPath=npu` evidence from this path
+- NPU execution:
+  not run
