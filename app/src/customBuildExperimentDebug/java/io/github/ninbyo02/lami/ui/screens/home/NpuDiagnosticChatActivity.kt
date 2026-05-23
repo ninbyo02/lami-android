@@ -96,21 +96,6 @@ class NpuDiagnosticChatActivity : Activity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
             )
         }
-        confirmCheck.setOnCheckedChangeListener { _, isChecked ->
-            runButton.isEnabled = isChecked && !running.get()
-        }
-        runButton.setOnClickListener {
-            if (!confirmCheck.isChecked || running.get()) return@setOnClickListener
-            startGuardedShortMultitokenSmoke(
-                modelPath = modelPath,
-                resultFile = resultFile,
-                nativeDiagFile = nativeDiagFile,
-                statusText = statusText,
-                runButton = runButton,
-                confirmCheck = confirmCheck,
-                timeoutMs = timeoutMs,
-            )
-        }
         content.addView(confirmCheck)
         content.addView(runButton)
         content.addView(statusText)
@@ -126,9 +111,27 @@ class NpuDiagnosticChatActivity : Activity() {
             },
         )
 
-        content.addSection("Last result", readKeyValueSummary(resultFile))
-        content.addSection("Timing", readTimingSummary(resultFile))
-        content.addSection("Native diag", readNativeDiagSummary(nativeDiagFile))
+        val resultSummary = content.addSectionView("Last result", readKeyValueSummary(resultFile))
+        val timingSummary = content.addSectionView("Timing", readTimingSummary(resultFile))
+        val nativeDiagSummary = content.addSectionView("Native diag", readNativeDiagSummary(nativeDiagFile))
+        confirmCheck.setOnCheckedChangeListener { _, isChecked ->
+            runButton.isEnabled = isChecked && !running.get()
+        }
+        runButton.setOnClickListener {
+            if (!confirmCheck.isChecked || running.get()) return@setOnClickListener
+            startGuardedShortMultitokenSmoke(
+                modelPath = modelPath,
+                resultFile = resultFile,
+                nativeDiagFile = nativeDiagFile,
+                statusText = statusText,
+                resultSummary = resultSummary,
+                timingSummary = timingSummary,
+                nativeDiagSummary = nativeDiagSummary,
+                runButton = runButton,
+                confirmCheck = confirmCheck,
+                timeoutMs = timeoutMs,
+            )
+        }
         content.addSection(
             "Memory cleanup",
             listOf(
@@ -163,6 +166,9 @@ class NpuDiagnosticChatActivity : Activity() {
         resultFile: File,
         nativeDiagFile: File,
         statusText: TextView,
+        resultSummary: TextView,
+        timingSummary: TextView,
+        nativeDiagSummary: TextView,
         runButton: Button,
         confirmCheck: CheckBox,
         timeoutMs: Long,
@@ -219,6 +225,9 @@ class NpuDiagnosticChatActivity : Activity() {
                     "result_file=${resultFile.exists()}",
                     "native_diag=${nativeDiagFile.exists()}",
                 ).joinToString(" ")
+                resultSummary.text = readKeyValueSummary(resultFile).joinToString("\n")
+                timingSummary.text = readTimingSummary(resultFile).joinToString("\n")
+                nativeDiagSummary.text = readNativeDiagSummary(nativeDiagFile).joinToString("\n")
             }
         }.start()
     }
@@ -246,14 +255,20 @@ class NpuDiagnosticChatActivity : Activity() {
 
     private fun LinearLayout.addSection(title: String, lines: List<String>) {
         addLabel(title)
-        addView(
-            TextView(context).apply {
-                text = lines.takeIf { it.isNotEmpty() }?.joinToString("\n") ?: "-"
-                textSize = 13f
-                setPadding(0, 0, 0, 8)
-            },
-        )
+        addView(sectionTextView(lines))
     }
+
+    private fun LinearLayout.addSectionView(title: String, lines: List<String>): TextView {
+        addLabel(title)
+        return sectionTextView(lines).also(::addView)
+    }
+
+    private fun LinearLayout.sectionTextView(lines: List<String>): TextView =
+        TextView(context).apply {
+            text = lines.takeIf { it.isNotEmpty() }?.joinToString("\n") ?: "-"
+            textSize = 13f
+            setPadding(0, 0, 0, 8)
+        }
 
     private fun readKeyValueSummary(file: File): List<String> {
         if (!file.isFile) return listOf("file=${file.absolutePath}", "status=missing")

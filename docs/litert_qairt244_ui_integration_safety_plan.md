@@ -74,6 +74,19 @@ It still does not use `ChatScreen`, normal message DB writes, TTS, Markdown,
 process kill, logcat, and tombstone artifact collection remain the authoritative
 path for evidence-producing runs.
 
+Guarded UI smoke verification:
+
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_chat_guarded_ui_run/20260523_100701/`
+- result: `success`
+- output: `! How Hi`
+- hard cap: `max_output_tokens=3`
+- native evidence: `QNN_HTP_V79_FastRPC_native_diag`
+- tombstone classification: `stale-tombstone-ignored`
+
+The UI path remains diagnostic-only. It must not be promoted to the normal chat
+route without a separate integration review and host-side recovery plan.
+
 ## Fallback Policy
 
 Fallback is diagnostic-only:

@@ -251,6 +251,21 @@ Guarded run control verification:
 - `RUN 3-TOKEN SMOKE` visible with `enabled=false`
 - normal ChatScreen NPU route disabled control visible
 
+Guarded UI smoke verification:
+
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_chat_guarded_ui_run/20260523_100701/`
+- result: `success`
+- output: `! How Hi`
+- hard cap: `max_output_tokens=3`
+- elapsed: `1090 ms`
+- decode elapsed: `64 ms`
+- NPU backend evidence: `QNN_HTP_V79_FastRPC_native_diag`
+- tombstone classification: `stale-tombstone-ignored`
+- no normal UI route
+- no `selectedPath=npu` normal route
+- no high-level `generateResponse`
+
 ## Short Multi-Token Smoke Execution
 
 Files:

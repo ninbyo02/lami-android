@@ -196,6 +196,36 @@ Result:
 No button was clicked. This verification did not run `Engine.initialize`,
 `RunDecode`, generation, or the normal chat UI path.
 
+## Guarded UI Smoke Run
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_guarded_ui_run/20260523_100701/
+```
+
+Result:
+
+- The Diagnostic Chat UI was launched from `customBuildExperimentDebug`.
+- The guarded UI path produced a successful short multi-token result:
+  `result=success`, `output=! How Hi`, `max_output_tokens=3`.
+- Timing:
+  `engine_create=883 ms`, `prefill=13 ms`, `decode=64 ms`,
+  `cleanup=129 ms`, total `1090 ms`.
+- `npu_backend=NPU`.
+- Native diagnostics include the expected
+  `QNN_HTP_V79_FastRPC_native_diag` evidence and
+  `before RunDecode SetMaxOutputTokens(3)`.
+- Tombstone classification: `stale-tombstone-ignored`; no current-run id was
+  present in the selected old tombstone/dropbox body.
+- The result view screenshot shows `result=success`, `output=! How Hi`, and
+  `npu_backend=NPU`.
+
+UI operation caveat: an earlier troubleshooting tap sequence caused an
+in-memory completed guarded run state to appear in `screenshot_armed.png`.
+The final captured run in this artifact is the documented result above. No
+normal UI path was connected during either diagnostic-only interaction.
+
 ## Non-Goals
 
 This work intentionally does not:

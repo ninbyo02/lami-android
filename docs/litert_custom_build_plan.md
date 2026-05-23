@@ -487,6 +487,22 @@ Updated next recommendation:
 - Still no normal UI NPU route, no `selectedPath=npu` normal path, no
   high-level `generateResponse`, and no streaming generation.
 
+2026-05-23 NPU Diagnostic Chat guarded UI smoke:
+
+- Artifact:
+  `artifacts/qairt244_npu_diagnostic_chat_guarded_ui_run/20260523_100701/`
+- The guarded Diagnostic Chat UI path produced `result=success`.
+- Output: `! How Hi`.
+- Hard cap: `max_output_tokens=3`.
+- Timing: total `1090 ms`, `engine_create=883 ms`, `prefill=13 ms`,
+  `decode=64 ms`, `cleanup=129 ms`.
+- NPU evidence remains `QNN_HTP_V79_FastRPC_native_diag`.
+- Tombstone classification: `stale-tombstone-ignored`; the collector selected
+  an old `No usable Dispatch runtime found` tombstone whose body does not
+  contain the current guarded UI run id.
+- Still no normal UI NPU route, no `selectedPath=npu` normal path, no
+  high-level `generateResponse`, and no streaming generation.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real
