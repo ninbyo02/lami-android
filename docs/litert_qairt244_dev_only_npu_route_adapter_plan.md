@@ -344,6 +344,41 @@ Refresh re-runs only this blocked planner preview. Because the adapter remains
 `BlockedDevOnlyNpuRouteAdapter`, Refresh does not execute NPU generation,
 `Engine.initialize`, `RunDecode`, or any normal inference path.
 
+## Transient Result Display Model
+
+The DEV-only route now has a pure Kotlin display mapper for pre-ChatScreen
+transient result/error rendering:
+
+- source:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteDisplayModel.kt`
+- tests:
+  `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteDisplayModelTest.kt`
+
+The mapper converts `DevOnlyNpuRouteResult` into a UI-facing
+`DevOnlyNpuRouteDisplayModel` with:
+
+- `title`
+- `message`
+- `status`
+- `output`
+- `reasonCode`
+- `elapsedText`
+- `backendEvidenceText`
+- `artifactText`
+
+Status classification is fixed as:
+
+- `success=true` -> `SUCCESS`
+- `timeout=true` -> `TIMEOUT`
+- `freshCrash=true` -> `CRASH`
+- `reasonCode` starts with `gate_blocked:` -> `BLOCKED`
+- `reasonCode=adapter_not_connected` -> `BLOCKED`
+- otherwise -> `ERROR`
+
+This is still not connected to normal `ChatScreen`. It does not call the
+adapter, NPU generation, `Engine.initialize`, `RunDecode`, high-level
+`generateResponse`, DB, TTS, Markdown, streaming, or normal `selectedPath=npu`.
+
 ## Remaining Steps To Normal UI
 
 1. Implement adapter as `customBuildExperimentDebug` only, with no ChatScreen

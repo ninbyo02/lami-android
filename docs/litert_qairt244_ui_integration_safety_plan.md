@@ -507,3 +507,22 @@ The preview also renders the safety status:
 
 Refresh may recompute this blocked planner preview, but it cannot reach native
 NPU execution because no real NPU adapter is installed.
+
+## DEV-Only Route Transient Display Model - 2026-05-23
+
+`DevOnlyNpuRouteDisplayModel` now defines the transient result/error shape for
+a future DEV-only ChatScreen branch. It is pure Kotlin and has no normal UI
+call site.
+
+Classification is fixed before integration:
+
+- success -> `SUCCESS`
+- adapter or gate block -> `BLOCKED`
+- timeout -> `TIMEOUT`
+- fresh crash evidence -> `CRASH`
+- other failure -> `ERROR`
+
+The model preserves output, reason code, elapsed/decode timing text, backend
+evidence text, and artifact text. It remains detached from DB persistence, TTS,
+Markdown, streaming, stop button ownership, selected-path state, and native
+NPU execution.

@@ -1457,3 +1457,22 @@ DEV-only planner result UI boundary:
 - NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
   normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
   paths remain untouched
+
+DEV-only route transient result/error model:
+
+- implementation:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteDisplayModel.kt`
+- tests:
+  `app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteDisplayModelTest.kt`
+- input:
+  `DevOnlyNpuRouteResult`
+- output:
+  `DevOnlyNpuRouteDisplayModel`
+- statuses:
+  `SUCCESS`, `BLOCKED`, `TIMEOUT`, `CRASH`, `ERROR`
+- blocked classification:
+  `gate_blocked:<REASON>` and `adapter_not_connected`
+- normal ChatScreen call site: none
+- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+  paths remain untouched

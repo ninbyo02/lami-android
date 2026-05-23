@@ -180,11 +180,19 @@ Current implementation status:
 - Gate tests cover every current failure reason.
 - Planner tests cover gate-blocked no-adapter-call behavior and gate-OK
   blocked-adapter behavior.
+- `DevOnlyNpuRouteDisplayModel` maps route results into transient UI
+  statuses (`SUCCESS`, `BLOCKED`, `TIMEOUT`, `CRASH`, `ERROR`) before any
+  normal ChatScreen integration.
 - No `ChatScreen` call site exists yet.
 - No NPU work is run by the adapter stub.
 - The Diagnostic Chat planner preview displays
   `ChatScreen route connected=false`, `selectedPathNpuApplied=false`,
   `npuGeneration=false`, `engineInitialize=false`, and `runDecode=false`.
+
+The transient display model is intentionally not persisted to chat history and
+does not enter DB, TTS, Markdown, streaming, stop button, or selected-path
+state. It is only a shape for DEV error/result rendering once a guarded
+adapter branch exists.
 
 ## Implementation Checklist
 
