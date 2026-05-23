@@ -691,3 +691,32 @@ The main `ChatScreen` still has no NPU package import and no real NPU adapter.
 - No NPU generation, `Engine.initialize`, or `RunDecode` was executed.
 - No `selectedPath=npu` normal-route state was applied or persisted.
 - Final toggle state was restored to `false`.
+
+## Real Adapter Preflight Safety Gates (2026-05-24)
+
+Before replacing the blocked adapter, the following gates are fixed:
+
+- execute only in customBuildExperimentDebug
+- execute only on the Nubia / SM8750 test device
+- require explicit `dev_enable_npu_chatscreen_route=true`
+- run once with prompt `Hello`
+- keep `maxOutputTokens=3`
+- disable DB/TTS/Markdown/streaming
+- never persist `selectedPath=npu`
+- collect artifact before considering the run valid
+- restore the toggle OFF after any outcome
+
+Safety stop / rollback conditions:
+
+- fresh crash
+- timeout
+- duplicate success marker
+- missing cleanup / close evidence
+- after-10s memory not returning near baseline
+- stale summary or stale artifact used as input
+- UI freeze or running lock not released
+- QNN/HTP/FastRPC evidence missing
+- any normal ChatScreen side effect receives the NPU output
+
+This review is docs/preflight only. It does not run NPU generation,
+`Engine.initialize`, `RunDecode`, or `Backend.NPU`.

@@ -397,3 +397,50 @@ behavior unchanged.
 - The branch remained transient only: no DB insert, no TTS, no Markdown path, and no streaming path.
 - `selectedPath=npu` was not applied or persisted.
 - Real NPU execution remained disconnected: no `Engine.initialize`, `RunDecode`, `Backend.NPU`, QNN, HTP, FastRPC, or QAIRT runtime markers were found in the post-run marker scan.
+
+## Real Adapter Preflight Rollback Review (2026-05-24)
+
+Artifact:
+
+```text
+artifacts/qairt244_chat_screen_real_adapter_preflight_rollback_review/20260524_082657/
+```
+
+This pass is documentation and static preflight only. It does not connect the
+real adapter and does not execute NPU generation.
+
+Rollback conditions for the first real-adapter swap:
+
+- fresh crash
+- timeout
+- duplicate success marker
+- missing or unknown `Engine.close` / cleanup result
+- `selectedPath=npu` saved or applied to normal route state
+- DB/TTS/Markdown/streaming receives NPU output
+- `dev_enable_npu_chatscreen_route` does not return OFF after the run
+- adapter result reports success while side-effect flags are not all false
+- stale artifact or stale summary is used as execution evidence
+- after-10s memory remains materially elevated versus the prior baseline
+- UI freeze or button/running lock recovery is unclear
+- QNN/HTP/FastRPC evidence is missing from a claimed NPU success
+
+Initial real-adapter execution conditions:
+
+- customBuildExperimentDebug only
+- Nubia Z70S Ultra / SM8750 only
+- `dev_enable_npu_chatscreen_route=true`
+- prompt fixed to `Hello`
+- `maxOutputTokens=3`
+- exactly one run
+- timeout at or below 30 seconds
+- DB/TTS/Markdown/streaming disabled
+- `selectedPath=npu` not saved
+- result artifact required
+- toggle OFF after success or failure
+
+Allowed next-phase code scope is limited to the customBuildExperimentDebug
+adapter implementation, the `DevOnlyNpuChatScreenBlockedBranch` adapter swap
+point, runner/script updates, and docs/artifact capture. Broad ChatScreen send
+path changes, DB/TTS/Markdown/streaming changes, standard/release changes,
+`app/src/main/jniLibs` changes, and selected-path persistence changes remain
+forbidden.

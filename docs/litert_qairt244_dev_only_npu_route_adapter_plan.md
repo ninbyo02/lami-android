@@ -616,3 +616,33 @@ markers.
 - The adapter remains blocked. No real NPU adapter is connected.
 - The verification helper Activity only writes and verifies the toggle state. It does not call planner, adapter, Engine initialization, or decode.
 - This keeps the route boundary ready for the next staged experiment without changing the normal ChatScreen inference path.
+
+## Real Adapter Swap Boundary Review (2026-05-24)
+
+Artifact:
+
+```text
+artifacts/qairt244_chat_screen_real_adapter_preflight_rollback_review/20260524_082657/
+```
+
+The real adapter must replace only the blocked adapter implementation selected
+behind the existing DEV gate. The planner, gate, presenter, and transient
+side-effect flags remain the boundary contract.
+
+Required result invariants for the first real adapter attempt:
+
+- `maxOutputTokens=3`
+- prompt source fixed to the guarded ChatScreen DEV path
+- prompt fixed to `Hello`
+- `shouldPersistToDb=false`
+- `shouldSpeakTts=false`
+- `shouldRenderMarkdown=false`
+- `shouldStream=false`
+- `freshCrash=false`
+- `timeout=false`
+- QNN/HTP/FastRPC evidence present for any success result
+
+Rollback must occur if the adapter succeeds while any side-effect flag is true,
+if cleanup is not proven, if `selectedPath=npu` is saved, or if stale artifacts
+are used as evidence. Rollback means disabling the DEV toggle, preserving the
+artifact, and keeping the blocked adapter path as the safe fallback.

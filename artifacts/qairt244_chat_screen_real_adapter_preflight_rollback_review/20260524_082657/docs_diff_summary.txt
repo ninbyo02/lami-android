@@ -1,0 +1,6 @@
+ docs/litert_custom_build_plan.md                   | 28 +++++++++++++
+ ...rt_qairt244_chat_screen_npu_integration_plan.md | 47 ++++++++++++++++++++++
+ ...ert_qairt244_dev_only_npu_route_adapter_plan.md | 30 ++++++++++++++
+ docs/litert_qairt244_failure_root_cause_matrix.md  | 20 +++++++++
+ docs/litert_qairt244_ui_integration_safety_plan.md | 29 +++++++++++++
+ 5 files changed, 154 insertions(+)

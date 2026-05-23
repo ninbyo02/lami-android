@@ -1228,3 +1228,23 @@ This coordinator pass did not run:
 | `selectedPath=npu` | Not applied | toggle state files and runtime marker scan | OK |
 | NPU execution | Not executed | empty `runtime_marker_scan.txt` for Engine/RunDecode/QNN/HTP markers | OK |
 | Final state | Toggle restored OFF | `toggle_state_after_off.txt` | OK |
+
+## Real Adapter Preflight Rollback Matrix (2026-05-24)
+
+| Condition | Required action | Reason |
+| --- | --- | --- |
+| Fresh crash | Roll back toggle OFF | Avoid repeating unstable native path |
+| Timeout | Roll back toggle OFF | Prevent UI lock or runaway inference |
+| Duplicate success marker | Roll back and inspect artifact | Ambiguous one-shot accounting |
+| Missing close/cleanup evidence | Roll back | Resource state unknown |
+| `selectedPath=npu` saved/applied | Roll back and fix settings path | NPU must not become normal route state |
+| DB/TTS/Markdown/streaming receives output | Roll back | Initial integration must remain transient |
+| Toggle fails to return OFF | Roll back manually and block next run | DEV route must be one-shot recoverable |
+| Success with side-effect flags true | Roll back | Presenter/adapter contract violated |
+| Stale artifact/summary used | Do not run | Execution evidence must be fresh |
+| After-10s memory materially elevated | Roll back and profile | Possible cleanup regression |
+| UI freeze/running lock unclear | Roll back | User-facing recovery unproven |
+| Missing QNN/HTP/FastRPC evidence | Treat as failure | Backend identity unproven |
+
+The 2026-05-24 review is docs and static grep only. Real adapter connection,
+NPU generation, `Engine.initialize`, and `RunDecode` were not executed.

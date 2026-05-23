@@ -1646,3 +1646,31 @@ DEV hidden NPU ChatScreen toggle boundary:
 - The verification did not run NPU generation, `Engine.initialize`, `RunDecode`, or `Backend.NPU`.
 - The toggle was restored OFF after the run.
 - Next planned step: keep the blocked branch as the ChatScreen boundary while designing a later real-adapter swap behind the same gate.
+
+## QAIRT ChatScreen Real Adapter Preflight Review (2026-05-24)
+
+Artifact:
+
+```text
+artifacts/qairt244_chat_screen_real_adapter_preflight_rollback_review/20260524_082657/
+```
+
+This is the final preflight review before a possible customBuildExperimentDebug
+real-adapter swap. No real adapter was connected.
+
+The first real adapter run is constrained to:
+
+- Nubia / SM8750
+- prompt `Hello`
+- `maxOutputTokens=3`
+- one run
+- timeout 30 seconds
+- DB/TTS/Markdown/streaming disabled
+- `selectedPath=npu` not saved
+- artifact required
+- toggle OFF after completion or failure
+
+Rollback conditions include fresh crash, timeout, duplicate marker, missing
+cleanup evidence, selected-path persistence, normal UI side effects, stale
+artifact usage, elevated memory after 10 seconds, UI lock recovery failure, and
+missing QNN/HTP/FastRPC evidence.
