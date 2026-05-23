@@ -1,0 +1,975 @@
+    forceQueryable=false
+    pageSizeCompat=0
+    scannedAsStoppedSystemApp=false
+    supportsScreens=[small, medium, large, xlarge, resizeable, anyDensity]
+    usesOptionalNativeLibraries:
+      libcdsprpc.so
+      libvndksupport.so
+      libOpenCL.so
+      libOpenCL-car.so
+      libOpenCL-pixel.so
+    usesLibraryFiles:
+      libcdsprpc.so
+      libOpenCL.so
+    timeStamp=2026-05-23 11:55:20
+    lastUpdateTime=2026-05-23 11:55:22
+    installerPackageName=null
+    installerPackageUid=-1
+    initiatingPackageName=com.android.shell
+    originatingPackageName=null
+    packageSource=1
+    appMetadataFilePath=null
+    appMetadataSource=0
+    signatures=PackageSignatures{38507b9 version:2, signatures:[8a813f09], past signatures:[]}
+    installPermissionsFixed=false
+    pkgFlags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP ]
+    privatePkgFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PARTIALLY_DIRECT_BOOT_AWARE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    apexModuleName=null
+    declared permissions:
+      io.github.ninbyo02.lami.customnpu.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: prot=signature
+    requested permissions:
+      android.permission.INTERNET
+      android.permission.ACCESS_NETWORK_STATE
+      io.github.ninbyo02.lami.customnpu.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+    install permissions:
+      android.permission.INTERNET: granted=true
+      android.permission.ACCESS_NETWORK_STATE: granted=true
+      io.github.ninbyo02.lami.customnpu.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: granted=true
+    User 0: ceDataInode=415839 deDataInode=356413 installed=true hidden=false suspended=false distractionFlags=0 stopped=false notLaunched=false enabled=0 instant=false virtual=false quarantined=false
+      installReason=0
+      dataDir=/data/user/0/io.github.ninbyo02.lami.customnpu
+      firstInstallTime=2026-05-17 00:49:48
+      uninstallReason=0
+--
+mHiddenTasks=[Task{83da06d #9196 type=standard A=10494:com.amazon.kindle}, Task{c9f01d9 #9135 type=standard A=10467:jp.unext.mediaplayer}, Task{14a6604 #8984 type=standard A=10626:io.github.ninbyo02.lami}, Task{d5826bd #8982 type=standard A=10487:com.nttdocomo.android.dpoint nonResizable}, Task{21f53ec #8942 type=standard A=10467:jp.unext.mediaplayer}]
+  Recent tasks:
+  * Recent #3: Task{1b098b5 #9286 type=standard A=10631:io.github.ninbyo02.lami.customnpu}
+    userId=0 effectiveUid=u0a631 mCallingUid=2000 mUserSetupComplete=true mCallingPackage=com.android.shell mCallingFeatureId=null
+    affinity=10631:io.github.ninbyo02.lami.customnpu
+    intent={flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity}
+    mActivityComponent=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity
+    autoRemoveRecents=false isPersistable=true activityType=1
+    rootWasReset=false mNeverRelinquishIdentity=true mReuseTask=false mLockTaskAuth=LOCK_TASK_AUTH_PINNABLE
+    Activities=[ActivityRecord{222463741 u0 io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity t9286}]
+    mRootProcess=ProcessRecord{d7a1925 11848:io.github.ninbyo02.lami.customnpu/u0a631}
+    taskId=9286 rootTaskId=9286
+    hasChildPipActivity=false
+    mHasBeenVisible=true
+    mResizeMode=RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION mSupportsPictureInPicture=false isResizeable=true
+    isPerceptible=false
+    lastActiveTime=1165324352 (inactive for 1449s)
+    isTrimmable=true isForceHidden=false isForceExcludedFromRecents=false
+
+  Visible recent tasks (most recent first):
+  * RecentTaskInfo #2:
+    id=9286 userId=0 hasTask=true lastActiveTime=1165324352
+    baseIntent=Intent { flg=0x10000000 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+    baseActivity={io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity}
+    topActivity={io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity}
+    realActivity={io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity}
+    isExcluded=false activityType=standard windowingMode=fullscreen supportsMultiWindow=true
+    taskDescription { colorBackground=#fffafafa colorPrimary=#fff5f5f5 iconRes=/0 iconBitmap=false resizeMode=RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION minWidth=-1 minHeight=-1 colorBackgroundFloating=#ffffffff }
+
+-------------------------------------------------------------------------------
+ACTIVITY MANAGER LAST ANR (dumpsys activity lastanr)
+  <no ANR has occurred since boot>
+
+-------------------------------------------------------------------------------
+ACTIVITY MANAGER STARTER (dumpsys activity starter)
+mLastHomeActivityStartResult=2
+mLastStarter:
+  mCurrentUser=0
+  mLastStartReason=startActivityAndWait
+  mLastStartActivityTimeMs=2026/05/23 11:55:23
+  mLastStartActivityResult=0
+  mStartActivity:
+    packageName=io.github.ninbyo02.lami.customnpu processName=io.github.ninbyo02.lami.customnpu
+    launchedFromUid=2000 launchedFromPackage=com.android.shell launchedFromFeature=null userId=0
+    app=ProcessRecord{d7a1925 11848:io.github.ninbyo02.lami.customnpu/u0a631}
+    Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+    rootOfTask=true task=Task{1b098b5 #9286 type=standard A=10631:io.github.ninbyo02.lami.customnpu}
+    taskAffinity=10631:io.github.ninbyo02.lami.customnpu
+    mActivityComponent=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity
+    baseDir=/data/app/~~r6bnes_4hMkAQstbC9WqLg==/io.github.ninbyo02.lami.customnpu-nPkXLweQE634YUq7OV5q1A==/base.apk
+    dataDir=/data/user/0/io.github.ninbyo02.lami.customnpu
+    stateNotNeeded=false componentSpecified=true mActivityType=standard
+    compat={520dpi} theme=0x7f10010d
+    mLastReportedConfigurations:
+      mGlobalConfig={1.0 440mcc10mnc [ja_JP] ldltr sw374dp w374dp h827dp 520dpi nrml long hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1216, 2688) mAppBounds=Rect(0, 0 - 1216, 2688) mMaxBounds=Rect(0, 0 - 1216, 2688) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} s.14157 fontWeightAdjustment=0 customFont=sans-serif customFontWeightAdjustment=0}
+      mOverrideConfig={1.0 440mcc10mnc [ja_JP] ldltr sw374dp w374dp h827dp 520dpi nrml long hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1216, 2688) mAppBounds=Rect(0, 0 - 1216, 2688) mMaxBounds=Rect(0, 0 - 1216, 2688) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=standard mAlwaysOnTop=undefined mRotation=ROTATION_0} s.2 fontWeightAdjustment=0 customFont=sans-serif customFontWeightAdjustment=0}
+    mLastReportedActivityWindowInfo=ActivityWindowInfo{isEmbedded=false, taskBounds=Rect(0, 0 - 1216, 2688), taskFragmentBounds=Rect(0, 0 - 1216, 2688)}
+    CurrentConfiguration={1.0 440mcc10mnc [ja_JP] ldltr sw374dp w374dp h827dp 520dpi nrml long hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1216, 2688) mAppBounds=Rect(0, 0 - 1216, 2688) mMaxBounds=Rect(0, 0 - 1216, 2688) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=standard mAlwaysOnTop=undefined mRotation=ROTATION_0} s.2 fontWeightAdjustment=0 customFont=sans-serif customFontWeightAdjustment=0}
+    RequestedOverrideConfiguration={0.0 ?mcc0mnc ?localeList ?layoutDir ?swdp ?wdp ?hdp ?density ?lsize ?long ?ldr ?wideColorGamut ?orien ?uimode ?night ?touch ?keyb/?/? ?nav/? winConfig={ mBounds=Rect(0, 0 - 0, 0) mAppBounds=null mMaxBounds=Rect(0, 0 - 0, 0) mDisplayRotation=undefined mWindowingMode=undefined mActivityType=standard mAlwaysOnTop=undefined mRotation=undefined} ?fontWeightAdjustment customFont= customFontWeightAdjustment=2147483647}
+    ResolvedOverrideConfiguration={0.0 ?mcc0mnc ?localeList ?layoutDir ?swdp ?wdp ?hdp ?density ?lsize ?long ?ldr ?wideColorGamut ?orien ?uimode ?night ?touch ?keyb/?/? ?nav/? winConfig={ mBounds=Rect(0, 0 - 0, 0) mAppBounds=null mMaxBounds=Rect(0, 0 - 0, 0) mDisplayRotation=undefined mWindowingMode=undefined mActivityType=undefined mAlwaysOnTop=undefined mRotation=undefined} s.2 ?fontWeightAdjustment customFont= customFontWeightAdjustment=2147483647}
+    taskDescription: label="null" icon=null iconResource=/0 iconFilename=null primaryColor=fff5f5f5
+      backgroundColor=fffafafa statusBarColor=ff757575 navigationBarColor=ffffffff
+     backgroundColorFloating=ffffffff
+    launchFailed=false launchCount=0 lastLaunchTime=-24m9s227ms
+    mHaveState=true mIcicle=Bundle[mParcelledData.dataSize=648]
+    state=STOPPED delayedResume=false finishing=false
+    keysPaused=false inHistory=true idle=true
+    occludesParent=true mNoDisplay=false immersive=false launchMode=0
+    mActivityType=standard
+    windows=[Window{bd4686d u0 io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity}]
+    windowType=2
+    mOccludesParent=true
+    overrideOrientation=SCREEN_ORIENTATION_UNSPECIFIED
+    requestedOrientation=SCREEN_ORIENTATION_UNSPECIFIED
+    mVisibleRequested=false mVisible=false mClientVisible=false reportedDrawn=false reportedVisible=false
+    mAppStopped=true
+    mNumInterestingWindows=1 mNumDrawnWindows=1 allDrawn=false)
+    nowVisible=false lastVisibleTime=-24m9s30ms
+    resizeMode=RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION
+    mLastReportedMultiWindowMode=false mLastReportedPictureInPictureMode=false
+    supportsSizeChanges=SIZE_CHANGES_UNSUPPORTED_METADATA
+    configChanges=0x3
+    neverSandboxDisplayApis=false
+    alwaysSandboxDisplayApis=false
+    isTransparentPolicyRunning=false
+    areBoundsLetterboxed=false
+    isLetterboxRunning=false
+  mIntent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+  mLaunchMode=LAUNCH_MULTIPLE  mLaunchFlags=0x10000000 mDoResume=true mAddingToTask=true mInTaskFragment=null
+
+-------------------------------------------------------------------------------
+ACTIVITY MANAGER ACTIVITIES (dumpsys activity activities)
+Display #0 (activities from top to bottom):
+  * Task{1b098b5 #9286 type=standard A=10631:io.github.ninbyo02.lami.customnpu U=0 visible=false visibleRequested=false mode=fullscreen translucent=true sz=1}
+    mLastNonFullscreenBounds=Rect(305, 733 - 912, 1949)
+    isSleeping=false
+    * Hist  #0: ActivityRecord{222463741 u0 io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity t9286}
+      packageName=io.github.ninbyo02.lami.customnpu processName=io.github.ninbyo02.lami.customnpu
+      launchedFromUid=2000 launchedFromPackage=com.android.shell launchedFromFeature=null userId=0
+      app=ProcessRecord{d7a1925 11848:io.github.ninbyo02.lami.customnpu/u0a631}
+      Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+      rootOfTask=true task=Task{1b098b5 #9286 type=standard A=10631:io.github.ninbyo02.lami.customnpu}
+      taskAffinity=10631:io.github.ninbyo02.lami.customnpu
+      mActivityComponent=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity
+      baseDir=/data/app/~~r6bnes_4hMkAQstbC9WqLg==/io.github.ninbyo02.lami.customnpu-nPkXLweQE634YUq7OV5q1A==/base.apk
+      dataDir=/data/user/0/io.github.ninbyo02.lami.customnpu
+      stateNotNeeded=false componentSpecified=true mActivityType=standard
+      compat={520dpi} theme=0x7f10010d
+      mLastReportedConfigurations:
+        mGlobalConfig={1.0 440mcc10mnc [ja_JP] ldltr sw374dp w374dp h827dp 520dpi nrml long hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1216, 2688) mAppBounds=Rect(0, 0 - 1216, 2688) mMaxBounds=Rect(0, 0 - 1216, 2688) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} s.14157 fontWeightAdjustment=0 customFont=sans-serif customFontWeightAdjustment=0}
+        mOverrideConfig={1.0 440mcc10mnc [ja_JP] ldltr sw374dp w374dp h827dp 520dpi nrml long hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1216, 2688) mAppBounds=Rect(0, 0 - 1216, 2688) mMaxBounds=Rect(0, 0 - 1216, 2688) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=standard mAlwaysOnTop=undefined mRotation=ROTATION_0} s.2 fontWeightAdjustment=0 customFont=sans-serif customFontWeightAdjustment=0}
+      mLastReportedActivityWindowInfo=ActivityWindowInfo{isEmbedded=false, taskBounds=Rect(0, 0 - 1216, 2688), taskFragmentBounds=Rect(0, 0 - 1216, 2688)}
+      CurrentConfiguration={1.0 440mcc10mnc [ja_JP] ldltr sw374dp w374dp h827dp 520dpi nrml long hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1216, 2688) mAppBounds=Rect(0, 0 - 1216, 2688) mMaxBounds=Rect(0, 0 - 1216, 2688) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=standard mAlwaysOnTop=undefined mRotation=ROTATION_0} s.2 fontWeightAdjustment=0 customFont=sans-serif customFontWeightAdjustment=0}
+      RequestedOverrideConfiguration={0.0 ?mcc0mnc ?localeList ?layoutDir ?swdp ?wdp ?hdp ?density ?lsize ?long ?ldr ?wideColorGamut ?orien ?uimode ?night ?touch ?keyb/?/? ?nav/? winConfig={ mBounds=Rect(0, 0 - 0, 0) mAppBounds=null mMaxBounds=Rect(0, 0 - 0, 0) mDisplayRotation=undefined mWindowingMode=undefined mActivityType=standard mAlwaysOnTop=undefined mRotation=undefined} ?fontWeightAdjustment customFont= customFontWeightAdjustment=2147483647}
+      ResolvedOverrideConfiguration={0.0 ?mcc0mnc ?localeList ?layoutDir ?swdp ?wdp ?hdp ?density ?lsize ?long ?ldr ?wideColorGamut ?orien ?uimode ?night ?touch ?keyb/?/? ?nav/? winConfig={ mBounds=Rect(0, 0 - 0, 0) mAppBounds=null mMaxBounds=Rect(0, 0 - 0, 0) mDisplayRotation=undefined mWindowingMode=undefined mActivityType=undefined mAlwaysOnTop=undefined mRotation=undefined} s.2 ?fontWeightAdjustment customFont= customFontWeightAdjustment=2147483647}
+      taskDescription: label="null" icon=null iconResource=/0 iconFilename=null primaryColor=fff5f5f5
+        backgroundColor=fffafafa statusBarColor=ff757575 navigationBarColor=ffffffff
+       backgroundColorFloating=ffffffff
+      launchFailed=false launchCount=0 lastLaunchTime=-24m9s227ms
+      mHaveState=true mIcicle=Bundle[mParcelledData.dataSize=648]
+      state=STOPPED delayedResume=false finishing=false
+      keysPaused=false inHistory=true idle=true
+      occludesParent=true mNoDisplay=false immersive=false launchMode=0
+      mActivityType=standard
+      windows=[Window{bd4686d u0 io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity}]
+      windowType=2
+      mOccludesParent=true
+      overrideOrientation=SCREEN_ORIENTATION_UNSPECIFIED
+      requestedOrientation=SCREEN_ORIENTATION_UNSPECIFIED
+      mVisibleRequested=false mVisible=false mClientVisible=false reportedDrawn=false reportedVisible=false
+      mAppStopped=true
+      mNumInterestingWindows=1 mNumDrawnWindows=1 allDrawn=false)
+      nowVisible=false lastVisibleTime=-24m9s30ms
+      resizeMode=RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION
+      mLastReportedMultiWindowMode=false mLastReportedPictureInPictureMode=false
+      supportsSizeChanges=SIZE_CHANGES_UNSUPPORTED_METADATA
+      configChanges=0x3
+      neverSandboxDisplayApis=false
+      alwaysSandboxDisplayApis=false
+      isTransparentPolicyRunning=false
+      areBoundsLetterboxed=false
+      isLetterboxRunning=false
+  (nothing)
+
+-------------------------------------------------------------------------------
+ACTIVITY MANAGER LRU PROCESSES (dumpsys activity start-info)
+Last Timestamp of Persistence Into Persistent Storage: 2026/05/23 12:04
+  package: io.github.ninbyo02.lami.customnpu
+    Historical Process Start for userId=10631
+        ApplicationStartInfo #0:
+ monotonicCreationTimeMs=1165324034
+ pid=0 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=COLD launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=937106672119343 1=937106681758093 2=937106989747625 3=937106760077364 4=937107187146374 6=937107170397729 7=937107208443874
+        ApplicationStartInfo #1:
+ monotonicCreationTimeMs=1165046933
+ pid=6849 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=HOT launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=936829571558251 4=936829600079189 6=936829596170387 7=936829619555855
+        ApplicationStartInfo #2:
+ monotonicCreationTimeMs=1164620704
+ pid=6849 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=HOT launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=936403342357528 4=936403378339924 6=936403373249560 7=936403395156226
+        ApplicationStartInfo #3:
+ monotonicCreationTimeMs=1164580691
+ pid=0 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=COLD launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=936363329374992 1=936363342244992 2=936363625461710 3=936363408688637 4=936363829378116 6=936363815433064 7=936363855465877
+        ApplicationStartInfo #4:
+ monotonicCreationTimeMs=1162060933
+ pid=26473 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=HOT launchMode=0 wasForceStopped=true startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=934363947371535 4=934363979354244 6=934363975199660 7=934364008775128
+        ApplicationStartInfo #5:
+ monotonicCreationTimeMs=1162023068
+ pid=0 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=COLD launchMode=0 wasForceStopped=true startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=934326081948373 1=934326088866654 2=934326384517383 3=934326150506185 4=934326481393894 6=934326470383008 7=934326498920299
+        ApplicationStartInfo #6:
+ monotonicCreationTimeMs=1161763551
+ pid=0 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=COLD launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=934066565259201 1=934066572384982 2=934066852515711 3=934066635783680 4=934066941540555 6=934066928103524 7=934066973202586
+        ApplicationStartInfo #7:
+ monotonicCreationTimeMs=1160136137
+ pid=18923 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=HOT launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=932439150583051 4=932439186411801 6=932439179330655 7=932439202944978
+        ApplicationStartInfo #8:
+ monotonicCreationTimeMs=1160113093
+ pid=18923 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=HOT launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=932416106788476 4=932416141067070 6=932416137843529 7=932416162548319
+        ApplicationStartInfo #9:
+ monotonicCreationTimeMs=1160107076
+ pid=0 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=COLD launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=932410089972177 1=932410097172072 2=932410404754520 3=932410163361083 4=932410511568635 6=932410501198895 7=932410527535979
+        ApplicationStartInfo #10:
+ monotonicCreationTimeMs=1159040436
+ pid=12195 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=WARM launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=931343450385188 4=931343495017948
+        ApplicationStartInfo #11:
+ monotonicCreationTimeMs=1158819655
+ pid=12195 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=HOT launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=931122669137876 4=931122696785064 6=931122691706939 7=931122713902407
+        ApplicationStartInfo #12:
+ monotonicCreationTimeMs=1158570504
+ pid=12195 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=HOT launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=930873518201929 4=930873560952190 6=930873555861461 7=930873575965419
+        ApplicationStartInfo #13:
+ monotonicCreationTimeMs=1158292439
+ pid=0 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=COLD launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=930595453206254 1=930595460482296 2=930595741477192 3=930595522060317 4=930595849644223 6=930595828237348 7=930595870462712
+        ApplicationStartInfo #14:
+ monotonicCreationTimeMs=1158174349
+ pid=0 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=COLD launchMode=0 wasForceStopped=false startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=930477362710362 1=930477369207393 2=930477655801247 3=930477433575153 4=930477738597966 6=930477727124737 7=930477757855934
+        ApplicationStartInfo #15:
+ monotonicCreationTimeMs=1157496889
+ pid=0 realUid=10631 packageUid=10631 definingUid=10631 user=0
+ package=io.github.ninbyo02.lami.customnpu process=io.github.ninbyo02.lami.customnpu startupState=2 reason=START ACTIVITY startType=COLD launchMode=0 wasForceStopped=true startComponent=ACTIVITY
+ intent=Intent { flg=0x10000000 xflg=0x4 cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity }
+ timestamps: 0=929799902784110 1=929799909596870 2=929800162647860 3=929799969136454 4=929800294128433 6=929800266189370 7=929800326178640
+-------------------------------------------------------------------------------
+ACTIVITY MANAGER PROCESS EXIT INFO (dumpsys activity exit-info)
+Last Timestamp of Persistence Into Persistent Storage: 2026-05-23 12:05:05.068
+  package: io.github.ninbyo02.lami.customnpu
+    Historical Process Exit for uid=10631
+        ApplicationExitInfo #0:
+          timestamp=2026-05-23 11:55:23.076 pid=6849 realUid=10631 packageUid=10631 definingUid=10631 user=0
+          process=io.github.ninbyo02.lami.customnpu reason=16 (PACKAGE UPDATED) subreason=0 (UNKNOWN) status=0
+          importance=400 pss=0.00 rss=137MB description=stop io.github.ninbyo02.lami.customnpu due to installPackageLI state=empty trace=null
+        ApplicationExitInfo #1:
+          timestamp=2026-05-23 11:42:58.982 pid=26473 realUid=10631 packageUid=10631 definingUid=10631 user=0
+          process=io.github.ninbyo02.lami.customnpu reason=16 (PACKAGE UPDATED) subreason=0 (UNKNOWN) status=0
+          importance=400 pss=0.00 rss=90MB description=stop io.github.ninbyo02.lami.customnpu due to installPackageLI state=empty trace=null
+        ApplicationExitInfo #2:
+          timestamp=2026-05-23 10:58:07.251 pid=24796 realUid=10631 packageUid=10631 definingUid=10631 user=0
+          process=io.github.ninbyo02.lami.customnpu reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0
+          importance=400 pss=0.00 rss=232MB description=stop io.github.ninbyo02.lami.customnpu due to from pid 25882 state=empty trace=null
+        ApplicationExitInfo #3:
+          timestamp=2026-05-23 10:56:02.405 pid=18923 realUid=10631 packageUid=10631 definingUid=10631 user=0
+          process=io.github.ninbyo02.lami.customnpu reason=16 (PACKAGE UPDATED) subreason=0 (UNKNOWN) status=0
+          importance=400 pss=0.00 rss=276MB description=stop io.github.ninbyo02.lami.customnpu due to installPackageLI state=empty trace=null
+        ApplicationExitInfo #4:
+          timestamp=2026-05-23 10:28:25.796 pid=12195 realUid=10631 packageUid=10631 definingUid=10631 user=0
+          process=io.github.ninbyo02.lami.customnpu reason=16 (PACKAGE UPDATED) subreason=0 (UNKNOWN) status=0
+          importance=400 pss=0.00 rss=289MB description=stop io.github.ninbyo02.lami.customnpu due to installPackageLI state=empty trace=null
+        ApplicationExitInfo #5:
+          timestamp=2026-05-23 09:57:33.639 pid=11492 realUid=10631 packageUid=10631 definingUid=10631 user=0
+          process=io.github.ninbyo02.lami.customnpu reason=16 (PACKAGE UPDATED) subreason=0 (UNKNOWN) status=0
+          importance=400 pss=0.00 rss=272MB description=stop io.github.ninbyo02.lami.customnpu due to installPackageLI state=empty trace=null
+--
+      - ReceiverList{91aaefc 11848 io.github.ninbyo02.lami.customnpu/10631/u0 remote:ebc03ef}
+    lastCompactTime=937106680 lastCompactProfile=null
+    hasPendingCompaction=false    isFreezeExempt=false isPendingFreeze=false isFrozen=false
+    earliestFreezableTimeMs=--
+    Activities:
+      - ActivityRecord{222463741 u0 io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity t9286}
+    Recent Tasks:
+      - Task{1b098b5 #9286 type=standard A=10631:io.github.ninbyo02.lami.customnpu}
+     Configuration={1.0 440mcc10mnc [ja_JP] ldltr sw374dp w374dp h827dp 520dpi nrml long hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1216, 2688) mAppBounds=Rect(0, 0 - 1216, 2688) mMaxBounds=Rect(0, 0 - 1216, 2688) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} s.14157 fontWeightAdjustment=0 customFont=sans-serif customFontWeightAdjustment=0}
+     OverrideConfiguration={1.0 440mcc10mnc [ja_JP] ldltr sw374dp w374dp h827dp 520dpi nrml long hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1216, 2688) mAppBounds=Rect(0, 0 - 1216, 2688) mMaxBounds=Rect(0, 0 - 1216, 2688) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=standard mAlwaysOnTop=undefined mRotation=ROTATION_0} s.2 fontWeightAdjustment=0 customFont=sans-serif customFontWeightAdjustment=0}
+     mLastReportedConfiguration={1.0 440mcc10mnc [ja_JP] ldltr sw374dp w374dp h827dp 520dpi nrml long hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1216, 2688) mAppBounds=Rect(0, 0 - 1216, 2688) mMaxBounds=Rect(0, 0 - 1216, 2688) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} s.14157 fontWeightAdjustment=0 customFont=sans-serif customFontWeightAdjustment=0}
+
+  OOM levels:
+    -900: SYSTEM_ADJ (   73,728K)
+    -800: PERSISTENT_PROC_ADJ (   73,728K)
+    -700: PERSISTENT_SERVICE_ADJ (   73,728K)
+      0: FOREGROUND_APP_ADJ (   73,728K)
+     100: VISIBLE_APP_ADJ (   92,160K)
+     200: PERCEPTIBLE_APP_ADJ (  110,592K)
+     225: PERCEPTIBLE_MEDIUM_APP_ADJ (  129,024K)
+     250: PERCEPTIBLE_LOW_APP_ADJ (  129,024K)
+     300: BACKUP_APP_ADJ (  221,184K)
+     400: HEAVY_WEIGHT_APP_ADJ (  221,184K)
+     500: SERVICE_ADJ (  221,184K)
+     600: HOME_APP_ADJ (  221,184K)
+     700: PREVIOUS_APP_ADJ (  221,184K)
+     800: SERVICE_B_ADJ (  221,184K)
+     900: CACHED_APP_MIN_ADJ (  221,184K)
+     999: CACHED_APP_MAX_ADJ (  322,560K)
+
+  Process OOM control (97 total, non-act at 8, non-svc at 8):
+    Proc # 6: cch    b/ /CAC  --------  t: 0 11848:io.github.ninbyo02.lami.customnpu/u0a631 (cch-act)
+        oom: max=1001 curRaw=900 setRaw=900 cur=900 set=900
+        state: cur=CAC  set=CAC  lastRss=217MB lastCachedRss=217MB
+        cached=true empty=false hasAboveClient=false
+
+--
+    time="2026-05-23 06:23:41" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeActivity instanceId=164975220 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeActivity flags=0x0
+    time="2026-05-23 06:23:42" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeActivity instanceId=164975220 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeActivity flags=0x0
+    time="2026-05-23 06:23:42" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeActivity instanceId=164975220 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeActivity flags=0x0
+    time="2026-05-23 06:33:40" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=20 reason=p-r flags=0x0
+    time="2026-05-23 06:54:30" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=10 reason=u-si flags=0x0
+    time="2026-05-23 06:54:30" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 06:55:45" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 06:55:46" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 06:58:02" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 07:00:00" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 07:00:00" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 07:03:22" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 07:03:24" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 07:03:24" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 07:46:42" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=20 reason=p flags=0x0
+    time="2026-05-23 07:58:02" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=10 reason=u-si flags=0x0
+    time="2026-05-23 07:58:02" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity instanceId=245019894 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity flags=0x0
+    time="2026-05-23 07:58:03" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity instanceId=245019894 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity flags=0x0
+    time="2026-05-23 07:58:03" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity instanceId=245019894 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity flags=0x0
+    time="2026-05-23 08:08:02" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=20 reason=p-r flags=0x0
+    time="2026-05-23 08:50:19" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=10 reason=u-si flags=0x0
+    time="2026-05-23 08:50:19" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity instanceId=46632318 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity flags=0x0
+    time="2026-05-23 08:50:21" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity instanceId=46632318 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity flags=0x0
+    time="2026-05-23 08:50:21" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity instanceId=46632318 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity flags=0x0
+    time="2026-05-23 09:00:19" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=20 reason=p-r flags=0x0
+    time="2026-05-23 09:10:43" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=10 reason=u-si flags=0x0
+    time="2026-05-23 09:10:43" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity instanceId=153065953 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity flags=0x0
+    time="2026-05-23 09:10:44" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity instanceId=153065953 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity flags=0x0
+    time="2026-05-23 09:10:44" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity instanceId=153065953 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity flags=0x0
+    time="2026-05-23 09:20:43" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=20 reason=p-r flags=0x0
+    time="2026-05-23 09:28:17" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=10 reason=u-si flags=0x0
+    time="2026-05-23 09:28:17" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity instanceId=39333028 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity flags=0x0
+    time="2026-05-23 09:28:19" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity instanceId=39333028 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity flags=0x0
+    time="2026-05-23 09:28:19" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity instanceId=39333028 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity flags=0x0
+    time="2026-05-23 09:38:17" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=20 reason=p-r flags=0x0
+    time="2026-05-23 09:44:56" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=10 reason=u-si flags=0x0
+    time="2026-05-23 09:44:56" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=165543598 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 09:45:21" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=165543598 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 09:45:21" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=165543598 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 09:56:14" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=168983918 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 09:56:28" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=168983918 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 09:56:28" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=168983918 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 09:58:12" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 09:58:19" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 09:58:19" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:02:50" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:02:56" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:02:56" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:06:59" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:07:07" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:07:08" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:10:40" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=21376693 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:10:52" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=21376693 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:10:53" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=21376693 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:28:27" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:28:30" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:28:31" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:28:32" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:28:34" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:28:35" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:28:55" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:29:00" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:29:00" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:56:03" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=240804570 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:56:07" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=240804570 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 10:56:07" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=240804570 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:00:23" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=45548737 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:00:56" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=45548737 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:00:56" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=45548737 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:01:00" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=45548737 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:01:15" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=45548737 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:01:15" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=45548737 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:43:00" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:43:37" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:43:37" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:43:40" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:43:51" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:43:51" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:50:46" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:50:48" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:50:48" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:55:23" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=129391434 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:56:07" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=129391434 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+    time="2026-05-23 11:56:07" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=129391434 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  DailyEventStart-NUBIA
+  DailyFile (timeRange="2026/5/13 20:57～2026/5/14 20:57" )
+  time="2026-05-13 20:57:26" type=STANDBY_BUCKET_CHANGED package=com.synology.dsdrive standbyBucket=50 reason=t flags=0x0
+  time="2026-05-13 20:57:26" type=STANDBY_BUCKET_CHANGED package=com.zte.privacyzone standbyBucket=45 reason=t flags=0x0
+  time="2026-05-13 20:57:26" type=STANDBY_BUCKET_CHANGED package=vendor.qti.data.txpwradmin standbyBucket=20 reason=t flags=0x0
+  time="2026-05-13 20:57:26" type=STANDBY_BUCKET_CHANGED package=com.synology.DSfile standbyBucket=45 reason=t flags=0x0
+  time="2026-05-13 20:57:26" type=STANDBY_BUCKET_CHANGED package=com.android.systemui standbyBucket=20 reason=t flags=0x0
+  time="2026-05-13 20:57:26" type=STANDBY_BUCKET_CHANGED package=com.google.android.apps.youtube.music standbyBucket=45 reason=t flags=0x0
+  time="2026-05-13 21:00:32" type=STANDBY_BUCKET_CHANGED package=com.android.systemui standbyBucket=10 reason=u-si flags=0x0
+  time="2026-05-13 21:00:35" type=SCREEN_INTERACTIVE package=android flags=0x0
+  time="2026-05-13 21:00:35" type=STANDBY_BUCKET_CHANGED package=com.zte.privacyzone standbyBucket=10 reason=u-si flags=0x0
+  time="2026-05-13 21:00:35" type=STANDBY_BUCKET_CHANGED package=vendor.qti.data.txpwradmin standbyBucket=10 reason=u-si flags=0x0
+  time="2026-05-13 21:00:35" type=NOTIFICATION_SEEN package=jp.naver.line.android flags=0x0
+  time="2026-05-13 21:00:35" type=NOTIFICATION_INTERRUPTION package=jp.naver.line.android channelId=jp.naver.line.android.notification.NewMessages flags=0x0
+  time="2026-05-13 21:00:37" type=SCREEN_NON_INTERACTIVE package=android flags=0x0
+  time="2026-05-13 21:00:37" type=SCREEN_INTERACTIVE package=android flags=0x0
+  time="2026-05-13 21:00:38" type=ACTIVITY_RESUMED package=com.google.android.apps.messaging class=com.google.android.apps.messaging.main.MainActivity instanceId=45194930 taskRootPackage=com.google.android.apps.messaging taskRootClass=com.google.android.apps.messaging.main.MainActivity flags=0x0
+  time="2026-05-13 21:00:38" type=LOCUS_ID_SET package=com.google.android.apps.messaging class=com.google.android.apps.messaging.ui.ConversationListActivity flags=0x0
+  time="2026-05-13 21:00:38" type=KEYGUARD_HIDDEN package=android flags=0x0
+  time="2026-05-13 21:00:39" type=STANDBY_BUCKET_CHANGED package=jp.co.dwango.seiga.manga.android standbyBucket=30 reason=p flags=0x0
+  time="2026-05-13 21:00:39" type=STANDBY_BUCKET_CHANGED package=com.google.android.documentsui standbyBucket=30 reason=p flags=0x0
+  time="2026-05-13 21:00:40" type=ACTIVITY_PAUSED package=com.google.android.apps.messaging class=com.google.android.apps.messaging.main.MainActivity instanceId=45194930 taskRootPackage=com.google.android.apps.messaging taskRootClass=com.google.android.apps.messaging.main.MainActivity flags=0x0
+  time="2026-05-13 21:00:40" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-13 21:00:41" type=LOCUS_ID_SET package=com.google.android.apps.messaging class=com.google.android.apps.messaging.ui.ConversationListActivity flags=0x0
+  time="2026-05-13 21:00:41" type=ACTIVITY_STOPPED package=com.google.android.apps.messaging class=com.google.android.apps.messaging.main.MainActivity instanceId=45194930 taskRootPackage=com.google.android.apps.messaging taskRootClass=com.google.android.apps.messaging.main.MainActivity flags=0x0
+  time="2026-05-13 21:00:42" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-13 21:00:42" type=USER_INTERACTION package=jp.naver.line.android flags=0x0
+  time="2026-05-13 21:00:42" type=ACTIVITY_RESUMED package=jp.naver.line.android class=jp.naver.line.android.activity.chathistory.ChatHistoryActivityLaunchActivity instanceId=110007489 taskRootPackage=jp.naver.line.android taskRootClass=jp.naver.line.android.activity.chathistory.ChatHistoryActivityLaunchActivity flags=0x0
+  time="2026-05-13 21:00:42" type=STANDBY_BUCKET_CHANGED package=jp.naver.line.android standbyBucket=10 reason=u-ui flags=0x0
+  time="2026-05-13 21:00:42" type=ACTIVITY_PAUSED package=jp.naver.line.android class=jp.naver.line.android.activity.chathistory.ChatHistoryActivityLaunchActivity instanceId=110007489 taskRootPackage=jp.naver.line.android taskRootClass=jp.naver.line.android.activity.chathistory.ChatHistoryActivity flags=0x0
+--
+  time="2026-05-23 06:51:06" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 06:51:06" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 06:51:06" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 06:54:30" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 06:54:30" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=10 reason=u-si flags=0x0
+  time="2026-05-23 06:54:30" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 06:54:30" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 06:54:30" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 06:54:30" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 06:54:30" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 06:54:31" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 06:55:45" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 06:55:45" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 06:55:45" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 06:55:45" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 06:55:46" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 06:55:46" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 06:55:46" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 06:55:46" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 06:55:46" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 06:55:46" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 06:57:06" type=STANDBY_BUCKET_CHANGED package=com.google.android.projection.gearhead standbyBucket=45 reason=t flags=0x0
+  time="2026-05-23 06:58:02" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 06:58:02" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 06:58:02" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 06:58:02" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 06:58:02" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 06:58:03" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 06:58:03" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 07:00:00" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:00:00" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:00:00" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 07:00:00" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:00:00" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 07:00:00" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:00:00" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 07:00:01" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 07:00:01" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:00:01" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:21" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:21" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:21" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 07:03:21" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 07:03:21" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 07:03:22" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 07:03:22" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:22" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 07:03:22" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:22" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 07:03:22" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 07:03:23" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:23" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:23" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:23" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:24" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 07:03:24" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:24" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180706667 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 07:03:25" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:25" type=ACTIVITY_RESUMED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 07:03:25" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:25" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:03:26" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 07:03:51" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 07:06:40" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:06:40" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:06:41" type=ACTIVITY_PAUSED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 07:06:41" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:06:41" type=ACTIVITY_STOPPED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 07:06:42" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:06:42" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 07:06:42" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 07:06:42" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:06:42" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:13:51" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 07:13:51" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:13:51" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 07:13:51" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 07:13:51" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 07:13:52" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 07:13:52" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 07:13:52" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:13:52" type=STANDBY_BUCKET_CHANGED package=com.dencreak.esmemo standbyBucket=10 reason=u-si flags=0x0
+  time="2026-05-23 07:13:53" type=ACTIVITY_RESUMED package=com.dencreak.esmemo class=com.dencreak.esmemo.MainActivity instanceId=48402109 taskRootPackage=com.dencreak.esmemo taskRootClass=com.dencreak.esmemo.MainActivity flags=0x0
+  time="2026-05-23 07:13:54" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 07:13:59" type=ACTIVITY_PAUSED package=com.dencreak.esmemo class=com.dencreak.esmemo.MainActivity instanceId=48402109 taskRootPackage=com.dencreak.esmemo taskRootClass=com.dencreak.esmemo.MainActivity flags=0x0
+  time="2026-05-23 07:13:59" type=ACTIVITY_RESUMED package=com.dencreak.esmemo class=com.dencreak.esmemo.ActivityTextMemoEdit instanceId=169322492 taskRootPackage=com.dencreak.esmemo taskRootClass=com.dencreak.esmemo.MainActivity flags=0x0
+  time="2026-05-23 07:13:59" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+--
+  time="2026-05-23 09:41:00" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:43:48" type=STANDBY_BUCKET_CHANGED package=net.hands.handsapp standbyBucket=10 reason=u-si flags=0x0
+  time="2026-05-23 09:43:48" type=NOTIFICATION_INTERRUPTION package=net.hands.handsapp channelId=notification_channel_1 flags=0x0
+  time="2026-05-23 09:44:56" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 09:44:56" type=STANDBY_BUCKET_CHANGED package=io.github.ninbyo02.lami.customnpu standbyBucket=10 reason=u-si flags=0x0
+  time="2026-05-23 09:44:56" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=165543598 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 09:44:56" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 09:44:56" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 09:44:56" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 09:44:57" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 09:44:57" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 09:45:20" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:45:20" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:45:21" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=165543598 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 09:45:21" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:45:21" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=165543598 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 09:45:22" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:45:22" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 09:45:22" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 09:45:22" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:45:22" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:46:56" type=STANDBY_BUCKET_CHANGED package=com.dencreak.esmemo standbyBucket=40 reason=p flags=0x0
+  time="2026-05-23 09:52:23" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:52:23" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 09:52:23" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:52:23" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 09:52:23" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 09:52:24" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:52:24" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 09:52:24" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 09:52:24" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 09:52:26" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:52:26" type=ACTIVITY_RESUMED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 09:52:26" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:52:26" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:52:27" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 09:52:53" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 09:53:48" type=STANDBY_BUCKET_CHANGED package=net.hands.handsapp standbyBucket=40 reason=p-r flags=0x0
+  time="2026-05-23 09:54:25" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:54:25" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:54:26" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:54:26" type=ACTIVITY_PAUSED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 09:54:26" type=ACTIVITY_STOPPED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 09:54:27" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:54:27" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 09:54:27" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 09:54:27" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:54:27" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:56:13" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 09:56:14" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=168983918 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 09:56:14" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 09:56:14" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 09:56:14" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 09:56:14" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 09:56:15" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 09:56:27" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:56:27" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:56:28" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=168983918 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 09:56:28" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:56:28" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=168983918 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 09:56:28" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:56:28" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 09:56:29" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 09:56:29" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:56:29" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:58:12" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 09:58:12" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 09:58:12" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 09:58:12" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 09:58:12" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 09:58:12" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 09:58:13" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 09:58:19" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:58:19" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:58:19" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:58:19" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 09:58:19" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 09:58:19" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:58:19" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:58:19" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 09:58:19" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 09:58:19" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 10:02:50" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:02:50" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:02:50" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:02:50" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:02:50" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:02:50" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:02:51" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:02:56" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:02:56" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:02:56" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:02:56" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:02:56" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:02:57" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:02:57" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:02:57" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 10:02:57" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:02:57" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:06:59" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:06:59" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:06:59" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:06:59" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:06:59" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:06:59" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:07:00" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:07:07" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:07:07" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:07:08" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 10:07:08" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=180906722 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:10:40" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:10:40" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=21376693 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:10:40" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:10:40" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:10:40" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:10:40" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:10:41" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:10:52" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=21376693 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:10:52" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:10:53" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 10:10:53" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=21376693 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:13:05" type=NOTIFICATION_INTERRUPTION package=com.google.android.googlequicksearchbox channelId=71 flags=0x0
+  time="2026-05-23 10:21:19" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:21:19" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:21:19" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:21:19" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:21:19" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:21:19" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:21:19" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:21:19" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:21:20" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:21:21" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:21:21" type=ACTIVITY_RESUMED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 10:21:21" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:21:21" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:21:22" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 10:22:12" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 10:23:58" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:23:58" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:23:59" type=ACTIVITY_PAUSED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 10:23:59" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:23:59" type=ACTIVITY_STOPPED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 10:24:00" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:24:00" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:24:00" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 10:24:00" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:24:00" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:26" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:28:27" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:28:27" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:28:27" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:28:27" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:28:27" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:28:28" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:28:30" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:28:30" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:31" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:28:32" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:32" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:32" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:28:33" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:33" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:34" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:34" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:34" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:28:35" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:35" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:28:35" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:35" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:28:35" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 10:28:35" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:35" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:55" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:28:55" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:28:55" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:28:55" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:28:55" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:28:56" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:28:56" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:28:59" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:28:59" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:29:00" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:29:00" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:29:00" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=212353839 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:29:00" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:29:00" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:29:00" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 10:29:00" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:29:00" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:30:30" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:30:30" type=ACTIVITY_RESUMED package=com.google.android.inputmethod.latin class=com.google.android.apps.inputmethod.latin.preference.SettingsActivity instanceId=40554793 taskRootPackage=com.google.android.inputmethod.latin taskRootClass=com.google.android.apps.inputmethod.latin.preference.SettingsActivity flags=0x0
+  time="2026-05-23 10:30:30" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:30:30" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:30:30" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:30:31" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:30:31" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:30:32" type=ACTIVITY_PAUSED package=com.google.android.inputmethod.latin class=com.google.android.apps.inputmethod.latin.preference.SettingsActivity instanceId=40554793 taskRootPackage=com.google.android.inputmethod.latin taskRootClass=com.google.android.apps.inputmethod.latin.preference.SettingsActivity flags=0x0
+  time="2026-05-23 10:30:32" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:30:32" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 10:30:32" type=ACTIVITY_STOPPED package=com.google.android.inputmethod.latin class=com.google.android.apps.inputmethod.latin.preference.SettingsActivity instanceId=40554793 taskRootPackage=com.google.android.inputmethod.latin taskRootClass=com.google.android.apps.inputmethod.latin.preference.SettingsActivity flags=0x0
+  time="2026-05-23 10:47:04" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:47:04" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:47:04" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:47:04" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:47:04" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:47:04" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:47:04" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:47:04" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:47:05" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:47:06" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:47:06" type=ACTIVITY_RESUMED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 10:47:06" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:47:06" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:47:08" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+--
+  time="2026-05-23 10:51:24" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:51:24" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 10:51:24" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:51:24" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:56:03" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:56:03" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=240804570 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:56:03" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:56:03" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:56:03" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 10:56:03" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:56:04" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 10:56:07" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=240804570 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:56:07" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:56:07" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=240804570 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 10:56:10" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:56:11" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:56:11" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 10:56:11" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 10:56:11" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:56:11" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 10:59:59" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 11:00:22" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:00:23" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=45548737 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:00:23" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:00:23" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:00:23" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:00:23" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:00:24" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:00:55" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:00:55" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:00:56" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:00:56" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=45548737 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:00:56" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=45548737 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:00:56" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:00:56" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:00:56" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 11:00:57" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:00:57" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:01:00" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:01:00" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=45548737 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:01:00" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:01:00" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:01:00" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:01:00" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:01:01" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:01:14" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:01:14" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:01:15" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=45548737 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:01:15" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:01:15" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=45548737 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:01:16" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:01:16" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:01:16" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 11:01:16" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:01:16" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:17:36" type=SCREEN_NON_INTERACTIVE package=android flags=0x0
+  time="2026-05-23 11:17:37" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:17:37" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:17:37" type=KEYGUARD_SHOWN package=android flags=0x0
+  time="2026-05-23 11:18:38" type=STANDBY_BUCKET_CHANGED package=com.amazon.kindle standbyBucket=10 reason=u-si flags=0x0
+  time="2026-05-23 11:18:38" type=NOTIFICATION_INTERRUPTION package=com.amazon.kindle channelId=kindle_default_channel flags=0x0
+  time="2026-05-23 11:18:42" type=STANDBY_BUCKET_CHANGED package=com.amazon.mShop.android.shopping standbyBucket=10 reason=u-si flags=0x0
+  time="2026-05-23 11:34:58" type=SCREEN_INTERACTIVE package=android flags=0x0
+  time="2026-05-23 11:34:58" type=NOTIFICATION_SEEN package=com.amazon.kindle flags=0x0
+  time="2026-05-23 11:35:04" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:35:04" type=KEYGUARD_HIDDEN package=android flags=0x0
+  time="2026-05-23 11:35:04" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 11:37:06" type=STANDBY_BUCKET_CHANGED package=com.amazon.kindle standbyBucket=20 reason=u-at flags=0x0
+  time="2026-05-23 11:37:11" type=STANDBY_BUCKET_CHANGED package=com.amazon.mShop.android.shopping standbyBucket=40 reason=p-r flags=0x0
+  time="2026-05-23 11:38:49" type=STANDBY_BUCKET_CHANGED package=jp.co.dwango.seiga.manga.android standbyBucket=10 reason=u-si flags=0x0
+  time="2026-05-23 11:40:38" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:40:38" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:40:39" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:40:39" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:40:39" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:40:39" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:40:39" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:40:39" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:40:40" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:40:41" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+--
+  time="2026-05-23 11:42:16" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 11:42:16" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:42:16" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:42:59" type=STANDBY_BUCKET_CHANGED package=com.google.android.gm standbyBucket=20 reason=u-sa flags=0x0
+  time="2026-05-23 11:43:00" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:43:00" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:43:00" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:43:00" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:43:00" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:43:01" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:43:01" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:43:37" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:37" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:37" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:43:37" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:37" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:43:38" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:38" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:43:38" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 11:43:38" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:38" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:40" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:43:40" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:43:40" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:43:40" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:43:40" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:43:40" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:43:41" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:43:45" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:45" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:45" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:45" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:45" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:46" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:51" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:51" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:51" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:43:51" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:51" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:43:52" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:52" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:43:52" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 11:43:52" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:43:52" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:49:08" type=STANDBY_BUCKET_CHANGED package=com.amazon.kindle standbyBucket=10 reason=u-si flags=0x0
+  time="2026-05-23 11:50:45" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:50:45" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:50:45" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:50:45" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:50:45" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:50:46" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:50:46" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:50:46" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:50:46" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:50:46" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:50:46" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:50:46" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:50:46" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:50:47" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:50:47" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:50:48" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:50:48" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:50:48" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=39805267 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:50:49" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:50:49" type=ACTIVITY_RESUMED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 11:50:49" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:50:49" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:50:50" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 11:51:40" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 11:53:20" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:53:20" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:53:20" type=ACTIVITY_PAUSED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 11:53:20" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:53:20" type=ACTIVITY_STOPPED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 11:53:21" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:53:21" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:53:21" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 11:53:22" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:53:22" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:55:23" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:55:23" type=ACTIVITY_RESUMED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=129391434 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:55:24" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:55:24" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:55:24" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 11:55:24" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:55:25" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 11:56:07" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:56:07" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:56:07" type=ACTIVITY_PAUSED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=129391434 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:56:07" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:56:07" type=ACTIVITY_STOPPED package=io.github.ninbyo02.lami.customnpu class=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity instanceId=129391434 taskRootPackage=io.github.ninbyo02.lami.customnpu taskRootClass=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity flags=0x0
+  time="2026-05-23 11:56:09" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:56:09" type=ACTIVITY_RESUMED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 11:56:09" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 11:56:09" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:56:09" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 11:57:23" type=NOTIFICATION_SEEN package=com.amazon.kindle flags=0x0
+  time="2026-05-23 11:57:23" type=NOTIFICATION_INTERRUPTION package=com.amazon.kindle channelId=kindle_default_channel flags=0x0
+  time="2026-05-23 11:57:24" type=NOTIFICATION_SEEN package=com.google.android.apps.photos flags=0x0
+  time="2026-05-23 11:57:24" type=NOTIFICATION_SEEN package=com.google.android.googlequicksearchbox flags=0x0
+  time="2026-05-23 11:57:24" type=NOTIFICATION_INTERRUPTION package=com.google.android.googlequicksearchbox channelId=71 flags=0x0
+  time="2026-05-23 11:57:24" type=NOTIFICATION_SEEN package=android flags=0x0
+  time="2026-05-23 11:57:24" type=NOTIFICATION_SEEN package=net.hands.handsapp flags=0x0
+  time="2026-05-23 11:57:24" type=STANDBY_BUCKET_CHANGED package=net.hands.handsapp standbyBucket=20 reason=u-ns flags=0x0
+  time="2026-05-23 11:58:00" type=SHORTCUT_INVOCATION package=com.google.android.gm shortcutId=ninbyo02@gmail.com flags=0x0
+  time="2026-05-23 11:59:08" type=STANDBY_BUCKET_CHANGED package=com.amazon.kindle standbyBucket=20 reason=u-at flags=0x0
+  time="2026-05-23 12:02:16" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 12:02:16" type=ACTIVITY_RESUMED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 12:02:16" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 12:02:16" type=FOREGROUND_SERVICE_START package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 12:02:16" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.aimhelper.AimService flags=0x0
+  time="2026-05-23 12:02:17" type=ACTIVITY_PAUSED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 12:02:17" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 12:02:17" type=ACTIVITY_STOPPED package=com.termux class=com.termux.app.TermuxActivity instanceId=38225379 taskRootPackage=com.termux taskRootClass=com.termux.app.TermuxActivity flags=0x0
+  time="2026-05-23 12:02:17" type=FOREGROUND_SERVICE_STOP package=cn.nubia.gamehelperline class=cn.nubia.gamehelperline.LineService flags=0x0
+  time="2026-05-23 12:02:18" type=ACTIVITY_PAUSED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 12:02:18" type=ACTIVITY_RESUMED package=com.openai.chatgpt class=com.openai.chatgpt.MainActivity instanceId=107699210 taskRootPackage=com.openai.chatgpt taskRootClass=com.openai.chatgpt.MainActivity flags=0x0
+  time="2026-05-23 12:02:18" type=LOCUS_ID_SET package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 12:02:18" type=ACTIVITY_STOPPED package=com.zte.mifavor.launcher class=com.android.launcher3.uioverrides.QuickstepLauncher instanceId=135507994 taskRootPackage=com.zte.mifavor.launcher taskRootClass=com.android.launcher3.uioverrides.QuickstepLauncher flags=0x0
+  time="2026-05-23 12:02:19" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0
+  time="2026-05-23 12:02:50" type=NOTIFICATION_INTERRUPTION package=android channelId=VIRTUAL_KEYBOARD_ZTE flags=0x0

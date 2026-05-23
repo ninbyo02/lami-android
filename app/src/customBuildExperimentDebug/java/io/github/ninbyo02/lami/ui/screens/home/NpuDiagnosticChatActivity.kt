@@ -34,7 +34,7 @@ class NpuDiagnosticChatActivity : Activity() {
         val modelPath = filesDir.resolve("local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm").absolutePath
         val resultFile = filesDir.resolve("qairt244_short_multitoken_smoke_result.txt")
         val nativeDiagFile = filesDir.resolve("qairt244_native_diag.txt")
-        val latestRunnerSummaryFile = filesDir.resolve("qairt244_npu_diagnostic_chat_ui_multirun_summary.txt")
+        val latestRunnerSummaryFile = filesDir.resolve("qairt244_diagnostic_runner_summary.txt")
         val timeoutMs = 30_000L
 
         val content = LinearLayout(this).apply {
@@ -339,25 +339,29 @@ class NpuDiagnosticChatActivity : Activity() {
 
     private fun readLatestRunnerSummary(file: File): List<String> {
         val values = if (file.isFile) parseKeyValues(file) else latestCommittedRunnerValues()
+        fun value(vararg keys: String, default: String): String =
+            keys.firstNotNullOfOrNull(values::get) ?: default
         return listOf(
-            "artifact=${values["artifact"] ?: latestRunnerArtifactPath}",
+            "artifact=${value("latest_artifact", "artifact", default = latestRunnerArtifactPath)}",
             "source=${if (file.isFile) "app_private_file" else "committed_latest_verification"}",
-            "run1_result=${values["run1_result"] ?: "unknown"}",
-            "run1_output=${values["run1_output"] ?: "unknown"}",
-            "run1_elapsed_ms=${values["run1_elapsed_ms"] ?: "unknown"}",
-            "run1_decode_elapsed_ms=${values["run1_decode_elapsed_ms"] ?: "unknown"}",
-            "run1_last_guard_marker_state=${values["run1_last_guard_marker_state"] ?: "unknown"}",
-            "run1_state_started_final=${values["run1_state_started_final"] ?: "unknown"}",
-            "run2_result=${values["run2_result"] ?: "unknown"}",
-            "run2_output=${values["run2_output"] ?: "unknown"}",
-            "run2_elapsed_ms=${values["run2_elapsed_ms"] ?: "unknown"}",
-            "run2_decode_elapsed_ms=${values["run2_decode_elapsed_ms"] ?: "unknown"}",
-            "run2_last_guard_marker_state=${values["run2_last_guard_marker_state"] ?: "unknown"}",
-            "run2_state_started_final=${values["run2_state_started_final"] ?: "unknown"}",
-            "after_10s_total_pss_kb=${values["after_10s_total_pss_kb"] ?: "unknown"}",
-            "after_10s_native_heap_pss_kb=${values["after_10s_native_heap_pss_kb"] ?: "unknown"}",
-            "tombstone=${values["tombstone"] ?: "stale-tombstone-ignored"}",
-            "fresh_crash=${values["fresh_crash"] ?: "false"}",
+            "run1_result=${value("run1_result", default = "unknown")}",
+            "run1_output=${value("run1_output", default = "unknown")}",
+            "run1_elapsed_ms=${value("run1_elapsed_ms", default = "unknown")}",
+            "run1_decode_elapsed_ms=${value("run1_decode_elapsed_ms", default = "unknown")}",
+            "run1_last_guard_marker_state=${value("run1_last_guard_marker_state", "final_guard_state", default = "unknown")}",
+            "run1_state_started_final=${value("run1_state_started_final", "state_started_final", default = "unknown")}",
+            "run2_result=${value("run2_result", default = "unknown")}",
+            "run2_output=${value("run2_output", default = "unknown")}",
+            "run2_elapsed_ms=${value("run2_elapsed_ms", default = "unknown")}",
+            "run2_decode_elapsed_ms=${value("run2_decode_elapsed_ms", default = "unknown")}",
+            "run2_last_guard_marker_state=${value("run2_last_guard_marker_state", "final_guard_state", default = "unknown")}",
+            "run2_state_started_final=${value("run2_state_started_final", "state_started_final", default = "unknown")}",
+            "final_guard_state=${value("final_guard_state", "run2_last_guard_marker_state", "run1_last_guard_marker_state", default = "unknown")}",
+            "state_started_final=${value("state_started_final", "run2_state_started_final", "run1_state_started_final", default = "unknown")}",
+            "after_10s_total_pss_kb=${value("after_10s_total_pss_kb", default = "unknown")}",
+            "after_10s_native_heap_pss_kb=${value("after_10s_native_heap_pss_kb", "after_10s_native_heap_kb", default = "unknown")}",
+            "tombstone=${value("tombstone", "tombstone_classification", default = "stale-tombstone-ignored")}",
+            "fresh_crash=${value("fresh_crash", default = "false")}",
         )
     }
 
@@ -374,6 +378,7 @@ class NpuDiagnosticChatActivity : Activity() {
     private fun latestCommittedRunnerValues(): Map<String, String> =
         mapOf(
             "artifact" to latestRunnerArtifactPath,
+            "latest_artifact" to latestRunnerArtifactPath,
             "run1_result" to "success",
             "run1_output" to "! How Hi",
             "run1_elapsed_ms" to "1907",
@@ -386,9 +391,13 @@ class NpuDiagnosticChatActivity : Activity() {
             "run2_decode_elapsed_ms" to "70",
             "run2_last_guard_marker_state" to "success",
             "run2_state_started_final" to "false",
+            "final_guard_state" to "success",
+            "state_started_final" to "false",
             "after_10s_total_pss_kb" to "78536",
             "after_10s_native_heap_pss_kb" to "20571",
+            "after_10s_native_heap_kb" to "20571",
             "tombstone" to "stale-tombstone-ignored",
+            "tombstone_classification" to "stale-tombstone-ignored",
             "fresh_crash" to "false",
         )
 

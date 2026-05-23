@@ -156,6 +156,13 @@ Result viewer refresh:
   verification values
 - Refresh does not call the lower-level smoke entrypoint, does not initialize
   the engine, and does not generate tokens
+- optional synced source:
+  `/data/user/0/io.github.ninbyo02.lami.customnpu/files/qairt244_diagnostic_runner_summary.txt`
+- host sync script:
+  `scripts/sync_qairt244_npu_diagnostic_summary_to_app.sh`
+- the sync script copies key-value summary data only and records
+  `npu_generation=not_run`, `engine_initialize=not_run`, `run_decode=not_run`,
+  and `activity_launch=not_run`
 
 The existing DEV checkbox and guarded run button remain the only UI path that
 can trigger the isolated 3-token smoke. The normal chat route remains

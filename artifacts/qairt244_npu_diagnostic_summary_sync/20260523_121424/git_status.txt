@@ -1,0 +1,6 @@
+ M app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt
+ M docs/litert_custom_build_plan.md
+ M docs/litert_qairt244_failure_root_cause_matrix.md
+ M docs/litert_qairt244_npu_diagnostic_chat_design.md
+ M docs/litert_qairt244_ui_integration_safety_plan.md
+?? scripts/sync_qairt244_npu_diagnostic_summary_to_app.sh

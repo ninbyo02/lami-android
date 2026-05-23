@@ -937,6 +937,22 @@ The same screen also shows route guard status:
 - streaming disabled
 - `Refresh result view` does not run NPU
 
+The latest runner summary can now be synced from host artifacts into:
+
+```text
+/data/user/0/io.github.ninbyo02.lami.customnpu/files/qairt244_diagnostic_runner_summary.txt
+```
+
+using:
+
+```text
+scripts/sync_qairt244_npu_diagnostic_summary_to_app.sh
+```
+
+The sync path copies existing artifact evidence only. It records
+`npu_generation=not_run`, `engine_initialize=not_run`, `run_decode=not_run`,
+and `activity_launch=not_run`.
+
 Root-cause interpretation is unchanged: QAIRT 2.44 NPU is proven for bounded
 isolated Diagnostic Chat smoke runs, while normal chat integration remains a
 separate future gate.

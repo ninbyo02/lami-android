@@ -1155,7 +1155,34 @@ evidence:
 
 The new `Refresh result view` button rereads the app-private smoke result,
 native diagnostic file, and optional
-`qairt244_npu_diagnostic_chat_ui_multirun_summary.txt` key-value file. If the
-optional file is absent, the screen shows the committed latest verification
-values above. The Refresh action is read-only and does not execute the isolated
-smoke.
+`qairt244_diagnostic_runner_summary.txt` key-value file. If the optional file
+is absent, the screen shows the committed latest verification values above. The
+Refresh action is read-only and does not execute the isolated smoke.
+
+Sync script:
+
+```text
+scripts/sync_qairt244_npu_diagnostic_summary_to_app.sh
+```
+
+The script auto-detects the newest artifact under
+`artifacts/qairt244_npu_diagnostic_chat_ui_multirun/` or
+`artifacts/qairt244_npu_diagnostic_chat_ui_smoke/`, or accepts `--artifact`.
+It writes the normalized summary to:
+
+```text
+/data/user/0/io.github.ninbyo02.lami.customnpu/files/qairt244_diagnostic_runner_summary.txt
+```
+
+The script does not launch the Activity, initialize LiteRT, run RunDecode, or
+generate tokens.
+
+Verified sync:
+
+```text
+artifacts/qairt244_npu_diagnostic_summary_sync/20260523_121424/
+```
+
+The app-private file was written successfully and read back with matching
+key-value content. No Activity launch or NPU execution was performed during the
+sync.

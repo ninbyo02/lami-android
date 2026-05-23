@@ -347,15 +347,42 @@ the committed latest verification values shown above. It updates the on-screen
 sections. It does not call the lower-level smoke entrypoint, does not initialize
 the engine, and does not run NPU generation.
 
-Optional app-private override file:
+App-private runner summary file:
 
 ```text
-files/qairt244_npu_diagnostic_chat_ui_multirun_summary.txt
+files/qairt244_diagnostic_runner_summary.txt
 ```
 
 If present, this file is parsed as `key=value` lines and replaces the committed
 latest verification values. This keeps the viewer useful for future local
 runner refreshes without connecting the normal chat route.
+
+Host sync script:
+
+```text
+scripts/sync_qairt244_npu_diagnostic_summary_to_app.sh
+```
+
+The sync script auto-detects the latest Diagnostic Chat UI runner artifact, or
+accepts `--artifact <path>`, then writes:
+
+```text
+/data/user/0/io.github.ninbyo02.lami.customnpu/files/qairt244_diagnostic_runner_summary.txt
+```
+
+The script records `npu_generation=not_run`, `engine_initialize=not_run`,
+`run_decode=not_run`, and `activity_launch=not_run` in the synced file. It only
+uses ADB file copy plus `run-as`; it does not launch the Activity and does not
+execute generation.
+
+Verified sync artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_summary_sync/20260523_121424/
+```
+
+The synced app-private file matched `synced_key_value.txt` and is ready for the
+screen's next read-only Refresh action.
 
 ## Non-Goals
 
