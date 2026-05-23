@@ -13,20 +13,21 @@ libcdsprpc manifest visibility dry-run, the 2026-05-23 initialize stability
 probe, the single-token smoke implementation-prep pass, two lower-level
 single-token smoke executions, token timing verifier implementation preflight,
 the 2026-05-23 connected-device token timing verifier run, two isolated short
-multi-token smoke executions, and the first NPU runtime memory cleanup profile.
+multi-token smoke executions, the first NPU runtime memory cleanup profile, and
+the cold-start force-stop cleanup profile.
 
 ## Current Boundary
 
 - flavor: `customBuildExperimentDebug`
 - applicationId: `io.github.ninbyo02.lami.customnpu`
-- runId: `1779495021422`
-- diagnostic artifact: `artifacts/qairt244_npu_memory_cleanup_profile/20260523_091021/`
+- runId: `1779496082843`
+- diagnostic artifact: `artifacts/qairt244_npu_coldstart_force_stop_profile/20260523_092801/`
 - final stage: `done`
 - returned: yes
 - signal: no fresh crash evidence; diagnostics collector selected a stale older
   tombstone that does not contain the current smoke run id
 - immediate native boundary:
-  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success -> lower-level RunDecode maxOutputTokens=1 success -> token/timing verifier success -> lower-level RunDecode maxOutputTokens=3 success 2/2 -> memory cleanup baseline collected`
+  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success -> lower-level RunDecode maxOutputTokens=1 success -> token/timing verifier success -> lower-level RunDecode maxOutputTokens=3 success 2/2 -> memory cleanup baseline collected -> cold-start force-stop cleanup passes`
 
 The explicit smoke created only the lower-level native LiteRT-LM session needed
 for decode. It did not create `Conversation`, did not create a Kotlin/public
@@ -310,6 +311,37 @@ Status:
   `QNN_HTP_V79_FastRPC_native_diag`
 - tombstone classification: `stale-tombstone-ignored`
 - no leak is asserted from this single baseline
+- no normal UI route, no `selectedPath=npu` normal path, no high-level
+  `generateResponse`, and no streaming generation
+
+## Cold-Start Force-Stop Cleanup Profile
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_coldstart_force_stop_profile/20260523_092801/
+```
+
+Status:
+
+- pre-run `force-stop` removed the prior app process
+- `pid_after_force_stop=none`
+- `dumpsys meminfo io.github.ninbyo02.lami.customnpu` after pre-run
+  force-stop returned `No process found`
+- one isolated short multi-token smoke was run
+- result: `success`
+- output: `! How Hi`
+- hard cap: `max_output_tokens=3`
+- elapsed: `1572 ms`
+- decode elapsed: `86 ms`
+- cleanup elapsed: `103 ms`
+- after smoke: TOTAL PSS `133138 KB`, Native Heap PSS `14297 KB`
+- after 3 seconds: TOTAL PSS `133691 KB`, Native Heap PSS `14359 KB`
+- final force-stop removed the app process
+- force-stop 3s and 10s samples both had no pid and package meminfo reported
+  no process
+- leak classification: `no_app_process_retained_after_force_stop`
+- tombstone classification: `stale-tombstone-ignored`
 - no normal UI route, no `selectedPath=npu` normal path, no high-level
   `generateResponse`, and no streaming generation
 

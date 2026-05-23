@@ -448,6 +448,26 @@ Updated next recommendation:
 - Still no normal UI NPU route, no `selectedPath=npu` normal path, no
   high-level `generateResponse`, and no streaming generation.
 
+2026-05-23 cold-start force-stop memory cleanup profile:
+
+- Added `scripts/run_qairt244_npu_coldstart_force_stop_profile.sh`.
+- Artifact:
+  `artifacts/qairt244_npu_coldstart_force_stop_profile/20260523_092801/`
+- The script force-stops `io.github.ninbyo02.lami.customnpu`, verifies no app
+  process remains, runs exactly one isolated short multi-token smoke, samples
+  memory after smoke and after 3 seconds, force-stops again, and samples at 3
+  seconds and 10 seconds after final force-stop.
+- Result: `success`, output `! How Hi`, elapsed `1572 ms`, decode elapsed
+  `86 ms`, cleanup elapsed `103 ms`.
+- Cold-start boundary: `pid_after_force_stop=none` and
+  `meminfo_after_force_stop=No process found`.
+- Final cleanup boundary: no pid at 3 seconds or 10 seconds after final
+  force-stop; package meminfo reported no process.
+- Leak classification:
+  `no_app_process_retained_after_force_stop`.
+- Still no normal UI NPU route, no `selectedPath=npu` normal path, no
+  high-level `generateResponse`, and no streaming generation.
+
 Previous status update, 2026-05-22 HTP backend trace:
 
 - dispatch `dlopen` works only after keeping a real

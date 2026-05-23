@@ -1,0 +1,6 @@
+sample	total_pss_kb	total_private_dirty_kb	native_heap_pss_kb	native_heap_private_dirty_kb	dalvik_heap_pss_kb	dalvik_heap_private_dirty_kb	code_pss_kb	stack_pss_kb	graphics_pss_kb	meminfo_no_process
+after_force_stop	NA	NA	NA	NA	NA	NA	NA	NA	NA	true
+after_smoke	133138	101836	14297	14272	1235	1172	98668	508	420	false
+after_3s	133691	101964	14359	14348	1052	940	98400	520	420	false
+after_final_force_stop_3s	NA	NA	NA	NA	NA	NA	NA	NA	NA	true
+after_final_force_stop_10s	NA	NA	NA	NA	NA	NA	NA	NA	NA	true

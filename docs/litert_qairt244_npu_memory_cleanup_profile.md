@@ -99,3 +99,28 @@ Keep this as the baseline profile. If more confidence is needed, run a separate
 approved repeated-profile test that measures a cold start and then force-stops
 the diagnostic process after artifact collection. Do not connect the NPU path to
 the normal chat UI from this memory result alone.
+
+## Cold-Start Force-Stop Follow-Up
+
+Follow-up artifact:
+
+```text
+artifacts/qairt244_npu_coldstart_force_stop_profile/20260523_092801/
+```
+
+Result:
+
+```text
+result=success
+output=! How Hi
+max_output_tokens=3
+pid_after_force_stop=none
+pid_after_final_force_stop_3s=none
+pid_after_final_force_stop_10s=none
+meminfo_after_final_force_stop_3s_no_process=true
+meminfo_after_final_force_stop_10s_no_process=true
+leak_classification=no_app_process_retained_after_force_stop
+```
+
+This confirms the app process is removed after final `force-stop`; package PSS
+is not present because `dumpsys meminfo` reports no process.
