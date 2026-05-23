@@ -1674,3 +1674,31 @@ Rollback conditions include fresh crash, timeout, duplicate marker, missing
 cleanup evidence, selected-path persistence, normal UI side effects, stale
 artifact usage, elevated memory after 10 seconds, UI lock recovery failure, and
 missing QNN/HTP/FastRPC evidence.
+
+## QAIRT ChatScreen Real Adapter First Attempt (2026-05-24)
+
+Artifact:
+
+```text
+artifacts/qairt244_chat_screen_real_npu_first_run/20260524_084514/
+```
+
+The customBuildExperimentDebug route was changed from the blocked adapter to
+`Qairt244DevOnlyNpuRouteAdapter` and executed once from ChatScreen. It failed
+safely with `model-file-not-found` before engine initialization.
+
+Observed:
+
+- toggle reset before run: false
+- toggle ON before send: true
+- toggle OFF after run: false
+- prompt: `Hello`
+- `maxOutputTokens=3`
+- DB/TTS/Markdown/streaming: not connected
+- `selectedPath=npu`: not saved
+- fresh crash: false
+- timeout: false
+
+Next build step: replace the fixed model path assumption with explicit
+app-private model discovery or a runner-supplied verified model path, then run
+one more guarded attempt.

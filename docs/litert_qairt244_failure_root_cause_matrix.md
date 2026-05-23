@@ -1248,3 +1248,23 @@ This coordinator pass did not run:
 
 The 2026-05-24 review is docs and static grep only. Real adapter connection,
 NPU generation, `Engine.initialize`, and `RunDecode` were not executed.
+
+## ChatScreen Real Adapter First Attempt (2026-05-24)
+
+| Stage | Result | Evidence | Status |
+| --- | --- | --- | --- |
+| DEV toggle reset | `after=false` | `toggle_state_before.txt` | OK |
+| DEV toggle ON | `after=true` | `toggle_state_after_on.txt` | OK |
+| ChatScreen branch | Real adapter path entered | `qairt244_chat_screen_real_npu_adapter_v1` marker | OK |
+| Prompt | `Hello` | `result.txt` | OK |
+| max output tokens | `3` | `result.txt` / native marker preflight | OK |
+| Model path | fixed path missing | `detail=model-file-not-found` | Rollback |
+| Engine.initialize | not reached | `native_diag.txt` | Safe stop |
+| RunDecode | not reached | `native_diag.txt` | Safe stop |
+| DB/TTS/Markdown/streaming | not connected | route marker side-effect flags | OK |
+| selectedPath=npu | not saved | summary / toggle state | OK |
+| Fresh crash | false | `stale_tombstone_note.md` | OK |
+| Toggle recovery | `after=false` | `toggle_state_after_off.txt` | OK |
+
+Classification: `rollback-model-file-not-found`. The next investigation is
+model path discovery for the ChatScreen adapter, not QNN/HTP runtime behavior.

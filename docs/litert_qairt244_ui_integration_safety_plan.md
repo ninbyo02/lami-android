@@ -720,3 +720,24 @@ Safety stop / rollback conditions:
 
 This review is docs/preflight only. It does not run NPU generation,
 `Engine.initialize`, `RunDecode`, or `Backend.NPU`.
+
+## First ChatScreen Real Adapter Safety Outcome (2026-05-24)
+
+The first real-adapter attempt from ChatScreen hit a safe rollback before NPU
+execution:
+
+- artifact: `artifacts/qairt244_chat_screen_real_npu_first_run/20260524_084514/`
+- prompt: `Hello`
+- `maxOutputTokens=3`
+- result: `failure`
+- failure reason: `model-file-not-found`
+- `Engine.initialize`: not reached
+- `RunDecode`: not reached
+- fresh crash: false
+- timeout: false
+- toggle OFF recovery: confirmed
+- DB/TTS/Markdown/streaming: not connected
+- `selectedPath=npu`: not saved
+
+This validates the rollback boundary for a pre-engine failure. The next safety
+fix must address model path discovery before another real-adapter attempt.

@@ -2363,7 +2363,10 @@ fun Home(
                                                         devEnableNpuChatScreenRoute
                                                     ) {
                                                         val blockedSummary =
-                                                            runDevOnlyNpuChatScreenBlockedBranchViaReflection(requestPrompt)
+                                                            runDevOnlyNpuChatScreenBlockedBranchViaReflection(
+                                                                context = context.applicationContext,
+                                                                prompt = requestPrompt,
+                                                            )
                                                         coroutineScope.launch {
                                                             snackbarHostState.currentSnackbarData?.dismiss()
                                                             snackbarHostState.showSnackbar(
@@ -7697,14 +7700,17 @@ private fun isStopCancellationLikeMessage(message: String?): Boolean {
         "stream was reset" in text
 }
 
-private fun runDevOnlyNpuChatScreenBlockedBranchViaReflection(prompt: String): String {
+private fun runDevOnlyNpuChatScreenBlockedBranchViaReflection(
+    context: Context,
+    prompt: String,
+): String {
     return runCatching {
         val branchClass = Class.forName(
             "io.github.ninbyo02.lami.npu.DevOnlyNpuChatScreenBlockedBranch",
         )
         branchClass
-            .getMethod("run", String::class.java)
-            .invoke(null, prompt) as String
+            .getMethod("run", Context::class.java, String::class.java)
+            .invoke(null, context, prompt) as String
     }.getOrElse { throwable ->
         "DEV NPU blocked branch unavailable: ${throwable.javaClass.simpleName}"
     }

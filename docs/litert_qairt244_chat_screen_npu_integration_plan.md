@@ -444,3 +444,36 @@ point, runner/script updates, and docs/artifact capture. Broad ChatScreen send
 path changes, DB/TTS/Markdown/streaming changes, standard/release changes,
 `app/src/main/jniLibs` changes, and selected-path persistence changes remain
 forbidden.
+
+## First Real Adapter Attempt From ChatScreen (2026-05-24)
+
+Artifact:
+
+```text
+artifacts/qairt244_chat_screen_real_npu_first_run/20260524_084514/
+```
+
+The first DEV-only ChatScreen real-adapter attempt was run once with:
+
+- prompt: `Hello`
+- `maxOutputTokens=3`
+- `dev_enable_npu_chatscreen_route=true`
+- customBuildExperimentDebug only
+
+Result:
+
+- result: `failure`
+- rollback classification: `rollback-model-file-not-found`
+- native detail: `model-file-not-found`
+- `Engine.initialize`: not reached
+- `RunDecode`: not reached
+- QNN/HTP/FastRPC evidence for this specific run: missing in `native_diag.txt`
+- DB/TTS/Markdown/streaming: not connected
+- `selectedPath=npu`: not saved
+- side-effect flags: false
+- toggle OFF recovery: confirmed
+
+The fixed model path used by the first adapter implementation did not match the
+current app-private model filename. The next step is to resolve the
+app-private model path discovery before another real-adapter run. No second run
+was performed in this pass.

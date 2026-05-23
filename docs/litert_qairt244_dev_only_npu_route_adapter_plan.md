@@ -646,3 +646,32 @@ Rollback must occur if the adapter succeeds while any side-effect flag is true,
 if cleanup is not proven, if `selectedPath=npu` is saved, or if stale artifacts
 are used as evidence. Rollback means disabling the DEV toggle, preserving the
 artifact, and keeping the blocked adapter path as the safe fallback.
+
+## First Real Adapter Implementation Result (2026-05-24)
+
+Added a customBuildExperimentDebug real adapter implementation:
+
+- `Qairt244DevOnlyNpuRouteAdapter`
+- route marker: `qairt244_chat_screen_real_npu_adapter_v1`
+- native wrapper: `Qairt244ShortMultitokenSmoke.runEditablePrompt(...)`
+- prompt validator: `NpuDiagnosticPromptValidator`
+- `maxOutputTokens=3`
+- timeout: 30 seconds
+- side-effect flags remain false through the transient presenter
+
+First-run artifact:
+
+```text
+artifacts/qairt244_chat_screen_real_npu_first_run/20260524_084514/
+```
+
+The run stopped safely before engine creation because the fixed model path did
+not exist on the device:
+
+```text
+detail=model-file-not-found
+```
+
+Rollback behavior worked: the DEV toggle was restored OFF and no normal
+ChatScreen side effect path was reached. `Engine.initialize` and `RunDecode`
+were not reached.
