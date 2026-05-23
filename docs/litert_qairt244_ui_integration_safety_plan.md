@@ -141,6 +141,26 @@ Fixed runner verification:
 This confirms the corrected host runner waits for the actual final guarded
 marker state before classifying a Diagnostic Chat UI run as complete.
 
+Result viewer refresh:
+
+- screen: `customBuildExperimentDebug` `NpuDiagnosticChatActivity`
+- latest evidence shown:
+  `artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_114243/`
+- read-only fields include run1/run2 result, output, elapsed,
+  decode elapsed, final guard marker state, `state=started` final-state
+  status, after-10s TOTAL PSS/Native Heap PSS, tombstone classification, and
+  fresh crash status
+- route guard fields explicitly show normal `ChatScreen` route disabled and
+  normal `selectedPath=npu` disabled
+- `Refresh result view` only rereads app-private files or committed latest
+  verification values
+- Refresh does not call the lower-level smoke entrypoint, does not initialize
+  the engine, and does not generate tokens
+
+The existing DEV checkbox and guarded run button remain the only UI path that
+can trigger the isolated 3-token smoke. The normal chat route remains
+disconnected.
+
 ## Fallback Policy
 
 Fallback is diagnostic-only:

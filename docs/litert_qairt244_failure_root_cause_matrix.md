@@ -913,6 +913,34 @@ Matrix update: H1-H5 remain resolved or low-risk for this bounded diagnostic
 path. The evidence still does not authorize wiring NPU into the normal
 `ChatScreen`; it only verifies the isolated Diagnostic Chat runner.
 
+## Diagnostic Chat Result Viewer Update
+
+Result date: 2026-05-23
+
+The `customBuildExperimentDebug` Diagnostic Chat screen now shows the latest
+fixed runner result in a read-only `Latest runner` section:
+
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_114243/`
+- run1 and run2 result/output/timing
+- final guarded marker state
+- final `state=started` status
+- after-10s TOTAL PSS and Native Heap PSS
+- stale/fresh tombstone classification
+- fresh crash status
+
+The same screen also shows route guard status:
+
+- normal `ChatScreen` route disabled
+- normal `selectedPath=npu` route disabled
+- high-level `generateResponse=false`
+- streaming disabled
+- `Refresh result view` does not run NPU
+
+Root-cause interpretation is unchanged: QAIRT 2.44 NPU is proven for bounded
+isolated Diagnostic Chat smoke runs, while normal chat integration remains a
+separate future gate.
+
 ## No-Run Confirmation
 
 This coordinator pass did not run:

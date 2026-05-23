@@ -21,6 +21,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 class NpuDiagnosticChatActivity : Activity() {
     private val running = AtomicBoolean(false)
     private val handler = Handler(Looper.getMainLooper())
+    private val latestRunnerArtifactPath =
+        "artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_114243/"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,6 +34,7 @@ class NpuDiagnosticChatActivity : Activity() {
         val modelPath = filesDir.resolve("local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm").absolutePath
         val resultFile = filesDir.resolve("qairt244_short_multitoken_smoke_result.txt")
         val nativeDiagFile = filesDir.resolve("qairt244_native_diag.txt")
+        val latestRunnerSummaryFile = filesDir.resolve("qairt244_npu_diagnostic_chat_ui_multirun_summary.txt")
         val timeoutMs = 30_000L
 
         val content = LinearLayout(this).apply {
@@ -114,6 +117,30 @@ class NpuDiagnosticChatActivity : Activity() {
         val resultSummary = content.addSectionView("Last result", readKeyValueSummary(resultFile))
         val timingSummary = content.addSectionView("Timing", readTimingSummary(resultFile))
         val nativeDiagSummary = content.addSectionView("Native diag", readNativeDiagSummary(nativeDiagFile))
+        val runnerSummary = content.addSectionView("Latest runner", readLatestRunnerSummary(latestRunnerSummaryFile))
+        val safetySummary = content.addSectionView("Route guards", readRouteGuardSummary())
+        content.addView(
+            Button(this).apply {
+                text = "Refresh result view"
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                )
+                setOnClickListener {
+                    resultSummary.text = readKeyValueSummary(resultFile).joinToString("\n")
+                    timingSummary.text = readTimingSummary(resultFile).joinToString("\n")
+                    nativeDiagSummary.text = readNativeDiagSummary(nativeDiagFile).joinToString("\n")
+                    runnerSummary.text = readLatestRunnerSummary(latestRunnerSummaryFile).joinToString("\n")
+                    safetySummary.text = readRouteGuardSummary().joinToString("\n")
+                    statusText.text = listOf(
+                        "status=refreshed",
+                        "result_file=${resultFile.exists()}",
+                        "native_diag=${nativeDiagFile.exists()}",
+                        "runner_summary=${latestRunnerSummaryFile.exists()}",
+                    ).joinToString(" ")
+                }
+            },
+        )
         confirmCheck.setOnCheckedChangeListener { _, isChecked ->
             runButton.isEnabled = isChecked && !running.get()
         }
@@ -151,6 +178,7 @@ class NpuDiagnosticChatActivity : Activity() {
                 "no ChatScreen inference path change",
                 "no high-level generateResponse",
                 "no streaming generation",
+                "Refresh result view does not run NPU",
             ),
         )
 
@@ -308,6 +336,61 @@ class NpuDiagnosticChatActivity : Activity() {
             "RunDecode=${text.contains("RunDecode")}",
         )
     }
+
+    private fun readLatestRunnerSummary(file: File): List<String> {
+        val values = if (file.isFile) parseKeyValues(file) else latestCommittedRunnerValues()
+        return listOf(
+            "artifact=${values["artifact"] ?: latestRunnerArtifactPath}",
+            "source=${if (file.isFile) "app_private_file" else "committed_latest_verification"}",
+            "run1_result=${values["run1_result"] ?: "unknown"}",
+            "run1_output=${values["run1_output"] ?: "unknown"}",
+            "run1_elapsed_ms=${values["run1_elapsed_ms"] ?: "unknown"}",
+            "run1_decode_elapsed_ms=${values["run1_decode_elapsed_ms"] ?: "unknown"}",
+            "run1_last_guard_marker_state=${values["run1_last_guard_marker_state"] ?: "unknown"}",
+            "run1_state_started_final=${values["run1_state_started_final"] ?: "unknown"}",
+            "run2_result=${values["run2_result"] ?: "unknown"}",
+            "run2_output=${values["run2_output"] ?: "unknown"}",
+            "run2_elapsed_ms=${values["run2_elapsed_ms"] ?: "unknown"}",
+            "run2_decode_elapsed_ms=${values["run2_decode_elapsed_ms"] ?: "unknown"}",
+            "run2_last_guard_marker_state=${values["run2_last_guard_marker_state"] ?: "unknown"}",
+            "run2_state_started_final=${values["run2_state_started_final"] ?: "unknown"}",
+            "after_10s_total_pss_kb=${values["after_10s_total_pss_kb"] ?: "unknown"}",
+            "after_10s_native_heap_pss_kb=${values["after_10s_native_heap_pss_kb"] ?: "unknown"}",
+            "tombstone=${values["tombstone"] ?: "stale-tombstone-ignored"}",
+            "fresh_crash=${values["fresh_crash"] ?: "false"}",
+        )
+    }
+
+    private fun readRouteGuardSummary(): List<String> =
+        listOf(
+            "normal ChatScreen route disabled=true",
+            "selectedPath=npu disabled=true",
+            "high-level generateResponse=false",
+            "streaming=false",
+            "refresh_runs_npu=false",
+            "run_button_requires_dev_checkbox=true",
+        )
+
+    private fun latestCommittedRunnerValues(): Map<String, String> =
+        mapOf(
+            "artifact" to latestRunnerArtifactPath,
+            "run1_result" to "success",
+            "run1_output" to "! How Hi",
+            "run1_elapsed_ms" to "1907",
+            "run1_decode_elapsed_ms" to "96",
+            "run1_last_guard_marker_state" to "success",
+            "run1_state_started_final" to "false",
+            "run2_result" to "success",
+            "run2_output" to "! How Hi",
+            "run2_elapsed_ms" to "1661",
+            "run2_decode_elapsed_ms" to "70",
+            "run2_last_guard_marker_state" to "success",
+            "run2_state_started_final" to "false",
+            "after_10s_total_pss_kb" to "78536",
+            "after_10s_native_heap_pss_kb" to "20571",
+            "tombstone" to "stale-tombstone-ignored",
+            "fresh_crash" to "false",
+        )
 
     private fun parseKeyValues(file: File): Map<String, String> =
         file.readLines()

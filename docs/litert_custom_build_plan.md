@@ -1123,3 +1123,39 @@ Result:
 The fixed runner confirms the Diagnostic Chat UI can execute two bounded
 guarded NPU smoke runs without fresh crash evidence and without touching the
 normal chat route.
+
+## QAIRT 2.44 Diagnostic Chat Result Viewer
+
+Result date: 2026-05-23
+
+Scope:
+
+- `customBuildExperimentDebug` only
+- screen:
+  `app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt`
+- no normal `ChatScreen` routing
+- no normal `selectedPath=npu` routing
+- no high-level `generateResponse`
+- no NPU generation from the new Refresh action
+
+The Diagnostic Chat screen now displays the latest fixed multi-run runner
+evidence:
+
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_114243/`
+- run1: `result=success`, `output=! How Hi`, `elapsed_ms=1907`,
+  `decode_elapsed_ms=96`
+- run2: `result=success`, `output=! How Hi`, `elapsed_ms=1661`,
+  `decode_elapsed_ms=70`
+- final guarded marker state: `success` for both runs
+- final `state=started`: `false` for both runs
+- after 10 seconds: TOTAL PSS `78536 KB`, Native Heap PSS `20571 KB`
+- tombstone classification: `stale-tombstone-ignored`
+- fresh crash: `false`
+
+The new `Refresh result view` button rereads the app-private smoke result,
+native diagnostic file, and optional
+`qairt244_npu_diagnostic_chat_ui_multirun_summary.txt` key-value file. If the
+optional file is absent, the screen shows the committed latest verification
+values above. The Refresh action is read-only and does not execute the isolated
+smoke.

@@ -322,6 +322,41 @@ The fixed runner verified the two-run Diagnostic Chat UI path without touching
 the normal `ChatScreen`, the normal `selectedPath=npu` route, high-level
 `generateResponse`, or streaming generation.
 
+## Result Viewer Refresh
+
+The `customBuildExperimentDebug` `NpuDiagnosticChatActivity` now includes a
+read-only result viewer for the latest fixed multi-run runner evidence.
+
+Displayed fields:
+
+- latest runner artifact:
+  `artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_114243/`
+- run1 result, output, elapsed, and decode elapsed
+- run2 result, output, elapsed, and decode elapsed
+- final guarded marker state for each run
+- whether `state=started` remained as the final state
+- after-10s TOTAL PSS and Native Heap PSS
+- stale/fresh tombstone classification
+- fresh crash status
+- normal `ChatScreen` route disabled status
+- normal `selectedPath=npu` route disabled status
+
+The `Refresh result view` button only rereads app-private diagnostic files and
+the committed latest verification values shown above. It updates the on-screen
+`Last result`, `Timing`, `Native diag`, `Latest runner`, and `Route guards`
+sections. It does not call the lower-level smoke entrypoint, does not initialize
+the engine, and does not run NPU generation.
+
+Optional app-private override file:
+
+```text
+files/qairt244_npu_diagnostic_chat_ui_multirun_summary.txt
+```
+
+If present, this file is parsed as `key=value` lines and replaces the committed
+latest verification values. This keeps the viewer useful for future local
+runner refreshes without connecting the normal chat route.
+
 ## Non-Goals
 
 This work intentionally does not:
