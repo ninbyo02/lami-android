@@ -149,3 +149,36 @@ Native Heap PSS. This attempt is not treated as the final multi-run stability
 baseline because the first runner version stopped on an earlier success marker
 while the UI still showed a later `state=started` marker. The script has been
 fixed before any future approved rerun.
+
+## Fixed Diagnostic Chat UI Multi-Run Verification
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_114243/
+```
+
+Memory samples:
+
+```text
+sample          total_pss_kb  native_heap_pss_kb
+before         53135         6
+after_run1     583312        72093
+after_run2     142283        43051
+after_10s      78536         20571
+```
+
+Deltas versus `before`:
+
+```text
+after_run1_total_pss_delta_kb=+530177
+after_run2_total_pss_delta_kb=+89148
+after_10s_total_pss_delta_kb=+25401
+after_run1_native_heap_pss_delta_kb=+72087
+after_run2_native_heap_pss_delta_kb=+43045
+after_10s_native_heap_pss_delta_kb=+20565
+```
+
+The `after_10s` sample is lower than both immediate post-run samples, so this
+two-run verification does not show monotonic growth across the observed window.
+It is still a bounded baseline, not a leak proof.

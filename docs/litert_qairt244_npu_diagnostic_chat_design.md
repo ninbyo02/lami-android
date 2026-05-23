@@ -298,6 +298,30 @@ This attempt exposed a runner wait bug: the script accepted an earlier
 tap bounds. No additional rerun was performed in this turn to avoid exceeding
 the requested two-run scope.
 
+## Fixed Multi-Run UI Runner Verification
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_114243/
+```
+
+Result:
+
+- run1: `result=success`, `output=! How Hi`, `max_output_tokens=3`,
+  `decode_elapsed_ms=96`
+- run2: `result=success`, `output=! How Hi`, `max_output_tokens=3`,
+  `decode_elapsed_ms=70`
+- run1 final guarded marker: `state=success`
+- run2 final guarded marker: `state=success`
+- `state=started` was not left as the final state for either run
+- `npu_backend=NPU` with `QNN_HTP_V79_FastRPC_native_diag` evidence
+- both tombstone classifications: `stale-tombstone-ignored`
+
+The fixed runner verified the two-run Diagnostic Chat UI path without touching
+the normal `ChatScreen`, the normal `selectedPath=npu` route, high-level
+`generateResponse`, or streaming generation.
+
 ## Non-Goals
 
 This work intentionally does not:

@@ -126,6 +126,21 @@ running. This is a host artifact issue, not a normal UI integration change.
 The normal `ChatScreen`, message DB, TTS, Markdown path, and normal
 `selectedPath=npu` route remain untouched.
 
+Fixed runner verification:
+
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_114243/`
+- run count: `2`
+- run1: `result=success`, final guarded marker `state=success`
+- run2: `result=success`, final guarded marker `state=success`
+- final `state=started`: `false` for both runs
+- timeout: `false`
+- fresh crash: `false`
+- native evidence: `QNN_HTP_V79_FastRPC_native_diag`
+
+This confirms the corrected host runner waits for the actual final guarded
+marker state before classifying a Diagnostic Chat UI run as complete.
+
 ## Fallback Policy
 
 Fallback is diagnostic-only:

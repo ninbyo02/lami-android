@@ -266,6 +266,7 @@ write_summary() {
   local run1_result run2_result run1_output run2_output run1_elapsed run2_elapsed run1_decode run2_decode
   local run1_class run2_class before_total after1_total after2_total after10_total
   local before_native after1_native after2_native after10_native
+  local run1_last_state run2_last_state run1_started_final run2_started_final
   run1_result="$(result_value "$OUT_DIR/run1_result.txt" result)"
   run2_result="$(result_value "$OUT_DIR/run2_result.txt" result)"
   run1_output="$(result_value "$OUT_DIR/run1_result.txt" output)"
@@ -284,6 +285,10 @@ write_summary() {
   after1_native="$(mem_metric "$OUT_DIR/meminfo_after_run1.txt" native_heap_pss)"
   after2_native="$(mem_metric "$OUT_DIR/meminfo_after_run2.txt" native_heap_pss)"
   after10_native="$(mem_metric "$OUT_DIR/meminfo_after_10s.txt" native_heap_pss)"
+  run1_last_state="$(last_guard_state "$OUT_DIR/run1_result.txt")"
+  run2_last_state="$(last_guard_state "$OUT_DIR/run2_result.txt")"
+  run1_started_final="$([ "$run1_last_state" = "started" ] && printf true || printf false)"
+  run2_started_final="$([ "$run2_last_state" = "started" ] && printf true || printf false)"
 
   {
     printf '# QAIRT 2.44 NPU Diagnostic Chat UI Multi-Run Stability\n\n'
@@ -297,11 +302,15 @@ write_summary() {
     printf 'run1_output=%s\n' "${run1_output:-none}"
     printf 'run1_elapsed_ms=%s\n' "${run1_elapsed:-none}"
     printf 'run1_decode_elapsed_ms=%s\n' "${run1_decode:-none}"
+    printf 'run1_last_guard_marker_state=%s\n' "${run1_last_state:-none}"
+    printf 'run1_state_started_final=%s\n' "$run1_started_final"
     printf 'run1_tombstone_classification=%s\n' "${run1_class:-none}"
     printf 'run2_result=%s\n' "${run2_result:-none}"
     printf 'run2_output=%s\n' "${run2_output:-none}"
     printf 'run2_elapsed_ms=%s\n' "${run2_elapsed:-none}"
     printf 'run2_decode_elapsed_ms=%s\n' "${run2_decode:-none}"
+    printf 'run2_last_guard_marker_state=%s\n' "${run2_last_state:-none}"
+    printf 'run2_state_started_final=%s\n' "$run2_started_final"
     printf 'run2_tombstone_classification=%s\n' "${run2_class:-none}"
     printf 'timeout=false\n'
     printf 'fresh_crash=false\n'

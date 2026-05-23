@@ -888,6 +888,31 @@ Host runner caveat:
 Root cause status does not regress: the bounded NPU decode path still works and
 normal UI integration remains intentionally disconnected.
 
+## Fixed Diagnostic Chat UI Multi-Run Verification
+
+Result date: 2026-05-23
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_114243/
+```
+
+Evidence:
+
+- run1 final guarded marker: `state=success`
+- run2 final guarded marker: `state=success`
+- no final `state=started` marker remained in either result file
+- run1/run2 both returned `result=success`, `output=! How Hi`,
+  `max_output_tokens=3`, and `npu_backend=NPU`
+- both runs captured `QNN_HTP_V79_FastRPC_native_diag`
+- both tombstone checks remained `stale-tombstone-ignored`
+- after 10 seconds: TOTAL PSS `78536 KB`, Native Heap PSS `20571 KB`
+
+Matrix update: H1-H5 remain resolved or low-risk for this bounded diagnostic
+path. The evidence still does not authorize wiring NPU into the normal
+`ChatScreen`; it only verifies the isolated Diagnostic Chat runner.
+
 ## No-Run Confirmation
 
 This coordinator pass did not run:

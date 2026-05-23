@@ -1098,3 +1098,28 @@ Because the first multi-run attempt exposed the host runner wait bug, it is
 recorded as an attempt rather than the final multi-run stability proof. No
 additional rerun was performed in this turn to stay within the requested
 two-run scope.
+
+## QAIRT 2.44 Fixed Diagnostic Chat UI Multi-Run Verification
+
+Result date: 2026-05-23
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_114243/
+```
+
+Result:
+
+- run1: `result=success`, `output=! How Hi`, `decode_elapsed_ms=96`,
+  final guarded marker `state=success`
+- run2: `result=success`, `output=! How Hi`, `decode_elapsed_ms=70`,
+  final guarded marker `state=success`
+- `state=started` did not remain as the final marker for either run
+- both result files retained `max_output_tokens=3`
+- both captured classifications were `stale-tombstone-ignored`
+- memory after 10 seconds: TOTAL PSS `78536 KB`, Native Heap PSS `20571 KB`
+
+The fixed runner confirms the Diagnostic Chat UI can execute two bounded
+guarded NPU smoke runs without fresh crash evidence and without touching the
+normal chat route.
