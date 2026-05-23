@@ -321,6 +321,29 @@ Result:
 Classification: one-shot hardening passed. The next step is STEP 3
 fallback / timeout / recovery verification, still within Diagnostic Chat only.
 
+## STEP 3 Fallback / Timeout / Recovery - 2026-05-23
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_fallback_recovery/20260523_193405/
+```
+
+Result:
+
+- invalid prompt `Hello/Lami`: `reasonCode=contains_disallowed_char`
+- invalid prompt Run button: disabled
+- unsupported native preflight: `blocked_marker_missing_or_artifact_missing`
+- timeout simulation: `state=timeout_simulation_native_not_called`
+- timeout path: `engine_initialize=false`, `run_decode=false`
+- after timeout: DEV checkbox off, Run button disabled
+- after refresh: DEV checkbox off, Run button disabled
+- fresh crash: `false`
+- normal ChatScreen route: disconnected
+- normal `selectedPath=npu` route: disabled
+
+Classification: STEP 3 Diagnostic Chat-only fallback/recovery checks passed.
+
 ## Previous Preflight Classification
 
 Current native artifact state:

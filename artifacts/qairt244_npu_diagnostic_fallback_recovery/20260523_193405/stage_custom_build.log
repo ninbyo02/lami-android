@@ -1,0 +1,8 @@
+[custom-build-stage] staged libLiteRt.so build_id=a03032ad1eeefda446478aea308c2ed0 sha256=84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553
+[custom-build-stage] staged libLiteRtDispatch_Qualcomm.so build_id=283f860170c8b970f14db885eab73a95 sha256=7d3d37cb13cf88fc679ea8d07d271865db36e2f6f6eab80e3a1d02783000c34f
+[custom-build-stage] staged liblitertlm_jni.so build_id=dafa9c7d949897cf6086fbcea5fc45f7 sha256=5042f18cc1ec4b1a5ec1434110028df1014e14a4806a82040daf916bd4fa7bc7
+[custom-build-stage] staged libLiteRtCompilerPlugin_Qualcomm.so build_id=443391d4c4348191230b67a3ab8a6037 sha256=c56c7cd5ea3aaee69bae18085b270491507e5736ba8ec1af18aa798f7ac1a64c
+[custom-build-stage] staged libGemmaModelConstraintProvider.so build_id=f9e5e73e668032550042319e43012011 sha256=45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6
+[custom-build-stage] QNN runtime artifact directory not present; leaving existing dependency-provided QNN libs unchanged.
+[custom-build-stage] wrote /home/sato/project/lami-android/artifacts/litert_custom_build_stage/20260523_193405/summary.md
+[custom-build-stage] done; staged for customBuildExperimentDebug only

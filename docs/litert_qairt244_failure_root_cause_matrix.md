@@ -91,6 +91,31 @@ bounded prompt with one-shot hardening. Next boundary is Diagnostic Chat-only
 fallback / timeout / recovery; normal ChatScreen NPU integration remains a
 separate design gate.
 
+## Diagnostic Fallback / Recovery Update
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_fallback_recovery/20260523_193405/
+```
+
+Result:
+
+- invalid prompt `Hello/Lami`: validator rejected with
+  `contains_disallowed_char`
+- invalid prompt Run button: disabled
+- unsupported native marker/artifact preflight: blocked before NPU work
+- timeout simulation: native Engine and RunDecode not called
+- timeout UI recovery: DEV checkbox off, Run disabled
+- refresh after timeout: Run remained disabled
+- fresh crash evidence: none
+- normal ChatScreen route: disconnected
+- normal `selectedPath=npu` route: disabled
+
+Boundary update: Diagnostic Chat fallback/recovery behavior is verified for
+invalid input, unsupported native preflight, and timeout simulation. The next
+step is normal ChatScreen integration design only, not implementation.
+
 ## libcdsprpc Manifest Visibility Update
 
 Artifact:

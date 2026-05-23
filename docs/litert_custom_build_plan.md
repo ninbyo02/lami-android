@@ -1343,3 +1343,17 @@ Editable prompt native entrypoint recovery:
 - one-shot result: exactly one guarded `state=success` marker,
   `duplicate_success_marker=false`, `state_started_residual=false`,
   DEV checkbox off, Run button disabled, `fresh_crash=false`
+
+Fallback/recovery verification:
+
+- artifact:
+  `artifacts/qairt244_npu_diagnostic_fallback_recovery/20260523_193405/`
+- invalid prompt: `Hello/Lami`, `reasonCode=contains_disallowed_char`,
+  Run disabled
+- unsupported preflight:
+  `blocked_marker_missing_or_artifact_missing`, no NPU work
+- timeout simulation: DEV-only path, `Engine.initialize=false`,
+  `RunDecode=false`, final `state=timeout`
+- after timeout/refresh: DEV checkbox off, Run disabled
+- normal ChatScreen route and normal `selectedPath=npu` route remained
+  disconnected

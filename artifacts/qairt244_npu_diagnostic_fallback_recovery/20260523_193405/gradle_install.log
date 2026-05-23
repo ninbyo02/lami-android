@@ -1,0 +1,53 @@
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preCustomBuildExperimentDebugBuild UP-TO-DATE
+> Task :app:generateCustomBuildExperimentDebugBuildConfig UP-TO-DATE
+> Task :app:checkCustomBuildExperimentDebugAarMetadata UP-TO-DATE
+> Task :app:processCustomBuildExperimentDebugNavigationResources UP-TO-DATE
+> Task :app:compileCustomBuildExperimentDebugNavigationResources UP-TO-DATE
+> Task :app:generateCustomBuildExperimentDebugResValues UP-TO-DATE
+> Task :app:mapCustomBuildExperimentDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateCustomBuildExperimentDebugResources UP-TO-DATE
+> Task :app:mergeCustomBuildExperimentDebugResources UP-TO-DATE
+> Task :app:packageCustomBuildExperimentDebugResources UP-TO-DATE
+> Task :app:parseCustomBuildExperimentDebugLocalResources UP-TO-DATE
+> Task :app:createCustomBuildExperimentDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:processCustomBuildExperimentDebugMainManifest UP-TO-DATE
+> Task :app:processCustomBuildExperimentDebugManifest UP-TO-DATE
+> Task :app:processCustomBuildExperimentDebugManifestForPackage UP-TO-DATE
+> Task :app:processCustomBuildExperimentDebugResources UP-TO-DATE
+> Task :app:kspCustomBuildExperimentDebugKotlin UP-TO-DATE
+> Task :app:compileCustomBuildExperimentDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:compileCustomBuildExperimentDebugJavaWithJavac UP-TO-DATE
+> Task :app:mergeCustomBuildExperimentDebugShaders UP-TO-DATE
+> Task :app:compileCustomBuildExperimentDebugShaders NO-SOURCE
+> Task :app:generateCustomBuildExperimentDebugAssets UP-TO-DATE
+> Task :app:mergeCustomBuildExperimentDebugAssets UP-TO-DATE
+> Task :app:compressCustomBuildExperimentDebugAssets UP-TO-DATE
+> Task :app:processCustomBuildExperimentDebugJavaRes UP-TO-DATE
+> Task :app:mergeCustomBuildExperimentDebugJavaResource UP-TO-DATE
+> Task :app:checkCustomBuildExperimentDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarCustomBuildExperimentDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:mergeLibDexCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:dexBuilderCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:mergeProjectDexCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:buildQairt244AppJniSmokeCustomBuildExperimentDebugJni UP-TO-DATE
+> Task :app:buildQnnDirectProbeDebugJni UP-TO-DATE
+> Task :app:mergeCustomBuildExperimentDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeCustomBuildExperimentDebugNativeLibs UP-TO-DATE
+> Task :app:stripCustomBuildExperimentDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:writeCustomBuildExperimentDebugAppMetadata UP-TO-DATE
+> Task :app:writeCustomBuildExperimentDebugSigningConfigVersions UP-TO-DATE
+> Task :app:packageCustomBuildExperimentDebug UP-TO-DATE
+> Task :app:createCustomBuildExperimentDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :app:installCustomBuildExperimentDebug
+Installing APK 'app-customBuildExperiment-debug.apk' on 'NX733J - 16' for :app:customBuildExperiment-debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 6s
+42 actionable tasks: 1 executed, 41 up-to-date

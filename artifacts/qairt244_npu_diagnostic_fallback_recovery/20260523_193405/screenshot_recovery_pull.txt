@@ -1,0 +1,1 @@
+/sdcard/qairt244_fallback_recovery.png: 1 file pulled, 0 skipped. 8.1 MB/s (351808 bytes in 0.041s)

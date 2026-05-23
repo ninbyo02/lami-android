@@ -40,10 +40,11 @@ class NpuDiagnosticChatActivity : Activity() {
         val nativeDiagFile = filesDir.resolve("qairt244_native_diag.txt")
         val latestRunnerSummaryFile = filesDir.resolve("qairt244_diagnostic_runner_summary.txt")
         val promptPreviewStateFile = filesDir.resolve("qairt244_editable_prompt_preview_state.txt")
-        val timeoutMs = 30_000L
+        val timeoutMs = intent.getLongExtra("diagnosticTimeoutMs", 30_000L).coerceIn(1_000L, 30_000L)
         val guardedRunAllowed = intent.getBooleanExtra("allowGuardedNpuRun", false)
         val editablePromptPreviewAllowed = intent.getBooleanExtra("allowEditablePromptPreview", false)
         val editablePromptExecutionAllowed = intent.getBooleanExtra("allowEditablePromptExecution", false)
+        val simulateEditablePromptTimeout = intent.getBooleanExtra("simulateEditablePromptTimeout", false)
         val editablePromptNativeSupported = Qairt244ShortMultitokenSmoke.supportsEditablePromptExecution()
         val initialPrompt = if (editablePromptPreviewAllowed) {
             intent.getStringExtra("editablePromptInitialValue") ?: "Hi"
@@ -267,6 +268,7 @@ class NpuDiagnosticChatActivity : Activity() {
                     timeoutMs = timeoutMs,
                     prompt = prompt,
                     promptSource = promptSource,
+                    simulateTimeout = simulateEditablePromptTimeout,
                 )
             }
         }
@@ -288,6 +290,7 @@ class NpuDiagnosticChatActivity : Activity() {
                 "native editable prompt supported=$editablePromptNativeSupported",
                 "running lock prevents double run",
                 "timeout=${timeoutMs / 1000}s",
+                "simulate editable prompt timeout=$simulateEditablePromptTimeout",
                 "no selectedPath=npu normal route",
                 "no ChatScreen inference path change",
                 "no high-level generateResponse",
@@ -328,6 +331,7 @@ class NpuDiagnosticChatActivity : Activity() {
         timeoutMs: Long,
         prompt: String,
         promptSource: String,
+        simulateTimeout: Boolean,
     ) {
         if (!running.compareAndSet(false, true)) return
 
@@ -345,11 +349,22 @@ class NpuDiagnosticChatActivity : Activity() {
                     resultFile.appendText(
                         "qairt244_diagnostic_chat_guarded_run_v1 runId=$runId state=timeout timeout_ms=$timeoutMs\n",
                     )
+                    running.set(false)
+                    confirmCheck.isEnabled = true
+                    confirmCheck.isChecked = false
+                    runButton.isEnabled = false
                     statusText.text = "status=timeout runId=$runId"
                 }
             },
             timeoutMs,
         )
+
+        if (simulateTimeout) {
+            resultFile.appendText(
+                "qairt244_diagnostic_chat_guarded_run_v1 runId=$runId state=timeout_simulation_native_not_called engine_initialize=false run_decode=false\n",
+            )
+            return
+        }
 
         Thread {
             val start = SystemClock.elapsedRealtime()

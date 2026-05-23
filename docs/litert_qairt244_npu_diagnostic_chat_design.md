@@ -666,6 +666,17 @@ The re-run produced exactly one guarded `state=success` marker, no residual
 disabled after completion. Prompt remained `Hello`, `max_output_tokens=3`, and
 the normal ChatScreen route stayed disconnected.
 
+Fallback/recovery verification:
+
+```text
+artifacts/qairt244_npu_diagnostic_fallback_recovery/20260523_193405/
+```
+
+The Diagnostic Chat handled invalid input, native unsupported preflight, and a
+DEV-only timeout simulation without falling back to normal UI. Invalid prompt
+kept Run disabled. Timeout simulation did not call Engine.initialize or
+RunDecode and returned the UI to DEV checkbox off / Run disabled.
+
 ## Non-Goals
 
 This work intentionally does not:

@@ -371,3 +371,20 @@ Outcome:
 
 STEP 3 can proceed as a Diagnostic Chat-only fallback / timeout / recovery
 verification. Normal ChatScreen integration remains out of scope.
+
+STEP 3 result:
+
+```text
+artifacts/qairt244_npu_diagnostic_fallback_recovery/20260523_193405/
+```
+
+Verified:
+
+- invalid prompt does not enable Run
+- native unsupported preflight remains blocked before NPU work
+- timeout simulation does not call Engine.initialize or RunDecode
+- timeout recovery clears DEV confirmation and disables Run
+- refresh after timeout does not reconnect normal UI
+- fresh crash evidence: none
+
+Normal ChatScreen integration remains a separate design phase.

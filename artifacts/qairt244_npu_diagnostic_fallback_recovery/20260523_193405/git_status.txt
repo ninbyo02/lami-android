@@ -1,0 +1,2 @@
+ M app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt
+?? scripts/run_qairt244_npu_diagnostic_fallback_recovery.sh
