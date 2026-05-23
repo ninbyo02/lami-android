@@ -266,6 +266,38 @@ The runner records `ui_dev_checkbox_taps=1` and `ui_run_button_taps=1` in
 normal `selectedPath=npu` route, does not call high-level `generateResponse`,
 and does not use streaming generation.
 
+## Multi-Run UI Stability Runner
+
+Script:
+
+```text
+scripts/run_qairt244_npu_diagnostic_chat_ui_multirun.sh
+```
+
+Attempt artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_110017/
+```
+
+Observed result records:
+
+- run1: `result=success`, `output=! How Hi`, `max_output_tokens=3`,
+  `decode_elapsed_ms=64`
+- run2: `result=success`, `output=! How Hi`, `max_output_tokens=3`,
+  `decode_elapsed_ms=65`
+- NPU evidence remained `QNN_HTP_V79_FastRPC_native_diag`
+- tombstone classification for both captured runs:
+  `stale-tombstone-ignored`
+
+This attempt exposed a runner wait bug: the script accepted an earlier
+`state=success` line while a later guarded UI marker still contained
+`state=started`. The runner is now fixed to wait for the last
+`qairt244_diagnostic_chat_guarded_run_v1` marker to reach `success`,
+`failure`, or `timeout`, and to parse uiautomator one-line XML before extracting
+tap bounds. No additional rerun was performed in this turn to avoid exceeding
+the requested two-run scope.
+
 ## Non-Goals
 
 This work intentionally does not:

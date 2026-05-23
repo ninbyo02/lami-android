@@ -108,6 +108,24 @@ run button once, captures screenshots/window dumps, pulls app-private result
 files, and runs the tombstone collector. Timeout handling force-stops only the
 `customnpu` package and records the timeout in the artifact.
 
+Multi-run runner update:
+
+- script:
+  `scripts/run_qairt244_npu_diagnostic_chat_ui_multirun.sh`
+- fixed run count: `2`
+- prompt: `Hi`
+- hard cap: `maxOutputTokens=3`
+- latest attempt artifact:
+  `artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_110017/`
+
+The first multi-run attempt captured successful NPU outputs for both requested
+runs, but it also exposed a host runner wait bug: the script stopped on any
+earlier `state=success` marker rather than the last guarded UI marker. The
+script now waits on the last marker state and treats `state=started` as still
+running. This is a host artifact issue, not a normal UI integration change.
+The normal `ChatScreen`, message DB, TTS, Markdown path, and normal
+`selectedPath=npu` route remain untouched.
+
 ## Fallback Policy
 
 Fallback is diagnostic-only:

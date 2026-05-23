@@ -124,3 +124,28 @@ leak_classification=no_app_process_retained_after_force_stop
 
 This confirms the app process is removed after final `force-stop`; package PSS
 is not present because `dumpsys meminfo` reports no process.
+
+## Diagnostic Chat UI Multi-Run Attempt
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_110017/
+```
+
+Memory samples from the attempt:
+
+```text
+sample          total_pss_kb  native_heap_pss_kb
+before         unavailable   unavailable
+after_run1     257015        75668
+after_run2     939257        41678
+after_10s      64721         17860
+```
+
+The `before` sample is unavailable because there was no package process at that
+point. The `after_10s` sample dropped to `64721 KB` TOTAL PSS and `17860 KB`
+Native Heap PSS. This attempt is not treated as the final multi-run stability
+baseline because the first runner version stopped on an earlier success marker
+while the UI still showed a later `state=started` marker. The script has been
+fixed before any future approved rerun.

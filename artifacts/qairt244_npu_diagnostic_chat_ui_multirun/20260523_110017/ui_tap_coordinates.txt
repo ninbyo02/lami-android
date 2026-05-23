@@ -1,0 +1,4 @@
+checkbox_x=608
+checkbox_y=2623
+run_x=608
+run_y=1464

@@ -1,0 +1,27 @@
+marker=qairt244_short_multitoken_smoke_v1
+result=success
+prompt=Hi
+prompt_bytes=2
+prompt_token_count=unavailable
+prompt_token_count_source=not_exposed_by_lower_level_entrypoint
+max_output_tokens=3
+conversation_created=no
+generate_response=no
+normal_ui_connected=no
+output_bytes=8
+output_token_count=unavailable
+output_token_count_source=not_exposed_by_RunDecode_response
+elapsed_ms=2338
+model_assets_elapsed_ms=0
+engine_settings_elapsed_ms=0
+engine_create_elapsed_ms=2139
+session_create_elapsed_ms=0
+prefill_elapsed_ms=13
+decode_elapsed_ms=65
+cleanup_elapsed_ms=118
+npu_backend=NPU
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+detail=completed
+output=! How Hi
+qairt244_diagnostic_chat_guarded_run_v1 runId=diag-chat-1779501661643-aaa2daf1-5c47-4b8e-bc76-32e58bd753c5 state=success elapsed_ms=2338 result=qairt244_short_multitoken_smoke_v1 runId=diag-chat-1779501661643-aaa2daf1-5c47-4b8e-bc76-32e58bd753c5 result=success output=! How Hi
+qairt244_diagnostic_chat_guarded_run_v1 runId=diag-chat-1779501664827-fcadcf91-894a-482c-bd9a-679def4deaa0 state=started max_output_tokens=3 prompt=Hi

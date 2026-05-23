@@ -857,6 +857,37 @@ Matrix update:
 | H5. Dispatch registration/check failure | Compatibility and decode path remain functional through UI diagnostic runner. | Resolved for current scope. |
 | H6. CLI vs Android app difference | Android app diagnostic UI can run the isolated lower-level path. | Lower priority. |
 
+## Diagnostic Chat UI Multi-Run Attempt
+
+Result date: 2026-05-23
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_110017/
+```
+
+Evidence:
+
+- run1 captured `result=success`, `output=! How Hi`,
+  `max_output_tokens=3`, `npu_backend=NPU`
+- run2 captured `result=success`, `output=! How Hi`,
+  `max_output_tokens=3`, `npu_backend=NPU`
+- both runs captured `QNN_HTP_V79_FastRPC_native_diag`
+- both tombstone checks classified stale selected tombstones, not fresh crashes
+- after 10 seconds: TOTAL PSS `64721 KB`, Native Heap PSS `17860 KB`
+
+Host runner caveat:
+
+- the first multi-run script stopped on an earlier `state=success` marker while
+  a later guarded UI marker still had `state=started`
+- the script now waits on the last guarded UI marker state
+- this attempt is recorded as useful evidence but not the final multi-run
+  stability proof
+
+Root cause status does not regress: the bounded NPU decode path still works and
+normal UI integration remains intentionally disconnected.
+
 ## No-Run Confirmation
 
 This coordinator pass did not run:

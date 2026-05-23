@@ -1063,3 +1063,38 @@ Result:
 This runner is diagnostic-only. It does not wire NPU into the normal chat UI,
 does not set `selectedPath=npu` in the normal route, does not call high-level
 `generateResponse`, and does not use streaming generation.
+
+## QAIRT 2.44 Diagnostic Chat UI Multi-Run Attempt
+
+Result date: 2026-05-23
+
+Script:
+
+```text
+scripts/run_qairt244_npu_diagnostic_chat_ui_multirun.sh
+```
+
+Attempt artifact:
+
+```text
+artifacts/qairt244_npu_diagnostic_chat_ui_multirun/20260523_110017/
+```
+
+Captured outputs:
+
+- run1: `result=success`, `output=! How Hi`, `decode_elapsed_ms=64`
+- run2: `result=success`, `output=! How Hi`, `decode_elapsed_ms=65`
+- both captured result files retained `max_output_tokens=3`
+- both captured classifications were `stale-tombstone-ignored`
+- memory after 10 seconds: TOTAL PSS `64721 KB`, Native Heap PSS `17860 KB`
+
+Runner correction:
+
+- bounds extraction now splits one-line uiautomator XML before matching nodes
+- completion now waits for the last guarded UI marker state
+- a trailing `state=started` marker is no longer accepted as completed
+
+Because the first multi-run attempt exposed the host runner wait bug, it is
+recorded as an attempt rather than the final multi-run stability proof. No
+additional rerun was performed in this turn to stay within the requested
+two-run scope.

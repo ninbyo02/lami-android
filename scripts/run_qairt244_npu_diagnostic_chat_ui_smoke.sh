@@ -125,7 +125,7 @@ extract_bounds_center() {
   local fallback_x="$3"
   local fallback_y="$4"
   local bounds
-  bounds="$(grep -m1 "$pattern" "$xml" 2>/dev/null | sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p')"
+  bounds="$(tr '>' '\n' <"$xml" 2>/dev/null | grep -m1 "$pattern" | sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p')"
   if [ -n "$bounds" ]; then
     awk '{ printf "%d %d\n", ($1 + $3) / 2, ($2 + $4) / 2 }' <<EOF
 $bounds
