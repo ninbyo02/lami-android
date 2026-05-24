@@ -3,7 +3,7 @@ set -u
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHECKOUT_DIR="${1:-/home/sato/project/litert-custom-build/LiteRT-LM}"
-PATCH_FILE="${2:-$ROOT_DIR/patches/qairt244_litertlm_utf8_128token.patch}"
+PATCH_FILE="${2:-$ROOT_DIR/patches/qairt244_litertlm_utf8_128token_128input.patch}"
 TARGET_FILE="kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc"
 
 if [ ! -d "$CHECKOUT_DIR/.git" ]; then

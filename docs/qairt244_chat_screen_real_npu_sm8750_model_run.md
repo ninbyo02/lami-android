@@ -62,6 +62,50 @@ editable-prompt length guard (`reasonCode=too_long`). Do not interpret those
 two runs as model quality results. A follow-up bounded prompt-input phase is
 required before the requested templates can be compared on NPU decode.
 
+## 2026-05-24 128 Output / 128 Input Hidden Template Phase
+
+The standard hidden template comparison now has an explicit bounded
+prompt-input phase. The output limit remains `max_output_tokens=128` and
+`native_max_output_tokens_limit=128`; the final model input guard for
+standardDebug hidden template experiments is raised to 128 code points so the
+named templates can reach native decode.
+
+The runner and artifacts now record:
+
+- `prompt_input_code_points`
+- `prompt_input_code_point_limit=128`
+- `prompt_input_limit_mode=hidden_template_experiment`
+- `native_prompt_input_code_point_limit=128`
+- `native_prompt_input_limit_mode=hidden_template_experiment`
+
+Native artifact:
+`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt`
+
+`liblitertlm_jni.so` sha256:
+`4065d88c4788eaf28be140e133b7141783cad0698061c942b6942fa1fa886c2e`
+
+JNI build log:
+`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+
+This remains hidden experimental only. It does not raise output tokens above
+128, does not add fallback, does not support generic/E4B/qcs8275 models, and
+does not promote `Backend.NPU` to the normal route.
+
+128 input same-prompt confirmation for `こんにちは`:
+
+| template_mode | artifact | result | input code points | decode_elapsed_ms | quality_classification |
+| --- | --- | --- | ---: | ---: | --- |
+| `raw` | `artifacts/qairt244_standard_hidden_npu_route/20260524_220541` | `success` | 5 | 2756 | `mixed_language` |
+| `simple_ja_chat` | `artifacts/qairt244_standard_hidden_npu_route/20260524_220551` | `success` | 38 | 3203 | `natural_japanese` |
+| `gemma_it_like` | `artifacts/qairt244_standard_hidden_npu_route/20260524_220559` | `success` | 60 | 716 | `template_artifact` |
+
+All three runs recorded `run_decode_reached=true`, `npu_backend=NPU`,
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`,
+`timeout=false`, `fresh_crash=false`, and `ui_cleanup_wait_status=success`.
+There was no `reasonCode=too_long`. Output quality remains experimental:
+`simple_ja_chat` reduces placeholder artifacts but still mixes Thai text, while
+`gemma_it_like` gives a concise Japanese response with leaked turn markers.
+
 ## 2026-05-24 128-Token Bounded Phase
 
 The runner default artifact now points to the 128-token custom native artifact

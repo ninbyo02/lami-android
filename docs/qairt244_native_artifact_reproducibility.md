@@ -1,5 +1,49 @@
 # QAIRT244 Native Artifact Reproducibility
 
+## 2026-05-24 128 Output / 128 Input Hidden Template Artifact
+
+The standard hidden qairt244 prompt-template comparison uses a new bounded
+native artifact that keeps output generation capped at `max_output_tokens=128`
+and raises only the editable prompt input guard to 128 UTF-8 code points for
+`hidden_template_experiment` mode. This is still hidden experimental only: it
+does not promote `Backend.NPU`, does not add fallback, and does not support
+generic/E4B/qcs8275 models.
+
+Active patch:
+`patches/qairt244_litertlm_utf8_128token_128input.patch`
+
+Historical patches retained:
+
+- `patches/qairt244_litertlm_utf8_16token.patch`
+- `patches/qairt244_litertlm_utf8_32token.patch`
+- `patches/qairt244_litertlm_utf8_64token.patch`
+- `patches/qairt244_litertlm_utf8_128token.patch`
+
+Build command:
+
+```bash
+scripts/build_litert_custom_artifacts.sh \
+  /home/sato/project/litert-custom-build/LiteRT-LM \
+  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+  --label qairt244_128token_128input_utf8prompt
+```
+
+Artifact:
+`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt`
+
+JNI build log:
+`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+
+`liblitertlm_jni.so` sha256:
+`4065d88c4788eaf28be140e133b7141783cad0698061c942b6942fa1fa886c2e`
+
+The native diagnostics for this phase must report
+`max_output_tokens=128`, `native_max_output_tokens_limit=128`,
+`native_prompt_input_code_point_limit=128`,
+`native_prompt_input_limit_mode=hidden_template_experiment`,
+`utf8_allowed=true`, and
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`.
+
 ## 2026-05-24 128-Token Bounded Artifact
 
 The qairt244 UTF-8 internal prompt route has advanced from the 64-token bounded
@@ -194,6 +238,7 @@ patches/qairt244_litertlm_utf8_16token.patch
 patches/qairt244_litertlm_utf8_32token.patch
 patches/qairt244_litertlm_utf8_64token.patch
 patches/qairt244_litertlm_utf8_128token.patch
+patches/qairt244_litertlm_utf8_128token_128input.patch
 ```
 
 The patch is based on external LiteRT-LM checkout
@@ -209,16 +254,17 @@ the native tree:
 scripts/check_qairt244_native_patch.sh
 ```
 
-Expected current result for the no-argument helper is the active 128-token patch:
-`status=applied`. Historical patches can still be checked by passing the patch
-path as the second argument. The equivalent manual check for the active phase is:
+Expected current result for the no-argument helper is the active 128 output /
+128 input patch: `status=applied`. Historical patches can still be checked by
+passing the patch path as the second argument. The equivalent manual check for
+the active phase is:
 
 ```bash
 git -C /home/sato/project/litert-custom-build/LiteRT-LM apply --check \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token.patch
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
 
 git -C /home/sato/project/litert-custom-build/LiteRT-LM apply --reverse --check \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token.patch
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
 ```
 
 For the current dirty checkout, the forward check fails because the patch is
@@ -227,7 +273,7 @@ patch with:
 
 ```bash
 git -C /home/sato/project/litert-custom-build/LiteRT-LM apply \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token.patch
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
 ```
 
 Rebuild command for the 16-token phase:

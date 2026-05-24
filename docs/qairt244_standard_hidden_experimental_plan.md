@@ -442,3 +442,75 @@ input. The next minimal step is a separate hidden experiment that raises only
 the prompt-input bound enough for the named templates while preserving the
 128-token output bound, UTF-8 safety checks, SM8750 model guard, NPU evidence,
 and fallback prohibition.
+
+### 2026-05-24 128 Output / 128 Input Bounded Phase
+
+The prompt-template blocker is resolved by a hidden-only bounded prompt-input
+phase. The output cap remains `max_output_tokens=128`; only the final model
+input guard used by the standard hidden template experiment is raised to 128
+UTF-8 code points.
+
+This phase is still a standardDebug hidden experimental route, not
+`Backend.NPU` promotion. The gate remains developer access plus
+`dev_enable_qairt244_sm8750_npu_route`, the SM8750 model guard remains exact or
+timestamp-prefixed SM8750 only, and fallback remains disabled.
+
+New diagnostics required for template comparison:
+
+- `prompt_input_code_points`
+- `prompt_input_code_point_limit=128`
+- `prompt_input_limit_mode=hidden_template_experiment`
+- `native_prompt_input_code_point_limit=128`
+- `native_prompt_input_limit_mode=hidden_template_experiment`
+
+The hidden template validator keeps rejecting empty input, NUL, invalid UTF-8,
+carriage returns, tabs, and non-template control characters. It permits line
+feeds because both `simple_ja_chat` and `gemma_it_like` intentionally include
+multi-line instruction formatting.
+
+Native artifact for this phase:
+`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt`
+
+`liblitertlm_jni.so` sha256:
+`4065d88c4788eaf28be140e133b7141783cad0698061c942b6942fa1fa886c2e`
+
+JNI build log:
+`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+
+Patch snapshot:
+`patches/qairt244_litertlm_utf8_128token_128input.patch`
+
+The next comparison should rerun `raw`, `simple_ja_chat`, and `gemma_it_like`
+with `こんにちは` and treat the experiment as valid only if all three reach
+native decode with NPU evidence and no fallback.
+
+### 2026-05-24 128 Input Template Comparison
+
+Prompt: `こんにちは`
+
+Artifacts:
+
+- `raw`: `artifacts/qairt244_standard_hidden_npu_route/20260524_220541`
+- `simple_ja_chat`: `artifacts/qairt244_standard_hidden_npu_route/20260524_220551`
+- `gemma_it_like`: `artifacts/qairt244_standard_hidden_npu_route/20260524_220559`
+
+All three template modes reached native decode. Each run recorded
+`prompt_input_code_point_limit=128`,
+`native_prompt_input_code_point_limit=128`,
+`native_prompt_input_limit_mode=hidden_template_experiment`,
+`max_output_tokens=128`, `native_max_output_tokens_limit=128`,
+`npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`,
+`fallback_used=false`, `timeout=false`, `fresh_crash=false`, and
+`ui_cleanup_wait_status=success`.
+
+| template_mode | input code points | decode_elapsed_ms | output length | quality_classification | note |
+| --- | ---: | ---: | ---: | --- | --- |
+| `raw` | 5 | 2756 | 277 | `mixed_language` | Template placeholders and Korean suffixes remain. |
+| `simple_ja_chat` | 38 | 3203 | 276 | `natural_japanese` | More assistant-like content, but Thai text is mixed in. |
+| `gemma_it_like` | 60 | 716 | 59 | `template_artifact` | Short useful Japanese answer, but turn markers leak into output. |
+
+Current comparison result: the 128 input guard resolves the native-entry
+blocker. Output quality is still not clean enough for a user-facing route; the
+next minimal fix should focus on prompt/template post-boundary behavior, likely
+stopping or stripping model turn markers for the hidden experiment before any
+broader route promotion.

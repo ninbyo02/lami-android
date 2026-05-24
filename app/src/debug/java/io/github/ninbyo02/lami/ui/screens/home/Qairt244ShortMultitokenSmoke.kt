@@ -61,6 +61,8 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
                     NpuDiagnosticPromptValidator.validateUtf8InternalIntent(prompt)
                 NpuDiagnosticPromptValidator.UTF8_HIDDEN_EXPERIMENTAL_MODE ->
                     NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
+                NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE ->
+                    NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt)
                 else -> NpuDiagnosticPromptValidator.validateAsciiDiagnostic(prompt)
             }
             check(validation.isValid) {
@@ -81,6 +83,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
                 resultPath = resultPath,
                 diagPath = diagPath,
                 prompt = normalizedPrompt,
+                promptInputLimitMode = validation.promptInputLimitMode,
                 maxOutputTokens = maxOutputTokens,
             )
             return "qairt244_editable_prompt_smoke_v1 runId=$runId result=success actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt output=$output"
@@ -103,6 +106,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             resultPath: String,
             diagPath: String,
             prompt: String,
+            promptInputLimitMode: String,
             maxOutputTokens: Int,
         ): String
     }

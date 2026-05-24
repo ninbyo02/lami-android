@@ -32,7 +32,11 @@ class Qairt244DevOnlyNpuRouteAdapter(
         maxOutputTokens = maxOutputTokens,
         timeoutMs = timeoutMs,
         promptSource = PROMPT_SOURCE_CHAT_SCREEN,
-        validation = NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt),
+        validation = if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+            NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
+        } else {
+            NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt)
+        },
         allowMaxOutputTokenRange = false,
         expectedModelBasename = REQUIRED_MODEL_BASENAME,
         templateMode = if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
@@ -117,10 +121,42 @@ class Qairt244DevOnlyNpuRouteAdapter(
             requestedMode = templateMode,
             promptSource = promptSource,
         )
+        val finalInputValidation = if (
+            promptSource == PROMPT_SOURCE_CHAT_SCREEN &&
+            !BuildConfig.CUSTOM_BUILD_EXPERIMENT
+        ) {
+            NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(promptTemplate.finalModelInput)
+        } else {
+            validation
+        }
+        if (!finalInputValidation.isValid) {
+            appendRouteMarker(
+                "state=invalid_prompt reason=${finalInputValidation.reasonCode} prompt_source=$promptSource " +
+                    "prompt_validation_mode=${finalInputValidation.promptValidationMode} " +
+                    "template_mode=${promptTemplate.mode.storageValue} " +
+                    "prompt_input_code_points=${finalInputValidation.promptInputCodePoints} " +
+                    "prompt_input_code_point_limit=${finalInputValidation.promptInputCodePointLimit} " +
+                    "prompt_input_limit_mode=${finalInputValidation.promptInputLimitMode} " +
+                    "engine_initialize=false run_decode=false",
+            )
+            appendInvalidPromptResult(
+                requestedPrompt = requestedPrompt,
+                normalizedPrompt = normalizedPrompt,
+                maxOutputTokens = maxOutputTokens,
+                promptSource = promptSource,
+                validation = finalInputValidation,
+                promptTemplate = promptTemplate,
+            )
+            return blockedResult(
+                prompt = normalizedPrompt,
+                maxOutputTokens = maxOutputTokens,
+                reasonCode = "invalid_prompt:${finalInputValidation.reasonCode}",
+            )
+        }
         if (!runGuardFile.createNewFile()) {
             appendRouteMarker(
                 "state=duplicate_run_blocked actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
-                    "prompt_source=$promptSource prompt_validation_mode=${validation.promptValidationMode} " +
+                    "prompt_source=$promptSource prompt_validation_mode=${finalInputValidation.promptValidationMode} " +
                     "template_mode=${promptTemplate.mode.storageValue} " +
                     "max_output_tokens=$maxOutputTokens engine_initialize=false run_decode=false db=false tts=false markdown=false stream=false",
             )
@@ -148,7 +184,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 requestedPrompt = requestedPrompt,
                 maxOutputTokens = maxOutputTokens,
                 promptSource = promptSource,
-                validationMode = validation.promptValidationMode,
+                validation = finalInputValidation,
                 resolution = modelResolution,
                 promptTemplate = promptTemplate,
             )
@@ -175,7 +211,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 requestedPrompt = requestedPrompt,
                 maxOutputTokens = maxOutputTokens,
                 promptSource = promptSource,
-                validationMode = validation.promptValidationMode,
+                validation = finalInputValidation,
                 resolution = modelResolution,
                 promptTemplate = promptTemplate,
             )
@@ -191,7 +227,11 @@ class Qairt244DevOnlyNpuRouteAdapter(
             "runId=$runId state=started actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
                 "requested_prompt=$requestedPrompt prompt_source=$promptSource " +
                 "template_mode=${promptTemplate.mode.storageValue} final_model_input_length=${promptTemplate.finalModelInput.length} " +
-                "prompt_validation_mode=${validation.promptValidationMode} max_output_tokens=$maxOutputTokens " +
+                "prompt_validation_mode=${finalInputValidation.promptValidationMode} " +
+                "prompt_input_code_points=${finalInputValidation.promptInputCodePoints} " +
+                "prompt_input_code_point_limit=${finalInputValidation.promptInputCodePointLimit} " +
+                "prompt_input_limit_mode=${finalInputValidation.promptInputLimitMode} " +
+                "max_output_tokens=$maxOutputTokens " +
                 "resolved_model_path=${modelResolution.path}",
         )
 
@@ -205,7 +245,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                         runId = runId,
                         prompt = promptTemplate.finalModelInput,
                         maxOutputTokens = maxOutputTokens,
-                        promptValidationMode = validation.promptValidationMode,
+                        promptValidationMode = finalInputValidation.promptValidationMode,
                     )
                 }
             }
@@ -216,7 +256,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 normalizedPrompt = normalizedPrompt,
                 maxOutputTokens = maxOutputTokens,
                 promptSource = promptSource,
-                validationMode = validation.promptValidationMode,
+                validation = finalInputValidation,
                 timeout = false,
                 freshCrash = false,
                 values = valuesBeforeMetadata,
@@ -260,7 +300,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 normalizedPrompt = normalizedPrompt,
                 maxOutputTokens = maxOutputTokens,
                 promptSource = promptSource,
-                validationMode = validation.promptValidationMode,
+                validation = finalInputValidation,
                 timeout = true,
                 freshCrash = false,
                 values = parseResultFile(),
@@ -291,7 +331,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 normalizedPrompt = normalizedPrompt,
                 maxOutputTokens = maxOutputTokens,
                 promptSource = promptSource,
-                validationMode = validation.promptValidationMode,
+                validation = finalInputValidation,
                 timeout = false,
                 freshCrash = false,
                 values = parseResultFile(),
@@ -396,6 +436,15 @@ class Qairt244DevOnlyNpuRouteAdapter(
         "prompt_formatting_mode=${promptTemplate.promptFormattingMode}",
     )
 
+    private fun promptInputDiagnostics(
+        validation: NpuDiagnosticPromptValidator.Result,
+        values: Map<String, String> = emptyMap(),
+    ): List<String> = listOf(
+        "prompt_input_code_points=${values["prompt_input_code_points"] ?: validation.promptInputCodePoints}",
+        "prompt_input_code_point_limit=${values["prompt_input_code_point_limit"] ?: validation.promptInputCodePointLimit}",
+        "prompt_input_limit_mode=${values["prompt_input_limit_mode"] ?: validation.promptInputLimitMode}",
+    )
+
     private fun escapeValue(value: String): String =
         value.replace("\\", "\\\\").replace("\n", "\\n")
 
@@ -425,6 +474,11 @@ class Qairt244DevOnlyNpuRouteAdapter(
         maxOutputTokens: Int,
         promptSource: String,
         validation: NpuDiagnosticPromptValidator.Result,
+        promptTemplate: PromptTemplateExperiment.Result = PromptTemplateExperiment.apply(
+            normalizedPrompt = normalizedPrompt,
+            requestedMode = HiddenQairt244PromptTemplateMode.RAW,
+            promptSource = promptSource,
+        ),
     ) {
         resultFile.writeText(
             listOf(
@@ -438,8 +492,10 @@ class Qairt244DevOnlyNpuRouteAdapter(
                     requestedPrompt = requestedPrompt,
                     normalizedPrompt = normalizedPrompt,
                     promptSource = promptSource,
+                    promptTemplate = promptTemplate,
                 ).toTypedArray(),
                 "prompt_validation_mode=${validation.promptValidationMode}",
+                *promptInputDiagnostics(validation).toTypedArray(),
                 "max_output_tokens=$maxOutputTokens",
                 "fallback_used=false",
                 "timeout=false",
@@ -460,7 +516,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         requestedPrompt: String,
         maxOutputTokens: Int,
         promptSource: String,
-        validationMode: String,
+        validation: NpuDiagnosticPromptValidator.Result,
         resolution: Qairt244ModelPathResolver.Resolution,
         promptTemplate: PromptTemplateExperiment.Result,
     ) {
@@ -478,7 +534,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
                     promptSource = promptSource,
                     promptTemplate = promptTemplate,
                 ).toTypedArray(),
-                "prompt_validation_mode=$validationMode",
+                "prompt_validation_mode=${validation.promptValidationMode}",
+                *promptInputDiagnostics(validation).toTypedArray(),
                 "max_output_tokens=$maxOutputTokens",
                 "resolved_model_path=${resolution.path ?: ""}",
                 "resolved_model_basename=${resolution.modelInfo?.resolvedModelBasename ?: ""}",
@@ -510,7 +567,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         requestedPrompt: String,
         maxOutputTokens: Int,
         promptSource: String,
-        validationMode: String,
+        validation: NpuDiagnosticPromptValidator.Result,
         resolution: Qairt244ModelPathResolver.Resolution,
         promptTemplate: PromptTemplateExperiment.Result,
     ) {
@@ -528,7 +585,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
                     promptSource = promptSource,
                     promptTemplate = promptTemplate,
                 ).toTypedArray(),
-                "prompt_validation_mode=$validationMode",
+                "prompt_validation_mode=${validation.promptValidationMode}",
+                *promptInputDiagnostics(validation).toTypedArray(),
                 "max_output_tokens=$maxOutputTokens",
                 "resolved_model_path=${resolution.path ?: ""}",
                 "resolved_model_basename=${resolution.modelInfo?.resolvedModelBasename ?: ""}",
@@ -560,7 +618,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         normalizedPrompt: String,
         maxOutputTokens: Int,
         promptSource: String,
-        validationMode: String,
+        validation: NpuDiagnosticPromptValidator.Result,
         timeout: Boolean,
         freshCrash: Boolean,
         values: Map<String, String>,
@@ -585,9 +643,12 @@ class Qairt244DevOnlyNpuRouteAdapter(
                     promptSource = promptSource,
                     promptTemplate = promptTemplate,
                 ).toTypedArray(),
-                "prompt_validation_mode=$validationMode",
-                "native_prompt_validation_mode=${values["native_prompt_validation_mode"] ?: validationMode}",
-                "utf8_allowed=${values["utf8_allowed"] ?: (validationMode != NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE).toString()}",
+                "prompt_validation_mode=${validation.promptValidationMode}",
+                *promptInputDiagnostics(validation, values).toTypedArray(),
+                "native_prompt_validation_mode=${values["native_prompt_validation_mode"] ?: validation.promptValidationMode}",
+                "native_prompt_input_code_point_limit=${values["native_prompt_input_code_point_limit"].orEmpty()}",
+                "native_prompt_input_limit_mode=${values["native_prompt_input_limit_mode"].orEmpty()}",
+                "utf8_allowed=${values["utf8_allowed"] ?: (validation.promptValidationMode != NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE).toString()}",
                 "max_output_tokens=$maxOutputTokens",
                 "run_decode_reached=$runDecodeReached",
                 "fallback_used=false",

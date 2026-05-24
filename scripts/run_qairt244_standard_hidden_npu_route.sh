@@ -109,6 +109,11 @@ write_summary() {
     printf '\n## Template comparison diagnostics\n\n'
     printf -- '- template_mode: `%s`\n' "$(summary_value template_mode)"
     printf -- '- final_model_input_length: `%s`\n' "$(summary_value final_model_input_length)"
+    printf -- '- prompt_input_code_points: `%s`\n' "$(summary_value prompt_input_code_points)"
+    printf -- '- prompt_input_code_point_limit: `%s`\n' "$(summary_value prompt_input_code_point_limit)"
+    printf -- '- prompt_input_limit_mode: `%s`\n' "$(summary_value prompt_input_limit_mode)"
+    printf -- '- native_prompt_input_code_point_limit: `%s`\n' "$(summary_value native_prompt_input_code_point_limit)"
+    printf -- '- native_prompt_input_limit_mode: `%s`\n' "$(summary_value native_prompt_input_limit_mode)"
     printf -- '- raw_native_output_length: `%s`\n' "$(summary_value raw_native_output_length)"
     printf -- '- displayed_assistant_text_length: `%s`\n' "$(summary_value displayed_assistant_text_length)"
     printf -- '- decode_elapsed_ms: `%s`\n' "$(summary_value decode_elapsed_ms)"

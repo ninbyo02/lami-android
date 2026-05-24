@@ -133,7 +133,10 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 "template_prefix_length=${promptTemplate.prefix.length}",
                 "template_suffix_length=${promptTemplate.suffix.length}",
                 "prompt_source=${Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_CHAT_SCREEN}",
-                "prompt_validation_mode=${NpuDiagnosticPromptValidator.UTF8_HIDDEN_EXPERIMENTAL_MODE}",
+                "prompt_validation_mode=${NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE}",
+                "prompt_input_code_points=${promptTemplate.finalModelInput.codePointCount(0, promptTemplate.finalModelInput.length)}",
+                "prompt_input_code_point_limit=${NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH}",
+                "prompt_input_limit_mode=${NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE}",
                 "prompt_formatting_mode=${promptTemplate.promptFormattingMode}",
                 "max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
                 "native_max_output_tokens_limit=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
@@ -172,7 +175,11 @@ object DevOnlyNpuChatScreenBlockedBranch {
         templateMode: HiddenQairt244PromptTemplateMode,
     ): String {
         val appContext = context.applicationContext
-        val validation = NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
+        val validation = if (io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+            NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
+        } else {
+            NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt)
+        }
         val normalizedPrompt = validation.normalizedPrompt.ifBlank { prompt }
         File(appContext.filesDir, "qairt244_chat_screen_real_npu_once_guard.txt").delete()
         val result = runBlocking {
@@ -234,6 +241,14 @@ object DevOnlyNpuChatScreenBlockedBranch {
             .ifBlank { result.prompt }
         val finalModelInputLength = nativeResult["final_model_input_length"].orEmpty()
             .ifBlank { finalModelInput.length.toString() }
+        val promptInputCodePoints = nativeResult["prompt_input_code_points"].orEmpty()
+            .ifBlank { finalModelInput.codePointCount(0, finalModelInput.length).toString() }
+        val promptInputCodePointLimit = nativeResult["prompt_input_code_point_limit"].orEmpty()
+            .ifBlank { validation.promptInputCodePointLimit.toString() }
+        val promptInputLimitMode = nativeResult["prompt_input_limit_mode"].orEmpty()
+            .ifBlank { validation.promptInputLimitMode }
+        val promptValidationMode = nativeResult["prompt_validation_mode"].orEmpty()
+            .ifBlank { validation.promptValidationMode }
         val resultTemplateMode = nativeResult["template_mode"].orEmpty()
             .ifBlank { templateMode.storageValue }
         val promptTemplate = buildPromptTemplate(prompt = result.prompt, mode = templateMode)
@@ -293,11 +308,16 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "template_prefix_length=$templatePrefixLength",
             "template_suffix_length=$templateSuffixLength",
             "prompt_source=${Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_CHAT_SCREEN}",
-            "prompt_validation_mode=${validation.promptValidationMode}",
+            "prompt_validation_mode=$promptValidationMode",
+            "prompt_input_code_points=$promptInputCodePoints",
+            "prompt_input_code_point_limit=$promptInputCodePointLimit",
+            "prompt_input_limit_mode=$promptInputLimitMode",
             "prompt_formatting_mode=${nativeResult["prompt_formatting_mode"].orEmpty().ifBlank { "raw_normalized_prompt" }}",
             "route_type=standard_hidden_chat_screen",
             "max_output_tokens=${result.maxOutputTokens}",
             "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit)}",
+            "native_prompt_input_code_point_limit=${escapeValue(nativeResult["native_prompt_input_code_point_limit"].orEmpty())}",
+            "native_prompt_input_limit_mode=${escapeValue(nativeResult["native_prompt_input_limit_mode"].orEmpty())}",
         ).plus(outputDiagnostics).plus(
             listOf(
                 "canonical_model_basename=${escapeValue(Qairt244ModelPathResolver.CANONICAL_MODEL_BASENAME)}",
