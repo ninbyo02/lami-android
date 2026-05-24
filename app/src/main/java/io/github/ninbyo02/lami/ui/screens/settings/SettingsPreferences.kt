@@ -5,6 +5,7 @@ import android.os.Process
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
@@ -447,9 +448,7 @@ class SettingsPreferences(private val context: Context) {
             devEnableNpuChatScreenRoute =
                 BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
                     (preferences[devEnableNpuChatScreenRouteKey] ?: false),
-            devEnableQairt244Sm8750NpuRoute =
-                BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
-                    (preferences[devEnableQairt244Sm8750NpuRouteKey] ?: false),
+            devEnableQairt244Sm8750NpuRoute = isQairt244Sm8750NpuRouteEnabled(preferences),
         )
     }
 
@@ -572,8 +571,7 @@ class SettingsPreferences(private val context: Context) {
     }
 
     val devEnableQairt244Sm8750NpuRouteFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
-            (preferences[devEnableQairt244Sm8750NpuRouteKey] ?: false)
+        isQairt244Sm8750NpuRouteEnabled(preferences)
     }
 
     val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -821,9 +819,20 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveDevEnableQairt244Sm8750NpuRoute(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[devEnableQairt244Sm8750NpuRouteKey] =
-                BuildConfig.CUSTOM_BUILD_EXPERIMENT && enabled
+                canPersistQairt244Sm8750NpuRoute(preferences) && enabled
         }
     }
+
+    private fun isQairt244Sm8750NpuRouteEnabled(preferences: Preferences): Boolean =
+        canPersistQairt244Sm8750NpuRoute(preferences) &&
+            (preferences[devEnableQairt244Sm8750NpuRouteKey] ?: false)
+
+    private fun canPersistQairt244Sm8750NpuRoute(preferences: Preferences): Boolean =
+        BuildConfig.CUSTOM_BUILD_EXPERIMENT ||
+            (
+                BuildConfig.DEBUG &&
+                    (preferences[developerAccessEnabledKey] ?: false)
+                )
 
     suspend fun saveSpriteCurrentSheetOverrideEnabled(enabled: Boolean, updatedAt: Long = System.currentTimeMillis()) {
         context.dataStore.edit { preferences ->

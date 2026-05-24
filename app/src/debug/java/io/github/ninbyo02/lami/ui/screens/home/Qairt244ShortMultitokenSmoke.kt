@@ -7,6 +7,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
     companion object {
         private const val RESULT_FILE_NAME = "qairt244_short_multitoken_smoke_result.txt"
         private const val NATIVE_DIAG_FILE_NAME = "qairt244_native_diag.txt"
+        private val allowedDebugFlavors = setOf("standard", "customBuildExperiment")
 
         init {
             System.loadLibrary("litertlm_jni")
@@ -21,8 +22,8 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             modelPath: String,
             runId: String,
         ): String {
-            check(BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
-                "short multi-token smoke is customBuildExperimentDebug-only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "short multi-token smoke is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
             }
             check(modelPath.isNotBlank()) { "modelPath is required" }
 
@@ -51,13 +52,15 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             maxOutputTokens: Int,
             promptValidationMode: String = NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE,
         ): String {
-            check(BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
-                "editable prompt smoke is customBuildExperimentDebug-only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "editable prompt smoke is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
             }
             check(modelPath.isNotBlank()) { "modelPath is required" }
             val validation = when (promptValidationMode) {
                 NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE ->
                     NpuDiagnosticPromptValidator.validateUtf8InternalIntent(prompt)
+                NpuDiagnosticPromptValidator.UTF8_HIDDEN_EXPERIMENTAL_MODE ->
+                    NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
                 else -> NpuDiagnosticPromptValidator.validateAsciiDiagnostic(prompt)
             }
             check(validation.isValid) {

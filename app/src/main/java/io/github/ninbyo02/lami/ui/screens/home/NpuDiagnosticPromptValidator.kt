@@ -4,6 +4,7 @@ object NpuDiagnosticPromptValidator {
     const val MAX_LENGTH = 32
     const val ASCII_DIAGNOSTIC_MODE = "ascii_diagnostic"
     const val UTF8_INTERNAL_INTENT_MODE = "utf8_internal_intent"
+    const val UTF8_HIDDEN_EXPERIMENTAL_MODE = "utf8_hidden_experimental"
 
     private val allowedPunctuation = setOf('.', ',', '?', '!', '\'', '-', '_')
 
@@ -42,6 +43,15 @@ object NpuDiagnosticPromptValidator {
             return invalid(normalized, "invalid_utf8", "Prompt must be valid UTF-8 text.", UTF8_INTERNAL_INTENT_MODE)
         }
         return valid(normalized, UTF8_INTERNAL_INTENT_MODE)
+    }
+
+    fun validateUtf8HiddenExperimental(input: String): Result {
+        val normalized = input.trim()
+        validateCommon(normalized, UTF8_HIDDEN_EXPERIMENTAL_MODE)?.let { return it }
+        if (normalized.any(Char::isSurrogate)) {
+            return invalid(normalized, "invalid_utf8", "Prompt must be valid UTF-8 text.", UTF8_HIDDEN_EXPERIMENTAL_MODE)
+        }
+        return valid(normalized, UTF8_HIDDEN_EXPERIMENTAL_MODE)
     }
 
     private fun validateCommon(normalized: String, mode: String): Result? = when {

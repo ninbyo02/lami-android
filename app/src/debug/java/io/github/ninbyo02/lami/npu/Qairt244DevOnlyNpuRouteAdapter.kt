@@ -30,7 +30,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         maxOutputTokens = maxOutputTokens,
         timeoutMs = timeoutMs,
         promptSource = PROMPT_SOURCE_CHAT_SCREEN,
-        validation = NpuDiagnosticPromptValidator.validateAsciiDiagnostic(prompt),
+        validation = NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt),
         allowMaxOutputTokenRange = false,
         expectedModelBasename = REQUIRED_MODEL_BASENAME,
     )
@@ -59,8 +59,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
         allowMaxOutputTokenRange: Boolean,
         expectedModelBasename: String,
     ): DevOnlyNpuRouteResult {
-        check(BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
-            "QAIRT DEV-only NPU route adapter is customBuildExperimentDebug-only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+        check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+            "QAIRT hidden-experimental NPU route adapter is debug-only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
         }
 
         if (expectedModelBasename != REQUIRED_MODEL_BASENAME) {
@@ -346,7 +346,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         resultFile.writeText(
             listOf(
                 "marker=$ROUTE_MARKER",
-                "selected_route=qairt244_sm8750_dev_npu",
+                "selected_route=${selectedRoute(promptSource)}",
                 "result=failure",
                 "reasonCode=invalid_prompt:${validation.reasonCode}",
                 "requested_prompt=$requestedPrompt",
@@ -380,7 +380,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         resultFile.appendText(
             listOf(
                 "marker=$ROUTE_MARKER",
-                "selected_route=qairt244_sm8750_dev_npu",
+                "selected_route=${selectedRoute(promptSource)}",
                 "result=failure",
                 "reasonCode=${resolution.reasonCode}",
                 "requested_prompt=$requestedPrompt",
@@ -425,7 +425,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         resultFile.appendText(
             listOf(
                 "marker=$ROUTE_MARKER",
-                "selected_route=qairt244_sm8750_dev_npu",
+                "selected_route=${selectedRoute(promptSource)}",
                 "result=failure",
                 "reasonCode=model_file_not_required_sm8750",
                 "requested_prompt=$requestedPrompt",
@@ -475,7 +475,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         val modelInfo = resolution.modelInfo
         resultFile.appendText(
             listOf(
-                "selected_route=qairt244_sm8750_dev_npu",
+                "selected_route=${selectedRoute(promptSource)}",
                 "resolved_model_basename=${modelInfo?.resolvedModelBasename ?: ""}",
                 "canonical_model_basename=${Qairt244ModelPathResolver.CANONICAL_MODEL_BASENAME}",
                 "timestamp_prefix_stripped=${modelInfo?.timestampPrefixStripped ?: false}",
@@ -485,8 +485,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "normalized_prompt=$normalizedPrompt",
                 "prompt_source=$promptSource",
                 "prompt_validation_mode=$validationMode",
-                "native_prompt_validation_mode=${values["native_prompt_validation_mode"] ?: NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE.takeIf { promptSource == PROMPT_SOURCE_INTERNAL_INTENT }.orEmpty()}",
-                "utf8_allowed=${values["utf8_allowed"] ?: (promptSource == PROMPT_SOURCE_INTERNAL_INTENT).toString()}",
+                "native_prompt_validation_mode=${values["native_prompt_validation_mode"] ?: validationMode}",
+                "utf8_allowed=${values["utf8_allowed"] ?: (validationMode != NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE).toString()}",
                 "max_output_tokens=$maxOutputTokens",
                 "run_decode_reached=$runDecodeReached",
                 "fallback_used=false",
@@ -535,12 +535,20 @@ class Qairt244DevOnlyNpuRouteAdapter(
 
     companion object {
         const val ROUTE_MARKER = "qairt244_chat_screen_real_npu_adapter_v1"
-        const val PROMPT_SOURCE_CHAT_SCREEN = "chat_screen_dev_route"
+        const val PROMPT_SOURCE_CHAT_SCREEN = "chat_screen"
         const val PROMPT_SOURCE_INTERNAL_INTENT = "internal_intent"
         const val REQUIRED_MODEL_BASENAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
         private const val RESULT_FILE_NAME = "qairt244_short_multitoken_smoke_result.txt"
         private const val NATIVE_DIAG_FILE_NAME = "qairt244_native_diag.txt"
         private const val MODEL_RESOLUTION_FILE_NAME = "qairt244_chat_screen_model_path_resolution.txt"
         private const val RUN_GUARD_FILE_NAME = "qairt244_chat_screen_real_npu_once_guard.txt"
+        private val allowedDebugFlavors = setOf("standard", "customBuildExperiment")
+
+        fun selectedRoute(promptSource: String): String =
+            if (promptSource == PROMPT_SOURCE_CHAT_SCREEN) {
+                "qairt244_sm8750_hidden_npu"
+            } else {
+                "qairt244_sm8750_dev_npu"
+            }
     }
 }

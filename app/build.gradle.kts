@@ -144,6 +144,9 @@ android {
         getByName("debug") {
             jniLibs.srcDir(layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs"))
         }
+        create("standardDebug") {
+            jniLibs.srcDir(layout.buildDirectory.dir("generated/qairt244StandardDebugJniLibs"))
+        }
         create("npuExperimentDebug") {
             jniLibs.srcDir("src/npuExperimentDebug/jniLibs")
         }
@@ -308,6 +311,13 @@ val qnnDirectProbeDebugJniSource = layout.projectDirectory.file("src/debug/cpp/q
 val qnnDirectProbeDebugJniOutputDir = layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs/arm64-v8a")
 val qairt244AppJniSmokeSource = layout.projectDirectory.file("src/customBuildExperimentDebug/cpp/lami_qairt244_smoke.cpp")
 val qairt244AppJniSmokeOutputDir = layout.projectDirectory.dir("src/customBuildExperimentDebug/jniLibs/arm64-v8a")
+val qairt244StandardDebugNativeSourceDir = layout.projectDirectory.dir("src/customBuildExperimentDebug/jniLibs/arm64-v8a")
+val qairt244StandardDebugGeneratedJniOutputDir =
+    layout.buildDirectory.dir("generated/qairt244StandardDebugJniLibs/arm64-v8a")
+val qairt244StandardDebugMergedNativeLibDir =
+    layout.buildDirectory.dir("intermediates/merged_native_libs/standardDebug/mergeStandardDebugNativeLibs/out/lib/arm64-v8a")
+val qairt244StandardDebugStrippedNativeLibDir =
+    layout.buildDirectory.dir("intermediates/stripped_native_libs/standardDebug/stripStandardDebugDebugSymbols/out/lib/arm64-v8a")
 
 fun findAndroidNdkClang(): File? {
     val explicitNdk = listOfNotNull(
@@ -485,6 +495,79 @@ tasks.register("buildQairt244AppJniSmokeCustomBuildExperimentDebugJni") {
     }
 }
 
+tasks.register("overlayQairt244StandardDebugNativeLibs") {
+    group = "build"
+    description = "Overlays the existing qairt244 SM8750 custom native stack into standardDebug for the hidden experiment."
+    inputs.files(
+        fileTree(qairt244StandardDebugGeneratedJniOutputDir) {
+            include("*.so")
+        },
+    )
+    dependsOn("stageQairt244StandardDebugNativeLibs")
+    dependsOn("mergeStandardDebugNativeLibs")
+
+    doLast {
+        val sourceDir = qairt244StandardDebugGeneratedJniOutputDir.get().asFile
+        val outputDir = qairt244StandardDebugMergedNativeLibDir.get().asFile
+        outputDir.mkdirs()
+        copy {
+            from(sourceDir) {
+                include("*.so")
+            }
+            into(outputDir)
+        }
+    }
+}
+
+tasks.register("stageQairt244StandardDebugNativeLibs") {
+    group = "build"
+    description = "Stages qairt244 SM8750 native libraries as standardDebug jniLibs inputs for the hidden experiment."
+    inputs.files(
+        fileTree(qairt244StandardDebugNativeSourceDir) {
+            include("*.so")
+            exclude("liblami_qairt244_smoke.so")
+        },
+    )
+    outputs.dir(qairt244StandardDebugGeneratedJniOutputDir)
+
+    doLast {
+        val outputDir = qairt244StandardDebugGeneratedJniOutputDir.get().asFile
+        outputDir.mkdirs()
+        copy {
+            from(qairt244StandardDebugNativeSourceDir) {
+                include("*.so")
+                exclude("liblami_qairt244_smoke.so")
+            }
+            into(outputDir)
+        }
+    }
+}
+
+tasks.register("overlayQairt244StandardDebugStrippedNativeLibs") {
+    group = "build"
+    description = "Keeps qairt244 SM8750 staged native libraries in standardDebug after AGP strip."
+    inputs.files(
+        fileTree(qairt244StandardDebugGeneratedJniOutputDir) {
+            include("*.so")
+        },
+    )
+    outputs.dir(qairt244StandardDebugStrippedNativeLibDir)
+    dependsOn("stageQairt244StandardDebugNativeLibs")
+    dependsOn("stripStandardDebugDebugSymbols")
+
+    doLast {
+        val sourceDir = qairt244StandardDebugGeneratedJniOutputDir.get().asFile
+        val outputDir = qairt244StandardDebugStrippedNativeLibDir.get().asFile
+        outputDir.mkdirs()
+        copy {
+            from(sourceDir) {
+                include("*.so")
+            }
+            into(outputDir)
+        }
+    }
+}
+
 tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
 }
@@ -498,10 +581,24 @@ tasks.matching {
     dependsOn("buildQnnDirectProbeDebugJni")
 }
 
+tasks.matching { it.name == "mergeStandardDebugJniLibFolders" }.configureEach {
+    dependsOn("stageQairt244StandardDebugNativeLibs")
+}
+
 tasks.matching {
     it.name == "mergeCustomBuildExperimentDebugJniLibFolders"
 }.configureEach {
     dependsOn("buildQairt244AppJniSmokeCustomBuildExperimentDebugJni")
+}
+
+tasks.matching {
+    it.name == "stripStandardDebugDebugSymbols"
+}.configureEach {
+    dependsOn("overlayQairt244StandardDebugNativeLibs")
+}
+
+tasks.matching { it.name == "packageStandardDebug" }.configureEach {
+    dependsOn("overlayQairt244StandardDebugStrippedNativeLibs")
 }
 
 afterEvaluate {

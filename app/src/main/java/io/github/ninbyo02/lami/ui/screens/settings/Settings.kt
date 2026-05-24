@@ -676,11 +676,15 @@ fun Settings(
                         Card {
                             SettingsToggleRowItem(
                                 headline = "実験的NPU（SM8750）",
-                                supporting = "standard hidden experimental。まだ本適用ではありません。ChatScreen route activation は次ステップ。",
+                                supporting = "SM8750専用の開発者向けNPU実験です。失敗時は手動でOFFにしてください。",
                                 leadingIcon = Icons.Filled.BugReport,
-                                checked = false,
-                                enabled = false,
-                                onCheckedChange = {},
+                                checked = settingsData.devEnableQairt244Sm8750NpuRoute,
+                                enabled = true,
+                                onCheckedChange = { enabled ->
+                                    scope.launch {
+                                        settingsPreferences.saveDevEnableQairt244Sm8750NpuRoute(enabled)
+                                    }
+                                },
                             )
                         }
                         Spacer(modifier = Modifier.height(2.dp))

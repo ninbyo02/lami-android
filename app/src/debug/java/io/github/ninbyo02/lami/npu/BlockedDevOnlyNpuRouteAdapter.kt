@@ -8,8 +8,8 @@ class BlockedDevOnlyNpuRouteAdapter : DevOnlyNpuRouteAdapter {
         maxOutputTokens: Int,
         timeoutMs: Long,
     ): DevOnlyNpuRouteResult {
-        check(BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
-            "DEV-only NPU route adapter is customBuildExperimentDebug-only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+        check(BuildConfig.CURRENT_FLAVOR in setOf("standard", "customBuildExperiment")) {
+            "DEV-only NPU route adapter is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
         }
 
         return DevOnlyNpuRouteResult(

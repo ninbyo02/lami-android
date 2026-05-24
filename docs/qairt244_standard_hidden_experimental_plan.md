@@ -92,21 +92,37 @@ experimental Settings row; neither should enable NPU by itself.
 
 Normal users must not see any qairt244 NPU control in `standardDebug`.
 
-Current Step 3 plumbing:
+Step 3 display-only plumbing:
 
 - Developer access is local to DEBUG builds and is enabled by tapping the About
   screen version/build text seven times.
 - With developer access OFF, `standardDebug` shows no qairt244 NPU Settings row.
-- With developer access ON, `standardDebug` shows a disabled/read-only
+- In Step 3, developer access ON made `standardDebug` show a disabled/read-only
   `実験的NPU（SM8750）` row that says `standard hidden experimental`, `まだ本適用
   ではありません`, and `ChatScreen route activation は次ステップ`.
-- The row is display-only. It does not write the qairt244 route toggle and does
-  not activate ChatScreen execution.
+- That row was display-only and did not write the qairt244 route toggle or
+  activate ChatScreen execution.
 - `customBuildExperimentDebug` keeps its existing `DEV: SM8750 NPU実験` toggle
   and does not show the standard hidden placeholder row, avoiding duplicate
   controls.
 - The next step is ChatScreen hidden route activation behind the standard gate
   and SM8750 model guard.
+
+Current Step 4 plumbing:
+
+- With developer access ON, `standardDebug` lets the `実験的NPU（SM8750）`
+  toggle write the existing `dev_enable_qairt244_sm8750_npu_route` key.
+- The toggle remains default OFF and is hidden whenever developer access is
+  OFF.
+- ChatScreen uses the hidden qairt244 route only when
+  `developer_access_enabled && dev_enable_qairt244_sm8750_npu_route` is true in
+  `standardDebug`; `customBuildExperimentDebug` keeps its existing route gate.
+- The standard hidden route validates normal ChatScreen input with UTF-8
+  bounded prompt validation (`utf8_hidden_experimental`), allowing Japanese
+  while retaining empty/NUL/control/invalid UTF-8/32-code-point rejection.
+- The route keeps `max_output_tokens=128`, SM8750-only model basename guards,
+  and explicit failure messages with no automatic fallback.
+- The hidden NPU toggle is not auto-cleared after a ChatScreen conversation.
 
 When developer access is enabled, Settings may show a hidden experimental row:
 

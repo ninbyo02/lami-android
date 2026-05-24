@@ -707,6 +707,9 @@ fun Home(
     val devEnableQairt244Sm8750NpuRoute by settingsPreferences.devEnableQairt244Sm8750NpuRouteFlow.collectAsState(
         initial = false,
     )
+    val developerAccessEnabled by settingsPreferences.developerAccessEnabledFlow.collectAsState(
+        initial = false,
+    )
     val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(
         initial = true,
     )
@@ -2388,10 +2391,15 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
-                                                    if (
+                                                    val standardHiddenQairt244NpuEnabled =
+                                                        BuildConfig.DEBUG &&
+                                                            !BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+                                                            developerAccessEnabled &&
+                                                            devEnableQairt244Sm8750NpuRoute
+                                                    val customQairt244NpuEnabled =
                                                         BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
-                                                        devEnableQairt244Sm8750NpuRoute
-                                                    ) {
+                                                            devEnableQairt244Sm8750NpuRoute
+                                                    if (customQairt244NpuEnabled || standardHiddenQairt244NpuEnabled) {
                                                         // DEV-only experiment: when the toggle is OFF, execution falls through to the unchanged local route.
                                                         isLocalInferenceRunning = true
                                                         debugLocalUiTrace(
@@ -2451,7 +2459,7 @@ fun Home(
                                                                     if (devResult.success) {
                                                                         devResult.output
                                                                     } else {
-                                                                        "DEV NPU route failed: ${devResult.reasonCode}"
+                                                                        "実験的NPU route failed: ${devResult.reasonCode}"
                                                                     }
                                                                 }
                                                                 val stats = devResult.toInferenceStats()
@@ -2477,15 +2485,15 @@ fun Home(
                                                                 snackbarHostState.currentSnackbarData?.dismiss()
                                                                 snackbarHostState.showSnackbar(
                                                                     message = if (devResult.success) {
-                                                                        "DEV SM8750 NPU route success"
+                                                                        "実験的NPU route success"
                                                                     } else {
-                                                                        "DEV NPU route failed: ${devResult.reasonCode}"
+                                                                        "実験的NPU route failed: ${devResult.reasonCode}"
                                                                     },
                                                                     duration = SnackbarDuration.Short,
                                                                 )
                                                             } catch (exception: Exception) {
                                                                 devDebugText = listOf(
-                                                                    "selected_route=qairt244_sm8750_dev_npu",
+                                                                    "selected_route=qairt244_sm8750_hidden_npu",
                                                                     "failure_stage=ui_exception",
                                                                     "stop_reason=${exception.javaClass.simpleName}",
                                                                     "required_sm8750_model_path=false",
@@ -2498,7 +2506,7 @@ fun Home(
                                                                         viewModel.insertAssistantMessageAndReturnId(
                                                                             createAssistantMessage(
                                                                                 chatId = resolvedChatId,
-                                                                                response = "DEV NPU route failed: ${exception.javaClass.simpleName}",
+                                                                                response = "実験的NPU route failed: ${exception.javaClass.simpleName}",
                                                                                 localSourceSummary = devDebugText,
                                                                             )
                                                                         )
@@ -2507,7 +2515,7 @@ fun Home(
                                                                 cleanupDevQairt244NpuUiState(reason = "dev-qairt244-exception")
                                                                 snackbarHostState.currentSnackbarData?.dismiss()
                                                                 snackbarHostState.showSnackbar(
-                                                                    message = "DEV NPU route failed: ${exception.javaClass.simpleName}",
+                                                                    message = "実験的NPU route failed: ${exception.javaClass.simpleName}",
                                                                     duration = SnackbarDuration.Short,
                                                                 )
                                                             } finally {
@@ -7871,7 +7879,8 @@ private fun runDevQairt244Sm8750NpuChatScreenRouteViaReflection(
         return DevQairt244Sm8750NpuChatScreenResult(
             success = false,
             reasonCode = "reflection_unavailable:${throwable.javaClass.simpleName}",
-            assistantMessage = "DEV NPU route failed: ${throwable.javaClass.simpleName}",
+            assistantMessage = "実験的NPU route failed: ${throwable.javaClass.simpleName}",
+            selectedRoute = "qairt244_sm8750_hidden_npu",
             failureStage = "reflection",
             stopReason = "reflection_unavailable",
         )
@@ -7885,7 +7894,11 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
     val assistantMessage: String,
     val output: String = "",
     val selectedRoute: String = "qairt244_sm8750_dev_npu",
+    val promptSource: String = "",
+    val promptValidationMode: String = "",
     val resolvedModelBasename: String = "",
+    val canonicalModelBasename: String = "",
+    val timestampPrefixStripped: Boolean = false,
     val requiredSm8750ModelPath: Boolean = false,
     val npuBackend: String = "",
     val npuBackendEvidence: String = "",
@@ -7908,7 +7921,11 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
         tokenCountMode = "qairt244-dev-npu-lower-level",
         notes = listOf(
             "selected_route=$selectedRoute",
+            "prompt_source=$promptSource",
+            "prompt_validation_mode=$promptValidationMode",
             "resolved_model_basename=$resolvedModelBasename",
+            "canonical_model_basename=$canonicalModelBasename",
+            "timestamp_prefix_stripped=$timestampPrefixStripped",
             "required_sm8750_model_path=$requiredSm8750ModelPath",
             "npu_backend=$npuBackend",
             "npu_backend_evidence=$npuBackendEvidence",
@@ -7929,7 +7946,11 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
 
     fun toLocalSourceSummary(): String = listOf(
         "selected_route=$selectedRoute",
+        "prompt_source=$promptSource",
+        "prompt_validation_mode=$promptValidationMode",
         "resolved_model_basename=$resolvedModelBasename",
+        "canonical_model_basename=$canonicalModelBasename",
+        "timestamp_prefix_stripped=$timestampPrefixStripped",
         "required_sm8750_model_path=$requiredSm8750ModelPath",
         "npu_backend=$npuBackend",
         "npu_backend_evidence=$npuBackendEvidence",
@@ -7958,7 +7979,7 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
             val reasonCode = values["reasonCode"].orEmpty().ifBlank { if (success) "success" else "unknown" }
             val output = values["output"].orEmpty()
             val assistantMessage = values["assistant_message"].orEmpty().ifBlank {
-                if (success) output else "DEV NPU route failed: $reasonCode"
+                if (success) output else "実験的NPU route failed: $reasonCode"
             }
             return DevQairt244Sm8750NpuChatScreenResult(
                 success = success,
@@ -7966,7 +7987,11 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
                 assistantMessage = assistantMessage,
                 output = output,
                 selectedRoute = values["selected_route"].orEmpty().ifBlank { "qairt244_sm8750_dev_npu" },
+                promptSource = values["prompt_source"].orEmpty(),
+                promptValidationMode = values["prompt_validation_mode"].orEmpty(),
                 resolvedModelBasename = values["resolved_model_basename"].orEmpty(),
+                canonicalModelBasename = values["canonical_model_basename"].orEmpty(),
+                timestampPrefixStripped = values["timestamp_prefix_stripped"]?.toBooleanStrictOrNull() ?: false,
                 requiredSm8750ModelPath = values["required_sm8750_model_path"]?.toBooleanStrictOrNull() ?: false,
                 npuBackend = values["npu_backend"].orEmpty(),
                 npuBackendEvidence = values["npu_backend_evidence"].orEmpty(),

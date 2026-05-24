@@ -9,10 +9,12 @@ import kotlinx.coroutines.runBlocking
 
 object DevOnlyNpuChatScreenBlockedBranch {
     private val chatScreenRunInProgress = AtomicBoolean(false)
+    private const val DEV_SELECTED_ROUTE = "qairt244_sm8750_dev_npu"
+    private const val HIDDEN_SELECTED_ROUTE = "qairt244_sm8750_hidden_npu"
 
     @JvmStatic
     fun run(prompt: String): String {
-        val validation = NpuDiagnosticPromptValidator.validate(prompt)
+        val validation = NpuDiagnosticPromptValidator.validateAsciiDiagnostic(prompt)
         val normalizedPrompt = validation.normalizedPrompt.ifBlank { prompt }
         val result = runBlocking {
             DevOnlyNpuRoutePlanner(
@@ -50,7 +52,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
     @JvmStatic
     fun run(context: Context, prompt: String): String {
         val appContext = context.applicationContext
-        val validation = NpuDiagnosticPromptValidator.validate(prompt)
+        val validation = NpuDiagnosticPromptValidator.validateAsciiDiagnostic(prompt)
         val normalizedPrompt = validation.normalizedPrompt.ifBlank { prompt }
         val result = runBlocking {
             try {
@@ -73,9 +75,11 @@ object DevOnlyNpuChatScreenBlockedBranch {
                     timeoutMs = DevOnlyNpuRouteAdapter.DEFAULT_TIMEOUT_MS,
                 )
             } finally {
-                val preferences = SettingsPreferences(appContext)
-                preferences.saveDevEnableQairt244Sm8750NpuRoute(false)
-                preferences.saveDevEnableNpuChatScreenRoute(false)
+                if (io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+                    val preferences = SettingsPreferences(appContext)
+                    preferences.saveDevEnableQairt244Sm8750NpuRoute(false)
+                    preferences.saveDevEnableNpuChatScreenRoute(false)
+                }
             }
         }
         val displayModel = DevOnlyNpuRouteDisplayModelMapper.from(result)
@@ -96,15 +100,17 @@ object DevOnlyNpuChatScreenBlockedBranch {
     fun runForChatScreen(context: Context, prompt: String): String {
         if (!chatScreenRunInProgress.compareAndSet(false, true)) {
             return listOf(
-                "selected_route=qairt244_sm8750_dev_npu",
+                "selected_route=$HIDDEN_SELECTED_ROUTE",
                 "success=false",
                 "status=ERROR",
                 "reasonCode=duplicate_run_blocked",
                 "failure_stage=preflight",
                 "stop_reason=duplicate_run_blocked",
-                "assistant_message=${escapeValue("DEV NPU route failed: duplicate_run_blocked")}",
+                "assistant_message=${escapeValue("実験的NPU route failed: duplicate_run_blocked")}",
                 "output=",
                 "prompt=${escapeValue(prompt)}",
+                "prompt_source=${Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_CHAT_SCREEN}",
+                "prompt_validation_mode=${NpuDiagnosticPromptValidator.UTF8_HIDDEN_EXPERIMENTAL_MODE}",
                 "max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
                 "native_max_output_tokens_limit=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
                 "resolved_model_basename=",
@@ -117,7 +123,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 "artifact_path=",
                 "fallback_used=false",
                 "ui_cleanup_status=not_started",
-                "normal_ui_route_connected=false",
+                "normal_ui_route_connected=true",
                 "conversation_created=no",
                 "generate_response=no",
                 "selected_path_npu_normal_route=no",
@@ -138,34 +144,28 @@ object DevOnlyNpuChatScreenBlockedBranch {
 
     private fun runForChatScreenGuarded(context: Context, prompt: String): String {
         val appContext = context.applicationContext
-        val validation = NpuDiagnosticPromptValidator.validate(prompt)
+        val validation = NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
         val normalizedPrompt = validation.normalizedPrompt.ifBlank { prompt }
         File(appContext.filesDir, "qairt244_chat_screen_real_npu_once_guard.txt").delete()
         val result = runBlocking {
-            try {
-                DevOnlyNpuRoutePlanner(
-                    adapter = Qairt244DevOnlyNpuRouteAdapter(appContext),
-                ).runIfAllowed(
-                    gateInput = DevOnlyNpuRouteGateInput(
-                        customBuildExperiment = true,
-                        allowEditablePromptPreview = true,
-                        allowGuardedNpuRun = true,
-                        allowEditablePromptExecution = true,
-                        devCheckboxChecked = true,
-                        validatorValid = validation.isValid,
-                        nativeEditablePromptSupported = true,
-                        running = false,
-                        maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
-                    ),
-                    prompt = normalizedPrompt,
+            DevOnlyNpuRoutePlanner(
+                adapter = Qairt244DevOnlyNpuRouteAdapter(appContext),
+            ).runIfAllowed(
+                gateInput = DevOnlyNpuRouteGateInput(
+                    customBuildExperiment = true,
+                    allowEditablePromptPreview = true,
+                    allowGuardedNpuRun = true,
+                    allowEditablePromptExecution = true,
+                    devCheckboxChecked = true,
+                    validatorValid = validation.isValid,
+                    nativeEditablePromptSupported = true,
+                    running = false,
                     maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
-                    timeoutMs = DevOnlyNpuRouteAdapter.DEFAULT_TIMEOUT_MS,
-                )
-            } finally {
-                val preferences = SettingsPreferences(appContext)
-                preferences.saveDevEnableQairt244Sm8750NpuRoute(false)
-                preferences.saveDevEnableNpuChatScreenRoute(false)
-            }
+                ),
+                prompt = normalizedPrompt,
+                maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+                timeoutMs = DevOnlyNpuRouteAdapter.DEFAULT_TIMEOUT_MS,
+            )
         }
         val modelResolution = readKeyValueFile(File(appContext.filesDir, "qairt244_chat_screen_model_path_resolution.txt"))
         val nativeResult = readKeyValueFile(File(appContext.filesDir, "qairt244_short_multitoken_smoke_result.txt"))
@@ -199,10 +199,15 @@ object DevOnlyNpuChatScreenBlockedBranch {
         val assistantMessage = if (result.success) {
             result.output.orEmpty()
         } else {
-            "DEV NPU route failed: ${result.reasonCode}"
+            "実験的NPU route failed: ${result.reasonCode}"
+        }
+        val selectedRoute = if (io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+            DEV_SELECTED_ROUTE
+        } else {
+            HIDDEN_SELECTED_ROUTE
         }
         return listOf(
-            "selected_route=qairt244_sm8750_dev_npu",
+            "selected_route=$selectedRoute",
             "success=${result.success}",
             "status=${if (result.success) "SUCCESS" else "ERROR"}",
             "reasonCode=${escapeValue(result.reasonCode)}",
@@ -211,8 +216,12 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "assistant_message=${escapeValue(assistantMessage)}",
             "output=${escapeValue(result.output.orEmpty())}",
             "prompt=${escapeValue(result.prompt)}",
+            "prompt_source=${Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_CHAT_SCREEN}",
+            "prompt_validation_mode=${validation.promptValidationMode}",
             "max_output_tokens=${result.maxOutputTokens}",
             "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit)}",
+            "canonical_model_basename=${escapeValue(Qairt244ModelPathResolver.CANONICAL_MODEL_BASENAME)}",
+            "timestamp_prefix_stripped=${escapeValue(modelResolution["timestamp_prefix_stripped"].orEmpty())}",
             "resolved_model_basename=${escapeValue(resolvedModelBasename)}",
             "required_sm8750_model_path=$requiredSm8750ModelPath",
             "npu_backend=${escapeValue(npuBackend)}",
@@ -223,7 +232,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "artifact_path=${escapeValue(result.artifactPath.orEmpty())}",
             "fallback_used=false",
             "ui_cleanup_status=scheduled",
-            "normal_ui_route_connected=false",
+            "normal_ui_route_connected=true",
             "conversation_created=no",
             "generate_response=no",
             "selected_path_npu_normal_route=no",
