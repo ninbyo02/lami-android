@@ -1,0 +1,12 @@
+activity=DevNpuChatScreenToggleActivity
+custom_build_experiment=true
+key=dev_enable_npu_chatscreen_route
+requested_write=true
+requested_enabled=false
+before=true
+after=false
+error=none
+npu_generation=false
+engine_initialize=false
+run_decode=false
+selected_path_npu=false

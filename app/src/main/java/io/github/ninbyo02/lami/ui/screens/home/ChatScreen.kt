@@ -7,6 +7,7 @@ import android.os.Debug
 import android.os.SystemClock
 import android.util.Log
 import android.widget.ImageView
+import io.github.ninbyo02.lami.local.buildLocalInferenceFailureDiagnosticsText
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -163,6 +164,8 @@ import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.text.MarkdownCodeRepair
+import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
+import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
 import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
 import io.github.ninbyo02.lami.ui.util.formatOutputTokens
 import io.github.ninbyo02.lami.ui.util.formatInferenceTime
@@ -483,6 +486,7 @@ internal data class LocalInferenceTrace(
     val realPartialHookAttempted: Boolean = false,
     val realPartialHookAttached: Boolean = false,
     val realPartialCallbackCount: Int = 0,
+    val localFailureDiagnosticsText: String? = null,
 )
 
 private data class LocalStreamingUiMetricsSnapshot(
@@ -663,7 +667,15 @@ fun Home(
     val preferredBackendDryRunSetting by settingsPreferences.preferredBackendDryRunSettingFlow.collectAsState(
         initial = PreferredBackendDryRunSetting.DEFAULT,
     )
-    val localStreamingRunner = remember(context.applicationContext, settingsPreferences, preferredBackendDryRunSetting) {
+    val markdownStreamingMode by settingsPreferences.markdownStreamingModeFlow.collectAsState(
+        initial = MarkdownStreamingMode.DEFAULT,
+    )
+    val localStreamingRunner = remember(
+        context.applicationContext,
+        settingsPreferences,
+        preferredBackendDryRunSetting,
+        markdownStreamingMode,
+    ) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
         ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, runMediaPipeProbeContext, onPartial ->
@@ -680,6 +692,7 @@ fun Home(
                 resolvedCacheDirPath = runCacheDirPath,
                 mediaPipeProbeContext = runMediaPipeProbeContext,
                 preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                markdownStreamingMode = markdownStreamingMode,
                 prompt = runPrompt,
                 onPartial = onPartial,
             )
@@ -690,6 +703,9 @@ fun Home(
     )
     val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow.collectAsState(
         initial = true,
+    )
+    val devEnableQairt244Sm8750NpuRoute by settingsPreferences.devEnableQairt244Sm8750NpuRouteFlow.collectAsState(
+        initial = false,
     )
     val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(
         initial = true,
@@ -1083,6 +1099,45 @@ fun Home(
         lastPersistedStreamingAssistantText = null
     }
 
+    fun cleanupDevQairt244NpuUiState(reason: String) {
+        localStreamingResponseText = null
+        showDelayedLocalRespondingPlaceholder = false
+        resetStreamingSpeechState()
+        resetStreamingAssistantPlaceholderId(reason = reason)
+        pendingStopButtonOwnerClearJob?.cancel()
+        pendingStopButtonOwnerClearJob = null
+        pendingStopUiCooldownClearJob?.cancel()
+        pendingStopUiCooldownClearJob = null
+        pendingReplaySuppressClearJob?.cancel()
+        pendingReplaySuppressClearJob = null
+        suppressReplayAssistantMessageId = null
+        stopUiCooldownAssistantMessageId = null
+        currentSpeakingAssistantMessageId = null
+        stopButtonOwnerAssistantMessageId = null
+        stopButtonOwnerSetAtMs = null
+        didReceiveRealLocalPartial = false
+        realLocalPartialChunkCount = 0
+        localStopRequested = false
+        localInferenceEngineState = LocalInferenceEngineState.READY
+        viewModel.resetUiState()
+        isLocalInferenceRunning = false
+        localInferenceJob = null
+        File(context.applicationContext.filesDir, "qairt244_dev_npu_ui_cleanup_state.txt").writeText(
+            listOf(
+                "reason=$reason",
+                "ui_cleanup_is_local_inference_running=false",
+                "ui_cleanup_local_job_active=false",
+                "ui_cleanup_local_stop_requested=false",
+                "ui_cleanup_duplicate_guard=false",
+                "ui_cleanup_streaming_assistant_placeholder=false",
+                "ui_cleanup_stop_owner=false",
+                "ui_cleanup_show_delayed_local_responding_placeholder=false",
+                "ui_cleanup_local_inference_engine_state=READY",
+                "ui_cleanup_reset_ui_state_called=true",
+            ).joinToString(separator = "\n", postfix = "\n"),
+        )
+    }
+
     suspend fun resolveLocalPreparingUiState(): LocalInferenceEngineState {
         val hasHeldEngine = localInferenceEngineHolder.getDevDiagnosticSnapshot().heldEngineHash != null
         return if (hasHeldEngine) {
@@ -1160,6 +1215,7 @@ fun Home(
         // finalize 経路は「保存してよい最終本文」のみを受け取る想定。
         val finalizedResponseForPersist = buildFinalizedStreamingResponseForPersist(
             response = response,
+            markdownStreamingMode = markdownStreamingMode,
             onMarkdownRepair = {
                 if (BuildConfig.DEBUG) {
                     localStreamingUiMetricsForDev.recordMarkdownRepair()
@@ -2319,7 +2375,7 @@ fun Home(
                                                 }
 
                                                 InferenceTarget.LOCAL -> {
-                                                    if (isLocalInferenceRunning) return@IconButton
+                                                    if (isLocalInferenceRunning || localInferenceJob?.isActive == true) return@IconButton
                                                     if (selectedImageUriStrings.isNotEmpty()) {
                                                         coroutineScope.launch {
                                                             snackbarHostState.currentSnackbarData?.dismiss()
@@ -2332,6 +2388,134 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
+                                                    if (
+                                                        BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+                                                        devEnableQairt244Sm8750NpuRoute
+                                                    ) {
+                                                        // DEV-only experiment: when the toggle is OFF, execution falls through to the unchanged local route.
+                                                        isLocalInferenceRunning = true
+                                                        debugLocalUiTrace(
+                                                            label = "DEV_QAIRT244_SM8750_NPU_SEND_TAPPED",
+                                                            extra = "effectiveChatId=$effectiveChatId promptLength=${requestPrompt.length}",
+                                                        )
+                                                        prompt = ""
+                                                        userPrompt = ""
+                                                        selectedImageUriStrings = emptyList()
+                                                        showDelayedLocalRespondingPlaceholder = false
+                                                        localInferenceEngineState = LocalInferenceEngineState.READY
+                                                        localStopRequested = false
+                                                        stopTtsWithCleanup(
+                                                            suppressedMessageId = stopButtonOwnerAssistantMessageId
+                                                                ?: currentSpeakingAssistantMessageId
+                                                                ?: streamingSpeechStartedForMessageId,
+                                                            armTapGuards = false,
+                                                        )
+                                                        localInferenceJob = coroutineScope.launch {
+                                                            var currentChatId = effectiveChatId
+                                                            if (currentChatId == null) {
+                                                                isCreatingChat = true
+                                                                try {
+                                                                    val newChatId = withContext(Dispatchers.IO) {
+                                                                        viewModel.insertChatAndReturnId(
+                                                                            Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                                                                        )
+                                                                    }
+                                                                    effectiveChatId = newChatId
+                                                                    pendingNavigateChatId = newChatId
+                                                                    currentChatId = newChatId
+                                                                } finally {
+                                                                    isCreatingChat = false
+                                                                }
+                                                            }
+                                                            val resolvedChatId = currentChatId
+                                                            withContext(Dispatchers.IO) {
+                                                                viewModel.insert(
+                                                                    Message(
+                                                                        chatId = resolvedChatId,
+                                                                        message = requestPrompt,
+                                                                        isSendbyMe = true,
+                                                                    )
+                                                                )
+                                                            }
+                                                            isLocalInferenceRunning = true
+                                                            localStreamingResponseText = null
+                                                            showDelayedLocalRespondingPlaceholder = false
+                                                            try {
+                                                                val devResult = withContext(Dispatchers.IO) {
+                                                                    runDevQairt244Sm8750NpuChatScreenRouteViaReflection(
+                                                                        context = context.applicationContext,
+                                                                        prompt = requestPrompt,
+                                                                    )
+                                                                }
+                                                                val assistantText = devResult.assistantMessage.ifBlank {
+                                                                    if (devResult.success) {
+                                                                        devResult.output
+                                                                    } else {
+                                                                        "DEV NPU route failed: ${devResult.reasonCode}"
+                                                                    }
+                                                                }
+                                                                val stats = devResult.toInferenceStats()
+                                                                val sourceSummary = devResult.toLocalSourceSummary()
+                                                                devDebugText = sourceSummary
+                                                                if (!localStopRequested) {
+                                                                    val assistantId = withContext(Dispatchers.IO) {
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            createAssistantMessage(
+                                                                                chatId = resolvedChatId,
+                                                                                response = assistantText,
+                                                                                latestInferenceStats = stats,
+                                                                                localSourceSummary = sourceSummary,
+                                                                                generationTimeMs = devResult.elapsedMs,
+                                                                            )
+                                                                        ).toInt()
+                                                                    }
+                                                                    if (assistantId > 0) {
+                                                                        immediateInferenceStatsByMessageId[assistantId] = stats
+                                                                    }
+                                                                }
+                                                                cleanupDevQairt244NpuUiState(reason = "dev-qairt244-finish")
+                                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                                snackbarHostState.showSnackbar(
+                                                                    message = if (devResult.success) {
+                                                                        "DEV SM8750 NPU route success"
+                                                                    } else {
+                                                                        "DEV NPU route failed: ${devResult.reasonCode}"
+                                                                    },
+                                                                    duration = SnackbarDuration.Short,
+                                                                )
+                                                            } catch (exception: Exception) {
+                                                                devDebugText = listOf(
+                                                                    "selected_route=qairt244_sm8750_dev_npu",
+                                                                    "failure_stage=ui_exception",
+                                                                    "stop_reason=${exception.javaClass.simpleName}",
+                                                                    "required_sm8750_model_path=false",
+                                                                    "fallback_used=false",
+                                                                    "normal_ui_route_connected=false",
+                                                                    "message=${exception.message.orEmpty()}",
+                                                                ).joinToString("\n")
+                                                                if (!localStopRequested) {
+                                                                    withContext(Dispatchers.IO) {
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            createAssistantMessage(
+                                                                                chatId = resolvedChatId,
+                                                                                response = "DEV NPU route failed: ${exception.javaClass.simpleName}",
+                                                                                localSourceSummary = devDebugText,
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                }
+                                                                cleanupDevQairt244NpuUiState(reason = "dev-qairt244-exception")
+                                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                                snackbarHostState.showSnackbar(
+                                                                    message = "DEV NPU route failed: ${exception.javaClass.simpleName}",
+                                                                    duration = SnackbarDuration.Short,
+                                                                )
+                                                            } finally {
+                                                                cleanupDevQairt244NpuUiState(reason = "dev-qairt244-finally")
+                                                            }
+                                                        }
+                                                        return@IconButton
+                                                    }
                                                     debugLocalUiTrace(
                                                         label = "LOCAL_UI_SEND_TAPPED",
                                                         extra = "selectedInferenceTarget=$selectedInferenceTarget effectiveChatId=$effectiveChatId userPromptLength=${userPrompt.length}",
@@ -2462,6 +2646,7 @@ fun Home(
                                                                 var heldAcquireFailureClassName: String? = null
                                                                 var heldAcquireFailureMessage: String? = null
                                                                 var heldOfficialHelperProgress: String? = null
+                                                                var heldFailureDiagnosticsText: String? = null
                                                                 appendLocalReflectionTrace(
                                                                     context = context.applicationContext,
                                                                     message = "UPSTREAM held-acquire start modelPathTail=$modelPathTail",
@@ -2483,6 +2668,7 @@ fun Home(
                                                                     heldAcquireFailureStage = diagnosticResult.failureStage
                                                                     heldAcquireFailureClassName = diagnosticResult.failureClassName
                                                                     heldAcquireFailureMessage = diagnosticResult.failureMessage
+                                                                    heldFailureDiagnosticsText = diagnosticResult.failureDiagnosticsText
                                                                     if (!useHeldPathOnlyForDev && diagnosticResult.engine == null) {
                                                                         legacyFallbackReason = "held-acquire-failed"
                                                                         appendLocalReflectionTrace(
@@ -2505,6 +2691,13 @@ fun Home(
                                                                             },
                                                                         )
                                                                     }.getOrElse {
+                                                                        heldFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                                                                            context = context.applicationContext,
+                                                                            stage = "holder-acquire",
+                                                                            throwable = it,
+                                                                            selectedModelName = modelResolution.modelPath,
+                                                                            selectedFallbackPath = "gpu",
+                                                                        )
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
                                                                             message = "HELD ACQUIRE ERROR: ${it.message}",
@@ -2531,6 +2724,9 @@ fun Home(
                                                                             append("class=").append(heldAcquireFailureClassName ?: "unknown").append("\n")
                                                                             append("message=").append(heldAcquireFailureMessage ?: "no message").append("\n")
                                                                             append("helper=").append(heldOfficialHelperProgress ?: "not-started").append("\n")
+                                                                            heldFailureDiagnosticsText?.let {
+                                                                                append(it).append("\n")
+                                                                            }
                                                                         }
                                                                     }
                                                                 }
@@ -2568,9 +2764,13 @@ fun Home(
                                                                         localModelDisplayName = modelResolution.displayName,
                                                                         mediaPipeProbeModelPath = mediaPipeProbeModelPathForRun,
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
+                                                                        markdownStreamingMode = markdownStreamingMode,
                                                                         onPartial = { partial ->
                                                                             if (localStopRequested) return@runWithHeldEngine
-                                                                            val normalizedPartial = normalizeStreamingPartialForRender(partial)
+                                                                            val normalizedPartial = normalizeStreamingPartialForRender(
+                                                                                partial = partial,
+                                                                                markdownStreamingMode = markdownStreamingMode,
+                                                                            )
                                                                             val debugText = buildString {
                                                                                 appendLine("=== WS TRACE ===")
                                                                                 appendLine("RAW:")
@@ -2618,6 +2818,9 @@ fun Home(
                                                                                 message = message,
                                                                             )
                                                                         },
+                                                                        onFailureDiagnostics = { diagnostics ->
+                                                                            heldFailureDiagnosticsText = diagnostics
+                                                                        },
                                                                     )
                                                                     if (heldRunResult != null) {
                                                                         appendLocalReflectionTrace(
@@ -2643,6 +2846,11 @@ fun Home(
                                                                             LocalInferenceRunResult(
                                                                                 state = LocalInferenceEngineState.ERROR,
                                                                                 response = "DEV held path failure: held run returned null",
+                                                                                trace = LocalInferenceTrace(
+                                                                                    localModelDisplayName = modelResolution.displayName,
+                                                                                    mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                                    localFailureDiagnosticsText = heldFailureDiagnosticsText,
+                                                                                ),
                                                                             )
                                                                         } else {
                                                                             legacyFallbackReason = "held-run-null"
@@ -2663,7 +2871,10 @@ fun Home(
                                                                                 mediaPipeProbeContext = mediaPipeProbeContext,
                                                                                 onPartial = legacyPartial@{ partial ->
                                                                                     if (localStopRequested) return@legacyPartial
-                                                                                    val normalizedPartial = normalizeStreamingPartialForRender(partial)
+                                                                                    val normalizedPartial = normalizeStreamingPartialForRender(
+                                                                                        partial = partial,
+                                                                                        markdownStreamingMode = markdownStreamingMode,
+                                                                                    )
                                                                                     val debugText = buildString {
                                                                                         appendLine("=== WS TRACE ===")
                                                                                         appendLine("RAW:")
@@ -2726,12 +2937,20 @@ fun Home(
                                                                                 append("held=").append(heldEngine != null).append("\n")
                                                                                 append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
                                                                                 append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
+                                                                                heldFailureDiagnosticsText?.let {
+                                                                                    append(it).append("\n")
+                                                                                }
                                                                             }
                                                                             coroutineScope.launch { devDebugText = failReason }
                                                                         }
                                                                         return@run LocalInferenceRunResult(
                                                                             state = LocalInferenceEngineState.ERROR,
                                                                             response = "DEV held path failure: acquire failed",
+                                                                            trace = LocalInferenceTrace(
+                                                                                localModelDisplayName = modelResolution.displayName,
+                                                                                mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                                localFailureDiagnosticsText = heldFailureDiagnosticsText,
+                                                                            ),
                                                                         )
                                                                     }
                                                                     if (legacyFallbackReason == null) {
@@ -2754,7 +2973,10 @@ fun Home(
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         onPartial = legacyPartial@{ partial ->
                                                                             if (localStopRequested) return@legacyPartial
-                                                                            val normalizedPartial = normalizeStreamingPartialForRender(partial)
+                                                                            val normalizedPartial = normalizeStreamingPartialForRender(
+                                                                                partial = partial,
+                                                                                markdownStreamingMode = markdownStreamingMode,
+                                                                            )
                                                                             val debugText = buildString {
                                                                                 appendLine("=== WS TRACE ===")
                                                                                 appendLine("RAW:")
@@ -3915,6 +4137,7 @@ fun Home(
                     devCloseLifecycleText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devCloseLifecycleText else null,
                     devDebugText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devDebugText else null,
                     preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                    markdownStreamingMode = markdownStreamingMode,
                     showDevManualEngineRecreate = BuildConfig.DEBUG,
                     manualEngineRecreateBusy = preferredBackendManualRecreateInProgress,
                     manualEngineRecreateResult = preferredBackendManualRecreateResult,
@@ -4014,15 +4237,25 @@ fun Home(
 
 
 
-internal fun normalizeStreamingPartialForRender(partial: String): String {
-    return partial.trim()
+internal fun normalizeStreamingPartialForRender(
+    partial: String,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+): String {
+    return when (markdownStreamingMode) {
+        MarkdownStreamingMode.LAMI_RECOVERY_V1 -> partial.trim()
+        MarkdownStreamingMode.EDGE_GALLERY_COMPAT -> processEdgeGalleryCompatibleMarkdown(partial)
+    }
 }
 
 internal fun buildFinalizedStreamingResponseForPersist(
     response: String,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     onMarkdownRepair: (() -> Unit)? = null,
 ): String {
     val normalizedFinalText = response.trim()
+    if (markdownStreamingMode == MarkdownStreamingMode.EDGE_GALLERY_COMPAT) {
+        return processEdgeGalleryCompatibleMarkdown(normalizedFinalText).trim()
+    }
     val repaired = MarkdownCodeRepair.repair(normalizedFinalText).trim()
     if (repaired != normalizedFinalText) {
         onMarkdownRepair?.invoke()
@@ -4108,6 +4341,7 @@ private suspend fun runLocalInferenceOnceEntry(
     resolvedCacheDirPath: String? = null,
     mediaPipeProbeContext: Context? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     prompt: String,
     onPartial: (String) -> Unit = {},
 ): LocalInferenceRunResult {
@@ -4153,6 +4387,7 @@ private suspend fun runLocalInferenceOnceEntry(
     var officialFlowChunkCount = 0
     var officialFlowObservedPartialCount = 0
     var preferredBackendApplyResult: PreferredBackendApplyResult? = null
+    var localFailureDiagnosticsText: String? = null
     val emitFinal: (String?) -> Unit = { result ->
         if (!result.isNullOrBlank()) {
             onPartial(result)
@@ -4171,6 +4406,7 @@ private suspend fun runLocalInferenceOnceEntry(
             cacheDirPath = modelResolution.cacheDirPath,
             mediaPipeProbeContext = mediaPipeProbeContext,
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            markdownStreamingMode = markdownStreamingMode,
             onPreferredBackendApplied = { result -> preferredBackendApplyResult = result },
             onPartial = { partial ->
                 officialFlowObservedPartialCount += 1
@@ -4181,6 +4417,9 @@ private suspend fun runLocalInferenceOnceEntry(
             },
             onFallbackReason = { reasonCode ->
                 officialFlowFallbackReason = reasonCode
+            },
+            onFailureDiagnostics = { diagnostics ->
+                localFailureDiagnosticsText = diagnostics
             },
         )
         val officialResponse = officialResult?.response?.trim().orEmpty()
@@ -4235,6 +4474,7 @@ private suspend fun runLocalInferenceOnceEntry(
                         preferredBackendApplyMethodCandidates = preferredBackendApplyResult?.preferredBackendApplyMethodCandidates.orEmpty(),
                         preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
                         preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
+                        localFailureDiagnosticsText = localFailureDiagnosticsText ?: fallbackGenerated.trace.localFailureDiagnosticsText,
                         ),
                     closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
                         summary = fallbackGenerated.closeLifecycleSummary,
@@ -4280,6 +4520,7 @@ private suspend fun runLocalInferenceOnceEntry(
                     preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
                     preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
                     measuredTokenSnapshot = officialResult?.measuredTokenSnapshot,
+                    localFailureDiagnosticsText = localFailureDiagnosticsText,
                 ).withOfficialChunkMetrics(officialResult?.officialChunkMetrics),
                 closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
                     summary = officialResult?.closeLifecycleSummary,
@@ -4310,6 +4551,9 @@ private suspend fun runLocalInferenceOnceEntry(
                     officialFlowFallbackReason = reasonCode
                 }
             },
+            onFailureDiagnostics = { diagnostics ->
+                localFailureDiagnosticsText = diagnostics
+            },
         )
         val blockingResponse = blockingResult?.response?.trim().orEmpty()
         if (blockingResponse.isNotBlank()) {
@@ -4338,6 +4582,7 @@ private suspend fun runLocalInferenceOnceEntry(
                     preferredBackendApplyBackendEnumCandidates = preferredBackendApplyResult?.preferredBackendApplyBackendEnumCandidates.orEmpty(),
                     preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason,
                     measuredTokenSnapshot = blockingResult?.measuredTokenSnapshot,
+                    localFailureDiagnosticsText = localFailureDiagnosticsText,
                 ),
                 closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
                     summary = blockingResult?.closeLifecycleSummary,
@@ -4402,6 +4647,7 @@ private suspend fun runLocalInferenceOnceEntry(
         preferredBackendApplyMethodCandidates = if (!preferredBackendApplyMethodCandidates.isNullOrEmpty()) preferredBackendApplyMethodCandidates else generated.trace.preferredBackendApplyMethodCandidates,
         preferredBackendApplyBackendEnumCandidates = if (!preferredBackendApplyBackendEnumCandidates.isNullOrEmpty()) preferredBackendApplyBackendEnumCandidates else generated.trace.preferredBackendApplyBackendEnumCandidates,
         preferredBackendApplyNotSupportedReason = preferredBackendApplyResult?.preferredBackendApplyNotSupportedReason ?: generated.trace.preferredBackendApplyNotSupportedReason,
+        localFailureDiagnosticsText = generated.trace.localFailureDiagnosticsText ?: localFailureDiagnosticsText,
     )
     emitFinal(response)
     return if (response.isNullOrBlank()) {
@@ -4475,6 +4721,7 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             preferredBackendHookSource = lastHeldEngineCreatePreferredBackendHookSource,
             preferredBackendApplyBuilderClass = lastHeldEngineCreatePreferredBackendApplyBuilderClass,
             preferredBackendApplyBackendEnumCandidates = lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
+            localFailureDiagnosticsText = failureDiagnosticsText,
         ).withOfficialChunkMetrics(officialChunkMetrics),
         closeLifecycleSummary = if (resolvedState == LocalInferenceEngineState.READY) {
             ensureSuccessCloseLifecycleSummary(
@@ -4785,6 +5032,7 @@ private fun generateLiteRtResponseViaReflection(
 ): LocalLiteRtGeneratedResponse {
     var trace = LocalInferenceTrace(
         localModelDisplayName = localModelDisplayName,
+        mediaPipeProbeModelPath = modelPath,
         localTraceStartElapsedRealtimeMs = SystemClock.elapsedRealtime(),
     )
     val modelPathTail = modelPath.substringAfterLast('/')
@@ -4799,6 +5047,15 @@ private fun generateLiteRtResponseViaReflection(
     val llmInferenceClass = runCatching {
         Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
     }.getOrElse { throwable ->
+        trace = trace.copy(
+            localFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                context = context,
+                stage = "engine-create",
+                throwable = throwable,
+                selectedModelName = modelPath,
+                selectedFallbackPath = "none",
+            ),
+        )
         Log.i("ChatScreen", "LOCAL reflection early-return: llm class load failed")
         appendLocalReflectionTrace(context = context, message = "early-return reason=llm-class-load-failed")
         Log.w("ChatScreen", "LiteRT-LM class not found for response generation.", throwable)
@@ -4826,6 +5083,15 @@ private fun generateLiteRtResponseViaReflection(
             modelPath = modelPath,
         )
     }.getOrElse { throwable ->
+        trace = trace.copy(
+            localFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                context = context,
+                stage = "engine-create",
+                throwable = throwable,
+                selectedModelName = modelPath,
+                selectedFallbackPath = "none",
+            ),
+        )
         Log.i("ChatScreen", "LOCAL reflection early-return: options build failed")
         appendLocalReflectionTrace(context = context, message = "early-return reason=options-build-failed")
         Log.e("ChatScreen", "LiteRT-LM options build failed for response generation.", throwable)
@@ -4841,6 +5107,15 @@ private fun generateLiteRtResponseViaReflection(
     val inferenceInstance = runCatching {
         createFromOptionsMethod.invoke(null, context, optionsBuildResult.options)
     }.getOrElse { throwable ->
+        trace = trace.copy(
+            localFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                context = context,
+                stage = "engine-create",
+                throwable = throwable,
+                selectedModelName = modelPath,
+                selectedFallbackPath = "none",
+            ),
+        )
         Log.i("ChatScreen", "LOCAL reflection early-return: createFromOptions invocation failed")
         appendLocalReflectionTrace(context = context, message = "early-return reason=createFromOptions-invocation-failed")
         Log.e("ChatScreen", "LiteRT-LM createFromOptions invocation failed for response generation.", throwable)
@@ -5877,6 +6152,7 @@ private fun generateLiteRtStringResponseOnceViaReflection(
         message = "real-partial-hook attempted=${partialHookSnapshot.attempted} attached=${partialHookSnapshot.attached}",
     )
 
+    var lastFailureDiagnosticsText: String? = null
     candidateMethods.forEach { method ->
         Log.i("ChatScreen", "LOCAL reflection oneshot-try: method=${method.toGenericString()}")
         appendLocalReflectionTrace(context = context, message = "oneshot-try method=${method.toGenericString()}")
@@ -5884,6 +6160,13 @@ private fun generateLiteRtStringResponseOnceViaReflection(
         val result = runCatching {
             method.invoke(inferenceInstance, prompt)
         }.onFailure { throwable ->
+            lastFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                context = context,
+                stage = "generate-response",
+                throwable = throwable,
+                selectedModelName = trace.mediaPipeProbeModelPath ?: trace.localModelDisplayName,
+                selectedFallbackPath = "none",
+            )
             Log.w("ChatScreen", "LiteRT-LM generate invocation failed on ${method.name}(String)", throwable)
         }.getOrNull()
         val wallClockTotalInferenceDurationNs = (SystemClock.elapsedRealtimeNanos() - generateStartNs).coerceAtLeast(0L)
@@ -5994,6 +6277,7 @@ private fun generateLiteRtStringResponseOnceViaReflection(
         realPartialHookAttempted = partialHookSnapshot.attempted,
         realPartialHookAttached = partialHookSnapshot.attached,
         realPartialCallbackCount = partialHook.snapshot().callbackCount,
+        localFailureDiagnosticsText = trace.localFailureDiagnosticsText ?: lastFailureDiagnosticsText,
     ).merge(probeLocalStatsCandidates(inferenceInstance))
     return LocalLiteRtGeneratedResponse(trace = inventoryTrace)
 }
@@ -6080,6 +6364,7 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         lastHeldEngineCreateRequestedPreferredBackend = lastHeldEngineCreateRequestedPreferredBackend ?: probe.lastHeldEngineCreateRequestedPreferredBackend,
         lastHeldEngineCreateStackHint = lastHeldEngineCreateStackHint ?: probe.lastHeldEngineCreateStackHint,
         measuredTokenSnapshot = measuredTokenSnapshot ?: probe.measuredTokenSnapshot,
+        localFailureDiagnosticsText = localFailureDiagnosticsText ?: probe.localFailureDiagnosticsText,
     )
 }
 
@@ -6610,6 +6895,7 @@ private fun InferenceStatsSheetContent(
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     showDevManualEngineRecreate: Boolean = false,
     manualEngineRecreateEnabled: Boolean = false,
     manualEngineRecreateBusy: Boolean = false,
@@ -6753,6 +7039,14 @@ private fun InferenceStatsSheetContent(
                             }
                         }
                     }
+                }
+            }
+            if (selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
+                InferenceStatsSection(title = "DEV Markdown") {
+                    InferenceStatRow(
+                        label = "Markdown mode",
+                        value = markdownStreamingMode.displayLabel,
+                    )
                 }
             }
             if (showDevManualEngineRecreate && selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
@@ -7546,6 +7840,153 @@ private fun isStopCancellationLikeMessage(message: String?): Boolean {
         "stream was reset" in text
 }
 
+private fun runDevOnlyNpuChatScreenBlockedBranchViaReflection(
+    context: Context,
+    prompt: String,
+): String {
+    return runCatching {
+        val branchClass = Class.forName(
+            "io.github.ninbyo02.lami.npu.DevOnlyNpuChatScreenBlockedBranch",
+        )
+        branchClass
+            .getMethod("run", Context::class.java, String::class.java)
+            .invoke(null, context, prompt) as String
+    }.getOrElse { throwable ->
+        "DEV NPU blocked branch unavailable: ${throwable.javaClass.simpleName}"
+    }
+}
+
+private fun runDevQairt244Sm8750NpuChatScreenRouteViaReflection(
+    context: Context,
+    prompt: String,
+): DevQairt244Sm8750NpuChatScreenResult {
+    val raw = runCatching {
+        val branchClass = Class.forName(
+            "io.github.ninbyo02.lami.npu.DevOnlyNpuChatScreenBlockedBranch",
+        )
+        branchClass
+            .getMethod("runForChatScreen", Context::class.java, String::class.java)
+            .invoke(null, context, prompt) as String
+    }.getOrElse { throwable ->
+        return DevQairt244Sm8750NpuChatScreenResult(
+            success = false,
+            reasonCode = "reflection_unavailable:${throwable.javaClass.simpleName}",
+            assistantMessage = "DEV NPU route failed: ${throwable.javaClass.simpleName}",
+            failureStage = "reflection",
+            stopReason = "reflection_unavailable",
+        )
+    }
+    return DevQairt244Sm8750NpuChatScreenResult.fromKeyValueText(raw)
+}
+
+private data class DevQairt244Sm8750NpuChatScreenResult(
+    val success: Boolean,
+    val reasonCode: String,
+    val assistantMessage: String,
+    val output: String = "",
+    val selectedRoute: String = "qairt244_sm8750_dev_npu",
+    val resolvedModelBasename: String = "",
+    val requiredSm8750ModelPath: Boolean = false,
+    val npuBackend: String = "",
+    val npuBackendEvidence: String = "",
+    val nativeMaxOutputTokensLimit: Int? = null,
+    val runDecodeReached: Boolean = false,
+    val uiCleanupStatus: String = "cleanup_scheduled",
+    val decodeElapsedMs: Long? = null,
+    val elapsedMs: Long? = null,
+    val maxOutputTokens: Int = 16,
+    val fallbackUsed: Boolean = false,
+    val failureStage: String = "",
+    val stopReason: String = "",
+    val artifactPath: String = "",
+) {
+    fun toInferenceStats(): InferenceStats = InferenceStats(
+        modelName = selectedRoute,
+        generationTimeMs = elapsedMs,
+        decodeDurationMs = decodeElapsedMs,
+        totalDurationMs = elapsedMs,
+        tokenCountMode = "qairt244-dev-npu-lower-level",
+        notes = listOf(
+            "selected_route=$selectedRoute",
+            "resolved_model_basename=$resolvedModelBasename",
+            "required_sm8750_model_path=$requiredSm8750ModelPath",
+            "npu_backend=$npuBackend",
+            "npu_backend_evidence=$npuBackendEvidence",
+            "native_max_output_tokens_limit=${nativeMaxOutputTokensLimit ?: "unknown"}",
+            "run_decode_reached=$runDecodeReached",
+            "max_output_tokens=$maxOutputTokens",
+            "fallback_used=$fallbackUsed",
+            "ui_cleanup_status=$uiCleanupStatus",
+            "failure_stage=$failureStage",
+            "stop_reason=$stopReason",
+        ).joinToString(";"),
+        finishReason = if (success) "success" else reasonCode,
+        localSourceSummary = toLocalSourceSummary(),
+        model = selectedRoute,
+        modelLabel = selectedRoute,
+        responseCharCount = assistantMessage.length,
+    )
+
+    fun toLocalSourceSummary(): String = listOf(
+        "selected_route=$selectedRoute",
+        "resolved_model_basename=$resolvedModelBasename",
+        "required_sm8750_model_path=$requiredSm8750ModelPath",
+        "npu_backend=$npuBackend",
+        "npu_backend_evidence=$npuBackendEvidence",
+        "native_max_output_tokens_limit=${nativeMaxOutputTokensLimit ?: "unknown"}",
+        "run_decode_reached=$runDecodeReached",
+        "decode_elapsed_ms=${decodeElapsedMs ?: "unknown"}",
+        "max_output_tokens=$maxOutputTokens",
+        "fallback_used=$fallbackUsed",
+        "ui_cleanup_status=$uiCleanupStatus",
+        "failure_stage=$failureStage",
+        "stop_reason=$stopReason",
+        "normal_ui_route_connected=false",
+        "artifact_path=$artifactPath",
+    ).joinToString("\n")
+
+    companion object {
+        fun fromKeyValueText(text: String): DevQairt244Sm8750NpuChatScreenResult {
+            val values = text.lineSequence()
+                .mapNotNull { line ->
+                    val index = line.indexOf('=')
+                    if (index <= 0) return@mapNotNull null
+                    line.substring(0, index) to unescapeValue(line.substring(index + 1))
+                }
+                .toMap()
+            val success = values["success"]?.toBooleanStrictOrNull() ?: false
+            val reasonCode = values["reasonCode"].orEmpty().ifBlank { if (success) "success" else "unknown" }
+            val output = values["output"].orEmpty()
+            val assistantMessage = values["assistant_message"].orEmpty().ifBlank {
+                if (success) output else "DEV NPU route failed: $reasonCode"
+            }
+            return DevQairt244Sm8750NpuChatScreenResult(
+                success = success,
+                reasonCode = reasonCode,
+                assistantMessage = assistantMessage,
+                output = output,
+                selectedRoute = values["selected_route"].orEmpty().ifBlank { "qairt244_sm8750_dev_npu" },
+                resolvedModelBasename = values["resolved_model_basename"].orEmpty(),
+                requiredSm8750ModelPath = values["required_sm8750_model_path"]?.toBooleanStrictOrNull() ?: false,
+                npuBackend = values["npu_backend"].orEmpty(),
+                npuBackendEvidence = values["npu_backend_evidence"].orEmpty(),
+                nativeMaxOutputTokensLimit = values["native_max_output_tokens_limit"]?.toIntOrNull(),
+                runDecodeReached = values["run_decode_reached"]?.toBooleanStrictOrNull() ?: false,
+                uiCleanupStatus = values["ui_cleanup_status"].orEmpty().ifBlank { "cleanup_scheduled" },
+                decodeElapsedMs = values["decode_elapsed_ms"]?.toLongOrNull(),
+                elapsedMs = values["elapsed_ms"]?.toLongOrNull(),
+                maxOutputTokens = values["max_output_tokens"]?.toIntOrNull() ?: 16,
+                fallbackUsed = values["fallback_used"]?.toBooleanStrictOrNull() ?: false,
+                failureStage = values["failure_stage"].orEmpty(),
+                stopReason = values["stop_reason"].orEmpty(),
+                artifactPath = values["artifact_path"].orEmpty(),
+            )
+        }
+
+        private fun unescapeValue(value: String): String =
+            value.replace("\\n", "\n").replace("\\\\", "\\")
+    }
+}
 
 private fun List<String>.toAttachmentUriStringsJson(): String =
     JSONArray().apply { forEach { uri -> put(uri) } }.toString()

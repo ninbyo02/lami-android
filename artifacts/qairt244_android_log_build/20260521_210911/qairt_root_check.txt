@@ -1,0 +1,20 @@
+requested_qairt_root=/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+expected_version=2.44.0.260225
+artifact_overlay=/home/sato/project/lami-android/artifacts/qairt244_android_log_build/20260521_210911/qairt_overlay/
+basename_match=true
+status=present
+symlink=/home/sato/project/lami-android/artifacts/qairt244_android_log_build/20260521_210911/qairt_overlay//qairt/2.44.0.260225
+symlink_target=/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225
+
+version_files:
+/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/bin/envsetup.sh
+
+required_files:
+present	/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/bin/envsetup.sh
+present	/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/bin/x86_64-linux-clang/qnn-net-run
+present	/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/bin/x86_64-linux-clang/qnn-platform-validator
+present	/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnSystem.so
+present	/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnHtp.so
+present	/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnHtpPrepare.so
+present	/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnHtpV79Stub.so
+present	/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/hexagon-v79/unsigned/libQnnHtpV79Skel.so

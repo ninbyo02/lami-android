@@ -1,0 +1,7 @@
+classification=executed
+executed=true
+marker=qairt244_lower_level_single_token_smoke_v1
+result=success
+max_output_tokens=1
+elapsed_ms=1115
+output=!

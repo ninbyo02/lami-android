@@ -2,6 +2,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
 import java.util.Properties
+import com.android.build.api.variant.BuildConfigField
 
 plugins {
     id("com.google.devtools.ksp")
@@ -38,6 +39,9 @@ fun resolveBuildPrNumber(): String {
 
 val liteRtLmAndroidReleaseVersion = "0.10.0"
 val liteRtLmAndroidDebugVersion = "0.11.0"
+val liteRtLmAndroidNpuExperimentDebugVersion = "0.10.0"
+val liteRtLmAndroidGalleryStackExperimentDebugVersion = "0.11.0"
+val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 
 android {
 
@@ -58,6 +62,58 @@ android {
         buildConfigField("String", "BUILD_PR_NUMBER", "\"$buildPrNumber\"")
         buildConfigField("String", "APP_SUBTITLE", "\"LAMI — Lightweight AI for Memory & Interaction\"")
         buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidReleaseVersion\"")
+        buildConfigField("String", "CURRENT_FLAVOR", "\"standard\"")
+        buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+        buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
+        buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+        buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+        buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+    }
+
+    flavorDimensions += "dispatchExperiment"
+    productFlavors {
+        create("standard") {
+            dimension = "dispatchExperiment"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"standard\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("npuExperiment") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".npu"
+            versionNameSuffix = "-npuExperiment"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"npuExperiment\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "true")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"gallery-sm8750 detection-only staged in app/src/npuExperimentDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("galleryStackExperiment") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".gallerynpu"
+            versionNameSuffix = "-galleryStackExperiment"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"galleryStackExperiment\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "true")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"gallery-sm8750 full native stack staged in app/src/galleryStackExperimentDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "true")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("customBuildExperiment") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".customnpu"
+            versionNameSuffix = "-customBuildExperiment"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"customBuildExperiment\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "true")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"custom LiteRT-LM v0.11.0 pinned-source native stack staged in app/src/customBuildExperimentDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "true")
+        }
     }
 
     buildTypes {
@@ -88,7 +144,49 @@ android {
         getByName("debug") {
             jniLibs.srcDir(layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs"))
         }
+        create("npuExperimentDebug") {
+            jniLibs.srcDir("src/npuExperimentDebug/jniLibs")
+        }
+        create("galleryStackExperimentDebug") {
+            java.srcDir("src/npuExperimentDebug/java")
+            manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
+            jniLibs.srcDir("src/galleryStackExperimentDebug/jniLibs")
+        }
+        create("customBuildExperimentDebug") {
+            java.srcDir("src/npuExperimentDebug/java")
+            java.srcDir("src/customBuildExperimentDebug/java")
+            manifest.srcFile("src/customBuildExperimentDebug/AndroidManifest.xml")
+            jniLibs.srcDir("src/customBuildExperimentDebug/jniLibs")
+        }
     }
+}
+
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) { variantBuilder ->
+        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "customBuildExperiment") }) {
+            variantBuilder.enable = false
+        }
+    }
+    onVariants { variant ->
+        val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
+        val liteRtLmVersion = when {
+            variant.buildType == "debug" && flavor == "customBuildExperiment" -> liteRtLmAndroidCustomBuildExperimentDebugVersion
+            variant.buildType == "debug" && flavor == "galleryStackExperiment" -> liteRtLmAndroidGalleryStackExperimentDebugVersion
+            variant.buildType == "debug" && flavor == "npuExperiment" -> liteRtLmAndroidNpuExperimentDebugVersion
+            variant.buildType == "debug" -> liteRtLmAndroidDebugVersion
+            else -> liteRtLmAndroidReleaseVersion
+        }
+        variant.buildConfigFields?.put(
+            "LITERTLM_ANDROID_VERSION",
+            BuildConfigField("String", "\"$liteRtLmVersion\"", "Resolved LiteRT-LM Android dependency version for this variant"),
+        )
+    }
+}
+
+configurations.matching { configuration ->
+    configuration.name.startsWith("standardRelease")
+}.configureEach {
+    resolutionStrategy.force("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
 }
 
 val qnnNpuArm64LibDir = layout.projectDirectory.dir("src/main/jniLibs/arm64-v8a")
@@ -97,7 +195,15 @@ val requiredQnnRuntimeLibs = listOf(
     "libQnnHtp.so",
     "libQnnHtpPrepare.so",
 )
-val qnnNpuModelNameMarkers = listOf("qualcomm", "qnn", "npu", "sm8750", "snapdragon", "htp")
+val qnnNpuDispatchExactLib = "libLiteRtDispatch_Qualcomm.so"
+val qnnNpuDispatchCandidateNames = listOf(
+    qnnNpuDispatchExactLib,
+    "libLiteRtDispatchQualcomm.so",
+    "liblitert_dispatch_qualcomm.so",
+    "libLiteRtDispatch.so",
+    "liblitert_dispatch.so",
+)
+val qnnNpuModelNameMarkers = listOf("qualcomm", "qnn", "npu", "sm8750", "snapdragon", "htp", "qcs")
 
 fun collectQnnNpuNativeLibStatus(): QnnNpuNativeLibStatus {
     val libDir = qnnNpuArm64LibDir.asFile
@@ -109,10 +215,11 @@ fun collectQnnNpuNativeLibStatus(): QnnNpuNativeLibStatus {
     val missingRuntimeLibs = requiredQnnRuntimeLibs.filterNot(libraries::contains)
     val hasHtpVariant = libraries.any { it.startsWith("libQnnHtpV") && it.endsWith(".so") }
     val dispatchCandidates = libraries.filter { name ->
-        name.contains("dispatch", ignoreCase = true) &&
-            (name.contains("litert", ignoreCase = true) ||
-                name.contains("qnn", ignoreCase = true) ||
-                name.contains("qualcomm", ignoreCase = true))
+        val lower = name.lowercase()
+        qnnNpuDispatchCandidateNames.any { it.equals(name, ignoreCase = true) } ||
+            "dispatch" in lower ||
+            "litertdispatch" in lower ||
+            (("qualcomm" in lower || "qnn" in lower) && "dispatch" in lower)
     }
     return QnnNpuNativeLibStatus(
         libDir = libDir,
@@ -171,6 +278,7 @@ tasks.register("printQnnNpuNativeLibStatus") {
         println("Required QAIRT runtime libs: ${if (status.missingRuntimeLibs.isEmpty()) "present" else "missing ${status.missingRuntimeLibs.joinToString(", ")}"}")
         println("Required HTP skel/variant lib: ${if (status.hasHtpVariant) "present" else "missing libQnnHtpV*.so"}")
         println("LiteRT Qualcomm dispatch API lib: ${status.dispatchCandidates.ifEmpty { listOf("missing") }.joinToString(", ")}")
+        println("LiteRT Qualcomm dispatch API exact match: ${status.dispatchCandidates.any { it.equals(qnnNpuDispatchExactLib, ignoreCase = true) }}")
         println("Readiness: ${if (status.ready) "candidate-ready" else "blocked"}")
     }
 }
@@ -198,6 +306,8 @@ tasks.register("printQnnNpuReadiness") {
 
 val qnnDirectProbeDebugJniSource = layout.projectDirectory.file("src/debug/cpp/qnn_direct_probe_debug.cpp")
 val qnnDirectProbeDebugJniOutputDir = layout.buildDirectory.dir("generated/qnnDirectProbeDebugJniLibs/arm64-v8a")
+val qairt244AppJniSmokeSource = layout.projectDirectory.file("src/customBuildExperimentDebug/cpp/lami_qairt244_smoke.cpp")
+val qairt244AppJniSmokeOutputDir = layout.projectDirectory.dir("src/customBuildExperimentDebug/jniLibs/arm64-v8a")
 
 fun findAndroidNdkClang(): File? {
     val explicitNdk = listOfNotNull(
@@ -301,8 +411,114 @@ tasks.register("buildQnnDirectProbeDebugJni") {
     }
 }
 
+tasks.register("buildQairt244AppJniSmokeCustomBuildExperimentDebugJni") {
+    group = "build"
+    description = "Builds the customBuildExperimentDebug-only QAIRT 2.44 app JNI logcat smoke library."
+    inputs.file(qairt244AppJniSmokeSource)
+    outputs.file(qairt244AppJniSmokeOutputDir.file("liblami_qairt244_smoke.so"))
+
+    doLast {
+        val outputDir = qairt244AppJniSmokeOutputDir.asFile
+        outputDir.mkdirs()
+        val outputFile = File(outputDir, "liblami_qairt244_smoke.so")
+        val clangArgs = listOf(
+            "-shared",
+            "-fPIC",
+            "-std=c++17",
+            "-fno-exceptions",
+            "-fno-rtti",
+            "-O0",
+            "-g",
+            "-Wall",
+            "-Wextra",
+            "-nostdlib++",
+            "-Wl,--build-id=sha1",
+        )
+        val localClang = findAndroidNdkClang()
+        if (localClang != null) {
+            exec {
+                commandLine(
+                    listOf(localClang.absolutePath) +
+                        clangArgs +
+                        listOf(
+                            qairt244AppJniSmokeSource.asFile.absolutePath,
+                            "-o",
+                            outputFile.absolutePath,
+                            "-llog",
+                        ),
+                )
+            }
+        } else {
+            val uid = runCatching { Files.getAttribute(projectDir.toPath(), "unix:uid").toString() }
+                .getOrDefault("1000")
+            val gid = runCatching { Files.getAttribute(projectDir.toPath(), "unix:gid").toString() }
+                .getOrDefault("1000")
+            exec {
+                commandLine(
+                    listOf(
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--user",
+                        "$uid:$gid",
+                        "-v",
+                        "${projectDir.parentFile.absolutePath}:/work",
+                        "-w",
+                        "/work/${projectDir.name}",
+                        "litert-build:ubuntu22",
+                        "/opt/android-sdk/ndk/28.1.13356709/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang++",
+                    ) +
+                        clangArgs +
+                        listOf(
+                            "src/customBuildExperimentDebug/cpp/lami_qairt244_smoke.cpp",
+                            "-o",
+                            "src/customBuildExperimentDebug/jniLibs/arm64-v8a/liblami_qairt244_smoke.so",
+                            "-llog",
+                        ),
+                )
+            }
+        }
+        exec {
+            commandLine("readelf", "-d", outputFile.absolutePath)
+            isIgnoreExitValue = true
+        }
+    }
+}
+
 tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
+}
+
+tasks.matching {
+    it.name == "mergeStandardDebugJniLibFolders" ||
+        it.name == "mergeNpuExperimentDebugJniLibFolders" ||
+        it.name == "mergeGalleryStackExperimentDebugJniLibFolders" ||
+        it.name == "mergeCustomBuildExperimentDebugJniLibFolders"
+}.configureEach {
+    dependsOn("buildQnnDirectProbeDebugJni")
+}
+
+tasks.matching {
+    it.name == "mergeCustomBuildExperimentDebugJniLibFolders"
+}.configureEach {
+    dependsOn("buildQairt244AppJniSmokeCustomBuildExperimentDebugJni")
+}
+
+afterEvaluate {
+    if (tasks.findByName("compileDebugKotlin") == null && tasks.findByName("compileStandardDebugKotlin") != null) {
+        tasks.register("compileDebugKotlin") {
+            group = "build"
+            description = "Compatibility alias for the standard debug Kotlin compile task."
+            dependsOn("compileStandardDebugKotlin")
+        }
+    }
+    if (tasks.findByName("assembleDebug") == null && tasks.findByName("assembleStandardDebug") != null) {
+        tasks.register("assembleDebug") {
+            group = "build"
+            description = "Compatibility alias for the standard debug assemble task."
+            dependsOn("assembleStandardDebug")
+        }
+    }
 }
 
 tasks.register("copyQnnNpuNativeLibsFromQairt") {
@@ -391,8 +607,13 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-    debugImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
+    add("standardImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
+    add("npuExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidNpuExperimentDebugVersion")
+    add("galleryStackExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryStackExperimentDebugVersion")
+    add("customBuildExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidCustomBuildExperimentDebugVersion")
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
+    implementation("com.qualcomm.qti:qnn-runtime:2.34.0")
+    implementation("com.qualcomm.qti:qnn-litert-delegate:2.34.0")
     implementation("com.google.mediapipe:tasks-genai:0.10.33")
     
 

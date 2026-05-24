@@ -1,0 +1,10 @@
+applicationId=io.github.ninbyo02.lami.customnpu
+label=customnpu-lower-level-single-token
+runId=1779485001728
+ro.product.model=NX733J
+ro.soc.model=SM8750
+ro.soc.manufacturer=QTI
+ro.hardware=qcom
+ro.build.version.sdk=36
+ro.build.fingerprint=nubia/PQ84A02-UN/PQ84A02:16/BQ2A.250705.001-BP2A.250605.031.A3/20260120.174816:user/release-keys
+debug.ld.app.io.github.ninbyo02.lami.customnpu=

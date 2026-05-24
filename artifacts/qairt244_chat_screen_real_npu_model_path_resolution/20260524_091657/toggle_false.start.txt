@@ -1,0 +1,6 @@
+Starting: Intent { cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.npu.DevNpuChatScreenToggleActivity (has extras) }
+Status: ok
+LaunchState: UNKNOWN (0)
+Activity: io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.npu.DevNpuChatScreenToggleActivity
+WaitTime: 72
+Complete

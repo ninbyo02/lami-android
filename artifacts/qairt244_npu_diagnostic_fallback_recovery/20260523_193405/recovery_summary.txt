@@ -1,0 +1,6 @@
+case=recovery_after_failure
+refresh_checked=true
+run_button_enabled=false
+dev_checkbox_checked=false
+normal_chatscreen_connected=false
+selected_path_npu_normal_route=false

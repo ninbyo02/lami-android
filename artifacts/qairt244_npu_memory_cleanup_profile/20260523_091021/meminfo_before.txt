@@ -1,0 +1,56 @@
+Applications Memory Usage (in Kilobytes):
+Uptime: 927722880 Realtime: 1155419867
+
+** MEMINFO in pid 26465 [io.github.ninbyo02.lami.customnpu] **
+                   Pss  Private  Private  SwapPss      Rss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------   ------
+  Native Heap    14115    14104        0       12    16928    54104     9588    41536
+  Dalvik Heap      928      816        0        7     7856    10384     2192     8192
+ Dalvik Other     3758     1460        0        0     6648
+        Stack      520      520        0        0      528
+       Ashmem       15        0        0        0     1380
+      Gfx dev       36       36        0        0       36
+    Other dev      159        0      156        0     1208
+     .so mmap    25570     1808    22492        2    51984
+    .jar mmap      998        0       28        0    46272
+    .apk mmap    72437        0    72244        0    73664
+    .dex mmap       16       12        0        0      716
+    .oat mmap       12        0        0        0     1808
+    .art mmap     7274     7120        0       10    21076
+   Other mmap     1199        4        0        0     3036
+    GL mtrack      384      384        0        0      384
+      Unknown     3233     2556      596       13    10844
+        TOTAL   130698    28820    95516       44   244368    64488    11780    49728
+
+ App Summary
+                       Pss(KB)                        Rss(KB)
+                        ------                         ------
+           Java Heap:     7936                          28932
+         Native Heap:    14104                          16928
+                Code:    96704                         179156
+               Stack:      520                            528
+            Graphics:      420                            420
+       Private Other:     4652
+              System:     6362
+             Unknown:                                   18404
+
+           TOTAL PSS:   130698            TOTAL RSS:   244368       TOTAL SWAP PSS:       44
+
+ Objects
+               Views:        0         ViewRootImpl:        0
+         AppContexts:        3           Activities:        0
+              Assets:       43        AssetManagers:        0
+       Local Binders:        7        Proxy Binders:       45
+       Parcel memory:      132         Parcel count:      991
+    Death Recipients:        1             WebViews:        0
+
+ Native Allocations
+                         Count                       Total(kB)
+                        ------                         ------
+    Other (malloced):      316                             28
+ Other (nonmalloced):       51                             41
+
+ SQL
+         MEMORY_USED:        0
+  PAGECACHE_OVERFLOW:        0          MALLOC_SIZE:        0

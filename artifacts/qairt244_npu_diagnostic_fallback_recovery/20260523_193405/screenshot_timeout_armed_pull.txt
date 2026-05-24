@@ -1,0 +1,1 @@
+/sdcard/qairt244_fallback_timeout_armed.png: 1 file pulled, 0 skipped. 11.3 MB/s (340945 bytes in 0.029s)

@@ -1,0 +1,1 @@
+Starting: Intent { cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity (has extras) }

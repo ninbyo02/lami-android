@@ -1,0 +1,10 @@
+reasonCode=ok
+resolved=true
+resolved_model_path=/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/1779578208133_gemma-4-E2B-it.litertlm
+checked_model_path=/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/1779578208133_gemma-4-E2B-it.litertlm
+candidate_count=1
+checked_exists=true
+checked_can_read=true
+checked_length=2583085056
+candidate_0=/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/1779578208133_gemma-4-E2B-it.litertlm
+saved_to_settings=false

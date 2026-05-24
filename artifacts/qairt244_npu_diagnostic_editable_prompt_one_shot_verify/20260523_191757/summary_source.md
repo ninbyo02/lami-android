@@ -1,0 +1,29 @@
+# QAIRT 2.44 NPU Diagnostic Editable Prompt Guarded Run
+
+Artifact: `artifacts/qairt244_npu_diagnostic_editable_prompt_guarded_run/20260523_191615`
+
+```text
+executed=true
+wait_status=success
+result=success
+actual_prompt=Hello
+normalized_prompt=Hello
+output=! How अच्छे
+timeout=false
+fresh_crash=false
+prompt=Hello
+prompt_validation=ok
+custom_build_artifact=artifacts/qairt244_editable_prompt_entrypoint_build/20260523_183705
+artifact_present=true
+native_marker=qairt244_editable_prompt_smoke_v1
+native_editable_prompt_supported=true
+set_max_output_tokens_3_evidence=true
+kotlin_supportsEditablePromptExecution=true
+max_output_tokens=3
+normal_chatscreen_connected=false
+selected_path_npu_normal_route=false
+prompt_execution_connected=true
+high_level_generateResponse=false
+normal_chatscreen_connected=false
+selected_path_npu_normal_route=false
+```

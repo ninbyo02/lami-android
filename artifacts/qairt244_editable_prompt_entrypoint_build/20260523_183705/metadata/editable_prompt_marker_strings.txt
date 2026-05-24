@@ -1,0 +1,9 @@
+# Editable prompt marker strings
+prompt_source=editable_prompt
+%s success prompt_source=editable_prompt output_candidates=%zu output_bytes=%zu output_token_count=unavailable output_token_count_source=not_exposed_by_RunDecode_response elapsed_ms=%ld model_assets_elapsed_ms=%ld engine_settings_elapsed_ms=%ld engine_create_elapsed_ms=%ld session_create_elapsed_ms=%ld prefill_elapsed_ms=%ld decode_elapsed_ms=%ld cleanup_elapsed_ms=%ld npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag Engine.close=unique_ptr_cleanup
+actual_prompt=%s
+%s before RunDecode SetMaxOutputTokens(3)
+%s ENTRY prompt_source=editable_prompt max_output_tokens=3 model_path_null=%d native_library_dir_null=%d cache_dir_null=%d result_path_null=%d prompt_null=%d
+normalized_prompt=%s
+%s before RunPrefill prompt_source=editable_prompt prompt_bytes=%zu prompt_token_count=unavailable prompt_token_count_source=not_exposed
+qairt244_editable_prompt_smoke_v1

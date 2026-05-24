@@ -1,0 +1,42 @@
+QAIRT 2.44 litert_lm_main CLI planning artifact
+timestamp: 20260521_081545
+
+Status:
+- Planning only.
+- CLI NPU execution was not run.
+- Inference was not run.
+- Conversation was not created.
+- Session was not created.
+- generate/generateResponse was not called.
+
+Target:
+- //runtime/engine:litert_lm_main exists in LiteRT-LM.
+- BUILD path: /home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/BUILD
+- Source path: /home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_main.cc
+
+Agent D query summary:
+- bazel query //runtime/engine:litert_lm_main: succeeded.
+- Android arm64 cquery with --config=android_arm64: failed during analysis due
+  to missing CC toolchain resolution.
+- Environment observed by Agent D: ANDROID_NDK_HOME empty, ANDROID_HOME empty,
+  ANDROID_SDK_ROOT=/usr/lib/android-sdk.
+
+Safety finding:
+- Upstream litert_lm_main is not safe for this task.
+- With --model_path it creates an engine, creates ConversationConfig, creates a
+  Conversation, sends a prompt, waits up to 10 minutes, and prints benchmark
+  output.
+- It also supplies a default prompt if no prompt flag is given.
+
+QAIRT 2.44 inputs observed:
+- /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android
+  contains libQnnSystem.so, libQnnHtp.so, libQnnHtpPrepare.so,
+  libQnnHtpV79Stub.so, libQnnDsp.so, and libQnnGpu.so.
+- /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/hexagon-v79/unsigned
+  contains libQnnHtpV79Skel.so.
+
+Recommended future query/build condition:
+- First create or locate an initialize-only CLI target that exits before
+  Conversation::Create, Session creation, prompt submission, SendMessageAsync,
+  GenerateContent, or WaitUntilDone for inference.
+- Then rerun Android arm64 cquery with explicit Android SDK/NDK toolchain setup.

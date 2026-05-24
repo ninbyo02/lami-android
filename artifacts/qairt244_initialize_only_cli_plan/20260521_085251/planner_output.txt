@@ -1,0 +1,45 @@
+LiteRT-LM initialize-only CLI planner
+Generated: 2026-05-21T08:52:51+09:00
+Mode: planning/read-only; no CLI execution, no inference, no prompt, no Conversation, no Session, no generate.
+
+Inputs:
+  LiteRT-LM root: /home/sato/project/litert-custom-build/LiteRT-LM
+  Future model_path arg: /data/local/tmp/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+  Future native_library_dir arg: /data/local/tmp/litertlm-qairt244-initialize-only/lib
+  Future backend arg: npu
+  Future no_generate arg: true
+
+Existing upstream target check:
+  found //runtime/engine:litert_lm_main
+
+Unsafe upstream litert_lm_main markers:
+  present: Conversation::Create
+  present: ConversationConfig
+  present: SessionConfig
+  present: SendMessageAsync
+  present: WaitUntilDone
+  present: GetInputPrompt
+  present: default prompt
+
+Unsafe advanced main markers:
+  present: RunLiteRtLm
+  present: GetInputPrompt
+  present: input_prompt
+  present: default prompt
+  present: use_session
+
+Initialize boundary markers:
+  found in inspected sources: EngineFactory::CreateAny
+  found in inspected sources: EngineFactory::CreateDefault
+  found in inspected sources: SetLitertDispatchLibDir
+  found in inspected sources: Tag::kDispatchLibraryDir
+  found in inspected sources: CreateSession
+
+Future target design:
+  source: runtime/engine/litert_lm_initialize_only_main.cc
+  bazel target: //runtime/engine:litert_lm_initialize_only_main
+  stop after: EngineFactory::CreateAny returns an Engine
+  close by: destroying the Engine unique_ptr and exiting
+  forbidden calls: Conversation::Create, CreateSession, prompt handling, SendMessageAsync, GenerateContent, RunPrefill, RunDecode
+
+This script intentionally does not run bazel, adb, a CLI binary, or inference.

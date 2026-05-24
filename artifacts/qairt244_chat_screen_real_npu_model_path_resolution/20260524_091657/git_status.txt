@@ -1,0 +1,4 @@
+ M app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt
+ M scripts/run_qairt244_chat_screen_real_npu_first_run.sh
+?? app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/Qairt244ModelPathResolver.kt
+?? app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/Qairt244ModelPathResolverTest.kt

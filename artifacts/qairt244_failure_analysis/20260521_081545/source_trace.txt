@@ -1,0 +1,101 @@
+LiteRT Qualcomm dispatch source trace
+Date: 2026-05-21
+
+Scope: source-only trace. No source modified, no build run, no inference or dry-run run.
+
+Core finding:
+`No usable Dispatch runtime found` is emitted by LiteRT's dispatch delegate after dispatch API initialization fails. It is not just a missing-library message. A dispatch `.so` can exist and export `LiteRtDispatchGetApi`, while still being unusable because the dispatch API cannot initialize QNN/HTP, fails version checks, fails SoC/device setup, or cannot later consume the model's embedded dispatch bytecode.
+
+Exact fatal path:
+- LiteRT/litert/runtime/dispatch/dispatch_delegate.cc:112-120
+  `Initialize()` calls `InitializeDispatchApi()`. On failure it logs `Failed to initialize Dispatch API: ...` and sets `has_dispatch_runtime_ = false`.
+- LiteRT/litert/runtime/dispatch/dispatch_delegate.cc:125-132
+  `CreateDelegateKernelInterface()` checks `has_dispatch_runtime_`; false emits:
+  `Failed to create a dispatch delegate kernel: No usable Dispatch runtime found`.
+
+Call chain:
+1. LiteRT-LM NPU selection:
+   - LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor_factory.cc:164-176 routes `Backend::NPU` to the NPU executor.
+   - LiteRT-LM/runtime/executor/llm_litert_npu_compiled_model_executor.cc:486-505 creates LiteRT NPU+CPU options; Android Qualcomm options set log level off and HTP burst mode.
+
+2. LiteRT compiled model:
+   - LiteRT/litert/runtime/compiled_model.cc:764-803 initializes model/runtime.
+   - LiteRT/litert/runtime/compiled_model.cc:809-820 injects dispatch opaque options with model allocation base and fd.
+   - LiteRT/litert/runtime/compiled_model.cc:831-887 creates/applies accelerator delegates.
+
+3. NPU accelerator:
+   - LiteRT/litert/runtime/accelerators/dispatch/dispatch_accelerator.cc:138-149 requires dispatch library dir unless dispatch is statically linked.
+   - LiteRT/litert/runtime/accelerators/dispatch/dispatch_accelerator.cc:83-90 creates the dispatch delegate.
+
+4. Dispatch runtime load:
+   - LiteRT/litert/runtime/dispatch/litert_dispatch.cc:97-116 finds dispatch libraries under `kLiteRtEnvOptionTagDispatchLibraryDir`.
+   - LiteRT/litert/runtime/dispatch/litert_dispatch.cc:151-164 loads the shared lib, resolves `LiteRtDispatchGetApi`, and calls it.
+   - LiteRT/litert/runtime/dispatch/litert_dispatch.cc:171-180 checks dispatch API struct version and calls vendor `initialize`.
+   - LiteRT/litert/runtime/dispatch/litert_dispatch.cc:434-438 forwards `LiteRtDispatchCheckRuntimeCompatibility`.
+
+5. Qualcomm dispatch init:
+   - LiteRT/litert/vendors/qualcomm/dispatch/dispatch_api.cc:70-138 parses Qualcomm options, uses dispatch library dir as QNN shared library dir, creates `QnnManager`, and reads QNN API/build IDs.
+   - LiteRT/litert/vendors/qualcomm/dispatch/dispatch_api.cc:176-179 reports `kLiteRtDispatchCapabilitiesBasic` after successful init.
+   - LiteRT/litert/vendors/qualcomm/dispatch/dispatch_api.cc:344-367 rejects a LiteRT caller newer than the dispatch build.
+
+6. QNN/HTP setup:
+   - LiteRT/litert/vendors/qualcomm/qnn_manager.cc:392-418 updates `ADSP_LIBRARY_PATH` and loader path.
+   - LiteRT/litert/vendors/qualcomm/qnn_manager.cc:420-428 loads `libQnnSystem.so`, resolves system API, loads `libQnnHtp.so`, and checks expected HTP backend API version.
+   - LiteRT/litert/vendors/qualcomm/qnn_manager.cc:154-253 rejects missing providers, wrong QNN core/backend major versions, or too-old minor versions.
+   - LiteRT/litert/vendors/qualcomm/core/backends/htp_backend.cc:397-420 asks QNN HTP for platform SoC info and maps SoC to LiteRT's table.
+   - LiteRT/litert/vendors/qualcomm/core/backends/htp_backend.cc:423-499 configures and creates the QNN HTP device.
+
+7. Model dispatch bytecode:
+   - LiteRT/litert/runtime/dispatch/dispatch_delegate_kernel.cc:495-545 reads dispatch custom op initial data, requires nonzero `bytecode_offset`, builds a `LiteRtMemBuffer`, and calls `LiteRtDispatchInvocationContextCreate`.
+   - LiteRT/litert/core/dispatch_op_schema.cc:74-86 defines custom options keys: `bytecode_size`, `bytecode_offset`, `name`.
+   - LiteRT/litert/vendors/qualcomm/dispatch/litert_dispatch_invocation_context.cc:114-180 parses QNN context binary, finds graph by function name, creates QNN context from binary, and retrieves the graph.
+
+Why `LiteRtDispatchGetApi` is insufficient:
+- It only proves the dispatch shim can return a `LiteRtDispatchApi` struct.
+- It does not prove version compatibility, QNN library availability, QNN provider/API compatibility, HTP SoC/device creation, capability bits, or compiled model context-binary compatibility.
+- The fatal observed here occurs when `has_dispatch_runtime_` is false, which is set after any `InitializeDispatchApi()` failure.
+
+Required runtime/model conditions inferred from source:
+- Compatible `libLiteRt.so`, LiteRT-LM JNI, and `libLiteRtDispatch_Qualcomm.so` dispatch API/C API versions.
+- QNN libraries from the expected QAIRT generation:
+  `libQnnSystem.so`, `libQnnHtp.so`, likely `libQnnHtpPrepare.so`, and SM8750/V79 stub/skel artifacts such as `libQnnHtpV79Stub.so` and `libQnnHtpV79Skel.so`.
+- Android app namespace and `ADSP_LIBRARY_PATH` must make those QNN and V79 artifacts reachable.
+- Device platform info must map to supported SM8750/V79. This tree maps SM8750 to V79/8 MB VTCM in:
+  - LiteRT/litert/vendors/qualcomm/core/schema/soc_table.cc:42-44
+  - LiteRT/litert/vendors/qualcomm/supported_soc.csv:4
+- `.litertlm` must contain TFLite model sections with section metadata and dispatch custom ops whose options point to valid embedded QNN context binaries.
+- The embedded QNN context binaries must be compiled for the target SoC/HTP arch and compatible QNN runtime generation.
+
+Conditions that can collapse to `No usable Dispatch runtime found`:
+- No dispatch runtime found in dispatch library dir.
+- Wrong selected dispatch runtime among multiple candidates.
+- Dispatch `.so` load failure or missing `LiteRtDispatchGetApi`.
+- Dispatch API struct version mismatch.
+- Qualcomm initialize failure before capabilities/device context.
+- Missing/unloadable `libQnnSystem.so` or `libQnnHtp.so`.
+- Missing/failing QNN provider symbols.
+- QNN core/backend API major mismatch or too-old minor version.
+- HTP platform info unsupported or no DSP arch mapping.
+- HTP backend/device/perf-control setup failure.
+- Missing basic dispatch capability or failed `LiteRtDispatchDeviceContextCreate`.
+
+Useful existing logs:
+- `Failed to initialize Dispatch API: ...` in dispatch_delegate.cc.
+- `Loading shared library`, `No dispatch library found`, and `Unsupported dispatch runtime version` in litert_dispatch.cc.
+- Dispatch vendor/build/API/capabilities logs in dispatch_delegate.cc.
+- Qualcomm option/QnnManager/API/build failures in dispatch_api.cc.
+- QNN load/provider/version logs in qnn_manager.cc.
+- `ADSP_LIBRARY_PATH` in qnn_manager.cc.
+- HTP SoC/device logs in htp_backend.cc.
+
+Suggested future logging points if source edits are allowed:
+- Selected dispatch runtime path/count in litert_dispatch.cc.
+- `LiteRtDispatchGetApi` status and `TheApi.version` in litert_dispatch.cc.
+- Shared library dir, backend, and `QnnManager::Create` error in dispatch_api.cc.
+- Resolved QNN paths/provider versions/backend build ID/parsed SDK in qnn_manager.cc.
+- Raw SoC model, mapped SoC, DSP arch, and VTCM in htp_backend.cc.
+- Dispatch op bytecode offset/size/name/model base/fd in dispatch_delegate_kernel.cc.
+- Context binary graph list, selected function, `contextCreateFromBinary`, and `graphRetrieve` statuses in litert_dispatch_invocation_context.cc.
+
+Bottom line:
+The source strongly supports treating the observed failure as a generic late symptom of an earlier dispatch runtime initialization failure. With dispatch `.so` and `LiteRtDispatchGetApi` present, the likely remaining classes are QAIRT/QNN generation mismatch, Android QNN/V79 library path or namespace failure, unsupported/misdetected SM8750/V79 HTP setup, or compiled model/QNN context binary mismatch.

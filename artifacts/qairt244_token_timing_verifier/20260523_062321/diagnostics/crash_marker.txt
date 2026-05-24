@@ -1,0 +1,2 @@
+1779478486470 runId=1779478487993_2 lastStage=Engine.initialize invoking method=Engine.initialize(): void modelPath=/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm pid=6194 completed=false
+1779478487996 runId=1779478487993_2 lastStage=done modelPath=/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm pid=6194 completed=true

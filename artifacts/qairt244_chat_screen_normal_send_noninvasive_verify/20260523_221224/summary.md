@@ -1,0 +1,21 @@
+# ChatScreen normal send path non-invasive verification
+
+- app: io.github.ninbyo02.lami.customnpu
+- build: customBuildExperimentDebug
+- launch: io.github.ninbyo02.lami.MainActivity
+- toggle: DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED=false
+- code changes during this verification: none
+- normal ChatScreen launch: success
+- normal send action executed: no
+- reason for no send: non-invasive verification only; no LOCAL/GPU/NPU generation was triggered
+- static check: blocked branch is guarded by false toggle and returns to existing LOCAL path when disabled
+- static check: branch is before DB/TTS/Markdown/streaming paths but inactive with current toggle
+- static check: main ChatScreen has no direct NPU package import; only reflection string remains
+- runtime marker scan: empty
+- adapter_not_connected observed: no
+- selectedPath=npu applied: no evidence
+- NPU generation: not run
+- Engine.initialize: not run
+- RunDecode: not run
+- high-level generateResponse: not changed or invoked by this verification
+- DB/TTS/Markdown/streaming: no runtime action triggered those paths

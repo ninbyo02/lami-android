@@ -1,0 +1,9 @@
+path=/home/sato/project/lami-android/artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/reference_libs/maven_0.11.0/libLiteRt.so
+label=maven_0.11.0
+present=true
+size=5046960
+sha256=31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24
+build_id=80fa0688ac32301185275c903cec97bd
+soname=libLiteRt.so
+needed=libdl.so,libGLESv3.so,libEGL.so,libm.so,liblog.so,libc.so
+/home/sato/project/lami-android/artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/reference_libs/maven_0.11.0/libLiteRt.so: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[md5/uuid]=80fa0688ac32301185275c903cec97bd, stripped

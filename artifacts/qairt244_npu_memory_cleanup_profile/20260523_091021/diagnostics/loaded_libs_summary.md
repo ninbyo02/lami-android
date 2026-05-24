@@ -1,0 +1,16 @@
+# Loaded native library summary
+
+- applicationId: `io.github.ninbyo02.lami.customnpu`
+
+| Library | Mapped in tombstone | Present in nativeLibraryDir/APK | Build ID |
+| --- | --- | --- | --- |
+| `liblitertlm_jni.so` | true | true | `bb6f8924e466e7039a1f54d7170a2eb2` |
+| `libLiteRt.so` | true | true | `a03032ad1eeefda446478aea308c2ed0` |
+| `libLiteRtDispatch_Qualcomm.so` | true | true | `283f860170c8b970f14db885eab73a95` |
+| `libQnnSystem.so` | true | true | `0d409cdd664b8b0a` |
+| `libQnnHtp.so` | true | true | `f2c90c1775a109e1` |
+| `libQnnHtpPrepare.so` | false | true | `edb612e67d6d27c2` |
+| `libQnnHtpV79Stub.so` | false | true | `10d7ad6f9195411a` |
+| `libQnnHtpV79Skel.so` | false | true | `` |
+| `libLiteRtRuntimeCApi.so` | false | false | `-` |
+| `libllm_inference_engine_jni.so` | true | true | `2f6f9104344966674bf6587935d27cc8` |

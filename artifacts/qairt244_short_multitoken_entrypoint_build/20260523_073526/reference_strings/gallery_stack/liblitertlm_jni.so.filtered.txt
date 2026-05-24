@@ -1,0 +1,729 @@
+        {#- Rename "assistant" to "model". -#}
+        {%- set role = "model" -%}
+        {{- '<start_of_turn>model\n' -}}
+    {{'<start_of_turn>model\n'}}
+  LlmModelType:
+  ModelAssets:
+ TaskEXT execution model.
+ backend constraint mismatch. Model requires one of [
+ called with execution model
+ can only be used with physical addressing models
+ cannot appear before the memory model instruction
+ decorated variable must not be used in fragment execution model as an Output storage class for Entry Point id
+ decorated variable must not be used in vertex execution model as an Input storage class for Entry Point id
+ execution model entry points require either the
+ has_stop has_max_tokensParseFloatErrorUnsatisfiableSchemaErrormessageIgnoreImportaliasMultiImportnamesLLGuidanceOverrideRuleDeclareKwIgnoreKwImportKwOverrideKwDeclareKwJsonKwRegexKwLLGuidanceKwIfKwLarkColonDoubleColonEqualsCommaDotDotDotArrowLParenRParenLBraceRBraceLBracketRBracketTildeHashUnderscoreOpRegexpNumberHexNumberNewlineVBarSpecialTokenGrammarRefSKIPEOFRuleParamsTokenParams..= (exhausted)EmptyInvalidExpansionsParamValueendConstBitOrBitAndSelfRefValue for 'multipleOf' must be non-negativeexpected RawValueAliasconjunctsparam_condExpansionopGroupMaybeValueLiteralRangeNameParamLiteralStringLiteralRegexNestedLarkTemplateUsagevaluescolumnsrcLexemeIdxdescription() is deprecated; use Display
+ in Vertex or Tessellation execution model requires the
+ instructions require Geometry execution model
+ is a pointer, which is invalid in the Logical addressing model.
+ is banned when using the Vulkan memory model.
+ model file not found in task bundle.
+ not found in the model.
+ requires Fragment execution model
+ requires RayGenerationKHR execution model
+ requires RayGenerationKHR, ClosestHitKHR and MissKHR execution models
+ requires one of these capabilities:
+ spec allows BuiltIn FragCoord to be used only with Fragment execution model.
+ spec allows BuiltIn FragDepth to be used only with Fragment execution model.
+ spec allows BuiltIn FrontFacing to be used only with Fragment execution model.
+ spec allows BuiltIn InstanceIndex to be used only with Vertex execution model.
+ spec allows BuiltIn VertexIndex to be used only with Vertex execution model.
+ to be not be used with GLCompute execution model.
+ to be used only with Fragment execution model.
+ to be used only with Fragment, Vertex, TessellationControl, TessellationEvaluation or Geometry execution models.
+ to be used only with MeshEXT execution model.
+ to be used only with TessellationControl or TessellationEvaluation execution models.
+ to be used only with Vertex execution model.
+ to be used only with Vertex, Geometry, MeshNV or MeshEXT execution models.
+ to be used only with Vertex, TessellationEvaluation, Geometry, or Fragment execution models.
+ to be used only with the Fragment execution model.
+ to be used with the execution model
+ within the MeshEXT Execution Model must also be
+!IsUnknown(PieceToId(absl::string_view(model_->bos_piece().data())))
+!IsUnknown(PieceToId(absl::string_view(model_->eos_piece().data())))
+!model_signatures.input_positions.empty()
+!model_signatures.input_tokens.empty() || model_signatures.input_embeddings.has_value()
+!model_signatures.output_logits.empty()
+' was not found in the model's signatures.
+'Init Model assets
+, which cannot be used with the current execution model:
+-bit int scalar when Addressing Model is
+-bit integer for the addressing model used in the module)
+. All files in the model asset bundle are:
+./learning/language/constraints/fst/schema_conversion.h
+./learning/language/constraints/fst/schema_utils.h
+./third_party/odml/litert/litert/cc/litert_compiled_model.h
+./third_party/odml/litert/litert/cc/litert_model.h
+./third_party/odml/litert/litert/cc/litert_model_types.h
+./third_party/odml/litert/litert/runtime/compiled_model.h
+./third_party/odml/litert/ml_drift/tflite/model_builder_helper.h
+./third_party/odml/litert_lm/runtime/components/model_resources.h
+./third_party/odml/litert_lm/runtime/components/model_resources_task.h
+./third_party/odml/litert_lm/runtime/conversation/model_data_processor/function_gemma_data_processor.h
+./third_party/odml/litert_lm/runtime/conversation/model_data_processor/gemma4_data_processor.h
+./third_party/odml/litert_lm/runtime/conversation/model_data_processor/generic_data_processor.h
+./third_party/odml/litert_lm/runtime/conversation/model_data_processor/model_data_processor.h
+./third_party/odml/litert_lm/runtime/conversation/model_data_processor/qwen3_data_processor.h
+./third_party/sentencepiece/src/model_interface.h
+: "false[,:]type must be a stringdw$schema
+: Memory Semantics Volatile requires capability VulkanMemoryModelKHR
+; Schema:
+; this may confuse the model
+> which is called with execution model
+APIGetFormatCapabilities
+Addressing model must be Logical or PhysicalStorageBuffer64
+Addressing model must be Physical32 or Physical64
+Adds a small amount of work to empty render passes which perform a resolve. This toggle is enabled by default on Qualcomm GPUs, where it is needed to force the resolve to complete.
+AllocateTensors() called on inconsistent model.
+AudioLiteRtCompiledModelExecutor created with encoder_shrinking_factor:
+BaryCoordPullModelAMD
+BundledWithMainModel:
+Cache path cannot be computed without knowing the model path.
+CalculateEntropy is not available for the current model.
+CallableDataKHR Storage Class is limited to RayGenerationKHR, ClosestHitKHR, CallableKHR, and MissKHR execution model
+Cat empty jsonfewer elements in arrayidcontentspecialno_forcingallow_invalid_utf8allow_initial_skipjson_schemalark_grammarmax_tokenssubstring_wordssubstring_charsNotStoppedMaxTokensTotalMaxTokensParserNoExtensionNoExtensionBiasEndOfSentenceInternalErrorLexerTooComplexstrhexobjectcapturefinal_textstop_reasonnum_tokensis_generatedstatsruntime_usitem_separatorkey_separatorwhitespace_flexiblewhitespace_patterncoerce_one_oflenientcompute_time_uscached_rowsall_itemslexer_costslices_appliedtrie_nodes_walkedlexer_opsnum_lex_errorsnum_lexemesstruct AddedToken with 3 elementsstruct GrammarWithLexer with 3 elementsstruct TopLevelGrammar with 2 elementsstruct RegexExt with 3 elementsfewer elements in mapullrue$serde_json::private::RawValue
+CloneContext is only supported for streaming models.
+CompatibilityModeLimits
+CreateNewContext is only supported for streaming models.
+DELEGATE op shouldn't exist in model.
+DNF too large, fuel exhaustednon-string panic!()\/\t0-90-9a-zA-Z_ \t\n\r\f\vdecoderByteLevelByteFallbackReplaceStringadded_tokensmodelvocab<0x>booleannumberintegerstringarrayminProperties > maxPropertiesrequired > maxPropertiestype must be a string or array of stringsdate-timeemailunknown(?P<time_low>[0-9a-fA-F]{8})-(?P<time_mid>[0-9a-fA-F]{4})-(?P<time_high_and_version>[0-9a-fA-F]{4})-(?P<clock_seq_and_reserved>[0-9a-fA-F]{2})(?P<clock_seq_low>[0-9a-fA-F]{2})-(?P<node>[0-9a-fA-F]{12})(?:(?P<full>(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}))|(?:::(?:[0-9a-fA-F]{1,4}:){0,5}(?P<ls32>[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}))|(?:(?P<h16_1>[0-9a-fA-F]{1,4})?::(?:[0-9a-fA-F]{1,4}:){0,4}(?P<ls32_1>[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}))|(?:((?:[0-9a-fA-F]{1,4}:){0,1}[0-9a-fA-F]{1,4})?::(?:[0-9a-fA-F]{1,4}:){0,3}(?P<ls32_2>[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}))|(?:((?:[0-9a-fA-F]{1,4}:){0,2}[0-9a-fA-F]{1,4})?::(?:[0-9a-fA-F]{1,4}:){0,2}(?P<ls32_3>[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}))|(?:((?:[0-9a-fA-F]{1,4}:){0,3}[0-9a-fA-F]{1,4})?::[0-9a-fA-F]{1,4}:(?P<ls32_4>[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}))|(?:((?:[0-9a-fA-F]{1,4}:){0,4}[0-9a-fA-F]{1,4})?::(?P<ls32_5>[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}))|(?:((?:[0-9a-fA-F]{1,4}:){0,5}[0-9a-fA-F]{1,4})?::(?P<h16_2>[0-9a-fA-F]{1,4}))|(?:((?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4})?::)((([0-9])|(([1-9])[0-9]|(25[0-5]|(2[0-4]|(1)[0-9])[0-9])))\.){3}(([0-9])|(([1-9])[0-9]|(25[0-5]|(2[0-4]|(1)[0-9])[0-9])))[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*(?P<local_part>(?P<dot_string>[a-zA-Z0-9!#$%&'*+\-/=?\^_`{|}~]+(\.[a-zA-Z0-9!#$%&'*+\-/=?\^_`{|}~]+)*))@((?P<domain>(?P<sub_domain>[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)(\.(?P<sub_domain2>[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?))*)|\[(?P<ipv4>((([0-9])|(([1-9])[0-9]|(25[0-5]|(2[0-4]|(1)[0-9])[0-9])))\.){3}(([0-9])|(([1-9])[0-9]|(25[0-5]|(2[0-4]|(1)[0-9])[0-9]))))\])P(?:(?P<dur_date>(?:(?P<dur_year>[0-9]+Y(?:[0-9]+M(?:[0-9]+D)?)?)|(?P<dur_month>[0-9]+M(?:[0-9]+D)?)|(?P<dur_day>[0-9]+D))(?:T(?:(?P<dur_hour>[0-9]+H(?:[0-9]+M(?:[0-9]+S)?)?)|(?P<dur_minute>[0-9]+M(?:[0-9]+S)?)|(?P<dur_second>[0-9]+S)))?)|(?P<dur_time>T(?:(?P<dur_hour2>[0-9]+H(?:[0-9]+M(?:[0-9]+S)?)?)|(?P<dur_minute2>[0-9]+M(?:[0-9]+S)?)|(?P<dur_second2>[0-9]+S)))|(?P<dur_week>[0-9]+W))(?:[0-9]{4}-(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01]))|(?:[0-9]{4}-(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30))|(?:[0-9]{4}-02-(?:0[1-9]|1[0-9]|2[0-9]))(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?P<time_fraction>\.[0-9]+)?(?P<time_zone>[zZ]|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])(?P<date>[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-9])))[tT](?P<time>(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?P<time_fraction>\.[0-9]+)?(?P<time_zone>[zZ]|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9]))l0 must be less than r0Empty range when ld equals rd and not both inclusiveld and rd must have the same lengthx0 must be greater than 0 for non-inclusive single characterInclusive flag must be true for an empty string[0-9]*[1-9][0-9]*-?(0|[1-9][0-9]*)90-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?Infinite numbers not supportedUnexpected equality of left and right string representationsEmpty range when left equals right and not both inclusive()|
+DawnDrmFormatCapabilities
+DawnFormatCapabilities
+Derivative instructions require DerivativeGroupQuadsKHR or DerivativeGroupLinearKHR execution mode for GLCompute, MeshEXT or TaskEXT execution model:
+Derivative instructions require Fragment, GLCompute, MeshEXT or TaskEXT execution model:
+Didn't find op for builtin opcode '%s' version '%d'. An older version of this builtin might be supported. Are you using an old TFLite binary with a newer model?
+Dim SubpassData requires Fragment execution model:
+Disables usage of the blob cache (backed by the platform cache if set/passed). Prevents any persistent caching capabilities, i.e. pipeline caching.
+Dispatch API has insufficient capabilities: %d
+Error building tflite model.
+Execution mode can only be used with a Geometry or tessellation execution model.
+Execution mode can only be used with a Geometry, tessellation, MeshNV or MeshEXT execution model.
+Execution mode can only be used with a Kernel or GLCompute execution model.
+Execution mode can only be used with a Kernel, GLCompute, MeshNV, MeshEXT, TaskNV or TaskEXT execution model.
+Execution mode can only be used with a tessellation execution model.
+Execution mode can only be used with the Fragment execution model.
+Execution mode can only be used with the Fragment or GLCompute execution model.
+Execution mode can only be used with the Geometry MeshNV or MeshEXT execution model.
+Execution mode can only be used with the Geometry execution model.
+Execution mode can only be used with the Kernel execution model.
+Execution mode can only be used with the MeshEXT or MeshNV execution model.
+FPGADSPControlALTERA
+FPGADSPControlINTEL
+Failed to build LiteRt adapter model.
+Failed to build LiteRt encoder model.
+Failed to build LiteRt model
+Failed to build flatbuffer from incoming litert model
+Failed to build flatbuffer model
+Failed to create GemmaModelConstraintProvider.
+Failed to create GemmaModelConstraintProvider:
+Failed to create model assets:
+Failed to get Dispatch API capabilities: %d
+Failed to initialize model memory.
+Failed to invoke the compiled model
+Failed to load model from buffer
+Failed to load model proto:
+Failed to parse integer from Schema.enum
+Failed to parse number from Schema.enum
+Failed to run LLM model.
+Failed to run RoPE model.
+Failed to run cache update model.
+Failed to run compiled model.
+Failed to run embedder model.
+Failed to run embedder per layer model.
+Feature %s requires VulkanMemoryModel toggle on Vulkan.
+Feature DawnDrmFormatCapabilities is not available.
+Feature DawnFormatCapabilities is not available.
+Fragment execution model entry points can only specify one of OriginUpperLeft or OriginLowerLeft execution modes.
+Fragment execution model entry points can specify at most one fragment shader interlock execution mode.
+Fragment execution model entry points can specify at most one of DepthGreater, DepthLess or DepthUnchanged execution modes.
+Fragment execution model entry points can specify at most one of StencilRefUnchangedBackAMD, StencilRefLessBackAMD or StencilRefGreaterBackAMD execution modes.
+Fragment execution model entry points can specify at most one of StencilRefUnchangedFrontAMD, StencilRefLessFrontAMD or StencilRefGreaterFrontAMD execution modes.
+Fragment execution model entry points require either an OriginUpperLeft or OriginLowerLeft execution mode.
+FunctionGemma LlmModelType is required to create FunctionGemmaDataProcessorConfig.
+FvP12LiteRtModelTE
+FvP20LiteRtCompiledModelTE
+GPU sampler unavailable. Falling back to CPU sampling. To use GPU sampling, please make sure libLiteRtTopKWebGpuSampler.so or libLiteRtTopKOpenClSampler.so is available at LD_LIBRARY_PATH on device. You can find the shared library under prebuilt/
+Gemma3N or Gemma3 LlmModelType is required to create Gemma3DataProcessorConfig.
+Gemma4 LlmModelType is required to create Gemma4DataProcessorConfig.
+GenericModel LlmModelType is required to create GenericDataProcessorConfig.
+Geometry execution model entry points must specify exactly one of InputPoints, InputLines, InputLinesAdjacency, Triangles or InputTrianglesAdjacency execution modes.
+Geometry execution model entry points must specify exactly one of OutputPoints, OutputLineStrip or OutputTriangleStrip execution modes.
+GetCapabilities
+GetPhysicalDeviceSurfaceCapabilitiesKHR
+GetScopedFile is not implemented for Task model.
+GetWeightsSectionOffset is not implemented for Task model.
+HitAttributeKHR Storage Class is limited to IntersectionKHR, AnyHitKHR, sand ClosestHitKHR execution model
+HitObjectAttributeEXT Storage Class is limited to RayGenerationKHR, ClosestHitKHR or MissKHR execution model
+HitObjectAttributeNV Storage Class is limited to RayGenerationKHR, ClosestHitKHR or MissKHR execution model
+If the Shader and CooperativeMatrixKHR capabilities are declared, the VulkanMemoryModel capability must also be declared
+ImplicitLod instructions require DerivativeGroupQuadsKHR or DerivativeGroupLinearKHR execution mode for GLCompute, MeshEXT or TaskEXT execution model:
+ImplicitLod instructions require Fragment, GLCompute, MeshEXT or TaskEXT execution model:
+In SPIR-V 1.2 or earlier, OpControlBarrier requires one of the following Execution Models: TessellationControl, GLCompute, Kernel, MeshNV or TaskNV
+In mesh shaders using the MeshEXT Execution Model the OutputPrimitivesEXT Execution Mode must be greater than 0
+In mesh shaders using the MeshEXT Execution Model the OutputVertices Execution Mode must be greater than 0
+IncomingCallableDataKHR Storage Class is limited to CallableKHR execution model
+IncomingRayPayloadKHR Storage Class is limited to AnyHitKHR, ClosestHitKHR, and MissKHR execution model
+Input embeddings required by signature but embedding lookup model is not initialized.
+Input is not valid flatbuffer model. Deobfuscation is not supported yet.
+Input per layer embeddings required by signature but embedding lookup model is not initialized.
+Internal error: empty execution models for function id
+Inverted Schema.Number.minimum and Schema.Number.maximum
+Invoke called on model that is not consistent.
+Invoke called on model that is not ready.
+Legacy model files don't have LlmModelType, loading tokenizer now
+LiteRT Compiled Model
+LiteRT NPU Compiled Model
+LiteRtDispatchGetApi
+LiteRtGetCompilerPluginSupportedSocModel
+LiteRtGetNumCompilerPluginSupportedSocModels
+LlmLiteRtCompiledModelExecutorDynamic only supports CPU backend.
+LlmModelType is not set.
+Max sequence length is not used for AudioLiteRtCompiledModelExecutor, which can handle variable length input.
+Memory model must be OpenCL in the OpenCL environment.
+MemoryModel
+MeshEXT execution model entry points must specify both OutputPrimitivesEXT and OutputVertices Execution Modes.
+MeshEXT execution model entry points must specify exactly one of OutputPoints, OutputLinesEXT, or OutputTrianglesEXT Execution Modes.
+Missing required OpMemoryModel instruction.
+Model buffer is null
+Model file not found:
+Model is not initialized.
+Model missing.'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+\w$^\w\w+|[^\w\s]+
+Model provided has model identifier '%c%c%c%c', should be '%s'
+Model provided is schema version %d not equal to supported version %d.
+Model provided must have at least 7 bytes to hold identifier.
+Model resources are not initialized.
+Model source is not a ScopedFile, cannot get ScopedFile.
+ModelAssets:
+ModelType should only be provided for TFLiteModel or TFLiteWeights
+Module can't mix MeshEXT/TaskEXT with MeshNV/TaskNV Execution Model.
+N13sentencepiece10ModelProtoE
+N13sentencepiece14ModelInterfaceE
+N13sentencepiece24ModelProto_SentencePieceE
+N13sentencepiece3bpe5ModelE
+N13sentencepiece4word5ModelE
+N13sentencepiece5model8FreeListINS_7unigram12_GLOBAL__N_110HypothesisEEE
+N13sentencepiece5model8FreeListINS_7unigram7Lattice4NodeEEE
+N13sentencepiece7unigram5ModelE
+N13sentencepiece9character5ModelE
+N15fst_constraints11Schema_NullE
+N15fst_constraints11Schema_TextE
+N15fst_constraints12Schema_ArrayE
+N15fst_constraints12Schema_FieldE
+N15fst_constraints12Schema_OneofE
+N15fst_constraints12Schema_UnionE
+N15fst_constraints12Schema_ValueE
+N15fst_constraints13Schema_CustomE
+N15fst_constraints13Schema_FormatE
+N15fst_constraints13Schema_NumberE
+N15fst_constraints14Schema_BooleanE
+N15fst_constraints14Schema_MappingE
+N15fst_constraints17Schema_Oneof_CaseE
+N15fst_constraints18Schema_EnumerationE
+N15fst_constraints6SchemaE
+N6litert2lm14ModelResourcesE
+N6litert2lm18ModelDataProcessorE
+N6litert2lm18ModelResourcesTaskE
+N6litert2lm22ModelResourcesLitertLmE
+N6litert2lm25ModelAssetBundleResourcesE
+N6litert2lm26TypeSafeModelDataProcessorINS0_24Qwen3DataProcessorConfigENS0_27Qwen3DataProcessorArgumentsEEE
+N6litert2lm26TypeSafeModelDataProcessorINS0_25Gemma3DataProcessorConfigENS0_28Gemma3DataProcessorArgumentsEEE
+N6litert2lm26TypeSafeModelDataProcessorINS0_25Gemma4DataProcessorConfigENS0_28Gemma4DataProcessorArgumentsEEE
+N6litert2lm26TypeSafeModelDataProcessorINS0_26GenericDataProcessorConfigENS0_29GenericDataProcessorArgumentsEEE
+N6litert2lm26TypeSafeModelDataProcessorINS0_28TinyGemmaDataProcessorConfigENS0_31TinyGemmaDataProcessorArgumentsEEE
+N6litert2lm26TypeSafeModelDataProcessorINS0_32FunctionGemmaDataProcessorConfigENS0_35FunctionGemmaDataProcessorArgumentsEEE
+N6litert2lm28GemmaModelConstraintProviderE
+N6litert2lm32AudioLiteRtCompiledModelExecutor12AudioEncoderE
+N6litert2lm32AudioLiteRtCompiledModelExecutor18AudioStaticEncoderE
+N6litert2lm32AudioLiteRtCompiledModelExecutor21AudioStreamingEncoderE
+N6litert2lm32AudioLiteRtCompiledModelExecutorE
+N6litert2lm33LlmLiteRtNpuCompiledModelExecutorE
+N6litert2lm33VisionLiteRtCompiledModelExecutorE
+N6litert2lm34LlmLiteRtCompiledModelExecutorBaseE
+N6litert2lm36LlmLiteRtCompiledModelExecutorStaticE
+N6litert2lm37LlmLiteRtCompiledModelExecutorDynamicE
+N6litert2lm5proto12GenericModelE
+N6litert2lm5proto12LlmModelTypeE
+N6litert2lm5proto6SchemaE
+N6litert2lm6schema15MemoryStreamBufE
+N8ml_drift15GpuModelBuilderE
+NBestEncode is not available for the current model.
+NSt6__ndk110__function6__baseIFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEEEE
+NSt6__ndk110__function6__baseIFvP12LiteRtModelTEEE
+NSt6__ndk110__function6__baseIFvP20LiteRtCompiledModelTEEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_RiRS9_RSB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorIST_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_RjRA140_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorIST_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_RjRA141_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorIST_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_RjRA143_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorIST_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_RjRA149_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorIST_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_RjRA153_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorIST_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_iRA123_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorISS_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_iRA124_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorISS_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_iRA129_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorISS_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_iRA130_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorISS_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_iRA134_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorISS_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_iRA136_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorISS_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_iRA140_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorISS_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_iRA141_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorISS_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_iRA143_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorISS_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_iRA174_S8_SB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorISS_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcINS_6__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS4_10DecorationERKNS4_11InstructionESH_SH_EJPS6_iRA191_S8_RKSB_SE_SH_SH_RKNS_12placeholders4__phILi1EEEEEENS_9allocatorISU_EEFS7_SH_EEE
+NSt6__ndk110__function6__funcIPFvP12LiteRtModelTENS_9allocatorIS5_EES4_EE
+NSt6__ndk110__function6__funcIPFvP20LiteRtCompiledModelTENS_9allocatorIS5_EES4_EE
+NSt6__ndk110__function6__funcIZN20LiteRtCompiledModelT17InitializeRuntimeEP18LiteRtEnvironmentTiP14LiteRtOptionsTE3$_0NS_9allocatorIS7_EEFN6litert8internal22TfLiteTensorIdentifierEPK18TfLiteOpaqueTensorEEE
+NSt6__ndk110__function6__funcIZN20LiteRtCompiledModelT6CreateEP18LiteRtEnvironmentTP12LiteRtModelTP14LiteRtOptionsTE3$_0NS_9allocatorIS9_EEFvP22LiteRtDelegateWrapperTEEE
+NSt6__ndk110__function6__funcIZN6litert13CompiledModelC1ERNS2_8internal17EnvironmentHolderEP12LiteRtModelTNS2_9OwnHandleEP20LiteRtCompiledModelTS9_EUlS8_E_NS_9allocatorISC_EEFvS8_EEE
+NSt6__ndk110__function6__funcIZN6litert13CompiledModelC1ERNS2_8internal17EnvironmentHolderEP12LiteRtModelTNS2_9OwnHandleEP20LiteRtCompiledModelTS9_EUlSB_E_NS_9allocatorISC_EEFvSB_EEE
+NSt6__ndk110__function6__funcIZN6litert8ml_drift14DelegateKernel39InitializeExternalSharedConstantTensorsEP13TfLiteContextPK20TfLiteDelegateParamsRKN4absl13flat_hash_mapIjNS3_18SharedTfliteTensorENSA_13hash_internal4HashIjEENS_8equal_toIjEENS_9allocatorINS_4pairIKjSC_EEEEEERN8ml_drift12GraphFloat32ERNSQ_18CreateGpuModelInfoEE3$_1NSI_ISV_EEFvvEEE
+NSt6__ndk110__function6__funcIZN6litert8ml_drift14DelegateKernel39InitializeExternalSharedConstantTensorsEP13TfLiteContextPK20TfLiteDelegateParamsRKN4absl13flat_hash_mapIjNS3_18SharedTfliteTensorENSA_13hash_internal4HashIjEENS_8equal_toIjEENS_9allocatorINS_4pairIKjSC_EEEEEERN8ml_drift12GraphFloat32ERNSQ_18CreateGpuModelInfoEE3$_2NSI_ISV_EEFvvEEE
+NSt6__ndk110__function6__funcIZN6litert8ml_drift26GetOpsToReplaceWithOptionsEP13TfLiteContextbRKNS3_19ModelBuilderOptionsEiPKN4absl13flat_hash_setI21TfLiteBuiltinOperatorNS9_13hash_internal4HashISB_EENS_8equal_toISB_EENS_9allocatorISB_EEEEiiPNS3_37TFLiteStablehloCompositeParserFactoryEE3$_0NSH_ISO_EEFbS5_P10TfLiteNodeP18TfLiteRegistrationPNS_12basic_stringIcNS_11char_traitsIcEENSH_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8ml_drift25MakeSharedMemoryManagerClERKNS2_2cl11EnvironmentERKNS2_18CreateGpuModelInfoERNS2_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS2_17SharedConstTensorENSE_13hash_internal4HashIjEENS_8equal_toIjEENS_9allocatorINS_4pairIKjSG_EEEEEESS_bPNS2_24SerializationWeightCacheEbEUlRNS2_16TensorDescriptorEmNS_10unique_ptrINS_8functionIFvvEEENS_14default_deleteIS10_EEEERNSX_INS2_16GpuSpatialTensorENS11_IS14_EEEEE_NSM_IS18_EEFNSE_6StatusESW_mS13_S17_EEE
+NSt6__ndk110__function6__funcIZN8ml_drift29MakeSharedMemoryManagerWebgpuERKNS2_6webgpu11EnvironmentERKNS2_18CreateGpuModelInfoERNS2_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS2_17SharedConstTensorENSE_13hash_internal4HashIjEENS_8equal_toIjEENS_9allocatorINS_4pairIKjSG_EEEEEESS_bPNS2_24SerializationWeightCacheENS_10shared_ptrINS2_8ExecutorEEEbE3$_0NSM_ISY_EEFNSE_6StatusERNS2_16TensorDescriptorEmNS_10unique_ptrINS_8functionIFvvEEENS_14default_deleteIS16_EEEERNS13_INS2_16GpuSpatialTensorENS17_IS1A_EEEEEEE
+NSt6__ndk110__function6__funcIZN8ml_drift31MakeSharedMemoryManagerClLitertERKNS2_2cl11EnvironmentEPK20LiteRtRuntimeContextRKNS2_18CreateGpuModelInfoERNS2_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS2_17SharedConstTensorENSH_13hash_internal4HashIjEENS_8equal_toIjEENS_9allocatorINS_4pairIKjSJ_EEEEEESV_bPNS2_24SerializationWeightCacheEbPN13weight_loader12WeightLoaderEPKNS_13unordered_mapImmNS_4hashImEENSN_ImEENSP_INSQ_IKmmEEEEEEE3$_0NSP_IS1B_EEFNSH_6StatusERKN6litert8ml_drift18SharedTfliteTensorERKNS2_16TensorDescriptorERNS_10unique_ptrINS2_16GpuSpatialTensorENS_14default_deleteIS1N_EEEEEEE
+NSt6__ndk110__function6__funcIZN8ml_drift31MakeSharedMemoryManagerClLitertERKNS2_2cl11EnvironmentEPK20LiteRtRuntimeContextRKNS2_18CreateGpuModelInfoERNS2_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS2_17SharedConstTensorENSH_13hash_internal4HashIjEENS_8equal_toIjEENS_9allocatorINS_4pairIKjSJ_EEEEEESV_bPNS2_24SerializationWeightCacheEbPN13weight_loader12WeightLoaderEPKNS_13unordered_mapImmNS_4hashImEENSN_ImEENSP_INSQ_IKmmEEEEEEE3$_1NSP_IS1B_EEFNSH_6StatusERNS2_16TensorDescriptorEmNS_10unique_ptrINS_8functionIFvvEEENS_14default_deleteIS1J_EEEERNS1G_INS2_16GpuSpatialTensorENS1K_IS1N_EEEEEEE
+NSt6__ndk110__function6__funcIZN8ml_drift31MakeSharedMemoryManagerClLitertERKNS2_2cl11EnvironmentEPK20LiteRtRuntimeContextRKNS2_18CreateGpuModelInfoERNS2_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS2_17SharedConstTensorENSH_13hash_internal4HashIjEENS_8equal_toIjEENS_9allocatorINS_4pairIKjSJ_EEEEEESV_bPNS2_24SerializationWeightCacheEbPN13weight_loader12WeightLoaderEPKNS_13unordered_mapImmNS_4hashImEENSN_ImEENSP_INSQ_IKmmEEEEEEE3$_2NSP_IS1B_EEFNSH_6StatusERKN6litert8ml_drift18SharedTfliteTensorER12TfLiteTensorEEE
+NSt6__ndk110__function6__funcIZN8ml_drift31MakeSharedMemoryManagerClLitertERKNS2_2cl11EnvironmentEPK20LiteRtRuntimeContextRKNS2_18CreateGpuModelInfoERNS2_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS2_17SharedConstTensorENSH_13hash_internal4HashIjEENS_8equal_toIjEENS_9allocatorINS_4pairIKjSJ_EEEEEESV_bPNS2_24SerializationWeightCacheEbPN13weight_loader12WeightLoaderEPKNS_13unordered_mapImmNS_4hashImEENSN_ImEENSP_INSQ_IKmmEEEEEEE3$_3NSP_IS1B_EEFNSH_8StatusOrINS_12basic_stringIcNS_11char_traitsIcEENSP_IcEEEEEEjEEE
+NSt6__ndk110__function6__funcIZN8ml_drift35MakeSharedMemoryManagerWebgpuLitertERKNS2_6webgpu11EnvironmentEP20LiteRtRuntimeContextRKNS2_18CreateGpuModelInfoERNS2_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS2_17SharedConstTensorENSG_13hash_internal4HashIjEENS_8equal_toIjEENS_9allocatorINS_4pairIKjSI_EEEEEESU_bPNS2_24SerializationWeightCacheENS_10shared_ptrINS2_8ExecutorEEEbPN13weight_loader12WeightLoaderEPKNS_13unordered_mapImmNS_4hashImEENSM_ImEENSO_INSP_IKmmEEEEEEE3$_0NSO_IS1D_EEFNSG_6StatusERKN6litert8ml_drift18SharedTfliteTensorER12TfLiteTensorEEE
+NSt6__ndk110__function6__funcIZN8ml_drift35MakeSharedMemoryManagerWebgpuLitertERKNS2_6webgpu11EnvironmentEP20LiteRtRuntimeContextRKNS2_18CreateGpuModelInfoERNS2_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS2_17SharedConstTensorENSG_13hash_internal4HashIjEENS_8equal_toIjEENS_9allocatorINS_4pairIKjSI_EEEEEESU_bPNS2_24SerializationWeightCacheENS_10shared_ptrINS2_8ExecutorEEEbPN13weight_loader12WeightLoaderEPKNS_13unordered_mapImmNS_4hashImEENSM_ImEENSO_INSP_IKmmEEEEEEE3$_1NSO_IS1D_EEFNSG_8StatusOrINS_12basic_stringIcNS_11char_traitsIcEENSO_IcEEEEEEjEEE
+NSt6__ndk110__function6__funcIZN8ml_drift35MakeSharedMemoryManagerWebgpuLitertERKNS2_6webgpu11EnvironmentEP20LiteRtRuntimeContextRKNS2_18CreateGpuModelInfoERNS2_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS2_17SharedConstTensorENSG_13hash_internal4HashIjEENS_8equal_toIjEENS_9allocatorINS_4pairIKjSI_EEEEEESU_bPNS2_24SerializationWeightCacheENS_10shared_ptrINS2_8ExecutorEEEbPN13weight_loader12WeightLoaderEPKNS_13unordered_mapImmNS_4hashImEENSM_ImEENSO_INSP_IKmmEEEEEEE3$_2NSO_IS1D_EEFNSG_6StatusERNS2_16TensorDescriptorEmNS_10unique_ptrINS_8functionIFvvEEENS_14default_deleteIS1L_EEEERNS1I_INS2_16GpuSpatialTensorENS1M_IS1P_EEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val12BarriersPassERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_0NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val12_GLOBAL__N_112ValidateLoadERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_0NS_9allocatorISA_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSB_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val12_GLOBAL__N_113ValidateStoreERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_0NS_9allocatorISA_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSB_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val12_GLOBAL__N_121ValidateImageQueryLodERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_0NS_9allocatorISA_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSB_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val15DerivativesPassERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_0NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val16RayReorderNVPassERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_1NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val16RayReorderNVPassERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_2NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val16ValidateTraceRayERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_0NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17RayReorderEXTPassERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_1NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17RayReorderEXTPassERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_2NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17RayReorderEXTPassERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_3NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17RayReorderEXTPassERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_4NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17RayReorderEXTPassERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_5NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17ValidationState_t28RegisterStorageClassConsumerEN3spv12StorageClassEPNS3_11InstructionEE3$_0NS_9allocatorIS9_EEFbNS5_14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17ValidationState_t28RegisterStorageClassConsumerEN3spv12StorageClassEPNS3_11InstructionEE3$_1NS_9allocatorIS9_EEFbNS5_14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17ValidationState_t28RegisterStorageClassConsumerEN3spv12StorageClassEPNS3_11InstructionEE3$_2NS_9allocatorIS9_EEFbNS5_14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17ValidationState_t28RegisterStorageClassConsumerEN3spv12StorageClassEPNS3_11InstructionEE3$_3NS_9allocatorIS9_EEFbNS5_14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17ValidationState_t28RegisterStorageClassConsumerEN3spv12StorageClassEPNS3_11InstructionEE3$_4NS_9allocatorIS9_EEFbNS5_14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17ValidationState_t28RegisterStorageClassConsumerEN3spv12StorageClassEPNS3_11InstructionEE3$_5NS_9allocatorIS9_EEFbNS5_14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17ValidationState_t28RegisterStorageClassConsumerEN3spv12StorageClassEPNS3_11InstructionEE3$_6NS_9allocatorIS9_EEFbNS5_14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17ValidationState_t28RegisterStorageClassConsumerEN3spv12StorageClassEPNS3_11InstructionEE3$_7NS_9allocatorIS9_EEFbNS5_14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17ValidationState_t28RegisterStorageClassConsumerEN3spv12StorageClassEPNS3_11InstructionEE3$_8NS_9allocatorIS9_EEFbNS5_14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17ValidationState_t28RegisterStorageClassConsumerEN3spv12StorageClassEPNS3_11InstructionEE3$_9NS_9allocatorIS9_EEFbNS5_14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17ValidationState_t28RegisterStorageClassConsumerEN3spv12StorageClassEPNS3_11InstructionEE4$_10NS_9allocatorIS9_EEFbNS5_14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val17ValidationState_t28RegisterStorageClassConsumerEN3spv12StorageClassEPNS3_11InstructionEE4$_11NS_9allocatorIS9_EEFbNS5_14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val19ValidateMemoryScopeERNS3_17ValidationState_tEPKNS3_11InstructionEjE3$_0NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val19ValidateMemoryScopeERNS3_17ValidationState_tEPKNS3_11InstructionEjE3$_1NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val19ValidateMemoryScopeERNS3_17ValidationState_tEPKNS3_11InstructionEjE3$_2NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val21ValidateEmitMeshTasksERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_0NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val22ValidateExecutionScopeERNS3_17ValidationState_tEPKNS3_11InstructionEjE3$_0NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val22ValidateExecutionScopeERNS3_17ValidationState_tEPKNS3_11InstructionEjE3$_1NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val22ValidateSetMeshOutputsERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_0NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val23ValidateExecuteCallableERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_0NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val26ValidateReportIntersectionERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_0NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZN8spvtools3val8Function32RegisterExecutionModelLimitationEN3spv14ExecutionModelERKNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEE3$_0NSA_ISF_EEFbS6_PSC_EEE
+NSt6__ndk110__function6__funcIZN8spvtools3val9ImagePassERNS3_17ValidationState_tEPKNS3_11InstructionEE3$_0NS_9allocatorIS9_EEFbN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENSA_IcEEEEEEE
+NSt6__ndk110__function6__funcIZNK13sentencepiece3bpe5Model12SampleEncodeEN4absl11string_viewEfE3$_0NS_9allocatorIS7_EEFvS6_PNS_6vectorINS_4pairIS6_iEENS8_ISC_EEEEEEE
+NSt6__ndk110__function6__funcIZZN8spvtools3val16RayReorderNVPassERNS3_17ValidationState_tEPKNS3_11InstructionEENK3$_0clES5_S8_EUlN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEE_NSF_ISJ_EEFbSB_SI_EEE
+NSt6__ndk110__function6__funcIZZN8spvtools3val17RayReorderEXTPassERNS3_17ValidationState_tEPKNS3_11InstructionEENK3$_0clES5_S8_EUlN3spv14ExecutionModelEPNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEE_NSF_ISJ_EEFbSB_SI_EEE
+NSt6__ndk114default_deleteIN13sentencepiece10ModelProtoEEE
+NSt6__ndk114default_deleteIN6litert5ModelEEE
+NSt6__ndk118__weak_result_typeIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EEE
+NSt6__ndk120__shared_ptr_pointerIPN13sentencepiece10ModelProtoENS_14default_deleteIS2_EENS_9allocatorIS2_EEEE
+NSt6__ndk120__shared_ptr_pointerIPN6litert5ModelENS_14default_deleteIS2_EENS_9allocatorIS2_EEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_RiRS7_RS9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_RjRA140_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_RjRA141_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_RjRA143_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_RjRA149_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_RjRA153_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_iRA123_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_iRA124_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_iRA129_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_iRA130_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_iRA134_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_iRA136_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_iRA140_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_iRA141_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_iRA143_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_iRA174_S6_S9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+NSt6__ndk16__bindIMN8spvtools3val12_GLOBAL__N_117BuiltInsValidatorEF12spv_result_tiPKcN3spv14ExecutionModelERKNS2_10DecorationERKNS2_11InstructionESF_SF_EJPS4_iRA191_S6_RKS9_SC_SF_SF_RKNS_12placeholders4__phILi1EEEEEE
+New model files have LlmModelType, loading tokenizer asynchronously
+No address is mapped to the given offset. This is a critical error that should not happen. Check that the model hasn't changed since the cache was created.
+No buffers in the model.
+No signature key was provided. The Embedding model is expected to have exactly one signature but got
+No subgraph in the model.
+No tokenizer found in the model.
+Null pointer passed in as model.
+Only use shader model 6.5 or less for D3D12 backend, to workaround issues on some Intel devices.
+Op builtin_code out of range: %d. Are you using old TFLite binary with newer model?
+OpBeginInvocationInterlockEXT/OpEndInvocationInterlockEXT require Fragment execution model
+OpDemoteToHelperInvocationEXT requires Fragment execution model
+OpEmitMeshTasksEXT requires TaskEXT execution model
+OpExecuteCallableKHR requires RayGenerationKHR, ClosestHitKHR, MissKHR and CallableKHR execution models
+OpIgnoreIntersectionKHR requires AnyHitKHR execution model
+OpImageQueryLod requires DerivativeGroupQuadsKHR or DerivativeGroupLinearKHR execution mode for GLCompute, MeshEXT or TaskEXT execution model
+OpImageQueryLod requires Fragment, GLCompute, MeshEXT or TaskEXT execution model
+OpIsHelperInvocationEXT requires Fragment execution model
+OpKill requires Fragment execution model
+OpMemoryModel
+OpMemoryModel should only be provided once.
+OpReportIntersectionKHR requires IntersectionKHR execution model
+OpSetMeshOutputsEXT requires MeshEXT execution model
+OpSpecConstantCapabilitiesINTEL
+OpTerminateInvocation requires Fragment execution model
+OpTerminateRayKHR requires AnyHitKHR execution model
+OpTraceRayKHR requires RayGenerationKHR, ClosestHitKHR and MissKHR execution models
+OpenCL 2.0 QUALCOMM build: commit #7daed58 changeid #I7ece6fe30d Date: 10/19/16
+OpenCL 2.0 QUALCOMM build: commit #7ff4f54 changeid #I4460aa6217 Date: 12/30/18
+OpenCL driver changed, model respresentation invalid, must be regenerated.
+PFvP12LiteRtModelTE
+PFvP20LiteRtCompiledModelTE
+PerPrimitiveEXT decoration must be applied only to variables in the Input Storage Class in the Fragment Execution Model.
+PerPrimitiveEXT decoration must be applied only to variables in the Output Storage Class in the Storage Class in the MeshEXT Execution Model.
+PerVertexKHR can only be applied to Fragment Execution Models
+Qualcomm
+Qwen3 or Qwen2.5 LlmModelType is required to create Qwen3DataProcessorConfig.
+Range from Schema.Number.minimum to Schema.Number.maximum is not representable by Schema.Number.precision
+RayPayloadKHR Storage Class is limited to RayGenerationKHR, ClosestHitKHR, and MissKHR execution model
+ReadSpatialTensorToDescriptor is not implemented
+RestoreContext is only supported for streaming models.
+SPV_KHR_vulkan_memory_model
+SPV_OPERAND_TYPE_ADDRESSING_MODEL
+SPV_OPERAND_TYPE_EXECUTION_MODEL
+SPV_OPERAND_TYPE_MEMORY_MODEL
+SampleEncode is not available for the current model.
+SampleEncodeAndScore is not available for the current model.
+Schema.Field.type not set
+Schema.Value.type not set
+Schema.property_ordering has unknown property:
+Schema.required has unknown property:
+Schema.type must be OBJECT
+Select TensorFlow op(s), included in the given model, is(are) not supported by this interpreter. Make sure you apply/link the Flex delegate before inference. For the Android, it can be resolved by adding "org.tensorflow:tensorflow-lite-select-tf-ops" dependency. See instructions: https://www.tensorflow.org/lite/guide/ops_select
+Serialized model is corrupted.
+ShaderCallKHR Memory Scope requires a ray tracing execution model
+ShaderRecordBufferKHR Storage Class is limited to RayGenerationKHR, IntersectionKHR, AnyHitKHR, ClosestHitKHR, CallableKHR, and MissKHR execution model
+Shape mismatch in GpuModelBuilder::UpdateOutputTensors(output of
+Soc Make/Model strings too large
+SpecConstantCapabilitiesINTEL
+Speculative decoding is not supported for model without per layer embedding.
+Splits any command buffer where a compute pass is recorded after a render pass. This toggle is enabled by default on Qualcomm GPUs, which have been observed experiencing a driver crash in this situation.
+Stop tokens are required. Either set the stop token ids or provide a valid stop token in the model file/engine settings.
+Supports querying the DRM-related capabilities of a texture format.
+Supports querying the capabilities of a texture format.
+Supports some new GPUTextureFormats with the RENDER_ATTACHMENT, blendable, multisampling capabilities and the STORAGE_BINDING capability with the 'read-only' and 'write-only'GPUStorageTextureAccesses.
+TFLite model for type:
+TFLite model type:
+TFLiteModel
+TINT_ASSERT((options_.extensions.use_vulkan_memory_model))
+TOKENIZER_MODEL
+TaskEXT execution model.
+TaskPayloadWorkgroupEXT Storage Class is limited to TaskEXT and MeshKHR execution model
+Tensor %d is invalidly specified in schema.
+Tessellation execution model entry points can specify at most one of SpacingEqual, SpacingFractionalOdd or SpacingFractionalEven execution modes.
+Tessellation execution model entry points can specify at most one of Triangles, Quads or Isolines execution modes.
+Tessellation execution model entry points can specify at most one of VertexOrderCw or VertexOrderCcw execution modes.
+The 0th entry of the model buffer must be an empty buffer.
+The Audio Adapter model must have a features input buffer.
+The Audio Adapter model must have a mask input buffer.
+The Audio Adapter model must have exactly one output buffer but got
+The Audio Adapter model must have exactly one signature but got
+The Audio Adapter model must have exactly two input buffer but got
+The Audio Encoder model must have exactly one signature but got
+The Audio Static Encoder model must have a features output buffer.
+The Audio Static Encoder model must have a mask input buffer.
+The Audio Static Encoder model must have a mask output buffer.
+The Audio Static Encoder model must have a src_inputs input buffer.
+The Audio Static Encoder model must have exactly one signature but got
+The Audio Static Encoder model must have exactly two output buffer but got
+The Audio Streaming Encoder model must have a
+The Audio Streaming Encoder model must have a feature_states input buffer.
+The Audio Streaming Encoder model must have a features output buffer.
+The Audio Streaming Encoder model must have a mask output buffer.
+The Audio Streaming Encoder model must have a segment_mask input buffer.
+The Audio Streaming Encoder model must have a segment_values input buffer.
+The Embedding model must be initialized before being used.
+The Embedding model must have 0 input tensors but got
+The Embedding model must have exactly one input tensor but got
+The Embedding model must have exactly one output tensor but got
+The Embedding model must have exactly one signature but got
+The Output Storage Class in a Mesh Execution Model must not be read from
+The Vision Adapter model must have exactly one input buffer but got
+The Vision Adapter model must have exactly one output buffer but got
+The Vision Adapter model must have exactly one signature but got
+The Vision Encoder model must have exactly one signature but got
+The model allocation is null/empty
+The model asset bundle file is not valid.
+The model has signature def but none of those points to primary subgraph.
+The model is not a valid Flatbuffer buffer
+The other ModelDataProcessor is not of the expected type.
+The output tensor from the Embedding model must be have the same dimensions as the requested tensor for dims > 1. Requested tensor dim for
+The output tensor from the Embedding model must be have the same dimensions as the requested tensor. Requested tensor dim for
+The output tensor from the Embedding model must be have the same number of bytes as the requested tensor. Requested tensor bytes:
+The output tensor from the Embedding model must be have the same number of dimensions as the requested tensor. Requested tensor dims:
+The output tensor from the Embedding model must be of type float32.
+The output tensor from the Embedding model must be the correct size for the end of multi-modal embedding. Output tensor size:
+The output tensor from the EndOfMultiModalEmbedding model must be have the same dimensions as the requested tensor for dims > 1. Requested tensor dim for
+The output tensor from the EndOfMultiModalEmbedding model must be have the same number of dimensions as the requested tensor. Requested tensor dims:
+The output tensor to fill from the Embedding model must be have the 0th dimension as 1. Other sizes are not supported yet.
+The output tensor to fill from the Embedding model must have a 1st dimension that is at least the same size as the number of tokens. Requested tensor 1st dim:
+The output tensor to fill from the EndOfMultiModalEmbedding model must be have the 0th dimension as 1. Other sizes are not supported yet.
+The output tensor to fill from the EndOfMultiModalEmbedding model must have a 1st dimension that is at least the same size as the number of tokens. Requested tensor 1st dim:
+The prompt template does not support single turn template, but has_pending_message is true. `has_pending_message` is only valid for model templates and ModelDataProcessor that supports single turn prompt rendering.
+TinyGemma LlmModelType is required to create TinyGemmaDataProcessorConfig.
+Tokenizer is null and LLM model type is not set.
+Total Gflops for model: ~
+Unknown Schema.Format.Type
+Unknown Schema.Text.Content; if a new enumerator was recently added, maybe it hasn't rolled out to the server yet?
+Unknown model type:
+Unknown model_type:
+Unsatisfiable schema:
+Unsupported model type
+Unsupported schema type:
+Use of device scope with VulkanKHR memory model requires the
+Use the Vulkan Memory Model if available.
+VK_KHR_vulkan_memory_model
+Vulkan spec allows BuiltIn HelperInvocation to be used only with Fragment execution model.
+Vulkan spec allows BuiltIn InvocationId to be used only with TessellationControl or Geometry execution models.
+Vulkan spec allows BuiltIn PatchVertices to be used only with TessellationControl or TessellationEvaluation execution models.
+Vulkan spec allows BuiltIn PointCoord to be used only with Fragment execution model.
+Vulkan spec allows BuiltIn PointSize to be used only with Vertex, TessellationControl, TessellationEvaluation or Geometry execution models.
+Vulkan spec allows BuiltIn Position to be used only with Vertex, TessellationControl, TessellationEvaluation or Geometry execution models.
+Vulkan spec allows BuiltIn PrimitiveId to be used only with Fragment, TessellationControl, TessellationEvaluation, Geometry, MeshNV, MeshEXT, IntersectionKHR, AnyHitKHR, and ClosestHitKHR execution models.
+Vulkan spec allows BuiltIn SampleId to be used only with Fragment execution model.
+Vulkan spec allows BuiltIn SampleMask to be used only with Fragment execution model.
+Vulkan spec allows BuiltIn SamplePosition to be used only with Fragment execution model.
+Vulkan spec allows BuiltIn TessCoord to be used only with TessellationEvaluation execution model.
+Vulkan spec doesn't allow BuiltIn ClipDistance/CullDistance to be used for variables with Input storage class if execution model is MeshEXT.
+Vulkan spec doesn't allow BuiltIn ClipDistance/CullDistance to be used for variables with Input storage class if execution model is MeshNV.
+Vulkan spec doesn't allow BuiltIn ClipDistance/CullDistance to be used for variables with Input storage class if execution model is Vertex.
+Vulkan spec doesn't allow BuiltIn ClipDistance/CullDistance to be used for variables with Output storage class if execution model is Fragment.
+Vulkan spec doesn't allow BuiltIn Layer and ViewportIndex to be used for variables with Input storage class if execution model is Vertex, TessellationEvaluation, Geometry, MeshNV or MeshEXT.
+Vulkan spec doesn't allow BuiltIn Layer and ViewportIndex to be used for variables with Output storage class if execution model is Fragment.
+Vulkan spec doesn't allow BuiltIn PointSize to be used for variables with Input storage class if execution model is Vertex.
+Vulkan spec doesn't allow BuiltIn Position to be used for variables with Input storage class if execution model is MeshEXT.
+Vulkan spec doesn't allow BuiltIn Position to be used for variables with Input storage class if execution model is MeshNV.
+Vulkan spec doesn't allow BuiltIn Position to be used for variables with Input storage class if execution model is Vertex.
+Vulkan spec doesn't allow BuiltIn PrimitiveId to be used for variables in the Fragment execution model unless it declares Geometry, Tessellation, or MeshShader capabilities.
+Vulkan spec doesn't allow BuiltIn PrimitiveId to be used for variables with Output storage class if execution model is AnyHitKHR.
+Vulkan spec doesn't allow BuiltIn PrimitiveId to be used for variables with Output storage class if execution model is ClosestHitKHR.
+Vulkan spec doesn't allow BuiltIn PrimitiveId to be used for variables with Output storage class if execution model is Fragment.
+Vulkan spec doesn't allow BuiltIn PrimitiveId to be used for variables with Output storage class if execution model is IntersectionKHR.
+Vulkan spec doesn't allow BuiltIn PrimitiveId to be used for variables with Output storage class if execution model is TessellationControl.
+Vulkan spec doesn't allow BuiltIn PrimitiveId to be used for variables with Output storage class if execution model is TessellationEvaluation.
+Vulkan spec doesn't allow TessLevelOuter/TessLevelInner to be used for variables with Input storage class if execution model is TessellationControl.
+Vulkan spec doesn't allow TessLevelOuter/TessLevelInner to be used for variables with Output storage class if execution model is TessellationEvaluation.
+VulkanMemoryModel
+VulkanMemoryModelDeviceScope
+VulkanMemoryModelDeviceScopeKHR
+VulkanMemoryModelDeviceScopeKHR capability
+VulkanMemoryModelKHR
+VulkanMemoryModelKHR capability must only be specified if the VulkanKHR memory model is used.
+WebGPU is running on top of dawn_native, granting some additional capabilities.
+When fully_supports_multi_modal is false, end_of_multi_modal_embedding_models must be empty.
+When the resolve target is a texture view that is created on the non-zero level or layer of a texture, we first resolve into a temporarily 2D texture with only one mipmap level and one array layer, and copy the result of MSAA resolve into the true resolve target. This workaround is enabled by default on the Metal drivers that have bugs when setting non-zero resolveLevel or resolveSlice. It is also enabled by default on Qualcomm Vulkan drivers, which have similar bugs.
+Workgroup Memory Scope can't be used with TessellationControl using GLSL450 Memory Model
+Workgroup Memory Scope is limited to MeshNV, TaskNV, MeshEXT, TaskEXT, TessellationControl, and GLCompute execution model
+ZN20LiteRtCompiledModelT17InitializeRuntimeEP18LiteRtEnvironmentTiP14LiteRtOptionsTE3$_0
+ZN20LiteRtCompiledModelT6CreateEP18LiteRtEnvironmentTP12LiteRtModelTP14LiteRtOptionsTE3$_0
+ZN6litert13CompiledModelC1ERNS_8internal17EnvironmentHolderEP12LiteRtModelTNS_9OwnHandleEP20LiteRtCompiledModelTS6_EUlS5_E_
+ZN6litert13CompiledModelC1ERNS_8internal17EnvironmentHolderEP12LiteRtModelTNS_9OwnHandleEP20LiteRtCompiledModelTS6_EUlS8_E_
+ZN6litert8ml_drift14DelegateKernel39InitializeExternalSharedConstantTensorsEP13TfLiteContextPK20TfLiteDelegateParamsRKN4absl13flat_hash_mapIjNS0_18SharedTfliteTensorENS7_13hash_internal4HashIjEENSt6__ndk18equal_toIjEENSD_9allocatorINSD_4pairIKjS9_EEEEEERN8ml_drift12GraphFloat32ERNSO_18CreateGpuModelInfoEE3$_1
+ZN6litert8ml_drift14DelegateKernel39InitializeExternalSharedConstantTensorsEP13TfLiteContextPK20TfLiteDelegateParamsRKN4absl13flat_hash_mapIjNS0_18SharedTfliteTensorENS7_13hash_internal4HashIjEENSt6__ndk18equal_toIjEENSD_9allocatorINSD_4pairIKjS9_EEEEEERN8ml_drift12GraphFloat32ERNSO_18CreateGpuModelInfoEE3$_2
+ZN6litert8ml_drift26GetOpsToReplaceWithOptionsEP13TfLiteContextbRKNS0_19ModelBuilderOptionsEiPKN4absl13flat_hash_setI21TfLiteBuiltinOperatorNS6_13hash_internal4HashIS8_EENSt6__ndk18equal_toIS8_EENSC_9allocatorIS8_EEEEiiPNS0_37TFLiteStablehloCompositeParserFactoryEE3$_0
+ZN8ml_drift12_GLOBAL__N_122ResolvePolymorphicArgsEPNS_8GpuModelEE18DummySpatialTensor
+ZN8ml_drift25MakeSharedMemoryManagerClERKNS_2cl11EnvironmentERKNS_18CreateGpuModelInfoERNS_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS_17SharedConstTensorENSB_13hash_internal4HashIjEENSt6__ndk18equal_toIjEENSH_9allocatorINSH_4pairIKjSD_EEEEEESQ_bPNS_24SerializationWeightCacheEbEUlRNS_16TensorDescriptorEmNSH_10unique_ptrINSH_8functionIFvvEEENSH_14default_deleteISY_EEEERNSV_INS_16GpuSpatialTensorENSZ_IS12_EEEEE_
+ZN8ml_drift29MakeSharedMemoryManagerWebgpuERKNS_6webgpu11EnvironmentERKNS_18CreateGpuModelInfoERNS_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS_17SharedConstTensorENSB_13hash_internal4HashIjEENSt6__ndk18equal_toIjEENSH_9allocatorINSH_4pairIKjSD_EEEEEESQ_bPNS_24SerializationWeightCacheENSH_10shared_ptrINS_8ExecutorEEEbE3$_0
+ZN8ml_drift31MakeSharedMemoryManagerClLitertERKNS_2cl11EnvironmentEPK20LiteRtRuntimeContextRKNS_18CreateGpuModelInfoERNS_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS_17SharedConstTensorENSE_13hash_internal4HashIjEENSt6__ndk18equal_toIjEENSK_9allocatorINSK_4pairIKjSG_EEEEEEST_bPNS_24SerializationWeightCacheEbPN13weight_loader12WeightLoaderEPKNSK_13unordered_mapImmNSK_4hashImEENSL_ImEENSN_INSO_IKmmEEEEEEE3$_0
+ZN8ml_drift31MakeSharedMemoryManagerClLitertERKNS_2cl11EnvironmentEPK20LiteRtRuntimeContextRKNS_18CreateGpuModelInfoERNS_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS_17SharedConstTensorENSE_13hash_internal4HashIjEENSt6__ndk18equal_toIjEENSK_9allocatorINSK_4pairIKjSG_EEEEEEST_bPNS_24SerializationWeightCacheEbPN13weight_loader12WeightLoaderEPKNSK_13unordered_mapImmNSK_4hashImEENSL_ImEENSN_INSO_IKmmEEEEEEE3$_1
+ZN8ml_drift31MakeSharedMemoryManagerClLitertERKNS_2cl11EnvironmentEPK20LiteRtRuntimeContextRKNS_18CreateGpuModelInfoERNS_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS_17SharedConstTensorENSE_13hash_internal4HashIjEENSt6__ndk18equal_toIjEENSK_9allocatorINSK_4pairIKjSG_EEEEEEST_bPNS_24SerializationWeightCacheEbPN13weight_loader12WeightLoaderEPKNSK_13unordered_mapImmNSK_4hashImEENSL_ImEENSN_INSO_IKmmEEEEEEE3$_2
+ZN8ml_drift31MakeSharedMemoryManagerClLitertERKNS_2cl11EnvironmentEPK20LiteRtRuntimeContextRKNS_18CreateGpuModelInfoERNS_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS_17SharedConstTensorENSE_13hash_internal4HashIjEENSt6__ndk18equal_toIjEENSK_9allocatorINSK_4pairIKjSG_EEEEEEST_bPNS_24SerializationWeightCacheEbPN13weight_loader12WeightLoaderEPKNSK_13unordered_mapImmNSK_4hashImEENSL_ImEENSN_INSO_IKmmEEEEEEE3$_3
+ZN8ml_drift35MakeSharedMemoryManagerWebgpuLitertERKNS_6webgpu11EnvironmentEP20LiteRtRuntimeContextRKNS_18CreateGpuModelInfoERNS_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS_17SharedConstTensorENSD_13hash_internal4HashIjEENSt6__ndk18equal_toIjEENSJ_9allocatorINSJ_4pairIKjSF_EEEEEESS_bPNS_24SerializationWeightCacheENSJ_10shared_ptrINS_8ExecutorEEEbPN13weight_loader12WeightLoaderEPKNSJ_13unordered_mapImmNSJ_4hashImEENSK_ImEENSM_INSN_IKmmEEEEEEE3$_0
+ZN8ml_drift35MakeSharedMemoryManagerWebgpuLitertERKNS_6webgpu11EnvironmentEP20LiteRtRuntimeContextRKNS_18CreateGpuModelInfoERNS_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS_17SharedConstTensorENSD_13hash_internal4HashIjEENSt6__ndk18equal_toIjEENSJ_9allocatorINSJ_4pairIKjSF_EEEEEESS_bPNS_24SerializationWeightCacheENSJ_10shared_ptrINS_8ExecutorEEEbPN13weight_loader12WeightLoaderEPKNSJ_13unordered_mapImmNSJ_4hashImEENSK_ImEENSM_INSN_IKmmEEEEEEE3$_1
+ZN8ml_drift35MakeSharedMemoryManagerWebgpuLitertERKNS_6webgpu11EnvironmentEP20LiteRtRuntimeContextRKNS_18CreateGpuModelInfoERNS_12GraphFloat32EP13TfLiteContextRN4absl13node_hash_mapIjNS_17SharedConstTensorENSD_13hash_internal4HashIjEENSt6__ndk18equal_toIjEENSJ_9allocatorINSJ_4pairIKjSF_EEEEEESS_bPNS_24SerializationWeightCacheENSJ_10shared_ptrINS_8ExecutorEEEbPN13weight_loader12WeightLoaderEPKNSJ_13unordered_mapImmNSJ_4hashImEENSK_ImEENSM_INSN_IKmmEEEEEEE3$_2
+ZN8spvtools3val8Function32RegisterExecutionModelLimitationEN3spv14ExecutionModelERKNSt6__ndk112basic_stringIcNS4_11char_traitsIcEENS4_9allocatorIcEEEEE3$_0
+ZNK13sentencepiece3bpe5Model12SampleEncodeEN4absl11string_viewEfE3$_0
+ZZN8spvtools3val16RayReorderNVPassERNS0_17ValidationState_tEPKNS0_11InstructionEENK3$_0clES2_S5_EUlN3spv14ExecutionModelEPNSt6__ndk112basic_stringIcNS9_11char_traitsIcEENS9_9allocatorIcEEEEE_
+ZZN8spvtools3val17RayReorderEXTPassERNS0_17ValidationState_tEPKNS0_11InstructionEENK3$_0clES2_S5_EUlN3spv14ExecutionModelEPNSt6__ndk112basic_stringIcNS9_11char_traitsIcEENS9_9allocatorIcEEEEE_
+[%s:%d] Compiler plugin path is provided in the environment, but the model is pre-compiled. Plugins won't be applied.
+[%s:%d] CompilerPlugin::Compile: Skipped for non partitioned model.
+[%s:%d] Dispatch API capabilities: %d
+[%s:%d] Failed to create a dispatch delegate kernel: No usable Dispatch runtime found
+[%s:%d] Failed to initialize Dispatch API: %s
+[%s:%d] Failed to load model from cache: %s
+[%s:%d] Flatbuffer model initialized directly from incoming litert model.
+[%s:%d] Flatbuffer model initialized from cached model.
+[%s:%d] Found async dispatch capabilities
+[%s:%d] JIT compilation changed model, reserializing...
+[%s:%d] Large custom options not yet supported in litert::Model.
+[%s:%d] LiteRtAddModelMetadata: metadata_buffer is null
+[%s:%d] LiteRtAddModelMetadata: metadata_key is null
+[%s:%d] LiteRtAddModelMetadata: model is null
+[%s:%d] Plugins applied, flatbuffer model initialized from  JIT compiled model.
+[%s:%d] Saving JIT compiled model to cache.
+[%s:%d] Using statically linked dispatch_api
+[%s:%d] flatbuffer model has invalid input index in subgraph: %d
+[%s:%d] flatbuffer model has invalid output index in subgraph: %d
+[%s:%d] get_capabilities not found
+[VUID-StandaloneSpirv-ExecutionModel-07320]
+`model_cache_key` cannot be null.
+addressing model
+bit_andbit_orset_bitclear_bitExpected '{' in rule parametersflags not allowed in this contextgrammar must have either lark_grammar or json_schemacannot have both lark_grammar and json_schemaadditionalItemsadditionalPropertiesallOfanyOfdependenciesformatitemsmaxLengthmaxPropertiesmaximumminLengthminPropertiesminimummultipleOfoneOfpatternpatternPropertiespropertiesuniqueItemsconstpropertyNamesif$recursiveRefdependentRequiredmaxContainsminContainsprefixItemsunevaluatedProperties$dynamicAnchor$dynamicRefhttps://json-schema.org/draft/2020-12/schemahttps://json-schema.org/draft/2019-09/schemahttp://json-schema.org/draft-07/schemahttp://json-schema.org/draft-06/schemahttp://json-schema.org/draft-04/schema#/schema is falseincompatible boolean valuesincompatible typesSchema intersection stack level exceededanyOf is emptyoneOf is emptyx-guidanceoverride statement not supported yetdeclare statement not supported yetpriority not supported yetparams not supported yetempty grammars arraystartggno tokenizer - can't validate <[...]>no tokenizer - can't validate <special_token>negation of empty token ranges is not supportedno tokenizer - can't validate <[^...]>emptyno tokenizer - can't validate <any_token><[*]>true|falserequired item is unsatisfiableAll options in anyOf are unsatisfiableNo options in anyOfoneOf constraints are not supported. Enable 'coerce_one_of' option to approximate oneOf with anyOfoneOf not fully supported, falling back to anyOf. This may cause validation errors in some cases.min/maxProperties only supported when all keys listed in "properties" are required(\\([\"\\\/bfnrt]|u[a-fA-F0-9]{4})|[^\"\\\x00-\x1F\x7F])[\x20\x0A\x0D\x09]+\[[0-9]+\]tokenizer_jsonslicetoken_lens and token_bytes must be setEither tokenize_fn or use_approximate_greedy_tokenize_fn must be setforce_bytesforce_bytes_emptytmp_countertokenize_ffcompute_biasprecomputeTokenizer is nullunknown errorregexjson_objectllguidanceEmpty grammar__LIST_APPEND:ff_tokensfailed to advance parser after adding bytes ignoring lexer
+compiled_model.cc
+could not parse ModelProto from
+d3d12_dont_use_shader_model_66_or_higher
+dawn-drm-format-capabilities
+dawn-format-capabilities
+enable_large_model_support =
+enable_large_model_support = true
+enum must be an arrayanyOf must be an arrayoneOf must be an arrayallOf must be an arraygensampled_token is required when mask was present& is only supported for tokens, not rules; try renaming the rule to UPPERCASE'%if' is not supported in terminals$anchor$defsdefinitions$idtitledescriptiondefaultwriteOnlycontentEncodingproperties must be an objectprefixItems must be an arrayschema must be an object or booleanld is unexpectedly emptyrd is unexpectedly emptyFailed to parse character as digitString x is unexpectedly emptyOverflow when calculating break pointFailed to split left integer partFailed to split right integer partcommon.DIGIT[0-9]common.HEXDIGIT[a-fA-F0-9]common.INT[0-9]+common.SIGNED_INT(\+|-)?[0-9]+common.DECIMAL([0-9]+\.[0-9]*)|(\.[0-9]+)common._EXP[eE](\+|-)?[0-9]+common.FLOAT([0-9]+\.[0-9]*|\.[0-9]+)([eE](\+|-)?[0-9]+)?|[0-9]+[eE](\+|-)?[0-9]+common.SIGNED_FLOAT(\+|-)?(([0-9]+\.[0-9]*|\.[0-9]+)([eE](\+|-)?[0-9]+)?|[0-9]+[eE](\+|-)?[0-9]+)common.NUMBER([0-9]+)|([0-9]+\.[0-9]*|\.[0-9]+)([eE](\+|-)?[0-9]+)?|[0-9]+[eE](\+|-)?[0-9]+common.SIGNED_NUMBER(\+|-)?(([0-9]+)|([0-9]+\.[0-9]*|\.[0-9]+)([eE](\+|-)?[0-9]+)?|[0-9]+[eE](\+|-)?[0-9]+)common.ESCAPED_STRING\"([^\"\\]|\\.)*\"common.LCASE_LETTER[a-z]common.UCASE_LETTER[A-Z]common.LETTERcommon.WORD[A-Za-z]+common.CNAME[_A-Za-z][_A-Za-z0-9]*[ \t]+common.WS[ \t\f\r\n]+common.CR\rcommon.LF\ncommon.NEWLINEcommon.SH_COMMENT#[^\n]*common.CPP_COMMENT
+execution model
+failed to compile JSON schema:
+fst_constraints.Schema
+fst_constraints.Schema.Array
+fst_constraints.Schema.Boolean
+fst_constraints.Schema.Custom
+fst_constraints.Schema.Enumeration
+fst_constraints.Schema.Field
+fst_constraints.Schema.Format
+fst_constraints.Schema.Mapping
+fst_constraints.Schema.Null
+fst_constraints.Schema.Number
+fst_constraints.Schema.Oneof
+fst_constraints.Schema.Oneof.Case
+fst_constraints.Schema.Text
+fst_constraints.Schema.Union
+fst_constraints.Schema.Value
+htp_performance_mode =
+https://dawn.googlesource.com/dawn/+/refs/heads/main/docs/dawn/features/format_capabilities.md
+in Schema.enumeration.numbers
+in Schema.max_items
+in Schema.min_items
+in Schema.number.maximum
+in Schema.number.minimum
+in Vulkan environment, OpControlBarrier execution scope must be Subgroup for Fragment, Vertex, Geometry, TessellationEvaluation, RayGeneration, Intersection, AnyHit, ClosestHit, and Miss execution models
+in Vulkan environment, Output Storage Class must not be used in GLCompute, RayGenerationKHR, IntersectionKHR, AnyHitKHR, ClosestHitKHR, MissKHR, or CallableKHR execution models
+in Vulkan environment, TileImageEXT Storage Class is limited to Fragment execution model
+in Vulkan environment, Workgroup Storage Class is limited to MeshEXT, TaskEXT, MeshNV, TaskNV, and GLCompute execution model
+in Vulkan environment, Workgroup execution scope is only for TaskNV, MeshNV, TaskEXT, MeshEXT, TessellationControl, and GLCompute execution models
+kLiteRTCompiledModel
+learning/language/constraints/fst/schema_utils.cc
+litert model size:
+litert.lm.proto.GenericModel
+litert.lm.proto.GenericModel.model_role
+litert.lm.proto.GenericModelmodel_role
+litert.lm.proto.LlmModelType
+litert.lm.proto.Schema
+litert.lm.proto.Schema.description
+litert.lm.proto.Schema.enum
+litert.lm.proto.Schema.format
+litert.lm.proto.Schema.properties
+litert.lm.proto.Schema.property_ordering
+litert.lm.proto.Schema.required
+litert.lm.proto.Schema.title
+litert.lm.proto.Schemaformatdescriptionenumpropertiesrequiredproperty_orderingtitle
+litert_compiled_model.cc
+litert_model.cc
+logits_indices[0] == model_size - 1
+memory model
+model
+model file path should not be empty.
+model input type is not supported.
+model output type is not supported.
+model.cc
+model_
+model_->IsCalculateEntropyAvailable()
+model_->IsNBestEncodeAvailable()
+model_->IsSampleEncodeAndScoreAvailable()
+model_->IsSampleEncodeAvailable()
+model_assets:
+model_cache_key
+model_cache_key = "
+model_control_dependencies
+model_file file descriptor ID:
+model_file is loading from a data stream
+model_file memory mapped file:
+model_load.cc
+model_path:
+model_proto->ParseFromString(serialized)
+model_serialize.cc
+model_type
+model_type not found, use kTfLitePrefillDecode
+model_type:
+odml.infra.proto.LlmParameters.model_role_token
+odml.infra.proto.LlmParametersstop_tokensstart_tokenuser_role_tokensystem_role_tokenmodel_role_tokenend_role_token
+odml.infra.proto.TfLiteDelegateOptions.model_token
+odml.infra.proto.TfLiteDelegateOptionsserialization_dirmodel_token
+processorstrim_offsetsuse_regexlengthindividual_digitspretokenizersdelimiterstream did not contain valid UTF-8fewer elements in arrayPrecompiledUnigramunk_idvocabbyte_fallbackprecompiled_charsmapdata did not match any variant of untagged enum PostProcessorWrapperTokenizersepclsSpecialTokenididstokensABsinglespecial_tokensByteLevelclean_texthandle_chinese_charsstrip_accentslowercaseStripstrip_leftstrip_rightStripAccentsnormalizersLowercasePrependprependpatterncontentStringRegexNFCNFDNmtWhitespaceSplitWhitespacePunctuationFixedLengthDigitsCharDelimiterSplitfirstneveralwaysdirectionmax_lengthstrideLongestFirstOnlyFirstOnlySecondRightpad_to_multiple_ofpad_idpad_type_idpad_tokenBatchLongestFixedByteFallbackBPEDecodersuffixCTCword_delimiter_tokencleanupstartWordPieceprefixRemovedMergedWithPreviousMergedWithNextContiguoussingle_wordlstriprstripnormalizedspecialUnicodeScriptsReplacedata did not match any variant of untagged enum NormalizerHelperdata did not match any variant of untagged enum NormalizerUntaggedMetaspacedata did not match any variant of untagged enum DecoderHelperdata did not match any variant of untagged enum DecoderUntaggeddata did not match any variant of untagged enum ModelHelperdata did not match any variant of untagged enum ModelUntaggedBPEWordLevelSplitinvertdata did not match any variant of untagged enum MergeTypeDelimiterdata did not match any variant of untagged enum PreTokenizerHelperdata did not match any variant of untagged enum PreTokenizerUntaggedreplacementprepend_schemesplitstr_repvariant index 0 <= i < 1variant index 0 <= i < 2variant index 0 <= i < 3variant index 0 <= i < 5variant index 0 <= i < 14variant index 0 <= i < 10variant index 0 <= i < 4variant index 0 <= i < 12type_idversiontruncationpaddingadded_tokensnormalizerpre_tokenizermodeldecoderpost_processor1.0tokenizers::tokenizer::serializationdropoutunk_tokencontinuing_subword_prefixend_of_word_suffixignore_mergesmergesMissing vocab/mergesMissing vocabmax_input_chars_per_wordstruct PrecompiledDeserializer with 1 elementstruct BertProcessing with 2 elementsstruct RobertaProcessing with 4 elementsstruct SpecialToken with 3 elementsstruct TemplateProcessingDeserializer with 3 elementsstruct ByteLevelHelper with 1 elementstruct BertNormalizer with 4 elementsstruct Strip with 2 elementsstruct StripAccentsHelper with 1 elementstruct Sequence with 1 elementstruct LowercaseHelper with 1 elementstruct Prepend with 1 elementstruct ReplaceDeserializer with 2 elementsstruct NFDHelper with 1 elementstruct NFCHelper with 1 elementstruct NmtHelper with 1 elementstruct WhitespaceHelper with 1 elementstruct WhitespaceSplitHelper with 1 elementstruct BertPreTokenizerHelper with 1 elementstruct TruncationParams with 4 elementsstruct PaddingParams with 6 elementsstruct ByteFallback with 1 elementstruct CTC with 3 elementsstruct Fuse with 1 elementstruct Strip with 3 elementsstruct UnicodeScriptsHelper with 1 elementstruct SplitHelper with 4 elementsstruct MetaspaceHelper with 6 elementsstruct variant Piece::Sequence with 2 elementsfewer elements in mapmap with a single keystring or mapstruct variant Piece::SpecialToken with 2 elementsullrue$serde_json::private::RawValuenewtype variantstruct variantadd_prefix_space does not match declared prepend_scheme}[{]"false,:
+qnn_backend =
+qualcomm
+ro.product.model
+runtime_c_api_->litert_compiled_model_resize_input_tensor
+runtime_c_api_->litert_create_compiled_model
+runtime_c_api_->litert_destroy_compiled_model
+runtime_c_api_->litert_destroy_model
+runtime_c_api_->litert_get_compiled_model_input_buffer_requirements
+runtime_c_api_->litert_get_compiled_model_input_tensor_layout
+runtime_c_api_->litert_get_compiled_model_output_buffer_requirements
+runtime_c_api_->litert_get_compiled_model_output_tensor_layouts
+runtime_c_api_->litert_get_model_signature
+runtime_c_api_->litert_get_num_model_signatures
+runtime_c_api_->litert_run_compiled_model
+runtime_c_api_->litert_run_compiled_model_async
+runtime_c_api_->litert_run_compiled_model_async_with_options
+runtime_c_api_->litert_run_compiled_model_async_with_scheduling_info
+runtime_c_api_->litert_run_compiled_model_with_options
+runtime_c_api_->litert_run_compiled_model_with_scheduling_info
+schema too large
+sentencepiece.ModelProto
+sentencepiece.ModelProto.SentencePiece
+std::find(files_list.begin(), files_list.end(), kPrefilDecodeModelNameInTaskBundle) != files_list.end()
+substring_chunksno error messagedependentSchemas5
+third_party/ml_drift/common/gpu_model.cc
+third_party/ml_drift/common/gpu_model_builder.cc
+third_party/ml_drift/common/gpu_model_util.cc
+third_party/ml_drift/common/model.cc
+third_party/ml_drift/common/transformations/model_transformations.cc
+third_party/odml/litert/litert/c/litert_compiled_model.cc
+third_party/odml/litert/litert/c/litert_model.cc
+third_party/odml/litert/litert/cc/litert_compiled_model.cc
+third_party/odml/litert/litert/cc/litert_model.cc
+third_party/odml/litert/litert/cc/options/litert_qualcomm_options.cc
+third_party/odml/litert/litert/core/model/model_load.cc
+third_party/odml/litert/litert/core/model/model_serialize.cc
+third_party/odml/litert/litert/runtime/compiled_model.cc
+third_party/odml/litert/ml_drift/tflite/model_builder.cc
+third_party/odml/litert/ml_drift/tflite/model_builder_helper.cc
+third_party/odml/litert_lm/runtime/components/constrained_decoding/fst_schema_utils.cc
+third_party/odml/litert_lm/runtime/components/constrained_decoding/gemma_model_constraint_provider.cc
+third_party/odml/litert_lm/runtime/components/model_resources_litert_lm.cc
+third_party/odml/litert_lm/runtime/components/model_resources_task.cc
+third_party/odml/litert_lm/runtime/conversation/model_data_processor/data_utils.cc
+third_party/odml/litert_lm/runtime/conversation/model_data_processor/function_gemma_data_processor.cc
+third_party/odml/litert_lm/runtime/conversation/model_data_processor/gemma3_data_processor.cc
+third_party/odml/litert_lm/runtime/conversation/model_data_processor/gemma4_data_processor.cc
+third_party/odml/litert_lm/runtime/conversation/model_data_processor/model_data_processor_factory.cc
+third_party/odml/litert_lm/runtime/conversation/model_data_processor/qwen3_data_processor.cc
+third_party/odml/litert_lm/runtime/conversation/model_data_processor/tiny_gemma_data_processor.cc
+third_party/odml/litert_lm/runtime/executor/audio_litert_compiled_model_executor.cc
+third_party/odml/litert_lm/runtime/executor/litert_compiled_model_executor_utils.cc
+third_party/odml/litert_lm/runtime/executor/llm_litert_compiled_model_executor.cc
+third_party/odml/litert_lm/runtime/executor/llm_litert_compiled_model_executor_factory.cc
+third_party/odml/litert_lm/runtime/executor/llm_litert_npu_compiled_model_executor.cc
+third_party/odml/litert_lm/runtime/executor/vision_litert_compiled_model_executor.cc
+third_party/odml/litert_lm/runtime/util/model_asset_bundle_resources.cc
+third_party/odml/litert_lm/runtime/util/model_type_utils.cc
+third_party/odml/litert_lm/schema/core/litertlm_read.cc
+third_party/sentencepiece/src/model_factory.cc
+third_party/sentencepiece/src/model_interface.cc
+third_party/sentencepiece/src/unigram_model.cc
+unhandled execution model:
+use_htp_preference =
+use_submodel:
+use_vulkan_memory_model
+using subgroup matrices requires the Vulkan Memory Model
+vkGetPhysicalDeviceSurfaceCapabilitiesKHR
+wgpuAdapterGetFormatCapabilities
+wgpuDawnDrmFormatCapabilitiesFreeMembers
+wgpuSurfaceCapabilitiesFreeMembers
+wgpuSurfaceGetCapabilities
+{%- for message in messages -%}{%- if message.content is string -%}{%- if message.role == 'user' %}$0{{ message.content }}$1{% endif -%}{%- if message.role == 'model' %}$2{{ message.content }}$3{% endif -%}{%- if message.role == 'system' %}$4{{ message.content }}$5{% endif -%}{%- else -%}
+{%- if message.role == 'user' %}$0{% elif message.role == 'model' %}$1{% elif message.role == 'system' %}$2{% endif -%}{%- for item in message.content %}{%- if item.type == 'text' %}{{ item.text }}{% elif item.type == 'image' -%}{{ '<start_of_image>' }}{%- elif item.type == 'audio' -%}{{ '<start_of_audio>' }}{%- endif -%}{%- endfor -%}{%- if message.role == 'user' %}$3{% elif message.role == 'model' %}$4{% elif message.role == 'system' %}$5{% endif -%}{%- endif -%}{%- endfor -%}{%- if add_generation_prompt %}$6{% endif -%}

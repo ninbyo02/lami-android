@@ -1,0 +1,11 @@
+library	mapped_in_tombstone	present_in_native_library_dir	build_id
+liblitertlm_jni.so	true	true
+libLiteRt.so	false	true
+libLiteRtDispatch_Qualcomm.so	false	true	-
+libQnnSystem.so	false	true
+libQnnHtp.so	false	true
+libQnnHtpPrepare.so	false	true
+libQnnHtpV79Stub.so	false	true
+libQnnHtpV79Skel.so	false	true
+libLiteRtRuntimeCApi.so	false	false	-
+libllm_inference_engine_jni.so	true	true

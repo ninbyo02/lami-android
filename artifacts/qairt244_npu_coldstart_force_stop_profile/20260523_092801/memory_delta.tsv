@@ -1,0 +1,5 @@
+metric	after_smoke	after_3s	after_final_force_stop_3s	after_final_force_stop_10s
+total_pss_kb	133138	133691	NA	NA
+native_heap_pss_kb	14297	14359	NA	NA
+dalvik_heap_pss_kb	1235	1052	NA	NA
+meminfo_no_process	false	false	true	true

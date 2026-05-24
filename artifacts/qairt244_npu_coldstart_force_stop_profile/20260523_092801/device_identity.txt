@@ -1,0 +1,4 @@
+ro.product.model=NX733J
+ro.product.device=PQ84A02
+ro.soc.model=SM8750
+ro.board.platform=sun

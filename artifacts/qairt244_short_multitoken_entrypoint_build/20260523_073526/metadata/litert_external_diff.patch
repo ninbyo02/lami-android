@@ -1,0 +1,2597 @@
+diff --git a/litert/build_common/litert_build_defs.bzl b/litert/build_common/litert_build_defs.bzl
+index 65d687ce..f567154e 100644
+--- a/litert/build_common/litert_build_defs.bzl
++++ b/litert/build_common/litert_build_defs.bzl
+@@ -354,6 +354,7 @@ def litert_lib(
+
+     Args:
+       ungrte: Whether to link against system libraries ("ungrte").
++      dynamic_deps: Shared libraries to keep as dynamic dependencies.
+       **cc_lib_kwargs: Keyword arguments to pass to the underlying rule.
+     """
+     _litert_base(
+@@ -411,6 +412,7 @@ def litert_dynamic_lib(
+         so_name,
+         export_litert_only = False,
+         ungrte = False,
++        dynamic_deps = [],
+         **cc_lib_kwargs):
+     """
+     LiteRT dynamic library rule.
+@@ -421,6 +423,7 @@ def litert_dynamic_lib(
+       so_name: The name of the shared object file.
+       export_litert_only: Whether to export only LiteRT symbols.
+       ungrte: Whether to link against system libraries ("ungrte").
++      dynamic_deps: Shared libraries to keep as dynamic dependencies.
+       **cc_lib_kwargs: Keyword arguments to pass to the underlying rule.
+     """
+     if not _valid_shared_lib_name(shared_lib_name):
+@@ -456,6 +459,7 @@ def litert_dynamic_lib(
+         tags = tags,
+         visibility = vis,
+         deps = [lib_target_ref],
++        dynamic_deps = dynamic_deps,
+         features = select({
+             # Allow unresolved symbols which will be defined in the executable. There are no
+             # linker flags to allow unresolved symbols only of a given pattern like LiteRt*.
+diff --git a/litert/cc/internal/litert_shared_library.cc b/litert/cc/internal/litert_shared_library.cc
+index 4a4f7c98..f08e5d53 100644
+--- a/litert/cc/internal/litert_shared_library.cc
++++ b/litert/cc/internal/litert_shared_library.cc
+@@ -21,6 +21,9 @@
+ #include <link.h>
+ #endif
+
++#include <cerrno>
++#include <cstdarg>
++#include <cstdio>
+ #include <ostream>
+ #include <string>
+ #include <utility>
+@@ -198,6 +201,30 @@ void* dlsym(void* handle, const char* symbol) {
+
+ namespace litert {
+
++namespace {
++
++constexpr char kQairt244DlopenTraceMarker[] = "qairt244_dlopen_trace_v1";
++constexpr char kQairt244NativeDiagPath[] =
++    "/data/user/0/io.github.ninbyo02.lami.customnpu/files/"
++    "qairt244_native_diag.txt";
++
++void AppendQairt244DlopenTrace(const char* format, ...) {
++  FILE* file = std::fopen(kQairt244NativeDiagPath, "a");
++  if (file == nullptr) {
++    return;
++  }
++  std::fprintf(file, "%s ", kQairt244DlopenTraceMarker);
++  va_list args;
++  va_start(args, format);
++  std::vfprintf(file, format, args);
++  va_end(args);
++  std::fprintf(file, "\n");
++  std::fflush(file);
++  std::fclose(file);
++}
++
++}  // namespace
++
+ SharedLibrary::~SharedLibrary() noexcept { Close(); }
+
+ SharedLibrary::SharedLibrary(SharedLibrary&& other) noexcept
+@@ -245,20 +272,35 @@ Expected<SharedLibrary> SharedLibrary::LoadImpl(
+                    "HandleKind::kInvalid");
+     case HandleKind::kPath:
+       if (path.empty()) {
++        AppendQairt244DlopenTrace("SharedLibrary::LoadImpl empty path");
+         return Error(Status::kErrorDynamicLoading,
+                      "Cannot not load shared library: empty path.");
+       }
+       lib.path_ = path;
+       {
+         absl::LeakCheckDisabler disabler;
+-        lib.handle_ =
+-            dlopen(lib.Path().c_str(), SanitizeFlagsInCaseOfAsan(flags));
++        dlerror();
++        errno = 0;
++        const RtldFlags sanitized_flags = SanitizeFlagsInCaseOfAsan(flags);
++        AppendQairt244DlopenTrace(
++            "SharedLibrary::LoadImpl before dlopen path=%s flags=0x%x",
++            lib.Path().c_str(), sanitized_flags.flags);
++        lib.handle_ = dlopen(lib.Path().c_str(), sanitized_flags.flags);
+       }
+       if (!lib.handle_) {
++        const absl::string_view error = DlError();
++        AppendQairt244DlopenTrace(
++            "SharedLibrary::LoadImpl dlopen failure path=%s handle=%p errno=%d "
++            "dlerror=%.*s",
++            lib.path_.c_str(), lib.handle_, errno,
++            static_cast<int>(error.size()), error.data());
+         return Error(Status::kErrorDynamicLoading,
+                      absl::StrFormat("Could not load shared library %s: %s.",
+-                                     lib.path_, DlError()));
++                                     lib.path_, error));
+       }
++      AppendQairt244DlopenTrace(
++          "SharedLibrary::LoadImpl dlopen success path=%s handle=%p errno=%d",
++          lib.path_.c_str(), lib.handle_, errno);
+       break;
+     case HandleKind::kRtldNext:
+       lib.handle_ = RTLD_NEXT;
+@@ -272,13 +314,28 @@ Expected<SharedLibrary> SharedLibrary::LoadImpl(
+ }
+
+ Expected<void*> SharedLibrary::LookupSymbolImpl(const char* symbol_name) const {
++  dlerror();
++  errno = 0;
++  AppendQairt244DlopenTrace(
++      "SharedLibrary::LookupSymbolImpl before dlsym symbol=%s handle=%p",
++      symbol_name ? symbol_name : "<null>", handle_);
+   void* symbol = dlsym(handle_, symbol_name);
+
+   if (!symbol) {
++    const absl::string_view error = DlError();
++    AppendQairt244DlopenTrace(
++        "SharedLibrary::LookupSymbolImpl dlsym failure symbol=%s handle=%p "
++        "errno=%d dlerror=%.*s",
++        symbol_name ? symbol_name : "<null>", handle_, errno,
++        static_cast<int>(error.size()), error.data());
+     return Error(Status::kErrorDynamicLoading,
+                  absl::StrFormat("Could not load symbol %s: %s.", symbol_name,
+-                                 DlError()));
++                                 error));
+   }
++  AppendQairt244DlopenTrace(
++      "SharedLibrary::LookupSymbolImpl dlsym success symbol=%s handle=%p ptr=%p "
++      "errno=%d",
++      symbol_name ? symbol_name : "<null>", handle_, symbol, errno);
+   return symbol;
+ }
+
+diff --git a/litert/runtime/dispatch/BUILD b/litert/runtime/dispatch/BUILD
+index d52c800d..05a511f9 100644
+--- a/litert/runtime/dispatch/BUILD
++++ b/litert/runtime/dispatch/BUILD
+@@ -78,6 +78,10 @@ cc_library(
+         ],
+         "//conditions:default": [],
+     }),
++    linkopts = select({
++        "//litert:android": ["-llog"],
++        "//conditions:default": [],
++    }),
+     deps = [
+         "//litert/c:litert_any",
+         "//litert/c:litert_common",
+@@ -184,6 +188,10 @@ cc_library(
+         "//litert/cc/internal:litert_dispatch_delegate.h",
+     ],
+     copts = litert_metal_opts(),
++    linkopts = select({
++        "//litert:android": ["-llog"],
++        "//conditions:default": [],
++    }),
+     deps = [
+         ":dispatch",
+         ":dispatch_opaque_options",
+diff --git a/litert/runtime/dispatch/dispatch_delegate.cc b/litert/runtime/dispatch/dispatch_delegate.cc
+index 8d9b6695..6353f393 100644
+--- a/litert/runtime/dispatch/dispatch_delegate.cc
++++ b/litert/runtime/dispatch/dispatch_delegate.cc
+@@ -13,11 +13,17 @@
+ // limitations under the License.
+
+ #include <iterator>
++#include <cstdarg>
++#include <cstdio>
+ #include <memory>
+ #include <string>
+ #include <utility>
+ #include <vector>
+
++#if defined(__ANDROID__)
++#include <android/log.h>
++#endif
++
+ #include "absl/strings/match.h"  // from @com_google_absl
+ #include "absl/strings/str_format.h"  // from @com_google_absl
+ #include "absl/strings/string_view.h"  // from @com_google_absl
+@@ -42,6 +48,75 @@ namespace {
+
+ using ::litert::Unexpected;
+
++#if defined(__ANDROID__)
++#define QAIRT244_ANDROID_LOG(...)                                      \
++  __android_log_print(ANDROID_LOG_ERROR, "QAIRT244_DIAG", __VA_ARGS__)
++#else
++#define QAIRT244_ANDROID_LOG(...) ((void)0)
++#endif
++
++constexpr char kQairt244AndroidLogMarker[] = "qairt244_android_log_v1";
++constexpr char kQairt244NativeFileMarker[] = "qairt244_native_file_v1";
++constexpr char kQairt244NativeDiagPath[] =
++    "/data/user/0/io.github.ninbyo02.lami.customnpu/files/"
++    "qairt244_native_diag.txt";
++
++void AppendQairt244Diag(const char* format, ...) {
++  FILE* file = std::fopen(kQairt244NativeDiagPath, "a");
++  if (file == nullptr) {
++    return;
++  }
++  std::fprintf(file, "%s ", kQairt244NativeFileMarker);
++  va_list args;
++  va_start(args, format);
++  std::vfprintf(file, format, args);
++  va_end(args);
++  std::fprintf(file, "\n");
++  std::fflush(file);
++  std::fclose(file);
++}
++
++const char* LiteRtStatusName(LiteRtStatus status) {
++  switch (status) {
++    case kLiteRtStatusOk:
++      return "kLiteRtStatusOk";
++    case kLiteRtStatusErrorInvalidArgument:
++      return "kLiteRtStatusErrorInvalidArgument";
++    case kLiteRtStatusErrorMemoryAllocationFailure:
++      return "kLiteRtStatusErrorMemoryAllocationFailure";
++    case kLiteRtStatusErrorRuntimeFailure:
++      return "kLiteRtStatusErrorRuntimeFailure";
++    case kLiteRtStatusErrorMissingInputTensor:
++      return "kLiteRtStatusErrorMissingInputTensor";
++    case kLiteRtStatusErrorUnsupported:
++      return "kLiteRtStatusErrorUnsupported";
++    case kLiteRtStatusErrorNotFound:
++      return "kLiteRtStatusErrorNotFound";
++    case kLiteRtStatusErrorTimeoutExpired:
++      return "kLiteRtStatusErrorTimeoutExpired";
++    case kLiteRtStatusErrorWrongVersion:
++      return "kLiteRtStatusErrorWrongVersion";
++    case kLiteRtStatusErrorUnknown:
++      return "kLiteRtStatusErrorUnknown";
++    case kLiteRtStatusErrorAlreadyExists:
++      return "kLiteRtStatusErrorAlreadyExists";
++    case kLiteRtStatusCancelled:
++      return "kLiteRtStatusCancelled";
++    case kLiteRtStatusErrorFileIO:
++      return "kLiteRtStatusErrorFileIO";
++    case kLiteRtStatusErrorInvalidFlatbuffer:
++      return "kLiteRtStatusErrorInvalidFlatbuffer";
++    case kLiteRtStatusErrorDynamicLoading:
++      return "kLiteRtStatusErrorDynamicLoading";
++    case kLiteRtStatusErrorSerialization:
++      return "kLiteRtStatusErrorSerialization";
++    case kLiteRtStatusErrorCompilation:
++      return "kLiteRtStatusErrorCompilation";
++    default:
++      return "LiteRtStatusUnknown";
++  }
++}
++
+ // A TFL Delegate that can recognize subgraphs that run on Dispatch API capable
+ // accelerators, e.g. TPU, DSP, ... It replaces such subgraphs and offloads
+ // their work through the Dispatch API.
+@@ -110,13 +185,51 @@ bool DispatchDelegate::IsNodeSupportedByDelegate(
+ }
+
+ TfLiteStatus DispatchDelegate::Initialize(TfLiteOpaqueContext* context) {
++  AppendQairt244Diag(
++      "DispatchDelegate::Initialize entry has_dispatch_runtime=%d context=%p",
++      has_dispatch_runtime_, context);
++  QAIRT244_ANDROID_LOG(
++      "%s DispatchDelegate::Initialize entry has_dispatch_runtime=%d",
++      kQairt244AndroidLogMarker, has_dispatch_runtime_);
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG DispatchDelegate::Initialize before "
++             "has_dispatch_runtime=%d",
++             has_dispatch_runtime_);
+   if (auto status = InitializeDispatchApi(); !status) {
++    AppendQairt244Diag(
++        "DispatchDelegate::Initialize InitializeDispatchApi failed "
++        "status=%s(%d) message=%s",
++        LiteRtStatusName(status.Error().Status()), status.Error().Status(),
++        status.Error().Message().c_str());
+     LITERT_LOG(LITERT_ERROR, "Failed to initialize Dispatch API: %s",
+                status.Error().Message().c_str());
+     has_dispatch_runtime_ = false;
++    QAIRT244_ANDROID_LOG(
++        "%s has_dispatch_runtime=false status=%s(%d) message=%s",
++        kQairt244AndroidLogMarker,
++        LiteRtStatusName(status.Error().Status()), status.Error().Status(),
++        status.Error().Message().c_str());
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG has_dispatch_runtime transition to false "
++               "status=%s(%d) message=%s",
++               LiteRtStatusName(status.Error().Status()),
++               status.Error().Status(), status.Error().Message().c_str());
+   } else {
+     has_dispatch_runtime_ = true;
++    AppendQairt244Diag(
++        "DispatchDelegate::Initialize InitializeDispatchApi success "
++        "has_dispatch_runtime=true");
++    QAIRT244_ANDROID_LOG("%s has_dispatch_runtime=true",
++                         kQairt244AndroidLogMarker);
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG has_dispatch_runtime transition to true");
+   }
++  AppendQairt244Diag("DispatchDelegate::Initialize exit has_dispatch_runtime=%d",
++                     has_dispatch_runtime_);
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG DispatchDelegate::Initialize after "
++             "has_dispatch_runtime=%d",
++             has_dispatch_runtime_);
+   return kTfLiteOk;
+ }
+
+@@ -124,7 +237,26 @@ const char* DispatchDelegate::Name() const { return kDelegateName.data(); }
+
+ std::unique_ptr<tflite::SimpleOpaqueDelegateKernelInterface>
+ DispatchDelegate::CreateDelegateKernelInterface() {
++  AppendQairt244Diag(
++      "DispatchDelegate::CreateDelegateKernelInterface ENTRY "
++      "has_dispatch_runtime=%d device_context=%p",
++      has_dispatch_runtime_, device_context_);
++  QAIRT244_ANDROID_LOG(
++      "%s CreateDelegateKernelInterface entry has_dispatch_runtime=%d "
++      "device_context=%p",
++      kQairt244AndroidLogMarker, has_dispatch_runtime_, device_context_);
++  LITERT_LOG(
++      LITERT_ERROR,
++      "QAIRT244_DIAG CreateDelegateKernelInterface has_dispatch_runtime=%d "
++      "device_context=%p",
++      has_dispatch_runtime_, device_context_);
+   if (!has_dispatch_runtime_) {
++    AppendQairt244Diag(
++        "DispatchDelegate::CreateDelegateKernelInterface FATAL "
++        "no usable dispatch runtime");
++    QAIRT244_ANDROID_LOG(
++        "%s CreateDelegateKernelInterface fatal no dispatch runtime",
++        kQairt244AndroidLogMarker);
+     LITERT_FATAL(
+         "Failed to create a dispatch delegate kernel: No usable Dispatch "
+         "runtime found");
+@@ -138,12 +270,23 @@ DispatchDelegate::CreateDelegateKernelInterface() {
+       std::move(dispatch_graph_name), environment_options_, options_,
+       device_context_);
+   if (kernel) {
++    AppendQairt244Diag(
++        "DispatchDelegate::CreateDelegateKernelInterface kernel create "
++        "success");
+     auto* kernel_ptr =
+         dynamic_cast<typename litert::internal::DispatchDelegateKernel*>(
+             kernel->get());
+     kernels_.push_back(kernel_ptr);
+     return std::move(*kernel);
+   } else {
++    AppendQairt244Diag(
++        "DispatchDelegate::CreateDelegateKernelInterface FATAL kernel create "
++        "failed message=%s",
++        kernel.Error().Message().c_str());
++    QAIRT244_ANDROID_LOG(
++        "%s CreateDelegateKernelInterface fatal kernel create failed "
++        "message=%s",
++        kQairt244AndroidLogMarker, kernel.Error().Message().c_str());
+     LITERT_FATAL("Failed to create a dispatch delegate kernel: %s",
+                  kernel.Error().Message().c_str());
+     return nullptr;
+@@ -172,13 +315,46 @@ litert::Expected<LiteRtMetricsT> DispatchDelegate::StopMetricsCollection() {
+ }
+
+ litert::Expected<void> DispatchDelegate::InitializeDispatchApi() {
+-  LITERT_RETURN_IF_ERROR(
+-      LiteRtDispatchInitialize(LrtGetRuntimeContext(), env_, options_));
++  AppendQairt244Diag("InitializeDispatchApi ENTRY");
++  QAIRT244_ANDROID_LOG("%s InitializeDispatchApi entry",
++                       kQairt244AndroidLogMarker);
++  LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG InitializeDispatchApi begin");
++  if (auto status = LiteRtDispatchInitialize(LrtGetRuntimeContext(), env_,
++                                             options_);
++      status != kLiteRtStatusOk) {
++    AppendQairt244Diag(
++        "InitializeDispatchApi LiteRtDispatchInitialize failure status=%s(%d)",
++        LiteRtStatusName(status), status);
++    QAIRT244_ANDROID_LOG(
++        "%s InitializeDispatchApi LiteRtDispatchInitialize failure "
++        "status=%s(%d)",
++        kQairt244AndroidLogMarker, LiteRtStatusName(status), status);
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG LiteRtDispatchInitialize failed status=%s(%d)",
++               LiteRtStatusName(status), status);
++    return Unexpected(status, "LiteRtDispatchInitialize failed");
++  }
++  AppendQairt244Diag("InitializeDispatchApi LiteRtDispatchInitialize success");
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG LiteRtDispatchInitialize succeeded");
+   // Check if Library needed by dispatch api is compatible.
+-  LITERT_RETURN_IF_ERROR(LiteRtDispatchCheckRuntimeCompatibility(
++  auto compatibility_status = LiteRtDispatchCheckRuntimeCompatibility(
+       LiteRtApiVersion{LITERT_API_VERSION_MAJOR, LITERT_API_VERSION_MINOR,
+                        LITERT_API_VERSION_PATCH},
+-      environment_options_, options_));
++      environment_options_, options_);
++  AppendQairt244Diag(
++      "InitializeDispatchApi LiteRtDispatchCheckRuntimeCompatibility "
++      "status=%s(%d)",
++      LiteRtStatusName(compatibility_status), compatibility_status);
++  LITERT_LOG(
++      LITERT_ERROR,
++      "QAIRT244_DIAG LiteRtDispatchCheckRuntimeCompatibility status=%s(%d)",
++      LiteRtStatusName(compatibility_status), compatibility_status);
++  QAIRT244_ANDROID_LOG(
++      "%s InitializeDispatchApi compatibility returned status=%s(%d)",
++      kQairt244AndroidLogMarker, LiteRtStatusName(compatibility_status),
++      compatibility_status);
++  LITERT_RETURN_IF_ERROR(compatibility_status);
+
+   const char* vendor_id;
+   LITERT_RETURN_IF_ERROR(LiteRtDispatchGetVendorId(&vendor_id));
+@@ -196,6 +372,13 @@ litert::Expected<void> DispatchDelegate::InitializeDispatchApi() {
+   // Check if the versions mach.
+   if (api_version.major != LITERT_API_VERSION_MAJOR ||
+       api_version.minor < LITERT_API_VERSION_MINOR) {
++    AppendQairt244Diag(
++        "InitializeDispatchApi unsupported dispatch api version=%d.%d.%d",
++        api_version.major, api_version.minor, api_version.patch);
++    QAIRT244_ANDROID_LOG(
++        "%s InitializeDispatchApi failure unsupported dispatch api version=%d.%d.%d",
++        kQairt244AndroidLogMarker, api_version.major, api_version.minor,
++        api_version.patch);
+     return Unexpected(kLiteRtStatusErrorRuntimeFailure,
+                       "Found Dispatch API with an unsupported version");
+   }
+@@ -203,16 +386,53 @@ litert::Expected<void> DispatchDelegate::InitializeDispatchApi() {
+   int capabilities;
+   LITERT_RETURN_IF_ERROR(LiteRtDispatchGetCapabilities(&capabilities));
+   LITERT_LOG(LITERT_DEBUG, "Dispatch API capabilities: %d", capabilities);
++  AppendQairt244Diag("InitializeDispatchApi capabilities=%d basic_present=%d",
++                     capabilities,
++                     (capabilities & kLiteRtDispatchCapabilitiesBasic) != 0);
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG Dispatch API capabilities=%d basic_present=%d",
++             capabilities,
++             (capabilities & kLiteRtDispatchCapabilitiesBasic) != 0);
+
+   if (!(capabilities & kLiteRtDispatchCapabilitiesBasic)) {
++    AppendQairt244Diag(
++        "InitializeDispatchApi insufficient capabilities=%d", capabilities);
++    QAIRT244_ANDROID_LOG(
++        "%s InitializeDispatchApi failure insufficient capabilities=%d",
++        kQairt244AndroidLogMarker, capabilities);
+     return Unexpected(
+         kLiteRtStatusErrorRuntimeFailure,
+         absl::StrFormat("Dispatch API has insufficient capabilities: %d",
+                         capabilities));
+   }
+
+-  LITERT_RETURN_IF_ERROR(LiteRtDispatchDeviceContextCreate(
+-      LrtGetRuntimeContext(), options_, &device_context_));
++  if (auto status = LiteRtDispatchDeviceContextCreate(
++          LrtGetRuntimeContext(), options_, &device_context_);
++      status != kLiteRtStatusOk) {
++    AppendQairt244Diag(
++        "InitializeDispatchApi LiteRtDispatchDeviceContextCreate failure "
++        "status=%s(%d)",
++        LiteRtStatusName(status), status);
++    QAIRT244_ANDROID_LOG(
++        "%s InitializeDispatchApi LiteRtDispatchDeviceContextCreate failure "
++        "status=%s(%d)",
++        kQairt244AndroidLogMarker, LiteRtStatusName(status), status);
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG LiteRtDispatchDeviceContextCreate failed "
++               "status=%s(%d)",
++               LiteRtStatusName(status), status);
++    return Unexpected(status, "LiteRtDispatchDeviceContextCreate failed");
++  }
++  AppendQairt244Diag(
++      "InitializeDispatchApi LiteRtDispatchDeviceContextCreate success "
++      "device_context=%p",
++      device_context_);
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG LiteRtDispatchDeviceContextCreate succeeded "
++             "device_context=%p",
++             device_context_);
++  QAIRT244_ANDROID_LOG("%s InitializeDispatchApi return ok device_context=%p",
++                       kQairt244AndroidLogMarker, device_context_);
+
+   return {};
+ }
+diff --git a/litert/runtime/dispatch/litert_dispatch.cc b/litert/runtime/dispatch/litert_dispatch.cc
+index 834cd876..799c370b 100644
+--- a/litert/runtime/dispatch/litert_dispatch.cc
++++ b/litert/runtime/dispatch/litert_dispatch.cc
+@@ -23,7 +23,14 @@
+ #include <dlfcn.h>
+ #endif  // !defined(LITERT_WINDOWS_OS)
+
++#if defined(__ANDROID__)
++#include <android/log.h>
++#endif  // defined(__ANDROID__)
++
++#include <cstdarg>
++#include <cstdio>
+ #include <string>
++#include <utility>
+ #include <vector>
+
+ #include "litert/c/internal/litert_logging.h"
+@@ -81,6 +88,7 @@ LiteRtStatus (*LiteRtStaticLinkedDispatchGetApi)(LiteRtDispatchApi*) = nullptr;
+ namespace {
+
+ litert::SharedLibrary* DispatchSharedLibrary = nullptr;
++litert::SharedLibrary* LiteRtRuntimeSharedLibrary = nullptr;
+ bool IsTheApiInitialized = false;
+ LiteRtDispatchApi TheApi = {
+     /*.version=*/{/*.major=*/0, /*.minor=*/0, /*.patch=*/0},
+@@ -89,29 +97,132 @@ LiteRtDispatchApi TheApi = {
+     /*.graph_interface=*/nullptr,
+ };
+
++#if defined(__ANDROID__)
++#define QAIRT244_ANDROID_LOG(fmt, ...)                                      \
++  __android_log_print(ANDROID_LOG_ERROR, "QAIRT244_DIAG",                   \
++                      "qairt244_android_log_v1 %s:%d " fmt, __func__,       \
++                      __LINE__, ##__VA_ARGS__)
++#else
++#define QAIRT244_ANDROID_LOG(fmt, ...) ((void)0)
++#endif
++
++constexpr char kQairt244DlopenTraceMarker[] = "qairt244_dlopen_trace_v1";
++constexpr char kQairt244SymbolExperimentMarker[] =
++    "qairt244_symbol_resolution_rtld_global_v1";
++constexpr char kQairt244NativeDiagPath[] =
++    "/data/user/0/io.github.ninbyo02.lami.customnpu/files/"
++    "qairt244_native_diag.txt";
++
++void AppendQairt244DlopenTrace(const char* format, ...) {
++  FILE* file = std::fopen(kQairt244NativeDiagPath, "a");
++  if (file == nullptr) {
++    return;
++  }
++  std::fprintf(file, "%s ", kQairt244DlopenTraceMarker);
++  va_list args;
++  va_start(args, format);
++  std::vfprintf(file, format, args);
++  va_end(args);
++  std::fprintf(file, "\n");
++  std::fflush(file);
++  std::fclose(file);
++}
++
++const char* LiteRtStatusName(LiteRtStatus status) {
++  switch (status) {
++    case kLiteRtStatusOk:
++      return "kLiteRtStatusOk";
++    case kLiteRtStatusErrorInvalidArgument:
++      return "kLiteRtStatusErrorInvalidArgument";
++    case kLiteRtStatusErrorRuntimeFailure:
++      return "kLiteRtStatusErrorRuntimeFailure";
++    case kLiteRtStatusErrorUnsupported:
++      return "kLiteRtStatusErrorUnsupported";
++    case kLiteRtStatusErrorNotFound:
++      return "kLiteRtStatusErrorNotFound";
++    case kLiteRtStatusErrorWrongVersion:
++      return "kLiteRtStatusErrorWrongVersion";
++    case kLiteRtStatusErrorDynamicLoading:
++      return "kLiteRtStatusErrorDynamicLoading";
++    case kLiteRtStatusErrorUnsupportedRuntimeVersion:
++      return "kLiteRtStatusErrorUnsupportedRuntimeVersion";
++    case kLiteRtStatusErrorUnsupportedCompilerVersion:
++      return "kLiteRtStatusErrorUnsupportedCompilerVersion";
++    default:
++      return "LiteRtStatusUnknown";
++  }
++}
++
+ LiteRtStatus Initialize(const LiteRtRuntimeContext* runtime_context,
+                         LiteRtEnvironment env, LiteRtOptions options) {
+   INVOKE_FUNC(initialize, runtime_context, env, options);
+ }
+
++std::string SiblingSharedLibraryPath(const std::string& shared_lib_path,
++                                     const char* library_name) {
++  const auto last_slash = shared_lib_path.find_last_of('/');
++  if (last_slash == std::string::npos) {
++    return std::string(library_name);
++  }
++  return shared_lib_path.substr(0, last_slash + 1) + library_name;
++}
++
+ litert::Expected<std::string> GetSharedLibraryPath(
+     LiteRtEnvironmentOptions env_options) {
++  QAIRT244_ANDROID_LOG("GetSharedLibraryPath entry env_options=%p",
++                       env_options);
++  AppendQairt244DlopenTrace("GetSharedLibraryPath ENTRY env_options=%p",
++                            env_options);
+   std::vector<std::string> dispatch_lib_paths;
+   LiteRtAny dispatch_lib_dir;
+   auto status = LiteRtGetEnvironmentOptionsValue(
+       env_options, kLiteRtEnvOptionTagDispatchLibraryDir, &dispatch_lib_dir);
+   if (status == kLiteRtStatusOk) {
++    AppendQairt244DlopenTrace("dispatch_lib_dir status=%s(%d) value=%s",
++                              LiteRtStatusName(status), status,
++                              dispatch_lib_dir.str_value
++                                  ? dispatch_lib_dir.str_value
++                                  : "<null>");
++    QAIRT244_ANDROID_LOG("dispatch library dir option=%s",
++                         dispatch_lib_dir.str_value);
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG dispatch library dir option=%s",
++               dispatch_lib_dir.str_value);
+     litert::internal::FindLiteRtDispatchSharedLibs(dispatch_lib_dir.str_value,
+                                                    dispatch_lib_paths);
++    AppendQairt244DlopenTrace("dispatch candidate count=%zu",
++                              dispatch_lib_paths.size());
++    for (const auto& path : dispatch_lib_paths) {
++      AppendQairt244DlopenTrace("dispatch candidate path=%s", path.c_str());
++      QAIRT244_ANDROID_LOG("dispatch library candidate=%s", path.c_str());
++      LITERT_LOG(LITERT_ERROR,
++                 "QAIRT244_DIAG dispatch library candidate=%s",
++                 path.c_str());
++    }
++  } else {
++    AppendQairt244DlopenTrace("dispatch_lib_dir missing status=%s(%d)",
++                              LiteRtStatusName(status), status);
++    QAIRT244_ANDROID_LOG("dispatch library dir option missing status=%s(%d)",
++                         LiteRtStatusName(status), status);
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG dispatch library dir option missing "
++               "status=%s(%d)",
++               LiteRtStatusName(status), status);
+   }
+   if (dispatch_lib_paths.empty()) {
+-    LITERT_LOG(LITERT_ERROR, "No dispatch library found in %s",
+-               dispatch_lib_dir.str_value);
++    AppendQairt244DlopenTrace(
++        "GetSharedLibraryPath failure no dispatch candidates");
++    QAIRT244_ANDROID_LOG("dispatch library candidate count=0");
++    LITERT_LOG(LITERT_ERROR, "No dispatch library found");
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG dispatch library candidate count=0");
+     return litert::Error(kLiteRtStatusErrorRuntimeFailure);
+   }
+   if (dispatch_lib_paths.size() > 1) {
+     LITERT_LOG(LITERT_WARNING, "Multiple dispatch libraries found");
+   }
++  AppendQairt244DlopenTrace("GetSharedLibraryPath selected=%s",
++                            dispatch_lib_paths.front().c_str());
+   return dispatch_lib_paths.front();
+ }
+
+@@ -124,15 +235,48 @@ litert::Expected<std::string> GetSharedLibraryPath(
+ LiteRtStatus LiteRtDispatchInitialize(
+     const LiteRtRuntimeContext* runtime_context, LiteRtEnvironment env,
+     LiteRtOptions options) {
++  AppendQairt244DlopenTrace(
++      "LiteRtDispatchInitialize ENTRY runtime_context=%p env=%p options=%p "
++      "initialized=%d",
++      runtime_context, env, options, IsTheApiInitialized);
++  QAIRT244_ANDROID_LOG("LiteRtDispatchInitialize entry runtime_context=%p env=%p "
++                       "options=%p initialized=%d",
++                       runtime_context, env, options, IsTheApiInitialized);
+   if (IsTheApiInitialized) {
++    AppendQairt244DlopenTrace("LiteRtDispatchInitialize reused existing API");
++    QAIRT244_ANDROID_LOG("LiteRtDispatchInitialize reused existing API");
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG LiteRtDispatchInitialize reused existing API");
+     return kLiteRtStatusOk;
+   }
+   LiteRtEnvironmentOptions env_options;
+-  LITERT_RETURN_IF_ERROR(LiteRtGetEnvironmentOptions(env, &env_options));
++  auto env_options_status = LiteRtGetEnvironmentOptions(env, &env_options);
++  AppendQairt244DlopenTrace("LiteRtGetEnvironmentOptions status=%s(%d)",
++                            LiteRtStatusName(env_options_status),
++                            env_options_status);
++  LITERT_RETURN_IF_ERROR(env_options_status);
+
+   LiteRtStatus api_status = kLiteRtStatusErrorNotFound;
+   if (LiteRtStaticLinkedDispatchGetApi != nullptr) {
++    AppendQairt244DlopenTrace("trying static dispatch API ptr=%p",
++                              reinterpret_cast<void*>(
++                                  LiteRtStaticLinkedDispatchGetApi));
++    QAIRT244_ANDROID_LOG("trying statically linked dispatch API");
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG trying statically linked dispatch API");
+     api_status = LiteRtStaticLinkedDispatchGetApi(&TheApi);
++    AppendQairt244DlopenTrace("static dispatch API status=%s(%d)",
++                              LiteRtStatusName(api_status), api_status);
++    QAIRT244_ANDROID_LOG("static dispatch API status=%s(%d)",
++                         LiteRtStatusName(api_status), api_status);
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG static dispatch API status=%s(%d)",
++               LiteRtStatusName(api_status), api_status);
++  } else {
++    AppendQairt244DlopenTrace("no static dispatch API");
++    QAIRT244_ANDROID_LOG("no statically linked dispatch API");
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG no statically linked dispatch API");
+   }
+
+   if (api_status == kLiteRtStatusErrorNotFound) {
+@@ -141,39 +285,186 @@ LiteRtStatus LiteRtDispatchInitialize(
+     LITERT_ASSIGN_OR_RETURN(auto shared_lib_path,
+                             GetSharedLibraryPath(env_options));
+
++    AppendQairt244DlopenTrace("dispatch dlopen candidate selected=%s",
++                              shared_lib_path.c_str());
+     LITERT_LOG(LITERT_INFO, "Loading shared library: %s",
+                shared_lib_path.c_str());
++    QAIRT244_ANDROID_LOG("dlopen dispatch before path=%s",
++                         shared_lib_path.c_str());
++    LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG dlopen dispatch path=%s",
++               shared_lib_path.c_str());
+
+     if (!DispatchSharedLibrary) {
++      AppendQairt244DlopenTrace("allocating DispatchSharedLibrary holder");
+       DispatchSharedLibrary = new litert::SharedLibrary();
+     }
+
+-    LITERT_ASSIGN_OR_RETURN(
+-        *DispatchSharedLibrary,
+-        litert::SharedLibrary::Load(shared_lib_path,
+-                                    litert::RtldFlags::Now().Local()));
++    const std::string litert_runtime_path =
++        SiblingSharedLibraryPath(shared_lib_path, "libLiteRt.so");
++    AppendQairt244DlopenTrace(
++        "%s preload libLiteRt.so before path=%s flags=NowGlobal",
++        kQairt244SymbolExperimentMarker, litert_runtime_path.c_str());
++    if (!LiteRtRuntimeSharedLibrary) {
++      LiteRtRuntimeSharedLibrary = new litert::SharedLibrary();
++    }
++    auto litert_runtime_or = litert::SharedLibrary::Load(
++        litert_runtime_path, litert::RtldFlags::Now().Global());
++    if (!litert_runtime_or) {
++      AppendQairt244DlopenTrace(
++          "%s preload libLiteRt.so failure path=%s status=%s(%d) message=%s",
++          kQairt244SymbolExperimentMarker, litert_runtime_path.c_str(),
++          LiteRtStatusName(litert_runtime_or.Error().Status()),
++          litert_runtime_or.Error().Status(),
++          litert_runtime_or.Error().Message().c_str());
++    } else {
++      *LiteRtRuntimeSharedLibrary = std::move(litert_runtime_or.Value());
++      AppendQairt244DlopenTrace("%s preload libLiteRt.so success path=%s",
++                                kQairt244SymbolExperimentMarker,
++                                litert_runtime_path.c_str());
++    }
++
++    AppendQairt244DlopenTrace(
++        "%s before SharedLibrary::Load dispatch path=%s flags=NowGlobal",
++        kQairt244SymbolExperimentMarker, shared_lib_path.c_str());
++    auto dispatch_library_or = litert::SharedLibrary::Load(
++        shared_lib_path, litert::RtldFlags::Now().Global());
++    if (!dispatch_library_or) {
++      AppendQairt244DlopenTrace(
++          "SharedLibrary::Load failure path=%s status=%s(%d) message=%s",
++          shared_lib_path.c_str(),
++          LiteRtStatusName(dispatch_library_or.Error().Status()),
++          dispatch_library_or.Error().Status(),
++          dispatch_library_or.Error().Message().c_str());
++      QAIRT244_ANDROID_LOG("dlopen dispatch after failure path=%s status=%s(%d) "
++                           "message=%s",
++                           shared_lib_path.c_str(),
++                           LiteRtStatusName(dispatch_library_or.Error().Status()),
++                           dispatch_library_or.Error().Status(),
++                           dispatch_library_or.Error().Message().c_str());
++      LITERT_LOG(LITERT_ERROR,
++                 "QAIRT244_DIAG dlopen dispatch failed path=%s status=%s(%d) "
++                 "message=%s",
++                 shared_lib_path.c_str(),
++                 LiteRtStatusName(dispatch_library_or.Error().Status()),
++                 dispatch_library_or.Error().Status(),
++                 dispatch_library_or.Error().Message().c_str());
++      return dispatch_library_or.Error().Status();
++    }
++    *DispatchSharedLibrary = std::move(dispatch_library_or.Value());
++    AppendQairt244DlopenTrace("SharedLibrary::Load success path=%s",
++                              shared_lib_path.c_str());
++    QAIRT244_ANDROID_LOG("dlopen dispatch after success path=%s",
++                         shared_lib_path.c_str());
++    LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG dlopen dispatch succeeded path=%s",
++               shared_lib_path.c_str());
+
+     using LiteRtDispatchGetApi_t = LiteRtStatus (*)(LiteRtDispatchApi*);
+-    LITERT_ASSIGN_OR_RETURN(
+-        auto dynamic_get_api,
++    AppendQairt244DlopenTrace("before dlsym symbol=LiteRtDispatchGetApi");
++    QAIRT244_ANDROID_LOG("dlsym LiteRtDispatchGetApi before");
++    auto dynamic_get_api_or =
+         DispatchSharedLibrary->LookupSymbol<LiteRtDispatchGetApi_t>(
+-            "LiteRtDispatchGetApi"));
+-
++            "LiteRtDispatchGetApi");
++    if (!dynamic_get_api_or) {
++      AppendQairt244DlopenTrace(
++          "dlsym failure symbol=LiteRtDispatchGetApi status=%s(%d) "
++          "message=%s",
++          LiteRtStatusName(dynamic_get_api_or.Error().Status()),
++          dynamic_get_api_or.Error().Status(),
++          dynamic_get_api_or.Error().Message().c_str());
++      QAIRT244_ANDROID_LOG("dlsym LiteRtDispatchGetApi after failure "
++                           "status=%s(%d) message=%s",
++                           LiteRtStatusName(dynamic_get_api_or.Error().Status()),
++                           dynamic_get_api_or.Error().Status(),
++                           dynamic_get_api_or.Error().Message().c_str());
++      LITERT_LOG(LITERT_ERROR,
++                 "QAIRT244_DIAG dlsym LiteRtDispatchGetApi failed "
++                 "status=%s(%d) message=%s",
++                 LiteRtStatusName(dynamic_get_api_or.Error().Status()),
++                 dynamic_get_api_or.Error().Status(),
++                 dynamic_get_api_or.Error().Message().c_str());
++      return dynamic_get_api_or.Error().Status();
++    }
++    auto dynamic_get_api = dynamic_get_api_or.Value();
++    AppendQairt244DlopenTrace("dlsym success symbol=LiteRtDispatchGetApi ptr=%p",
++                              reinterpret_cast<void*>(dynamic_get_api));
++    QAIRT244_ANDROID_LOG("dlsym LiteRtDispatchGetApi after success");
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG dlsym LiteRtDispatchGetApi succeeded");
++
++    QAIRT244_ANDROID_LOG("LiteRtDispatchGetApi before");
++    AppendQairt244DlopenTrace("before LiteRtDispatchGetApi call");
+     if (auto status = dynamic_get_api(&TheApi); status != kLiteRtStatusOk) {
++      AppendQairt244DlopenTrace("LiteRtDispatchGetApi failure status=%s(%d)",
++                                LiteRtStatusName(status), status);
++      QAIRT244_ANDROID_LOG("LiteRtDispatchGetApi after failure status=%s(%d)",
++                           LiteRtStatusName(status), status);
++      LITERT_LOG(LITERT_ERROR,
++                 "QAIRT244_DIAG LiteRtDispatchGetApi returned status=%s(%d)",
++                 LiteRtStatusName(status), status);
+       return status;
+     }
++    AppendQairt244DlopenTrace(
++        "LiteRtDispatchGetApi success api_version=%d.%d.%d interface=%p "
++        "async_interface=%p graph_interface=%p",
++        TheApi.version.major, TheApi.version.minor, TheApi.version.patch,
++        TheApi.interface, TheApi.async_interface, TheApi.graph_interface);
++    QAIRT244_ANDROID_LOG("LiteRtDispatchGetApi after success api_version=%d.%d.%d "
++                         "interface=%p async_interface=%p graph_interface=%p",
++                         TheApi.version.major, TheApi.version.minor,
++                         TheApi.version.patch, TheApi.interface,
++                         TheApi.async_interface, TheApi.graph_interface);
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG LiteRtDispatchGetApi returned ok "
++               "api_version=%d.%d.%d interface=%p async_interface=%p "
++               "graph_interface=%p",
++               TheApi.version.major, TheApi.version.minor,
++               TheApi.version.patch, TheApi.interface, TheApi.async_interface,
++               TheApi.graph_interface);
+   } else if (api_status != kLiteRtStatusOk) {
++    AppendQairt244DlopenTrace("static dispatch API failed status=%s(%d)",
++                              LiteRtStatusName(api_status), api_status);
++    QAIRT244_ANDROID_LOG("static dispatch API failed status=%s(%d)",
++                         LiteRtStatusName(api_status), api_status);
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG static dispatch API failed status=%s(%d)",
++               LiteRtStatusName(api_status), api_status);
+     return api_status;
+   } else {
+     LITERT_LOG(LITERT_INFO, "Using statically linked dispatch_api");
+   }
+
+   if (!litert::internal::IsSameVersionAsRuntime(TheApi.version)) {
++    AppendQairt244DlopenTrace("dispatch runtime version mismatch %d.%d.%d",
++                              TheApi.version.major, TheApi.version.minor,
++                              TheApi.version.patch);
++    QAIRT244_ANDROID_LOG("dispatch runtime version mismatch api_version=%d.%d.%d",
++                         TheApi.version.major, TheApi.version.minor,
++                         TheApi.version.patch);
+     LITERT_LOG(LITERT_ERROR, "Unsupported dispatch runtime version");
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG dispatch runtime version mismatch "
++               "api_version=%d.%d.%d",
++               TheApi.version.major, TheApi.version.minor,
++               TheApi.version.patch);
+     return kLiteRtStatusErrorWrongVersion;
+   }
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG dispatch runtime version accepted api_version=%d.%d.%d",
++             TheApi.version.major, TheApi.version.minor, TheApi.version.patch);
++  AppendQairt244DlopenTrace("dispatch runtime version accepted %d.%d.%d",
++                            TheApi.version.major, TheApi.version.minor,
++                            TheApi.version.patch);
+
++  QAIRT244_ANDROID_LOG("dispatch vendor initialize before");
++  AppendQairt244DlopenTrace("before dispatch vendor initialize");
+   auto status = Initialize(runtime_context, env, options);
++  AppendQairt244DlopenTrace("dispatch vendor initialize status=%s(%d)",
++                            LiteRtStatusName(status), status);
++  QAIRT244_ANDROID_LOG("dispatch vendor initialize after status=%s(%d)",
++                       LiteRtStatusName(status), status);
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG dispatch vendor initialize status=%s(%d)",
++             LiteRtStatusName(status), status);
+   if (status == kLiteRtStatusOk) {
+     IsTheApiInitialized = true;
+   }
+@@ -434,7 +725,36 @@ LiteRtStatus LiteRtDispatchInvoke(
+ LiteRtStatus LiteRtDispatchCheckRuntimeCompatibility(
+     LiteRtApiVersion api_version, LiteRtEnvironmentOptions env,
+     LiteRtOptions options) {
+-  INVOKE_FUNC(check_runtime_compatibility, api_version, env, options);
++  QAIRT244_ANDROID_LOG(
++      "LiteRtDispatchCheckRuntimeCompatibility entry api_version=%d.%d.%d "
++      "env=%p options=%p interface=%p",
++      api_version.major, api_version.minor, api_version.patch, env, options,
++      TheApi.interface);
++  if (!TheApi.interface) {
++    QAIRT244_ANDROID_LOG("LiteRtDispatchCheckRuntimeCompatibility failure "
++                         "missing_interface");
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG compatibility check missing interface");
++    return kLiteRtStatusErrorRuntimeFailure;
++  }
++  if (!TheApi.interface->check_runtime_compatibility) {
++    QAIRT244_ANDROID_LOG("LiteRtDispatchCheckRuntimeCompatibility failure "
++                         "missing_function");
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG compatibility check missing function");
++    return kLiteRtStatusErrorRuntimeFailure;
++  }
++  LITERT_PERFETTO_TRACE_EVENT("Dispatch API check_runtime_compatibility");
++  auto status = TheApi.interface->check_runtime_compatibility(api_version, env,
++                                                              options);
++  QAIRT244_ANDROID_LOG(
++      "LiteRtDispatchCheckRuntimeCompatibility return status=%s(%d)",
++      LiteRtStatusName(status), status);
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG LiteRtDispatchCheckRuntimeCompatibility returned "
++             "status=%s(%d)",
++             LiteRtStatusName(status), status);
++  return status;
+ }
+
+ LiteRtStatus LiteRtDispatchStartMetricsCollection(
+diff --git a/litert/vendors/qualcomm/BUILD b/litert/vendors/qualcomm/BUILD
+index 38eb13f3..817603e1 100644
+--- a/litert/vendors/qualcomm/BUILD
++++ b/litert/vendors/qualcomm/BUILD
+@@ -70,6 +70,10 @@ litert_cc_lib_with_qnn(
+     ],
+     hdrs = ["qnn_manager.h"],
+     include_system = True,
++    linkopts = select({
++        "//litert:android": ["-llog"],
++        "//conditions:default": [],
++    }),
+     ungrte = True,
+     deps = [
+         ":common",
+diff --git a/litert/vendors/qualcomm/core/backends/htp_backend.cc b/litert/vendors/qualcomm/core/backends/htp_backend.cc
+index 740200f7..cd404ce7 100644
+--- a/litert/vendors/qualcomm/core/backends/htp_backend.cc
++++ b/litert/vendors/qualcomm/core/backends/htp_backend.cc
+@@ -4,8 +4,11 @@
+ #include "litert/vendors/qualcomm/core/backends/htp_backend.h"
+
+ #include <array>
++#include <cstdarg>
+ #include <cstddef>
+ #include <cstdint>
++#include <cstdio>
++#include <cstdlib>
+ #include <memory>
+ #include <optional>
+ #include <utility>
+@@ -25,6 +28,33 @@
+ #include "QnnInterface.h"  // from @qairt
+
+ namespace qnn {
++namespace {
++
++constexpr char kQairt244HtpDiagPath[] =
++    "/data/user/0/io.github.ninbyo02.lami.customnpu/files/"
++    "qairt244_native_diag.txt";
++
++void AppendQairt244HtpBackendTrace(const char* format, ...) {
++  FILE* file = std::fopen(kQairt244HtpDiagPath, "a");
++  if (file == nullptr) {
++    return;
++  }
++  std::fprintf(file, "qairt244_htp_backend_trace_v1 ");
++  va_list args;
++  va_start(args, format);
++  std::vfprintf(file, format, args);
++  va_end(args);
++  std::fprintf(file, "\n");
++  std::fflush(file);
++  std::fclose(file);
++}
++
++const char* SafeGetenv(const char* name) {
++  const char* value = std::getenv(name);
++  return value == nullptr ? "<unset>" : value;
++}
++
++}  // namespace
+
+ // HTP PERF CONTROL /////////////////////////////////////////////////////////
+ class HtpBackend::HtpPerfControl {
+@@ -40,14 +70,31 @@ class HtpBackend::HtpPerfControl {
+
+   bool Init(HtpPerformanceMode performance_mode) {
+     Qnn_ErrorHandle_t error = QNN_SUCCESS;
+-
++    AppendQairt244HtpBackendTrace(
++        "HtpPerfControl::Init ENTRY performance_mode=%d api=%p",
++        static_cast<int>(performance_mode), static_cast<const void*>(api_));
++
++    AppendQairt244HtpBackendTrace(
++        "HtpPerfControl::Init before QnnDevice_getInfrastructure "
++        "infra_addr=%p",
++        static_cast<void*>(&htp_perf_infra_));
+     if (error = api_->deviceGetInfrastructure(&htp_perf_infra_);
+         error != QNN_SUCCESS) {
++      AppendQairt244HtpBackendTrace(
++          "HtpPerfControl::Init QnnDevice_getInfrastructure failed "
++          "status=%llu error_code=%u infra=%p",
++          static_cast<unsigned long long>(error), QNN_GET_ERROR_CODE(error),
++          htp_perf_infra_);
+       QNN_LOG_ERROR(
+           "DSP backend unable to create device infrastructure. Error %d",
+           QNN_GET_ERROR_CODE(error));
+       return false;
+     }
++    AppendQairt244HtpBackendTrace(
++        "HtpPerfControl::Init QnnDevice_getInfrastructure success infra=%p "
++        "infra_type=%d",
++        htp_perf_infra_,
++        htp_perf_infra_ ? static_cast<int>(htp_perf_infra_->infraType) : -1);
+
+     if (htp_perf_infra_->infraType != QNN_HTP_DEVICE_INFRASTRUCTURE_TYPE_PERF) {
+       QNN_LOG_ERROR("HTP infra type = %d, which is not perf infra type.",
+@@ -55,13 +102,23 @@ class HtpBackend::HtpPerfControl {
+       return false;
+     }
+
++    AppendQairt244HtpBackendTrace(
++        "HtpPerfControl::Init before createPowerConfigId power_config_addr=%p",
++        static_cast<void*>(&power_config_id_));
+     if (error = htp_perf_infra_->perfInfra.createPowerConfigId(
+             /*device_id=*/0, /*core_id=*/0, &power_config_id_);
+         error != QNN_SUCCESS) {
++      AppendQairt244HtpBackendTrace(
++          "HtpPerfControl::Init createPowerConfigId failed status=%llu "
++          "error_code=%u",
++          static_cast<unsigned long long>(error), QNN_GET_ERROR_CODE(error));
+       QNN_LOG_ERROR("HTP backend unable to create power config. Error %d",
+                     QNN_GET_ERROR_CODE(error));
+       return false;
+     }
++    AppendQairt244HtpBackendTrace(
++        "HtpPerfControl::Init createPowerConfigId success power_config_id=%u",
++        power_config_id_);
+
+     // Initialize power configurations.
+     // We need to prepare both:
+@@ -74,14 +131,25 @@ class HtpBackend::HtpPerfControl {
+   }
+
+   bool SetRpcPolling(HtpPerformanceMode performance_mode) {
++    AppendQairt244HtpBackendTrace(
++        "HtpPerfControl::SetRpcPolling ENTRY performance_mode=%d",
++        static_cast<int>(performance_mode));
+     if (!InitRpcPollingPowerConfig(performance_mode)) {
++      AppendQairt244HtpBackendTrace(
++          "HtpPerfControl::SetRpcPolling InitRpcPollingPowerConfig failed");
+       QNN_LOG_ERROR("Failed to init RPC polling power config.");
+       return false;
+     }
+
+     if (htp_perf_infra_) {
++      AppendQairt244HtpBackendTrace(
++          "HtpPerfControl::SetRpcPolling before setPowerConfig id=%u "
++          "configs=%p",
++          power_config_id_, rpc_power_configs_ptr_.data());
+       htp_perf_infra_->perfInfra.setPowerConfig(power_config_id_,
+                                                 rpc_power_configs_ptr_.data());
++      AppendQairt244HtpBackendTrace(
++          "HtpPerfControl::SetRpcPolling after setPowerConfig");
+     }
+
+     return true;
+@@ -89,8 +157,12 @@ class HtpBackend::HtpPerfControl {
+
+   void UpVote() {
+     if (htp_perf_infra_) {
++      AppendQairt244HtpBackendTrace(
++          "HtpPerfControl::UpVote before setPowerConfig id=%u configs=%p",
++          power_config_id_, up_vote_power_configs_ptr_.data());
+       htp_perf_infra_->perfInfra.setPowerConfig(
+           power_config_id_, up_vote_power_configs_ptr_.data());
++      AppendQairt244HtpBackendTrace("HtpPerfControl::UpVote after setPowerConfig");
+     }
+   }
+
+@@ -365,34 +437,83 @@ HtpBackend::~HtpBackend() = default;
+
+ HtpBackend::QnnDevicePlatformInfo HtpBackend::CreateDevicePlatformInfo() {
+   const QnnDevice_PlatformInfo_t* local_qnn_device_platform_info = nullptr;
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::CreateDevicePlatformInfo ENTRY api=%p "
++      "deviceGetPlatformInfo_present=%d",
++      static_cast<const void*>(QnnApi()),
++      QnnApi() && QnnApi()->deviceGetPlatformInfo ? 1 : 0);
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::CreateDevicePlatformInfo before QnnDevice_getPlatformInfo "
++      "info_addr=%p",
++      static_cast<const void*>(&local_qnn_device_platform_info));
+   auto error =
+       QnnApi()->deviceGetPlatformInfo(nullptr, &local_qnn_device_platform_info);
+   if (error != QNN_SUCCESS) {
++    AppendQairt244HtpBackendTrace(
++        "HtpBackend::CreateDevicePlatformInfo QnnDevice_getPlatformInfo "
++        "failed status=%llu error_code=%u info=%p",
++        static_cast<unsigned long long>(error), QNN_GET_ERROR_CODE(error),
++        local_qnn_device_platform_info);
+     QNN_LOG_ERROR("failed to get device platform info, %d", error);
+     return QnnDevicePlatformInfo{nullptr, PlatformInfoDeleter{QnnApi()}};
+   }
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::CreateDevicePlatformInfo success info=%p num_hw_devices=%u",
++      local_qnn_device_platform_info,
++      local_qnn_device_platform_info
++          ? local_qnn_device_platform_info->v1.numHwDevices
++          : 0);
+   return QnnDevicePlatformInfo{local_qnn_device_platform_info,
+                                PlatformInfoDeleter{QnnApi()}};
+ }
+
+ bool HtpBackend::Init(const Options& options, std::optional<SocInfo> soc_info) {
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::Init ENTRY api=%p log_level=%d htp_performance_mode=%d "
++      "soc_info_present=%d ADSP_LIBRARY_PATH=%s LD_LIBRARY_PATH=%s",
++      static_cast<const void*>(QnnApi()), static_cast<int>(options.GetLogLevel()),
++      static_cast<int>(options.GetHtpPerformanceMode()), soc_info.has_value(),
++      SafeGetenv("ADSP_LIBRARY_PATH"), SafeGetenv("LD_LIBRARY_PATH"));
++  if (soc_info.has_value()) {
++    AppendQairt244HtpBackendTrace(
++        "HtpBackend::Init input_soc name=%s model=%d dsp_arch=%d vtcm_mb=%u",
++        soc_info->soc_name ? soc_info->soc_name : "<null>",
++        static_cast<int>(soc_info->soc_model),
++        static_cast<int>(soc_info->dsp_arch), soc_info->vtcm_size_in_mb);
++  }
++
+   // Log Handle
++  AppendQairt244HtpBackendTrace("HtpBackend::Init before CreateLogHandle");
+   auto local_log_handle = CreateLogHandle(options.GetLogLevel());
+   if (!local_log_handle && options.GetLogLevel() != LogLevel::kOff) {
++    AppendQairt244HtpBackendTrace(
++        "HtpBackend::Init CreateLogHandle failed log_level=%d",
++        static_cast<int>(options.GetLogLevel()));
+     QNN_LOG_ERROR("Failed to create log handle.");
+     return false;
+   }
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::Init CreateLogHandle success handle=%p",
++      local_log_handle.get());
+
+   // Backend Handle
+   std::vector<const QnnBackend_Config_t*> backend_configs;
+   backend_configs.emplace_back(nullptr);
+
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::Init before CreateBackendHandle config_count=%zu",
++      backend_configs.size());
+   auto local_backend_handle = CreateBackendHandle(
+       local_log_handle.get(), absl::MakeSpan(backend_configs));
+   if (!local_backend_handle) {
++    AppendQairt244HtpBackendTrace(
++        "HtpBackend::Init CreateBackendHandle failed");
+     QNN_LOG_ERROR("Failed to create backend handle.");
+     return false;
+   }
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::Init CreateBackendHandle success handle=%p",
++      local_backend_handle.get());
+
+   // Starting from QAIRT 2.39, platform information will be available even when
+   // this API is called during offline preparation. However, it will always
+@@ -404,18 +525,44 @@ bool HtpBackend::Init(const Options& options, std::optional<SocInfo> soc_info) {
+     soc_info_ = *soc_info;
+   }
+ #else
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::Init before online CreateDevicePlatformInfo");
+   if (auto device_platform_info = CreateDevicePlatformInfo();
+       device_platform_info) {
++    AppendQairt244HtpBackendTrace(
++        "HtpBackend::Init online platform info present info=%p",
++        device_platform_info.get());
+     auto soc_model = device_platform_info->v1.hwDevices->v1.deviceInfoExtension
+                          ->onChipDevice.socModel;
+     auto soc_info_online = FindSocInfo(static_cast<SnapdragonModel>(soc_model));
+     soc_info_ = soc_info_online.value_or(kSocInfos[0]);
++    AppendQairt244HtpBackendTrace(
++        "HtpBackend::Init online soc_model_raw=%u found=%d selected=%s "
++        "model=%d dsp_arch=%d vtcm_mb=%u",
++        soc_model, soc_info_online.has_value(),
++        soc_info_.soc_name ? soc_info_.soc_name : "<null>",
++        static_cast<int>(soc_info_.soc_model),
++        static_cast<int>(soc_info_.dsp_arch), soc_info_.vtcm_size_in_mb);
++  } else {
++    AppendQairt244HtpBackendTrace(
++        "HtpBackend::Init online CreateDevicePlatformInfo returned null");
+   }
+ #endif
+   if (soc_info_.dsp_arch == DspArch::NONE) {
++    AppendQairt244HtpBackendTrace(
++        "HtpBackend::Init failing reason=SocInfoDspArchNone selected=%s "
++        "model=%d dsp_arch=%d",
++        soc_info_.soc_name ? soc_info_.soc_name : "<null>",
++        static_cast<int>(soc_info_.soc_model),
++        static_cast<int>(soc_info_.dsp_arch));
+     QNN_LOG_ERROR("SoC info was not configured successfully.")
+     return false;
+   }
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::Init selected_soc name=%s model=%d dsp_arch=%d vtcm_mb=%u",
++      soc_info_.soc_name ? soc_info_.soc_name : "<null>",
++      static_cast<int>(soc_info_.soc_model), static_cast<int>(soc_info_.dsp_arch),
++      soc_info_.vtcm_size_in_mb);
+   QNN_LOG_INFO("Initializing QNN backend for SoC model: %s",
+                soc_info_.soc_name);
+
+@@ -426,6 +573,10 @@ bool HtpBackend::Init(const Options& options, std::optional<SocInfo> soc_info) {
+   htp_device_custom_config->option = QNN_HTP_DEVICE_CONFIG_OPTION_SOC;
+   htp_device_custom_config->socModel =
+       static_cast<uint32_t>(soc_info_.soc_model);
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::Init HTP device custom config ptr=%p option=%d socModel=%u",
++      htp_device_custom_config, static_cast<int>(htp_device_custom_config->option),
++      htp_device_custom_config->socModel);
+   device_custom_configs.emplace_back(
+       static_cast<QnnDevice_CustomConfig_t>(htp_device_custom_config));
+
+@@ -481,6 +632,11 @@ bool HtpBackend::Init(const Options& options, std::optional<SocInfo> soc_info) {
+     device_custom_config->option = QNN_DEVICE_CONFIG_OPTION_CUSTOM;
+     device_custom_config->customConfig = device_custom_configs[i];
+     device_configs.emplace_back(device_custom_config);
++    AppendQairt244HtpBackendTrace(
++        "HtpBackend::Init device_config_custom[%zu]=%p option=%d "
++        "customConfig=%p",
++        i, device_custom_config, static_cast<int>(device_custom_config->option),
++        device_custom_config->customConfig);
+   }
+   for (std::size_t i = 0; i < device_platform_infos.size(); ++i) {
+     QnnDevice_Config_t* device_custom_config = &AllocateDeviceConfig();
+@@ -490,21 +646,41 @@ bool HtpBackend::Init(const Options& options, std::optional<SocInfo> soc_info) {
+   }
+   // null terminated
+   device_configs.emplace_back(nullptr);
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::Init before CreateDeviceHandle device_config_count=%zu "
++      "custom_count=%zu platform_count=%zu null_terminated=1",
++      device_configs.size(), device_custom_configs.size(),
++      device_platform_infos.size());
+
+   auto local_device_handle = CreateDeviceHandle(local_log_handle.get(),
+                                                 absl::MakeSpan(device_configs));
+   if (!local_device_handle) {
++    AppendQairt244HtpBackendTrace(
++        "HtpBackend::Init CreateDeviceHandle failed selected_soc=%s "
++        "model=%d dsp_arch=%d",
++        soc_info_.soc_name ? soc_info_.soc_name : "<null>",
++        static_cast<int>(soc_info_.soc_model),
++        static_cast<int>(soc_info_.dsp_arch));
+     QNN_LOG_ERROR("Failed to create device handle.");
+     return false;
+   }
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::Init CreateDeviceHandle success handle=%p",
++      local_device_handle.get());
+
+   // HTP Performance Settings
+   HtpPerformanceMode performance_mode = options.GetHtpPerformanceMode();
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::Init performance_mode=%d default=%d",
++      static_cast<int>(performance_mode),
++      static_cast<int>(HtpPerformanceMode::kDefault));
+   if (performance_mode != HtpPerformanceMode::kDefault) {
+     QNN_LOG_INFO("Set HTP performance mode: %d", performance_mode);
+
+     htp_perf_control_ = std::make_unique<HtpPerfControl>(QnnApi());
+     if (!htp_perf_control_->Init(performance_mode)) {
++      AppendQairt244HtpBackendTrace(
++          "HtpBackend::Init HtpPerfControl::Init failed");
+       QNN_LOG_ERROR(
+           "Failed to initialize HTP performance Control, using default "
+           "performance mode.");
+@@ -512,6 +688,8 @@ bool HtpBackend::Init(const Options& options, std::optional<SocInfo> soc_info) {
+     } else {
+       if (soc_info_.dsp_arch >= DspArch::V69) {
+         if (!htp_perf_control_->SetRpcPolling(performance_mode)) {
++          AppendQairt244HtpBackendTrace(
++              "HtpBackend::Init HtpPerfControl::SetRpcPolling failed");
+           QNN_LOG_ERROR("Failed to initialize HTP RPC polling.");
+           return false;
+         }
+@@ -526,6 +704,10 @@ bool HtpBackend::Init(const Options& options, std::optional<SocInfo> soc_info) {
+   backend_handle_ = std::move(local_backend_handle);
+   device_handle_ = std::move(local_device_handle);
+
++  AppendQairt244HtpBackendTrace(
++      "HtpBackend::Init RETURN true backend_handle=%p device_handle=%p "
++      "log_handle=%p",
++      backend_handle_.get(), device_handle_.get(), log_handle_.get());
+   return true;
+ }
+
+diff --git a/litert/vendors/qualcomm/core/backends/qnn_backend.cc b/litert/vendors/qualcomm/core/backends/qnn_backend.cc
+index 9e91a31b..6450f42a 100644
+--- a/litert/vendors/qualcomm/core/backends/qnn_backend.cc
++++ b/litert/vendors/qualcomm/core/backends/qnn_backend.cc
+@@ -3,6 +3,9 @@
+
+ #include "litert/vendors/qualcomm/core/backends/qnn_backend.h"
+
++#include <cstdarg>
++#include <cstdio>
++
+ #include "absl/types/span.h"  // from @com_google_absl
+ #include "litert/vendors/qualcomm/core/common.h"
+ #include "litert/vendors/qualcomm/core/utils/log.h"
+@@ -13,6 +16,48 @@
+ #include "QnnLog.h"  // from @qairt
+
+ namespace qnn {
++namespace {
++
++constexpr char kQairt244HtpDiagPath[] =
++    "/data/user/0/io.github.ninbyo02.lami.customnpu/files/"
++    "qairt244_native_diag.txt";
++
++void AppendQairt244HtpBackendTrace(const char* format, ...) {
++  FILE* file = std::fopen(kQairt244HtpDiagPath, "a");
++  if (file == nullptr) {
++    return;
++  }
++  std::fprintf(file, "qairt244_htp_backend_trace_v1 ");
++  va_list args;
++  va_start(args, format);
++  std::vfprintf(file, format, args);
++  va_end(args);
++  std::fprintf(file, "\n");
++  std::fflush(file);
++  std::fclose(file);
++}
++
++void Qairt244HtpLogCallback(const char* fmt, QnnLog_Level_t level,
++                            uint64_t timestamp, va_list args) {
++  FILE* file = std::fopen(kQairt244HtpDiagPath, "a");
++  if (file == nullptr) {
++    return;
++  }
++  std::fprintf(file,
++               "qairt244_htp_log_callback_v1 level=%d timestamp=%llu msg=",
++               static_cast<int>(level),
++               static_cast<unsigned long long>(timestamp));
++  if (fmt != nullptr) {
++    std::vfprintf(file, fmt, args);
++  } else {
++    std::fprintf(file, "<null fmt>");
++  }
++  std::fprintf(file, "\n");
++  std::fflush(file);
++  std::fclose(file);
++}
++
++}  // namespace
+
+ QnnBackend::QnnBackend(const QNN_INTERFACE_VER_TYPE* qnn_api)
+     : qnn_api_(qnn_api),
+@@ -54,18 +99,40 @@ QnnDevice_CoreInfo_t& QnnBackend::AllocateDeviceCoreInfo() {
+
+ QnnBackend::QnnLogHandle QnnBackend::CreateLogHandle(
+     ::qnn::LogLevel log_level) {
+-  if (log_level != ::qnn::LogLevel::kOff) {
++  const QnnLog_Level_t diagnostic_log_level = QNN_LOG_LEVEL_DEBUG;
++  AppendQairt244HtpBackendTrace(
++      "QnnBackend::CreateLogHandle ENTRY log_level=%d api=%p "
++      "diagnostic_log_level=%d logCreate_present=%d logFree_present=%d",
++      static_cast<int>(log_level), static_cast<const void*>(QnnApi()),
++      static_cast<int>(diagnostic_log_level),
++      QnnApi() && QnnApi()->logCreate ? 1 : 0,
++      QnnApi() && QnnApi()->logFree ? 1 : 0);
++  if (QnnApi() && QnnApi()->logCreate) {
+     Qnn_LogHandle_t local_log_handle = nullptr;
++    AppendQairt244HtpBackendTrace(
++        "QnnBackend::CreateLogHandle before QnnLog_create "
++        "requested_log_level=%d forced_diagnostic_level=%d "
++        "callback=Qairt244HtpLogCallback output_addr=%p",
++        static_cast<int>(log_level), static_cast<int>(diagnostic_log_level),
++        static_cast<void*>(&local_log_handle));
+     if (auto status = QnnApi()->logCreate(
+-            GetDefaultStdOutLogger(), static_cast<QnnLog_Level_t>(log_level),
+-            &local_log_handle);
++            Qairt244HtpLogCallback, diagnostic_log_level, &local_log_handle);
+         status != QNN_SUCCESS) {
++      AppendQairt244HtpBackendTrace(
++          "QnnBackend::CreateLogHandle QnnLog_create failed status=%llu "
++          "error_code=%u",
++          static_cast<unsigned long long>(status), QNN_GET_ERROR_CODE(status));
+       QNN_LOG_ERROR("Failed to create QNN logger: %d", status);
+       return QnnLogHandle{nullptr, QnnApi()->logFree};
+     }
++    AppendQairt244HtpBackendTrace(
++        "QnnBackend::CreateLogHandle QnnLog_create success handle=%p",
++        local_log_handle);
+     return QnnLogHandle{local_log_handle, QnnApi()->logFree};
+   }
+
++  AppendQairt244HtpBackendTrace(
++      "QnnBackend::CreateLogHandle skipped because logCreate missing");
+   return QnnLogHandle{nullptr, QnnApi()->logFree};
+ }
+
+@@ -73,28 +140,70 @@ QnnBackend::QnnBackendHandle QnnBackend::CreateBackendHandle(
+     Qnn_LogHandle_t log_handle,
+     absl::Span<const QnnBackend_Config_t*> configs) {
+   Qnn_BackendHandle_t local_backend_handle = nullptr;
++  AppendQairt244HtpBackendTrace(
++      "QnnBackend::CreateBackendHandle ENTRY log_handle=%p config_count=%zu "
++      "configs_data=%p backendCreate_present=%d backendFree_present=%d",
++      log_handle, configs.size(), configs.data(),
++      QnnApi() && QnnApi()->backendCreate ? 1 : 0,
++      QnnApi() && QnnApi()->backendFree ? 1 : 0);
++  for (std::size_t i = 0; i < configs.size(); ++i) {
++    AppendQairt244HtpBackendTrace(
++        "QnnBackend::CreateBackendHandle config[%zu]=%p", i, configs[i]);
++  }
++  AppendQairt244HtpBackendTrace(
++      "QnnBackend::CreateBackendHandle before QnnBackend_create output_addr=%p",
++      static_cast<void*>(&local_backend_handle));
+   auto error = QnnApi()->backendCreate(
+       log_handle, configs.size() <= 1 ? nullptr : configs.data(),
+       &local_backend_handle);
+   if (error != QNN_SUCCESS) {
++    AppendQairt244HtpBackendTrace(
++        "QnnBackend::CreateBackendHandle QnnBackend_create failed status=%llu "
++        "error_code=%u handle=%p",
++        static_cast<unsigned long long>(error), QNN_GET_ERROR_CODE(error),
++        local_backend_handle);
+     QNN_LOG_ERROR("failed to call backend create, %d", error);
+     return QnnBackendHandle{nullptr, QnnApi()->backendFree};
+   }
+
++  AppendQairt244HtpBackendTrace(
++      "QnnBackend::CreateBackendHandle QnnBackend_create success handle=%p",
++      local_backend_handle);
+   return QnnBackendHandle{local_backend_handle, QnnApi()->backendFree};
+ }
+
+ QnnBackend::QnnDeviceHandle QnnBackend::CreateDeviceHandle(
+     Qnn_LogHandle_t log_handle, absl::Span<const QnnDevice_Config_t*> configs) {
+   Qnn_BackendHandle_t local_device_handle = nullptr;
++  AppendQairt244HtpBackendTrace(
++      "QnnBackend::CreateDeviceHandle ENTRY log_handle=%p config_count=%zu "
++      "configs_data=%p deviceCreate_present=%d deviceFree_present=%d",
++      log_handle, configs.size(), configs.data(),
++      QnnApi() && QnnApi()->deviceCreate ? 1 : 0,
++      QnnApi() && QnnApi()->deviceFree ? 1 : 0);
++  for (std::size_t i = 0; i < configs.size(); ++i) {
++    AppendQairt244HtpBackendTrace(
++        "QnnBackend::CreateDeviceHandle config[%zu]=%p", i, configs[i]);
++  }
++  AppendQairt244HtpBackendTrace(
++      "QnnBackend::CreateDeviceHandle before QnnDevice_create output_addr=%p",
++      static_cast<void*>(&local_device_handle));
+   auto error = QnnApi()->deviceCreate(
+       log_handle, configs.size() <= 1 ? nullptr : configs.data(),
+       &local_device_handle);
+   if (error != QNN_SUCCESS) {
++    AppendQairt244HtpBackendTrace(
++        "QnnBackend::CreateDeviceHandle QnnDevice_create failed status=%llu "
++        "error_code=%u handle=%p",
++        static_cast<unsigned long long>(error), QNN_GET_ERROR_CODE(error),
++        local_device_handle);
+     QNN_LOG_ERROR("failed to call device create, %d", error);
+     return QnnDeviceHandle{nullptr, QnnApi()->deviceFree};
+   }
+
++  AppendQairt244HtpBackendTrace(
++      "QnnBackend::CreateDeviceHandle QnnDevice_create success handle=%p",
++      local_device_handle);
+   return QnnDeviceHandle{local_device_handle, QnnApi()->deviceFree};
+ }
+
+diff --git a/litert/vendors/qualcomm/dispatch/BUILD b/litert/vendors/qualcomm/dispatch/BUILD
+index 209af9b1..33a7ae85 100644
+--- a/litert/vendors/qualcomm/dispatch/BUILD
++++ b/litert/vendors/qualcomm/dispatch/BUILD
+@@ -45,7 +45,13 @@ litert_dynamic_lib(
+         "-fdata-sections",
+     ],
+     export_litert_only = True,
+-    linkopts = litert_android_linkopts() + [
++    # QAIRT244 diagnostic experiment: preserve a DT_NEEDED edge so Android
++    # resolves LiteRt* references from libLiteRt.so when dispatch is dlopen()ed.
++    dynamic_deps = ["//litert/c:litert_runtime_c_api_so"],
++    linkopts = litert_android_linkopts() + select({
++        "//litert:android": ["-llog"],
++        "//conditions:default": [],
++    }) + [
+         "-Wl,-soname=libLiteRtDispatch_Qualcomm.so",
+         "-Wl,-lc++abi",
+     ],
+diff --git a/litert/vendors/qualcomm/dispatch/dispatch_api.cc b/litert/vendors/qualcomm/dispatch/dispatch_api.cc
+index 7780e3b0..0708f184 100644
+--- a/litert/vendors/qualcomm/dispatch/dispatch_api.cc
++++ b/litert/vendors/qualcomm/dispatch/dispatch_api.cc
+@@ -18,6 +18,10 @@
+ #include <string>
+ #include <utility>
+
++#if defined(__ANDROID__)
++#include <android/log.h>
++#endif  // defined(__ANDROID__)
++
+ #include "absl/base/no_destructor.h"  // from @com_google_absl
+ #include "absl/strings/string_view.h"  // from @com_google_absl
+ #include "litert/c/internal/litert_logging.h"
+@@ -63,12 +67,41 @@ LiteRtOptions TheOptions = nullptr;
+
+ char BuildId[256];
+
++#if defined(__ANDROID__)
++#define QAIRT244_ANDROID_LOG(fmt, ...)                                      \
++  __android_log_print(ANDROID_LOG_ERROR, "QAIRT244_DIAG",                   \
++                      "qairt244_android_log_v1 %s:%d " fmt, __func__,       \
++                      __LINE__, ##__VA_ARGS__)
++#else
++#define QAIRT244_ANDROID_LOG(fmt, ...) ((void)0)
++#endif
++
++const char* LiteRtStatusName(LiteRtStatus status) {
++  switch (status) {
++    case kLiteRtStatusOk:
++      return "kLiteRtStatusOk";
++    case kLiteRtStatusErrorRuntimeFailure:
++      return "kLiteRtStatusErrorRuntimeFailure";
++    case kLiteRtStatusErrorNotFound:
++      return "kLiteRtStatusErrorNotFound";
++    case kLiteRtStatusErrorUnsupportedCompilerVersion:
++      return "kLiteRtStatusErrorUnsupportedCompilerVersion";
++    case kLiteRtStatusErrorDynamicLoading:
++      return "kLiteRtStatusErrorDynamicLoading";
++    default:
++      return "LiteRtStatusUnknown";
++  }
++}
++
+ // /////////////////////////////////////////////////////////////////////////////
+ // Basic Execution API
+ // /////////////////////////////////////////////////////////////////////////////
+
+ LiteRtStatus Initialize(const LiteRtRuntimeContext* runtime_context,
+                         LiteRtEnvironment environment, LiteRtOptions options) {
++  QAIRT244_ANDROID_LOG("Qualcomm Dispatch Initialize entry runtime_context=%p "
++                       "environment=%p options=%p",
++                       runtime_context, environment, options);
+   LiteRtEnvironmentOptions environment_options;
+   if (LiteRtGetEnvironmentOptions(environment, &environment_options) ==
+       kLiteRtStatusOk) {
+@@ -76,6 +109,12 @@ LiteRtStatus Initialize(const LiteRtRuntimeContext* runtime_context,
+   }
+   TheEnvironmentOptions = environment_options;
+   TheOptions = options;
++  QAIRT244_ANDROID_LOG("Qualcomm Dispatch Initialize environment_options=%p",
++                       environment_options);
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG Qualcomm Dispatch Initialize begin "
++             "environment_options=%p options=%p",
++             environment_options, options);
+
+   const char* dispatch_lib_dir = nullptr;
+   if (environment_options) {
+@@ -85,6 +124,19 @@ LiteRtStatus Initialize(const LiteRtRuntimeContext* runtime_context,
+         &dispatch_lib_dir_any);
+     if (status == kLiteRtStatusOk && dispatch_lib_dir_any.str_value) {
+       dispatch_lib_dir = dispatch_lib_dir_any.str_value;
++      QAIRT244_ANDROID_LOG("Qualcomm Dispatch qnn library dir=%s",
++                           dispatch_lib_dir);
++      LITERT_LOG(LITERT_ERROR,
++                 "QAIRT244_DIAG Qualcomm Dispatch qnn library dir=%s",
++                 dispatch_lib_dir);
++    } else {
++      QAIRT244_ANDROID_LOG("Qualcomm Dispatch qnn library dir missing "
++                           "status=%s(%d)",
++                           LiteRtStatusName(status), status);
++      LITERT_LOG(LITERT_ERROR,
++                 "QAIRT244_DIAG Qualcomm Dispatch qnn library dir missing "
++                 "status=%s(%d)",
++                 LiteRtStatusName(status), status);
+     }
+   }
+
+@@ -116,6 +168,15 @@ LiteRtStatus Initialize(const LiteRtRuntimeContext* runtime_context,
+       dispatch_lib_dir != nullptr
+           ? std::make_optional(std::string(dispatch_lib_dir))
+           : std::nullopt;
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG Qualcomm Dispatch QnnManager::Create "
++             "shared_library_dir=%s",
++             shared_library_dir_opt ? shared_library_dir_opt->c_str()
++                                    : "(null)");
++  QAIRT244_ANDROID_LOG("Qualcomm Dispatch QnnManager::Create before "
++                       "shared_library_dir=%s",
++                       shared_library_dir_opt ? shared_library_dir_opt->c_str()
++                                              : "(null)");
+
+   // TODO(Alen): initialize qnn_options from LiteRtOptions
+   ::qnn::Options qnn_options;
+@@ -131,25 +192,65 @@ LiteRtStatus Initialize(const LiteRtRuntimeContext* runtime_context,
+           /*shared_library_dir=*/shared_library_dir_opt,
+           /*soc_model*/ std::nullopt);
+       !qnn_manager) {
++    QAIRT244_ANDROID_LOG("Qualcomm Dispatch QnnManager::Create after failure "
++                         "status=%s(%d) message=%s",
++                         LiteRtStatusName(qnn_manager.Error().Status()),
++                         qnn_manager.Error().Status(),
++                         qnn_manager.Error().Message().c_str());
+     LITERT_LOG(LITERT_ERROR, "%s", qnn_manager.Error().Message().c_str());
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG Qualcomm Dispatch QnnManager::Create failed "
++               "status=%s(%d) message=%s",
++               LiteRtStatusName(qnn_manager.Error().Status()),
++               qnn_manager.Error().Status(),
++               qnn_manager.Error().Message().c_str());
+     return qnn_manager.Error().Status();
+   } else {
+     std::swap(QnnManagerStorage(), *qnn_manager);
++    QAIRT244_ANDROID_LOG("Qualcomm Dispatch QnnManager::Create after success "
++                         "qnn_manager=%p",
++                         QnnManagerStorage().get());
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG Qualcomm Dispatch QnnManager::Create succeeded "
++               "qnn_manager=%p",
++               QnnManagerStorage().get());
+   }
+
+   Qnn_ApiVersion_t qnn_api_version;
++  QAIRT244_ANDROID_LOG("Qualcomm Dispatch backendGetApiVersion before");
+   if (auto status = Qnn().Api()->backendGetApiVersion(&qnn_api_version);
+       status != QNN_SUCCESS) {
++    QAIRT244_ANDROID_LOG("Qualcomm Dispatch backendGetApiVersion failure "
++                         "qnn_status=%d",
++                         status);
+     LITERT_LOG(LITERT_ERROR, "Failed to get QNN API version: %d", status);
+     return kLiteRtStatusErrorRuntimeFailure;
+   }
++  QAIRT244_ANDROID_LOG("Qualcomm Dispatch backendGetApiVersion success "
++                       "version=%d.%d.%d",
++                       qnn_api_version.coreApiVersion.major,
++                       qnn_api_version.coreApiVersion.minor,
++                       qnn_api_version.coreApiVersion.patch);
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG Qualcomm Dispatch QNN API version=%d.%d.%d",
++             qnn_api_version.coreApiVersion.major,
++             qnn_api_version.coreApiVersion.minor,
++             qnn_api_version.coreApiVersion.patch);
+
+   const char* build_id;
++  QAIRT244_ANDROID_LOG("Qualcomm Dispatch backendGetBuildId before");
+   if (auto status = Qnn().Api()->backendGetBuildId(&build_id);
+       status != QNN_SUCCESS) {
++    QAIRT244_ANDROID_LOG("Qualcomm Dispatch backendGetBuildId failure "
++                         "qnn_status=%d",
++                         status);
+     LITERT_LOG(LITERT_ERROR, "Failed to get QNN build ID: %d", status);
+     return kLiteRtStatusErrorRuntimeFailure;
+   }
++  QAIRT244_ANDROID_LOG("Qualcomm Dispatch backendGetBuildId success build_id=%s",
++                       build_id ? build_id : "<null>");
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG Qualcomm Dispatch QNN build_id=%s", build_id);
+
+   snprintf(BuildId, sizeof(BuildId),
+            "Qualcomm Dispatch API version %d.%d.%d, QNN API version %d.%d.%d, "
+@@ -160,6 +261,8 @@ LiteRtStatus Initialize(const LiteRtRuntimeContext* runtime_context,
+            qnn_api_version.coreApiVersion.patch, build_id);
+   BuildId[sizeof(BuildId) - 1] = 0;
+
++  QAIRT244_ANDROID_LOG("Qualcomm Dispatch Initialize return status=%s(%d)",
++                       LiteRtStatusName(kLiteRtStatusOk), kLiteRtStatusOk);
+   return kLiteRtStatusOk;
+ }
+
+@@ -344,6 +447,10 @@ LiteRtStatus Invoke(LiteRtDispatchInvocationContext invocation_context) {
+ LiteRtStatus CheckRuntimeCompatibility(LiteRtApiVersion api_version,
+                                        LiteRtEnvironmentOptions env,
+                                        LiteRtOptions options) {
++  QAIRT244_ANDROID_LOG("Qualcomm CheckRuntimeCompatibility entry "
++                       "runtime=%d.%d.%d env=%p options=%p",
++                       api_version.major, api_version.minor,
++                       api_version.patch, env, options);
+   // Check LiteRt API version for backward compatibility.
+   static constexpr LiteRtApiVersion kApiVersion{LITERT_API_VERSION_MAJOR,
+                                                 LITERT_API_VERSION_MINOR,
+@@ -355,6 +462,16 @@ LiteRtStatus CheckRuntimeCompatibility(LiteRtApiVersion api_version,
+         "but version <= %d.%d.%d is required.",
+         api_version.major, api_version.minor, api_version.patch,
+         kApiVersion.major, kApiVersion.minor, kApiVersion.patch);
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG Qualcomm Dispatch compatibility failed "
++               "status=%s(%d)",
++               LiteRtStatusName(kLiteRtStatusErrorUnsupportedCompilerVersion),
++               kLiteRtStatusErrorUnsupportedCompilerVersion);
++    QAIRT244_ANDROID_LOG("Qualcomm CheckRuntimeCompatibility return "
++                         "status=%s(%d)",
++                         LiteRtStatusName(
++                             kLiteRtStatusErrorUnsupportedCompilerVersion),
++                         kLiteRtStatusErrorUnsupportedCompilerVersion);
+     return kLiteRtStatusErrorUnsupportedCompilerVersion;
+   } else if (LiteRtCompareApiVersion(api_version, kApiVersion) < 0) {
+     LITERT_LOG(LITERT_WARNING,
+@@ -363,6 +480,14 @@ LiteRtStatus CheckRuntimeCompatibility(LiteRtApiVersion api_version,
+                api_version.major, api_version.minor, api_version.patch,
+                kApiVersion.major, kApiVersion.minor, kApiVersion.patch);
+   }
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG Qualcomm Dispatch compatibility ok "
++             "runtime=%d.%d.%d dispatch=%d.%d.%d status=%s(%d)",
++             api_version.major, api_version.minor, api_version.patch,
++             kApiVersion.major, kApiVersion.minor, kApiVersion.patch,
++             LiteRtStatusName(kLiteRtStatusOk), kLiteRtStatusOk);
++  QAIRT244_ANDROID_LOG("Qualcomm CheckRuntimeCompatibility return status=%s(%d)",
++                       LiteRtStatusName(kLiteRtStatusOk), kLiteRtStatusOk);
+   return kLiteRtStatusOk;
+ }
+
+@@ -408,6 +533,17 @@ LiteRtDispatchApi TheApi = {
+ }  // namespace
+
+ LiteRtStatus LiteRtDispatchGetApi(LiteRtDispatchApi* api) {
++  QAIRT244_ANDROID_LOG("Qualcomm LiteRtDispatchGetApi entry api=%p "
++                       "version=%d.%d.%d interface=%p",
++                       api, TheApi.version.major, TheApi.version.minor,
++                       TheApi.version.patch, TheApi.interface);
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG Qualcomm LiteRtDispatchGetApi called api=%p "
++             "version=%d.%d.%d interface=%p",
++             api, TheApi.version.major, TheApi.version.minor,
++             TheApi.version.patch, TheApi.interface);
+   *api = TheApi;
++  QAIRT244_ANDROID_LOG("Qualcomm LiteRtDispatchGetApi return status=%s(%d)",
++                       LiteRtStatusName(kLiteRtStatusOk), kLiteRtStatusOk);
+   return kLiteRtStatusOk;
+ }
+diff --git a/litert/vendors/qualcomm/qnn_manager.cc b/litert/vendors/qualcomm/qnn_manager.cc
+index 7480eb42..edcc31ca 100644
+--- a/litert/vendors/qualcomm/qnn_manager.cc
++++ b/litert/vendors/qualcomm/qnn_manager.cc
+@@ -20,6 +20,8 @@
+ #include <stdlib.h>
+
+ #include <array>
++#include <cstdarg>
++#include <cstdio>
+ #include <charconv>
+ #include <cstdint>
+ #include <memory>
+@@ -29,6 +31,10 @@
+ #include <utility>
+ #include <vector>
+
++#if defined(__ANDROID__)
++#include <android/log.h>
++#endif  // defined(__ANDROID__)
++
+ #include "absl/strings/str_cat.h"  // from @com_google_absl
+ #include "absl/strings/string_view.h"  // from @com_google_absl
+ #include "absl/types/span.h"  // from @com_google_absl
+@@ -60,6 +66,51 @@
+
+ namespace {
+ static constexpr int kRequiredNumProviders{1};
++
++#if defined(__ANDROID__)
++#define QAIRT244_ANDROID_LOG(fmt, ...)                                      \
++  __android_log_print(ANDROID_LOG_ERROR, "QAIRT244_DIAG",                   \
++                      "qairt244_android_log_v1 %s:%d " fmt, __func__,       \
++                      __LINE__, ##__VA_ARGS__)
++#else
++#define QAIRT244_ANDROID_LOG(fmt, ...) ((void)0)
++#endif
++
++constexpr char kQairt244QnnProviderTraceMarker[] =
++    "qairt244_qnn_provider_trace_v1";
++constexpr char kQairt244NativeDiagPath[] =
++    "/data/user/0/io.github.ninbyo02.lami.customnpu/files/"
++    "qairt244_native_diag.txt";
++
++void AppendQairt244QnnProviderTrace(const char* format, ...) {
++  FILE* file = std::fopen(kQairt244NativeDiagPath, "a");
++  if (file == nullptr) {
++    return;
++  }
++  std::fprintf(file, "%s ", kQairt244QnnProviderTraceMarker);
++  va_list args;
++  va_start(args, format);
++  std::vfprintf(file, format, args);
++  va_end(args);
++  std::fprintf(file, "\n");
++  std::fflush(file);
++  std::fclose(file);
++}
++
++const char* LiteRtStatusName(LiteRtStatus status) {
++  switch (status) {
++    case kLiteRtStatusOk:
++      return "kLiteRtStatusOk";
++    case kLiteRtStatusErrorRuntimeFailure:
++      return "kLiteRtStatusErrorRuntimeFailure";
++    case kLiteRtStatusErrorNotFound:
++      return "kLiteRtStatusErrorNotFound";
++    case kLiteRtStatusErrorDynamicLoading:
++      return "kLiteRtStatusErrorDynamicLoading";
++    default:
++      return "LiteRtStatusUnknown";
++  }
++}
+ }
+ namespace litert::qnn {
+
+@@ -88,28 +139,166 @@ typedef Qnn_ErrorHandle_t (*QnnSystemInterfaceGetProvidersFn_t)(
+ Expected<absl::Span<const QnnInterface_t*>> LoadProvidersFromLib(
+     SharedLibrary& lib) {
+   QnnInterfaceGetProvidersFn_t get_providers = nullptr;
+-  LITERT_ASSIGN_OR_RETURN(get_providers,
+-                          lib.LookupSymbol<QnnInterfaceGetProvidersFn_t>(
+-                              kLibQnnGetProvidersSymbol));
++  AppendQairt244QnnProviderTrace("LoadProvidersFromLib ENTRY lib_loaded=%d",
++                                 lib.Loaded());
++  QAIRT244_ANDROID_LOG("QNN dlsym before symbol=%s",
++                       kLibQnnGetProvidersSymbol);
++  AppendQairt244QnnProviderTrace("before dlsym symbol=%s",
++                                 kLibQnnGetProvidersSymbol);
++  auto get_providers_or =
++      lib.LookupSymbol<QnnInterfaceGetProvidersFn_t>(kLibQnnGetProvidersSymbol);
++  if (!get_providers_or) {
++    AppendQairt244QnnProviderTrace(
++        "dlsym failure symbol=%s status=%s(%d) message=%s",
++        kLibQnnGetProvidersSymbol,
++        LiteRtStatusName(get_providers_or.Error().Status()),
++        get_providers_or.Error().Status(),
++        get_providers_or.Error().Message().c_str());
++    QAIRT244_ANDROID_LOG("QNN dlsym after failure symbol=%s status=%s(%d) "
++                         "message=%s",
++                         kLibQnnGetProvidersSymbol,
++                         LiteRtStatusName(get_providers_or.Error().Status()),
++                         get_providers_or.Error().Status(),
++                         get_providers_or.Error().Message().c_str());
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG QNN dlsym failed symbol=%s status=%s(%d) "
++               "message=%s",
++               kLibQnnGetProvidersSymbol,
++               LiteRtStatusName(get_providers_or.Error().Status()),
++               get_providers_or.Error().Status(),
++               get_providers_or.Error().Message().c_str());
++    return get_providers_or.Error();
++  }
++  get_providers = get_providers_or.Value();
++  AppendQairt244QnnProviderTrace("dlsym success symbol=%s ptr=%p",
++                                 kLibQnnGetProvidersSymbol,
++                                 reinterpret_cast<void*>(get_providers));
++  QAIRT244_ANDROID_LOG("QNN dlsym after success symbol=%s",
++                       kLibQnnGetProvidersSymbol);
++  LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QNN dlsym succeeded symbol=%s",
++             kLibQnnGetProvidersSymbol);
+   const QnnInterface_t** interface_providers = nullptr;
+   uint32_t num_providers = 0;
+-  if (QNN_SUCCESS != get_providers(&interface_providers, &num_providers)) {
++  QAIRT244_ANDROID_LOG("QnnInterface_getProviders before");
++  AppendQairt244QnnProviderTrace(
++      "before QnnInterface_getProviders providers_ptr_addr=%p count_addr=%p",
++      &interface_providers, &num_providers);
++  Qnn_ErrorHandle_t qnn_status =
++      get_providers(&interface_providers, &num_providers);
++  AppendQairt244QnnProviderTrace(
++      "after QnnInterface_getProviders qnn_status=%llu providers_ptr=%p "
++      "count=%u",
++      static_cast<unsigned long long>(qnn_status), interface_providers,
++      num_providers);
++  if (QNN_SUCCESS != qnn_status) {
++    QAIRT244_ANDROID_LOG("QnnInterface_getProviders after failure");
++    AppendQairt244QnnProviderTrace(
++        "QnnInterface_getProviders failure qnn_status=%llu",
++        static_cast<unsigned long long>(qnn_status));
+     return Error(kLiteRtStatusErrorRuntimeFailure, "Failed to get providers");
+   }
++  QAIRT244_ANDROID_LOG("QnnInterface_getProviders after success providers=%u",
++                       num_providers);
++  for (uint32_t i = 0; i < num_providers; ++i) {
++    const QnnInterface_t* provider =
++        interface_providers != nullptr ? interface_providers[i] : nullptr;
++    if (provider == nullptr) {
++      AppendQairt244QnnProviderTrace("provider[%u]=<null>", i);
++      continue;
++    }
++    AppendQairt244QnnProviderTrace(
++        "provider[%u] ptr=%p name=%s backend_id=%u core=%u.%u.%u "
++        "backend=%u.%u.%u",
++        i, provider, provider->providerName ? provider->providerName : "<null>",
++        provider->backendId, provider->apiVersion.coreApiVersion.major,
++        provider->apiVersion.coreApiVersion.minor,
++        provider->apiVersion.coreApiVersion.patch,
++        provider->apiVersion.backendApiVersion.major,
++        provider->apiVersion.backendApiVersion.minor,
++        provider->apiVersion.backendApiVersion.patch);
++  }
+   return absl::MakeSpan(interface_providers, num_providers);
+ }
+
+ Expected<absl::Span<const QnnSystemInterface_t*>> LoadSystemProvidersFromLib(
+     SharedLibrary& lib) {
+-  LITERT_ASSIGN_OR_RETURN(QnnSystemInterfaceGetProvidersFn_t get_providers,
+-                          lib.LookupSymbol<QnnSystemInterfaceGetProvidersFn_t>(
+-                              kLibQnnSystemGetProvidersSymbol));
++  AppendQairt244QnnProviderTrace(
++      "LoadSystemProvidersFromLib ENTRY lib_loaded=%d", lib.Loaded());
++  QAIRT244_ANDROID_LOG("QNN dlsym before symbol=%s",
++                       kLibQnnSystemGetProvidersSymbol);
++  AppendQairt244QnnProviderTrace("before dlsym symbol=%s",
++                                 kLibQnnSystemGetProvidersSymbol);
++  auto get_providers_or = lib.LookupSymbol<QnnSystemInterfaceGetProvidersFn_t>(
++      kLibQnnSystemGetProvidersSymbol);
++  if (!get_providers_or) {
++    AppendQairt244QnnProviderTrace(
++        "dlsym failure symbol=%s status=%s(%d) message=%s",
++        kLibQnnSystemGetProvidersSymbol,
++        LiteRtStatusName(get_providers_or.Error().Status()),
++        get_providers_or.Error().Status(),
++        get_providers_or.Error().Message().c_str());
++    QAIRT244_ANDROID_LOG("QNN dlsym after failure symbol=%s status=%s(%d) "
++                         "message=%s",
++                         kLibQnnSystemGetProvidersSymbol,
++                         LiteRtStatusName(get_providers_or.Error().Status()),
++                         get_providers_or.Error().Status(),
++                         get_providers_or.Error().Message().c_str());
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG QNN dlsym failed symbol=%s status=%s(%d) "
++               "message=%s",
++               kLibQnnSystemGetProvidersSymbol,
++               LiteRtStatusName(get_providers_or.Error().Status()),
++               get_providers_or.Error().Status(),
++               get_providers_or.Error().Message().c_str());
++    return get_providers_or.Error();
++  }
++  QnnSystemInterfaceGetProvidersFn_t get_providers =
++      get_providers_or.Value();
++  AppendQairt244QnnProviderTrace("dlsym success symbol=%s ptr=%p",
++                                 kLibQnnSystemGetProvidersSymbol,
++                                 reinterpret_cast<void*>(get_providers));
++  QAIRT244_ANDROID_LOG("QNN dlsym after success symbol=%s",
++                       kLibQnnSystemGetProvidersSymbol);
++  LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QNN dlsym succeeded symbol=%s",
++             kLibQnnSystemGetProvidersSymbol);
+   const QnnSystemInterface_t** interface_providers = nullptr;
+   uint32_t num_providers = 0;
+-  if (QNN_SUCCESS != get_providers(&interface_providers, &num_providers)) {
++  QAIRT244_ANDROID_LOG("QnnSystemInterface_getProviders before");
++  AppendQairt244QnnProviderTrace(
++      "before QnnSystemInterface_getProviders providers_ptr_addr=%p "
++      "count_addr=%p",
++      &interface_providers, &num_providers);
++  Qnn_ErrorHandle_t qnn_status =
++      get_providers(&interface_providers, &num_providers);
++  AppendQairt244QnnProviderTrace(
++      "after QnnSystemInterface_getProviders qnn_status=%llu providers_ptr=%p "
++      "count=%u",
++      static_cast<unsigned long long>(qnn_status), interface_providers,
++      num_providers);
++  if (QNN_SUCCESS != qnn_status) {
++    QAIRT244_ANDROID_LOG("QnnSystemInterface_getProviders after failure");
++    AppendQairt244QnnProviderTrace(
++        "QnnSystemInterface_getProviders failure qnn_status=%llu",
++        static_cast<unsigned long long>(qnn_status));
+     return Error(kLiteRtStatusErrorRuntimeFailure,
+                  "Failed to get system providers");
+   }
++  QAIRT244_ANDROID_LOG(
++      "QnnSystemInterface_getProviders after success providers=%u",
++      num_providers);
++  for (uint32_t i = 0; i < num_providers; ++i) {
++    const QnnSystemInterface_t* provider =
++        interface_providers != nullptr ? interface_providers[i] : nullptr;
++    if (provider == nullptr) {
++      AppendQairt244QnnProviderTrace("system_provider[%u]=<null>", i);
++      continue;
++    }
++    AppendQairt244QnnProviderTrace(
++        "system_provider[%u] ptr=%p name=%s backend_id=%u system=%u.%u.%u",
++        i, provider, provider->providerName ? provider->providerName : "<null>",
++        provider->backendId, provider->systemApiVersion.major,
++        provider->systemApiVersion.minor, provider->systemApiVersion.patch);
++  }
+   return absl::MakeSpan(interface_providers, num_providers);
+ }
+
+@@ -118,29 +307,123 @@ Expected<absl::Span<const QnnSystemInterface_t*>> LoadSystemProvidersFromLib(
+ QnnManager::~QnnManager() = default;
+
+ LiteRtStatus QnnManager::LoadLib(absl::string_view path) {
++  AppendQairt244QnnProviderTrace("LoadLib ENTRY path=%s saver_output_empty=%d",
++                                 path.data(),
++                                 options_.GetSaverOutputDir().empty());
+   auto saver_output_dir = options_.GetSaverOutputDir();
+   if (saver_output_dir.empty()) {
+     LITERT_LOG(LITERT_INFO, "Loading qnn shared library from \"%s\"",
+                path.data());
+-    LITERT_ASSIGN_OR_RETURN(lib_, SharedLibrary::Load(path, GetRtldFlags()));
++    QAIRT244_ANDROID_LOG("QNN dlopen before backend path=%s", path.data());
++    AppendQairt244QnnProviderTrace("before backend dlopen path=%s flags=0x%x",
++                                   path.data(), GetRtldFlags().flags);
++    LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QNN dlopen backend path=%s",
++               path.data());
++    auto lib_or = SharedLibrary::Load(path, GetRtldFlags());
++    if (!lib_or) {
++      QAIRT244_ANDROID_LOG("QNN dlopen after failure backend path=%s "
++                           "status=%s(%d) message=%s",
++                           path.data(), LiteRtStatusName(lib_or.Error().Status()),
++                           lib_or.Error().Status(),
++                           lib_or.Error().Message().data());
++      LITERT_LOG(LITERT_ERROR,
++                 "QAIRT244_DIAG QNN dlopen backend failed path=%s "
++                 "status=%s(%d) message=%s",
++                 path.data(), LiteRtStatusName(lib_or.Error().Status()),
++                 lib_or.Error().Status(),
++                 lib_or.Error().Message().data());
++      AppendQairt244QnnProviderTrace(
++          "backend dlopen failure path=%s status=%s(%d) message=%s",
++          path.data(), LiteRtStatusName(lib_or.Error().Status()),
++          lib_or.Error().Status(), lib_or.Error().Message().data());
++      return lib_or.Error().Status();
++    }
++    lib_ = std::move(lib_or.Value());
++    AppendQairt244QnnProviderTrace("backend dlopen success path=%s",
++                                   path.data());
+   } else {
+     path = kSaverLibraryName;
+     LITERT_LOG(LITERT_INFO, "Loading qnn shared library from \"%s\"",
+                path.data());
+-    LITERT_ASSIGN_OR_RETURN(lib_, SharedLibrary::Load(path, GetRtldFlags()));
+-    LITERT_RETURN_IF_ERROR(InitSaver(lib_, saver_output_dir));
++    QAIRT244_ANDROID_LOG("QNN dlopen before saver path=%s", path.data());
++    AppendQairt244QnnProviderTrace("before saver dlopen path=%s flags=0x%x",
++                                   path.data(), GetRtldFlags().flags);
++    LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QNN dlopen saver path=%s",
++               path.data());
++    auto lib_or = SharedLibrary::Load(path, GetRtldFlags());
++    if (!lib_or) {
++      QAIRT244_ANDROID_LOG("QNN dlopen after failure saver path=%s "
++                           "status=%s(%d) message=%s",
++                           path.data(), LiteRtStatusName(lib_or.Error().Status()),
++                           lib_or.Error().Status(),
++                           lib_or.Error().Message().data());
++      LITERT_LOG(LITERT_ERROR,
++                 "QAIRT244_DIAG QNN dlopen saver failed path=%s "
++                 "status=%s(%d) message=%s",
++                 path.data(), LiteRtStatusName(lib_or.Error().Status()),
++                 lib_or.Error().Status(),
++                 lib_or.Error().Message().data());
++      AppendQairt244QnnProviderTrace(
++          "saver dlopen failure path=%s status=%s(%d) message=%s",
++          path.data(), LiteRtStatusName(lib_or.Error().Status()),
++          lib_or.Error().Status(), lib_or.Error().Message().data());
++      return lib_or.Error().Status();
++    }
++    lib_ = std::move(lib_or.Value());
++    AppendQairt244QnnProviderTrace("saver dlopen success path=%s",
++                                   path.data());
++    QAIRT244_ANDROID_LOG("QNN InitSaver before output_dir=%s",
++                         std::string(saver_output_dir).c_str());
++    if (auto status = InitSaver(lib_, saver_output_dir);
++        status != kLiteRtStatusOk) {
++      QAIRT244_ANDROID_LOG("QNN InitSaver after failure status=%s(%d)",
++                           LiteRtStatusName(status), status);
++      AppendQairt244QnnProviderTrace(
++          "InitSaver failure status=%s(%d)", LiteRtStatusName(status), status);
++      return status;
++    }
++    QAIRT244_ANDROID_LOG("QNN InitSaver after success");
+   }
+   LITERT_LOG(LITERT_INFO, "Loaded qnn shared library", "");
++  QAIRT244_ANDROID_LOG("QNN dlopen after success path=%s", path.data());
++  AppendQairt244QnnProviderTrace("LoadLib RETURN OK path=%s", path.data());
++  LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QNN dlopen succeeded path=%s",
++             path.data());
+   return kLiteRtStatusOk;
+ }
+
+ LiteRtStatus QnnManager::LoadSystemLib(absl::string_view path) {
++  QAIRT244_ANDROID_LOG("QNN dlopen before system path=%s", path.data());
++  AppendQairt244QnnProviderTrace("LoadSystemLib ENTRY path=%s flags=0x%x",
++                                 path.data(), GetRtldFlags().flags);
++  LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QNN dlopen system path=%s",
++             path.data());
+   auto lib_system_or = SharedLibrary::Load(path, GetRtldFlags());
+   if (!lib_system_or) {
+     LITERT_LOG(LITERT_ERROR, "%s", lib_system_or.Error().Message().data());
++    QAIRT244_ANDROID_LOG("QNN dlopen after failure system path=%s "
++                         "status=%s(%d) message=%s",
++                         path.data(),
++                         LiteRtStatusName(lib_system_or.Error().Status()),
++                         lib_system_or.Error().Status(),
++                         lib_system_or.Error().Message().data());
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG QNN dlopen system failed path=%s "
++               "status=%s(%d) message=%s",
++               path.data(), LiteRtStatusName(lib_system_or.Error().Status()),
++               lib_system_or.Error().Status(),
++               lib_system_or.Error().Message().data());
++    AppendQairt244QnnProviderTrace(
++        "system dlopen failure path=%s status=%s(%d) message=%s", path.data(),
++        LiteRtStatusName(lib_system_or.Error().Status()),
++        lib_system_or.Error().Status(), lib_system_or.Error().Message().data());
+     return lib_system_or.Error().Status();
+   }
+   lib_system_ = std::move(lib_system_or.Value());
++  AppendQairt244QnnProviderTrace("system dlopen success path=%s", path.data());
++  QAIRT244_ANDROID_LOG("QNN dlopen after success system path=%s", path.data());
++  LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QNN dlopen system succeeded path=%s",
++             path.data());
+   return kLiteRtStatusOk;
+ }
+
+@@ -152,20 +435,50 @@ const QnnApi* QnnManager::Api() const {
+ }
+
+ LiteRtStatus QnnManager::ResolveApi(Qnn_Version_t expected_qnn_version) {
++  AppendQairt244QnnProviderTrace(
++      "ResolveApi ENTRY expected_backend=%u.%u.%u lib_loaded=%d",
++      expected_qnn_version.major, expected_qnn_version.minor,
++      expected_qnn_version.patch, lib_.Loaded());
+   if (!lib_.Loaded()) {
+     LITERT_LOG(LITERT_ERROR, "%s",
+                "Cannot resolve functions: libQnn*.so has not been loaded.\n");
++    AppendQairt244QnnProviderTrace(
++        "ResolveApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=lib_not_loaded");
+     return kLiteRtStatusErrorDynamicLoading;
+   }
+
+   LITERT_ASSIGN_OR_RETURN(auto providers, LoadProvidersFromLib(lib_));
++  AppendQairt244QnnProviderTrace("ResolveApi provider_count=%zu",
++                                 providers.size());
+   if (providers.size() != kRequiredNumProviders) {
+     LITERT_LOG(LITERT_ERROR, "Found %zu providers, expected %u",
+                providers.size(), kRequiredNumProviders);
++    AppendQairt244QnnProviderTrace(
++        "ResolveApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=provider_count count=%zu expected=%u",
++        providers.size(), kRequiredNumProviders);
+     return kLiteRtStatusErrorDynamicLoading;
+   }
+
++  if (providers[0] == nullptr) {
++    AppendQairt244QnnProviderTrace(
++        "ResolveApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=provider0_null_before_version");
++    return kLiteRtStatusErrorDynamicLoading;
++  }
+   auto qnn_version = providers[0]->apiVersion;
++  AppendQairt244QnnProviderTrace(
++      "ResolveApi provider0 selected ptr=%p name=%s backend_id=%u "
++      "core=%u.%u.%u backend=%u.%u.%u expected_backend=%u.%u.%u",
++      providers[0],
++      providers[0]->providerName ? providers[0]->providerName : "<null>",
++      providers[0]->backendId, qnn_version.coreApiVersion.major,
++      qnn_version.coreApiVersion.minor, qnn_version.coreApiVersion.patch,
++      qnn_version.backendApiVersion.major,
++      qnn_version.backendApiVersion.minor,
++      qnn_version.backendApiVersion.patch, expected_qnn_version.major,
++      expected_qnn_version.minor, expected_qnn_version.patch);
+   // Check api version
+   if (qnn_version.coreApiVersion.major != QNN_API_VERSION_MAJOR) {
+     LITERT_LOG(LITERT_ERROR,
+@@ -176,6 +489,10 @@ LiteRtStatus QnnManager::ResolveApi(Qnn_Version_t expected_qnn_version) {
+                qnn_version.coreApiVersion.minor,
+                qnn_version.coreApiVersion.patch, QNN_API_VERSION_MAJOR,
+                QNN_API_VERSION_MINOR, QNN_API_VERSION_PATCH);
++    AppendQairt244QnnProviderTrace(
++        "ResolveApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=core_major actual=%u expected=%u",
++        qnn_version.coreApiVersion.major, QNN_API_VERSION_MAJOR);
+     return kLiteRtStatusErrorDynamicLoading;
+   }
+
+@@ -189,6 +506,10 @@ LiteRtStatus QnnManager::ResolveApi(Qnn_Version_t expected_qnn_version) {
+                qnn_version.coreApiVersion.minor,
+                qnn_version.coreApiVersion.patch, QNN_API_VERSION_MAJOR,
+                QNN_API_VERSION_MINOR, QNN_API_VERSION_PATCH);
++    AppendQairt244QnnProviderTrace(
++        "ResolveApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=core_minor actual=%u expected_min=%u",
++        qnn_version.coreApiVersion.minor, QNN_API_VERSION_MINOR);
+     return kLiteRtStatusErrorDynamicLoading;
+   }
+
+@@ -216,6 +537,10 @@ LiteRtStatus QnnManager::ResolveApi(Qnn_Version_t expected_qnn_version) {
+                qnn_version.backendApiVersion.minor,
+                qnn_version.backendApiVersion.patch, expected_qnn_version.major,
+                expected_qnn_version.minor, expected_qnn_version.patch);
++    AppendQairt244QnnProviderTrace(
++        "ResolveApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=backend_major actual=%u expected=%u",
++        qnn_version.backendApiVersion.major, expected_qnn_version.major);
+     return kLiteRtStatusErrorDynamicLoading;
+   }
+
+@@ -229,6 +554,10 @@ LiteRtStatus QnnManager::ResolveApi(Qnn_Version_t expected_qnn_version) {
+                qnn_version.backendApiVersion.minor,
+                qnn_version.backendApiVersion.patch, expected_qnn_version.major,
+                expected_qnn_version.minor, expected_qnn_version.patch);
++    AppendQairt244QnnProviderTrace(
++        "ResolveApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=backend_minor actual=%u expected_min=%u",
++        qnn_version.backendApiVersion.minor, expected_qnn_version.minor);
+     return kLiteRtStatusErrorDynamicLoading;
+   }
+
+@@ -243,25 +572,55 @@ LiteRtStatus QnnManager::ResolveApi(Qnn_Version_t expected_qnn_version) {
+                expected_qnn_version.minor, expected_qnn_version.patch);
+   }
+   interface_ = providers[0];
++  AppendQairt244QnnProviderTrace("ResolveApi interface_ assigned ptr=%p",
++                                 interface_);
+
+   if (interface_ == nullptr) {
+     LITERT_LOG(LITERT_ERROR, "%s", "No valid interface was provided\n");
++    AppendQairt244QnnProviderTrace(
++        "ResolveApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=interface_null");
+     return kLiteRtStatusErrorDynamicLoading;
+   }
+
++  AppendQairt244QnnProviderTrace("ResolveApi RETURN OK");
+   return kLiteRtStatusOk;
+ }
+
+ LiteRtStatus QnnManager::ResolveSystemApi() {
++  AppendQairt244QnnProviderTrace("ResolveSystemApi ENTRY lib_system_loaded=%d",
++                                 lib_system_.Loaded());
+   LITERT_ASSIGN_OR_RETURN(auto system_providers,
+                           LoadSystemProvidersFromLib(lib_system_));
++  AppendQairt244QnnProviderTrace("ResolveSystemApi provider_count=%zu",
++                                 system_providers.size());
+   if (system_providers.size() != kRequiredNumProviders) {
+     LITERT_LOG(LITERT_ERROR, "Found %zu system providers, expected %u",
+                system_providers.size(), kRequiredNumProviders);
++    AppendQairt244QnnProviderTrace(
++        "ResolveSystemApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=provider_count count=%zu expected=%u",
++        system_providers.size(), kRequiredNumProviders);
+     return kLiteRtStatusErrorDynamicLoading;
+   }
+
++  if (system_providers[0] == nullptr) {
++    AppendQairt244QnnProviderTrace(
++        "ResolveSystemApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=provider0_null_before_version");
++    return kLiteRtStatusErrorDynamicLoading;
++  }
+   auto qnn_system_version = system_providers[0]->systemApiVersion;
++  AppendQairt244QnnProviderTrace(
++      "ResolveSystemApi provider0 selected ptr=%p name=%s backend_id=%u "
++      "system=%u.%u.%u expected_system=%u.%u.%u",
++      system_providers[0],
++      system_providers[0]->providerName ? system_providers[0]->providerName
++                                         : "<null>",
++      system_providers[0]->backendId, qnn_system_version.major,
++      qnn_system_version.minor, qnn_system_version.patch,
++      QNN_SYSTEM_API_VERSION_MAJOR, QNN_SYSTEM_API_VERSION_MINOR,
++      QNN_SYSTEM_API_VERSION_PATCH);
+   if (qnn_system_version.major != QNN_SYSTEM_API_VERSION_MAJOR) {
+     LITERT_LOG(LITERT_ERROR,
+                "Qnn System library version %u.%u.%u is not supported. "
+@@ -270,6 +629,10 @@ LiteRtStatus QnnManager::ResolveSystemApi() {
+                qnn_system_version.major, qnn_system_version.minor,
+                qnn_system_version.patch, QNN_SYSTEM_API_VERSION_MAJOR,
+                QNN_SYSTEM_API_VERSION_MINOR, QNN_SYSTEM_API_VERSION_PATCH);
++    AppendQairt244QnnProviderTrace(
++        "ResolveSystemApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=system_major actual=%u expected=%u",
++        qnn_system_version.major, QNN_SYSTEM_API_VERSION_MAJOR);
+     return kLiteRtStatusErrorDynamicLoading;
+   }
+
+@@ -282,6 +645,10 @@ LiteRtStatus QnnManager::ResolveSystemApi() {
+                qnn_system_version.major, qnn_system_version.minor,
+                qnn_system_version.patch, QNN_SYSTEM_API_VERSION_MAJOR,
+                QNN_SYSTEM_API_VERSION_MINOR, QNN_SYSTEM_API_VERSION_PATCH);
++    AppendQairt244QnnProviderTrace(
++        "ResolveSystemApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=system_minor actual=%u expected_min=%u",
++        qnn_system_version.minor, QNN_SYSTEM_API_VERSION_MINOR);
+     return kLiteRtStatusErrorDynamicLoading;
+   }
+
+@@ -295,12 +662,19 @@ LiteRtStatus QnnManager::ResolveSystemApi() {
+                QNN_SYSTEM_API_VERSION_MINOR, QNN_SYSTEM_API_VERSION_PATCH);
+   }
+   system_interface_ = system_providers[0];
++  AppendQairt244QnnProviderTrace(
++      "ResolveSystemApi system_interface_ assigned ptr=%p",
++      system_interface_);
+
+   if (system_interface_ == nullptr) {
+     LITERT_LOG(LITERT_ERROR, "%s", "No valid system interface was provided\n");
++    AppendQairt244QnnProviderTrace(
++        "ResolveSystemApi returning kLiteRtStatusErrorDynamicLoading "
++        "reason=system_interface_null");
+     return kLiteRtStatusErrorDynamicLoading;
+   }
+
++  AppendQairt244QnnProviderTrace("ResolveSystemApi RETURN OK");
+   return kLiteRtStatusOk;
+ }
+
+@@ -392,12 +766,22 @@ LiteRtStatus QnnManager::ValidateOp(::qnn::OpWrapper& op) {
+ LiteRtStatus QnnManager::Init(std::optional<std::string> shared_library_dir,
+                               std::optional<::qnn::SocInfo> soc_info,
+                               const ::qnn::Options& options) {
++  AppendQairt244QnnProviderTrace(
++      "QnnManager::Init ENTRY shared_library_dir=%s soc_info_present=%d "
++      "backend_type=%d",
++      shared_library_dir ? shared_library_dir->c_str() : "(null)",
++      soc_info.has_value(), static_cast<int>(options.GetBackendType()));
++  QAIRT244_ANDROID_LOG("QnnManager::Init entry shared_library_dir=%s",
++                       shared_library_dir ? shared_library_dir->c_str()
++                                          : "(null)");
+   // If shared_library_dir is provided, add it to the path as it may contain
+   // libs to be loaded.
+   // TOOD: This should probably be done upstream in litert_dispatch.
+   if (shared_library_dir) {
+     LITERT_LOG(LITERT_INFO, "Adding shared library dir to path: %s",
+                shared_library_dir->c_str());
++    LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QnnManager shared_library_dir=%s",
++               shared_library_dir->c_str());
+
+     // Always overwrite the environment variable as we want to use the
+     // provided library paths only.
+@@ -411,52 +795,188 @@ LiteRtStatus QnnManager::Init(std::optional<std::string> shared_library_dir,
+       setenv(kAdsp, new_adsp_library_path.c_str(), /*overwrite=*/1);
+     }
+     LITERT_LOG(LITERT_DEBUG, "ADSP_LIBRARY_PATH: %s", getenv(kAdsp));
++    LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG ADSP_LIBRARY_PATH=%s",
++               getenv(kAdsp));
++    AppendQairt244QnnProviderTrace("ADSP_LIBRARY_PATH=%s", getenv(kAdsp));
+
+     // TODO: Put dynamic loading module in cc or vendor/cc.
+     litert::internal::PutLibOnLdPath(*shared_library_dir,
+                                      ::qnn::HtpBackend::GetLibraryName());
++    AppendQairt244QnnProviderTrace("PutLibOnLdPath dir=%s library=%s",
++                                   shared_library_dir->c_str(),
++                                   ::qnn::HtpBackend::GetLibraryName());
+   }
+
+-  LITERT_RETURN_IF_ERROR(LoadSystemLib(kLibQnnSystemSo));
+-  LITERT_RETURN_IF_ERROR(ResolveSystemApi());
++  LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QnnManager loading system lib=%s",
++             kLibQnnSystemSo);
++  QAIRT244_ANDROID_LOG("QnnManager::Init LoadSystemLib before library=%s",
++                       kLibQnnSystemSo);
++  if (auto status = LoadSystemLib(kLibQnnSystemSo);
++      status != kLiteRtStatusOk) {
++    AppendQairt244QnnProviderTrace(
++        "QnnManager::Init returning status=%s(%d) reason=LoadSystemLib",
++        LiteRtStatusName(status), status);
++    QAIRT244_ANDROID_LOG("QnnManager::Init LoadSystemLib after failure "
++                         "status=%s(%d)",
++                         LiteRtStatusName(status), status);
++    return status;
++  }
++  QAIRT244_ANDROID_LOG("QnnManager::Init LoadSystemLib after success");
++  LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QnnManager resolving system API");
++  QAIRT244_ANDROID_LOG("QnnManager::Init ResolveSystemApi before");
++  if (auto status = ResolveSystemApi(); status != kLiteRtStatusOk) {
++    AppendQairt244QnnProviderTrace(
++        "QnnManager::Init returning status=%s(%d) reason=ResolveSystemApi",
++        LiteRtStatusName(status), status);
++    QAIRT244_ANDROID_LOG("QnnManager::Init ResolveSystemApi after failure "
++                         "status=%s(%d)",
++                         LiteRtStatusName(status), status);
++    return status;
++  }
++  QAIRT244_ANDROID_LOG("QnnManager::Init ResolveSystemApi after success");
++  LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QnnManager resolved system API");
+
+   options_ = options;
+   switch (options_.GetBackendType()) {
+     case ::qnn::BackendType::kHtpBackend: {
+-      LITERT_RETURN_IF_ERROR(LoadLib(::qnn::HtpBackend::GetLibraryName()));
+-      LITERT_RETURN_IF_ERROR(
+-          ResolveApi(::qnn::HtpBackend::GetExpectedBackendVersion()));
++      LITERT_LOG(LITERT_ERROR,
++                 "QAIRT244_DIAG QnnManager backend type=HTP library=%s",
++                 ::qnn::HtpBackend::GetLibraryName());
++      QAIRT244_ANDROID_LOG("QnnManager::Init LoadLib before backend=HTP "
++                           "library=%s",
++                           ::qnn::HtpBackend::GetLibraryName());
++      if (auto status = LoadLib(::qnn::HtpBackend::GetLibraryName());
++          status != kLiteRtStatusOk) {
++        AppendQairt244QnnProviderTrace(
++            "QnnManager::Init returning status=%s(%d) reason=LoadLibHTP",
++            LiteRtStatusName(status), status);
++        QAIRT244_ANDROID_LOG("QnnManager::Init LoadLib after failure "
++                             "backend=HTP status=%s(%d)",
++                             LiteRtStatusName(status), status);
++        return status;
++      }
++      QAIRT244_ANDROID_LOG("QnnManager::Init LoadLib after success backend=HTP");
++      LITERT_LOG(LITERT_ERROR,
++                 "QAIRT244_DIAG QnnManager resolving HTP API");
++      QAIRT244_ANDROID_LOG("QnnManager::Init ResolveApi before backend=HTP");
++      if (auto status =
++              ResolveApi(::qnn::HtpBackend::GetExpectedBackendVersion());
++          status != kLiteRtStatusOk) {
++        AppendQairt244QnnProviderTrace(
++            "QnnManager::Init returning status=%s(%d) reason=ResolveApiHTP",
++            LiteRtStatusName(status), status);
++        QAIRT244_ANDROID_LOG("QnnManager::Init ResolveApi after failure "
++                             "backend=HTP status=%s(%d)",
++                             LiteRtStatusName(status), status);
++        return status;
++      }
++      QAIRT244_ANDROID_LOG(
++          "QnnManager::Init ResolveApi after success backend=HTP");
++      LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QnnManager resolved HTP API");
+
+       auto htp_backend = std::make_unique<::qnn::HtpBackend>(Api());
+-      LITERT_RETURN_IF_ERROR(htp_backend->Init(options_, soc_info));
++      LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QnnManager HTP init begin");
++      QAIRT244_ANDROID_LOG("QnnManager::Init backend Init before backend=HTP");
++      if (auto status = htp_backend->Init(options_, soc_info); !status) {
++        AppendQairt244QnnProviderTrace(
++            "QnnManager::Init returning status=%s(%d) reason=HtpBackendInit",
++            LiteRtStatusName(kLiteRtStatusErrorRuntimeFailure),
++            kLiteRtStatusErrorRuntimeFailure);
++        QAIRT244_ANDROID_LOG("QnnManager::Init backend Init after failure "
++                             "backend=HTP status=%s(%d)",
++                             LiteRtStatusName(kLiteRtStatusErrorRuntimeFailure),
++                             kLiteRtStatusErrorRuntimeFailure);
++        return kLiteRtStatusErrorRuntimeFailure;
++      }
++      QAIRT244_ANDROID_LOG(
++          "QnnManager::Init backend Init after success backend=HTP");
++      LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QnnManager HTP init ok");
+       soc_info_ = htp_backend->GetSocInfo();
+       backend_ = std::move(htp_backend);
+
+       break;
+     }
+     case ::qnn::BackendType::kIrBackend: {
+-      LITERT_RETURN_IF_ERROR(LoadLib(::qnn::IrBackend::GetLibraryName()));
+-      LITERT_RETURN_IF_ERROR(
+-          ResolveApi(::qnn::IrBackend::GetExpectedBackendVersion()));
++      QAIRT244_ANDROID_LOG("QnnManager::Init LoadLib before backend=IR "
++                           "library=%s",
++                           ::qnn::IrBackend::GetLibraryName());
++      if (auto status = LoadLib(::qnn::IrBackend::GetLibraryName());
++          status != kLiteRtStatusOk) {
++        QAIRT244_ANDROID_LOG("QnnManager::Init LoadLib after failure "
++                             "backend=IR status=%s(%d)",
++                             LiteRtStatusName(status), status);
++        return status;
++      }
++      QAIRT244_ANDROID_LOG("QnnManager::Init LoadLib after success backend=IR");
++      QAIRT244_ANDROID_LOG("QnnManager::Init ResolveApi before backend=IR");
++      if (auto status =
++              ResolveApi(::qnn::IrBackend::GetExpectedBackendVersion());
++          status != kLiteRtStatusOk) {
++        QAIRT244_ANDROID_LOG("QnnManager::Init ResolveApi after failure "
++                             "backend=IR status=%s(%d)",
++                             LiteRtStatusName(status), status);
++        return status;
++      }
++      QAIRT244_ANDROID_LOG(
++          "QnnManager::Init ResolveApi after success backend=IR");
+
+       backend_ = std::make_unique<::qnn::IrBackend>(Api());
+-      LITERT_RETURN_IF_ERROR(backend_->Init(options_, std::nullopt));
++      QAIRT244_ANDROID_LOG("QnnManager::Init backend Init before backend=IR");
++      if (auto status = backend_->Init(options_, std::nullopt); !status) {
++        QAIRT244_ANDROID_LOG("QnnManager::Init backend Init after failure "
++                             "backend=IR status=%s(%d)",
++                             LiteRtStatusName(kLiteRtStatusErrorRuntimeFailure),
++                             kLiteRtStatusErrorRuntimeFailure);
++        return kLiteRtStatusErrorRuntimeFailure;
++      }
++      QAIRT244_ANDROID_LOG(
++          "QnnManager::Init backend Init after success backend=IR");
+
+       break;
+     }
+     case ::qnn::BackendType::kDspBackend: {
+-      LITERT_RETURN_IF_ERROR(LoadLib(::qnn::DspBackend::GetLibraryName()));
+-      LITERT_RETURN_IF_ERROR(
+-          ResolveApi(::qnn::DspBackend::GetExpectedBackendVersion()));
++      QAIRT244_ANDROID_LOG("QnnManager::Init LoadLib before backend=DSP "
++                           "library=%s",
++                           ::qnn::DspBackend::GetLibraryName());
++      if (auto status = LoadLib(::qnn::DspBackend::GetLibraryName());
++          status != kLiteRtStatusOk) {
++        QAIRT244_ANDROID_LOG("QnnManager::Init LoadLib after failure "
++                             "backend=DSP status=%s(%d)",
++                             LiteRtStatusName(status), status);
++        return status;
++      }
++      QAIRT244_ANDROID_LOG("QnnManager::Init LoadLib after success backend=DSP");
++      QAIRT244_ANDROID_LOG("QnnManager::Init ResolveApi before backend=DSP");
++      if (auto status =
++              ResolveApi(::qnn::DspBackend::GetExpectedBackendVersion());
++          status != kLiteRtStatusOk) {
++        QAIRT244_ANDROID_LOG("QnnManager::Init ResolveApi after failure "
++                             "backend=DSP status=%s(%d)",
++                             LiteRtStatusName(status), status);
++        return status;
++      }
++      QAIRT244_ANDROID_LOG(
++          "QnnManager::Init ResolveApi after success backend=DSP");
+
+       backend_ = std::make_unique<::qnn::DspBackend>(Api());
+-      LITERT_RETURN_IF_ERROR(backend_->Init(options_, soc_info));
++      QAIRT244_ANDROID_LOG("QnnManager::Init backend Init before backend=DSP");
++      if (auto status = backend_->Init(options_, soc_info); !status) {
++        QAIRT244_ANDROID_LOG("QnnManager::Init backend Init after failure "
++                             "backend=DSP status=%s(%d)",
++                             LiteRtStatusName(kLiteRtStatusErrorRuntimeFailure),
++                             kLiteRtStatusErrorRuntimeFailure);
++        return kLiteRtStatusErrorRuntimeFailure;
++      }
++      QAIRT244_ANDROID_LOG(
++          "QnnManager::Init backend Init after success backend=DSP");
+
+       break;
+     }
+     default: {
+       LITERT_LOG(LITERT_ERROR, "Unsupported backend type: %d",
+                  options_.GetBackendType());
++      QAIRT244_ANDROID_LOG("QnnManager::Init failure unsupported backend=%d",
++                           options_.GetBackendType());
+       return kLiteRtStatusErrorRuntimeFailure;
+     }
+   }
+@@ -464,7 +984,16 @@ LiteRtStatus QnnManager::Init(std::optional<std::string> shared_library_dir,
+   // Get SDK version from build ID.
+   const char* build_id;
+   Api()->backendGetBuildId(&build_id);
++  LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QNN backend build_id=%s",
++             build_id ? build_id : "<null>");
++  QAIRT244_ANDROID_LOG("QNN backend build_id=%s", build_id ? build_id : "<null>");
+   LITERT_ASSIGN_OR_RETURN(sdk_version_, ParseSdkVersion(build_id));
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG QNN parsed sdk_version=%d.%d.%d",
++             sdk_version_.major, sdk_version_.minor, sdk_version_.patch);
++  QAIRT244_ANDROID_LOG("QnnManager::Init return ok sdk_version=%d.%d.%d",
++                       sdk_version_.major, sdk_version_.minor,
++                       sdk_version_.patch);
+   return kLiteRtStatusOk;
+ }
+
+@@ -558,10 +1087,26 @@ Expected<QnnManager::Ptr> QnnManager::Create(
+     std::optional<std::string> shared_library_dir,
+     std::optional<::qnn::SocInfo> soc_info) {
+   Ptr qnn_manager(new QnnManager);
++  QAIRT244_ANDROID_LOG("QnnManager::Create entry shared_library_dir=%s "
++                       "soc_info_present=%d",
++                       shared_library_dir ? shared_library_dir->c_str()
++                                          : "<none>",
++                       soc_info.has_value());
++  LITERT_LOG(LITERT_ERROR,
++             "QAIRT244_DIAG QnnManager::Create begin shared_library_dir=%s "
++             "soc_info_present=%d",
++             shared_library_dir ? shared_library_dir->c_str() : "<none>",
++             soc_info.has_value());
+   if (auto status = qnn_manager->Init(shared_library_dir, soc_info, options);
+       status != kLiteRtStatusOk) {
++    QAIRT244_ANDROID_LOG("QnnManager::Create return failure status=%s(%d)",
++                         LiteRtStatusName(status), status);
++    LITERT_LOG(LITERT_ERROR,
++               "QAIRT244_DIAG QnnManager::Create failed status=%d", status);
+     return Unexpected(status, "Failed to set up QNN manager");
+   }
++  QAIRT244_ANDROID_LOG("QnnManager::Create return success");
++  LITERT_LOG(LITERT_ERROR, "QAIRT244_DIAG QnnManager::Create succeeded");
+   return qnn_manager;
+ }

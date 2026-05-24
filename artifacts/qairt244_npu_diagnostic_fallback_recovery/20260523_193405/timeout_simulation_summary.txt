@@ -1,0 +1,11 @@
+case=timeout_simulation
+qairt244_diagnostic_chat_guarded_run_v1 runId=diag-chat-1779532462895-9a998d8e-c705-4a1c-ace6-98f71da961cf state=started max_output_tokens=3 prompt_source=editable_prompt actual_prompt=Hello
+qairt244_diagnostic_chat_guarded_run_v1 runId=diag-chat-1779532462895-9a998d8e-c705-4a1c-ace6-98f71da961cf state=timeout_simulation_native_not_called engine_initialize=false run_decode=false
+qairt244_diagnostic_chat_guarded_run_v1 runId=diag-chat-1779532462895-9a998d8e-c705-4a1c-ace6-98f71da961cf state=timeout timeout_ms=1000
+timeout_simulated=true
+engine_initialize=false
+run_decode=false
+run_button_enabled=false
+dev_checkbox_checked=false
+normal_chatscreen_connected=false
+selected_path_npu_normal_route=false

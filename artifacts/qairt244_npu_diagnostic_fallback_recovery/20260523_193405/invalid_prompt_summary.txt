@@ -1,0 +1,14 @@
+case=invalid_prompt
+prompt=Hello/Lami
+isValid=false
+reasonCode=contains_disallowed_char
+prompt_execution_connected=false
+run_button_connected=false
+npu_generation=false
+engine_initialize=false
+run_decode=false
+run_button_enabled=false
+engine_initialize=false
+run_decode=false
+normal_chatscreen_connected=false
+selected_path_npu_normal_route=false

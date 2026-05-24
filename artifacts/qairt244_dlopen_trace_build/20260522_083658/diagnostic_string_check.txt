@@ -1,0 +1,6 @@
+libLiteRt.so contains qairt244_dlopen_trace_v1: yes
+liblitertlm_jni.so contains qairt244_dlopen_trace_v1: yes
+libLiteRtDispatch_Qualcomm.so contains qairt244_dlopen_trace_v1: yes
+libLiteRtCompilerPlugin_Qualcomm.so contains qairt244_dlopen_trace_v1: yes
+libLiteRt.so contains qairt244_native_file_v1: yes
+liblitertlm_jni.so contains qairt244_native_file_v1: yes

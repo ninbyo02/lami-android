@@ -1,0 +1,4 @@
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:99:    "qairt244_lower_level_single_token_smoke_v1";
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1185:  decode_config.SetMaxOutputTokens(1);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1187:                     "%s %s before RunDecode SetMaxOutputTokens(1)",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244LowerLevelSingleTokenSmoke.kt:39:            return "qairt244_lower_level_single_token_smoke_v1 runId=$runId result=success output=$output"

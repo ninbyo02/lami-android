@@ -1,0 +1,7 @@
+git diff --check: pass
+bash -n scripts/*.sh: pass
+./gradlew :app:compileDebugKotlin: pass
+./gradlew :app:compileCustomBuildExperimentDebugKotlin: pass
+./gradlew :app:testStandardDebugUnitTest: pass
+./gradlew :app:testCustomBuildExperimentDebugUnitTest: pass
+./gradlew :app:assembleCustomBuildExperimentDebug: pass

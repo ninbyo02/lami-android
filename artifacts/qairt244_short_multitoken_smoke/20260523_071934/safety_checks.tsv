@@ -1,0 +1,13 @@
+check	status	detail
+customBuildExperimentDebug_only	pass	Target app id is io.github.ninbyo02.lami.customnpu.
+normal_ui_disconnected	pass	No ChatScreen route or selectedPath=npu normal path is touched.
+prompt_fixed_short	pass	Prompt is fixed to Hi.
+max_output_tokens_le_3	pass	Requested hard cap is 3.
+timeout_configured	pass	Timeout is 30 seconds.
+lami_wrapper_present	pass	customBuildExperimentDebug wrapper marker qairt244_short_multitoken_smoke_v1.
+native_set_max_output_tokens_3_static	blocked_preflight	Execution requires SetMaxOutputTokens(3) static evidence in external source or artifact metadata.
+custom_build_artifact_present	blocked_preflight	Execution requires a rebuilt custom stack artifact.
+artifact_marker_present	blocked_preflight	Execution requires qairt244_short_multitoken_smoke_v1 inside artifact metadata/native strings.
+explicit_run_requested	blocked_preflight	Execution requires --run.
+conversation_created	pass_not_run	No Conversation is created by preflight.
+high_level_generate_response	pass_not_run	No high-level generateResponse is called by preflight.

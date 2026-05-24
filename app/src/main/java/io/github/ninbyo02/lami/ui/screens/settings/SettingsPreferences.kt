@@ -15,6 +15,8 @@ import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.data.SpriteSheetConfig
 import io.github.ninbyo02.lami.data.normalize
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
+import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
+import io.github.ninbyo02.lami.ui.text.resolveEffectiveMarkdownStreamingMode
 import io.github.ninbyo02.lami.tts.AndroidTtsController
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -373,6 +375,9 @@ class SettingsPreferences(private val context: Context) {
     private val inferenceTargetKey = stringPreferencesKey("inference_target")
     private val inferenceStatsDisplayModeKey = stringPreferencesKey("inference_stats_display_mode")
     private val preferredBackendDryRunKey = stringPreferencesKey("lami_dev_preferred_backend_dry_run")
+    private val markdownStreamingModeKey = stringPreferencesKey("dev_markdown_streaming_mode")
+    private val devEnableNpuChatScreenRouteKey = booleanPreferencesKey("dev_enable_npu_chatscreen_route")
+    private val devEnableQairt244Sm8750NpuRouteKey = booleanPreferencesKey("dev_enable_qairt244_sm8750_npu_route")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
     // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
@@ -431,6 +436,16 @@ class SettingsPreferences(private val context: Context) {
             characterAnimationEnabled = preferences[characterAnimationEnabledKey] ?: true,
             inferenceStatsDisplayMode = InferenceStatsDisplayMode.fromStorage(preferences[inferenceStatsDisplayModeKey]),
             preferredBackendDryRunSetting = PreferredBackendDryRunSetting.fromStorage(preferences[preferredBackendDryRunKey]),
+            markdownStreamingMode = resolveEffectiveMarkdownStreamingMode(
+                storedMode = MarkdownStreamingMode.fromStorage(preferences[markdownStreamingModeKey]),
+                isDebugBuild = BuildConfig.DEBUG,
+            ),
+            devEnableNpuChatScreenRoute =
+                BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+                    (preferences[devEnableNpuChatScreenRouteKey] ?: false),
+            devEnableQairt244Sm8750NpuRoute =
+                BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+                    (preferences[devEnableQairt244Sm8750NpuRouteKey] ?: false),
         )
     }
 
@@ -533,6 +548,23 @@ class SettingsPreferences(private val context: Context) {
 
     val preferredBackendDryRunSettingFlow: Flow<PreferredBackendDryRunSetting> = context.dataStore.data.map { preferences ->
         PreferredBackendDryRunSetting.fromStorage(preferences[preferredBackendDryRunKey])
+    }
+
+    val markdownStreamingModeFlow: Flow<MarkdownStreamingMode> = context.dataStore.data.map { preferences ->
+        resolveEffectiveMarkdownStreamingMode(
+            storedMode = MarkdownStreamingMode.fromStorage(preferences[markdownStreamingModeKey]),
+            isDebugBuild = BuildConfig.DEBUG,
+        )
+    }
+
+    val devEnableNpuChatScreenRouteFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+            (preferences[devEnableNpuChatScreenRouteKey] ?: false)
+    }
+
+    val devEnableQairt244Sm8750NpuRouteFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+            (preferences[devEnableQairt244Sm8750NpuRouteKey] ?: false)
     }
 
     val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -754,6 +786,27 @@ class SettingsPreferences(private val context: Context) {
     suspend fun savePreferredBackendDryRunSetting(setting: PreferredBackendDryRunSetting) {
         context.dataStore.edit { preferences ->
             preferences[preferredBackendDryRunKey] = setting.name
+        }
+    }
+
+    suspend fun saveMarkdownStreamingMode(mode: MarkdownStreamingMode) {
+        context.dataStore.edit { preferences ->
+            preferences[markdownStreamingModeKey] = mode.storageValue
+        }
+    }
+
+    suspend fun saveDevEnableNpuChatScreenRoute(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            val effectiveEnabled = BuildConfig.CUSTOM_BUILD_EXPERIMENT && enabled
+            preferences[devEnableNpuChatScreenRouteKey] = effectiveEnabled
+            preferences[devEnableQairt244Sm8750NpuRouteKey] = effectiveEnabled
+        }
+    }
+
+    suspend fun saveDevEnableQairt244Sm8750NpuRoute(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[devEnableQairt244Sm8750NpuRouteKey] =
+                BuildConfig.CUSTOM_BUILD_EXPERIMENT && enabled
         }
     }
 

@@ -1,0 +1,1 @@
+/sdcard/qairt244_chat_real_npu_after.png: 1 file pulled, 0 skipped. 11.5 MB/s (236399 bytes in 0.020s)

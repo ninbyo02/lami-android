@@ -1,0 +1,1 @@
+00000000000cadc0 T QnnSystemInterface_getProviders

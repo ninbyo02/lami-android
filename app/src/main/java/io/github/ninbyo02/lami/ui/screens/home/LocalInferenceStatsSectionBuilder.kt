@@ -320,6 +320,7 @@ internal fun buildInferenceDetailSections(
         preferredBackendDryRunSetting = preferredBackendDryRunSetting,
         acceleratorProbeSnapshot = acceleratorProbeSnapshot,
     )
+    val devQairt244Sm8750NpuSection = buildDevQairt244Sm8750NpuSection(stats)
 
     val tokenizerRecountSnapshot = localTraceForDev?.measuredTokenSnapshot
     val tokenizerSucceeded = tokenizerRecountSnapshot?.let { snapshot ->
@@ -516,6 +517,7 @@ internal fun buildInferenceDetailSections(
                 }
             },
         ),
+        devQairt244Sm8750NpuSection,
         devDiagnosticSummarySection.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER },
         acceleratorProbeSnapshot
             ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && hasExternalQairtDiagnostics(it) }
@@ -535,6 +537,126 @@ internal fun buildInferenceDetailSections(
                             add(InferenceStatItemUi(label = "QAIRT stage note", value = it))
                         }
                     },
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: LiteRT-LM NPU Readiness",
+                    items = buildLiteRtLmNpuReadinessItems(
+                        probe = probe,
+                        selectedModel = resolveLiteRtLmReadinessSelectedModelName(stats, localTraceForDev),
+                    ),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Dispatch Runtime Compatibility",
+                    items = buildDispatchRuntimeCompatibilityItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: LiteRT-LM Runtime Version",
+                    items = buildLiteRtLmRuntimeVersionItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.currentFlavor == "galleryStackExperiment" }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Gallery Stack Java/Native API Compatibility",
+                    items = buildGalleryStackJavaNativeApiCompatibilityItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.currentFlavor == "customBuildExperiment" }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Custom Build Stack Compatibility",
+                    items = buildCustomBuildStackCompatibilityItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Backend.NPU Instantiate Probe",
+                    items = buildBackendNpuInstantiateProbeItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Backend.NPU Attach Dry-Run Probe",
+                    items = buildBackendNpuAttachDryRunProbeItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: LiteRT-LM NPU API Inventory",
+                    items = buildLiteRtLmNpuApiInventoryItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: EngineConfig NPU Dry-Build Probe",
+                    items = buildEngineConfigNpuDryBuildProbeItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Backend.NPU Connection Candidate",
+                    items = buildBackendNpuConnectionCandidateItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Engine API Inventory",
+                    items = buildEngineApiInventoryItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Engine Initialize Dry-Run Probe",
+                    items = buildEngineInitializeDryRunProbeItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && hasQnnDelegateProbeDiagnostics(it) }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: QNN Probe",
+                    items = buildQnnDelegateProbeItems(probe),
+                )
+            },
+        localTraceForDev?.localFailureDiagnosticsText
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.isNotBlank() }
+            ?.let { diagnostics ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Qualcomm Model Failure",
+                    items = listOf(
+                        InferenceStatItemUi(
+                            label = "Qualcomm model failure diagnostics",
+                            value = diagnostics,
+                        ),
+                    ),
                 )
             },
         InferenceStatsSectionUi(
@@ -609,6 +731,65 @@ internal fun buildInferenceDetailSections(
         ).takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.items.isNotEmpty() },
     )
 }
+
+private const val DEV_QAIRT244_SM8750_ROUTE = "qairt244_sm8750_dev_npu"
+
+private fun buildDevQairt244Sm8750NpuSection(stats: InferenceStats): InferenceStatsSectionUi? {
+    val values = parseDevQairt244StatsValues(stats)
+    val selectedRoute = values["selected_route"]
+        ?: stats.modelName
+        ?: stats.model
+        ?: stats.modelLabel
+    if (selectedRoute != DEV_QAIRT244_SM8750_ROUTE) return null
+    val maxOutputTokens = values["max_output_tokens"].orUnknown()
+    val decodeElapsedMs = values["decode_elapsed_ms"].orUnknown()
+    val runDecodeReached = values["run_decode_reached"]
+        ?: decodeElapsedMs.takeUnless { it == "unknown" }?.let { "true" }
+        ?: "unknown"
+    return InferenceStatsSectionUi(
+        title = "DEV診断: qairt244 SM8750 NPU",
+        items = listOf(
+            InferenceStatItemUi(label = "実験経路", value = selectedRoute),
+            InferenceStatItemUi(label = "モデル", value = values["resolved_model_basename"].orUnknown()),
+            InferenceStatItemUi(label = "required_sm8750_model_path", value = values["required_sm8750_model_path"].orUnknown()),
+            InferenceStatItemUi(label = "max_output_tokens", value = maxOutputTokens),
+            InferenceStatItemUi(label = "native_max_output_tokens_limit", value = values["native_max_output_tokens_limit"].orUnknown()),
+            InferenceStatItemUi(label = "RunDecode到達", value = runDecodeReached),
+            InferenceStatItemUi(label = "decode_elapsed_ms", value = decodeElapsedMs),
+            InferenceStatItemUi(label = "npu_backend", value = values["npu_backend"].orUnknown()),
+            InferenceStatItemUi(label = "npu_backend_evidence", value = values["npu_backend_evidence"].orUnknown()),
+            InferenceStatItemUi(label = "fallback_used", value = values["fallback_used"].orUnknown()),
+            InferenceStatItemUi(label = "UI cleanup status", value = values["ui_cleanup_status"].orUnknown()),
+        ),
+    )
+}
+
+private fun parseDevQairt244StatsValues(stats: InferenceStats): Map<String, String> = buildMap {
+    appendDevQairt244KeyValues(stats.localSourceSummary, separators = charArrayOf('\n'))
+    appendDevQairt244KeyValues(stats.notes, separators = charArrayOf(';', '\n'))
+}
+
+private fun MutableMap<String, String>.appendDevQairt244KeyValues(
+    text: String?,
+    separators: CharArray,
+) {
+    text.orEmpty()
+        .split(*separators)
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .forEach { entry ->
+            val separatorIndex = entry.indexOf('=')
+            if (separatorIndex > 0) {
+                val key = entry.substring(0, separatorIndex).trim()
+                val value = entry.substring(separatorIndex + 1).trim()
+                if (key.isNotEmpty() && value.isNotEmpty()) {
+                    putIfAbsent(key, value)
+                }
+            }
+        }
+}
+
+private fun String?.orUnknown(): String = this?.takeIf { it.isNotBlank() } ?: "unknown"
 
 private fun buildInferenceSimpleSections(
     stats: InferenceStats,
@@ -1317,6 +1498,489 @@ private fun hasExternalQairtDiagnostics(probe: AcceleratorProbeSnapshot): Boolea
     ).any { !it.isNullOrBlank() && it != "unknown" }
 }
 
+private fun hasQnnDelegateProbeDiagnostics(probe: AcceleratorProbeSnapshot): Boolean {
+    return probe.qnnDelegateProbeIsSm8750Likely != null ||
+        probe.qnnDelegateProbeClassFound != null ||
+        probe.qnnDelegateProbeCreated != null ||
+        probe.qnnDelegateProbeHtpBackendRequested != null ||
+        probe.qnnDelegateProbeSocHints.isNotEmpty() ||
+        !probe.qnnDelegateProbeNativeLibraryDir.isNullOrBlank() ||
+        !probe.qnnDelegateProbeErrorClass.isNullOrBlank() ||
+        !probe.qnnDelegateProbeErrorMessage.isNullOrBlank()
+}
+
+private fun buildQnnDelegateProbeItems(probe: AcceleratorProbeSnapshot): List<InferenceStatItemUi> {
+    val errorText = listOfNotNull(
+        probe.qnnDelegateProbeErrorClass?.takeIf { it.isNotBlank() },
+        probe.qnnDelegateProbeErrorMessage?.takeIf { it.isNotBlank() },
+    ).joinToString(": ").ifBlank { "—" }
+    return listOf(
+        InferenceStatItemUi(
+            label = "SoC判定",
+            value = if (probe.qnnDelegateProbeIsSm8750Likely == true) "SM8750 likely" else "unknown",
+        ),
+        InferenceStatItemUi(
+            label = "SoC hints",
+            value = probe.qnnDelegateProbeSocHints.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown",
+        ),
+        InferenceStatItemUi(
+            label = "QNN class",
+            value = when (probe.qnnDelegateProbeClassFound) {
+                true -> "found"
+                false -> "not found"
+                null -> "unknown"
+            },
+        ),
+        InferenceStatItemUi(
+            label = "HTP backend",
+            value = when (probe.qnnDelegateProbeHtpBackendRequested) {
+                true -> "requested"
+                false -> "not requested"
+                null -> "unknown"
+            },
+        ),
+        InferenceStatItemUi(
+            label = "QNN delegate",
+            value = when (probe.qnnDelegateProbeCreated) {
+                true -> "created"
+                false -> "failed"
+                null -> "unknown"
+            },
+        ),
+        InferenceStatItemUi(
+            label = "nativeLibraryDir",
+            value = probe.qnnDelegateProbeNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown",
+        ),
+        InferenceStatItemUi(
+            label = "QNN class probe note",
+            value = if (probe.qnnDelegateProbeClassFound == false) {
+                "TFLite QnnDelegate class was not found. LiteRT-LM NPU path is checked separately via Backend.NPU."
+            } else {
+                "TFLite QnnDelegate class probe is separate from LiteRT-LM Backend.NPU readiness."
+            },
+        ),
+        InferenceStatItemUi(label = "error", value = errorText),
+    )
+}
+
+private fun buildLiteRtLmNpuReadinessItems(
+    probe: AcceleratorProbeSnapshot,
+    selectedModel: String,
+): List<InferenceStatItemUi> {
+    val modelKind = classifyLiteRtLmModelKind(selectedModel)
+    val modelCompatibilityHint = classifyLiteRtLmModelNpuCompatibilityHint(selectedModel)
+    val modelNpuBlocker = formatLiteRtLmModelNpuBlocker(modelCompatibilityHint, selectedModel)
+    val dispatchDetailStatus = formatDispatchApiDetailStatus(probe.npuDispatchLibraryStatus, probe.npuDispatchApiCandidates)
+    val dispatchStatus = formatDispatchApiStatus(dispatchDetailStatus)
+    val readiness = computeLiteRtLmNpuReadiness(
+        probe = probe,
+        dispatchStatus = dispatchStatus,
+        dispatchDetailStatus = dispatchDetailStatus,
+        modelCompatibilityHint = modelCompatibilityHint,
+    )
+    return listOf(
+        InferenceStatItemUi(label = "selected model", value = selectedModel.ifBlank { "unknown" }),
+        InferenceStatItemUi(label = "model kind", value = modelKind),
+        InferenceStatItemUi(label = "model npu compatibility hint", value = modelCompatibilityHint),
+        InferenceStatItemUi(label = "model npu blocker", value = modelNpuBlocker ?: "none"),
+        InferenceStatItemUi(label = "model requirement", value = formatLiteRtLmModelRequirement(modelKind)),
+        InferenceStatItemUi(label = "SoC", value = listOfNotNull(probe.npuSocManufacturer, probe.npuSocModel).joinToString(" / ").ifBlank { "unknown" }),
+        InferenceStatItemUi(label = "External QNN DSP core", value = probe.externalQairtDspCore.ifBlank { "unknown" }),
+        InferenceStatItemUi(label = "Backend.NPU available", value = (probe.backendNpuClassCandidates.isNotEmpty() || probe.npuConstructorAvailable).toString()),
+        InferenceStatItemUi(label = "Backend.NPU(String)", value = if (probe.npuStringConstructorAvailable) "available" else "missing"),
+        InferenceStatItemUi(label = "Backend.NPU(String) available", value = probe.npuStringConstructorAvailable.toString()),
+        InferenceStatItemUi(label = "nativeLibraryDir", value = probe.npuNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "nativeLibraryDir exists", value = probe.npuNativeLibraryDirExists?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "nativeLibraryDir status", value = formatNativeLibraryDirStatus(probe)),
+        InferenceStatItemUi(label = "dispatch API candidates", value = probe.npuDispatchApiCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
+        InferenceStatItemUi(label = "dispatch API exact match", value = probe.npuDispatchApiExactMatch?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch API status", value = dispatchStatus),
+        InferenceStatItemUi(label = "dispatch API detail status", value = dispatchDetailStatus),
+        InferenceStatItemUi(label = "dispatch API selected candidate", value = probe.npuDispatchApiSelectedCandidate?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "dispatch API search dir", value = probe.npuDispatchApiSearchDir?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch API search error", value = probe.npuDispatchApiSearchError?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "dispatch API .so", value = dispatchStatus),
+        InferenceStatItemUi(label = "QNN runtime libs", value = if (probe.npuQnnRuntimeCandidates.isNotEmpty()) "found" else "missing"),
+        InferenceStatItemUi(label = "QNN runtime candidates", value = probe.npuQnnRuntimeCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
+        InferenceStatItemUi(label = "HTP skel/stub", value = if (probe.npuHtpSkelStubCandidates.isNotEmpty()) "found" else "missing"),
+        InferenceStatItemUi(label = "HTP V79 skel/stub", value = if (probe.npuV79SkelStubCandidates.isNotEmpty()) "found" else "missing"),
+        InferenceStatItemUi(label = "HTP skel/stub candidates", value = probe.npuHtpSkelStubCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
+        InferenceStatItemUi(label = "V79 skel/stub candidates", value = probe.npuV79SkelStubCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none"),
+        InferenceStatItemUi(label = "readiness", value = readiness),
+        InferenceStatItemUi(label = "selected path", value = formatLiteRtLmNpuSelectedPath(readiness)),
+        InferenceStatItemUi(label = "NPU apply status", value = "disabled / blocked"),
+        InferenceStatItemUi(label = "next action", value = formatLiteRtLmNpuNextAction(readiness)),
+    )
+}
+
+private fun buildDispatchRuntimeCompatibilityItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "current flavor", value = probe.currentFlavor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "applicationId", value = probe.applicationId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "nativeLibraryDir", value = probe.dispatchNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "nativeLibraryDir exists", value = probe.dispatchNativeLibraryDirExists?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime present in flavor", value = probe.dispatchRuntimePresentInFlavor?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime present in nativeLibraryDir", value = probe.dispatchRuntimePresentInFlavor?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime file path", value = probe.dispatchRuntimeFilePath?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime file length", value = probe.dispatchRuntimeFileLength?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime source", value = probe.dispatchRuntimeSource?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "LiteRT build id", value = probe.liteRtBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "litertlm_jni build id", value = probe.liteRtLmJniBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime build id", value = probe.dispatchRuntimeBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime sha256", value = probe.dispatchRuntimeSha256?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime expected sha256 match", value = probe.dispatchRuntimeExpectedSha256Match?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "ABI compatibility", value = probe.dispatchRuntimeAbiCompatibility?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "load policy", value = "diagnostic-only; no System.loadLibrary; no Backend.NPU apply"),
+    )
+}
+
+private fun buildLiteRtLmRuntimeVersionItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "current flavor", value = probe.currentFlavor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "resolved litertlm expected version", value = probe.liteRtLmExpectedVersion?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "liblitertlm_jni.so build id", value = probe.liteRtLmJniBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRt.so present", value = probe.liteRtSoPresent?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRt.so build id", value = probe.liteRtBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "dispatch runtime build id", value = probe.dispatchRuntimeBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "comparison: Lami 0.11.0 known ids", value = probe.liteRtLmRuntimeComparisonToLami011?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "comparison: Maven 0.10.0 known ids", value = probe.liteRtLmRuntimeComparisonToMaven010?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "comparison: Gallery SM8750 known ids", value = probe.liteRtLmRuntimeComparisonToGallerySm8750?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "runtime stack note", value = probe.liteRtLmRuntimeStackNote?.ifBlank { "unknown" } ?: "unknown"),
+    )
+}
+
+private fun buildGalleryStackJavaNativeApiCompatibilityItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "current flavor", value = probe.currentFlavor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "resolved expected Java API version", value = probe.galleryStackJavaApiExpectedVersion?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "Java side nativeCreateEngine descriptor", value = probe.galleryStackJavaNativeCreateEngineDescriptor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "expected Gallery JNI descriptor", value = probe.galleryStackExpectedJniNativeCreateEngineDescriptor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "descriptor match", value = probe.galleryStackNativeCreateEngineDescriptorMatch?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "EngineConfig constructor selected", value = probe.galleryStackEngineConfigSelectedConstructor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "EngineConfig constructor expected", value = probe.galleryStackEngineConfigExpectedConstructor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "EngineConfig constructor match", value = probe.galleryStackEngineConfigConstructorMatch?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "liblitertlm_jni.so build id", value = probe.liteRtLmJniBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRt.so build id", value = probe.liteRtBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRtDispatch_Qualcomm.so build id", value = probe.dispatchRuntimeBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "note", value = probe.galleryStackJavaNativeApiCompatibilityNote?.ifBlank { "unknown" } ?: "unknown"),
+    )
+}
+
+private fun buildCustomBuildStackCompatibilityItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "current flavor", value = probe.currentFlavor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "applicationId", value = probe.applicationId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "nativeLibraryDir", value = probe.dispatchNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "custom stack present", value = probe.customStackExpectedBuildIdMatch?.toString() ?: "false"),
+        InferenceStatItemUi(label = "liblitertlm_jni.so build id", value = probe.liteRtLmJniBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRt.so build id", value = probe.liteRtBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRtDispatch_Qualcomm.so build id", value = probe.dispatchRuntimeBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRtCompilerPlugin_Qualcomm.so build id", value = probe.customStackCompilerPluginBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libGemmaModelConstraintProvider.so build id", value = probe.customStackGemmaModelConstraintProviderBuildId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "expected custom build id match", value = probe.customStackExpectedBuildIdMatch?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "LiteRtDispatchGetApi export expected", value = "true"),
+        InferenceStatItemUi(label = "dependency Java API version expected", value = probe.liteRtLmExpectedVersion?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "EngineConfig constructor expected", value = "EngineConfig(String, Backend, Backend, Backend, Integer, Integer, String)"),
+        InferenceStatItemUi(label = "load policy", value = "diagnostic-only; Engine.initialize explicit opt-in only; no Conversation; no generateResponse"),
+    )
+}
+
+private fun buildBackendNpuInstantiateProbeItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "enabled", value = probe.backendNpuInstantiateProbeEnabled?.toString() ?: "false"),
+        InferenceStatItemUi(label = "reason if skipped", value = probe.backendNpuInstantiateProbeSkipReason?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "nativeLibraryDir argument", value = probe.backendNpuInstantiateNativeLibraryDirArgument?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "constructor", value = probe.backendNpuInstantiateConstructor?.ifBlank { "Backend.NPU(String)" } ?: "Backend.NPU(String)"),
+        InferenceStatItemUi(label = "instantiate result", value = probe.backendNpuInstantiateResult?.ifBlank { "skipped" } ?: "skipped"),
+        InferenceStatItemUi(label = "object class", value = probe.backendNpuInstantiateObjectClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "exception class", value = probe.backendNpuInstantiateExceptionClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "exception message", value = probe.backendNpuInstantiateExceptionMessage?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "root cause", value = probe.backendNpuInstantiateRootCause?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "cause chain", value = probe.backendNpuInstantiateCauseChain?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "warning", value = probe.backendNpuInstantiateWarning?.ifBlank { "instantiate-only; object not passed to engine; no inference" } ?: "instantiate-only; object not passed to engine; no inference"),
+    )
+}
+
+private fun buildBackendNpuAttachDryRunProbeItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "enabled", value = probe.backendNpuAttachDryRunEnabled?.toString() ?: "false"),
+        InferenceStatItemUi(label = "skipped reason", value = probe.backendNpuAttachDryRunSkipReason?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "npu object class", value = probe.backendNpuAttachDryRunNpuObjectClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "target builder candidates", value = probe.backendNpuAttachDryRunTargetBuilderCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "setter candidates", value = probe.backendNpuAttachDryRunSetterCandidates.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "selected setter", value = probe.backendNpuAttachDryRunSelectedSetter?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "setter invoke result", value = probe.backendNpuAttachDryRunSetterInvokeResult?.ifBlank { "skipped" } ?: "skipped"),
+        InferenceStatItemUi(label = "build invoked", value = probe.backendNpuAttachDryRunBuildInvoked?.ifBlank { "no" } ?: "no"),
+        InferenceStatItemUi(label = "build result", value = probe.backendNpuAttachDryRunBuildResult?.ifBlank { "skipped" } ?: "skipped"),
+        InferenceStatItemUi(label = "exception class", value = probe.backendNpuAttachDryRunExceptionClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "exception message", value = probe.backendNpuAttachDryRunExceptionMessage?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "root cause", value = probe.backendNpuAttachDryRunRootCause?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "cause chain", value = probe.backendNpuAttachDryRunCauseChain?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "warning", value = probe.backendNpuAttachDryRunWarning?.ifBlank { "attach-dry-run only; no Engine; no Conversation; no inference" } ?: "attach-dry-run only; no Engine; no Conversation; no inference"),
+        InferenceStatItemUi(label = "note", value = probe.backendNpuAttachDryRunNote?.ifBlank { "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU." } ?: "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU."),
+    )
+}
+
+private fun buildLiteRtLmNpuApiInventoryItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "enabled", value = probe.liteRtLmNpuApiInventoryEnabled?.toString() ?: "false"),
+        InferenceStatItemUi(label = "skipped reason", value = probe.liteRtLmNpuApiInventorySkipReason?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "class found / not found", value = probe.liteRtLmNpuApiClassInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "constructors", value = probe.liteRtLmNpuApiConstructorInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "public methods", value = probe.liteRtLmNpuApiPublicMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "declared methods", value = probe.liteRtLmNpuApiDeclaredMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "fields", value = probe.liteRtLmNpuApiFieldInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "companion/static methods", value = probe.liteRtLmNpuApiStaticMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "assignability", value = probe.liteRtLmNpuApiAssignability.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "EngineConfig constructors", value = probe.engineConfigConstructorInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "EngineConfig backend property/getter", value = probe.engineConfigBackendPropertyInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "EngineConfig copy methods", value = probe.engineConfigCopyMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "EngineConfig componentN methods", value = probe.engineConfigComponentMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "EngineConfig json methods", value = probe.engineConfigJsonMethodInventory.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+    )
+}
+
+private fun buildEngineConfigNpuDryBuildProbeItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "enabled", value = probe.engineConfigNpuDryBuildEnabled?.toString() ?: "false"),
+        InferenceStatItemUi(label = "skipped reason", value = probe.engineConfigNpuDryBuildSkipReason?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "selected constructor", value = probe.engineConfigNpuDryBuildSelectedConstructor?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "constructor args summary", value = probe.engineConfigNpuDryBuildConstructorArgsSummary?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "npu backend object class", value = probe.engineConfigNpuDryBuildNpuBackendObjectClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "result", value = probe.engineConfigNpuDryBuildResult?.ifBlank { "skipped" } ?: "skipped"),
+        InferenceStatItemUi(label = "created object class", value = probe.engineConfigNpuDryBuildCreatedObjectClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "backend getter result class", value = probe.engineConfigNpuDryBuildBackendGetterResultClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "exception class", value = probe.engineConfigNpuDryBuildExceptionClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "exception message", value = probe.engineConfigNpuDryBuildExceptionMessage?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "root cause", value = probe.engineConfigNpuDryBuildRootCause?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "cause chain", value = probe.engineConfigNpuDryBuildCauseChain?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "warning", value = probe.engineConfigNpuDryBuildWarning?.ifBlank { "config-only; not passed to Engine; no inference" } ?: "config-only; not passed to Engine; no inference"),
+    )
+}
+
+private fun buildBackendNpuConnectionCandidateItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "preferredBackend enum path", value = probe.backendNpuConnectionPreferredBackendEnumPath?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "reason", value = probe.backendNpuConnectionPreferredBackendEnumReason?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "EngineConfig backend path", value = probe.backendNpuConnectionEngineConfigBackendPath?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "Engine initialize path", value = probe.backendNpuConnectionEngineInitializePath?.ifBlank { "not attempted" } ?: "not attempted"),
+        InferenceStatItemUi(label = "recommended next phase", value = probe.backendNpuConnectionRecommendedNextPhase?.ifBlank { "unknown" } ?: "unknown"),
+    )
+}
+
+private fun buildEngineApiInventoryItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "enabled", value = probe.engineApiInventoryEnabled?.toString() ?: "false"),
+        InferenceStatItemUi(label = "skipped reason", value = probe.engineApiInventorySkipReason?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "class found", value = probe.engineApiClassFound?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "constructors", value = probe.engineApiConstructors.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "static/companion factory candidates", value = probe.engineApiStaticFactoryCandidates.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "initialize method candidates", value = probe.engineApiInitializeMethodCandidates.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "close/dispose method candidates", value = probe.engineApiCloseDisposeMethodCandidates.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "create method candidates", value = probe.engineApiCreateMethodCandidates.takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "none/unknown"),
+    )
+}
+
+private fun buildEngineInitializeDryRunProbeItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    return listOf(
+        InferenceStatItemUi(label = "enabled", value = probe.engineInitializeDryRunEnabled?.toString() ?: "false"),
+        InferenceStatItemUi(label = "runId", value = probe.engineInitializeDryRunRunId?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "skipped reason", value = probe.engineInitializeDryRunSkipReason?.ifBlank { "none" } ?: "none"),
+        InferenceStatItemUi(label = "explicit opt-in", value = probe.engineInitializeDryRunExplicitOptIn?.toString() ?: "false"),
+        InferenceStatItemUi(label = "model path", value = probe.engineInitializeDryRunModelPath?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "model kind", value = probe.engineInitializeDryRunModelKind?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "model file exists", value = probe.engineInitializeDryRunModelFileExists?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "model file length", value = probe.engineInitializeDryRunModelFileLength?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "model file canRead", value = probe.engineInitializeDryRunModelFileCanRead?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "model parent exists", value = probe.engineInitializeDryRunModelFileParentExists?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "model parent list count", value = probe.engineInitializeDryRunModelFileParentListCount?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "model parent list sample", value = probe.engineInitializeDryRunModelFileParentListSample.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "none/unknown"),
+        InferenceStatItemUi(label = "nativeLibraryDir", value = probe.engineInitializeDryRunNativeLibraryDir?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "Backend.NPU object class", value = probe.engineInitializeDryRunBackendNpuObjectClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "EngineConfig object class", value = probe.engineInitializeDryRunEngineConfigObjectClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "selected Engine constructor/factory", value = probe.engineInitializeDryRunSelectedEngineConstructorOrFactory?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "selected initialize method", value = probe.engineInitializeDryRunSelectedInitializeMethod?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "last stage", value = probe.engineInitializeDryRunLastStage?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "constructor invoked", value = probe.engineInitializeDryRunConstructorInvoked?.ifBlank { "no" } ?: "no"),
+        InferenceStatItemUi(label = "constructor returned", value = probe.engineInitializeDryRunConstructorReturned?.ifBlank { "no" } ?: "no"),
+        InferenceStatItemUi(label = "initialize invoked", value = probe.engineInitializeDryRunInitializeInvoked?.ifBlank { "no" } ?: "no"),
+        InferenceStatItemUi(label = "initialize returned", value = probe.engineInitializeDryRunInitializeReturned?.ifBlank { "no" } ?: "no"),
+        InferenceStatItemUi(label = "initialize result", value = probe.engineInitializeDryRunInitializeResult?.ifBlank { "skipped" } ?: "skipped"),
+        InferenceStatItemUi(label = "elapsed ms", value = probe.engineInitializeDryRunElapsedMs?.toString() ?: "—"),
+        InferenceStatItemUi(label = "exception class", value = probe.engineInitializeDryRunExceptionClass?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "exception message", value = probe.engineInitializeDryRunExceptionMessage?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "root cause", value = probe.engineInitializeDryRunRootCause?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "cause chain", value = probe.engineInitializeDryRunCauseChain?.ifBlank { "—" } ?: "—"),
+        InferenceStatItemUi(label = "UnsatisfiedLinkError detected", value = probe.engineInitializeDryRunUnsatisfiedLinkErrorDetected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "No usable Dispatch runtime found detected", value = probe.engineInitializeDryRunNoUsableDispatchRuntimeDetected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "Failed to initialize Dispatch API detected", value = probe.engineInitializeDryRunFailedToInitializeDispatchApiDetected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "insufficient capabilities detected", value = probe.engineInitializeDryRunInsufficientCapabilitiesDetected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "version mismatch detected", value = probe.engineInitializeDryRunVersionMismatchDetected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "symbol mismatch detected", value = probe.engineInitializeDryRunSymbolMismatchDetected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "SIGABRT suspected", value = probe.engineInitializeDryRunSigabrtSuspected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "crash suspected", value = probe.engineInitializeDryRunCrashSuspected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "process alive after probe", value = probe.engineInitializeDryRunProcessAliveAfterProbe?.ifBlank { "unknown-script-checks-pidof" } ?: "unknown-script-checks-pidof"),
+        InferenceStatItemUi(label = "stale snapshot suspected", value = probe.engineInitializeDryRunStaleSnapshotSuspected?.toString() ?: "false"),
+        InferenceStatItemUi(label = "diagnostic files cleared before run", value = probe.engineInitializeDryRunDiagnosticFilesClearedBeforeRun?.toString() ?: "false"),
+        InferenceStatItemUi(label = "close invoked", value = probe.engineInitializeDryRunCloseInvoked?.ifBlank { "no" } ?: "no"),
+        InferenceStatItemUi(label = "close result", value = probe.engineInitializeDryRunCloseResult?.ifBlank { "skipped" } ?: "skipped"),
+        InferenceStatItemUi(label = "diagnostic file", value = probe.engineInitializeDryRunDiagnosticFilePath?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "warning", value = probe.engineInitializeDryRunWarning?.ifBlank { "initialize-only; no Conversation; no generateResponse; not wired to app inference" } ?: "initialize-only; no Conversation; no generateResponse; not wired to app inference"),
+    )
+}
+
+private fun classifyLiteRtLmModelKind(selectedModel: String): String {
+    val lower = selectedModel.substringAfterLast('/').lowercase(Locale.ROOT)
+    return when {
+        "qualcomm" in lower && "sm8750" in lower -> "qualcomm-sm8750-litertlm"
+        listOf("qualcomm", "qcs", "qnn", "htp").any { it in lower } -> "qualcomm-litertlm"
+        "litertlm" in lower -> "generic-litertlm"
+        else -> "unknown"
+    }
+}
+
+private fun classifyLiteRtLmModelNpuCompatibilityHint(selectedModel: String): String {
+    val lower = selectedModel.substringAfterLast('/').lowercase(Locale.ROOT)
+    return when {
+        listOf("qualcomm", "sm8750", "qcs", "qnn", "htp").any { it in lower } -> "qualcomm-soc-specific-candidate"
+        "litertlm" in lower -> "generic-gpu-compatible"
+        else -> "unknown"
+    }
+}
+
+private fun formatLiteRtLmModelNpuBlocker(
+    modelCompatibilityHint: String,
+    selectedModel: String,
+): String? {
+    if (modelCompatibilityHint == "qualcomm-soc-specific-candidate") return null
+    val lower = selectedModel.substringAfterLast('/').lowercase(Locale.ROOT)
+    return if ("sm8750" in lower || selectedModel.isBlank()) {
+        "requires-soc-specific-qualcomm-litertlm-for-sm8750"
+    } else {
+        "requires-soc-specific-qualcomm-litertlm"
+    }
+}
+
+private fun formatLiteRtLmModelRequirement(modelKind: String): String {
+    return when (modelKind) {
+        "qualcomm-sm8750-litertlm" -> "requires-soc-specific-qualcomm-litertlm-for-sm8750"
+        "qualcomm-litertlm" -> "requires-soc-specific-qualcomm-litertlm"
+        "generic-litertlm" -> "generic-litertlm-gpu-compatible"
+        else -> "unknown"
+    }
+}
+
+private fun formatDispatchApiDetailStatus(
+    dispatchLibraryStatus: String?,
+    dispatchApiCandidates: List<String>,
+): String {
+    return when {
+        dispatchLibraryStatus == "found-exact-libLiteRtDispatch_Qualcomm-so" -> dispatchLibraryStatus
+        dispatchLibraryStatus == "found-dispatch-candidate" -> dispatchLibraryStatus
+        dispatchApiCandidates.any { it.equals("libLiteRtDispatch_Qualcomm.so", ignoreCase = true) } -> "found-exact-libLiteRtDispatch_Qualcomm-so"
+        dispatchApiCandidates.isNotEmpty() -> "found-dispatch-candidate"
+        dispatchLibraryStatus == "missing-dispatch-api-so-candidate" -> "missing"
+        dispatchLibraryStatus == "candidate-detected" -> "found-dispatch-candidate"
+        dispatchLibraryStatus == "native-library-dir-missing" -> dispatchLibraryStatus
+        dispatchLibraryStatus == "native-library-dir-empty" -> dispatchLibraryStatus
+        dispatchLibraryStatus == "missing" -> dispatchLibraryStatus
+        dispatchLibraryStatus == "unknown-error" -> dispatchLibraryStatus
+        dispatchLibraryStatus.isNullOrBlank() -> "unknown"
+        dispatchLibraryStatus.startsWith("error-") -> "unknown"
+        else -> dispatchLibraryStatus
+    }
+}
+
+private fun formatDispatchApiStatus(dispatchDetailStatus: String): String {
+    return when {
+        dispatchDetailStatus.startsWith("found-") -> "found"
+        dispatchDetailStatus == "missing" || dispatchDetailStatus == "native-library-dir-empty" -> "missing"
+        else -> "unknown"
+    }
+}
+
+private fun computeLiteRtLmNpuReadiness(
+    probe: AcceleratorProbeSnapshot,
+    dispatchStatus: String,
+    dispatchDetailStatus: String,
+    modelCompatibilityHint: String,
+): String {
+    val runtimeReady = probe.npuQnnRuntimeCandidates.isNotEmpty() ||
+        probe.npuVendorRuntimeLibraryStatus?.startsWith("candidate-detected") == true
+    val htpSkelStubReady = probe.npuHtpSkelStubCandidates.isNotEmpty()
+    return when {
+        dispatchStatus == "missing" -> "gpu-ok-npu-blocked-dispatch-missing"
+        dispatchDetailStatus == "unknown-error" -> "npu-unknown"
+        !probe.npuStringConstructorAvailable -> "npu-unknown"
+        probe.npuNativeLibraryDir.isNullOrBlank() || probe.npuNativeLibraryDirExists == false -> "npu-unknown"
+        !runtimeReady -> "npu-unknown"
+        !htpSkelStubReady -> "npu-unknown"
+        modelCompatibilityHint != "qualcomm-soc-specific-candidate" -> "npu-unknown"
+        dispatchStatus == "found" -> "npu-prerequisites-present-probe-only"
+        else -> "npu-unknown"
+    }
+}
+
+private fun formatLiteRtLmNpuSelectedPath(readiness: String): String {
+    return when (readiness) {
+        "npu-prerequisites-present-probe-only" -> "npu-probe-only"
+        "gpu-ok-npu-blocked-dispatch-missing" -> "gpu"
+        else -> "blocked"
+    }
+}
+
+private fun formatNativeLibraryDirStatus(probe: AcceleratorProbeSnapshot): String {
+    return when {
+        probe.npuNativeLibraryDir.isNullOrBlank() -> "missing"
+        probe.npuNativeLibraryDirExists == true -> "exists"
+        probe.npuNativeLibraryDirExists == false -> "missing"
+        else -> "unknown"
+    }
+}
+
+private fun formatLiteRtLmNpuNextAction(readiness: String): String {
+    return when (readiness) {
+        "gpu-ok-npu-blocked-dispatch-missing" ->
+            "1) run scripts/check_litert_npu_dispatch.sh\n2) if dispatch API .so is found, package it under jniLibs/arm64-v8a or dependency packaging\n3) verify CLI with litert_lm_main --backend=npu\n4) enable app NPU only after CLI proof"
+        "npu-prerequisites-present-probe-only" ->
+            "1) verify CLI with litert_lm_main --backend=npu\n2) keep app NPU disabled until CLI proof is recorded\n3) enable app NPU only after explicit guard review"
+        else ->
+            "1) keep GPU fallback\n2) resolve listed NPU prerequisite\n3) do not apply Backend.NPU until dispatch API .so and CLI proof are both present"
+    }
+}
+
+private fun resolveLiteRtLmReadinessSelectedModelName(
+    stats: InferenceStats,
+    trace: LocalInferenceTrace?,
+): String {
+    return trace?.mediaPipeProbeModelPath?.trim()?.takeIf { it.isNotBlank() }
+        ?: stats.modelName?.trim()?.takeIf { it.isNotBlank() }
+        ?: trace?.localModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
+        ?: "—"
+}
+
 private fun formatExternalQairtStageStatus(status: String?): String {
     return when (status?.trim()) {
         null, "" -> "unknown"
@@ -1368,7 +2032,14 @@ private fun formatLamiBlockedReason(probe: AcceleratorProbeSnapshot): String? {
         if ("qnn-runtime-libs" in source || source.startsWith("missing:libQnn")) {
             reasons += "app-packaged QNN runtime libs missing"
         }
-        if ("dispatch-api-so" in source || "missing-dispatch-api-so-candidate" in source || "missing:libLiteRtDispatch.so" in source) {
+        if ("dispatch-api-so" in source ||
+            "missing-dispatch-api-so-candidate" in source ||
+            source == "missing" ||
+            source == "native-library-dir-empty" ||
+            "blocked-dispatch-api-so-missing" in source ||
+            "gpu-ok-npu-blocked-dispatch-missing" in source ||
+            "missing:libLiteRtDispatch.so" in source
+        ) {
             reasons += "dispatch API .so missing"
         }
         if ("backend-npu-api" in source) {

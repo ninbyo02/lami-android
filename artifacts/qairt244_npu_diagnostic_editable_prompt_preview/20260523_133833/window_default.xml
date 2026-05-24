@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qairt244EditablePromptPreviewVerification source="app-private-preview-state-mirror">
+  <activity>io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity</activity>
+  <mode>default</mode>
+  <input_enabled>false</input_enabled>
+  <editable_prompt_preview>false</editable_prompt_preview>
+  <value>Hi</value>
+  <isValid>true</isValid>
+  <reasonCode>ok</reasonCode>
+  <normalizedPrompt>Hi</normalizedPrompt>
+  <prompt_execution_connected>false</prompt_execution_connected>
+  <run_button_uses_fixed_prompt>Hi</run_button_uses_fixed_prompt>
+  <run_button_connected>false</run_button_connected>
+  <npu_generation>false</npu_generation>
+  <engine_initialize>false</engine_initialize>
+  <run_decode>false</run_decode>
+  <note>uiautomator dump returned "could not get idle state"; screenshot_default.png and default_prompt_preview_state.txt are the primary captured evidence.</note>
+</qairt244EditablePromptPreviewVerification>

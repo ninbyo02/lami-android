@@ -1,0 +1,8 @@
+editable_prompt_native_supported=false
+kotlin_supportsEditablePromptExecution=false
+native_short_multitoken_prompt=fixed_hi
+preflight_result=blocked_native_fixed_hi
+run_button_should_be_clicked=false
+engine_initialize=false
+run_decode=false
+npu_generation=false

@@ -1,0 +1,11 @@
+library	mapped_in_tombstone	present_in_native_library_dir	build_id
+liblitertlm_jni.so	true	true	38b795aeb83183c12361f108dc2308bc
+libLiteRt.so	false	true	8e2c846a217663487c7163a3c596688c
+libLiteRtDispatch_Qualcomm.so	false	true	e249453cf79d19c37af2b2019fea71f1
+libQnnSystem.so	false	true	94d63184c6b1f968
+libQnnHtp.so	false	true	e227353d86be672b
+libQnnHtpPrepare.so	false	true	9ae62cf17f972404
+libQnnHtpV79Stub.so	false	true	c079c75e0fd8ee92
+libQnnHtpV79Skel.so	false	true
+libLiteRtRuntimeCApi.so	false	false	-
+libllm_inference_engine_jni.so	true	true	2f6f9104344966674bf6587935d27cc8

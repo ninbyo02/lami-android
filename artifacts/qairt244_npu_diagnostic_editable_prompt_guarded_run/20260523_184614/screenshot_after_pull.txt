@@ -1,0 +1,1 @@
+/sdcard/qairt244_editable_prompt_after.png: 1 file pulled, 0 skipped. 9.3 MB/s (337304 bytes in 0.035s)

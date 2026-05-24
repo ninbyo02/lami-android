@@ -1,0 +1,1 @@
+/sdcard/qairt244_fallback_invalid.png: 1 file pulled, 0 skipped. 11.3 MB/s (351696 bytes in 0.030s)

@@ -1,0 +1,9 @@
+path=/home/sato/project/lami-android/artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/reference_libs/gallery_stack/libQnnHtpV79Skel.so
+label=gallery_stack
+present=true
+size=10975268
+sha256=41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98
+build_id=
+soname=libQnnHtpV79Skel.so
+needed=libc++.so.1,libc++abi.so.1
+/home/sato/project/lami-android/artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/reference_libs/gallery_stack/libQnnHtpV79Skel.so: ELF 32-bit LSB shared object, QUALCOMM DSP6, version 1 (SYSV), dynamically linked, stripped

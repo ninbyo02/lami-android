@@ -1,0 +1,14 @@
+[custom-build-stage] staged libLiteRt.so build_id=731b74da505bef341a184b3778d0412d sha256=3ba100245ed79d45abf3c34230aee77d6aabd0b6c302a1ce8dd060b95575e7ec
+[custom-build-stage] staged libLiteRtDispatch_Qualcomm.so build_id=a1b66b12e643f15a94cb34093f9efcac sha256=459ceb6e3912fa72b43363c763315b2fbf5d336e744e82e4850f33967c7bbeba
+[custom-build-stage] staged liblitertlm_jni.so build_id=a85bf0969d55648d9c11c25d2a1f2e6b sha256=04021709850a0e4ac5b0766a91b5bedf9f63c77a1b9b226fabf3d2b2e59f938f
+[custom-build-stage] staged libLiteRtCompilerPlugin_Qualcomm.so build_id=12a6ac7197aff7045fc5f5c263b35f9f sha256=299769ef90f9ee4b74b357bd867545e1f48312bb8b1d97f9d16968a2be175655
+[custom-build-stage] staged libGemmaModelConstraintProvider.so build_id=f9e5e73e668032550042319e43012011 sha256=45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6
+[custom-build-stage] staged QNN runtime libQnnSystem.so build_id=0d409cdd664b8b0a sha256=7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8
+[custom-build-stage] staged QNN runtime libQnnHtp.so build_id=f2c90c1775a109e1 sha256=090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a
+[custom-build-stage] staged QNN runtime libQnnHtpPrepare.so build_id=edb612e67d6d27c2 sha256=09b1c15c62b6875af49ffd3d841961c098b85c367f584fee370f986c62511298
+[custom-build-stage] staged QNN runtime libQnnHtpV79Stub.so build_id=10d7ad6f9195411a sha256=005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1
+[custom-build-stage] staged QNN runtime libQnnHtpV79Skel.so build_id= sha256=41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98
+[custom-build-stage] QNN runtime library not provided by artifact: libQnnDsp.so
+[custom-build-stage] QNN runtime library not provided by artifact: libQnnGpu.so
+[custom-build-stage] wrote /home/sato/project/lami-android/artifacts/litert_custom_build_stage/20260523_062321/summary.md
+[custom-build-stage] done; staged for customBuildExperimentDebug only

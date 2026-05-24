@@ -1,0 +1,12 @@
+No QAIRT244_SENTINEL or qairt244_jni_entry_v1 lines were found in:
+
+- artifacts/npu_diagnostics/20260521_215004_customnpu/
+- artifacts/npu_diagnostics/20260521_215004_customnpu/logcat_litert_qnn_extract.txt
+- artifacts/npu_diagnostics/20260521_215004_customnpu/dropbox_app_extract.txt
+- artifacts/npu_diagnostics/20260521_215004_customnpu/tombstone_app_extract.txt
+
+The tombstone still resolves the app frame into the sentinel JNI library:
+
+liblitertlm_jni.so
+Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeCreateEngine+1992
+BuildId: 8faff14dc850b7fb1986a300ac465fa4

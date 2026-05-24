@@ -1,0 +1,4 @@
+000000000022db64 T QnnInterface_getProviders
+000000000019b144 T _Z17getPkgParamTmpMapv
+000000000019b498 T _Z21getPkgParamAxesTmpMapv
+000000000019b7ec T _Z25getPkgPerChannelOpsTmpMapv

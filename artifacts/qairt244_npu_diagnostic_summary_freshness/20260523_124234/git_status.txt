@@ -1,0 +1,2 @@
+ M app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt
+ M scripts/sync_qairt244_npu_diagnostic_summary_to_app.sh

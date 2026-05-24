@@ -1,0 +1,9 @@
+path=/home/sato/project/lami-android/artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/reference_libs/gallery_stack/libQnnHtp.so
+label=gallery_stack
+present=true
+size=2778176
+sha256=090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a
+build_id=f2c90c1775a109e1
+soname=libQnnHtp.so
+needed=libc.so,libm.so,libdl.so,liblog.so
+/home/sato/project/lami-android/artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/reference_libs/gallery_stack/libQnnHtp.so: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[xxHash]=f2c90c1775a109e1, stripped

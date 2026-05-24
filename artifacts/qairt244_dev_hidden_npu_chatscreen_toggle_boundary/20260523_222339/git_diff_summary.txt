@@ -1,0 +1,141 @@
+diff --git a/app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt b/app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+index 5a14294e..8e731602 100644
+--- a/app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
++++ b/app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt
+@@ -240,7 +240,6 @@ private const val DEV_UI_DEBUG_MODE = false
+ private const val DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED = true
+ private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
+ private const val DEV_USE_HELD_PATH_ONLY = false
+-private const val DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED = false
+ private const val LOCAL_UI_APPEND_DEBOUNCE_MS = 0L
+ private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
+
+@@ -705,6 +704,9 @@ fun Home(
+     val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow.collectAsState(
+         initial = true,
+     )
++    val devEnableNpuChatScreenRoute by settingsPreferences.devEnableNpuChatScreenRouteFlow.collectAsState(
++        initial = false,
++    )
+     val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(
+         initial = true,
+     )
+@@ -2358,7 +2360,7 @@ fun Home(
+                                                     // explicitly implemented.
+                                                     if (
+                                                         BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+-                                                        DEV_ONLY_NPU_CHATSCREEN_BLOCKED_BRANCH_ENABLED
++                                                        devEnableNpuChatScreenRoute
+                                                     ) {
+                                                         val blockedSummary =
+                                                             runDevOnlyNpuChatScreenBlockedBranchViaReflection(requestPrompt)
+diff --git a/app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt b/app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt
+index 3ac437d6..92cd226a 100644
+--- a/app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt
++++ b/app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt
+@@ -631,6 +631,47 @@ fun Settings(
+                         }
+                     }
+                     Spacer(modifier = Modifier.height(2.dp))
++                    if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
++                        Card {
++                            SettingsToggleRowItem(
++                                headline = "DEV: Enable NPU ChatScreen route",
++                                supporting = "customBuildExperimentDebug限定。既定はOFFです。現在はblocked adapter境界のみで、実NPU・selectedPath=npu・通常保存には接続しません。",
++                                leadingIcon = Icons.Filled.BugReport,
++                                checked = settingsData.devEnableNpuChatScreenRoute,
++                                enabled = true,
++                                onCheckedChange = { enabled ->
++                                    scope.launch {
++                                        settingsPreferences.saveDevEnableNpuChatScreenRoute(enabled)
++                                    }
++                                },
++                            )
++                        }
++                        Spacer(modifier = Modifier.height(2.dp))
++                        Card {
++                            Column(
++                                modifier = Modifier
++                                    .fillMaxWidth()
++                                    .padding(horizontal = 16.dp, vertical = 12.dp),
++                                verticalArrangement = Arrangement.spacedBy(6.dp),
++                            ) {
++                                Text(
++                                    text = "DEV NPU ChatScreen route boundary",
++                                    style = MaterialTheme.typography.titleMedium,
++                                )
++                                Text(
++                                    text = "key=dev_enable_npu_chatscreen_route",
++                                    style = MaterialTheme.typography.bodySmall,
++                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                                )
++                                Text(
++                                    text = "default=false / blocked adapter only / normal selectedPath=npu disabled / real NPU not connected",
++                                    style = MaterialTheme.typography.bodySmall,
++                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                                )
++                            }
++                        }
++                        Spacer(modifier = Modifier.height(2.dp))
++                    }
+                     Card {
+                         Column(
+                             modifier = Modifier
+diff --git a/app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData.kt b/app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData.kt
+index 5a8603b5..1a3feb6b 100644
+--- a/app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData.kt
++++ b/app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData.kt
+@@ -11,4 +11,5 @@ data class SettingsData(
+     val inferenceStatsDisplayMode: InferenceStatsDisplayMode = InferenceStatsDisplayMode.SIMPLE,
+     val preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+     val markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
++    val devEnableNpuChatScreenRoute: Boolean = false,
+ )
+diff --git a/app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt b/app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt
+index ac73e4da..264cabb3 100644
+--- a/app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt
++++ b/app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt
+@@ -376,6 +376,7 @@ class SettingsPreferences(private val context: Context) {
+     private val inferenceStatsDisplayModeKey = stringPreferencesKey("inference_stats_display_mode")
+     private val preferredBackendDryRunKey = stringPreferencesKey("lami_dev_preferred_backend_dry_run")
+     private val markdownStreamingModeKey = stringPreferencesKey("dev_markdown_streaming_mode")
++    private val devEnableNpuChatScreenRouteKey = booleanPreferencesKey("dev_enable_npu_chatscreen_route")
+     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
+     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
+     // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
+@@ -438,6 +439,9 @@ class SettingsPreferences(private val context: Context) {
+                 storedMode = MarkdownStreamingMode.fromStorage(preferences[markdownStreamingModeKey]),
+                 isDebugBuild = BuildConfig.DEBUG,
+             ),
++            devEnableNpuChatScreenRoute =
++                BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
++                    (preferences[devEnableNpuChatScreenRouteKey] ?: false),
+         )
+     }
+
+@@ -549,6 +553,11 @@ class SettingsPreferences(private val context: Context) {
+         )
+     }
+
++    val devEnableNpuChatScreenRouteFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
++        BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
++            (preferences[devEnableNpuChatScreenRouteKey] ?: false)
++    }
++
+     val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+         preferences[characterAnimationEnabledKey] ?: true
+     }
+@@ -777,6 +786,13 @@ class SettingsPreferences(private val context: Context) {
+         }
+     }
+
++    suspend fun saveDevEnableNpuChatScreenRoute(enabled: Boolean) {
++        context.dataStore.edit { preferences ->
++            preferences[devEnableNpuChatScreenRouteKey] =
++                BuildConfig.CUSTOM_BUILD_EXPERIMENT && enabled
++        }
++    }
++
+     suspend fun saveSpriteCurrentSheetOverrideEnabled(enabled: Boolean, updatedAt: Long = System.currentTimeMillis()) {
+         context.dataStore.edit { preferences ->
+             preferences[spriteCurrentSheetOverrideEnabledKey] = enabled

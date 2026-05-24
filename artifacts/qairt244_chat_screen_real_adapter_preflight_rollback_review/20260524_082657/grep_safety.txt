@@ -1,0 +1,84 @@
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevNpuChatScreenToggleActivity.kt:53:            appendLine("key=dev_enable_npu_chatscreen_route")
+app/src/main/java/io/github/ninbyo02/lami/local/LocalInferenceFailureDiagnostics.kt:152:    appendLine("Backend.NPU(String) constructor availability=${diagnostics.backendNpuStringConstructorAvailable}")
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/BlockedDevOnlyNpuRouteAdapter.kt:5:class BlockedDevOnlyNpuRouteAdapter : DevOnlyNpuRouteAdapter {
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:6:object DevOnlyNpuChatScreenBlockedBranch {
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:12:            DevOnlyNpuRoutePlanner(
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:13:                adapter = BlockedDevOnlyNpuRouteAdapter(),
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteDisplayModel.kt:29:            result.reasonCode == BlockedDevOnlyNpuRouteAdapter.REASON_ADAPTER_NOT_CONNECTED ->
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteDisplayModel.kt:63:                if (result.reasonCode == BlockedDevOnlyNpuRouteAdapter.REASON_ADAPTER_NOT_CONNECTED) {
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlanner.kt:3:class DevOnlyNpuRoutePlanner(
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlanner.kt:5:    private val adapter: DevOnlyNpuRouteAdapter = BlockedDevOnlyNpuRouteAdapter(),
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:21:import io.github.ninbyo02.lami.npu.BlockedDevOnlyNpuRouteAdapter
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:25:import io.github.ninbyo02.lami.npu.DevOnlyNpuRoutePlanner
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:80:                "selectedPath=npu normal route=not used",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:303:                "no selectedPath=npu normal route",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:305:                "no high-level generateResponse",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:498:            "RunDecode=${text.contains("RunDecode")}",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:544:            "selectedPath=npu disabled=true",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:545:            "high-level generateResponse=false",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:572:            DevOnlyNpuRoutePlanner(
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:573:                adapter = BlockedDevOnlyNpuRouteAdapter(),
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:616:            "adapter=${BlockedDevOnlyNpuRouteAdapter::class.java.simpleName}",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:638:                                supporting = "customBuildExperimentDebug限定。既定はOFFです。現在はblocked adapter境界のみで、実NPU・selectedPath=npu・通常保存には接続しません。",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:662:                                    text = "key=dev_enable_npu_chatscreen_route",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:667:                                    text = "default=false / blocked adapter only / normal selectedPath=npu disabled / real NPU not connected",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt:379:    private val devEnableNpuChatScreenRouteKey = booleanPreferencesKey("dev_enable_npu_chatscreen_route")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:201:            add(InferenceStatItemUi(label = "Backend NPU probe hint", value = probe.backendNpuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:202:            add(InferenceStatItemUi(label = "Backend NPU class candidates", value = probe.backendNpuClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:203:            add(InferenceStatItemUi(label = "Backend NPU method candidates", value = probe.backendNpuMethodCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:204:            add(InferenceStatItemUi(label = "Backend NPU constructor signatures", value = probe.backendNpuConstructorSignatures.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:205:            add(InferenceStatItemUi(label = "Backend NPU nativeLibraryDir required", value = probe.backendNpuNativeLibraryDirRequired?.ifBlank { "unknown" } ?: "unknown"))
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:301:            probe.backendNpuProbeError?.takeIf { it.isNotBlank() }?.let { add(InferenceStatItemUi(label = "Backend NPU probe error", value = it)) }
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:587:                    title = "DEV診断: Backend.NPU Instantiate Probe",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:595:                    title = "DEV診断: Backend.NPU Attach Dry-Run Probe",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:619:                    title = "DEV診断: Backend.NPU Connection Candidate",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1343:            add(InferenceStatItemUi(label = "Backend NPU probe hint", value = probe.backendNpuProbeHint?.ifBlank { "unknown" } ?: "unknown"))
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1344:            add(InferenceStatItemUi(label = "Backend NPU class candidates", value = probe.backendNpuClassCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1345:            add(InferenceStatItemUi(label = "Backend NPU method candidates", value = probe.backendNpuMethodCandidates.takeIf { it.isNotEmpty() }?.take(10)?.joinToString(", ") ?: "none/unknown"))
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1496:                "TFLite QnnDelegate class was not found. LiteRT-LM NPU path is checked separately via Backend.NPU."
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1498:                "TFLite QnnDelegate class probe is separate from LiteRT-LM Backend.NPU readiness."
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1528:        InferenceStatItemUi(label = "Backend.NPU available", value = (probe.backendNpuClassCandidates.isNotEmpty() || probe.npuConstructorAvailable).toString()),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1529:        InferenceStatItemUi(label = "Backend.NPU(String)", value = if (probe.npuStringConstructorAvailable) "available" else "missing"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1530:        InferenceStatItemUi(label = "Backend.NPU(String) available", value = probe.npuStringConstructorAvailable.toString()),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1574:        InferenceStatItemUi(label = "load policy", value = "diagnostic-only; no System.loadLibrary; no Backend.NPU apply"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1631:        InferenceStatItemUi(label = "load policy", value = "diagnostic-only; Engine.initialize explicit opt-in only; no Conversation; no generateResponse"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1642:        InferenceStatItemUi(label = "constructor", value = probe.backendNpuInstantiateConstructor?.ifBlank { "Backend.NPU(String)" } ?: "Backend.NPU(String)"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1671:        InferenceStatItemUi(label = "note", value = probe.backendNpuAttachDryRunNote?.ifBlank { "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU." } ?: "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU."),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1723:        InferenceStatItemUi(label = "Engine initialize path", value = probe.backendNpuConnectionEngineInitializePath?.ifBlank { "not attempted" } ?: "not attempted"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1760:        InferenceStatItemUi(label = "Backend.NPU object class", value = probe.engineInitializeDryRunBackendNpuObjectClass?.ifBlank { "—" } ?: "—"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1789:        InferenceStatItemUi(label = "warning", value = probe.engineInitializeDryRunWarning?.ifBlank { "initialize-only; no Conversation; no generateResponse; not wired to app inference" } ?: "initialize-only; no Conversation; no generateResponse; not wired to app inference"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1909:            "1) keep GPU fallback\n2) resolve listed NPU prerequisite\n3) do not apply Backend.NPU until dispatch API .so and CLI proof are both present"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1985:            reasons += "Backend.NPU API missing"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:782:                constructor = "Backend.NPU(String)",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:793:                constructor = "Backend.NPU(String)",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:920:            ?: throw ClassNotFoundException("Backend.NPU")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:925:            ?: throw NoSuchMethodException("Backend.NPU(String)")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1009:            assignability += "Backend base class <- Backend.NPU object class: ${backendClass.isAssignableFrom(npuClass)}"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1020:                        assignability += "${formatMethodSignature(clazz, method)} parameter <- Backend.NPU: $assignable"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1129:            ?: "MediaPipe LlmInference preferredBackend setter does not accept LiteRT-LM Backend.NPU."
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1137:            "next: isolated Engine.initialize dry-run only, no generate"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1221:        val warning = "initialize-only; no Conversation; no generateResponse; not wired to app inference"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1322:            stage("Backend.NPU creating")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1324:            stage("Backend.NPU created class=${npuHandle.instance.javaClass.name}")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1417:                    stage("Engine.initialize invoking method=${operation.initializeMethodLabel}", updateCrashMarker = true)
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1421:                    stage("Engine.initialize returned resultClass=${initialized?.javaClass?.name ?: "null"}")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1889:                npuObject -> "Backend.NPU"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:3118:        val note: String = "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU.",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:3208:        val warning: String = "initialize-only; no Conversation; no generateResponse; not wired to app inference",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:3319:            (method.name == "sendMessage" || method.name == "generateResponse") && method.parameterTypes.size == 1
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:3652:            (method.name == "sendMessage" || method.name == "generateResponse") && method.parameterTypes.size == 1
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:4389:            ?: throw ClassNotFoundException("Backend.NPU")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:4404:            else -> throw NoSuchMethodException("Backend.NPU constructor")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:4411:            error = "${throwable.javaClass.simpleName}:${throwable.message ?: "Backend.NPU"}",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:2358:                                                    // or any persistent selectedPath=npu state. Do not call the
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:2366:                                                            runDevOnlyNpuChatScreenBlockedBranchViaReflection(requestPrompt)
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5292:        "generateResponseAsync",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5443:        "generateResponseAsync",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5838:            method.name == "generateResponseAsync" && method.parameterTypes.isEmpty()
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5839:        } ?: throw NoSuchMethodException("generateResponseAsync() not found")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5841:            ?: throw IllegalStateException("generateResponseAsync() returned null")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5895:            root.message?.contains("generateResponseAsync", ignoreCase = true) == true -> "generateResponseAsync"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5948:    val candidateMethodNames = listOf("generateResponse", "generate", "infer")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5985:    val candidateMethodNames = listOf("generateResponse", "generate", "infer")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:7700:private fun runDevOnlyNpuChatScreenBlockedBranchViaReflection(prompt: String): String {
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:7703:            "io.github.ninbyo02.lami.npu.DevOnlyNpuChatScreenBlockedBranch",

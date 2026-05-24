@@ -1,0 +1,237 @@
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_lib.cc:318:  RETURN_IF_ERROR(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_lib.cc:319:  ASSIGN_OR_RETURN(auto responses, session->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_lib.cc:335:  RETURN_IF_ERROR(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types.h:387:// defined as a single RunPrefill or RunDecode call.
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:970:LITERTLM_JNIEXPORT void JNICALL JNI_METHOD(nativeRunPrefill)(
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:982:  auto status = session->RunPrefill(contents);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:995:  auto responses = session->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1166:      "%s %s before RunPrefill prompt=Hi prompt_bytes=%zu "
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1171:  auto prefill_status = session_ptr->RunPrefill(inputs);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1191:  auto responses = session_ptr->RunDecode(decode_config);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:175:    virtual absl::Status RunPrefill(const std::vector<InputData>& contents) = 0;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:179:    virtual absl::StatusOr<std::unique_ptr<TaskController>> RunPrefillAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:186:    // on the input prompt/query added after using RunPrefill* functions.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:189:    virtual absl::StatusOr<Responses> RunDecode() = 0;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:193:    virtual absl::StatusOr<Responses> RunDecode(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:197:    // on the input prompt/query added after using RunPrefill* functions.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:258:    //   session1->RunPrefillAsync("What is the tallest building ", ...);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:260:    //   session1->RunPrefillAsync("in the world?", ...);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:262:    //   session2->RunPrefillAsync("in France?", ...);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:296:absl::Status SessionBasic::RunPrefill(const std::vector<InputData>& contents) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:300:  ABSL_VLOG(1) << "RunPrefill: ";
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:338:absl::StatusOr<std::unique_ptr<TaskController>> SessionBasic::RunPrefillAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:344:  ABSL_VLOG(1) << "RunPrefillAsync: ";
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:382:        ABSL_LOG(INFO) << "RunPrefillAsync status: " << status;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:480:absl::StatusOr<Responses> SessionBasic::RunDecode() {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:481:  return RunDecode(DecodeConfig::CreateDefault());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:484:absl::StatusOr<Responses> SessionBasic::RunDecode(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:521:  RETURN_IF_ERROR(RunPrefill(contents));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:522:  return RunDecode(DecodeConfig::CreateDefault());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:591:      RunPrefillAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:120:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:305:TEST_F(SessionBasicTest, RunPrefill) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:331:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:346:  EXPECT_THAT((*session)->RunPrefill(inputs),
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:372:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:373:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:403:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:407:  auto responses = (*session)->RunDecode(decode_config);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:442:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:443:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:491:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:492:  ASSERT_OK_AND_ASSIGN(auto responses, (*session)->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:524:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:525:  ASSERT_OK_AND_ASSIGN(auto responses, (*session)->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:540:TEST_F(SessionBasicTest, RunPrefillAsync) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:564:  EXPECT_OK((*session)->RunPrefillAsync(inputs, std::move(callback)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:594:      (*session)->RunPrefillAsync(inputs, CreateTestCallback(done_prefill)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:640:      (*session)->RunPrefillAsync(inputs, CreateTestCallback(done_prefill)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:682:      (*session)->RunPrefillAsync(inputs, CreateTestCallback(done_prefill)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:809:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1134:    EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1139:    EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1142:    EXPECT_OK(session->RunDecode());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1147:    EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1150:    EXPECT_OK(session->RunDecode());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1273:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1336:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1611:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1649:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1739:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:264:TEST_F(SessionAdvancedTest, RunPrefill) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:298:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:320:  EXPECT_THAT(session->RunPrefill(inputs),
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:353:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:354:  auto responses = session->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:391:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:395:  auto responses = session->RunDecode(decode_config);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:432:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:433:  auto responses = session->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:478:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:479:  auto responses = session->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:527:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:528:  auto responses = session->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:584:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:585:  ASSERT_OK_AND_ASSIGN(auto responses, session->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:639:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:640:  ASSERT_OK_AND_ASSIGN(auto responses, session->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:655:TEST_F(SessionAdvancedTest, RunPrefillAsync) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:687:  EXPECT_OK(session->RunPrefillAsync(inputs, std::move(callback)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:723:  EXPECT_OK(session->RunPrefillAsync(inputs, CreateTestCallback(done_prefill)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:763:  EXPECT_OK(session->RunPrefillAsync(inputs, CreateTestCallback(done_prefill)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:816:  EXPECT_OK(session->RunPrefillAsync(inputs, CreateTestCallback(done_prefill)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:882:  EXPECT_OK(session->RunPrefillAsync(inputs, CreateTestCallback(done_prefill)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:907:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:913:  ASSERT_OK_AND_ASSIGN(auto responses1, session->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:922:  ASSERT_OK_AND_ASSIGN(auto responses3, session->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:943:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:952:  ASSERT_OK_AND_ASSIGN(auto responses, session->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:959:TEST_F(SessionAdvancedTest, RunPrefillAndDecodeAsyncWithInternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:991:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1004:TEST_F(SessionAdvancedTest, RunPrefillAndDecodeAsyncWithExternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1038:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1094:TEST_F(SessionAdvancedTest, RunPrefillEmptyInput) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1122:  EXPECT_THAT(session->RunPrefill(inputs),
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1127:TEST_F(SessionAdvancedTest, RunPrefillAsyncFailed) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1165:  EXPECT_OK(session->RunPrefillAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1211:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1259:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1316:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1372:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1430:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1513:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1531:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1589:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1607:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1621:TEST_F(SessionAdvancedTest, RunPrefillAsyncOnCancelledSession) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1658:  EXPECT_OK(session->RunPrefillAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1708:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1752:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1808:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1874:  EXPECT_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1934:    EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1939:    EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1942:    EXPECT_OK(session->RunDecode());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1947:    EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1950:    EXPECT_OK(session->RunDecode());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:2018:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:2088:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:2117:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:2133:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:2173:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:2208:  EXPECT_OK(session->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:104:  absl::Status RunPrefill(const std::vector<InputData>& contents) override;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:107:  RunPrefillAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:111:  absl::StatusOr<Responses> RunDecode() override;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:113:  absl::StatusOr<Responses> RunDecode(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:240:  // `RunPrefill` or `RunDecode` is called multiple times.
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/Session.kt:60:    return LiteRtLmJni.nativeRunPrefill(handle, inputData.toTypedArray())
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/Session.kt:74:    return LiteRtLmJni.nativeRunDecode(handle)
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:124:  absl::Status RunPrefill(const std::vector<InputData>& contents) override;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:126:  absl::StatusOr<std::unique_ptr<TaskController>> RunPrefillAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:131:  absl::StatusOr<Responses> RunDecode() override;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:133:  absl::StatusOr<Responses> RunDecode(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:211:  // `RunPrefill` or `RunDecode` is called multiple times.
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/LiteRtLmJni.kt:119:  external fun nativeRunPrefill(sessionPointer: Long, inputData: Array<InputData>)
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/LiteRtLmJni.kt:128:  external fun nativeRunDecode(sessionPointer: Long): String
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:72:absl::Status SessionAdvanced::RunPrefill(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:77:      RunPrefillAsync(contents, [&status](absl::StatusOr<Responses> responses) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:85:SessionAdvanced::RunPrefillAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:134:absl::StatusOr<Responses> SessionAdvanced::RunDecode() {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:135:  return RunDecode(DecodeConfig::CreateDefault());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:138:absl::StatusOr<Responses> SessionAdvanced::RunDecode(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:316:  RETURN_IF_ERROR(RunPrefill(contents));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:317:  return RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:352:                   RunPrefillAsync(contents, std::move(prefill_callback)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:76:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:78:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:88:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:90:  responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:120:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:122:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:160:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:162:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:172:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:174:  responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:188:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:190:  responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:239:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:241:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:333:  ABSL_CHECK_OK(session.value()->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:335:  auto responses = session.value()->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:83:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:85:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:95:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:97:  responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:126:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:128:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:157:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:159:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:196:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:198:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:208:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:210:  responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:224:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:226:  responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:274:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:276:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:331:  ABSL_CHECK_OK((*session)->RunPrefill(inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:333:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:126:  MOCK_METHOD(absl::Status, RunPrefill,
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:130:      RunPrefillAsync,
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:506:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:591:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:689:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:763:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:832:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:929:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1005:              RunPrefillAsync(ElementsAre(VariantWith<InputText>(ResultOf(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1040:              RunPrefillAsync(ElementsAre(VariantWith<InputText>(ResultOf(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1058:              RunPrefillAsync(ElementsAre(VariantWith<InputText>(ResultOf(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1108:  EXPECT_CALL(*mock_session_ptr, RunPrefillAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1150:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1313:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1376:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1477:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1557:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1629:  EXPECT_CALL(*mock_session_ptr, RunPrefillAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1677:              RunPrefillAsync(ElementsAre(VariantWith<InputText>(ResultOf(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1695:              RunPrefillAsync(ElementsAre(VariantWith<InputText>(ResultOf(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1761:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1818:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1970:  // Expect RunPrefillAsync to be called and return the first task controller.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1971:  EXPECT_CALL(*mock_session_ptr, RunPrefillAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2021:  // Expect RunPrefillAsync to be called.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2022:  EXPECT_CALL(*mock_session_ptr, RunPrefillAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2297:  EXPECT_CALL(*mock_session_ptr, RunPrefillAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2348:  EXPECT_CALL(*mock_session_ptr, RunPrefillAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2384:  EXPECT_CALL(*cloned_mock_session_ptr, RunPrefillAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2444:  EXPECT_CALL(*mock_session_ptr, RunPrefillAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2522:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2541:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2560:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2580:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2659:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2676:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2693:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2710:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2728:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2803:              RunPrefill(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2838:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2858:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2877:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2896:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2918:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2951:      RunPrefillAsync(testing::ElementsAre(testing::VariantWith<InputText>(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.h:594:  // vector for `Session::RunPrefill`.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:358:      RETURN_IF_ERROR(conversation->session_->RunPrefill(session_inputs));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:484:        session_->RunPrefillAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:542:        session_->RunPrefillAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:615:                     session_->RunPrefillAsync(refill_session_inputs,
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.h:217:  absl::Status BindTensorsAndRunPrefill(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.h:233:  absl::Status BindTensorsAndRunDecode(TensorBuffer* output_logits);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.cc:709:  return BindTensorsAndRunPrefill(prefill_signature, prefill_input_buffers,
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.cc:713:absl::Status LlmLiteRtCompiledModelExecutorBase::BindTensorsAndRunPrefill(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.cc:914:  return BindTensorsAndRunDecode(&output_logits);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.cc:917:absl::Status LlmLiteRtCompiledModelExecutorBase::BindTensorsAndRunDecode(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.cc:960:  auto status = self->BindTensorsAndRunDecode(/*output_logits=*/nullptr);

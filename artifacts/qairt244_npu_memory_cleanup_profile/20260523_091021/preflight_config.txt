@@ -1,0 +1,10 @@
+artifact=artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526
+app_id=io.github.ninbyo02.lami.customnpu
+activity=io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity
+prompt=Hi
+max_output_tokens=3
+marker=qairt244_short_multitoken_smoke_v1
+normal_ui_connected=no
+selected_path_npu_normal_route=no
+high_level_generate_response=no
+streaming_generation=no

@@ -1,0 +1,9 @@
+path=/home/sato/project/lami-android/artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/reference_libs/maven_0.11.0/liblitertlm_jni.so
+label=maven_0.11.0
+present=true
+size=15370288
+sha256=ac97fd1a7e3755eb77127599928011a7ecd75f3170749f034f568de1e0d27b6f
+build_id=c2c27170ba409dbd0bc01820fa738580
+soname=liblitertlm_jni.so
+needed=libLiteRt.so,libandroid.so,libz.so,libGLESv2.so,libEGL.so,libdl.so,libGLESv3.so,libm.so,liblog.so,libc.so
+/home/sato/project/lami-android/artifacts/qairt244_short_multitoken_entrypoint_build/20260523_073526/reference_libs/maven_0.11.0/liblitertlm_jni.so: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[md5/uuid]=c2c27170ba409dbd0bc01820fa738580, stripped

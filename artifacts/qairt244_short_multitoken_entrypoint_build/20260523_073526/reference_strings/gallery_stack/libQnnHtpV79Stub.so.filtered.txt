@@ -1,0 +1,235 @@
+%N3qnn12DspTransportE
+/local/mnt/workspace/mlg_user_admin/ci.docker.tmp/39_c756b/build/aarch64-android/FirstParty/QNN/HTP/src/rpctransport/V79_WeakLinkage/qnn/qnn_stub.c
+15HtpBinaryBuffer
+N3qnn12BinaryBufferE
+N3qnn13IDspTransportE
+N3qnn16MultiCoreSessionE
+N3qnn17SingleCoreSessionE
+N3qnn18MultiCoreTransportE
+N3qnn18SecureDSPTransportE
+N3qnn21SingleCoreSessionNoOpE
+N3qnn24SingleCoreSessionBuilderE
+NSt6__ndk110__function6__funcIZN3qnn12DspTransport15dspqueueRequestEhim14Qnn_Priority_tPNS2_13IDspTransport15TransportResultEjPmE3$_0NS_9allocatorIS9_EEFivEEE
+NSt6__ndk110__function6__funcIZN3qnn12DspTransport16dmaHandleExecuteEPKmjPNS2_13IDspTransport15TransportResultEPm14Qnn_Priority_tE3$_0NS_9allocatorISB_EEFivEEE
+NSt6__ndk110__function6__funcIZN3qnn12DspTransport16dmaHandleReleaseEhimmPKPmjPNS2_13IDspTransport15TransportResultEjE3$_0NS_9allocatorISA_EEFivEEE
+NSt6__ndk110__function6__funcIZN3qnn12DspTransport23dspqueueRequestInternalEhim14Qnn_Priority_tPNS2_13IDspTransport15TransportResultEjPmE3$_0NS_9allocatorIS9_EEFivEEE
+NSt6__ndk110__function6__funcIZN3qnn12DspTransport4callE14Qnn_Priority_tPKhjPhjS7_jPNS2_13IDspTransport15TransportResultEjPmE3$_0NS_9allocatorISC_EEFivEEE
+NSt6__ndk110__function6__funcIZN3qnn17SingleCoreSession8teardownEvE3$_0NS_9allocatorIS4_EEFbvEEE
+NSt6__ndk120__shared_ptr_emplaceIN3qnn12DspTransportENS_9allocatorIS2_EEEE
+NSt6__ndk120__shared_ptr_emplaceIN3qnn18MultiCoreTransportENS_9allocatorIS2_EEEE
+NSt6__ndk120__shared_ptr_emplaceIN3qnn18SecureDSPTransportENS_9allocatorIS2_EEEE
+NSt6__ndk123enable_shared_from_thisIN3qnn12DspTransportEEE
+NSt6__ndk123enable_shared_from_thisIN3qnn18SecureDSPTransportEEE
+QnnDsp
+QnnDsp <%c> %s time: %lu (ms)
+QnnDsp <%c> Far region mapping is not supported on this device
+QnnDsp <%c> Null context passed in dspqueue error callback
+QnnDsp <%c> Null context passed in dspqueue msg callback
+QnnDsp <%c> Null error context passed in dspqueue error callback
+QnnDsp <%c> Null error context passed in dspqueue msg callback
+QnnDsp <%c> fastrpc memory failed to unmap for fd: %d with length: %u failed with error: 0x%x
+QnnDsp <%c> fastrpc memory for fd: %d with length: %u is already unmapped
+QnnDsp <%c> fastrpc memory map for fd: %d with length: %u failed with error: 0x%x
+QnnDsp <%c> fastrpc memory map for fd: %d with length: %u succeeded
+QnnDsp <%c> fastrpc memory unmap for fd: %d with length: %u succeeded
+QnnDsp <E> ARM side transport clean dmahandles  failed   crcRx:%x
+QnnDsp <E> ARM side transport clean dmahandles error  crcTx:%x
+QnnDsp <E> BinaryBuffer Overflow occurred! Current addr in the buffer: %p, size to read/write: %llu, buffer starting addr: %p,  total buffer size %llu
+QnnDsp <E> DmaHandleExecute: Invalid result structure
+QnnDsp <E> DmaHandleExecute: SingleCoreSession not setup
+QnnDsp <E> Dsp remote_handle_control interface not supported
+QnnDsp <E> DspTransport call error reporting failed
+QnnDsp <E> DspTransport call failed, error 0x%08x
+QnnDsp <E> DspTransport call requires result index within result structure size. Idx: %u, Result size: %u
+QnnDsp <E> DspTransport failed,cannot open session, error 0x%08x
+QnnDsp <E> DspTransport.callAsync failed,cannot open session, error 0x%08x
+QnnDsp <E> DspTransport.config failed to init condition variable, 0x%08x
+QnnDsp <E> DspTransport.config failed to init mutex, 0x%08x
+QnnDsp <E> DspTransport.createUnsignedPD error reporting failed
+QnnDsp <E> DspTransport.createUnsignedPD failed, 0x%08x
+QnnDsp <E> DspTransport.createUnsignedPD unable to load unsigned PD
+QnnDsp <E> DspTransport.createUnsignedPD unsigned session flag already set
+QnnDsp <E> DspTransport.getHandle failed, error 0x%08x
+QnnDsp <E> DspTransport.openSession qnn_open error reporting failed
+QnnDsp <E> DspTransport.openSession qnn_open failed, 0x%08x, prio %d
+QnnDsp <E> DspTransport.queryCapabilities: invalid capability %d
+QnnDsp <E> DspTransport.setTransportProperty: invalid type, %d
+QnnDsp <E> DspTransport.transport_config failed: rpc 0x%08x, cfg 0x%08x
+QnnDsp <E> Error 0x%x: failed to close queue %p for priority %d
+QnnDsp <E> Execution aborted as queues closed
+QnnDsp <E> Execution failed on skel side %lu
+QnnDsp <E> Failed Mink memory Init for Secure DSP.
+QnnDsp <E> Failed for Memory Deinit, mink not Init
+QnnDsp <E> Failed for mink Memory alloc size: %llu, mink is not Init
+QnnDsp <E> Failed to close dspqueue on %uth effective domain %u
+QnnDsp <E> Failed to free momory, mink is not Init.
+QnnDsp <E> Failed to get mutex, skip wait()
+QnnDsp <E> Failed to import dspqueue on %uth effective domain %u
+QnnDsp <E> Failed to set RPC control latency. error code %d
+QnnDsp <E> Failed to set RPC polling time to %u. Max RPC polling time allowed is %d
+QnnDsp <E> Failed to set RPC polling time. error code %d
+QnnDsp <E> IDspTransport: Unable to load lib 0x%08x
+QnnDsp <E> IDspTransport: Unknown rpc status 0x%08x
+QnnDsp <E> Invalid FastRPC mode.
+QnnDsp <E> Invalid Queue passed to %s
+QnnDsp <E> Invalid index %u for status update (exceeds array bounds)
+QnnDsp <E> Invalid index %u for status update (exceeds bit shift limit)
+QnnDsp <E> Invalid pointer passed for storing results
+QnnDsp <E> Invalid queue id %lu for priority %d
+QnnDsp <E> Invalid queue id in %s
+QnnDsp <E> Invalid value passed for property %d
+QnnDsp <E> MultiCore Transport created with %u sessions but received vaLength %u
+QnnDsp <E> MultiCore Transport send messages to %u sessions but received resLength %u
+QnnDsp <E> MultiCoreSession memory allocation failed
+QnnDsp <E> Multicore call failed at %uth transport with effId: %u
+QnnDsp <E> Multicore dmaHandleControl failed at %uth transport with effId: %u
+QnnDsp <E> Multicore dmaHandleRelease failed at %uth transport with effId: %u
+QnnDsp <E> MulticoreDspTransport.config failed to init mutex, 0x%08x
+QnnDsp <E> Nullptr passed for result structure
+QnnDsp <E> QNN_TRANSPORT_CONFIG crc error   NumEle:%d  crc:%x
+QnnDsp <E> QNN_TRANSPORT_CONFIG crc32 failed in cpu, crcRX received %x
+QnnDsp <E> QNN_TRANSPORT_CONFIG res has error :%d
+QnnDsp <E> QNN_TRANSPORT_CONFIG status has error :%d
+QnnDsp <E> QNN_TRANSPORT_DMAHandles crc error  crcRx:%x
+QnnDsp <E> QNN_TRANSPORT_DMAHandles crc error  crcTx:%x
+QnnDsp <E> QNN_TRANSPORT_EXECUTE POLLING error, errCode:%x, crcRx:%x
+QnnDsp <E> QNN_TRANSPORT_EXECUTE POLLING error, errCode:%x, crcTx:%x
+QnnDsp <E> QNN_TRANSPORT_EXECUTE_DMAHANDLE error crcRx:%x
+QnnDsp <E> QNN_TRANSPORT_EXECUTE_DMAHANDLE error crcTx:%x
+QnnDsp <E> QNN_TRANSPORT_RUN crc error   NumEle:%d  crc:%x
+QnnDsp <E> QNN_TRANSPORT_SHARED_BUFFER error crcRx:%x
+QnnDsp <E> QNN_TRANSPORT_SHARED_BUFFER error crcTx:%x
+QnnDsp <E> QNN_TRANSPORT_TEARDOWN crc error  crcRx:%x
+QnnDsp <E> Queue not found for priority %d
+QnnDsp <E> RPC remote control latency api not available on this target
+QnnDsp <E> RPC remote control latency invalid enabling option: %lu
+QnnDsp <E> SSR Triggered while sending exit packet
+QnnDsp <E> Session handle is null in %s
+QnnDsp <E> SingleCore Queue handle for priority: 0x%x nullptr
+QnnDsp <E> Static mapping flag deprecated
+QnnDsp <E> There is no Multicore Queue related to priority 0x%x
+QnnDsp <E> This META does not have Alloc2 Support. Cannot allocate larger than 2GB
+QnnDsp <E> This SoC is not supporting multicore
+QnnDsp <E> Transport.callAsync failed, error 0x%08x
+QnnDsp <E> Transport.callAsync: DspConditionVariable Signal FAILED, %d
+QnnDsp <E> Transport.openSession transport_config error reporting failed
+QnnDsp <E> Transport.teardownLocked failed, error 0x%08x
+QnnDsp <E> Transport.teardownLocked qnn_transport_teardown skel failed %d
+QnnDsp <E> Transport.teardownLocked: qnn_close error 0x%08x, userCnt %d prio %d
+QnnDsp <E> Transport.teardownLocked: qnn_close error reporting failed
+QnnDsp <E> Transport.teardownLocked: qnn_transport_teardown error reporting failed
+QnnDsp <E> Transport.teardownLocked: qnn_transport_teardown failed 0x%08x
+QnnDsp <E> Transport: DspConditionVariable Signal FAILED, %d
+QnnDsp <E> Unable to close dspqueue on skel for priority %d err = %d res %d
+QnnDsp <E> Unable to create dsp queue with flags %lu request size %lu response size %lu. Error = %d
+QnnDsp <E> Unable to export dsp queue with queue Id %llu, err = %d
+QnnDsp <E> Unable to send exit packet for priority %d
+QnnDsp <E> createDspTransportInstance failed to config transport object
+QnnDsp <E> createDspTransportInstance failed to create transport object
+QnnDsp <E> createMCSession failed in getHandle
+QnnDsp <E> createUnsignedPD unsigned PD interface not supported
+QnnDsp <E> createUnsignedPD unsigned PD or DSPRPC_GET_DSP_INFO not supported by HTP
+QnnDsp <E> dspqueueExecute failed with err %d
+QnnDsp <E> dspqueue_read failed with error %X execute result %u
+QnnDsp <E> dspqueue_read_noblock failed with error %X execute result %u
+QnnDsp <E> dspqueue_write_noblock failed for exit packet err %d
+QnnDsp <E> dspqueue_write_noblock failed with error %d
+QnnDsp <E> exits with %u, invalid memory pointer
+QnnDsp <E> exits with %u, invalid mink memory pointer
+QnnDsp <E> exits with %u, rpc doesn`t support remote buffer register
+QnnDsp <E> exits with %u, rpc memory not initialized
+QnnDsp <E> exits with %u, undefined condition variable object
+QnnDsp <E> exits with %u, undefined m_mutex handle object
+QnnDsp <E> failed Mink memory deInit for Secure DSP.
+QnnDsp <E> failed for alloc size %llu mink isInit %d
+QnnDsp <E> failed for get dma handle, mink is bot Init.
+QnnDsp <E> failed for size %llu isInit %d
+QnnDsp <E> failed to register buffer, mink is not Init
+QnnDsp <E> fastrpc memory map error reporting failed
+QnnDsp <E> fastrpc memory unmap error reporting failed
+QnnDsp <E> m_singleCoreSession Teardown part of restart failed err = %d
+QnnDsp <E> multiCoreSession init failed with err %d
+QnnDsp <E> queueMapping failed with error %d
+QnnDsp <E> queueMapping: Unable to import dspqueue on skel for priority %d err = %d res %d
+QnnDsp <E> queueUnMapping failed with err %d
+QnnDsp <E> queuesClose failed with error %lu
+QnnDsp <E> sendExitPacketAllPriority failed with err %d
+QnnDsp <E> set up singlecore session failed
+QnnDsp <E> setSessionProperty : invalid type %d
+QnnDsp <E> transport_run  crcRX failed   crcRx:%x
+QnnDsp <E> with %u, rpc memory not initialized
+QnnDsp <E> ~DspTransport failed to destroy condition variable, 0x%08x
+QnnDsp <E> ~DspTransport failed to destroy mutex, 0x%08x
+QnnDsp <E> ~DspTransport teardown failed, 0x%08x
+QnnDsp <V> %llu isInit %d
+QnnDsp <V> %llu minkmem isInit %d
+QnnDsp <V> %s : SingleCoreSession already destroyed
+QnnDsp <V> ADAS platforms detected, BCS enabled
+QnnDsp <V> Called into multiCore dmaHandleControl, this object has %u singleCore obj
+QnnDsp <V> Called into multiCore dmaHandleRelease, this object has %u singleCore obj
+QnnDsp <V> Closed Singlecore Queue %p
+QnnDsp <V> Closing MultiCore Context and Queue during SSR
+QnnDsp <V> Creating MultiCore Context and Queue
+QnnDsp <V> DspMemoryAllocator::registerBuffer %p => fd %d (%d bytes)
+QnnDsp <V> Dspqueue Polling not supported in %s
+QnnDsp <V> Dspqueue polling timed out - entering wait
+QnnDsp <V> Effective cdsp_id is: %u, Session_id is: %u for original Device Id: %u, DeviceId: %u, CoreId: %u, pdId: %u
+QnnDsp <V> Factory created transport for normal PD
+QnnDsp <V> Factory created transport for secure PD
+QnnDsp <V> Getting effective domain ID of domain name %s
+QnnDsp <V> Kailua PD 0 uses default Domain ID
+QnnDsp <V> Mink Memory DeInit for Secure DSP.
+QnnDsp <V> Mink Memory init for Secure DSP.
+QnnDsp <V> MultiCore Context aleady exists with id: 0x%x
+QnnDsp <V> No ADAS pltform detected, BCS disabled
+QnnDsp <V> Opening multicore session
+QnnDsp <V> Polling not available for use for priority %u, Falling back to fastrpc
+QnnDsp <V> Polling not supported in %s
+QnnDsp <V> Preemption type is queried as %lu
+QnnDsp <V> Preemption type is set as %lu
+QnnDsp <V> Queue already imported for priority %d
+QnnDsp <V> Queue not found for priority %d
+QnnDsp <V> Queue not imported for priority %d
+QnnDsp <V> QueueId is 0x%x Result is: 0x%x
+QnnDsp <V> Returning queueid %lu for priority %d
+QnnDsp <V> SSR triggered for queue %p, error: %d
+QnnDsp <V> Teardown in progress
+QnnDsp <V> Transport config  BCS_enable:%d  [status = %d]
+QnnDsp <V> Using fastrpc for execution
+QnnDsp <V> Using polling for execution
+QnnDsp <V> VA Passed in is %u
+QnnDsp <V> VA Returned in is %u
+QnnDsp <V> defaultEffDomainId %d for domainName %s
+QnnDsp <V> exits with %u, successfully deinitialized rpc memory
+QnnDsp <V> exits with %u, successfully initialized rpc memory
+QnnDsp <V> isPollingAvailable %d
+QnnDsp <V> m_adaptivePollingTime is: %d
+QnnDsp <V> m_isPollingEnabledAtRunTime is: %d
+QnnDsp <V> transport clean dmahandles [status = %d]
+QnnDsp <V> transport dmahandles [status = %d]
+QnnDsp <V> transport execute dmahandles [status = %d]
+QnnDsp <V> transport execute faster ipc start polling [status = %d]
+QnnDsp <V> transport run [status = %d]
+QnnDsp <V> transport shared buffer [status = %d]
+QnnDsp <V> transport teardown [status = %d]
+QnnDsp <W> Failed to set thread stack size.  ERROR 0x%x: remote_session_control failed
+QnnDsp <W> Inference count is already 0
+QnnDsp <W> RPC polling time not supported for Automotive.
+QnnDsp <W> This META does not have Alloc2 Support
+QnnDsp <W> WARNING, MetaBuild of this device does not has Effective Domain ID suport. Using Default Effective Domain Id %d for domainName %s
+QnnDsp <W> async call is not supported in secure PD
+ZN3qnn12DspTransport15dspqueueRequestEhim14Qnn_Priority_tPNS_13IDspTransport15TransportResultEjPmE3$_0
+ZN3qnn12DspTransport16dmaHandleExecuteEPKmjPNS_13IDspTransport15TransportResultEPm14Qnn_Priority_tE3$_0
+ZN3qnn12DspTransport16dmaHandleReleaseEhimmPKPmjPNS_13IDspTransport15TransportResultEjE3$_0
+ZN3qnn12DspTransport23dspqueueRequestInternalEhim14Qnn_Priority_tPNS_13IDspTransport15TransportResultEjPmE3$_0
+ZN3qnn12DspTransport4callE14Qnn_Priority_tPKhjPhjS4_jPNS_13IDspTransport15TransportResultEjPmE3$_0
+ZN3qnn17SingleCoreSession8teardownEvE3$_0
+libQnnHtpV79Stub.so
+openSession qnn_open failed
+qnn_transport_clean_dmahandles
+qnn_transport_execute_dmahandles
+qnn_transport_execute_fasterIpc_start_polling
+qnn_transport_run
+qnn_transport_shared_buffer
+qnn_transport_teardown failed
+teardown qnn_close failed

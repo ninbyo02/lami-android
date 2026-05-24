@@ -35,6 +35,7 @@ key.properties
 # update.sh backups
 /update.sh.bak.*
 /update.sh.bak_*
+*.bak.*
 
 # local dumps/logs (DO NOT COMMIT)
 datastore_dump_*/
@@ -42,3 +43,27 @@ datastore_dump_*/
 last_anim_key_dump*.txt
 anim_restore_*.log
 anim_save_*.log
+
+# local debug artifacts
+*.pb
+_debug/
+/artifacts/
+
+# QAIRT/LiteRT native artifacts are local-only. Keep text summaries, hashes,
+# Build IDs, and patch metadata in Git; do not track large rebuilt binaries.
+/artifacts/**/built_libs/*.so
+/artifacts/**/qnn_runtime_libs/*.so
+/artifacts/**/reference_libs/**/*.so
+/artifacts/**/diagnostics/apk_libs/*.so
+/artifacts/**/*.apk
+/artifacts/**/*.aar
+/artifacts/**/*.zip
+
+# local NPU/QNN runtime drops (licensed vendor binaries; do not commit)
+/app/src/main/jniLibs/arm64-v8a/*.so
+/app/src/debug/jniLibs/arm64-v8a/*.so
+/third_party/qairt/
+
+# Emulator local config
+scripts/emulator.env
+scripts/logs/

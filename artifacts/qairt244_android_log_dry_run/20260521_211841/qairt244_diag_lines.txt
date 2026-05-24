@@ -1,0 +1,1 @@
+No QAIRT244_DIAG or qairt244_android_log_v1 lines were found in artifacts/npu_diagnostics/20260521_211841_customnpu or adb logcat -d -t 2000 after the dry-run.

@@ -1,0 +1,8 @@
+case=native_unsupported_preflight
+native_editable_prompt_supported=false
+preflight_result=blocked_marker_missing_or_artifact_missing
+engine_initialize=false
+run_decode=false
+npu_generation=false
+normal_chatscreen_connected=false
+selected_path_npu_normal_route=false

@@ -1,0 +1,18 @@
+qairt244_editable_prompt_preview_v1
+input_enabled=true
+editable_prompt_preview=true
+editable_prompt_execution_extra=true
+native_editable_prompt_supported=true
+value=Hello/Lami
+isValid=false
+reasonCode=contains_disallowed_char
+normalizedPrompt=Hello/Lami
+message=Prompt contains a character outside the diagnostic allowlist.
+prompt_execution_connected=false
+prompt_source=fixed_hi
+run_button_uses_fixed_prompt=Hi
+run_button_connected=false
+max_output_tokens=3
+npu_generation=false
+engine_initialize=false
+run_decode=false

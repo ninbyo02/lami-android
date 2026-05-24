@@ -32,7 +32,7 @@ libQnnHtpV*.so
 <litert/qnn/qualcomm dispatch api>.so
 ```
 
-The dispatch API library is produced by the LiteRT-LM Qualcomm dispatch build. The current app-side probe accepts a filename containing `dispatch` and one of `litert`, `qnn`, or `qualcomm`.
+The dispatch API library is produced by the LiteRT-LM Qualcomm dispatch build. The app-side probe treats `libLiteRtDispatch_Qualcomm.so` as the exact match and reports other `.so` names containing `dispatch`, `LiteRtDispatch`, `qnn`, or `qualcomm` as diagnostic candidates.
 
 You can also copy local QAIRT libraries with Gradle:
 

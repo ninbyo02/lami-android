@@ -1,0 +1,111 @@
+./third_party/odml/litert/litert/runtime/compiled_model.h
+AllocateTensors() called on inconsistent model.
+Compiled model is null
+DELEGATE op shouldn't exist in model.
+Didn't find op for builtin opcode '%s' version '%d'. An older version of this builtin might be supported. Are you using an old TFLite binary with a newer model?
+Dispatch API has insufficient capabilities: %d
+Failed to build flatbuffer from incoming litert model
+Failed to build flatbuffer model
+Failed to get Dispatch API capabilities: %d
+Failed to initialize model memory.
+Invoke called on model that is not consistent.
+Invoke called on model that is not ready.
+LiteRtAddModelMetadata
+LiteRtCompiledModelClearErrors
+LiteRtCompiledModelGetDispatchAnnotation
+LiteRtCompiledModelGetErrorMessages
+LiteRtCompiledModelGetProfiler
+LiteRtCompiledModelIsFullyAccelerated
+LiteRtCompiledModelRemoveDispatchAnnotation
+LiteRtCompiledModelReportError
+LiteRtCompiledModelResizeInputTensor
+LiteRtCompiledModelResizeInputTensorNonStrict
+LiteRtCompiledModelSetDispatchAnnotation
+LiteRtCompiledModelSetSchedulingInfo
+LiteRtCompiledModelStartMetricsCollection
+LiteRtCompiledModelStopMetricsCollection
+LiteRtCreateCompiledModel
+LiteRtCreateModelFromBuffer
+LiteRtCreateModelFromFile
+LiteRtDestroyCompiledModel
+LiteRtDestroyModel
+LiteRtDispatchCheckRuntimeCompatibility
+LiteRtDispatchGetApi
+LiteRtDispatchGetApiVersion
+LiteRtDispatchGetCapabilities
+LiteRtGetCompiledModelEnvironment
+LiteRtGetCompiledModelInputBufferRequirements
+LiteRtGetCompiledModelInputTensorLayout
+LiteRtGetCompiledModelOutputBufferRequirements
+LiteRtGetCompiledModelOutputTensorLayouts
+LiteRtGetCompilerPluginSupportedSocModel
+LiteRtGetMainModelSubgraphIndex
+LiteRtGetModelMetadata
+LiteRtGetModelSignature
+LiteRtGetModelSubgraph
+LiteRtGetNumCompilerPluginSupportedSocModels
+LiteRtGetNumModelSignatures
+LiteRtGetNumModelSubgraphs
+LiteRtRunCompiledModel
+LiteRtRunCompiledModelAsync
+LiteRtRunCompiledModelAsyncWithOptions
+LiteRtRunCompiledModelAsyncWithSchedulingInfo
+LiteRtRunCompiledModelWithOptions
+LiteRtRunCompiledModelWithSchedulingInfo
+LiteRtSerializeModel
+LiteRtSerializeModelWithSignatures
+LiteRtSetCompiledModelCancellationFunction
+Model buffer is null
+Model provided has model identifier '%c%c%c%c', should be '%s'
+Model provided is schema version %d not equal to supported version %d.
+Model provided must have at least 7 bytes to hold identifier.
+NSt6__ndk110__function6__funcIZN20LiteRtCompiledModelT17InitializeRuntimeEP18LiteRtEnvironmentTiP14LiteRtOptionsTE3$_0NS_9allocatorIS7_EEFN6litert8internal22TfLiteTensorIdentifierEPK18TfLiteOpaqueTensorEEE
+NSt6__ndk110__function6__funcIZN20LiteRtCompiledModelT6CreateEP18LiteRtEnvironmentTP12LiteRtModelTP14LiteRtOptionsTE3$_0NS_9allocatorIS9_EEFvP22LiteRtDelegateWrapperTEEE
+No address is mapped to the given offset. This is a critical error that should not happen. Check that the model hasn't changed since the cache was created.
+No buffers in the model.
+No subgraph in the model.
+Null pointer passed in as model.
+Op builtin_code out of range: %d. Are you using old TFLite binary with newer model?
+Qualcomm
+Select TensorFlow op(s), included in the given model, is(are) not supported by this interpreter. Make sure you apply/link the Flex delegate before inference. For the Android, it can be resolved by adding "org.tensorflow:tensorflow-lite-select-tf-ops" dependency. See instructions: https://www.tensorflow.org/lite/guide/ops_select
+Soc Make/Model strings too large
+Tensor %d is invalidly specified in schema.
+The 0th entry of the model buffer must be an empty buffer.
+The model has signature def but none of those points to primary subgraph.
+ZN20LiteRtCompiledModelT17InitializeRuntimeEP18LiteRtEnvironmentTiP14LiteRtOptionsTE3$_0
+ZN20LiteRtCompiledModelT6CreateEP18LiteRtEnvironmentTP12LiteRtModelTP14LiteRtOptionsTE3$_0
+[%s:%d] Compiler plugin path is provided in the environment, but the model is pre-compiled. Plugins won't be applied.
+[%s:%d] CompilerPlugin::Compile: Skipped for non partitioned model.
+[%s:%d] Dispatch API capabilities: %d
+[%s:%d] Failed to create a dispatch delegate kernel: No usable Dispatch runtime found
+[%s:%d] Failed to initialize Dispatch API: %s
+[%s:%d] Failed to load model from cache: %s
+[%s:%d] Flatbuffer model initialized directly from incoming litert model.
+[%s:%d] Flatbuffer model initialized from cached model.
+[%s:%d] Found async dispatch capabilities
+[%s:%d] JIT compilation changed model, reserializing...
+[%s:%d] Large custom options not yet supported in litert::Model.
+[%s:%d] LiteRtAddModelMetadata: metadata_buffer is null
+[%s:%d] LiteRtAddModelMetadata: metadata_key is null
+[%s:%d] LiteRtAddModelMetadata: model is null
+[%s:%d] Plugins applied, flatbuffer model initialized from  JIT compiled model.
+[%s:%d] Saving JIT compiled model to cache.
+[%s:%d] Using statically linked dispatch_api
+[%s:%d] flatbuffer model has invalid input index in subgraph: %d
+[%s:%d] flatbuffer model has invalid output index in subgraph: %d
+[%s:%d] get_capabilities not found
+compiled_model is null.
+compiled_model.cc
+litert_compiled_model.cc
+litert_model.cc
+model.cc
+model_control_dependencies
+model_load.cc
+model_serialize.cc
+qualcomm
+ro.product.model
+third_party/odml/litert/litert/c/litert_compiled_model.cc
+third_party/odml/litert/litert/c/litert_model.cc
+third_party/odml/litert/litert/core/model/model_load.cc
+third_party/odml/litert/litert/core/model/model_serialize.cc
+third_party/odml/litert/litert/runtime/compiled_model.cc

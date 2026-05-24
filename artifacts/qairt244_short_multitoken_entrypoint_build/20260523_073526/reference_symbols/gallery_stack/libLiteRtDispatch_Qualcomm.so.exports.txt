@@ -1,0 +1,5 @@
+0000000000023f50 T LiteRtDispatchGetApi@@VERS_1.0
+0000000000063338 T __start_google_malloc
+0000000000064230 T __start_malloc_hook
+0000000000064230 T __stop_google_malloc
+00000000000643b0 T __stop_malloc_hook

@@ -1,0 +1,12 @@
+library	mapped_before_abort	path_class	classification	evidence
+liblitertlm_jni.so	true	app nativeLibraryDir	loaded before abort	backtrace frames #01-#20 and tombstone/dropbox map entries
+libLiteRt.so	false	app nativeLibraryDir/APK metadata	QNN libs not loaded	present in native metadata and loaded_libs_matrix; no tombstone map entry
+libLiteRtDispatch_Qualcomm.so	false	app nativeLibraryDir/APK metadata	dispatch loaded before abort: false	present in native metadata; no tombstone map entry
+libQnnSystem.so	false	app nativeLibraryDir/APK metadata	QNN libs not loaded	present in native metadata; no tombstone map entry
+libQnnHtp.so	false	app nativeLibraryDir/APK metadata	QNN libs not loaded	present in native metadata; no tombstone map entry
+libQnnHtpPrepare.so	false	app nativeLibraryDir/APK metadata	HTP prepare/skel/stub not loaded	present in native metadata; no tombstone map entry
+libQnnHtpV79Stub.so	false	app nativeLibraryDir/APK metadata	HTP prepare/skel/stub not loaded	present in native metadata; no tombstone map entry
+libQnnHtpV79Skel.so	false	app nativeLibraryDir/APK metadata	HTP prepare/skel/stub not loaded	present in native metadata; no tombstone map entry
+libQnnDsp.so	false	not found in inspected artifacts	unknown	no hit in tombstone/dropbox/package/native metadata
+libQnnGpu.so	false	not found in inspected artifacts	unknown	no hit in tombstone/dropbox/package/native metadata
+libGemmaModelConstraintProvider.so	true	app nativeLibraryDir	loaded before abort	tombstone/dropbox map entries at r-x/r--/rw- segments
