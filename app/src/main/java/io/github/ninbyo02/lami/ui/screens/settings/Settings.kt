@@ -634,14 +634,14 @@ fun Settings(
                     if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
                         Card {
                             SettingsToggleRowItem(
-                                headline = "DEV: Enable NPU ChatScreen route",
-                                supporting = "customBuildExperimentDebug限定。既定はOFFです。現在はblocked adapter境界のみで、実NPU・selectedPath=npu・通常保存には接続しません。",
+                                headline = "DEV: SM8750 NPU実験",
+                                supporting = "customBuildExperimentDebug限定。key=dev_enable_qairt244_sm8750_npu_route。既定OFF、max_output_tokens=3固定、失敗時もGPU/CPUへfallbackしません。",
                                 leadingIcon = Icons.Filled.BugReport,
-                                checked = settingsData.devEnableNpuChatScreenRoute,
+                                checked = settingsData.devEnableQairt244Sm8750NpuRoute,
                                 enabled = true,
                                 onCheckedChange = { enabled ->
                                     scope.launch {
-                                        settingsPreferences.saveDevEnableNpuChatScreenRoute(enabled)
+                                        settingsPreferences.saveDevEnableQairt244Sm8750NpuRoute(enabled)
                                     }
                                 },
                             )

@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.npu
 import android.content.Context
 import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+import java.io.File
 import kotlinx.coroutines.runBlocking
 
 object DevOnlyNpuChatScreenBlockedBranch {
@@ -69,7 +70,9 @@ object DevOnlyNpuChatScreenBlockedBranch {
                     timeoutMs = DevOnlyNpuRouteAdapter.DEFAULT_TIMEOUT_MS,
                 )
             } finally {
-                SettingsPreferences(appContext).saveDevEnableNpuChatScreenRoute(false)
+                val preferences = SettingsPreferences(appContext)
+                preferences.saveDevEnableQairt244Sm8750NpuRoute(false)
+                preferences.saveDevEnableNpuChatScreenRoute(false)
             }
         }
         val displayModel = DevOnlyNpuRouteDisplayModelMapper.from(result)
@@ -85,4 +88,96 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "stream=${transientState.shouldStream}",
         ).joinToString(" ")
     }
+
+    @JvmStatic
+    fun runForChatScreen(context: Context, prompt: String): String {
+        val appContext = context.applicationContext
+        val validation = NpuDiagnosticPromptValidator.validate(prompt)
+        val normalizedPrompt = validation.normalizedPrompt.ifBlank { prompt }
+        File(appContext.filesDir, "qairt244_chat_screen_real_npu_once_guard.txt").delete()
+        val result = runBlocking {
+            try {
+                DevOnlyNpuRoutePlanner(
+                    adapter = Qairt244DevOnlyNpuRouteAdapter(appContext),
+                ).runIfAllowed(
+                    gateInput = DevOnlyNpuRouteGateInput(
+                        customBuildExperiment = true,
+                        allowEditablePromptPreview = true,
+                        allowGuardedNpuRun = true,
+                        allowEditablePromptExecution = true,
+                        devCheckboxChecked = true,
+                        validatorValid = validation.isValid,
+                        nativeEditablePromptSupported = true,
+                        running = false,
+                        maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+                    ),
+                    prompt = normalizedPrompt,
+                    maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+                    timeoutMs = DevOnlyNpuRouteAdapter.DEFAULT_TIMEOUT_MS,
+                )
+            } finally {
+                val preferences = SettingsPreferences(appContext)
+                preferences.saveDevEnableQairt244Sm8750NpuRoute(false)
+                preferences.saveDevEnableNpuChatScreenRoute(false)
+            }
+        }
+        val modelResolution = readKeyValueFile(File(appContext.filesDir, "qairt244_chat_screen_model_path_resolution.txt"))
+        val nativeResult = readKeyValueFile(File(appContext.filesDir, "qairt244_short_multitoken_smoke_result.txt"))
+        val resolvedModelBasename = modelResolution["resolved_model_basename"].orEmpty()
+            .ifBlank { modelResolution["resolved_model_path"]?.substringAfterLast('/').orEmpty() }
+        val requiredSm8750ModelPath = modelResolution["required_sm8750_model_path"].orEmpty()
+            .ifBlank { "false" }
+        val npuBackend = nativeResult["npu_backend"].orEmpty()
+            .ifBlank { if (result.success) "NPU" else "" }
+        val backendEvidence = result.backendEvidence.orEmpty()
+            .ifBlank { nativeResult["npu_backend_evidence"].orEmpty() }
+        val assistantMessage = if (result.success) {
+            result.output.orEmpty()
+        } else {
+            "DEV NPU route failed: ${result.reasonCode}"
+        }
+        return listOf(
+            "selected_route=qairt244_sm8750_dev_npu",
+            "success=${result.success}",
+            "status=${if (result.success) "SUCCESS" else "ERROR"}",
+            "reasonCode=${escapeValue(result.reasonCode)}",
+            "assistant_message=${escapeValue(assistantMessage)}",
+            "output=${escapeValue(result.output.orEmpty())}",
+            "prompt=${escapeValue(result.prompt)}",
+            "max_output_tokens=${result.maxOutputTokens}",
+            "resolved_model_basename=${escapeValue(resolvedModelBasename)}",
+            "required_sm8750_model_path=$requiredSm8750ModelPath",
+            "npu_backend=${escapeValue(npuBackend)}",
+            "npu_backend_evidence=${escapeValue(backendEvidence)}",
+            "decode_elapsed_ms=${result.decodeElapsedMs ?: ""}",
+            "elapsed_ms=${result.elapsedMs ?: ""}",
+            "artifact_path=${escapeValue(result.artifactPath.orEmpty())}",
+            "fallback_used=false",
+            "normal_ui_route_connected=false",
+            "conversation_created=no",
+            "generate_response=no",
+            "selected_path_npu_normal_route=no",
+            "timeout=${result.timeout}",
+            "fresh_crash=${result.freshCrash}",
+            "db=false",
+            "tts=false",
+            "markdown=false",
+            "streaming=false",
+        ).joinToString("\n")
+    }
+
+    private fun readKeyValueFile(file: File): Map<String, String> {
+        if (!file.isFile) return emptyMap()
+        return file.readLines()
+            .mapNotNull { line ->
+                val index = line.indexOf('=')
+                if (index <= 0) return@mapNotNull null
+                line.substring(0, index) to line.substring(index + 1)
+            }
+            .toMap()
+    }
+
+    private fun escapeValue(value: String): String =
+        value.replace("\\", "\\\\").replace("\n", "\\n")
+
 }

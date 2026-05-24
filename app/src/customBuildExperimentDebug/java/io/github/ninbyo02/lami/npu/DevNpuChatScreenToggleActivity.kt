@@ -16,7 +16,7 @@ class DevNpuChatScreenToggleActivity : Activity() {
         val requestedEnabled = intent.getBooleanExtra(EXTRA_ENABLED, false)
         var error: String? = null
         val before = runBlocking {
-            preferences.devEnableNpuChatScreenRouteFlow.first()
+            preferences.devEnableQairt244Sm8750NpuRouteFlow.first()
         }
         if (requestedWrite) {
             runCatching {
@@ -28,7 +28,7 @@ class DevNpuChatScreenToggleActivity : Activity() {
             }
         }
         val after = runBlocking {
-            preferences.devEnableNpuChatScreenRouteFlow.first()
+            preferences.devEnableQairt244Sm8750NpuRouteFlow.first()
         }
         writeStateFile(
             before = before,
@@ -50,7 +50,8 @@ class DevNpuChatScreenToggleActivity : Activity() {
         val text = buildString {
             appendLine("activity=DevNpuChatScreenToggleActivity")
             appendLine("custom_build_experiment=${BuildConfig.CUSTOM_BUILD_EXPERIMENT}")
-            appendLine("key=dev_enable_npu_chatscreen_route")
+            appendLine("key=dev_enable_qairt244_sm8750_npu_route")
+            appendLine("legacy_key=dev_enable_npu_chatscreen_route")
             appendLine("requested_write=$requestedWrite")
             appendLine("requested_enabled=$requestedEnabled")
             appendLine("before=$before")

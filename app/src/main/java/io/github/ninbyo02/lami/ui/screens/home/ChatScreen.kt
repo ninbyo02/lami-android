@@ -704,7 +704,7 @@ fun Home(
     val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow.collectAsState(
         initial = true,
     )
-    val devEnableNpuChatScreenRoute by settingsPreferences.devEnableNpuChatScreenRouteFlow.collectAsState(
+    val devEnableQairt244Sm8750NpuRoute by settingsPreferences.devEnableQairt244Sm8750NpuRouteFlow.collectAsState(
         initial = false,
     )
     val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(
@@ -2349,30 +2349,122 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
-                                                    // DEV-only NPU route adapter insertion point (disabled).
-                                                    // See docs/litert_qairt244_dev_only_npu_route_adapter_plan.md and
-                                                    // docs/litert_qairt244_chat_screen_npu_integration_plan.md.
-                                                    // Future customBuildExperimentDebug-only work must run after
-                                                    // requestPrompt capture and before input clearing, chat/message DB
-                                                    // inserts, TTS cleanup, Markdown, streaming, stop-button ownership,
-                                                    // or any persistent selectedPath=npu state. Do not call the
-                                                    // planner/presenter here until the blocked-adapter phase is
-                                                    // explicitly implemented.
                                                     if (
                                                         BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
-                                                        devEnableNpuChatScreenRoute
+                                                        devEnableQairt244Sm8750NpuRoute
                                                     ) {
-                                                        val blockedSummary =
-                                                            runDevOnlyNpuChatScreenBlockedBranchViaReflection(
-                                                                context = context.applicationContext,
-                                                                prompt = requestPrompt,
-                                                            )
-                                                        coroutineScope.launch {
-                                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                                            snackbarHostState.showSnackbar(
-                                                                message = blockedSummary,
-                                                                duration = SnackbarDuration.Short,
-                                                            )
+                                                        debugLocalUiTrace(
+                                                            label = "DEV_QAIRT244_SM8750_NPU_SEND_TAPPED",
+                                                            extra = "effectiveChatId=$effectiveChatId promptLength=${requestPrompt.length}",
+                                                        )
+                                                        prompt = ""
+                                                        userPrompt = ""
+                                                        selectedImageUriStrings = emptyList()
+                                                        showDelayedLocalRespondingPlaceholder = false
+                                                        localInferenceEngineState = LocalInferenceEngineState.READY
+                                                        localStopRequested = false
+                                                        stopTtsWithCleanup(
+                                                            suppressedMessageId = stopButtonOwnerAssistantMessageId
+                                                                ?: currentSpeakingAssistantMessageId
+                                                                ?: streamingSpeechStartedForMessageId,
+                                                            armTapGuards = false,
+                                                        )
+                                                        localInferenceJob = coroutineScope.launch {
+                                                            var currentChatId = effectiveChatId
+                                                            if (currentChatId == null) {
+                                                                isCreatingChat = true
+                                                                try {
+                                                                    val newChatId = withContext(Dispatchers.IO) {
+                                                                        viewModel.insertChatAndReturnId(
+                                                                            Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                                                                        )
+                                                                    }
+                                                                    effectiveChatId = newChatId
+                                                                    pendingNavigateChatId = newChatId
+                                                                    currentChatId = newChatId
+                                                                } finally {
+                                                                    isCreatingChat = false
+                                                                }
+                                                            }
+                                                            val resolvedChatId = currentChatId
+                                                            withContext(Dispatchers.IO) {
+                                                                viewModel.insert(
+                                                                    Message(
+                                                                        chatId = resolvedChatId,
+                                                                        message = requestPrompt,
+                                                                        isSendbyMe = true,
+                                                                    )
+                                                                )
+                                                            }
+                                                            isLocalInferenceRunning = true
+                                                            localStreamingResponseText = null
+                                                            showDelayedLocalRespondingPlaceholder = false
+                                                            try {
+                                                                val devResult = withContext(Dispatchers.IO) {
+                                                                    runDevQairt244Sm8750NpuChatScreenRouteViaReflection(
+                                                                        context = context.applicationContext,
+                                                                        prompt = requestPrompt,
+                                                                    )
+                                                                }
+                                                                val assistantText = devResult.assistantMessage.ifBlank {
+                                                                    if (devResult.success) {
+                                                                        devResult.output
+                                                                    } else {
+                                                                        "DEV NPU route failed: ${devResult.reasonCode}"
+                                                                    }
+                                                                }
+                                                                val stats = devResult.toInferenceStats()
+                                                                val sourceSummary = devResult.toLocalSourceSummary()
+                                                                devDebugText = sourceSummary
+                                                                if (!localStopRequested) {
+                                                                    val assistantId = withContext(Dispatchers.IO) {
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            createAssistantMessage(
+                                                                                chatId = resolvedChatId,
+                                                                                response = assistantText,
+                                                                                latestInferenceStats = stats,
+                                                                                localSourceSummary = sourceSummary,
+                                                                                generationTimeMs = devResult.elapsedMs,
+                                                                            )
+                                                                        ).toInt()
+                                                                    }
+                                                                    if (assistantId > 0) {
+                                                                        immediateInferenceStatsByMessageId[assistantId] = stats
+                                                                    }
+                                                                }
+                                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                                snackbarHostState.showSnackbar(
+                                                                    message = if (devResult.success) {
+                                                                        "DEV SM8750 NPU route success"
+                                                                    } else {
+                                                                        "DEV NPU route failed: ${devResult.reasonCode}"
+                                                                    },
+                                                                    duration = SnackbarDuration.Short,
+                                                                )
+                                                            } catch (exception: Exception) {
+                                                                devDebugText = "DEV NPU route failed: ${exception.javaClass.simpleName}:${exception.message.orEmpty()}"
+                                                                if (!localStopRequested) {
+                                                                    withContext(Dispatchers.IO) {
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            createAssistantMessage(
+                                                                                chatId = resolvedChatId,
+                                                                                response = "DEV NPU route failed: ${exception.javaClass.simpleName}",
+                                                                                localSourceSummary = devDebugText,
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                }
+                                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                                snackbarHostState.showSnackbar(
+                                                                    message = "DEV NPU route failed: ${exception.javaClass.simpleName}",
+                                                                    duration = SnackbarDuration.Short,
+                                                                )
+                                                            } finally {
+                                                                localStreamingResponseText = null
+                                                                showDelayedLocalRespondingPlaceholder = false
+                                                                isLocalInferenceRunning = false
+                                                                localInferenceJob = null
+                                                            }
                                                         }
                                                         return@IconButton
                                                     }
@@ -7713,6 +7805,116 @@ private fun runDevOnlyNpuChatScreenBlockedBranchViaReflection(
             .invoke(null, context, prompt) as String
     }.getOrElse { throwable ->
         "DEV NPU blocked branch unavailable: ${throwable.javaClass.simpleName}"
+    }
+}
+
+private fun runDevQairt244Sm8750NpuChatScreenRouteViaReflection(
+    context: Context,
+    prompt: String,
+): DevQairt244Sm8750NpuChatScreenResult {
+    val raw = runCatching {
+        val branchClass = Class.forName(
+            "io.github.ninbyo02.lami.npu.DevOnlyNpuChatScreenBlockedBranch",
+        )
+        branchClass
+            .getMethod("runForChatScreen", Context::class.java, String::class.java)
+            .invoke(null, context, prompt) as String
+    }.getOrElse { throwable ->
+        return DevQairt244Sm8750NpuChatScreenResult(
+            success = false,
+            reasonCode = "reflection_unavailable:${throwable.javaClass.simpleName}",
+            assistantMessage = "DEV NPU route failed: ${throwable.javaClass.simpleName}",
+        )
+    }
+    return DevQairt244Sm8750NpuChatScreenResult.fromKeyValueText(raw)
+}
+
+private data class DevQairt244Sm8750NpuChatScreenResult(
+    val success: Boolean,
+    val reasonCode: String,
+    val assistantMessage: String,
+    val output: String = "",
+    val selectedRoute: String = "qairt244_sm8750_dev_npu",
+    val resolvedModelBasename: String = "",
+    val requiredSm8750ModelPath: Boolean = false,
+    val npuBackend: String = "",
+    val npuBackendEvidence: String = "",
+    val decodeElapsedMs: Long? = null,
+    val elapsedMs: Long? = null,
+    val maxOutputTokens: Int = 3,
+    val fallbackUsed: Boolean = false,
+    val artifactPath: String = "",
+) {
+    fun toInferenceStats(): InferenceStats = InferenceStats(
+        modelName = selectedRoute,
+        generationTimeMs = elapsedMs,
+        decodeDurationMs = decodeElapsedMs,
+        totalDurationMs = elapsedMs,
+        tokenCountMode = "qairt244-dev-npu-lower-level",
+        notes = listOf(
+            "selected_route=$selectedRoute",
+            "resolved_model_basename=$resolvedModelBasename",
+            "required_sm8750_model_path=$requiredSm8750ModelPath",
+            "npu_backend=$npuBackend",
+            "npu_backend_evidence=$npuBackendEvidence",
+            "max_output_tokens=$maxOutputTokens",
+            "fallback_used=$fallbackUsed",
+        ).joinToString(";"),
+        finishReason = if (success) "success" else reasonCode,
+        localSourceSummary = toLocalSourceSummary(),
+        model = selectedRoute,
+        modelLabel = selectedRoute,
+        responseCharCount = assistantMessage.length,
+    )
+
+    fun toLocalSourceSummary(): String = listOf(
+        "selected_route=$selectedRoute",
+        "resolved_model_basename=$resolvedModelBasename",
+        "required_sm8750_model_path=$requiredSm8750ModelPath",
+        "npu_backend=$npuBackend",
+        "npu_backend_evidence=$npuBackendEvidence",
+        "decode_elapsed_ms=${decodeElapsedMs ?: "unknown"}",
+        "max_output_tokens=$maxOutputTokens",
+        "fallback_used=$fallbackUsed",
+        "normal_ui_route_connected=false",
+        "artifact_path=$artifactPath",
+    ).joinToString("\n")
+
+    companion object {
+        fun fromKeyValueText(text: String): DevQairt244Sm8750NpuChatScreenResult {
+            val values = text.lineSequence()
+                .mapNotNull { line ->
+                    val index = line.indexOf('=')
+                    if (index <= 0) return@mapNotNull null
+                    line.substring(0, index) to unescapeValue(line.substring(index + 1))
+                }
+                .toMap()
+            val success = values["success"]?.toBooleanStrictOrNull() ?: false
+            val reasonCode = values["reasonCode"].orEmpty().ifBlank { if (success) "success" else "unknown" }
+            val output = values["output"].orEmpty()
+            val assistantMessage = values["assistant_message"].orEmpty().ifBlank {
+                if (success) output else "DEV NPU route failed: $reasonCode"
+            }
+            return DevQairt244Sm8750NpuChatScreenResult(
+                success = success,
+                reasonCode = reasonCode,
+                assistantMessage = assistantMessage,
+                output = output,
+                selectedRoute = values["selected_route"].orEmpty().ifBlank { "qairt244_sm8750_dev_npu" },
+                resolvedModelBasename = values["resolved_model_basename"].orEmpty(),
+                requiredSm8750ModelPath = values["required_sm8750_model_path"]?.toBooleanStrictOrNull() ?: false,
+                npuBackend = values["npu_backend"].orEmpty(),
+                npuBackendEvidence = values["npu_backend_evidence"].orEmpty(),
+                decodeElapsedMs = values["decode_elapsed_ms"]?.toLongOrNull(),
+                elapsedMs = values["elapsed_ms"]?.toLongOrNull(),
+                maxOutputTokens = values["max_output_tokens"]?.toIntOrNull() ?: 3,
+                fallbackUsed = values["fallback_used"]?.toBooleanStrictOrNull() ?: false,
+                artifactPath = values["artifact_path"].orEmpty(),
+            )
+        }
+
+        private fun unescapeValue(value: String): String =
+            value.replace("\\n", "\n").replace("\\\\", "\\")
     }
 }
 

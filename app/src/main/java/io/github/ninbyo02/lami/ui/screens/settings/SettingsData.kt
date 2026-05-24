@@ -12,4 +12,5 @@ data class SettingsData(
     val preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     val markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     val devEnableNpuChatScreenRoute: Boolean = false,
+    val devEnableQairt244Sm8750NpuRoute: Boolean = false,
 )
