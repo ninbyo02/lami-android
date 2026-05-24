@@ -174,12 +174,26 @@ wait_for_result() {
   return 124
 }
 
+wait_for_ui_cleanup() {
+  local deadline=$((SECONDS + 10))
+  while [ "$SECONDS" -le "$deadline" ]; do
+    pull_app_file "files/qairt244_dev_npu_ui_cleanup_state.txt" "$OUT_DIR/ui_cleanup_state.txt"
+    if grep -q '^ui_cleanup_is_local_inference_running=false$' "$OUT_DIR/ui_cleanup_state.txt" 2>/dev/null &&
+      grep -q '^ui_cleanup_local_job_active=false$' "$OUT_DIR/ui_cleanup_state.txt" 2>/dev/null &&
+      grep -q '^ui_cleanup_local_stop_requested=false$' "$OUT_DIR/ui_cleanup_state.txt" 2>/dev/null; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
 scan_runtime_markers() {
-  local marker_pattern='qairt244_chat_screen_real_npu_adapter_v1|qairt244_editable_prompt_smoke_v1|Engine.initialize|RunDecode|Backend.NPU|selectedPath=npu|generateResponse|QNN|HTP|DSP|NPU|QAIRT|FastRPC|npu_backend|npu_backend_evidence|fallback|GPU|CPU|adapter_not_connected|DEV NPU'
+  local marker_pattern='qairt244_chat_screen_real_npu_adapter_v1|qairt244_editable_prompt_smoke_v1|Engine.initialize|RunDecode|Backend.NPU|selectedPath=npu|generateResponse|QNN|HTP|DSP|NPU|QAIRT|FastRPC|npu_backend|npu_backend_evidence|fallback|GPU|CPU|adapter_not_connected|DEV NPU|ui_cleanup|Responding|Stop Button|応答中'
   local source_name source_path
   {
     printf '# Runtime Marker Scan\n\n'
-    for source_name in logcat_tail.txt native_diag.txt result.txt summary.md; do
+    for source_name in logcat_tail.txt native_diag.txt result.txt summary.md ui_cleanup_state.txt ui_cleanup_wait_status.txt window_after.xml; do
       source_path="$OUT_DIR/$source_name"
       if [ -f "$source_path" ]; then
         grep -Ein "$marker_pattern" "$source_path" | sed "s|^[0-9][0-9]*:|[$source_name] |" || true
@@ -231,6 +245,8 @@ write_summary() {
     printf 'streaming=false\n'
     printf 'selected_path_npu_saved=false\n'
     printf 'rollback_condition_hit=%s\n' "$rollback"
+    if [ -f "$OUT_DIR/ui_cleanup_wait_status.txt" ]; then cat "$OUT_DIR/ui_cleanup_wait_status.txt"; fi
+    if [ -f "$OUT_DIR/ui_cleanup_state.txt" ]; then grep -E '^ui_cleanup_' "$OUT_DIR/ui_cleanup_state.txt" || true; fi
     printf '```\n\n'
     printf '## Toggle\n\n'
     printf -- '- before/reset: `%s`\n' "$(grep -m1 '^after=' "$OUT_DIR/toggle_state_before.txt" 2>/dev/null | cut -d= -f2-)"
@@ -262,7 +278,7 @@ main() {
   adb_cmd logcat -c >"$OUT_DIR/logcat_clear.txt" 2>&1 || true
   adb_cmd shell am force-stop "$APP_ID" >"$OUT_DIR/force_stop_before.txt" 2>&1 || true
   write_model_listing
-  adb_cmd shell run-as "$APP_ID" rm -f files/qairt244_short_multitoken_smoke_result.txt files/qairt244_native_diag.txt files/dev_npu_chatscreen_toggle_state.txt files/qairt244_chat_screen_model_path_resolution.txt files/qairt244_chat_screen_real_npu_once_guard.txt >"$OUT_DIR/cleanup_app_files.txt" 2>&1 || true
+  adb_cmd shell run-as "$APP_ID" rm -f files/qairt244_short_multitoken_smoke_result.txt files/qairt244_native_diag.txt files/dev_npu_chatscreen_toggle_state.txt files/qairt244_chat_screen_model_path_resolution.txt files/qairt244_chat_screen_real_npu_once_guard.txt files/qairt244_dev_npu_ui_cleanup_state.txt >"$OUT_DIR/cleanup_app_files.txt" 2>&1 || true
 
   set_toggle false "$OUT_DIR/toggle_state_before.txt"
   set_toggle true "$OUT_DIR/toggle_state_after_on.txt"
@@ -288,10 +304,19 @@ main() {
     [ "$wait_status" = 124 ] && adb_cmd shell am force-stop "$APP_ID" >"$OUT_DIR/force_stop_timeout.txt" 2>&1 || true
   fi
 
+  ui_cleanup_wait_status=not_run
+  if wait_for_ui_cleanup; then
+    ui_cleanup_wait_status=success
+  else
+    ui_cleanup_wait_status=failure
+  fi
+
   set_toggle false "$OUT_DIR/toggle_state_after_off.txt"
   pull_app_file "files/qairt244_short_multitoken_smoke_result.txt" "$OUT_DIR/result.txt"
   pull_app_file "files/qairt244_native_diag.txt" "$OUT_DIR/native_diag.txt"
   pull_app_file "files/qairt244_chat_screen_model_path_resolution.txt" "$OUT_DIR/resolved_model_path.txt"
+  pull_app_file "files/qairt244_dev_npu_ui_cleanup_state.txt" "$OUT_DIR/ui_cleanup_state.txt"
+  printf 'ui_cleanup_wait_status=%s\n' "$ui_cleanup_wait_status" >"$OUT_DIR/ui_cleanup_wait_status.txt"
   if grep -q "^resolved_model_path=.*$TARGET_MODEL$" "$OUT_DIR/resolved_model_path.txt" 2>/dev/null; then
     printf "resolved_target_model=true\n" >"$OUT_DIR/resolved_target_model_guard.txt"
   else

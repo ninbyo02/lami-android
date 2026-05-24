@@ -1099,6 +1099,45 @@ fun Home(
         lastPersistedStreamingAssistantText = null
     }
 
+    fun cleanupDevQairt244NpuUiState(reason: String) {
+        localStreamingResponseText = null
+        showDelayedLocalRespondingPlaceholder = false
+        resetStreamingSpeechState()
+        resetStreamingAssistantPlaceholderId(reason = reason)
+        pendingStopButtonOwnerClearJob?.cancel()
+        pendingStopButtonOwnerClearJob = null
+        pendingStopUiCooldownClearJob?.cancel()
+        pendingStopUiCooldownClearJob = null
+        pendingReplaySuppressClearJob?.cancel()
+        pendingReplaySuppressClearJob = null
+        suppressReplayAssistantMessageId = null
+        stopUiCooldownAssistantMessageId = null
+        currentSpeakingAssistantMessageId = null
+        stopButtonOwnerAssistantMessageId = null
+        stopButtonOwnerSetAtMs = null
+        didReceiveRealLocalPartial = false
+        realLocalPartialChunkCount = 0
+        localStopRequested = false
+        localInferenceEngineState = LocalInferenceEngineState.READY
+        viewModel.resetUiState()
+        isLocalInferenceRunning = false
+        localInferenceJob = null
+        File(context.applicationContext.filesDir, "qairt244_dev_npu_ui_cleanup_state.txt").writeText(
+            listOf(
+                "reason=$reason",
+                "ui_cleanup_is_local_inference_running=false",
+                "ui_cleanup_local_job_active=false",
+                "ui_cleanup_local_stop_requested=false",
+                "ui_cleanup_duplicate_guard=false",
+                "ui_cleanup_streaming_assistant_placeholder=false",
+                "ui_cleanup_stop_owner=false",
+                "ui_cleanup_show_delayed_local_responding_placeholder=false",
+                "ui_cleanup_local_inference_engine_state=READY",
+                "ui_cleanup_reset_ui_state_called=true",
+            ).joinToString(separator = "\n", postfix = "\n"),
+        )
+    }
+
     suspend fun resolveLocalPreparingUiState(): LocalInferenceEngineState {
         val hasHeldEngine = localInferenceEngineHolder.getDevDiagnosticSnapshot().heldEngineHash != null
         return if (hasHeldEngine) {
@@ -2434,6 +2473,7 @@ fun Home(
                                                                         immediateInferenceStatsByMessageId[assistantId] = stats
                                                                     }
                                                                 }
+                                                                cleanupDevQairt244NpuUiState(reason = "dev-qairt244-finish")
                                                                 snackbarHostState.currentSnackbarData?.dismiss()
                                                                 snackbarHostState.showSnackbar(
                                                                     message = if (devResult.success) {
@@ -2464,17 +2504,14 @@ fun Home(
                                                                         )
                                                                     }
                                                                 }
+                                                                cleanupDevQairt244NpuUiState(reason = "dev-qairt244-exception")
                                                                 snackbarHostState.currentSnackbarData?.dismiss()
                                                                 snackbarHostState.showSnackbar(
                                                                     message = "DEV NPU route failed: ${exception.javaClass.simpleName}",
                                                                     duration = SnackbarDuration.Short,
                                                                 )
                                                             } finally {
-                                                                localStreamingResponseText = null
-                                                                showDelayedLocalRespondingPlaceholder = false
-                                                                viewModel.resetUiState()
-                                                                isLocalInferenceRunning = false
-                                                                localInferenceJob = null
+                                                                cleanupDevQairt244NpuUiState(reason = "dev-qairt244-finally")
                                                             }
                                                         }
                                                         return@IconButton
