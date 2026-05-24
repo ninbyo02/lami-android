@@ -51,12 +51,18 @@ The native diagnostics for this phase must report
 `native_prompt_validation_mode=utf8_internal_intent`, `utf8_allowed=true`, and
 `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`.
 
-The 64-token artifact has one bounded run evidence entry in
+The 64-token artifact has bounded Phase A evidence in
 `docs/qairt244_chat_screen_real_npu_sm8750_model_run.md`: Japanese
-`--prompt-mode internal_intent` prompt `こんにちは` completed successfully with
-prompt requested/actual/normalized equality, RunDecode reached,
-`npu_backend=NPU`, no fallback, no timeout, no fresh crash, no observed
-`duplicate_run_blocked`, and successful UI cleanup.
+`--prompt-mode internal_intent` prompts `こんにちは`, `テスト`, and `ラミィ`
+completed 3/3 with prompt requested/actual/normalized equality,
+`max_output_tokens=64`, `native_max_output_tokens_limit=64`,
+`prompt_validation_mode=utf8_internal_intent`,
+`native_prompt_validation_mode=utf8_internal_intent`, `utf8_allowed=true`,
+RunDecode reached, `npu_backend=NPU`,
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, no fallback, no
+timeout, no fresh crash, no observed `duplicate_run_blocked`, successful UI
+cleanup, and `decode_elapsed_ms` range `40..1959`. This records only the
+64-token DEV-only bounded experiment. The 128-token phase has not started.
 
 ## 2026-05-24 32-Token Bounded Artifact
 

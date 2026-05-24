@@ -44,6 +44,37 @@ generic/E4B/qcs8275 models, and does not elevate the standard UI route.
 - `ui_cleanup_wait_status=success`
 - No `duplicate_run_blocked`, `Responding...`, `Stop Button`, or `応答中` marker remained.
 
+64-token bounded Phase A stability evidence:
+
+```text
+prompt_mode=internal_intent
+prompts=こんにちは, テスト, ラミィ
+artifacts=artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_164341,
+          artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_164421,
+          artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_164450
+success_rate=3/3
+max_output_tokens=64
+native_max_output_tokens_limit=64
+prompt_match=requested/actual/normalized all matched
+prompt_validation_mode=utf8_internal_intent
+native_prompt_validation_mode=utf8_internal_intent
+utf8_allowed=true
+run_decode_reached=true
+npu_backend=NPU
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_used=false
+timeout=false
+fresh_crash=false
+duplicate_run_blocked=not observed
+ui_cleanup_wait_status=success
+ui_residual_markers=Responding.../Stop Button/応答中 not observed
+decode_elapsed_ms_range=40..1959
+```
+
+This is a DEV-only bounded experiment for the qairt244 SM8750 internal intent
+route, not production or normal-route NPU enablement. The 128-token phase has
+not started.
+
 ## 2026-05-24 32-Token Bounded Phase
 
 The runner default artifact now points to the 32-token custom native artifact
