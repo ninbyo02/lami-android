@@ -273,3 +273,98 @@ visible in artifacts:
 Do not start Edge Gallery prompt/template alignment or output rewriting yet.
 The next minimal fix should preserve the native artifact and hidden route while
 making the app-side result parser handle multi-line native output explicitly.
+
+## Tokenizer / EOS Investigation
+
+As of 2026-05-24,担当B added output-side Unicode and stop diagnostics only.
+No output quality correction, token remapping, prompt template change, or decode
+behavior change was implemented.
+
+New artifact/display diagnostics:
+
+- `output_token_count`
+- `finish_reason`
+- `stop_reason`
+- `eos_detected`
+- `output_contains_replacement_chars`
+- `output_contains_control_chars`
+- `output_unicode_summary`
+- `output_first_200_chars`
+- `output_last_200_chars`
+
+`output_unicode_summary` records UTF-16 length, Unicode code point count, UTF-8
+byte count after Kotlin string decoding, first code points, replacement-char
+count, ISO-control chars, U+3007 white-circle count, question-mark count, and a
+classification. This makes the `〇〇〇〇` case distinguishable from decode failure:
+real `〇` appears as repeated `U+3007` with
+`output_contains_replacement_chars=false`; decode replacement appears as
+`U+FFFD` with `output_contains_replacement_chars=true`.
+
+The `？`-only case is now easier to triage by checking:
+
+- `output_unicode_summary` classification
+  `single_question_mark_output`
+- `output_token_count`, if exposed by the lower-level entrypoint
+- `finish_reason` / `stop_reason`
+- `eos_detected`
+- `output_first_200_chars` and `output_last_200_chars`
+
+Current conclusion: Kotlin receives already-decoded `String` output, so these
+diagnostics can prove whether visible glyphs are real Unicode code points or
+U+FFFD replacement chars after app-side decoding. They cannot prove tokenizer
+ID-to-token mapping correctness unless the lower-level native entrypoint also
+exports token IDs or raw token bytes. If future runs show `eos_detected=true`
+with `output_token_count=0` or `1` and only `？`, investigate native stop/EOS
+handling first. If `eos_detected=false`, output token count is non-zero, and
+the first code points are real punctuation or U+3007, investigate tokenizer or
+model decode mapping before adding any display-side rewrite.
+
+## Prompt Formatting Investigation
+
+As of 2026-05-24, the standard hidden ChatScreen route does not build a chat
+conversation, system prompt, or chat template before calling the lower-level
+native entrypoint. The path is:
+
+- ChatScreen prompt text
+- `DevOnlyNpuChatScreenBlockedBranch.runForChatScreen`
+- `NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental`
+- `Qairt244DevOnlyNpuRouteAdapter.runOnce`
+- `Qairt244ShortMultitokenSmoke.runEditablePrompt`
+- native `nativeRunEditablePrompt(prompt = normalizedPrompt)`
+
+The effective model input is therefore the validator-normalized user prompt.
+There is no conversation history flattening, no system message, and no
+Gemma/Edge Gallery chat template insertion in this hidden route.
+
+Diagnostics now record the prompt-formatting boundary in the pulled artifacts:
+
+- `raw_user_prompt`
+- `normalized_prompt`
+- `final_model_input`
+- `final_model_input_length`
+- `conversation_history_count=0`
+- `system_prompt_used=none`
+- `chat_template_used=none`
+- `prompt_source=chat_screen` or `prompt_source=internal_intent`
+- `prompt_formatting_mode=raw_normalized_prompt`
+
+These fields are emitted by the shared qairt244 adapter for both the standard
+hidden ChatScreen path and the `customBuildExperimentDebug` internal-intent
+path, so `result.txt`, `receiver_state.txt`, and display diagnostics can be
+compared directly. A meaningful difference should be limited to source and
+validation mode:
+
+- standard hidden ChatScreen: `prompt_source=chat_screen`,
+  `prompt_validation_mode=utf8_hidden_experimental`,
+  `route_type=standard_hidden_chat_screen`
+- internal intent runner: `prompt_source=internal_intent`,
+  `prompt_validation_mode=utf8_internal_intent`, `route_type=internal_intent`
+
+This investigation is intentionally separate from Edge Gallery compatible
+Markdown mode. Markdown repair/compatibility is post-generation display
+processing; it does not construct the prompt passed into native on this route.
+
+Minimal fix proposal only: if output quality requires instruction-tuned
+conversation formatting, add an explicit, guarded prompt-template experiment
+with diagnostics that name the exact template. Do not silently change the
+current hidden route's native input shape.

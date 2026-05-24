@@ -133,6 +133,10 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         val displayedText = values["displayed_assistant_text"].orEmpty()
             .ifBlank { values["assistant_message"].orEmpty() }
             .ifBlank { values["output"].orEmpty() }
+        val outputDiagnostics = Qairt244OutputUnicodeDiagnostics.toEscapedLines(
+            fields = Qairt244OutputUnicodeDiagnostics.buildFieldsFromExistingValues(values),
+            escapeValue = ::escapeValue,
+        )
         File(appContext.filesDir, "qairt244_standard_hidden_display_diagnostics.txt").writeText(
             listOf(
                 "route_type=${values["route_type"].orEmpty().ifBlank { "standard_hidden_chat_screen" }}",
@@ -140,27 +144,35 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 "assistant_message_id=receiver_runner",
                 "success=${values["success"].orEmpty()}",
                 "reasonCode=${values["reasonCode"].orEmpty()}",
+                "raw_user_prompt=${escapeValue(values["raw_user_prompt"].orEmpty())}",
+                "normalized_prompt=${escapeValue(values["normalized_prompt"].orEmpty())}",
+                "final_model_input=${escapeValue(values["final_model_input"].orEmpty())}",
+                "final_model_input_length=${values["final_model_input_length"].orEmpty()}",
+                "conversation_history_count=${values["conversation_history_count"].orEmpty()}",
+                "system_prompt_used=${escapeValue(values["system_prompt_used"].orEmpty())}",
+                "chat_template_used=${escapeValue(values["chat_template_used"].orEmpty())}",
                 "prompt_source=${values["prompt_source"].orEmpty()}",
                 "prompt_validation_mode=${values["prompt_validation_mode"].orEmpty()}",
+                "prompt_formatting_mode=${values["prompt_formatting_mode"].orEmpty()}",
                 "raw_native_output=${escapeValue(values["raw_native_output"].orEmpty())}",
                 "raw_native_output_length=${values["raw_native_output_length"].orEmpty()}",
                 "adapter_output=${escapeValue(values["adapter_output"].orEmpty())}",
                 "adapter_output_length=${values["adapter_output_length"].orEmpty()}",
                 "displayed_assistant_text=${escapeValue(displayedText)}",
                 "displayed_assistant_text_length=${displayedText.length}",
-                "finish_reason=${values["finish_reason"].orEmpty()}",
-                "stop_reason=${values["stop_reason"].orEmpty()}",
-                "output_token_count=${values["output_token_count"].orEmpty().ifBlank { "unknown" }}",
-                "max_output_tokens=${values["max_output_tokens"].orEmpty()}",
-                "decode_elapsed_ms=${values["decode_elapsed_ms"].orEmpty()}",
-                "npu_backend=${values["npu_backend"].orEmpty()}",
-                "npu_backend_evidence=${values["npu_backend_evidence"].orEmpty()}",
-                "fallback_used=${values["fallback_used"].orEmpty()}",
-                "timeout=${values["timeout"].orEmpty()}",
-                "fresh_crash=${values["fresh_crash"].orEmpty()}",
-                "markdown_mode=${values["markdown_mode"].orEmpty().ifBlank { "non_streaming_direct_insert" }}",
-                "repair_applied=${values["repair_applied"].orEmpty().ifBlank { "false" }}",
-                "streaming=${values["streaming"].orEmpty().ifBlank { "false" }}",
+            ).plus(outputDiagnostics).plus(
+                listOf(
+                    "max_output_tokens=${values["max_output_tokens"].orEmpty()}",
+                    "decode_elapsed_ms=${values["decode_elapsed_ms"].orEmpty()}",
+                    "npu_backend=${values["npu_backend"].orEmpty()}",
+                    "npu_backend_evidence=${values["npu_backend_evidence"].orEmpty()}",
+                    "fallback_used=${values["fallback_used"].orEmpty()}",
+                    "timeout=${values["timeout"].orEmpty()}",
+                    "fresh_crash=${values["fresh_crash"].orEmpty()}",
+                    "markdown_mode=${values["markdown_mode"].orEmpty().ifBlank { "non_streaming_direct_insert" }}",
+                    "repair_applied=${values["repair_applied"].orEmpty().ifBlank { "false" }}",
+                    "streaming=${values["streaming"].orEmpty().ifBlank { "false" }}",
+                ),
             ).joinToString(separator = "\n", postfix = "\n"),
         )
     }

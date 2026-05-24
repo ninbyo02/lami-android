@@ -41,9 +41,16 @@ class DevQairt244PromptReceiver : BroadcastReceiver() {
                     "reasonCode=$reason",
                     "requested_prompt=$prompt",
                     "actual_prompt=${validation.normalizedPrompt}",
-                    "normalized_prompt=${validation.normalizedPrompt}",
+                    "raw_user_prompt=${escapeValue(prompt)}",
+                    "normalized_prompt=${escapeValue(validation.normalizedPrompt)}",
+                    "final_model_input=${escapeValue(validation.normalizedPrompt)}",
+                    "final_model_input_length=${validation.normalizedPrompt.length}",
+                    "conversation_history_count=0",
+                    "system_prompt_used=none",
+                    "chat_template_used=none",
                     "prompt_source=${Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_INTERNAL_INTENT}",
                     "prompt_validation_mode=${NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE}",
+                    "prompt_formatting_mode=raw_normalized_prompt",
                     "native_prompt_validation_mode=${NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE}",
                     "utf8_allowed=true",
                     "expected_model_basename=$expectedModelBasename",
@@ -64,9 +71,16 @@ class DevQairt244PromptReceiver : BroadcastReceiver() {
                     "reasonCode=$reason",
                     "requested_prompt=$prompt",
                     "actual_prompt=${validation.normalizedPrompt}",
-                    "normalized_prompt=${validation.normalizedPrompt}",
+                    "raw_user_prompt=${escapeValue(prompt)}",
+                    "normalized_prompt=${escapeValue(validation.normalizedPrompt)}",
+                    "final_model_input=${escapeValue(validation.normalizedPrompt)}",
+                    "final_model_input_length=${validation.normalizedPrompt.length}",
+                    "conversation_history_count=0",
+                    "system_prompt_used=none",
+                    "chat_template_used=none",
                     "prompt_source=${Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_INTERNAL_INTENT}",
                     "prompt_validation_mode=${NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE}",
+                    "prompt_formatting_mode=raw_normalized_prompt",
                     "native_prompt_validation_mode=",
                     "utf8_allowed=true",
                     "expected_model_basename=$expectedModelBasename",
@@ -155,6 +169,9 @@ class DevQairt244PromptReceiver : BroadcastReceiver() {
             ).joinToString(separator = "\n", postfix = "\n"),
         )
     }
+
+    private fun escapeValue(value: String): String =
+        value.replace("\\", "\\\\").replace("\n", "\\n")
 
     companion object {
         const val ACTION_DEV_QAIRT244_PROMPT = "io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT"

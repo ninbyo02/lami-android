@@ -122,4 +122,21 @@ class Qairt244NativeResultParserTest {
         assertEquals("2670", parsed.values["decode_elapsed_ms"])
         assertEquals("NPU", parsed.values["npu_backend"])
     }
+
+    @Test
+    fun `output followed by unicode diagnostics keeps output separate`() {
+        val parsed = Qairt244NativeResultParser.parse(
+            """
+            output=本文です。
+            output_unicode_summary=utf16_length=4;code_point_count=4
+            output_first_200_chars=本文です。
+            output_last_200_chars=本文です。
+            eos_detected=false
+            """.trimIndent(),
+        )
+
+        assertEquals("本文です。", parsed.output)
+        assertEquals("false", parsed.values["eos_detected"])
+        assertEquals("本文です。", parsed.values["output_first_200_chars"])
+    }
 }

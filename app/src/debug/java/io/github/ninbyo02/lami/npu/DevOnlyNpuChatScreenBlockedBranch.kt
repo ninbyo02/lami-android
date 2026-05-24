@@ -109,8 +109,16 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 "assistant_message=${escapeValue("実験的NPU route failed: duplicate_run_blocked")}",
                 "output=",
                 "prompt=${escapeValue(prompt)}",
+                "raw_user_prompt=${escapeValue(prompt)}",
+                "normalized_prompt=${escapeValue(prompt)}",
+                "final_model_input=${escapeValue(prompt)}",
+                "final_model_input_length=${prompt.length}",
+                "conversation_history_count=0",
+                "system_prompt_used=none",
+                "chat_template_used=none",
                 "prompt_source=${Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_CHAT_SCREEN}",
                 "prompt_validation_mode=${NpuDiagnosticPromptValidator.UTF8_HIDDEN_EXPERIMENTAL_MODE}",
+                "prompt_formatting_mode=raw_normalized_prompt",
                 "max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
                 "native_max_output_tokens_limit=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
                 "resolved_model_basename=",
@@ -195,8 +203,28 @@ object DevOnlyNpuChatScreenBlockedBranch {
         val rawNativeOutput = unescapeValue(nativeResult["raw_native_output"].orEmpty())
         val adapterOutput = unescapeValue(nativeResult["adapter_output"].orEmpty())
             .ifBlank { result.output.orEmpty() }
+        val rawUserPrompt = nativeResult["raw_user_prompt"].orEmpty()
+            .let(::unescapeValue)
+            .ifBlank { prompt }
+        val finalModelInput = nativeResult["final_model_input"].orEmpty()
+            .let(::unescapeValue)
+            .ifBlank { result.prompt }
+        val finalModelInputLength = nativeResult["final_model_input_length"].orEmpty()
+            .ifBlank { finalModelInput.length.toString() }
         val nativeMaxOutputTokensLimit = nativeResult["native_max_output_tokens_limit"].orEmpty()
             .ifBlank { DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS.toString() }
+        val outputDiagnosticsValues = nativeResult + mapOf(
+            "raw_native_output" to rawNativeOutput,
+            "adapter_output" to adapterOutput,
+            "output" to result.output.orEmpty(),
+            "finish_reason" to nativeResult["finish_reason"].orEmpty()
+                .ifBlank { if (result.success) "success_no_finish_reason_exposed" else "" },
+            "stop_reason" to stopReason,
+        )
+        val outputDiagnostics = Qairt244OutputUnicodeDiagnostics.toEscapedLines(
+            fields = Qairt244OutputUnicodeDiagnostics.buildFieldsFromExistingValues(outputDiagnosticsValues),
+            escapeValue = ::escapeValue,
+        )
         val runDecodeReached = nativeResult["run_decode"].orEmpty().contains("RunDecode") ||
             result.decodeElapsedMs != null
         val assistantMessage = if (result.success) {
@@ -215,8 +243,6 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "status=${if (result.success) "SUCCESS" else "ERROR"}",
             "reasonCode=${escapeValue(result.reasonCode)}",
             "failure_stage=${escapeValue(failureStage)}",
-            "stop_reason=${escapeValue(stopReason)}",
-            "finish_reason=${escapeValue(nativeResult["finish_reason"].orEmpty().ifBlank { if (result.success) "success_no_finish_reason_exposed" else "" })}",
             "assistant_message=${escapeValue(assistantMessage)}",
             "output=${escapeValue(result.output.orEmpty())}",
             "raw_native_output=${escapeValue(rawNativeOutput)}",
@@ -226,36 +252,46 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "displayed_assistant_text=${escapeValue(assistantMessage)}",
             "displayed_assistant_text_length=${assistantMessage.length}",
             "prompt=${escapeValue(result.prompt)}",
+            "raw_user_prompt=${escapeValue(rawUserPrompt)}",
+            "normalized_prompt=${escapeValue(result.prompt)}",
+            "final_model_input=${escapeValue(finalModelInput)}",
+            "final_model_input_length=$finalModelInputLength",
+            "conversation_history_count=${nativeResult["conversation_history_count"].orEmpty().ifBlank { "0" }}",
+            "system_prompt_used=${escapeValue(nativeResult["system_prompt_used"].orEmpty().ifBlank { "none" })}",
+            "chat_template_used=${escapeValue(nativeResult["chat_template_used"].orEmpty().ifBlank { "none" })}",
             "prompt_source=${Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_CHAT_SCREEN}",
             "prompt_validation_mode=${validation.promptValidationMode}",
+            "prompt_formatting_mode=${nativeResult["prompt_formatting_mode"].orEmpty().ifBlank { "raw_normalized_prompt" }}",
             "route_type=standard_hidden_chat_screen",
             "max_output_tokens=${result.maxOutputTokens}",
             "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit)}",
-            "output_token_count=${escapeValue(nativeResult["output_token_count"].orEmpty().ifBlank { "unavailable" })}",
-            "canonical_model_basename=${escapeValue(Qairt244ModelPathResolver.CANONICAL_MODEL_BASENAME)}",
-            "timestamp_prefix_stripped=${escapeValue(modelResolution["timestamp_prefix_stripped"].orEmpty())}",
-            "resolved_model_basename=${escapeValue(resolvedModelBasename)}",
-            "required_sm8750_model_path=$requiredSm8750ModelPath",
-            "npu_backend=${escapeValue(npuBackend)}",
-            "npu_backend_evidence=${escapeValue(backendEvidence)}",
-            "run_decode_reached=$runDecodeReached",
-            "decode_elapsed_ms=${result.decodeElapsedMs ?: ""}",
-            "elapsed_ms=${result.elapsedMs ?: ""}",
-            "artifact_path=${escapeValue(result.artifactPath.orEmpty())}",
-            "fallback_used=false",
-            "ui_cleanup_status=scheduled",
-            "normal_ui_route_connected=true",
-            "conversation_created=no",
-            "generate_response=no",
-            "selected_path_npu_normal_route=no",
-            "timeout=${result.timeout}",
-            "fresh_crash=${result.freshCrash}",
-            "db=false",
-            "tts=false",
-            "markdown=false",
-            "markdown_mode=non_streaming_direct_insert",
-            "repair_applied=false",
-            "streaming=false",
+        ).plus(outputDiagnostics).plus(
+            listOf(
+                "canonical_model_basename=${escapeValue(Qairt244ModelPathResolver.CANONICAL_MODEL_BASENAME)}",
+                "timestamp_prefix_stripped=${escapeValue(modelResolution["timestamp_prefix_stripped"].orEmpty())}",
+                "resolved_model_basename=${escapeValue(resolvedModelBasename)}",
+                "required_sm8750_model_path=$requiredSm8750ModelPath",
+                "npu_backend=${escapeValue(npuBackend)}",
+                "npu_backend_evidence=${escapeValue(backendEvidence)}",
+                "run_decode_reached=$runDecodeReached",
+                "decode_elapsed_ms=${result.decodeElapsedMs ?: ""}",
+                "elapsed_ms=${result.elapsedMs ?: ""}",
+                "artifact_path=${escapeValue(result.artifactPath.orEmpty())}",
+                "fallback_used=false",
+                "ui_cleanup_status=scheduled",
+                "normal_ui_route_connected=true",
+                "conversation_created=no",
+                "generate_response=no",
+                "selected_path_npu_normal_route=no",
+                "timeout=${result.timeout}",
+                "fresh_crash=${result.freshCrash}",
+                "db=false",
+                "tts=false",
+                "markdown=false",
+                "markdown_mode=non_streaming_direct_insert",
+                "repair_applied=false",
+                "streaming=false",
+            ),
         ).joinToString("\n")
     }
 

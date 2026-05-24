@@ -328,6 +328,13 @@ class Qairt244DevOnlyNpuRouteAdapter(
         values: Map<String, String>,
         promptSource: String,
     ) {
+        val outputDiagnostics = Qairt244OutputUnicodeDiagnostics.toEscapedLines(
+            fields = Qairt244OutputUnicodeDiagnostics.buildFields(
+                output = rawNativeOutput,
+                values = values,
+            ),
+            escapeValue = ::escapeValue,
+        )
         resultFile.appendText(
             listOf(
                 "route_type=${routeType(promptSource)}",
@@ -335,14 +342,30 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "raw_native_output_length=${rawNativeOutput.length}",
                 "adapter_output=${escapeValue(adapterOutput)}",
                 "adapter_output_length=${adapterOutput.length}",
-                "finish_reason=${values["finish_reason"].orEmpty().ifBlank { "not_exposed_by_lower_level_entrypoint" }}",
-                "stop_reason=${values["stop_reason"].orEmpty()}",
-                "output_token_count=${values["output_token_count"].orEmpty().ifBlank { "unavailable" }}",
-                "markdown_mode=non_streaming_direct_insert",
-                "repair_applied=false",
+            ).plus(outputDiagnostics).plus(
+                listOf(
+                    "markdown_mode=non_streaming_direct_insert",
+                    "repair_applied=false",
+                ),
             ).joinToString(separator = "\n", postfix = "\n"),
         )
     }
+
+    private fun promptFormattingDiagnostics(
+        requestedPrompt: String,
+        normalizedPrompt: String,
+        promptSource: String,
+    ): List<String> = listOf(
+        "raw_user_prompt=${escapeValue(requestedPrompt)}",
+        "normalized_prompt=${escapeValue(normalizedPrompt)}",
+        "final_model_input=${escapeValue(normalizedPrompt)}",
+        "final_model_input_length=${normalizedPrompt.length}",
+        "conversation_history_count=0",
+        "system_prompt_used=none",
+        "chat_template_used=none",
+        "prompt_source=$promptSource",
+        "prompt_formatting_mode=raw_normalized_prompt",
+    )
 
     private fun escapeValue(value: String): String =
         value.replace("\\", "\\\\").replace("\n", "\\n")
@@ -382,8 +405,11 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "reasonCode=invalid_prompt:${validation.reasonCode}",
                 "requested_prompt=$requestedPrompt",
                 "actual_prompt=$normalizedPrompt",
-                "normalized_prompt=$normalizedPrompt",
-                "prompt_source=$promptSource",
+                *promptFormattingDiagnostics(
+                    requestedPrompt = requestedPrompt,
+                    normalizedPrompt = normalizedPrompt,
+                    promptSource = promptSource,
+                ).toTypedArray(),
                 "prompt_validation_mode=${validation.promptValidationMode}",
                 "max_output_tokens=$maxOutputTokens",
                 "fallback_used=false",
@@ -416,8 +442,11 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "reasonCode=${resolution.reasonCode}",
                 "requested_prompt=$requestedPrompt",
                 "actual_prompt=$prompt",
-                "normalized_prompt=$prompt",
-                "prompt_source=$promptSource",
+                *promptFormattingDiagnostics(
+                    requestedPrompt = requestedPrompt,
+                    normalizedPrompt = prompt,
+                    promptSource = promptSource,
+                ).toTypedArray(),
                 "prompt_validation_mode=$validationMode",
                 "max_output_tokens=$maxOutputTokens",
                 "resolved_model_path=${resolution.path ?: ""}",
@@ -461,8 +490,11 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "reasonCode=model_file_not_required_sm8750",
                 "requested_prompt=$requestedPrompt",
                 "actual_prompt=$prompt",
-                "normalized_prompt=$prompt",
-                "prompt_source=$promptSource",
+                *promptFormattingDiagnostics(
+                    requestedPrompt = requestedPrompt,
+                    normalizedPrompt = prompt,
+                    promptSource = promptSource,
+                ).toTypedArray(),
                 "prompt_validation_mode=$validationMode",
                 "max_output_tokens=$maxOutputTokens",
                 "resolved_model_path=${resolution.path ?: ""}",
@@ -513,8 +545,11 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "required_sm8750_model_path=${modelInfo?.required ?: false}",
                 "requested_prompt=$requestedPrompt",
                 "actual_prompt=$normalizedPrompt",
-                "normalized_prompt=$normalizedPrompt",
-                "prompt_source=$promptSource",
+                *promptFormattingDiagnostics(
+                    requestedPrompt = requestedPrompt,
+                    normalizedPrompt = normalizedPrompt,
+                    promptSource = promptSource,
+                ).toTypedArray(),
                 "prompt_validation_mode=$validationMode",
                 "native_prompt_validation_mode=${values["native_prompt_validation_mode"] ?: validationMode}",
                 "utf8_allowed=${values["utf8_allowed"] ?: (validationMode != NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE).toString()}",
