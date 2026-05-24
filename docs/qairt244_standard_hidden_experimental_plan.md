@@ -40,6 +40,34 @@ Move only the guarded qairt244 SM8750 route surface needed for a hidden
 Do not move this into the normal selected-path NPU route. Do not expose generic
 NPU candidate selection. Do not add automatic fallback in this phase.
 
+## Step 2: Shared Logic Migrated
+
+The first foundation step is to move only pure shared logic into the main
+source set so `standardDebug` can compile it while still keeping the route
+hidden and OFF:
+
+- `Qairt244ModelPathResolver`: canonical/timestamp-prefixed SM8750 basename
+  detection, qcs8275/generic/E2B/E4B rejection, candidate resolution, and model
+  diagnostics fields
+- `NpuDiagnosticPromptValidator`: ASCII diagnostic and UTF-8 internal-intent
+  prompt validation, including empty/NUL/control/invalid UTF-8/32-code-point
+  rejection
+
+The following remain `customBuildExperimentDebug`-only until the hidden
+standard route is implemented:
+
+- `Qairt244DevOnlyNpuRouteAdapter`
+- `DevQairt244PromptReceiver`
+- `Qairt244ShortMultitokenSmoke` and other native smoke entrypoints
+- custom manifest receiver/activity declarations
+- native custom artifact packaging
+- ChatScreen reflection entrypoint activation
+- Settings visibility for the qairt244 NPU toggle
+
+This step creates no standard user-visible UI, no standard ChatScreen NPU
+execution branch, no production `Backend.NPU` promotion, and no automatic
+fallback.
+
 ## Hidden Gate Options
 
 The hidden route should require two layers:

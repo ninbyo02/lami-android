@@ -500,6 +500,11 @@ The `standardDebug` hidden experimental migration design is tracked in
 hidden behind developer access, default OFF, SM8750-only, capped at 128 tokens,
 and explicitly not production `Backend.NPU` enablement.
 
+Step 2 of that plan has migrated only shared resolver and prompt-validation
+logic into the main source set. The executable adapter, receiver, native smoke
+entrypoints, Settings row, and ChatScreen activation remain
+`customBuildExperimentDebug`-only.
+
 ## 8 Token Phase
 
 The next bounded DEV-only step raises only the qairt244 SM8750 experiment route from `max_output_tokens=3` to `max_output_tokens=8`. This is not a production NPU rollout and still does not enable `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
