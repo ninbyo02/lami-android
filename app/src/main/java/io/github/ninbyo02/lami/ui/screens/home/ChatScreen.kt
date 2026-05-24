@@ -2480,6 +2480,12 @@ fun Home(
                                                                     if (assistantId > 0) {
                                                                         immediateInferenceStatsByMessageId[assistantId] = stats
                                                                     }
+                                                                    writeDevQairt244Sm8750DisplayDiagnostics(
+                                                                        context = context.applicationContext,
+                                                                        result = devResult,
+                                                                        displayedAssistantText = assistantText,
+                                                                        assistantMessageId = assistantId,
+                                                                    )
                                                                 }
                                                                 cleanupDevQairt244NpuUiState(reason = "dev-qairt244-finish")
                                                                 snackbarHostState.currentSnackbarData?.dismiss()
@@ -7911,7 +7917,18 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
     val fallbackUsed: Boolean = false,
     val failureStage: String = "",
     val stopReason: String = "",
+    val finishReason: String = "",
     val artifactPath: String = "",
+    val routeType: String = "",
+    val rawNativeOutput: String = "",
+    val rawNativeOutputLength: Int = 0,
+    val adapterOutput: String = "",
+    val adapterOutputLength: Int = 0,
+    val displayedAssistantText: String = "",
+    val displayedAssistantTextLength: Int = 0,
+    val outputTokenCount: String = "",
+    val markdownMode: String = "",
+    val repairApplied: Boolean = false,
 ) {
     fun toInferenceStats(): InferenceStats = InferenceStats(
         modelName = selectedRoute,
@@ -7936,6 +7953,14 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
             "ui_cleanup_status=$uiCleanupStatus",
             "failure_stage=$failureStage",
             "stop_reason=$stopReason",
+            "finish_reason=$finishReason",
+            "route_type=$routeType",
+            "raw_native_output_length=$rawNativeOutputLength",
+            "adapter_output_length=$adapterOutputLength",
+            "displayed_assistant_text_length=${displayedAssistantText.ifBlank { assistantMessage }.length}",
+            "output_token_count=${outputTokenCount.ifBlank { "unknown" }}",
+            "markdown_mode=${markdownMode.ifBlank { "non_streaming_direct_insert" }}",
+            "repair_applied=$repairApplied",
         ).joinToString(";"),
         finishReason = if (success) "success" else reasonCode,
         localSourceSummary = toLocalSourceSummary(),
@@ -7962,6 +7987,17 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
         "ui_cleanup_status=$uiCleanupStatus",
         "failure_stage=$failureStage",
         "stop_reason=$stopReason",
+        "finish_reason=$finishReason",
+        "route_type=$routeType",
+        "raw_native_output=${rawNativeOutput}",
+        "raw_native_output_length=$rawNativeOutputLength",
+        "adapter_output=${adapterOutput}",
+        "adapter_output_length=$adapterOutputLength",
+        "displayed_assistant_text=${displayedAssistantText.ifBlank { assistantMessage }}",
+        "displayed_assistant_text_length=${displayedAssistantText.ifBlank { assistantMessage }.length}",
+        "output_token_count=${outputTokenCount.ifBlank { "unknown" }}",
+        "markdown_mode=${markdownMode.ifBlank { "non_streaming_direct_insert" }}",
+        "repair_applied=$repairApplied",
         "normal_ui_route_connected=false",
         "artifact_path=$artifactPath",
     ).joinToString("\n")
@@ -8004,7 +8040,21 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
                 fallbackUsed = values["fallback_used"]?.toBooleanStrictOrNull() ?: false,
                 failureStage = values["failure_stage"].orEmpty(),
                 stopReason = values["stop_reason"].orEmpty(),
+                finishReason = values["finish_reason"].orEmpty(),
                 artifactPath = values["artifact_path"].orEmpty(),
+                routeType = values["route_type"].orEmpty(),
+                rawNativeOutput = values["raw_native_output"].orEmpty(),
+                rawNativeOutputLength = values["raw_native_output_length"]?.toIntOrNull()
+                    ?: values["raw_native_output"].orEmpty().length,
+                adapterOutput = values["adapter_output"].orEmpty().ifBlank { output },
+                adapterOutputLength = values["adapter_output_length"]?.toIntOrNull()
+                    ?: values["adapter_output"].orEmpty().ifBlank { output }.length,
+                displayedAssistantText = values["displayed_assistant_text"].orEmpty().ifBlank { assistantMessage },
+                displayedAssistantTextLength = values["displayed_assistant_text_length"]?.toIntOrNull()
+                    ?: values["displayed_assistant_text"].orEmpty().ifBlank { assistantMessage }.length,
+                outputTokenCount = values["output_token_count"].orEmpty(),
+                markdownMode = values["markdown_mode"].orEmpty(),
+                repairApplied = values["repair_applied"]?.toBooleanStrictOrNull() ?: false,
             )
         }
 
@@ -8012,6 +8062,49 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
             value.replace("\\n", "\n").replace("\\\\", "\\")
     }
 }
+
+private fun writeDevQairt244Sm8750DisplayDiagnostics(
+    context: Context,
+    result: DevQairt244Sm8750NpuChatScreenResult,
+    displayedAssistantText: String,
+    assistantMessageId: Int,
+) {
+    runCatching {
+        File(context.filesDir, "qairt244_standard_hidden_display_diagnostics.txt").writeText(
+            listOf(
+                "route_type=${result.routeType.ifBlank { "standard_hidden_chat_screen" }}",
+                "selected_route=${result.selectedRoute}",
+                "assistant_message_id=$assistantMessageId",
+                "success=${result.success}",
+                "reasonCode=${result.reasonCode}",
+                "prompt_source=${result.promptSource}",
+                "prompt_validation_mode=${result.promptValidationMode}",
+                "raw_native_output=${escapeDevQairt244DiagnosticValue(result.rawNativeOutput)}",
+                "raw_native_output_length=${result.rawNativeOutputLength}",
+                "adapter_output=${escapeDevQairt244DiagnosticValue(result.adapterOutput)}",
+                "adapter_output_length=${result.adapterOutputLength}",
+                "displayed_assistant_text=${escapeDevQairt244DiagnosticValue(displayedAssistantText)}",
+                "displayed_assistant_text_length=${displayedAssistantText.length}",
+                "finish_reason=${result.finishReason}",
+                "stop_reason=${result.stopReason}",
+                "output_token_count=${result.outputTokenCount.ifBlank { "unknown" }}",
+                "max_output_tokens=${result.maxOutputTokens}",
+                "decode_elapsed_ms=${result.decodeElapsedMs ?: ""}",
+                "npu_backend=${result.npuBackend}",
+                "npu_backend_evidence=${result.npuBackendEvidence}",
+                "fallback_used=${result.fallbackUsed}",
+                "timeout=false",
+                "fresh_crash=false",
+                "markdown_mode=${result.markdownMode.ifBlank { "non_streaming_direct_insert" }}",
+                "repair_applied=${result.repairApplied}",
+                "streaming=false",
+            ).joinToString(separator = "\n", postfix = "\n"),
+        )
+    }
+}
+
+private fun escapeDevQairt244DiagnosticValue(value: String): String =
+    value.replace("\\", "\\\\").replace("\n", "\\n")
 
 private fun List<String>.toAttachmentUriStringsJson(): String =
     JSONArray().apply { forEach { uri -> put(uri) } }.toString()

@@ -207,6 +207,13 @@ class Qairt244DevOnlyNpuRouteAdapter(
             val values = parseResultFile()
             val success = values["result"] == "success"
             val output = values["output"]
+            val rawNativeOutput = readNativeOutputFromResultFile()
+            appendOutputDiagnostics(
+                rawNativeOutput = rawNativeOutput,
+                adapterOutput = output.orEmpty(),
+                values = values,
+                promptSource = promptSource,
+            )
             appendRouteMarker(
                 "runId=$runId state=${if (success) "success" else "failure"} elapsed_ms=$elapsed " +
                     "result=${values["result"] ?: "unknown"} output=${output ?: "-"} db=false tts=false markdown=false stream=false",
@@ -315,6 +322,45 @@ class Qairt244DevOnlyNpuRouteAdapter(
             }
             .toMap()
     }
+
+    private fun readNativeOutputFromResultFile(): String {
+        if (!resultFile.isFile) return ""
+        val lines = resultFile.readLines()
+        val outputStartIndex = lines.indexOfFirst { it.startsWith("output=") }
+        if (outputStartIndex < 0) return ""
+        val outputLines = mutableListOf(lines[outputStartIndex].removePrefix("output="))
+        for (index in (outputStartIndex + 1)..lines.lastIndex) {
+            val line = lines[index]
+            if (line.startsWith("selected_route=") || line.startsWith("$ROUTE_MARKER ")) break
+            outputLines += line
+        }
+        return outputLines.joinToString("\n").trimEnd()
+    }
+
+    private fun appendOutputDiagnostics(
+        rawNativeOutput: String,
+        adapterOutput: String,
+        values: Map<String, String>,
+        promptSource: String,
+    ) {
+        resultFile.appendText(
+            listOf(
+                "route_type=${routeType(promptSource)}",
+                "raw_native_output=${escapeValue(rawNativeOutput)}",
+                "raw_native_output_length=${rawNativeOutput.length}",
+                "adapter_output=${escapeValue(adapterOutput)}",
+                "adapter_output_length=${adapterOutput.length}",
+                "finish_reason=${values["finish_reason"].orEmpty().ifBlank { "not_exposed_by_lower_level_entrypoint" }}",
+                "stop_reason=${values["stop_reason"].orEmpty()}",
+                "output_token_count=${values["output_token_count"].orEmpty().ifBlank { "unavailable" }}",
+                "markdown_mode=non_streaming_direct_insert",
+                "repair_applied=false",
+            ).joinToString(separator = "\n", postfix = "\n"),
+        )
+    }
+
+    private fun escapeValue(value: String): String =
+        value.replace("\\", "\\\\").replace("\n", "\\n")
 
     private fun nativeBackendEvidence(): String? {
         if (!nativeDiagFile.isFile) return null
@@ -549,6 +595,13 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "qairt244_sm8750_hidden_npu"
             } else {
                 "qairt244_sm8750_dev_npu"
+            }
+
+        fun routeType(promptSource: String): String =
+            if (promptSource == PROMPT_SOURCE_CHAT_SCREEN) {
+                "standard_hidden_chat_screen"
+            } else {
+                "internal_intent"
             }
     }
 }

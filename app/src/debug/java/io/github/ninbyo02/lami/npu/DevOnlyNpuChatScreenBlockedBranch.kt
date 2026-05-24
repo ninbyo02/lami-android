@@ -192,6 +192,9 @@ object DevOnlyNpuChatScreenBlockedBranch {
             .ifBlank { if (result.success) "NPU" else "" }
         val backendEvidence = result.backendEvidence.orEmpty()
             .ifBlank { nativeResult["npu_backend_evidence"].orEmpty() }
+        val rawNativeOutput = unescapeValue(nativeResult["raw_native_output"].orEmpty())
+        val adapterOutput = unescapeValue(nativeResult["adapter_output"].orEmpty())
+            .ifBlank { result.output.orEmpty() }
         val nativeMaxOutputTokensLimit = nativeResult["native_max_output_tokens_limit"].orEmpty()
             .ifBlank { DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS.toString() }
         val runDecodeReached = nativeResult["run_decode"].orEmpty().contains("RunDecode") ||
@@ -213,13 +216,22 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "reasonCode=${escapeValue(result.reasonCode)}",
             "failure_stage=${escapeValue(failureStage)}",
             "stop_reason=${escapeValue(stopReason)}",
+            "finish_reason=${escapeValue(nativeResult["finish_reason"].orEmpty().ifBlank { if (result.success) "success_no_finish_reason_exposed" else "" })}",
             "assistant_message=${escapeValue(assistantMessage)}",
             "output=${escapeValue(result.output.orEmpty())}",
+            "raw_native_output=${escapeValue(rawNativeOutput)}",
+            "raw_native_output_length=${rawNativeOutput.length}",
+            "adapter_output=${escapeValue(adapterOutput)}",
+            "adapter_output_length=${adapterOutput.length}",
+            "displayed_assistant_text=${escapeValue(assistantMessage)}",
+            "displayed_assistant_text_length=${assistantMessage.length}",
             "prompt=${escapeValue(result.prompt)}",
             "prompt_source=${Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_CHAT_SCREEN}",
             "prompt_validation_mode=${validation.promptValidationMode}",
+            "route_type=standard_hidden_chat_screen",
             "max_output_tokens=${result.maxOutputTokens}",
             "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit)}",
+            "output_token_count=${escapeValue(nativeResult["output_token_count"].orEmpty().ifBlank { "unavailable" })}",
             "canonical_model_basename=${escapeValue(Qairt244ModelPathResolver.CANONICAL_MODEL_BASENAME)}",
             "timestamp_prefix_stripped=${escapeValue(modelResolution["timestamp_prefix_stripped"].orEmpty())}",
             "resolved_model_basename=${escapeValue(resolvedModelBasename)}",
@@ -241,6 +253,8 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "db=false",
             "tts=false",
             "markdown=false",
+            "markdown_mode=non_streaming_direct_insert",
+            "repair_applied=false",
             "streaming=false",
         ).joinToString("\n")
     }
@@ -258,5 +272,8 @@ object DevOnlyNpuChatScreenBlockedBranch {
 
     private fun escapeValue(value: String): String =
         value.replace("\\", "\\\\").replace("\n", "\\n")
+
+    private fun unescapeValue(value: String): String =
+        value.replace("\\n", "\n").replace("\\\\", "\\")
 
 }

@@ -85,6 +85,8 @@ write_summary() {
     cat "$OUT_DIR/receiver_state.txt" 2>/dev/null || true
     printf '```\n\n## Result\n\n```text\n'
     cat "$OUT_DIR/result.txt" 2>/dev/null || true
+    printf '```\n\n## Display diagnostics\n\n```text\n'
+    cat "$OUT_DIR/display_diagnostics.txt" 2>/dev/null || true
     printf '```\n\n## UI cleanup\n\n```text\n'
     cat "$OUT_DIR/ui_cleanup_state.txt" 2>/dev/null || true
     printf '```\n'
@@ -103,6 +105,7 @@ main() {
     files/qairt244_chat_screen_model_path_resolution.txt \
     files/qairt244_chat_screen_real_npu_once_guard.txt \
     files/qairt244_dev_npu_ui_cleanup_state.txt \
+    files/qairt244_standard_hidden_display_diagnostics.txt \
     files/qairt244_standard_hidden_prompt_state.txt >"$OUT_DIR/cleanup_app_files.txt" 2>&1 || true
 
   adb_cmd shell am start -W -n "$APP_ID/.MainActivity" >"$OUT_DIR/am_start.txt" 2>&1 || true
@@ -125,6 +128,7 @@ main() {
   pull_app_file "files/qairt244_native_diag.txt" "$OUT_DIR/native_diag.txt"
   pull_app_file "files/qairt244_chat_screen_model_path_resolution.txt" "$OUT_DIR/resolved_model_path.txt"
   pull_app_file "files/qairt244_dev_npu_ui_cleanup_state.txt" "$OUT_DIR/ui_cleanup_state.txt"
+  pull_app_file "files/qairt244_standard_hidden_display_diagnostics.txt" "$OUT_DIR/display_diagnostics.txt"
   adb_cmd logcat -d -t 800 >"$OUT_DIR/logcat_tail.txt" 2>&1 || true
 
   if [ "$wait_status" = success ] && grep -q '^success=true$' "$OUT_DIR/receiver_state.txt" 2>/dev/null; then

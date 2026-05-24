@@ -238,3 +238,38 @@ Do not show or enable the route in normal Settings when:
 The next implementation step is Settings cleanup and hidden-gate plumbing for
 `standardDebug`; it should not change native artifacts, token limits, or
 fallback behavior.
+
+## NPU Output Quality Investigation
+
+As of 2026-05-24, the standard hidden route can reach NPU and RunDecode for
+normal ChatScreen Japanese input, but the ChatScreen-visible text may be only
+`。` for prompt `こんにちは`.
+
+The current evidence points to an output plumbing issue, not an early NPU stop:
+
+- Native output is multi-line and longer than the displayed text.
+- The lower-level native result file writes `output=` followed by raw multi-line
+  text.
+- Kotlin `parseResultFile()` treats the result as one-line `key=value` records,
+  so `output=。` is read as the adapter output and later lines are ignored.
+- ChatScreen inserts the adapter/assistant text directly through the
+  non-streaming hidden route.
+- Markdown streaming repair and Edge Gallery compatible markdown repair are not
+  applied on this path.
+- `max_output_tokens=128` remains fixed, `RunDecode` is reached, and
+  `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag` remains present.
+
+Diagnostics now record these fields so the native/adaptor/display boundary is
+visible in artifacts:
+
+- `raw_native_output` and `raw_native_output_length`
+- `adapter_output` and `adapter_output_length`
+- `displayed_assistant_text` and `displayed_assistant_text_length`
+- `finish_reason`, `stop_reason`, and `output_token_count` when exposed
+- `max_output_tokens`, `decode_elapsed_ms`, `route_type`, and
+  `prompt_source=chat_screen`
+- `markdown_mode` and `repair_applied`
+
+Do not start Edge Gallery prompt/template alignment or output rewriting yet.
+The next minimal fix should preserve the native artifact and hidden route while
+making the app-side result parser handle multi-line native output explicitly.

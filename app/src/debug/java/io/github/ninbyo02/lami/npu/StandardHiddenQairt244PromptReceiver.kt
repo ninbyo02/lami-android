@@ -74,6 +74,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
             }
 
             DevOnlyNpuChatScreenBlockedBranch.runForChatScreen(appContext, prompt).also { result ->
+                writeDisplayDiagnostics(appContext, result)
                 writeRunnerCleanupState(appContext)
                 writeState(
                     stateFile = stateFile,
@@ -126,6 +127,58 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
             ).joinToString(separator = "\n", postfix = "\n"),
         )
     }
+
+    private fun writeDisplayDiagnostics(appContext: Context, resultText: String) {
+        val values = parseKeyValueText(resultText)
+        val displayedText = values["displayed_assistant_text"].orEmpty()
+            .ifBlank { values["assistant_message"].orEmpty() }
+            .ifBlank { values["output"].orEmpty() }
+        File(appContext.filesDir, "qairt244_standard_hidden_display_diagnostics.txt").writeText(
+            listOf(
+                "route_type=${values["route_type"].orEmpty().ifBlank { "standard_hidden_chat_screen" }}",
+                "selected_route=${values["selected_route"].orEmpty()}",
+                "assistant_message_id=receiver_runner",
+                "success=${values["success"].orEmpty()}",
+                "reasonCode=${values["reasonCode"].orEmpty()}",
+                "prompt_source=${values["prompt_source"].orEmpty()}",
+                "prompt_validation_mode=${values["prompt_validation_mode"].orEmpty()}",
+                "raw_native_output=${escapeValue(values["raw_native_output"].orEmpty())}",
+                "raw_native_output_length=${values["raw_native_output_length"].orEmpty()}",
+                "adapter_output=${escapeValue(values["adapter_output"].orEmpty())}",
+                "adapter_output_length=${values["adapter_output_length"].orEmpty()}",
+                "displayed_assistant_text=${escapeValue(displayedText)}",
+                "displayed_assistant_text_length=${displayedText.length}",
+                "finish_reason=${values["finish_reason"].orEmpty()}",
+                "stop_reason=${values["stop_reason"].orEmpty()}",
+                "output_token_count=${values["output_token_count"].orEmpty().ifBlank { "unknown" }}",
+                "max_output_tokens=${values["max_output_tokens"].orEmpty()}",
+                "decode_elapsed_ms=${values["decode_elapsed_ms"].orEmpty()}",
+                "npu_backend=${values["npu_backend"].orEmpty()}",
+                "npu_backend_evidence=${values["npu_backend_evidence"].orEmpty()}",
+                "fallback_used=${values["fallback_used"].orEmpty()}",
+                "timeout=${values["timeout"].orEmpty()}",
+                "fresh_crash=${values["fresh_crash"].orEmpty()}",
+                "markdown_mode=${values["markdown_mode"].orEmpty().ifBlank { "non_streaming_direct_insert" }}",
+                "repair_applied=${values["repair_applied"].orEmpty().ifBlank { "false" }}",
+                "streaming=${values["streaming"].orEmpty().ifBlank { "false" }}",
+            ).joinToString(separator = "\n", postfix = "\n"),
+        )
+    }
+
+    private fun parseKeyValueText(text: String): Map<String, String> =
+        text.lineSequence()
+            .mapNotNull { line ->
+                val index = line.indexOf('=')
+                if (index <= 0) return@mapNotNull null
+                line.substring(0, index) to unescapeValue(line.substring(index + 1))
+            }
+            .toMap()
+
+    private fun unescapeValue(value: String): String =
+        value.replace("\\n", "\n").replace("\\\\", "\\")
+
+    private fun escapeValue(value: String): String =
+        value.replace("\\", "\\\\").replace("\n", "\\n")
 
     companion object {
         const val ACTION = "io.github.ninbyo02.lami.action.STANDARD_HIDDEN_QAIRT244_PROMPT"
