@@ -672,6 +672,19 @@ fun Settings(
                         }
                         Spacer(modifier = Modifier.height(2.dp))
                     }
+                    if (!BuildConfig.CUSTOM_BUILD_EXPERIMENT && settingsData.developerAccessEnabled) {
+                        Card {
+                            SettingsToggleRowItem(
+                                headline = "実験的NPU（SM8750）",
+                                supporting = "standard hidden experimental。まだ本適用ではありません。ChatScreen route activation は次ステップ。",
+                                leadingIcon = Icons.Filled.BugReport,
+                                checked = false,
+                                enabled = false,
+                                onCheckedChange = {},
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
                     Card {
                         Column(
                             modifier = Modifier

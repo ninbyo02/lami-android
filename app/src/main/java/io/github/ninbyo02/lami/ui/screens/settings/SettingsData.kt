@@ -11,6 +11,7 @@ data class SettingsData(
     val inferenceStatsDisplayMode: InferenceStatsDisplayMode = InferenceStatsDisplayMode.SIMPLE,
     val preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     val markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    val developerAccessEnabled: Boolean = false,
     val devEnableNpuChatScreenRoute: Boolean = false,
     val devEnableQairt244Sm8750NpuRoute: Boolean = false,
 )

@@ -376,6 +376,7 @@ class SettingsPreferences(private val context: Context) {
     private val inferenceStatsDisplayModeKey = stringPreferencesKey("inference_stats_display_mode")
     private val preferredBackendDryRunKey = stringPreferencesKey("lami_dev_preferred_backend_dry_run")
     private val markdownStreamingModeKey = stringPreferencesKey("dev_markdown_streaming_mode")
+    private val developerAccessEnabledKey = booleanPreferencesKey("developer_access_enabled")
     private val devEnableNpuChatScreenRouteKey = booleanPreferencesKey("dev_enable_npu_chatscreen_route")
     private val devEnableQairt244Sm8750NpuRouteKey = booleanPreferencesKey("dev_enable_qairt244_sm8750_npu_route")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
@@ -440,6 +441,9 @@ class SettingsPreferences(private val context: Context) {
                 storedMode = MarkdownStreamingMode.fromStorage(preferences[markdownStreamingModeKey]),
                 isDebugBuild = BuildConfig.DEBUG,
             ),
+            developerAccessEnabled =
+                BuildConfig.DEBUG &&
+                    (preferences[developerAccessEnabledKey] ?: false),
             devEnableNpuChatScreenRoute =
                 BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
                     (preferences[devEnableNpuChatScreenRouteKey] ?: false),
@@ -555,6 +559,11 @@ class SettingsPreferences(private val context: Context) {
             storedMode = MarkdownStreamingMode.fromStorage(preferences[markdownStreamingModeKey]),
             isDebugBuild = BuildConfig.DEBUG,
         )
+    }
+
+    val developerAccessEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        BuildConfig.DEBUG &&
+            (preferences[developerAccessEnabledKey] ?: false)
     }
 
     val devEnableNpuChatScreenRouteFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -792,6 +801,12 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveMarkdownStreamingMode(mode: MarkdownStreamingMode) {
         context.dataStore.edit { preferences ->
             preferences[markdownStreamingModeKey] = mode.storageValue
+        }
+    }
+
+    suspend fun saveDeveloperAccessEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[developerAccessEnabledKey] = BuildConfig.DEBUG && enabled
         }
     }
 

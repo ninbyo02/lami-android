@@ -92,6 +92,22 @@ experimental Settings row; neither should enable NPU by itself.
 
 Normal users must not see any qairt244 NPU control in `standardDebug`.
 
+Current Step 3 plumbing:
+
+- Developer access is local to DEBUG builds and is enabled by tapping the About
+  screen version/build text seven times.
+- With developer access OFF, `standardDebug` shows no qairt244 NPU Settings row.
+- With developer access ON, `standardDebug` shows a disabled/read-only
+  `実験的NPU（SM8750）` row that says `standard hidden experimental`, `まだ本適用
+  ではありません`, and `ChatScreen route activation は次ステップ`.
+- The row is display-only. It does not write the qairt244 route toggle and does
+  not activate ChatScreen execution.
+- `customBuildExperimentDebug` keeps its existing `DEV: SM8750 NPU実験` toggle
+  and does not show the standard hidden placeholder row, avoiding duplicate
+  controls.
+- The next step is ChatScreen hidden route activation behind the standard gate
+  and SM8750 model guard.
+
 When developer access is enabled, Settings may show a hidden experimental row:
 
 - Label: `Experimental: SM8750 NPU`
