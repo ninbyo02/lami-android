@@ -125,6 +125,12 @@ responding_stop_stale_ui=false
 rollback_condition_hit=false
 ```
 
+## Runner Prompt Input Stability
+
+As of the runner prompt-input stabilization phase, `scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh` accepts `--prompt <ascii-prompt>` for controlled stability checks. The runner restricts this path to ASCII alphanumeric plus `._-`, saves the current IME, temporarily selects an ADB/Latin IME when available, verifies the typed ChatScreen field before pressing Send, retries after KEYCODE_LANGUAGE_SWITCH when the IME still rewrites ASCII, and records `requested_prompt`, `actual_prompt`, `prompt_input_status`, and `prompt_input_failure_reason` in each artifact. Non-ASCII prompts such as Japanese are treated as `unsupported_non_ascii_prompt` and stop before NPU execution; Japanese prompt coverage is a separate phase.
+
+The current stability prompt set is `Hello`, `test`, and `OK`. Each run still uses `max_output_tokens=16`, exact SM8750 model selection, no model copy/delete, no fallback, and the DEV-only route.
+
 ## Diagnosis Display Phase
 
 As of 2026-05-24, the ChatScreen inference stats surface keeps the qairt244 SM8750 evidence in a dedicated DEV section instead of folding it into the normal generation-speed rows. This remains DEV-only and does not enable production `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.

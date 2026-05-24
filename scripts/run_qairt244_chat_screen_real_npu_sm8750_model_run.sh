@@ -15,18 +15,26 @@ TIMEOUT_SECONDS=30
 MARKER="qairt244_editable_prompt_smoke_v1"
 ROUTE_MARKER="qairt244_chat_screen_real_npu_adapter_v1"
 TARGET_MODEL="gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+PROMPT_INPUT_STATUS="not_started"
+PROMPT_INPUT_FAILURE_REASON=""
+PROMPT_ACTUAL=""
+ORIGINAL_IME=""
+STABLE_IME=""
+IME_RESTORE_STATUS="not_run"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --artifact) CUSTOM_BUILD_ARTIFACT="${2:-}"; shift 2 ;;
     --run) RUN_REQUESTED=true; shift ;;
     --device) DEVICE_SERIAL="${2:-}"; shift 2 ;;
+    --prompt) PROMPT="${2:-}"; shift 2 ;;
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh [--artifact <custom-build-artifact>] [--run] [--device <serial>]
+  scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh [--artifact <custom-build-artifact>] [--run] [--device <serial>] [--prompt <ascii-prompt>]
 
-Runs one DEV-only ChatScreen NPU adapter attempt with the qualcomm_sm8750 model, prompt=Hello, and maxOutputTokens=16.
+Runs one DEV-only ChatScreen NPU adapter attempt with the qualcomm_sm8750 model and maxOutputTokens=16.
+Prompt input is restricted to ASCII for runner stability; non-ASCII prompts stop before send.
 EOF
       exit 0 ;;
     *) printf 'ERROR: unknown argument: %s\n' "$1" >&2; exit 2 ;;
@@ -110,6 +118,95 @@ pull_app_file() {
   adb_cmd shell run-as "$APP_ID" cat "$remote" >"$local_file" 2>"$local_file.pull.err" || true
 }
 
+is_supported_ascii_prompt() {
+  case "$PROMPT" in
+    '') return 1 ;;
+    *[!A-Za-z0-9._-]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+write_prompt_input_status() {
+  {
+    printf 'requested_prompt=%s\n' "$PROMPT"
+    printf 'actual_prompt=%s\n' "$PROMPT_ACTUAL"
+    printf 'prompt_input_status=%s\n' "$PROMPT_INPUT_STATUS"
+    printf 'prompt_input_failure_reason=%s\n' "$PROMPT_INPUT_FAILURE_REASON"
+    printf 'original_ime=%s\n' "$ORIGINAL_IME"
+    printf 'stable_ime=%s\n' "$STABLE_IME"
+    printf 'ime_restore_status=%s\n' "$IME_RESTORE_STATUS"
+  } >"$OUT_DIR/prompt_input_status.txt"
+}
+
+select_stable_ime() {
+  ORIGINAL_IME="$(adb_cmd shell settings get secure default_input_method 2>/dev/null | tr -d '\r')"
+  adb_cmd shell ime list -s >"$OUT_DIR/ime_list.txt" 2>&1 || true
+  STABLE_IME="$(grep -m1 '^com.android.adbkeyboard/.AdbIME$' "$OUT_DIR/ime_list.txt" 2>/dev/null || true)"
+  if [ -z "$STABLE_IME" ]; then
+    STABLE_IME="$(grep -m1 'inputmethod.latin' "$OUT_DIR/ime_list.txt" 2>/dev/null || true)"
+  fi
+  if [ -n "$STABLE_IME" ]; then
+    adb_cmd shell ime set "$STABLE_IME" >"$OUT_DIR/ime_set.txt" 2>&1 || true
+  else
+    printf 'stable_ime_not_found\n' >"$OUT_DIR/ime_set.txt"
+  fi
+}
+
+restore_original_ime() {
+  if [ -n "$ORIGINAL_IME" ] && [ "$ORIGINAL_IME" != "null" ]; then
+    if adb_cmd shell ime set "$ORIGINAL_IME" >"$OUT_DIR/ime_restore.txt" 2>&1; then
+      IME_RESTORE_STATUS=success
+    else
+      IME_RESTORE_STATUS=failure
+    fi
+  else
+    IME_RESTORE_STATUS=skipped
+    printf 'original_ime_empty\n' >"$OUT_DIR/ime_restore.txt"
+  fi
+  write_prompt_input_status
+}
+
+extract_prompt_from_window() {
+  sed -n 's/.*<node[^>]*text="\([^"]*\)"[^>]*class="android.widget.EditText".*/\1/p' "$OUT_DIR/window_typed.xml" | sed -n '1p'
+}
+
+verify_prompt_input() {
+  PROMPT_ACTUAL="$(extract_prompt_from_window)"
+  if [ "$PROMPT_ACTUAL" = "$PROMPT" ]; then
+    PROMPT_INPUT_STATUS=ok
+    PROMPT_INPUT_FAILURE_REASON=
+    write_prompt_input_status
+    return 0
+  fi
+  PROMPT_INPUT_STATUS=failure
+  if [ -z "$PROMPT_ACTUAL" ]; then
+    PROMPT_INPUT_FAILURE_REASON=actual_prompt_unreadable
+  else
+    PROMPT_INPUT_FAILURE_REASON=actual_prompt_mismatch
+  fi
+  write_prompt_input_status
+  return 1
+}
+
+clear_prompt_field() {
+  local label="$1"
+  adb_cmd shell input tap 400 2450 >"$OUT_DIR/input_focus_${label}.txt" 2>&1 || true
+  sleep 0.3
+  adb_cmd shell input keyevent KEYCODE_MOVE_END >"$OUT_DIR/input_move_end_${label}.txt" 2>&1 || true
+  adb_cmd shell input keyevent --longpress KEYCODE_DEL >"$OUT_DIR/input_clear_${label}.txt" 2>&1 || true
+  sleep 0.2
+}
+
+attempt_prompt_input() {
+  local label="$1"
+  clear_prompt_field "$label"
+  adb_cmd shell input text "$PROMPT" >"$OUT_DIR/input_text_${label}.txt" 2>&1 || true
+  sleep 0.5
+  capture_window "$label"
+  cp "$OUT_DIR/window_${label}.xml" "$OUT_DIR/window_typed.xml" 2>/dev/null || true
+  verify_prompt_input
+}
+
 set_toggle() {
   local enabled="$1" target="$2"
   adb_cmd shell am start -W -n "$APP_ID/$TOGGLE_ACTIVITY" --ez enabled "$enabled" >"$OUT_DIR/toggle_${enabled}.start.txt" 2>&1 || true
@@ -149,6 +246,8 @@ write_preflight() {
     printf 'route_marker=%s\n' "$ROUTE_MARKER"
     printf 'route_code_present=%s\n' "$route_code_present"
     printf 'prompt=%s\n' "$PROMPT"
+    printf 'requested_prompt=%s\n' "$PROMPT"
+    printf 'prompt_ascii_only=true\n'
     printf 'max_output_tokens=16\n'
     printf 'run_requested=%s\n' "$RUN_REQUESTED"
     printf 'db=false\n'
@@ -231,6 +330,7 @@ write_summary() {
     printf 'target_model=%s\n' "$TARGET_MODEL"
     case "$resolved_model_path" in *"$TARGET_MODEL") printf 'sm8750_model_selected=true\n' ;; *) printf 'sm8750_model_selected=false\n' ;; esac
     printf 'resolved_model_path=%s\n' "$resolved_model_path"
+    if [ -f "$OUT_DIR/prompt_input_status.txt" ]; then cat "$OUT_DIR/prompt_input_status.txt"; fi
     printf 'actual_prompt=%s\n' "$actual_prompt"
     printf 'normalized_prompt=%s\n' "$normalized_prompt"
     printf 'output=%s\n' "$output"
@@ -282,18 +382,36 @@ main() {
 
   set_toggle false "$OUT_DIR/toggle_state_before.txt"
   set_toggle true "$OUT_DIR/toggle_state_after_on.txt"
+  if ! is_supported_ascii_prompt; then
+    PROMPT_INPUT_STATUS=failure
+    PROMPT_INPUT_FAILURE_REASON=unsupported_non_ascii_prompt
+    write_prompt_input_status
+    set_toggle false "$OUT_DIR/toggle_state_after_off.txt"
+    write_summary false prompt_input_failed
+    log "prompt input blocked: unsupported_non_ascii_prompt"
+    exit 0
+  fi
+  select_stable_ime
 
   adb_cmd shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n "$APP_ID/$MAIN_ACTIVITY" >"$OUT_DIR/activity_start.txt" 2>&1 || true
   sleep 1
   capture_window before
-  adb_cmd shell input tap 400 2450 >"$OUT_DIR/input_focus.txt" 2>&1 || true
-  sleep 0.5
-  adb_cmd shell input keyevent KEYCODE_MOVE_END >"$OUT_DIR/input_move_end.txt" 2>&1 || true
-  adb_cmd shell input keyevent --longpress KEYCODE_DEL >"$OUT_DIR/input_clear.txt" 2>&1 || true
-  sleep 0.2
-  adb_cmd shell input text "$PROMPT" >"$OUT_DIR/input_text.txt" 2>&1 || true
-  sleep 0.5
-  capture_window typed
+  if ! attempt_prompt_input typed; then
+    for retry in 1 2 3; do
+      adb_cmd shell input keyevent KEYCODE_LANGUAGE_SWITCH >"$OUT_DIR/input_language_switch_${retry}.txt" 2>&1 || true
+      sleep 0.5
+      attempt_prompt_input "typed_retry_${retry}" && break
+    done
+  fi
+  if [ "$PROMPT_INPUT_STATUS" != ok ]; then
+    set_toggle false "$OUT_DIR/toggle_state_after_off.txt"
+    restore_original_ime
+    capture_window after
+    write_summary false prompt_input_failed
+    scan_runtime_markers
+    log "prompt input blocked: $PROMPT_INPUT_FAILURE_REASON"
+    exit 0
+  fi
   adb_cmd shell input tap 1090 1535 >"$OUT_DIR/input_send.txt" 2>&1 || true
 
   wait_status=success
@@ -312,6 +430,7 @@ main() {
   fi
 
   set_toggle false "$OUT_DIR/toggle_state_after_off.txt"
+  restore_original_ime
   pull_app_file "files/qairt244_short_multitoken_smoke_result.txt" "$OUT_DIR/result.txt"
   pull_app_file "files/qairt244_native_diag.txt" "$OUT_DIR/native_diag.txt"
   pull_app_file "files/qairt244_chat_screen_model_path_resolution.txt" "$OUT_DIR/resolved_model_path.txt"
