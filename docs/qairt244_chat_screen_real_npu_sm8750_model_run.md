@@ -125,6 +125,12 @@ responding_stop_stale_ui=false
 rollback_condition_hit=false
 ```
 
+## Diagnosis Display Phase
+
+As of 2026-05-24, the ChatScreen inference stats surface keeps the qairt244 SM8750 evidence in a dedicated DEV section instead of folding it into the normal generation-speed rows. This remains DEV-only and does not enable production `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
+
+The dedicated section is shown only for `selected_route=qairt244_sm8750_dev_npu` stats and summarizes: exact model basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `max_output_tokens=16`, `native_max_output_tokens_limit=16`, `required_sm8750_model_path=true`, RunDecode reachability, `decode_elapsed_ms`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, and the DEV UI cleanup status. Decode elapsed time is treated as DEV evidence, not as the normal token/s speed metric.
+
 ## 8 Token Phase
 
 The next bounded DEV-only step raises only the qairt244 SM8750 experiment route from `max_output_tokens=3` to `max_output_tokens=8`. This is not a production NPU rollout and still does not enable `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.

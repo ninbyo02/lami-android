@@ -320,6 +320,7 @@ internal fun buildInferenceDetailSections(
         preferredBackendDryRunSetting = preferredBackendDryRunSetting,
         acceleratorProbeSnapshot = acceleratorProbeSnapshot,
     )
+    val devQairt244Sm8750NpuSection = buildDevQairt244Sm8750NpuSection(stats)
 
     val tokenizerRecountSnapshot = localTraceForDev?.measuredTokenSnapshot
     val tokenizerSucceeded = tokenizerRecountSnapshot?.let { snapshot ->
@@ -516,6 +517,7 @@ internal fun buildInferenceDetailSections(
                 }
             },
         ),
+        devQairt244Sm8750NpuSection,
         devDiagnosticSummarySection.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER },
         acceleratorProbeSnapshot
             ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && hasExternalQairtDiagnostics(it) }
@@ -729,6 +731,65 @@ internal fun buildInferenceDetailSections(
         ).takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.items.isNotEmpty() },
     )
 }
+
+private const val DEV_QAIRT244_SM8750_ROUTE = "qairt244_sm8750_dev_npu"
+
+private fun buildDevQairt244Sm8750NpuSection(stats: InferenceStats): InferenceStatsSectionUi? {
+    val values = parseDevQairt244StatsValues(stats)
+    val selectedRoute = values["selected_route"]
+        ?: stats.modelName
+        ?: stats.model
+        ?: stats.modelLabel
+    if (selectedRoute != DEV_QAIRT244_SM8750_ROUTE) return null
+    val maxOutputTokens = values["max_output_tokens"].orUnknown()
+    val decodeElapsedMs = values["decode_elapsed_ms"].orUnknown()
+    val runDecodeReached = values["run_decode_reached"]
+        ?: decodeElapsedMs.takeUnless { it == "unknown" }?.let { "true" }
+        ?: "unknown"
+    return InferenceStatsSectionUi(
+        title = "DEV診断: qairt244 SM8750 NPU",
+        items = listOf(
+            InferenceStatItemUi(label = "実験経路", value = selectedRoute),
+            InferenceStatItemUi(label = "モデル", value = values["resolved_model_basename"].orUnknown()),
+            InferenceStatItemUi(label = "required_sm8750_model_path", value = values["required_sm8750_model_path"].orUnknown()),
+            InferenceStatItemUi(label = "max_output_tokens", value = maxOutputTokens),
+            InferenceStatItemUi(label = "native_max_output_tokens_limit", value = values["native_max_output_tokens_limit"].orUnknown()),
+            InferenceStatItemUi(label = "RunDecode到達", value = runDecodeReached),
+            InferenceStatItemUi(label = "decode_elapsed_ms", value = decodeElapsedMs),
+            InferenceStatItemUi(label = "npu_backend", value = values["npu_backend"].orUnknown()),
+            InferenceStatItemUi(label = "npu_backend_evidence", value = values["npu_backend_evidence"].orUnknown()),
+            InferenceStatItemUi(label = "fallback_used", value = values["fallback_used"].orUnknown()),
+            InferenceStatItemUi(label = "UI cleanup status", value = values["ui_cleanup_status"].orUnknown()),
+        ),
+    )
+}
+
+private fun parseDevQairt244StatsValues(stats: InferenceStats): Map<String, String> = buildMap {
+    appendDevQairt244KeyValues(stats.localSourceSummary, separators = charArrayOf('\n'))
+    appendDevQairt244KeyValues(stats.notes, separators = charArrayOf(';', '\n'))
+}
+
+private fun MutableMap<String, String>.appendDevQairt244KeyValues(
+    text: String?,
+    separators: CharArray,
+) {
+    text.orEmpty()
+        .split(*separators)
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .forEach { entry ->
+            val separatorIndex = entry.indexOf('=')
+            if (separatorIndex > 0) {
+                val key = entry.substring(0, separatorIndex).trim()
+                val value = entry.substring(separatorIndex + 1).trim()
+                if (key.isNotEmpty() && value.isNotEmpty()) {
+                    putIfAbsent(key, value)
+                }
+            }
+        }
+}
+
+private fun String?.orUnknown(): String = this?.takeIf { it.isNotBlank() } ?: "unknown"
 
 private fun buildInferenceSimpleSections(
     stats: InferenceStats,

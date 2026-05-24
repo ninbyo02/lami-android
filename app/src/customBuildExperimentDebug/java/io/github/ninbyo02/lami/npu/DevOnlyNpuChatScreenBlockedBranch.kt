@@ -106,14 +106,17 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 "output=",
                 "prompt=${escapeValue(prompt)}",
                 "max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+                "native_max_output_tokens_limit=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
                 "resolved_model_basename=",
                 "required_sm8750_model_path=false",
                 "npu_backend=",
                 "npu_backend_evidence=",
+                "run_decode_reached=false",
                 "decode_elapsed_ms=",
                 "elapsed_ms=",
                 "artifact_path=",
                 "fallback_used=false",
+                "ui_cleanup_status=not_started",
                 "normal_ui_route_connected=false",
                 "conversation_created=no",
                 "generate_response=no",
@@ -189,6 +192,10 @@ object DevOnlyNpuChatScreenBlockedBranch {
             .ifBlank { if (result.success) "NPU" else "" }
         val backendEvidence = result.backendEvidence.orEmpty()
             .ifBlank { nativeResult["npu_backend_evidence"].orEmpty() }
+        val nativeMaxOutputTokensLimit = nativeResult["native_max_output_tokens_limit"].orEmpty()
+            .ifBlank { DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS.toString() }
+        val runDecodeReached = nativeResult["run_decode"].orEmpty().contains("RunDecode") ||
+            result.decodeElapsedMs != null
         val assistantMessage = if (result.success) {
             result.output.orEmpty()
         } else {
@@ -205,14 +212,17 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "output=${escapeValue(result.output.orEmpty())}",
             "prompt=${escapeValue(result.prompt)}",
             "max_output_tokens=${result.maxOutputTokens}",
+            "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit)}",
             "resolved_model_basename=${escapeValue(resolvedModelBasename)}",
             "required_sm8750_model_path=$requiredSm8750ModelPath",
             "npu_backend=${escapeValue(npuBackend)}",
             "npu_backend_evidence=${escapeValue(backendEvidence)}",
+            "run_decode_reached=$runDecodeReached",
             "decode_elapsed_ms=${result.decodeElapsedMs ?: ""}",
             "elapsed_ms=${result.elapsedMs ?: ""}",
             "artifact_path=${escapeValue(result.artifactPath.orEmpty())}",
             "fallback_used=false",
+            "ui_cleanup_status=scheduled",
             "normal_ui_route_connected=false",
             "conversation_created=no",
             "generate_response=no",
