@@ -131,6 +131,10 @@ As of the runner prompt-input stabilization phase, `scripts/run_qairt244_chat_sc
 
 The current stability prompt set is `Hello`, `test`, and `OK`. Each run still uses `max_output_tokens=16`, exact SM8750 model selection, no model copy/delete, no fallback, and the DEV-only route.
 
+## Non-ASCII Prompt Plan
+
+Japanese/non-ASCII prompt input remains outside the stable ASCII runner. The design comparison and recommended next phase are documented in `docs/qairt244_non_ascii_prompt_plan.md`; the current runner should continue to stop non-ASCII prompts before send with `unsupported_non_ascii_prompt`.
+
 ## Diagnosis Display Phase
 
 As of 2026-05-24, the ChatScreen inference stats surface keeps the qairt244 SM8750 evidence in a dedicated DEV section instead of folding it into the normal generation-speed rows. This remains DEV-only and does not enable production `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
