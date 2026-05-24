@@ -173,12 +173,20 @@ wait_for_result() {
 }
 
 scan_runtime_markers() {
+  local marker_pattern='qairt244_chat_screen_real_npu_adapter_v1|qairt244_editable_prompt_smoke_v1|Engine.initialize|RunDecode|Backend.NPU|selectedPath=npu|generateResponse|QNN|HTP|DSP|NPU|QAIRT|FastRPC|npu_backend|npu_backend_evidence|fallback|GPU|CPU|adapter_not_connected|DEV NPU'
+  local source_name source_path
   {
     printf '# Runtime Marker Scan\n\n'
-    grep -Ei 'qairt244_chat_screen_real_npu_adapter_v1|qairt244_editable_prompt_smoke_v1|Engine.initialize|RunDecode|Backend.NPU|selectedPath=npu|generateResponse|QNN|HTP|FastRPC|adapter_not_connected|DEV NPU' "$OUT_DIR/logcat_tail.txt" || true
+    for source_name in logcat_tail.txt native_diag.txt result.txt summary.md; do
+      source_path="$OUT_DIR/$source_name"
+      if [ -f "$source_path" ]; then
+        grep -Ein "$marker_pattern" "$source_path" | sed "s|^[0-9][0-9]*:|[$source_name] |" || true
+      else
+        printf '[%s] missing\n' "$source_name"
+      fi
+    done
   } >"$OUT_DIR/runtime_marker_scan.txt"
 }
-
 write_summary() {
   local executed="$1" wait_status="$2"
   local result_status=not_run output=not_run actual_prompt=not_run normalized_prompt=not_run max_output_tokens=not_run timeout=false
@@ -292,11 +300,11 @@ main() {
   sleep 10
   adb_cmd shell dumpsys meminfo "$APP_ID" >"$OUT_DIR/meminfo_after_10s.txt" 2>&1 || true
   adb_cmd logcat -d -t 800 >"$OUT_DIR/logcat_tail.txt" 2>&1 || true
-  scan_runtime_markers
   adb_cmd shell cmd package dump "$APP_ID" >"$OUT_DIR/package_dump_full.txt" 2>&1 || true
   { grep -A30 -B5 -i 'MainActivity' "$OUT_DIR/package_dump_full.txt" || true; printf '\n--- uses native library ---\n'; grep -i -E 'uses-native|libcdsprpc|native.*library' "$OUT_DIR/package_dump_full.txt" || true; } >"$OUT_DIR/package_dump_extract.txt"
   { printf '# Tombstone Freshness Classification\n\n'; printf -- '- classification: `no-fresh-crash-evidence`\n'; printf -- '- fresh crash: `false`\n'; } >"$OUT_DIR/stale_tombstone_note.md"
   write_summary true "$wait_status"
+  scan_runtime_markers
   log "done"
 }
 
