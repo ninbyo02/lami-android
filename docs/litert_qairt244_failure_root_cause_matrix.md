@@ -1268,3 +1268,25 @@ NPU generation, `Engine.initialize`, and `RunDecode` were not executed.
 
 Classification: `rollback-model-file-not-found`. The next investigation is
 model path discovery for the ChatScreen adapter, not QNN/HTP runtime behavior.
+
+## ChatScreen Model Path Resolution Attempt (2026-05-24)
+
+| Stage | Result | Evidence | Status |
+| --- | --- | --- | --- |
+| DEV toggle reset | `after=false` | `toggle_state_before.txt` | OK |
+| DEV toggle ON | `after=true` | `toggle_state_after_on.txt` | OK |
+| Model listing | one `.litertlm` file | `model_files_listing.txt` | OK |
+| Model resolver | selected one readable non-empty path | `resolved_model_path.txt` | OK |
+| Prompt | `Hello` | `result.txt` | OK |
+| max output tokens | `3` | `result.txt` / native marker preflight | OK |
+| Engine create | failed, `TF_LITE_AUX not found in the model` | `result.txt` / `native_diag.txt` | Rollback |
+| NPU evidence | `QNN_HTP_V79_FastRPC_native_diag` | `result.txt` / `native_diag.txt` | Present |
+| DB/TTS/Markdown/streaming | not connected | route marker side-effect flags | OK |
+| selectedPath=npu | not saved | resolver artifact / summary | OK |
+| Fresh crash | false | `stale_tombstone_note.md` | OK |
+| Toggle recovery | `after=false` | `toggle_state_after_off.txt` | OK |
+
+Classification: `rollback-model-missing-tf-lite-aux`. The previous
+`rollback-model-file-not-found` root cause is closed for this device state; the
+current root cause is an app-private model file that is readable but not in the
+compiled NPU format expected by the QAIRT LiteRT-LM executor.

@@ -14,13 +14,12 @@ import kotlinx.coroutines.withTimeout
 
 class Qairt244DevOnlyNpuRouteAdapter(
     context: Context,
-    private val modelPath: String = context.applicationContext.filesDir
-        .resolve("local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm")
-        .absolutePath,
 ) : DevOnlyNpuRouteAdapter {
     private val appContext = context.applicationContext
     private val resultFile: File = appContext.filesDir.resolve(RESULT_FILE_NAME)
     private val nativeDiagFile: File = appContext.filesDir.resolve(NATIVE_DIAG_FILE_NAME)
+    private val modelResolutionFile: File = appContext.filesDir.resolve(MODEL_RESOLUTION_FILE_NAME)
+    private val runGuardFile: File = appContext.filesDir.resolve(RUN_GUARD_FILE_NAME)
 
     override suspend fun runOnce(
         prompt: String,
@@ -52,9 +51,46 @@ class Qairt244DevOnlyNpuRouteAdapter(
         }
 
         val normalizedPrompt = validation.normalizedPrompt
+        if (!runGuardFile.createNewFile()) {
+            appendRouteMarker(
+                "state=duplicate_run_blocked actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
+                    "max_output_tokens=3 engine_initialize=false run_decode=false db=false tts=false markdown=false stream=false",
+            )
+            return blockedResult(
+                prompt = normalizedPrompt,
+                maxOutputTokens = maxOutputTokens,
+                reasonCode = "duplicate_run_blocked",
+            )
+        }
+        runGuardFile.writeText("created_at_ms=${System.currentTimeMillis()}\n")
+
+        val modelResolution = Qairt244ModelPathResolver.resolve(appContext)
+        writeModelResolution(modelResolution)
+        appendRouteMarker(
+            "state=model_resolution reason=${modelResolution.reasonCode} " +
+                "resolved_model_path=${modelResolution.path ?: "-"} candidate_count=${modelResolution.candidates.size}",
+        )
+        if (!modelResolution.resolved) {
+            appendRouteMarker(
+                "state=failure reason=${modelResolution.reasonCode} engine_initialize=false run_decode=false " +
+                    "db=false tts=false markdown=false stream=false",
+            )
+            appendModelFailureResult(
+                prompt = normalizedPrompt,
+                maxOutputTokens = maxOutputTokens,
+                resolution = modelResolution,
+            )
+            return blockedResult(
+                prompt = normalizedPrompt,
+                maxOutputTokens = maxOutputTokens,
+                reasonCode = modelResolution.reasonCode,
+            )
+        }
+
         val runId = "chat-real-${System.currentTimeMillis()}-${UUID.randomUUID()}"
         appendRouteMarker(
-            "runId=$runId state=started actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt max_output_tokens=3",
+            "runId=$runId state=started actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
+                "max_output_tokens=3 resolved_model_path=${modelResolution.path}",
         )
 
         val start = SystemClock.elapsedRealtime()
@@ -63,7 +99,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 withContext(Dispatchers.IO) {
                     Qairt244ShortMultitokenSmoke.runEditablePrompt(
                         context = appContext,
-                        modelPath = modelPath,
+                        modelPath = checkNotNull(modelResolution.path),
                         runId = runId,
                         prompt = normalizedPrompt,
                     )
@@ -180,9 +216,61 @@ class Qairt244DevOnlyNpuRouteAdapter(
         resultFile.appendText("$ROUTE_MARKER $message\n")
     }
 
+    private fun appendModelFailureResult(
+        prompt: String,
+        maxOutputTokens: Int,
+        resolution: Qairt244ModelPathResolver.Resolution,
+    ) {
+        resultFile.appendText(
+            listOf(
+                "marker=$ROUTE_MARKER",
+                "result=failure",
+                "reasonCode=${resolution.reasonCode}",
+                "actual_prompt=$prompt",
+                "normalized_prompt=$prompt",
+                "prompt_source=chat_screen_dev_route",
+                "max_output_tokens=$maxOutputTokens",
+                "resolved_model_path=${resolution.path ?: ""}",
+                "checked_model_path=${resolution.checkedPath ?: ""}",
+                "model_candidate_count=${resolution.candidates.size}",
+                "checked_exists=${resolution.checkedExists ?: ""}",
+                "checked_can_read=${resolution.checkedCanRead ?: ""}",
+                "checked_length=${resolution.checkedLength ?: ""}",
+                "engine_initialize=no",
+                "run_decode=no",
+                "db=false",
+                "tts=false",
+                "markdown=false",
+                "streaming=false",
+                "selected_path_npu_saved=false",
+            ).joinToString(separator = "\n", postfix = "\n"),
+        )
+    }
+
+    private fun writeModelResolution(resolution: Qairt244ModelPathResolver.Resolution) {
+        modelResolutionFile.writeText(
+            buildString {
+                appendLine("reasonCode=${resolution.reasonCode}")
+                appendLine("resolved=${resolution.resolved}")
+                appendLine("resolved_model_path=${resolution.path ?: ""}")
+                appendLine("checked_model_path=${resolution.checkedPath ?: ""}")
+                appendLine("candidate_count=${resolution.candidates.size}")
+                appendLine("checked_exists=${resolution.checkedExists ?: ""}")
+                appendLine("checked_can_read=${resolution.checkedCanRead ?: ""}")
+                appendLine("checked_length=${resolution.checkedLength ?: ""}")
+                resolution.candidates.forEachIndexed { index, candidate ->
+                    appendLine("candidate_$index=$candidate")
+                }
+                appendLine("saved_to_settings=false")
+            },
+        )
+    }
+
     companion object {
         const val ROUTE_MARKER = "qairt244_chat_screen_real_npu_adapter_v1"
         private const val RESULT_FILE_NAME = "qairt244_short_multitoken_smoke_result.txt"
         private const val NATIVE_DIAG_FILE_NAME = "qairt244_native_diag.txt"
+        private const val MODEL_RESOLUTION_FILE_NAME = "qairt244_chat_screen_model_path_resolution.txt"
+        private const val RUN_GUARD_FILE_NAME = "qairt244_chat_screen_real_npu_once_guard.txt"
     }
 }

@@ -477,3 +477,36 @@ The fixed model path used by the first adapter implementation did not match the
 current app-private model filename. The next step is to resolve the
 app-private model path discovery before another real-adapter run. No second run
 was performed in this pass.
+
+## Model Path Resolution Attempt From ChatScreen (2026-05-24)
+
+Artifact:
+
+```text
+artifacts/qairt244_chat_screen_real_npu_model_path_resolution/20260524_091657/
+```
+
+The fixed model path was removed from the customBuildExperimentDebug adapter.
+The adapter now resolves `context.filesDir/local_models/*.litertlm`, records the
+candidate list and checked file properties, and only enters native execution
+when one candidate is selected. The resolved model path is not saved to normal
+settings.
+
+Observed result:
+
+- model resolution: `ok`
+- resolved model: `/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/1779578208133_gemma-4-E2B-it.litertlm`
+- candidate count: `1`
+- checked exists/readable/length: `true` / `true` / `2583085056`
+- prompt: `Hello`
+- `maxOutputTokens=3`
+- result: `failure`
+- rollback detail: `engine-create-failed:NOT_FOUND`, `TF_LITE_AUX not found in the model`
+- NPU evidence: `QNN_HTP_V79_FastRPC_native_diag`
+- DB/TTS/Markdown/streaming: not connected
+- `selectedPath=npu`: not saved
+- toggle OFF recovery: confirmed
+
+This resolves the previous `model-file-not-found` boundary. The current
+rollback boundary is model content compatibility with the QAIRT NPU compiled
+model executor, not app-private path discovery.

@@ -1702,3 +1702,32 @@ Observed:
 Next build step: replace the fixed model path assumption with explicit
 app-private model discovery or a runner-supplied verified model path, then run
 one more guarded attempt.
+
+## QAIRT ChatScreen Model Path Resolution Attempt (2026-05-24)
+
+Artifact:
+
+```text
+artifacts/qairt244_chat_screen_real_npu_model_path_resolution/20260524_091657/
+```
+
+The customBuildExperimentDebug ChatScreen adapter now discovers the model from
+app-private `files/local_models/*.litertlm` instead of using a fixed filename.
+The runner captures `run-as io.github.ninbyo02.lami.customnpu ls -l
+files/local_models`, pulls the resolver artifact, and leaves normal settings
+unchanged.
+
+Observed:
+
+- model listing contained one `.litertlm`: `1779578208133_gemma-4-E2B-it.litertlm`
+- resolved path: `/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/1779578208133_gemma-4-E2B-it.litertlm`
+- checked length: `2583085056`
+- prompt: `Hello`
+- `maxOutputTokens=3`
+- result: `failure`
+- rollback reason: `TF_LITE_AUX not found in the model` during engine create
+- NPU evidence: `QNN_HTP_V79_FastRPC_native_diag`
+- normal ChatScreen DB/TTS/Markdown/streaming and `selectedPath=npu` remained disconnected
+
+Next build step: replace or generate the app-private model with a QAIRT NPU
+compiled LiteRT-LM artifact that contains the required `TF_LITE_AUX` data.

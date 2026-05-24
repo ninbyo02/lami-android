@@ -741,3 +741,26 @@ execution:
 
 This validates the rollback boundary for a pre-engine failure. The next safety
 fix must address model path discovery before another real-adapter attempt.
+
+## Model Path Resolution Safety Outcome (2026-05-24)
+
+The follow-up DEV-only ChatScreen attempt resolved the app-private model path
+before native entry and preserved the normal UI safety boundary:
+
+- artifact: `artifacts/qairt244_chat_screen_real_npu_model_path_resolution/20260524_091657/`
+- model resolution: `ok` with one `.litertlm` candidate
+- checked file: exists/readable/non-empty
+- prompt: `Hello`
+- `maxOutputTokens=3`
+- result: `failure`
+- failure reason: `engine-create-failed:NOT_FOUND`, `TF_LITE_AUX not found in the model`
+- NPU evidence: `QNN_HTP_V79_FastRPC_native_diag`
+- fresh crash: false
+- timeout: false
+- toggle OFF recovery: confirmed
+- DB/TTS/Markdown/streaming: not connected
+- `selectedPath=npu`: not saved
+
+The previous path-not-found rollback is fixed. The next safety review should
+focus on supplying a QAIRT NPU compiled `.litertlm` containing the required
+`TF_LITE_AUX` payload.

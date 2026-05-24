@@ -1,0 +1,7 @@
+Starting: Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] cmp=io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.MainActivity }
+Status: ok
+LaunchState: WARM
+Activity: io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.MainActivity
+TotalTime: 471
+WaitTime: 477
+Complete

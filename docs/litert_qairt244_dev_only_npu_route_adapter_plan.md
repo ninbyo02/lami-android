@@ -675,3 +675,23 @@ detail=model-file-not-found
 Rollback behavior worked: the DEV toggle was restored OFF and no normal
 ChatScreen side effect path was reached. `Engine.initialize` and `RunDecode`
 were not reached.
+
+## Model Path Resolver Implementation Result (2026-05-24)
+
+`Qairt244DevOnlyNpuRouteAdapter` no longer uses a fixed model filename. In
+customBuildExperimentDebug it delegates to `Qairt244ModelPathResolver`, which
+scans `context.filesDir/local_models` for `.litertlm` files, prefers names
+containing `gemma`, `qualcomm`, or `sm8750` only when that produces one selected
+candidate, and rejects not-found, ambiguous, unreadable, or empty files before
+engine creation. The selected path and file checks are written to
+`qairt244_chat_screen_model_path_resolution.txt`, never to normal settings.
+
+Latest artifact:
+
+```text
+artifacts/qairt244_chat_screen_real_npu_model_path_resolution/20260524_091657/
+```
+
+The path resolver selected exactly one readable model file, then the native
+engine create step failed with `TF_LITE_AUX not found in the model`. A DEV-only
+one-shot guard blocked repeated native entry after the first attempt.
