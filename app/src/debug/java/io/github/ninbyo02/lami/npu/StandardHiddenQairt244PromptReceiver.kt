@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import java.io.File
 import kotlinx.coroutines.flow.first
@@ -27,6 +28,11 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         val enableDeveloperAccess = intent.getBooleanExtra(EXTRA_ENABLE_DEVELOPER_ACCESS, false)
         val enableRoute = intent.getBooleanExtra(EXTRA_ENABLE_ROUTE, false)
         val shouldRun = intent.getBooleanExtra(EXTRA_RUN, true)
+        val requestedTemplateMode = (
+            intent.getStringExtra(EXTRA_TEMPLATE)
+                ?: intent.getStringExtra(EXTRA_TEMPLATE_MODE)
+            )
+            ?.let(HiddenQairt244PromptTemplateMode::fromStorage)
         val preferences = SettingsPreferences(appContext)
 
         val resultText = runBlocking {
@@ -35,6 +41,9 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
             }
             if (enableRoute) {
                 preferences.saveDevEnableQairt244Sm8750NpuRoute(true)
+            }
+            if (requestedTemplateMode != null) {
+                preferences.saveHiddenQairt244PromptTemplateMode(requestedTemplateMode)
             }
 
             val developerAccessEnabled = preferences.developerAccessEnabledFlow.first()
@@ -73,7 +82,13 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 return@runBlocking null
             }
 
-            DevOnlyNpuChatScreenBlockedBranch.runForChatScreen(appContext, prompt).also { result ->
+            val templateMode = requestedTemplateMode
+                ?: preferences.hiddenQairt244PromptTemplateModeFlow.first()
+            DevOnlyNpuChatScreenBlockedBranch.runForChatScreen(
+                context = appContext,
+                prompt = prompt,
+                templateMode = templateMode.storageValue,
+            ).also { result ->
                 writeDisplayDiagnostics(appContext, result)
                 writeRunnerCleanupState(appContext)
                 writeState(
@@ -151,6 +166,9 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 "conversation_history_count=${values["conversation_history_count"].orEmpty()}",
                 "system_prompt_used=${escapeValue(values["system_prompt_used"].orEmpty())}",
                 "chat_template_used=${escapeValue(values["chat_template_used"].orEmpty())}",
+                "template_mode=${values["template_mode"].orEmpty()}",
+                "template_prefix_length=${values["template_prefix_length"].orEmpty()}",
+                "template_suffix_length=${values["template_suffix_length"].orEmpty()}",
                 "prompt_source=${values["prompt_source"].orEmpty()}",
                 "prompt_validation_mode=${values["prompt_validation_mode"].orEmpty()}",
                 "prompt_formatting_mode=${values["prompt_formatting_mode"].orEmpty()}",
@@ -198,6 +216,8 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         const val EXTRA_ENABLE_DEVELOPER_ACCESS = "enable_developer_access"
         const val EXTRA_ENABLE_ROUTE = "enable_route"
         const val EXTRA_RUN = "run"
+        const val EXTRA_TEMPLATE = "template"
+        const val EXTRA_TEMPLATE_MODE = "template_mode"
         const val STATE_FILE_NAME = "qairt244_standard_hidden_prompt_state.txt"
     }
 }

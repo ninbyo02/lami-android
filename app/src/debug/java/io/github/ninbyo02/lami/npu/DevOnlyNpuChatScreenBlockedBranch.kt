@@ -2,9 +2,11 @@ package io.github.ninbyo02.lami.npu
 
 import android.content.Context
 import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
+import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 object DevOnlyNpuChatScreenBlockedBranch {
@@ -98,7 +100,18 @@ object DevOnlyNpuChatScreenBlockedBranch {
 
     @JvmStatic
     fun runForChatScreen(context: Context, prompt: String): String {
+        val appContext = context.applicationContext
+        val templateMode = runBlocking {
+            SettingsPreferences(appContext).hiddenQairt244PromptTemplateModeFlow.first()
+        }
+        return runForChatScreen(context = appContext, prompt = prompt, templateMode = templateMode.storageValue)
+    }
+
+    @JvmStatic
+    fun runForChatScreen(context: Context, prompt: String, templateMode: String): String {
+        val resolvedTemplateMode = HiddenQairt244PromptTemplateMode.fromStorage(templateMode)
         if (!chatScreenRunInProgress.compareAndSet(false, true)) {
+            val promptTemplate = buildPromptTemplate(prompt = prompt, mode = resolvedTemplateMode)
             return listOf(
                 "selected_route=$HIDDEN_SELECTED_ROUTE",
                 "success=false",
@@ -111,14 +124,17 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 "prompt=${escapeValue(prompt)}",
                 "raw_user_prompt=${escapeValue(prompt)}",
                 "normalized_prompt=${escapeValue(prompt)}",
-                "final_model_input=${escapeValue(prompt)}",
-                "final_model_input_length=${prompt.length}",
+                "final_model_input=${escapeValue(promptTemplate.finalModelInput)}",
+                "final_model_input_length=${promptTemplate.finalModelInput.length}",
                 "conversation_history_count=0",
                 "system_prompt_used=none",
-                "chat_template_used=none",
+                "chat_template_used=${promptTemplate.mode.storageValue}",
+                "template_mode=${promptTemplate.mode.storageValue}",
+                "template_prefix_length=${promptTemplate.prefix.length}",
+                "template_suffix_length=${promptTemplate.suffix.length}",
                 "prompt_source=${Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_CHAT_SCREEN}",
                 "prompt_validation_mode=${NpuDiagnosticPromptValidator.UTF8_HIDDEN_EXPERIMENTAL_MODE}",
-                "prompt_formatting_mode=raw_normalized_prompt",
+                "prompt_formatting_mode=${promptTemplate.promptFormattingMode}",
                 "max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
                 "native_max_output_tokens_limit=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
                 "resolved_model_basename=",
@@ -144,20 +160,27 @@ object DevOnlyNpuChatScreenBlockedBranch {
             ).joinToString("\n")
         }
         return try {
-            runForChatScreenGuarded(context, prompt)
+            runForChatScreenGuarded(context, prompt, resolvedTemplateMode)
         } finally {
             chatScreenRunInProgress.set(false)
         }
     }
 
-    private fun runForChatScreenGuarded(context: Context, prompt: String): String {
+    private fun runForChatScreenGuarded(
+        context: Context,
+        prompt: String,
+        templateMode: HiddenQairt244PromptTemplateMode,
+    ): String {
         val appContext = context.applicationContext
         val validation = NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
         val normalizedPrompt = validation.normalizedPrompt.ifBlank { prompt }
         File(appContext.filesDir, "qairt244_chat_screen_real_npu_once_guard.txt").delete()
         val result = runBlocking {
             DevOnlyNpuRoutePlanner(
-                adapter = Qairt244DevOnlyNpuRouteAdapter(appContext),
+                adapter = Qairt244DevOnlyNpuRouteAdapter(
+                    context = appContext,
+                    promptTemplateMode = templateMode,
+                ),
             ).runIfAllowed(
                 gateInput = DevOnlyNpuRouteGateInput(
                     customBuildExperiment = true,
@@ -211,6 +234,13 @@ object DevOnlyNpuChatScreenBlockedBranch {
             .ifBlank { result.prompt }
         val finalModelInputLength = nativeResult["final_model_input_length"].orEmpty()
             .ifBlank { finalModelInput.length.toString() }
+        val resultTemplateMode = nativeResult["template_mode"].orEmpty()
+            .ifBlank { templateMode.storageValue }
+        val promptTemplate = buildPromptTemplate(prompt = result.prompt, mode = templateMode)
+        val templatePrefixLength = nativeResult["template_prefix_length"].orEmpty()
+            .ifBlank { promptTemplate.prefix.length.toString() }
+        val templateSuffixLength = nativeResult["template_suffix_length"].orEmpty()
+            .ifBlank { promptTemplate.suffix.length.toString() }
         val nativeMaxOutputTokensLimit = nativeResult["native_max_output_tokens_limit"].orEmpty()
             .ifBlank { DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS.toString() }
         val outputDiagnosticsValues = nativeResult + mapOf(
@@ -258,7 +288,10 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "final_model_input_length=$finalModelInputLength",
             "conversation_history_count=${nativeResult["conversation_history_count"].orEmpty().ifBlank { "0" }}",
             "system_prompt_used=${escapeValue(nativeResult["system_prompt_used"].orEmpty().ifBlank { "none" })}",
-            "chat_template_used=${escapeValue(nativeResult["chat_template_used"].orEmpty().ifBlank { "none" })}",
+            "chat_template_used=${escapeValue(nativeResult["chat_template_used"].orEmpty().ifBlank { resultTemplateMode })}",
+            "template_mode=$resultTemplateMode",
+            "template_prefix_length=$templatePrefixLength",
+            "template_suffix_length=$templateSuffixLength",
             "prompt_source=${Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_CHAT_SCREEN}",
             "prompt_validation_mode=${validation.promptValidationMode}",
             "prompt_formatting_mode=${nativeResult["prompt_formatting_mode"].orEmpty().ifBlank { "raw_normalized_prompt" }}",
@@ -311,5 +344,37 @@ object DevOnlyNpuChatScreenBlockedBranch {
 
     private fun unescapeValue(value: String): String =
         value.replace("\\n", "\n").replace("\\\\", "\\")
+
+    private data class PromptTemplate(
+        val mode: HiddenQairt244PromptTemplateMode,
+        val prefix: String,
+        val suffix: String,
+        val finalModelInput: String,
+        val promptFormattingMode: String,
+    )
+
+    private fun buildPromptTemplate(
+        prompt: String,
+        mode: HiddenQairt244PromptTemplateMode,
+    ): PromptTemplate {
+        val (prefix, suffix) = when (mode) {
+            HiddenQairt244PromptTemplateMode.RAW -> "" to ""
+            HiddenQairt244PromptTemplateMode.SIMPLE_JA_CHAT ->
+                "あなたは親切なAIアシスタントです。\nユーザー: " to "\nアシスタント:"
+            HiddenQairt244PromptTemplateMode.GEMMA_IT_LIKE ->
+                "<start_of_turn>user\n" to "\n<end_of_turn>\n<start_of_turn>model"
+        }
+        return PromptTemplate(
+            mode = mode,
+            prefix = prefix,
+            suffix = suffix,
+            finalModelInput = "$prefix$prompt$suffix",
+            promptFormattingMode = if (mode == HiddenQairt244PromptTemplateMode.RAW) {
+                "raw_normalized_prompt"
+            } else {
+                "hidden_prompt_template_experiment"
+            },
+        )
+    }
 
 }

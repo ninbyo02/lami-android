@@ -5,6 +5,7 @@ import android.os.SystemClock
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
 import io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmoke
+import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +15,7 @@ import kotlinx.coroutines.withTimeout
 
 class Qairt244DevOnlyNpuRouteAdapter(
     context: Context,
+    private val promptTemplateMode: HiddenQairt244PromptTemplateMode = HiddenQairt244PromptTemplateMode.RAW,
 ) : DevOnlyNpuRouteAdapter {
     private val appContext = context.applicationContext
     private val resultFile: File = appContext.filesDir.resolve(RESULT_FILE_NAME)
@@ -33,6 +35,11 @@ class Qairt244DevOnlyNpuRouteAdapter(
         validation = NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt),
         allowMaxOutputTokenRange = false,
         expectedModelBasename = REQUIRED_MODEL_BASENAME,
+        templateMode = if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+            HiddenQairt244PromptTemplateMode.RAW
+        } else {
+            promptTemplateMode
+        },
     )
 
     suspend fun runInternalIntentOnce(
@@ -48,6 +55,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         validation = NpuDiagnosticPromptValidator.validateUtf8InternalIntent(prompt),
         allowMaxOutputTokenRange = true,
         expectedModelBasename = expectedModelBasename,
+        templateMode = HiddenQairt244PromptTemplateMode.RAW,
     )
 
     private suspend fun runRoute(
@@ -58,6 +66,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         validation: NpuDiagnosticPromptValidator.Result,
         allowMaxOutputTokenRange: Boolean,
         expectedModelBasename: String,
+        templateMode: HiddenQairt244PromptTemplateMode,
     ): DevOnlyNpuRouteResult {
         check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
             "QAIRT hidden-experimental NPU route adapter is debug-only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
@@ -103,10 +112,16 @@ class Qairt244DevOnlyNpuRouteAdapter(
         }
 
         val normalizedPrompt = validation.normalizedPrompt
+        val promptTemplate = PromptTemplateExperiment.apply(
+            normalizedPrompt = normalizedPrompt,
+            requestedMode = templateMode,
+            promptSource = promptSource,
+        )
         if (!runGuardFile.createNewFile()) {
             appendRouteMarker(
                 "state=duplicate_run_blocked actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
                     "prompt_source=$promptSource prompt_validation_mode=${validation.promptValidationMode} " +
+                    "template_mode=${promptTemplate.mode.storageValue} " +
                     "max_output_tokens=$maxOutputTokens engine_initialize=false run_decode=false db=false tts=false markdown=false stream=false",
             )
             return blockedResult(
@@ -135,6 +150,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 promptSource = promptSource,
                 validationMode = validation.promptValidationMode,
                 resolution = modelResolution,
+                promptTemplate = promptTemplate,
             )
             return blockedResult(
                 prompt = normalizedPrompt,
@@ -161,6 +177,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 promptSource = promptSource,
                 validationMode = validation.promptValidationMode,
                 resolution = modelResolution,
+                promptTemplate = promptTemplate,
             )
             return blockedResult(
                 prompt = normalizedPrompt,
@@ -173,6 +190,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         appendRouteMarker(
             "runId=$runId state=started actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
                 "requested_prompt=$requestedPrompt prompt_source=$promptSource " +
+                "template_mode=${promptTemplate.mode.storageValue} final_model_input_length=${promptTemplate.finalModelInput.length} " +
                 "prompt_validation_mode=${validation.promptValidationMode} max_output_tokens=$maxOutputTokens " +
                 "resolved_model_path=${modelResolution.path}",
         )
@@ -185,7 +203,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                         context = appContext,
                         modelPath = resolvedModelPath,
                         runId = runId,
-                        prompt = normalizedPrompt,
+                        prompt = promptTemplate.finalModelInput,
                         maxOutputTokens = maxOutputTokens,
                         promptValidationMode = validation.promptValidationMode,
                     )
@@ -203,6 +221,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 freshCrash = false,
                 values = valuesBeforeMetadata,
                 resolution = modelResolution,
+                promptTemplate = promptTemplate,
             )
             val values = parseResultFile()
             val success = values["result"] == "success"
@@ -246,6 +265,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 freshCrash = false,
                 values = parseResultFile(),
                 resolution = modelResolution,
+                promptTemplate = promptTemplate,
             )
             DevOnlyNpuRouteResult(
                 success = false,
@@ -276,6 +296,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 freshCrash = false,
                 values = parseResultFile(),
                 resolution = modelResolution,
+                promptTemplate = promptTemplate,
             )
             DevOnlyNpuRouteResult(
                 success = false,
@@ -355,16 +376,24 @@ class Qairt244DevOnlyNpuRouteAdapter(
         requestedPrompt: String,
         normalizedPrompt: String,
         promptSource: String,
+        promptTemplate: PromptTemplateExperiment.Result = PromptTemplateExperiment.apply(
+            normalizedPrompt = normalizedPrompt,
+            requestedMode = HiddenQairt244PromptTemplateMode.RAW,
+            promptSource = promptSource,
+        ),
     ): List<String> = listOf(
         "raw_user_prompt=${escapeValue(requestedPrompt)}",
         "normalized_prompt=${escapeValue(normalizedPrompt)}",
-        "final_model_input=${escapeValue(normalizedPrompt)}",
-        "final_model_input_length=${normalizedPrompt.length}",
+        "final_model_input=${escapeValue(promptTemplate.finalModelInput)}",
+        "final_model_input_length=${promptTemplate.finalModelInput.length}",
         "conversation_history_count=0",
         "system_prompt_used=none",
-        "chat_template_used=none",
+        "chat_template_used=${promptTemplate.chatTemplateUsed}",
+        "template_mode=${promptTemplate.mode.storageValue}",
+        "template_prefix_length=${promptTemplate.prefix.length}",
+        "template_suffix_length=${promptTemplate.suffix.length}",
         "prompt_source=$promptSource",
-        "prompt_formatting_mode=raw_normalized_prompt",
+        "prompt_formatting_mode=${promptTemplate.promptFormattingMode}",
     )
 
     private fun escapeValue(value: String): String =
@@ -433,6 +462,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         promptSource: String,
         validationMode: String,
         resolution: Qairt244ModelPathResolver.Resolution,
+        promptTemplate: PromptTemplateExperiment.Result,
     ) {
         resultFile.appendText(
             listOf(
@@ -446,6 +476,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                     requestedPrompt = requestedPrompt,
                     normalizedPrompt = prompt,
                     promptSource = promptSource,
+                    promptTemplate = promptTemplate,
                 ).toTypedArray(),
                 "prompt_validation_mode=$validationMode",
                 "max_output_tokens=$maxOutputTokens",
@@ -481,6 +512,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         promptSource: String,
         validationMode: String,
         resolution: Qairt244ModelPathResolver.Resolution,
+        promptTemplate: PromptTemplateExperiment.Result,
     ) {
         resultFile.appendText(
             listOf(
@@ -494,6 +526,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                     requestedPrompt = requestedPrompt,
                     normalizedPrompt = prompt,
                     promptSource = promptSource,
+                    promptTemplate = promptTemplate,
                 ).toTypedArray(),
                 "prompt_validation_mode=$validationMode",
                 "max_output_tokens=$maxOutputTokens",
@@ -532,6 +565,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         freshCrash: Boolean,
         values: Map<String, String>,
         resolution: Qairt244ModelPathResolver.Resolution,
+        promptTemplate: PromptTemplateExperiment.Result,
     ) {
         val runDecodeReached = values["decode_elapsed_ms"]?.isNotBlank() == true ||
             values["run_decode"]?.contains("RunDecode") == true
@@ -549,6 +583,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                     requestedPrompt = requestedPrompt,
                     normalizedPrompt = normalizedPrompt,
                     promptSource = promptSource,
+                    promptTemplate = promptTemplate,
                 ).toTypedArray(),
                 "prompt_validation_mode=$validationMode",
                 "native_prompt_validation_mode=${values["native_prompt_validation_mode"] ?: validationMode}",
@@ -597,6 +632,48 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 appendLine("saved_to_settings=false")
             },
         )
+    }
+
+    private object PromptTemplateExperiment {
+        data class Result(
+            val mode: HiddenQairt244PromptTemplateMode,
+            val prefix: String,
+            val suffix: String,
+            val finalModelInput: String,
+            val chatTemplateUsed: String,
+            val promptFormattingMode: String,
+        )
+
+        fun apply(
+            normalizedPrompt: String,
+            requestedMode: HiddenQairt244PromptTemplateMode,
+            promptSource: String,
+        ): Result {
+            val effectiveMode = if (promptSource == PROMPT_SOURCE_CHAT_SCREEN) {
+                requestedMode
+            } else {
+                HiddenQairt244PromptTemplateMode.RAW
+            }
+            val (prefix, suffix) = when (effectiveMode) {
+                HiddenQairt244PromptTemplateMode.RAW -> "" to ""
+                HiddenQairt244PromptTemplateMode.SIMPLE_JA_CHAT ->
+                    "あなたは親切なAIアシスタントです。\nユーザー: " to "\nアシスタント:"
+                HiddenQairt244PromptTemplateMode.GEMMA_IT_LIKE ->
+                    "<start_of_turn>user\n" to "\n<end_of_turn>\n<start_of_turn>model"
+            }
+            return Result(
+                mode = effectiveMode,
+                prefix = prefix,
+                suffix = suffix,
+                finalModelInput = "$prefix$normalizedPrompt$suffix",
+                chatTemplateUsed = effectiveMode.storageValue,
+                promptFormattingMode = if (effectiveMode == HiddenQairt244PromptTemplateMode.RAW) {
+                    "raw_normalized_prompt"
+                } else {
+                    "hidden_prompt_template_experiment"
+                },
+            )
+        }
     }
 
     companion object {

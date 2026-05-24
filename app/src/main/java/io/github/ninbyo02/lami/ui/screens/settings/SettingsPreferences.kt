@@ -380,6 +380,7 @@ class SettingsPreferences(private val context: Context) {
     private val developerAccessEnabledKey = booleanPreferencesKey("developer_access_enabled")
     private val devEnableNpuChatScreenRouteKey = booleanPreferencesKey("dev_enable_npu_chatscreen_route")
     private val devEnableQairt244Sm8750NpuRouteKey = booleanPreferencesKey("dev_enable_qairt244_sm8750_npu_route")
+    private val hiddenQairt244PromptTemplateModeKey = stringPreferencesKey("hidden_qairt244_prompt_template_mode")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
     // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
@@ -449,6 +450,7 @@ class SettingsPreferences(private val context: Context) {
                 BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
                     (preferences[devEnableNpuChatScreenRouteKey] ?: false),
             devEnableQairt244Sm8750NpuRoute = isQairt244Sm8750NpuRouteEnabled(preferences),
+            hiddenQairt244PromptTemplateMode = resolveHiddenQairt244PromptTemplateMode(preferences),
         )
     }
 
@@ -573,6 +575,11 @@ class SettingsPreferences(private val context: Context) {
     val devEnableQairt244Sm8750NpuRouteFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
         isQairt244Sm8750NpuRouteEnabled(preferences)
     }
+
+    val hiddenQairt244PromptTemplateModeFlow: Flow<HiddenQairt244PromptTemplateMode> =
+        context.dataStore.data.map { preferences ->
+            resolveHiddenQairt244PromptTemplateMode(preferences)
+        }
 
     val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[characterAnimationEnabledKey] ?: true
@@ -823,6 +830,16 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    suspend fun saveHiddenQairt244PromptTemplateMode(mode: HiddenQairt244PromptTemplateMode) {
+        context.dataStore.edit { preferences ->
+            if (canPersistHiddenQairt244PromptTemplateMode(preferences)) {
+                preferences[hiddenQairt244PromptTemplateModeKey] = mode.storageValue
+            } else {
+                preferences[hiddenQairt244PromptTemplateModeKey] = HiddenQairt244PromptTemplateMode.RAW.storageValue
+            }
+        }
+    }
+
     private fun isQairt244Sm8750NpuRouteEnabled(preferences: Preferences): Boolean =
         canPersistQairt244Sm8750NpuRoute(preferences) &&
             (preferences[devEnableQairt244Sm8750NpuRouteKey] ?: false)
@@ -833,6 +850,20 @@ class SettingsPreferences(private val context: Context) {
                 BuildConfig.DEBUG &&
                     (preferences[developerAccessEnabledKey] ?: false)
                 )
+
+    private fun resolveHiddenQairt244PromptTemplateMode(
+        preferences: Preferences,
+    ): HiddenQairt244PromptTemplateMode =
+        if (canPersistHiddenQairt244PromptTemplateMode(preferences)) {
+            HiddenQairt244PromptTemplateMode.fromStorage(preferences[hiddenQairt244PromptTemplateModeKey])
+        } else {
+            HiddenQairt244PromptTemplateMode.RAW
+        }
+
+    private fun canPersistHiddenQairt244PromptTemplateMode(preferences: Preferences): Boolean =
+        BuildConfig.DEBUG &&
+            !BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+            (preferences[developerAccessEnabledKey] ?: false)
 
     suspend fun saveSpriteCurrentSheetOverrideEnabled(enabled: Boolean, updatedAt: Long = System.currentTimeMillis()) {
         context.dataStore.edit { preferences ->
