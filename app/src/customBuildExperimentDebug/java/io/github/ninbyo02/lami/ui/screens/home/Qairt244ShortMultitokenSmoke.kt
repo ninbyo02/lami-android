@@ -49,12 +49,17 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             runId: String,
             prompt: String,
             maxOutputTokens: Int,
+            promptValidationMode: String = NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE,
         ): String {
             check(BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
                 "editable prompt smoke is customBuildExperimentDebug-only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
             }
             check(modelPath.isNotBlank()) { "modelPath is required" }
-            val validation = NpuDiagnosticPromptValidator.validate(prompt)
+            val validation = when (promptValidationMode) {
+                NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE ->
+                    NpuDiagnosticPromptValidator.validateUtf8InternalIntent(prompt)
+                else -> NpuDiagnosticPromptValidator.validateAsciiDiagnostic(prompt)
+            }
             check(validation.isValid) {
                 "editable prompt rejected before native execution: reasonCode=${validation.reasonCode}"
             }

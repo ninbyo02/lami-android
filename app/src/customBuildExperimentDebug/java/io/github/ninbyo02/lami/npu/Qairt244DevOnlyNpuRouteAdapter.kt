@@ -25,26 +25,78 @@ class Qairt244DevOnlyNpuRouteAdapter(
         prompt: String,
         maxOutputTokens: Int,
         timeoutMs: Long,
+    ): DevOnlyNpuRouteResult = runRoute(
+        requestedPrompt = prompt,
+        maxOutputTokens = maxOutputTokens,
+        timeoutMs = timeoutMs,
+        promptSource = PROMPT_SOURCE_CHAT_SCREEN,
+        validation = NpuDiagnosticPromptValidator.validateAsciiDiagnostic(prompt),
+        allowMaxOutputTokenRange = false,
+        expectedModelBasename = REQUIRED_MODEL_BASENAME,
+    )
+
+    suspend fun runInternalIntentOnce(
+        prompt: String,
+        expectedModelBasename: String,
+        maxOutputTokens: Int,
+        timeoutMs: Long,
+    ): DevOnlyNpuRouteResult = runRoute(
+        requestedPrompt = prompt,
+        maxOutputTokens = maxOutputTokens,
+        timeoutMs = timeoutMs,
+        promptSource = PROMPT_SOURCE_INTERNAL_INTENT,
+        validation = NpuDiagnosticPromptValidator.validateUtf8InternalIntent(prompt),
+        allowMaxOutputTokenRange = true,
+        expectedModelBasename = expectedModelBasename,
+    )
+
+    private suspend fun runRoute(
+        requestedPrompt: String,
+        maxOutputTokens: Int,
+        timeoutMs: Long,
+        promptSource: String,
+        validation: NpuDiagnosticPromptValidator.Result,
+        allowMaxOutputTokenRange: Boolean,
+        expectedModelBasename: String,
     ): DevOnlyNpuRouteResult {
         check(BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
             "QAIRT DEV-only NPU route adapter is customBuildExperimentDebug-only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
         }
 
-        if (maxOutputTokens != DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS) {
+        if (expectedModelBasename != REQUIRED_MODEL_BASENAME) {
             return blockedResult(
-                prompt = prompt,
+                prompt = requestedPrompt,
+                maxOutputTokens = maxOutputTokens,
+                reasonCode = "expected_model_basename_mismatch",
+            )
+        }
+        val maxOutputTokensValid = if (allowMaxOutputTokenRange) {
+            maxOutputTokens in 1..DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+        } else {
+            maxOutputTokens == DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+        }
+        if (!maxOutputTokensValid) {
+            return blockedResult(
+                prompt = requestedPrompt,
                 maxOutputTokens = maxOutputTokens,
                 reasonCode = "invalid_max_output_tokens",
             )
         }
 
-        val validation = NpuDiagnosticPromptValidator.validate(prompt)
         if (!validation.isValid) {
             appendRouteMarker(
-                "state=invalid_prompt reason=${validation.reasonCode} engine_initialize=false run_decode=false",
+                "state=invalid_prompt reason=${validation.reasonCode} prompt_source=$promptSource " +
+                    "prompt_validation_mode=${validation.promptValidationMode} engine_initialize=false run_decode=false",
+            )
+            appendInvalidPromptResult(
+                requestedPrompt = requestedPrompt,
+                normalizedPrompt = validation.normalizedPrompt,
+                maxOutputTokens = maxOutputTokens,
+                promptSource = promptSource,
+                validation = validation,
             )
             return blockedResult(
-                prompt = prompt,
+                prompt = requestedPrompt,
                 maxOutputTokens = maxOutputTokens,
                 reasonCode = "invalid_prompt:${validation.reasonCode}",
             )
@@ -54,6 +106,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         if (!runGuardFile.createNewFile()) {
             appendRouteMarker(
                 "state=duplicate_run_blocked actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
+                    "prompt_source=$promptSource prompt_validation_mode=${validation.promptValidationMode} " +
                     "max_output_tokens=$maxOutputTokens engine_initialize=false run_decode=false db=false tts=false markdown=false stream=false",
             )
             return blockedResult(
@@ -77,7 +130,10 @@ class Qairt244DevOnlyNpuRouteAdapter(
             )
             appendModelFailureResult(
                 prompt = normalizedPrompt,
+                requestedPrompt = requestedPrompt,
                 maxOutputTokens = maxOutputTokens,
+                promptSource = promptSource,
+                validationMode = validation.promptValidationMode,
                 resolution = modelResolution,
             )
             return blockedResult(
@@ -96,7 +152,10 @@ class Qairt244DevOnlyNpuRouteAdapter(
             )
             appendRequiredModelFailureResult(
                 prompt = normalizedPrompt,
+                requestedPrompt = requestedPrompt,
                 maxOutputTokens = maxOutputTokens,
+                promptSource = promptSource,
+                validationMode = validation.promptValidationMode,
                 resolution = modelResolution,
             )
             return blockedResult(
@@ -109,7 +168,9 @@ class Qairt244DevOnlyNpuRouteAdapter(
         val runId = "chat-real-${System.currentTimeMillis()}-${UUID.randomUUID()}"
         appendRouteMarker(
             "runId=$runId state=started actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
-                "max_output_tokens=$maxOutputTokens resolved_model_path=${modelResolution.path}",
+                "requested_prompt=$requestedPrompt prompt_source=$promptSource " +
+                "prompt_validation_mode=${validation.promptValidationMode} max_output_tokens=$maxOutputTokens " +
+                "resolved_model_path=${modelResolution.path}",
         )
 
         val start = SystemClock.elapsedRealtime()
@@ -122,10 +183,22 @@ class Qairt244DevOnlyNpuRouteAdapter(
                         runId = runId,
                         prompt = normalizedPrompt,
                         maxOutputTokens = maxOutputTokens,
+                        promptValidationMode = validation.promptValidationMode,
                     )
                 }
             }
             val elapsed = SystemClock.elapsedRealtime() - start
+            val valuesBeforeMetadata = parseResultFile()
+            appendRouteResultMetadata(
+                requestedPrompt = requestedPrompt,
+                normalizedPrompt = normalizedPrompt,
+                maxOutputTokens = maxOutputTokens,
+                promptSource = promptSource,
+                validationMode = validation.promptValidationMode,
+                timeout = false,
+                freshCrash = false,
+                values = valuesBeforeMetadata,
+            )
             val values = parseResultFile()
             val success = values["result"] == "success"
             val output = values["output"]
@@ -151,6 +224,16 @@ class Qairt244DevOnlyNpuRouteAdapter(
             appendRouteMarker(
                 "runId=$runId state=timeout elapsed_ms=$elapsed timeout_ms=$timeoutMs db=false tts=false markdown=false stream=false",
             )
+            appendRouteResultMetadata(
+                requestedPrompt = requestedPrompt,
+                normalizedPrompt = normalizedPrompt,
+                maxOutputTokens = maxOutputTokens,
+                promptSource = promptSource,
+                validationMode = validation.promptValidationMode,
+                timeout = true,
+                freshCrash = false,
+                values = parseResultFile(),
+            )
             DevOnlyNpuRouteResult(
                 success = false,
                 output = null,
@@ -169,6 +252,16 @@ class Qairt244DevOnlyNpuRouteAdapter(
             appendRouteMarker(
                 "runId=$runId state=failure elapsed_ms=$elapsed class=${throwable.javaClass.name} " +
                     "message=${throwable.message ?: "-"} db=false tts=false markdown=false stream=false",
+            )
+            appendRouteResultMetadata(
+                requestedPrompt = requestedPrompt,
+                normalizedPrompt = normalizedPrompt,
+                maxOutputTokens = maxOutputTokens,
+                promptSource = promptSource,
+                validationMode = validation.promptValidationMode,
+                timeout = false,
+                freshCrash = false,
+                values = parseResultFile(),
             )
             DevOnlyNpuRouteResult(
                 success = false,
@@ -236,19 +329,58 @@ class Qairt244DevOnlyNpuRouteAdapter(
         resultFile.appendText("$ROUTE_MARKER $message\n")
     }
 
+    private fun appendInvalidPromptResult(
+        requestedPrompt: String,
+        normalizedPrompt: String,
+        maxOutputTokens: Int,
+        promptSource: String,
+        validation: NpuDiagnosticPromptValidator.Result,
+    ) {
+        resultFile.writeText(
+            listOf(
+                "marker=$ROUTE_MARKER",
+                "selected_route=qairt244_sm8750_dev_npu",
+                "result=failure",
+                "reasonCode=invalid_prompt:${validation.reasonCode}",
+                "requested_prompt=$requestedPrompt",
+                "actual_prompt=$normalizedPrompt",
+                "normalized_prompt=$normalizedPrompt",
+                "prompt_source=$promptSource",
+                "prompt_validation_mode=${validation.promptValidationMode}",
+                "max_output_tokens=$maxOutputTokens",
+                "fallback_used=false",
+                "timeout=false",
+                "fresh_crash=false",
+                "engine_initialize=no",
+                "run_decode=no",
+                "db=false",
+                "tts=false",
+                "markdown=false",
+                "streaming=false",
+                "selected_path_npu_saved=false",
+            ).joinToString(separator = "\n", postfix = "\n"),
+        )
+    }
+
     private fun appendModelFailureResult(
         prompt: String,
+        requestedPrompt: String,
         maxOutputTokens: Int,
+        promptSource: String,
+        validationMode: String,
         resolution: Qairt244ModelPathResolver.Resolution,
     ) {
         resultFile.appendText(
             listOf(
                 "marker=$ROUTE_MARKER",
+                "selected_route=qairt244_sm8750_dev_npu",
                 "result=failure",
                 "reasonCode=${resolution.reasonCode}",
+                "requested_prompt=$requestedPrompt",
                 "actual_prompt=$prompt",
                 "normalized_prompt=$prompt",
-                "prompt_source=chat_screen_dev_route",
+                "prompt_source=$promptSource",
+                "prompt_validation_mode=$validationMode",
                 "max_output_tokens=$maxOutputTokens",
                 "resolved_model_path=${resolution.path ?: ""}",
                 "resolved_model_basename=${resolution.path?.let { File(it).name } ?: ""}",
@@ -259,6 +391,9 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "checked_exists=${resolution.checkedExists ?: ""}",
                 "checked_can_read=${resolution.checkedCanRead ?: ""}",
                 "checked_length=${resolution.checkedLength ?: ""}",
+                "fallback_used=false",
+                "timeout=false",
+                "fresh_crash=false",
                 "engine_initialize=no",
                 "run_decode=no",
                 "db=false",
@@ -272,17 +407,23 @@ class Qairt244DevOnlyNpuRouteAdapter(
 
     private fun appendRequiredModelFailureResult(
         prompt: String,
+        requestedPrompt: String,
         maxOutputTokens: Int,
+        promptSource: String,
+        validationMode: String,
         resolution: Qairt244ModelPathResolver.Resolution,
     ) {
         resultFile.appendText(
             listOf(
                 "marker=$ROUTE_MARKER",
+                "selected_route=qairt244_sm8750_dev_npu",
                 "result=failure",
                 "reasonCode=model_file_not_required_sm8750",
+                "requested_prompt=$requestedPrompt",
                 "actual_prompt=$prompt",
                 "normalized_prompt=$prompt",
-                "prompt_source=chat_screen_dev_route",
+                "prompt_source=$promptSource",
+                "prompt_validation_mode=$validationMode",
                 "max_output_tokens=$maxOutputTokens",
                 "resolved_model_path=${resolution.path ?: ""}",
                 "resolved_model_basename=${resolution.path?.let { File(it).name } ?: ""}",
@@ -293,8 +434,47 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "checked_exists=${resolution.checkedExists ?: ""}",
                 "checked_can_read=${resolution.checkedCanRead ?: ""}",
                 "checked_length=${resolution.checkedLength ?: ""}",
+                "fallback_used=false",
+                "timeout=false",
+                "fresh_crash=false",
                 "engine_initialize=no",
                 "run_decode=no",
+                "db=false",
+                "tts=false",
+                "markdown=false",
+                "streaming=false",
+                "selected_path_npu_saved=false",
+            ).joinToString(separator = "\n", postfix = "\n"),
+        )
+    }
+
+    private fun appendRouteResultMetadata(
+        requestedPrompt: String,
+        normalizedPrompt: String,
+        maxOutputTokens: Int,
+        promptSource: String,
+        validationMode: String,
+        timeout: Boolean,
+        freshCrash: Boolean,
+        values: Map<String, String>,
+    ) {
+        val runDecodeReached = values["decode_elapsed_ms"]?.isNotBlank() == true ||
+            values["run_decode"]?.contains("RunDecode") == true
+        resultFile.appendText(
+            listOf(
+                "selected_route=qairt244_sm8750_dev_npu",
+                "requested_prompt=$requestedPrompt",
+                "actual_prompt=$normalizedPrompt",
+                "normalized_prompt=$normalizedPrompt",
+                "prompt_source=$promptSource",
+                "prompt_validation_mode=$validationMode",
+                "native_prompt_validation_mode=${values["native_prompt_validation_mode"] ?: NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE.takeIf { promptSource == PROMPT_SOURCE_INTERNAL_INTENT }.orEmpty()}",
+                "utf8_allowed=${values["utf8_allowed"] ?: (promptSource == PROMPT_SOURCE_INTERNAL_INTENT).toString()}",
+                "max_output_tokens=$maxOutputTokens",
+                "run_decode_reached=$runDecodeReached",
+                "fallback_used=false",
+                "timeout=$timeout",
+                "fresh_crash=$freshCrash",
                 "db=false",
                 "tts=false",
                 "markdown=false",
@@ -335,6 +515,9 @@ class Qairt244DevOnlyNpuRouteAdapter(
 
     companion object {
         const val ROUTE_MARKER = "qairt244_chat_screen_real_npu_adapter_v1"
+        const val PROMPT_SOURCE_CHAT_SCREEN = "chat_screen_dev_route"
+        const val PROMPT_SOURCE_INTERNAL_INTENT = "internal_intent"
+        const val REQUIRED_MODEL_BASENAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
         private const val RESULT_FILE_NAME = "qairt244_short_multitoken_smoke_result.txt"
         private const val NATIVE_DIAG_FILE_NAME = "qairt244_native_diag.txt"
         private const val MODEL_RESOLUTION_FILE_NAME = "qairt244_chat_screen_model_path_resolution.txt"

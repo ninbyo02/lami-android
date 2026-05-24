@@ -1,5 +1,37 @@
 # QAIRT244 Non-ASCII Prompt Plan
 
+## 2026-05-24 Internal Intent Result
+
+The customBuildExperimentDebug-only UTF-8 prompt entrypoint is implemented as a
+non-exported `BroadcastReceiver`:
+`io.github.ninbyo02.lami.npu.DevQairt244PromptReceiver`.
+
+- Action: `io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT`
+- Extras: `prompt`, `expected_model_basename`, `max_output_tokens`
+- Exported state: `android:exported="false"`
+- Dispatch path: `adb shell run-as io.github.ninbyo02.lami.customnpu am broadcast --user 0`
+- Target model: `gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+- Native artifact: `artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt`
+- Native JNI sha256: `51e9a54c7ec32daabba7a6521ed378b8ebad72c4dfcd4597d6f4b0360e3ac947`
+
+Guards remain scoped to the DEV-only qairt244 SM8750 route:
+`BuildConfig.CUSTOM_BUILD_EXPERIMENT`, DEV toggle enabled, exact SM8750 model
+basename, `max_output_tokens` in `1..16`, UTF-8 prompt validation through
+`validateUtf8InternalIntent()`, and the existing duplicate-run guard. The
+`ui_text` runner path remains ASCII-only and does not use this UTF-8 entrypoint.
+
+The first successful internal-intent confirmation used prompt `こんにちは` and
+artifact
+`artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_151712`.
+The recorded result includes `result=success`, `requested_prompt=こんにちは`,
+`normalized_prompt=こんにちは`, `prompt_source=internal_intent`,
+`prompt_validation_mode=utf8_internal_intent`,
+`native_prompt_validation_mode=utf8_internal_intent`, `utf8_allowed=true`,
+`run_decode_reached=true`, `npu_backend=NPU`,
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`,
+`fallback_used=false`, `timeout=false`, `fresh_crash=false`, and
+`ui_cleanup_wait_status=success`.
+
 This document covers Japanese/non-ASCII prompt input for the DEV-only qairt244 SM8750 NPU runner. It does not change the NPU route, token limit, native artifact, fallback behavior, or production Backend.NPU wiring.
 
 ## Current State

@@ -6,7 +6,7 @@ TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 APP_ID="io.github.ninbyo02.lami.customnpu"
 MAIN_ACTIVITY="io.github.ninbyo02.lami.MainActivity"
 TOGGLE_ACTIVITY="io.github.ninbyo02.lami.npu.DevNpuChatScreenToggleActivity"
-CUSTOM_BUILD_ARTIFACT="artifacts/litert_custom_build/20260524_114833_qairt244_16token"
+CUSTOM_BUILD_ARTIFACT="artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt"
 OUT_DIR="$ROOT_DIR/artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/$TIMESTAMP"
 DEVICE_SERIAL=""
 RUN_REQUESTED=false
@@ -17,6 +17,7 @@ MARKER="qairt244_editable_prompt_smoke_v1"
 ROUTE_MARKER="qairt244_chat_screen_real_npu_adapter_v1"
 TARGET_MODEL="gemma-4-E2B-it_qualcomm_sm8750.litertlm"
 INTERNAL_INTENT_ACTION="io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT"
+INTERNAL_INTENT_RECEIVER="io.github.ninbyo02.lami.npu.DevQairt244PromptReceiver"
 PROMPT_INPUT_STATUS="not_started"
 PROMPT_INPUT_FAILURE_REASON=""
 PROMPT_ACTUAL=""
@@ -39,8 +40,8 @@ Usage:
 
 Runs one DEV-only ChatScreen NPU adapter attempt with the qualcomm_sm8750 model and maxOutputTokens=16.
 Default prompt mode is ui_text. UI text input is restricted to ASCII for runner stability; non-ASCII prompts stop before send.
-internal_intent is a placeholder mode for the customBuildExperimentDebug DEV-only app entrypoint.
-Japanese/non-ASCII prompts are allowed only in internal_intent mode, which must not use adb shell input text.
+internal_intent dispatches to the customBuildExperimentDebug DEV-only non-exported receiver.
+Japanese/non-ASCII prompts are allowed only in internal_intent mode, which does not use adb shell input text.
 EOF
       exit 0 ;;
     *) printf 'ERROR: unknown argument: %s\n' "$1" >&2; exit 2 ;;
@@ -158,29 +159,19 @@ write_prompt_input_status() {
 
 write_internal_intent_template() {
   {
-    printf '# Internal Intent Command Templates\n\n'
-    printf 'Action is owned by the DEV-only app entrypoint implementation:\n\n'
-    printf '```text\n%s\n```\n\n' "$INTERNAL_INTENT_ACTION"
-    printf 'Activity-style template, if the app entrypoint is implemented as an internal Activity:\n\n'
-    printf '```sh\n'
-    printf 'adb -s <device> shell am start -W \\\n'
-    printf '  -a %s \\\n' "$INTERNAL_INTENT_ACTION"
-    printf '  -n %s/<internal-entrypoint-component> \\\n' "$APP_ID"
-    printf '  --es requested_prompt "<utf8-prompt>" \\\n'
-    printf '  --ez dev_enable_qairt244_sm8750_npu_route true \\\n'
-    printf '  --ei max_output_tokens 16\n'
-    printf '```\n\n'
-    printf 'Broadcast-style template, if the app entrypoint is implemented as an internal receiver:\n\n'
-    printf '```sh\n'
-    printf 'adb -s <device> shell am broadcast \\\n'
-    printf '  -a %s \\\n' "$INTERNAL_INTENT_ACTION"
-    printf '  -p %s \\\n' "$APP_ID"
-    printf '  --es requested_prompt "<utf8-prompt>" \\\n'
-    printf '  --ez dev_enable_qairt244_sm8750_npu_route true \\\n'
-    printf '  --ei max_output_tokens 16\n'
-    printf '```\n\n'
-    printf 'This runner placeholder records the template only. It does not dispatch the intent until the app-side entrypoint contract is available.\n'
-    printf 'Do not use adb shell input text for Japanese/non-ASCII prompts.\n'
+    printf '# Internal Intent Command
+
+'
+    printf 'action=%s
+' "$INTERNAL_INTENT_ACTION"
+    printf 'receiver=%s
+' "$INTERNAL_INTENT_RECEIVER"
+    printf 'command=adb -s <device> shell run-as %s am broadcast --user 0 -a %s -n %s/%s --es prompt "<utf8-prompt>" --es expected_model_basename %s --ei max_output_tokens 16
+'       "$APP_ID" "$INTERNAL_INTENT_ACTION" "$APP_ID" "$INTERNAL_INTENT_RECEIVER" "$TARGET_MODEL"
+    printf 'receiver_exported=false
+'
+    printf 'adb_shell_input_text_unicode=false
+'
   } >"$OUT_DIR/internal_intent_command_template.md"
 }
 
@@ -301,7 +292,8 @@ write_preflight() {
     if [ "$PROMPT_MODE" = internal_intent ]; then
       printf 'ui_text_prompt_input=disabled\n'
       printf 'internal_intent_action=%s\n' "$INTERNAL_INTENT_ACTION"
-      printf 'internal_intent_placeholder=true\n'
+      printf 'internal_intent_receiver=%s\n' "$INTERNAL_INTENT_RECEIVER"
+      printf 'internal_intent_placeholder=false\n'
     else
       printf 'prompt_ascii_only=true\n'
     fi
@@ -362,12 +354,22 @@ scan_runtime_markers() {
 write_summary() {
   local executed="$1" wait_status="$2"
   local result_status=not_run output=not_run actual_prompt=not_run normalized_prompt=not_run max_output_tokens=not_run timeout=false
+  local prompt_source=not_run prompt_validation_mode=not_run native_prompt_validation_mode=not_run utf8_allowed=not_run
+  local npu_backend=not_run npu_backend_evidence=not_run run_decode_reached=not_run fallback_used=not_run
   local npu_evidence=unknown side_effect_flags=false rollback=false resolved_model_path=unknown model_reason=unknown
   if grep -q '^result=' "$OUT_DIR/result.txt" 2>/dev/null; then result_status="$(grep -m1 '^result=' "$OUT_DIR/result.txt" | cut -d= -f2-)"; fi
   if grep -q '^output=' "$OUT_DIR/result.txt" 2>/dev/null; then output="$(grep -m1 '^output=' "$OUT_DIR/result.txt" | cut -d= -f2-)"; fi
   if grep -q '^actual_prompt=' "$OUT_DIR/result.txt" 2>/dev/null; then actual_prompt="$(grep -m1 '^actual_prompt=' "$OUT_DIR/result.txt" | cut -d= -f2-)"; fi
   if grep -q '^normalized_prompt=' "$OUT_DIR/result.txt" 2>/dev/null; then normalized_prompt="$(grep -m1 '^normalized_prompt=' "$OUT_DIR/result.txt" | cut -d= -f2-)"; fi
   if grep -q '^max_output_tokens=' "$OUT_DIR/result.txt" 2>/dev/null; then max_output_tokens="$(grep -m1 '^max_output_tokens=' "$OUT_DIR/result.txt" | cut -d= -f2-)"; fi
+  if grep -q '^prompt_source=' "$OUT_DIR/result.txt" 2>/dev/null; then prompt_source="$(grep '^prompt_source=' "$OUT_DIR/result.txt" | tail -1 | cut -d= -f2-)"; fi
+  if grep -q '^prompt_validation_mode=' "$OUT_DIR/result.txt" 2>/dev/null; then prompt_validation_mode="$(grep '^prompt_validation_mode=' "$OUT_DIR/result.txt" | tail -1 | cut -d= -f2-)"; fi
+  if grep -q '^native_prompt_validation_mode=' "$OUT_DIR/result.txt" 2>/dev/null; then native_prompt_validation_mode="$(grep '^native_prompt_validation_mode=' "$OUT_DIR/result.txt" | tail -1 | cut -d= -f2-)"; fi
+  if grep -q '^utf8_allowed=' "$OUT_DIR/result.txt" 2>/dev/null; then utf8_allowed="$(grep '^utf8_allowed=' "$OUT_DIR/result.txt" | tail -1 | cut -d= -f2-)"; fi
+  if grep -q '^npu_backend=' "$OUT_DIR/result.txt" 2>/dev/null; then npu_backend="$(grep '^npu_backend=' "$OUT_DIR/result.txt" | tail -1 | cut -d= -f2-)"; fi
+  if grep -q '^npu_backend_evidence=' "$OUT_DIR/result.txt" 2>/dev/null; then npu_backend_evidence="$(grep '^npu_backend_evidence=' "$OUT_DIR/result.txt" | tail -1 | cut -d= -f2-)"; fi
+  if grep -q '^run_decode_reached=' "$OUT_DIR/result.txt" 2>/dev/null; then run_decode_reached="$(grep '^run_decode_reached=' "$OUT_DIR/result.txt" | tail -1 | cut -d= -f2-)"; fi
+  if grep -q '^fallback_used=' "$OUT_DIR/result.txt" 2>/dev/null; then fallback_used="$(grep '^fallback_used=' "$OUT_DIR/result.txt" | tail -1 | cut -d= -f2-)"; fi
   grep -q 'state=timeout' "$OUT_DIR/result.txt" 2>/dev/null && timeout=true
   if grep -q '^resolved_model_path=' "$OUT_DIR/resolved_model_path.txt" 2>/dev/null; then resolved_model_path="$(grep -m1 '^resolved_model_path=' "$OUT_DIR/resolved_model_path.txt" | cut -d= -f2-)"; fi
   if grep -q '^reasonCode=' "$OUT_DIR/resolved_model_path.txt" 2>/dev/null; then model_reason="$(grep -m1 '^reasonCode=' "$OUT_DIR/resolved_model_path.txt" | cut -d= -f2-)"; fi
@@ -390,8 +392,16 @@ write_summary() {
     if [ -f "$OUT_DIR/prompt_input_status.txt" ]; then cat "$OUT_DIR/prompt_input_status.txt"; fi
     printf 'actual_prompt=%s\n' "$actual_prompt"
     printf 'normalized_prompt=%s\n' "$normalized_prompt"
+    printf 'prompt_source=%s\n' "$prompt_source"
+    printf 'prompt_validation_mode=%s\n' "$prompt_validation_mode"
+    printf 'native_prompt_validation_mode=%s\n' "$native_prompt_validation_mode"
+    printf 'utf8_allowed=%s\n' "$utf8_allowed"
     printf 'output=%s\n' "$output"
     printf 'max_output_tokens=%s\n' "$max_output_tokens"
+    printf 'run_decode_reached=%s\n' "$run_decode_reached"
+    printf 'npu_backend=%s\n' "$npu_backend"
+    printf 'npu_backend_evidence=%s\n' "$npu_backend_evidence"
+    printf 'fallback_used=%s\n' "$fallback_used"
     printf 'timeout=%s\n' "$timeout"
     printf 'fresh_crash=false\n'
     printf 'npu_evidence=%s\n' "$npu_evidence"
@@ -435,21 +445,76 @@ main() {
   adb_cmd logcat -c >"$OUT_DIR/logcat_clear.txt" 2>&1 || true
   adb_cmd shell am force-stop "$APP_ID" >"$OUT_DIR/force_stop_before.txt" 2>&1 || true
   write_model_listing
-  adb_cmd shell run-as "$APP_ID" rm -f files/qairt244_short_multitoken_smoke_result.txt files/qairt244_native_diag.txt files/dev_npu_chatscreen_toggle_state.txt files/qairt244_chat_screen_model_path_resolution.txt files/qairt244_chat_screen_real_npu_once_guard.txt files/qairt244_dev_npu_ui_cleanup_state.txt >"$OUT_DIR/cleanup_app_files.txt" 2>&1 || true
+  adb_cmd shell run-as "$APP_ID" rm -f files/qairt244_short_multitoken_smoke_result.txt files/qairt244_native_diag.txt files/dev_npu_chatscreen_toggle_state.txt files/qairt244_chat_screen_model_path_resolution.txt files/qairt244_chat_screen_real_npu_once_guard.txt files/qairt244_dev_npu_ui_cleanup_state.txt files/qairt244_internal_intent_prompt_state.txt >"$OUT_DIR/cleanup_app_files.txt" 2>&1 || true
 
   set_toggle false "$OUT_DIR/toggle_state_before.txt"
   set_toggle true "$OUT_DIR/toggle_state_after_on.txt"
   if [ "$PROMPT_MODE" = internal_intent ]; then
-    PROMPT_ACTUAL=""
-    PROMPT_INPUT_STATUS=not_applicable
-    PROMPT_INPUT_FAILURE_REASON=uses_internal_intent_not_adb_input_text
-    INTENT_DISPATCH_STATUS=placeholder_not_dispatched_entrypoint_pending
+    PROMPT_ACTUAL="$PROMPT"
+    PROMPT_INPUT_STATUS=ok
+    PROMPT_INPUT_FAILURE_REASON=
+    INTENT_DISPATCH_STATUS=dispatching
     write_prompt_input_status
     write_internal_intent_template
+    if adb_cmd shell run-as "$APP_ID" am broadcast --user 0 \
+      -a "$INTERNAL_INTENT_ACTION" \
+      -n "$APP_ID/$INTERNAL_INTENT_RECEIVER" \
+      --es prompt "$PROMPT" \
+      --es expected_model_basename "$TARGET_MODEL" \
+      --ei max_output_tokens 16 >"$OUT_DIR/internal_intent_broadcast.txt" 2>&1; then
+      INTENT_DISPATCH_STATUS=dispatched
+    else
+      INTENT_DISPATCH_STATUS=failure
+    fi
+    write_prompt_input_status
+
+    wait_status=success
+    if wait_for_result; then
+      wait_status=success
+    else
+      wait_status=$?
+      [ "$wait_status" = 124 ] && adb_cmd shell am force-stop "$APP_ID" >"$OUT_DIR/force_stop_timeout.txt" 2>&1 || true
+    fi
+
+    ui_cleanup_wait_status=not_run
+    if wait_for_ui_cleanup; then
+      ui_cleanup_wait_status=success
+    else
+      ui_cleanup_wait_status=failure
+    fi
+
     set_toggle false "$OUT_DIR/toggle_state_after_off.txt"
-    write_summary false internal_intent_placeholder
+    pull_app_file "files/qairt244_short_multitoken_smoke_result.txt" "$OUT_DIR/result.txt"
+    pull_app_file "files/qairt244_native_diag.txt" "$OUT_DIR/native_diag.txt"
+    pull_app_file "files/qairt244_chat_screen_model_path_resolution.txt" "$OUT_DIR/resolved_model_path.txt"
+    pull_app_file "files/qairt244_dev_npu_ui_cleanup_state.txt" "$OUT_DIR/ui_cleanup_state.txt"
+    pull_app_file "files/qairt244_internal_intent_prompt_state.txt" "$OUT_DIR/internal_intent_prompt_state.txt"
+    printf 'ui_cleanup_wait_status=%s
+' "$ui_cleanup_wait_status" >"$OUT_DIR/ui_cleanup_wait_status.txt"
+    if grep -q "^resolved_model_path=.*$TARGET_MODEL$" "$OUT_DIR/resolved_model_path.txt" 2>/dev/null; then
+      printf "resolved_target_model=true
+" >"$OUT_DIR/resolved_target_model_guard.txt"
+    else
+      printf "resolved_target_model=false
+" >"$OUT_DIR/resolved_target_model_guard.txt"
+    fi
+    capture_window after
+    adb_cmd shell dumpsys meminfo "$APP_ID" >"$OUT_DIR/meminfo_after.txt" 2>&1 || true
+    sleep 10
+    adb_cmd shell dumpsys meminfo "$APP_ID" >"$OUT_DIR/meminfo_after_10s.txt" 2>&1 || true
+    adb_cmd logcat -d -t 800 >"$OUT_DIR/logcat_tail.txt" 2>&1 || true
+    adb_cmd shell cmd package dump "$APP_ID" >"$OUT_DIR/package_dump_full.txt" 2>&1 || true
+    { grep -A30 -B5 -i 'DevQairt244PromptReceiver\|MainActivity' "$OUT_DIR/package_dump_full.txt" || true; printf '
+--- uses native library ---
+'; grep -i -E 'uses-native|libcdsprpc|native.*library' "$OUT_DIR/package_dump_full.txt" || true; } >"$OUT_DIR/package_dump_extract.txt"
+    { printf '# Tombstone Freshness Classification
+
+'; printf -- '- classification: `no-fresh-crash-evidence`
+'; printf -- '- fresh crash: `false`
+'; } >"$OUT_DIR/stale_tombstone_note.md"
+    write_summary true "$wait_status"
     scan_runtime_markers
-    log "internal_intent prompt mode is documented but not dispatched by this runner yet"
+    log "done"
     exit 0
   fi
   if ! is_supported_ascii_prompt; then

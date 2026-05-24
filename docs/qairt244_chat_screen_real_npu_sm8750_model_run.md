@@ -1,4 +1,33 @@
-# QAIRT244 ChatScreen DEV-only SM8750 Model Guard
+# QAIRT244 ChatScreen DEV-only SM8750 NPU Model Run
+
+## 2026-05-24 UTF-8 Internal Intent Confirmation
+
+The UTF-8 internal prompt path is now wired through the
+customBuildExperimentDebug-only non-exported receiver
+`io.github.ninbyo02.lami.npu.DevQairt244PromptReceiver` with action
+`io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT`. The receiver is declared
+with `android:exported="false"`; the runner dispatches it from the app UID with
+`adb shell run-as io.github.ninbyo02.lami.customnpu am broadcast --user 0`, so
+no exported external entrypoint is added.
+
+The runner `--prompt-mode internal_intent` path sends Intent extras instead of
+`adb shell input text`. It records `requested_prompt`, `actual_prompt`,
+`normalized_prompt`, `intent_dispatch_status`, `prompt_source=internal_intent`,
+`prompt_validation_mode=utf8_internal_intent`,
+`native_prompt_validation_mode=utf8_internal_intent`, and `utf8_allowed=true`.
+The existing `ui_text` mode remains ASCII-only.
+
+Real-device confirmation artifact:
+`artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_151712`.
+The run used prompt `こんにちは`, target model
+`gemma-4-E2B-it_qualcomm_sm8750.litertlm`, and `max_output_tokens=16`. The
+recorded result is `success` with `requested_prompt=こんにちは`,
+`actual_prompt=こんにちは`, `normalized_prompt=こんにちは`,
+`run_decode_reached=true`, `npu_backend=NPU`,
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`,
+`decode_elapsed_ms=445`, `fallback_used=false`, `timeout=false`,
+`fresh_crash=false`, and `ui_cleanup_wait_status=success`. The post-run UI
+scan found no remaining `Responding...`, `Stop Button`, or `応答中` marker.
 
 This DEV-only guard applies only to the `customBuildExperimentDebug` ChatScreen NPU route. It does not enable the standard NPU path, GPU fallback, held official flow, DB persistence, TTS, Markdown, streaming, or normal local inference.
 
