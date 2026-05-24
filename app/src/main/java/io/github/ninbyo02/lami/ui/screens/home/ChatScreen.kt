@@ -2472,6 +2472,7 @@ fun Home(
                                                             } finally {
                                                                 localStreamingResponseText = null
                                                                 showDelayedLocalRespondingPlaceholder = false
+                                                                viewModel.resetUiState()
                                                                 isLocalInferenceRunning = false
                                                                 localInferenceJob = null
                                                             }
@@ -7853,7 +7854,7 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
     val npuBackendEvidence: String = "",
     val decodeElapsedMs: Long? = null,
     val elapsedMs: Long? = null,
-    val maxOutputTokens: Int = 3,
+    val maxOutputTokens: Int = 8,
     val fallbackUsed: Boolean = false,
     val failureStage: String = "",
     val stopReason: String = "",
@@ -7925,7 +7926,7 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
                 npuBackendEvidence = values["npu_backend_evidence"].orEmpty(),
                 decodeElapsedMs = values["decode_elapsed_ms"]?.toLongOrNull(),
                 elapsedMs = values["elapsed_ms"]?.toLongOrNull(),
-                maxOutputTokens = values["max_output_tokens"]?.toIntOrNull() ?: 3,
+                maxOutputTokens = values["max_output_tokens"]?.toIntOrNull() ?: 8,
                 fallbackUsed = values["fallback_used"]?.toBooleanStrictOrNull() ?: false,
                 failureStage = values["failure_stage"].orEmpty(),
                 stopReason = values["stop_reason"].orEmpty(),

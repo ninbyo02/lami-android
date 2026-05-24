@@ -48,6 +48,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             modelPath: String,
             runId: String,
             prompt: String,
+            maxOutputTokens: Int,
         ): String {
             check(BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
                 "editable prompt smoke is customBuildExperimentDebug-only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
@@ -72,6 +73,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
                 resultPath = resultPath,
                 diagPath = diagPath,
                 prompt = normalizedPrompt,
+                maxOutputTokens = maxOutputTokens,
             )
             return "qairt244_editable_prompt_smoke_v1 runId=$runId result=success actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt output=$output"
         }
@@ -93,6 +95,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             resultPath: String,
             diagPath: String,
             prompt: String,
+            maxOutputTokens: Int,
         ): String
     }
 }

@@ -6,7 +6,7 @@ TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 APP_ID="io.github.ninbyo02.lami.customnpu"
 MAIN_ACTIVITY="io.github.ninbyo02.lami.MainActivity"
 TOGGLE_ACTIVITY="io.github.ninbyo02.lami.npu.DevNpuChatScreenToggleActivity"
-CUSTOM_BUILD_ARTIFACT="artifacts/qairt244_editable_prompt_entrypoint_build/20260523_183705"
+CUSTOM_BUILD_ARTIFACT="artifacts/qairt244_editable_prompt_entrypoint_build/20260524_8token"
 OUT_DIR="$ROOT_DIR/artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/$TIMESTAMP"
 DEVICE_SERIAL=""
 RUN_REQUESTED=false
@@ -26,7 +26,7 @@ while [ $# -gt 0 ]; do
 Usage:
   scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh [--artifact <custom-build-artifact>] [--run] [--device <serial>]
 
-Runs one DEV-only ChatScreen NPU adapter attempt with the qualcomm_sm8750 model, prompt=Hello, and maxOutputTokens=3.
+Runs one DEV-only ChatScreen NPU adapter attempt with the qualcomm_sm8750 model, prompt=Hello, and maxOutputTokens=8.
 EOF
       exit 0 ;;
     *) printf 'ERROR: unknown argument: %s\n' "$1" >&2; exit 2 ;;
@@ -134,7 +134,9 @@ write_preflight() {
   local artifact_present=false marker_present=false setmax_present=false route_code_present=false
   [ -d "$CUSTOM_BUILD_ARTIFACT" ] && artifact_present=true
   [ -f "$artifact_lib" ] && strings "$artifact_lib" 2>/dev/null | grep -q "$MARKER" && marker_present=true
-  if { [ -f "$artifact_lib" ] && strings "$artifact_lib" 2>/dev/null | grep -q 'SetMaxOutputTokens(3)'; } || { [ -f "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch" ] && grep -q 'SetMaxOutputTokens(3)' "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch"; }; then
+  if { [ -f "$artifact_lib" ] && strings "$artifact_lib" 2>/dev/null | grep -q 'SetMaxOutputTokens(8)'; } ||
+    { [ -f "$artifact_lib" ] && strings "$artifact_lib" 2>/dev/null | grep -q 'SetMaxOutputTokens(%d)' && strings "$artifact_lib" 2>/dev/null | grep -q 'max_output_tokens=8' && strings "$artifact_lib" 2>/dev/null | grep -q 'invalid_max_output_tokens'; } ||
+    { [ -f "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch" ] && grep -q 'SetMaxOutputTokens(8)' "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch"; }; then
     setmax_present=true
   fi
   rg -q "$ROUTE_MARKER|Qairt244DevOnlyNpuRouteAdapter" app/src/customBuildExperimentDebug/java 2>/dev/null && route_code_present=true
@@ -143,11 +145,11 @@ write_preflight() {
     printf 'artifact_present=%s\n' "$artifact_present"
     printf 'native_marker=%s\n' "$MARKER"
     printf 'native_marker_present=%s\n' "$marker_present"
-    printf 'set_max_output_tokens_3_evidence=%s\n' "$setmax_present"
+    printf 'set_max_output_tokens_8_evidence=%s\n' "$setmax_present"
     printf 'route_marker=%s\n' "$ROUTE_MARKER"
     printf 'route_code_present=%s\n' "$route_code_present"
     printf 'prompt=%s\n' "$PROMPT"
-    printf 'max_output_tokens=3\n'
+    printf 'max_output_tokens=8\n'
     printf 'run_requested=%s\n' "$RUN_REQUESTED"
     printf 'db=false\n'
     printf 'tts=false\n'

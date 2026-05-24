@@ -21,7 +21,7 @@ class DevOnlyNpuRoutePlannerTest {
         assertFalse(result.success)
         assertEquals("gate_blocked:VALIDATOR_INVALID", result.reasonCode)
         assertEquals("Hello", result.prompt)
-        assertEquals(3, result.maxOutputTokens)
+        assertEquals(DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS, result.maxOutputTokens)
         assertNull(result.output)
         assertFalse(result.freshCrash)
         assertFalse(result.timeout)
@@ -38,7 +38,7 @@ class DevOnlyNpuRoutePlannerTest {
                 elapsedMs = 10L,
                 decodeElapsedMs = 3L,
                 prompt = "placeholder",
-                maxOutputTokens = 3,
+                maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
                 backendEvidence = "fake",
                 artifactPath = "artifact",
                 freshCrash = false,
@@ -50,7 +50,7 @@ class DevOnlyNpuRoutePlannerTest {
         val result = planner.runIfAllowed(
             gateInput = validGateInput(),
             prompt = "Hello",
-            maxOutputTokens = 3,
+            maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
             timeoutMs = 1_000L,
         )
 
@@ -58,7 +58,7 @@ class DevOnlyNpuRoutePlannerTest {
         assertEquals("ok", result.reasonCode)
         assertEquals(1, adapter.callCount)
         assertEquals("Hello", adapter.lastPrompt)
-        assertEquals(3, adapter.lastMaxOutputTokens)
+        assertEquals(DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS, adapter.lastMaxOutputTokens)
         assertEquals(1_000L, adapter.lastTimeoutMs)
     }
 
@@ -72,7 +72,7 @@ class DevOnlyNpuRoutePlannerTest {
         assertFalse(result.success)
         assertEquals("adapter_not_connected", result.reasonCode)
         assertEquals("Hello", result.prompt)
-        assertEquals(3, result.maxOutputTokens)
+        assertEquals(DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS, result.maxOutputTokens)
         assertNull(result.backendEvidence)
         assertNull(result.artifactPath)
     }
@@ -157,7 +157,7 @@ class DevOnlyNpuRoutePlannerTest {
         validatorValid: Boolean = true,
         nativeEditablePromptSupported: Boolean = true,
         running: Boolean = false,
-        maxOutputTokens: Int = 3,
+        maxOutputTokens: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
     ): DevOnlyNpuRouteGateInput = DevOnlyNpuRouteGateInput(
         customBuildExperiment = customBuildExperiment,
         allowEditablePromptPreview = allowEditablePromptPreview,

@@ -118,7 +118,7 @@ class DevOnlyNpuRouteDisplayModelTest {
         elapsedMs: Long? = null,
         decodeElapsedMs: Long? = null,
         prompt: String = "Hello",
-        maxOutputTokens: Int = 3,
+        maxOutputTokens: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
         backendEvidence: String? = null,
         artifactPath: String? = null,
         freshCrash: Boolean = false,

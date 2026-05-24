@@ -54,7 +54,7 @@ This confirms one bounded `--run` success through the ChatScreen DEV-only NPU ro
 
 The ChatScreen UI route remains experimental and DEV-only. In `customBuildExperimentDebug`, Settings exposes `DEV: SM8750 NPU実験` using preference key `dev_enable_qairt244_sm8750_npu_route`; the default is always OFF and the toggle is automatically cleared after a guarded attempt. This is separate from the standard local inference route and is not a production NPU enablement.
 
-When the toggle is ON and the user sends from the local ChatScreen target, the app calls the qairt244 SM8750 DEV-only adapter with `max_output_tokens=3`. The model basename must still exactly match `gemma-4-E2B-it_qualcomm_sm8750.litertlm`; generic, E4B, and qcs8275 models remain rejected by the Kotlin resolver. The path does not copy or delete model files.
+When the toggle is ON and the user sends from the local ChatScreen target, the app calls the qairt244 SM8750 DEV-only adapter with `max_output_tokens=8`. The model basename must still exactly match `gemma-4-E2B-it_qualcomm_sm8750.litertlm`; generic, E4B, and qcs8275 models remain rejected by the Kotlin resolver. The path does not copy or delete model files.
 
 The DEV UI route does not fallback to GPU or CPU. On failure it inserts a non-streaming assistant message like `DEV NPU route failed: <reason>` and leaves normal local inference untouched. It does not connect TTS or streaming sentence TTS. Stop cancellation is intentionally best-effort because the guarded run is bounded to a short lower-level decode.
 
@@ -67,7 +67,7 @@ required_sm8750_model_path=true
 npu_backend=NPU
 npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
 decode_elapsed_ms=<value>
-max_output_tokens=3
+max_output_tokens=8
 fallback_used=false
 ```
 
@@ -75,7 +75,7 @@ fallback_used=false
 
 As of 2026-05-24, the DEV UI route is in a safety/diagnostics phase. It remains `customBuildExperimentDebug` scoped, defaults OFF, and is entered only when `BuildConfig.CUSTOM_BUILD_EXPERIMENT && dev_enable_qairt244_sm8750_npu_route` is true. With the toggle OFF, ChatScreen falls through to the existing local inference path; the standard local route, GPU fallback behavior, and held-official-flow are not changed by this experiment.
 
-`max_output_tokens` stays fixed at `3`. The DEV route is a short, lower-level, non-streaming run, so Stop is best-effort and is not guaranteed to behave like normal streaming cancellation. The UI must clear its generating state on success, failure, and exception, and the DEV branch also keeps an in-process duplicate-run guard so repeated sends do not start overlapping qairt244 runs.
+`max_output_tokens` is now fixed at `8` for the 8 token phase. The DEV route is a short, lower-level, non-streaming run, so Stop is best-effort and is not guaranteed to behave like normal streaming cancellation. The UI must clear its generating state on success, failure, and exception, and the DEV branch also keeps an in-process duplicate-run guard so repeated sends do not start overlapping qairt244 runs.
 
 Failure handling intentionally does not fallback to GPU or CPU. Falling back would hide the exact NPU failure stage and could make SM8750 model validation ambiguous. Failure diagnostics should include:
 
@@ -88,4 +88,36 @@ required_sm8750_model_path=<true|false>
 fallback_used=false
 ```
 
-Before raising the token cap to `8` or `16`, require repeated evidence that: the exact SM8750 basename is selected, `required_sm8750_model_path=true`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, no GPU/CPU fallback is detected, generating state clears after success/failure/Stop, duplicate sends are blocked, and no TTS/streaming/standard-route side effects appear.
+Before raising the token cap beyond `8` toward `16`, require repeated evidence that: the exact SM8750 basename is selected, `required_sm8750_model_path=true`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, no GPU/CPU fallback is detected, generating state clears after success/failure/Stop, duplicate sends are blocked, and no TTS/streaming/standard-route side effects appear.
+
+## 8 Token Phase
+
+The next bounded DEV-only step raises only the qairt244 SM8750 experiment route from `max_output_tokens=3` to `max_output_tokens=8`. This is not a production NPU rollout and still does not enable `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
+
+The 8 token phase is considered acceptable only if one guarded `Hello` run records: exact basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `required_sm8750_model_path=true`, `max_output_tokens=8`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `fresh_crash=false`, `timeout=false`, no `duplicate_run_blocked`, and the ChatScreen loading state clears after completion.
+
+8 token run evidence on 2026-05-24:
+
+```text
+commit_under_test=1509df12 + local 8-token changes
+artifact=artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_112050
+custom_build_artifact=artifacts/qairt244_editable_prompt_entrypoint_build/20260524_8token
+result=success
+actual_prompt=Hello
+normalized_prompt=Hello
+output=! How अच्छे? (How are you
+resolved_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+required_sm8750_model_path=true
+max_output_tokens=8
+run_decode=before RunDecode SetMaxOutputTokens(8)
+decode_elapsed_ms=238
+npu_backend=NPU
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_used=false
+fresh_crash=false
+timeout=false
+duplicate_run_blocked=false
+rollback_condition_hit=false
+```
+
+The immediate post-run UI dump still showed a stale `Responding...`/Stop state, so the 8-token change also adds DEV-only cleanup with `viewModel.resetUiState()` in the ChatScreen route `finally` block. That cleanup was build-tested after the run; it was not re-run on device to preserve the one-run constraint for this phase.

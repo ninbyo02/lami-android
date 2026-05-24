@@ -14,7 +14,7 @@ class DevOnlyNpuRouteAdapterTest {
         assertFalse(result.success)
         assertEquals("adapter_not_connected", result.reasonCode)
         assertEquals("Hello", result.prompt)
-        assertEquals(3, result.maxOutputTokens)
+        assertEquals(DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS, result.maxOutputTokens)
         assertNull(result.output)
         assertNull(result.elapsedMs)
         assertNull(result.decodeElapsedMs)
@@ -28,13 +28,13 @@ class DevOnlyNpuRouteAdapterTest {
     fun `blocked adapter preserves explicit max tokens without running`() = runBlocking {
         val result = BlockedDevOnlyNpuRouteAdapter().runOnce(
             prompt = "Hi",
-            maxOutputTokens = 3,
+            maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
             timeoutMs = 1_000L,
         )
 
         assertFalse(result.success)
         assertEquals("adapter_not_connected", result.reasonCode)
-        assertEquals(3, result.maxOutputTokens)
+        assertEquals(DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS, result.maxOutputTokens)
         assertFalse(result.timeout)
     }
 
@@ -47,7 +47,7 @@ class DevOnlyNpuRouteAdapterTest {
             elapsedMs = 30_000L,
             decodeElapsedMs = null,
             prompt = "Hello",
-            maxOutputTokens = 3,
+            maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
             backendEvidence = null,
             artifactPath = "artifacts/dev_only_npu_route/timeout",
             freshCrash = true,

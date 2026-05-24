@@ -8,7 +8,7 @@ interface DevOnlyNpuRouteAdapter {
     ): DevOnlyNpuRouteResult
 
     companion object {
-        const val DEFAULT_MAX_OUTPUT_TOKENS = 3
+        const val DEFAULT_MAX_OUTPUT_TOKENS = 8
         const val DEFAULT_TIMEOUT_MS = 30_000L
     }
 }

@@ -105,7 +105,7 @@ class DevOnlyNpuRouteGateTest {
         validatorValid: Boolean = true,
         nativeEditablePromptSupported: Boolean = true,
         running: Boolean = false,
-        maxOutputTokens: Int = 3,
+        maxOutputTokens: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
     ): DevOnlyNpuRouteGateInput = DevOnlyNpuRouteGateInput(
         customBuildExperiment = customBuildExperiment,
         allowEditablePromptPreview = allowEditablePromptPreview,

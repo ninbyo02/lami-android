@@ -54,7 +54,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         if (!runGuardFile.createNewFile()) {
             appendRouteMarker(
                 "state=duplicate_run_blocked actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
-                    "max_output_tokens=3 engine_initialize=false run_decode=false db=false tts=false markdown=false stream=false",
+                    "max_output_tokens=$maxOutputTokens engine_initialize=false run_decode=false db=false tts=false markdown=false stream=false",
             )
             return blockedResult(
                 prompt = normalizedPrompt,
@@ -109,7 +109,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         val runId = "chat-real-${System.currentTimeMillis()}-${UUID.randomUUID()}"
         appendRouteMarker(
             "runId=$runId state=started actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
-                "max_output_tokens=3 resolved_model_path=${modelResolution.path}",
+                "max_output_tokens=$maxOutputTokens resolved_model_path=${modelResolution.path}",
         )
 
         val start = SystemClock.elapsedRealtime()
@@ -121,6 +121,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                         modelPath = resolvedModelPath,
                         runId = runId,
                         prompt = normalizedPrompt,
+                        maxOutputTokens = maxOutputTokens,
                     )
                 }
             }

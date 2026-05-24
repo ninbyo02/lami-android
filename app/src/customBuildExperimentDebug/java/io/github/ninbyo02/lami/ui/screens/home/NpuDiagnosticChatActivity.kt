@@ -85,7 +85,7 @@ class NpuDiagnosticChatActivity : Activity() {
             listOf(
                 "path=$modelPath",
                 "exists=${File(modelPath).exists()}",
-                "maxOutputTokens=3",
+                "maxOutputTokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
                 "prompt=$initialPrompt",
             ),
         )
@@ -349,7 +349,7 @@ class NpuDiagnosticChatActivity : Activity() {
         runButton.isEnabled = false
         confirmCheck.isEnabled = false
         resultFile.appendText(
-            "qairt244_diagnostic_chat_guarded_run_v1 runId=$runId state=started max_output_tokens=3 prompt_source=$promptSource actual_prompt=$prompt\n",
+            "qairt244_diagnostic_chat_guarded_run_v1 runId=$runId state=started max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS} prompt_source=$promptSource actual_prompt=$prompt\n",
         )
 
         handler.postDelayed(
@@ -384,6 +384,7 @@ class NpuDiagnosticChatActivity : Activity() {
                         modelPath = modelPath,
                         runId = runId,
                         prompt = prompt,
+                        maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
                     )
                 } else {
                     Qairt244ShortMultitokenSmoke.run(
@@ -651,7 +652,7 @@ class NpuDiagnosticChatActivity : Activity() {
             "prompt_source=${if (promptExecutionConnected) "editable_prompt" else "fixed_hi"}",
             "run_button_uses_fixed_prompt=${if (promptExecutionConnected) "false" else "Hi"}",
             "run_button_connected=$promptExecutionConnected",
-            "maxOutputTokens=3",
+            "maxOutputTokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
             "npu_generation=false",
         )
     }
@@ -681,7 +682,7 @@ class NpuDiagnosticChatActivity : Activity() {
                 "prompt_source=${if (promptExecutionConnected) "editable_prompt" else "fixed_hi"}",
                 "run_button_uses_fixed_prompt=${if (promptExecutionConnected) "false" else "Hi"}",
                 "run_button_connected=$promptExecutionConnected",
-                "max_output_tokens=3",
+                "max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
                 "npu_generation=false",
                 "engine_initialize=false",
                 "run_decode=false",
