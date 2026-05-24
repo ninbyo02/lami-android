@@ -44,9 +44,41 @@ generic/E4B/qcs8275 models, and does not elevate the standard UI route.
 - `ui_cleanup_wait_status=success`
 - No `duplicate_run_blocked`, `Responding...`, `Stop Button`, or `応答中` marker remained.
 
+128-token bounded Phase A stability evidence:
+
+```text
+prompt_mode=internal_intent
+prompts=こんにちは, テスト, ラミィ
+artifacts=artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_172255,
+          artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_172346,
+          artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_172425
+success_rate=3/3
+max_output_tokens=128
+native_max_output_tokens_limit=128
+prompt_match=requested/actual/normalized all matched
+prompt_validation_mode=utf8_internal_intent
+native_prompt_validation_mode=utf8_internal_intent
+utf8_allowed=true
+run_decode_reached=true
+npu_backend=NPU
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_used=false
+timeout=false
+fresh_crash=false
+duplicate_run_blocked=not observed
+ui_cleanup_wait_status=success
+ui_residual_markers=Responding.../Stop Button/応答中 not observed
+decode_elapsed_ms_range=40..3152
+```
+
+The `40 ms` lower-bound decode timing is stability evidence for a completed
+bounded DEV run, not a formal generation speed value.
+
 This is a DEV-only bounded experiment for the qairt244 SM8750 internal intent
 route, not production or normal-route NPU enablement. Do not raise beyond 128
-without a new bounded native guard, artifact, and single-device evidence.
+without a new bounded native guard, artifact, and single-device evidence. The
+next planned work is Settings cleanup; that cleanup has not started in this
+docs-only update.
 
 ## 2026-05-24 64-Token Bounded Phase
 
