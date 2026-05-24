@@ -33,6 +33,7 @@ internal object Qairt244OutputUnicodeDiagnostics {
         val questionMarkCount = codePoints.count {
             it == QUESTION_MARK_CODE_POINT || it == FULLWIDTH_QUESTION_MARK_CODE_POINT
         }
+        val qualityClassification = classifyQuality(output = output, codePoints = codePoints)
         val eosDetected = eosDetected(
             output = output,
             finishReason = finishReason,
@@ -45,6 +46,7 @@ internal object Qairt244OutputUnicodeDiagnostics {
             "stop_reason" to stopReason,
             "eos_detected" to eosDetected.toString(),
             "output_contains_replacement_chars" to (replacementCount > 0).toString(),
+            "replacement_char_count" to replacementCount.toString(),
             "output_contains_control_chars" to controlCounts.isNotEmpty().toString(),
             "output_unicode_summary" to unicodeSummary(
                 output = output,
@@ -54,6 +56,7 @@ internal object Qairt244OutputUnicodeDiagnostics {
                 circleCount = circleCount,
                 questionMarkCount = questionMarkCount,
             ),
+            "quality_classification" to qualityClassification,
             "output_first_200_chars" to output.takeCodePoints(200),
             "output_last_200_chars" to output.takeLastCodePoints(200),
         )
@@ -80,6 +83,50 @@ internal object Qairt244OutputUnicodeDiagnostics {
         val finishStopText = "$finishReason $stopReason"
         return eosStopMarkers.any { marker -> finishStopText.contains(marker, ignoreCase = true) } ||
             eosTextMarkers.any { marker -> output.contains(marker, ignoreCase = true) }
+    }
+
+    private fun classifyQuality(output: String, codePoints: List<Int>): String {
+        val trimmed = output.trim()
+        val trimmedCodePoints = trimmed.codePointValues()
+        if (trimmed.isEmpty()) return "empty_output"
+        if (trimmedCodePoints.size == 1 && trimmedCodePoints.first().isQuestionMark()) {
+            return "single_question_mark"
+        }
+
+        val circleCount = codePoints.count { it == WHITE_CIRCLE_CODE_POINT }
+        if (circleCount >= 3 && circleCount * 5 >= codePoints.size * 4) {
+            return "repetitive_circles"
+        }
+
+        if (containsTemplateArtifact(output)) return "template_artifact"
+
+        val hasJapanese = codePoints.any { it.isJapaneseCodePoint() }
+        val latinLetterCount = codePoints.count {
+            (it in 'A'.code..'Z'.code) || (it in 'a'.code..'z'.code)
+        }
+        if (!hasJapanese || latinLetterCount >= 3) return "mixed_language"
+
+        return "natural_japanese"
+    }
+
+    private fun containsTemplateArtifact(output: String): Boolean {
+        val lower = output.lowercase()
+        return listOf(
+            "<|im_start|>",
+            "<|im_end|>",
+            "<|start_header_id|>",
+            "<|end_header_id|>",
+            "<start_of_turn>",
+            "<end_of_turn>",
+            "[inst]",
+            "[/inst]",
+            "### system",
+            "### user",
+            "### assistant",
+            "system:",
+            "user:",
+            "assistant:",
+        ).any { lower.contains(it) }
     }
 
     private fun unicodeSummary(
@@ -153,6 +200,16 @@ internal object Qairt244OutputUnicodeDiagnostics {
 
     private fun codePointLabel(codePoint: Int): String =
         "U+${codePoint.toString(16).uppercase().padStart(4, '0')}"
+
+    private fun Int.isQuestionMark(): Boolean =
+        this == QUESTION_MARK_CODE_POINT || this == FULLWIDTH_QUESTION_MARK_CODE_POINT
+
+    private fun Int.isJapaneseCodePoint(): Boolean =
+        this in 0x3040..0x309F ||
+            this in 0x30A0..0x30FF ||
+            this in 0x3400..0x4DBF ||
+            this in 0x4E00..0x9FFF ||
+            this in 0xF900..0xFAFF
 
     private const val REPLACEMENT_CHAR_CODE_POINT = 0xFFFD
     private const val WHITE_CIRCLE_CODE_POINT = 0x3007

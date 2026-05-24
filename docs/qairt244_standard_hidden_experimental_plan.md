@@ -368,3 +368,77 @@ Minimal fix proposal only: if output quality requires instruction-tuned
 conversation formatting, add an explicit, guarded prompt-template experiment
 with diagnostics that name the exact template. Do not silently change the
 current hidden route's native input shape.
+
+## Prompt Template Experiment
+
+As of 2026-05-24, standardDebug hidden qairt244 can compare three prompt input
+shapes without changing the native artifact, token limit, fallback policy, or
+production backend selection. This remains hidden experimental only and is gated
+by developer access plus the SM8750 NPU toggle.
+
+Template modes:
+
+- `raw`: pass the validator-normalized prompt as-is.
+- `simple_ja_chat`: prepend `あなたは親切なAIアシスタントです。\nユーザー: `
+  and append `\nアシスタント:`.
+- `gemma_it_like`: wrap the prompt as
+  `<start_of_turn>user\n<prompt>\n<end_of_turn>\n<start_of_turn>model`.
+
+Scope:
+
+- Applied only to the standard hidden ChatScreen qairt244 route.
+- `customBuildExperimentDebug` internal-intent route remains `raw`.
+- The Settings selector is visible only when developer access is enabled.
+- Runner comparison can pass `--template raw|simple_ja_chat|gemma_it_like`.
+
+Diagnostics added for comparison:
+
+- `template_mode`
+- `chat_template_used`
+- `final_model_input`
+- `final_model_input_length`
+- `template_prefix_length`
+- `template_suffix_length`
+
+Quality diagnostics now also include `quality_classification` and
+`replacement_char_count`. Classifications are diagnostic labels only:
+`natural_japanese`, `template_artifact`, `repetitive_circles`,
+`single_question_mark`, `mixed_language`, and `empty_output`.
+
+The next decision should be based on same-prompt artifacts across all three
+template modes. Prefer the smallest hidden-only change that improves output
+quality while keeping `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`,
+`fallback_used=false`, and `max_output_tokens=128`.
+
+### 2026-05-24 Initial Same-Prompt Comparison
+
+Prompt: `こんにちは`
+
+Artifacts:
+
+- `raw`: `artifacts/qairt244_standard_hidden_npu_route/20260524_213504`
+- `simple_ja_chat`: `artifacts/qairt244_standard_hidden_npu_route/20260524_213513`
+- `gemma_it_like`: `artifacts/qairt244_standard_hidden_npu_route/20260524_213541`
+
+Observed result:
+
+| template_mode | final_model_input_length | result | run_decode_reached | decode_elapsed_ms | quality_classification |
+| --- | ---: | --- | --- | ---: | --- |
+| `raw` | 5 | `success` | `true` | 3418 | `mixed_language` |
+| `simple_ja_chat` | 38 | `adapter_failure:IllegalStateException` | `false` | n/a | `empty_output` |
+| `gemma_it_like` | 60 | `adapter_failure:IllegalStateException` | `false` | n/a | `empty_output` |
+
+The templated modes did not reach native decode. The Java-side editable prompt
+guard rejected the expanded final input before native execution with
+`reasonCode=too_long`. This is expected with the current 32-code-point prompt
+guard: even `こんにちは` expands to 38 code points in `simple_ja_chat` and 60 in
+`gemma_it_like`.
+
+Current conclusion: the selected model likely still needs chat/instruction
+formatting, but the existing bounded route cannot evaluate the requested
+templates until there is a new explicitly bounded prompt-length phase. Do not
+work around this by truncating templates or silently passing a different native
+input. The next minimal step is a separate hidden experiment that raises only
+the prompt-input bound enough for the named templates while preserving the
+128-token output bound, UTF-8 safety checks, SM8750 model guard, NPU evidence,
+and fallback prohibition.

@@ -129,6 +129,7 @@ class Qairt244NativeResultParserTest {
             """
             output=本文です。
             output_unicode_summary=utf16_length=4;code_point_count=4
+            quality_classification=natural_japanese
             output_first_200_chars=本文です。
             output_last_200_chars=本文です。
             eos_detected=false
@@ -137,6 +138,33 @@ class Qairt244NativeResultParserTest {
 
         assertEquals("本文です。", parsed.output)
         assertEquals("false", parsed.values["eos_detected"])
+        assertEquals("natural_japanese", parsed.values["quality_classification"])
         assertEquals("本文です。", parsed.values["output_first_200_chars"])
+    }
+
+    @Test
+    fun `output followed by template comparison diagnostics keeps output separate`() {
+        val parsed = Qairt244NativeResultParser.parse(
+            """
+            output=回答本文。
+            template_mode=chatml
+            template_prefix_length=12
+            template_suffix_length=34
+            final_model_input_length=123
+            raw_native_output_length=5
+            displayed_assistant_text_length=5
+            decode_elapsed_ms=42
+            output_token_count=7
+            replacement_char_count=0
+            quality_classification=natural_japanese
+            """.trimIndent(),
+        )
+
+        assertEquals("回答本文。", parsed.output)
+        assertEquals("chatml", parsed.values["template_mode"])
+        assertEquals("12", parsed.values["template_prefix_length"])
+        assertEquals("34", parsed.values["template_suffix_length"])
+        assertEquals("123", parsed.values["final_model_input_length"])
+        assertEquals("natural_japanese", parsed.values["quality_classification"])
     }
 }

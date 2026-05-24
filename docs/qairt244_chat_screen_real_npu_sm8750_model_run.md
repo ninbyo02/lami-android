@@ -1,5 +1,67 @@
 # QAIRT244 ChatScreen DEV-only SM8750 NPU Model Run
 
+## 2026-05-24 Standard Hidden Prompt Template Experiment
+
+The standardDebug hidden qairt244 route now supports a developer-only template
+comparison mode. This is not Backend.NPU promotion and does not change the
+native artifact, token limit, or fallback policy.
+
+Runner usage:
+
+```text
+scripts/run_qairt244_standard_hidden_npu_route.sh --prompt こんにちは --template raw
+scripts/run_qairt244_standard_hidden_npu_route.sh --prompt こんにちは --template simple_ja_chat
+scripts/run_qairt244_standard_hidden_npu_route.sh --prompt こんにちは --template gemma_it_like
+```
+
+Each run records:
+
+- `template_mode`
+- `final_model_input_length`
+- `raw_native_output_length`
+- `displayed_assistant_text_length`
+- `decode_elapsed_ms`
+- `output_token_count`
+- `finish_reason` and `stop_reason`
+- `output_contains_replacement_chars`
+- `replacement_char_count`
+- `output_unicode_summary`
+- `quality_classification`
+
+Use these fields to compare raw prompting against simple Japanese assistant
+formatting and Gemma instruction-tuning-like turn markers. The comparison is
+valid only when the run still reports `npu_backend=NPU`,
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`,
+`fallback_used=false`, `timeout=false`, and successful UI cleanup.
+
+Initial same-prompt result for `こんにちは`:
+
+```text
+raw artifact=artifacts/qairt244_standard_hidden_npu_route/20260524_213504
+raw result=success
+raw final_model_input_length=5
+raw decode_elapsed_ms=3418
+raw quality_classification=mixed_language
+raw npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+
+simple_ja_chat artifact=artifacts/qairt244_standard_hidden_npu_route/20260524_213513
+simple_ja_chat result=adapter_failure:IllegalStateException
+simple_ja_chat final_model_input_length=38
+simple_ja_chat run_decode_reached=false
+simple_ja_chat stop_reason=adapter_failure:IllegalStateException
+
+gemma_it_like artifact=artifacts/qairt244_standard_hidden_npu_route/20260524_213541
+gemma_it_like result=adapter_failure:IllegalStateException
+gemma_it_like final_model_input_length=60
+gemma_it_like run_decode_reached=false
+gemma_it_like stop_reason=adapter_failure:IllegalStateException
+```
+
+The templated modes are blocked before native execution by the current
+editable-prompt length guard (`reasonCode=too_long`). Do not interpret those
+two runs as model quality results. A follow-up bounded prompt-input phase is
+required before the requested templates can be compared on NPU decode.
+
 ## 2026-05-24 128-Token Bounded Phase
 
 The runner default artifact now points to the 128-token custom native artifact

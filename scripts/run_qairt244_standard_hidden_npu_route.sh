@@ -10,21 +10,26 @@ OUT_DIR="$ROOT_DIR/artifacts/qairt244_standard_hidden_npu_route/$TIMESTAMP"
 DEVICE_SERIAL=""
 PROMPT="Hello"
 TIMEOUT_SECONDS=45
+TEMPLATE_MODE=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --device) DEVICE_SERIAL="${2:-}"; shift 2 ;;
     --prompt) PROMPT="${2:-}"; shift 2 ;;
     --timeout) TIMEOUT_SECONDS="${2:-}"; shift 2 ;;
+    --template) TEMPLATE_MODE="${2:-}"; shift 2 ;;
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_qairt244_standard_hidden_npu_route.sh [--device <serial>] [--prompt <prompt>] [--timeout <seconds>]
+  scripts/run_qairt244_standard_hidden_npu_route.sh [--device <serial>] [--prompt <prompt>] [--timeout <seconds>] [--template <mode>]
 
 Runs one standardDebug hidden qairt244 SM8750 NPU attempt through the debug-only
 android.permission.DUMP-protected receiver. It enables developer_access_enabled and
 dev_enable_qairt244_sm8750_npu_route via app code, then dispatches the prompt
 without relying on manual IME focus.
+
+When --template is set, the value is passed as the receiver extra template_mode
+for template comparison experiments.
 EOF
       exit 0 ;;
     *) printf 'ERROR: unknown argument: %s\n' "$1" >&2; exit 2 ;;
@@ -73,6 +78,25 @@ wait_for_state() {
   return 124
 }
 
+summary_value() {
+  local key="$1"
+  local file
+  local value
+  for file in \
+    "$OUT_DIR/display_diagnostics.txt" \
+    "$OUT_DIR/result.txt" \
+    "$OUT_DIR/receiver_state.txt" \
+    "$OUT_DIR/native_diag.txt"; do
+    [ -f "$file" ] || continue
+    value="$(awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print "FOUND:" $0; exit }' "$file")"
+    if [ "${value#FOUND:}" != "$value" ]; then
+      printf '%s' "${value#FOUND:}"
+      return 0
+    fi
+  done
+  printf 'unavailable'
+}
+
 write_summary() {
   local status="$1"
   {
@@ -80,7 +104,21 @@ write_summary() {
     printf -- '- artifact: `%s`\n' "${OUT_DIR#$ROOT_DIR/}"
     printf -- '- device: `%s`\n' "$DEVICE_SERIAL"
     printf -- '- prompt: `%s`\n' "$PROMPT"
+    printf -- '- requested_template_mode: `%s`\n' "${TEMPLATE_MODE:-unset}"
     printf -- '- status: `%s`\n' "$status"
+    printf '\n## Template comparison diagnostics\n\n'
+    printf -- '- template_mode: `%s`\n' "$(summary_value template_mode)"
+    printf -- '- final_model_input_length: `%s`\n' "$(summary_value final_model_input_length)"
+    printf -- '- raw_native_output_length: `%s`\n' "$(summary_value raw_native_output_length)"
+    printf -- '- displayed_assistant_text_length: `%s`\n' "$(summary_value displayed_assistant_text_length)"
+    printf -- '- decode_elapsed_ms: `%s`\n' "$(summary_value decode_elapsed_ms)"
+    printf -- '- output_token_count: `%s`\n' "$(summary_value output_token_count)"
+    printf -- '- finish_reason: `%s`\n' "$(summary_value finish_reason)"
+    printf -- '- stop_reason: `%s`\n' "$(summary_value stop_reason)"
+    printf -- '- output_contains_replacement_chars: `%s`\n' "$(summary_value output_contains_replacement_chars)"
+    printf -- '- replacement_char_count: `%s`\n' "$(summary_value replacement_char_count)"
+    printf -- '- output_unicode_summary: `%s`\n' "$(summary_value output_unicode_summary)"
+    printf -- '- quality_classification: `%s`\n' "$(summary_value quality_classification)"
     printf '\n## State\n\n```text\n'
     cat "$OUT_DIR/receiver_state.txt" 2>/dev/null || true
     printf '```\n\n## Result\n\n```text\n'
@@ -110,13 +148,19 @@ main() {
 
   adb_cmd shell am start -W -n "$APP_ID/.MainActivity" >"$OUT_DIR/am_start.txt" 2>&1 || true
 
-  adb_cmd shell am broadcast --receiver-foreground --user 0 \
-    -a "$ACTION" \
-    -n "$APP_ID/$RECEIVER" \
-    --es prompt "$PROMPT" \
-    --ez enable_developer_access true \
-    --ez enable_route true \
-    --ez run true >"$OUT_DIR/broadcast.txt" 2>&1 || true
+  broadcast_args=(
+    shell am broadcast --receiver-foreground --user 0
+    -a "$ACTION"
+    -n "$APP_ID/$RECEIVER"
+    --es prompt "$PROMPT"
+    --ez enable_developer_access true
+    --ez enable_route true
+    --ez run true
+  )
+  if [ -n "$TEMPLATE_MODE" ]; then
+    broadcast_args+=(--es template "$TEMPLATE_MODE" --es template_mode "$TEMPLATE_MODE")
+  fi
+  adb_cmd "${broadcast_args[@]}" >"$OUT_DIR/broadcast.txt" 2>&1 || true
 
   wait_status=success
   if ! wait_for_state; then
@@ -138,7 +182,11 @@ main() {
     exit 0
   fi
 
-  write_summary "$wait_status"
+  if [ "$wait_status" = success ]; then
+    write_summary failure
+  else
+    write_summary "$wait_status"
+  fi
   log "failure: $wait_status"
   log "summary: ${OUT_DIR#$ROOT_DIR/}/summary.md"
   exit 1
