@@ -137,6 +137,42 @@ As of 2026-05-24, the ChatScreen inference stats surface keeps the qairt244 SM87
 
 The dedicated section is shown only for `selected_route=qairt244_sm8750_dev_npu` stats and summarizes: exact model basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `max_output_tokens=16`, `native_max_output_tokens_limit=16`, `required_sm8750_model_path=true`, RunDecode reachability, `decode_elapsed_ms`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, and the DEV UI cleanup status. Decode elapsed time is treated as DEV evidence, not as the normal token/s speed metric.
 
+## Promotion Review / 昇格判断
+
+Conclusion as of 2026-05-24: the qairt244 SM8750 route passes as a DEV-only experiment, but it is not ready for immediate promotion into the normal candidate set. The current evidence is strong for a bounded 16-token DEV path on one SM8750 device, but the route still depends on a custom native artifact, a single exact model basename, non-streaming lower-level decode, and a narrow runner prompt path.
+
+Open items before promotion:
+
+- Token budget: `max_output_tokens=16` is validated, but normal use needs at least bounded 32/64-token evidence before the route can represent useful generation behavior.
+- Streaming and cancellation: the route is non-streaming and Stop is best-effort, so it does not yet match normal ChatScreen streaming UX or cancellation expectations.
+- Prompt coverage: runner-stable prompts are currently ASCII-only (`Hello`, `test`, `OK`). Japanese prompt input and non-ASCII automation are explicitly out of scope and must be solved or tested through a different input path.
+- Native artifact reproducibility: the successful path depends on `artifacts/litert_custom_build/20260524_114833_qairt244_16token`; the source patch, build commands, ABI contents, and packaging rules must be reproducible without staging `.so` binaries in Git.
+- Runtime distribution: `liblitertlm_jni.so`, QAIRT/QNN runtime libraries, and model placement need a documented install/update story before any non-DEV candidate is exposed.
+- Evidence quality: `QNN_HTP_V79_FastRPC_native_diag` is useful proof for current runs, but promotion needs a stable evidence contract that distinguishes HTP/NPU execution from CPU/GPU fallback across failures and logcat gaps.
+- Thermal and memory stability: current runs are short. Promotion requires longer soak, repeated runs, post-run memory checks, and thermal observation under device load.
+- Failure UX: failures currently surface as DEV messages and diagnostics. A normal candidate needs clear user-facing errors, retry behavior, and no silent fallback unless fallback is deliberately designed and reported.
+- Persistence and stats: DEV diagnostics are visible, but production-facing stats, DB persistence strategy, and normal speed display integration are not settled. Decode elapsed time must not be confused with token/s until token accounting is available.
+- Device/model gating: the current guard is SM8750 basename exact-match. Promotion needs device capability checks, model availability checks, and clear behavior when the exact model is absent.
+
+Recommended promotion phases:
+
+- Phase A: Keep the current DEV-only route. Continue using explicit toggle, exact SM8750 model guard, `max_output_tokens=16`, no fallback, and diagnostic-first artifacts.
+- Phase B: Move to a hidden experimental option only after repeated 16-token runs cover multiple prompts without timeout, crash, stale UI, or fallback ambiguity.
+- Phase C: Expose an experimental NPU candidate only when device detection, exact model detection, native artifact provenance, and QNN/HTP evidence all pass preflight.
+- Phase D: Consider `Backend.NPU` candidate promotion only after 32/64-token bounded runs, Japanese prompt coverage, failure UX, cleanup, memory, and thermal evidence meet the same bar as existing local inference candidates.
+- Phase E: Normal user-facing settings only after packaging/reproducibility, update behavior, stats, cancellation, and support boundaries are documented and tested.
+
+Minimum gates before leaving Phase A:
+
+- 10 or more consecutive 16-token DEV runs across `Hello`, `test`, `OK`, and at least one non-ASCII prompt path, all with `result=success` when actually sent.
+- Bounded 32-token and 64-token phases pass with exact basename, `required_sm8750_model_path=true`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `timeout=false`, and `fresh_crash=false`.
+- UI cleanup remains 100% successful: no stale `Responding...`, Stop button, or `応答中...` after success/failure.
+- Native build is reproducible from source instructions, and no `.so`, `.litertlm`, `.apk`, `.aar`, `.zip`, `.tar`, or `.gz` artifacts are tracked in Git.
+- Diagnostics identify failure stage, model basename, native token limit, RunDecode reachability, QNN/HTP evidence, fallback status, and cleanup status.
+- Normal-route behavior remains unchanged with the DEV toggle OFF.
+
+Next action: do not promote yet. Keep Phase A, then decide between native artifact reproducibility work and Japanese/non-ASCII prompt input design before increasing token count beyond 16 or exposing a hidden experimental candidate.
+
 ## 8 Token Phase
 
 The next bounded DEV-only step raises only the qairt244 SM8750 experiment route from `max_output_tokens=3` to `max_output_tokens=8`. This is not a production NPU rollout and still does not enable `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
