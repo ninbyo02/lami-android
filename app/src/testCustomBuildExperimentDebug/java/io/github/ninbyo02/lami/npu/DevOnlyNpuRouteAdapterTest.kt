@@ -8,6 +8,11 @@ import org.junit.Test
 
 class DevOnlyNpuRouteAdapterTest {
     @Test
+    fun `default max output tokens is the current bounded phase`() {
+        assertEquals(16, DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS)
+    }
+
+    @Test
     fun `blocked adapter returns not connected result`() = runBlocking {
         val result = BlockedDevOnlyNpuRouteAdapter().runOnce(prompt = "Hello")
 

@@ -635,7 +635,7 @@ fun Settings(
                         Card {
                             SettingsToggleRowItem(
                                 headline = "DEV: SM8750 NPU実験",
-                                supporting = "customBuildExperimentDebug限定。key=dev_enable_qairt244_sm8750_npu_route。既定OFF、max_output_tokens=8固定、失敗時もGPU/CPUへfallbackしません。",
+                                supporting = "customBuildExperimentDebug限定。key=dev_enable_qairt244_sm8750_npu_route。既定OFF、max_output_tokens=16固定、失敗時もGPU/CPUへfallbackしません。",
                                 leadingIcon = Icons.Filled.BugReport,
                                 checked = settingsData.devEnableQairt244Sm8750NpuRoute,
                                 enabled = true,
