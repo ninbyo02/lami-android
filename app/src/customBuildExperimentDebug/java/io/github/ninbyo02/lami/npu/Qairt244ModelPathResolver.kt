@@ -4,7 +4,9 @@ import android.content.Context
 import java.io.File
 
 object Qairt244ModelPathResolver {
-    private val preferredTokens = listOf("gemma", "qualcomm", "sm8750")
+    private const val REQUIRED_MODEL_NAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+    private const val REQUIRED_TOKEN = "qualcomm_sm8750"
+    private const val REJECTED_PLATFORM_TOKEN = "qcs8275"
 
     data class Resolution(
         val path: String?,
@@ -22,12 +24,13 @@ object Qairt244ModelPathResolver {
         resolve(context.applicationContext.filesDir.resolve("local_models"))
 
     fun resolve(localModelsDir: File): Resolution {
-        val candidates = localModelsDir
+        val litertlmFiles = localModelsDir
             .listFiles { file -> file.isFile && file.extension.equals("litertlm", ignoreCase = true) }
             ?.sortedBy { it.name }
             .orEmpty()
+        val executionCandidates = litertlmFiles.filter(::isCompatibleSm8750Model)
 
-        if (candidates.isEmpty()) {
+        if (executionCandidates.isEmpty()) {
             return Resolution(
                 path = null,
                 reasonCode = REASON_MODEL_FILE_NOT_FOUND,
@@ -39,21 +42,19 @@ object Qairt244ModelPathResolver {
             )
         }
 
-        val selected = if (candidates.size == 1) {
-            candidates.single()
-        } else {
-            selectPreferred(candidates)
-                ?: return Resolution(
-                    path = null,
-                    reasonCode = REASON_MODEL_FILE_AMBIGUOUS,
-                    candidates = candidates.map { it.absolutePath },
-                    checkedPath = null,
-                    checkedExists = null,
-                    checkedCanRead = null,
-                    checkedLength = null,
-                )
+        if (executionCandidates.size > 1) {
+            return Resolution(
+                path = null,
+                reasonCode = REASON_MODEL_FILE_AMBIGUOUS,
+                candidates = executionCandidates.map { it.absolutePath },
+                checkedPath = null,
+                checkedExists = null,
+                checkedCanRead = null,
+                checkedLength = null,
+            )
         }
 
+        val selected = executionCandidates.single()
         val selectedExists = selected.exists()
         val selectedCanRead = selected.canRead()
         val selectedLength = selected.length()
@@ -62,7 +63,7 @@ object Qairt244ModelPathResolver {
             Resolution(
                 path = null,
                 reasonCode = REASON_MODEL_FILE_INVALID,
-                candidates = candidates.map { it.absolutePath },
+                candidates = executionCandidates.map { it.absolutePath },
                 checkedPath = selected.absolutePath,
                 checkedExists = selectedExists,
                 checkedCanRead = selectedCanRead,
@@ -72,7 +73,7 @@ object Qairt244ModelPathResolver {
             Resolution(
                 path = selected.absolutePath,
                 reasonCode = REASON_OK,
-                candidates = candidates.map { it.absolutePath },
+                candidates = executionCandidates.map { it.absolutePath },
                 checkedPath = selected.absolutePath,
                 checkedExists = selectedExists,
                 checkedCanRead = selectedCanRead,
@@ -81,15 +82,14 @@ object Qairt244ModelPathResolver {
         }
     }
 
-    private fun selectPreferred(candidates: List<File>): File? {
-        val scored = candidates.map { file ->
-            file to preferredTokens.count { token -> file.name.contains(token, ignoreCase = true) }
-        }
-        val maxScore = scored.maxOf { it.second }
-        if (maxScore <= 0) return null
-        val best = scored.filter { it.second == maxScore }
-        return best.singleOrNull()?.first
+    private fun isCompatibleSm8750Model(file: File): Boolean {
+        val name = file.name
+        return name.contains(REQUIRED_TOKEN, ignoreCase = true) &&
+            !name.contains(REJECTED_PLATFORM_TOKEN, ignoreCase = true)
     }
+
+    fun isRequiredSm8750ModelPath(path: String): Boolean =
+        File(path).name == REQUIRED_MODEL_NAME
 
     const val REASON_OK = "ok"
     const val REASON_MODEL_FILE_NOT_FOUND = "model_file_not_found"
