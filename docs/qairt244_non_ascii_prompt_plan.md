@@ -1,5 +1,43 @@
 # QAIRT244 Non-ASCII Prompt Plan
 
+## 2026-05-24 32-Token Bounded Phase
+
+The DEV-only qairt244 SM8750 UTF-8 internal intent route has moved from the
+16-token bound to a 32-token bound for customBuildExperimentDebug only. The
+prompt validation rules remain unchanged: UTF-8 is allowed only for the internal
+intent route, while NUL, invalid UTF-8, empty prompts, and prompts above 32 code
+points remain rejected.
+
+Active native patch: `patches/qairt244_litertlm_utf8_32token.patch`
+
+Active native artifact:
+`artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt`
+
+`liblitertlm_jni.so` sha256:
+`409008af863322e43ac35ffedec39bba64a8a9bd8a4859723fbf40e277dd3781`
+
+
+32-token single-device confirmation:
+
+- Artifact: `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_160053`
+- Prompt: `こんにちは`
+- Result: `success`
+- `requested_prompt=こんにちは`, `actual_prompt=こんにちは`, `normalized_prompt=こんにちは`
+- `prompt_source=internal_intent`
+- `prompt_validation_mode=utf8_internal_intent`
+- `native_prompt_validation_mode=utf8_internal_intent`
+- `utf8_allowed=true`
+- `max_output_tokens=32`
+- `native_max_output_tokens_limit=32`
+- `run_decode_reached=true`
+- `npu_backend=NPU`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `decode_elapsed_ms=817`
+- `fallback_used=false`, `timeout=false`, `fresh_crash=false`
+- `ui_cleanup_wait_status=success`
+- No `duplicate_run_blocked`, `Responding...`, `Stop Button`, or `応答中` marker remained.
+
+
 ## 2026-05-24 Internal Intent Result
 
 The customBuildExperimentDebug-only UTF-8 prompt entrypoint is implemented as a

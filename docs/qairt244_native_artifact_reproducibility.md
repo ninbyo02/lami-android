@@ -1,5 +1,48 @@
 # QAIRT244 Native Artifact Reproducibility
 
+## 2026-05-24 32-Token Bounded Artifact
+
+The qairt244 UTF-8 internal prompt route has advanced from the 16-token bounded
+artifact to a 32-token bounded artifact for customBuildExperimentDebug only.
+This is still not `Backend.NPU` promotion and does not add fallback or normal UI
+routing.
+
+Active patch:
+`patches/qairt244_litertlm_utf8_32token.patch`
+
+Historical 16-token patch retained:
+`patches/qairt244_litertlm_utf8_16token.patch`
+
+External LiteRT-LM checkout:
+`/home/sato/project/litert-custom-build/LiteRT-LM`
+
+Upstream HEAD:
+`c87189528a758db32ead241f4fc9c64836398ee7`
+
+Build command:
+
+```bash
+scripts/build_litert_custom_artifacts.sh \
+  /home/sato/project/litert-custom-build/LiteRT-LM \
+  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+  --label qairt244_32token_utf8prompt
+```
+
+Artifact:
+`artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt`
+
+JNI build log:
+`artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+
+`liblitertlm_jni.so` sha256:
+`409008af863322e43ac35ffedec39bba64a8a9bd8a4859723fbf40e277dd3781`
+
+The native diagnostics for this phase must report
+`max_output_tokens=32`, `native_max_output_tokens_limit=32`,
+`native_prompt_validation_mode=utf8_internal_intent`, `utf8_allowed=true`, and
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`.
+
+
 ## 2026-05-24 Patch Management
 
 The qairt244 UTF-8 internal prompt native change is now captured as:

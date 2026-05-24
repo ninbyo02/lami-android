@@ -1,0 +1,1515 @@
+diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+index c6db59ff..3725a6d9 100644
+--- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
++++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+@@ -15,6 +15,11 @@
+ #include <jni.h>
+ #include <sys/stat.h>
+
++#include <cerrno>
++#include <cstdarg>
++#include <cstdint>
++#include <cstdio>
++#include <cstring>
+ #include <memory>
+ #include <optional>
+ #include <string>
+@@ -22,6 +27,11 @@
+ #include <variant>
+ #include <vector>
+
++#if defined(__ANDROID__)
++#include <android/log.h>
++#include <unistd.h>
++#endif
++
+ #include "absl/base/log_severity.h"  // from @com_google_absl
+ #include "absl/functional/any_invocable.h"  // from @com_google_absl
+ #include "absl/log/absl_log.h"  // from @com_google_absl
+@@ -67,6 +77,7 @@ using litert::lm::Backend;
+ using litert::lm::Channel;
+ using litert::lm::Conversation;
+ using litert::lm::ConversationConfig;
++using litert::lm::DecodeConfig;
+ using litert::lm::Engine;
+ using litert::lm::EngineFactory;
+ using litert::lm::EngineSettings;
+@@ -84,6 +95,360 @@ using litert::lm::Responses;
+ using litert::lm::SessionConfig;
+ using litert::lm::proto::SamplerParameters;
+
++constexpr char kQairt244NativeFileMarker[] = "qairt244_native_file_v1";
++constexpr char kQairt244LowerLevelSingleTokenMarker[] =
++    "qairt244_lower_level_single_token_smoke_v1";
++constexpr char kQairt244TokenTimingVerifierMarker[] =
++    "qairt244_token_timing_verifier_v1";
++constexpr char kQairt244ShortMultitokenMarker[] =
++    "qairt244_short_multitoken_smoke_v1";
++constexpr char kQairt244EditablePromptMarker[] =
++    "qairt244_editable_prompt_smoke_v1";
++constexpr char kQairt244EditablePromptValidationMode[] =
++    "utf8_internal_intent";
++constexpr char kQairt244NativeDiagPath[] =
++    "/data/user/0/io.github.ninbyo02.lami.customnpu/files/"
++    "qairt244_native_diag.txt";
++
++void AppendQairt244Diag(const char* path, const char* format, ...) {
++  const char* target_path =
++      (path != nullptr && path[0] != '\0') ? path : kQairt244NativeDiagPath;
++  FILE* file = std::fopen(target_path, "a");
++  if (file == nullptr) {
++    return;
++  }
++  std::fprintf(file, "%s ", kQairt244NativeFileMarker);
++  va_list args;
++  va_start(args, format);
++  std::vfprintf(file, format, args);
++  va_end(args);
++  std::fprintf(file, "\n");
++  std::fflush(file);
++  std::fclose(file);
++}
++
++bool GetOptionalJString(JNIEnv* env, jstring value, std::string* out,
++                        const char* diag_path, const char* label,
++                        const char* marker =
++                            kQairt244LowerLevelSingleTokenMarker) {
++  if (out == nullptr) {
++    return false;
++  }
++  out->clear();
++  if (value == nullptr) {
++    AppendQairt244Diag(diag_path, "%s %s null", marker, label);
++    return true;
++  }
++  AppendQairt244Diag(diag_path, "%s before GetStringUTFChars label=%s",
++                     marker, label);
++  const char* chars = env->GetStringUTFChars(value, nullptr);
++  if (chars == nullptr) {
++    AppendQairt244Diag(diag_path,
++                       "%s GetStringUTFChars failed label=%s",
++                       marker, label);
++    return false;
++  }
++  *out = chars;
++  env->ReleaseStringUTFChars(value, chars);
++  AppendQairt244Diag(diag_path, "%s read string label=%s length=%zu",
++                     marker, label, out->size());
++  return true;
++}
++
++void WriteQairt244SingleTokenResult(const std::string& path,
++                                    const char* result,
++                                    const std::string& detail,
++                                    const std::string& output,
++                                    long elapsed_ms) {
++  if (path.empty()) {
++    return;
++  }
++  FILE* file = std::fopen(path.c_str(), "w");
++  if (file == nullptr) {
++    return;
++  }
++  std::fprintf(file, "marker=%s\n", kQairt244LowerLevelSingleTokenMarker);
++  std::fprintf(file, "result=%s\n", result);
++  std::fprintf(file, "prompt=Hi\n");
++  std::fprintf(file, "max_output_tokens=1\n");
++  std::fprintf(file, "conversation_created=no\n");
++  std::fprintf(file, "generate_response=no\n");
++  std::fprintf(file, "normal_ui_connected=no\n");
++  std::fprintf(file, "elapsed_ms=%ld\n", elapsed_ms);
++  if (!detail.empty()) {
++    std::fprintf(file, "detail=%s\n", detail.c_str());
++  }
++  if (!output.empty()) {
++    std::fprintf(file, "output=%s\n", output.c_str());
++  }
++  std::fflush(file);
++  std::fclose(file);
++}
++
++void WriteQairt244TokenTimingResult(
++    const std::string& path, const char* result, const std::string& detail,
++    const std::string& output, long elapsed_ms, long model_assets_elapsed_ms,
++    long settings_elapsed_ms, long engine_create_elapsed_ms,
++    long session_create_elapsed_ms, long prefill_elapsed_ms,
++    long decode_elapsed_ms, long cleanup_elapsed_ms) {
++  if (path.empty()) {
++    return;
++  }
++  FILE* file = std::fopen(path.c_str(), "w");
++  if (file == nullptr) {
++    return;
++  }
++  std::fprintf(file, "marker=%s\n", kQairt244LowerLevelSingleTokenMarker);
++  std::fprintf(file, "verifier_marker=%s\n", kQairt244TokenTimingVerifierMarker);
++  std::fprintf(file, "result=%s\n", result);
++  std::fprintf(file, "prompt=Hi\n");
++  std::fprintf(file, "prompt_bytes=2\n");
++  std::fprintf(file, "prompt_token_count=unavailable\n");
++  std::fprintf(file, "prompt_token_count_source=not_exposed_by_lower_level_entrypoint\n");
++  std::fprintf(file, "max_output_tokens=1\n");
++  std::fprintf(file, "conversation_created=no\n");
++  std::fprintf(file, "generate_response=no\n");
++  std::fprintf(file, "normal_ui_connected=no\n");
++  std::fprintf(file, "output_bytes=%zu\n", output.size());
++  std::fprintf(file, "output_token_count=unavailable\n");
++  std::fprintf(file, "output_token_count_source=not_exposed_by_RunDecode_response\n");
++  std::fprintf(file, "elapsed_ms=%ld\n", elapsed_ms);
++  std::fprintf(file, "model_assets_elapsed_ms=%ld\n", model_assets_elapsed_ms);
++  std::fprintf(file, "engine_settings_elapsed_ms=%ld\n", settings_elapsed_ms);
++  std::fprintf(file, "engine_create_elapsed_ms=%ld\n", engine_create_elapsed_ms);
++  std::fprintf(file, "session_create_elapsed_ms=%ld\n", session_create_elapsed_ms);
++  std::fprintf(file, "prefill_elapsed_ms=%ld\n", prefill_elapsed_ms);
++  std::fprintf(file, "decode_elapsed_ms=%ld\n", decode_elapsed_ms);
++  std::fprintf(file, "cleanup_elapsed_ms=%ld\n", cleanup_elapsed_ms);
++  std::fprintf(file, "npu_backend=NPU\n");
++  std::fprintf(file, "npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag\n");
++  if (!detail.empty()) {
++    std::fprintf(file, "detail=%s\n", detail.c_str());
++  }
++  if (!output.empty()) {
++    std::fprintf(file, "output=%s\n", output.c_str());
++  }
++  std::fflush(file);
++  std::fclose(file);
++}
++
++void WriteQairt244ShortMultitokenResult(
++    const std::string& path, const char* result, const std::string& detail,
++    const std::string& output, long elapsed_ms, long model_assets_elapsed_ms,
++    long settings_elapsed_ms, long engine_create_elapsed_ms,
++    long session_create_elapsed_ms, long prefill_elapsed_ms,
++    long decode_elapsed_ms, long cleanup_elapsed_ms) {
++  if (path.empty()) {
++    return;
++  }
++  FILE* file = std::fopen(path.c_str(), "w");
++  if (file == nullptr) {
++    return;
++  }
++  std::fprintf(file, "marker=%s\n", kQairt244ShortMultitokenMarker);
++  std::fprintf(file, "result=%s\n", result);
++  std::fprintf(file, "prompt=Hi\n");
++  std::fprintf(file, "prompt_bytes=2\n");
++  std::fprintf(file, "prompt_token_count=unavailable\n");
++  std::fprintf(file, "prompt_token_count_source=not_exposed_by_lower_level_entrypoint\n");
++  std::fprintf(file, "max_output_tokens=3\n");
++  std::fprintf(file, "conversation_created=no\n");
++  std::fprintf(file, "generate_response=no\n");
++  std::fprintf(file, "normal_ui_connected=no\n");
++  std::fprintf(file, "output_bytes=%zu\n", output.size());
++  std::fprintf(file, "output_token_count=unavailable\n");
++  std::fprintf(file, "output_token_count_source=not_exposed_by_RunDecode_response\n");
++  std::fprintf(file, "elapsed_ms=%ld\n", elapsed_ms);
++  std::fprintf(file, "model_assets_elapsed_ms=%ld\n", model_assets_elapsed_ms);
++  std::fprintf(file, "engine_settings_elapsed_ms=%ld\n", settings_elapsed_ms);
++  std::fprintf(file, "engine_create_elapsed_ms=%ld\n", engine_create_elapsed_ms);
++  std::fprintf(file, "session_create_elapsed_ms=%ld\n", session_create_elapsed_ms);
++  std::fprintf(file, "prefill_elapsed_ms=%ld\n", prefill_elapsed_ms);
++  std::fprintf(file, "decode_elapsed_ms=%ld\n", decode_elapsed_ms);
++  std::fprintf(file, "cleanup_elapsed_ms=%ld\n", cleanup_elapsed_ms);
++  std::fprintf(file, "npu_backend=NPU\n");
++  std::fprintf(file, "npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag\n");
++  if (!detail.empty()) {
++    std::fprintf(file, "detail=%s\n", detail.c_str());
++  }
++  if (!output.empty()) {
++    std::fprintf(file, "output=%s\n", output.c_str());
++  }
++  std::fflush(file);
++  std::fclose(file);
++}
++
++
++std::string TrimQairt244EditablePrompt(const std::string& value) {
++  size_t begin = 0;
++  size_t end = value.size();
++  while (begin < end && value[begin] == ' ') {
++    ++begin;
++  }
++  while (end > begin && value[end - 1] == ' ') {
++    --end;
++  }
++  return value.substr(begin, end - begin);
++}
++
++bool ValidateQairt244Utf8AndCountCodePoints(const std::string& value,
++                                             size_t* code_point_count) {
++  if (code_point_count == nullptr) {
++    return false;
++  }
++  *code_point_count = 0;
++  size_t index = 0;
++  while (index < value.size()) {
++    const unsigned char lead = static_cast<unsigned char>(value[index]);
++    size_t width = 0;
++    uint32_t code_point = 0;
++    if (lead <= 0x7f) {
++      width = 1;
++      code_point = lead;
++    } else if (lead >= 0xc2 && lead <= 0xdf) {
++      width = 2;
++      code_point = lead & 0x1f;
++    } else if (lead >= 0xe0 && lead <= 0xef) {
++      width = 3;
++      code_point = lead & 0x0f;
++    } else if (lead >= 0xf0 && lead <= 0xf4) {
++      width = 4;
++      code_point = lead & 0x07;
++    } else {
++      return false;
++    }
++    if (index + width > value.size()) {
++      return false;
++    }
++    for (size_t offset = 1; offset < width; ++offset) {
++      const unsigned char continuation =
++          static_cast<unsigned char>(value[index + offset]);
++      if ((continuation & 0xc0) != 0x80) {
++        return false;
++      }
++      code_point = (code_point << 6) | (continuation & 0x3f);
++    }
++    if ((width == 2 && code_point < 0x80) ||
++        (width == 3 && code_point < 0x800) ||
++        (width == 4 && code_point < 0x10000) ||
++        (code_point >= 0xd800 && code_point <= 0xdfff) ||
++        code_point > 0x10ffff) {
++      return false;
++    }
++    ++(*code_point_count);
++    index += width;
++  }
++  return true;
++}
++
++std::string ValidateQairt244EditablePrompt(const std::string& actual_prompt,
++                                           std::string* normalized_prompt) {
++  if (normalized_prompt == nullptr) {
++    return "internal_validation_error";
++  }
++  *normalized_prompt = TrimQairt244EditablePrompt(actual_prompt);
++  if (normalized_prompt->empty()) {
++    return "empty";
++  }
++  for (unsigned char c : *normalized_prompt) {
++    if (c == '\0') {
++      return "contains_nul";
++    }
++    if (c == '\n' || c == '\r') {
++      return "contains_newline";
++    }
++    if (c == '\t') {
++      return "contains_tab";
++    }
++    if (c < 0x20 || c == 0x7f) {
++      return "contains_control_char";
++    }
++  }
++  size_t code_point_count = 0;
++  if (!ValidateQairt244Utf8AndCountCodePoints(*normalized_prompt,
++                                              &code_point_count)) {
++    return "invalid_utf8";
++  }
++  if (code_point_count > 32) {
++    return "too_long";
++  }
++  return "ok";
++}
++
++void WriteQairt244EditablePromptResult(
++    const std::string& path, const char* result, const std::string& detail,
++    const std::string& actual_prompt, const std::string& normalized_prompt,
++    const std::string& output, long elapsed_ms, long model_assets_elapsed_ms,
++    long settings_elapsed_ms, long engine_create_elapsed_ms,
++    long session_create_elapsed_ms, long prefill_elapsed_ms,
++    long decode_elapsed_ms, long cleanup_elapsed_ms) {
++  if (path.empty()) {
++    return;
++  }
++  FILE* file = std::fopen(path.c_str(), "w");
++  if (file == nullptr) {
++    return;
++  }
++  std::fprintf(file, "marker=%s\n", kQairt244EditablePromptMarker);
++  std::fprintf(file, "base_marker=%s\n", kQairt244ShortMultitokenMarker);
++  std::fprintf(file, "result=%s\n", result);
++  std::fprintf(file, "actual_prompt=%s\n", actual_prompt.c_str());
++  std::fprintf(file, "normalized_prompt=%s\n", normalized_prompt.c_str());
++  std::fprintf(file, "prompt_source=editable_prompt\n");
++  std::fprintf(file, "native_prompt_validation_mode=%s\n",
++               kQairt244EditablePromptValidationMode);
++  std::fprintf(file, "utf8_allowed=true\n");
++  std::fprintf(file, "prompt_bytes=%zu\n", normalized_prompt.size());
++  std::fprintf(file, "prompt_token_count=unavailable\n");
++  std::fprintf(file, "prompt_token_count_source=not_exposed_by_lower_level_entrypoint\n");
++  std::fprintf(file, "max_output_tokens=32\n");
++  std::fprintf(file, "native_max_output_tokens_limit=32\n");
++  std::fprintf(file, "conversation_created=no\n");
++  std::fprintf(file, "generate_response=no\n");
++  std::fprintf(file, "normal_ui_connected=no\n");
++  std::fprintf(file, "selected_path_npu_normal_route=no\n");
++  std::fprintf(file, "output_bytes=%zu\n", output.size());
++  std::fprintf(file, "output_token_count=unavailable\n");
++  std::fprintf(file, "output_token_count_source=not_exposed_by_RunDecode_response\n");
++  std::fprintf(file, "elapsed_ms=%ld\n", elapsed_ms);
++  std::fprintf(file, "model_assets_elapsed_ms=%ld\n", model_assets_elapsed_ms);
++  std::fprintf(file, "engine_settings_elapsed_ms=%ld\n", settings_elapsed_ms);
++  std::fprintf(file, "engine_create_elapsed_ms=%ld\n", engine_create_elapsed_ms);
++  std::fprintf(file, "session_create_elapsed_ms=%ld\n", session_create_elapsed_ms);
++  std::fprintf(file, "prefill_elapsed_ms=%ld\n", prefill_elapsed_ms);
++  std::fprintf(file, "decode_elapsed_ms=%ld\n", decode_elapsed_ms);
++  std::fprintf(file, "cleanup_elapsed_ms=%ld\n", cleanup_elapsed_ms);
++  std::fprintf(file, "npu_backend=NPU\n");
++  std::fprintf(file, "npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag\n");
++  if (!detail.empty()) {
++    std::fprintf(file, "detail=%s\n", detail.c_str());
++  }
++  if (!output.empty()) {
++    std::fprintf(file, "output=%s\n", output.c_str());
++  }
++  std::fflush(file);
++  std::fclose(file);
++}
++
++void Qairt244SentinelLog(const char* format, ...) {
++  va_list args;
++  va_start(args, format);
++#if defined(__ANDROID__)
++  __android_log_vprint(ANDROID_LOG_ERROR, "QAIRT244_SENTINEL", format, args);
++#else
++  std::vfprintf(stderr, format, args);
++  std::fprintf(stderr, "\n");
++#endif
++  va_end(args);
++
++  va_start(args, format);
++  std::fprintf(stderr, "QAIRT244_SENTINEL: ");
++  std::vfprintf(stderr, format, args);
++  std::fprintf(stderr, "\n");
++  std::fflush(stderr);
++  va_end(args);
++}
++
+ void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
+   jclass exClass =
+       env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
+@@ -350,31 +715,133 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateEngine)(
+     jobject enable_speculative_decoding, jstring main_npu_native_library_dir,
+     jstring vision_npu_native_library_dir, jstring audio_npu_native_library_dir,
+     jint main_backend_num_threads, jint audio_backend_num_threads) {
++  AppendQairt244Diag(
++      nullptr,
++      "nativeCreateEngine ENTRY pid=%d env=%p thiz=%p model_path_null=%d "
++      "backend_null=%d vision_backend_null=%d audio_backend_null=%d "
++      "cache_dir_null=%d main_npu_dir_null=%d vision_npu_dir_null=%d "
++      "audio_npu_dir_null=%d enable_speculative_decoding_null=%d "
++      "max_num_tokens=%d max_num_images=%d enable_benchmark=%d "
++      "main_backend_num_threads=%d audio_backend_num_threads=%d",
++#if defined(__ANDROID__)
++      getpid(),
++#else
++      0,
++#endif
++      env, thiz, model_path == nullptr, backend == nullptr,
++      vision_backend == nullptr, audio_backend == nullptr,
++      cache_dir == nullptr, main_npu_native_library_dir == nullptr,
++      vision_npu_native_library_dir == nullptr,
++      audio_npu_native_library_dir == nullptr,
++      enable_speculative_decoding == nullptr, max_num_tokens, max_num_images,
++      enable_benchmark == JNI_TRUE, main_backend_num_threads,
++      audio_backend_num_threads);
++  Qairt244SentinelLog(
++      "nativeCreateEngine ENTRY qairt244_jni_entry_v1 pid=%d env=%p thiz=%p "
++      "model_path_null=%d backend_null=%d vision_backend_null=%d "
++      "audio_backend_null=%d cache_dir_null=%d main_npu_dir_null=%d "
++      "vision_npu_dir_null=%d audio_npu_dir_null=%d "
++      "enable_speculative_decoding_null=%d max_num_tokens=%d "
++      "max_num_images=%d enable_benchmark=%d main_backend_num_threads=%d "
++      "audio_backend_num_threads=%d",
++#if defined(__ANDROID__)
++      getpid(),
++#else
++      0,
++#endif
++      env, thiz, model_path == nullptr, backend == nullptr,
++      vision_backend == nullptr, audio_backend == nullptr,
++      cache_dir == nullptr, main_npu_native_library_dir == nullptr,
++      vision_npu_native_library_dir == nullptr,
++      audio_npu_native_library_dir == nullptr,
++      enable_speculative_decoding == nullptr, max_num_tokens, max_num_images,
++      enable_benchmark == JNI_TRUE, main_backend_num_threads,
++      audio_backend_num_threads);
++
++  Qairt244SentinelLog(
++      "nativeCreateEngine before model_path GetStringUTFChars "
++      "qairt244_jni_entry_v1 model_path_null=%d",
++      model_path == nullptr);
++  AppendQairt244Diag(nullptr,
++                     "nativeCreateEngine before model_path GetStringUTFChars "
++                     "model_path_null=%d",
++                     model_path == nullptr);
+   const char* model_path_chars = env->GetStringUTFChars(model_path, nullptr);
++  AppendQairt244Diag(nullptr,
++                     "nativeCreateEngine after model_path GetStringUTFChars "
++                     "chars_null=%d",
++                     model_path_chars == nullptr);
++  if (model_path_chars == nullptr) {
++    AppendQairt244Diag(nullptr,
++                       "nativeCreateEngine model_path GetStringUTFChars "
++                       "failed");
++    ThrowLiteRtLmJniException(env, "Failed to read model path");
++    return 0;
++  }
+   std::string model_path_str(model_path_chars);
+   env->ReleaseStringUTFChars(model_path, model_path_chars);
++  AppendQairt244Diag(nullptr,
++                     "nativeCreateEngine model_path released length=%zu",
++                     model_path_str.size());
+
+   if (!FileExists(model_path_str)) {
++    AppendQairt244Diag(nullptr, "nativeCreateEngine model file missing");
++    Qairt244SentinelLog(
++        "nativeCreateEngine model file missing qairt244_jni_entry_v1");
+     ThrowLiteRtLmJniException(env, "Model file not found: " + model_path_str);
+     return 0;
+   }
+
++  Qairt244SentinelLog(
++      "nativeCreateEngine before ModelAssets::Create qairt244_jni_entry_v1");
++  AppendQairt244Diag(nullptr,
++                     "nativeCreateEngine before ModelAssets::Create");
+   auto model_assets = ModelAssets::Create(model_path_str);
+   if (!model_assets.ok()) {
++    AppendQairt244Diag(
++        nullptr, "nativeCreateEngine ModelAssets::Create failed status=%s",
++        model_assets.status().ToString().c_str());
++    Qairt244SentinelLog(
++        "nativeCreateEngine ModelAssets::Create failed "
++        "qairt244_jni_entry_v1");
+     ThrowLiteRtLmJniException(env, "Failed to create model assets: " +
+                                        model_assets.status().ToString());
+     return 0;
+   }
+-
++  AppendQairt244Diag(nullptr,
++                     "nativeCreateEngine ModelAssets::Create success");
++
++  Qairt244SentinelLog(
++      "nativeCreateEngine before backend GetStringUTFChars "
++      "qairt244_jni_entry_v1 backend_null=%d",
++      backend == nullptr);
++  AppendQairt244Diag(nullptr,
++                     "nativeCreateEngine before backend GetStringUTFChars "
++                     "backend_null=%d",
++                     backend == nullptr);
+   const char* backend_chars = env->GetStringUTFChars(backend, nullptr);
++  AppendQairt244Diag(nullptr,
++                     "nativeCreateEngine after backend GetStringUTFChars "
++                     "chars_null=%d",
++                     backend_chars == nullptr);
++  if (backend_chars == nullptr) {
++    AppendQairt244Diag(nullptr,
++                       "nativeCreateEngine backend GetStringUTFChars failed");
++    ThrowLiteRtLmJniException(env, "Failed to read backend");
++    return 0;
++  }
+   std::string backend_str(backend_chars);
+   env->ReleaseStringUTFChars(backend, backend_chars);
+
+   auto backend_enum = litert::lm::GetBackendFromString(backend_str);
+   if (!backend_enum.ok()) {
++    AppendQairt244Diag(
++        nullptr, "nativeCreateEngine backend enum failed status=%s",
++        backend_enum.status().ToString().c_str());
+     ThrowLiteRtLmJniException(env, backend_enum.status().ToString());
+     return 0;
+   }
++  AppendQairt244Diag(nullptr, "nativeCreateEngine backend enum success");
+
+   const char* vision_backend_chars =
+       env->GetStringUTFChars(vision_backend, nullptr);
+@@ -414,14 +881,46 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateEngine)(
+                                                 vision_backend_optional,
+                                                 audio_backend_optional);
+   if (!settings.ok()) {
++    AppendQairt244Diag(
++        nullptr,
++        "nativeCreateEngine EngineSettings::CreateDefault failed status=%s",
++        settings.status().ToString().c_str());
++    Qairt244SentinelLog(
++        "nativeCreateEngine EngineSettings::CreateDefault failed "
++        "qairt244_jni_entry_v1");
+     ThrowLiteRtLmJniException(env, "Failed to create engine settings: " +
+                                        settings.status().ToString());
+     return 0;
+   }
+-
+-  const char* cache_dir_chars = env->GetStringUTFChars(cache_dir, nullptr);
+-  std::string cache_dir_str(cache_dir_chars);
+-  env->ReleaseStringUTFChars(cache_dir, cache_dir_chars);
++  AppendQairt244Diag(
++      nullptr, "nativeCreateEngine EngineSettings::CreateDefault success");
++
++  AppendQairt244Diag(nullptr,
++                     "nativeCreateEngine before cache_dir GetStringUTFChars "
++                     "cache_dir_null=%d",
++                     cache_dir == nullptr);
++  std::string cache_dir_str;
++  if (cache_dir != nullptr) {
++    const char* cache_dir_chars = env->GetStringUTFChars(cache_dir, nullptr);
++    AppendQairt244Diag(nullptr,
++                       "nativeCreateEngine after cache_dir GetStringUTFChars "
++                       "chars_null=%d",
++                       cache_dir_chars == nullptr);
++    if (cache_dir_chars == nullptr) {
++      AppendQairt244Diag(
++          nullptr, "nativeCreateEngine cache_dir GetStringUTFChars failed");
++      ThrowLiteRtLmJniException(env, "Failed to read cache dir");
++      return 0;
++    }
++    cache_dir_str = cache_dir_chars;
++    env->ReleaseStringUTFChars(cache_dir, cache_dir_chars);
++  } else {
++    AppendQairt244Diag(nullptr,
++                       "nativeCreateEngine cache_dir null; using empty");
++  }
++  AppendQairt244Diag(nullptr,
++                     "nativeCreateEngine cache_dir released length=%zu",
++                     cache_dir_str.size());
+   if (!cache_dir_str.empty()) {
+     settings->GetMutableMainExecutorSettings().SetCacheDir(cache_dir_str);
+     if (vision_backend_optional.has_value()) {
+@@ -432,13 +931,45 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateEngine)(
+     }
+   }
+
+-  const char* main_npu_native_library_dir_chars =
+-      env->GetStringUTFChars(main_npu_native_library_dir, nullptr);
+-  std::string main_npu_native_library_dir_str(
+-      main_npu_native_library_dir_chars);
+-  env->ReleaseStringUTFChars(main_npu_native_library_dir,
+-                             main_npu_native_library_dir_chars);
++  AppendQairt244Diag(
++      nullptr,
++      "nativeCreateEngine before main_npu_native_library_dir "
++      "GetStringUTFChars null=%d",
++      main_npu_native_library_dir == nullptr);
++  std::string main_npu_native_library_dir_str;
++  if (main_npu_native_library_dir != nullptr) {
++    const char* main_npu_native_library_dir_chars =
++        env->GetStringUTFChars(main_npu_native_library_dir, nullptr);
++    AppendQairt244Diag(
++        nullptr,
++        "nativeCreateEngine after main_npu_native_library_dir GetStringUTFChars "
++        "chars_null=%d",
++        main_npu_native_library_dir_chars == nullptr);
++    if (main_npu_native_library_dir_chars == nullptr) {
++      AppendQairt244Diag(
++          nullptr,
++          "nativeCreateEngine main_npu_native_library_dir GetStringUTFChars "
++          "failed");
++      ThrowLiteRtLmJniException(env, "Failed to read main NPU native lib dir");
++      return 0;
++    }
++    main_npu_native_library_dir_str = main_npu_native_library_dir_chars;
++    env->ReleaseStringUTFChars(main_npu_native_library_dir,
++                               main_npu_native_library_dir_chars);
++  } else {
++    AppendQairt244Diag(
++        nullptr,
++        "nativeCreateEngine main_npu_native_library_dir null; using empty");
++  }
++  AppendQairt244Diag(
++      nullptr,
++      "nativeCreateEngine main_npu_native_library_dir released length=%zu",
++      main_npu_native_library_dir_str.size());
+   if (!main_npu_native_library_dir_str.empty()) {
++    AppendQairt244Diag(
++        nullptr,
++        "nativeCreateEngine SetLitertDispatchLibDir main length=%zu",
++        main_npu_native_library_dir_str.size());
+     settings->GetMutableMainExecutorSettings().SetLitertDispatchLibDir(
+         main_npu_native_library_dir_str);
+   }
+@@ -509,13 +1040,30 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateEngine)(
+         advanced_settings);
+   }
+
++  Qairt244SentinelLog(
++      "nativeCreateEngine before EngineFactory::CreateDefault "
++      "qairt244_jni_entry_v1");
++  AppendQairt244Diag(
++      nullptr, "nativeCreateEngine before EngineFactory::CreateDefault");
+   auto engine = EngineFactory::CreateDefault(*settings);
+   if (!engine.ok()) {
++    AppendQairt244Diag(
++        nullptr,
++        "nativeCreateEngine EngineFactory::CreateDefault failed status=%s",
++        engine.status().ToString().c_str());
++    Qairt244SentinelLog(
++        "nativeCreateEngine EngineFactory::CreateDefault failed "
++        "qairt244_jni_entry_v1");
+     ThrowLiteRtLmJniException(
+         env, "Failed to create engine: " + engine.status().ToString());
+     return 0;
+   }
+
++  Qairt244SentinelLog(
++      "nativeCreateEngine EngineFactory::CreateDefault success "
++      "qairt244_jni_entry_v1");
++  AppendQairt244Diag(
++      nullptr, "nativeCreateEngine EngineFactory::CreateDefault success");
+   return reinterpret_cast<jlong>(engine->release());
+ }
+
+@@ -667,6 +1215,848 @@ JNI_METHOD(nativeRunDecode)(JNIEnv* env, jclass thiz, jlong session_pointer) {
+   return NewStringStandardUTF(env, responses->GetTexts()[0]);
+ }
+
++LITERTLM_JNIEXPORT jstring JNICALL
++Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244LowerLevelSingleTokenSmoke_nativeRun(
++    JNIEnv* env, jclass thiz, jstring model_path,
++    jstring native_library_dir, jstring cache_dir, jstring result_path,
++    jstring diag_path) {
++  const absl::Time start_time = absl::Now();
++  constexpr const char* kPrompt = "Hi";
++  constexpr size_t kPromptBytes = 2;
++  long model_assets_elapsed_ms = -1;
++  long settings_elapsed_ms = -1;
++  long engine_create_elapsed_ms = -1;
++  long session_create_elapsed_ms = -1;
++  long prefill_elapsed_ms = -1;
++  long decode_elapsed_ms = -1;
++  long cleanup_elapsed_ms = -1;
++  std::string model_path_str;
++  std::string native_library_dir_str;
++  std::string cache_dir_str;
++  std::string result_path_str;
++  std::string diag_path_str;
++
++  GetOptionalJString(env, diag_path, &diag_path_str, nullptr, "diag_path");
++  AppendQairt244Diag(
++      diag_path_str.c_str(),
++      "%s %s ENTRY prompt=Hi prompt_bytes=%zu max_output_tokens=1 "
++      "token_count_source=unavailable model_path_null=%d "
++      "native_library_dir_null=%d cache_dir_null=%d result_path_null=%d",
++      kQairt244LowerLevelSingleTokenMarker, kQairt244TokenTimingVerifierMarker,
++      kPromptBytes, model_path == nullptr, native_library_dir == nullptr,
++      cache_dir == nullptr, result_path == nullptr);
++
++  if (!GetOptionalJString(env, model_path, &model_path_str,
++                          diag_path_str.c_str(), "model_path") ||
++      !GetOptionalJString(env, native_library_dir, &native_library_dir_str,
++                          diag_path_str.c_str(), "native_library_dir") ||
++      !GetOptionalJString(env, cache_dir, &cache_dir_str,
++                          diag_path_str.c_str(), "cache_dir") ||
++      !GetOptionalJString(env, result_path, &result_path_str,
++                          diag_path_str.c_str(), "result_path")) {
++    WriteQairt244SingleTokenResult(result_path_str, "failure",
++                                   "jni-string-conversion-failed", "", 0);
++    ThrowLiteRtLmJniException(env, "QAIRT single-token smoke string conversion failed");
++    return nullptr;
++  }
++
++  if (model_path_str.empty() || native_library_dir_str.empty() ||
++      result_path_str.empty()) {
++    const std::string detail = "missing-required-path";
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
++    WriteQairt244SingleTokenResult(result_path_str, "failure", detail, "", 0);
++    ThrowLiteRtLmJniException(env, "QAIRT single-token smoke missing required path");
++    return nullptr;
++  }
++
++  if (!FileExists(model_path_str)) {
++    const std::string detail = "model-file-not-found";
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
++    WriteQairt244SingleTokenResult(result_path_str, "failure", detail, "", 0);
++    ThrowLiteRtLmJniException(env, "Model file not found: " + model_path_str);
++    return nullptr;
++  }
++
++  AppendQairt244Diag(diag_path_str.c_str(), "%s before ModelAssets::Create",
++                     kQairt244LowerLevelSingleTokenMarker);
++  const absl::Time model_assets_start = absl::Now();
++  auto model_assets = ModelAssets::Create(model_path_str);
++  model_assets_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - model_assets_start);
++  if (!model_assets.ok()) {
++    const std::string detail =
++        "model-assets-failed:" + model_assets.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
++    WriteQairt244SingleTokenResult(result_path_str, "failure", detail, "", 0);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  auto backend_enum = litert::lm::GetBackendFromString("NPU");
++  if (!backend_enum.ok()) {
++    const std::string detail =
++        "backend-npu-failed:" + backend_enum.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
++    WriteQairt244SingleTokenResult(result_path_str, "failure", detail, "", 0);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  AppendQairt244Diag(diag_path_str.c_str(),
++                     "%s before EngineSettings::CreateDefault",
++                     kQairt244LowerLevelSingleTokenMarker);
++  const absl::Time settings_start = absl::Now();
++  auto settings = EngineSettings::CreateDefault(*model_assets, *backend_enum);
++  settings_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - settings_start);
++  if (!settings.ok()) {
++    const std::string detail =
++        "engine-settings-failed:" + settings.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
++    WriteQairt244SingleTokenResult(result_path_str, "failure", detail, "", 0);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  if (!cache_dir_str.empty()) {
++    settings->GetMutableMainExecutorSettings().SetCacheDir(cache_dir_str);
++  }
++  settings->GetMutableMainExecutorSettings().SetLitertDispatchLibDir(
++      native_library_dir_str);
++
++  AppendQairt244Diag(diag_path_str.c_str(),
++                     "%s before EngineFactory::CreateDefault",
++                     kQairt244LowerLevelSingleTokenMarker);
++  const absl::Time engine_create_start = absl::Now();
++  auto engine = EngineFactory::CreateDefault(*settings);
++  engine_create_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - engine_create_start);
++  if (!engine.ok()) {
++    const std::string detail =
++        "engine-create-failed:" + engine.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
++    WriteQairt244SingleTokenResult(result_path_str, "failure", detail, "", 0);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++  std::unique_ptr<Engine> engine_ptr = std::move(*engine);
++
++  AppendQairt244Diag(diag_path_str.c_str(), "%s before CreateSession",
++                     kQairt244LowerLevelSingleTokenMarker);
++  auto session_config = SessionConfig::CreateDefault();
++  const absl::Time session_create_start = absl::Now();
++  auto session = engine_ptr->CreateSession(session_config);
++  session_create_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - session_create_start);
++  if (!session.ok()) {
++    const std::string detail =
++        "session-create-failed:" + session.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
++    WriteQairt244SingleTokenResult(result_path_str, "failure", detail, "", 0);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++  std::unique_ptr<Engine::Session> session_ptr = std::move(*session);
++
++  std::vector<InputData> inputs;
++  inputs.emplace_back(InputText(kPrompt));
++  AppendQairt244Diag(
++      diag_path_str.c_str(),
++      "%s %s before RunPrefill prompt=Hi prompt_bytes=%zu "
++      "prompt_token_count=unavailable prompt_token_count_source=not_exposed",
++      kQairt244LowerLevelSingleTokenMarker, kQairt244TokenTimingVerifierMarker,
++      kPromptBytes);
++  const absl::Time prefill_start = absl::Now();
++  auto prefill_status = session_ptr->RunPrefill(inputs);
++  prefill_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - prefill_start);
++  if (!prefill_status.ok()) {
++    const std::string detail =
++        "prefill-failed:" + prefill_status.ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
++    WriteQairt244SingleTokenResult(result_path_str, "failure", detail, "", 0);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  DecodeConfig decode_config = DecodeConfig::CreateDefault();
++  decode_config.SetMaxOutputTokens(1);
++  AppendQairt244Diag(diag_path_str.c_str(),
++                     "%s %s before RunDecode SetMaxOutputTokens(1)",
++                     kQairt244LowerLevelSingleTokenMarker,
++                     kQairt244TokenTimingVerifierMarker);
++  const absl::Time decode_start = absl::Now();
++  auto responses = session_ptr->RunDecode(decode_config);
++  decode_elapsed_ms = absl::ToInt64Milliseconds(absl::Now() - decode_start);
++  if (!responses.ok()) {
++    const std::string detail =
++        "decode-failed:" + responses.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
++    WriteQairt244SingleTokenResult(result_path_str, "failure", detail, "", 0);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  std::string output;
++  if (!responses->GetTexts().empty()) {
++    output = responses->GetTexts()[0];
++  }
++  const absl::Time cleanup_start = absl::Now();
++  session_ptr.reset();
++  engine_ptr.reset();
++  cleanup_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - cleanup_start);
++  const long elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - start_time);
++  AppendQairt244Diag(
++      diag_path_str.c_str(),
++      "%s %s success output_candidates=%zu output_bytes=%zu "
++      "output_token_count=unavailable "
++      "output_token_count_source=not_exposed_by_RunDecode_response "
++      "elapsed_ms=%ld model_assets_elapsed_ms=%ld "
++      "engine_settings_elapsed_ms=%ld engine_create_elapsed_ms=%ld "
++      "session_create_elapsed_ms=%ld prefill_elapsed_ms=%ld "
++      "decode_elapsed_ms=%ld cleanup_elapsed_ms=%ld "
++      "npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag "
++      "Engine.close=unique_ptr_cleanup",
++      kQairt244LowerLevelSingleTokenMarker, kQairt244TokenTimingVerifierMarker,
++      responses->GetTexts().size(), output.size(), elapsed_ms,
++      model_assets_elapsed_ms, settings_elapsed_ms, engine_create_elapsed_ms,
++      session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++      cleanup_elapsed_ms);
++  WriteQairt244TokenTimingResult(
++      result_path_str, "success", "completed", output, elapsed_ms,
++      model_assets_elapsed_ms, settings_elapsed_ms, engine_create_elapsed_ms,
++      session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++      cleanup_elapsed_ms);
++  return NewStringStandardUTF(env, output);
++}
++
++LITERTLM_JNIEXPORT jstring JNICALL
++Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRun(
++    JNIEnv* env, jclass thiz, jstring model_path,
++    jstring native_library_dir, jstring cache_dir, jstring result_path,
++    jstring diag_path) {
++  const absl::Time start_time = absl::Now();
++  constexpr const char* kPrompt = "Hi";
++  constexpr size_t kPromptBytes = 2;
++  long model_assets_elapsed_ms = -1;
++  long settings_elapsed_ms = -1;
++  long engine_create_elapsed_ms = -1;
++  long session_create_elapsed_ms = -1;
++  long prefill_elapsed_ms = -1;
++  long decode_elapsed_ms = -1;
++  long cleanup_elapsed_ms = -1;
++  std::string model_path_str;
++  std::string native_library_dir_str;
++  std::string cache_dir_str;
++  std::string result_path_str;
++  std::string diag_path_str;
++
++  GetOptionalJString(env, diag_path, &diag_path_str, nullptr, "diag_path",
++                     kQairt244ShortMultitokenMarker);
++  AppendQairt244Diag(
++      diag_path_str.c_str(),
++      "%s ENTRY prompt=Hi prompt_bytes=%zu max_output_tokens=3 "
++      "token_count_source=unavailable model_path_null=%d "
++      "native_library_dir_null=%d cache_dir_null=%d result_path_null=%d",
++      kQairt244ShortMultitokenMarker, kPromptBytes, model_path == nullptr,
++      native_library_dir == nullptr, cache_dir == nullptr,
++      result_path == nullptr);
++
++  if (!GetOptionalJString(env, model_path, &model_path_str,
++                          diag_path_str.c_str(), "model_path",
++                          kQairt244ShortMultitokenMarker) ||
++      !GetOptionalJString(env, native_library_dir, &native_library_dir_str,
++                          diag_path_str.c_str(), "native_library_dir",
++                          kQairt244ShortMultitokenMarker) ||
++      !GetOptionalJString(env, cache_dir, &cache_dir_str,
++                          diag_path_str.c_str(), "cache_dir",
++                          kQairt244ShortMultitokenMarker) ||
++      !GetOptionalJString(env, result_path, &result_path_str,
++                          diag_path_str.c_str(), "result_path",
++                          kQairt244ShortMultitokenMarker)) {
++    WriteQairt244ShortMultitokenResult(
++        result_path_str, "failure", "jni-string-conversion-failed", "", 0,
++        model_assets_elapsed_ms, settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(
++        env, "QAIRT short multi-token smoke string conversion failed");
++    return nullptr;
++  }
++
++  if (model_path_str.empty() || native_library_dir_str.empty() ||
++      result_path_str.empty()) {
++    const std::string detail = "missing-required-path";
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244ShortMultitokenMarker, detail.c_str());
++    WriteQairt244ShortMultitokenResult(
++        result_path_str, "failure", detail, "", 0, model_assets_elapsed_ms,
++        settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(
++        env, "QAIRT short multi-token smoke missing required path");
++    return nullptr;
++  }
++
++  if (!FileExists(model_path_str)) {
++    const std::string detail = "model-file-not-found";
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244ShortMultitokenMarker, detail.c_str());
++    WriteQairt244ShortMultitokenResult(
++        result_path_str, "failure", detail, "", 0, model_assets_elapsed_ms,
++        settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, "Model file not found: " + model_path_str);
++    return nullptr;
++  }
++
++  AppendQairt244Diag(diag_path_str.c_str(), "%s before ModelAssets::Create",
++                     kQairt244ShortMultitokenMarker);
++  const absl::Time model_assets_start = absl::Now();
++  auto model_assets = ModelAssets::Create(model_path_str);
++  model_assets_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - model_assets_start);
++  if (!model_assets.ok()) {
++    const std::string detail =
++        "model-assets-failed:" + model_assets.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244ShortMultitokenMarker, detail.c_str());
++    WriteQairt244ShortMultitokenResult(
++        result_path_str, "failure", detail, "", 0, model_assets_elapsed_ms,
++        settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  auto backend_enum = litert::lm::GetBackendFromString("NPU");
++  if (!backend_enum.ok()) {
++    const std::string detail =
++        "backend-npu-failed:" + backend_enum.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244ShortMultitokenMarker, detail.c_str());
++    WriteQairt244ShortMultitokenResult(
++        result_path_str, "failure", detail, "", 0, model_assets_elapsed_ms,
++        settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  AppendQairt244Diag(diag_path_str.c_str(),
++                     "%s before EngineSettings::CreateDefault",
++                     kQairt244ShortMultitokenMarker);
++  const absl::Time settings_start = absl::Now();
++  auto settings = EngineSettings::CreateDefault(*model_assets, *backend_enum);
++  settings_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - settings_start);
++  if (!settings.ok()) {
++    const std::string detail =
++        "engine-settings-failed:" + settings.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244ShortMultitokenMarker, detail.c_str());
++    WriteQairt244ShortMultitokenResult(
++        result_path_str, "failure", detail, "", 0, model_assets_elapsed_ms,
++        settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  if (!cache_dir_str.empty()) {
++    settings->GetMutableMainExecutorSettings().SetCacheDir(cache_dir_str);
++  }
++  settings->GetMutableMainExecutorSettings().SetLitertDispatchLibDir(
++      native_library_dir_str);
++
++  AppendQairt244Diag(diag_path_str.c_str(),
++                     "%s before EngineFactory::CreateDefault",
++                     kQairt244ShortMultitokenMarker);
++  const absl::Time engine_create_start = absl::Now();
++  auto engine = EngineFactory::CreateDefault(*settings);
++  engine_create_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - engine_create_start);
++  if (!engine.ok()) {
++    const std::string detail =
++        "engine-create-failed:" + engine.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244ShortMultitokenMarker, detail.c_str());
++    WriteQairt244ShortMultitokenResult(
++        result_path_str, "failure", detail, "", 0, model_assets_elapsed_ms,
++        settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++  std::unique_ptr<Engine> engine_ptr = std::move(*engine);
++
++  AppendQairt244Diag(diag_path_str.c_str(), "%s before CreateSession",
++                     kQairt244ShortMultitokenMarker);
++  auto session_config = SessionConfig::CreateDefault();
++  const absl::Time session_create_start = absl::Now();
++  auto session = engine_ptr->CreateSession(session_config);
++  session_create_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - session_create_start);
++  if (!session.ok()) {
++    const std::string detail =
++        "session-create-failed:" + session.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244ShortMultitokenMarker, detail.c_str());
++    WriteQairt244ShortMultitokenResult(
++        result_path_str, "failure", detail, "", 0, model_assets_elapsed_ms,
++        settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++  std::unique_ptr<Engine::Session> session_ptr = std::move(*session);
++
++  std::vector<InputData> inputs;
++  inputs.emplace_back(InputText(kPrompt));
++  AppendQairt244Diag(
++      diag_path_str.c_str(),
++      "%s before RunPrefill prompt=Hi prompt_bytes=%zu "
++      "prompt_token_count=unavailable prompt_token_count_source=not_exposed",
++      kQairt244ShortMultitokenMarker, kPromptBytes);
++  const absl::Time prefill_start = absl::Now();
++  auto prefill_status = session_ptr->RunPrefill(inputs);
++  prefill_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - prefill_start);
++  if (!prefill_status.ok()) {
++    const std::string detail =
++        "prefill-failed:" + prefill_status.ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244ShortMultitokenMarker, detail.c_str());
++    WriteQairt244ShortMultitokenResult(
++        result_path_str, "failure", detail, "", 0, model_assets_elapsed_ms,
++        settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  DecodeConfig decode_config = DecodeConfig::CreateDefault();
++  decode_config.SetMaxOutputTokens(3);
++  AppendQairt244Diag(diag_path_str.c_str(),
++                     "%s before RunDecode SetMaxOutputTokens(3)",
++                     kQairt244ShortMultitokenMarker);
++  const absl::Time decode_start = absl::Now();
++  auto responses = session_ptr->RunDecode(decode_config);
++  decode_elapsed_ms = absl::ToInt64Milliseconds(absl::Now() - decode_start);
++  if (!responses.ok()) {
++    const std::string detail =
++        "decode-failed:" + responses.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244ShortMultitokenMarker, detail.c_str());
++    WriteQairt244ShortMultitokenResult(
++        result_path_str, "failure", detail, "", 0, model_assets_elapsed_ms,
++        settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  std::string output;
++  if (!responses->GetTexts().empty()) {
++    output = responses->GetTexts()[0];
++  }
++  const absl::Time cleanup_start = absl::Now();
++  session_ptr.reset();
++  engine_ptr.reset();
++  cleanup_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - cleanup_start);
++  const long elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - start_time);
++  AppendQairt244Diag(
++      diag_path_str.c_str(),
++      "%s success output_candidates=%zu output_bytes=%zu "
++      "output_token_count=unavailable "
++      "output_token_count_source=not_exposed_by_RunDecode_response "
++      "elapsed_ms=%ld model_assets_elapsed_ms=%ld "
++      "engine_settings_elapsed_ms=%ld engine_create_elapsed_ms=%ld "
++      "session_create_elapsed_ms=%ld prefill_elapsed_ms=%ld "
++      "decode_elapsed_ms=%ld cleanup_elapsed_ms=%ld "
++      "npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag "
++      "Engine.close=unique_ptr_cleanup",
++      kQairt244ShortMultitokenMarker, responses->GetTexts().size(),
++      output.size(), elapsed_ms, model_assets_elapsed_ms, settings_elapsed_ms,
++      engine_create_elapsed_ms, session_create_elapsed_ms, prefill_elapsed_ms,
++      decode_elapsed_ms, cleanup_elapsed_ms);
++  WriteQairt244ShortMultitokenResult(
++      result_path_str, "success", "completed", output, elapsed_ms,
++      model_assets_elapsed_ms, settings_elapsed_ms, engine_create_elapsed_ms,
++      session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++      cleanup_elapsed_ms);
++  return NewStringStandardUTF(env, output);
++}
++
++
++LITERTLM_JNIEXPORT jstring JNICALL
++Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt(
++    JNIEnv* env, jclass thiz, jstring model_path,
++    jstring native_library_dir, jstring cache_dir, jstring result_path,
++    jstring diag_path, jstring prompt, jint max_output_tokens) {
++  const absl::Time start_time = absl::Now();
++  long model_assets_elapsed_ms = -1;
++  long settings_elapsed_ms = -1;
++  long engine_create_elapsed_ms = -1;
++  long session_create_elapsed_ms = -1;
++  long prefill_elapsed_ms = -1;
++  long decode_elapsed_ms = -1;
++  long cleanup_elapsed_ms = -1;
++  std::string model_path_str;
++  std::string native_library_dir_str;
++  std::string cache_dir_str;
++  std::string result_path_str;
++  std::string diag_path_str;
++  std::string actual_prompt;
++  std::string normalized_prompt;
++
++  GetOptionalJString(env, diag_path, &diag_path_str, nullptr, "diag_path",
++                     kQairt244EditablePromptMarker);
++  AppendQairt244Diag(
++      diag_path_str.c_str(),
++      "%s ENTRY prompt_source=editable_prompt max_output_tokens=%d "
++      "native_prompt_validation_mode=%s utf8_allowed=true "
++      "model_path_null=%d native_library_dir_null=%d cache_dir_null=%d "
++      "result_path_null=%d prompt_null=%d",
++      kQairt244EditablePromptMarker, max_output_tokens,
++      kQairt244EditablePromptValidationMode, model_path == nullptr,
++      native_library_dir == nullptr, cache_dir == nullptr,
++      result_path == nullptr, prompt == nullptr);
++
++  if (prompt == nullptr) {
++    const long elapsed_ms =
++        absl::ToInt64Milliseconds(absl::Now() - start_time);
++    AppendQairt244Diag(diag_path_str.c_str(), "%s invalid_prompt reason=prompt_null",
++                       kQairt244EditablePromptMarker);
++    GetOptionalJString(env, result_path, &result_path_str,
++                       diag_path_str.c_str(), "result_path",
++                       kQairt244EditablePromptMarker);
++    WriteQairt244EditablePromptResult(
++        result_path_str, "invalid_prompt", "prompt_null", "", "", "",
++        elapsed_ms, model_assets_elapsed_ms, settings_elapsed_ms,
++        engine_create_elapsed_ms, session_create_elapsed_ms,
++        prefill_elapsed_ms, decode_elapsed_ms, cleanup_elapsed_ms);
++    return NewStringStandardUTF(env, "");
++  }
++
++  if (!GetOptionalJString(env, prompt, &actual_prompt, diag_path_str.c_str(),
++                          "prompt", kQairt244EditablePromptMarker)) {
++    const long elapsed_ms =
++        absl::ToInt64Milliseconds(absl::Now() - start_time);
++    GetOptionalJString(env, result_path, &result_path_str,
++                       diag_path_str.c_str(), "result_path",
++                       kQairt244EditablePromptMarker);
++    WriteQairt244EditablePromptResult(
++        result_path_str, "invalid_prompt", "prompt-string-conversion-failed",
++        "", "", "", elapsed_ms, model_assets_elapsed_ms,
++        settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    return NewStringStandardUTF(env, "");
++  }
++
++  const std::string validation_reason =
++      ValidateQairt244EditablePrompt(actual_prompt, &normalized_prompt);
++  AppendQairt244Diag(
++      diag_path_str.c_str(),
++      "%s prompt_validation reason=%s native_prompt_validation_mode=%s "
++      "utf8_allowed=true actual_bytes=%zu normalized_bytes=%zu",
++      kQairt244EditablePromptMarker, validation_reason.c_str(),
++      kQairt244EditablePromptValidationMode, actual_prompt.size(),
++      normalized_prompt.size());
++  if (validation_reason != "ok") {
++    const long elapsed_ms =
++        absl::ToInt64Milliseconds(absl::Now() - start_time);
++    GetOptionalJString(env, result_path, &result_path_str,
++                       diag_path_str.c_str(), "result_path",
++                       kQairt244EditablePromptMarker);
++    WriteQairt244EditablePromptResult(
++        result_path_str, "invalid_prompt", validation_reason, actual_prompt,
++        normalized_prompt, "", elapsed_ms, model_assets_elapsed_ms,
++        settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    return NewStringStandardUTF(env, "");
++  }
++
++  if (max_output_tokens < 1 || max_output_tokens > 32) {
++    const long elapsed_ms =
++        absl::ToInt64Milliseconds(absl::Now() - start_time);
++    GetOptionalJString(env, result_path, &result_path_str,
++                       diag_path_str.c_str(), "result_path",
++                       kQairt244EditablePromptMarker);
++    AppendQairt244Diag(diag_path_str.c_str(),
++                       "%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=32",
++                       kQairt244EditablePromptMarker, max_output_tokens);
++    WriteQairt244EditablePromptResult(
++        result_path_str, "failure", "invalid_max_output_tokens",
++        actual_prompt, normalized_prompt, "", elapsed_ms,
++        model_assets_elapsed_ms, settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    return NewStringStandardUTF(env, "");
++  }
++
++  if (!GetOptionalJString(env, model_path, &model_path_str,
++                          diag_path_str.c_str(), "model_path",
++                          kQairt244EditablePromptMarker) ||
++      !GetOptionalJString(env, native_library_dir, &native_library_dir_str,
++                          diag_path_str.c_str(), "native_library_dir",
++                          kQairt244EditablePromptMarker) ||
++      !GetOptionalJString(env, cache_dir, &cache_dir_str,
++                          diag_path_str.c_str(), "cache_dir",
++                          kQairt244EditablePromptMarker) ||
++      !GetOptionalJString(env, result_path, &result_path_str,
++                          diag_path_str.c_str(), "result_path",
++                          kQairt244EditablePromptMarker)) {
++    WriteQairt244EditablePromptResult(
++        result_path_str, "failure", "jni-string-conversion-failed",
++        actual_prompt, normalized_prompt, "", 0, model_assets_elapsed_ms,
++        settings_elapsed_ms, engine_create_elapsed_ms,
++        session_create_elapsed_ms, prefill_elapsed_ms, decode_elapsed_ms,
++        cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(
++        env, "QAIRT editable prompt smoke string conversion failed");
++    return nullptr;
++  }
++
++  if (model_path_str.empty() || native_library_dir_str.empty() ||
++      result_path_str.empty()) {
++    const std::string detail = "missing-required-path";
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244EditablePromptMarker, detail.c_str());
++    WriteQairt244EditablePromptResult(
++        result_path_str, "failure", detail, actual_prompt, normalized_prompt,
++        "", 0, model_assets_elapsed_ms, settings_elapsed_ms,
++        engine_create_elapsed_ms, session_create_elapsed_ms,
++        prefill_elapsed_ms, decode_elapsed_ms, cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(
++        env, "QAIRT editable prompt smoke missing required path");
++    return nullptr;
++  }
++
++  if (!FileExists(model_path_str)) {
++    const std::string detail = "model-file-not-found";
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244EditablePromptMarker, detail.c_str());
++    WriteQairt244EditablePromptResult(
++        result_path_str, "failure", detail, actual_prompt, normalized_prompt,
++        "", 0, model_assets_elapsed_ms, settings_elapsed_ms,
++        engine_create_elapsed_ms, session_create_elapsed_ms,
++        prefill_elapsed_ms, decode_elapsed_ms, cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, "Model file not found: " + model_path_str);
++    return nullptr;
++  }
++
++  AppendQairt244Diag(diag_path_str.c_str(), "%s before ModelAssets::Create",
++                     kQairt244EditablePromptMarker);
++  const absl::Time model_assets_start = absl::Now();
++  auto model_assets = ModelAssets::Create(model_path_str);
++  model_assets_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - model_assets_start);
++  if (!model_assets.ok()) {
++    const std::string detail =
++        "model-assets-failed:" + model_assets.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244EditablePromptMarker, detail.c_str());
++    WriteQairt244EditablePromptResult(
++        result_path_str, "failure", detail, actual_prompt, normalized_prompt,
++        "", 0, model_assets_elapsed_ms, settings_elapsed_ms,
++        engine_create_elapsed_ms, session_create_elapsed_ms,
++        prefill_elapsed_ms, decode_elapsed_ms, cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  auto backend_enum = litert::lm::GetBackendFromString("NPU");
++  if (!backend_enum.ok()) {
++    const std::string detail =
++        "backend-npu-failed:" + backend_enum.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244EditablePromptMarker, detail.c_str());
++    WriteQairt244EditablePromptResult(
++        result_path_str, "failure", detail, actual_prompt, normalized_prompt,
++        "", 0, model_assets_elapsed_ms, settings_elapsed_ms,
++        engine_create_elapsed_ms, session_create_elapsed_ms,
++        prefill_elapsed_ms, decode_elapsed_ms, cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  AppendQairt244Diag(diag_path_str.c_str(),
++                     "%s before EngineSettings::CreateDefault",
++                     kQairt244EditablePromptMarker);
++  const absl::Time settings_start = absl::Now();
++  auto settings = EngineSettings::CreateDefault(*model_assets, *backend_enum);
++  settings_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - settings_start);
++  if (!settings.ok()) {
++    const std::string detail =
++        "engine-settings-failed:" + settings.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244EditablePromptMarker, detail.c_str());
++    WriteQairt244EditablePromptResult(
++        result_path_str, "failure", detail, actual_prompt, normalized_prompt,
++        "", 0, model_assets_elapsed_ms, settings_elapsed_ms,
++        engine_create_elapsed_ms, session_create_elapsed_ms,
++        prefill_elapsed_ms, decode_elapsed_ms, cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  if (!cache_dir_str.empty()) {
++    settings->GetMutableMainExecutorSettings().SetCacheDir(cache_dir_str);
++  }
++  settings->GetMutableMainExecutorSettings().SetLitertDispatchLibDir(
++      native_library_dir_str);
++
++  AppendQairt244Diag(diag_path_str.c_str(),
++                     "%s before EngineFactory::CreateDefault",
++                     kQairt244EditablePromptMarker);
++  const absl::Time engine_create_start = absl::Now();
++  auto engine = EngineFactory::CreateDefault(*settings);
++  engine_create_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - engine_create_start);
++  if (!engine.ok()) {
++    const std::string detail =
++        "engine-create-failed:" + engine.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244EditablePromptMarker, detail.c_str());
++    WriteQairt244EditablePromptResult(
++        result_path_str, "failure", detail, actual_prompt, normalized_prompt,
++        "", 0, model_assets_elapsed_ms, settings_elapsed_ms,
++        engine_create_elapsed_ms, session_create_elapsed_ms,
++        prefill_elapsed_ms, decode_elapsed_ms, cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++  std::unique_ptr<Engine> engine_ptr = std::move(*engine);
++
++  AppendQairt244Diag(diag_path_str.c_str(), "%s before CreateSession",
++                     kQairt244EditablePromptMarker);
++  auto session_config = SessionConfig::CreateDefault();
++  const absl::Time session_create_start = absl::Now();
++  auto session = engine_ptr->CreateSession(session_config);
++  session_create_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - session_create_start);
++  if (!session.ok()) {
++    const std::string detail =
++        "session-create-failed:" + session.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244EditablePromptMarker, detail.c_str());
++    WriteQairt244EditablePromptResult(
++        result_path_str, "failure", detail, actual_prompt, normalized_prompt,
++        "", 0, model_assets_elapsed_ms, settings_elapsed_ms,
++        engine_create_elapsed_ms, session_create_elapsed_ms,
++        prefill_elapsed_ms, decode_elapsed_ms, cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++  std::unique_ptr<Engine::Session> session_ptr = std::move(*session);
++
++  std::vector<InputData> inputs;
++  inputs.emplace_back(InputText(normalized_prompt.c_str()));
++  AppendQairt244Diag(
++      diag_path_str.c_str(),
++      "%s before RunPrefill prompt_source=editable_prompt prompt_bytes=%zu "
++      "prompt_token_count=unavailable prompt_token_count_source=not_exposed",
++      kQairt244EditablePromptMarker, normalized_prompt.size());
++  const absl::Time prefill_start = absl::Now();
++  auto prefill_status = session_ptr->RunPrefill(inputs);
++  prefill_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - prefill_start);
++  if (!prefill_status.ok()) {
++    const std::string detail =
++        "prefill-failed:" + prefill_status.ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244EditablePromptMarker, detail.c_str());
++    WriteQairt244EditablePromptResult(
++        result_path_str, "failure", detail, actual_prompt, normalized_prompt,
++        "", 0, model_assets_elapsed_ms, settings_elapsed_ms,
++        engine_create_elapsed_ms, session_create_elapsed_ms,
++        prefill_elapsed_ms, decode_elapsed_ms, cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  DecodeConfig decode_config = DecodeConfig::CreateDefault();
++  decode_config.SetMaxOutputTokens(max_output_tokens);
++  AppendQairt244Diag(diag_path_str.c_str(),
++                     "%s before RunDecode SetMaxOutputTokens(%d)",
++                     kQairt244EditablePromptMarker, max_output_tokens);
++  const absl::Time decode_start = absl::Now();
++  auto responses = session_ptr->RunDecode(decode_config);
++  decode_elapsed_ms = absl::ToInt64Milliseconds(absl::Now() - decode_start);
++  if (!responses.ok()) {
++    const std::string detail =
++        "decode-failed:" + responses.status().ToString();
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244EditablePromptMarker, detail.c_str());
++    WriteQairt244EditablePromptResult(
++        result_path_str, "failure", detail, actual_prompt, normalized_prompt,
++        "", 0, model_assets_elapsed_ms, settings_elapsed_ms,
++        engine_create_elapsed_ms, session_create_elapsed_ms,
++        prefill_elapsed_ms, decode_elapsed_ms, cleanup_elapsed_ms);
++    ThrowLiteRtLmJniException(env, detail);
++    return nullptr;
++  }
++
++  std::string output;
++  if (!responses->GetTexts().empty()) {
++    output = responses->GetTexts()[0];
++  }
++  const absl::Time cleanup_start = absl::Now();
++  session_ptr.reset();
++  engine_ptr.reset();
++  cleanup_elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - cleanup_start);
++  const long elapsed_ms =
++      absl::ToInt64Milliseconds(absl::Now() - start_time);
++  AppendQairt244Diag(
++      diag_path_str.c_str(),
++      "%s success prompt_source=editable_prompt output_candidates=%zu "
++      "output_bytes=%zu output_token_count=unavailable "
++      "output_token_count_source=not_exposed_by_RunDecode_response "
++      "elapsed_ms=%ld model_assets_elapsed_ms=%ld "
++      "engine_settings_elapsed_ms=%ld engine_create_elapsed_ms=%ld "
++      "session_create_elapsed_ms=%ld prefill_elapsed_ms=%ld "
++      "decode_elapsed_ms=%ld cleanup_elapsed_ms=%ld "
++      "npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag "
++      "Engine.close=unique_ptr_cleanup",
++      kQairt244EditablePromptMarker, responses->GetTexts().size(),
++      output.size(), elapsed_ms, model_assets_elapsed_ms, settings_elapsed_ms,
++      engine_create_elapsed_ms, session_create_elapsed_ms, prefill_elapsed_ms,
++      decode_elapsed_ms, cleanup_elapsed_ms);
++  WriteQairt244EditablePromptResult(
++      result_path_str, "success", "completed", actual_prompt,
++      normalized_prompt, output, elapsed_ms, model_assets_elapsed_ms,
++      settings_elapsed_ms, engine_create_elapsed_ms, session_create_elapsed_ms,
++      prefill_elapsed_ms, decode_elapsed_ms, cleanup_elapsed_ms);
++  return NewStringStandardUTF(env, output);
++}
++
+ LITERTLM_JNIEXPORT jstring JNICALL JNI_METHOD(nativeGenerateContent)(
+     JNIEnv* env, jclass thiz, jlong session_pointer, jobjectArray input_data) {
+   Engine::Session* session =

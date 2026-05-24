@@ -1,5 +1,45 @@
 # QAIRT244 ChatScreen DEV-only SM8750 NPU Model Run
 
+## 2026-05-24 32-Token Bounded Phase
+
+The runner default artifact now points to the 32-token custom native artifact
+for the DEV-only qairt244 SM8750 internal intent route:
+
+```text
+artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt
+```
+
+The internal intent dispatch uses `--ei max_output_tokens 32` and still avoids
+`adb shell input text`. The expected diagnostics for the single-device
+confirmation are `prompt_source=internal_intent`,
+`prompt_validation_mode=utf8_internal_intent`,
+`native_prompt_validation_mode=utf8_internal_intent`, `utf8_allowed=true`,
+`max_output_tokens=32`, `native_max_output_tokens_limit=32`,
+`npu_backend=NPU`, and
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`.
+
+
+32-token single-device confirmation:
+
+- Artifact: `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_160053`
+- Prompt: `こんにちは`
+- Result: `success`
+- `requested_prompt=こんにちは`, `actual_prompt=こんにちは`, `normalized_prompt=こんにちは`
+- `prompt_source=internal_intent`
+- `prompt_validation_mode=utf8_internal_intent`
+- `native_prompt_validation_mode=utf8_internal_intent`
+- `utf8_allowed=true`
+- `max_output_tokens=32`
+- `native_max_output_tokens_limit=32`
+- `run_decode_reached=true`
+- `npu_backend=NPU`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `decode_elapsed_ms=817`
+- `fallback_used=false`, `timeout=false`, `fresh_crash=false`
+- `ui_cleanup_wait_status=success`
+- No `duplicate_run_blocked`, `Responding...`, `Stop Button`, or `応答中` marker remained.
+
+
 ## 2026-05-24 UTF-8 Internal Intent Confirmation
 
 The UTF-8 internal prompt path is now wired through the
