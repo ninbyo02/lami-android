@@ -1290,3 +1290,28 @@ Classification: `rollback-model-missing-tf-lite-aux`. The previous
 `rollback-model-file-not-found` root cause is closed for this device state; the
 current root cause is an app-private model file that is readable but not in the
 compiled NPU format expected by the QAIRT LiteRT-LM executor.
+
+## DEV-only NPU Output Artifact Leakage (2026-05-25)
+
+| Stage | Result | Evidence | Status |
+| --- | --- | --- | --- |
+| Native decode | reached | `run_decode_reached=true` | OK |
+| NPU backend | `NPU` | `QNN_HTP_V79_FastRPC_native_diag` | OK |
+| Raw output | prompt echo and Gemma turn artifacts | `raw_output.txt` | Needs cleanup |
+| Sanitizer | removed template artifacts and leading prompt echo | `sanitized_output.txt` | OK |
+| Display output | natural Japanese sentence | `result.txt` | OK |
+| Fallback | `false` | `result.txt` | OK |
+| Timeout/fresh crash | `false` / `false` | `summary.md` | OK |
+| DB/TTS/Markdown/streaming | disconnected | route marker / `result.txt` | OK |
+| selectedPath=npu | not saved | `result.txt` | OK |
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_output_sanitizer/20260525_015040/
+```
+
+Classification: `dev-only-output-template-artifact-sanitized`. The remaining
+NPU route is healthy; the observed issue was display-quality leakage from Gemma
+turn markers (`<end_of_turn>` and related role markers), not a QNN fallback,
+timeout, crash, or model-selection regression.

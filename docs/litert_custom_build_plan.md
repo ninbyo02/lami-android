@@ -1731,3 +1731,28 @@ Observed:
 
 Next build step: replace or generate the app-private model with a QAIRT NPU
 compiled LiteRT-LM artifact that contains the required `TF_LITE_AUX` data.
+
+## DEV-only NPU Output Sanitizer Result (2026-05-25)
+
+With the SM8750 compiled LiteRT-LM model in place, the ChatScreen DEV-only NPU
+route reached native decode and returned Gemma turn-template artifacts in the
+raw text. The custom build/native stack is unchanged; the app now sanitizes the
+debug-route display output only.
+
+- artifact: `artifacts/qairt244_npu_output_sanitizer/20260525_015040/`
+- template mode: `gemma_it_like`
+- prompt: `こんにちは`
+- `maxOutputTokens=128`
+- `npu_backend=NPU`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fallback_used=false`
+- `timeout=false`
+- `fresh_crash=false`
+- raw output preserved in `raw_output.txt`
+- sanitized output preserved in `sanitized_output.txt`
+- sanitized output: `こんにちは！何かお手伝いできることはありますか？`
+- `removed_template_token_count=2`
+- `removed_prompt_echo=true`
+
+No native artifact was rebuilt for this change. No `.so`, `.apk`, `.aar`,
+`.zip`, `.tar`, `.gz`, or `.litertlm` artifact is part of the Git change.

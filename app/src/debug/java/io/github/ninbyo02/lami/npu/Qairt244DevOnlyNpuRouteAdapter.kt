@@ -264,23 +264,39 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 promptTemplate = promptTemplate,
             )
             val values = parseResultFile()
-            val success = values["result"] == "success"
+            val nativeSuccess = values["result"] == "success"
             val output = values["output"]
             val rawNativeOutput = output.orEmpty()
+            val sanitizerResult = Qairt244NpuOutputSanitizer.sanitize(
+                rawOutput = rawNativeOutput,
+                prompt = normalizedPrompt,
+            )
+            val sanitizedOutput = sanitizerResult.sanitizedOutput
+            val success = nativeSuccess && sanitizedOutput.isNotEmpty()
+            val reasonCode = when {
+                success -> "success"
+                nativeSuccess -> "empty_after_sanitize"
+                else -> "native_result:${values["result"] ?: "unknown"}"
+            }
             appendOutputDiagnostics(
                 rawNativeOutput = rawNativeOutput,
-                adapterOutput = output.orEmpty(),
+                adapterOutput = sanitizedOutput,
+                sanitizerResult = sanitizerResult,
                 values = values,
                 promptSource = promptSource,
             )
             appendRouteMarker(
                 "runId=$runId state=${if (success) "success" else "failure"} elapsed_ms=$elapsed " +
-                    "result=${values["result"] ?: "unknown"} output=${output ?: "-"} db=false tts=false markdown=false stream=false",
+                    "result=${if (success) "success" else reasonCode} output=${sanitizedOutput.ifBlank { "-" }} " +
+                    "sanitizer_applied=${sanitizerResult.sanitizerApplied} " +
+                    "removed_template_token_count=${sanitizerResult.removedTemplateTokenCount} " +
+                    "removed_prompt_echo=${sanitizerResult.removedPromptEcho} " +
+                    "db=false tts=false markdown=false stream=false",
             )
             DevOnlyNpuRouteResult(
                 success = success,
-                output = output,
-                reasonCode = if (success) "success" else "native_result:${values["result"] ?: "unknown"}",
+                output = sanitizedOutput.ifEmpty { null },
+                reasonCode = reasonCode,
                 elapsedMs = values["elapsed_ms"]?.toLongOrNull() ?: elapsed,
                 decodeElapsedMs = values["decode_elapsed_ms"]?.toLongOrNull(),
                 prompt = normalizedPrompt,
@@ -386,6 +402,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
     private fun appendOutputDiagnostics(
         rawNativeOutput: String,
         adapterOutput: String,
+        sanitizerResult: Qairt244NpuOutputSanitizer.Result,
         values: Map<String, String>,
         promptSource: String,
     ) {
@@ -401,6 +418,13 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "route_type=${routeType(promptSource)}",
                 "raw_native_output=${escapeValue(rawNativeOutput)}",
                 "raw_native_output_length=${rawNativeOutput.length}",
+                "raw_output=${escapeValue(sanitizerResult.rawOutput)}",
+                "raw_output_length=${sanitizerResult.rawOutput.length}",
+                "sanitized_output=${escapeValue(sanitizerResult.sanitizedOutput)}",
+                "sanitized_output_length=${sanitizerResult.sanitizedOutput.length}",
+                "sanitizer_applied=${sanitizerResult.sanitizerApplied}",
+                "removed_template_token_count=${sanitizerResult.removedTemplateTokenCount}",
+                "removed_prompt_echo=${sanitizerResult.removedPromptEcho}",
                 "adapter_output=${escapeValue(adapterOutput)}",
                 "adapter_output_length=${adapterOutput.length}",
             ).plus(outputDiagnostics).plus(

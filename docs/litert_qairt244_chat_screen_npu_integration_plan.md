@@ -510,3 +510,38 @@ Observed result:
 This resolves the previous `model-file-not-found` boundary. The current
 rollback boundary is model content compatibility with the QAIRT NPU compiled
 model executor, not app-private path discovery.
+## 2026-05-25 DEV-only NPU Output Sanitizer
+
+The ChatScreen DEV-only qairt244 route now keeps the SM8750 NPU execution path
+unchanged and sanitizes only the transient output shown by the debug route. The
+target template for the current output-quality phase is `gemma_it_like`.
+
+Sanitizer scope:
+
+- removes Gemma turn artifacts such as `<start_of_turn>`, `<start_of_turn>user`,
+  `<start_of_turn>model`, `<end_of_turn>`, and partial `<end`
+- removes a leading user prompt echo line, including the observed
+  `>こんにちは` echo
+- collapses empty lines and stops before repeated user-turn artifacts
+- preserves `raw_output` and writes `sanitized_output` for display
+- reports `sanitizer_applied`, `removed_template_token_count`, and
+  `removed_prompt_echo`
+
+Real-device evidence:
+
+```text
+artifact=artifacts/qairt244_npu_output_sanitizer/20260525_015040
+template_mode=gemma_it_like
+prompt=こんにちは
+raw_output=>こんにちは\n<end_of_turn>\nこんにちは！何かお手伝いできることはありますか？\n<end_of_turn>
+sanitized_output=こんにちは！何かお手伝いできることはありますか？
+removed_template_token_count=2
+removed_prompt_echo=true
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_used=false
+timeout=false
+fresh_crash=false
+```
+
+This does not connect the NPU output to DB, TTS, Markdown, or streaming, and it
+does not persist `selectedPath=npu`.

@@ -231,6 +231,12 @@ object DevOnlyNpuChatScreenBlockedBranch {
         val backendEvidence = result.backendEvidence.orEmpty()
             .ifBlank { nativeResult["npu_backend_evidence"].orEmpty() }
         val rawNativeOutput = unescapeValue(nativeResult["raw_native_output"].orEmpty())
+        val rawOutput = nativeResult["raw_output"].orEmpty()
+            .let(::unescapeValue)
+            .ifBlank { rawNativeOutput }
+        val sanitizedOutput = nativeResult["sanitized_output"].orEmpty()
+            .let(::unescapeValue)
+            .ifBlank { result.output.orEmpty() }
         val adapterOutput = unescapeValue(nativeResult["adapter_output"].orEmpty())
             .ifBlank { result.output.orEmpty() }
         val rawUserPrompt = nativeResult["raw_user_prompt"].orEmpty()
@@ -260,6 +266,8 @@ object DevOnlyNpuChatScreenBlockedBranch {
             .ifBlank { DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS.toString() }
         val outputDiagnosticsValues = nativeResult + mapOf(
             "raw_native_output" to rawNativeOutput,
+            "raw_output" to rawOutput,
+            "sanitized_output" to sanitizedOutput,
             "adapter_output" to adapterOutput,
             "output" to result.output.orEmpty(),
             "finish_reason" to nativeResult["finish_reason"].orEmpty()
@@ -292,6 +300,13 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "output=${escapeValue(result.output.orEmpty())}",
             "raw_native_output=${escapeValue(rawNativeOutput)}",
             "raw_native_output_length=${rawNativeOutput.length}",
+            "raw_output=${escapeValue(rawOutput)}",
+            "raw_output_length=${rawOutput.length}",
+            "sanitized_output=${escapeValue(sanitizedOutput)}",
+            "sanitized_output_length=${sanitizedOutput.length}",
+            "sanitizer_applied=${nativeResult["sanitizer_applied"].orEmpty().ifBlank { "false" }}",
+            "removed_template_token_count=${nativeResult["removed_template_token_count"].orEmpty().ifBlank { "0" }}",
+            "removed_prompt_echo=${nativeResult["removed_prompt_echo"].orEmpty().ifBlank { "false" }}",
             "adapter_output=${escapeValue(adapterOutput)}",
             "adapter_output_length=${adapterOutput.length}",
             "displayed_assistant_text=${escapeValue(assistantMessage)}",

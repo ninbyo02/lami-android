@@ -6,11 +6,11 @@ TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 APP_ID="io.github.ninbyo02.lami"
 RECEIVER="io.github.ninbyo02.lami.npu.StandardHiddenQairt244PromptReceiver"
 ACTION="io.github.ninbyo02.lami.action.STANDARD_HIDDEN_QAIRT244_PROMPT"
-OUT_DIR="$ROOT_DIR/artifacts/qairt244_standard_hidden_npu_route/$TIMESTAMP"
+OUT_DIR="$ROOT_DIR/artifacts/qairt244_npu_output_sanitizer/$TIMESTAMP"
 DEVICE_SERIAL=""
-PROMPT="Hello"
-TIMEOUT_SECONDS=45
-TEMPLATE_MODE=""
+PROMPT="こんにちは"
+TIMEOUT_SECONDS=90
+TEMPLATE_MODE="gemma_it_like"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -21,15 +21,11 @@ while [ $# -gt 0 ]; do
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_qairt244_standard_hidden_npu_route.sh [--device <serial>] [--prompt <prompt>] [--timeout <seconds>] [--template <mode>]
+  scripts/run_qairt244_npu_output_sanitizer.sh [--device <serial>] [--prompt <prompt>] [--timeout <seconds>] [--template <mode>]
 
-Runs one standardDebug hidden qairt244 SM8750 NPU attempt through the debug-only
-android.permission.DUMP-protected receiver. It enables developer_access_enabled and
-dev_enable_qairt244_sm8750_npu_route via app code, then dispatches the prompt
-without relying on manual IME focus.
-
-When --template is set, the value is passed as the receiver extra template_mode
-for template comparison experiments.
+Runs the standardDebug hidden qairt244 NPU route once and records the raw versus
+sanitized DEV-only NPU output. Defaults to prompt=こんにちは and
+template=gemma_it_like.
 EOF
       exit 0 ;;
     *) printf 'ERROR: unknown argument: %s\n' "$1" >&2; exit 2 ;;
@@ -39,7 +35,7 @@ done
 cd "$ROOT_DIR" || exit 1
 mkdir -p "$OUT_DIR"
 
-log() { printf '[qairt244-standard-hidden-run] %s\n' "$*"; }
+log() { printf '[qairt244-npu-output-sanitizer] %s\n' "$*"; }
 adb_cmd() {
   if [ -n "$DEVICE_SERIAL" ]; then
     adb -s "$DEVICE_SERIAL" "$@"
@@ -97,45 +93,65 @@ summary_value() {
   printf 'unavailable'
 }
 
+write_unescaped_value() {
+  local key="$1"
+  local dest="$2"
+  summary_value "$key" | perl -pe 's/\\n/\n/g; s/\\\\/\\/g' >"$dest"
+}
+
+capture_screenshot() {
+  local remote_png="/sdcard/qairt244_npu_output_sanitizer.png"
+  adb_cmd shell screencap -p "$remote_png" >"$OUT_DIR/screenshot_capture.txt" 2>&1 || true
+  adb_cmd pull "$remote_png" "$OUT_DIR/screenshot.png" >"$OUT_DIR/screenshot_pull.txt" 2>&1 || true
+  adb_cmd shell rm -f "$remote_png" >/dev/null 2>&1 || true
+}
+
+write_runtime_marker_scan() {
+  {
+    for file in "$OUT_DIR/logcat_tail.txt" "$OUT_DIR/native_diag.txt" "$OUT_DIR/result.txt" "$OUT_DIR/summary.md"; do
+      [ -f "$file" ] || continue
+      rg -n "QNN|HTP|FastRPC|RunDecode|EngineFactory|native_prompt|sanitizer|selected_path_npu|fallback_used|timeout|fresh_crash" "$file" | sed "s#^#$(basename "$file"):#" || true
+    done
+  } >"$OUT_DIR/runtime_marker_scan.txt"
+}
+
+write_grep_safety() {
+  rg -n "selectedPath.*npu|selected_path_npu|tts=true|markdown=true|streaming=true|Backend\\.NPU|gemma-4-E2B-it_qualcomm_sm8750|qcs8275|generic" \
+    app/src/debug/java app/src/main/java app/src/customBuildExperimentDebug scripts docs >"$OUT_DIR/grep_safety.txt" 2>&1 || true
+}
+
 write_summary() {
   local status="$1"
   {
-    printf '# qairt244 standard hidden NPU route\n\n'
+    printf '# qairt244 DEV-only NPU output sanitizer\n\n'
     printf -- '- artifact: `%s`\n' "${OUT_DIR#$ROOT_DIR/}"
     printf -- '- device: `%s`\n' "$DEVICE_SERIAL"
     printf -- '- prompt: `%s`\n' "$PROMPT"
-    printf -- '- requested_template_mode: `%s`\n' "${TEMPLATE_MODE:-unset}"
-    printf -- '- status: `%s`\n' "$status"
-    printf '\n## Template comparison diagnostics\n\n'
     printf -- '- template_mode: `%s`\n' "$(summary_value template_mode)"
-    printf -- '- final_model_input_length: `%s`\n' "$(summary_value final_model_input_length)"
-    printf -- '- prompt_input_code_points: `%s`\n' "$(summary_value prompt_input_code_points)"
-    printf -- '- prompt_input_code_point_limit: `%s`\n' "$(summary_value prompt_input_code_point_limit)"
-    printf -- '- prompt_input_limit_mode: `%s`\n' "$(summary_value prompt_input_limit_mode)"
-    printf -- '- native_prompt_input_code_point_limit: `%s`\n' "$(summary_value native_prompt_input_code_point_limit)"
-    printf -- '- native_prompt_input_limit_mode: `%s`\n' "$(summary_value native_prompt_input_limit_mode)"
-    printf -- '- raw_native_output_length: `%s`\n' "$(summary_value raw_native_output_length)"
-    printf -- '- sanitized_output_length: `%s`\n' "$(summary_value sanitized_output_length)"
+    printf -- '- requested_template_mode: `%s`\n' "$TEMPLATE_MODE"
+    printf -- '- status: `%s`\n' "$status"
+    printf -- '- result: `%s`\n' "$(summary_value result)"
+    printf -- '- reasonCode: `%s`\n' "$(summary_value reasonCode)"
+    printf -- '- max_output_tokens: `%s`\n' "$(summary_value max_output_tokens)"
+    printf -- '- npu_backend: `%s`\n' "$(summary_value npu_backend)"
+    printf -- '- npu_backend_evidence: `%s`\n' "$(summary_value npu_backend_evidence)"
+    printf -- '- fallback_used: `%s`\n' "$(summary_value fallback_used)"
+    printf -- '- timeout: `%s`\n' "$(summary_value timeout)"
+    printf -- '- fresh_crash: `%s`\n' "$(summary_value fresh_crash)"
     printf -- '- sanitizer_applied: `%s`\n' "$(summary_value sanitizer_applied)"
     printf -- '- removed_template_token_count: `%s`\n' "$(summary_value removed_template_token_count)"
     printf -- '- removed_prompt_echo: `%s`\n' "$(summary_value removed_prompt_echo)"
-    printf -- '- displayed_assistant_text_length: `%s`\n' "$(summary_value displayed_assistant_text_length)"
-    printf -- '- decode_elapsed_ms: `%s`\n' "$(summary_value decode_elapsed_ms)"
-    printf -- '- output_token_count: `%s`\n' "$(summary_value output_token_count)"
-    printf -- '- finish_reason: `%s`\n' "$(summary_value finish_reason)"
-    printf -- '- stop_reason: `%s`\n' "$(summary_value stop_reason)"
-    printf -- '- output_contains_replacement_chars: `%s`\n' "$(summary_value output_contains_replacement_chars)"
-    printf -- '- replacement_char_count: `%s`\n' "$(summary_value replacement_char_count)"
-    printf -- '- output_unicode_summary: `%s`\n' "$(summary_value output_unicode_summary)"
-    printf -- '- quality_classification: `%s`\n' "$(summary_value quality_classification)"
-    printf '\n## State\n\n```text\n'
-    cat "$OUT_DIR/receiver_state.txt" 2>/dev/null || true
-    printf '```\n\n## Result\n\n```text\n'
+    printf -- '- raw_output_length: `%s`\n' "$(summary_value raw_output_length)"
+    printf -- '- sanitized_output_length: `%s`\n' "$(summary_value sanitized_output_length)"
+    printf -- '- ui_cleanup_wait_status: `%s`\n' "$(summary_value ui_cleanup_wait_status)"
+    printf '\n## Raw Output\n\n```text\n'
+    cat "$OUT_DIR/raw_output.txt" 2>/dev/null || true
+    printf '\n```\n\n## Sanitized Output\n\n```text\n'
+    cat "$OUT_DIR/sanitized_output.txt" 2>/dev/null || true
+    printf '\n```\n\n## Result\n\n```text\n'
     cat "$OUT_DIR/result.txt" 2>/dev/null || true
-    printf '```\n\n## Display diagnostics\n\n```text\n'
+    printf '```\n\n## Display Diagnostics\n\n```text\n'
     cat "$OUT_DIR/display_diagnostics.txt" 2>/dev/null || true
-    printf '```\n\n## UI cleanup\n\n```text\n'
-    cat "$OUT_DIR/ui_cleanup_state.txt" 2>/dev/null || true
     printf '```\n'
   } >"$OUT_DIR/summary.md"
 }
@@ -156,20 +172,15 @@ main() {
     files/qairt244_standard_hidden_prompt_state.txt >"$OUT_DIR/cleanup_app_files.txt" 2>&1 || true
 
   adb_cmd shell am start -W -n "$APP_ID/.MainActivity" >"$OUT_DIR/am_start.txt" 2>&1 || true
-
-  broadcast_args=(
-    shell am broadcast --receiver-foreground --user 0
-    -a "$ACTION"
-    -n "$APP_ID/$RECEIVER"
-    --es prompt "$PROMPT"
-    --ez enable_developer_access true
-    --ez enable_route true
-    --ez run true
-  )
-  if [ -n "$TEMPLATE_MODE" ]; then
-    broadcast_args+=(--es template "$TEMPLATE_MODE" --es template_mode "$TEMPLATE_MODE")
-  fi
-  adb_cmd "${broadcast_args[@]}" >"$OUT_DIR/broadcast.txt" 2>&1 || true
+  adb_cmd shell am broadcast --receiver-foreground --user 0 \
+    -a "$ACTION" \
+    -n "$APP_ID/$RECEIVER" \
+    --es prompt "$PROMPT" \
+    --es template "$TEMPLATE_MODE" \
+    --es template_mode "$TEMPLATE_MODE" \
+    --ez enable_developer_access true \
+    --ez enable_route true \
+    --ez run true >"$OUT_DIR/broadcast.txt" 2>&1 || true
 
   wait_status=success
   if ! wait_for_state; then
@@ -179,23 +190,27 @@ main() {
   pull_app_file "files/qairt244_standard_hidden_prompt_state.txt" "$OUT_DIR/receiver_state.txt"
   pull_app_file "files/qairt244_short_multitoken_smoke_result.txt" "$OUT_DIR/result.txt"
   pull_app_file "files/qairt244_native_diag.txt" "$OUT_DIR/native_diag.txt"
-  pull_app_file "files/qairt244_chat_screen_model_path_resolution.txt" "$OUT_DIR/resolved_model_path.txt"
-  pull_app_file "files/qairt244_dev_npu_ui_cleanup_state.txt" "$OUT_DIR/ui_cleanup_state.txt"
   pull_app_file "files/qairt244_standard_hidden_display_diagnostics.txt" "$OUT_DIR/display_diagnostics.txt"
+  pull_app_file "files/qairt244_dev_npu_ui_cleanup_state.txt" "$OUT_DIR/ui_cleanup_state.txt"
   adb_cmd logcat -d -t 800 >"$OUT_DIR/logcat_tail.txt" 2>&1 || true
+  capture_screenshot
+
+  write_unescaped_value raw_output "$OUT_DIR/raw_output.txt"
+  write_unescaped_value sanitized_output "$OUT_DIR/sanitized_output.txt"
+  write_summary "$wait_status"
+  write_runtime_marker_scan
+  write_grep_safety
 
   if [ "$wait_status" = success ] && grep -q '^success=true$' "$OUT_DIR/receiver_state.txt" 2>/dev/null; then
-    write_summary success
+    if rg -q '<end_of_turn>|<start_of_turn>' "$OUT_DIR/sanitized_output.txt"; then
+      log "failure: sanitizer tokens remain"
+      exit 1
+    fi
     log "success"
     log "summary: ${OUT_DIR#$ROOT_DIR/}/summary.md"
     exit 0
   fi
 
-  if [ "$wait_status" = success ]; then
-    write_summary failure
-  else
-    write_summary "$wait_status"
-  fi
   log "failure: $wait_status"
   log "summary: ${OUT_DIR#$ROOT_DIR/}/summary.md"
   exit 1

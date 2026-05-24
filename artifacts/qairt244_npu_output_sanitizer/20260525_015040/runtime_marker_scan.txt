@@ -1,0 +1,50 @@
+native_diag.txt:3:qairt244_native_file_v1 qairt244_editable_prompt_smoke_v1 ENTRY prompt_source=editable_prompt max_output_tokens=128 native_prompt_validation_mode=utf8_hidden_template_experiment utf8_allowed=true native_prompt_input_code_point_limit=128 native_prompt_input_limit_mode=hidden_template_experiment model_path_null=0 native_library_dir_null=0 cache_dir_null=0 result_path_null=0 prompt_null=0 prompt_input_limit_mode_null=0
+native_diag.txt:6:qairt244_native_file_v1 qairt244_editable_prompt_smoke_v1 prompt_validation reason=ok native_prompt_validation_mode=utf8_hidden_template_experiment utf8_allowed=true actual_bytes=70 normalized_bytes=70 prompt_input_code_points=60 native_prompt_input_code_point_limit=128 native_prompt_input_limit_mode=hidden_template_experiment
+native_diag.txt:17:qairt244_native_file_v1 qairt244_editable_prompt_smoke_v1 before EngineFactory::CreateDefault
+native_diag.txt:19:qairt244_native_file_v1 qairt244_editable_prompt_smoke_v1 before RunPrefill prompt_source=editable_prompt prompt_bytes=70 prompt_input_code_points=60 native_prompt_input_code_point_limit=128 native_prompt_input_limit_mode=hidden_template_experiment prompt_token_count=unavailable prompt_token_count_source=not_exposed
+native_diag.txt:20:qairt244_native_file_v1 qairt244_editable_prompt_smoke_v1 before RunDecode SetMaxOutputTokens(128)
+native_diag.txt:21:qairt244_native_file_v1 qairt244_editable_prompt_smoke_v1 success prompt_source=editable_prompt output_candidates=1 output_bytes=117 output_token_count=unavailable output_token_count_source=not_exposed_by_RunDecode_response elapsed_ms=2272 model_assets_elapsed_ms=0 engine_settings_elapsed_ms=0 engine_create_elapsed_ms=1327 session_create_elapsed_ms=0 prefill_elapsed_ms=72 decode_elapsed_ms=759 cleanup_elapsed_ms=111 npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag Engine.close=unique_ptr_cleanup
+result.txt:13:native_prompt_validation_mode=utf8_hidden_template_experiment
+result.txt:19:native_prompt_input_code_point_limit=128
+result.txt:20:native_prompt_input_limit_mode=hidden_template_experiment
+result.txt:28:selected_path_npu_normal_route=no
+result.txt:31:output_token_count_source=not_exposed_by_RunDecode_response
+result.txt:41:npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+result.txt:70:native_prompt_validation_mode=utf8_hidden_template_experiment
+result.txt:71:native_prompt_input_code_point_limit=128
+result.txt:72:native_prompt_input_limit_mode=hidden_template_experiment
+result.txt:76:fallback_used=false
+result.txt:77:timeout=false
+result.txt:78:fresh_crash=false
+result.txt:83:selected_path_npu_saved=false
+result.txt:91:sanitizer_applied=true
+result.txt:109:qairt244_chat_screen_real_npu_adapter_v1 runId=chat-real-1779641441038-f2e4a0cf-34f1-41f0-9b97-d4c05bb35405 state=success elapsed_ms=2278 result=success output=こんにちは！何かお手伝いできることはありますか？ sanitizer_applied=true removed_template_token_count=2 removed_prompt_echo=true db=false tts=false markdown=false stream=false
+summary.md:1:# qairt244 DEV-only NPU output sanitizer
+summary.md:3:- artifact: `artifacts/qairt244_npu_output_sanitizer/20260525_015040`
+summary.md:13:- npu_backend_evidence: `QNN_HTP_V79_FastRPC_native_diag`
+summary.md:14:- fallback_used: `false`
+summary.md:15:- timeout: `false`
+summary.md:16:- fresh_crash: `false`
+summary.md:17:- sanitizer_applied: `true`
+summary.md:54:native_prompt_validation_mode=utf8_hidden_template_experiment
+summary.md:60:native_prompt_input_code_point_limit=128
+summary.md:61:native_prompt_input_limit_mode=hidden_template_experiment
+summary.md:69:selected_path_npu_normal_route=no
+summary.md:72:output_token_count_source=not_exposed_by_RunDecode_response
+summary.md:82:npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+summary.md:111:native_prompt_validation_mode=utf8_hidden_template_experiment
+summary.md:112:native_prompt_input_code_point_limit=128
+summary.md:113:native_prompt_input_limit_mode=hidden_template_experiment
+summary.md:117:fallback_used=false
+summary.md:118:timeout=false
+summary.md:119:fresh_crash=false
+summary.md:124:selected_path_npu_saved=false
+summary.md:132:sanitizer_applied=true
+summary.md:150:qairt244_chat_screen_real_npu_adapter_v1 runId=chat-real-1779641441038-f2e4a0cf-34f1-41f0-9b97-d4c05bb35405 state=success elapsed_ms=2278 result=success output=こんにちは！何かお手伝いできることはありますか？ sanitizer_applied=true removed_template_token_count=2 removed_prompt_echo=true db=false tts=false markdown=false stream=false
+summary.md:176:native_prompt_input_code_point_limit=128
+summary.md:177:native_prompt_input_limit_mode=hidden_template_experiment
+summary.md:185:sanitizer_applied=true
+summary.md:206:npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+summary.md:207:fallback_used=false
+summary.md:208:timeout=false
+summary.md:209:fresh_crash=false

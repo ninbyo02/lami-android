@@ -695,3 +695,42 @@ artifacts/qairt244_chat_screen_real_npu_model_path_resolution/20260524_091657/
 The path resolver selected exactly one readable model file, then the native
 engine create step failed with `TF_LITE_AUX not found in the model`. A DEV-only
 one-shot guard blocked repeated native entry after the first attempt.
+
+## DEV-only NPU Output Sanitizer Result (2026-05-25)
+
+The ChatScreen DEV-only qairt244 adapter keeps the SM8750 NPU route unchanged
+and sanitizes only the adapter output before the transient ChatScreen display.
+The raw native text remains in the artifact for inspection.
+
+- artifact: `artifacts/qairt244_npu_output_sanitizer/20260525_015040/`
+- template mode: `gemma_it_like`
+- prompt: `こんにちは`
+- result: `success`
+- `run_decode_reached=true`
+- `npu_backend=NPU`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fallback_used=false`
+- `timeout=false`
+- `fresh_crash=false`
+- `sanitizer_applied=true`
+- `removed_template_token_count=2`
+- `removed_prompt_echo=true`
+- raw output:
+
+```text
+>こんにちは
+<end_of_turn>
+こんにちは！何かお手伝いできることはありますか？
+<end_of_turn>
+```
+
+- sanitized output:
+
+```text
+こんにちは！何かお手伝いできることはありますか？
+```
+
+If sanitizer cleanup leaves an empty string, the adapter reports
+`reasonCode=empty_after_sanitize` instead of displaying an empty assistant
+message. The adapter still records `db=false`, `tts=false`, `markdown=false`,
+`streaming=false`, and does not persist `selectedPath=npu`.

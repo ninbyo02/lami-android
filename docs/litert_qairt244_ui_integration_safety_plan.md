@@ -764,3 +764,32 @@ before native entry and preserved the normal UI safety boundary:
 The previous path-not-found rollback is fixed. The next safety review should
 focus on supplying a QAIRT NPU compiled `.litertlm` containing the required
 `TF_LITE_AUX` payload.
+
+## DEV-only NPU Output Sanitizer Safety Result (2026-05-25)
+
+The qairt244 DEV-only ChatScreen path now sanitizes Gemma turn-template
+artifacts after native decode and before transient display insertion. This is
+limited to the debug NPU route; normal ChatScreen DB, TTS, Markdown, and
+streaming paths remain disconnected.
+
+- artifact: `artifacts/qairt244_npu_output_sanitizer/20260525_015040/`
+- prompt: `こんにちは`
+- template mode: `gemma_it_like`
+- result: `success`
+- raw output contained a prompt echo and two `<end_of_turn>` tokens
+- sanitized output: `こんにちは！何かお手伝いできることはありますか？`
+- `sanitizer_applied=true`
+- `removed_template_token_count=2`
+- `removed_prompt_echo=true`
+- `npu_backend=NPU`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fallback_used=false`
+- `timeout=false`
+- `fresh_crash=false`
+- `ui_cleanup_wait_status=success`
+- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+- `selected_path_npu_normal_route=no`
+- `selected_path_npu_saved=false`
+
+The sanitizer does not add a release route, does not persist NPU backend
+selection, and does not change model selection policy.

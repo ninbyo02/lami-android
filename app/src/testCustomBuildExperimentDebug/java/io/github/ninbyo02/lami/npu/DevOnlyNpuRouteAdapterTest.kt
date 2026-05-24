@@ -9,7 +9,7 @@ import org.junit.Test
 class DevOnlyNpuRouteAdapterTest {
     @Test
     fun `default max output tokens is the current bounded phase`() {
-        assertEquals(32, DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS)
+        assertEquals(128, DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS)
     }
 
     @Test
