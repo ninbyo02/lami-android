@@ -11,13 +11,16 @@ OUT_DIR="$ROOT_DIR/artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/$TIM
 DEVICE_SERIAL=""
 RUN_REQUESTED=false
 PROMPT="Hello"
+PROMPT_MODE="ui_text"
 TIMEOUT_SECONDS=30
 MARKER="qairt244_editable_prompt_smoke_v1"
 ROUTE_MARKER="qairt244_chat_screen_real_npu_adapter_v1"
 TARGET_MODEL="gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+INTERNAL_INTENT_ACTION="io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT"
 PROMPT_INPUT_STATUS="not_started"
 PROMPT_INPUT_FAILURE_REASON=""
 PROMPT_ACTUAL=""
+INTENT_DISPATCH_STATUS="not_started"
 ORIGINAL_IME=""
 STABLE_IME=""
 IME_RESTORE_STATUS="not_run"
@@ -28,13 +31,16 @@ while [ $# -gt 0 ]; do
     --run) RUN_REQUESTED=true; shift ;;
     --device) DEVICE_SERIAL="${2:-}"; shift 2 ;;
     --prompt) PROMPT="${2:-}"; shift 2 ;;
+    --prompt-mode) PROMPT_MODE="${2:-}"; shift 2 ;;
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh [--artifact <custom-build-artifact>] [--run] [--device <serial>] [--prompt <ascii-prompt>]
+  scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh [--artifact <custom-build-artifact>] [--run] [--device <serial>] [--prompt <prompt>] [--prompt-mode ui_text|internal_intent]
 
 Runs one DEV-only ChatScreen NPU adapter attempt with the qualcomm_sm8750 model and maxOutputTokens=16.
-Prompt input is restricted to ASCII for runner stability; non-ASCII prompts stop before send.
+Default prompt mode is ui_text. UI text input is restricted to ASCII for runner stability; non-ASCII prompts stop before send.
+internal_intent is a placeholder mode for the customBuildExperimentDebug DEV-only app entrypoint.
+Japanese/non-ASCII prompts are allowed only in internal_intent mode, which must not use adb shell input text.
 EOF
       exit 0 ;;
     *) printf 'ERROR: unknown argument: %s\n' "$1" >&2; exit 2 ;;
@@ -46,6 +52,11 @@ mkdir -p "$OUT_DIR"
 
 log() { printf '[qairt244-chat-real-npu-sm8750-run] %s\n' "$*"; }
 adb_cmd() { adb -s "$DEVICE_SERIAL" "$@"; }
+
+case "$PROMPT_MODE" in
+  ui_text|internal_intent) ;;
+  *) printf 'ERROR: unknown prompt mode: %s\n' "$PROMPT_MODE" >&2; exit 2 ;;
+esac
 
 choose_real_device() {
   adb devices >"$OUT_DIR/adb_devices.txt" 2>&1 || return 1
@@ -130,12 +141,47 @@ write_prompt_input_status() {
   {
     printf 'requested_prompt=%s\n' "$PROMPT"
     printf 'actual_prompt=%s\n' "$PROMPT_ACTUAL"
+    printf 'normalized_prompt=\n'
+    printf 'prompt_mode=%s\n' "$PROMPT_MODE"
+    printf 'prompt_source=%s\n' "$PROMPT_MODE"
+    printf 'ui_text_ascii_only=true\n'
+    printf 'adb_shell_input_text_unicode=false\n'
     printf 'prompt_input_status=%s\n' "$PROMPT_INPUT_STATUS"
     printf 'prompt_input_failure_reason=%s\n' "$PROMPT_INPUT_FAILURE_REASON"
+    printf 'intent_dispatch_status=%s\n' "$INTENT_DISPATCH_STATUS"
+    printf 'internal_intent_action=%s\n' "$INTERNAL_INTENT_ACTION"
     printf 'original_ime=%s\n' "$ORIGINAL_IME"
     printf 'stable_ime=%s\n' "$STABLE_IME"
     printf 'ime_restore_status=%s\n' "$IME_RESTORE_STATUS"
   } >"$OUT_DIR/prompt_input_status.txt"
+}
+
+write_internal_intent_template() {
+  {
+    printf '# Internal Intent Command Templates\n\n'
+    printf 'Action is owned by the DEV-only app entrypoint implementation:\n\n'
+    printf '```text\n%s\n```\n\n' "$INTERNAL_INTENT_ACTION"
+    printf 'Activity-style template, if the app entrypoint is implemented as an internal Activity:\n\n'
+    printf '```sh\n'
+    printf 'adb -s <device> shell am start -W \\\n'
+    printf '  -a %s \\\n' "$INTERNAL_INTENT_ACTION"
+    printf '  -n %s/<internal-entrypoint-component> \\\n' "$APP_ID"
+    printf '  --es requested_prompt "<utf8-prompt>" \\\n'
+    printf '  --ez dev_enable_qairt244_sm8750_npu_route true \\\n'
+    printf '  --ei max_output_tokens 16\n'
+    printf '```\n\n'
+    printf 'Broadcast-style template, if the app entrypoint is implemented as an internal receiver:\n\n'
+    printf '```sh\n'
+    printf 'adb -s <device> shell am broadcast \\\n'
+    printf '  -a %s \\\n' "$INTERNAL_INTENT_ACTION"
+    printf '  -p %s \\\n' "$APP_ID"
+    printf '  --es requested_prompt "<utf8-prompt>" \\\n'
+    printf '  --ez dev_enable_qairt244_sm8750_npu_route true \\\n'
+    printf '  --ei max_output_tokens 16\n'
+    printf '```\n\n'
+    printf 'This runner placeholder records the template only. It does not dispatch the intent until the app-side entrypoint contract is available.\n'
+    printf 'Do not use adb shell input text for Japanese/non-ASCII prompts.\n'
+  } >"$OUT_DIR/internal_intent_command_template.md"
 }
 
 select_stable_ime() {
@@ -247,7 +293,18 @@ write_preflight() {
     printf 'route_code_present=%s\n' "$route_code_present"
     printf 'prompt=%s\n' "$PROMPT"
     printf 'requested_prompt=%s\n' "$PROMPT"
-    printf 'prompt_ascii_only=true\n'
+    printf 'prompt_mode=%s\n' "$PROMPT_MODE"
+    printf 'prompt_source=%s\n' "$PROMPT_MODE"
+    printf 'ui_text_ascii_only=true\n'
+    printf 'adb_shell_input_text_unicode=false\n'
+    printf 'japanese_prompt_mode=internal_intent_only\n'
+    if [ "$PROMPT_MODE" = internal_intent ]; then
+      printf 'ui_text_prompt_input=disabled\n'
+      printf 'internal_intent_action=%s\n' "$INTERNAL_INTENT_ACTION"
+      printf 'internal_intent_placeholder=true\n'
+    else
+      printf 'prompt_ascii_only=true\n'
+    fi
     printf 'max_output_tokens=16\n'
     printf 'run_requested=%s\n' "$RUN_REQUESTED"
     printf 'db=false\n'
@@ -382,6 +439,19 @@ main() {
 
   set_toggle false "$OUT_DIR/toggle_state_before.txt"
   set_toggle true "$OUT_DIR/toggle_state_after_on.txt"
+  if [ "$PROMPT_MODE" = internal_intent ]; then
+    PROMPT_ACTUAL=""
+    PROMPT_INPUT_STATUS=not_applicable
+    PROMPT_INPUT_FAILURE_REASON=uses_internal_intent_not_adb_input_text
+    INTENT_DISPATCH_STATUS=placeholder_not_dispatched_entrypoint_pending
+    write_prompt_input_status
+    write_internal_intent_template
+    set_toggle false "$OUT_DIR/toggle_state_after_off.txt"
+    write_summary false internal_intent_placeholder
+    scan_runtime_markers
+    log "internal_intent prompt mode is documented but not dispatched by this runner yet"
+    exit 0
+  fi
   if ! is_supported_ascii_prompt; then
     PROMPT_INPUT_STATUS=failure
     PROMPT_INPUT_FAILURE_REASON=unsupported_non_ascii_prompt

@@ -138,8 +138,9 @@ Required artifact fields:
 requested_prompt=<UTF-8 prompt>
 actual_prompt=<string received by app route>
 normalized_prompt=<native normalized prompt>
-prompt_input_method=dev_internal_entrypoint
-prompt_input_status=ok|failure
+prompt_source=internal_intent
+intent_dispatch_status=not_started|dispatched|accepted|rejected|entrypoint_missing|timeout|failure
+prompt_input_status=not_applicable|ok|failure
 prompt_input_failure_reason=<reason>
 result=success|failure
 max_output_tokens=16
@@ -153,10 +154,68 @@ fresh_crash=false
 ui_cleanup_wait_status=success|failure
 ```
 
+## Internal Intent Flow Contract
+
+担当B側の runner/docs/artifact 契約は `--prompt-mode internal_intent` として準備する。担当A側の Kotlin entrypoint が未確定の間、runner は placeholder として artifact に契約情報と command template を記録するだけで、intent dispatch は行わない。ChatScreen、Activity、Receiver の app-side 実装は担当Aの範囲に残す。
+
+Action name:
+
+```text
+io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT
+```
+
+Host runner mode:
+
+```sh
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh \
+  --run \
+  --prompt-mode internal_intent \
+  --prompt 'こんにちは'
+```
+
+The `internal_intent` mode is the only planned mode for Japanese/non-ASCII prompts. The existing UI text mode remains ASCII-only and must continue to reject Japanese before send. The runner must not use `adb shell input text` for Japanese/non-ASCII prompts; that command path is reserved only for the stable ASCII UI smoke after prompt validation.
+
+Planned Activity-style template, if 担当A implements the entrypoint as an internal Activity:
+
+```sh
+adb -s <device> shell am start -W \
+  -a io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT \
+  -n io.github.ninbyo02.lami.customnpu/<internal-entrypoint-component> \
+  --es requested_prompt '<utf8-prompt>' \
+  --ez dev_enable_qairt244_sm8750_npu_route true \
+  --ei max_output_tokens 16
+```
+
+Planned broadcast-style template, if 担当A implements the entrypoint as an internal receiver:
+
+```sh
+adb -s <device> shell am broadcast \
+  -a io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT \
+  -p io.github.ninbyo02.lami.customnpu \
+  --es requested_prompt '<utf8-prompt>' \
+  --ez dev_enable_qairt244_sm8750_npu_route true \
+  --ei max_output_tokens 16
+```
+
+The concrete component name, extra names beyond `requested_prompt`, and accepted/failed result file are intentionally left as a small contract surface for 担当A to finalize. Runner dispatch should be enabled only after that app-side contract exists.
+
+Artifact additions for this flow:
+
+```text
+requested_prompt=<UTF-8 prompt from runner>
+actual_prompt=<string accepted by app entrypoint>
+normalized_prompt=<native normalized prompt>
+prompt_source=internal_intent
+intent_dispatch_status=not_started|dispatched|accepted|rejected|entrypoint_missing|timeout|failure
+internal_intent_action=io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT
+adb_shell_input_text_unicode=false
+ui_text_ascii_only=true
+```
+
 ## Minimal Next Implementation
 
 1. Add a `customBuildExperimentDebug`-only internal Activity or receiver for non-ASCII prompt validation. Do not expose it in release or normal debug.
-2. Require an explicit action name and DEV flag, for example `io.github.ninbyo02.lami.QAIRT244_DEV_NPU_PROMPT` plus `dev_enable_qairt244_sm8750_npu_route=true`.
+2. Require the explicit action name `io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT` plus `dev_enable_qairt244_sm8750_npu_route=true`.
 3. Accept the prompt through an Intent extra, not through `adb shell input text`.
 4. Reuse the existing resolver, exact SM8750 basename guard, duplicate-run guard, max token cap, no-fallback behavior, and cleanup path.
 5. Write `requested_prompt` and `actual_prompt` before native execution; write native `normalized_prompt` from result after execution.

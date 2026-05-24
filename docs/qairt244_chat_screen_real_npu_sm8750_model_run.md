@@ -127,13 +127,69 @@ rollback_condition_hit=false
 
 ## Runner Prompt Input Stability
 
-As of the runner prompt-input stabilization phase, `scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh` accepts `--prompt <ascii-prompt>` for controlled stability checks. The runner restricts this path to ASCII alphanumeric plus `._-`, saves the current IME, temporarily selects an ADB/Latin IME when available, verifies the typed ChatScreen field before pressing Send, retries after KEYCODE_LANGUAGE_SWITCH when the IME still rewrites ASCII, and records `requested_prompt`, `actual_prompt`, `prompt_input_status`, and `prompt_input_failure_reason` in each artifact. Non-ASCII prompts such as Japanese are treated as `unsupported_non_ascii_prompt` and stop before NPU execution; Japanese prompt coverage is a separate phase.
+As of the runner prompt-input stabilization phase, `scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh` accepts `--prompt <ascii-prompt>` in default `--prompt-mode ui_text` for controlled stability checks. The runner restricts this UI text path to ASCII alphanumeric plus `._-`, saves the current IME, temporarily selects an ADB/Latin IME when available, verifies the typed ChatScreen field before pressing Send, retries after KEYCODE_LANGUAGE_SWITCH when the IME still rewrites ASCII, and records `requested_prompt`, `actual_prompt`, `normalized_prompt`, `prompt_source`, `prompt_input_status`, and `prompt_input_failure_reason` in each artifact. Non-ASCII prompts such as Japanese are treated as `unsupported_non_ascii_prompt` in UI text mode and stop before NPU execution; Japanese prompt coverage belongs to `--prompt-mode internal_intent` only.
 
 The current stability prompt set is `Hello`, `test`, and `OK`. Each run still uses `max_output_tokens=16`, exact SM8750 model selection, no model copy/delete, no fallback, and the DEV-only route.
 
 ## Non-ASCII Prompt Plan
 
-Japanese/non-ASCII prompt input remains outside the stable ASCII runner. The design comparison and recommended next phase are documented in `docs/qairt244_non_ascii_prompt_plan.md`; the current runner should continue to stop non-ASCII prompts before send with `unsupported_non_ascii_prompt`.
+Japanese/non-ASCII prompt input remains outside the stable ASCII UI runner. The design comparison and recommended next phase are documented in `docs/qairt244_non_ascii_prompt_plan.md`; the default UI text mode should continue to stop non-ASCII prompts before send with `unsupported_non_ascii_prompt`.
+
+## Internal Intent Prompt Mode
+
+The runner now reserves `--prompt-mode internal_intent` for the future DEV-only app entrypoint owned by 担当A. This is a runner/docs/artifact placeholder only: it records the action contract and command templates, but does not dispatch until the Kotlin entrypoint exists.
+
+Reserved action:
+
+```text
+io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT
+```
+
+Planned runner invocation:
+
+```sh
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh \
+  --run \
+  --prompt-mode internal_intent \
+  --prompt 'こんにちは'
+```
+
+Activity-style command template, pending the 担当A component name:
+
+```sh
+adb -s <device> shell am start -W \
+  -a io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT \
+  -n io.github.ninbyo02.lami.customnpu/<internal-entrypoint-component> \
+  --es requested_prompt '<utf8-prompt>' \
+  --ez dev_enable_qairt244_sm8750_npu_route true \
+  --ei max_output_tokens 16
+```
+
+Broadcast-style command template, if the entrypoint is a receiver:
+
+```sh
+adb -s <device> shell am broadcast \
+  -a io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT \
+  -p io.github.ninbyo02.lami.customnpu \
+  --es requested_prompt '<utf8-prompt>' \
+  --ez dev_enable_qairt244_sm8750_npu_route true \
+  --ei max_output_tokens 16
+```
+
+Artifact fields planned for `internal_intent` runs:
+
+```text
+requested_prompt=<runner requested prompt>
+actual_prompt=<prompt accepted by app entrypoint>
+normalized_prompt=<native normalized prompt>
+prompt_source=internal_intent
+intent_dispatch_status=not_started|dispatched|accepted|rejected|entrypoint_missing|timeout|failure
+internal_intent_action=io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT
+adb_shell_input_text_unicode=false
+ui_text_ascii_only=true
+```
+
+Japanese prompts are allowed only through this internal intent flow. The runner must not use `adb shell input text` for Japanese because that path is Unicode-fragile on the target device and can fail or be rewritten before the app receives the intended prompt. Keeping UI text mode ASCII-only preserves the stable 16-token qairt244 route baseline while non-ASCII coverage gets a separate artifact contract.
 
 ## Diagnosis Display Phase
 
