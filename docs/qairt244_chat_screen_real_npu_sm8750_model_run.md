@@ -306,7 +306,7 @@ This confirms one bounded `--run` success through the ChatScreen DEV-only NPU ro
 
 The ChatScreen UI route remains experimental and DEV-only. In `customBuildExperimentDebug`, Settings exposes `DEV: SM8750 NPU実験` using preference key `dev_enable_qairt244_sm8750_npu_route`; the default is always OFF and the toggle is automatically cleared after a guarded attempt. This is separate from the standard local inference route and is not a production NPU enablement.
 
-When the toggle is ON and the user sends from the local ChatScreen target, the app calls the qairt244 SM8750 DEV-only adapter with `max_output_tokens=64`. The model basename must still exactly match `gemma-4-E2B-it_qualcomm_sm8750.litertlm`; generic, E4B, and qcs8275 models remain rejected by the Kotlin resolver. The path does not copy or delete model files.
+When the toggle is ON and the user sends from the local ChatScreen target, the app calls the qairt244 SM8750 DEV-only adapter with `max_output_tokens=128`. The model basename must be either `gemma-4-E2B-it_qualcomm_sm8750.litertlm` or a downloader timestamp form such as `<digits>_gemma-4-E2B-it_qualcomm_sm8750.litertlm`. This accepts the app-private import naming convention without copying, deleting, or renaming the model. Generic, E4B, non-numeric prefix, and qcs8275 models remain rejected by the Kotlin resolver.
 
 The DEV UI route does not fallback to GPU or CPU. On failure it inserts a non-streaming assistant message like `DEV NPU route failed: <reason>` and leaves normal local inference untouched. It does not connect TTS or streaming sentence TTS. Stop cancellation is intentionally best-effort because the guarded run is bounded to a short lower-level decode.
 
@@ -315,6 +315,8 @@ Success/failure diagnostics to inspect:
 ```text
 selected_route=qairt244_sm8750_dev_npu
 resolved_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+canonical_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+timestamp_prefix_stripped=<true|false>
 required_sm8750_model_path=true
 npu_backend=NPU
 npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
@@ -472,11 +474,11 @@ Open items before promotion:
 - Thermal and memory stability: current runs are short. Promotion requires longer soak, repeated runs, post-run memory checks, and thermal observation under device load.
 - Failure UX: failures currently surface as DEV messages and diagnostics. A normal candidate needs clear user-facing errors, retry behavior, and no silent fallback unless fallback is deliberately designed and reported.
 - Persistence and stats: DEV diagnostics are visible, but production-facing stats, DB persistence strategy, and normal speed display integration are not settled. Decode elapsed time must not be confused with token/s until token accounting is available.
-- Device/model gating: the current guard is SM8750 basename exact-match. Promotion needs device capability checks, model availability checks, and clear behavior when the exact model is absent.
+- Device/model gating: the current guard allows only the canonical SM8750 basename or a numeric timestamp-prefixed canonical basename. Promotion needs device capability checks, model availability checks, and clear behavior when the exact SM8750 model is absent.
 
 Recommended promotion phases:
 
-- Phase A: Keep the current DEV-only route. Continue using explicit toggle, exact SM8750 model guard, `max_output_tokens=128`, no fallback, and diagnostic-first artifacts.
+- Phase A: Keep the current DEV-only route. Continue using explicit toggle, SM8750-only model guard, `max_output_tokens=128`, no fallback, and diagnostic-first artifacts.
 - Phase B: Move to a hidden experimental option only after repeated bounded runs cover multiple prompts without timeout, crash, stale UI, or fallback ambiguity.
 - Phase C: Expose an experimental NPU candidate only when device detection, exact model detection, native artifact provenance, and QNN/HTP evidence all pass preflight.
 - Phase D: Consider `Backend.NPU` candidate promotion only after 128-token bounded runs, Japanese prompt coverage, failure UX, cleanup, memory, and thermal evidence meet the same bar as existing local inference candidates.

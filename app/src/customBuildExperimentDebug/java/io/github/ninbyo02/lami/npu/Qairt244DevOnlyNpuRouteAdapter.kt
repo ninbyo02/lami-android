@@ -144,10 +144,14 @@ class Qairt244DevOnlyNpuRouteAdapter(
         }
 
         val resolvedModelPath = checkNotNull(modelResolution.path)
-        if (!Qairt244ModelPathResolver.isRequiredSm8750ModelPath(resolvedModelPath)) {
+        val requiredModelInfo = Qairt244ModelPathResolver.requiredSm8750ModelInfo(resolvedModelPath)
+        if (!requiredModelInfo.required) {
             appendRouteMarker(
                 "state=failure stop_reason=model_file_not_required_sm8750 resolved_model_path=$resolvedModelPath " +
-                    "resolved_model_basename=${File(resolvedModelPath).name} required_sm8750_model_path=false " +
+                    "resolved_model_basename=${requiredModelInfo.resolvedModelBasename} " +
+                    "canonical_model_basename=${requiredModelInfo.canonicalModelBasename} " +
+                    "timestamp_prefix_stripped=${requiredModelInfo.timestampPrefixStripped} " +
+                    "required_sm8750_model_path=false " +
                     "engine_initialize=false run_decode=false db=false tts=false markdown=false stream=false",
             )
             appendRequiredModelFailureResult(
@@ -198,6 +202,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 timeout = false,
                 freshCrash = false,
                 values = valuesBeforeMetadata,
+                resolution = modelResolution,
             )
             val values = parseResultFile()
             val success = values["result"] == "success"
@@ -233,6 +238,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 timeout = true,
                 freshCrash = false,
                 values = parseResultFile(),
+                resolution = modelResolution,
             )
             DevOnlyNpuRouteResult(
                 success = false,
@@ -262,6 +268,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 timeout = false,
                 freshCrash = false,
                 values = parseResultFile(),
+                resolution = modelResolution,
             )
             DevOnlyNpuRouteResult(
                 success = false,
@@ -383,8 +390,10 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "prompt_validation_mode=$validationMode",
                 "max_output_tokens=$maxOutputTokens",
                 "resolved_model_path=${resolution.path ?: ""}",
-                "resolved_model_basename=${resolution.path?.let { File(it).name } ?: ""}",
-                "required_sm8750_model_path=${resolution.path?.let(Qairt244ModelPathResolver::isRequiredSm8750ModelPath) ?: false}",
+                "resolved_model_basename=${resolution.modelInfo?.resolvedModelBasename ?: ""}",
+                "canonical_model_basename=${Qairt244ModelPathResolver.CANONICAL_MODEL_BASENAME}",
+                "timestamp_prefix_stripped=${resolution.modelInfo?.timestampPrefixStripped ?: false}",
+                "required_sm8750_model_path=${resolution.modelInfo?.required ?: false}",
                 "stop_reason=${resolution.reasonCode}",
                 "checked_model_path=${resolution.checkedPath ?: ""}",
                 "model_candidate_count=${resolution.candidates.size}",
@@ -426,8 +435,10 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "prompt_validation_mode=$validationMode",
                 "max_output_tokens=$maxOutputTokens",
                 "resolved_model_path=${resolution.path ?: ""}",
-                "resolved_model_basename=${resolution.path?.let { File(it).name } ?: ""}",
-                "required_sm8750_model_path=${resolution.path?.let(Qairt244ModelPathResolver::isRequiredSm8750ModelPath) ?: false}",
+                "resolved_model_basename=${resolution.modelInfo?.resolvedModelBasename ?: ""}",
+                "canonical_model_basename=${Qairt244ModelPathResolver.CANONICAL_MODEL_BASENAME}",
+                "timestamp_prefix_stripped=${resolution.modelInfo?.timestampPrefixStripped ?: false}",
+                "required_sm8750_model_path=${resolution.modelInfo?.required ?: false}",
                 "stop_reason=model_file_not_required_sm8750",
                 "checked_model_path=${resolution.checkedPath ?: ""}",
                 "model_candidate_count=${resolution.candidates.size}",
@@ -457,12 +468,18 @@ class Qairt244DevOnlyNpuRouteAdapter(
         timeout: Boolean,
         freshCrash: Boolean,
         values: Map<String, String>,
+        resolution: Qairt244ModelPathResolver.Resolution,
     ) {
         val runDecodeReached = values["decode_elapsed_ms"]?.isNotBlank() == true ||
             values["run_decode"]?.contains("RunDecode") == true
+        val modelInfo = resolution.modelInfo
         resultFile.appendText(
             listOf(
                 "selected_route=qairt244_sm8750_dev_npu",
+                "resolved_model_basename=${modelInfo?.resolvedModelBasename ?: ""}",
+                "canonical_model_basename=${Qairt244ModelPathResolver.CANONICAL_MODEL_BASENAME}",
+                "timestamp_prefix_stripped=${modelInfo?.timestampPrefixStripped ?: false}",
+                "required_sm8750_model_path=${modelInfo?.required ?: false}",
                 "requested_prompt=$requestedPrompt",
                 "actual_prompt=$normalizedPrompt",
                 "normalized_prompt=$normalizedPrompt",
@@ -485,8 +502,9 @@ class Qairt244DevOnlyNpuRouteAdapter(
     }
 
     private fun writeModelResolution(resolution: Qairt244ModelPathResolver.Resolution) {
-        val resolvedModelBasename = resolution.path?.let { File(it).name }.orEmpty()
-        val requiredSm8750ModelPath = resolution.path?.let(Qairt244ModelPathResolver::isRequiredSm8750ModelPath) ?: false
+        val modelInfo = resolution.modelInfo
+        val resolvedModelBasename = modelInfo?.resolvedModelBasename.orEmpty()
+        val requiredSm8750ModelPath = modelInfo?.required ?: false
         val stopReason = when {
             !resolution.resolved -> resolution.reasonCode
             !requiredSm8750ModelPath -> "model_file_not_required_sm8750"
@@ -498,6 +516,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 appendLine("resolved=${resolution.resolved}")
                 appendLine("resolved_model_path=${resolution.path ?: ""}")
                 appendLine("resolved_model_basename=$resolvedModelBasename")
+                appendLine("canonical_model_basename=${Qairt244ModelPathResolver.CANONICAL_MODEL_BASENAME}")
+                appendLine("timestamp_prefix_stripped=${modelInfo?.timestampPrefixStripped ?: false}")
                 appendLine("checked_model_path=${resolution.checkedPath ?: ""}")
                 appendLine("candidate_count=${resolution.candidates.size}")
                 appendLine("checked_exists=${resolution.checkedExists ?: ""}")

@@ -4,9 +4,15 @@ import android.content.Context
 import java.io.File
 
 object Qairt244ModelPathResolver {
-    private const val REQUIRED_MODEL_NAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
-    private const val REQUIRED_TOKEN = "qualcomm_sm8750"
-    private const val REJECTED_PLATFORM_TOKEN = "qcs8275"
+    const val CANONICAL_MODEL_BASENAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+    private val TIMESTAMPED_MODEL_BASENAME = Regex("^\\d+_${Regex.escape(CANONICAL_MODEL_BASENAME)}$")
+
+    data class RequiredSm8750ModelInfo(
+        val resolvedModelBasename: String,
+        val canonicalModelBasename: String,
+        val timestampPrefixStripped: Boolean,
+        val required: Boolean,
+    )
 
     data class Resolution(
         val path: String?,
@@ -18,6 +24,8 @@ object Qairt244ModelPathResolver {
         val checkedLength: Long?,
     ) {
         val resolved: Boolean = path != null && reasonCode == REASON_OK
+        val modelInfo: RequiredSm8750ModelInfo? =
+            path?.let(Qairt244ModelPathResolver::requiredSm8750ModelInfo)
     }
 
     fun resolve(context: Context): Resolution =
@@ -83,13 +91,22 @@ object Qairt244ModelPathResolver {
     }
 
     private fun isCompatibleSm8750Model(file: File): Boolean {
-        val name = file.name
-        return name.contains(REQUIRED_TOKEN, ignoreCase = true) &&
-            !name.contains(REJECTED_PLATFORM_TOKEN, ignoreCase = true)
+        return isRequiredSm8750ModelPath(file.absolutePath)
     }
 
     fun isRequiredSm8750ModelPath(path: String): Boolean =
-        File(path).name == REQUIRED_MODEL_NAME
+        requiredSm8750ModelInfo(path).required
+
+    fun requiredSm8750ModelInfo(path: String): RequiredSm8750ModelInfo {
+        val basename = File(path).name
+        val timestamped = TIMESTAMPED_MODEL_BASENAME.matches(basename)
+        return RequiredSm8750ModelInfo(
+            resolvedModelBasename = basename,
+            canonicalModelBasename = CANONICAL_MODEL_BASENAME,
+            timestampPrefixStripped = timestamped,
+            required = basename == CANONICAL_MODEL_BASENAME || timestamped,
+        )
+    }
 
     const val REASON_OK = "ok"
     const val REASON_MODEL_FILE_NOT_FOUND = "model_file_not_found"
