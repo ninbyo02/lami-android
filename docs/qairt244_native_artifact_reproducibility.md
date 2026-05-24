@@ -1,5 +1,68 @@
 # QAIRT244 Native Artifact Reproducibility
 
+## 2026-05-24 Patch Management
+
+The qairt244 UTF-8 internal prompt native change is now captured as:
+
+```text
+patches/qairt244_litertlm_utf8_16token.patch
+```
+
+The patch is based on external LiteRT-LM checkout
+`/home/sato/project/litert-custom-build/LiteRT-LM` at upstream HEAD
+`c87189528a758db32ead241f4fc9c64836398ee7`. The current checkout is already in
+the patch-applied dirty state for
+`kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc`.
+
+Use the helper to classify the checkout without resetting, building, or editing
+the native tree:
+
+```bash
+scripts/check_qairt244_native_patch.sh
+```
+
+Expected current result: `status=applied`. The equivalent manual check is:
+
+```bash
+git -C /home/sato/project/litert-custom-build/LiteRT-LM apply --check \
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_16token.patch
+
+git -C /home/sato/project/litert-custom-build/LiteRT-LM apply --reverse --check \
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_16token.patch
+```
+
+For the current dirty checkout, the forward check fails because the patch is
+already present, and the reverse check succeeds. A clean checkout can apply the
+patch with:
+
+```bash
+git -C /home/sato/project/litert-custom-build/LiteRT-LM apply \
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_16token.patch
+```
+
+Rebuild command for the 16-token phase:
+
+```bash
+scripts/build_litert_custom_artifacts.sh \
+  /home/sato/project/litert-custom-build/LiteRT-LM \
+  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+  --label qairt244_16token_utf8prompt
+```
+
+Known reproduced artifact:
+`artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt`.
+Known `liblitertlm_jni.so` sha256:
+`51e9a54c7ec32daabba7a6521ed378b8ebad72c4dfcd4597d6f4b0360e3ac947`.
+
+Record future rebuilds by storing the artifact path, native build log path, and
+`sha256sum` output in this document or the run-specific docs. Do not add `.so`,
+`.apk`, `.aar`, `.zip`, `.tar`, `.gz`, or `.litertlm` files to Git.
+
+Patch management is recommended while this remains a small DEV-only experiment.
+Move to a fork pin when the native change needs native code review, reuse across
+machines, or promotion into a later token phase.
+
+
 This document records how the DEV-only qairt244 SM8750 NPU native artifact was produced and what must be checked before rebuilding or staging it. It is documentation only; it does not promote the route out of DEV-only scope.
 
 ## Current Artifact
