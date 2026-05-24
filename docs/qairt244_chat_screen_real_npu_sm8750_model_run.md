@@ -70,3 +70,22 @@ decode_elapsed_ms=<value>
 max_output_tokens=3
 fallback_used=false
 ```
+
+## Safety And Diagnostics Phase
+
+As of 2026-05-24, the DEV UI route is in a safety/diagnostics phase. It remains `customBuildExperimentDebug` scoped, defaults OFF, and is entered only when `BuildConfig.CUSTOM_BUILD_EXPERIMENT && dev_enable_qairt244_sm8750_npu_route` is true. With the toggle OFF, ChatScreen falls through to the existing local inference path; the standard local route, GPU fallback behavior, and held-official-flow are not changed by this experiment.
+
+`max_output_tokens` stays fixed at `3`. The DEV route is a short, lower-level, non-streaming run, so Stop is best-effort and is not guaranteed to behave like normal streaming cancellation. The UI must clear its generating state on success, failure, and exception, and the DEV branch also keeps an in-process duplicate-run guard so repeated sends do not start overlapping qairt244 runs.
+
+Failure handling intentionally does not fallback to GPU or CPU. Falling back would hide the exact NPU failure stage and could make SM8750 model validation ambiguous. Failure diagnostics should include:
+
+```text
+selected_route=qairt244_sm8750_dev_npu
+failure_stage=<preflight|prompt_validation|route_gate|model_resolution|engine_or_decode|adapter_execution|timeout|native_result|ui_exception>
+stop_reason=<reason>
+resolved_model_basename=<value>
+required_sm8750_model_path=<true|false>
+fallback_used=false
+```
+
+Before raising the token cap to `8` or `16`, require repeated evidence that: the exact SM8750 basename is selected, `required_sm8750_model_path=true`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, no GPU/CPU fallback is detected, generating state clears after success/failure/Stop, duplicate sends are blocked, and no TTS/streaming/standard-route side effects appear.

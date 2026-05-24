@@ -2336,7 +2336,7 @@ fun Home(
                                                 }
 
                                                 InferenceTarget.LOCAL -> {
-                                                    if (isLocalInferenceRunning) return@IconButton
+                                                    if (isLocalInferenceRunning || localInferenceJob?.isActive == true) return@IconButton
                                                     if (selectedImageUriStrings.isNotEmpty()) {
                                                         coroutineScope.launch {
                                                             snackbarHostState.currentSnackbarData?.dismiss()
@@ -2353,6 +2353,8 @@ fun Home(
                                                         BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
                                                         devEnableQairt244Sm8750NpuRoute
                                                     ) {
+                                                        // DEV-only experiment: when the toggle is OFF, execution falls through to the unchanged local route.
+                                                        isLocalInferenceRunning = true
                                                         debugLocalUiTrace(
                                                             label = "DEV_QAIRT244_SM8750_NPU_SEND_TAPPED",
                                                             extra = "effectiveChatId=$effectiveChatId promptLength=${requestPrompt.length}",
@@ -2442,7 +2444,15 @@ fun Home(
                                                                     duration = SnackbarDuration.Short,
                                                                 )
                                                             } catch (exception: Exception) {
-                                                                devDebugText = "DEV NPU route failed: ${exception.javaClass.simpleName}:${exception.message.orEmpty()}"
+                                                                devDebugText = listOf(
+                                                                    "selected_route=qairt244_sm8750_dev_npu",
+                                                                    "failure_stage=ui_exception",
+                                                                    "stop_reason=${exception.javaClass.simpleName}",
+                                                                    "required_sm8750_model_path=false",
+                                                                    "fallback_used=false",
+                                                                    "normal_ui_route_connected=false",
+                                                                    "message=${exception.message.orEmpty()}",
+                                                                ).joinToString("\n")
                                                                 if (!localStopRequested) {
                                                                     withContext(Dispatchers.IO) {
                                                                         viewModel.insertAssistantMessageAndReturnId(
@@ -7824,6 +7834,8 @@ private fun runDevQairt244Sm8750NpuChatScreenRouteViaReflection(
             success = false,
             reasonCode = "reflection_unavailable:${throwable.javaClass.simpleName}",
             assistantMessage = "DEV NPU route failed: ${throwable.javaClass.simpleName}",
+            failureStage = "reflection",
+            stopReason = "reflection_unavailable",
         )
     }
     return DevQairt244Sm8750NpuChatScreenResult.fromKeyValueText(raw)
@@ -7843,6 +7855,8 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
     val elapsedMs: Long? = null,
     val maxOutputTokens: Int = 3,
     val fallbackUsed: Boolean = false,
+    val failureStage: String = "",
+    val stopReason: String = "",
     val artifactPath: String = "",
 ) {
     fun toInferenceStats(): InferenceStats = InferenceStats(
@@ -7859,6 +7873,8 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
             "npu_backend_evidence=$npuBackendEvidence",
             "max_output_tokens=$maxOutputTokens",
             "fallback_used=$fallbackUsed",
+            "failure_stage=$failureStage",
+            "stop_reason=$stopReason",
         ).joinToString(";"),
         finishReason = if (success) "success" else reasonCode,
         localSourceSummary = toLocalSourceSummary(),
@@ -7876,6 +7892,8 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
         "decode_elapsed_ms=${decodeElapsedMs ?: "unknown"}",
         "max_output_tokens=$maxOutputTokens",
         "fallback_used=$fallbackUsed",
+        "failure_stage=$failureStage",
+        "stop_reason=$stopReason",
         "normal_ui_route_connected=false",
         "artifact_path=$artifactPath",
     ).joinToString("\n")
@@ -7909,6 +7927,8 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
                 elapsedMs = values["elapsed_ms"]?.toLongOrNull(),
                 maxOutputTokens = values["max_output_tokens"]?.toIntOrNull() ?: 3,
                 fallbackUsed = values["fallback_used"]?.toBooleanStrictOrNull() ?: false,
+                failureStage = values["failure_stage"].orEmpty(),
+                stopReason = values["stop_reason"].orEmpty(),
                 artifactPath = values["artifact_path"].orEmpty(),
             )
         }

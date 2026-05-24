@@ -4,9 +4,12 @@ import android.content.Context
 import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.runBlocking
 
 object DevOnlyNpuChatScreenBlockedBranch {
+    private val chatScreenRunInProgress = AtomicBoolean(false)
+
     @JvmStatic
     fun run(prompt: String): String {
         val validation = NpuDiagnosticPromptValidator.validate(prompt)
@@ -91,6 +94,46 @@ object DevOnlyNpuChatScreenBlockedBranch {
 
     @JvmStatic
     fun runForChatScreen(context: Context, prompt: String): String {
+        if (!chatScreenRunInProgress.compareAndSet(false, true)) {
+            return listOf(
+                "selected_route=qairt244_sm8750_dev_npu",
+                "success=false",
+                "status=ERROR",
+                "reasonCode=duplicate_run_blocked",
+                "failure_stage=preflight",
+                "stop_reason=duplicate_run_blocked",
+                "assistant_message=${escapeValue("DEV NPU route failed: duplicate_run_blocked")}",
+                "output=",
+                "prompt=${escapeValue(prompt)}",
+                "max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+                "resolved_model_basename=",
+                "required_sm8750_model_path=false",
+                "npu_backend=",
+                "npu_backend_evidence=",
+                "decode_elapsed_ms=",
+                "elapsed_ms=",
+                "artifact_path=",
+                "fallback_used=false",
+                "normal_ui_route_connected=false",
+                "conversation_created=no",
+                "generate_response=no",
+                "selected_path_npu_normal_route=no",
+                "timeout=false",
+                "fresh_crash=false",
+                "db=false",
+                "tts=false",
+                "markdown=false",
+                "streaming=false",
+            ).joinToString("\n")
+        }
+        return try {
+            runForChatScreenGuarded(context, prompt)
+        } finally {
+            chatScreenRunInProgress.set(false)
+        }
+    }
+
+    private fun runForChatScreenGuarded(context: Context, prompt: String): String {
         val appContext = context.applicationContext
         val validation = NpuDiagnosticPromptValidator.validate(prompt)
         val normalizedPrompt = validation.normalizedPrompt.ifBlank { prompt }
@@ -127,6 +170,21 @@ object DevOnlyNpuChatScreenBlockedBranch {
             .ifBlank { modelResolution["resolved_model_path"]?.substringAfterLast('/').orEmpty() }
         val requiredSm8750ModelPath = modelResolution["required_sm8750_model_path"].orEmpty()
             .ifBlank { "false" }
+        val stopReason = modelResolution["stop_reason"].orEmpty()
+            .ifBlank { nativeResult["stop_reason"].orEmpty() }
+            .ifBlank { if (result.success) "" else result.reasonCode }
+        val failureStage = when {
+            result.success -> ""
+            result.timeout -> "timeout"
+            result.reasonCode == "duplicate_run_blocked" -> "preflight"
+            result.reasonCode.startsWith("invalid_prompt") -> "prompt_validation"
+            result.reasonCode.startsWith("gate_blocked") -> "route_gate"
+            result.reasonCode.startsWith("model_file") -> "model_resolution"
+            stopReason.startsWith("model_file") -> "model_resolution"
+            result.reasonCode.startsWith("adapter_failure") -> "adapter_execution"
+            result.decodeElapsedMs == null -> "engine_or_decode"
+            else -> "native_result"
+        }
         val npuBackend = nativeResult["npu_backend"].orEmpty()
             .ifBlank { if (result.success) "NPU" else "" }
         val backendEvidence = result.backendEvidence.orEmpty()
@@ -141,6 +199,8 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "success=${result.success}",
             "status=${if (result.success) "SUCCESS" else "ERROR"}",
             "reasonCode=${escapeValue(result.reasonCode)}",
+            "failure_stage=${escapeValue(failureStage)}",
+            "stop_reason=${escapeValue(stopReason)}",
             "assistant_message=${escapeValue(assistantMessage)}",
             "output=${escapeValue(result.output.orEmpty())}",
             "prompt=${escapeValue(result.prompt)}",
