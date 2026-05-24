@@ -16,10 +16,10 @@ class Qairt244DevNpuInferenceStatsSectionTest {
                 required_sm8750_model_path=true
                 npu_backend=NPU
                 npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
-                native_max_output_tokens_limit=64
+                native_max_output_tokens_limit=128
                 run_decode_reached=true
                 decode_elapsed_ms=400
-                max_output_tokens=64
+                max_output_tokens=128
                 fallback_used=false
                 ui_cleanup_status=success
             """.trimIndent(),
@@ -36,8 +36,8 @@ class Qairt244DevNpuInferenceStatsSectionTest {
                 "実験経路" to "qairt244_sm8750_dev_npu",
                 "モデル" to "gemma-4-E2B-it_qualcomm_sm8750.litertlm",
                 "required_sm8750_model_path" to "true",
-                "max_output_tokens" to "64",
-                "native_max_output_tokens_limit" to "64",
+                "max_output_tokens" to "128",
+                "native_max_output_tokens_limit" to "128",
                 "RunDecode到達" to "true",
                 "decode_elapsed_ms" to "400",
                 "npu_backend" to "NPU",
@@ -56,7 +56,7 @@ class Qairt244DevNpuInferenceStatsSectionTest {
             localSourceSummary = """
                 selected_route=qairt244_sm8750_dev_npu
                 decode_elapsed_ms=400
-                max_output_tokens=64
+                max_output_tokens=128
                 npu_backend=NPU
                 fallback_used=false
             """.trimIndent(),

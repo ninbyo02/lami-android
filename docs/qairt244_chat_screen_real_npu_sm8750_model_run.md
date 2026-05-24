@@ -1,5 +1,53 @@
 # QAIRT244 ChatScreen DEV-only SM8750 NPU Model Run
 
+## 2026-05-24 128-Token Bounded Phase
+
+The runner default artifact now points to the 128-token custom native artifact
+for the DEV-only qairt244 SM8750 internal intent route:
+
+```text
+artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt
+```
+
+The internal intent dispatch uses `--ei max_output_tokens 128` and still avoids
+`adb shell input text`. The expected diagnostics for single-device confirmation
+are `prompt_source=internal_intent`,
+`prompt_validation_mode=utf8_internal_intent`,
+`native_prompt_validation_mode=utf8_internal_intent`, `utf8_allowed=true`,
+`max_output_tokens=128`, `native_max_output_tokens_limit=128`,
+`npu_backend=NPU`, and
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`.
+
+The native artifact provenance is recorded in
+`docs/qairt244_native_artifact_reproducibility.md`. This remains a
+customBuildExperimentDebug-only bounded phase: it does not promote
+`Backend.NPU`, does not add automatic fallback, does not support
+generic/E4B/qcs8275 models, and does not elevate the standard UI route.
+
+128-token single-device confirmation:
+
+- Artifact: `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_170917`
+- Prompt: `こんにちは`
+- Result: `success`
+- `requested_prompt=こんにちは`, `actual_prompt=こんにちは`, `normalized_prompt=こんにちは`
+- `prompt_source=internal_intent`
+- `prompt_validation_mode=utf8_internal_intent`
+- `native_prompt_validation_mode=utf8_internal_intent`
+- `utf8_allowed=true`
+- `max_output_tokens=128`
+- `native_max_output_tokens_limit=128`
+- `run_decode_reached=true`
+- `npu_backend=NPU`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `decode_elapsed_ms=3156`
+- `fallback_used=false`, `timeout=false`, `fresh_crash=false`
+- `ui_cleanup_wait_status=success`
+- No `duplicate_run_blocked`, `Responding...`, `Stop Button`, or `応答中` marker remained.
+
+This is a DEV-only bounded experiment for the qairt244 SM8750 internal intent
+route, not production or normal-route NPU enablement. Do not raise beyond 128
+without a new bounded native guard, artifact, and single-device evidence.
+
 ## 2026-05-24 64-Token Bounded Phase
 
 The runner default artifact now points to the 64-token custom native artifact
@@ -72,8 +120,8 @@ decode_elapsed_ms_range=40..1959
 ```
 
 This is a DEV-only bounded experiment for the qairt244 SM8750 internal intent
-route, not production or normal-route NPU enablement. The 128-token phase has
-not started.
+route, not production or normal-route NPU enablement. The later 128-token phase
+is recorded above.
 
 ## 2026-05-24 32-Token Bounded Phase
 
@@ -239,7 +287,7 @@ required_sm8750_model_path=true
 npu_backend=NPU
 npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
 decode_elapsed_ms=<value>
-max_output_tokens=64
+max_output_tokens=128
 fallback_used=false
 ```
 
@@ -247,7 +295,7 @@ fallback_used=false
 
 As of 2026-05-24, the DEV UI route is in a safety/diagnostics phase. It remains `customBuildExperimentDebug` scoped, defaults OFF, and is entered only when `BuildConfig.CUSTOM_BUILD_EXPERIMENT && dev_enable_qairt244_sm8750_npu_route` is true. With the toggle OFF, ChatScreen falls through to the existing local inference path; the standard local route, GPU fallback behavior, and held-official-flow are not changed by this experiment.
 
-`max_output_tokens` is now fixed at `64` for the 64 token phase. The DEV route is a short, lower-level, non-streaming run, so Stop is best-effort and is not guaranteed to behave like normal streaming cancellation. The UI must clear its generating state on success, failure, and exception, and the DEV branch also keeps an in-process duplicate-run guard so repeated sends do not start overlapping qairt244 runs.
+`max_output_tokens` is now fixed at `128` for the 128-token phase. The DEV route is a short, lower-level, non-streaming run, so Stop is best-effort and is not guaranteed to behave like normal streaming cancellation. The UI must clear its generating state on success, failure, and exception, and the DEV branch also keeps an in-process duplicate-run guard so repeated sends do not start overlapping qairt244 runs.
 
 Failure handling intentionally does not fallback to GPU or CPU. Falling back would hide the exact NPU failure stage and could make SM8750 model validation ambiguous. Failure diagnostics should include:
 
@@ -260,7 +308,7 @@ required_sm8750_model_path=<true|false>
 fallback_used=false
 ```
 
-Before raising the token cap beyond `64`, require repeated evidence that: the exact SM8750 basename is selected, `required_sm8750_model_path=true`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, no GPU/CPU fallback is detected, generating state clears after success/failure/Stop, duplicate sends are blocked, and no TTS/streaming/standard-route side effects appear.
+Before raising the token cap beyond `128`, require a new bounded native guard and repeated evidence that: the exact SM8750 basename is selected, `required_sm8750_model_path=true`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, no GPU/CPU fallback is detected, generating state clears after success/failure/Stop, duplicate sends are blocked, and no TTS/streaming/standard-route side effects appear.
 
 ## 16 Token Phase
 
@@ -383,10 +431,10 @@ Conclusion as of 2026-05-24: the qairt244 SM8750 route remains a DEV-only experi
 
 Open items before promotion:
 
-- Token budget: `max_output_tokens=64` is being validated as a bounded DEV-only phase; normal use still needs broader repeated evidence before the route can represent useful generation behavior.
+- Token budget: `max_output_tokens=128` is being validated as a bounded DEV-only phase; normal use still needs broader repeated evidence before the route can represent useful generation behavior.
 - Streaming and cancellation: the route is non-streaming and Stop is best-effort, so it does not yet match normal ChatScreen streaming UX or cancellation expectations.
-- Prompt coverage: runner-stable prompts are currently ASCII-only (`Hello`, `test`, `OK`). Japanese prompt input and non-ASCII automation are explicitly out of scope and must be solved or tested through a different input path.
-- Native artifact reproducibility: the successful path depends on a custom native artifact, currently `artifacts/litert_custom_build/20260524_162218_qairt244_64token_utf8prompt`; the source patch, build commands, ABI contents, and packaging rules must be reproducible without staging `.so` binaries in Git.
+- Prompt coverage: UI text automation remains ASCII-only, but the DEV-only internal intent path has Japanese UTF-8 evidence for `こんにちは`.
+- Native artifact reproducibility: the successful path depends on a custom native artifact, currently `artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt`; the source patch, build commands, ABI contents, and packaging rules must be reproducible without staging `.so` binaries in Git.
 - Runtime distribution: `liblitertlm_jni.so`, QAIRT/QNN runtime libraries, and model placement need a documented install/update story before any non-DEV candidate is exposed.
 - Evidence quality: `QNN_HTP_V79_FastRPC_native_diag` is useful proof for current runs, but promotion needs a stable evidence contract that distinguishes HTP/NPU execution from CPU/GPU fallback across failures and logcat gaps.
 - Thermal and memory stability: current runs are short. Promotion requires longer soak, repeated runs, post-run memory checks, and thermal observation under device load.
@@ -396,22 +444,22 @@ Open items before promotion:
 
 Recommended promotion phases:
 
-- Phase A: Keep the current DEV-only route. Continue using explicit toggle, exact SM8750 model guard, `max_output_tokens=64`, no fallback, and diagnostic-first artifacts.
+- Phase A: Keep the current DEV-only route. Continue using explicit toggle, exact SM8750 model guard, `max_output_tokens=128`, no fallback, and diagnostic-first artifacts.
 - Phase B: Move to a hidden experimental option only after repeated bounded runs cover multiple prompts without timeout, crash, stale UI, or fallback ambiguity.
 - Phase C: Expose an experimental NPU candidate only when device detection, exact model detection, native artifact provenance, and QNN/HTP evidence all pass preflight.
-- Phase D: Consider `Backend.NPU` candidate promotion only after 64-token bounded runs, Japanese prompt coverage, failure UX, cleanup, memory, and thermal evidence meet the same bar as existing local inference candidates.
+- Phase D: Consider `Backend.NPU` candidate promotion only after 128-token bounded runs, Japanese prompt coverage, failure UX, cleanup, memory, and thermal evidence meet the same bar as existing local inference candidates.
 - Phase E: Normal user-facing settings only after packaging/reproducibility, update behavior, stats, cancellation, and support boundaries are documented and tested.
 
 Minimum gates before leaving Phase A:
 
-- 10 or more consecutive 64-token DEV runs across `Hello`, `test`, `OK`, and at least one non-ASCII prompt path, all with `result=success` when actually sent.
-- Bounded 64-token phase passes with exact basename, `required_sm8750_model_path=true`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `timeout=false`, and `fresh_crash=false`.
+- 10 or more consecutive 128-token DEV runs across `Hello`, `test`, `OK`, and at least one non-ASCII internal intent prompt path, all with `result=success` when actually sent.
+- Bounded 128-token phase passes with exact basename, `required_sm8750_model_path=true`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `timeout=false`, and `fresh_crash=false`.
 - UI cleanup remains 100% successful: no stale `Responding...`, Stop button, or `応答中...` after success/failure.
 - Native build is reproducible from source instructions, and no `.so`, `.litertlm`, `.apk`, `.aar`, `.zip`, `.tar`, or `.gz` artifacts are tracked in Git.
 - Diagnostics identify failure stage, model basename, native token limit, RunDecode reachability, QNN/HTP evidence, fallback status, and cleanup status.
 - Normal-route behavior remains unchanged with the DEV toggle OFF.
 
-Next action: do not promote yet. Keep Phase A, then decide between broader native artifact reproducibility work and repeated Japanese/non-ASCII prompt evidence before increasing token count beyond 64 or exposing a hidden experimental candidate.
+Next action: do not promote yet. Keep Phase A, then decide between broader native artifact reproducibility work and repeated Japanese/non-ASCII prompt evidence before increasing token count beyond 128 or exposing a hidden experimental candidate.
 
 ## 8 Token Phase
 

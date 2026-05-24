@@ -6,7 +6,7 @@ TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 APP_ID="io.github.ninbyo02.lami.customnpu"
 MAIN_ACTIVITY="io.github.ninbyo02.lami.MainActivity"
 TOGGLE_ACTIVITY="io.github.ninbyo02.lami.npu.DevNpuChatScreenToggleActivity"
-CUSTOM_BUILD_ARTIFACT="artifacts/litert_custom_build/20260524_162218_qairt244_64token_utf8prompt"
+CUSTOM_BUILD_ARTIFACT="artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt"
 OUT_DIR="$ROOT_DIR/artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/$TIMESTAMP"
 DEVICE_SERIAL=""
 RUN_REQUESTED=false
@@ -38,7 +38,7 @@ while [ $# -gt 0 ]; do
 Usage:
   scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh [--artifact <custom-build-artifact>] [--run] [--device <serial>] [--prompt <prompt>] [--prompt-mode ui_text|internal_intent]
 
-Runs one DEV-only ChatScreen NPU adapter attempt with the qualcomm_sm8750 model and maxOutputTokens=64.
+Runs one DEV-only ChatScreen NPU adapter attempt with the qualcomm_sm8750 model and maxOutputTokens=128.
 Default prompt mode is ui_text. UI text input is restricted to ASCII for runner stability; non-ASCII prompts stop before send.
 internal_intent dispatches to the customBuildExperimentDebug DEV-only non-exported receiver.
 Japanese/non-ASCII prompts are allowed only in internal_intent mode, which does not use adb shell input text.
@@ -166,7 +166,7 @@ write_internal_intent_template() {
 ' "$INTERNAL_INTENT_ACTION"
     printf 'receiver=%s
 ' "$INTERNAL_INTENT_RECEIVER"
-    printf 'command=adb -s <device> shell run-as %s am broadcast --user 0 -a %s -n %s/%s --es prompt "<utf8-prompt>" --es expected_model_basename %s --ei max_output_tokens 64
+    printf 'command=adb -s <device> shell run-as %s am broadcast --user 0 -a %s -n %s/%s --es prompt "<utf8-prompt>" --es expected_model_basename %s --ei max_output_tokens 128
 '       "$APP_ID" "$INTERNAL_INTENT_ACTION" "$APP_ID" "$INTERNAL_INTENT_RECEIVER" "$TARGET_MODEL"
     printf 'receiver_exported=false
 '
@@ -268,9 +268,9 @@ write_preflight() {
   local artifact_present=false marker_present=false setmax_present=false route_code_present=false
   [ -d "$CUSTOM_BUILD_ARTIFACT" ] && artifact_present=true
   [ -f "$artifact_lib" ] && strings "$artifact_lib" 2>/dev/null | grep -q "$MARKER" && marker_present=true
-  if { [ -f "$artifact_lib" ] && strings "$artifact_lib" 2>/dev/null | grep -q 'SetMaxOutputTokens(64)'; } ||
+  if { [ -f "$artifact_lib" ] && strings "$artifact_lib" 2>/dev/null | grep -q 'SetMaxOutputTokens(128)'; } ||
     { [ -f "$artifact_lib" ] && strings "$artifact_lib" 2>/dev/null | grep -q 'SetMaxOutputTokens(%d)' && strings "$artifact_lib" 2>/dev/null | grep -q 'invalid_max_output_tokens'; } ||
-    { [ -f "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch" ] && grep -q 'SetMaxOutputTokens(64)' "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch"; }; then
+    { [ -f "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch" ] && grep -q 'SetMaxOutputTokens(128)' "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch"; }; then
     setmax_present=true
   fi
   rg -q "$ROUTE_MARKER|Qairt244DevOnlyNpuRouteAdapter" app/src/customBuildExperimentDebug/java 2>/dev/null && route_code_present=true
@@ -279,7 +279,7 @@ write_preflight() {
     printf 'artifact_present=%s\n' "$artifact_present"
     printf 'native_marker=%s\n' "$MARKER"
     printf 'native_marker_present=%s\n' "$marker_present"
-    printf 'set_max_output_tokens_64_evidence=%s\n' "$setmax_present"
+    printf 'set_max_output_tokens_128_evidence=%s\n' "$setmax_present"
     printf 'route_marker=%s\n' "$ROUTE_MARKER"
     printf 'route_code_present=%s\n' "$route_code_present"
     printf 'prompt=%s\n' "$PROMPT"
@@ -297,7 +297,7 @@ write_preflight() {
     else
       printf 'prompt_ascii_only=true\n'
     fi
-    printf 'max_output_tokens=64\n'
+    printf 'max_output_tokens=128\n'
     printf 'run_requested=%s\n' "$RUN_REQUESTED"
     printf 'db=false\n'
     printf 'tts=false\n'
@@ -461,7 +461,7 @@ main() {
       -n "$APP_ID/$INTERNAL_INTENT_RECEIVER" \
       --es prompt "$PROMPT" \
       --es expected_model_basename "$TARGET_MODEL" \
-      --ei max_output_tokens 64 >"$OUT_DIR/internal_intent_broadcast.txt" 2>&1; then
+      --ei max_output_tokens 128 >"$OUT_DIR/internal_intent_broadcast.txt" 2>&1; then
       INTENT_DISPATCH_STATUS=dispatched
     else
       INTENT_DISPATCH_STATUS=failure

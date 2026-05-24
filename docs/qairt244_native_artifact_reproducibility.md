@@ -1,5 +1,70 @@
 # QAIRT244 Native Artifact Reproducibility
 
+## 2026-05-24 128-Token Bounded Artifact
+
+The qairt244 UTF-8 internal prompt route has advanced from the 64-token bounded
+artifact to a 128-token bounded artifact for customBuildExperimentDebug only.
+This is still not `Backend.NPU` promotion and does not add fallback or normal UI
+routing. The native guard must not allow values above `128`.
+
+Active patch:
+`patches/qairt244_litertlm_utf8_128token.patch`
+
+Historical patches retained:
+
+- `patches/qairt244_litertlm_utf8_16token.patch`
+- `patches/qairt244_litertlm_utf8_32token.patch`
+- `patches/qairt244_litertlm_utf8_64token.patch`
+
+The four patches are phase snapshots over the same DEV-only editable-prompt
+route and QAIRT dispatch-linkage changes: 16-token first enabled UTF-8 internal
+intent, and 32/64/128-token phases raise only the bounded native token cap. The
+UTF-8 prompt validation contract is unchanged: empty prompt, NUL, invalid
+UTF-8, and prompts above 32 UTF-8 code points remain rejected; non-ASCII UTF-8
+remains allowed only for the internal intent route.
+
+External LiteRT-LM checkout:
+`/home/sato/project/litert-custom-build/LiteRT-LM`
+
+Upstream HEAD:
+`c87189528a758db32ead241f4fc9c64836398ee7`
+
+Build command:
+
+```bash
+scripts/build_litert_custom_artifacts.sh \
+  /home/sato/project/litert-custom-build/LiteRT-LM \
+  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+  --label qairt244_128token_utf8prompt
+```
+
+Artifact:
+`artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt`
+
+JNI build log:
+`artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+
+`liblitertlm_jni.so` sha256:
+`c3c04b274e3b090b1962b9e32b3f9467f2bad66707676e86463be939d37396f6`
+
+The native diagnostics for this phase must report
+`max_output_tokens=128`, `native_max_output_tokens_limit=128`,
+`native_prompt_validation_mode=utf8_internal_intent`, `utf8_allowed=true`, and
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`.
+
+The 128-token artifact has single-device bounded evidence in
+`docs/qairt244_chat_screen_real_npu_sm8750_model_run.md`: Japanese
+`--prompt-mode internal_intent` prompt `こんにちは` completed with
+requested/actual/normalized equality, `max_output_tokens=128`,
+`native_max_output_tokens_limit=128`,
+`prompt_validation_mode=utf8_internal_intent`,
+`native_prompt_validation_mode=utf8_internal_intent`, `utf8_allowed=true`,
+RunDecode reached, `npu_backend=NPU`,
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, no fallback, no
+timeout, no fresh crash, no observed `duplicate_run_blocked`, successful UI
+cleanup, and `decode_elapsed_ms=3156`. This records only the 128-token
+DEV-only bounded experiment.
+
 ## 2026-05-24 64-Token Bounded Artifact
 
 The qairt244 UTF-8 internal prompt route has advanced from the 32-token bounded
@@ -62,7 +127,8 @@ RunDecode reached, `npu_backend=NPU`,
 `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, no fallback, no
 timeout, no fresh crash, no observed `duplicate_run_blocked`, successful UI
 cleanup, and `decode_elapsed_ms` range `40..1959`. This records only the
-64-token DEV-only bounded experiment. The 128-token phase has not started.
+historical 64-token DEV-only bounded experiment; the later 128-token phase is
+recorded above.
 
 ## 2026-05-24 32-Token Bounded Artifact
 
@@ -125,6 +191,7 @@ patch snapshots:
 patches/qairt244_litertlm_utf8_16token.patch
 patches/qairt244_litertlm_utf8_32token.patch
 patches/qairt244_litertlm_utf8_64token.patch
+patches/qairt244_litertlm_utf8_128token.patch
 ```
 
 The patch is based on external LiteRT-LM checkout
@@ -140,16 +207,16 @@ the native tree:
 scripts/check_qairt244_native_patch.sh
 ```
 
-Expected current result for the no-argument helper is the active 64-token patch:
+Expected current result for the no-argument helper is the active 128-token patch:
 `status=applied`. Historical patches can still be checked by passing the patch
 path as the second argument. The equivalent manual check for the active phase is:
 
 ```bash
 git -C /home/sato/project/litert-custom-build/LiteRT-LM apply --check \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_64token.patch
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token.patch
 
 git -C /home/sato/project/litert-custom-build/LiteRT-LM apply --reverse --check \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_64token.patch
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token.patch
 ```
 
 For the current dirty checkout, the forward check fails because the patch is
@@ -158,7 +225,7 @@ patch with:
 
 ```bash
 git -C /home/sato/project/litert-custom-build/LiteRT-LM apply \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_64token.patch
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token.patch
 ```
 
 Rebuild command for the 16-token phase:
@@ -240,18 +307,18 @@ The qairt244 editable-prompt JNI entrypoint is:
 Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt
 ```
 
-The active 64-token change uses this native guard in that entrypoint:
+The active 128-token change uses this native guard in that entrypoint:
 
 ```cpp
-if (max_output_tokens < 1 || max_output_tokens > 64) {
-  ... invalid_max_output_tokens ... native_max_output_tokens_limit=64 ...
+if (max_output_tokens < 1 || max_output_tokens > 128) {
+  ... invalid_max_output_tokens ... native_max_output_tokens_limit=128 ...
 }
 ...
 DecodeConfig decode_config = DecodeConfig::CreateDefault();
 decode_config.SetMaxOutputTokens(max_output_tokens);
 ```
 
-The older 8-token staged artifact rejected `max_output_tokens=16` before RunDecode with `invalid_max_output_tokens value=16`. The active 64-token artifact keeps that DEV-only editable-prompt path bounded to `1..64`, records `native_max_output_tokens_limit=64`, and then calls `RunDecode` with `SetMaxOutputTokens(max_output_tokens)`.
+The older 8-token staged artifact rejected `max_output_tokens=16` before RunDecode with `invalid_max_output_tokens value=16`. The active 128-token artifact keeps that DEV-only editable-prompt path bounded to `1..128`, records `native_max_output_tokens_limit=128`, and then calls `RunDecode` with `SetMaxOutputTokens(max_output_tokens)`.
 
 The UTF-8 prompt update is limited to the DEV-only editable-prompt validator. It trims ASCII spaces, rejects empty prompts, rejects NUL, rejects invalid UTF-8, rejects prompts above 32 UTF-8 code points, and no longer rejects non-ASCII UTF-8 solely because bytes are above ASCII. The result file records `native_prompt_validation_mode=utf8_internal_intent` and `utf8_allowed=true`; diagnostic logs include the same mode on entry and prompt validation. This does not change `max_output_tokens`, the UI text runner, normal ChatScreen routing, fallback behavior, or production `Backend.NPU` wiring.
 
