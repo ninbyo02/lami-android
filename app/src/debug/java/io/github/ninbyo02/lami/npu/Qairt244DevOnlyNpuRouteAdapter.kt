@@ -207,7 +207,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
             val values = parseResultFile()
             val success = values["result"] == "success"
             val output = values["output"]
-            val rawNativeOutput = readNativeOutputFromResultFile()
+            val rawNativeOutput = output.orEmpty()
             appendOutputDiagnostics(
                 rawNativeOutput = rawNativeOutput,
                 adapterOutput = output.orEmpty(),
@@ -312,29 +312,14 @@ class Qairt244DevOnlyNpuRouteAdapter(
             timeout = false,
         )
 
-    private fun parseResultFile(): Map<String, String> {
-        if (!resultFile.isFile) return emptyMap()
-        return resultFile.readLines()
-            .mapNotNull { line ->
-                val index = line.indexOf('=')
-                if (index <= 0) return@mapNotNull null
-                line.substring(0, index) to line.substring(index + 1)
-            }
-            .toMap()
-    }
+    private fun parseResultFile(): Map<String, String> =
+        parseNativeResultFile().values
 
-    private fun readNativeOutputFromResultFile(): String {
-        if (!resultFile.isFile) return ""
-        val lines = resultFile.readLines()
-        val outputStartIndex = lines.indexOfFirst { it.startsWith("output=") }
-        if (outputStartIndex < 0) return ""
-        val outputLines = mutableListOf(lines[outputStartIndex].removePrefix("output="))
-        for (index in (outputStartIndex + 1)..lines.lastIndex) {
-            val line = lines[index]
-            if (line.startsWith("selected_route=") || line.startsWith("$ROUTE_MARKER ")) break
-            outputLines += line
+    private fun parseNativeResultFile(): Qairt244NativeResultParser.ParsedResult {
+        if (!resultFile.isFile) {
+            return Qairt244NativeResultParser.ParsedResult(values = emptyMap(), output = "")
         }
-        return outputLines.joinToString("\n").trimEnd()
+        return Qairt244NativeResultParser.parse(resultFile.readText())
     }
 
     private fun appendOutputDiagnostics(
