@@ -10,8 +10,8 @@ artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt
 ```
 
 The internal intent dispatch uses `--ei max_output_tokens 32` and still avoids
-`adb shell input text`. The expected diagnostics for the single-device
-confirmation are `prompt_source=internal_intent`,
+`adb shell input text`. The expected diagnostics for single-device confirmation
+and the bounded stability evidence are `prompt_source=internal_intent`,
 `prompt_validation_mode=utf8_internal_intent`,
 `native_prompt_validation_mode=utf8_internal_intent`, `utf8_allowed=true`,
 `max_output_tokens=32`, `native_max_output_tokens_limit=32`,
@@ -38,6 +38,34 @@ confirmation are `prompt_source=internal_intent`,
 - `fallback_used=false`, `timeout=false`, `fresh_crash=false`
 - `ui_cleanup_wait_status=success`
 - No `duplicate_run_blocked`, `Responding...`, `Stop Button`, or `応答中` marker remained.
+
+32-token bounded Phase A stability evidence:
+
+```text
+prompt_mode=internal_intent
+prompts=こんにちは, テスト, ラミィ
+success_rate=3/3
+max_output_tokens=32
+native_max_output_tokens_limit=32
+prompt_match=requested/actual/normalized all matched
+prompt_validation_mode=utf8_internal_intent
+native_prompt_validation_mode=utf8_internal_intent
+utf8_allowed=true
+run_decode_reached=true
+npu_backend=NPU
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_used=false
+timeout=false
+fresh_crash=false
+duplicate_run_blocked=not observed
+ui_cleanup_wait_status=success
+decode_elapsed_ms_range=40..943
+```
+
+The `40 ms` lower-bound decode timing is evidence of a completed bounded
+short-output run, but it is not a formal throughput or latency claim. Treat it
+as potentially affected by short output, measurement granularity, cache effects,
+or similar run-local factors.
 
 
 ## 2026-05-24 UTF-8 Internal Intent Confirmation

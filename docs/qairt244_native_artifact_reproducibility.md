@@ -42,6 +42,14 @@ The native diagnostics for this phase must report
 `native_prompt_validation_mode=utf8_internal_intent`, `utf8_allowed=true`, and
 `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`.
 
+The 32-token artifact has bounded Phase A run evidence in
+`docs/qairt244_chat_screen_real_npu_sm8750_model_run.md`: Japanese
+`--prompt-mode internal_intent` prompts `こんにちは`, `テスト`, and `ラミィ`
+completed 3/3 with prompt requested/actual/normalized equality, RunDecode
+reached, `npu_backend=NPU`, no fallback, no timeout, no fresh crash, no observed
+`duplicate_run_blocked`, and successful UI cleanup. This records only the
+32-token DEV-only phase; it does not start or imply the 64-token phase.
+
 
 ## 2026-05-24 Patch Management
 
