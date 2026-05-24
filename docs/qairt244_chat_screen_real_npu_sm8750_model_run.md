@@ -26,3 +26,26 @@ Runner guard:
 - The runner writes `model_files_listing.txt`, `model_basenames.txt`, `sm8750_model_candidates.txt`, `sm8750_model_preflight.txt`, and `resolved_model_path.txt` under `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/<timestamp>/`.
 - `runtime_marker_scan.txt` scans `logcat_tail.txt`, `native_diag.txt`, `result.txt`, and `summary.md`, prefixing each marker with the source filename so NPU evidence remains visible even when logcat has no QNN/HTP lines.
 - The runner does not copy or delete model files. If the SM8750 model is already in app-private `files/local_models`, no Download copy is needed.
+
+## 2026-05-24 DEV-only SM8750 Success Evidence
+
+Artifact: `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_102125/`
+
+```text
+route_commit=bae63d76
+scan_improvement_commit=388cd4bf
+device=192.168.52.52:37859
+model=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+prompt=Hello
+max_output_tokens=3
+result=success
+run_decode_reached=true
+decode_elapsed_ms=88
+npu_backend=NPU
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_gpu_cpu_detected=false
+normal_ui_route_connected=false
+scope=DEV-only route success, not production enablement
+```
+
+This confirms one bounded `--run` success through the ChatScreen DEV-only NPU route using the exact SM8750 model. The normal UI/local inference route remains disconnected from NPU and this result is not a standard-path rollout.
