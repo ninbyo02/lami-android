@@ -1,0 +1,8 @@
+Starting: Intent { cmp=io.github.ninbyo02.lami/.MainActivity }
+Warning: Activity not started, intent has been delivered to currently running top-most instance.
+Status: ok
+LaunchState: UNKNOWN (0)
+Activity: io.github.ninbyo02.lami/.MainActivity
+TotalTime: 0
+WaitTime: 8
+Complete

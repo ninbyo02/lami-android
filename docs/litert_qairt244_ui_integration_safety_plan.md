@@ -793,3 +793,13 @@ streaming paths remain disconnected.
 
 The sanitizer does not add a release route, does not persist NPU backend
 selection, and does not change model selection policy.
+
+## QAIRT244 Turn-Stop Quality Compare - 2026-05-25
+
+The ChatScreen DEV-only NPU route is treated as route-successful; this phase is display-quality tuning only. The comparison is documented in `docs/litert_qairt244_npu_turn_stop_quality_compare.md` and implemented by `scripts/run_qairt244_npu_turn_stop_quality_compare.sh`.
+
+Static LiteRT-LM inspection found `native stop not exposed` for the qairt244 lower-level Android route. Runtime metadata can carry stop token ids internally, but this JNI path creates a default session config and exposes only `DecodeConfig.SetMaxOutputTokens()` for the editable-prompt run; no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter is available. Public sampler controls expose topK/topP/temperature/seed, but the qairt244 lower-level native entrypoint does not accept sampler config, and no repetition penalty API was found.
+
+Comparison cases are `sanitizer_only_128`, `lower_max_tokens_64_sanitizer`, `lower_max_tokens_32_sanitizer`, and `stop_sequence_end_of_turn` recorded as `not_run/native_stop_not_exposed`. The prompts are `こんにちは`, `はじめまして`, and `こんばんは`, one run per executable case with `max_output_tokens <= 128` and a 30 second timeout.
+
+The safe adoption candidate from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact.

@@ -83,7 +83,9 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 reasonCode = "expected_model_basename_mismatch",
             )
         }
-        val maxOutputTokensValid = if (allowMaxOutputTokenRange) {
+        val standardHiddenChatScreenRangeAllowed = !BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
+            promptSource == PROMPT_SOURCE_CHAT_SCREEN
+        val maxOutputTokensValid = if (allowMaxOutputTokenRange || standardHiddenChatScreenRangeAllowed) {
             maxOutputTokens in 1..DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
         } else {
             maxOutputTokens == DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
@@ -224,7 +226,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
 
         val runId = "chat-real-${System.currentTimeMillis()}-${UUID.randomUUID()}"
         appendRouteMarker(
-            "runId=$runId state=started actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
+                "runId=$runId state=started actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
+                "turn_stop_compare_marker=qairt244_turn_stop_compare_v1 " +
                 "requested_prompt=$requestedPrompt prompt_source=$promptSource " +
                 "template_mode=${promptTemplate.mode.storageValue} final_model_input_length=${promptTemplate.finalModelInput.length} " +
                 "prompt_validation_mode=${finalInputValidation.promptValidationMode} " +

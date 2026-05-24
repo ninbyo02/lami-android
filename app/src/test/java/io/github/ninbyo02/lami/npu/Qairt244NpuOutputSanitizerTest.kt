@@ -66,6 +66,52 @@ class Qairt244NpuOutputSanitizerTest {
     }
 
     @Test
+    fun `removes quoted prompt echo and duplicate empty turn continuations`() {
+        val result = Qairt244NpuOutputSanitizer.sanitize(
+            """
+            >はじめまして
+            <end_of_turn>
+            <start_of_turn>user>はじめまして
+            <end_of_turn>
+            <start_of_turn>model>はじめまして
+            <end_of_turn>
+            <start_of_turn>user>
+            <end_of_turn>
+            <start_of_turn>model>何かご用でしょうか？
+            <end_of_turn>
+            <start_of_turn>user>
+            <end_of_turn>
+            <start_of_turn>model>何かご用でしょうか？
+            <end
+            """.trimIndent(),
+            "はじめまして",
+        )
+
+        assertEquals("何かご用でしょうか？", result.sanitizedOutput)
+        assertTrue(result.removedPromptEcho)
+    }
+
+    @Test
+    fun `removes leading multilingual drift for Japanese hidden prompt`() {
+        val result = Qairt244NpuOutputSanitizer.sanitize(
+            """
+            कैसा है?
+
+            >元気です。お疲れ様です。
+
+            >お疲れ様です。今日も一日頑張りましょう。
+            """.trimIndent(),
+            "こんばんは",
+        )
+
+        assertEquals(
+            "元気です。お疲れ様です。\n\nお疲れ様です。今日も一日頑張りましょう。",
+            result.sanitizedOutput,
+        )
+        assertTrue(result.sanitizerApplied)
+    }
+
+    @Test
     fun `returns empty after sanitize when only artifacts remain`() {
         val result = Qairt244NpuOutputSanitizer.sanitize(
             "<start_of_turn>user\nこんにちは\n<end_of_turn>\n<start_of_turn>model\n<end_of_turn>",

@@ -109,6 +109,21 @@ object DevOnlyNpuChatScreenBlockedBranch {
 
     @JvmStatic
     fun runForChatScreen(context: Context, prompt: String, templateMode: String): String {
+        return runForChatScreen(
+            context = context,
+            prompt = prompt,
+            templateMode = templateMode,
+            maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+        )
+    }
+
+    @JvmStatic
+    fun runForChatScreen(
+        context: Context,
+        prompt: String,
+        templateMode: String,
+        maxOutputTokens: Int,
+    ): String {
         val resolvedTemplateMode = HiddenQairt244PromptTemplateMode.fromStorage(templateMode)
         if (!chatScreenRunInProgress.compareAndSet(false, true)) {
             val promptTemplate = buildPromptTemplate(prompt = prompt, mode = resolvedTemplateMode)
@@ -138,8 +153,9 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 "prompt_input_code_point_limit=${NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH}",
                 "prompt_input_limit_mode=${NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE}",
                 "prompt_formatting_mode=${promptTemplate.promptFormattingMode}",
-                "max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+                "max_output_tokens=$maxOutputTokens",
                 "native_max_output_tokens_limit=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+                "turn_stop_compare_marker=qairt244_turn_stop_compare_v1",
                 "resolved_model_basename=",
                 "required_sm8750_model_path=false",
                 "npu_backend=",
@@ -163,7 +179,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
             ).joinToString("\n")
         }
         return try {
-            runForChatScreenGuarded(context, prompt, resolvedTemplateMode)
+            runForChatScreenGuarded(context, prompt, resolvedTemplateMode, maxOutputTokens)
         } finally {
             chatScreenRunInProgress.set(false)
         }
@@ -173,6 +189,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
         context: Context,
         prompt: String,
         templateMode: HiddenQairt244PromptTemplateMode,
+        maxOutputTokens: Int,
     ): String {
         val appContext = context.applicationContext
         val validation = if (io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
@@ -198,10 +215,11 @@ object DevOnlyNpuChatScreenBlockedBranch {
                     validatorValid = validation.isValid,
                     nativeEditablePromptSupported = true,
                     running = false,
-                    maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+                    maxOutputTokens = maxOutputTokens,
+                    allowMaxOutputTokenRange = !io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT,
                 ),
                 prompt = normalizedPrompt,
-                maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+                maxOutputTokens = maxOutputTokens,
                 timeoutMs = DevOnlyNpuRouteAdapter.DEFAULT_TIMEOUT_MS,
             )
         }
@@ -331,6 +349,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "route_type=standard_hidden_chat_screen",
             "max_output_tokens=${result.maxOutputTokens}",
             "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit)}",
+            "turn_stop_compare_marker=qairt244_turn_stop_compare_v1",
             "native_prompt_input_code_point_limit=${escapeValue(nativeResult["native_prompt_input_code_point_limit"].orEmpty())}",
             "native_prompt_input_limit_mode=${escapeValue(nativeResult["native_prompt_input_limit_mode"].orEmpty())}",
         ).plus(outputDiagnostics).plus(

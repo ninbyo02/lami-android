@@ -35,9 +35,13 @@ internal object Qairt244NpuOutputSanitizer {
         var removedPromptEcho = false
         val keptLines = mutableListOf<String>()
         var naturalTextStarted = false
+        val seenAssistantLines = mutableSetOf<String>()
         for (sourceLine in withoutTemplateTokens.lines()) {
-            val line = sourceLine.trim()
+            val line = sourceLine.trim().trimStart('>').trim()
             if (line.isEmpty()) {
+                if (sourceLine.trim().isNotEmpty()) {
+                    removedTemplateTokenCount += 1
+                }
                 if (keptLines.isNotEmpty() && keptLines.last().isNotEmpty()) {
                     keptLines += ""
                 }
@@ -49,6 +53,10 @@ internal object Qairt244NpuOutputSanitizer {
             }
             if (isPromptEcho(line, promptEcho) && !naturalTextStarted) {
                 removedPromptEcho = true
+                continue
+            }
+            if (!naturalTextStarted && isLeadingNonJapaneseDrift(line, promptEcho)) {
+                removedTemplateTokenCount += 1
                 continue
             }
             if (userPrefixPattern.containsMatchIn(line)) {
@@ -63,6 +71,11 @@ internal object Qairt244NpuOutputSanitizer {
 
             val assistantText = assistantPrefixPattern.replace(line, "").trim()
             if (assistantText.isEmpty()) {
+                removedTemplateTokenCount += 1
+                continue
+            }
+            val normalizedAssistantText = assistantText.replace(Regex("\\s+"), " ")
+            if (!seenAssistantLines.add(normalizedAssistantText)) {
                 removedTemplateTokenCount += 1
                 continue
             }
@@ -95,4 +108,18 @@ internal object Qairt244NpuOutputSanitizer {
             .trim()
         return normalizedLine == prompt
     }
+
+    private fun isLeadingNonJapaneseDrift(line: String, prompt: String): Boolean {
+        if (!containsJapanese(prompt) || containsJapanese(line)) return false
+        return line.any { Character.isLetter(it) }
+    }
+
+    private fun containsJapanese(value: String): Boolean =
+        value.any { char ->
+            val block = Character.UnicodeBlock.of(char)
+            block == Character.UnicodeBlock.HIRAGANA ||
+                block == Character.UnicodeBlock.KATAKANA ||
+                block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS ||
+                block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A
+        }
 }

@@ -28,6 +28,10 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         val enableDeveloperAccess = intent.getBooleanExtra(EXTRA_ENABLE_DEVELOPER_ACCESS, false)
         val enableRoute = intent.getBooleanExtra(EXTRA_ENABLE_ROUTE, false)
         val shouldRun = intent.getBooleanExtra(EXTRA_RUN, true)
+        val requestedMaxOutputTokens = intent.getIntExtra(
+            EXTRA_MAX_OUTPUT_TOKENS,
+            DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+        )
         val requestedTemplateMode = (
             intent.getStringExtra(EXTRA_TEMPLATE)
                 ?: intent.getStringExtra(EXTRA_TEMPLATE_MODE)
@@ -88,6 +92,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 context = appContext,
                 prompt = prompt,
                 templateMode = templateMode.storageValue,
+                maxOutputTokens = requestedMaxOutputTokens,
             ).also { result ->
                 writeDisplayDiagnostics(appContext, result)
                 writeRunnerCleanupState(appContext)
@@ -230,6 +235,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         const val EXTRA_RUN = "run"
         const val EXTRA_TEMPLATE = "template"
         const val EXTRA_TEMPLATE_MODE = "template_mode"
+        const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
         const val STATE_FILE_NAME = "qairt244_standard_hidden_prompt_state.txt"
     }
 }
