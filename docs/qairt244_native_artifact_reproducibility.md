@@ -5,14 +5,14 @@ This document records how the DEV-only qairt244 SM8750 NPU native artifact was p
 ## Current Artifact
 
 ```text
-artifact=artifacts/litert_custom_build/20260524_114833_qairt244_16token
+artifact=artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt
 source_checkout=/home/sato/project/litert-custom-build/LiteRT-LM
 source_head=c87189528a758db32ead241f4fc9c64836398ee7
 source_describe=v0.11.0-dirty
 qairt_root=/home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225
 android_ndk=/home/sato/Android/Sdk/ndk/28.2.13676358
 bazel=bazelisk 7.6.1
-bazel_output_base=/home/sato/project/litert-custom-build/bazel_output_base/build_20260524_114833
+bazel_output_base=/home/sato/project/litert-custom-build/bazel_output_base/build_20260524_144803
 ```
 
 The artifact contains these built libraries under `built_libs/`:
@@ -27,9 +27,9 @@ liblitertlm_jni.so
 `liblitertlm_jni.so` metadata from the artifact:
 
 ```text
-size=55190752
-sha256=950bb727c25d60d14be2e147d263ca7ecdc6fe7bcfaeb78c848ce7609be50d9f
-build_id=59a86c5209025c3b9b6ea3b22d2a39b8
+size=55191176
+sha256=51e9a54c7ec32daabba7a6521ed378b8ebad72c4dfcd4597d6f4b0360e3ac947
+build_id=de60ba02d97664b4839da645162cdaa4
 needed=libGemmaModelConstraintProvider.so,libdl.so,liblog.so,libandroid.so,libGLESv3.so,libEGL.so,libm.so,libc.so
 ```
 
@@ -67,7 +67,9 @@ DecodeConfig decode_config = DecodeConfig::CreateDefault();
 decode_config.SetMaxOutputTokens(max_output_tokens);
 ```
 
-The older 8-token staged artifact rejected `max_output_tokens=16` before RunDecode with `invalid_max_output_tokens value=16`. The current artifact changes that DEV-only editable-prompt path from an exact/smaller limit to the bounded range `1..16`, records `native_max_output_tokens_limit=16`, and then calls `RunDecode` with `SetMaxOutputTokens(max_output_tokens)`.
+The older 8-token staged artifact rejected `max_output_tokens=16` before RunDecode with `invalid_max_output_tokens value=16`. The current artifact keeps that DEV-only editable-prompt path bounded to `1..16`, records `native_max_output_tokens_limit=16`, and then calls `RunDecode` with `SetMaxOutputTokens(max_output_tokens)`.
+
+The UTF-8 prompt update is limited to the DEV-only editable-prompt validator. It trims ASCII spaces, rejects empty prompts, rejects NUL, rejects invalid UTF-8, rejects prompts above 32 UTF-8 code points, and no longer rejects non-ASCII UTF-8 solely because bytes are above ASCII. The result file records `native_prompt_validation_mode=utf8_internal_intent` and `utf8_allowed=true`; diagnostic logs include the same mode on entry and prompt validation. This does not change `max_output_tokens`, the UI text runner, normal ChatScreen routing, fallback behavior, or production `Backend.NPU` wiring.
 
 The checkout also has a `WORKSPACE` patch for LiteRT Qualcomm dispatch linkage. It inserts `dynamic_deps` into LiteRT build rules so `libLiteRtDispatch_Qualcomm.so` keeps a `DT_NEEDED` edge to `libLiteRt.so` when Android loads the dispatch library dynamically. Keep this patch with the qairt244 artifact build unless a later upstream LiteRT build no longer needs it.
 
@@ -77,24 +79,24 @@ Use the lami-android build wrapper from this repository. The wrapper builds a li
 
 ```bash
 cd /home/sato/project/lami-android
-OUT_DIR=artifacts/litert_custom_build/<timestamp>_qairt244_16token \
+OUT_DIR=artifacts/litert_custom_build/<timestamp>_qairt244_16token_utf8prompt \
 BAZEL_OUTPUT_BASE=/home/sato/project/litert-custom-build/bazel_output_base/build_<timestamp> \
 scripts/build_litert_custom_artifacts.sh \
   /home/sato/project/litert-custom-build/LiteRT-LM \
   --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
-  --label qairt244_16token
+  --label qairt244_16token_utf8prompt
 ```
 
 The command observed in `build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log` for the JNI target was equivalent to:
 
 ```bash
 /home/sato/.local/bin/bazelisk \
-  --output_base=/home/sato/project/litert-custom-build/bazel_output_base/build_20260524_114833 \
+  --output_base=/home/sato/project/litert-custom-build/bazel_output_base/build_20260524_144803 \
   build \
   --repo_env=ANDROID_HOME=/home/sato/Android/Sdk \
   --repo_env=ANDROID_SDK_ROOT=/home/sato/Android/Sdk \
   --repo_env=ANDROID_NDK_HOME=/home/sato/Android/Sdk/ndk/28.2.13676358 \
-  --repo_env=LITERT_QAIRT_SDK=/home/sato/project/lami-android/artifacts/litert_custom_build/20260524_114833_qairt244_16token/qairt_overlay/ \
+  --repo_env=LITERT_QAIRT_SDK=/home/sato/project/lami-android/artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt/qairt_overlay/ \
   --repo_env=HERMETIC_PYTHON_VERSION=3.12 \
   //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni \
   --config=android_arm64
@@ -109,7 +111,7 @@ After rebuilding, stage only into `customBuildExperimentDebug`:
 ```bash
 cd /home/sato/project/lami-android
 scripts/stage_litert_custom_build_stack_for_experiment.sh \
-  artifacts/litert_custom_build/<timestamp>_qairt244_16token
+  artifacts/litert_custom_build/<timestamp>_qairt244_16token_utf8prompt
 ```
 
 The staging script copies required libraries into:
@@ -135,13 +137,29 @@ Before using a rebuilt artifact for qairt244 SM8750 DEV-only runs, verify:
 - `litertlm.cc` contains `kQairt244EditablePromptMarker` and `nativeRunEditablePrompt`.
 - Native guard is exactly bounded to `max_output_tokens < 1 || max_output_tokens > 16`.
 - Result writer records `native_max_output_tokens_limit=16`.
+- Result writer records `native_prompt_validation_mode=utf8_internal_intent` and `utf8_allowed=true`.
+- Validator rejects empty prompt, NUL, invalid UTF-8, and prompts above 32 UTF-8 code points while allowing non-ASCII UTF-8 for the DEV internal prompt route.
 - Decode path logs `before RunDecode SetMaxOutputTokens(%d)` and calls `decode_config.SetMaxOutputTokens(max_output_tokens)`.
 - Build command uses Android NDK `28.2.13676358` and QAIRT SDK `2.44.0.260225`.
 - `build_results.tsv` has exit code `0` for all four targets.
 - `metadata/liblitertlm_jni.so.txt` records size, SHA-256, build ID, and `NEEDED` dependencies.
-- `strings/built_libs` or `strings/liblitertlm_jni.so.filtered.txt` includes qairt244 markers and `invalid_max_output_tokens` evidence.
+- `strings/built_libs` or `strings/liblitertlm_jni.so.filtered.txt` includes qairt244 markers, `invalid_max_output_tokens`, `native_prompt_validation_mode`, and `utf8_allowed` evidence.
 - The staged app uses only `customBuildExperimentDebug/jniLibs/arm64-v8a`.
 - `scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh --artifact <new-artifact> --run --prompt Hello` is run only in a separate execution-validation step, not during doc-only reproducibility review.
+
+## UTF-8 Prompt Artifact Record
+
+```text
+artifact=artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt
+liblitertlm_jni_sha256=51e9a54c7ec32daabba7a6521ed378b8ebad72c4dfcd4597d6f4b0360e3ac947
+native_build_log=artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log
+build_results=all four targets exited 0
+validation_mode=utf8_internal_intent
+utf8_allowed=true
+max_output_tokens_range=1..16
+```
+
+This artifact is local evidence only. Do not stage `.so` files; pass the artifact explicitly to DEV-only runners or staging scripts when native validation of internal UTF-8 prompts is required.
 
 ## Git Safety
 

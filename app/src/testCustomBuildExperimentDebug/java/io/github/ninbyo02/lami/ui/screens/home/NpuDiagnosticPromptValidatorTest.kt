@@ -13,6 +13,7 @@ class NpuDiagnosticPromptValidatorTest {
         assertTrue(result.isValid)
         assertEquals("Hi", result.normalizedPrompt)
         assertEquals("ok", result.reasonCode)
+        assertEquals(NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE, result.promptValidationMode)
     }
 
     @Test
@@ -56,6 +57,11 @@ class NpuDiagnosticPromptValidatorTest {
     }
 
     @Test
+    fun `nul character is rejected with specific reason`() {
+        assertRejected("Hi\u0000", "contains_nul")
+    }
+
+    @Test
     fun `common diagnostic punctuation is valid`() {
         val result = NpuDiagnosticPromptValidator.validate("Hello, Lami!")
 
@@ -84,6 +90,26 @@ class NpuDiagnosticPromptValidatorTest {
 
         assertTrue(result.isValid)
         assertEquals("Hi", result.normalizedPrompt)
+    }
+
+
+    @Test
+    fun `utf8 internal intent accepts non ascii text`() {
+        val result = NpuDiagnosticPromptValidator.validateUtf8InternalIntent("こんにちは")
+
+        assertTrue(result.isValid)
+        assertEquals("こんにちは", result.normalizedPrompt)
+        assertEquals("ok", result.reasonCode)
+        assertEquals(NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE, result.promptValidationMode)
+    }
+
+    @Test
+    fun `utf8 internal intent rejects unpaired surrogate`() {
+        val result = NpuDiagnosticPromptValidator.validateUtf8InternalIntent(String(charArrayOf('\uD800')))
+
+        assertFalse(result.isValid)
+        assertEquals("invalid_utf8", result.reasonCode)
+        assertEquals(NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE, result.promptValidationMode)
     }
 
     private fun assertRejected(

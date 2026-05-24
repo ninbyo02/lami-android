@@ -8,11 +8,12 @@ As of 2026-05-24:
 
 - The qairt244 SM8750 DEV-only route is stable for the ASCII runner prompt set `Hello`, `test`, and `OK` at `max_output_tokens=16`.
 - The runner intentionally accepts only ASCII alphanumeric plus `._-` for `--prompt`.
-- Non-ASCII prompts stop before send with `unsupported_non_ascii_prompt`.
+- Non-ASCII prompts still stop before send with `unsupported_non_ascii_prompt` in UI text mode.
+- The Kotlin and native DEV internal prompt validators now have a UTF-8 internal-intent mode for the separate non-ASCII path.
 - Direct `adb shell input text こんにちは` is not safe: it produced an Android input command NPE before send.
 - ASCII text can also be rewritten by the active IME, as seen when `test` became `てｓｔ`; the runner now mitigates that with IME selection, language-switch retry, and actual prompt verification before pressing Send.
 
-The current runner should remain ASCII-only. Japanese prompt coverage should be a separate phase with a controlled input path.
+The current runner should remain ASCII-only. Japanese prompt coverage should be a separate phase with a controlled input path. The native artifact for that internal path is now rebuilt as `artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt` with `native_prompt_validation_mode=utf8_internal_intent`, `utf8_allowed=true`, and `liblitertlm_jni.so` SHA-256 `51e9a54c7ec32daabba7a6521ed378b8ebad72c4dfcd4597d6f4b0360e3ac947`.
 
 ## Options Compared
 
@@ -139,6 +140,8 @@ requested_prompt=<UTF-8 prompt>
 actual_prompt=<string received by app route>
 normalized_prompt=<native normalized prompt>
 prompt_source=internal_intent
+native_prompt_validation_mode=utf8_internal_intent
+utf8_allowed=true
 intent_dispatch_status=not_started|dispatched|accepted|rejected|entrypoint_missing|timeout|failure
 prompt_input_status=not_applicable|ok|failure
 prompt_input_failure_reason=<reason>
@@ -218,10 +221,11 @@ ui_text_ascii_only=true
 2. Require the explicit action name `io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT` plus `dev_enable_qairt244_sm8750_npu_route=true`.
 3. Accept the prompt through an Intent extra, not through `adb shell input text`.
 4. Reuse the existing resolver, exact SM8750 basename guard, duplicate-run guard, max token cap, no-fallback behavior, and cleanup path.
-5. Write `requested_prompt` and `actual_prompt` before native execution; write native `normalized_prompt` from result after execution.
-6. Add a separate runner script for this phase rather than overloading the current ASCII UI runner.
-7. Start with one prompt, `こんにちは`, and one run only. Keep `max_output_tokens=16`.
-8. Validate no standard route, DB, TTS, Markdown, streaming, selectedPath persistence, fallback, timeout, or fresh crash.
+5. Use the rebuilt native artifact `artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt` when validating internal UTF-8 prompts; do not change the ASCII-only UI text runner path.
+6. Write `requested_prompt` and `actual_prompt` before native execution; write native `normalized_prompt` from result after execution.
+7. Add a separate runner script for this phase rather than overloading the current ASCII UI runner.
+8. Start with one prompt, `こんにちは`, and one run only. Keep `max_output_tokens=16`.
+9. Validate no standard route, DB, TTS, Markdown, streaming, selectedPath persistence, fallback, timeout, or fresh crash.
 
 ## Why Not Change The Current Runner
 

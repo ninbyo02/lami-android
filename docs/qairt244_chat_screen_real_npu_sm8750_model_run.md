@@ -137,7 +137,9 @@ Japanese/non-ASCII prompt input remains outside the stable ASCII UI runner. The 
 
 ## Internal Intent Prompt Mode
 
-The runner now reserves `--prompt-mode internal_intent` for the future DEV-only app entrypoint owned by 担当A. This is a runner/docs/artifact placeholder only: it records the action contract and command templates, but does not dispatch until the Kotlin entrypoint exists.
+The runner reserves `--prompt-mode internal_intent` for the DEV-only app entrypoint and non-ASCII prompt path. UI text mode remains ASCII-only and must continue to reject Japanese before send; internal intent is the only path allowed to carry UTF-8 prompts into the DEV qairt244 route.
+
+The native editable-prompt artifact for this path was rebuilt as `artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt`. Its `liblitertlm_jni.so` SHA-256 is `51e9a54c7ec32daabba7a6521ed378b8ebad72c4dfcd4597d6f4b0360e3ac947`, and the JNI build log is `artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`. The native validator records `native_prompt_validation_mode=utf8_internal_intent` and `utf8_allowed=true`, rejects empty/NUL/invalid UTF-8/over-32-code-point prompts, and keeps `max_output_tokens` bounded to `1..16`.
 
 Reserved action:
 
@@ -187,6 +189,8 @@ intent_dispatch_status=not_started|dispatched|accepted|rejected|entrypoint_missi
 internal_intent_action=io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT
 adb_shell_input_text_unicode=false
 ui_text_ascii_only=true
+native_prompt_validation_mode=utf8_internal_intent
+utf8_allowed=true
 ```
 
 Japanese prompts are allowed only through this internal intent flow. The runner must not use `adb shell input text` for Japanese because that path is Unicode-fragile on the target device and can fail or be rewritten before the app receives the intended prompt. Keeping UI text mode ASCII-only preserves the stable 16-token qairt244 route baseline while non-ASCII coverage gets a separate artifact contract.
@@ -199,7 +203,7 @@ The dedicated section is shown only for `selected_route=qairt244_sm8750_dev_npu`
 
 ## Native Artifact Reproducibility
 
-The native custom build provenance and rebuild checklist for `artifacts/litert_custom_build/20260524_114833_qairt244_16token` are documented in `docs/qairt244_native_artifact_reproducibility.md`. Keep this route DEV-only until those native changes are represented as a reproducible patch or pinned external checkout.
+The native custom build provenance and rebuild checklist for `artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt` are documented in `docs/qairt244_native_artifact_reproducibility.md`. Keep this route DEV-only until those native changes are represented as a reproducible patch or pinned external checkout.
 
 ## Promotion Review / 昇格判断
 
@@ -210,7 +214,7 @@ Open items before promotion:
 - Token budget: `max_output_tokens=16` is validated, but normal use needs at least bounded 32/64-token evidence before the route can represent useful generation behavior.
 - Streaming and cancellation: the route is non-streaming and Stop is best-effort, so it does not yet match normal ChatScreen streaming UX or cancellation expectations.
 - Prompt coverage: runner-stable prompts are currently ASCII-only (`Hello`, `test`, `OK`). Japanese prompt input and non-ASCII automation are explicitly out of scope and must be solved or tested through a different input path.
-- Native artifact reproducibility: the successful path depends on `artifacts/litert_custom_build/20260524_114833_qairt244_16token`; the source patch, build commands, ABI contents, and packaging rules must be reproducible without staging `.so` binaries in Git.
+- Native artifact reproducibility: the successful path depends on a custom native artifact, currently `artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt`; the source patch, build commands, ABI contents, and packaging rules must be reproducible without staging `.so` binaries in Git.
 - Runtime distribution: `liblitertlm_jni.so`, QAIRT/QNN runtime libraries, and model placement need a documented install/update story before any non-DEV candidate is exposed.
 - Evidence quality: `QNN_HTP_V79_FastRPC_native_diag` is useful proof for current runs, but promotion needs a stable evidence contract that distinguishes HTP/NPU execution from CPU/GPU fallback across failures and logcat gaps.
 - Thermal and memory stability: current runs are short. Promotion requires longer soak, repeated runs, post-run memory checks, and thermal observation under device load.
