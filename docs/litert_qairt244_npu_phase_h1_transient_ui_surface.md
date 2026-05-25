@@ -337,6 +337,46 @@ DEV toggle wiring rule:
 - refresh remains metadata re-read only, with no run, retry, fallback,
   `Engine.initialize`, or `RunDecode`
 
+## Metadata-To-Presenter Integration Baseline - 2026-05-26
+
+The fifth implementation step adds pure Kotlin integration coverage for the
+read-only transient card input/output path:
+
+```text
+key-value metadata text
+  -> artifact metadata boundary
+  -> DevOnlyNpuPhaseH1UiInput
+  -> DevOnlyNpuPhaseH1Presenter
+  -> DevOnlyNpuPhaseH1UiState
+```
+
+Valid baseline metadata with a fresh timestamp, `result=success`,
+`quality_classification=natural_japanese`, NPU evidence, no fallback, no
+timeout, no fresh crash, no standard/normal UI route connection, and no
+DB/TTS/Markdown/streaming ingress maps to:
+
+- `visible=true`
+- `status=SUCCESS`
+- `reasonCode=ok`
+- `outputPreview=sanitized_output`
+- `decode_ms` display text
+- `maxOutputTokens=128`
+- short `QNN_HTP_V79_FastRPC` backend evidence
+- short artifact path
+- all side-effect flags false
+
+The same integration test fixes rollback output for gate failures:
+
+- `fallback_used=true` -> `fallback_used`
+- `timeout=true` -> `timeout`
+- non-natural quality classification -> `quality_not_natural_japanese`
+- `standard_route_connected=true` -> `standard_route_connected`
+- `db=true` -> `db_connected`
+
+`raw_output` remains boundary-only diagnostic evidence and is not propagated
+into `UiInput`, `UiState`, or state string output. Toggle false still means the
+metadata provider is not called and the state remains hidden.
+
 ## Non-Goals
 
 - no normal UI promotion

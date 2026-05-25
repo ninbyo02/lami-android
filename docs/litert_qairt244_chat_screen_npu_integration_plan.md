@@ -263,6 +263,17 @@ The Phase H1 metadata boundary now fixes the future ChatScreen read contract:
 - when true, still require fresh artifact metadata and promotion gate pass
 - no run, retry, fallback, `Engine.initialize`, or `RunDecode` is attached
 
+The metadata-to-presenter integration test now fixes the future transient-card
+input/output contract before any ChatScreen wiring:
+
+- valid fresh key-value metadata maps to `DevOnlyNpuPhaseH1UiState.visible=true`
+- only `sanitized_output` becomes `outputPreview`
+- `raw_output` is not present in input/state output
+- fallback, timeout, non-natural quality classification, standard route
+  connection, and DB ingress map to hidden rollback state
+- side-effect flags stay false for every success and rollback state
+- toggle false still means metadata provider is not called
+
 ## Disabled Blocked Branch
 
 The insertion point now has a disabled blocked branch:

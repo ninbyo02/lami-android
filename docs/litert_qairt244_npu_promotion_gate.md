@@ -62,6 +62,13 @@ record all of the following:
   unknown keys are ignored, duplicate keys use the last value, and `raw_output`
   is not propagated into UI input
 - `dev_enable_npu_chatscreen_route=false` blocks metadata read and parse
+- metadata-to-presenter integration passes: valid fresh metadata reaches
+  `visible=true` sanitized output only, while fallback, timeout,
+  non-natural quality, standard route connection, or DB ingress reaches
+  `visible=false` rollback
+- presenter side-effect flags remain false:
+  `shouldPersistToDb=false`, `shouldSpeakTts=false`,
+  `shouldRenderMarkdown=false`, `shouldStream=false`
 
 Raw native output may be classified as `template_artifact` only as diagnostic
 evidence. That raw artifact is acceptable only when the sanitized display output
@@ -137,6 +144,8 @@ The current supporting docs already cover the main pieces:
   The fourth code step fixes the metadata input boundary: key-value text,
   `Map<String, String>`, and file-content text converge into validated metadata
   while raw/native-only fields are dropped before UI input.
+  The fifth code step fixes metadata-to-presenter integration from key-value
+  text through `UiState` without adding any ChatScreen call site.
 - `docs/litert_qairt244_npu_turn_stop_quality_compare.md` records the
   `sanitizer_only + max_output_tokens=128` adoption, raw/sanitized output
   policy, and native stop API limitation.

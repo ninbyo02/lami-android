@@ -89,6 +89,13 @@ before mapper handoff; and fixes duplicate key behavior as last-value-wins.
 If `dev_enable_npu_chatscreen_route=false`, future ChatScreen wiring must not
 read or parse metadata at all.
 
+The fifth Phase H1 code step is metadata-to-presenter integration coverage. It
+fixes the pure Kotlin path from key-value metadata text through boundary,
+`DevOnlyNpuPhaseH1UiInput`, presenter, and `DevOnlyNpuPhaseH1UiState`. Valid
+fresh baseline metadata becomes a visible sanitized transient preview; gate
+failures become hidden rollback states; `raw_output` does not propagate; and
+all side-effect flags remain false.
+
 ### Phase H2: Assistant-Message-Style Temporary Display
 
 Second candidate after Phase H1 proves stable. The sanitized output may be
@@ -154,6 +161,9 @@ Every accepted handoff candidate must satisfy all of the following:
 - artifact metadata input boundary passes: minimum fields present, booleans and
   numbers valid, `raw_output` not propagated, and DEV toggle false blocks
   metadata read/parse
+- metadata-to-presenter integration passes: valid baseline metadata becomes
+  visible sanitized preview, gate failures become rollback, and side-effect
+  flags remain false
 
 Raw native output may contain `template_artifact` only as diagnostic evidence.
 It is acceptable only when the displayed sanitized output remains meaningful

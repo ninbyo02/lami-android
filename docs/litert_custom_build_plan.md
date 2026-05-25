@@ -390,6 +390,24 @@ Updated next recommendation:
 - No ChatScreen connection, NPU run, engine initialize, decode, retry,
   fallback, DB, TTS, Markdown, streaming, standard route connection, or
   selected-path persistence is introduced by this boundary.
+
+2026-05-26 Phase H1 metadata-to-presenter integration test update:
+
+- A pure Kotlin integration test now covers key-value metadata text through the
+  artifact metadata boundary, `DevOnlyNpuPhaseH1UiInput`, presenter, and
+  `DevOnlyNpuPhaseH1UiState`.
+- Fresh valid baseline metadata produces a visible transient state with
+  sanitized output only, `reasonCode=ok`, decode-ms text, max token text, short
+  QNN HTP V79 FastRPC evidence, and short artifact path.
+- Gate failures for fallback, timeout, non-natural quality classification,
+  standard route connection, and DB ingress become hidden rollback states.
+- `raw_output` does not propagate into UI input or UI state, and side-effect
+  flags remain false.
+- Toggle false continues to skip provider invocation, so metadata is not read
+  or parsed.
+- This remains pre-ChatScreen: no NPU run, no `Engine.initialize`, no
+  `RunDecode`, no DB, no TTS, no Markdown, no streaming, no standard route
+  connection, and no selected-path persistence.
 - Still no high-level `generateResponse`, no `Conversation`, and no normal UI
   NPU connection.
 
