@@ -722,3 +722,17 @@ to DB, does not speak TTS, does not render Markdown, and does not stream.
 
 Rollback, stale, hidden, or gate-failed metadata hides the card and does not
 offer retry, fallback, or rerun controls.
+
+## Phase H1 Hidden-State Regression - 2026-05-26
+
+The Diagnostic/DEV read-only card was captured with non-success metadata states
+before any normal ChatScreen promotion:
+
+- stale metadata hides the card
+- rollback metadata hides the card
+- `dev_enable_npu_chatscreen_route=false` skips metadata read and hides the card
+
+The success baseline still renders sanitized output. Hidden captures keep
+`standard_route_connected=false`, `normal_ui_route_connected=false`, `db=false`,
+`tts=false`, `markdown=false`, `streaming=false`, `engine_initialize=false`, and
+`run_decode=false`.

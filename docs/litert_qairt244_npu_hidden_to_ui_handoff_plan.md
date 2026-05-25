@@ -284,3 +284,18 @@ The wiring keeps these boundaries:
 - no `Engine.initialize`
 - no `RunDecode`
 - no additional NPU execution
+
+## Phase H1 Hidden-State Regression - 2026-05-26
+
+The H1 read-only card was regression-captured with success, stale, rollback, and
+toggle-false metadata states:
+
+- success metadata remains visible and displays sanitized natural Japanese
+- stale metadata hides the card with `reasonCode=stale_artifact`
+- rollback metadata hides the card with `reasonCode=fallback_used`
+- toggle false does not read metadata and hides the card with `reasonCode=initial`
+
+This confirms H1 remains a transient Diagnostic-only surface. No normal
+ChatScreen route, assistant-message insertion, DB, TTS, Markdown, streaming,
+selected-path persistence, retry/fallback, `Engine.initialize`, `RunDecode`, or
+additional NPU execution was introduced.

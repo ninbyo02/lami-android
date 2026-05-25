@@ -224,3 +224,22 @@ The card is eligible for display only when:
 
 This still does not satisfy normal UI promotion by itself. It is a
 pre-promotion Diagnostic-only surface check.
+
+## Phase H1 Hidden-State Gate Evidence - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_phase_h1_readonly_card_hidden_state_regression/20260526_074740/`
+
+The card display gate now has connected-device regression evidence:
+
+- `success`: `metadata_read=true`, `preview_visible=true`,
+  `readonly_card_visible=true`
+- `stale`: `metadata_read=true`, `preview_visible=false`,
+  `readonly_card_visible=false`, `reasonCode=stale_artifact`
+- `rollback`: `metadata_read=true`, `preview_visible=false`,
+  `readonly_card_visible=false`, `reasonCode=fallback_used`
+- `toggle_false`: `metadata_read=false`, `preview_visible=false`,
+  `readonly_card_visible=false`, `reasonCode=initial`
+
+The evidence confirms raw output and template tokens are not displayed in the
+hidden cases, and all side-effect flags remain false.

@@ -1,0 +1,6 @@
+Package [io.github.ninbyo02.lami.customnpu] (b2338a0):
+codePath=/data/app/~~sTZ-5AohYbThC7zRDS-jKg==/io.github.ninbyo02.lami.customnpu-MHV6URCOfUHldVMJkalPBA==
+versionCode=1 minSdk=34 targetSdk=35
+versionName=1.0.0-customBuildExperiment
+lastUpdateTime=2026-05-26 07:46:21
+firstInstallTime=2026-05-17 00:49:48

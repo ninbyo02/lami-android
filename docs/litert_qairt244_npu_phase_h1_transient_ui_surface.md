@@ -610,3 +610,22 @@ The card renders only:
 The card does not render raw output, template tokens, model paths, selected-path
 details, retry controls, persist controls, TTS controls, Markdown controls, or a
 streaming indicator.
+
+## Read-Only Card Hidden-State Regression - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_phase_h1_readonly_card_hidden_state_regression/20260526_074740/`
+
+The Diagnostic-only read-only card was captured across four metadata states:
+
+- success baseline: card visible, sanitized output displayed
+- stale metadata: card hidden, `reasonCode=stale_artifact`
+- rollback metadata: card hidden, `reasonCode=fallback_used`
+- toggle false: card hidden, `metadata_read=false`, `reasonCode=initial`
+
+The hidden-state captures keep renderer line count at `0` and do not display
+`DEV ONLY`, sanitized output, raw output, `<start_of_turn>`, or `<end_of_turn>`.
+All captures keep `selectedPathNpuSaved=false`, `standard_route_connected=false`,
+`normal_ui_route_connected=false`, `db=false`, `tts=false`, `markdown=false`,
+`streaming=false`, `npu_generation=false`, `engine_initialize=false`, and
+`run_decode=false`.

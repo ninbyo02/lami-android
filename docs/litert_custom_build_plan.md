@@ -1967,3 +1967,19 @@ output:
 No normal ChatScreen route, assistant message list, DB, TTS, Markdown,
 streaming, selected-path NPU persistence, retry, fallback, `Engine.initialize`,
 `RunDecode`, or additional NPU execution is introduced.
+
+## Phase H1 Read-Only Card Hidden-State Regression - 2026-05-26
+
+Connected-device artifact:
+`artifacts/qairt244_phase_h1_readonly_card_hidden_state_regression/20260526_074740/`
+
+The read-only card now has capture evidence for both visible and hidden states:
+
+- success metadata: visible card, sanitized output only
+- stale metadata: hidden card, `reasonCode=stale_artifact`
+- rollback metadata: hidden card, `reasonCode=fallback_used`
+- toggle false: hidden card, `metadata_read=false`
+
+The regression did not run NPU generation and did not call `Engine.initialize`
+or `RunDecode`. DB, TTS, Markdown, streaming, standard route, normal UI route,
+and selected-path NPU persistence all remain disconnected.
