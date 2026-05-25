@@ -2024,3 +2024,19 @@ render Markdown, stream, retry, or fallback.
 
 This remains a debug/customBuildExperiment contract test layer only. It does not
 connect ChatScreen or implement the formal Compose UI surface.
+
+## Phase H1 XML Card / Preview Host Consistency - 2026-05-26
+
+Added `DevOnlyNpuPhaseH1XmlCardContract` as the pure helper shared by the
+existing Diagnostic XML/read-only card and the preview host render path.
+
+The contract tests fix:
+
+- success XML card text equals preview host render text
+- hidden, stale, rollback, and toggle-false states render empty text
+- raw output and turn template tokens are not displayed
+- assistant insertion, DB, TTS, Markdown, streaming, retry, fallback, metadata
+  read, NPU run, engine initialize, and decode stay false
+
+This is a test/contract alignment only. It does not run NPU and does not connect
+ChatScreen, standard route, release, or the formal Compose UI.

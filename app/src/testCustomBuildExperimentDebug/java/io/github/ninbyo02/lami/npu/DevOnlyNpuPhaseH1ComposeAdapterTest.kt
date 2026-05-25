@@ -81,7 +81,9 @@ class DevOnlyNpuPhaseH1ComposeAdapterTest {
             """
             shouldShowSurface=true
             title=DEV NPU transient preview
+            subtitle=Read-only sanitized output
             statusLabel=SUCCESS
+            reasonLabel=reasonCode=ok
             devBadge=DEV ONLY
             body=こんにちは！何かお手伝いできることはありますか？
             detailLines=maxOutputTokens=128|decode_ms=2756|backendEvidence=QNN_HTP_V79_FastRPC|artifact=qairt244_npu_turn_stop_quality_compare/20260525_211810|selectedPathSaved=false|db=false|tts=false|markdown=false|streaming=false
@@ -105,7 +107,9 @@ class DevOnlyNpuPhaseH1ComposeAdapterTest {
             """
             shouldShowSurface=false
             title=DEV NPU transient preview
+            subtitle=Hidden until a fresh gated artifact passes
             statusLabel=HIDDEN
+            reasonLabel=reasonCode=initial
             devBadge=DEV ONLY
             body=null
             detailLines=

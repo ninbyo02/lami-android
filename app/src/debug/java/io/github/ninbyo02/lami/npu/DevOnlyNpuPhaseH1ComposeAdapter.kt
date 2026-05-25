@@ -3,8 +3,10 @@ package io.github.ninbyo02.lami.npu
 data class DevOnlyNpuPhaseH1ComposeModel(
     val shouldShowSurface: Boolean,
     val title: String,
+    val subtitle: String,
     val body: String?,
     val statusLabel: String,
+    val reasonLabel: String,
     val detailLines: List<String>,
     val devBadge: String,
     val insertIntoAssistantList: Boolean = false,
@@ -19,7 +21,9 @@ data class DevOnlyNpuPhaseH1ComposeModel(
         buildString {
             appendLine("shouldShowSurface=$shouldShowSurface")
             appendLine("title=$title")
+            appendLine("subtitle=$subtitle")
             appendLine("statusLabel=$statusLabel")
+            appendLine("reasonLabel=$reasonLabel")
             appendLine("devBadge=$devBadge")
             appendLine("body=${body ?: "null"}")
             appendLine("detailLines=${detailLines.joinToString("|")}")
@@ -38,8 +42,10 @@ object DevOnlyNpuPhaseH1ComposeAdapter {
         DevOnlyNpuPhaseH1ComposeModel(
             shouldShowSurface = card.visible,
             title = card.title,
+            subtitle = card.subtitle,
             body = if (card.visible) card.body else null,
             statusLabel = card.statusLabel,
+            reasonLabel = card.reasonLabel,
             detailLines = if (card.visible) card.detailLines else emptyList(),
             devBadge = card.devBadge,
             insertIntoAssistantList = false,

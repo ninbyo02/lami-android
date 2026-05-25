@@ -14,7 +14,7 @@ class DevOnlyNpuPhaseH1PreviewHostTest {
 
         assertTrue(host.visible)
         assertTrue(host.showCard)
-        assertTrue(host.renderText.contains("DEV ONLY - DEV NPU transient preview"))
+        assertTrue(host.renderText.contains("DEV ONLY\nDEV NPU transient preview"))
         assertTrue(host.renderText.contains("Status: SUCCESS"))
         assertTrue(host.renderText.contains(sanitizedOutput))
         assertTrue(host.renderText.contains("- maxOutputTokens=128"))
@@ -86,10 +86,13 @@ class DevOnlyNpuPhaseH1PreviewHostTest {
             """
             visible=true
             showCard=true
-            renderText=DEV ONLY - DEV NPU transient preview
+            renderText=DEV ONLY
+            DEV NPU transient preview
             Status: SUCCESS
+            Read-only sanitized output
             Output:
             こんにちは！何かお手伝いできることはありますか？
+            Reason: reasonCode=ok
             Details:
             - maxOutputTokens=128
             - decode_ms=2756

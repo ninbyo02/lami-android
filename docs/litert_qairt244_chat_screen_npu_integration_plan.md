@@ -768,3 +768,18 @@ future UI surface:
 
 No ChatScreen normal route, assistant message list insertion, or Compose UI
 implementation is added by this contract.
+
+## Phase H1 XML Card / Preview Host Consistency - 2026-05-26
+
+The Diagnostic XML/read-only card display text and preview host render text are
+now covered by a shared pure helper and contract tests.
+
+The consistency tests assert:
+
+- success text order and content match
+- hidden, stale, rollback, and toggle-false outputs are empty
+- raw output and template tokens are absent
+- assistant insertion, DB, TTS, Markdown, streaming, retry, and fallback are
+  false
+
+No ChatScreen connection or formal Compose UI implementation is included.

@@ -340,3 +340,19 @@ The host does not:
 
 Stale, rollback, hidden, and toggle-false states are hidden at host level before
 any future UI surface can render them.
+
+## Phase H1 XML Card / Host Consistency - 2026-05-26
+
+The existing Diagnostic XML/read-only card and the preview host now share a pure
+text contract through `DevOnlyNpuPhaseH1XmlCardContract`.
+
+This keeps the pre-ChatScreen handoff consistent:
+
+- success card lines equal host render text
+- hidden, stale, rollback, and toggle-false states are empty in both places
+- raw output and template tokens are not propagated
+- assistant list, DB, TTS, Markdown, streaming, retry, and fallback remain
+  disconnected
+
+This is still contract/test work only; no normal ChatScreen route or formal
+Compose UI is connected.

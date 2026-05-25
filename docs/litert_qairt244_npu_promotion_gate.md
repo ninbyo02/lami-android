@@ -278,3 +278,20 @@ Promotion-relevant guarantees:
 - NPU run, `Engine.initialize`, and `RunDecode` remain false at host level
 
 This is still Diagnostic-only and is not a normal UI promotion.
+
+## XML Card / Host Consistency Gate - 2026-05-26
+
+The H1 promotion gate now includes unit coverage that the current Diagnostic
+XML/read-only card and the preview host expose the same text contract.
+
+Gate checks added:
+
+- success XML card text equals preview host render text
+- hidden, stale, rollback, and toggle-false states produce no card text
+- raw output and turn template tokens are absent
+- assistant insertion and side-effect routes remain false
+- metadata read, NPU run, `Engine.initialize`, and `RunDecode` remain false at
+  host level
+
+This prevents a future host/Compose surface from drifting away from the existing
+Diagnostic card behavior.

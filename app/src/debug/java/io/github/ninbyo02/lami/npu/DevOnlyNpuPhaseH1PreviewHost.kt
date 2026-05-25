@@ -41,7 +41,7 @@ object DevOnlyNpuPhaseH1PreviewHost {
         return DevOnlyNpuPhaseH1PreviewHostState(
             visible = visible,
             showCard = visible,
-            renderText = if (visible) render(model) else "",
+            renderText = DevOnlyNpuPhaseH1XmlCardContract.renderText(model),
             showRetry = false,
             showFallback = false,
             showAssistantInsertion = false,
@@ -56,17 +56,4 @@ object DevOnlyNpuPhaseH1PreviewHost {
         )
     }
 
-    private fun render(model: DevOnlyNpuPhaseH1ComposeModel): String =
-        buildList {
-            add("${model.devBadge} - ${model.title}")
-            add("Status: ${model.statusLabel}")
-            model.body?.let { body ->
-                add("Output:")
-                add(body)
-            }
-            if (model.detailLines.isNotEmpty()) {
-                add("Details:")
-                model.detailLines.forEach { line -> add("- $line") }
-            }
-        }.joinToString(separator = "\n")
 }

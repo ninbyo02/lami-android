@@ -690,3 +690,20 @@ Host contract:
 
 The host render text is sanitized preview output only. It does not contain raw
 output or turn template tokens.
+
+## XML Card / Preview Host Consistency - 2026-05-26
+
+`DevOnlyNpuPhaseH1XmlCardContract` is the shared pure text contract for the
+existing Diagnostic XML/read-only card and `DevOnlyNpuPhaseH1PreviewHost`.
+
+The XML card now uses the helper-generated display lines instead of local string
+assembly. Contract tests verify:
+
+- success XML card text equals preview host render text
+- display order is stable: badge, title, status, subtitle, output, reason,
+  details
+- hidden, stale, rollback, and toggle-false cases render an empty XML card and
+  an empty host render text
+- raw output, `<start_of_turn>`, and `<end_of_turn>` are absent
+- assistant insertion, DB, TTS, Markdown, streaming, retry, fallback, metadata
+  read, NPU run, engine initialize, and decode flags remain false

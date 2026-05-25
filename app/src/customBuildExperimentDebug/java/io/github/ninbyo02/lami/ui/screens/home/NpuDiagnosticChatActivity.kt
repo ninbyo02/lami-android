@@ -29,6 +29,7 @@ import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteGateInput
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRoutePlanner
 import io.github.ninbyo02.lami.npu.DevOnlyNpuPhaseH1TransientPreviewWiringResult
 import io.github.ninbyo02.lami.npu.DevOnlyNpuPhaseH1TransientPreviewWiring
+import io.github.ninbyo02.lami.npu.DevOnlyNpuPhaseH1XmlCardContract
 import io.github.ninbyo02.lami.npu.DevOnlyNpuTransientPresenter
 import java.io.File
 import java.util.UUID
@@ -867,8 +868,11 @@ class NpuDiagnosticChatActivity : Activity() {
 
         addView(cardText("DEV ONLY", textSizeSp = 12f, bold = true))
         addView(cardText("DEV NPU transient preview", textSizeSp = 20f, bold = true))
-        result.renderedLines
-            .dropWhile { line -> line == "DEV ONLY - DEV NPU transient preview" }
+        DevOnlyNpuPhaseH1XmlCardContract.renderLines(
+            visible = result.previewVisible,
+            renderedLines = result.renderedLines,
+        )
+            .drop(2)
             .forEach { line ->
                 addView(
                     cardText(
