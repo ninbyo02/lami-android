@@ -72,6 +72,15 @@ It converts hidden result key-value metadata into `DevOnlyNpuPhaseH1UiInput`,
 keeps `raw_output` out of UI input, and converts promotion-gate mismatches into
 rollback/failure input before any ChatScreen connection is attempted.
 
+The third Phase H1 code step is freshness and state-transition test coverage
+only. It accepts artifact epoch milliseconds from `artifact_timestamp_ms`,
+`artifact_timestamp`, `synced_at`, or `created_at`, treats only artifacts within
+24 hours as fresh, blocks missing/future/stale timestamps, and fixes clear
+events for new input, navigation away, toggle OFF, failure/rollback, and app
+restart. Refresh is artifact metadata re-read only; it does not run NPU,
+initialize an engine, run decode, retry, fallback, persist DB rows, call TTS,
+render Markdown, or stream.
+
 ### Phase H2: Assistant-Message-Style Temporary Display
 
 Second candidate after Phase H1 proves stable. The sanitized output may be
@@ -132,6 +141,8 @@ Every accepted handoff candidate must satisfy all of the following:
 - `streaming=false`
 - standard route disconnection regression test passes
 - staged binary check passes
+- latest baseline artifact timestamp is fresh; stale, missing, or future
+  metadata cannot be used as handoff evidence
 
 Raw native output may contain `template_artifact` only as diagnostic evidence.
 It is acceptable only when the displayed sanitized output remains meaningful

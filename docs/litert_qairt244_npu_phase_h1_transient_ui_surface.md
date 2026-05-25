@@ -243,6 +243,44 @@ timeout, fresh crash, standard route connection, DB ingress, missing NPU
 evidence, max-output display, decode-ms display, and short artifact-path
 display.
 
+## Freshness And State Transition Baseline - 2026-05-25
+
+The third implementation step adds pure Kotlin freshness and state transition
+coverage before any ChatScreen connection.
+
+Freshness rules:
+
+- artifact metadata may provide epoch milliseconds through
+  `artifact_timestamp_ms`, `artifact_timestamp`, `synced_at`, or `created_at`
+- artifacts are fresh only when the timestamp is within 24 hours of the current
+  metadata read
+- missing timestamp maps to `stale_or_unknown`
+- future timestamp maps to `stale_or_invalid`
+- older-than-24-hour timestamp maps to `stale_artifact`
+- stale, unknown, or invalid artifacts must not become visible preview content
+- only the latest named baseline artifact may be used as Phase H1 evidence
+
+State transition rules:
+
+- initial state is `visible=false`
+- valid artifact load may produce `visible=true`
+- new user input clears to hidden state
+- navigation away clears to hidden state
+- DEV toggle OFF clears to hidden state
+- failure or rollback clears to hidden state
+- app restart clears to hidden state
+- refresh re-reads artifact metadata and reapplies the mapper only when fresh
+- stale refresh returns hidden/rollback with no output preview
+
+Refresh remains metadata-only:
+
+- `runsNpu=false`
+- `initializesEngine=false`
+- `runsDecode=false`
+- no retry
+- no auto fallback
+- no DB, TTS, Markdown, or streaming handoff
+
 ## Non-Goals
 
 - no normal UI promotion

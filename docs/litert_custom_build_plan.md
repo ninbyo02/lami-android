@@ -358,6 +358,22 @@ Updated next recommendation:
   strings and does not infer counts from bytes or text.
 - Native diagnostics show QNN HTP V79 FastRPC execution evidence.
 - Tombstone classification: `stale-tombstone-ignored`; no fresh crash evidence.
+
+2026-05-25 Phase H1 hidden-to-UI freshness/state test update:
+
+- `sanitizer_only + max_output_tokens=128` remains the hidden experimental
+  display-quality baseline.
+- Phase H1 remains pre-ChatScreen and transient-only: no normal UI promotion,
+  no standard route connection, no NPU execution, no `Engine.initialize`, no
+  `RunDecode`, no DB, no TTS, no Markdown, no streaming, and no
+  `selectedPath=npu` persistence.
+- Artifact freshness is now a pure Kotlin gate: epoch milliseconds may come
+  from `artifact_timestamp_ms`, `artifact_timestamp`, `synced_at`, or
+  `created_at`; only timestamps within 24 hours are fresh.
+- Missing timestamps are `stale_or_unknown`, future timestamps are
+  `stale_or_invalid`, and older artifacts are `stale_artifact`.
+- Refresh is metadata-only and may reapply the mapper only for fresh artifacts;
+  it explicitly does not run NPU, initialize an engine, or run decode.
 - Still no high-level `generateResponse`, no `Conversation`, and no normal UI
   NPU connection.
 

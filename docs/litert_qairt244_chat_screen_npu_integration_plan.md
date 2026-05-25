@@ -230,6 +230,25 @@ blocked adapter preview renders:
 This confirms the transient state shape before any normal ChatScreen branch is
 introduced.
 
+## Phase H1 Freshness And Transition Guard
+
+The hidden-to-UI Phase H1 work now has a pure Kotlin pre-ChatScreen reducer for
+artifact metadata freshness and transient preview transitions:
+
+- no `ChatScreen` call site is added by this guard
+- no NPU generation, `Engine.initialize`, or `RunDecode` is run
+- artifact timestamps are accepted as epoch milliseconds through
+  `artifact_timestamp_ms`, `artifact_timestamp`, `synced_at`, or `created_at`
+- only artifacts within 24 hours are fresh
+- stale, missing, or future timestamps hide the preview or map to rollback
+- clear events cover new input, navigation away, toggle OFF, failure/rollback,
+  and app restart
+- refresh re-reads artifact metadata only and reapplies the mapper when fresh
+- refresh records `runsNpu=false`, `initializesEngine=false`, and
+  `runsDecode=false`
+- DB, TTS, Markdown, streaming, and selected-path persistence remain
+  disconnected
+
 ## Disabled Blocked Branch
 
 The insertion point now has a disabled blocked branch:

@@ -53,6 +53,10 @@ record all of the following:
 - `streaming=false`
 - standard route disconnection regression test passes
 - staged binary check passes
+- artifact metadata timestamp is fresh:
+  `artifact_timestamp_ms`, `artifact_timestamp`, `synced_at`, or `created_at`
+  within 24 hours
+- missing, future, or stale artifact metadata is rejected before display
 
 Raw native output may be classified as `template_artifact` only as diagnostic
 evidence. That raw artifact is acceptable only when the sanitized display output
@@ -74,6 +78,8 @@ Promotion remains blocked by any of the following:
 - standard or normal UI route is connected
 - generic or QCS8275 model is selected for NPU
 - stale artifact is used as the basis for promotion
+- `stale_or_unknown` or `stale_or_invalid` artifact timestamp is used as the
+  basis for promotion
 
 ## Standard Route Boundary
 
@@ -120,6 +126,9 @@ The current supporting docs already cover the main pieces:
   The second code step maps artifact key-value metadata into H1 input while
   discarding `raw_output`; gate mismatches become rollback/failure input before
   any ChatScreen connection.
+  The third code step fixes artifact freshness and clear/refresh state
+  transitions in pure Kotlin. Refresh is metadata-only and records no NPU,
+  engine, or decode execution flags.
 - `docs/litert_qairt244_npu_turn_stop_quality_compare.md` records the
   `sanitizer_only + max_output_tokens=128` adoption, raw/sanitized output
   policy, and native stop API limitation.
