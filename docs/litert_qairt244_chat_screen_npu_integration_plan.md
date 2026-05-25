@@ -576,3 +576,17 @@ The follow-up static investigation is recorded at
 `artifacts/qairt244_npu_stop_api_investigation/20260525_214513/`. It found no
 public Android/JNI per-run stop sequence, stop token, EOS, or `<end_of_turn>`
 API for this qairt244 path, so no native stop comparison is implemented.
+
+## NPU Hidden-To-UI Handoff Plan - 2026-05-25
+
+The next pre-promotion design is documented in
+`docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md`. It keeps
+`sanitizer_only + max_output_tokens=128` as the required baseline and does not
+implement normal UI promotion.
+
+The first eligible handoff phase is H1 transient preview only: display
+`sanitized_output` in a DEV-only transient UI surface, keep `raw_output` in
+artifacts only, and keep DB, TTS, Markdown, streaming, selected-path NPU
+persistence, and standard route connection disabled. Later phases evaluate
+assistant-style temporary display, DB persistence, and TTS/Markdown/streaming
+as separate gates.

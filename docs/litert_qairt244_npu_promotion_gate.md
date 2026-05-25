@@ -106,6 +106,10 @@ release-facing handoff:
 
 The current supporting docs already cover the main pieces:
 
+- `docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md` defines the staged
+  hidden-to-UI handoff. The first allowed UI candidate is Phase H1 transient
+  preview only: sanitized output display, no DB, no TTS, no Markdown, no
+  streaming, no selected-path NPU persistence, and no standard route connection.
 - `docs/litert_qairt244_npu_turn_stop_quality_compare.md` records the
   `sanitizer_only + max_output_tokens=128` adoption, raw/sanitized output
   policy, and native stop API limitation.
