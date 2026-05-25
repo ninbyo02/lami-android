@@ -299,3 +299,22 @@ This confirms H1 remains a transient Diagnostic-only surface. No normal
 ChatScreen route, assistant-message insertion, DB, TTS, Markdown, streaming,
 selected-path persistence, retry/fallback, `Engine.initialize`, `RunDecode`, or
 additional NPU execution was introduced.
+
+## Phase H1 Compose Adapter Contract - 2026-05-26
+
+Before a Compose surface is implemented, H1 adds a contract-only adapter from
+the read-only card model to a Compose-facing model.
+
+The adapter keeps the handoff transient and non-persistent:
+
+- no ChatScreen connection
+- no assistant message list insertion
+- no DB persistence
+- no TTS
+- no Markdown
+- no streaming
+- no retry or fallback controls
+- hidden/rollback card states do not reach a visible Compose surface
+
+This is still Phase H1 pre-promotion work. It only fixes the data contract that a
+future Diagnostic-only Compose surface may consume.

@@ -736,3 +736,20 @@ The success baseline still renders sanitized output. Hidden captures keep
 `standard_route_connected=false`, `normal_ui_route_connected=false`, `db=false`,
 `tts=false`, `markdown=false`, `streaming=false`, `engine_initialize=false`, and
 `run_decode=false`.
+
+## Phase H1 Compose Adapter Contract - 2026-05-26
+
+`DevOnlyNpuPhaseH1ComposeAdapter` now defines the narrow model a future
+Diagnostic-only Compose surface may read.
+
+The adapter explicitly keeps H1 out of the normal conversation path:
+
+- `insertIntoAssistantList=false`
+- no DB persistence
+- no TTS
+- no Markdown rendering
+- no streaming
+- no retry/fallback buttons
+- hidden or rollback card states become `shouldShowSurface=false`
+
+No ChatScreen wiring or Compose UI component is introduced by this step.

@@ -1983,3 +1983,28 @@ The read-only card now has capture evidence for both visible and hidden states:
 The regression did not run NPU generation and did not call `Engine.initialize`
 or `RunDecode`. DB, TTS, Markdown, streaming, standard route, normal UI route,
 and selected-path NPU persistence all remain disconnected.
+
+## Phase H1 Compose Adapter Contract - 2026-05-26
+
+Added a contract-only adapter for future Diagnostic-only Compose display:
+
+```text
+DevOnlyNpuPhaseH1CardViewModel -> DevOnlyNpuPhaseH1ComposeModel
+```
+
+The adapter maps visible success cards to `shouldShowSurface=true` with sanitized
+body text only. Hidden and rollback cards map to `shouldShowSurface=false` and
+`body=null`.
+
+The contract fixes all side-effect and route flags to false:
+
+- assistant list insertion
+- DB persistence
+- TTS
+- Markdown
+- streaming
+- retry
+- fallback
+
+No ChatScreen connection, Compose UI implementation, NPU execution, native
+change, release/standard change, or selected-path persistence is included.

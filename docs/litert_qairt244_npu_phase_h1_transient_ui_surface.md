@@ -629,3 +629,31 @@ All captures keep `selectedPathNpuSaved=false`, `standard_route_connected=false`
 `normal_ui_route_connected=false`, `db=false`, `tts=false`, `markdown=false`,
 `streaming=false`, `npu_generation=false`, `engine_initialize=false`, and
 `run_decode=false`.
+
+## Compose Adapter Contract - 2026-05-26
+
+`DevOnlyNpuPhaseH1ComposeAdapter` defines the next pre-UI boundary:
+
+```text
+DevOnlyNpuPhaseH1CardViewModel
+  -> DevOnlyNpuPhaseH1ComposeModel
+```
+
+The adapter is a contract only. It does not implement a Compose component and
+does not connect to ChatScreen.
+
+Contract:
+
+- `card.visible=true` maps to `shouldShowSurface=true`
+- `card.visible=false` maps to `shouldShowSurface=false` and `body=null`
+- body contains sanitized output only
+- `insertIntoAssistantList=false`
+- `persistToDb=false`
+- `speakTts=false`
+- `renderMarkdown=false`
+- `stream=false`
+- `showRetryButton=false`
+- `showFallbackButton=false`
+
+The unit tests verify raw output, `<start_of_turn>`, and `<end_of_turn>` do not
+appear in the Compose model or contract text.

@@ -243,3 +243,21 @@ The card display gate now has connected-device regression evidence:
 
 The evidence confirms raw output and template tokens are not displayed in the
 hidden cases, and all side-effect flags remain false.
+
+## Compose Adapter Gate Contract - 2026-05-26
+
+The H1 Compose adapter contract adds another pre-promotion guard between the
+Diagnostic card model and any future Compose surface.
+
+Required adapter outputs:
+
+- `shouldShowSurface=true` only for visible success card models
+- `shouldShowSurface=false` for hidden and rollback card models
+- `insertIntoAssistantList=false`
+- `persistToDb=false`
+- `speakTts=false`
+- `renderMarkdown=false`
+- `stream=false`
+- retry/fallback buttons false
+
+This contract is unit-tested and does not connect to ChatScreen or normal UI.
