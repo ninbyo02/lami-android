@@ -110,6 +110,10 @@ The current supporting docs already cover the main pieces:
   hidden-to-UI handoff. The first allowed UI candidate is Phase H1 transient
   preview only: sanitized output display, no DB, no TTS, no Markdown, no
   streaming, no selected-path NPU persistence, and no standard route connection.
+- `docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md` defines the Phase
+  H1 surface: DEV-only transient card/banner/snackbar, `sanitized_output` only,
+  raw output artifact-only, clear on input/navigation/toggle-off/failure/app
+  restart/stale artifact, and no retry or auto fallback on failure.
 - `docs/litert_qairt244_npu_turn_stop_quality_compare.md` records the
   `sanitizer_only + max_output_tokens=128` adoption, raw/sanitized output
   policy, and native stop API limitation.

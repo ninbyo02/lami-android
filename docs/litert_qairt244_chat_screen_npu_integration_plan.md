@@ -590,3 +590,11 @@ artifacts only, and keep DB, TTS, Markdown, streaming, selected-path NPU
 persistence, and standard route connection disabled. Later phases evaluate
 assistant-style temporary display, DB persistence, and TTS/Markdown/streaming
 as separate gates.
+
+Phase H1 surface details are fixed in
+`docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md`: ChatScreen may use
+only a DEV-only transient card/banner/snackbar, outside the assistant message
+list, with `sanitized_output`, status, `reasonCode`, `decode_ms`, short backend
+evidence, `maxOutputTokens=128`, and short artifact path. It clears on new
+input, navigation away, toggle OFF, failure/rollback, app restart, or stale
+artifact; refresh may reread artifact metadata only.

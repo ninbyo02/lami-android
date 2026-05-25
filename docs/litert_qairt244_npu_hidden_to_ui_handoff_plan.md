@@ -47,6 +47,8 @@ artifacts only.
 First allowed UI handoff candidate. ChatScreen may show only a DEV-only
 transient preview, such as a guarded card, banner, or snackbar.
 
+- detailed surface spec:
+  `docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md`
 - display `sanitized_output` only
 - keep `raw_output` in artifacts only
 - no DB persistence
