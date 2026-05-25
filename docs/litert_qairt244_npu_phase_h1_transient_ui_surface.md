@@ -189,6 +189,32 @@ Before Phase H1 code work starts:
 - DB, TTS, Markdown, and streaming remain separate gates
 - no native stop API dependency is introduced
 
+## State Test Baseline - 2026-05-25
+
+The first implementation step is limited to state/display-model/presenter tests.
+It does not connect ChatScreen, does not run NPU, and does not promote the
+standard route.
+
+The H1 test baseline fixes these code-level rules:
+
+- success with non-empty sanitized output maps to `visible=true`
+- `devLabel=DEV NPU transient preview`
+- `outputPreview` is populated only from `sanitizedOutput`
+- `rawOutput` is accepted only as input evidence and is not copied into UI
+  state
+- failure maps to reason-only display with `outputPreview=null`
+- rollback/gate failure maps to warning/error state with `outputPreview=null`
+- empty sanitized output is hidden rollback
+- standard route connection blocks preview
+- side-effect flags are always false:
+  `shouldPersistToDb=false`, `shouldSpeakTts=false`,
+  `shouldRenderMarkdown=false`, `shouldStream=false`
+- `maxOutputTokens=128`, short backend evidence, decode time, and short
+  artifact path are display metadata only
+
+This test layer is the implementation precondition for any later ChatScreen
+transient surface wiring.
+
 ## Non-Goals
 
 - no normal UI promotion

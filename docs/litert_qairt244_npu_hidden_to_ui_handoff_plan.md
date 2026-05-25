@@ -62,6 +62,11 @@ transient preview, such as a guarded card, banner, or snackbar.
 
 Phase H1 must be blocked unless the promotion gate in this document passes.
 
+The first Phase H1 code step is state/display-model/presenter test coverage
+only. It fixes sanitized-output-only display, raw-output exclusion,
+reason-only failure display, rollback hiding, and side-effect flags remaining
+false before any ChatScreen connection is attempted.
+
 ### Phase H2: Assistant-Message-Style Temporary Display
 
 Second candidate after Phase H1 proves stable. The sanitized output may be

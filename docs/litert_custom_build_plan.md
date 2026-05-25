@@ -1809,3 +1809,9 @@ list, with `sanitized_output`, status, `reasonCode`, `decode_ms`, short backend
 evidence, `maxOutputTokens=128`, and short artifact path. It clears on new
 input, navigation away, toggle OFF, failure/rollback, app restart, or stale
 artifact; refresh may reread artifact metadata only.
+
+Before ChatScreen wiring, Phase H1 is limited to state/display-model/presenter
+tests. Those tests must prove sanitized-output-only display, raw-output
+exclusion, reason-only failure display, rollback hiding, and
+`shouldPersistToDb=false`, `shouldSpeakTts=false`,
+`shouldRenderMarkdown=false`, `shouldStream=false`.
