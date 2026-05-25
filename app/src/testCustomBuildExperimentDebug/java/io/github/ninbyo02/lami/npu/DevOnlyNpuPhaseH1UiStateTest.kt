@@ -23,16 +23,11 @@ class DevOnlyNpuPhaseH1UiStateTest {
 
     @Test
     fun `raw output is not exposed in ui state`() {
-        val rawOutput = "<start_of_turn>model\nraw artifact\n<end_of_turn>"
         val state = DevOnlyNpuPhaseH1Presenter.present(
-            input(
-                sanitizedOutput = "何かご用でしょうか？",
-                rawOutput = rawOutput,
-            ),
+            input(sanitizedOutput = "何かご用でしょうか？"),
         )
 
         assertEquals("何かご用でしょうか？", state.outputPreview)
-        assertFalse(state.toString().contains(rawOutput))
         assertFalse(state.toString().contains("raw artifact"))
         assertFalse(state.toString().contains("<end_of_turn>"))
     }
@@ -84,7 +79,7 @@ class DevOnlyNpuPhaseH1UiStateTest {
         assertTrue(state.rollback)
         assertEquals(DevOnlyNpuPhaseH1UiState.Status.ROLLBACK, state.status)
         assertNull(state.outputPreview)
-        assertEquals("rollback", state.reasonCode)
+        assertEquals("rollback_requested", state.reasonCode)
         assertTransientOnly(state)
     }
 
@@ -140,7 +135,6 @@ class DevOnlyNpuPhaseH1UiStateTest {
     private fun input(
         success: Boolean = true,
         sanitizedOutput: String? = "何かご用でしょうか？",
-        rawOutput: String? = "<end_of_turn>raw",
         reasonCode: String = "success",
         decodeMs: Long? = 10L,
         backendEvidence: String? = "QNN_HTP_V79_FastRPC_native_diag",
@@ -162,7 +156,6 @@ class DevOnlyNpuPhaseH1UiStateTest {
         DevOnlyNpuPhaseH1UiInput(
             success = success,
             sanitizedOutput = sanitizedOutput,
-            rawOutput = rawOutput,
             reasonCode = reasonCode,
             decodeMs = decodeMs,
             backendEvidence = backendEvidence,

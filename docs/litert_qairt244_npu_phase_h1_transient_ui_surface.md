@@ -215,6 +215,34 @@ The H1 test baseline fixes these code-level rules:
 This test layer is the implementation precondition for any later ChatScreen
 transient surface wiring.
 
+## Artifact Mapper Baseline - 2026-05-25
+
+The second implementation step maps artifact result key-value metadata into
+`DevOnlyNpuPhaseH1UiInput`. It still does not connect ChatScreen, run NPU,
+call `Engine.initialize`, call `RunDecode`, or promote the standard route.
+
+Mapper rules:
+
+- accept `Map<String, String>` or key-value text
+- read `sanitized_output` as the only displayable model text
+- read `raw_output` only as artifact evidence and discard it before UI input
+- require `result=success` for success input
+- require `quality_classification=natural_japanese`
+- require `npu_backend=NPU`
+- require `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- require `fallback_used=false`, `timeout=false`, `fresh_crash=false`
+- require `selected_path_npu_saved=false`
+- require `standard_route_connected=false` and `normal_ui_route_connected=false`
+- require `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+- require `max_output_tokens=128`
+
+Gate failures map to rollback input with `outputPreview=null` after presenter
+mapping. Failure results map to reason-only failure display. The mapper tests
+cover empty sanitized output, template residue after sanitize, fallback,
+timeout, fresh crash, standard route connection, DB ingress, missing NPU
+evidence, max-output display, decode-ms display, and short artifact-path
+display.
+
 ## Non-Goals
 
 - no normal UI promotion

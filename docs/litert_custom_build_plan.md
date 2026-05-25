@@ -1815,3 +1815,8 @@ tests. Those tests must prove sanitized-output-only display, raw-output
 exclusion, reason-only failure display, rollback hiding, and
 `shouldPersistToDb=false`, `shouldSpeakTts=false`,
 `shouldRenderMarkdown=false`, `shouldStream=false`.
+
+The artifact metadata mapper is also tested before ChatScreen wiring. It reads
+hidden result key-value metadata, maps only `sanitized_output` into H1 UI input,
+discards `raw_output`, and turns promotion-gate mismatches into
+rollback/failure input.

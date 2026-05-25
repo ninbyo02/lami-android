@@ -3,7 +3,6 @@ package io.github.ninbyo02.lami.npu
 data class DevOnlyNpuPhaseH1UiInput(
     val success: Boolean,
     val sanitizedOutput: String?,
-    val rawOutput: String?,
     val reasonCode: String,
     val decodeMs: Long?,
     val backendEvidence: String?,
@@ -91,7 +90,7 @@ object DevOnlyNpuPhaseH1Presenter {
     private fun gateFailureReason(input: DevOnlyNpuPhaseH1UiInput): String? {
         val sanitizedOutput = input.sanitizedOutput?.trim().orEmpty()
         return when {
-            input.rollback -> "rollback"
+            input.rollback -> input.reasonCode.ifBlank { "rollback" }
             !input.artifactFresh -> "stale_artifact"
             input.fallbackUsed -> "fallback_used"
             input.timeout -> "timeout"

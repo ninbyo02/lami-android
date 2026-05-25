@@ -117,6 +117,9 @@ The current supporting docs already cover the main pieces:
   The first code step is state/display-model/presenter tests only; ChatScreen
   remains disconnected until those tests pin raw-output exclusion and
   side-effect flags false.
+  The second code step maps artifact key-value metadata into H1 input while
+  discarding `raw_output`; gate mismatches become rollback/failure input before
+  any ChatScreen connection.
 - `docs/litert_qairt244_npu_turn_stop_quality_compare.md` records the
   `sanitizer_only + max_output_tokens=128` adoption, raw/sanitized output
   policy, and native stop API limitation.

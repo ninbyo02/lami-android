@@ -67,6 +67,11 @@ only. It fixes sanitized-output-only display, raw-output exclusion,
 reason-only failure display, rollback hiding, and side-effect flags remaining
 false before any ChatScreen connection is attempted.
 
+The second Phase H1 code step is artifact metadata mapper test coverage only.
+It converts hidden result key-value metadata into `DevOnlyNpuPhaseH1UiInput`,
+keeps `raw_output` out of UI input, and converts promotion-gate mismatches into
+rollback/failure input before any ChatScreen connection is attempted.
+
 ### Phase H2: Assistant-Message-Style Temporary Display
 
 Second candidate after Phase H1 proves stable. The sanitized output may be
