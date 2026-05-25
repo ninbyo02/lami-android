@@ -261,3 +261,20 @@ Required adapter outputs:
 - retry/fallback buttons false
 
 This contract is unit-tested and does not connect to ChatScreen or normal UI.
+
+## Diagnostic Host Gate Contract - 2026-05-26
+
+`DevOnlyNpuPhaseH1PreviewHostState` adds a host-level gate after the Compose
+adapter contract.
+
+Promotion-relevant guarantees:
+
+- success only: `visible=true`, `showCard=true`
+- stale/rollback/hidden/toggle false: `visible=false`, `showCard=false`
+- assistant insertion remains false
+- DB/TTS/Markdown/streaming remain false
+- retry/fallback remain false
+- metadata read remains false at host level
+- NPU run, `Engine.initialize`, and `RunDecode` remain false at host level
+
+This is still Diagnostic-only and is not a normal UI promotion.

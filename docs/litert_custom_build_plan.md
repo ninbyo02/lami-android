@@ -2008,3 +2008,19 @@ The contract fixes all side-effect and route flags to false:
 
 No ChatScreen connection, Compose UI implementation, NPU execution, native
 change, release/standard change, or selected-path persistence is included.
+
+## Phase H1 Diagnostic Preview Host Contract - 2026-05-26
+
+Added a contract-only host state for the Diagnostic preview:
+
+```text
+DevOnlyNpuPhaseH1ComposeModel -> DevOnlyNpuPhaseH1PreviewHostState
+```
+
+The host renders text only for visible success models and hides stale, rollback,
+hidden, and toggle-false models. It does not read metadata, run NPU, initialize
+the engine, decode, insert assistant messages, persist DB records, speak TTS,
+render Markdown, stream, retry, or fallback.
+
+This remains a debug/customBuildExperiment contract test layer only. It does not
+connect ChatScreen or implement the formal Compose UI surface.

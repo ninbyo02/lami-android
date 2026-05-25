@@ -753,3 +753,18 @@ The adapter explicitly keeps H1 out of the normal conversation path:
 - hidden or rollback card states become `shouldShowSurface=false`
 
 No ChatScreen wiring or Compose UI component is introduced by this step.
+
+## Phase H1 Diagnostic Preview Host Contract - 2026-05-26
+
+The H1 Diagnostic preview host contract fixes the final data shape before any
+future UI surface:
+
+- `DevOnlyNpuPhaseH1ComposeModel -> DevOnlyNpuPhaseH1PreviewHostState`
+- success produces read-only render text
+- stale/rollback/hidden/toggle false produce hidden host state
+- host never exposes assistant insertion
+- host never exposes DB/TTS/Markdown/streaming actions
+- host never exposes run/retry/fallback actions
+
+No ChatScreen normal route, assistant message list insertion, or Compose UI
+implementation is added by this contract.

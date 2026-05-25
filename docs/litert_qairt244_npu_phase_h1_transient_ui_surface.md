@@ -657,3 +657,36 @@ Contract:
 
 The unit tests verify raw output, `<start_of_turn>`, and `<end_of_turn>` do not
 appear in the Compose model or contract text.
+
+## Diagnostic Preview Host Contract - 2026-05-26
+
+`DevOnlyNpuPhaseH1PreviewHost` defines the last pre-ChatScreen boundary:
+
+```text
+DevOnlyNpuPhaseH1ComposeModel
+  -> DevOnlyNpuPhaseH1PreviewHostState
+```
+
+The host is Diagnostic-only and contract-only. It does not implement a formal
+Compose UI and does not connect to ChatScreen.
+
+Host contract:
+
+- success compose model maps to `visible=true`, `showCard=true`, and non-empty
+  renderer text
+- hidden, stale, rollback, and toggle-false models map to `visible=false`,
+  `showCard=false`, and empty renderer text
+- `showAssistantInsertion=false`
+- `showDbPersistence=false`
+- `showTts=false`
+- `showMarkdown=false`
+- `showStreaming=false`
+- `showRetry=false`
+- `showFallback=false`
+- `readsMetadata=false`
+- `runsNpu=false`
+- `engineInitialize=false`
+- `runDecode=false`
+
+The host render text is sanitized preview output only. It does not contain raw
+output or turn template tokens.

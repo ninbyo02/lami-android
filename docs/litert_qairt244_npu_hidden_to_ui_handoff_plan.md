@@ -318,3 +318,25 @@ The adapter keeps the handoff transient and non-persistent:
 
 This is still Phase H1 pre-promotion work. It only fixes the data contract that a
 future Diagnostic-only Compose surface may consume.
+
+## Phase H1 Diagnostic Preview Host Contract - 2026-05-26
+
+The final pre-ChatScreen H1 boundary is a Diagnostic-only preview host contract.
+It consumes the Compose-facing model and produces a host state with read-only
+renderer text.
+
+The host does not:
+
+- read metadata
+- run NPU
+- call `Engine.initialize`
+- call `RunDecode`
+- insert into the assistant message list
+- persist to DB
+- speak TTS
+- render Markdown
+- stream
+- expose retry/fallback controls
+
+Stale, rollback, hidden, and toggle-false states are hidden at host level before
+any future UI surface can render them.
