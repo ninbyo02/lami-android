@@ -1,0 +1,30 @@
+# Runtime Marker Scan
+
+artifact=artifacts/qairt244_phase_h1_readonly_card_wiring/20260526_071413
+package=io.github.ninbyo02.lami.customnpu
+activity=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity
+
+ui_capture=true
+readonly_card_visible=true
+dev_only_badge=true
+status_success=true
+sanitized_output_visible=true
+raw_output_visible=false
+start_of_turn_visible=false
+end_of_turn_visible=false
+
+selectedPathNpuSaved=false
+standard_route_connected=false
+normal_ui_route_connected=false
+db=false
+tts=false
+markdown=false
+streaming=false
+
+retry=false
+auto_fallback=false
+npu_generation=false
+engine_initialize=false
+run_decode=false
+
+evidence_source=window.xml + screenshot.png + rendered_preview.txt

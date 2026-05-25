@@ -572,3 +572,41 @@ captures the same Diagnostic-only wiring with the Phase H1 section visible:
 The capture remains read-only: no retry, no fallback, no DB, no TTS, no
 Markdown, no streaming, no selected-path NPU persistence, no `Engine.initialize`,
 no `RunDecode`, and no additional NPU execution.
+
+## Read-Only Card Wiring - 2026-05-26
+
+The next implementation step adds a dedicated read-only transient card to the
+Diagnostic H1 preview surface in `NpuDiagnosticChatActivity`.
+
+The card is still customBuildExperimentDebug-only and uses the existing H1 chain:
+
+```text
+artifact metadata text
+  -> DevOnlyNpuPhaseH1ArtifactMetadataParser
+  -> DevOnlyNpuPhaseH1UiState
+  -> DevOnlyNpuPhaseH1CardViewModel
+  -> DevOnlyNpuPhaseH1PreviewRenderer
+  -> Diagnostic read-only card
+```
+
+Card visibility is tied to the renderer result:
+
+- fresh, gate-passing metadata: card visible
+- rollback, hidden, stale, missing, or gate-failed metadata: card hidden
+- refresh: metadata reread only, no run/retry/fallback
+
+The card renders only:
+
+- `DEV ONLY`
+- `DEV NPU transient preview`
+- `Status: SUCCESS`
+- sanitized output
+- `decode_ms`
+- short backend evidence
+- `maxOutputTokens=128`
+- short artifact path
+- side-effect flags false
+
+The card does not render raw output, template tokens, model paths, selected-path
+details, retry controls, persist controls, TTS controls, Markdown controls, or a
+streaming indicator.

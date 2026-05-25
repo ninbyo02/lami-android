@@ -1,0 +1,36 @@
+# Grep Safety
+
+Positive window.xml checks:
+- DEV ONLY: present
+- DEV NPU transient preview: present
+- Status: SUCCESS: present
+- sanitized output: こんにちは！何かお手伝いできることはありますか？ present
+- maxOutputTokens=128: present
+- decode_ms=829: present
+- backendEvidence=QNN_HTP_V79_FastRPC: present
+- artifact=qairt244_npu_turn_stop_quality_compare/20260525_211810: present
+- selectedPathSaved=false: present
+- db=false: present
+- tts=false: present
+- markdown=false: present
+- streaming=false: present
+- selectedPathNpuSaved=false: present
+- standard_route_connected=false: present
+- normal_ui_route_connected=false: present
+- npu_generation=false: present
+- engine_initialize=false: present
+- run_decode=false: present
+
+Negative renderer/card checks:
+- raw_output: not present in renderer_output.txt or rendered_preview.txt
+- <end_of_turn>: not present in renderer_output.txt or rendered_preview.txt
+- <start_of_turn>: not present in renderer_output.txt or rendered_preview.txt
+- retry button: not added to read-only card
+- persist button: not added to read-only card
+- TTS button: not added to read-only card
+- Markdown button: not added to read-only card
+- streaming indicator: not added to read-only card
+
+Note:
+- metadata_input.txt intentionally preserves raw_output as artifact input evidence only.
+- The UI card and renderer output show sanitized_output only.

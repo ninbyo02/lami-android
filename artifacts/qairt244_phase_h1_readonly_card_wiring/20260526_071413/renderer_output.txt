@@ -1,0 +1,16 @@
+DEV ONLY - DEV NPU transient preview
+Status: SUCCESS
+Read-only sanitized output
+Output:
+こんにちは！何かお手伝いできることはありますか？
+Reason: reasonCode=ok
+Details:
+- maxOutputTokens=128
+- decode_ms=829
+- backendEvidence=QNN_HTP_V79_FastRPC
+- artifact=qairt244_npu_turn_stop_quality_compare/20260525_211810
+- selectedPathSaved=false
+- db=false
+- tts=false
+- markdown=false
+- streaming=false

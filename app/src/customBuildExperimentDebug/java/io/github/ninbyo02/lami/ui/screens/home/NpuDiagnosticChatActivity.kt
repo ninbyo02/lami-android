@@ -1,6 +1,9 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import android.app.Activity
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -10,6 +13,7 @@ import android.text.InputFilter
 import android.text.InputType
 import android.text.TextWatcher
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
@@ -23,6 +27,7 @@ import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteAdapter
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteDisplayModelMapper
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteGateInput
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRoutePlanner
+import io.github.ninbyo02.lami.npu.DevOnlyNpuPhaseH1TransientPreviewWiringResult
 import io.github.ninbyo02.lami.npu.DevOnlyNpuPhaseH1TransientPreviewWiring
 import io.github.ninbyo02.lami.npu.DevOnlyNpuTransientPresenter
 import java.io.File
@@ -93,11 +98,17 @@ class NpuDiagnosticChatActivity : Activity() {
             ),
         )
         val plannerPreviewSummary = content.addSectionView("Planner Preview (blocked)", readPlannerPreviewSummary())
+        val initialPhaseH1Preview = renderPhaseH1TransientPreview(
+            enabled = phaseH1PreviewEnabled,
+            metadataFile = phaseH1MetadataFile,
+        )
+        val phaseH1ReadonlyCard = content.addPhaseH1ReadonlyCard(initialPhaseH1Preview)
         val phaseH1PreviewSummary = content.addSectionView(
-            "Phase H1 transient preview",
-            readPhaseH1TransientPreviewSummary(
+            "Phase H1 transient preview diagnostics",
+            phaseH1TransientPreviewSummaryLines(
                 enabled = phaseH1PreviewEnabled,
                 metadataFile = phaseH1MetadataFile,
+                result = initialPhaseH1Preview,
             ),
         )
 
@@ -193,9 +204,15 @@ class NpuDiagnosticChatActivity : Activity() {
                     nativeDiagSummary.text = readNativeDiagSummary(nativeDiagFile).joinToString("\n")
                     runnerSummary.text = readLatestRunnerSummary(latestRunnerSummaryFile).joinToString("\n")
                     plannerPreviewSummary.text = readPlannerPreviewSummary().joinToString("\n")
-                    phaseH1PreviewSummary.text = readPhaseH1TransientPreviewSummary(
+                    val refreshedPhaseH1Preview = renderPhaseH1TransientPreview(
                         enabled = phaseH1PreviewEnabled,
                         metadataFile = phaseH1MetadataFile,
+                    )
+                    phaseH1ReadonlyCard.bindPhaseH1ReadonlyCard(refreshedPhaseH1Preview)
+                    phaseH1PreviewSummary.text = phaseH1TransientPreviewSummaryLines(
+                        enabled = phaseH1PreviewEnabled,
+                        metadataFile = phaseH1MetadataFile,
+                        result = refreshedPhaseH1Preview,
                     ).joinToString("\n")
                     safetySummary.text = readRouteGuardSummary(
                         editablePromptPreviewAllowed,
@@ -647,21 +664,29 @@ class NpuDiagnosticChatActivity : Activity() {
         )
     }
 
-    private fun readPhaseH1TransientPreviewSummary(
+    private fun renderPhaseH1TransientPreview(
         enabled: Boolean,
         metadataFile: File,
-    ): List<String> {
+    ): DevOnlyNpuPhaseH1TransientPreviewWiringResult {
         val nowMs = System.currentTimeMillis()
-        val result = DevOnlyNpuPhaseH1TransientPreviewWiring.render(
+        return DevOnlyNpuPhaseH1TransientPreviewWiring.render(
             devEnableNpuChatScreenRoute = enabled,
             nowMs = nowMs,
             metadataTextProvider = { readPhaseH1MetadataText(metadataFile, nowMs) },
         )
+    }
+
+    private fun phaseH1TransientPreviewSummaryLines(
+        enabled: Boolean,
+        metadataFile: File,
+        result: DevOnlyNpuPhaseH1TransientPreviewWiringResult,
+    ): List<String> {
         return buildList {
             add("dev_enable_npu_chatscreen_route=$enabled")
             add("metadata_source=${if (metadataFile.isFile) "app_private_file" else "committed_baseline_artifact"}")
             add("metadata_read=${result.shouldReadMetadata}")
             add("preview_visible=${result.previewVisible}")
+            add("readonly_card_visible=${result.previewVisible}")
             add("renderer_line_count=${result.renderedLines.size}")
             add(result.reasonLabel)
             if (result.renderedLines.isNotEmpty()) {
@@ -809,4 +834,66 @@ class NpuDiagnosticChatActivity : Activity() {
                 line.substring(0, index) to line.substring(index + 1)
             }
             .toMap()
+
+    private fun LinearLayout.addPhaseH1ReadonlyCard(
+        result: DevOnlyNpuPhaseH1TransientPreviewWiringResult,
+    ): LinearLayout {
+        val card = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(28, 24, 28, 24)
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(250, 250, 250))
+                setStroke(2, Color.rgb(180, 180, 180))
+                cornerRadius = 10f
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                setMargins(0, 20, 0, 18)
+            }
+        }
+        addView(card)
+        card.bindPhaseH1ReadonlyCard(result)
+        return card
+    }
+
+    private fun LinearLayout.bindPhaseH1ReadonlyCard(
+        result: DevOnlyNpuPhaseH1TransientPreviewWiringResult,
+    ) {
+        removeAllViews()
+        visibility = if (result.previewVisible) View.VISIBLE else View.GONE
+        if (!result.previewVisible) return
+
+        addView(cardText("DEV ONLY", textSizeSp = 12f, bold = true))
+        addView(cardText("DEV NPU transient preview", textSizeSp = 20f, bold = true))
+        result.renderedLines
+            .dropWhile { line -> line == "DEV ONLY - DEV NPU transient preview" }
+            .forEach { line ->
+                addView(
+                    cardText(
+                        text = line,
+                        textSizeSp = when {
+                            line == "Output:" || line == "Details:" -> 15f
+                            line.startsWith("Status:") -> 15f
+                            else -> 14f
+                        },
+                        bold = line == "Output:" || line == "Details:" || line.startsWith("Status:"),
+                    ),
+                )
+            }
+    }
+
+    private fun cardText(
+        text: String,
+        textSizeSp: Float,
+        bold: Boolean = false,
+    ): TextView =
+        TextView(this).apply {
+            this.text = text
+            textSize = textSizeSp
+            setTextColor(Color.rgb(60, 60, 60))
+            if (bold) typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, 2, 0, 4)
+        }
 }

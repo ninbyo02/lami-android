@@ -262,3 +262,25 @@ any normal ChatScreen handoff:
 
 This remains Phase H1 Diagnostic-only evidence. It does not advance to
 assistant-message display, DB persistence, TTS, Markdown, or streaming.
+
+## Phase H1 Read-Only Card Wiring - 2026-05-26
+
+Phase H1 now has a dedicated read-only transient card in the Diagnostic/DEV
+screen. This is still not a normal ChatScreen handoff.
+
+The card uses fresh artifact metadata and the existing mapper/presenter/renderer
+chain. It is visible only when the H1 gate passes and renders sanitized output
+only. Rollback, stale, hidden, or gate-failed metadata hides the card.
+
+The wiring keeps these boundaries:
+
+- no assistant message list insertion
+- no DB persistence
+- no TTS
+- no Markdown
+- no streaming
+- no selected-path NPU persistence
+- no retry or fallback control
+- no `Engine.initialize`
+- no `RunDecode`
+- no additional NPU execution

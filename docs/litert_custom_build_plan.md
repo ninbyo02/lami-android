@@ -1944,3 +1944,26 @@ the Phase H1 section in `NpuDiagnosticChatActivity` with:
 
 No code implementation, NPU execution, native change, model change, or normal
 ChatScreen promotion was performed for this capture supplement.
+
+## Phase H1 Read-Only Transient Card - 2026-05-26
+
+`NpuDiagnosticChatActivity` now renders the H1 transient preview through a
+dedicated read-only card in customBuildExperimentDebug.
+
+The card is visible only for fresh, gate-passing metadata and remains hidden for
+rollback, stale, hidden, or gate-failed results. It displays only the renderer
+output:
+
+- `DEV ONLY`
+- `DEV NPU transient preview`
+- `Status: SUCCESS`
+- sanitized natural Japanese output
+- `maxOutputTokens=128`
+- `decode_ms`
+- short backend evidence
+- short artifact path
+- side-effect flags false
+
+No normal ChatScreen route, assistant message list, DB, TTS, Markdown,
+streaming, selected-path NPU persistence, retry, fallback, `Engine.initialize`,
+`RunDecode`, or additional NPU execution is introduced.

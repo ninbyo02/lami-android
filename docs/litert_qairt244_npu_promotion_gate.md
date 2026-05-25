@@ -202,3 +202,25 @@ The UI capture passes the pre-promotion H1 display checks:
 This evidence is not a normal UI promotion and is not a replacement for a fresh
 future promotion run. It only closes the missing representative screenshot/window
 gap for the already implemented Diagnostic-only H1 wiring.
+
+## Phase H1 Read-Only Card Evidence - 2026-05-26
+
+`NpuDiagnosticChatActivity` now uses the existing H1 metadata gate to show a
+dedicated read-only card instead of relying only on a plain diagnostics text
+section.
+
+The card is eligible for display only when:
+
+- metadata is fresh
+- sanitizer baseline metadata passes
+- renderer returns visible lines
+- sanitized output is natural Japanese
+- raw output and template tokens are excluded
+- standard and normal UI route flags remain false
+- DB/TTS/Markdown/streaming flags remain false
+- `npu_generation=false`
+- `engine_initialize=false`
+- `run_decode=false`
+
+This still does not satisfy normal UI promotion by itself. It is a
+pre-promotion Diagnostic-only surface check.

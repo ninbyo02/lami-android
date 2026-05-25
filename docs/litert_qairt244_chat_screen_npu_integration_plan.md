@@ -709,3 +709,16 @@ records the Diagnostic-only UI evidence for the existing wiring:
 No ChatScreen assistant message insertion, DB write, TTS, Markdown, streaming,
 retry, fallback, or selected-path NPU persistence is introduced by this capture
 pass.
+
+## Phase H1 Read-Only Card Wiring - 2026-05-26
+
+The Diagnostic/DEV screen now contains a dedicated read-only transient card for
+the H1 preview. The normal ChatScreen conversation route remains disconnected.
+
+The card consumes the same H1 renderer output already covered by tests and
+artifact capture. It displays sanitized output and safety metadata only. It does
+not insert an assistant message, does not call the standard route, does not save
+to DB, does not speak TTS, does not render Markdown, and does not stream.
+
+Rollback, stale, hidden, or gate-failed metadata hides the card and does not
+offer retry, fallback, or rerun controls.
