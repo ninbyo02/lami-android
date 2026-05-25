@@ -249,6 +249,20 @@ artifact metadata freshness and transient preview transitions:
 - DB, TTS, Markdown, streaming, and selected-path persistence remain
   disconnected
 
+The Phase H1 metadata boundary now fixes the future ChatScreen read contract:
+
+- read only artifact key-value text, maps, or already-read file content
+- require the minimum metadata fields documented in
+  `docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md`
+- drop `raw_output`, model path, token dumps, full native diagnostics, and
+  unknown keys before UI input
+- reject missing required fields, invalid booleans, and invalid numbers as
+  rollback input
+- use the last value for duplicate keys
+- when `dev_enable_npu_chatscreen_route=false`, do not read or parse metadata
+- when true, still require fresh artifact metadata and promotion gate pass
+- no run, retry, fallback, `Engine.initialize`, or `RunDecode` is attached
+
 ## Disabled Blocked Branch
 
 The insertion point now has a disabled blocked branch:

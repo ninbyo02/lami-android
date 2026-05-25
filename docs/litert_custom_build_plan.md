@@ -374,6 +374,22 @@ Updated next recommendation:
   `stale_or_invalid`, and older artifacts are `stale_artifact`.
 - Refresh is metadata-only and may reapply the mapper only for fresh artifacts;
   it explicitly does not run NPU, initialize an engine, or run decode.
+
+2026-05-26 Phase H1 artifact metadata boundary update:
+
+- The future transient UI wiring has a pure Kotlin input boundary for artifact
+  key-value text, maps, and already-read file content.
+- The boundary keeps only minimum gate/display fields and drops `raw_output`,
+  model paths, token dumps, full native diagnostics, and unknown keys before UI
+  input.
+- Missing required fields, invalid booleans, and invalid numbers become
+  rollback input before mapper/freshness handoff.
+- Duplicate keys are fixed as last-value-wins.
+- `dev_enable_npu_chatscreen_route=false` means metadata is not read and not
+  parsed. `true` still requires fresh artifact metadata and the full H1 gate.
+- No ChatScreen connection, NPU run, engine initialize, decode, retry,
+  fallback, DB, TTS, Markdown, streaming, standard route connection, or
+  selected-path persistence is introduced by this boundary.
 - Still no high-level `generateResponse`, no `Conversation`, and no normal UI
   NPU connection.
 

@@ -81,6 +81,14 @@ restart. Refresh is artifact metadata re-read only; it does not run NPU,
 initialize an engine, run decode, retry, fallback, persist DB rows, call TTS,
 render Markdown, or stream.
 
+The fourth Phase H1 code step is the artifact metadata input boundary. It
+accepts key-value text, maps, or already-read file content; retains only the
+minimum display/gate fields; drops `raw_output`, model paths, token dumps, full
+native diagnostics, and unknown keys; validates boolean and numeric fields
+before mapper handoff; and fixes duplicate key behavior as last-value-wins.
+If `dev_enable_npu_chatscreen_route=false`, future ChatScreen wiring must not
+read or parse metadata at all.
+
 ### Phase H2: Assistant-Message-Style Temporary Display
 
 Second candidate after Phase H1 proves stable. The sanitized output may be
@@ -143,6 +151,9 @@ Every accepted handoff candidate must satisfy all of the following:
 - staged binary check passes
 - latest baseline artifact timestamp is fresh; stale, missing, or future
   metadata cannot be used as handoff evidence
+- artifact metadata input boundary passes: minimum fields present, booleans and
+  numbers valid, `raw_output` not propagated, and DEV toggle false blocks
+  metadata read/parse
 
 Raw native output may contain `template_artifact` only as diagnostic evidence.
 It is acceptable only when the displayed sanitized output remains meaningful

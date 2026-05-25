@@ -281,6 +281,62 @@ Refresh remains metadata-only:
 - no auto fallback
 - no DB, TTS, Markdown, or streaming handoff
 
+## Artifact Metadata Input Boundary - 2026-05-26
+
+The fourth implementation step fixes the metadata input boundary before any
+ChatScreen connection. The boundary accepts key-value text, `Map<String,
+String>`, or already-read file content, then emits only validated H1 metadata
+and `DevOnlyNpuPhaseH1UiInput`.
+
+Minimum accepted fields:
+
+- `artifact_timestamp_ms`
+- `result`
+- `sanitized_output`
+- `quality_classification`
+- `npu_backend`
+- `npu_backend_evidence`
+- `fallback_used`
+- `timeout`
+- `fresh_crash`
+- `selected_path_npu_saved`
+- `standard_route_connected`
+- `normal_ui_route_connected`
+- `db`
+- `tts`
+- `markdown`
+- `streaming`
+- `decode_ms`
+- `max_output_tokens`
+- `artifact_path`
+
+Boundary exclusions:
+
+- `raw_output` is not retained by boundary metadata and is not copied into UI
+  input
+- model path, token dumps, full native diagnostics, and unknown keys are not
+  retained for UI display
+- `selectedPath=npu` is never saved by this boundary
+
+Parser rules:
+
+- blank lines and `#` comment lines are ignored
+- unknown keys are ignored
+- duplicate keys use the last value
+- missing required fields produce rollback input
+- invalid boolean values produce rollback input
+- invalid numeric values produce rollback input
+- valid metadata is then passed through freshness and mapper gates
+
+DEV toggle wiring rule:
+
+- `dev_enable_npu_chatscreen_route=false` means do not read metadata and do
+  not parse metadata
+- `true` still requires fresh artifact metadata and all promotion gates before
+  the transient preview can be visible
+- refresh remains metadata re-read only, with no run, retry, fallback,
+  `Engine.initialize`, or `RunDecode`
+
 ## Non-Goals
 
 - no normal UI promotion

@@ -57,6 +57,11 @@ record all of the following:
   `artifact_timestamp_ms`, `artifact_timestamp`, `synced_at`, or `created_at`
   within 24 hours
 - missing, future, or stale artifact metadata is rejected before display
+- artifact metadata boundary validation passes before mapper/freshness handoff:
+  all minimum fields are present, boolean and numeric fields parse cleanly,
+  unknown keys are ignored, duplicate keys use the last value, and `raw_output`
+  is not propagated into UI input
+- `dev_enable_npu_chatscreen_route=false` blocks metadata read and parse
 
 Raw native output may be classified as `template_artifact` only as diagnostic
 evidence. That raw artifact is acceptable only when the sanitized display output
@@ -129,6 +134,9 @@ The current supporting docs already cover the main pieces:
   The third code step fixes artifact freshness and clear/refresh state
   transitions in pure Kotlin. Refresh is metadata-only and records no NPU,
   engine, or decode execution flags.
+  The fourth code step fixes the metadata input boundary: key-value text,
+  `Map<String, String>`, and file-content text converge into validated metadata
+  while raw/native-only fields are dropped before UI input.
 - `docs/litert_qairt244_npu_turn_stop_quality_compare.md` records the
   `sanitizer_only + max_output_tokens=128` adoption, raw/sanitized output
   policy, and native stop API limitation.
