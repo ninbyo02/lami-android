@@ -184,3 +184,23 @@ Raw native `template_artifact` remains acceptable only as diagnostic evidence;
 the displayed sanitized output must be natural Japanese. Native stop sequence /
 native turn-stop is not required for this provisional baseline. Standard route
 non-connection is covered by `DevOnlyNpuChatScreenBlockedBranchTest`.
+
+## Stop API Investigation - 2026-05-25
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_stop_api_investigation/20260525_214513/
+```
+
+Result: keep `sanitizer_only + max_output_tokens=128`; do not implement native
+stop sequence comparison now.
+
+The static investigation found no public Android/JNI per-run API for stop
+sequence, stop token, EOS, or `<end_of_turn>`. Internal metadata/session stop
+token IDs exist, and sampler config exposes topK/topP/temperature/seed at
+session creation, but the qairt244 editable native entrypoint exposes only
+`DecodeConfig.SetMaxOutputTokens(...)` for the comparison path. No repetition
+penalty API was found. Therefore `stop_sequence_end_of_turn` remains
+`not_run/native_stop_not_exposed`, and no additional NPU execution is required
+for this pass.

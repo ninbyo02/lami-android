@@ -1,0 +1,20 @@
+LiteRT-LM:
+M WORKSPACE
+M kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+?? artifacts/
+
+LiteRT:
+ M litert/build_common/litert_build_defs.bzl
+ M litert/cc/internal/litert_shared_library.cc
+ M litert/runtime/dispatch/BUILD
+ M litert/runtime/dispatch/dispatch_delegate.cc
+ M litert/runtime/dispatch/litert_dispatch.cc
+ M litert/vendors/qualcomm/BUILD
+ M litert/vendors/qualcomm/core/backends/htp_backend.cc
+ M litert/vendors/qualcomm/core/backends/qnn_backend.cc
+ M litert/vendors/qualcomm/dispatch/BUILD
+ M litert/vendors/qualcomm/dispatch/dispatch_api.cc
+ M litert/vendors/qualcomm/qnn_manager.cc
+
+No external native file was edited by this stop API investigation task.
+No external_native_diff.patch is recorded for this task.

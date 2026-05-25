@@ -1341,3 +1341,8 @@ Raw native `template_artifact` remains acceptable only as diagnostic evidence;
 the displayed sanitized output must be natural Japanese. Native stop sequence /
 native turn-stop is not required for this provisional baseline. Standard route
 non-connection is covered by `DevOnlyNpuChatScreenBlockedBranchTest`.
+
+The follow-up static investigation is recorded at
+`artifacts/qairt244_npu_stop_api_investigation/20260525_214513/`. It found no
+public Android/JNI per-run stop sequence, stop token, EOS, or `<end_of_turn>`
+API for this qairt244 path, so no native stop comparison is implemented.
