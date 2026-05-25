@@ -241,3 +241,24 @@ Before any code implementation for Phase H1:
 - no model change
 - no release or standard behavior change
 - no `app/src/main/jniLibs` change
+
+## Phase H1 UI Capture Supplement - 2026-05-26
+
+The Diagnostic-only H1 wiring artifact
+`artifacts/qairt244_phase_h1_transient_preview_wiring/20260526_062814` is now
+supplemented by
+`artifacts/qairt244_phase_h1_transient_preview_ui_capture/20260526_064732`.
+
+The supplemental capture records the actual transient preview surface before
+any normal ChatScreen handoff:
+
+- representative screenshot/window obtained
+- `DEV ONLY - DEV NPU transient preview` rendered
+- `Status: SUCCESS` rendered
+- sanitized output rendered
+- raw output and template tokens remain artifact-only
+- side-effect flags remain false
+- `npu_generation=false`, `engine_initialize=false`, and `run_decode=false`
+
+This remains Phase H1 Diagnostic-only evidence. It does not advance to
+assistant-message display, DB persistence, TTS, Markdown, or streaming.

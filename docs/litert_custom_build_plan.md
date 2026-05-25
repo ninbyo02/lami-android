@@ -1918,3 +1918,29 @@ The artifact metadata mapper is also tested before ChatScreen wiring. It reads
 hidden result key-value metadata, maps only `sanitized_output` into H1 UI input,
 discards `raw_output`, and turns promotion-gate mismatches into
 rollback/failure input.
+
+## Phase H1 Transient Preview UI Capture - 2026-05-26
+
+Supplemental artifact:
+`artifacts/qairt244_phase_h1_transient_preview_ui_capture/20260526_064732`.
+
+This artifact complements the prior Diagnostic-only wiring artifact
+`artifacts/qairt244_phase_h1_transient_preview_wiring/20260526_062814` with a
+representative connected-device screenshot and window dump. The capture shows
+the Phase H1 section in `NpuDiagnosticChatActivity` with:
+
+- `DEV ONLY - DEV NPU transient preview`
+- `Status: SUCCESS`
+- sanitized output only:
+  `こんにちは！何かお手伝いできることはありますか？`
+- `metadata_read=true`
+- `preview_visible=true`
+- raw output and template tokens absent from UI
+- `selectedPathNpuSaved=false`
+- `standard_route_connected=false`
+- `normal_ui_route_connected=false`
+- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+- `npu_generation=false`, `engine_initialize=false`, `run_decode=false`
+
+No code implementation, NPU execution, native change, model change, or normal
+ChatScreen promotion was performed for this capture supplement.

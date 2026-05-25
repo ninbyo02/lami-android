@@ -546,3 +546,29 @@ The section records safety lines:
 - no NPU execution
 - no native change
 - no release or standard behavior change
+
+## UI Capture Supplement - 2026-05-26
+
+The initial wiring artifact
+`artifacts/qairt244_phase_h1_transient_preview_wiring/20260526_062814` proved
+the Diagnostic-only metadata-to-renderer path but did not capture a
+representative screenshot/window because another interactive app took
+foreground after launch.
+
+Supplemental artifact
+`artifacts/qairt244_phase_h1_transient_preview_ui_capture/20260526_064732`
+captures the same Diagnostic-only wiring with the Phase H1 section visible:
+
+- `screenshot.png`: representative connected-device screenshot
+- `window.xml`: representative UI hierarchy dump
+- visible section: `Phase H1 transient preview`
+- rendered header: `DEV ONLY - DEV NPU transient preview`
+- rendered status: `Status: SUCCESS`
+- rendered body: sanitized Japanese output only
+- `metadata_read=true`
+- `preview_visible=true`
+- `raw_output`, `<end_of_turn>`, and `<start_of_turn>` are absent from UI
+
+The capture remains read-only: no retry, no fallback, no DB, no TTS, no
+Markdown, no streaming, no selected-path NPU persistence, no `Engine.initialize`,
+no `RunDecode`, and no additional NPU execution.

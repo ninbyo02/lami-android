@@ -176,3 +176,29 @@ The current supporting docs already cover the main pieces:
   exclusion rules.
 - `docs/qairt244_native_artifact_reproducibility.md` records native artifact
   provenance and the no-large-binary Git policy.
+
+## Phase H1 UI Capture Evidence - 2026-05-26
+
+The promotion gate evidence set now includes
+`artifacts/qairt244_phase_h1_transient_preview_ui_capture/20260526_064732`,
+which supplements the earlier logic-only wiring artifact
+`artifacts/qairt244_phase_h1_transient_preview_wiring/20260526_062814`.
+
+The UI capture passes the pre-promotion H1 display checks:
+
+- Diagnostic-only screen: `NpuDiagnosticChatActivity`
+- H1 section visible in `screenshot.png` and `window.xml`
+- `DEV ONLY - DEV NPU transient preview`
+- `Status: SUCCESS`
+- sanitized output rendered as natural Japanese
+- no `raw_output`, `<end_of_turn>`, or `<start_of_turn>` in UI
+- `selectedPathNpuSaved=false`
+- `standard_route_connected=false`
+- `normal_ui_route_connected=false`
+- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+- `retry=false`, `auto_fallback=false`
+- `npu_generation=false`, `engine_initialize=false`, `run_decode=false`
+
+This evidence is not a normal UI promotion and is not a replacement for a fresh
+future promotion run. It only closes the missing representative screenshot/window
+gap for the already implemented Diagnostic-only H1 wiring.

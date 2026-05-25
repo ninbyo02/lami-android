@@ -1,0 +1,30 @@
+# Phase H1 UI Capture Safety Grep
+
+window.xml positive matches:
+- `Phase H1 transient preview`
+- `DEV ONLY - DEV NPU transient preview`
+- `Status: SUCCESS`
+- `こんにちは！何かお手伝いできることはありますか？`
+- `selectedPathNpuSaved=false`
+- `standard_route_connected=false`
+- `normal_ui_route_connected=false`
+- `db=false`
+- `tts=false`
+- `markdown=false`
+- `streaming=false`
+- `npu_generation=false`
+- `engine_initialize=false`
+- `run_decode=false`
+
+window.xml negative matches:
+- `raw_output`: absent
+- `<end_of_turn>`: absent
+- `<start_of_turn>`: absent
+
+logcat_tail.txt:
+- no new NPU execution was requested by this capture pass
+- no Diagnostic run button tap was performed
+
+Large binary safety:
+- no `.litertlm`, `.so`, `.apk`, `.aar`, `.zip`, `.tar`, or `.gz` file is part
+  of this artifact
