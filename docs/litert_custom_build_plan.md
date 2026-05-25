@@ -408,6 +408,21 @@ Updated next recommendation:
 - This remains pre-ChatScreen: no NPU run, no `Engine.initialize`, no
   `RunDecode`, no DB, no TTS, no Markdown, no streaming, no standard route
   connection, and no selected-path persistence.
+
+2026-05-26 Phase H1 card view model contract update:
+
+- `DevOnlyNpuPhaseH1CardViewModel` now defines the read-only display object for
+  a future transient card.
+- The contract maps `DevOnlyNpuPhaseH1UiState` into title, subtitle, body,
+  status, reason, detail lines, warning lines, and a `DEV ONLY` badge.
+- Success displays sanitized output only. Rollback/failure and hidden states
+  have `body=null`.
+- Detail lines include `maxOutputTokens=128`, decode time, short backend
+  evidence, short artifact path, `selectedPathSaved=false`, and
+  DB/TTS/Markdown/streaming false.
+- Raw output, retry, persistence, TTS, Markdown, and streaming controls remain
+  false, with snapshot contract tests covering success and rollback text.
+- This is still not a UI implementation and does not connect ChatScreen.
 - Still no high-level `generateResponse`, no `Conversation`, and no normal UI
   NPU connection.
 

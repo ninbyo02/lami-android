@@ -69,6 +69,10 @@ record all of the following:
 - presenter side-effect flags remain false:
   `shouldPersistToDb=false`, `shouldSpeakTts=false`,
   `shouldRenderMarkdown=false`, `shouldStream=false`
+- card view model contract passes before UI wiring:
+  success displays sanitized output only, rollback/hidden display no body,
+  detail lines include token/decode/backend/artifact and side-effect false
+  metadata, and all raw/retry/persist/TTS/Markdown/streaming controls are false
 
 Raw native output may be classified as `template_artifact` only as diagnostic
 evidence. That raw artifact is acceptable only when the sanitized display output
@@ -146,6 +150,8 @@ The current supporting docs already cover the main pieces:
   while raw/native-only fields are dropped before UI input.
   The fifth code step fixes metadata-to-presenter integration from key-value
   text through `UiState` without adding any ChatScreen call site.
+  The sixth code step fixes the read-only transient-card view model contract
+  and snapshot text without adding any UI component.
 - `docs/litert_qairt244_npu_turn_stop_quality_compare.md` records the
   `sanitizer_only + max_output_tokens=128` adoption, raw/sanitized output
   policy, and native stop API limitation.

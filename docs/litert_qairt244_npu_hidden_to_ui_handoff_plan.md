@@ -96,6 +96,13 @@ fresh baseline metadata becomes a visible sanitized transient preview; gate
 failures become hidden rollback states; `raw_output` does not propagate; and
 all side-effect flags remain false.
 
+The sixth Phase H1 code step is a read-only card view model contract. It maps
+`DevOnlyNpuPhaseH1UiState` into display-only fields for a future transient
+card. Success exposes sanitized output only; rollback/failure and hidden states
+have `body=null`; raw output, retry, persistence, TTS, Markdown, and streaming
+affordances remain unavailable. Snapshot text is fixed in unit tests before any
+UI component or ChatScreen connection exists.
+
 ### Phase H2: Assistant-Message-Style Temporary Display
 
 Second candidate after Phase H1 proves stable. The sanitized output may be
@@ -164,6 +171,8 @@ Every accepted handoff candidate must satisfy all of the following:
 - metadata-to-presenter integration passes: valid baseline metadata becomes
   visible sanitized preview, gate failures become rollback, and side-effect
   flags remain false
+- card view model contract passes: success, rollback, and hidden mappings are
+  stable; raw output is absent; action/display controls remain false
 
 Raw native output may contain `template_artifact` only as diagnostic evidence.
 It is acceptable only when the displayed sanitized output remains meaningful

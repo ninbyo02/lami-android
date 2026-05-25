@@ -274,6 +274,18 @@ input/output contract before any ChatScreen wiring:
 - side-effect flags stay false for every success and rollback state
 - toggle false still means metadata provider is not called
 
+The Phase H1 card view model contract now fixes the read-only display object a
+future transient card may receive:
+
+- success card is visible and shows sanitized body only
+- rollback/failure cards are hidden with `body=null` and reason summary
+- hidden card is invisible with no body and no warnings
+- detail lines include max-output, decode-ms, backend evidence, artifact path,
+  selected-path false, and DB/TTS/Markdown/streaming false
+- raw output is never exposed
+- retry, persistence, TTS, Markdown, and streaming controls are always false
+- snapshot text is tested before any UI component exists
+
 ## Disabled Blocked Branch
 
 The insertion point now has a disabled blocked branch:

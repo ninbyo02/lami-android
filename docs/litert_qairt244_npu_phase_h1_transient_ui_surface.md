@@ -377,6 +377,78 @@ The same integration test fixes rollback output for gate failures:
 into `UiInput`, `UiState`, or state string output. Toggle false still means the
 metadata provider is not called and the state remains hidden.
 
+## Card View Model Contract - 2026-05-26
+
+The sixth implementation step adds the read-only display contract that a future
+H1 transient card may consume. This is still pure Kotlin only: no ChatScreen
+call site, no UI component, no NPU run, no engine initialization, and no decode.
+
+`DevOnlyNpuPhaseH1CardViewModel` is mapped from `DevOnlyNpuPhaseH1UiState` and
+fixes these display fields:
+
+- `visible`
+- `title`
+- `subtitle`
+- `body`
+- `statusLabel`
+- `reasonLabel`
+- `detailLines`
+- `warningLines`
+- `devBadge`
+
+Success contract:
+
+- `visible=true`
+- `title=DEV NPU transient preview`
+- `subtitle=Read-only sanitized output`
+- `body=sanitized_output`
+- `statusLabel=SUCCESS`
+- `reasonLabel=reasonCode=ok` for the baseline success path
+- `devBadge=DEV ONLY`
+
+Rollback/failure contract:
+
+- `visible=false`
+- `subtitle=Hidden by promotion gate`
+- `body=null`
+- `statusLabel=ROLLBACK` or `FAILURE`
+- `reasonLabel` carries the reason code
+- `warningLines` carries the reason summary
+- retry remains unavailable
+
+Hidden contract:
+
+- `visible=false`
+- `subtitle=Hidden until a fresh gated artifact passes`
+- `body=null`
+- no warning lines
+- no retry or side-effect controls
+
+The view model detail contract includes:
+
+- `maxOutputTokens=128`
+- `decode_ms`
+- short backend evidence
+- short artifact path
+- `selectedPathSaved=false`
+- `db=false`
+- `tts=false`
+- `markdown=false`
+- `streaming=false`
+
+All unsafe display/action affordances are fixed false:
+
+- `showRawOutput=false`
+- `showRetryButton=false`
+- `showPersistButton=false`
+- `showTtsButton=false`
+- `showMarkdownButton=false`
+- `showStreamingIndicator=false`
+
+Snapshot contract tests fix `toContractText()` for success and rollback. The
+contract text must not contain `raw_output` or template tokens such as
+`<end_of_turn>`.
+
 ## Non-Goals
 
 - no normal UI promotion
