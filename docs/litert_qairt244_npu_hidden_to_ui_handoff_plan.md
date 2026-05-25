@@ -103,6 +103,12 @@ have `body=null`; raw output, retry, persistence, TTS, Markdown, and streaming
 affordances remain unavailable. Snapshot text is fixed in unit tests before any
 UI component or ChatScreen connection exists.
 
+The seventh Phase H1 code step is a preview renderer contract. It formats the
+card view model into read-only text lines in a fixed order, renders no lines for
+`visible=false`, keeps detail-line ordering stable, and proves raw/template
+artifacts plus action labels remain absent. It is still independent of
+ChatScreen and Compose UI.
+
 ### Phase H2: Assistant-Message-Style Temporary Display
 
 Second candidate after Phase H1 proves stable. The sanitized output may be
@@ -173,6 +179,9 @@ Every accepted handoff candidate must satisfy all of the following:
   flags remain false
 - card view model contract passes: success, rollback, and hidden mappings are
   stable; raw output is absent; action/display controls remain false
+- preview renderer contract passes: success render order is stable,
+  rollback/hidden render no lines, detail order is stable, and raw/template
+  artifacts plus action labels are absent
 
 Raw native output may contain `template_artifact` only as diagnostic evidence.
 It is acceptable only when the displayed sanitized output remains meaningful

@@ -423,6 +423,21 @@ Updated next recommendation:
 - Raw output, retry, persistence, TTS, Markdown, and streaming controls remain
   false, with snapshot contract tests covering success and rollback text.
 - This is still not a UI implementation and does not connect ChatScreen.
+
+2026-05-26 Phase H1 preview renderer contract update:
+
+- `DevOnlyNpuPhaseH1PreviewRenderer` now formats the read-only card view model
+  into text lines with a stable order.
+- Success rendering emits badge/title, status, subtitle, sanitized output,
+  reason, and detail lines.
+- Rollback and hidden models render no lines because their view model
+  `visible=false`.
+- Raw output, `<end_of_turn>`, `<start_of_turn>`, retry, persist, TTS,
+  Markdown button, and streaming indicator labels are absent from rendered
+  output.
+- This is still formatter/test-only: no Compose UI, no ChatScreen connection,
+  no NPU run, no engine initialization, no decode, no DB, no TTS, no Markdown,
+  no streaming, no standard route connection, and no selected-path persistence.
 - Still no high-level `generateResponse`, no `Conversation`, and no normal UI
   NPU connection.
 

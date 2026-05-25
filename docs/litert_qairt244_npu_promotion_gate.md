@@ -73,6 +73,9 @@ record all of the following:
   success displays sanitized output only, rollback/hidden display no body,
   detail lines include token/decode/backend/artifact and side-effect false
   metadata, and all raw/retry/persist/TTS/Markdown/streaming controls are false
+- preview renderer contract passes before UI wiring:
+  success lines render in stable order, rollback/hidden render no lines, raw
+  output and template tokens are absent, and action labels are absent
 
 Raw native output may be classified as `template_artifact` only as diagnostic
 evidence. That raw artifact is acceptable only when the sanitized display output
@@ -152,6 +155,8 @@ The current supporting docs already cover the main pieces:
   text through `UiState` without adding any ChatScreen call site.
   The sixth code step fixes the read-only transient-card view model contract
   and snapshot text without adding any UI component.
+  The seventh code step fixes the preview renderer/formatter contract without
+  adding Compose UI or ChatScreen wiring.
 - `docs/litert_qairt244_npu_turn_stop_quality_compare.md` records the
   `sanitizer_only + max_output_tokens=128` adoption, raw/sanitized output
   policy, and native stop API limitation.

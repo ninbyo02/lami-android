@@ -286,6 +286,18 @@ future transient card may receive:
 - retry, persistence, TTS, Markdown, and streaming controls are always false
 - snapshot text is tested before any UI component exists
 
+The Phase H1 preview renderer now fixes the future formatter contract before
+any Compose or ChatScreen wiring:
+
+- renderer API is `renderLines(model)` and `renderContractText(model)`
+- success lines render badge/title, status, subtitle, output label, sanitized
+  body, reason, details, and optional warnings in that order
+- rollback and hidden models render no lines because `visible=false`
+- raw output and turn-template tokens are absent from rendered text
+- retry, persist, TTS, Markdown button, and streaming indicator labels are not
+  rendered
+- detail lines keep stable order
+
 ## Disabled Blocked Branch
 
 The insertion point now has a disabled blocked branch:

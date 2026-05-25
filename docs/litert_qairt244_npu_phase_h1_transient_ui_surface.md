@@ -449,6 +449,45 @@ Snapshot contract tests fix `toContractText()` for success and rollback. The
 contract text must not contain `raw_output` or template tokens such as
 `<end_of_turn>`.
 
+## Preview Renderer Contract - 2026-05-26
+
+The seventh implementation step adds a ChatScreen-independent preview renderer
+for the read-only card view model. This is still formatter-only: no Compose UI,
+no ChatScreen call site, no NPU run, no `Engine.initialize`, and no
+`RunDecode`.
+
+Renderer API:
+
+- `DevOnlyNpuPhaseH1PreviewRenderer.renderLines(model)`
+- `DevOnlyNpuPhaseH1PreviewRenderer.renderContractText(model)`
+
+Visible success output order is fixed as:
+
+1. `DEV ONLY - DEV NPU transient preview`
+2. `Status: SUCCESS`
+3. subtitle
+4. `Output:`
+5. sanitized output body
+6. reason label
+7. `Details:`
+8. detail lines in source order
+9. `Warnings:` and warning lines, only when present
+
+`visible=false` is fixed as no rendered preview lines:
+
+- rollback model -> `emptyList()`
+- hidden model -> `emptyList()`
+- contract text -> empty string
+
+The renderer contract keeps the same safety boundary:
+
+- raw output is never rendered
+- `<end_of_turn>` and `<start_of_turn>` are never rendered
+- retry, persist, TTS, Markdown button, and streaming indicator labels are not
+  rendered
+- detail lines keep `maxOutputTokens`, `decode_ms`, backend evidence, artifact,
+  selected-path false, and DB/TTS/Markdown/streaming false in stable order
+
 ## Non-Goals
 
 - no normal UI promotion
