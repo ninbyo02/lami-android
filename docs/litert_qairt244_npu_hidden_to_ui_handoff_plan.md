@@ -109,6 +109,14 @@ card view model into read-only text lines in a fixed order, renders no lines for
 artifacts plus action labels remain absent. It is still independent of
 ChatScreen and Compose UI.
 
+The eighth Phase H1 code step wires the renderer into `NpuDiagnosticChatActivity`
+only. The intent extra `dev_enable_npu_chatscreen_route` defaults false; when
+false, metadata is not read or parsed. When true, the Diagnostic/DEV screen
+reads artifact metadata, applies the full H1 mapper/presenter/renderer chain,
+and shows rendered lines only for a fresh gate-passing sanitized preview.
+Rollback, hidden, or stale states render no preview lines. This remains outside
+the normal ChatScreen conversation route.
+
 ### Phase H2: Assistant-Message-Style Temporary Display
 
 Second candidate after Phase H1 proves stable. The sanitized output may be
@@ -182,6 +190,9 @@ Every accepted handoff candidate must satisfy all of the following:
 - preview renderer contract passes: success render order is stable,
   rollback/hidden render no lines, detail order is stable, and raw/template
   artifacts plus action labels are absent
+- Diagnostic/DEV minimal wiring passes: explicit toggle only, metadata-only
+  read, renderer output only, no DB/TTS/Markdown/streaming, no retry, no
+  fallback, and no NPU run
 
 Raw native output may contain `template_artifact` only as diagnostic evidence.
 It is acceptable only when the displayed sanitized output remains meaningful

@@ -76,6 +76,10 @@ record all of the following:
 - preview renderer contract passes before UI wiring:
   success lines render in stable order, rollback/hidden render no lines, raw
   output and template tokens are absent, and action labels are absent
+- Diagnostic/DEV minimal wiring passes before any ChatScreen promotion:
+  `dev_enable_npu_chatscreen_route=false` defaults to no read/parse, true reads
+  metadata only, fresh gate-passing sanitized output is rendered, and
+  stale/rollback/hidden output is not rendered
 
 Raw native output may be classified as `template_artifact` only as diagnostic
 evidence. That raw artifact is acceptable only when the sanitized display output
@@ -157,6 +161,8 @@ The current supporting docs already cover the main pieces:
   and snapshot text without adding any UI component.
   The seventh code step fixes the preview renderer/formatter contract without
   adding Compose UI or ChatScreen wiring.
+  The eighth code step wires a read-only metadata-to-renderer preview into
+  `NpuDiagnosticChatActivity` only, still outside the normal ChatScreen route.
 - `docs/litert_qairt244_npu_turn_stop_quality_compare.md` records the
   `sanitizer_only + max_output_tokens=128` adoption, raw/sanitized output
   policy, and native stop API limitation.

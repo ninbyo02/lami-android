@@ -488,6 +488,52 @@ The renderer contract keeps the same safety boundary:
 - detail lines keep `maxOutputTokens`, `decode_ms`, backend evidence, artifact,
   selected-path false, and DB/TTS/Markdown/streaming false in stable order
 
+## Minimal Diagnostic Wiring - 2026-05-26
+
+The eighth implementation step wires the H1 read-only preview into
+`NpuDiagnosticChatActivity` only. This is not a normal ChatScreen promotion and
+does not insert into the assistant message list.
+
+Wiring flow:
+
+```text
+artifact metadata text
+  -> DevOnlyNpuPhaseH1ArtifactMetadataParser
+  -> DevOnlyNpuPhaseH1UiState
+  -> DevOnlyNpuPhaseH1CardViewModel
+  -> DevOnlyNpuPhaseH1PreviewRenderer
+  -> Diagnostic/DEV read-only text section
+```
+
+Activation remains explicit:
+
+- intent extra `dev_enable_npu_chatscreen_route=false` by default
+- when false, metadata provider is not called
+- when true, metadata is read from app-private
+  `qairt244_phase_h1_transient_preview_metadata.txt` if present
+- if no app-private metadata file exists, the Diagnostic/DEV screen uses the
+  already adopted committed baseline metadata for
+  `artifacts/qairt244_npu_turn_stop_quality_compare/20260525_211810`
+- the fallback metadata is read-only display evidence and does not run NPU
+
+Display is allowed only when the H1 metadata freshness and promotion gates pass.
+Rollback, hidden, stale, or gate-failed states render no preview lines.
+
+The section records safety lines:
+
+- `selectedPathNpuSaved=false`
+- `standard_route_connected=false`
+- `normal_ui_route_connected=false`
+- `db=false`
+- `tts=false`
+- `markdown=false`
+- `streaming=false`
+- `retry=false`
+- `auto_fallback=false`
+- `npu_generation=false`
+- `engine_initialize=false`
+- `run_decode=false`
+
 ## Non-Goals
 
 - no normal UI promotion

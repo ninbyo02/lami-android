@@ -298,6 +298,18 @@ any Compose or ChatScreen wiring:
   rendered
 - detail lines keep stable order
 
+The first minimal H1 wiring is limited to `NpuDiagnosticChatActivity`:
+
+- no normal ChatScreen conversation route is connected
+- no assistant message list insertion
+- explicit `dev_enable_npu_chatscreen_route` intent extra defaults false
+- false means metadata is not read or parsed
+- true reads artifact metadata only and runs mapper/presenter/card/renderer
+- fresh gate-passing sanitized output becomes read-only diagnostic text
+- rollback, stale, or hidden states render no preview lines
+- no retry button, auto fallback, DB, TTS, Markdown, streaming,
+  `Engine.initialize`, `RunDecode`, or selected-path persistence
+
 ## Disabled Blocked Branch
 
 The insertion point now has a disabled blocked branch:

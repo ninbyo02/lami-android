@@ -438,6 +438,24 @@ Updated next recommendation:
 - This is still formatter/test-only: no Compose UI, no ChatScreen connection,
   no NPU run, no engine initialization, no decode, no DB, no TTS, no Markdown,
   no streaming, no standard route connection, and no selected-path persistence.
+
+2026-05-26 Phase H1 minimal Diagnostic/DEV wiring update:
+
+- `NpuDiagnosticChatActivity` now has a read-only Phase H1 transient preview
+  section.
+- The section is guarded by `dev_enable_npu_chatscreen_route`, which defaults
+  false and skips metadata read/parse when false.
+- When true, the section reads artifact metadata only and runs the existing
+  H1 parser, presenter, card view model, and renderer.
+- Fresh gate-passing metadata renders sanitized output only. Stale, rollback,
+  and hidden states render no preview lines.
+- The wiring records `selectedPathNpuSaved=false`,
+  `standard_route_connected=false`, `normal_ui_route_connected=false`,
+  `db=false`, `tts=false`, `markdown=false`, `streaming=false`, `retry=false`,
+  `auto_fallback=false`, `npu_generation=false`, `engine_initialize=false`,
+  and `run_decode=false`.
+- This is still not a normal ChatScreen promotion and does not insert assistant
+  messages.
 - Still no high-level `generateResponse`, no `Conversation`, and no normal UI
   NPU connection.
 

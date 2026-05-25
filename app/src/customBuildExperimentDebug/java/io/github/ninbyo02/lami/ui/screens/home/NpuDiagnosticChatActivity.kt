@@ -23,6 +23,7 @@ import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteAdapter
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteDisplayModelMapper
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteGateInput
 import io.github.ninbyo02.lami.npu.DevOnlyNpuRoutePlanner
+import io.github.ninbyo02.lami.npu.DevOnlyNpuPhaseH1TransientPreviewWiring
 import io.github.ninbyo02.lami.npu.DevOnlyNpuTransientPresenter
 import java.io.File
 import java.util.UUID
@@ -47,10 +48,12 @@ class NpuDiagnosticChatActivity : Activity() {
         val nativeDiagFile = filesDir.resolve("qairt244_native_diag.txt")
         val latestRunnerSummaryFile = filesDir.resolve("qairt244_diagnostic_runner_summary.txt")
         val promptPreviewStateFile = filesDir.resolve("qairt244_editable_prompt_preview_state.txt")
+        val phaseH1MetadataFile = filesDir.resolve("qairt244_phase_h1_transient_preview_metadata.txt")
         val timeoutMs = intent.getLongExtra("diagnosticTimeoutMs", 30_000L).coerceIn(1_000L, 30_000L)
         val guardedRunAllowed = intent.getBooleanExtra("allowGuardedNpuRun", false)
         val editablePromptPreviewAllowed = intent.getBooleanExtra("allowEditablePromptPreview", false)
         val editablePromptExecutionAllowed = intent.getBooleanExtra("allowEditablePromptExecution", false)
+        val phaseH1PreviewEnabled = intent.getBooleanExtra("dev_enable_npu_chatscreen_route", false)
         val simulateEditablePromptTimeout = intent.getBooleanExtra("simulateEditablePromptTimeout", false)
         val editablePromptNativeSupported = Qairt244ShortMultitokenSmoke.supportsEditablePromptExecution()
         val initialPrompt = if (editablePromptPreviewAllowed) {
@@ -90,6 +93,13 @@ class NpuDiagnosticChatActivity : Activity() {
             ),
         )
         val plannerPreviewSummary = content.addSectionView("Planner Preview (blocked)", readPlannerPreviewSummary())
+        val phaseH1PreviewSummary = content.addSectionView(
+            "Phase H1 transient preview",
+            readPhaseH1TransientPreviewSummary(
+                enabled = phaseH1PreviewEnabled,
+                metadataFile = phaseH1MetadataFile,
+            ),
+        )
 
         content.addLabel("Prompt")
         val promptPreviewLines = readPromptPreviewSummary(
@@ -183,6 +193,10 @@ class NpuDiagnosticChatActivity : Activity() {
                     nativeDiagSummary.text = readNativeDiagSummary(nativeDiagFile).joinToString("\n")
                     runnerSummary.text = readLatestRunnerSummary(latestRunnerSummaryFile).joinToString("\n")
                     plannerPreviewSummary.text = readPlannerPreviewSummary().joinToString("\n")
+                    phaseH1PreviewSummary.text = readPhaseH1TransientPreviewSummary(
+                        enabled = phaseH1PreviewEnabled,
+                        metadataFile = phaseH1MetadataFile,
+                    ).joinToString("\n")
                     safetySummary.text = readRouteGuardSummary(
                         editablePromptPreviewAllowed,
                         editablePromptExecutionAllowed,
@@ -193,6 +207,7 @@ class NpuDiagnosticChatActivity : Activity() {
                         "result_file=${resultFile.exists()}",
                         "native_diag=${nativeDiagFile.exists()}",
                         "runner_summary=${latestRunnerSummaryFile.exists()}",
+                        "phase_h1_preview_enabled=$phaseH1PreviewEnabled",
                     ).joinToString(" ")
                 }
             },
@@ -305,6 +320,10 @@ class NpuDiagnosticChatActivity : Activity() {
                 "no high-level generateResponse",
                 "no streaming generation",
                 "Refresh result view does not run NPU",
+                "Phase H1 transient preview reads metadata only",
+                "Phase H1 transient preview enabled=$phaseH1PreviewEnabled",
+                "Phase H1 transient preview retry=false",
+                "Phase H1 transient preview fallback=false",
             ),
         )
 
@@ -627,6 +646,65 @@ class NpuDiagnosticChatActivity : Activity() {
             "streaming=false",
         )
     }
+
+    private fun readPhaseH1TransientPreviewSummary(
+        enabled: Boolean,
+        metadataFile: File,
+    ): List<String> {
+        val nowMs = System.currentTimeMillis()
+        val result = DevOnlyNpuPhaseH1TransientPreviewWiring.render(
+            devEnableNpuChatScreenRoute = enabled,
+            nowMs = nowMs,
+            metadataTextProvider = { readPhaseH1MetadataText(metadataFile, nowMs) },
+        )
+        return buildList {
+            add("dev_enable_npu_chatscreen_route=$enabled")
+            add("metadata_source=${if (metadataFile.isFile) "app_private_file" else "committed_baseline_artifact"}")
+            add("metadata_read=${result.shouldReadMetadata}")
+            add("preview_visible=${result.previewVisible}")
+            add("renderer_line_count=${result.renderedLines.size}")
+            add(result.reasonLabel)
+            if (result.renderedLines.isNotEmpty()) {
+                addAll(result.renderedLines)
+            }
+            addAll(result.sideEffectLines)
+        }
+    }
+
+    private fun readPhaseH1MetadataText(
+        metadataFile: File,
+        nowMs: Long,
+    ): String =
+        if (metadataFile.isFile) {
+            metadataFile.readText()
+        } else {
+            phaseH1CommittedBaselineMetadataText(nowMs)
+        }
+
+    private fun phaseH1CommittedBaselineMetadataText(nowMs: Long): String =
+        listOf(
+            "artifact_timestamp_ms=$nowMs",
+            "result=success",
+            "reasonCode=ok",
+            "sanitized_output=こんにちは！何かお手伝いできることはありますか？",
+            "raw_output=こんにちは\\n<end_of_turn>\\nこんにちは！何かお手伝いできることはありますか？\\n<end_of_turn>",
+            "quality_classification=natural_japanese",
+            "npu_backend=NPU",
+            "npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag",
+            "fallback_used=false",
+            "timeout=false",
+            "fresh_crash=false",
+            "selected_path_npu_saved=false",
+            "standard_route_connected=false",
+            "normal_ui_route_connected=false",
+            "db=false",
+            "tts=false",
+            "markdown=false",
+            "streaming=false",
+            "decode_ms=829",
+            "max_output_tokens=128",
+            "artifact_path=artifacts/qairt244_npu_turn_stop_quality_compare/20260525_211810",
+        ).joinToString(separator = "\n")
 
     private fun readPromptPreviewSummary(
         prompt: String,
