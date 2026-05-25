@@ -14,7 +14,8 @@ class DevOnlyNpuPhaseH1PreviewRendererTest {
 
         assertEquals(
             listOf(
-                "DEV ONLY - DEV NPU transient preview",
+                "DEV ONLY",
+                "DEV NPU transient preview",
                 "Status: SUCCESS",
                 "Read-only sanitized output",
                 "Output:",
@@ -104,7 +105,8 @@ class DevOnlyNpuPhaseH1PreviewRendererTest {
     fun `success contract text snapshot is stable`() {
         assertEquals(
             """
-            DEV ONLY - DEV NPU transient preview
+            DEV ONLY
+            DEV NPU transient preview
             Status: SUCCESS
             Read-only sanitized output
             Output:

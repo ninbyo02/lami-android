@@ -21,7 +21,8 @@ class DevOnlyNpuPhaseH1TransientPreviewWiringTest {
         assertTrue(result.previewVisible)
         assertEquals("reasonCode=ok", result.reasonLabel)
         assertTrue(result.renderedLines.contains(sanitizedOutput))
-        assertTrue(result.renderedLines.first() == "DEV ONLY - DEV NPU transient preview")
+        assertEquals("DEV ONLY", result.renderedLines.first())
+        assertEquals("DEV NPU transient preview", result.renderedLines[1])
         assertSafety(result)
     }
 

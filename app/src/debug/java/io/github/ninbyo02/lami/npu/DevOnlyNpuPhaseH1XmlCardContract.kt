@@ -27,6 +27,12 @@ object DevOnlyNpuPhaseH1XmlCardContract {
         renderedLines: List<String>,
     ): List<String> {
         if (!visible) return emptyList()
+        if (
+            renderedLines.getOrNull(0) == "DEV ONLY" &&
+            renderedLines.getOrNull(1) == "DEV NPU transient preview"
+        ) {
+            return renderedLines
+        }
         return buildList {
             add("DEV ONLY")
             add("DEV NPU transient preview")

@@ -5,7 +5,8 @@ object DevOnlyNpuPhaseH1PreviewRenderer {
         if (!model.visible) return emptyList()
 
         return buildList {
-            add("${model.devBadge} - ${model.title}")
+            add(model.devBadge)
+            add(model.title)
             add("Status: ${model.statusLabel}")
             add(model.subtitle)
             model.body?.let { body ->

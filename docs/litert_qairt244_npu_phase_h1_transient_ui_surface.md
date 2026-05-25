@@ -707,3 +707,22 @@ assembly. Contract tests verify:
 - raw output, `<start_of_turn>`, and `<end_of_turn>` are absent
 - assistant insertion, DB, TTS, Markdown, streaming, retry, fallback, metadata
   read, NPU run, engine initialize, and decode flags remain false
+
+## Preview Consistency Snapshot - 2026-05-26
+
+`DevOnlyNpuPhaseH1PreviewConsistency` captures the final Diagnostic-only
+read-only preview alignment before any formal Compose UI or ChatScreen handoff.
+
+The snapshot compares:
+
+- XML/read-only card helper text
+- `DevOnlyNpuPhaseH1PreviewRenderer.renderContractText()`
+- `DevOnlyNpuPhaseH1PreviewHostState.renderText`
+- Compose adapter render text
+- Compose adapter and host contract text safety flags
+
+Success text is identical across XML, renderer, host, and Compose render paths.
+Hidden, rollback, stale, and toggle-false paths are empty/hidden across all
+render paths. Raw output, turn template tokens, assistant insertion, DB, TTS,
+Markdown, streaming, retry/fallback, metadata read, NPU run, engine initialize,
+and decode are all fixed to the safe side.

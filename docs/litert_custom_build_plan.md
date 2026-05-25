@@ -2040,3 +2040,19 @@ The contract tests fix:
 
 This is a test/contract alignment only. It does not run NPU and does not connect
 ChatScreen, standard route, release, or the formal Compose UI.
+
+## Phase H1 Preview Consistency Contract - 2026-05-26
+
+Added `DevOnlyNpuPhaseH1PreviewConsistency` and snapshot tests to compare all
+Diagnostic-only read-only preview outputs:
+
+- XML card helper output
+- PreviewRenderer output
+- PreviewHost output
+- Compose adapter render output
+- Compose/host safety contract flags
+
+The consistency contract keeps success render text aligned and keeps
+hidden/rollback/stale/toggle-false states empty. It also confirms raw output,
+turn tokens, assistant insertion, DB, TTS, Markdown, streaming, retry/fallback,
+metadata read, NPU run, engine initialize, and decode are not introduced.

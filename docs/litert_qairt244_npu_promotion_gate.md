@@ -295,3 +295,19 @@ Gate checks added:
 
 This prevents a future host/Compose surface from drifting away from the existing
 Diagnostic card behavior.
+
+## Preview Consistency Contract Gate - 2026-05-26
+
+The gate now includes `DevOnlyNpuPhaseH1PreviewConsistencyTest`, which compares
+the full read-only preview chain:
+
+```text
+XML card helper == PreviewRenderer == PreviewHost == Compose render text
+```
+
+For success metadata, the snapshot fixes badge/title/status/output/detail order
+and confirms sanitized output only. For hidden, rollback, stale, and toggle-false
+states, every render layer is empty/hidden. The same test verifies raw output and
+turn template artifacts are absent and that assistant insertion, DB, TTS,
+Markdown, streaming, retry/fallback, metadata read, NPU run, engine initialize,
+and decode stay false.

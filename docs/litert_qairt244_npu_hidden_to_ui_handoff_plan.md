@@ -356,3 +356,21 @@ This keeps the pre-ChatScreen handoff consistent:
 
 This is still contract/test work only; no normal ChatScreen route or formal
 Compose UI is connected.
+
+## Phase H1 Preview Consistency Snapshot - 2026-05-26
+
+The H1 handoff now has a single consistency snapshot covering XML card,
+renderer, preview host, and Compose adapter render text. The snapshot confirms
+that success output is identical across these layers, while hidden, rollback,
+stale, and toggle-false states remain empty before any UI handoff.
+
+The snapshot also keeps all route and side-effect gates closed:
+
+- no assistant message list insertion
+- no DB persistence
+- no TTS
+- no Markdown
+- no streaming
+- no retry/fallback
+- no metadata read at host level
+- no NPU run, `Engine.initialize`, or `RunDecode`

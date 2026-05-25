@@ -783,3 +783,18 @@ The consistency tests assert:
   false
 
 No ChatScreen connection or formal Compose UI implementation is included.
+
+## Phase H1 Preview Consistency Contract - 2026-05-26
+
+Before any ChatScreen connection, the Diagnostic-only H1 preview chain is fixed
+by a consistency snapshot:
+
+- XML/read-only card helper output
+- PreviewRenderer contract text
+- PreviewHost render text
+- Compose adapter render text and safety contract
+
+The success path must match byte-for-byte across render outputs. Hidden,
+rollback, stale, and toggle-false states must remain empty/hidden. The contract
+also reasserts no assistant list insertion, no DB/TTS/Markdown/streaming, no
+retry/fallback, and no NPU/engine/decode execution.
