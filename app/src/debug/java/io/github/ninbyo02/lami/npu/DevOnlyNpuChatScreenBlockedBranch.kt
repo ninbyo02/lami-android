@@ -14,6 +14,20 @@ object DevOnlyNpuChatScreenBlockedBranch {
     private const val DEV_SELECTED_ROUTE = "qairt244_sm8750_dev_npu"
     private const val HIDDEN_SELECTED_ROUTE = "qairt244_sm8750_hidden_npu"
 
+    internal fun hiddenNpuNoStandardRouteSafetyLines(): List<String> = listOf(
+        "normal_ui_route_connected=false",
+        "standard_route_connected=false",
+        "conversation_created=no",
+        "generate_response=no",
+        "selected_path_npu_normal_route=no",
+        "db=false",
+        "tts=false",
+        "markdown=false",
+        "markdown_mode=non_streaming_direct_insert",
+        "repair_applied=false",
+        "streaming=false",
+    )
+
     @JvmStatic
     fun run(prompt: String): String {
         val validation = NpuDiagnosticPromptValidator.validateAsciiDiagnostic(prompt)
@@ -123,7 +137,9 @@ object DevOnlyNpuChatScreenBlockedBranch {
         prompt: String,
         templateMode: String,
         maxOutputTokens: Int,
+        requestedMaxOutputTokens: Int = maxOutputTokens,
     ): String {
+        val baselineMaxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
         val resolvedTemplateMode = HiddenQairt244PromptTemplateMode.fromStorage(templateMode)
         if (!chatScreenRunInProgress.compareAndSet(false, true)) {
             val promptTemplate = buildPromptTemplate(prompt = prompt, mode = resolvedTemplateMode)
@@ -153,8 +169,11 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 "prompt_input_code_point_limit=${NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH}",
                 "prompt_input_limit_mode=${NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE}",
                 "prompt_formatting_mode=${promptTemplate.promptFormattingMode}",
-                "max_output_tokens=$maxOutputTokens",
+                "requested_max_output_tokens=$requestedMaxOutputTokens",
+                "max_output_tokens=$baselineMaxOutputTokens",
                 "native_max_output_tokens_limit=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+                "hidden_safety_baseline=enhanced_sanitizer_only_128",
+                "lower_token_caps_policy=rollback_only",
                 "turn_stop_compare_marker=qairt244_turn_stop_compare_v1",
                 "resolved_model_basename=",
                 "required_sm8750_model_path=false",
@@ -166,20 +185,18 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 "artifact_path=",
                 "fallback_used=false",
                 "ui_cleanup_status=not_started",
-                "normal_ui_route_connected=true",
-                "conversation_created=no",
-                "generate_response=no",
-                "selected_path_npu_normal_route=no",
                 "timeout=false",
                 "fresh_crash=false",
-                "db=false",
-                "tts=false",
-                "markdown=false",
-                "streaming=false",
-            ).joinToString("\n")
+            ).plus(hiddenNpuNoStandardRouteSafetyLines()).joinToString("\n")
         }
         return try {
-            runForChatScreenGuarded(context, prompt, resolvedTemplateMode, maxOutputTokens)
+            runForChatScreenGuarded(
+                context = context,
+                prompt = prompt,
+                templateMode = resolvedTemplateMode,
+                maxOutputTokens = baselineMaxOutputTokens,
+                requestedMaxOutputTokens = requestedMaxOutputTokens,
+            )
         } finally {
             chatScreenRunInProgress.set(false)
         }
@@ -190,6 +207,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
         prompt: String,
         templateMode: HiddenQairt244PromptTemplateMode,
         maxOutputTokens: Int,
+        requestedMaxOutputTokens: Int,
     ): String {
         val appContext = context.applicationContext
         val validation = if (io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
@@ -216,7 +234,6 @@ object DevOnlyNpuChatScreenBlockedBranch {
                     nativeEditablePromptSupported = true,
                     running = false,
                     maxOutputTokens = maxOutputTokens,
-                    allowMaxOutputTokenRange = !io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT,
                 ),
                 prompt = normalizedPrompt,
                 maxOutputTokens = maxOutputTokens,
@@ -347,8 +364,11 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "prompt_input_limit_mode=$promptInputLimitMode",
             "prompt_formatting_mode=${nativeResult["prompt_formatting_mode"].orEmpty().ifBlank { "raw_normalized_prompt" }}",
             "route_type=standard_hidden_chat_screen",
+            "requested_max_output_tokens=$requestedMaxOutputTokens",
             "max_output_tokens=${result.maxOutputTokens}",
             "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit)}",
+            "hidden_safety_baseline=enhanced_sanitizer_only_128",
+            "lower_token_caps_policy=rollback_only",
             "turn_stop_compare_marker=qairt244_turn_stop_compare_v1",
             "native_prompt_input_code_point_limit=${escapeValue(nativeResult["native_prompt_input_code_point_limit"].orEmpty())}",
             "native_prompt_input_limit_mode=${escapeValue(nativeResult["native_prompt_input_limit_mode"].orEmpty())}",
@@ -366,20 +386,10 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 "artifact_path=${escapeValue(result.artifactPath.orEmpty())}",
                 "fallback_used=false",
                 "ui_cleanup_status=scheduled",
-                "normal_ui_route_connected=true",
-                "conversation_created=no",
-                "generate_response=no",
-                "selected_path_npu_normal_route=no",
                 "timeout=${result.timeout}",
                 "fresh_crash=${result.freshCrash}",
-                "db=false",
-                "tts=false",
-                "markdown=false",
-                "markdown_mode=non_streaming_direct_insert",
-                "repair_applied=false",
-                "streaming=false",
             ),
-        ).joinToString("\n")
+        ).plus(hiddenNpuNoStandardRouteSafetyLines()).joinToString("\n")
     }
 
     private fun readKeyValueFile(file: File): Map<String, String> {

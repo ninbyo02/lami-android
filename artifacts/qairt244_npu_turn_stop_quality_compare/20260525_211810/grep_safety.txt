@@ -1,0 +1,667 @@
+# grep safety scan
+package_target=io.github.ninbyo02.lami
+receiver=io.github.ninbyo02.lami.npu.StandardHiddenQairt244PromptReceiver
+
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:6:APP_ID="io.github.ninbyo02.lami"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:7:RECEIVER="io.github.ninbyo02.lami.npu.StandardHiddenQairt244PromptReceiver"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:8:ACTION="io.github.ninbyo02.lami.action.STANDARD_HIDDEN_QAIRT244_PROMPT"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:16:CASE_LABELS=("enhanced sanitizer_only + fixed max_output_tokens_128")
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:22:STOP_SEQUENCE_CASE_ID="stop_sequence_end_of_turn"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:42:  - sanitizer_only, fixed max_output_tokens=128
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:43:  - stop_sequence_end_of_turn is recorded as not_run/native_stop_not_exposed
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:46:  - repetition suppression is marker-only until the API is confirmed; set
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:50:This script targets package io.github.ninbyo02.lami and reuses the standard
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:51:hidden receiver flow. It does not use the customnpu package.
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:65:    printf 'ERROR: case max_output_tokens must be <=128, got: %s\n' "$max_tokens" >&2
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:71:    printf 'ERROR: rollback case max_output_tokens must be below 128, got: %s\n' "$max_tokens" >&2
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:197:  if printf '%s\n%s\n' "$evidence" "$backend" | grep -Eiq 'QNN|HTP|FastRPC|NPU|selected_path_npu'; then
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:200:  if rg -q "QNN|HTP|FastRPC|selected_path_npu|Backend\\.NPU|RunDecode" "$run_dir/native_diag.txt" "$run_dir/result.txt" "$run_dir/logcat_tail.txt" 2>/dev/null; then
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:284:  log "run case=$case_id prompt=$prompt requested_max_output_tokens=$requested_max_tokens timeout=${TIMEOUT_SECONDS}s"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:290:    printf 'requested_max_output_tokens=%s\n' "$requested_max_tokens"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:293:    printf 'stop_sequence_control=native_api_not_exposed\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:294:    printf 'repetition_suppression_marker=%s\n' "$REPETITION_SUPPRESSION_MARKER"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:309:    --ei max_output_tokens "$requested_max_tokens" \
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:341:  actual_max="$(case_value max_output_tokens "$run_dir")"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:368:    printf 'actual_max_output_tokens=%s\n' "$actual_max"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:369:    printf 'max_output_tokens_honored=%s\n' "$([ "$actual_max" = "$requested_max_tokens" ] && printf true || printf false)"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:385:    printf 'selected_path_npu_saved=%s\n' "$(case_value selected_path_npu_saved "$run_dir")"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:388:    printf 'stop_sequence_control=native_api_not_exposed\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:389:    printf 'repetition_suppression_marker=%s\n' "$REPETITION_SUPPRESSION_MARKER"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:413:        printf "requested_max_output_tokens=%s\n" "$requested_max_tokens"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:417:        printf "actual_max_output_tokens=not_run\n"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:418:        printf "max_output_tokens_honored=not_run\n"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:434:        printf "selected_path_npu_saved=not_run\n"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:437:        printf "stop_sequence_control=native_api_not_exposed\n"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:438:        printf "repetition_suppression_marker=%s\n" "$REPETITION_SUPPRESSION_MARKER"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:452:write_stop_sequence_not_run_rows() {
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:460:      printf 'requested_max_output_tokens=128\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:464:      printf 'actual_max_output_tokens=not_run\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:465:      printf 'max_output_tokens_honored=not_run\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:481:      printf 'selected_path_npu_saved=not_run\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:484:      printf 'stop_sequence_control=native_api_not_exposed\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:485:      printf 'repetition_suppression_marker=%s\n' "$REPETITION_SUPPRESSION_MARKER"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:510:        printf 'requested_max_output_tokens=%s\n' "$requested_max_tokens"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:514:        printf 'actual_max_output_tokens=not_run\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:515:        printf 'max_output_tokens_honored=not_run\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:531:        printf 'selected_path_npu_saved=not_run\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:534:        printf 'stop_sequence_control=native_api_not_exposed\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:535:        printf 'repetition_suppression_marker=%s\n' "$REPETITION_SUPPRESSION_MARKER"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:577:    printf '| case | prompt | requested_max_output_tokens | actual_max_output_tokens | status | npu_evidence | fallback_used | fresh_crash | quality_classification | sanitized_output_length | reasonCode | stop_reason |\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:582:        requested="$(summary_field requested_max_output_tokens "$case_id" "$prompt")"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:583:        actual="$(summary_field actual_max_output_tokens "$case_id" "$prompt")"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:604:      rg -n "QNN|HTP|FastRPC|RunDecode|EngineFactory|native_prompt|sanitizer|selected_path_npu|fallback_used|timeout|fresh_crash|max_output_tokens|stop_reason|end_of_turn|quality_classification|repetition_suppression|db=false|tts=false|markdown=false|streaming=false" "$file" | sed "s#^#${file#$OUT_DIR/}:#" || true
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:614:    rg -n "customnpu|io\\.github\\.ninbyo02\\.lami|StandardHiddenQairt244PromptReceiver|STANDARD_HIDDEN_QAIRT244_PROMPT|max_output_tokens|stop_sequence|Backend\\.NPU|selectedPath.*npu|selected_path_npu|tts=true|markdown=true|streaming=true|db=true|generateResponse|repetition" \
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:623:    printf 'selected_path_npu_saved_by_runner=false\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:636:    printf '# stop_sequence_end_of_turn is recorded as not_run/native_stop_not_exposed.\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:652:    printf -- '- repetition_suppression_marker: `%s`\n' "$REPETITION_SUPPRESSION_MARKER"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:654:    printf -- '- stop_sequence_end_of_turn: `not_run/native_stop_not_exposed`\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:658:    printf -- '- `sanitizer_only`: standard hidden run, fixed max_output_tokens=128\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:661:    printf -- '- `stop_sequence_end_of_turn`: not run until native stop-sequence control is exposed\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:665:    printf -- '- The standard hidden receiver flow is reused and package `io.github.ninbyo02.lami` is targeted.\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:666:    printf -- '- `max_output_tokens` is fixed at 128 for the hidden safety baseline; lower token caps are recorded only as rollback rows.\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:667:    printf -- '- Stop sequence and repetition suppression are artifact markers only here; no unconfirmed native/API controls are invoked.\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:685:    write_stop_sequence_not_run_rows
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:702:  write_stop_sequence_not_run_rows
+app/src/customBuildExperimentDebug/AndroidManifest.xml:10:            android:name="io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeReceiver"
+app/src/customBuildExperimentDebug/AndroidManifest.xml:13:                <action android:name="io.github.ninbyo02.lami.npu.PROBE_DISPATCH" />
+app/src/customBuildExperimentDebug/AndroidManifest.xml:17:            android:name="io.github.ninbyo02.lami.ui.screens.home.NpuExperimentProbeActivity"
+app/src/customBuildExperimentDebug/AndroidManifest.xml:24:            android:name="io.github.ninbyo02.lami.npu.DevNpuChatScreenToggleActivity"
+app/src/customBuildExperimentDebug/AndroidManifest.xml:31:            android:name="io.github.ninbyo02.lami.npu.DevQairt244PromptReceiver"
+app/src/customBuildExperimentDebug/AndroidManifest.xml:34:            android:name="io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity"
+app/src/customBuildExperimentDebug/AndroidManifest.xml:38:            android:name="io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmokeActivity"
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmokeActivity.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmokeActivity.kt:5:import io.github.ninbyo02.lami.BuildConfig
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244LowerLevelSingleTokenSmoke.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244LowerLevelSingleTokenSmoke.kt:4:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/npu/Qairt244ModelPathResolver.kt:1:package io.github.ninbyo02.lami.npu
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244AppJniSmoke.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244ShortMultitokenSmoke.kt:4:import io.github.ninbyo02.lami.BuildConfig
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NpuOutputSanitizer.kt:1:package io.github.ninbyo02.lami.npu
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244OutputUnicodeDiagnostics.kt:1:package io.github.ninbyo02.lami.npu
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:1:package io.github.ninbyo02.lami.npu
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:43:        "max_output_tokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:44:        "native_max_output_tokens_limit",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:74:        "selected_path_npu_saved",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:1:package io.github.ninbyo02.lami.npu
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:6:import io.github.ninbyo02.lami.BuildConfig
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:7:import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:8:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:13:class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:187:                "requested_max_output_tokens=${values["requested_max_output_tokens"].orEmpty()}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:203:                    "max_output_tokens=${values["max_output_tokens"].orEmpty()}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:234:        const val ACTION = "io.github.ninbyo02.lami.action.STANDARD_HIDDEN_QAIRT244_PROMPT"
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:241:        const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:1:package io.github.ninbyo02.lami.npu
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:5:import io.github.ninbyo02.lami.BuildConfig
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:6:import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:7:import io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmoke
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:8:import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:95:                reasonCode = "invalid_max_output_tokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:161:                    "max_output_tokens=$maxOutputTokens engine_initialize=false run_decode=false db=false tts=false markdown=false stream=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:235:                "max_output_tokens=$maxOutputTokens " +
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:524:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:534:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:564:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:585:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:615:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:636:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:677:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:686:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuTransientPresenter.kt:1:package io.github.ninbyo02.lami.npu
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlanner.kt:1:package io.github.ninbyo02.lami.npu
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGate.kt:1:package io.github.ninbyo02.lami.npu
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteDisplayModel.kt:1:package io.github.ninbyo02.lami.npu
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapter.kt:1:package io.github.ninbyo02.lami.npu
+app/src/main/java/io/github/ninbyo02/lami/tts/AndroidTtsController.kt:1:package io.github.ninbyo02.lami.tts
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:1:package io.github.ninbyo02.lami.npu
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:6:import io.github.ninbyo02.lami.BuildConfig
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:7:import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:8:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:57:                    "max_output_tokens=$maxOutputTokens",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:87:                    "max_output_tokens=$maxOutputTokens",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:96:                    "selected_path_npu_saved=false",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:124:            writeState("rejected", "invalid_max_output_tokens")
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:125:            writeFailure("invalid_max_output_tokens")
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:177:        const val ACTION_DEV_QAIRT244_PROMPT = "io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT"
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:180:        const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
+app/src/main/java/io/github/ninbyo02/lami/tts/TtsSummaryBuilder.kt:1:package io.github.ninbyo02.lami.tts
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:1:package io.github.ninbyo02.lami.npu
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:4:import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:5:import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:6:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:22:        "selected_path_npu_normal_route=no",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:94:                if (io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:172:                "requested_max_output_tokens=$requestedMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:173:                "max_output_tokens=$baselineMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:174:                "native_max_output_tokens_limit=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:213:        val validation = if (io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:300:        val nativeMaxOutputTokensLimit = nativeResult["native_max_output_tokens_limit"].orEmpty()
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:323:        val selectedRoute = if (io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:367:            "requested_max_output_tokens=$requestedMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:368:            "max_output_tokens=${result.maxOutputTokens}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:369:            "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit)}",
+app/src/main/java/io/github/ninbyo02/lami/tts/SpeechTextBuilder.kt:1:package io.github.ninbyo02.lami.tts
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:1:package io.github.ninbyo02.lami
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:35:import io.github.ninbyo02.lami.api.RetrofitClient
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:36:import io.github.ninbyo02.lami.db.AppDatabase
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:37:import io.github.ninbyo02.lami.db.ChatDatabase
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:38:import io.github.ninbyo02.lami.db.repository.BaseUrlRepository
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:39:import io.github.ninbyo02.lami.db.repository.ChatRepository
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:40:import io.github.ninbyo02.lami.db.repository.ModelPreferenceRepository
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:41:import io.github.ninbyo02.lami.navigation.Routes
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:42:import io.github.ninbyo02.lami.navigation.SettingsRoute
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:43:import io.github.ninbyo02.lami.ui.screens.chats.Chats
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:44:import io.github.ninbyo02.lami.ui.screens.home.Home
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:45:import io.github.ninbyo02.lami.ui.screens.home.LocalInferenceEngineHolder
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:46:import io.github.ninbyo02.lami.ui.screens.settings.About
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:47:import io.github.ninbyo02.lami.ui.screens.settings.SettingsData
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:48:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:49:import io.github.ninbyo02.lami.ui.screens.settings.Settings
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:50:import io.github.ninbyo02.lami.ui.screens.settings.NoticeScreen
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:51:import io.github.ninbyo02.lami.ui.screens.settings.LocalBaseModelScreen
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:52:import io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsScreen
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:53:import io.github.ninbyo02.lami.ui.screens.spriteeditor.SpriteEditorScreen
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:54:import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:55:import io.github.ninbyo02.lami.ui.common.ProjectSnackbar
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:56:import io.github.ninbyo02.lami.ui.common.TopAppBarHeight
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:57:import io.github.ninbyo02.lami.ui.theme.OllamaTheme
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:58:import io.github.ninbyo02.lami.util.RuntimeFlags
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:59:import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
+app/src/main/java/io/github/ninbyo02/lami/MainActivity.kt:60:import io.github.ninbyo02.lami.viewmodels.OllamaViewModelFactory
+app/src/main/java/io/github/ninbyo02/lami/sprite/LamiSpriteSheetRepository.kt:1:package io.github.ninbyo02.lami.sprite
+app/src/main/java/io/github/ninbyo02/lami/sprite/LamiSpriteSheetRepository.kt:9:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/main/java/io/github/ninbyo02/lami/sprite/LamiSpriteSheetRepository.kt:22:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/sprite/LamiSpriteSheetRepository.kt:23:import io.github.ninbyo02.lami.data.SpriteSheetConfig
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/ErrorKeyResolution.kt:1:package io.github.ninbyo02.lami.viewmodels
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/ErrorKeyResolution.kt:3:import io.github.ninbyo02.lami.ui.screens.settings.ErrorCause
+app/src/main/java/io/github/ninbyo02/lami/HeldEngineLifecycleBridge.kt:1:package io.github.ninbyo02.lami
+app/src/main/java/io/github/ninbyo02/lami/HeldEngineLifecycleBridge.kt:5:import io.github.ninbyo02.lami.ui.screens.home.LocalInferenceEngineHolder
+app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase.kt:1:package io.github.ninbyo02.lami.db
+app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase.kt:9:import io.github.ninbyo02.lami.db.dao.ChatDao
+app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase.kt:10:import io.github.ninbyo02.lami.db.dao.MessageDao
+app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase.kt:11:import io.github.ninbyo02.lami.db.entity.Chat
+app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase.kt:12:import io.github.ninbyo02.lami.db.entity.Message
+app/src/main/java/io/github/ninbyo02/lami/db/ChatDatabase.kt:13:import io.github.ninbyo02.lami.db.entity.TitleSource
+app/src/main/java/io/github/ninbyo02/lami/sprite/SpriteSheetComposite.kt:1:package io.github.ninbyo02.lami.sprite
+app/src/debug/java/io/github/ninbyo02/lami/debug/LiteRtModelInspectorActivity.kt:1:package io.github.ninbyo02.lami.debug
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/ErrorCauseInference.kt:1:package io.github.ninbyo02.lami.viewmodels
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/ErrorCauseInference.kt:3:import io.github.ninbyo02.lami.ui.screens.settings.ErrorCause
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevNpuChatScreenToggleActivity.kt:1:package io.github.ninbyo02.lami.npu
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevNpuChatScreenToggleActivity.kt:5:import io.github.ninbyo02.lami.BuildConfig
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevNpuChatScreenToggleActivity.kt:6:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevNpuChatScreenToggleActivity.kt:63:            appendLine("selected_path_npu=false")
+app/src/main/java/io/github/ninbyo02/lami/db/dao/MessageDao.kt:1:package io.github.ninbyo02.lami.db.dao
+app/src/main/java/io/github/ninbyo02/lami/db/dao/MessageDao.kt:9:import io.github.ninbyo02.lami.db.entity.Message
+app/src/main/java/io/github/ninbyo02/lami/db/AppDatabase.kt:1:package io.github.ninbyo02.lami.db
+app/src/main/java/io/github/ninbyo02/lami/db/AppDatabase.kt:9:import io.github.ninbyo02.lami.db.dao.BaseUrlDao
+app/src/main/java/io/github/ninbyo02/lami/db/AppDatabase.kt:10:import io.github.ninbyo02.lami.db.dao.ModelPreferenceDao
+app/src/main/java/io/github/ninbyo02/lami/db/AppDatabase.kt:11:import io.github.ninbyo02.lami.db.entity.BaseUrl
+app/src/main/java/io/github/ninbyo02/lami/db/AppDatabase.kt:12:import io.github.ninbyo02.lami.db.entity.SelectedModel
+app/src/debug/java/io/github/ninbyo02/lami/debug/LiteRtMinimalSmokeTestActivity.kt:1:package io.github.ninbyo02.lami.debug
+app/src/main/java/io/github/ninbyo02/lami/navigation/Routes.kt:1:package io.github.ninbyo02.lami.navigation
+app/src/main/java/io/github/ninbyo02/lami/db/dao/ModelPreferenceDao.kt:1:package io.github.ninbyo02.lami.db.dao
+app/src/main/java/io/github/ninbyo02/lami/db/dao/ModelPreferenceDao.kt:7:import io.github.ninbyo02.lami.db.entity.SelectedModel
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeFailureClassifier.kt:1:package io.github.ninbyo02.lami.debug
+app/src/debug/java/io/github/ninbyo02/lami/npu/BlockedDevOnlyNpuRouteAdapter.kt:1:package io.github.ninbyo02.lami.npu
+app/src/debug/java/io/github/ninbyo02/lami/npu/BlockedDevOnlyNpuRouteAdapter.kt:3:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/utils/AutoTitleGenerator.kt:1:package io.github.ninbyo02.lami.utils
+app/src/main/java/io/github/ninbyo02/lami/db/dao/ChatDao.kt:1:package io.github.ninbyo02.lami.db.dao
+app/src/main/java/io/github/ninbyo02/lami/db/dao/ChatDao.kt:8:import io.github.ninbyo02.lami.db.entity.Chat
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeActivity.kt:1:package io.github.ninbyo02.lami.debug
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/LamiStatus.kt:1:package io.github.ninbyo02.lami.viewmodels
+app/src/main/java/io/github/ninbyo02/lami/db/repository/ChatRepository.kt:1:package io.github.ninbyo02.lami.db.repository
+app/src/main/java/io/github/ninbyo02/lami/db/repository/ChatRepository.kt:3:import io.github.ninbyo02.lami.db.dao.ChatDao
+app/src/main/java/io/github/ninbyo02/lami/db/repository/ChatRepository.kt:4:import io.github.ninbyo02.lami.db.dao.ChatLatestMessage
+app/src/main/java/io/github/ninbyo02/lami/db/repository/ChatRepository.kt:5:import io.github.ninbyo02.lami.db.dao.MessageDao
+app/src/main/java/io/github/ninbyo02/lami/db/repository/ChatRepository.kt:6:import io.github.ninbyo02.lami.db.entity.Chat
+app/src/main/java/io/github/ninbyo02/lami/db/repository/ChatRepository.kt:7:import io.github.ninbyo02.lami.db.entity.Message
+app/src/main/java/io/github/ninbyo02/lami/db/repository/ChatRepository.kt:8:import io.github.ninbyo02.lami.db.entity.TitleSource
+app/src/main/java/io/github/ninbyo02/lami/db/repository/ChatRepository.kt:9:import io.github.ninbyo02.lami.utils.AutoTitleGenerator
+app/src/main/java/io/github/ninbyo02/lami/db/dao/BaseUrlDao.kt:1:package io.github.ninbyo02.lami.db.dao
+app/src/main/java/io/github/ninbyo02/lami/db/dao/BaseUrlDao.kt:10:import io.github.ninbyo02.lami.db.entity.BaseUrl
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtElfInspector.kt:1:package io.github.ninbyo02.lami.debug
+app/src/main/java/io/github/ninbyo02/lami/util/UrlUtils.kt:1:package io.github.ninbyo02.lami.util
+app/src/main/java/io/github/ninbyo02/lami/db/repository/UserRepository.kt:1:package io.github.ninbyo02.lami.db.repository
+app/src/main/java/io/github/ninbyo02/lami/db/repository/UserRepository.kt:3:import io.github.ninbyo02.lami.db.dao.ChatDao
+app/src/main/java/io/github/ninbyo02/lami/db/repository/UserRepository.kt:4:import io.github.ninbyo02.lami.db.entity.Chat
+app/src/debug/java/io/github/ninbyo02/lami/debug/QnnDirectProbeActivity.kt:1:package io.github.ninbyo02.lami.debug
+app/src/main/java/io/github/ninbyo02/lami/util/SpriteAnalysis.kt:1:package io.github.ninbyo02.lami.util
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/LamiState.kt:1:package io.github.ninbyo02.lami.viewmodels
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/LamiState.kt:3:import io.github.ninbyo02.lami.UiState
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/LamiState.kt:4:import io.github.ninbyo02.lami.viewmodels.LamiStatus.CONNECTING
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/LamiState.kt:5:import io.github.ninbyo02.lami.viewmodels.LamiStatus.DEGRADED
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/LamiState.kt:6:import io.github.ninbyo02.lami.viewmodels.LamiStatus.ERROR
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/LamiState.kt:7:import io.github.ninbyo02.lami.viewmodels.LamiStatus.NO_MODELS
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/LamiState.kt:8:import io.github.ninbyo02.lami.viewmodels.LamiStatus.OFFLINE
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/LamiState.kt:9:import io.github.ninbyo02.lami.viewmodels.LamiStatus.READY
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/LamiState.kt:10:import io.github.ninbyo02.lami.viewmodels.LamiStatus.TALKING
+app/src/main/java/io/github/ninbyo02/lami/db/repository/ModelPreferenceRepository.kt:1:package io.github.ninbyo02.lami.db.repository
+app/src/main/java/io/github/ninbyo02/lami/db/repository/ModelPreferenceRepository.kt:3:import io.github.ninbyo02.lami.db.dao.ModelPreferenceDao
+app/src/main/java/io/github/ninbyo02/lami/db/repository/ModelPreferenceRepository.kt:4:import io.github.ninbyo02.lami.db.entity.SelectedModel
+app/src/main/java/io/github/ninbyo02/lami/ui/util/InferenceStatsFormatter.kt:1:package io.github.ninbyo02.lami.ui.util
+app/src/main/java/io/github/ninbyo02/lami/ui/util/InferenceStatsFormatter.kt:3:import io.github.ninbyo02.lami.ui.model.InferenceStats
+app/src/main/java/io/github/ninbyo02/lami/util/RuntimeFlags.kt:1:package io.github.ninbyo02.lami.util
+app/src/main/java/io/github/ninbyo02/lami/local/QnnDelegateProbe.kt:1:package io.github.ninbyo02.lami.local
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:1:package io.github.ninbyo02.lami.debug
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:16:import io.github.ninbyo02.lami.BuildConfig
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:194:                BackendMode.NPU_PRIVATE -> Backend.NPU(requireNotNull(privateNativeRuntimeDir).absolutePath)
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeService.kt:1:package io.github.ninbyo02.lami.debug
+app/src/main/java/io/github/ninbyo02/lami/data/SpriteSheetConfig.kt:1:package io.github.ninbyo02.lami.data
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModelFactory.kt:1:package io.github.ninbyo02.lami.viewmodels
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModelFactory.kt:5:import io.github.ninbyo02.lami.db.repository.ChatRepository
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModelFactory.kt:6:import io.github.ninbyo02.lami.db.repository.ModelPreferenceRepository
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModelFactory.kt:7:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/main/java/io/github/ninbyo02/lami/api/testServer.kt:1:package io.github.ninbyo02.lami.api
+app/src/main/java/io/github/ninbyo02/lami/db/repository/BaseUrlRepository.kt:1:package io.github.ninbyo02.lami.db.repository
+app/src/main/java/io/github/ninbyo02/lami/db/repository/BaseUrlRepository.kt:3:import io.github.ninbyo02.lami.db.dao.BaseUrlDao
+app/src/main/java/io/github/ninbyo02/lami/db/repository/BaseUrlRepository.kt:4:import io.github.ninbyo02.lami.db.entity.BaseUrl
+app/src/main/java/io/github/ninbyo02/lami/api/OllamaRequest.kt:1:package io.github.ninbyo02.lami.api
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/StreamingMetrics.kt:1:package io.github.ninbyo02.lami.viewmodels
+app/src/main/java/io/github/ninbyo02/lami/UiState.kt:1:package io.github.ninbyo02.lami
+app/src/main/java/io/github/ninbyo02/lami/ui/theme/Type.kt:1:package io.github.ninbyo02.lami.ui.theme
+app/src/main/java/io/github/ninbyo02/lami/api/Server.kt:1:package io.github.ninbyo02.lami.api
+app/src/main/java/io/github/ninbyo02/lami/api/Server.kt:3:import io.github.ninbyo02.lami.db.entity.BaseUrl
+app/src/main/java/io/github/ninbyo02/lami/api/Server.kt:4:import io.github.ninbyo02.lami.db.repository.BaseUrlProvider
+app/src/main/java/io/github/ninbyo02/lami/api/Server.kt:5:import io.github.ninbyo02.lami.db.repository.ModelPreferenceRepository
+app/src/main/java/io/github/ninbyo02/lami/api/Server.kt:13:import io.github.ninbyo02.lami.util.normalizeUrlInput
+app/src/main/java/io/github/ninbyo02/lami/api/Server.kt:14:import io.github.ninbyo02.lami.util.validateUrlFormat
+app/src/main/java/io/github/ninbyo02/lami/db/entity/MessageInferenceStats.kt:1:package io.github.ninbyo02.lami.db.entity
+app/src/main/java/io/github/ninbyo02/lami/db/entity/MessageInferenceStats.kt:3:import io.github.ninbyo02.lami.ui.model.InferenceStats
+app/src/main/java/io/github/ninbyo02/lami/ui/animation/SpriteAnimationDefaults.kt:1:package io.github.ninbyo02.lami.ui.animation
+app/src/main/java/io/github/ninbyo02/lami/db/entity/TitleSource.kt:1:package io.github.ninbyo02.lami.db.entity
+app/src/main/java/io/github/ninbyo02/lami/db/entity/baseurl.kt:1:package io.github.ninbyo02.lami.db.entity
+app/src/main/java/io/github/ninbyo02/lami/ui/components/ReadyPreviewSlot.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/db/entity/Message.kt:1:package io.github.ninbyo02.lami.db.entity
+app/src/main/java/io/github/ninbyo02/lami/db/entity/SelectedModel.kt:1:package io.github.ninbyo02.lami.db.entity
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiCornerAvatar.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/text/MarkdownStreamingMode.kt:1:package io.github.ninbyo02.lami.ui.text
+app/src/main/java/io/github/ninbyo02/lami/ui/theme/Theme.kt:1:package io.github.ninbyo02.lami.ui.theme
+app/src/main/java/io/github/ninbyo02/lami/ui/components/DevMenuSection.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/components/DevMenuSection.kt:33:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/components/DevMenuSection.kt:34:import io.github.ninbyo02.lami.ui.screens.settings.INFO_X_OFFSET_MAX
+app/src/main/java/io/github/ninbyo02/lami/ui/components/DevMenuSection.kt:35:import io.github.ninbyo02.lami.ui.screens.settings.INFO_X_OFFSET_MIN
+app/src/main/java/io/github/ninbyo02/lami/ui/components/DevMenuSection.kt:36:import io.github.ninbyo02.lami.ui.screens.settings.DevPreviewSettings
+app/src/main/java/io/github/ninbyo02/lami/ui/components/DevMenuSection.kt:37:import io.github.ninbyo02.lami.ui.screens.settings.ReadyPreviewUiState
+app/src/main/java/io/github/ninbyo02/lami/ui/components/DevMenuSection.kt:38:import io.github.ninbyo02.lami.ui.screens.settings.toJsonObject
+app/src/main/java/io/github/ninbyo02/lami/db/entity/Chat.kt:1:package io.github.ninbyo02.lami.db.entity
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:32:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:33:import io.github.ninbyo02.lami.UiState
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:34:import io.github.ninbyo02.lami.data.SpriteSheetConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:35:import io.github.ninbyo02.lami.ui.animation.SpriteAnimationDefaults
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:36:import io.github.ninbyo02.lami.ui.screens.settings.ErrorCause
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:37:import io.github.ninbyo02.lami.ui.screens.settings.InsertionAnimationSettings
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:38:import io.github.ninbyo02.lami.ui.screens.settings.InsertionPattern
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:39:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:40:import io.github.ninbyo02.lami.ui.screens.settings.effectiveInsertionIntervalMs
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:41:import io.github.ninbyo02.lami.ui.screens.settings.SpriteState
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:42:import io.github.ninbyo02.lami.ui.screens.settings.shouldAttemptInsertion
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:43:import io.github.ninbyo02.lami.util.RuntimeFlags
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:44:import io.github.ninbyo02.lami.viewmodels.LamiAnimationStatus
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:45:import io.github.ninbyo02.lami.viewmodels.LamiState
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:46:import io.github.ninbyo02.lami.viewmodels.LamiStatus
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:47:import io.github.ninbyo02.lami.viewmodels.bucket
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:48:import io.github.ninbyo02.lami.viewmodels.mapToAnimationLamiStatus
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusSprite.kt:49:import io.github.ninbyo02.lami.viewmodels.resolveErrorKey
+app/src/main/java/io/github/ninbyo02/lami/ui/components/ReadyPreviewLayoutState.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/components/ReadyPreviewLayoutState.kt:11:import io.github.ninbyo02.lami.ui.screens.settings.DevPreviewSettings
+app/src/main/java/io/github/ninbyo02/lami/ui/components/ReadyPreviewLayoutState.kt:12:import io.github.ninbyo02.lami.ui.screens.settings.INFO_X_OFFSET_MAX
+app/src/main/java/io/github/ninbyo02/lami/ui/components/ReadyPreviewLayoutState.kt:13:import io.github.ninbyo02.lami.ui.screens.settings.INFO_X_OFFSET_MIN
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:20:import io.github.ninbyo02.lami.BuildConfig
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:21:import io.github.ninbyo02.lami.npu.BlockedDevOnlyNpuRouteAdapter
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:22:import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteAdapter
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:23:import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteDisplayModelMapper
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:24:import io.github.ninbyo02.lami.npu.DevOnlyNpuRouteGateInput
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:25:import io.github.ninbyo02.lami.npu.DevOnlyNpuRoutePlanner
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:26:import io.github.ninbyo02.lami.npu.DevOnlyNpuTransientPresenter
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:80:                "selectedPath=npu normal route=not used",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:303:                "no selectedPath=npu normal route",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:305:                "no high-level generateResponse",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:352:            "qairt244_diagnostic_chat_guarded_run_v1 runId=$runId state=started max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS} prompt_source=$promptSource actual_prompt=$prompt\n",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:545:            "selectedPath=npu disabled=true",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:546:            "high-level generateResponse=false",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:685:                "max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+app/src/main/java/io/github/ninbyo02/lami/ui/components/InvertColorFilter.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSprite.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSprite.kt:35:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSprite.kt:36:import io.github.ninbyo02.lami.data.SpriteSheetConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSprite.kt:37:import io.github.ninbyo02.lami.data.normalize
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSprite.kt:38:import io.github.ninbyo02.lami.sprite.SpriteSheetData
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSprite.kt:39:import io.github.ninbyo02.lami.sprite.SpriteSheetFrameRegion
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSprite.kt:40:import io.github.ninbyo02.lami.sprite.SpriteSheetLoadResult
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSprite.kt:41:import io.github.ninbyo02.lami.sprite.rememberLamiSpriteSheetState
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSprite.kt:42:import io.github.ninbyo02.lami.viewmodels.LamiState
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSprite.kt:43:import io.github.ninbyo02.lami.viewmodels.LamiStatus
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSprite.kt:44:import io.github.ninbyo02.lami.ui.components.mapToLamiSpriteStatus
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSprite.kt:45:import io.github.ninbyo02.lami.ui.components.rememberSpriteFrameMaps
+app/src/main/java/io/github/ninbyo02/lami/ui/theme/LamiTypographyTokens.kt:1:package io.github.ninbyo02.lami.ui.theme
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiHeaderStatus.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiHeaderStatus.kt:23:import io.github.ninbyo02.lami.ui.common.headerAvatarModifier
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiHeaderStatus.kt:24:import io.github.ninbyo02.lami.viewmodels.LamiState
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiHeaderStatus.kt:25:import io.github.ninbyo02.lami.viewmodels.LamiStatus
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiHeaderStatus.kt:26:import io.github.ninbyo02.lami.viewmodels.ModelInfo
+app/src/main/java/io/github/ninbyo02/lami/ui/components/SpriteFrameRepository.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/components/SpriteFrameRepository.kt:9:import io.github.ninbyo02.lami.data.BoxPosition
+app/src/main/java/io/github/ninbyo02/lami/ui/components/SpriteFrameRepository.kt:10:import io.github.ninbyo02.lami.data.SpriteSheetConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/components/SpriteFrameRepository.kt:11:import io.github.ninbyo02.lami.data.boxesWithInternalIndex
+app/src/main/java/io/github/ninbyo02/lami/ui/components/SpriteFrameRepository.kt:12:import io.github.ninbyo02.lami.data.normalize
+app/src/main/java/io/github/ninbyo02/lami/ui/components/SpriteFrameRepository.kt:13:import io.github.ninbyo02.lami.data.toInternalFrameIndex
+app/src/main/java/io/github/ninbyo02/lami/ui/components/SpriteFrameRepository.kt:14:import io.github.ninbyo02.lami.data.toSpriteBoxes
+app/src/main/java/io/github/ninbyo02/lami/ui/components/SpriteFrameRepository.kt:15:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusPanel.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusPanel.kt:27:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusPanel.kt:28:import io.github.ninbyo02.lami.viewmodels.LamiState
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiStatusPanel.kt:29:import io.github.ninbyo02.lami.viewmodels.LamiStatus
+app/src/main/java/io/github/ninbyo02/lami/ui/components/SpriteFrameRendering.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSpriteDefaults.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiSpriteDefaults.kt:9:import io.github.ninbyo02.lami.viewmodels.LamiState
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiAvatar.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiAvatar.kt:81:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiAvatar.kt:82:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiAvatar.kt:83:import io.github.ninbyo02.lami.api.RetrofitClient
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiAvatar.kt:84:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiAvatar.kt:85:import io.github.ninbyo02.lami.viewmodels.LamiState
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiAvatar.kt:86:import io.github.ninbyo02.lami.viewmodels.LamiStatus
+app/src/main/java/io/github/ninbyo02/lami/ui/components/LamiAvatar.kt:87:import io.github.ninbyo02.lami.viewmodels.ModelInfo
+app/src/main/java/io/github/ninbyo02/lami/ui/theme/Font.kt:1:package io.github.ninbyo02.lami.ui.theme
+app/src/main/java/io/github/ninbyo02/lami/ui/theme/Font.kt:6:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/ui/components/InferenceTargetIcon.kt:1:package io.github.ninbyo02.lami.ui.components
+app/src/main/java/io/github/ninbyo02/lami/ui/text/FencedCodeParser.kt:1:package io.github.ninbyo02.lami.ui.text
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/LamiAnimationStatusMapper.kt:1:package io.github.ninbyo02.lami.viewmodels
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/LamiAnimationStatusMapper.kt:3:import io.github.ninbyo02.lami.UiState
+app/src/main/java/io/github/ninbyo02/lami/ui/model/InferenceStats.kt:1:package io.github.ninbyo02.lami.ui.model
+app/src/main/java/io/github/ninbyo02/lami/ui/common/AppSnackbar.kt:1:package io.github.ninbyo02.lami.ui.common
+app/src/main/java/io/github/ninbyo02/lami/ui/theme/Color.kt:1:package io.github.ninbyo02.lami.ui.theme
+app/src/main/java/io/github/ninbyo02/lami/ui/common/SimpleScreenInsets.kt:1:package io.github.ninbyo02.lami.ui.common
+app/src/main/java/io/github/ninbyo02/lami/ui/text/PythonCodeSyntaxInspector.kt:1:package io.github.ninbyo02.lami.ui.text
+app/src/main/java/io/github/ninbyo02/lami/ui/common/SnackbarTimings.kt:1:package io.github.ninbyo02.lami.ui.common
+app/src/main/java/io/github/ninbyo02/lami/ui/common/ProjectSnackbars.kt:1:package io.github.ninbyo02.lami.ui.common
+app/src/main/java/io/github/ninbyo02/lami/ui/common/TopAppBarHeight.kt:1:package io.github.ninbyo02.lami.ui.common
+app/src/main/java/io/github/ninbyo02/lami/ui/common/FadeOverlays.kt:1:package io.github.ninbyo02.lami.ui.common
+app/src/main/java/io/github/ninbyo02/lami/ui/common/HeaderAvatarLayout.kt:1:package io.github.ninbyo02.lami.ui.common
+app/src/main/java/io/github/ninbyo02/lami/ui/common/SyntaxHighlight.kt:1:package io.github.ninbyo02.lami.ui.common
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LiteRtLmCompileProbe.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/chats/Chats.kt:1:package io.github.ninbyo02.lami.ui.screens.chats
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/chats/Chats.kt:20:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/chats/Chats.kt:21:import io.github.ninbyo02.lami.UiState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/chats/Chats.kt:22:import io.github.ninbyo02.lami.db.entity.Chat
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/chats/Chats.kt:23:import io.github.ninbyo02.lami.db.entity.TitleSource
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/chats/Chats.kt:24:import io.github.ninbyo02.lami.navigation.Routes
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/chats/Chats.kt:25:import io.github.ninbyo02.lami.ui.components.HeaderAvatar
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/chats/Chats.kt:26:import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/chats/Chats.kt:27:import io.github.ninbyo02.lami.ui.components.LamiSprite
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/chats/Chats.kt:28:import io.github.ninbyo02.lami.ui.components.rememberLamiCharacterBackdropColor
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/chats/Chats.kt:29:import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceResolvedStatsResolver.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceTokenMetricsExtractor.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceTokenMetricsExtractor.kt:3:import io.github.ninbyo02.lami.ui.model.InferenceStats
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsUiModelBuilder.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsUiModelBuilder.kt:3:import io.github.ninbyo02.lami.ui.model.InferenceStats
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsUiModelBuilder.kt:4:import io.github.ninbyo02.lami.ui.util.formatFinishReason
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsUiModelBuilder.kt:5:import io.github.ninbyo02.lami.ui.util.formatImageInputCount
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceDevDiagnosticsUiModelBuilder.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/InferenceStatsUiModels.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/TtsMemoryReleasePolicy.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticPromptValidator.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsUiSupport.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsUiSupport.kt:3:import io.github.ninbyo02.lami.ui.model.InferenceStats
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt:80:import io.github.ninbyo02.lami.ui.model.InferenceStats
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt:81:import io.github.ninbyo02.lami.ui.text.PythonCodeSyntaxInspector
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt:82:import io.github.ninbyo02.lami.ui.text.PythonCodeWarning
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt:83:import io.github.ninbyo02.lami.ui.text.PythonCodeWarningType
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt:84:import io.github.ninbyo02.lami.ui.util.buildInferenceSummary
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt:85:import io.github.ninbyo02.lami.ui.text.Segment
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatBubble.kt:86:import io.github.ninbyo02.lami.ui.text.parseFencedCodeSegments
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsTopAppBar.kt:1:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsTopAppBar.kt:22:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/ui/text/MarkdownCodeRepair.kt:1:package io.github.ninbyo02.lami.ui.text
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/NoticeScreen.kt:1:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/NoticeScreen.kt:33:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/NoticeScreen.kt:34:import io.github.ninbyo02.lami.ui.common.BottomFadeOverlay
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/NoticeScreen.kt:35:import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/NoticeScreen.kt:36:import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/NoticeScreen.kt:37:import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/NoticeScreen.kt:38:import io.github.ninbyo02.lami.ui.common.TopFadeOverlay
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt:1:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt:15:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt:16:import io.github.ninbyo02.lami.data.SpriteSheetConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt:17:import io.github.ninbyo02.lami.data.normalize
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt:18:import io.github.ninbyo02.lami.ui.components.InferenceTarget
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt:19:import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt:20:import io.github.ninbyo02.lami.ui.text.resolveEffectiveMarkdownStreamingMode
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsPreferences.kt:21:import io.github.ninbyo02.lami.tts.AndroidTtsController
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:1:package io.github.ninbyo02.lami.ui.screens.spriteeditor
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:115:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:116:import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:117:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:118:import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:119:import io.github.ninbyo02.lami.sprite.compositePreserveTransparency
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:120:import io.github.ninbyo02.lami.sprite.resolveCurrentSpriteSheetOverrideFile
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:121:import io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsSessionSpriteOverride
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:122:import io.github.ninbyo02.lami.ui.components.rememberLamiEditorSpriteBackdropColor
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:123:import io.github.ninbyo02.lami.ui.screens.spriteeditor.FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalBaseModelScreen.kt:1:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/LocalBaseModelScreen.kt:40:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/FrameSequenceExtensions.kt:1:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData.kt:1:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsData.kt:3:import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/JsonTransferUtils.kt:1:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorState.kt:1:package io.github.ninbyo02.lami.ui.screens.spriteeditor
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/InferenceStatsDisplayMode.kt:1:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SettingsRowItems.kt:1:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbeSnapshot.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/PreferredBackendDryRunSetting.kt:1:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOps.kt:1:package io.github.ninbyo02.lami.ui.screens.spriteeditor
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:1:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:55:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:56:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:57:import io.github.ninbyo02.lami.navigation.Routes
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:58:import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:59:import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:60:import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:61:import io.github.ninbyo02.lami.ui.components.LamiSprite
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:62:import io.github.ninbyo02.lami.ui.components.rememberLamiCharacterBackdropColor
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:63:import io.github.ninbyo02.lami.viewmodels.LamiState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:64:import io.github.ninbyo02.lami.viewmodels.LamiStatus
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:65:import io.github.ninbyo02.lami.viewmodels.LamiUiState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/About.kt:66:import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:1:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:88:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:89:import io.github.ninbyo02.lami.navigation.Routes
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:90:import io.github.ninbyo02.lami.navigation.SettingsRoute
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:91:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:92:import io.github.ninbyo02.lami.api.BaseUrlInitializationState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:93:import io.github.ninbyo02.lami.api.RetrofitClient
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:94:import io.github.ninbyo02.lami.db.AppDatabase
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:95:import io.github.ninbyo02.lami.db.entity.BaseUrl
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:96:import io.github.ninbyo02.lami.db.repository.BaseUrlRepository
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:97:import io.github.ninbyo02.lami.db.repository.ModelPreferenceRepository
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:98:import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:99:import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:100:import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:101:import io.github.ninbyo02.lami.ui.common.BottomFadeOverlay
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:102:import io.github.ninbyo02.lami.ui.common.TopFadeOverlay
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:103:import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:104:import io.github.ninbyo02.lami.util.PORT_ERROR_MESSAGE
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:105:import io.github.ninbyo02.lami.util.normalizeUrlInput
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:106:import io.github.ninbyo02.lami.util.validateUrlFormat
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:667:                                    text = "default=false / blocked adapter only / normal selectedPath=npu disabled / real NPU not connected",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:3:import io.github.ninbyo02.lami.ui.model.InferenceStats
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:4:import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:5:import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:6:import io.github.ninbyo02.lami.ui.util.formatFinishReason
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:7:import io.github.ninbyo02.lami.ui.util.formatImageInputCount
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:8:import io.github.ninbyo02.lami.ui.util.formatInferenceTime
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:9:import io.github.ninbyo02.lami.ui.util.formatModelLoadDuration
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:10:import io.github.ninbyo02.lami.ui.util.formatOutputTokens
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:11:import io.github.ninbyo02.lami.ui.util.formatPromptEvalDuration
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:12:import io.github.ninbyo02.lami.ui.util.formatTimeToFirstToken
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:13:import io.github.ninbyo02.lami.ui.util.formatTotalTokens
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:589:                    title = "DEV診断: Backend.NPU Instantiate Probe",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:597:                    title = "DEV診断: Backend.NPU Attach Dry-Run Probe",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:621:                    title = "DEV診断: Backend.NPU Connection Candidate",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:745:    val maxOutputTokens = values["max_output_tokens"].orUnknown()
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:756:            InferenceStatItemUi(label = "max_output_tokens", value = maxOutputTokens),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:757:            InferenceStatItemUi(label = "native_max_output_tokens_limit", value = values["native_max_output_tokens_limit"].orUnknown()),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1558:                "TFLite QnnDelegate class was not found. LiteRT-LM NPU path is checked separately via Backend.NPU."
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1560:                "TFLite QnnDelegate class probe is separate from LiteRT-LM Backend.NPU readiness."
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1590:        InferenceStatItemUi(label = "Backend.NPU available", value = (probe.backendNpuClassCandidates.isNotEmpty() || probe.npuConstructorAvailable).toString()),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1591:        InferenceStatItemUi(label = "Backend.NPU(String)", value = if (probe.npuStringConstructorAvailable) "available" else "missing"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1592:        InferenceStatItemUi(label = "Backend.NPU(String) available", value = probe.npuStringConstructorAvailable.toString()),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1636:        InferenceStatItemUi(label = "load policy", value = "diagnostic-only; no System.loadLibrary; no Backend.NPU apply"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1693:        InferenceStatItemUi(label = "load policy", value = "diagnostic-only; Engine.initialize explicit opt-in only; no Conversation; no generateResponse"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1704:        InferenceStatItemUi(label = "constructor", value = probe.backendNpuInstantiateConstructor?.ifBlank { "Backend.NPU(String)" } ?: "Backend.NPU(String)"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1733:        InferenceStatItemUi(label = "note", value = probe.backendNpuAttachDryRunNote?.ifBlank { "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU." } ?: "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU."),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1822:        InferenceStatItemUi(label = "Backend.NPU object class", value = probe.engineInitializeDryRunBackendNpuObjectClass?.ifBlank { "—" } ?: "—"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1851:        InferenceStatItemUi(label = "warning", value = probe.engineInitializeDryRunWarning?.ifBlank { "initialize-only; no Conversation; no generateResponse; not wired to app inference" } ?: "initialize-only; no Conversation; no generateResponse; not wired to app inference"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1971:            "1) keep GPU fallback\n2) resolve listed NPU prerequisite\n3) do not apply Backend.NPU until dispatch API .so and CLI proof are both present"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:2047:            reasons += "Backend.NPU API missing"
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:1:package io.github.ninbyo02.lami.viewmodels
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:11:import io.github.ninbyo02.lami.UiState
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:12:import io.github.ninbyo02.lami.api.OllamaRequest
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:13:import io.github.ninbyo02.lami.api.RetrofitClient
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:14:import io.github.ninbyo02.lami.db.dao.ChatLatestMessage
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:15:import io.github.ninbyo02.lami.db.entity.Chat
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:16:import io.github.ninbyo02.lami.db.entity.Message
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:17:import io.github.ninbyo02.lami.db.entity.TitleSource
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:18:import io.github.ninbyo02.lami.db.repository.ChatRepository
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:19:import io.github.ninbyo02.lami.db.repository.ModelPreferenceRepository
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:20:import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:21:import io.github.ninbyo02.lami.ui.model.InferenceStats
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:22:import io.github.ninbyo02.lami.ui.screens.settings.ErrorCause
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:23:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:24:import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:25:import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:26:import io.github.ninbyo02.lami.util.RuntimeFlags
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:3:package io.github.ninbyo02.lami.ui.screens.settings
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:89:import io.github.ninbyo02.lami.viewmodels.resolveErrorKey
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:136:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:137:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:138:import io.github.ninbyo02.lami.data.SpriteSheetConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:139:import io.github.ninbyo02.lami.data.boxesWithInternalIndex
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:140:import io.github.ninbyo02.lami.data.isUninitialized
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:141:import io.github.ninbyo02.lami.data.toInternalFrameIndex
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:142:import io.github.ninbyo02.lami.data.BoxPosition as SpriteSheetBoxPosition
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:143:import io.github.ninbyo02.lami.navigation.Routes
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:144:import io.github.ninbyo02.lami.ui.components.ReadyPreviewLayoutState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:145:import io.github.ninbyo02.lami.ui.components.ReadyPreviewSlot
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:146:import io.github.ninbyo02.lami.ui.components.SpriteFrameRegion
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:147:import io.github.ninbyo02.lami.ui.components.DevMenuSectionHost
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:148:import io.github.ninbyo02.lami.ui.components.drawFramePlaceholder
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:149:import io.github.ninbyo02.lami.ui.components.drawFrameRegion
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:150:import io.github.ninbyo02.lami.ui.components.rememberLamiEditorSpriteBackdropColor
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:151:import io.github.ninbyo02.lami.ui.components.rememberNightSpriteColorFilterForDarkTheme
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:152:import io.github.ninbyo02.lami.ui.components.rememberReadyPreviewLayoutState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:153:import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:154:import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:155:import io.github.ninbyo02.lami.ui.common.TopAppBarHeight
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:156:import io.github.ninbyo02.lami.tts.AndroidTtsController
+app/src/main/java/io/github/ninbyo02/lami/local/LocalInferenceFailureDiagnostics.kt:1:package io.github.ninbyo02.lami.local
+app/src/main/java/io/github/ninbyo02/lami/local/LocalInferenceFailureDiagnostics.kt:152:    appendLine("Backend.NPU(String) constructor availability=${diagnostics.backendNpuStringConstructorAvailable}")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:10:import io.github.ninbyo02.lami.local.buildLocalInferenceFailureDiagnosticsText
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:141:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:142:import io.github.ninbyo02.lami.R
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:143:import io.github.ninbyo02.lami.UiState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:144:import io.github.ninbyo02.lami.db.entity.Chat
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:145:import io.github.ninbyo02.lami.db.entity.Message
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:146:import io.github.ninbyo02.lami.db.entity.toInferenceStats
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:147:import io.github.ninbyo02.lami.db.entity.isInferenceStatsMissing
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:148:import io.github.ninbyo02.lami.db.entity.TitleSource
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:149:import io.github.ninbyo02.lami.navigation.Routes
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:150:import io.github.ninbyo02.lami.tts.AndroidTtsController
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:151:import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:152:import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:153:import io.github.ninbyo02.lami.ui.components.HeaderAvatar
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:154:import io.github.ninbyo02.lami.ui.components.InferenceTarget
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:155:import io.github.ninbyo02.lami.ui.components.InferenceTargetIcon
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:156:import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:157:import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:158:import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:159:import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:160:import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:161:import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:162:import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:163:import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:164:import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:165:import io.github.ninbyo02.lami.ui.model.InferenceStats
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:166:import io.github.ninbyo02.lami.ui.text.MarkdownCodeRepair
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:167:import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:168:import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:169:import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:170:import io.github.ninbyo02.lami.ui.util.formatOutputTokens
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:171:import io.github.ninbyo02.lami.ui.util.formatInferenceTime
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:172:import io.github.ninbyo02.lami.ui.util.formatFinishReason
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:173:import io.github.ninbyo02.lami.ui.util.formatGenerationDuration
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:174:import io.github.ninbyo02.lami.ui.util.formatTimeToFirstToken
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:175:import io.github.ninbyo02.lami.ui.util.formatImageInputCount
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:176:import io.github.ninbyo02.lami.ui.util.formatModelLoadDuration
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:177:import io.github.ninbyo02.lami.ui.util.formatModelName
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:178:import io.github.ninbyo02.lami.ui.util.formatPromptEvalDuration
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:179:import io.github.ninbyo02.lami.ui.util.formatTokenPerSec
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:180:import io.github.ninbyo02.lami.ui.util.formatTotalTokens
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:181:import io.github.ninbyo02.lami.util.RuntimeFlags
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:182:import io.github.ninbyo02.lami.viewmodels.LamiState
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:183:import io.github.ninbyo02.lami.viewmodels.LamiStatus
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:184:import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5449:        "generateResponseAsync",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5600:        "generateResponseAsync",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5995:            method.name == "generateResponseAsync" && method.parameterTypes.isEmpty()
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5996:        } ?: throw NoSuchMethodException("generateResponseAsync() not found")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5998:            ?: throw IllegalStateException("generateResponseAsync() returned null")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:6052:            root.message?.contains("generateResponseAsync", ignoreCase = true) == true -> "generateResponseAsync"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:6105:    val candidateMethodNames = listOf("generateResponse", "generate", "infer")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:6142:    val candidateMethodNames = listOf("generateResponse", "generate", "infer")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:7863:            "io.github.ninbyo02.lami.npu.DevOnlyNpuChatScreenBlockedBranch",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:7879:            "io.github.ninbyo02.lami.npu.DevOnlyNpuChatScreenBlockedBranch",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:7978:            "native_max_output_tokens_limit=${nativeMaxOutputTokensLimit ?: "unknown"}",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:7980:            "max_output_tokens=$maxOutputTokens",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8028:        "native_max_output_tokens_limit=${nativeMaxOutputTokensLimit ?: "unknown"}",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8031:        "max_output_tokens=$maxOutputTokens",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8100:                nativeMaxOutputTokensLimit = values["native_max_output_tokens_limit"]?.toIntOrNull(),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8105:                maxOutputTokens = values["max_output_tokens"]?.toIntOrNull() ?: 16,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8184:                "max_output_tokens=${result.maxOutputTokens}",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceEngineHolder.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceEngineHolder.kt:5:import io.github.ninbyo02.lami.local.buildLocalInferenceFailureDiagnosticsText
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceEngineHolder.kt:6:import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:9:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:10:import io.github.ninbyo02.lami.local.QnnDelegateProbe
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:782:                constructor = "Backend.NPU(String)",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:793:                constructor = "Backend.NPU(String)",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:920:            ?: throw ClassNotFoundException("Backend.NPU")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:925:            ?: throw NoSuchMethodException("Backend.NPU(String)")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1009:            assignability += "Backend base class <- Backend.NPU object class: ${backendClass.isAssignableFrom(npuClass)}"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1020:                        assignability += "${formatMethodSignature(clazz, method)} parameter <- Backend.NPU: $assignable"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1129:            ?: "MediaPipe LlmInference preferredBackend setter does not accept LiteRT-LM Backend.NPU."
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1221:        val warning = "initialize-only; no Conversation; no generateResponse; not wired to app inference"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1322:            stage("Backend.NPU creating")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1324:            stage("Backend.NPU created class=${npuHandle.instance.javaClass.name}")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1889:                npuObject -> "Backend.NPU"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:3118:        val note: String = "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU.",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:3208:        val warning: String = "initialize-only; no Conversation; no generateResponse; not wired to app inference",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:1:package io.github.ninbyo02.lami.ui.screens.home
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:11:import io.github.ninbyo02.lami.BuildConfig
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:12:import io.github.ninbyo02.lami.local.buildLocalInferenceFailureDiagnosticsText
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:13:import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:14:import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:15:import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:3319:            (method.name == "sendMessage" || method.name == "generateResponse") && method.parameterTypes.size == 1
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:3652:            (method.name == "sendMessage" || method.name == "generateResponse") && method.parameterTypes.size == 1
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:4389:            ?: throw ClassNotFoundException("Backend.NPU")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:4404:            else -> throw NoSuchMethodException("Backend.NPU constructor")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:4411:            error = "${throwable.javaClass.simpleName}:${throwable.message ?: "Backend.NPU"}",
+
+# safety assertions recorded by runner
+standard_hidden_receiver_only=true
+normal_chat_screen_connected=false
+db=false
+tts=false
+markdown=false
+streaming=false
+selected_path_npu_saved_by_runner=false
+native_route_code_changed_by_runner=false

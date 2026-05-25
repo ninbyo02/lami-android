@@ -83,9 +83,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 reasonCode = "expected_model_basename_mismatch",
             )
         }
-        val standardHiddenChatScreenRangeAllowed = !BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
-            promptSource == PROMPT_SOURCE_CHAT_SCREEN
-        val maxOutputTokensValid = if (allowMaxOutputTokenRange || standardHiddenChatScreenRangeAllowed) {
+        val maxOutputTokensValid = if (allowMaxOutputTokenRange) {
             maxOutputTokens in 1..DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
         } else {
             maxOutputTokens == DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS

@@ -12,9 +12,13 @@ TIMEOUT_SECONDS=30
 TEMPLATE_MODE="gemma_it_like"
 
 PROMPTS=("こんにちは" "はじめまして" "こんばんは")
-CASE_IDS=("sanitizer_only" "lower_max_tokens_64_sanitizer" "lower_max_tokens_32_sanitizer")
-CASE_LABELS=("sanitizer_only + max_output_tokens_128" "lower_max_tokens_64 + sanitizer" "lower_max_tokens_32 + sanitizer")
-CASE_MAX_TOKENS=("128" "64" "32")
+CASE_IDS=("sanitizer_only")
+CASE_LABELS=("enhanced sanitizer_only + fixed max_output_tokens_128")
+CASE_MAX_TOKENS=("128")
+ROLLBACK_CASE_IDS=("lower_max_tokens_64_sanitizer" "lower_max_tokens_32_sanitizer")
+ROLLBACK_CASE_LABELS=("lower_max_tokens_64 + sanitizer" "lower_max_tokens_32 + sanitizer")
+ROLLBACK_CASE_MAX_TOKENS=("64" "32")
+ROLLBACK_CASE_REASONS=("rollback_empty_after_sanitize" "rollback_adapter_failure_or_timeout")
 STOP_SEQUENCE_CASE_ID="stop_sequence_end_of_turn"
 REPETITION_SUPPRESSION_MARKER="${QAIRT244_REPETITION_SUPPRESSION_MARKER:-not_requested_api_pending}"
 
@@ -35,10 +39,10 @@ prompt with a 30 second default timeout and writes artifacts under:
   artifacts/qairt244_npu_turn_stop_quality_compare/<timestamp>/
 
 Cases:
-  - sanitizer_only, requested max_output_tokens=128
+  - sanitizer_only, fixed max_output_tokens=128
   - stop_sequence_end_of_turn is recorded as not_run/native_stop_not_exposed
-  - lower_max_tokens_64 + sanitizer, requested max_output_tokens=64
-  - lower_max_tokens_32 + sanitizer, requested max_output_tokens=32
+  - lower_max_tokens_64 + sanitizer is recorded as rollback_not_adopted
+  - lower_max_tokens_32 + sanitizer is recorded as rollback_not_adopted
   - repetition suppression is marker-only until the API is confirmed; set
     QAIRT244_REPETITION_SUPPRESSION_MARKER to annotate artifacts without
     changing native/runtime behavior.
@@ -59,6 +63,12 @@ fi
 for max_tokens in "${CASE_MAX_TOKENS[@]}"; do
   if ! [[ "$max_tokens" =~ ^[0-9]+$ ]] || [ "$max_tokens" -gt 128 ]; then
     printf 'ERROR: case max_output_tokens must be <=128, got: %s\n' "$max_tokens" >&2
+    exit 2
+  fi
+done
+for max_tokens in "${ROLLBACK_CASE_MAX_TOKENS[@]}"; do
+  if ! [[ "$max_tokens" =~ ^[0-9]+$ ]] || [ "$max_tokens" -ge 128 ]; then
+    printf 'ERROR: rollback case max_output_tokens must be below 128, got: %s\n' "$max_tokens" >&2
     exit 2
   fi
 done
@@ -485,6 +495,57 @@ write_stop_sequence_not_run_rows() {
   done
 }
 
+write_rollback_not_adopted_rows() {
+  local case_index prompt slug case_id requested_max_tokens reason
+  for case_index in "${!ROLLBACK_CASE_IDS[@]}"; do
+    case_id="${ROLLBACK_CASE_IDS[$case_index]}"
+    requested_max_tokens="${ROLLBACK_CASE_MAX_TOKENS[$case_index]}"
+    reason="${ROLLBACK_CASE_REASONS[$case_index]}"
+    for prompt in "${PROMPTS[@]}"; do
+      slug="$(prompt_slug "$prompt")"
+      {
+        printf 'case_id=%s\n' "$case_id"
+        printf 'case_label=%s\n' "${ROLLBACK_CASE_LABELS[$case_index]}"
+        printf 'prompt=%s\n' "$prompt"
+        printf 'requested_max_output_tokens=%s\n' "$requested_max_tokens"
+        printf 'status=not_run/rollback_not_adopted\n'
+        printf 'receiver_success=not_run\n'
+        printf 'wait_status=not_run\n'
+        printf 'actual_max_output_tokens=not_run\n'
+        printf 'max_output_tokens_honored=not_run\n'
+        printf 'npu_evidence=not_run\n'
+        printf 'npu_backend=not_run\n'
+        printf 'npu_backend_evidence=not_run\n'
+        printf 'fallback_used=not_run\n'
+        printf 'fresh_crash=not_run\n'
+        printf 'timeout=not_run\n'
+        printf 'reasonCode=%s\n' "$reason"
+        printf 'sanitizer_applied=not_run\n'
+        printf 'removed_template_token_count=not_run\n'
+        printf 'removed_prompt_echo=not_run\n'
+        printf 'raw_output_length=not_run\n'
+        printf 'sanitized_output_length=not_run\n'
+        printf 'decode_elapsed_ms=not_run\n'
+        printf 'finish_reason=not_run\n'
+        printf 'stop_reason=%s\n' "$reason"
+        printf 'selected_path_npu_saved=not_run\n'
+        printf 'quality_classification=rollback_not_adopted\n'
+        printf 'native_quality_classification=not_run\n'
+        printf 'stop_sequence_control=native_api_not_exposed\n'
+        printf 'repetition_suppression_marker=%s\n' "$REPETITION_SUPPRESSION_MARKER"
+        printf 'db=false\n'
+        printf 'tts=false\n'
+        printf 'markdown=false\n'
+        printf 'streaming=false\n'
+        printf '\n'
+      } >>"$OUT_DIR/case_summaries.txt"
+      : >"$OUT_DIR/raw_output_${case_id}_${slug}.txt"
+      : >"$OUT_DIR/sanitized_output_${case_id}_${slug}.txt"
+      printf 'status=not_run\nreasonCode=%s\n' "$reason" >"$OUT_DIR/native_diag_${case_id}_${slug}.txt"
+    done
+  done
+}
+
 summary_field() {
   local field="$1"
   local case_id="$2"
@@ -515,7 +576,7 @@ write_comparison_table() {
     printf '# QAIRT244 NPU turn-stop quality comparison\n\n'
     printf '| case | prompt | requested_max_output_tokens | actual_max_output_tokens | status | npu_evidence | fallback_used | fresh_crash | quality_classification | sanitized_output_length | reasonCode | stop_reason |\n'
     printf '| --- | --- | ---: | ---: | --- | --- | --- | --- | --- | ---: | --- | --- |\n'
-    for case_id in "${CASE_IDS[@]}" "$STOP_SEQUENCE_CASE_ID"; do
+    for case_id in "${CASE_IDS[@]}" "${ROLLBACK_CASE_IDS[@]}" "$STOP_SEQUENCE_CASE_ID"; do
       for prompt in "${PROMPTS[@]}"; do
         status="$(summary_field status "$case_id" "$prompt")"
         requested="$(summary_field requested_max_output_tokens "$case_id" "$prompt")"
@@ -594,15 +655,15 @@ write_summary() {
     printf '\n## Prompts\n\n'
     printf -- '- `こんにちは`\n- `はじめまして`\n- `こんばんは`\n'
     printf '\n## Cases\n\n'
-    printf -- '- `sanitizer_only`: standard hidden run, requested max_output_tokens=128\n'
-    printf -- '- `lower_max_tokens_64_sanitizer`: standard hidden run, requested max_output_tokens=64\n'
-    printf -- '- `lower_max_tokens_32_sanitizer`: standard hidden run, requested max_output_tokens=32\n'
+    printf -- '- `sanitizer_only`: standard hidden run, fixed max_output_tokens=128\n'
+    printf -- '- `lower_max_tokens_64_sanitizer`: not run; rollback_not_adopted after empty_after_sanitize evidence\n'
+    printf -- '- `lower_max_tokens_32_sanitizer`: not run; rollback_not_adopted after adapter failure / timeout evidence\n'
     printf -- '- `stop_sequence_end_of_turn`: not run until native stop-sequence control is exposed\n'
     printf '\n## Comparison\n\n'
     cat "$OUT_DIR/comparison_table.md" 2>/dev/null || true
     printf '\n## Notes\n\n'
     printf -- '- The standard hidden receiver flow is reused and package `io.github.ninbyo02.lami` is targeted.\n'
-    printf -- '- `max_output_tokens` is passed through the inspected standard hidden receiver extra and capped by this runner at 128 or lower.\n'
+    printf -- '- `max_output_tokens` is fixed at 128 for the hidden safety baseline; lower token caps are recorded only as rollback rows.\n'
     printf -- '- Stop sequence and repetition suppression are artifact markers only here; no unconfirmed native/API controls are invoked.\n'
     printf -- '- NPU evidence, `fallback_used`, and `fresh_crash` are recorded per run.\n'
     printf -- '- The runner does not edit route code, native code, DB, TTS, Markdown, or streaming paths.\n'
@@ -620,6 +681,7 @@ main() {
   choose_device || {
     log "no non-emulator device"
     write_not_run_rows_for_executable_cases no_device
+    write_rollback_not_adopted_rows
     write_stop_sequence_not_run_rows
     write_comparison_table
     write_grep_safety
@@ -636,6 +698,7 @@ main() {
     done
   done
 
+  write_rollback_not_adopted_rows
   write_stop_sequence_not_run_rows
   write_comparison_table
   write_grep_safety
@@ -644,7 +707,7 @@ main() {
   overall_status=success
   while IFS= read -r status; do
     case "$status" in
-      success|not_run/native_stop_not_exposed) ;;
+      success|not_run/native_stop_not_exposed|not_run/rollback_not_adopted) ;;
       *) overall_status=failure ;;
     esac
   done < <(awk -F= '$1 == "status" { print $2 }' "$OUT_DIR/case_summaries.txt")

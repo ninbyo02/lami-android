@@ -32,6 +32,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
             EXTRA_MAX_OUTPUT_TOKENS,
             DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
         )
+        val baselineMaxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
         val requestedTemplateMode = (
             intent.getStringExtra(EXTRA_TEMPLATE)
                 ?: intent.getStringExtra(EXTRA_TEMPLATE_MODE)
@@ -92,7 +93,8 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 context = appContext,
                 prompt = prompt,
                 templateMode = templateMode.storageValue,
-                maxOutputTokens = requestedMaxOutputTokens,
+                maxOutputTokens = baselineMaxOutputTokens,
+                requestedMaxOutputTokens = requestedMaxOutputTokens,
             ).also { result ->
                 writeDisplayDiagnostics(appContext, result)
                 writeRunnerCleanupState(appContext)
@@ -182,6 +184,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 "native_prompt_input_code_point_limit=${values["native_prompt_input_code_point_limit"].orEmpty()}",
                 "native_prompt_input_limit_mode=${values["native_prompt_input_limit_mode"].orEmpty()}",
                 "prompt_formatting_mode=${values["prompt_formatting_mode"].orEmpty()}",
+                "requested_max_output_tokens=${values["requested_max_output_tokens"].orEmpty()}",
                 "raw_native_output=${escapeValue(values["raw_native_output"].orEmpty())}",
                 "raw_native_output_length=${values["raw_native_output_length"].orEmpty()}",
                 "raw_output=${escapeValue(values["raw_output"].orEmpty())}",

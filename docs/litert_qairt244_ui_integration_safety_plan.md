@@ -800,6 +800,53 @@ The ChatScreen DEV-only NPU route is treated as route-successful; this phase is 
 
 Static LiteRT-LM inspection found `native stop not exposed` for the qairt244 lower-level Android route. Runtime metadata can carry stop token ids internally, but this JNI path creates a default session config and exposes only `DecodeConfig.SetMaxOutputTokens()` for the editable-prompt run; no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter is available. Public sampler controls expose topK/topP/temperature/seed, but the qairt244 lower-level native entrypoint does not accept sampler config, and no repetition penalty API was found.
 
-Comparison cases are `sanitizer_only_128`, `lower_max_tokens_64_sanitizer`, `lower_max_tokens_32_sanitizer`, and `stop_sequence_end_of_turn` recorded as `not_run/native_stop_not_exposed`. The prompts are `こんにちは`, `はじめまして`, and `こんばんは`, one run per executable case with `max_output_tokens <= 128` and a 30 second timeout.
+The fixed executable baseline is `enhanced_sanitizer_only_128`. `lower_max_tokens_64_sanitizer` and `lower_max_tokens_32_sanitizer` are rollback-only records, not executable adoption candidates, and `stop_sequence_end_of_turn` is recorded as `not_run/native_stop_not_exposed`. The prompts are `こんにちは`, `はじめまして`, and `こんばんは`; the executable sanitizer-only case uses `max_output_tokens=128` and a 30 second timeout.
 
-The safe adoption candidate from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact.
+The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+
+## Hidden Experimental NPU Safe Promotion Gate
+
+Normal UI promotion must not start until the hidden experimental NPU route
+passes this checklist with the fixed `enhanced_sanitizer_only_128` baseline:
+
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fallback_used=false`
+- `fresh_crash=false`
+- `timeout=false`
+- `quality_classification=natural_japanese`
+- `selected_path_npu_saved=false`
+- `normal_ui_route_connected=false`
+- `standard_route_connected=false`
+- `selected_path_npu_normal_route=no`
+- `conversation_created=no`
+- `generate_response=no`
+- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+- sanitized display output has no visible sanitizer/template artifact,
+  including `<end_of_turn>`, `<start_of_turn>`, prompt echo, repeated
+  completion classification, or multilingual drift classification
+
+Raw native output is allowed to contain Gemma turn continuation or drift only
+as diagnostic evidence. The promotion gate is based on the sanitized display
+output: it must remain meaningful natural Japanese, with no artifact visible to
+the hidden experimental UI surface.
+
+Regression coverage now pins the no-standard-route safety lines in
+`DevOnlyNpuChatScreenBlockedBranchTest`, so standard route connection,
+conversation creation, high-level `generate_response`, DB, TTS, Markdown, and
+streaming ingress fail review if they are reintroduced.
+
+## NPU Sanitizer Quality Baseline Commit - 2026-05-25
+
+Commit baseline: `sanitizer_only + max_output_tokens=128` is the provisional
+hidden experimental display-quality baseline, backed by
+`artifacts/qairt244_npu_turn_stop_quality_compare/20260525_211810`.
+
+Promotion gate: `fallback_used=false`, `fresh_crash=false`, `timeout=false`,
+sanitized `quality_classification=natural_japanese`, no template artifact after
+sanitize, no repetition or multilingual drift after sanitize, and
+`db=false`, `tts=false`, `markdown=false`, `streaming=false`.
+
+Raw native `template_artifact` remains acceptable only as diagnostic evidence;
+the displayed sanitized output must be natural Japanese. Native stop sequence /
+native turn-stop is not required for this provisional baseline. Standard route
+non-connection is covered by `DevOnlyNpuChatScreenBlockedBranchTest`.
