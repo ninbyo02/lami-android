@@ -1,5 +1,26 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Three-Prompt Hidden Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_compare/20260527_003429/`
+
+A temporary standardDebug APK was assembled with the staged max512
+`liblitertlm_jni.so` from
+`artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/`.
+The runner executed the three approved hidden prompts once each at
+`max_output_tokens=512`.
+
+Result: rollback. `こんにちは` and `ラミィのNPU推論について短く説明して`
+completed with sanitized natural Japanese output. The Python calculator prompt
+timed out under the bounded 30 second timeout after native diagnostics reached
+`SetMaxOutputTokens(512)`, so no completed useful code output was available.
+
+No source `app/src/main/jniLibs` file was changed and no rebuilt binary is
+tracked by Git. 1024 expansion remains blocked until a separately approved 512
+three-prompt comparison passes with no timeout, no fallback, no fresh crash,
+QNN evidence, memory recovery, and `useful_code` for the code prompt.
+
 ## QAIRT244 Max512 Single Runtime Verification - 2026-05-27
 
 Artifact:

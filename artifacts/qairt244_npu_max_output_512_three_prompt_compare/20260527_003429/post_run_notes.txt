@@ -1,0 +1,16 @@
+# QAIRT244 max_output_tokens=512 three-prompt post-run notes
+
+run_count=3
+prompt_1=こんにちは
+prompt_2=Pythonで簡単な電卓コードを書いて
+prompt_3=ラミィのNPU推論について短く説明して
+max_output_tokens=512
+build_artifact=artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239
+installed_liblitertlm_jni_sha256=7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105
+run_decode_reached_all=true
+quality_classification_1=natural_japanese
+quality_classification_2=timeout
+quality_classification_3=natural_japanese
+baseline_promotion=false
+hidden_baseline_candidate=false
+next_phase=1024_guard_patch_preflight_if_review_accepts

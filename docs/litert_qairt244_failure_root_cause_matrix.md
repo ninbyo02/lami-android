@@ -1,5 +1,23 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: max_output_tokens=512 three-prompt comparison rolls back
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 quality/safety | `artifacts/qairt244_npu_max_output_512_three_prompt_compare/20260527_003429/` | The 512 code-generation prompt timed out under the bounded 30 second runner timeout after reaching native `SetMaxOutputTokens(512)` evidence, leaving no completed sanitized code output. | Do not classify 512 as a hidden baseline candidate; keep 256 candidate and keep H1/normal UI on existing gates. |
+
+Quality notes: `こんにちは` passed as `natural_japanese` with `decode_ms=727`.
+`ラミィのNPU推論について短く説明して` passed as `natural_japanese` with
+`decode_ms=4250`. `Pythonで簡単な電卓コードを書いて` timed out and did not
+produce `useful_code`.
+
+Safety notes: no selected-path persistence, standard route connection, normal
+UI route connection, assistant-list insertion, DB, TTS, Markdown, or streaming
+ingress was recorded. Memory after 10 seconds dropped from
+`TOTAL PSS=292816 KB / Native Heap=82828 KB` to
+`TOTAL PSS=272689 KB / Native Heap=54604 KB`, so the rollback reason is timeout
+and empty sanitized output for the code prompt, not retained memory.
+
 ## 2026-05-27: max_output_tokens=512 single prompt passes
 
 | Area | Evidence | Root cause | Decision |

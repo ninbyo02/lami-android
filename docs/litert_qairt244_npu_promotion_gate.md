@@ -1,5 +1,32 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 512 Three-Prompt Hidden Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_compare/20260527_003429/`
+
+The 512 hidden comparison ran the three approved prompts once each. Overall
+status is failure because the Python calculator prompt timed out before a
+completed result/sanitized output was available.
+
+Prompt results:
+
+- `こんにちは`: success, `natural_japanese`, `decode_ms=727`,
+  `elapsed_ms=2000`
+- `Pythonで簡単な電卓コードを書いて`: `timeout`, `quality_classification=timeout`,
+  no useful code output; `RunDecode` pre-call evidence was present
+- `ラミィのNPU推論について短く説明して`: success, `natural_japanese`,
+  `decode_ms=4250`, `elapsed_ms=5000`
+
+Gate status: 512 fails promotion because timeout and empty sanitized output are
+rollback conditions. No selected-path persistence, standard route, normal UI
+route, assistant-list insertion, DB, TTS, Markdown, or streaming ingress was
+recorded. Memory after 10 seconds was lower than immediately after the run.
+
+Promotion decision: 512 is not a hidden baseline candidate. Keep 256 as the
+hidden experimental candidate and keep H1 pinned to 128. 1024 remains blocked
+until a later explicitly approved 512 three-prompt comparison passes all gates.
+
 ## Max Output Tokens 512 Single Prompt - 2026-05-27
 
 Artifact:

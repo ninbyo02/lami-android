@@ -9,6 +9,38 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Three-Prompt Hidden Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_compare/20260527_003429/`
+
+The approved three hidden prompts ran once each at `max_output_tokens=512`.
+The run is not a 512 baseline candidate because the Python calculator prompt
+timed out under the bounded 30 second runner timeout.
+
+Results:
+
+- `こんにちは`: success, `natural_japanese`, `decode_ms=727`,
+  `elapsed_ms=2000`
+- `Pythonで簡単な電卓コードを書いて`: `timeout`, no completed sanitized output,
+  `elapsed_ms=40000`; native diag reached
+  `before RunDecode SetMaxOutputTokens(512)`
+- `ラミィのNPU推論について短く説明して`: success, `natural_japanese`,
+  `decode_ms=4250`, `elapsed_ms=5000`
+
+QNN/HTP/FastRPC evidence was present where diagnostics were captured, and no
+normal UI, assistant-list, DB, TTS, Markdown, streaming, or selected-path
+persistence ingress was recorded. Memory decreased after 10 seconds from
+`TOTAL PSS=292816 KB / Native Heap=82828 KB` to
+`TOTAL PSS=272689 KB / Native Heap=54604 KB`, so no retained-memory rollback
+was recorded. The rollback reason is the 512 code-generation timeout and empty
+sanitized output for that prompt.
+
+Decision: keep 128 as the H1/display baseline and keep 256 as the hidden
+experimental baseline candidate. Do not promote 512 and do not proceed to 1024
+until a separately approved 512 three-prompt run passes all prompts, including
+`useful_code` for the Python prompt, without timeout.
+
 ## Max512 Single Prompt Verification - 2026-05-27
 
 Artifact:

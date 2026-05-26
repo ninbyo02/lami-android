@@ -1,5 +1,21 @@
 # QAIRT244 NPU Phase H1 Transient UI Surface
 
+## Max Output Tokens 512 Three-Prompt Hidden Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_compare/20260527_003429/`
+
+The 512 three-prompt hidden comparison is rollback-only for H1 purposes. The
+Japanese greeting and short NPU explanation prompts completed as sanitized
+`natural_japanese`, but the Python calculator prompt timed out and produced no
+completed sanitized code output.
+
+H1 impact: no change. H1 remains pinned to
+`sanitizer_only + max_output_tokens=128`. The 512 artifact must not feed the
+transient card, Compose adapter, PreviewHost, normal ChatScreen, or assistant
+message list. A later H1 gate revision still requires a fully passing hidden
+baseline artifact before any display contract can change.
+
 ## Max Output Tokens 512 Single Prompt - 2026-05-27
 
 Artifact:

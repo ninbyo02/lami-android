@@ -1,5 +1,21 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Three-Prompt Hidden Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_compare/20260527_003429/`
+
+The hidden receiver executed the three approved prompts once each at
+`max_output_tokens=512`. This is not promotable to ChatScreen because the
+Python calculator prompt timed out before a completed sanitized code response.
+The two Japanese prompts completed with sanitized `natural_japanese` output.
+
+Decision: do not promote 512 to normal ChatScreen or H1. Do not insert the
+output into the assistant message list, persist it to DB, route it through
+TTS/Markdown/streaming, or save selectedPath as NPU. Keep the 512 result as a
+rollback artifact until a separately approved 512 comparison passes all three
+prompts, especially the code-generation prompt as `useful_code`.
+
 ## Max512 Single Hidden Prompt - 2026-05-27
 
 Artifact:

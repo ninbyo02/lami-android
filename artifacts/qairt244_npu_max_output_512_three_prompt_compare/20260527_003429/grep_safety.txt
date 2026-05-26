@@ -1,0 +1,150 @@
+# grep safety scan
+package_target=io.github.ninbyo02.lami
+receiver=io.github.ninbyo02.lami.npu.StandardHiddenQairt244PromptReceiver
+max_output_tokens=512
+max_output_tokens_compare_enabled=true
+
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:49:three approved prompts with sanitizer_only and max_output_tokens=512. The
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:56:  - native_max_output_tokens_limit=512
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:66:  - max_output_tokens is capped at 512 by this runner.
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:81:  printf 'ERROR: max_output_tokens must be <=512\n' >&2
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:204:  if printf '%s\n%s\n' "$evidence" "$backend" | grep -Eiq 'QNN|HTP|FastRPC|NPU|selected_path_npu'; then
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:207:  if rg -q "QNN|HTP|FastRPC|selected_path_npu|Backend\\.NPU|RunDecode" "$run_dir/native_diag.txt" "$run_dir/result.txt" "$run_dir/logcat_tail.txt" 2>/dev/null; then
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:339:      grep -E "$MAX512_GUARD_MARKER|native_max_output_tokens_limit=512|SetMaxOutputTokens\\(512\\)" || true
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:361:  log "run prompt=$prompt max_output_tokens=$MAX_OUTPUT_TOKENS timeout=${TIMEOUT_SECONDS}s"
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:364:    printf 'case_id=max_output_tokens_512\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:366:    printf 'requested_max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:385:    --ei max_output_tokens "$MAX_OUTPUT_TOKENS" \
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:386:    --ez allow_max_output_tokens_compare true \
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:426:  actual_max="$(case_value max_output_tokens "$run_dir")"
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:460:    printf 'actual_max_output_tokens=%s\n' "$actual_max"
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:461:    printf 'max_output_tokens_honored=%s\n' "$([ "$actual_max" = "$MAX_OUTPUT_TOKENS" ] && printf true || printf false)"
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:478:    printf 'selected_path_npu_saved=%s\n' "$(case_value selected_path_npu_saved "$run_dir")"
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:481:    printf 'standard_route_connected=false\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:483:    printf 'assistant_message_list_inserted=false\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:529:      if (in_record && cid == "max_output_tokens_256" && p == prompt && found) {
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:544:      if (in_record && cid == "max_output_tokens_256" && p == prompt && found) {
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:554:    printf '# QAIRT244 NPU max_output_tokens 512 quality/safety comparison\n\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:556:    printf '| prompt | 256_ref_status | 256_ref_quality | 256_ref_decode_ms | 512_status | 512_quality | 512_decode_ms | 512_elapsed_ms | 512_len | npu_evidence | fallback_used | timeout | fresh_crash | selected_path_npu_saved |\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:574:      selected="$(summary_field selected_path_npu_saved "$prompt")"
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:587:      rg -n "QNN|HTP|FastRPC|RunDecode|EngineFactory|native_prompt|sanitizer|selected_path_npu|fallback_used|timeout|fresh_crash|max_output_tokens|quality_classification|db=false|tts=false|markdown=false|streaming=false|Engine\\.initialize|RunDecode" "$file" | sed "s#^#${file#$OUT_DIR/}:#" || true
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:597:    printf 'max_output_tokens=512\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:598:    printf 'max_output_tokens_compare_enabled=true\n\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:599:    rg -n "allow_max_output_tokens_compare|QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT|max_output_tokens|selectedPath.*npu|selected_path_npu|tts=true|markdown=true|streaming=true|db=true|generateResponse|assistant_message_list|standard_route_connected" \
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:604:    printf 'assistant_message_list_inserted=false\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:609:    printf 'selected_path_npu_saved_by_runner=false\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:610:    printf 'max_output_tokens_over_512=false\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:639:    printf 'required_native_limit=native_max_output_tokens_limit=512\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:667:    rg -n "$MAX512_GUARD_MARKER|native_max_output_tokens_limit=512|SetMaxOutputTokens\\(512\\)|SM8750|sm8750|gemma-4-E2B-it_qualcomm_sm8750" \
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:680:        grep -E "$MAX512_GUARD_MARKER|native_max_output_tokens_limit=512|SetMaxOutputTokens\\(512\\)|SM8750|sm8750|gemma-4-E2B-it_qualcomm_sm8750" || true
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:706:    printf '# QAIRT244 max_output_tokens=512 guard preflight\n\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:709:    printf -- '- requested_max_output_tokens: `%s`\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:719:    printf '| `native_max_output_tokens_limit=512` | `%s` |\n' "$native_limit_present"
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:750:  grep -q 'native_max_output_tokens_limit=512' "$PREFLIGHT_DIR/evidence.txt" && native_limit_present=true
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:786:    printf '# QAIRT244 NPU max_output_tokens 512 three-prompt hidden comparison\n\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:794:    printf -- '- executable_case: `sanitizer_only + max_output_tokens=512`\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:805:    printf -- '- The 512 run is hidden experimental compare-only and requires explicit `allow_max_output_tokens_compare=true`.\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:815:    printf '# QAIRT244 max_output_tokens=512 three-prompt post-run notes\n\n'
+scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh:820:    printf 'max_output_tokens=512\n'
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:57:                    "max_output_tokens=$maxOutputTokens",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:87:                    "max_output_tokens=$maxOutputTokens",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:96:                    "selected_path_npu_saved=false",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:124:            writeState("rejected", "invalid_max_output_tokens")
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:125:            writeFailure("invalid_max_output_tokens")
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:180:        const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevNpuChatScreenToggleActivity.kt:63:            appendLine("selected_path_npu=false")
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:89:                "selectedPath=npu normal route=not used",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:336:                "no selectedPath=npu normal route",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:338:                "no high-level generateResponse",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:389:            "qairt244_diagnostic_chat_guarded_run_v1 runId=$runId state=started max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS} prompt_source=$promptSource actual_prompt=$prompt\n",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:582:            "selectedPath=npu disabled=true",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:583:            "high-level generateResponse=false",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:723:            "selected_path_npu_saved=false",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:724:            "standard_route_connected=false",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:731:            "max_output_tokens=128",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:789:                "max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:14:        "selected_path_npu_saved",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:15:        "standard_route_connected",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:22:        "max_output_tokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:36:        "selected_path_npu_saved",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:37:        "standard_route_connected",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:51:    private val intFields: Set<String> = setOf("max_output_tokens")
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:96:                reasonCode = "invalid_max_output_tokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:162:                    "max_output_tokens=$maxOutputTokens engine_initialize=false run_decode=false db=false tts=false markdown=false stream=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:236:                "max_output_tokens=$maxOutputTokens " +
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:525:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:535:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:565:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:586:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:616:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:637:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:678:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:687:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:19:        "standard_route_connected=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:22:        "selected_path_npu_normal_route=no",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:144:        val compareLimit = DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:182:                "requested_max_output_tokens=$requestedMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:183:                "max_output_tokens=$effectiveMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:184:                "native_max_output_tokens_limit=$effectiveMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:187:                "max_output_tokens_compare_enabled=$allowMaxOutputTokensCompare",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:239:                        DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:257:                        DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:324:        val nativeMaxOutputTokensLimit = nativeResult["native_max_output_tokens_limit"].orEmpty()
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:391:            "requested_max_output_tokens=$requestedMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:392:            "max_output_tokens=${result.maxOutputTokens}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:393:            "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit.ifBlank { result.maxOutputTokens.toString() })}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:396:            "max_output_tokens_compare_enabled=$allowMaxOutputTokensCompare",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:14:        val maxOutputTokens = values.value("max_output_tokens")
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:48:            standardRouteConnected = values.isTrue("standard_route_connected"),
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:72:            values.isTrue("selected_path_npu_saved") -> "selected_path_npu_saved"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:73:            values.isTrue("standard_route_connected") -> "standard_route_connected"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:81:            maxOutputTokens != DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS -> "max_output_tokens_not_128"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapter.kt:12:        const val QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT = 512
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1TransientPreviewWiring.kt:33:                "standard_route_connected=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:43:        "max_output_tokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:44:        "native_max_output_tokens_limit",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:74:        "selected_path_npu_saved",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1UiState.kt:98:            input.standardRouteConnected -> "standard_route_connected"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1UiState.kt:104:            input.maxOutputTokens != DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS -> "max_output_tokens_not_128"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:667:                                    text = "default=false / blocked adapter only / normal selectedPath=npu disabled / real NPU not connected",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1221:        val warning = "initialize-only; no Conversation; no generateResponse; not wired to app inference"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:3208:        val warning: String = "initialize-only; no Conversation; no generateResponse; not wired to app inference",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:38:            requestedMaxOutputTokens in 1..DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:196:                    "requested_max_output_tokens=${values["requested_max_output_tokens"].orEmpty()}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:197:                    "max_output_tokens_compare_enabled=${values["max_output_tokens_compare_enabled"].orEmpty().ifBlank { "false" }}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:213:                    "max_output_tokens=${values["max_output_tokens"].orEmpty()}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:249:        const val EXTRA_ALLOW_MAX_OUTPUT_TOKENS_COMPARE = "allow_max_output_tokens_compare"
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:252:        const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:3319:            (method.name == "sendMessage" || method.name == "generateResponse") && method.parameterTypes.size == 1
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:3652:            (method.name == "sendMessage" || method.name == "generateResponse") && method.parameterTypes.size == 1
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:745:    val maxOutputTokens = values["max_output_tokens"].orUnknown()
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:756:            InferenceStatItemUi(label = "max_output_tokens", value = maxOutputTokens),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:757:            InferenceStatItemUi(label = "native_max_output_tokens_limit", value = values["native_max_output_tokens_limit"].orUnknown()),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1693:        InferenceStatItemUi(label = "load policy", value = "diagnostic-only; Engine.initialize explicit opt-in only; no Conversation; no generateResponse"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1851:        InferenceStatItemUi(label = "warning", value = probe.engineInitializeDryRunWarning?.ifBlank { "initialize-only; no Conversation; no generateResponse; not wired to app inference" } ?: "initialize-only; no Conversation; no generateResponse; not wired to app inference"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5449:        "generateResponseAsync",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5600:        "generateResponseAsync",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5995:            method.name == "generateResponseAsync" && method.parameterTypes.isEmpty()
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5996:        } ?: throw NoSuchMethodException("generateResponseAsync() not found")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5998:            ?: throw IllegalStateException("generateResponseAsync() returned null")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:6052:            root.message?.contains("generateResponseAsync", ignoreCase = true) == true -> "generateResponseAsync"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:6105:    val candidateMethodNames = listOf("generateResponse", "generate", "infer")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:6142:    val candidateMethodNames = listOf("generateResponse", "generate", "infer")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:7978:            "native_max_output_tokens_limit=${nativeMaxOutputTokensLimit ?: "unknown"}",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:7980:            "max_output_tokens=$maxOutputTokens",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8028:        "native_max_output_tokens_limit=${nativeMaxOutputTokensLimit ?: "unknown"}",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8031:        "max_output_tokens=$maxOutputTokens",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8100:                nativeMaxOutputTokensLimit = values["native_max_output_tokens_limit"]?.toIntOrNull(),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8105:                maxOutputTokens = values["max_output_tokens"]?.toIntOrNull() ?: 16,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8184:                "max_output_tokens=${result.maxOutputTokens}",
+
+# safety assertions recorded by runner
+standard_hidden_receiver_only=true
+normal_chat_screen_connected=false
+assistant_message_list_inserted=false
+db=false
+tts=false
+markdown=false
+streaming=false
+selected_path_npu_saved_by_runner=false
+max_output_tokens_over_512=false
