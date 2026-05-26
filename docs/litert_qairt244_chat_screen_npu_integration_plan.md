@@ -16,6 +16,13 @@ TTS/Markdown/streaming, or save selectedPath as NPU. Keep the 512 result as a
 rollback artifact until a separately approved 512 comparison passes all three
 prompts, especially the code-generation prompt as `useful_code`.
 
+Timeout review:
+`artifacts/qairt244_npu_max_output_512_code_timeout_review/20260527_005112/`
+confirms this is not a ChatScreen promotion candidate. The Python prompt
+entered the native path and reached pre-RunDecode `SetMaxOutputTokens(512)`
+evidence, but no completed result or cleanup evidence was captured before the
+runner force-stop. Normal ChatScreen remains disconnected.
+
 ## Max512 Single Hidden Prompt - 2026-05-27
 
 Artifact:

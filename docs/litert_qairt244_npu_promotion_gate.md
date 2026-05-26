@@ -27,6 +27,22 @@ Promotion decision: 512 is not a hidden baseline candidate. Keep 256 as the
 hidden experimental candidate and keep H1 pinned to 128. 1024 remains blocked
 until a later explicitly approved 512 three-prompt comparison passes all gates.
 
+### Code Prompt Timeout Review
+
+Review artifact:
+`artifacts/qairt244_npu_max_output_512_code_timeout_review/20260527_005112/`
+
+The Python calculator timeout is classified as `native_hang_or_no_callback`
+with cleanup unknown. Native diagnostics reached pre-decode evidence
+`before RunDecode SetMaxOutputTokens(512)`, but no native success, cleanup
+timing, or `Engine.close` line was captured before the runner's bounded
+30 second wait expired and force-stop was issued.
+
+Gate decision is unchanged: 512 fails promotion, 256 remains the hidden
+experimental candidate, H1 remains 128-only, and 1024+ expansion remains
+blocked. A retry proposal must be separately approved and bounded; an
+unlimited timeout is not acceptable.
+
 ## Max Output Tokens 512 Single Prompt - 2026-05-27
 
 Artifact:

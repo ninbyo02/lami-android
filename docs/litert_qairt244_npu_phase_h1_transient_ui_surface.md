@@ -16,6 +16,13 @@ transient card, Compose adapter, PreviewHost, normal ChatScreen, or assistant
 message list. A later H1 gate revision still requires a fully passing hidden
 baseline artifact before any display contract can change.
 
+Timeout review:
+`artifacts/qairt244_npu_max_output_512_code_timeout_review/20260527_005112/`
+classifies the Python code prompt as native no-return/no-callback before the
+bounded runner deadline, with cleanup unknown. This reinforces the H1 decision:
+512 must not be displayed or surfaced. The H1 contract stays 128-only until a
+separate fully passing baseline and H1-specific gate revision exist.
+
 ## Max Output Tokens 512 Single Prompt - 2026-05-27
 
 Artifact:

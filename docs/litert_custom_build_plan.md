@@ -21,6 +21,15 @@ tracked by Git. 1024 expansion remains blocked until a separately approved 512
 three-prompt comparison passes with no timeout, no fallback, no fresh crash,
 QNN evidence, memory recovery, and `useful_code` for the code prompt.
 
+Timeout review artifact:
+`artifacts/qairt244_npu_max_output_512_code_timeout_review/20260527_005112/`
+
+The review did not rebuild QAIRT/LiteRT-LM and did not change native code. It
+classifies the Python code prompt failure as native no-return/no-callback
+before the bounded runner timeout, with cleanup unknown. Any retry must use the
+same max512 artifact unless a separate native-change phase is explicitly
+approved.
+
 ## QAIRT244 Max512 Single Runtime Verification - 2026-05-27
 
 Artifact:

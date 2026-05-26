@@ -1,0 +1,19 @@
+# Memory Summary
+
+Source artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_compare/20260527_003429/`
+
+Per-run memory notes:
+
+- `after_konnichiwa`: process alive, `TOTAL PSS=300876 KB`,
+  `Native Heap=82956 KB`
+- `after_python_calculator`: `No process found for: io.github.ninbyo02.lami`
+  because the runner force-stopped the app after timeout
+- `after_lami_npu_short`: process alive, `TOTAL PSS=296083 KB`,
+  `Native Heap=82716 KB`
+- final `after`: `TOTAL PSS=292816 KB`, `Native Heap=82828 KB`
+- final `after_10s`: `TOTAL PSS=272689 KB`, `Native Heap=54604 KB`
+
+Conclusion: this is not classified as memory high retained. Memory after 10
+seconds decreased from the final after-run sample. The rollback reason remains
+the Python code-prompt timeout and missing completion/cleanup evidence.

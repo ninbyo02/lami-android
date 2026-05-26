@@ -18,6 +18,13 @@ ingress was recorded. Memory after 10 seconds dropped from
 `TOTAL PSS=272689 KB / Native Heap=54604 KB`, so the rollback reason is timeout
 and empty sanitized output for the code prompt, not retained memory.
 
+Timeout review artifact:
+`artifacts/qairt244_npu_max_output_512_code_timeout_review/20260527_005112/`.
+Classification is `native_hang_or_no_callback` with `cleanup_unknown`: native
+diagnostics reached `before RunDecode SetMaxOutputTokens(512)`, but no native
+success, cleanup timing, or `Engine.close` evidence was captured before the
+runner force-stop. No fresh crash classification is asserted from this artifact.
+
 ## 2026-05-27: max_output_tokens=512 single prompt passes
 
 | Area | Evidence | Root cause | Decision |

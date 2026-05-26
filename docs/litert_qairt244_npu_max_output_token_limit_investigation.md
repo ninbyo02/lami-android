@@ -41,6 +41,37 @@ experimental baseline candidate. Do not promote 512 and do not proceed to 1024
 until a separately approved 512 three-prompt run passes all prompts, including
 `useful_code` for the Python prompt, without timeout.
 
+## Max512 Code Prompt Timeout Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_code_timeout_review/20260527_005112/`
+
+Review scope: artifact/log/runner/docs only. No additional NPU execution,
+512 retry, 1024+ expansion, native guard change, QAIRT rebuild, or UI
+promotion was performed.
+
+Classification: `C. native_hang_or_no_callback`, with
+`D. cleanup_unknown`. The Python calculator prompt reached the native
+editable-prompt path and recorded `before RunDecode SetMaxOutputTokens(512)`,
+but it did not produce native `success`, `cleanup_elapsed_ms`, or
+`Engine.close` evidence before the bounded runner timeout. The runner waited
+30 seconds for `files/qairt244_standard_hidden_prompt_state.txt`, then
+force-stopped the app. `result_2.txt` stayed at receiver `state=started`, and
+raw/sanitized output files for prompt 2 were empty.
+
+The 256 reference completed the same Python prompt as `useful_code` with
+`decode_ms=7351` and `elapsed_ms=9000`. The 512 run reached
+`elapsed_ms=40000` including timeout/force-stop overhead and produced no
+completed output. This does not prove a crash or memory high-retention issue;
+after-10s memory decreased from the final after-run sample.
+
+Decision: 512 remains non-promotable and cannot be a hidden baseline
+candidate. 1024 remains blocked. A later 512 code-prompt retry, if approved,
+must be one run only, same prompt, `max_output_tokens=512`, bounded timeout
+only, and must pass `useful_code`, `timeout=false`, `fresh_crash=false`,
+`fallback_used=false`, QNN evidence, cleanup/`Engine.close` evidence, memory
+recovery, and side-effect flags false.
+
 ## Max512 Single Prompt Verification - 2026-05-27
 
 Artifact:
