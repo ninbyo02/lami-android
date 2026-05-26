@@ -1,5 +1,33 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max256 Guard-Only Limited Rebuild - 2026-05-26
+
+Artifacts:
+
+- build/static artifact:
+  `artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/`
+- preflight artifact:
+  `artifacts/qairt244_npu_max256_guard_preflight/20260526_205300/`
+
+Result: QAIRT 2.44 limited rebuild completed for the guard-only native patch.
+The patch is limited to the qairt244 editable-prompt native path and raises the
+custom guard from 128 to 256. It adds the marker
+`qairt244_editable_prompt_max256_v1`, records
+`native_max_output_tokens_limit=256`, and emits pre-RunDecode diagnostic text
+that will include `SetMaxOutputTokens(256)` when a later approved run executes.
+
+Built `liblitertlm_jni.so` metadata:
+
+```text
+build_id=c42e4438f1b39e384ab075b9392831ca
+sha256=3767332f97ffee57b635fc13e2741714c994f7a2cc94d0fde5d4fbbce9c731ba
+```
+
+No rebuilt `.so` was copied into `app/src/main/jniLibs` and no large binary is
+intended for Git tracking. The lami runner preflight passed against the build
+artifact, but NPU generation, `Engine.initialize`, and `RunDecode` were not
+executed in this phase.
+
 ## QAIRT244 Native Max Output Token Limit Investigation - 2026-05-26
 
 Artifact:

@@ -1,0 +1,741 @@
+# grep safety scan
+script=scripts/run_qairt244_npu_max_output_256_quality_compare.sh
+preflight_only=true
+npu_run_executed=false
+run_decode_executed=false
+
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:35:    --preflight-only)
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:42:  scripts/run_qairt244_npu_max_output_256_quality_compare.sh --preflight-only [--artifact <native-build-artifact>]
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:45:Runs the standardDebug hidden QAIRT244 SM8750 NPU route once per prompt with
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:54:  - SM8750-only model/selection evidence
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:56:--preflight-only writes artifacts/qairt244_npu_max256_guard_preflight/<timestamp>/
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:57:and exits before device selection, app launch, NPU generation, or RunDecode.
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:84:adb_cmd() {
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:92:choose_device() {
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:105:  adb_cmd exec-out run-as "$APP_ID" cat "$app_path" >"$dest" 2>"$dest.err" || true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:114:    if adb_cmd shell run-as "$APP_ID" test -s "files/qairt244_standard_hidden_prompt_state.txt" >/dev/null 2>&1; then
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:191:  if rg -q "QNN|HTP|FastRPC|selected_path_npu|Backend\\.NPU|RunDecode" "$run_dir/native_diag.txt" "$run_dir/result.txt" "$run_dir/logcat_tail.txt" 2>/dev/null; then
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:261:  adb_cmd shell run-as "$APP_ID" rm -f \
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:277:    adb_cmd shell dumpsys meminfo "$APP_ID"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:285:    adb_cmd shell dumpsys meminfo "$APP_ID"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:293:  adb_cmd shell screencap -p "$remote_png" >"$run_dir/screenshot_capture.txt" 2>&1 || true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:294:  adb_cmd pull "$remote_png" "$run_dir/screenshot.png" >"$run_dir/screenshot_pull.txt" 2>&1 || true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:295:  adb_cmd shell rm -f "$remote_png" >/dev/null 2>&1 || true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:315:    printf 'db=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:316:    printf 'tts=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:317:    printf 'markdown=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:318:    printf 'streaming=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:322:  adb_cmd shell am start -W -n "$APP_ID/.MainActivity" >"$run_dir/am_start.txt" 2>&1 || true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:324:  adb_cmd shell am broadcast --receiver-foreground --user 0 \
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:339:    adb_cmd shell am force-stop "$APP_ID" >"$run_dir/force_stop_timeout.txt" 2>&1 || true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:350:  adb_cmd logcat -d -t 900 >"$run_dir/logcat_tail.txt" 2>&1 || true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:425:    printf 'db=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:426:    printf 'tts=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:427:    printf 'markdown=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:428:    printf 'streaming=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:528:      rg -n "QNN|HTP|FastRPC|RunDecode|EngineFactory|native_prompt|sanitizer|selected_path_npu|fallback_used|timeout|fresh_crash|max_output_tokens|quality_classification|db=false|tts=false|markdown=false|streaming=false|Engine\\.initialize|RunDecode" "$file" | sed "s#^#${file#$OUT_DIR/}:#" || true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:546:    printf 'db=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:547:    printf 'tts=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:548:    printf 'markdown=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:549:    printf 'streaming=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:569:collect_max256_preflight_evidence() {
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:582:    printf 'required_sm8750_selection=true\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:586:    printf 'db=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:587:    printf 'tts=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:588:    printf 'markdown=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:589:    printf 'streaming=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:608:    rg -n "$MAX256_GUARD_MARKER|native_max_output_tokens_limit=256|SetMaxOutputTokens\\(256\\)|SM8750|sm8750|gemma-4-E2B-it_qualcomm_sm8750" \
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:621:        grep -E "$MAX256_GUARD_MARKER|native_max_output_tokens_limit=256|SetMaxOutputTokens\\(256\\)|SM8750|sm8750|gemma-4-E2B-it_qualcomm_sm8750" || true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:635:    rg -n "choose_device|adb_cmd|RunDecode|am start|am broadcast|--preflight-only|collect_max256_preflight_evidence|require_max256_guard_evidence|db=false|tts=false|markdown=false|streaming=false|gemma-4-E2B-it_qualcomm_sm8750|SM8750|sm8750" \
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:644:  local sm8750_present="$4"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:662:    printf '| `SM8750` selection | `%s` |\n' "$sm8750_present"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:665:      printf '256 guard-only patch built; run not executed. The 256 runner may proceed only outside `--preflight-only` and only with this guard evidence still present.\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:667:      printf '256 guard-only patch evidence incomplete; run refused before device selection, NPU, or RunDecode.\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:675:    printf 'sm8750_present=%s\n' "$sm8750_present"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:682:require_max256_guard_evidence() {
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:686:  local sm8750_present=false
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:689:  collect_max256_preflight_evidence
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:693:  grep -Eiq 'SM8750|sm8750|gemma-4-E2B-it_qualcomm_sm8750' "$PREFLIGHT_DIR/evidence.txt" && sm8750_present=true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:698:    [ "$sm8750_present" = true ]; then
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:702:  write_max256_preflight_summary "$marker_present" "$native_limit_present" "$setter_present" "$sm8750_present" "$guard_status"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:757:    require_max256_guard_evidence
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:760:  require_max256_guard_evidence || exit 1
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:768:  choose_device || {
+scripts/check_qairt244_native_patch.sh:31:printf 'patch_has_sm8750_evidence=%s\n' "$(grep -Eiq 'SM8750|sm8750|gemma-4-E2B-it_qualcomm_sm8750' "$PATCH_FILE" && printf true || printf false)"
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:10:`Engine.initialize`, and did not call `RunDecode`.
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:19:The 256 runner now has a preflight-only guard path. `--preflight-only` exits
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:21:`RunDecode`. Non-preflight execution is refused unless supplied static native
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:27:- SM8750-only model/selection evidence
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:46:`RunDecode` are downstream of that guard, so the 256 request did not reach the
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:66:This does not prove that the compiled SM8750 model, tokenizer/context window,
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:122:- `db=false`
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:123:- `tts=false`
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:124:- `markdown=false`
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:125:- `streaming=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:10:`RunDecode`, and it does not connect ChatScreen, DB, TTS, Markdown, streaming,
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:37:not call `Engine.initialize` or `RunDecode`, does not connect the standard
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:156:- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:182:- no `RunDecode`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:252:call `Engine.initialize`, call `RunDecode`, or promote the standard route.
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:266:- require `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:368:  `Engine.initialize`, or `RunDecode`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:464:- `db=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:465:- `tts=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:466:- `markdown=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:467:- `streaming=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:487:`RunDecode`.
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:557:- `db=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:558:- `tts=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:559:- `markdown=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:560:- `streaming=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:604:no `RunDecode`, and no additional NPU execution.
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:659:`normal_ui_route_connected=false`, `db=false`, `tts=false`, `markdown=false`,
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:660:`streaming=false`, `npu_generation=false`, `engine_initialize=false`, and
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:6:experimental qairt244 SM8750 NPU result to normal ChatScreen UI surfaces. This
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:8:route, does not run NPU, does not call `Engine.initialize` or `RunDecode`, does
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:174:- `db=false`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:175:- `tts=false`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:176:- `markdown=false`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:177:- `streaming=false`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:285:- no `RunDecode`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:300:selected-path persistence, retry/fallback, `Engine.initialize`, `RunDecode`, or
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:333:- call `RunDecode`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:376:- no NPU run, `Engine.initialize`, or `RunDecode`
+docs/litert_qairt244_npu_promotion_gate.md:10:The 256 quality runner is now guarded before execution. `--preflight-only`
+docs/litert_qairt244_npu_promotion_gate.md:13:or `RunDecode`.
+docs/litert_qairt244_npu_promotion_gate.md:17:`native_max_output_tokens_limit=256`, `SetMaxOutputTokens(256)`, and SM8750
+docs/litert_qairt244_npu_promotion_gate.md:31:`DecodeConfig::SetMaxOutputTokens(max_output_tokens)` and before `RunDecode`.
+docs/litert_qairt244_npu_promotion_gate.md:62:`normal_ui_route_connected=false`, `db=false`, `tts=false`, `markdown=false`,
+docs/litert_qairt244_npu_promotion_gate.md:63:and `streaming=false`.
+docs/litert_qairt244_npu_promotion_gate.md:72:Scope: documentation-only planning for the hidden experimental qairt244 SM8750
+docs/litert_qairt244_npu_promotion_gate.md:117:- `db=false`
+docs/litert_qairt244_npu_promotion_gate.md:118:- `tts=false`
+docs/litert_qairt244_npu_promotion_gate.md:119:- `markdown=false`
+docs/litert_qairt244_npu_promotion_gate.md:120:- `streaming=false`
+docs/litert_qairt244_npu_promotion_gate.md:265:- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+docs/litert_qairt244_npu_promotion_gate.md:345:- NPU run, `Engine.initialize`, and `RunDecode` remain false at host level
+docs/litert_qairt244_npu_promotion_gate.md:360:- metadata read, NPU run, `Engine.initialize`, and `RunDecode` remain false at
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:59:LiteRT-LM runtime has internal metadata-derived stop token handling, including `SessionConfig` stop token ids and a `StopTokenDetector`, but the Android JNI / `DecodeConfig` surface used by this qairt244 lower-level route exposes only `max_output_tokens` for the editable-prompt decode path. `DecodeConfig` exposes `SetConstraint()` and `SetMaxOutputTokens()`, but no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter. The qairt244 editable prompt native entrypoint creates a default `SessionConfig`, sets `DecodeConfig.SetMaxOutputTokens(max_output_tokens)`, and calls `RunDecode(decode_config)`.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:141:- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:216:`db=false`, `tts=false`, `markdown=false`, `streaming=false`.
+docs/qairt244_standard_hidden_experimental_plan.md:5:Move the proven qairt244 SM8750 NPU route from `customBuildExperimentDebug`
+docs/qairt244_standard_hidden_experimental_plan.md:28:Move only the guarded qairt244 SM8750 route surface needed for a hidden
+docs/qairt244_standard_hidden_experimental_plan.md:31:- model basename resolver and SM8750-only guard
+docs/qairt244_standard_hidden_experimental_plan.md:32:- timestamp-prefixed SM8750 basename allowance
+docs/qairt244_standard_hidden_experimental_plan.md:37:  native token limit, RunDecode reachability, NPU evidence, fallback state, and
+docs/qairt244_standard_hidden_experimental_plan.md:49:- `Qairt244ModelPathResolver`: canonical/timestamp-prefixed SM8750 basename
+docs/qairt244_standard_hidden_experimental_plan.md:76:2. A qairt244 SM8750 route toggle that is default OFF.
+docs/qairt244_standard_hidden_experimental_plan.md:101:  `実験的NPU（SM8750）` row that says `standard hidden experimental`, `まだ本適用
+docs/qairt244_standard_hidden_experimental_plan.md:105:- `customBuildExperimentDebug` keeps its existing `DEV: SM8750 NPU実験` toggle
+docs/qairt244_standard_hidden_experimental_plan.md:109:  and SM8750 model guard.
+docs/qairt244_standard_hidden_experimental_plan.md:113:- With developer access ON, `standardDebug` lets the `実験的NPU（SM8750）`
+docs/qairt244_standard_hidden_experimental_plan.md:114:  toggle write the existing `dev_enable_qairt244_sm8750_npu_route` key.
+docs/qairt244_standard_hidden_experimental_plan.md:118:  `developer_access_enabled && dev_enable_qairt244_sm8750_npu_route` is true in
+docs/qairt244_standard_hidden_experimental_plan.md:123:- The route keeps `max_output_tokens=128`, SM8750-only model basename guards,
+docs/qairt244_standard_hidden_experimental_plan.md:129:- Label: `Experimental: SM8750 NPU`
+docs/qairt244_standard_hidden_experimental_plan.md:131:- Enabled only when the app detects exactly one acceptable SM8750 model:
+docs/qairt244_standard_hidden_experimental_plan.md:132:  `gemma-4-E2B-it_qualcomm_sm8750.litertlm` or
+docs/qairt244_standard_hidden_experimental_plan.md:133:  `<digits>_gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/qairt244_standard_hidden_experimental_plan.md:136:- Text must say this is hidden, experimental, SM8750-only, and not production
+docs/qairt244_standard_hidden_experimental_plan.md:168:Experimental SM8750 NPU failed: <reason>
+docs/qairt244_standard_hidden_experimental_plan.md:178:- RunDecode reached true/false
+docs/qairt244_standard_hidden_experimental_plan.md:205:- qairt244 SM8750 toggle defaults OFF
+docs/qairt244_standard_hidden_experimental_plan.md:206:- canonical and numeric timestamp-prefixed SM8750 model basenames are accepted
+docs/qairt244_standard_hidden_experimental_plan.md:244:As of 2026-05-24, the standard hidden route can reach NPU and RunDecode for
+docs/qairt244_standard_hidden_experimental_plan.md:259:- `max_output_tokens=128` remains fixed, `RunDecode` is reached, and
+docs/qairt244_standard_hidden_experimental_plan.md:377:by developer access plus the SM8750 NPU toggle.
+docs/qairt244_standard_hidden_experimental_plan.md:443:128-token output bound, UTF-8 safety checks, SM8750 model guard, NPU evidence,
+docs/qairt244_standard_hidden_experimental_plan.md:455:`dev_enable_qairt244_sm8750_npu_route`, the SM8750 model guard remains exact or
+docs/qairt244_standard_hidden_experimental_plan.md:456:timestamp-prefixed SM8750 only, and fallback remains disabled.
+docs/radxa_qairt_ecosystem_analysis.md:8:Lami LiteRT-LM / LiteRT / QAIRT / QNN / SM8750 investigation.
+docs/radxa_qairt_ecosystem_analysis.md:150:The Qualcomm SM8750 Gemma model under Lami is a compiled device-specific NPU
+docs/radxa_qairt_ecosystem_analysis.md:161:| Gallery SM8750 APK | special native payload; Build IDs do not match local 2.46 or custom APK QNN libs | Likely internal/special generation, not public Maven 0.10/0.11 payload. |
+docs/radxa_qairt_ecosystem_analysis.md:182:- Gallery SM8750 APK native payload
+docs/radxa_qairt_ecosystem_analysis.md:219:   - SM8750/V79 is outside Radxa's documented QCS6490/V68 and QCS9075/V73 paths.
+docs/radxa_qairt_ecosystem_analysis.md:225:   - a Qualcomm SM8750 `.litertlm` model can still be sensitive to exact runtime generation.
+docs/radxa_qairt_ecosystem_analysis.md:237:3. **QAIRT 2.42 downgrade is informative but lower confidence for SM8750.**
+docs/radxa_qairt_ecosystem_analysis.md:239:   public metadata and does not document SM8750/V79.
+docs/qualcomm-qnn-npu-setup.md:9:- Device/SOC: `nubia NX733J`, `QTI SM8750`
+docs/qualcomm-qnn-npu-setup.md:65:  -PqnnNpuModelPath=/path/to/gemma3-1b-sm8750-qnn-npu.litertlm
+docs/qualcomm-qnn-npu-setup.md:93:sm8750
+docs/qairt_242_acquisition_notes.md:30:documented for Linux SBC workflows. It is not the current primary SM8750/V79
+docs/qairt_242_acquisition_notes.md:36:- The target model is a Qualcomm SM8750 `.litertlm` payload.
+docs/qairt_242_acquisition_notes.md:39:as proof of the expected SM8750 Android `Backend.NPU` runtime generation.
+docs/qairt244_non_ascii_prompt_plan.md:5:The DEV-only qairt244 SM8750 UTF-8 internal intent route has moved from the
+docs/qairt244_non_ascii_prompt_plan.md:22:- Artifact: `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_160053`
+docs/qairt244_non_ascii_prompt_plan.md:50:- Dispatch path: `adb shell run-as io.github.ninbyo02.lami.customnpu am broadcast --user 0`
+docs/qairt244_non_ascii_prompt_plan.md:51:- Target model: `gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/qairt244_non_ascii_prompt_plan.md:55:Guards remain scoped to the DEV-only qairt244 SM8750 route:
+docs/qairt244_non_ascii_prompt_plan.md:56:`BuildConfig.CUSTOM_BUILD_EXPERIMENT`, DEV toggle enabled, exact SM8750 model
+docs/qairt244_non_ascii_prompt_plan.md:63:`artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_151712`.
+docs/qairt244_non_ascii_prompt_plan.md:73:This document covers Japanese/non-ASCII prompt input for the DEV-only qairt244 SM8750 NPU runner. It does not change the NPU route, token limit, native artifact, fallback behavior, or production Backend.NPU wiring.
+docs/qairt244_non_ascii_prompt_plan.md:79:- The qairt244 SM8750 DEV-only route is stable for the ASCII runner prompt set `Hello`, `test`, and `OK` at `max_output_tokens=16`.
+docs/qairt244_non_ascii_prompt_plan.md:184:Keep `scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh` ASCII-only for now. Its job is to provide a stable, repeatable 16-token DEV NPU smoke over the visible ChatScreen path. Non-ASCII should remain `unsupported_non_ascii_prompt` and stop before send.
+docs/qairt244_non_ascii_prompt_plan.md:191:exact basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_non_ascii_prompt_plan.md:192:required_sm8750_model_path=true
+docs/qairt244_non_ascii_prompt_plan.md:203:artifacts/qairt244_chat_screen_real_npu_sm8750_non_ascii_prompt/<timestamp>/
+docs/qairt244_non_ascii_prompt_plan.md:243:scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh \
+docs/qairt244_non_ascii_prompt_plan.md:254:adb -s <device> shell am start -W \
+docs/qairt244_non_ascii_prompt_plan.md:258:  --ez dev_enable_qairt244_sm8750_npu_route true \
+docs/qairt244_non_ascii_prompt_plan.md:265:adb -s <device> shell am broadcast \
+docs/qairt244_non_ascii_prompt_plan.md:269:  --ez dev_enable_qairt244_sm8750_npu_route true \
+docs/qairt244_non_ascii_prompt_plan.md:291:2. Require the explicit action name `io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT` plus `dev_enable_qairt244_sm8750_npu_route=true`.
+docs/qairt244_non_ascii_prompt_plan.md:293:4. Reuse the existing resolver, exact SM8750 basename guard, duplicate-run guard, max token cap, no-fallback behavior, and cleanup path.
+docs/qairt244_non_ascii_prompt_plan.md:309:- RunDecode reaches NPU with `QNN_HTP_V79_FastRPC_native_diag`.
+docs/qairt244_native_artifact_reproducibility.md:100:`docs/qairt244_chat_screen_real_npu_sm8750_model_run.md`: Japanese
+docs/qairt244_native_artifact_reproducibility.md:106:RunDecode reached, `npu_backend=NPU`,
+docs/qairt244_native_artifact_reproducibility.md:166:`docs/qairt244_chat_screen_real_npu_sm8750_model_run.md`: Japanese
+docs/qairt244_native_artifact_reproducibility.md:172:RunDecode reached, `npu_backend=NPU`,
+docs/qairt244_native_artifact_reproducibility.md:222:`docs/qairt244_chat_screen_real_npu_sm8750_model_run.md`: Japanese
+docs/qairt244_native_artifact_reproducibility.md:224:completed 3/3 with prompt requested/actual/normalized equality, RunDecode
+docs/qairt244_native_artifact_reproducibility.md:302:This document records how the DEV-only qairt244 SM8750 NPU native artifact was produced and what must be checked before rebuilding or staging it. It is documentation only; it does not promote the route out of DEV-only scope.
+docs/qairt244_native_artifact_reproducibility.md:369:The older 8-token staged artifact rejected `max_output_tokens=16` before RunDecode with `invalid_max_output_tokens value=16`. The active 128-token artifact keeps that DEV-only editable-prompt path bounded to `1..128`, records `native_max_output_tokens_limit=128`, and then calls `RunDecode` with `SetMaxOutputTokens(max_output_tokens)`.
+docs/qairt244_native_artifact_reproducibility.md:432:Before using a rebuilt artifact for qairt244 SM8750 DEV-only runs, verify:
+docs/qairt244_native_artifact_reproducibility.md:441:- Decode path logs `before RunDecode SetMaxOutputTokens(%d)` and calls `decode_config.SetMaxOutputTokens(max_output_tokens)`.
+docs/qairt244_native_artifact_reproducibility.md:447:- `scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh --artifact <new-artifact> --run --prompt Hello` is run only in a separate execution-validation step, not during doc-only reproducibility review.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:1:# QAIRT244 ChatScreen DEV-only SM8750 NPU Model Run
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:112:for the DEV-only qairt244 SM8750 internal intent route:
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:135:- Artifact: `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_170917`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:158:artifacts=artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_172255,
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:159:          artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_172346,
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:160:          artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_172425
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:183:This is a DEV-only bounded experiment for the qairt244 SM8750 internal intent
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:192:for the DEV-only qairt244 SM8750 internal intent route:
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:215:- Artifact: `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_163448`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:238:artifacts=artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_164341,
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:239:          artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_164421,
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:240:          artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_164450
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:260:This is a DEV-only bounded experiment for the qairt244 SM8750 internal intent
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:267:for the DEV-only qairt244 SM8750 internal intent route:
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:285:- Artifact: `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_160053`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:339:`adb shell run-as io.github.ninbyo02.lami.customnpu am broadcast --user 0`, so
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:350:`artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_151712`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:352:`gemma-4-E2B-it_qualcomm_sm8750.litertlm`, and `max_output_tokens=16`. The
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:366:gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:372:- Only filenames containing `qualcomm_sm8750` are execution candidates.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:376:- `isRequiredSm8750ModelPath(path)` returns true only when the basename exactly equals `gemma-4-E2B-it_qualcomm_sm8750.litertlm`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:377:- `Qairt244DevOnlyNpuRouteAdapter` rechecks the resolved path before Engine creation or RunDecode and stops with `model_file_not_required_sm8750` if the basename is not exact.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:381:- `scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh` lists app-private `files/local_models` before any DEV-only run.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:382:- The script permits the run only when the single `qualcomm_sm8750` candidate basename exactly matches `gemma-4-E2B-it_qualcomm_sm8750.litertlm`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:383:- Generic, qcs8275, standard E2B/E4B, missing, or multiple `qualcomm_sm8750` candidates stop before ChatScreen launch.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:384:- The runner writes `model_files_listing.txt`, `model_basenames.txt`, `sm8750_model_candidates.txt`, `sm8750_model_preflight.txt`, and `resolved_model_path.txt` under `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/<timestamp>/`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:386:- The runner does not copy or delete model files. If the SM8750 model is already in app-private `files/local_models`, no Download copy is needed.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:388:## 2026-05-24 DEV-only SM8750 Success Evidence
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:390:Artifact: `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_102125/`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:396:model=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:409:This confirms one bounded `--run` success through the ChatScreen DEV-only NPU route using the exact SM8750 model. The normal UI/local inference route remains disconnected from NPU and this result is not a standard-path rollout.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:413:The ChatScreen UI route remains experimental and DEV-only. In `customBuildExperimentDebug`, Settings exposes `DEV: SM8750 NPU実験` using preference key `dev_enable_qairt244_sm8750_npu_route`; the default is always OFF and the toggle is automatically cleared after a guarded attempt. This is separate from the standard local inference route and is not a production NPU enablement.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:415:When the toggle is ON and the user sends from the local ChatScreen target, the app calls the qairt244 SM8750 DEV-only adapter with `max_output_tokens=128`. The model basename must be either `gemma-4-E2B-it_qualcomm_sm8750.litertlm` or a downloader timestamp form such as `<digits>_gemma-4-E2B-it_qualcomm_sm8750.litertlm`. This accepts the app-private import naming convention without copying, deleting, or renaming the model. Generic, E4B, non-numeric prefix, and qcs8275 models remain rejected by the Kotlin resolver.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:422:selected_route=qairt244_sm8750_dev_npu
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:423:resolved_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:424:canonical_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:426:required_sm8750_model_path=true
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:436:As of 2026-05-24, the DEV UI route is in a safety/diagnostics phase. It remains `customBuildExperimentDebug` scoped, defaults OFF, and is entered only when `BuildConfig.CUSTOM_BUILD_EXPERIMENT && dev_enable_qairt244_sm8750_npu_route` is true. With the toggle OFF, ChatScreen falls through to the existing local inference path; the standard local route, GPU fallback behavior, and held-official-flow are not changed by this experiment.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:440:Failure handling intentionally does not fallback to GPU or CPU. Falling back would hide the exact NPU failure stage and could make SM8750 model validation ambiguous. Failure diagnostics should include:
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:443:selected_route=qairt244_sm8750_dev_npu
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:447:required_sm8750_model_path=<true|false>
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:451:Before raising the token cap beyond `128`, require a new bounded native guard and repeated evidence that: the exact SM8750 basename is selected, `required_sm8750_model_path=true`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, no GPU/CPU fallback is detected, generating state clears after success/failure/Stop, duplicate sends are blocked, and no TTS/streaming/standard-route side effects appear.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:455:The current bounded DEV-only step raises only the qairt244 SM8750 experiment route from `max_output_tokens=8` to `max_output_tokens=16`. This remains DEV-only and does not enable `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:457:The 16 token phase is acceptable only if one guarded `Hello` run records: exact basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `required_sm8750_model_path=true`, `max_output_tokens=16`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `fresh_crash=false`, `timeout=false`, no `duplicate_run_blocked`, and the ChatScreen loading state clears after completion.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:459:Initial 16 token attempt on 2026-05-24 stopped before RunDecode in `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_114330` because the staged native editable-prompt artifact still rejected 16 with `invalid_max_output_tokens value=16`. The native DEV guard was then changed from exact `8` to the bounded range `1..16`, rebuilt as `artifacts/litert_custom_build/20260524_114833_qairt244_16token`, and restaged for `customBuildExperimentDebug`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:466:artifact=artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_115432
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:471:resolved_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:472:required_sm8750_model_path=true
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:475:run_decode=before RunDecode SetMaxOutputTokens(16)
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:490:As of the runner prompt-input stabilization phase, `scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh` accepts `--prompt <ascii-prompt>` in default `--prompt-mode ui_text` for controlled stability checks. The runner restricts this UI text path to ASCII alphanumeric plus `._-`, saves the current IME, temporarily selects an ADB/Latin IME when available, verifies the typed ChatScreen field before pressing Send, retries after KEYCODE_LANGUAGE_SWITCH when the IME still rewrites ASCII, and records `requested_prompt`, `actual_prompt`, `normalized_prompt`, `prompt_source`, `prompt_input_status`, and `prompt_input_failure_reason` in each artifact. Non-ASCII prompts such as Japanese are treated as `unsupported_non_ascii_prompt` in UI text mode and stop before NPU execution; Japanese prompt coverage belongs to `--prompt-mode internal_intent` only.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:492:The current stability prompt set is `Hello`, `test`, and `OK`. Each run still uses `max_output_tokens=64`, exact SM8750 model selection, no model copy/delete, no fallback, and the DEV-only route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:513:scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh \
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:522:adb -s <device> shell am start -W \
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:526:  --ez dev_enable_qairt244_sm8750_npu_route true \
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:533:adb -s <device> shell am broadcast \
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:537:  --ez dev_enable_qairt244_sm8750_npu_route true \
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:560:As of 2026-05-24, the ChatScreen inference stats surface keeps the qairt244 SM8750 evidence in a dedicated DEV section instead of folding it into the normal generation-speed rows. This remains DEV-only and does not enable production `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:562:The dedicated section is shown only for `selected_route=qairt244_sm8750_dev_npu` stats and summarizes: exact model basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `max_output_tokens=64`, `native_max_output_tokens_limit=64`, `required_sm8750_model_path=true`, RunDecode reachability, `decode_elapsed_ms`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, and the DEV UI cleanup status. Decode elapsed time is treated as DEV evidence, not as the normal token/s speed metric.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:570:Conclusion as of 2026-05-24: the qairt244 SM8750 route remains a DEV-only experiment and is not ready for immediate promotion into the normal candidate set. The current evidence is for bounded DEV paths on one SM8750 device, and the route still depends on a custom native artifact, a single exact model basename, non-streaming lower-level decode, and a narrow runner prompt path.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:583:- Device/model gating: the current guard allows only the canonical SM8750 basename or a numeric timestamp-prefixed canonical basename. Promotion needs device capability checks, model availability checks, and clear behavior when the exact SM8750 model is absent.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:587:- Phase A: Keep the current DEV-only route. Continue using explicit toggle, SM8750-only model guard, `max_output_tokens=128`, no fallback, and diagnostic-first artifacts.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:596:- Bounded 128-token phase passes with exact basename, `required_sm8750_model_path=true`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `timeout=false`, and `fresh_crash=false`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:599:- Diagnostics identify failure stage, model basename, native token limit, RunDecode reachability, QNN/HTP evidence, fallback status, and cleanup status.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:606:hidden behind developer access, default OFF, SM8750-only, capped at 128 tokens,
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:616:The next bounded DEV-only step raises only the qairt244 SM8750 experiment route from `max_output_tokens=3` to `max_output_tokens=8`. This is not a production NPU rollout and still does not enable `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:618:The 8 token phase is considered acceptable only if one guarded `Hello` run records: exact basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `required_sm8750_model_path=true`, `max_output_tokens=8`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `fresh_crash=false`, `timeout=false`, no `duplicate_run_blocked`, and the ChatScreen loading state clears after completion.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:624:artifact=artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_112050
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:630:resolved_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:631:required_sm8750_model_path=true
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:633:run_decode=before RunDecode SetMaxOutputTokens(8)
+docs/litertlm_gallery_java_api_surface_mismatch.md:11:- path: `/tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk`
+docs/litertlm_gallery_java_api_surface_mismatch.md:153:- Gallery `liblitertlm_jni.so` was staged from the SM8750 APK.
+docs/litertlm_gallery_java_api_surface_mismatch.md:188:`galleryStackExperimentDebug` was moved back to the Maven `litertlm-android:0.11.0` Java/Kotlin API while keeping the Gallery SM8750 native stack isolated under the `galleryStackExperimentDebug` source set.
+docs/litertlm_flavor_version_experiment_plan.md:93:It does not contain `libLiteRt.so`. Gallery SM8750 APK does contain `libLiteRt.so`, `liblitertlm_jni.so`, `libLiteRtDispatch_Qualcomm.so`, and QNN/HTP libraries. Therefore switching `npuExperimentDebug` to public Maven `0.10.0` alone is not equivalent to Gallery SM8750's native stack. It may also remove Lami debug's packaged `libLiteRt.so`, while the staged Gallery dispatch runtime declares `NEEDED libLiteRt.so`.
+docs/litertlm_flavor_version_experiment_plan.md:114:Flavor-specific version separation is Gradle-feasible, but public Maven `litertlm-android:0.10.0` is not a complete Gallery SM8750 native stack match. The next safe experiment is still useful, but expectations should be limited:
+docs/litertlm_flavor_version_experiment_plan.md:117:- It is unlikely to fully match Gallery SM8750 unless a compatible `libLiteRt.so` and QNN/dispatch set are also isolated in a separate experiment.
+docs/litertlm_flavor_version_experiment_plan.md:193:- Public Maven `0.10.0` still does not reproduce Gallery SM8750's native stack because its `liblitertlm_jni.so` Build ID differs from Gallery's `76e4dccd9c5f9cba468d9cae7becfec0`, and it does not package Gallery's `libLiteRt.so`.
+docs/litertlm_010_api_surface_check.md:131:### Gallery SM8750 comparison
+docs/litertlm_010_api_surface_check.md:133:| Library | Gallery SM8750 Build ID | Maven `0.10.0` Build ID | Match |
+docs/litertlm_010_api_surface_check.md:141:`litertlm-android:0.10.0` is API-compatible enough to consider a scoped compile experiment, but it is not a native Build ID match for Gallery SM8750. It also lacks the `libLiteRt.so` that Gallery dispatch declares as a dependency.
+docs/litert_qualcomm_sm8750_model_schema_probe.md:1:# LiteRT-LM Qualcomm SM8750 Model Schema Probe
+docs/litert_qualcomm_sm8750_model_schema_probe.md:6:`gemma-4-E2B-it_qualcomm_sm8750.litertlm`.
+docs/litert_qualcomm_sm8750_model_schema_probe.md:14:- `/data/local/tmp/gemma-4-E2B-it_qualcomm_sm8750.litertlm`: not probed; `adb devices` showed no connected device.
+docs/litert_qualcomm_sm8750_model_schema_probe.md:19:- `/home/sato/Downloads/gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/litert_qualcomm_sm8750_model_schema_probe.md:64:SM8750
+docs/litert_qualcomm_sm8750_model_schema_probe.md:69:soc_type=SM8750
+docs/litert_qualcomm_sm8750_model_schema_probe.md:83:2 SM8750
+docs/litert_qualcomm_sm8750_model_schema_probe.md:88:8 soc_type=SM8750
+docs/litert_qualcomm_sm8750_model_schema_probe.md:102:- The model contains `Qualcomm`, `SM8750`, `soc_type=SM8750`, and `min_arch=79`.
+docs/litert_qualcomm_sm8750_model_schema_probe.md:107:Reading from those observed markers: this `.litertlm` includes Qualcomm/SM8750
+docs/litert_qualcomm_sm8750_model_schema_probe.md:108:dispatch/QNN partition metadata and appears to be a precompiled SM8750/V79
+docs/litert_qualcomm_sm8750_model_schema_probe.md:119:Existing docs record that Gallery SM8750 is a special native payload with
+docs/litert_qualcomm_sm8750_model_schema_probe.md:125:This model probe adds direct evidence that the model itself carries SM8750/V79
+docs/litert_qnn_qairt_coupling_investigation_plan.md:64:### H2: SM8750/V79 Dispatch Capability Mismatch
+docs/litert_qnn_qairt_coupling_investigation_plan.md:66:The dispatch runtime may not advertise the exact capabilities required by LiteRT-LM for the SM8750 compiled model path, or LiteRT-LM may reject the runtime during dispatch delegate kernel creation.
+docs/litert_qnn_qairt_coupling_investigation_plan.md:73:- SM8750/V79-specific capability strings
+docs/litert_qnn_qairt_coupling_investigation_plan.md:91:The Qualcomm SM8750 `.litertlm` model may require a runtime/compiler generation different from the built LiteRT/LiteRT-LM stack or the Gallery payload.
+docs/litert_qnn_qairt_coupling_investigation_plan.md:125:- SoC: `SM8750`
+docs/litert_qnn_qairt_coupling_investigation_plan.md:160:- identify SM8750/V79 strings
+docs/litert_qnn_qairt_coupling_investigation_plan.md:268:- `gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/litert_qnn_qairt_coupling_investigation_plan.md:331:- `customBuildExperimentDebug` packages the built LiteRT stack plus QNN/HTP libraries, but the packaged QNN libraries are a third generation distinct from both Gallery SM8750 and local QAIRT 2.46.
+docs/litert_qnn_qairt_coupling_investigation_plan.md:333:- built and Gallery dispatch libraries both contain `SM8750`, `ADSP_LIBRARY_PATH`, `LD_LIBRARY_PATH`, and QNN version mismatch/check strings.
+docs/litert_qnn_qairt_coupling_investigation_plan.md:345:2. SM8750/V79 dispatch capability mismatch.
+docs/litert_qnn_qairt_coupling_findings.md:41:| QNN Build IDs differ | custom APK QNN libs differ from Gallery SM8750 and local QAIRT 2.46 libs. | There are at least three QNN generations in play: Gallery, Lami/custom APK packaged QNN, and local QAIRT 2.46. |
+docs/litert_qnn_qairt_coupling_findings.md:43:| Dispatch strings | built and Gallery dispatch both contain `SM8750`, `ADSP_LIBRARY_PATH`, `LD_LIBRARY_PATH`, QNN API/version mismatch messages, and `LiteRtDispatchGetApi`. | Dispatch has explicit version and path checks; these are plausible failure gates. |
+docs/litert_qnn_qairt_coupling_findings.md:127:### Gallery SM8750 reference
+docs/litert_qnn_qairt_coupling_findings.md:152:- custom APK packaged QNN libs are not the same Build IDs as local QAIRT 2.46 and not the same as Gallery SM8750.
+docs/litert_qnn_qairt_coupling_findings.md:159:### H2: SM8750/V79 dispatch capability mismatch
+docs/litert_qnn_qairt_coupling_findings.md:165:- built and Gallery dispatch both contain `SM8750` and `LiteRtDispatchGetApi`.
+docs/litert_qnn_qairt_coupling_findings.md:166:- QNN HTP/skel strings include V79 and SM8750 support strings, but also unsupported Snapdragon and context/blob-version error strings.
+docs/litert_qnn_qairt_coupling_findings.md:198:- The model is a compiled SM8750 Qualcomm `.litertlm` payload.
+docs/litert_qnn_qairt_coupling_findings.md:232:2. SM8750/V79 dispatch capability mismatch.
+docs/litert_qnn_qairt_coupling_findings.md:346:3. Compare QNN runtime packaging/capability expectations against the qairt244 build and Gallery SM8750 stack before any further isolated experiment.
+docs/litert_qnn_qairt_coupling_findings.md:370:as the primary SM8750/V79 candidate:
+docs/litert_qnn_qairt_coupling_findings.md:378:  SM8750/V79 with a Qualcomm SM8750 `.litertlm` model.
+docs/litert_qnn_qairt_coupling_findings.md:452:| Radxa public Linux docs | QAIRT `2.42.0.251225` | stable public Linux/SBC generation, not SM8750-specific |
+docs/litert_qnn_qairt_coupling_findings.md:455:| Gallery SM8750 APK | special native payload | likely internal/special generation |
+docs/litert_qairt244_ui_integration_safety_plan.md:181:- RunDecode: not run
+docs/litert_qairt244_ui_integration_safety_plan.md:200:- RunDecode: not run
+docs/litert_qairt244_ui_integration_safety_plan.md:222:- `RunDecode`:
+docs/litert_qairt244_ui_integration_safety_plan.md:240:  empty for blocked branch, `Engine.initialize`, `RunDecode`,
+docs/litert_qairt244_ui_integration_safety_plan.md:266:- `Engine.initialize` / `RunDecode`:
+docs/litert_qairt244_ui_integration_safety_plan.md:452:- timeout simulation does not call Engine.initialize or RunDecode
+docs/litert_qairt244_ui_integration_safety_plan.md:514:not call NPU generation, `Engine.initialize`, `RunDecode`, high-level
+docs/litert_qairt244_ui_integration_safety_plan.md:551:planner does not call Engine.initialize or RunDecode by itself.
+docs/litert_qairt244_ui_integration_safety_plan.md:571:- `RunDecode` is false
+docs/litert_qairt244_ui_integration_safety_plan.md:674:- `db=false`
+docs/litert_qairt244_ui_integration_safety_plan.md:675:- `tts=false`
+docs/litert_qairt244_ui_integration_safety_plan.md:676:- `markdown=false`
+docs/litert_qairt244_ui_integration_safety_plan.md:691:- No NPU generation, `Engine.initialize`, or `RunDecode` was executed.
+docs/litert_qairt244_ui_integration_safety_plan.md:700:- execute only on the Nubia / SM8750 test device
+docs/litert_qairt244_ui_integration_safety_plan.md:722:`Engine.initialize`, `RunDecode`, or `Backend.NPU`.
+docs/litert_qairt244_ui_integration_safety_plan.md:735:- `RunDecode`: not reached
+docs/litert_qairt244_ui_integration_safety_plan.md:790:- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+docs/litert_qairt244_ui_integration_safety_plan.md:823:- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+docs/litert_qairt244_ui_integration_safety_plan.md:847:`db=false`, `tts=false`, `markdown=false`, `streaming=false`.
+docs/litert_qairt244_token_timing_verifier_result.md:56:- `output_token_count_source=not_exposed_by_RunDecode_response`
+docs/litert_qairt244_token_timing_verifier_result.md:69:entrypoint does not expose a tokenizer count API and `RunDecode` returns text,
+docs/litert_qairt244_token_timing_verifier_result.md:74:Executed exactly once on the Nubia SM8750 device after it was visible in
+docs/litert_qairt244_token_timing_verifier_result.md:98:output_token_count_source=not_exposed_by_RunDecode_response
+docs/litert_npu_engine_initialize_crash_analysis.md:13:- Model: Qualcomm SM8750 `.litertlm`
+docs/litert_npu_engine_initialize_crash_analysis.md:28:- SoC: SM8750
+docs/litert_npu_engine_initialize_crash_analysis.md:32:  `/data/user/0/io.github.ninbyo02.lami.npu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/litert_npu_engine_initialize_crash_analysis.md:123:| `libLiteRtDispatch_Qualcomm.so` | `643ad77b8ac2f54bd1b61e4133c77b3a` | Gallery SM8750 APK staged only in `npuExperimentDebug` |
+docs/litert_npu_engine_initialize_crash_analysis.md:131:The Gallery SM8750 APK used for the dispatch source had different LiteRT-LM native
+docs/litert_npu_engine_initialize_crash_analysis.md:145:- model file missing: previous dry-run found the SM8750 model and read its size
+docs/litert_qairt244_single_token_smoke_plan.md:27:3. Create `EngineConfig` with the SM8750 LiteRT-LM model and the NPU backend.
+docs/litert_qairt244_single_token_smoke_impl.md:27:- Kotlin `Session.runDecode()` calls `LiteRtLmJni.nativeRunDecode(handle)`.
+docs/litert_qairt244_single_token_smoke_impl.md:28:- JNI `nativeRunDecode` calls native `session->RunDecode()` without a
+docs/litert_qairt244_single_token_smoke_impl.md:109:before RunDecode SetMaxOutputTokens(1)
+docs/litert_qairt244_single_token_smoke_impl.md:220:- `Session::RunDecode(decode_config)` with `maxOutputTokens=1`
+docs/litert_qairt244_short_multitoken_smoke_result.md:181:- call `RunDecode` once with `DecodeConfig.SetMaxOutputTokens(3)`
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:57:| Component | Gallery SM8750 | Lami npuExperimentDebug | Assessment |
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:59:| `libLiteRtDispatch_Qualcomm.so` | Build ID `643ad77b8ac2f54bd1b61e4133c77b3a` | same | Dispatch was copied exactly from Gallery SM8750 into the isolated flavor. |
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:133:   Evidence: Gallery and Lami QNN libs differ. The dispatch runtime contains QNN system/backend version checks. Lami uses `qnn-runtime:2.34.0`; Gallery SM8750 ships a different QNN set.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:141:5. Qualcomm SM8750 model/runtime schema mismatch.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:151:The Lami result is slightly different from the pure missing-file case: Lami has a dispatch `.so`, but it is from Gallery SM8750 and paired with Lami Maven `litertlm-android:0.11.0` native libs. The failure therefore points to "present but not usable", not "missing".
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:159:- The failure already occurs with a real Gallery SM8750 dispatch runtime present.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:175:   - SoC/device: NX733J / SM8750 / SDK 36
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:176:   - model: `gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:194:- The staged Gallery SM8750 `libLiteRtDispatch_Qualcomm.so` remains only in the isolated `npuExperimentDebug` native payload.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:214:| `libLiteRtDispatch_Qualcomm.so` | `643ad77b8ac2f54bd1b61e4133c77b3a` | Gallery SM8750 dispatch payload |
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:215:| `libLiteRt.so` | not packaged | Public Maven `0.10.0` does not include this Gallery SM8750 library |
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:217:Gallery SM8750 comparison:
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:219:| Component | Gallery SM8750 Build ID | npuExperimentDebug after split | Assessment |
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:253:1. Public Maven `litertlm-android:0.10.0` is not the same native stack as Gallery SM8750. It changes `liblitertlm_jni.so`, but still does not match Gallery's Build ID and does not package Gallery's `libLiteRt.so`.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:256:4. A same-generation runtime stack is still required before judging the Qualcomm SM8750 model itself.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:267:Gallery SM8750 classification artifact:
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:272:The Gallery SM8750 APK contains a small, distinct native stack:
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:283:2. Stage Gallery SM8750 native libraries only inside that flavor and verify package/nativeLibraryDir detection without inference.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:360:- This points to a Java/Kotlin API or JNI argument-generation mismatch between the public Maven classes used by Lami and the Gallery SM8750 `liblitertlm_jni.so`, rather than a proven dispatch runtime capability failure.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:373:The Gallery SM8750 `liblitertlm_jni.so` native method descriptor matches Maven `litertlm-android:0.11.0`, not Maven `0.10.0`. `galleryStackExperimentDebug` was therefore changed to use Maven `0.11.0` Java/Kotlin classes while keeping the Gallery native stack isolated.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:434:- `libLiteRtRuntimeCApi.so` is not present in Gallery SM8750 APK.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:490:| `unsupported-sm8750-capability` | medium | possible via compatibility/capability check, no direct insufficient-capabilities line |
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:495:1. File or prepare an upstream LiteRT-LM/Gallery issue with Build IDs, model name, SM8750 device info, and artifacts.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:496:2. Continue source/tag identification for the Gallery SM8750 native generation.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:510:- `galleryStackExperimentDebug`: `litertlm-android:0.11.0` plus Gallery SM8750 native stack
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:518:- detailed report: `docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md`
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:519:- GitHub issue body: `docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md`
+docs/litert_qairt244_qnn_status_14001.md:64:SM8750, dsp_arch=79, vtcm_mb=8
+docs/litert_native_compatibility_matrix.md:7:This matrix compares native libraries from Google AI Edge Gallery SM8750 APK and the current Lami debug native payload.
+docs/litert_native_compatibility_matrix.md:15:- APK: `/tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk`
+docs/litert_native_compatibility_matrix.md:30:  /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk \
+docs/litert_native_compatibility_matrix.md:36:| Library | Gallery SM8750 | Lami debug | ABI risk | Notes |
+docs/litert_qairt244_npu_coldstart_force_stop_profile.md:89:before RunDecode SetMaxOutputTokens(3)
+docs/litert_lm_runtime_version_matrix.md:11:- Gallery SM8750 APK: `/tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk`
+docs/litert_lm_runtime_version_matrix.md:38:## Gallery SM8750 native IDs
+docs/litert_lm_runtime_version_matrix.md:42:| Gallery SM8750 | `libLiteRt.so` | `146f699ef6822a1e1f9489101a9dc5733e3788643396cab4fc768063cfde346c` | `869121bd7f4b0b77fa581218117a5c14` | `libdl.so`, `libGLESv3.so`, `libEGL.so`, `libm.so`, `liblog.so`, `libc.so` | 397 | `LiteRtDispatchGetApiVersion`, `LiteRtDispatchGetCapabilities` |
+docs/litert_lm_runtime_version_matrix.md:43:| Gallery SM8750 | `liblitertlm_jni.so` | `607c4af2d405ff53a2a01415b47e202594b4e0dcce7f08f270bdfa7dd900c6d7` | `76e4dccd9c5f9cba468d9cae7becfec0` | `libdl.so`, `libm.so`, `libEGL.so`, `libGLESv2.so`, `libGLESv3.so`, `libandroid.so`, `liblog.so`, `libc.so` | 18 | none exported |
+docs/litert_lm_runtime_version_matrix.md:44:| Gallery SM8750 | `libLiteRtDispatch_Qualcomm.so` | `92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777` | `643ad77b8ac2f54bd1b61e4133c77b3a` | `libLiteRt.so`, `libandroid.so`, `liblog.so`, `libdl.so`, `libc.so`, `libm.so` | 1 | `LiteRtDispatchGetApi@@VERS_1.0` |
+docs/litert_lm_runtime_version_matrix.md:45:| Gallery SM8750 | `libQnnSystem.so` | `7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8` | `0d409cdd664b8b0a` | `libc.so`, `libm.so`, `libdl.so`, `liblog.so` | 1 | none |
+docs/litert_lm_runtime_version_matrix.md:46:| Gallery SM8750 | `libQnnHtp.so` | `090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a` | `f2c90c1775a109e1` | `libc.so`, `libm.so`, `libdl.so`, `liblog.so` | 4 | none |
+docs/litert_lm_runtime_version_matrix.md:47:| Gallery SM8750 | `libQnnHtpV79Stub.so` | `005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1` | `10d7ad6f9195411a` | `libc.so`, `libm.so`, `libdl.so`, `liblog.so`, `libcdsprpc.so` | 134 | none |
+docs/litert_lm_runtime_version_matrix.md:48:| Gallery SM8750 | `libQnnHtpV79Skel.so` | `41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98` | none | `libc++.so.1`, `libc++abi.so.1` | 4644 | none |
+docs/litert_lm_runtime_version_matrix.md:52:| Library | State: Gallery SM8750 vs Lami npuExperimentDebug | Notes |
+docs/litert_lm_runtime_version_matrix.md:54:| `libLiteRtDispatch_Qualcomm.so` | same | Lami staged the exact Gallery SM8750 dispatch runtime in `npuExperimentDebug` only. |
+docs/litert_lm_runtime_version_matrix.md:61:| `libQnnHtpPrepare.so` | only in Lami APK comparison | Lami receives this from `qnn-runtime:2.34.0`; Gallery SM8750 APK top-level payload did not contain it in the same arm64 location. |
+docs/litert_lm_runtime_version_matrix.md:95:On the connected NX733J / SM8750 device, the installed `npuExperimentDebug` app native library directory contained:
+docs/litert_qairt244_htp_dependency_analysis.md:187:- SoC model: `SM8750`
+docs/litert_qairt244_htp_dependency_analysis.md:232:4. The device exposes the expected SM8750/CDSP/FastRPC surface at a basic path
+docs/litert_custom_build_risk_analysis.md:7:The current failure occurs even when a real Gallery SM8750 dispatch runtime is present. This means a public HEAD or arbitrary dispatch-only build can easily produce another `.so` that exports the expected symbol but is still not usable by LiteRT-LM.
+docs/litert_custom_build_risk_analysis.md:33:Gallery SM8750 APK appears to include a special native payload that is not explained by public Gallery Gradle dependency `litertlm-android:0.10.0` alone. Reusing its native libraries outside Gallery may be unsupported or require matching Java/runtime packaging.
+docs/litert_custom_build_risk_analysis.md:44:### Android 16 / SM8750 / V79 Uncertainty
+docs/litert_custom_build_risk_analysis.md:46:SM8750 / Hexagon V79 is a new target relative to many public examples. Even with correct files, support may depend on exact runtime/model/compiler generation.
+docs/litert_custom_build_risk_analysis.md:105:- A successful cquery does not prove a later build artifact will be ABI-compatible with Gallery SM8750 or Maven `litertlm-android:0.11.0`.
+docs/litert_custom_build_risk_analysis.md:145:- build success does not prove ABI compatibility with SM8750 runtime
+docs/litert_custom_build_risk_analysis.md:146:- build IDs differ from Gallery SM8750
+docs/litert_custom_build_risk_analysis.md:176:- build success still does not prove SM8750 runtime compatibility
+docs/litert_custom_build_risk_analysis.md:264:- `customBuildExperimentDebug` packages QNN/HTP libraries, but their Build IDs are not the same as Gallery SM8750 and not the same as local QAIRT `2.46.0.260424`.
+docs/litert_qairt244_lower_level_single_token_smoke_result.md:65:before RunDecode SetMaxOutputTokens(1)
+docs/litert_qairt244_lower_level_single_token_smoke_result.md:100:Session::RunDecode(decode_config)
+docs/litert_qairt244_npu_memory_cleanup_profile.md:71:before RunDecode SetMaxOutputTokens(3)
+docs/litert_qairt244_htp_backend_trace_result.md:71:- runtime SoC detection selected `SM8750`
+docs/litert_qairt244_htp_backend_trace_result.md:88:HtpBackend::Init online soc_model_raw=69 found=1 selected=SM8750 model=69 dsp_arch=79 vtcm_mb=8
+docs/litert_qairt244_htp_backend_trace_result.md:91:HtpBackend::Init CreateDeviceHandle failed selected_soc=SM8750 model=69 dsp_arch=79
+docs/litert_lm_npu_readiness.md:7:- Nubia Z70S Ultra / Snapdragon 8 Elite / SM8750 is treated as a candidate device.
+docs/litert_lm_npu_readiness.md:25:- A filename containing `qualcomm`, `sm8750`, `qcs`, `qnn`, or `htp` is treated only as a Qualcomm SoC-specific candidate.
+docs/litert_lm_npu_readiness.md:118:Gallery release notes for `1.0.12` state that Gemma3 1B NPU support was added for Qualcomm SoCs, that Play Store installs bundle the correct libraries automatically for supported SoCs, and that release APKs are split by SoC such as `ai-edge-gallery-sm8750.apk`. This suggests Gallery's working NPU path depends on SoC-specific app packaging beyond the public `litertlm-android` Maven AAR alone.
+docs/litert_custom_build_results.md:122:- built artifacts differ from Gallery SM8750 build IDs and sizes
+docs/litert_custom_build_results.md:220:- The packaged QNN/HTP libraries differ from both Gallery SM8750 QNN libraries and local QAIRT 2.46 libraries.
+docs/litert_custom_build_results.md:230:The most likely next direction is not another Java/native ABI fix. It is QNN/QAIRT generation alignment or SM8750/V79 dispatch capability validation.
+docs/google_ai_edge_issue_short_summary.md:1:# Short Summary: LiteRT-LM SM8750 NPU Engine.initialize SIGABRT
+docs/google_ai_edge_issue_short_summary.md:7:`[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+docs/google_ai_edge_issue_short_summary.md:12:- SoC: QTI `SM8750`, hardware `qcom`, GPU Adreno 830
+docs/google_ai_edge_issue_short_summary.md:15:- Model: `gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/google_ai_edge_issue_short_summary.md:23:- Native stack: Gallery SM8750 APK `1.0.12`
+docs/google_ai_edge_issue_short_summary.md:74:- model metadata contains `DISPATCH_OP`, `qnn_partition_*`, `soc_type=SM8750`, `min_arch=79`, and `v2.44.0.260225143659`
+docs/google_ai_edge_issue_short_summary.md:118:- Which QNN libs should be packaged for SM8750/V79 `Backend.NPU` Android apps?
+docs/google_ai_edge_issue_short_summary.md:119:- Which `litertlm-android` Maven artifact or source tag matches Gallery SM8750 native stack?
+docs/google_ai_edge_issue_short_summary.md:121:- What is the supported Qualcomm dispatch runtime distribution/build path for Android SM8750?
+docs/litert_qairt244_npu_diagnostic_chat_design.md:7:on Nubia Z70S Ultra / SM8750. It does not connect NPU to the normal chat UI.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:16:- `RunDecode`: success
+docs/litert_qairt244_npu_diagnostic_chat_design.md:32:adb shell am start \
+docs/litert_qairt244_npu_diagnostic_chat_design.md:46:adb shell am start \
+docs/litert_qairt244_npu_diagnostic_chat_design.md:63:Engine.initialize, RunDecode, or token generation.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:130:`Engine.initialize` and `RunDecode` can be reached only if the DEV checkbox is
+docs/litert_qairt244_npu_diagnostic_chat_design.md:139:adb shell am start \
+docs/litert_qairt244_npu_diagnostic_chat_design.md:173:verification did not run `Engine.initialize`, `RunDecode`, generation, or the
+docs/litert_qairt244_npu_diagnostic_chat_design.md:239:`RunDecode`, generation, or the normal chat UI path.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:260:  `before RunDecode SetMaxOutputTokens(3)`.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:482:run Engine.initialize, RunDecode, or token generation.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:538:- no NPU generation, Engine.initialize, or RunDecode is triggered by editing or
+docs/litert_qairt244_npu_diagnostic_chat_design.md:591:NPU generation, Engine.initialize, or RunDecode.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:611:Engine.initialize, RunDecode, or NPU generation evidence.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:678:RunDecode and returned the UI to DEV checkbox off / Run disabled.
+docs/litert_lm_initialize_only_cli_design.md:205:RunDecode
+docs/litert_lm_initialize_only_cli_design.md:247:rg -n 'Conversation::Create|ConversationConfig|SessionConfig|CreateSession|SendMessageAsync|GenerateContent|GenerateContentStream|RunPrefill|RunDecode|input_prompt|default prompt' \
+docs/litert_qairt244_jni_sentinel_logcat_result.md:68:  --model-path /data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/litert_custom_build_query_results.md:112:- Need maintainers' guidance if possible, because Gallery SM8750 native payload still appears special.
+docs/litert_generation_strategy_options.md:21:| 1. QAIRT 2.44 exact acquisition | Matches public LiteRT metadata; removes known 2.46-over-2.44 overlay risk. | SDK not local; requires Qualcomm/QPM access; may still fail if SM8750 requires internal payload. | medium | medium-high |
+docs/litert_generation_strategy_options.md:22:| 2. QAIRT 2.42 comparison / downgrade experiment | Matches Radxa public Linux docs; may expose stable public QNN generation behavior and V68/V73 assumptions. | Older than LiteRT public metadata; Radxa flow is Linux SBC oriented; not documented for SM8750/V79; likely unsuitable as the primary Gemma 4 SM8750 Android generation. | medium | low |
+docs/litert_generation_strategy_options.md:38:   available; do not treat it as the primary SM8750/V79 candidate without
+docs/litert_generation_strategy_options.md:41:   internal payload is the intended generation for SM8750/V79 Android
+docs/litert_generation_strategy_options.md:53:- Lami's target is Android app `Backend.NPU(nativeLibraryDir)` on SM8750/V79.
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:1:# Google AI Edge / LiteRT-LM issue report: SM8750 NPU dispatch runtime
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:3:日本語要約: Nubia Z70S Ultra / SM8750 / Android 16 で、LiteRT-LM Android の `Backend.NPU(nativeLibraryDir)` と Gemma 4 E2B Qualcomm SM8750 モデルを使った `Engine.initialize` dry-run が `SIGABRT` で終了します。Gallery SM8750 由来 stack だけでなく、LiteRT-LM `v0.11.0` と pinned LiteRT ref から同一source/tagで built native stack を作って隔離flavorへ投入しても `DispatchDelegate::CreateDelegateKernelInterface()+312` で `No usable Dispatch runtime found` となるため、現時点の最有力は QAIRT/QNN generation/capability mismatch です。QAIRT 2.44 exact SDK は未入手で、QAIRT 2.46 対応 public source/ref も見つかっていません。
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:7:`[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:48:is most likely QAIRT/QNN generation/capability coupling, SM8750/V79 dispatch
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:82:   QAIRT `2.46.0.260424` / SM8750 / V79.
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:88:On a Nubia Z70S Ultra / Snapdragon 8 Elite / SM8750 device running Android 16, `Engine.initialize()` crashes the process with `SIGABRT` when using LiteRT-LM Android `Backend.NPU(nativeLibraryDir)` with the Gemma 4 E2B Qualcomm SM8750 `.litertlm` model.
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:93:- Google AI Edge Gallery SM8750 native stack
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:110:| SoC | Qualcomm / QTI `SM8750` |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:115:| Model file | `gemma-4-E2B-it_qualcomm_sm8750.litertlm` |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:116:| Model path in isolated app | `/data/user/0/io.github.ninbyo02.lami.gallerynpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm` |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:135:| `galleryStackExperimentDebug` | `io.github.ninbyo02.lami.gallerynpu` | `litertlm-android:0.11.0` | Gallery SM8750 native stack isolation |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:141:- APK: `ai-edge-gallery-sm8750.apk`
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:179:3. `galleryStackExperimentDebug` with Gallery SM8750 native stack:
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:206:  /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk \
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:208:  --model-path /data/user/0/io.github.ninbyo02.lami.gallerynpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:324:| `liblitertlm_jni.so` | Gallery SM8750 | `76e4dccd9c5f9cba468d9cae7becfec0` | true | true | JNI entry reaches `nativeCreateEngine` |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:325:| `libLiteRt.so` | Gallery SM8750 | `869121bd7f4b0b77fa581218117a5c14` | true | true | Dispatch compatibility symbols present |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:326:| `libLiteRtDispatch_Qualcomm.so` | Gallery SM8750 | `643ad77b8ac2f54bd1b61e4133c77b3a` | true | true | Exports `LiteRtDispatchGetApi@@VERS_1.0` |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:327:| `libQnnSystem.so` | Gallery SM8750 | `0d409cdd664b8b0a` | true | true | QNN system mapped |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:328:| `libQnnHtp.so` | Gallery SM8750 | `f2c90c1775a109e1` | true | true | QNN HTP mapped |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:329:| `libQnnHtpPrepare.so` | Gallery SM8750 | `9ae62cf17f972404` | false | true | Present but not clearly mapped in latest tombstone |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:330:| `libQnnHtpV79Stub.so` | Gallery SM8750 | `10d7ad6f9195411a` | false | true | Present but not clearly mapped in latest tombstone |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:331:| `libQnnHtpV79Skel.so` | Gallery SM8750 | none | false | true | Present but not clearly mapped in latest tombstone |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:376:- Gallery SM8750 APK does not contain `libLiteRtRuntimeCApi.so`.
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:389:1. dispatch runtime compatibility / capability mismatch between the Gallery SM8750 native stack and the model/runtime context used by `Engine.initialize`, or
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:390:2. SM8750 Qualcomm dispatch runtime capability not recognized as usable through this third-party app path, or
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:395:1. Is `libLiteRtDispatch_Qualcomm.so` from the Gallery SM8750 APK intended to be reusable by third-party LiteRT-LM Android apps?
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:396:2. Which Maven `litertlm-android` version or source tag exactly matches the Gallery SM8750 native stack listed above?
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:397:3. Are additional libraries, assets, or environment variables required for Qualcomm SM8750 NPU on Android, such as `ADSP_LIBRARY_PATH` / HTP skel/stub search path setup?
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:398:4. Is `gemma-4-E2B-it_qualcomm_sm8750.litertlm` expected to run through `Backend.NPU(nativeLibraryDir)` in third-party Android apps?
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:401:7. Is there a known compatibility issue with SM8750 / Android 16 / Hexagon V79 dispatch runtime capability detection?
+docs/litert_custom_build_qairt244_compare.md:210:3. Gallery SM8750 stack
+docs/litert_custom_build_qairt244_compare.md:224:- V79/SM8750 strings
+docs/litert_qairt244_failure_root_cause_matrix.md:7:| Hidden NPU max output token limit | `artifacts/qairt244_npu_max_output_token_limit_investigation/20260526_202629/` | Custom qairt244 editable-prompt JNI guard rejects `max_output_tokens > 128` before `DecodeConfig::SetMaxOutputTokens` and `RunDecode`. | Classify current limit as `custom_safety_guard_only`; keep 128 baseline and require staged guard expansion before any 256+ run. |
+docs/litert_qairt244_failure_root_cause_matrix.md:10:NPU, call `Engine.initialize`, or call `RunDecode`. It does not prove compiled
+docs/litert_qairt244_failure_root_cause_matrix.md:22:`normal_ui_route_connected=false`, `db=false`, `tts=false`, `markdown=false`,
+docs/litert_qairt244_failure_root_cause_matrix.md:23:and `streaming=false` were preserved. The failure is not a route fallback or
+docs/litert_qairt244_failure_root_cause_matrix.md:56:  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success -> lower-level RunDecode maxOutputTokens=1 success -> token/timing verifier success -> lower-level RunDecode maxOutputTokens=3 success 2/2 -> memory cleanup baseline collected -> cold-start force-stop cleanup passes -> Diagnostic Chat editable prompt guarded RunDecode maxOutputTokens=3 success`
+docs/litert_qairt244_failure_root_cause_matrix.md:132:- timeout simulation: native Engine and RunDecode not called
+docs/litert_qairt244_failure_root_cause_matrix.md:162:- Nubia / SM8750 check
+docs/litert_qairt244_failure_root_cause_matrix.md:227:`libcdsprpc.so`, not by SM8750/V79 model metadata or QNN System API mismatch.
+docs/litert_qairt244_failure_root_cause_matrix.md:257:- `Session.runDecode()` calls JNI `nativeRunDecode(handle)` with no
+docs/litert_qairt244_failure_root_cause_matrix.md:306:- native diag reached `before RunDecode SetMaxOutputTokens(1)`
+docs/litert_qairt244_failure_root_cause_matrix.md:332:- native diag reached `before RunDecode SetMaxOutputTokens(1)`
+docs/litert_qairt244_failure_root_cause_matrix.md:374:  the lower-level entrypoint does not expose tokenizer counts and `RunDecode`
+docs/litert_qairt244_failure_root_cause_matrix.md:851:- runtime SoC detection selected `SM8750`, DSP architecture `79`, and
+docs/litert_qairt244_failure_root_cause_matrix.md:869:- the device exposes SM8750/CDSP/FastRPC surface and vendor `libcdsprpc.so`
+docs/litert_qairt244_failure_root_cause_matrix.md:920:| E | `docs/litert_qualcomm_sm8750_model_schema_probe.md` | Local model starts with `LITERTLM` and contains `DISPATCH_OP`, `qnn_partition_*`, `soc_type=SM8750`, `min_arch=79`, and QAIRT `v2.44.0.260225143659` markers. |
+docs/litert_qairt244_failure_root_cause_matrix.md:926:| H1. SM8750/V79 dispatch capability mismatch | With `libcdsprpc.so` declared as an optional native library, `LiteRtDispatchCheckRuntimeCompatibility` is reached and returns `kLiteRtStatusOk(0)`. | low for initialize | Keep as a later inference/runtime risk, not an initialize blocker. |
+docs/litert_qairt244_failure_root_cause_matrix.md:929:| H4. Qualcomm SM8750 model/runtime schema mismatch | Model carries QAIRT 2.44, SM8750, V79, and dispatch/QNN partition markers. Initialize, compatibility, and one lower-level one-token decode now succeed. | low for current smoke | Defer deeper schema questions until a broader isolated prompt/decode verifier needs it. |
+docs/litert_qairt244_failure_root_cause_matrix.md:990:The model appears aligned with QAIRT 2.44 and SM8750/V79, so model generation
+docs/litert_qairt244_failure_root_cause_matrix.md:1020:| H1. SM8750/V79 dispatch capability mismatch | Reproducible 3-token Diagnostic Chat UI smoke reaches RunDecode with V79/FastRPC evidence. | Low for bounded smoke. |
+docs/litert_qairt244_failure_root_cause_matrix.md:1023:| H4. Model schema mismatch | Same SM8750/V79 model produces bounded 3-token output. | Low for current scope. |
+docs/litert_qairt244_failure_root_cause_matrix.md:1131:- no NPU generation, Engine.initialize, or RunDecode was executed for this
+docs/litert_qairt244_failure_root_cause_matrix.md:1146:- RunDecode: not run
+docs/litert_qairt244_failure_root_cause_matrix.md:1165:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_qairt244_failure_root_cause_matrix.md:1189:  RunDecode, no NPU generation
+docs/litert_qairt244_failure_root_cause_matrix.md:1215:- Engine.initialize / RunDecode / high-level generateResponse:
+docs/litert_qairt244_failure_root_cause_matrix.md:1253:| NPU execution | Not executed | empty `runtime_marker_scan.txt` for Engine/RunDecode/QNN/HTP markers | OK |
+docs/litert_qairt244_failure_root_cause_matrix.md:1274:NPU generation, `Engine.initialize`, and `RunDecode` were not executed.
+docs/litert_qairt244_failure_root_cause_matrix.md:1287:| RunDecode | not reached | `native_diag.txt` | Safe stop |
+docs/litert_qairt244_failure_root_cause_matrix.md:1362:`db=false`, `tts=false`, `markdown=false`, `streaming=false`.
+docs/google_ai_edge_issue_posting_checklist.md:15:- LiteRT-LM currently has adjacent Android / Gemma 4 / QNN / SM8750 issues, including QNN version mismatch and Gemma 4 device reports.
+docs/google_ai_edge_issue_posting_checklist.md:23:  - Use only as a secondary reference because the native stack source is Gallery SM8750 APK. The failing API path is not Gallery UI behavior.
+docs/google_ai_edge_issue_posting_checklist.md:29:1. `[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+docs/google_ai_edge_issue_posting_checklist.md:30:2. `[LiteRT-LM][Android][Qualcomm SM8750] Backend.NPU Engine.initialize aborts despite mapped Gallery dispatch runtime`
+docs/google_ai_edge_issue_posting_checklist.md:31:3. `[Android][LiteRT-LM][QNN] Engine.initialize SIGABRT on SM8750 with libLiteRtDispatch_Qualcomm.so loaded`
+docs/google_ai_edge_issue_posting_checklist.md:32:4. `[SM8750][Gemma 4 E2B Qualcomm] Backend.NPU(nativeLibraryDir) fails in Engine.initialize with no usable dispatch runtime`
+docs/google_ai_edge_issue_posting_checklist.md:33:5. `[LiteRT-LM Android] Need supported Qualcomm dispatch runtime/artifact guidance for SM8750 Backend.NPU`
+docs/google_ai_edge_issue_posting_checklist.md:37:`[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+docs/google_ai_edge_issue_posting_checklist.md:52:- `SM8750`
+docs/google_ai_edge_issue_posting_checklist.md:66:- `SM8750`
+docs/google_ai_edge_issue_posting_checklist.md:76:- `SM8750`
+docs/google_ai_edge_issue_posting_checklist.md:82:- `docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md`
+docs/litert_gallery_source_version_mapping.md:1:# Gallery SM8750 LiteRT runtime source/version mapping
+docs/litert_gallery_source_version_mapping.md:11:`npuExperimentDebug` proved that the Gallery SM8750 `libLiteRtDispatch_Qualcomm.so` is present in `nativeLibraryDir`, and that `Backend.NPU(String)` plus `EngineConfig.backend = Backend.NPU(...)` can be created. The isolated `Engine.initialize()` dry-run still aborts with:
+docs/litert_gallery_source_version_mapping.md:17:The next question is whether Gallery 1.0.12 SM8750 and Lami are using the same LiteRT-LM / LiteRT / QNN runtime generation. The answer is no for the currently compared artifacts.
+docs/litert_gallery_source_version_mapping.md:21:APK: `/tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk`
+docs/litert_gallery_source_version_mapping.md:40:third_party_ai_edge_gallery_Android_src_app_src_main__ai_edge_gallery_app_github_release_sm8750
+docs/litert_gallery_source_version_mapping.md:43:This suggests the SM8750 APK is a specialized/internal release build target. It is not byte-for-byte explainable by the public Gradle project alone.
+docs/litert_gallery_source_version_mapping.md:56:| Item | Public Gallery 1.0.12 Gradle source | SM8750 APK |
+docs/litert_gallery_source_version_mapping.md:65:Conclusion: the app code generation likely aligns with public tag `1.0.12`, but the SM8750 APK native runtime is from a specialized release pipeline.
+docs/litert_gallery_source_version_mapping.md:104:The failing `npuExperimentDebug` uses Lami debug native libs, so the relevant comparison is Gallery SM8750 APK vs Lami `litertlm-android:0.11.0` plus QNN `2.34.0`.
+docs/litert_gallery_source_version_mapping.md:108:| Library | Gallery SM8750 APK | Lami debug / npuExperimentDebug | Assessment |
+docs/litert_gallery_source_version_mapping.md:119:| `libQnnTFLiteDelegate.so` | not observed in Gallery SM8750 top-level arm64 payload | from `qnn-litert-delegate:2.34.0` | TensorFlow Lite QNN delegate, not LiteRT-LM dispatch |
+docs/litert_gallery_source_version_mapping.md:121:The public Gallery Gradle version `litertlm-android:0.10.0` does not fully explain the SM8750 APK native payload. Local Maven `0.10.0` has a different `liblitertlm_jni.so` Build ID than the Gallery APK.
+docs/litert_gallery_source_version_mapping.md:125:| Runtime area | Likely Gallery SM8750 generation | Confidence | Notes |
+docs/litert_gallery_source_version_mapping.md:129:| Actual Gallery SM8750 `liblitertlm_jni.so` / `libLiteRt.so` | specialized/internal build near Gallery 1.0.12 | medium | Build IDs do not match local Maven `0.10.0` or Lami debug `0.11.0`; APK string hints mention a `github_release_sm8750` target. |
+docs/litert_gallery_source_version_mapping.md:130:| Gallery dispatch runtime | same specialized SM8750 native payload | medium | It links against `libLiteRt.so` and shares the Gallery packaging context. |
+docs/litert_gallery_source_version_mapping.md:141:   - Matching Gallery may require the same specialized/internal `github_release_sm8750` native stack, not just changing the Maven coordinate.
+docs/litert_gallery_source_version_mapping.md:162:- Gallery SM8750 dispatch is same-generation with Gallery's native stack, not Lami debug `0.11.0`.
+docs/litert_gallery_source_version_mapping.md:164:- Public Gallery `1.0.12` source helps identify app logic and a `litertlm-android:0.10.0` dependency, but does not expose the full SM8750 native packaging provenance.
+docs/litert_custom_build_insertion_experiment.md:82:  --model-path /data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/litert_custom_build_insertion_experiment.md:118:- model path: `/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/litert_custom_build_environment_readiness.md:48:| Device-side prior validation | External QAIRT/QNN GPU/DSP/HTP passed on NX733J / SM8750 | hardware capability exists, but build env still needs local SDK setup |
+docs/litert_custom_build_environment_readiness.md:56:| `/tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk` | Gallery SM8750 APK | used for native stack analysis |
+docs/litert_qairt244_dispatch_logging_root_cause_update.md:52:| H1 SM8750/V79 dispatch capability mismatch | Logging is now available around capabilities and HTP init, but no device result yet. | medium |
+docs/litert_qairt244_dispatch_logging_root_cause_update.md:55:| H4 model schema mismatch | Still lower priority because model carries QAIRT 2.44, SM8750, V79, and dispatch markers. | low-medium |
+docs/google_ai_edge_issue_submission_steps.md:25:[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack
+docs/google_ai_edge_issue_submission_steps.md:36:   docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md
+docs/google_ai_edge_issue_submission_steps.md:50:   - `SM8750`
+docs/litert_qairt244_dispatch_logging_dry_run_result.md:70:- The target SM8750 LiteRT-LM model is present in the app files or staged to `/data/local/tmp/gemma-4-E2B-it_qualcomm_sm8750.litertlm`.
+docs/litert_dispatch_capability_source_trace.md:76:For SM8750 / V79 / QAIRT 2.44, the runtime likely requires all of the following to line up:
+docs/litert_dispatch_capability_source_trace.md:85:- A device whose QNN HTP `deviceGetPlatformInfo` reports a supported SoC. In this source tree SM8750 is mapped to DSP arch V79 and 8 MB VTCM:
+docs/litert_dispatch_capability_source_trace.md:131:The observed fatal is a generic late symptom of an earlier dispatch runtime initialization failure. In this codebase, the most plausible source-level explanations for "dispatch `.so` present and `LiteRtDispatchGetApi` exists, but runtime unusable" are QNN/QAIRT generation mismatch, Android library path/namespace failure for QNN HTP/System/V79 artifacts, unsupported or misdetected SM8750/V79 HTP setup, or a compiled model/context-binary mismatch that only becomes visible once the dispatch delegate tries to create invocation contexts.
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:3:On a Nubia Z70S Ultra / Snapdragon 8 Elite / SM8750 device running Android 16, `Engine.initialize()` crashes the process with `SIGABRT` when using LiteRT-LM Android `Backend.NPU(nativeLibraryDir)` with the Gemma 4 E2B Qualcomm SM8750 `.litertlm` model.
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:7:1. Google AI Edge Gallery SM8750 native stack + `litertlm-android:0.11.0`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:45:  `soc_type=SM8750`, `min_arch=79`, and `v2.44.0.260225143659`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:147:- confirmation whether Gallery SM8750 native libraries are expected to work outside Gallery,
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:158:| SoC | Qualcomm / QTI `SM8750` |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:163:| Model file | `gemma-4-E2B-it_qualcomm_sm8750.litertlm` |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:164:| Model path in isolated app | `/data/user/0/io.github.ninbyo02.lami.gallerynpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm` |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:183:| `galleryStackExperimentDebug` | `io.github.ninbyo02.lami.gallerynpu` | `litertlm-android:0.11.0` | Gallery SM8750 native stack isolation |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:190:- APK: `ai-edge-gallery-sm8750.apk`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:241:3. `galleryStackExperimentDebug` with Gallery SM8750 native stack:
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:306:  /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk \
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:308:  --model-path /data/user/0/io.github.ninbyo02.lami.gallerynpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:429:| `liblitertlm_jni.so` | Gallery SM8750 | `76e4dccd9c5f9cba468d9cae7becfec0` | true | true | JNI entry reaches `nativeCreateEngine` |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:430:| `libLiteRt.so` | Gallery SM8750 | `869121bd7f4b0b77fa581218117a5c14` | true | true | Dispatch compatibility symbols present |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:431:| `libLiteRtDispatch_Qualcomm.so` | Gallery SM8750 | `643ad77b8ac2f54bd1b61e4133c77b3a` | true | true | Exports `LiteRtDispatchGetApi@@VERS_1.0` |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:432:| `libQnnSystem.so` | Gallery SM8750 | `0d409cdd664b8b0a` | true | true | QNN system mapped |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:433:| `libQnnHtp.so` | Gallery SM8750 | `f2c90c1775a109e1` | true | true | QNN HTP mapped |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:434:| `libQnnHtpPrepare.so` | Gallery SM8750 | `9ae62cf17f972404` | false | true | Present but not clearly mapped in latest tombstone |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:435:| `libQnnHtpV79Stub.so` | Gallery SM8750 | `10d7ad6f9195411a` | false | true | Present but not clearly mapped in latest tombstone |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:436:| `libQnnHtpV79Skel.so` | Gallery SM8750 | none | false | true | Present but not clearly mapped in latest tombstone |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:484:- Gallery SM8750 APK does not contain `libLiteRtRuntimeCApi.so`.
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:499:2. SM8750/V79 Qualcomm dispatch capability not recognized as usable through this
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:513:- QNN Build IDs differ across custom APK packaged QNN libs, Gallery SM8750 QNN
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:522:5. Which QNN libraries should be packaged for SM8750/V79 `Backend.NPU` Android apps?
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:523:6. Is `gemma-4-E2B-it_qualcomm_sm8750.litertlm` expected to run through `Backend.NPU(nativeLibraryDir)` in third-party Android apps?
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:525:8. Is `libLiteRtDispatch_Qualcomm.so` from the Gallery SM8750 APK intended to be reusable by third-party LiteRT-LM Android apps?
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:526:9. Which Maven `litertlm-android` version or source tag exactly matches the Gallery SM8750 native stack listed above?
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:527:10. Are additional libraries, assets, or environment variables required for Qualcomm SM8750 NPU on Android, such as `ADSP_LIBRARY_PATH` / HTP skel/stub search path setup?
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:529:12. Is there a known compatibility issue with SM8750 / Android 16 / Hexagon V79 dispatch runtime capability detection?
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:652:- runtime SoC detection selected `SM8750`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:670:device exposes SM8750/CDSP/FastRPC files under rootless read-only inspection,
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:674:means on QAIRT `2.44.0.260225` for SM8750/V79, and which device config,
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:755:The native diagnostic file shows `before RunDecode SetMaxOutputTokens(1)` and
+docs/litert_dispatch_experiment_plan.md:9:The Qualcomm SM8750 model path is blocked before NPU enablement because the LiteRT Qualcomm dispatch runtime is missing from Lami:
+docs/litert_dispatch_experiment_plan.md:19:Google AI Edge Gallery `ai-edge-gallery-sm8750.apk` includes `libLiteRtDispatch_Qualcomm.so`, but the Gallery LiteRT native stack differs from Lami's current LiteRT-LM AAR native stack. Copying only the dispatch runtime is therefore risky.
+docs/litert_dispatch_experiment_plan.md:62:The next isolated step stages the Gallery SM8750 dispatch runtime only in:
+docs/litert_dispatch_experiment_plan.md:71:ai-edge-gallery-sm8750.apk
+docs/litert_dispatch_experiment_plan.md:95:bash scripts/stage_gallery_dispatch_for_npu_experiment.sh /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk
+docs/litert_dispatch_experiment_plan.md:281:adb shell am start \
+docs/litert_dispatch_experiment_plan.md:284:  --es model_path "/data/user/0/.../gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+docs/litert_dispatch_experiment_plan.md:290:bash scripts/run_npu_engine_initialize_dry_run.sh "/data/user/0/.../gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+docs/litert_dispatch_experiment_plan.md:298:- dispatch SHA-256 matches the staged Gallery SM8750 runtime
+docs/litert_dispatch_experiment_plan.md:302:- model filename is a Qualcomm SM8750 `.litertlm`
+docs/litert_dispatch_experiment_plan.md:359:Qualcomm SM8750 `.litertlm` under the npu experiment app's `files/local_models/`
+docs/litert_dispatch_experiment_plan.md:412:Do not use the Gallery SM8750 dispatch runtime in standard Lami builds.
+docs/litert_gallery_dispatch_runtime_investigation.md:18:- `google-ai-edge/gallery` release `1.0.12`, published 2026-04-24: `ai-edge-gallery-sm8750.apk`
+docs/litert_gallery_dispatch_runtime_investigation.md:20:`1.0.13` is the latest release found, but it only provides a generic APK. The SM8750-specific APK exists in `1.0.12`, so that APK is the primary dispatch runtime source investigated here.
+docs/litert_gallery_dispatch_runtime_investigation.md:25:- `/tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk`
+docs/litert_gallery_dispatch_runtime_investigation.md:29:`ai-edge-gallery-sm8750.apk`:
+docs/litert_gallery_dispatch_runtime_investigation.md:51:`ai-edge-gallery-sm8750.apk` includes these relevant `arm64-v8a` libraries:
+docs/litert_gallery_dispatch_runtime_investigation.md:69:- source APK: `ai-edge-gallery-sm8750.apk`
+docs/litert_gallery_dispatch_runtime_investigation.md:71:- extracted path: `/tmp/lami-gallery-apks/extracted-sm8750/lib/arm64-v8a/libLiteRtDispatch_Qualcomm.so`
+docs/litert_gallery_dispatch_runtime_investigation.md:119:- `SM8750`
+docs/litert_gallery_dispatch_runtime_investigation.md:136:Gallery SM8750 `libLiteRt.so`:
+docs/litert_gallery_dispatch_runtime_investigation.md:146:Gallery SM8750 `liblitertlm_jni.so`:
+docs/litert_gallery_dispatch_runtime_investigation.md:163:The Gallery SM8750 APK contains a real arm64 Qualcomm dispatch runtime and it is technically an APK packaging candidate. However, Lami should not copy it directly yet because:
+docs/litert_gallery_dispatch_runtime_investigation.md:166:- the Gallery SM8750 `libLiteRt.so` build id differs from Lami's `libLiteRt.so`;
+docs/litert_gallery_dispatch_runtime_investigation.md:167:- the Gallery SM8750 `liblitertlm_jni.so` build id differs from Lami's `liblitertlm_jni.so`;
+docs/litert_custom_build_plan.md:11:`RunDecode`, so the finding is classified as `custom_safety_guard_only` for the
+docs/litert_custom_build_plan.md:44:Find or produce a Qualcomm dispatch/runtime stack that is generation-compatible with the LiteRT-LM Android Java/JNI/runtime stack used by Lami on SM8750.
+docs/litert_custom_build_plan.md:65:- Issue body: `docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md`
+docs/litert_custom_build_plan.md:128:- Gallery SM8750 native stack.
+docs/litert_custom_build_plan.md:334:- Native diag confirms `before RunDecode SetMaxOutputTokens(1)` and
+docs/litert_custom_build_plan.md:356:- Native diag confirms `before RunDecode SetMaxOutputTokens(1)` and
+docs/litert_custom_build_plan.md:403:  `RunDecode`, no DB, no TTS, no Markdown, no streaming, and no
+docs/litert_custom_build_plan.md:444:  `RunDecode`, no DB, no TTS, no Markdown, no streaming, no standard route
+docs/litert_custom_build_plan.md:489:  `db=false`, `tts=false`, `markdown=false`, `streaming=false`, `retry=false`,
+docs/litert_custom_build_plan.md:523:  `RunDecode` was executed by this verification.
+docs/litert_custom_build_plan.md:647:- SoC detection selects `SM8750`, DSP arch `79`, and VTCM `8` MB
+docs/litert_custom_build_plan.md:677:1. Ask maintainers which source tag/native artifact generation matches Gallery SM8750 and `litertlm-android:0.11.0`.
+docs/litert_custom_build_plan.md:726:4. static compare against Gallery SM8750 and Maven artifacts
+docs/litert_custom_build_plan.md:761:3. Ask upstream maintainers whether additional QNN/HTP runtime setup or model/runtime pairing is required for SM8750.
+docs/litert_custom_build_plan.md:780:The static pass found that `customBuildExperimentDebug` packages QNN/HTP libraries, but those QNN libraries do not match either Gallery SM8750 Build IDs or the local QAIRT 2.46 Build IDs. The latest tombstone does not show the dispatch or QNN libraries mapped before abort; only `liblitertlm_jni.so`, `libGemmaModelConstraintProvider.so`, and `libllm_inference_engine_jni.so` are visible in the extracted map lines.
+docs/litert_custom_build_plan.md:893:- `docs/litert_qualcomm_sm8750_model_schema_probe.md`
+docs/litert_custom_build_plan.md:902:  `soc_type=SM8750`, `min_arch=79`, and `v2.44.0.260225143659` markers.
+docs/litert_custom_build_plan.md:1310:The script does not launch the Activity, initialize LiteRT, run RunDecode, or
+docs/litert_custom_build_plan.md:1333:not run Engine.initialize or RunDecode.
+docs/litert_custom_build_plan.md:1421:- no NPU generation, Engine.initialize, or RunDecode is run by editing,
+docs/litert_custom_build_plan.md:1489:  `RunDecode=false`, final `state=timeout`
+docs/litert_custom_build_plan.md:1510:- this planning pass did not run NPU generation, Engine.initialize, RunDecode,
+docs/litert_custom_build_plan.md:1540:- NPU generation, Engine.initialize, RunDecode, high-level
+docs/litert_custom_build_plan.md:1553:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1568:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1590:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1609:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1628:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1648:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1669:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1702:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1725:  not run; no `Engine.initialize` or `RunDecode`
+docs/litert_custom_build_plan.md:1743:  `Engine.initialize`, `RunDecode`, QNN/HTP/FastRPC, or `generateResponse`
+docs/litert_custom_build_plan.md:1779:- The verification did not run NPU generation, `Engine.initialize`, `RunDecode`, or `Backend.NPU`.
+docs/litert_custom_build_plan.md:1796:- Nubia / SM8750
+docs/litert_custom_build_plan.md:1870:With the SM8750 compiled LiteRT-LM model in place, the ChatScreen DEV-only NPU
+docs/litert_custom_build_plan.md:1912:`db=false`, `tts=false`, `markdown=false`, `streaming=false`.
+docs/litert_custom_build_plan.md:1977:- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+docs/litert_custom_build_plan.md:2004:`RunDecode`, or additional NPU execution is introduced.
+docs/litert_custom_build_plan.md:2019:or `RunDecode`. DB, TTS, Markdown, streaming, standard route, normal UI route,
+docs/litert_custom_build_target_inventory.md:13:| LiteRT runtime C API | `@litert//litert/c:litert_runtime_c_api_so` | Bazel | `libLiteRt.so` | `litert/c/BUILD` | Gallery SM8750 includes `libLiteRt.so`; Maven `0.11.0` also includes one with a different Build ID. |
+docs/litert_custom_build_target_inventory.md:15:| Qualcomm compiler plugin | `@litert//litert/vendors/qualcomm/compiler:qnn_compiler_plugin_so` | Bazel | `libLiteRtCompilerPlugin_Qualcomm.so` | `litert/vendors/qualcomm/compiler/BUILD` | Official LiteRT Qualcomm integration specs reference a compiler plugin. Gallery SM8750 APK did not show this library, but it may matter for compiled model workflows. |
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:27:- RunDecode
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:135:adb shell am start \
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:185:validation, Engine.initialize, RunDecode, or generation.
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:220:- do not run RunDecode
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:261:- no Engine.initialize, RunDecode, or NPU generation is invoked
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:296:session, RunDecode, or NPU generation may start.
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:307:  before Engine or RunDecode work.
+docs/litert_gallery_native_stack_experiment_plan.md:1:# Gallery SM8750 native stack experiment plan
+docs/litert_gallery_native_stack_experiment_plan.md:9:`npuExperimentDebug` now uses Maven `litertlm-android:0.10.0`, but the native payload is still not the same as Google AI Edge Gallery SM8750:
+docs/litert_gallery_native_stack_experiment_plan.md:11:| Component | Gallery SM8750 | npuExperimentDebug after Maven 0.10.0 split |
+docs/litert_gallery_native_stack_experiment_plan.md:17:The dry-run still reaches `Engine.initialize` and then ends in `SIGABRT`. This suggests that Maven `0.10.0` API compatibility alone is not enough; the Gallery SM8750 APK likely ships a matched native payload.
+docs/litert_gallery_native_stack_experiment_plan.md:24:bash scripts/plan_gallery_native_stack_experiment.sh /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk
+docs/litert_gallery_native_stack_experiment_plan.md:43:These are the minimum native stack candidates to keep generation-aligned with Gallery SM8750 in a future isolated flavor:
+docs/litert_gallery_native_stack_experiment_plan.md:51:`libLiteRtRuntimeCApi.so` is not present in Gallery SM8750 `lib/arm64-v8a`.
+docs/litert_gallery_native_stack_experiment_plan.md:55:Gallery SM8750 includes:
+docs/litert_gallery_native_stack_experiment_plan.md:64:Not present in the Gallery SM8750 APK arm64 payload:
+docs/litert_gallery_native_stack_experiment_plan.md:122:| `DISPATCH_RUNTIME_SOURCE` | `gallery-sm8750 full-stack candidate, detection-only` |
+docs/litert_gallery_native_stack_experiment_plan.md:182:| `DISPATCH_RUNTIME_SOURCE` | `gallery-sm8750 full native stack staged in app/src/galleryStackExperimentDebug/jniLibs/arm64-v8a` |
+docs/litert_gallery_native_stack_experiment_plan.md:187:bash scripts/stage_gallery_native_stack_for_experiment.sh /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk
+docs/litert_gallery_native_stack_experiment_plan.md:239:bash scripts/run_gallery_stack_probe.sh /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk
+docs/litert_gallery_native_stack_experiment_plan.md:417:  /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk \
+docs/litert_gallery_native_stack_experiment_plan.md:419:  --model-path /data/user/0/io.github.ninbyo02.lami.gallerynpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/litert_gallery_native_stack_experiment_plan.md:474:- `libLiteRtRuntimeCApi.so` is absent from Gallery SM8750 APK and from `galleryStackExperimentDebug`.
+docs/litert_qairt244_diagnostic_fallback_recovery.md:61:This path intentionally does not call native Engine or RunDecode.
+docs/litert_qairt244_diagnostic_fallback_recovery.md:90:RunDecode.
+docs/litert_qairt244_android_logcat_dry_run_result.md:18:  `bash scripts/run_custom_build_stack_probe.sh artifacts/qairt244_android_log_build/20260521_210911 --engine-dry-run --model-path /data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/litert_qairt244_android_qnn_path_analysis.md:5:Scope: rootless/read-only path visibility review for the QAIRT 2.44 / SM8750 / V79 NPU dispatch failure. No app code was changed, no inference was run, and no dry-run was launched in this pass.
+docs/litert_qairt244_android_qnn_path_analysis.md:85:- SoC: `SM8750`
+docs/litert_custom_build_static_compare.md:47:| Library | Built | Gallery SM8750 | Maven `litertlm-android:0.11.0` | Finding |
+docs/litert_custom_build_static_compare.md:87:The built JNI, LiteRT, and dispatch artifacts are now from the same LiteRT-LM `v0.11.0` / pinned LiteRT ref build flow, so they are a better candidate for isolated testing than mixing Gallery JNI with a newly built dispatch. However, they still differ materially from Gallery SM8750:
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:7:`DecodeConfig::SetMaxOutputTokens` and before `RunDecode`, so the 256 hidden
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:30:- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:42:`RunDecode`, high-level `generateResponse`, or normal `selectedPath=npu`.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:46:Proven in `customBuildExperimentDebug` on Nubia Z70S Ultra / SM8750:
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:98:- Nubia / SM8750 device check passes.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:273:- no NPU generation, `Engine.initialize`, or `RunDecode` is run
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:298:- no run, retry, fallback, `Engine.initialize`, or `RunDecode` is attached
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:345:  `Engine.initialize`, `RunDecode`, or selected-path persistence
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:384:- no NPU generation, `Engine.initialize`, or `RunDecode`
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:404:`RunDecode`, high-level `generateResponse`, normal `ChatScreen` NPU routing, or
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:426:- `RunDecode`: not run
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:460:  `DEV NPU blocked`, `Engine.initialize`, `RunDecode`, `selectedPath=npu`,
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:497:- NPU generation, `Engine.initialize`, and `RunDecode` were not run
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:513:- Real NPU execution remained disconnected: no `Engine.initialize`, `RunDecode`, `Backend.NPU`, QNN, HTP, FastRPC, or QAIRT runtime markers were found in the post-run marker scan.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:544:- Nubia Z70S Ultra / SM8750 only
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:583:- `RunDecode`: not reached
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:629:The ChatScreen DEV-only qairt244 route now keeps the SM8750 NPU execution path
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:682:`db=false`, `tts=false`, `markdown=false`, `streaming=false`.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:770:`standard_route_connected=false`, `normal_ui_route_connected=false`, `db=false`,
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:771:`tts=false`, `markdown=false`, `streaming=false`, `engine_initialize=false`, and
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:8:`Engine.initialize`, `RunDecode`, high-level `generateResponse`, or streaming.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:160:- Nubia / SM8750 check
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:193:- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:299:`RunDecode`, high-level `generateResponse`, `selectedPath=npu`, DB, TTS,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:339:RunDecode.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:367:- `tts=false`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:368:- `markdown=false`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:369:- `streaming=false`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:373:`Engine.initialize`, `RunDecode`, or any normal inference path.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:415:- `db=false`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:416:- `tts=false`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:417:- `markdown=false`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:422:`RunDecode`, call high-level `generateResponse`, write DB messages, speak TTS,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:457:adapter, NPU generation, `Engine.initialize`, `RunDecode`, high-level
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:479:`Engine.initialize`, or call `RunDecode`.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:514:the planner, adapter, NPU generation, `Engine.initialize`, `RunDecode`,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:542:`Engine.initialize`, call `RunDecode`, or invoke high-level `generateResponse`.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:557:call `Engine.initialize`, call `RunDecode`, call high-level
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:573:  `Engine.initialize`, `RunDecode`, `selectedPath=npu`, QNN, HTP, or FastRPC
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:607:- `Engine.initialize` and `RunDecode` are not run
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:704:ChatScreen side effect path was reached. `Engine.initialize` and `RunDecode`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:712:containing `gemma`, `qualcomm`, or `sm8750` only when that produces one selected
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:729:The ChatScreen DEV-only qairt244 adapter keeps the SM8750 NPU route unchanged
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:763:message. The adapter still records `db=false`, `tts=false`, `markdown=false`,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:764:`streaming=false`, and does not persist `selectedPath=npu`.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:785:`db=false`, `tts=false`, `markdown=false`, `streaming=false`.
+docs/litert_custom_build_source_mapping.md:9:`galleryStackExperimentDebug` now aligns the Java/Kotlin API with the Gallery SM8750 JNI descriptor:
+docs/litert_custom_build_source_mapping.md:12:- Gallery SM8750 native stack:
+docs/litert_custom_build_source_mapping.md:33:| `google-ai-edge/gallery` | tag `1.0.12`, commit `302f7e463b19f45f51825f4ec2fd30309366cb06` | matches Gallery APK `versionName 1.0.12`; local source shows `litertlm = "0.10.0"` | high for public Gallery source tag | The SM8750 APK native payload is not explained by public Maven `0.10.0` alone. |
+docs/litert_custom_build_source_mapping.md:56:However, the Gallery SM8750 APK contains:
+docs/litert_custom_build_source_mapping.md:58:| Library | Gallery SM8750 Build ID | Public Maven comparison |
+docs/litert_custom_build_source_mapping.md:64:Conclusion: Gallery source tag `1.0.12` is useful for app-level provenance, but the SM8750 APK appears to include a special native payload that is not reproduced by simply resolving public `litertlm-android:0.10.0`.
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:33:- RunDecode
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:152:- lower-level RunDecode evidence
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:200:- no RunDecode
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:220:calling `EngineFactory::CreateDefault`, `RunPrefill`, or `RunDecode`.
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:364:- no RunDecode

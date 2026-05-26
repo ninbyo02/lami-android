@@ -1,5 +1,22 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-26: max_output_tokens=256 guard-only patch staged
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU max-output guard | `artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/` and `artifacts/qairt244_npu_max256_guard_preflight/20260526_205300/` | Prior 256 failure was caused by the custom editable-prompt guard. A limited rebuild now contains `qairt244_editable_prompt_max256_v1` and `native_max_output_tokens_limit=256`. | 256 is staged for a separately approved runtime run; no NPU generation or RunDecode was executed in this phase. |
+
+Build metadata for the staged JNI artifact:
+
+```text
+liblitertlm_jni.so build_id=c42e4438f1b39e384ab075b9392831ca
+liblitertlm_jni.so sha256=3767332f97ffee57b635fc13e2741714c994f7a2cc94d0fde5d4fbbce9c731ba
+```
+
+The staged patch does not validate model/runtime memory behavior at 256. It
+only removes the custom native guard blocker and records static evidence needed
+before the next hidden experimental run.
+
 ## 2026-05-26: native max output token limit source
 
 | Area | Evidence | Root cause | Decision |

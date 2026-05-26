@@ -1,0 +1,4 @@
+@litert//litert/c:litert_runtime_c_api_so	0
+@litert//litert/vendors/qualcomm/dispatch:dispatch_api_so	0
+//kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni	0
+@litert//litert/vendors/qualcomm/compiler:qnn_compiler_plugin_so	0

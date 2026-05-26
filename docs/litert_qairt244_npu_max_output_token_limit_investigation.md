@@ -9,6 +9,42 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max256 Guard Preflight Update - 2026-05-26
+
+Status: 256 guard-only patch built; run not executed.
+
+Artifacts:
+
+- build/static artifact:
+  `artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/`
+- preflight artifact:
+  `artifacts/qairt244_npu_max256_guard_preflight/20260526_205300/`
+
+The 256 runner now has a preflight-only guard path. `--preflight-only` exits
+before device selection, app launch, NPU generation, `Engine.initialize`, or
+`RunDecode`. Non-preflight execution is refused unless supplied static native
+artifact evidence shows all of:
+
+- `qairt244_editable_prompt_max256_v1`
+- `native_max_output_tokens_limit=256`
+- `SetMaxOutputTokens(256)`
+- SM8750-only model/selection evidence
+
+No ChatScreen, DB, TTS, Markdown, streaming, selected-path persistence, or
+normal route surface is connected by the preflight.
+
+Limited rebuild metadata:
+
+```text
+liblitertlm_jni.so build_id=c42e4438f1b39e384ab075b9392831ca
+liblitertlm_jni.so sha256=3767332f97ffee57b635fc13e2741714c994f7a2cc94d0fde5d4fbbce9c731ba
+```
+
+The preflight passed against the rebuilt artifact. This is not runtime proof:
+the next phase still needs separate approval for a single hidden experimental
+256 prompt run with timeout, fresh-crash, fallback, QNN evidence, memory, and
+sanitizer quality gates.
+
 ## Finding
 
 The observed `max_output_tokens=256` rollback is caused by the custom qairt244

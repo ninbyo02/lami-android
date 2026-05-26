@@ -7,11 +7,15 @@ APP_ID="io.github.ninbyo02.lami"
 RECEIVER="io.github.ninbyo02.lami.npu.StandardHiddenQairt244PromptReceiver"
 ACTION="io.github.ninbyo02.lami.action.STANDARD_HIDDEN_QAIRT244_PROMPT"
 OUT_DIR="$ROOT_DIR/artifacts/qairt244_npu_max_output_256_quality_compare/$TIMESTAMP"
+PREFLIGHT_DIR="$ROOT_DIR/artifacts/qairt244_npu_max256_guard_preflight/$TIMESTAMP"
 BASELINE_DIR="$ROOT_DIR/artifacts/qairt244_npu_turn_stop_quality_compare/20260525_211810"
 DEVICE_SERIAL=""
 TIMEOUT_SECONDS=30
 TEMPLATE_MODE="gemma_it_like"
 MAX_OUTPUT_TOKENS=256
+MAX256_GUARD_MARKER="qairt244_editable_prompt_max256_v1"
+NATIVE_ARTIFACT="${QAIRT244_MAX256_NATIVE_ARTIFACT:-}"
+PREFLIGHT_ONLY=false
 
 PROMPTS=(
   "こんにちは"
@@ -24,15 +28,33 @@ while [ $# -gt 0 ]; do
     --device) DEVICE_SERIAL="${2:-}"; shift 2 ;;
     --timeout) TIMEOUT_SECONDS="${2:-}"; shift 2 ;;
     --template) TEMPLATE_MODE="${2:-}"; shift 2 ;;
+    --artifact|--native-artifact)
+      NATIVE_ARTIFACT="${2:-}"
+      shift 2
+      ;;
+    --preflight-only)
+      PREFLIGHT_ONLY=true
+      shift
+      ;;
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_qairt244_npu_max_output_256_quality_compare.sh [--device <serial>] [--timeout <seconds>] [--template <mode>]
+  scripts/run_qairt244_npu_max_output_256_quality_compare.sh --preflight-only [--artifact <native-build-artifact>]
+  scripts/run_qairt244_npu_max_output_256_quality_compare.sh --artifact <native-build-artifact> [--device <serial>] [--timeout <seconds>] [--template <mode>]
 
 Runs the standardDebug hidden QAIRT244 SM8750 NPU route once per prompt with
 sanitizer_only and max_output_tokens=256. The existing
 artifacts/qairt244_npu_turn_stop_quality_compare/20260525_211810 artifact is
 used as the 128-token baseline reference; this runner does not rerun 128.
+
+Default execution is refused until static native artifact evidence shows:
+  - qairt244_editable_prompt_max256_v1
+  - native_max_output_tokens_limit=256
+  - SetMaxOutputTokens(256)
+  - SM8750-only model/selection evidence
+
+--preflight-only writes artifacts/qairt244_npu_max256_guard_preflight/<timestamp>/
+and exits before device selection, app launch, NPU generation, or RunDecode.
 
 Safety constraints:
   - max_output_tokens is capped at 256 by this runner.
@@ -530,6 +552,165 @@ write_grep_safety() {
   } >"$OUT_DIR/grep_safety.txt"
 }
 
+preflight_log() { printf '[qairt244-max256-guard-preflight] %s\n' "$*"; }
+
+native_artifact_binary() {
+  if [ -f "$NATIVE_ARTIFACT" ]; then
+    printf '%s' "$NATIVE_ARTIFACT"
+    return 0
+  fi
+  if [ -n "$NATIVE_ARTIFACT" ] && [ -f "$NATIVE_ARTIFACT/built_libs/liblitertlm_jni.so" ]; then
+    printf '%s' "$NATIVE_ARTIFACT/built_libs/liblitertlm_jni.so"
+    return 0
+  fi
+  return 1
+}
+
+collect_max256_preflight_evidence() {
+  local text_sources="$PREFLIGHT_DIR/evidence_sources.txt"
+  local evidence="$PREFLIGHT_DIR/evidence.txt"
+  local binary
+
+  mkdir -p "$PREFLIGHT_DIR"
+  git status --short >"$PREFLIGHT_DIR/git_status.txt" 2>&1 || true
+  {
+    printf 'mode=%s\n' "$([ "$PREFLIGHT_ONLY" = true ] && printf preflight-only || printf execution-guard)"
+    printf 'native_artifact=%s\n' "${NATIVE_ARTIFACT:-none}"
+    printf 'required_marker=%s\n' "$MAX256_GUARD_MARKER"
+    printf 'required_native_limit=native_max_output_tokens_limit=256\n'
+    printf 'required_decode_setter=SetMaxOutputTokens(256)\n'
+    printf 'required_sm8750_selection=true\n'
+    printf 'npu_run_executed=false\n'
+    printf 'run_decode_executed=false\n'
+    printf 'chat_screen_connected=false\n'
+    printf 'db=false\n'
+    printf 'tts=false\n'
+    printf 'markdown=false\n'
+    printf 'streaming=false\n'
+  } >"$PREFLIGHT_DIR/preflight_config.txt"
+
+  {
+    printf '# static max256 guard evidence\n'
+    printf 'artifact=%s\n\n' "${NATIVE_ARTIFACT:-none}"
+  } >"$evidence"
+
+  : >"$text_sources"
+  if [ -n "$NATIVE_ARTIFACT" ] && [ -d "$NATIVE_ARTIFACT" ]; then
+    find "$NATIVE_ARTIFACT" -maxdepth 5 -type f \
+      \( -name '*.txt' -o -name '*.md' -o -name '*.patch' -o -name '*.tsv' -o -name '*.json' \) \
+      | sort >"$text_sources" 2>/dev/null || true
+  elif [ -n "$NATIVE_ARTIFACT" ] && [ -f "$NATIVE_ARTIFACT" ]; then
+    printf '%s\n' "$NATIVE_ARTIFACT" >"$text_sources"
+  fi
+
+  while IFS= read -r source_file; do
+    [ -f "$source_file" ] || continue
+    rg -n "$MAX256_GUARD_MARKER|native_max_output_tokens_limit=256|SetMaxOutputTokens\\(256\\)|SM8750|sm8750|gemma-4-E2B-it_qualcomm_sm8750" \
+      "$source_file" | sed "s#^#${source_file}:#" >>"$evidence" 2>/dev/null || true
+  done <"$text_sources"
+
+  {
+    printf '# staged binary check\n'
+    printf 'native_artifact=%s\n' "${NATIVE_ARTIFACT:-none}"
+    if binary="$(native_artifact_binary)"; then
+      printf 'binary=%s\n' "$binary"
+      file "$binary" || true
+      sha256sum "$binary" || true
+      printf '\n# strings evidence\n'
+      strings "$binary" 2>/dev/null |
+        grep -E "$MAX256_GUARD_MARKER|native_max_output_tokens_limit=256|SetMaxOutputTokens\\(256\\)|SM8750|sm8750|gemma-4-E2B-it_qualcomm_sm8750" || true
+    else
+      printf 'binary=missing\n'
+    fi
+  } >"$PREFLIGHT_DIR/staged_binary_check.txt" 2>&1
+
+  cat "$PREFLIGHT_DIR/staged_binary_check.txt" >>"$evidence"
+
+  {
+    printf '# grep safety scan\n'
+    printf 'script=%s\n' "scripts/run_qairt244_npu_max_output_256_quality_compare.sh"
+    printf 'preflight_only=%s\n' "$PREFLIGHT_ONLY"
+    printf 'npu_run_executed=false\n'
+    printf 'run_decode_executed=false\n\n'
+    rg -n "choose_device|adb_cmd|RunDecode|am start|am broadcast|--preflight-only|collect_max256_preflight_evidence|require_max256_guard_evidence|db=false|tts=false|markdown=false|streaming=false|gemma-4-E2B-it_qualcomm_sm8750|SM8750|sm8750" \
+      scripts/run_qairt244_npu_max_output_256_quality_compare.sh scripts/check_qairt244_native_patch.sh docs 2>&1 || true
+  } >"$PREFLIGHT_DIR/grep_safety.txt"
+}
+
+write_max256_preflight_summary() {
+  local marker_present="$1"
+  local native_limit_present="$2"
+  local setter_present="$3"
+  local sm8750_present="$4"
+  local guard_status="$5"
+  {
+    printf '# QAIRT244 max_output_tokens=256 guard preflight\n\n'
+    printf -- '- artifact: `%s`\n' "${PREFLIGHT_DIR#$ROOT_DIR/}"
+    printf -- '- native_artifact: `%s`\n' "${NATIVE_ARTIFACT:-none}"
+    printf -- '- requested_max_output_tokens: `%s`\n' "$MAX_OUTPUT_TOKENS"
+    printf -- '- guard_status: `%s`\n' "$guard_status"
+    printf -- '- npu_run_executed: `false`\n'
+    printf -- '- run_decode_executed: `false`\n'
+    printf -- '- chat_screen_connected: `false`\n'
+    printf -- '- db_tts_markdown_streaming: `false,false,false,false`\n\n'
+    printf '## Required Static Evidence\n\n'
+    printf '| check | status |\n'
+    printf '| --- | --- |\n'
+    printf '| `%s` | `%s` |\n' "$MAX256_GUARD_MARKER" "$marker_present"
+    printf '| `native_max_output_tokens_limit=256` | `%s` |\n' "$native_limit_present"
+    printf '| `SetMaxOutputTokens(256)` | `%s` |\n' "$setter_present"
+    printf '| `SM8750` selection | `%s` |\n' "$sm8750_present"
+    printf '\n## Result\n\n'
+    if [ "$guard_status" = pass ]; then
+      printf '256 guard-only patch built; run not executed. The 256 runner may proceed only outside `--preflight-only` and only with this guard evidence still present.\n'
+    else
+      printf '256 guard-only patch evidence incomplete; run refused before device selection, NPU, or RunDecode.\n'
+    fi
+  } >"$PREFLIGHT_DIR/summary.md"
+
+  {
+    printf 'marker_present=%s\n' "$marker_present"
+    printf 'native_limit_present=%s\n' "$native_limit_present"
+    printf 'setter_present=%s\n' "$setter_present"
+    printf 'sm8750_present=%s\n' "$sm8750_present"
+    printf 'guard_status=%s\n' "$guard_status"
+    printf 'npu_run_executed=false\n'
+    printf 'run_decode_executed=false\n'
+  } >"$PREFLIGHT_DIR/marker.txt"
+}
+
+require_max256_guard_evidence() {
+  local marker_present=false
+  local native_limit_present=false
+  local setter_present=false
+  local sm8750_present=false
+  local guard_status=blocked
+
+  collect_max256_preflight_evidence
+  grep -q "$MAX256_GUARD_MARKER" "$PREFLIGHT_DIR/evidence.txt" && marker_present=true
+  grep -q 'native_max_output_tokens_limit=256' "$PREFLIGHT_DIR/evidence.txt" && native_limit_present=true
+  grep -q 'SetMaxOutputTokens(256)' "$PREFLIGHT_DIR/evidence.txt" && setter_present=true
+  grep -Eiq 'SM8750|sm8750|gemma-4-E2B-it_qualcomm_sm8750' "$PREFLIGHT_DIR/evidence.txt" && sm8750_present=true
+
+  if [ "$marker_present" = true ] &&
+    [ "$native_limit_present" = true ] &&
+    [ "$setter_present" = true ] &&
+    [ "$sm8750_present" = true ]; then
+    guard_status=pass
+  fi
+
+  write_max256_preflight_summary "$marker_present" "$native_limit_present" "$setter_present" "$sm8750_present" "$guard_status"
+
+  if [ "$guard_status" = pass ]; then
+    preflight_log "summary: ${PREFLIGHT_DIR#$ROOT_DIR/}/summary.md"
+    return 0
+  fi
+
+  preflight_log "blocked: missing required static max256 guard evidence"
+  preflight_log "summary: ${PREFLIGHT_DIR#$ROOT_DIR/}/summary.md"
+  return 1
+}
+
 write_stale_tombstone_note() {
   {
     printf '# stale tombstone note\n\n'
@@ -571,6 +752,12 @@ write_summary() {
 
 main() {
   local prompt slug overall_status status quality
+
+  if [ "$PREFLIGHT_ONLY" = true ]; then
+    require_max256_guard_evidence
+    exit $?
+  fi
+  require_max256_guard_evidence || exit 1
 
   log "artifact: ${OUT_DIR#$ROOT_DIR/}"
   : >"$OUT_DIR/case_summaries.txt"

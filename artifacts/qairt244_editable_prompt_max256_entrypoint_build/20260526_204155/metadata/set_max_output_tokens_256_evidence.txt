@@ -1,0 +1,20 @@
+built_liblitertlm_jni=artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/built_libs/liblitertlm_jni.so
+expected_runtime_diag=before RunDecode SetMaxOutputTokens(256) native_max_output_tokens_limit=256
+
+# source evidence
+108:    "qairt244_editable_prompt_max256_v1";
+119:constexpr int kQairt244EditablePromptMaxOutputTokensLimit = 256;
+465:  std::fprintf(file, "native_max_output_tokens_limit=%d\n",
+467:  std::fprintf(file, "max_output_tokens_limit_marker=%s\n",
+1929:                       "%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=%d max_output_tokens_limit_marker=%s",
+2130:  decode_config.SetMaxOutputTokens(max_output_tokens);
+2134:      "native_max_output_tokens_limit=%d max_output_tokens_limit_marker=%s",
+
+# binary strings evidence
+%s %s before RunDecode SetMaxOutputTokens(1)
+%s before RunDecode SetMaxOutputTokens(3)
+invalid_max_output_tokens
+%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=%d max_output_tokens_limit_marker=%s
+native_max_output_tokens_limit=%d
+%s before RunDecode SetMaxOutputTokens(%d) native_max_output_tokens_limit=%d max_output_tokens_limit_marker=%s
+qairt244_editable_prompt_max256_v1

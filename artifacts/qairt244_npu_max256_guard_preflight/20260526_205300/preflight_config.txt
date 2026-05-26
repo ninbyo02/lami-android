@@ -1,0 +1,13 @@
+mode=preflight-only
+native_artifact=artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155
+required_marker=qairt244_editable_prompt_max256_v1
+required_native_limit=native_max_output_tokens_limit=256
+required_decode_setter=SetMaxOutputTokens(256)
+required_sm8750_selection=true
+npu_run_executed=false
+run_decode_executed=false
+chat_screen_connected=false
+db=false
+tts=false
+markdown=false
+streaming=false

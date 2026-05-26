@@ -1,5 +1,24 @@
 # QAIRT244 NPU Phase H1 Transient UI Surface
 
+## Max Output Tokens 256 Guard Preflight - 2026-05-26
+
+Status: 256 guard-only patch built; run not executed.
+
+Artifacts:
+
+- build/static artifact:
+  `artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/`
+- preflight artifact:
+  `artifacts/qairt244_npu_max256_guard_preflight/20260526_205300/`
+
+This is a static guard check only: it does not run NPU generation,
+`Engine.initialize`, or `RunDecode`, and it does not connect ChatScreen, DB,
+TTS, Markdown, streaming, or selected-path persistence.
+
+H1 remains pinned to `sanitizer_only + max_output_tokens=128` until a separate
+256 runtime artifact passes the normal quality, memory, crash, fallback, and
+NPU evidence gates.
+
 ## Max Output Tokens 256 Compare Note - 2026-05-26
 
 Phase H1 remains pinned to the adopted `sanitizer_only + max_output_tokens=128`

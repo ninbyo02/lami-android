@@ -1,0 +1,45 @@
+# static max256 guard evidence
+artifact=artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155
+
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/metadata/litertlm_external_diff.patch:51:+    "qairt244_editable_prompt_max256_v1";
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/metadata/native_marker_scan.txt:1:108:    "qairt244_editable_prompt_max256_v1";
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/metadata/set_max_output_tokens_256_evidence.txt:2:expected_runtime_diag=before RunDecode SetMaxOutputTokens(256) native_max_output_tokens_limit=256
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/metadata/set_max_output_tokens_256_evidence.txt:5:108:    "qairt244_editable_prompt_max256_v1";
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/metadata/set_max_output_tokens_256_evidence.txt:20:qairt244_editable_prompt_max256_v1
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/reference_libs/gallery/MISSING_APK.txt:1:missing apk: /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/reference_strings/gallery_stack/libLiteRtDispatch_Qualcomm.so.filtered.txt:50:SM8750
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/reference_strings/gallery_stack/libQnnHtpPrepare.so.filtered.txt:1859:SM8750
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/reference_strings/gallery_stack/libQnnHtpV79Skel.so.filtered.txt:974:SM8750
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/reference_strings/gallery_stack/libQnnHtpV79Skel.so.filtered.txt:975:SM8750P
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_compare_matrix.tsv:13:gallery-sm8750	libLiteRt.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_compare_matrix.tsv:14:gallery-sm8750	libLiteRtRuntimeCApi.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_compare_matrix.tsv:15:gallery-sm8750	libLiteRtDispatch_Qualcomm.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_compare_matrix.tsv:16:gallery-sm8750	liblitertlm_jni.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_compare_matrix.tsv:17:gallery-sm8750	libLiteRtCompilerPlugin_Qualcomm.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_compare_matrix.tsv:18:gallery-sm8750	libQnnSystem.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_compare_matrix.tsv:19:gallery-sm8750	libQnnHtp.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_compare_matrix.tsv:20:gallery-sm8750	libQnnHtpPrepare.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_compare_matrix.tsv:21:gallery-sm8750	libQnnHtpV79Stub.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_compare_matrix.tsv:22:gallery-sm8750	libQnnHtpV79Skel.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_compare_matrix.tsv:23:gallery-sm8750	libllm_inference_engine_jni.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_summary.md:107:gallery-sm8750	libLiteRt.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_summary.md:108:gallery-sm8750	libLiteRtRuntimeCApi.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_summary.md:109:gallery-sm8750	libLiteRtDispatch_Qualcomm.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_summary.md:110:gallery-sm8750	liblitertlm_jni.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_summary.md:111:gallery-sm8750	libLiteRtCompilerPlugin_Qualcomm.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_summary.md:112:gallery-sm8750	libQnnSystem.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_summary.md:113:gallery-sm8750	libQnnHtp.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_summary.md:114:gallery-sm8750	libQnnHtpPrepare.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_summary.md:115:gallery-sm8750	libQnnHtpV79Stub.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_summary.md:116:gallery-sm8750	libQnnHtpV79Skel.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/static_summary.md:117:gallery-sm8750	libllm_inference_engine_jni.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/strings/libLiteRtCompilerPlugin_Qualcomm.so.filtered.txt:145:SM8750
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/strings/libLiteRtDispatch_Qualcomm.so.filtered.txt:49:SM8750
+# staged binary check
+native_artifact=artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155
+binary=artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/built_libs/liblitertlm_jni.so
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/built_libs/liblitertlm_jni.so: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[md5/uuid]=c42e4438f1b39e384ab075b9392831ca, with debug_info, not stripped
+3767332f97ffee57b635fc13e2741714c994f7a2cc94d0fde5d4fbbce9c731ba  artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/built_libs/liblitertlm_jni.so
+
+# strings evidence
+qairt244_editable_prompt_max256_v1

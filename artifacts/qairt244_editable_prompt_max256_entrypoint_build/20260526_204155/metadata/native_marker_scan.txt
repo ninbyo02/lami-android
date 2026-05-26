@@ -1,0 +1,17 @@
+108:    "qairt244_editable_prompt_max256_v1";
+119:constexpr int kQairt244EditablePromptMaxOutputTokensLimit = 256;
+464:               kQairt244EditablePromptMaxOutputTokensLimit);
+465:  std::fprintf(file, "native_max_output_tokens_limit=%d\n",
+466:               kQairt244EditablePromptMaxOutputTokensLimit);
+1471:  decode_config.SetMaxOutputTokens(1);
+1473:                     "%s %s before RunDecode SetMaxOutputTokens(1)",
+1738:  decode_config.SetMaxOutputTokens(3);
+1740:                     "%s before RunDecode SetMaxOutputTokens(3)",
+1922:      max_output_tokens > kQairt244EditablePromptMaxOutputTokensLimit) {
+1929:                       "%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=%d max_output_tokens_limit_marker=%s",
+1931:                       kQairt244EditablePromptMaxOutputTokensLimit,
+1934:        result_path_str, "failure", "invalid_max_output_tokens",
+2130:  decode_config.SetMaxOutputTokens(max_output_tokens);
+2133:      "%s before RunDecode SetMaxOutputTokens(%d) "
+2134:      "native_max_output_tokens_limit=%d max_output_tokens_limit_marker=%s",
+2136:      kQairt244EditablePromptMaxOutputTokensLimit,

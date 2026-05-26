@@ -1,5 +1,37 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 256 Guard Preflight - 2026-05-26
+
+Status: 256 guard-only patch built; run not executed.
+
+Artifacts:
+
+- build/static artifact:
+  `artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/`
+- preflight artifact:
+  `artifacts/qairt244_npu_max256_guard_preflight/20260526_205300/`
+
+The 256 quality runner is now guarded before execution. `--preflight-only`
+records summary, marker, evidence, grep-safety, and staged-binary checks, then
+exits before device selection, app launch, NPU generation, `Engine.initialize`,
+or `RunDecode`.
+
+Promotion remains blocked from 256 runtime use unless the supplied native
+artifact/static metadata proves `qairt244_editable_prompt_max256_v1`,
+`native_max_output_tokens_limit=256`, `SetMaxOutputTokens(256)`, and SM8750
+selection evidence. ChatScreen, DB, TTS, Markdown, streaming, and selected-path
+persistence remain disconnected from this preflight.
+
+The rebuilt JNI artifact records:
+
+```text
+build_id=c42e4438f1b39e384ab075b9392831ca
+sha256=3767332f97ffee57b635fc13e2741714c994f7a2cc94d0fde5d4fbbce9c731ba
+```
+
+Promotion decision: still no normal UI or H1 baseline change. 256 may proceed
+only to a separately approved hidden experimental single-run phase.
+
 ## Max Output Token Limit Investigation - 2026-05-26
 
 Artifact:

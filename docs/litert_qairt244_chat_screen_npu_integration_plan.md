@@ -1,5 +1,21 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max256 Guard-Only Patch Staged - 2026-05-26
+
+Artifacts:
+
+- build/static artifact:
+  `artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/`
+- preflight artifact:
+  `artifacts/qairt244_npu_max256_guard_preflight/20260526_205300/`
+
+The external LiteRT-LM qairt244 editable-prompt guard has been raised to 256 in
+a limited rebuild and the lami preflight passed against that artifact. This
+does not change the ChatScreen plan: no normal ChatScreen route, assistant
+message list, DB, TTS, Markdown, streaming, selected-path persistence, NPU
+generation, `Engine.initialize`, or `RunDecode` was executed or connected in
+this phase.
+
 ## Native Max Output Token Limit Investigation - 2026-05-26
 
 The 128-token ceiling is currently a custom qairt244 native editable-prompt

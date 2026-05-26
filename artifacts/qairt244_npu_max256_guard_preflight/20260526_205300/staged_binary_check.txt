@@ -1,0 +1,8 @@
+# staged binary check
+native_artifact=artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155
+binary=artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/built_libs/liblitertlm_jni.so
+artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/built_libs/liblitertlm_jni.so: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[md5/uuid]=c42e4438f1b39e384ab075b9392831ca, with debug_info, not stripped
+3767332f97ffee57b635fc13e2741714c994f7a2cc94d0fde5d4fbbce9c731ba  artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/built_libs/liblitertlm_jni.so
+
+# strings evidence
+qairt244_editable_prompt_max256_v1
