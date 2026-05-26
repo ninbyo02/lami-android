@@ -1,5 +1,22 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Sequential Cleanup/Resource Investigation - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_sequential_cleanup_resource_investigation/20260527_082307/`
+
+The sequential timeout is now tracked as warm-process/resource inheritance, not
+as evidence that 512 or the SM8750 NPU path is unsupported. However, this does
+not create a ChatScreen integration path. The normal UI would be a sequential
+conversation surface, and sequential 512 remains non-baseline.
+
+Decision: no normal ChatScreen promotion, assistant-list insertion, DB, TTS,
+Markdown renderer, streaming, selectedPath=NPU persistence, release behavior,
+or standard behavior change. 512 remains hidden per-run isolated candidate
+only. 256 remains the hidden experimental candidate, H1 remains 128-only, and
+1024+ remains blocked. The next single-axis experiment, if approved, should be
+Activity restart only between prompts.
+
 ## Max512 Per-Run Isolated Gate - 2026-05-27
 
 Artifact:

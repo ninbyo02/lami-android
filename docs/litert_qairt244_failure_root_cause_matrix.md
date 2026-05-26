@@ -1,5 +1,17 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: max_output_tokens=512 sequential cleanup/resource investigation
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 sequential timeout | `artifacts/qairt244_npu_512_sequential_cleanup_resource_investigation/20260527_082307/` | The Python code prompt reaches pre-RunDecode evidence but does not produce native success, cleanup, backend evidence, raw output, or sanitized output before the bounded timeout. The same prompt succeeds when every prompt is force-stopped before and after execution. | Rank `sequential_resource_inheritance` highest; keep 512 per-run isolated candidate only and keep sequential 512 non-baseline. |
+
+Secondary hypotheses are `native_callback_missing_after_decode_or_decode_never_returns`,
+`cleanup_wait_insufficient`, and `code_decode_slow_after_warm_run`. The shared
+state-file wait is not primary from current evidence. 256 remains the hidden
+experimental baseline candidate, and 1024/2048/4096 remain blocked. The next
+single-axis experiment should be Activity restart only between prompts.
+
 ## 2026-05-27: max_output_tokens=512 per-run isolated gate defined
 
 | Area | Evidence | Root cause | Decision |

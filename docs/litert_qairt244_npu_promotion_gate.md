@@ -1,5 +1,26 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 512 Sequential Cleanup/Resource Investigation - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_sequential_cleanup_resource_investigation/20260527_082307/`
+
+Gate status: docs/review only. The investigation does not add runtime evidence
+and does not alter the promotion boundary.
+
+The sequential 512 failure is now classified primarily as
+`sequential_resource_inheritance`. The Python prompt reaches native pre-decode
+evidence but remains at receiver `state=started` with no native success,
+cleanup, `Engine.close`, completed backend evidence, raw output, or sanitized
+output. Per-run isolated 512 succeeds because every prompt is bracketed by app
+force-stop and no-process after 10 seconds.
+
+Promotion decision: unchanged. 512 is not a sequential hidden baseline. 512 may
+be considered only as a hidden per-run isolated candidate. 256 remains the
+hidden experimental baseline candidate, H1 remains pinned to 128, and
+1024/2048/4096 remain blocked. The next approved runtime axis, if any, should
+be prompt-to-prompt Activity restart only.
+
 ## Max Output Tokens 512 Per-Run Isolated Gate - 2026-05-27
 
 Artifact:

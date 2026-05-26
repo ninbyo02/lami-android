@@ -9,6 +9,39 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Sequential Cleanup/Resource Investigation - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_sequential_cleanup_resource_investigation/20260527_082307/`
+
+Scope: artifact/log/runner/native-stage review only. No additional NPU
+execution, 512 rerun, 1024+ expansion, native change, QAIRT rebuild, ChatScreen
+promotion, assistant-list insertion, DB, TTS, Markdown, streaming,
+selectedPath=NPU persistence, release behavior, or standard behavior change
+was performed.
+
+Classification: primary `sequential_resource_inheritance`; secondary
+`native_callback_missing_after_decode_or_decode_never_returns`; plausible
+`cleanup_wait_insufficient` and `code_decode_slow_after_warm_run`. The
+state-file wait condition is not primary because the sequential and isolated
+runners use the same state-file wait pattern and 60 second bound, while only
+the force-stop bracketed run succeeds.
+
+The key runner difference is process isolation. The sequential runner cleans
+state files and starts Activity for each prompt, but it does not force-stop
+after the successful first prompt. The force-stop runner kills the app before
+and after every prompt, waits, and records no process after 10 seconds. Native
+stage confirms the sequential Python prompt reaches
+`before RunDecode SetMaxOutputTokens(512)` but never writes native success,
+cleanup, `Engine.close`, backend evidence, raw output, or sanitized output
+before timeout.
+
+Decision: 512 per-run isolated remains a hidden candidate. Sequential 512
+remains non-baseline. 256 remains the hidden experimental baseline candidate.
+1024, 2048, and 4096 remain blocked. If another runtime experiment is approved,
+the next single axis should be prompt-to-prompt Activity restart only, not
+1024 expansion.
+
 ## Max512 Per-Run Isolated Mode Gate - 2026-05-27
 
 Artifact:

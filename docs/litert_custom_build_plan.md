@@ -1,5 +1,21 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Sequential Cleanup/Resource Investigation - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_sequential_cleanup_resource_investigation/20260527_082307/`
+
+This is an artifact/log/runner review only. It does not rebuild LiteRT-LM or
+QAIRT, change the max512 native guard, modify staged JNI libraries, or run NPU
+again.
+
+Build interpretation: the max512 native artifact is sufficient for per-run
+isolated 512, but sequential 512 still fails on the Python code prompt after
+pre-RunDecode evidence. The leading root cause is warm-process/resource
+inheritance rather than a native guard rejection. No 1024 build or guard
+expansion is authorized. If runtime work continues, the next one-axis test
+should be Activity restart only between prompts.
+
 ## QAIRT244 Max512 Per-Run Isolated Gate - 2026-05-27
 
 Artifact:

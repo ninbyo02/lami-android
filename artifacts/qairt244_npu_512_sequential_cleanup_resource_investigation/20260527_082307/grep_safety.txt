@@ -1,0 +1,28 @@
+# grep safety summary
+
+No additional NPU execution was performed for this investigation.
+
+Reviewed scripts:
+
+- `scripts/run_qairt244_npu_max_output_512_three_prompt_codeaware_compare.sh`
+- `scripts/run_qairt244_npu_max_output_512_force_stop_between_prompts.sh`
+- `scripts/run_qairt244_npu_max_output_512_code_bounded_retry.sh`
+
+Safety invariants retained:
+
+```text
+additional_npu_execution=false
+native_change=false
+qairt_rebuild=false
+chat_screen_promotion=false
+assistant_message_list_inserted=false
+db=false
+tts=false
+markdown=false
+streaming=false
+selected_path_npu_saved=false
+sequential_512_baseline=false
+per_run_isolated_512_hidden_candidate=true
+hidden_256_baseline_candidate=true
+next_1024_blocked=true
+```
