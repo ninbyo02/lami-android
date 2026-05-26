@@ -1,5 +1,25 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 512 Code Display Quality Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_output_quality_review/20260527_011217/`
+
+The 512 Python code prompt is safety-successful under the 60 second bounded
+retry, but it fails the baseline display-quality gate. Raw output contains
+valid-looking Python indentation; sanitized output loses indentation inside the
+fenced block. The opening `python` code fence is retained, but the closing fence
+is absent because the output is truncated at `elif choice == '`.
+
+New gate requirement: 512 cannot become a hidden baseline candidate unless code
+display quality passes for the code prompt. The gate must preserve indentation
+inside fenced code blocks, detect or repair an unclosed code fence in derived
+display text, report truncation, and still satisfy timeout/crash/fallback/QNN,
+cleanup, memory, and side-effect checks.
+
+Promotion decision: 512 remains extended experimental, 256 remains the hidden
+experimental candidate, H1 remains pinned to 128, and 1024 remains blocked.
+
 ## Max Output Tokens 512 Three-Prompt Hidden Comparison - 2026-05-27
 
 Artifact:

@@ -1,5 +1,26 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Code Output Quality Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_output_quality_review/20260527_011217/`
+
+This review did not rebuild QAIRT/LiteRT-LM, change the native guard, or run
+NPU again. It reviews the bounded retry artifact only.
+
+Result: the existing max512 artifact is runtime-safe for the single Python code
+prompt under `timeout_seconds=60`, but not display-baseline ready. Raw output
+preserves code indentation; sanitized output strips indentation inside the
+fenced Python block. The response ends mid-statement and lacks a closing code
+fence, which is classified as token-limit truncation after normal native
+completion.
+
+Build plan decision: no 1024 expansion and no additional native work from this
+artifact. The next custom-build-independent step is a code display sanitizer
+design for indentation/fence handling, then a separately approved bounded 512
+three-prompt comparison. 256 remains the hidden experimental baseline
+candidate.
+
 ## QAIRT244 Max512 Three-Prompt Hidden Comparison - 2026-05-27
 
 Artifact:

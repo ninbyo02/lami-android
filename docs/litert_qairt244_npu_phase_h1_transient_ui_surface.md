@@ -1,5 +1,21 @@
 # QAIRT244 NPU Phase H1 Transient UI Surface
 
+## Max Output Tokens 512 Code Display Quality Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_output_quality_review/20260527_011217/`
+
+The 512 bounded retry remains single-prompt evidence only. It proves the code
+prompt can return with QNN evidence and cleanup under a 60 second bound, but it
+does not provide H1 display-ready text. The sanitized output loses Python
+indentation and has an unclosed code fence due to token-limit truncation.
+
+H1 impact: no change. H1 stays pinned to
+`sanitizer_only + max_output_tokens=128`. The 512 code output must not feed the
+transient card, Compose adapter, PreviewHost, normal ChatScreen, or assistant
+message list. A future H1 gate revision must include a code display quality
+gate before any 512 artifact can be considered display input.
+
 ## Max Output Tokens 512 Three-Prompt Hidden Comparison - 2026-05-27
 
 Artifact:

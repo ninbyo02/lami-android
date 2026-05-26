@@ -9,6 +9,33 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Code Output Quality Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_output_quality_review/20260527_011217/`
+
+Review scope: artifact-only. No additional NPU execution, 512 retry, 1024+
+expansion, native guard change, QAIRT rebuild, or UI promotion was performed.
+
+The bounded retry output is NPU-safety successful: `result=success`,
+`quality_classification=useful_code`, `timeout=false`, `fresh_crash=false`,
+`fallback_used=false`, `RunDecode reached=true`, QNN/HTP/FastRPC evidence
+present, and cleanup/`Engine.close` evidence present. The display quality gate
+does not pass. Raw output preserves Python indentation, but sanitized output
+strips leading spaces inside the code block. Both raw and sanitized output keep
+the opening `python` code fence and miss the closing fence because the response
+ends mid-statement at `elif choice == '`.
+
+Classification: `indentation_broken_by_sanitizer`,
+`code_fence_unclosed_due_to_truncation`, `output_truncated_by_token_limit`, and
+`markdown_display_risk`.
+
+Decision: 512 remains extended experimental and is not a hidden baseline
+candidate. 256 remains the hidden experimental baseline candidate. 1024 remains
+blocked. The next approved 512 step should be code-fence/indentation display
+sanitizer design, followed by a bounded 512 three-prompt comparison before any
+baseline decision.
+
 ## Max512 Three-Prompt Hidden Comparison - 2026-05-27
 
 Artifact:

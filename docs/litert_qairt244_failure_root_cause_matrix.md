@@ -1,5 +1,22 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: max_output_tokens=512 code output quality review
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 code display quality | `artifacts/qairt244_npu_512_code_output_quality_review/20260527_011217/` | Raw output preserves Python indentation, but sanitized output strips leading code indentation. The output also ends mid-statement with an unclosed code fence, consistent with 512 token-limit truncation after normal native completion. | Keep 512 as extended experimental, keep 256 as hidden experimental candidate, and block 1024 until code display quality is gated and a full 512 comparison passes. |
+
+Safety notes: the source bounded retry remained successful with
+`quality_classification=useful_code`, `timeout=false`, `fresh_crash=false`,
+`fallback_used=false`, QNN/HTP/FastRPC evidence, `cleanup_elapsed_ms=142`, and
+`Engine.close=unique_ptr_cleanup`. No additional NPU execution was performed
+for this review.
+
+Display-quality classification: `indentation_broken_by_sanitizer`,
+`code_fence_unclosed_due_to_truncation`, `output_truncated_by_token_limit`, and
+`markdown_display_risk`. This is not a native crash, not fallback, not retained
+memory, and not a reason to proceed to 1024.
+
 ## 2026-05-27: max_output_tokens=512 three-prompt comparison rolls back
 
 | Area | Evidence | Root cause | Decision |

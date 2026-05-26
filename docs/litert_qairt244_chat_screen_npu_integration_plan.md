@@ -1,5 +1,21 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Code Output Quality Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_output_quality_review/20260527_011217/`
+
+The 512 code prompt bounded retry is not a ChatScreen promotion candidate. The
+raw output has useful calculator code and preserved indentation, but sanitized
+output strips indentation and leaves an unclosed code fence after token-limit
+truncation. This creates a Markdown/code display risk even though NPU safety
+signals passed.
+
+Decision: do not connect 512 code output to normal ChatScreen, assistant-list
+insertion, DB, TTS, Markdown, streaming, or selectedPath persistence. Keep 512
+as extended experimental until a code-aware display sanitizer/gate exists and a
+bounded 512 three-prompt comparison passes.
+
 ## Max512 Three-Prompt Hidden Comparison - 2026-05-27
 
 Artifact:
