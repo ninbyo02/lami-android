@@ -1,5 +1,24 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Code-Aware Sanitizer Gate Update - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_code_aware_sanitizer_review/20260527_012650/`
+
+The NPU code prompt blocker is addressed at the sanitizer/display layer. Fenced
+code blocks now preserve indentation and tabs, while non-code text keeps the
+existing template-token, prompt-echo, repeated-completion, and leading drift
+sanitizer behavior. If a response truncates after an opening fence, sanitized
+display text receives a derived closing fence and records
+`code_fence_completed=true`.
+
+Gate status: implementation is necessary but not sufficient for baseline
+promotion. 512 still requires a separately approved bounded three-prompt
+comparison with `useful_code`, no timeout, no fresh crash, no fallback, QNN
+evidence, cleanup evidence, memory recovery, and side-effect flags false. 256
+remains the hidden experimental candidate; H1 remains 128; 1024 remains
+blocked.
+
 ## Max Output Tokens 512 Code Display Quality Review - 2026-05-27
 
 Artifact:

@@ -1,5 +1,19 @@
 # QAIRT244 NPU Phase H1 Transient UI Surface
 
+## Code-Aware Sanitizer Update - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_code_aware_sanitizer_review/20260527_012650/`
+
+The hidden-route sanitizer now preserves indentation inside fenced code blocks
+and completes an unclosed fence in derived sanitized text when truncation cuts a
+response before the closing fence. Raw output remains diagnostic-only and must
+not be used as H1 display input.
+
+H1 impact: no change. This is a prerequisite display-quality fix, not a
+promotion. H1 stays pinned to `sanitizer_only + max_output_tokens=128` until a
+fresh full 512 hidden comparison and a separate H1 gate revision pass.
+
 ## Max Output Tokens 512 Code Display Quality Review - 2026-05-27
 
 Artifact:

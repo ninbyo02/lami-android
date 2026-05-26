@@ -1,5 +1,23 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Code-Aware Sanitizer Implementation - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_code_aware_sanitizer_review/20260527_012650/`
+
+This phase did not rebuild LiteRT-LM/QAIRT, change native code, change staged
+JNI libraries, or run NPU again. It is a Kotlin sanitizer/display-quality fix
+for the hidden experimental route.
+
+The sanitizer now distinguishes fenced code from prose. Inside code fences it
+preserves indentation, tabs, and blank lines. Outside code fences it keeps the
+existing turn-template, prompt-echo, leading-drift, and repeated-line cleanup.
+For truncated code output, it appends a derived closing fence to sanitized
+display text and records the repair through `code_fence_completed`.
+
+Build plan decision: no 1024 expansion. 512 remains extended experimental until
+a bounded 512 three-prompt comparison passes with the code-aware sanitizer.
+
 ## QAIRT244 Max512 Code Output Quality Review - 2026-05-27
 
 Artifact:

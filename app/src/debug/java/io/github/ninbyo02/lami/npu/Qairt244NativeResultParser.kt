@@ -82,6 +82,8 @@ internal object Qairt244NativeResultParser {
         "sanitizer_applied",
         "removed_template_token_count",
         "removed_prompt_echo",
+        "code_block_detected",
+        "code_fence_completed",
         "adapter_output",
         "adapter_output_length",
         "displayed_assistant_text",

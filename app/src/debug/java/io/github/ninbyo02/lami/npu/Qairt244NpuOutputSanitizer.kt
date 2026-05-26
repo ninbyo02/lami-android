@@ -10,6 +10,7 @@ internal object Qairt244NpuOutputSanitizer {
     private val userPrefixPattern = Regex("^(?:user|ユーザー)\\s*:\\s*", RegexOption.IGNORE_CASE)
     private val assistantPrefixPattern = Regex("^(?:assistant|model|アシスタント)\\s*:\\s*", RegexOption.IGNORE_CASE)
     private val turnBoundaryPattern = Regex("^-{3,}\\s*$")
+    private val codeFencePattern = Regex("^```[A-Za-z0-9_+.#-]*\\s*$")
 
     data class Result(
         val rawOutput: String,
@@ -17,6 +18,8 @@ internal object Qairt244NpuOutputSanitizer {
         val sanitizerApplied: Boolean,
         val removedTemplateTokenCount: Int,
         val removedPromptEcho: Boolean,
+        val codeBlockDetected: Boolean,
+        val codeFenceCompleted: Boolean,
     )
 
     fun sanitize(rawOutput: String, prompt: String): Result {
@@ -36,7 +39,19 @@ internal object Qairt244NpuOutputSanitizer {
         val keptLines = mutableListOf<String>()
         var naturalTextStarted = false
         val seenAssistantLines = mutableSetOf<String>()
+        var inCodeBlock = false
+        var codeBlockDetected = false
+        var codeFenceCompleted = false
         for (sourceLine in withoutTemplateTokens.lines()) {
+            if (inCodeBlock) {
+                val codeLine = sourceLine.trimEnd()
+                keptLines += codeLine
+                if (isCodeFence(codeLine)) {
+                    inCodeBlock = false
+                }
+                continue
+            }
+
             val line = sourceLine.trim().trimStart('>').trim()
             if (line.isEmpty()) {
                 if (sourceLine.trim().isNotEmpty()) {
@@ -55,10 +70,6 @@ internal object Qairt244NpuOutputSanitizer {
                 removedPromptEcho = true
                 continue
             }
-            if (!naturalTextStarted && isLeadingNonJapaneseDrift(line, promptEcho)) {
-                removedTemplateTokenCount += 1
-                continue
-            }
             if (userPrefixPattern.containsMatchIn(line)) {
                 if (naturalTextStarted) break
                 val withoutUserPrefix = userPrefixPattern.replace(line, "").trim()
@@ -74,6 +85,17 @@ internal object Qairt244NpuOutputSanitizer {
                 removedTemplateTokenCount += 1
                 continue
             }
+            if (isCodeFence(assistantText)) {
+                keptLines += assistantText
+                naturalTextStarted = true
+                codeBlockDetected = true
+                inCodeBlock = true
+                continue
+            }
+            if (!naturalTextStarted && isLeadingNonJapaneseDrift(assistantText, promptEcho)) {
+                removedTemplateTokenCount += 1
+                continue
+            }
             val normalizedAssistantText = assistantText.replace(Regex("\\s+"), " ")
             if (!seenAssistantLines.add(normalizedAssistantText)) {
                 removedTemplateTokenCount += 1
@@ -83,21 +105,31 @@ internal object Qairt244NpuOutputSanitizer {
             naturalTextStarted = true
         }
 
+        if (inCodeBlock) {
+            keptLines += "```"
+            codeFenceCompleted = true
+        }
+
         val sanitized = keptLines
             .joinToString("\n")
-            .replace(Regex("\\n{3,}"), "\n\n")
             .trim()
         val sanitizerApplied = sanitized != rawOutput ||
             removedTemplateTokenCount > 0 ||
-            removedPromptEcho
+            removedPromptEcho ||
+            codeFenceCompleted
         return Result(
             rawOutput = rawOutput,
             sanitizedOutput = sanitized,
             sanitizerApplied = sanitizerApplied,
             removedTemplateTokenCount = removedTemplateTokenCount,
             removedPromptEcho = removedPromptEcho,
+            codeBlockDetected = codeBlockDetected,
+            codeFenceCompleted = codeFenceCompleted,
         )
     }
+
+    private fun isCodeFence(line: String): Boolean =
+        codeFencePattern.matches(line.trim())
 
     private fun isPromptEcho(line: String, prompt: String): Boolean {
         if (prompt.isEmpty()) return false

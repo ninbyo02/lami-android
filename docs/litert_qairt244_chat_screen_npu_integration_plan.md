@@ -1,5 +1,20 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Code-Aware Sanitizer Update - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_code_aware_sanitizer_review/20260527_012650/`
+
+The hidden NPU sanitizer now handles fenced code blocks without stripping
+indentation and can close a truncated code fence in sanitized display text. This
+keeps raw native output out of UI/state/renderer paths and preserves the
+existing non-code sanitizer behavior for Gemma turn tokens and prompt echo.
+
+ChatScreen plan impact: no normal ChatScreen promotion. Do not connect this to
+assistant-list insertion, DB, TTS, Markdown renderer, streaming, or selectedPath
+persistence. The next ChatScreen-relevant evidence would be a separately
+approved bounded 512 three-prompt comparison after the sanitizer fix.
+
 ## Max512 Code Output Quality Review - 2026-05-27
 
 Artifact:

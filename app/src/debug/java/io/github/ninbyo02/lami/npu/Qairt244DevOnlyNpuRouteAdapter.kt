@@ -427,6 +427,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "sanitizer_applied=${sanitizerResult.sanitizerApplied}",
                 "removed_template_token_count=${sanitizerResult.removedTemplateTokenCount}",
                 "removed_prompt_echo=${sanitizerResult.removedPromptEcho}",
+                "code_block_detected=${sanitizerResult.codeBlockDetected}",
+                "code_fence_completed=${sanitizerResult.codeFenceCompleted}",
                 "adapter_output=${escapeValue(adapterOutput)}",
                 "adapter_output_length=${adapterOutput.length}",
             ).plus(outputDiagnostics).plus(

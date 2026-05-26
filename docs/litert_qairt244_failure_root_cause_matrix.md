@@ -1,5 +1,17 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: code-aware sanitizer preserves code output shape
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU code display sanitizer | `artifacts/qairt244_code_aware_sanitizer_review/20260527_012650/` | The 512 Python prompt problem was a sanitizer/display issue: line-level trimming stripped indentation and truncation left the code fence unclosed. | Preserve indentation in fenced code blocks, complete truncated fences in sanitized output, keep raw output diagnostic-only, and require a new bounded 512 three-prompt comparison before promotion. |
+
+Safety boundary: no NPU execution, 512 retry, native guard change, QAIRT
+rebuild, ChatScreen promotion, assistant-list insertion, DB, TTS, Markdown
+renderer connection, streaming, or selected-path persistence was performed in
+this phase. 512 remains extended experimental; 256 remains the hidden
+experimental baseline candidate; 1024 remains blocked.
+
 ## 2026-05-27: max_output_tokens=512 code output quality review
 
 | Area | Evidence | Root cause | Decision |

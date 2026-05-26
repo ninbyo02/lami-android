@@ -9,6 +9,27 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Code-Aware Sanitizer Minimal Implementation - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_code_aware_sanitizer_review/20260527_012650/`
+
+Scope: sanitizer implementation and tests only. No additional NPU execution,
+512 retry, 1024+ expansion, native guard change, QAIRT rebuild, or UI promotion
+was performed.
+
+The 512 Python code prompt issue is now treated as display sanitizer quality,
+not NPU decode failure. The sanitizer detects Markdown code fences, preserves
+leading spaces/tabs/blank lines inside fenced code blocks, keeps the existing
+non-code template/prompt/drift sanitizer behavior, and appends a derived
+closing fence when truncation leaves an opened code block unclosed. Diagnostics
+now record `code_block_detected` and `code_fence_completed`.
+
+Decision: 512 remains extended experimental and is not a baseline candidate
+from this implementation alone. 256 remains the hidden experimental baseline
+candidate. The next candidate step is a separately approved bounded 512
+three-prompt comparison using the code-aware sanitizer.
+
 ## Max512 Code Output Quality Review - 2026-05-27
 
 Artifact:

@@ -75,6 +75,25 @@ class Qairt244NativeResultParserTest {
     }
 
     @Test
+    fun `code sanitizer diagnostics after output are not included in body`() {
+        val parsed = Qairt244NativeResultParser.parse(
+            """
+            result=success
+            output=```python
+            print("ok")
+            ```
+            code_block_detected=true
+            code_fence_completed=true
+            adapter_output=```python\nprint("ok")\n```
+            """.trimIndent(),
+        )
+
+        assertEquals("```python\nprint(\"ok\")\n```", parsed.output)
+        assertEquals("true", parsed.values["code_block_detected"])
+        assertEquals("true", parsed.values["code_fence_completed"])
+    }
+
+    @Test
     fun `empty output remains empty and following diagnostics are parsed`() {
         val parsed = Qairt244NativeResultParser.parse(
             """
