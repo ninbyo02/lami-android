@@ -1,5 +1,23 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Per-Run Isolated Gate - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_gate/20260527_075622/`
+
+The 512 gate is defined only for hidden `mode=per_run_isolated`: app
+force-stop before and after each prompt, `max_output_tokens=512`, RunDecode and
+`SetMaxOutputTokens(512)` evidence, no timeout, no fresh crash, no fallback,
+QNN/HTP/FastRPC evidence, cleanup/`Engine.close`, no retained-memory condition,
+code-aware sanitizer, preserved indentation, closed/completed code fence, and
+side-effect flags false.
+
+ChatScreen plan impact: no normal ChatScreen promotion. Sequential 512 remains
+non-baseline, and the per-run isolated gate does not authorize assistant-list
+insertion, DB, TTS, Markdown renderer, streaming, selectedPath=NPU persistence,
+release behavior, or standard behavior. 256 remains the hidden experimental
+candidate, H1 remains 128-only, and 1024+ remains blocked.
+
 ## Max512 Force-Stop Between Prompts - 2026-05-27
 
 Artifact:

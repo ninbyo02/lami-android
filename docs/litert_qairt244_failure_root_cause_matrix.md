@@ -1,5 +1,16 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: max_output_tokens=512 per-run isolated gate defined
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 gate boundary | `artifacts/qairt244_npu_512_per_run_isolated_gate/20260527_075622/` | Sequential 512 still has a reproduced code-prompt timeout, while force-stop per-run isolation passes all three prompts. The failure mode is therefore bounded to sequential/resource-cleanup behavior from current evidence. | Define 512 as `extended experimental / per-run isolated candidate` only; keep sequential 512 non-baseline, keep 256 candidate, and block 1024+. |
+
+Rollback remains mandatory for timeout, missing cleanup/`Engine.close`, memory
+high retained, broken code indentation, unclosed code fence, fresh crash,
+fallback, missing QNN evidence, selectedPath=NPU persistence, assistant-list
+insertion, or DB/TTS/Markdown/streaming ingress.
+
 ## 2026-05-27: max_output_tokens=512 passes with force-stop between prompts
 
 | Area | Evidence | Root cause | Decision |

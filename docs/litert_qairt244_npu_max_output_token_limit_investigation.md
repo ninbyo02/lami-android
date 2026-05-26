@@ -9,6 +9,36 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Per-Run Isolated Mode Gate - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_gate/20260527_075622/`
+
+Scope: documentation and gate design only. No additional NPU execution, native
+change, QAIRT rebuild, ChatScreen promotion, assistant-list insertion, DB, TTS,
+Markdown, streaming, selectedPath=NPU persistence, release behavior, or
+standard behavior change was performed.
+
+The gate splits 512 into two explicit categories. `sequential_512` remains
+non-baseline because the code-aware three-prompt sequential run reproduced the
+Python code prompt timeout. `per_run_isolated_512` may be reviewed as a hidden
+mode only when every prompt is bracketed by app force-stop before and after the
+run.
+
+Required gate signals for `mode=per_run_isolated`: `max_output_tokens=512`,
+force-stop before/after each prompt, `RunDecode` reached, pre-decode
+`SetMaxOutputTokens(512)` evidence, `timeout=false`, `fresh_crash=false`,
+`fallback_used=false`, `QNN_HTP_V79_FastRPC_native_diag`,
+`Engine.close=unique_ptr_cleanup`, no after-10s process or no high retained
+memory, code-aware sanitizer enabled, code indentation preserved, code fence
+closed/completed, `selectedPathSaved=false`, and DB/TTS/Markdown/streaming
+false.
+
+Decision: 512 can be treated only as `extended experimental / per-run isolated
+candidate`. It is not a general sequential 512 baseline, not H1, and not normal
+ChatScreen. 256 remains the hidden experimental baseline candidate. 1024,
+2048, and 4096 remain blocked.
+
 ## Max512 Force-Stop Between Prompts Comparison - 2026-05-27
 
 Artifact:

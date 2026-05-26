@@ -1,5 +1,22 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Per-Run Isolated Gate - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_gate/20260527_075622/`
+
+This is a docs/gate phase only. It does not rebuild LiteRT-LM/QAIRT, change the
+native max512 guard, change staged JNI libraries, or run NPU again.
+
+Build plan decision: the existing max512 native artifact is sufficient for a
+hidden per-run isolated gate, but not for a general sequential 512 baseline.
+The accepted 512 mode requires app force-stop before and after each prompt,
+RunDecode/`SetMaxOutputTokens(512)` evidence, QNN/HTP/FastRPC evidence,
+cleanup/`Engine.close`, memory recovery or no retained process, code-aware
+sanitizer with indentation/fence checks, and side-effect flags false. 1024,
+2048, and 4096 remain blocked; no further native build work is authorized from
+this gate alone.
+
 ## QAIRT244 Max512 Force-Stop Between Prompts - 2026-05-27
 
 Artifact:

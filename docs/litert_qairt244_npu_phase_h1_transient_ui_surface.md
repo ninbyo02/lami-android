@@ -1,5 +1,21 @@
 # QAIRT244 NPU Phase H1 Transient UI Surface
 
+## Max Output Tokens 512 Per-Run Isolated Gate - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_gate/20260527_075622/`
+
+The 512 per-run isolated gate is hidden-mode only. It requires app force-stop
+before and after each prompt, code-aware sanitizer, cleanup evidence, QNN
+evidence, memory recovery/no retained process, and side-effect flags false.
+Sequential 512 remains non-baseline.
+
+H1 impact: no change. The H1 transient surface remains pinned to
+`sanitizer_only + max_output_tokens=128`. A passing per-run isolated 512 gate
+does not allow 512 text to feed the transient card, Compose adapter,
+PreviewHost, normal ChatScreen, assistant message list, DB, TTS, Markdown
+renderer, streaming, or selected-path persistence.
+
 ## Max Output Tokens 512 Force-Stop Between Prompts - 2026-05-27
 
 Artifact:
