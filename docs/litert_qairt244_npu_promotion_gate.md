@@ -55,6 +55,32 @@ Gate status:
 Promotion decision: allow a next-phase 256 three-prompt hidden comparison.
 Do not adopt 256 as baseline and do not feed 256 output into normal UI/H1.
 
+## Max Output Tokens 256 Three-Prompt Hidden Comparison - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_three_prompt_compare/20260526_211856/`
+
+The three approved hidden prompts passed once each at
+`max_output_tokens=256`:
+
+- `こんにちは`: `natural_japanese`
+- `Pythonで簡単な電卓コードを書いて`: `useful_code`
+- `ラミィのNPU推論について短く説明して`: `natural_japanese`
+
+Gate status for all rows: `RunDecode` reached, QNN/HTP/FastRPC evidence
+present, `fallback_used=false`, `timeout=false`, `fresh_crash=false`,
+`selected_path_npu_saved=false`, `standard_route_connected=false`,
+`normal_ui_route_connected=false`, `assistant_message_list_inserted=false`,
+and `db=false`, `tts=false`, `markdown=false`, `streaming=false`.
+
+Memory after 10 seconds returned to `TOTAL PSS=224993 KB`,
+`Native Heap=34500 KB`, so no retained-memory rollback was recorded.
+
+Promotion decision: 256 may be treated as a hidden experimental candidate for
+further token expansion. It is not adopted into the H1 display baseline or
+normal UI gate. H1 remains pinned to `sanitizer_only + max_output_tokens=128`
+until a separate UI-facing decision is made.
+
 ## Max Output Token Limit Investigation - 2026-05-26
 
 Artifact:

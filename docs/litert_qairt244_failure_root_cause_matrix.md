@@ -28,6 +28,17 @@ QNN/HTP/FastRPC evidence present, selected-path persistence false, and
 DB/TTS/Markdown/streaming false. Raw output retained template artifacts, but
 sanitizer removed them for display.
 
+## 2026-05-26: max_output_tokens=256 three-prompt comparison passes
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 256 quality/safety | `artifacts/qairt244_npu_max_output_256_three_prompt_compare/20260526_211856/` | The max256 guard-only patch allows 256 through to `RunDecode`; all three approved hidden prompts completed without fallback, timeout, fresh crash, or side-effect ingress. | Treat 256 as a hidden experimental candidate; do not promote it to H1 or normal UI. |
+
+Quality notes: `こんにちは` and `ラミィのNPU推論について短く説明して`
+classified as `natural_japanese`; the Python calculator prompt classified as
+`useful_code`. Memory after 10 seconds dropped to `TOTAL PSS=224993 KB` and
+`Native Heap=34500 KB`, so no retained-memory rollback was recorded.
+
 ## 2026-05-26: native max output token limit source
 
 | Area | Evidence | Root cause | Decision |

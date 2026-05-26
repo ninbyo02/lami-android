@@ -30,6 +30,22 @@ safe natural Japanese, while raw output still contained turn artifacts that
 were removed by sanitizer. This is enough to proceed to a 256 three-prompt
 hidden comparison, not enough to change H1 display eligibility.
 
+## Max Output Tokens 256 Three-Prompt Hidden Comparison - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_three_prompt_compare/20260526_211856/`
+
+The hidden 256 comparison passed all three prompts once each with sanitized
+quality `natural_japanese`, `useful_code`, and `natural_japanese`. Safety flags
+remained false for fallback, timeout, fresh crash, selected-path persistence,
+standard route connection, normal UI route connection, assistant-list
+insertion, DB, TTS, Markdown, and streaming.
+
+H1 impact: no change. The transient card, metadata mapper, PreviewHost, and
+Compose adapter remain pinned to fresh 128-token metadata. The 256 artifact is
+only evidence for future hidden token expansion; it must not be used as an H1
+display input until the H1 gate is explicitly revised.
+
 ## Max Output Tokens 256 Compare Note - 2026-05-26
 
 Phase H1 remains pinned to the adopted `sanitizer_only + max_output_tokens=128`

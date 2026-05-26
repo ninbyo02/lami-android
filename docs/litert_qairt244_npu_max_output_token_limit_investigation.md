@@ -88,6 +88,40 @@ Decision: 256 may proceed to a separately approved three-prompt hidden
 comparison. Do not promote 256 to the H1 display baseline yet; 128 remains the
 adopted baseline.
 
+## Max256 Three-Prompt Hidden Comparison - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_three_prompt_compare/20260526_211856/`
+
+The approved hidden experimental three-prompt comparison ran exactly once per
+prompt with `sanitizer_only + max_output_tokens=256`.
+
+Results:
+
+- `こんにちは`: `success`, `quality_classification=natural_japanese`,
+  `decode_ms=884`, `elapsed_ms=3000`.
+- `Pythonで簡単な電卓コードを書いて`: `success`,
+  `quality_classification=useful_code`, `decode_ms=7351`,
+  `elapsed_ms=9000`.
+- `ラミィのNPU推論について短く説明して`: `success`,
+  `quality_classification=natural_japanese`, `decode_ms=4110`,
+  `elapsed_ms=6000`.
+
+All rows recorded `RunDecode` reached, `npu_backend=NPU`,
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`,
+`fallback_used=false`, `timeout=false`, `fresh_crash=false`,
+`selected_path_npu_saved=false`, `standard_route_connected=false`,
+`normal_ui_route_connected=false`, and DB/TTS/Markdown/streaming false.
+
+Memory did not remain high after the 10-second cool-down:
+`TOTAL PSS=224993 KB` and `Native Heap=34500 KB`.
+
+Decision: 256 is now a hidden experimental baseline candidate, but it is not
+adopted for H1 or normal UI. The Python/code prompt is useful, though display
+formatting and indentation should be reviewed before any UI-facing baseline
+change. Proceed to 512 only through a separate guard/build/preflight and a
+single-prompt run first; do not jump to 1024, 2048, or 4096.
+
 ## Finding
 
 The observed `max_output_tokens=256` rollback is caused by the custom qairt244

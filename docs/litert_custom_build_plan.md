@@ -45,6 +45,27 @@ The single prompt `こんにちは` succeeded at `max_output_tokens=256`.
 No source `app/src/main/jniLibs` file was changed and no rebuilt binary is
 tracked by Git.
 
+## QAIRT244 Max256 Three-Prompt Hidden Comparison - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_three_prompt_compare/20260526_211856/`
+
+Using the same staged max256 JNI artifact, the hidden receiver completed the
+three approved prompts once each at `max_output_tokens=256`. All three reached
+`RunDecode` and retained `QNN_HTP_V79_FastRPC_native_diag` evidence.
+
+Results:
+
+- `こんにちは`: `natural_japanese`, `decode_ms=884`.
+- `Pythonで簡単な電卓コードを書いて`: `useful_code`,
+  `decode_ms=7351`.
+- `ラミィのNPU推論について短く説明して`: `natural_japanese`,
+  `decode_ms=4110`.
+
+No source `app/src/main/jniLibs` file was changed and no rebuilt binary is
+tracked by Git. 256 is a hidden expansion candidate only; 512 requires a new
+guard/build/preflight and one prompt before any three-prompt comparison.
+
 ## QAIRT244 Native Max Output Token Limit Investigation - 2026-05-26
 
 Artifact:

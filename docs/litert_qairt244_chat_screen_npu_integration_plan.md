@@ -30,6 +30,22 @@ streaming, or selected-path persistence is connected.
 Decision: proceed only to a 256 three-prompt hidden comparison. Do not promote
 256 to normal ChatScreen or H1.
 
+## Max256 Three-Prompt Hidden Comparison - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_three_prompt_compare/20260526_211856/`
+
+The hidden receiver ran the three approved prompts once each at
+`max_output_tokens=256`. All three succeeded with QNN/HTP/FastRPC evidence,
+no fallback, no timeout, no fresh crash, no selected-path persistence, and no
+DB/TTS/Markdown/streaming ingress. The code prompt was classified as
+`useful_code`; the two Japanese prompts were classified as `natural_japanese`.
+
+ChatScreen plan impact: none. This is hidden experimental evidence only. Do
+not insert the 256 output into the assistant message list, do not persist it to
+DB, do not route it through TTS/Markdown/streaming, and do not treat it as a
+normal ChatScreen baseline.
+
 ## Native Max Output Token Limit Investigation - 2026-05-26
 
 The 128-token ceiling is currently a custom qairt244 native editable-prompt
