@@ -46,6 +46,13 @@ not insert the 256 output into the assistant message list, do not persist it to
 DB, do not route it through TTS/Markdown/streaming, and do not treat it as a
 normal ChatScreen baseline.
 
+Result commit decision: 256 is fixed only as a hidden experimental baseline
+candidate. Normal ChatScreen remains disconnected. Before considering 512, the
+next phase must produce a separate native guard/build/preflight, then one
+single-prompt hidden run with `RunDecode` reached, QNN evidence, no timeout, no
+fresh crash, no fallback, memory-after-10s recovery, and sanitizer quality
+review.
+
 ## Native Max Output Token Limit Investigation - 2026-05-26
 
 The 128-token ceiling is currently a custom qairt244 native editable-prompt

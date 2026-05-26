@@ -46,6 +46,12 @@ Compose adapter remain pinned to fresh 128-token metadata. The 256 artifact is
 only evidence for future hidden token expansion; it must not be used as an H1
 display input until the H1 gate is explicitly revised.
 
+Result commit decision: 256 is a hidden experimental baseline candidate, not an
+H1 display baseline. The Python code prompt passed as `useful_code`, but
+indentation/display formatting must be reviewed before any UI-facing baseline
+change. The H1 card must continue to reject non-128 metadata unless a later
+H1-specific gate revision explicitly changes that rule.
+
 ## Max Output Tokens 256 Compare Note - 2026-05-26
 
 Phase H1 remains pinned to the adopted `sanitizer_only + max_output_tokens=128`

@@ -66,6 +66,12 @@ No source `app/src/main/jniLibs` file was changed and no rebuilt binary is
 tracked by Git. 256 is a hidden expansion candidate only; 512 requires a new
 guard/build/preflight and one prompt before any three-prompt comparison.
 
+Result commit decision: record the current max256 build as sufficient for a
+hidden experimental baseline candidate, not for H1 or normal UI promotion. The
+next custom-build action for token expansion is a 512 guard/build/preflight
+phase followed by a single-prompt hidden safety run; do not jump directly to
+1024, 2048, or 4096.
+
 ## QAIRT244 Native Max Output Token Limit Investigation - 2026-05-26
 
 Artifact:

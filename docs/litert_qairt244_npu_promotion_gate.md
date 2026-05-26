@@ -81,6 +81,12 @@ further token expansion. It is not adopted into the H1 display baseline or
 normal UI gate. H1 remains pinned to `sanitizer_only + max_output_tokens=128`
 until a separate UI-facing decision is made.
 
+Result commit decision: 256 is fixed as a hidden experimental baseline
+candidate only. The promotion gate still rejects H1 or normal UI use of 256
+until a later explicit gate revision. The next expansion target is 512 and
+requires a separate native guard/build/preflight and single-prompt safety run
+before any three-prompt comparison.
+
 ## Max Output Token Limit Investigation - 2026-05-26
 
 Artifact:

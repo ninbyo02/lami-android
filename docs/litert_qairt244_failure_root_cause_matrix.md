@@ -39,6 +39,12 @@ classified as `natural_japanese`; the Python calculator prompt classified as
 `useful_code`. Memory after 10 seconds dropped to `TOTAL PSS=224993 KB` and
 `Native Heap=34500 KB`, so no retained-memory rollback was recorded.
 
+Result commit decision: classify this as a successful hidden experimental
+baseline-candidate result, not a UI promotion. H1 and normal ChatScreen remain
+on the existing 128-token gate. The Python code response is useful but requires
+separate indentation/display-format review before any UI-facing baseline
+change.
+
 ## 2026-05-26: native max output token limit source
 
 | Area | Evidence | Root cause | Decision |

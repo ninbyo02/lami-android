@@ -122,6 +122,12 @@ formatting and indentation should be reviewed before any UI-facing baseline
 change. Proceed to 512 only through a separate guard/build/preflight and a
 single-prompt run first; do not jump to 1024, 2048, or 4096.
 
+Result commit decision: keep 128 as the adopted H1/normal-UI-safe baseline and
+record 256 as a hidden experimental baseline candidate only. Any 512 work must
+start with native guard/build/preflight evidence, then one single prompt with
+`RunDecode` reached, QNN evidence, no timeout, no fresh crash, no fallback,
+memory-after-10s recovery, and sanitizer quality review.
+
 ## Finding
 
 The observed `max_output_tokens=256` rollback is caused by the custom qairt244

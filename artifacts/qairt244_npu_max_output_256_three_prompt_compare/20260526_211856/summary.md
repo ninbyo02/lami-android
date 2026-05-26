@@ -37,3 +37,18 @@ Memory after the final 10-second cool-down was not retained high:
 - The runner does not connect standard route, normal ChatScreen assistant list, DB, TTS, Markdown, or streaming.
 - The runner does not perform retry, fallback, or multiple unbounded generations.
 - Adoption requires QNN/HTP/FastRPC evidence, `fallback_used=false`, `timeout=false`, `fresh_crash=false`, artifact-free sanitized output, and no retained memory anomaly after 10 seconds.
+
+## Decision
+
+`max_output_tokens=256` is fixed as a hidden experimental baseline candidate
+based on this artifact. The adopted H1 and normal UI display baseline remains
+`sanitizer_only + max_output_tokens=128`.
+
+The Python code prompt is classified as `useful_code`, but UI baseline
+promotion still needs a separate indentation/display-format review before any
+H1 or normal ChatScreen use.
+
+The next token expansion is 512 in a separate phase only. 512 requires a new
+native guard/build/preflight, a single-prompt run first, `RunDecode` reached,
+QNN evidence, `timeout=false`, `fresh_crash=false`, `fallback_used=false`,
+memory-after-10s recovery, and sanitizer quality review.
