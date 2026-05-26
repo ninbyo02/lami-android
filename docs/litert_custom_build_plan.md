@@ -1,5 +1,28 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Single Runtime Verification - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_single_prompt/20260527_002303/`
+
+A temporary standardDebug APK was assembled with the staged max512
+`liblitertlm_jni.so` from
+`artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/`
+for device verification only. The APK-contained native diagnostics reached
+`RunDecode` with `SetMaxOutputTokens(512)`,
+`native_max_output_tokens_limit=512`, and marker
+`qairt244_editable_prompt_max512_v1`.
+
+The single prompt `こんにちは` succeeded at `max_output_tokens=512` with
+`decode_ms=822`, `elapsed_ms=3000`, `fallback_used=false`, `timeout=false`,
+`fresh_crash=false`, and QNN/HTP/FastRPC evidence. Sanitized output was
+natural Japanese. No source `app/src/main/jniLibs` file was changed and no
+rebuilt binary is tracked by Git.
+
+Decision: keep 128 as the H1/display baseline and 256 as the hidden
+experimental baseline candidate. The 512 run is single-prompt evidence only
+and may proceed to a separately approved three-prompt hidden comparison.
+
 ## QAIRT244 Max512 Guard-Only Preflight - 2026-05-26
 
 Artifacts:

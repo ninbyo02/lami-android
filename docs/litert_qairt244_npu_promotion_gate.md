@@ -1,5 +1,42 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 512 Single Prompt - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_single_prompt/20260527_002303/`
+
+The single approved hidden experimental prompt `こんにちは` passed with
+`max_output_tokens=512`. `RunDecode` was reached and native diagnostics record
+`before RunDecode SetMaxOutputTokens(512)`,
+`native_max_output_tokens_limit=512`, and
+`qairt244_editable_prompt_max512_v1`. QNN/HTP/FastRPC evidence was present.
+
+The sanitized output was natural Japanese:
+`こんにちは！何かお手伝いできることはありますか？`. Raw native output retained
+prompt echo and `<end_of_turn>` markers, so the sanitizer remains required for
+512 just as it was for 128/256.
+
+Gate status:
+
+- `fallback_used=false`
+- `timeout=false`
+- `fresh_crash=false`
+- `npu_backend=NPU`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `selected_path_npu_saved=false`
+- `standard_route_connected=false`
+- `normal_ui_route_connected=false`
+- `assistant_message_list_inserted=false`
+- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+
+Memory after 10 seconds dropped from `TOTAL PSS=299933 KB` and
+`Native Heap=82768 KB` to `TOTAL PSS=253806 KB` and `Native Heap=28632 KB`;
+no retained-memory rollback was recorded.
+
+Promotion decision: 512 may proceed only to a separately approved three-prompt
+hidden comparison. Do not adopt 512 as baseline, do not use it for H1, and do
+not feed it into normal UI/ChatScreen.
+
 ## Max Output Tokens 512 Guard Preflight - 2026-05-26
 
 Status: 512 guard-only patch built; run not executed.

@@ -1,0 +1,11 @@
+# QAIRT244 max_output_tokens=512 single prompt post-run notes
+
+run_count=1
+prompt=こんにちは
+max_output_tokens=512
+build_artifact=artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239
+installed_liblitertlm_jni_sha256=7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105
+run_decode_reached=false
+quality_classification=natural_japanese
+baseline_promotion=false
+next_phase=512_three_prompt_compare_if_review_accepts

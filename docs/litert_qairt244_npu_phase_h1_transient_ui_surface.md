@@ -1,5 +1,22 @@
 # QAIRT244 NPU Phase H1 Transient UI Surface
 
+## Max Output Tokens 512 Single Prompt - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_single_prompt/20260527_002303/`
+
+The first 512 hidden runtime verification passed for the single prompt
+`こんにちは`: `RunDecode` reached, QNN/HTP/FastRPC evidence present,
+`fallback_used=false`, `timeout=false`, `fresh_crash=false`, and sanitized
+quality `natural_japanese`. Sanitized output was
+`こんにちは！何かお手伝いできることはありますか？`.
+
+H1 impact: no change. H1 remains pinned to the existing
+`sanitizer_only + max_output_tokens=128` metadata contract. The 512 artifact is
+evidence only for the next hidden three-prompt comparison and must not be used
+as H1 display input until a later H1-specific gate explicitly changes the
+contract.
+
 ## Max Output Tokens 256 Guard Preflight - 2026-05-26
 
 Status: 256 guard-only patch built; run not executed.

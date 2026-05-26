@@ -9,7 +9,7 @@ interface DevOnlyNpuRouteAdapter {
 
     companion object {
         const val DEFAULT_MAX_OUTPUT_TOKENS = 128
-        const val QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT = 256
+        const val QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT = 512
         const val DEFAULT_TIMEOUT_MS = 30_000L
     }
 }

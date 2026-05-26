@@ -1,5 +1,21 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Single Hidden Prompt - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_single_prompt/20260527_002303/`
+
+The hidden standardDebug receiver executed one prompt, `こんにちは`, with
+`max_output_tokens=512`. It succeeded with `RunDecode` reached,
+`npu_backend=NPU`, QNN/HTP/FastRPC evidence, and sanitized natural Japanese
+output. The raw output still contained prompt echo and `<end_of_turn>` markers;
+sanitizer removed them before display-quality classification.
+
+Decision: proceed only to a 512 three-prompt hidden comparison after separate
+approval. Do not promote 512 to normal ChatScreen or H1. Do not insert the
+output into the assistant message list, persist it to DB, route it through
+TTS/Markdown/streaming, or save selectedPath as NPU.
+
 ## Max256 Guard-Only Patch Staged - 2026-05-26
 
 Artifacts:

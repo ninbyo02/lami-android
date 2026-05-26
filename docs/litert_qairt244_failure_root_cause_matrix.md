@@ -1,5 +1,21 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: max_output_tokens=512 single prompt passes
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 runtime | `artifacts/qairt244_npu_max_output_512_single_prompt/20260527_002303/` | The max512 guard-only patch allows one approved prompt through to `RunDecode` with `SetMaxOutputTokens(512)` and QNN/HTP/FastRPC evidence. Raw output still needs sanitizer for prompt echo and turn markers. | Allow a separately approved 512 three-prompt hidden comparison; do not promote 512 to H1 or normal UI. |
+
+Safety notes: `fallback_used=false`, `timeout=false`, `fresh_crash=false`,
+`npu_backend=NPU`, QNN/HTP/FastRPC evidence present, selected-path persistence
+false, standard/normal UI route connection false, assistant-list insertion
+false, and DB/TTS/Markdown/streaming false. Sanitized output was natural
+Japanese: `こんにちは！何かお手伝いできることはありますか？`.
+
+Memory after 10 seconds dropped from `TOTAL PSS=299933 KB` and
+`Native Heap=82768 KB` to `TOTAL PSS=253806 KB` and `Native Heap=28632 KB`, so
+no retained-memory rollback was recorded.
+
 ## 2026-05-26: max_output_tokens=512 guard-only patch preflighted
 
 | Area | Evidence | Root cause | Decision |

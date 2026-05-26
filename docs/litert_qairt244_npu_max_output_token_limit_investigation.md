@@ -9,6 +9,35 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Single Prompt Verification - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_single_prompt/20260527_002303/`
+
+The approved single hidden prompt `こんにちは` ran once at
+`max_output_tokens=512` with the staged max512 native artifact. `RunDecode` was
+reached with `before RunDecode SetMaxOutputTokens(512)`,
+`native_max_output_tokens_limit=512`, and
+`max_output_tokens_limit_marker=qairt244_editable_prompt_max512_v1` in native
+diagnostics.
+
+Result: success. The raw native output still contained prompt echo and
+`<end_of_turn>` markers, but sanitizer removed both and produced
+`こんにちは！何かお手伝いできることはありますか？`, classified as
+`natural_japanese` in the case summary. `fallback_used=false`,
+`timeout=false`, `fresh_crash=false`, `npu_backend=NPU`, and
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`.
+
+Memory did not show a retained high-water rollback condition:
+`after TOTAL PSS=299933 KB / Native Heap=82768 KB`, then
+`after_10s TOTAL PSS=253806 KB / Native Heap=28632 KB`. Side-effect flags
+remained false for selected-path persistence, standard route, normal UI route,
+assistant-list insertion, DB, TTS, Markdown, and streaming.
+
+Decision: 512 may proceed to a separately approved three-prompt hidden
+comparison. Do not promote 512 to the hidden baseline, H1 display baseline, or
+normal ChatScreen.
+
 ## Max512 Guard Preflight Update - 2026-05-26
 
 Status: 512 guard-only patch built; run not executed.
