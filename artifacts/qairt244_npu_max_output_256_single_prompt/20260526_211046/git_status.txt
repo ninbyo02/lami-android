@@ -1,0 +1,1 @@
+ M scripts/run_qairt244_npu_max_output_256_quality_compare.sh

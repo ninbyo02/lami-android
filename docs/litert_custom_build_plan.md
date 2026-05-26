@@ -28,6 +28,23 @@ intended for Git tracking. The lami runner preflight passed against the build
 artifact, but NPU generation, `Engine.initialize`, and `RunDecode` were not
 executed in this phase.
 
+## QAIRT244 Max256 Single Runtime Verification - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_single_prompt/20260526_211046/`
+
+A temporary standardDebug APK was assembled with the staged max256
+`liblitertlm_jni.so` from the build artifact for device verification only. The
+APK-contained `liblitertlm_jni.so` sha256 matched:
+
+```text
+3767332f97ffee57b635fc13e2741714c994f7a2cc94d0fde5d4fbbce9c731ba
+```
+
+The single prompt `こんにちは` succeeded at `max_output_tokens=256`.
+No source `app/src/main/jniLibs` file was changed and no rebuilt binary is
+tracked by Git.
+
 ## QAIRT244 Native Max Output Token Limit Investigation - 2026-05-26
 
 Artifact:

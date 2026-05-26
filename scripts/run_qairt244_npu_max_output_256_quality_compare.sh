@@ -16,6 +16,8 @@ MAX_OUTPUT_TOKENS=256
 MAX256_GUARD_MARKER="qairt244_editable_prompt_max256_v1"
 NATIVE_ARTIFACT="${QAIRT244_MAX256_NATIVE_ARTIFACT:-}"
 PREFLIGHT_ONLY=false
+SINGLE_PROMPT_ONLY=false
+SINGLE_PROMPT="こんにちは"
 
 PROMPTS=(
   "こんにちは"
@@ -36,10 +38,19 @@ while [ $# -gt 0 ]; do
       PREFLIGHT_ONLY=true
       shift
       ;;
+    --single-prompt-only)
+      SINGLE_PROMPT_ONLY=true
+      shift
+      ;;
+    --prompt)
+      SINGLE_PROMPT="${2:-}"
+      shift 2
+      ;;
     --help|-h)
       cat <<'EOF'
 Usage:
   scripts/run_qairt244_npu_max_output_256_quality_compare.sh --preflight-only [--artifact <native-build-artifact>]
+  scripts/run_qairt244_npu_max_output_256_quality_compare.sh --single-prompt-only --artifact <native-build-artifact> [--prompt <prompt>] [--device <serial>] [--timeout <seconds>] [--template <mode>]
   scripts/run_qairt244_npu_max_output_256_quality_compare.sh --artifact <native-build-artifact> [--device <serial>] [--timeout <seconds>] [--template <mode>]
 
 Runs the standardDebug hidden QAIRT244 SM8750 NPU route once per prompt with
@@ -55,6 +66,9 @@ Default execution is refused until static native artifact evidence shows:
 
 --preflight-only writes artifacts/qairt244_npu_max256_guard_preflight/<timestamp>/
 and exits before device selection, app launch, NPU generation, or RunDecode.
+
+--single-prompt-only writes artifacts/qairt244_npu_max_output_256_single_prompt/<timestamp>/
+and runs exactly one prompt. The default prompt is こんにちは.
 
 Safety constraints:
   - max_output_tokens is capped at 256 by this runner.
@@ -74,6 +88,14 @@ fi
 if [ "$MAX_OUTPUT_TOKENS" -gt 256 ]; then
   printf 'ERROR: max_output_tokens must be <=256\n' >&2
   exit 2
+fi
+if [ "$SINGLE_PROMPT_ONLY" = true ]; then
+  if [ -z "$SINGLE_PROMPT" ]; then
+    printf 'ERROR: --prompt must not be empty\n' >&2
+    exit 2
+  fi
+  OUT_DIR="$ROOT_DIR/artifacts/qairt244_npu_max_output_256_single_prompt/$TIMESTAMP"
+  PROMPTS=("$SINGLE_PROMPT")
 fi
 
 cd "$ROOT_DIR" || exit 1
@@ -724,7 +746,11 @@ write_stale_tombstone_note() {
 write_summary() {
   local overall_status="$1"
   {
-    printf '# QAIRT244 NPU max_output_tokens 256 quality/safety compare\n\n'
+    if [ "$SINGLE_PROMPT_ONLY" = true ]; then
+      printf '# QAIRT244 NPU max_output_tokens 256 single prompt verification\n\n'
+    else
+      printf '# QAIRT244 NPU max_output_tokens 256 quality/safety compare\n\n'
+    fi
     printf -- '- artifact: `%s`\n' "${OUT_DIR#$ROOT_DIR/}"
     printf -- '- baseline_reference: `%s`\n' "${BASELINE_DIR#$ROOT_DIR/}"
     printf -- '- device: `%s`\n' "${DEVICE_SERIAL:-unselected}"
@@ -733,12 +759,16 @@ write_summary() {
     printf -- '- timeout_seconds_per_run: `%s`\n' "$TIMEOUT_SECONDS"
     printf -- '- template_mode: `%s`\n' "$TEMPLATE_MODE"
     printf -- '- executable_case: `sanitizer_only + max_output_tokens=256`\n'
-    printf -- '- run_count_policy: `one run per prompt only`\n'
+    if [ "$SINGLE_PROMPT_ONLY" = true ]; then
+      printf -- '- run_count_policy: `single prompt, one run only`\n'
+    else
+      printf -- '- run_count_policy: `one run per prompt only`\n'
+    fi
     printf -- '- overall_status: `%s`\n' "$overall_status"
     printf '\n## Prompts\n\n'
-    printf -- '- `こんにちは`\n'
-    printf -- '- `Pythonで簡単な電卓コードを書いて`\n'
-    printf -- '- `ラミィのNPU推論について短く説明して`\n'
+    for prompt in "${PROMPTS[@]}"; do
+      printf -- '- `%s`\n' "$prompt"
+    done
     printf '\n## Comparison\n\n'
     cat "$OUT_DIR/comparison_table.md" 2>/dev/null || true
     printf '\n## Safety Notes\n\n'

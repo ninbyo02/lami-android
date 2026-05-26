@@ -32,6 +32,29 @@ sha256=3767332f97ffee57b635fc13e2741714c994f7a2cc94d0fde5d4fbbce9c731ba
 Promotion decision: still no normal UI or H1 baseline change. 256 may proceed
 only to a separately approved hidden experimental single-run phase.
 
+## Max Output Tokens 256 Single Prompt - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_single_prompt/20260526_211046/`
+
+The single approved hidden experimental prompt `こんにちは` passed with
+`max_output_tokens=256`. `RunDecode` was reached, QNN/HTP/FastRPC evidence was
+present, and the sanitized output was natural Japanese with no template
+artifact remaining after sanitize.
+
+Gate status:
+
+- `fallback_used=false`
+- `timeout=false`
+- `fresh_crash=false`
+- `selected_path_npu_saved=false`
+- `standard_route_connected=false`
+- `normal_ui_route_connected=false`
+- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+
+Promotion decision: allow a next-phase 256 three-prompt hidden comparison.
+Do not adopt 256 as baseline and do not feed 256 output into normal UI/H1.
+
 ## Max Output Token Limit Investigation - 2026-05-26
 
 Artifact:

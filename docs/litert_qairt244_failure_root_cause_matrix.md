@@ -17,6 +17,17 @@ The staged patch does not validate model/runtime memory behavior at 256. It
 only removes the custom native guard blocker and records static evidence needed
 before the next hidden experimental run.
 
+## 2026-05-26: max_output_tokens=256 single prompt passes
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 256 runtime | `artifacts/qairt244_npu_max_output_256_single_prompt/20260526_211046/` | The prior native guard blocker is removed; one 256 decode reached `RunDecode` and returned safe sanitized Japanese. | Allow next 256 three-prompt hidden comparison; do not promote 256 baseline yet. |
+
+Safety notes: `fallback_used=false`, `timeout=false`, `fresh_crash=false`,
+QNN/HTP/FastRPC evidence present, selected-path persistence false, and
+DB/TTS/Markdown/streaming false. Raw output retained template artifacts, but
+sanitizer removed them for display.
+
 ## 2026-05-26: native max output token limit source
 
 | Area | Evidence | Root cause | Decision |

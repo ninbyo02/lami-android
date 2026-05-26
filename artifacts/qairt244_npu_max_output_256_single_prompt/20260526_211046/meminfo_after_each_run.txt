@@ -1,0 +1,76 @@
+
+===== after_konnichiwa =====
+Applications Memory Usage (in Kilobytes):
+Uptime: 1136943359 Realtime: 1457848296
+
+** MEMINFO in pid 25954 [io.github.ninbyo02.lami] **
+                   Pss  Private  Private  SwapPss      Rss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------   ------
+  Native Heap    83571    83496       16       23    84572    72128    22790    45075
+  Dalvik Heap    26714    26700        0       68    27256   105631    26408    79223
+ Dalvik Other    13333     7400        0        0    19520
+        Stack     3008     3008        0        0     3016
+       Ashmem       12        0        0        0      840
+      Gfx dev     1384     1384        0        0     1388
+    Other dev      191        0      188        0     1240
+     .so mmap    27793     1864    24580        3    67684
+    .jar mmap     1653        0      164        0    50992
+    .apk mmap    72737    72580        0        0    74356
+    .ttf mmap       79        0        0        0     1004
+    .dex mmap       17       12        0        0      716
+    .oat mmap       16        0        0        0     1952
+    .art mmap     7683     7332       40       47    17388
+   Other mmap     3910       68       48        0    14284
+   EGL mtrack    51408    51408        0        0    51408
+    GL mtrack      384      384        0        0      384
+      Unknown     4080     2692     1116       34     8624
+        TOTAL   298148   258328    26152      175   426624   177759    49198   124298
+
+ App Summary
+                       Pss(KB)                        Rss(KB)
+                        ------                         ------
+           Java Heap:    34072                          44644
+         Native Heap:    83496                          84572
+                Code:    99340                         208704
+               Stack:     3008                           3016
+            Graphics:    53176                          53180
+       Private Other:    11388
+              System:    13668
+             Unknown:                                   32508
+
+           TOTAL PSS:   298148            TOTAL RSS:   426624       TOTAL SWAP PSS:      175
+
+ Objects
+               Views:       10         ViewRootImpl:        1
+         AppContexts:        5           Activities:        1
+              Assets:       43        AssetManagers:        0
+       Local Binders:       29        Proxy Binders:       67
+       Parcel memory:      135         Parcel count:      997
+    Death Recipients:        2             WebViews:        0
+
+ Native Allocations
+                         Count                       Total(kB)
+                        ------                         ------
+    Other (malloced):      956                             89
+ Other (nonmalloced):       93                             68
+   Bitmap (malloced):       17                            403
+
+ SQL
+         MEMORY_USED:      764
+  PAGECACHE_OVERFLOW:      410          MALLOC_SIZE:       46
+
+ DATABASES
+      pgsz     dbsz   Lookaside(b) cache hits cache misses cache size  Dbname
+PER CONNECTION STATS
+         4      280             93    12    54     9  /data/user/0/io.github.ninbyo02.lami/databases/chat-database
+         4        8                    0     0     0    (attached) temp
+         4      280             39     1    17     2  /data/user/0/io.github.ninbyo02.lami/databases/chat-database (2)
+         4      280             84    16    24     7  /data/user/0/io.github.ninbyo02.lami/databases/chat-database (1)
+         4       32             39     5    33     4  /data/user/0/io.github.ninbyo02.lami/databases/app_database
+         4        8                    0     0     0    (attached) temp
+         4       32             50    10    22     5  /data/user/0/io.github.ninbyo02.lami/databases/app_database (1)
+POOL STATS
+     cache hits  cache misses    cache size  Dbname
+             25            97           122  /data/user/0/io.github.ninbyo02.lami/databases/chat-database
+             15            59            74  /data/user/0/io.github.ninbyo02.lami/databases/app_database

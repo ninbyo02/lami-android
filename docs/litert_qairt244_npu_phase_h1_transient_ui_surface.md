@@ -19,6 +19,17 @@ H1 remains pinned to `sanitizer_only + max_output_tokens=128` until a separate
 256 runtime artifact passes the normal quality, memory, crash, fallback, and
 NPU evidence gates.
 
+## Max Output Tokens 256 Single Prompt - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_single_prompt/20260526_211046/`
+
+The first single-prompt 256 hidden runtime verification passed for
+`こんにちは`, but H1 remains pinned to the 128 baseline. The sanitized output was
+safe natural Japanese, while raw output still contained turn artifacts that
+were removed by sanitizer. This is enough to proceed to a 256 three-prompt
+hidden comparison, not enough to change H1 display eligibility.
+
 ## Max Output Tokens 256 Compare Note - 2026-05-26
 
 Phase H1 remains pinned to the adopted `sanitizer_only + max_output_tokens=128`

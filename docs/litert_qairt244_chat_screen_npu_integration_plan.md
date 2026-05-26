@@ -16,6 +16,20 @@ message list, DB, TTS, Markdown, streaming, selected-path persistence, NPU
 generation, `Engine.initialize`, or `RunDecode` was executed or connected in
 this phase.
 
+## Max256 Single Hidden Prompt - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_single_prompt/20260526_211046/`
+
+The hidden standardDebug receiver executed one prompt, `こんにちは`, with
+`max_output_tokens=256`. It succeeded with `RunDecode` reached and sanitized
+natural Japanese output. This remains hidden experimental only: no normal
+ChatScreen route, assistant message list insertion, DB, TTS, Markdown,
+streaming, or selected-path persistence is connected.
+
+Decision: proceed only to a 256 three-prompt hidden comparison. Do not promote
+256 to normal ChatScreen or H1.
+
 ## Native Max Output Token Limit Investigation - 2026-05-26
 
 The 128-token ceiling is currently a custom qairt244 native editable-prompt

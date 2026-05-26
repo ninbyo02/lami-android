@@ -45,6 +45,49 @@ the next phase still needs separate approval for a single hidden experimental
 256 prompt run with timeout, fresh-crash, fallback, QNN evidence, memory, and
 sanitizer quality gates.
 
+## Max256 Single Prompt Verification - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_single_prompt/20260526_211046/`
+
+Result: the first hidden experimental `max_output_tokens=256` runtime
+verification passed for exactly one prompt, `こんにちは`.
+
+Key evidence:
+
+- `result=success`
+- `max_output_tokens=256`
+- `run_decode_reached=true`
+- native diag reached
+  `before RunDecode SetMaxOutputTokens(256) native_max_output_tokens_limit=256`
+- `max_output_tokens_limit_marker=qairt244_editable_prompt_max256_v1`
+- `npu_backend=NPU`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fallback_used=false`
+- `timeout=false`
+- `fresh_crash=false`
+- `selected_path_npu_saved=false`
+- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+- sanitized output quality: `natural_japanese`
+- sanitized output:
+  `こんにちは！何かお手伝いできることはありますか？`
+
+Raw output still contains Gemma turn artifacts and prompt echo, but sanitizer
+removed them for display (`removed_template_token_count=2`,
+`removed_prompt_echo=true`). This keeps the existing gate interpretation:
+raw artifacts are tolerated only when sanitized output is safe.
+
+Memory evidence:
+
+```text
+after run TOTAL PSS=298148 KB
+after 10s TOTAL PSS=288007 KB
+```
+
+Decision: 256 may proceed to a separately approved three-prompt hidden
+comparison. Do not promote 256 to the H1 display baseline yet; 128 remains the
+adopted baseline.
+
 ## Finding
 
 The observed `max_output_tokens=256` rollback is caused by the custom qairt244
