@@ -1,0 +1,10 @@
+case_id=max_output_tokens_256
+prompt=こんにちは
+requested_max_output_tokens=256
+template_mode=gemma_it_like
+timeout_seconds=30
+sanitizer_mode=sanitizer_only
+db=false
+tts=false
+markdown=false
+streaming=false

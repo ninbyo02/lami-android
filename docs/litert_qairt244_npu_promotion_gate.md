@@ -1,5 +1,32 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 256 Compare - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/`
+
+Result: keep `sanitizer_only + max_output_tokens=128` as the hidden
+experimental display baseline.
+
+The compare-only Java gate accepted the explicit
+`allow_max_output_tokens_compare=true` request, but the lower native editable
+prompt entrypoint rejected `max_output_tokens=256` with
+`invalid_max_output_tokens value=256 native_max_output_tokens_limit=128`.
+All three requested prompts therefore returned empty sanitized output and
+`quality_classification=empty_after_sanitize`.
+
+Safety invariants remained intact: `npu_backend=NPU`,
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`,
+`fallback_used=false`, `timeout=false`, `fresh_crash=false`,
+`selected_path_npu_saved=false`, `standard_route_connected=false`,
+`normal_ui_route_connected=false`, `db=false`, `tts=false`, `markdown=false`,
+and `streaming=false`.
+
+Promotion blocker: `max_output_tokens=256` is rollback-only until native
+`native_max_output_tokens_limit` is deliberately raised and separately gated.
+H1 UI promotion remains blocked from using 256; H1 metadata/card contracts
+continue to require `max_output_tokens=128`.
+
 Date: 2026-05-25
 
 Scope: documentation-only planning for the hidden experimental qairt244 SM8750

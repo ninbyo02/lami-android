@@ -1,5 +1,27 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max Output Tokens 256 Hidden Compare - 2026-05-26
+
+The hidden experimental 256-token comparison was run in
+`artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/`.
+It does not change the ChatScreen integration plan.
+
+Outcome:
+
+- requested `max_output_tokens=256`
+- native entrypoint reported `native_max_output_tokens_limit=128`
+- native detail: `invalid_max_output_tokens`
+- all three prompts returned `empty_after_sanitize`
+- `fallback_used=false`, `timeout=false`, `fresh_crash=false`
+- `selected_path_npu_saved=false`
+- `standard_route_connected=false`, `normal_ui_route_connected=false`
+- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+
+Decision: do not promote 256 into ChatScreen or H1. Keep
+`sanitizer_only + max_output_tokens=128` as the hidden display baseline.
+Normal ChatScreen, assistant message list, DB, TTS, Markdown, and streaming
+remain disconnected from NPU output.
+
 Date: 2026-05-23
 
 Scope: design only. This document defines the conditions for any future

@@ -1,5 +1,40 @@
 # QAIRT244 NPU Gemma Turn-Stop Quality Compare
 
+## Max Output Tokens 256 Compare - 2026-05-26
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/
+```
+
+Comparison target:
+
+- Reference: `sanitizer_only + max_output_tokens=128` from
+  `artifacts/qairt244_npu_turn_stop_quality_compare/20260525_211810`
+- New run: `sanitizer_only + max_output_tokens=256`, one run each for
+  `こんにちは`, `Pythonで簡単な電卓コードを書いて`, and
+  `ラミィのNPU推論について短く説明して`
+
+Result: `256` is not a baseline candidate.
+
+The hidden compare-only path reached the lower native editable-prompt entrypoint
+with `max_output_tokens=256`, but native diagnostics reported
+`invalid_max_output_tokens value=256 native_max_output_tokens_limit=128`.
+All three 256 attempts returned empty sanitized output:
+
+- `こんにちは`: `empty_after_sanitize`
+- `Pythonで簡単な電卓コードを書いて`: `empty_after_sanitize`
+- `ラミィのNPU推論について短く説明して`: `empty_after_sanitize`
+
+Safety remained intact: QNN/HTP/FastRPC evidence was present,
+`fallback_used=false`, `timeout=false`, `fresh_crash=false`,
+`selected_path_npu_saved=false`, and DB/TTS/Markdown/streaming remained false.
+
+Recommendation: keep `enhanced_sanitizer_only_128` as the hidden experimental
+baseline. Treat 256 as rollback-only until native max-output-token support is
+explicitly raised and revalidated.
+
 Date: 2026-05-25
 
 Scope: hidden experimental display-quality tuning after the ChatScreen DEV-only NPU route success. This pass does not change release or standard behavior, does not touch `app/src/main/jniLibs`, does not persist `selectedPath=npu`, and does not connect DB, TTS, Markdown, or streaming.

@@ -11,6 +11,7 @@ data class DevOnlyNpuRouteGateInput(
     val running: Boolean,
     val maxOutputTokens: Int,
     val allowMaxOutputTokenRange: Boolean = false,
+    val maxOutputTokenRangeLimit: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
 )
 
 enum class DevOnlyNpuRouteGateReason {
@@ -47,7 +48,7 @@ object DevOnlyNpuRouteGate : DevOnlyNpuRouteGateEvaluator {
             !input.nativeEditablePromptSupported -> DevOnlyNpuRouteGateReason.NATIVE_PROMPT_UNSUPPORTED
             input.running -> DevOnlyNpuRouteGateReason.RUN_ALREADY_IN_PROGRESS
             input.allowMaxOutputTokenRange &&
-                input.maxOutputTokens !in 1..DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS ->
+                input.maxOutputTokens !in 1..input.maxOutputTokenRangeLimit ->
                 DevOnlyNpuRouteGateReason.INVALID_MAX_OUTPUT_TOKENS
             !input.allowMaxOutputTokenRange &&
                 input.maxOutputTokens != DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS ->

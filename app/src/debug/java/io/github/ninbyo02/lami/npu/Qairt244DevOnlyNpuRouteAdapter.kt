@@ -16,6 +16,7 @@ import kotlinx.coroutines.withTimeout
 class Qairt244DevOnlyNpuRouteAdapter(
     context: Context,
     private val promptTemplateMode: HiddenQairt244PromptTemplateMode = HiddenQairt244PromptTemplateMode.RAW,
+    private val maxOutputTokenRangeLimit: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
 ) : DevOnlyNpuRouteAdapter {
     private val appContext = context.applicationContext
     private val resultFile: File = appContext.filesDir.resolve(RESULT_FILE_NAME)
@@ -37,7 +38,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         } else {
             NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt)
         },
-        allowMaxOutputTokenRange = false,
+        allowMaxOutputTokenRange = maxOutputTokenRangeLimit != DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
         expectedModelBasename = REQUIRED_MODEL_BASENAME,
         templateMode = if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             HiddenQairt244PromptTemplateMode.RAW
@@ -84,7 +85,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
             )
         }
         val maxOutputTokensValid = if (allowMaxOutputTokenRange) {
-            maxOutputTokens in 1..DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+            maxOutputTokens in 1..maxOutputTokenRangeLimit
         } else {
             maxOutputTokens == DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
         }

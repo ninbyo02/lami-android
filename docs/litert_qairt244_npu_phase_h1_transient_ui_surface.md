@@ -1,5 +1,21 @@
 # QAIRT244 NPU Phase H1 Transient UI Surface
 
+## Max Output Tokens 256 Compare Note - 2026-05-26
+
+Phase H1 remains pinned to the adopted `sanitizer_only + max_output_tokens=128`
+metadata contract.
+
+The 256-token hidden comparison artifact
+`artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/`
+failed before generation because the native editable-prompt entrypoint still
+reports `native_max_output_tokens_limit=128`. The 256 attempts produced empty
+sanitized output and are rollback-only.
+
+Do not feed 256 metadata into the H1 transient card, Compose adapter, or
+PreviewHost. H1 display remains read-only, Diagnostic-only, and valid only for
+fresh 128-token sanitized natural Japanese metadata with DB/TTS/Markdown/
+streaming and selected-path persistence all false.
+
 Date: 2026-05-25
 
 Scope: documentation-only pre-implementation design for the Phase H1 transient

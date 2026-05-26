@@ -1,5 +1,22 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max Output Tokens 256 Hidden Compare - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/`
+
+The Java hidden compare gate was extended only for a controlled 256-token
+diagnostic request, but the native editable-prompt entrypoint still enforces
+`native_max_output_tokens_limit=128`. The 256 request reached native diagnostics
+and was rejected as `invalid_max_output_tokens`, producing empty sanitized
+output for all three prompts.
+
+No native code, JNI libraries, release behavior, standard route selection,
+DB/TTS/Markdown/streaming path, or selected-path persistence was changed. The
+current custom-build recommendation remains unchanged: keep the safe hidden
+baseline at `max_output_tokens=128` unless a future native/API change explicitly
+raises and validates the limit.
+
 Date: 2026-05-16
 
 This plan prepares a custom build path without building or installing any native artifact yet.

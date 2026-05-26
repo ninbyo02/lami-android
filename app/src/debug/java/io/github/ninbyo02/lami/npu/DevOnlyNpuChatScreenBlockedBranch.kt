@@ -138,8 +138,18 @@ object DevOnlyNpuChatScreenBlockedBranch {
         templateMode: String,
         maxOutputTokens: Int,
         requestedMaxOutputTokens: Int = maxOutputTokens,
+        allowMaxOutputTokensCompare: Boolean = false,
     ): String {
         val baselineMaxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+        val compareLimit = DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+        val effectiveMaxOutputTokens = if (
+            allowMaxOutputTokensCompare &&
+            requestedMaxOutputTokens in 1..compareLimit
+        ) {
+            requestedMaxOutputTokens
+        } else {
+            baselineMaxOutputTokens
+        }
         val resolvedTemplateMode = HiddenQairt244PromptTemplateMode.fromStorage(templateMode)
         if (!chatScreenRunInProgress.compareAndSet(false, true)) {
             val promptTemplate = buildPromptTemplate(prompt = prompt, mode = resolvedTemplateMode)
@@ -170,10 +180,11 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 "prompt_input_limit_mode=${NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE}",
                 "prompt_formatting_mode=${promptTemplate.promptFormattingMode}",
                 "requested_max_output_tokens=$requestedMaxOutputTokens",
-                "max_output_tokens=$baselineMaxOutputTokens",
-                "native_max_output_tokens_limit=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
-                "hidden_safety_baseline=enhanced_sanitizer_only_128",
+                "max_output_tokens=$effectiveMaxOutputTokens",
+                "native_max_output_tokens_limit=$effectiveMaxOutputTokens",
+                "hidden_safety_baseline=${if (allowMaxOutputTokensCompare) "compare_only_sanitizer_256" else "enhanced_sanitizer_only_128"}",
                 "lower_token_caps_policy=rollback_only",
+                "max_output_tokens_compare_enabled=$allowMaxOutputTokensCompare",
                 "turn_stop_compare_marker=qairt244_turn_stop_compare_v1",
                 "resolved_model_basename=",
                 "required_sm8750_model_path=false",
@@ -194,8 +205,9 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 context = context,
                 prompt = prompt,
                 templateMode = resolvedTemplateMode,
-                maxOutputTokens = baselineMaxOutputTokens,
+                maxOutputTokens = effectiveMaxOutputTokens,
                 requestedMaxOutputTokens = requestedMaxOutputTokens,
+                allowMaxOutputTokensCompare = allowMaxOutputTokensCompare,
             )
         } finally {
             chatScreenRunInProgress.set(false)
@@ -208,6 +220,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
         templateMode: HiddenQairt244PromptTemplateMode,
         maxOutputTokens: Int,
         requestedMaxOutputTokens: Int,
+        allowMaxOutputTokensCompare: Boolean,
     ): String {
         val appContext = context.applicationContext
         val validation = if (io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
@@ -222,6 +235,11 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 adapter = Qairt244DevOnlyNpuRouteAdapter(
                     context = appContext,
                     promptTemplateMode = templateMode,
+                    maxOutputTokenRangeLimit = if (allowMaxOutputTokensCompare) {
+                        DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+                    } else {
+                        DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+                    },
                 ),
             ).runIfAllowed(
                 gateInput = DevOnlyNpuRouteGateInput(
@@ -234,6 +252,12 @@ object DevOnlyNpuChatScreenBlockedBranch {
                     nativeEditablePromptSupported = true,
                     running = false,
                     maxOutputTokens = maxOutputTokens,
+                    allowMaxOutputTokenRange = allowMaxOutputTokensCompare,
+                    maxOutputTokenRangeLimit = if (allowMaxOutputTokensCompare) {
+                        DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+                    } else {
+                        DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+                    },
                 ),
                 prompt = normalizedPrompt,
                 maxOutputTokens = maxOutputTokens,
@@ -366,9 +390,10 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "route_type=standard_hidden_chat_screen",
             "requested_max_output_tokens=$requestedMaxOutputTokens",
             "max_output_tokens=${result.maxOutputTokens}",
-            "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit)}",
-            "hidden_safety_baseline=enhanced_sanitizer_only_128",
+            "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit.ifBlank { result.maxOutputTokens.toString() })}",
+            "hidden_safety_baseline=${if (allowMaxOutputTokensCompare) "compare_only_sanitizer_256" else "enhanced_sanitizer_only_128"}",
             "lower_token_caps_policy=rollback_only",
+            "max_output_tokens_compare_enabled=$allowMaxOutputTokensCompare",
             "turn_stop_compare_marker=qairt244_turn_stop_compare_v1",
             "native_prompt_input_code_point_limit=${escapeValue(nativeResult["native_prompt_input_code_point_limit"].orEmpty())}",
             "native_prompt_input_limit_mode=${escapeValue(nativeResult["native_prompt_input_limit_mode"].orEmpty())}",

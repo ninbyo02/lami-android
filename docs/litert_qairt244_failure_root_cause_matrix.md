@@ -1,5 +1,19 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-26: max_output_tokens=256 hidden compare rollback
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU output length | `artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/` | Lower native editable-prompt entrypoint reports `invalid_max_output_tokens value=256 native_max_output_tokens_limit=128`. | Keep `sanitizer_only + max_output_tokens=128`; 256 is rollback-only. |
+
+Safety notes: QNN/HTP/FastRPC evidence remained present and
+`fallback_used=false`, `timeout=false`, `fresh_crash=false`,
+`selected_path_npu_saved=false`, `standard_route_connected=false`,
+`normal_ui_route_connected=false`, `db=false`, `tts=false`, `markdown=false`,
+and `streaming=false` were preserved. The failure is not a route fallback or
+fresh crash; it is a native max-token limit rejection that leaves sanitized
+output empty.
+
 Date: 2026-05-21
 
 Scope: coordinator synthesis of the tombstone/runtime mapping, Android QNN path

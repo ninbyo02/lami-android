@@ -28,11 +28,19 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         val enableDeveloperAccess = intent.getBooleanExtra(EXTRA_ENABLE_DEVELOPER_ACCESS, false)
         val enableRoute = intent.getBooleanExtra(EXTRA_ENABLE_ROUTE, false)
         val shouldRun = intent.getBooleanExtra(EXTRA_RUN, true)
+        val allowMaxOutputTokensCompare = intent.getBooleanExtra(EXTRA_ALLOW_MAX_OUTPUT_TOKENS_COMPARE, false)
         val requestedMaxOutputTokens = intent.getIntExtra(
             EXTRA_MAX_OUTPUT_TOKENS,
             DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
         )
-        val baselineMaxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+        val baselineMaxOutputTokens = if (
+            allowMaxOutputTokensCompare &&
+            requestedMaxOutputTokens in 1..DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+        ) {
+            requestedMaxOutputTokens
+        } else {
+            DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+        }
         val requestedTemplateMode = (
             intent.getStringExtra(EXTRA_TEMPLATE)
                 ?: intent.getStringExtra(EXTRA_TEMPLATE_MODE)
@@ -95,6 +103,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 templateMode = templateMode.storageValue,
                 maxOutputTokens = baselineMaxOutputTokens,
                 requestedMaxOutputTokens = requestedMaxOutputTokens,
+                allowMaxOutputTokensCompare = allowMaxOutputTokensCompare,
             ).also { result ->
                 writeDisplayDiagnostics(appContext, result)
                 writeRunnerCleanupState(appContext)
@@ -184,7 +193,8 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 "native_prompt_input_code_point_limit=${values["native_prompt_input_code_point_limit"].orEmpty()}",
                 "native_prompt_input_limit_mode=${values["native_prompt_input_limit_mode"].orEmpty()}",
                 "prompt_formatting_mode=${values["prompt_formatting_mode"].orEmpty()}",
-                "requested_max_output_tokens=${values["requested_max_output_tokens"].orEmpty()}",
+                    "requested_max_output_tokens=${values["requested_max_output_tokens"].orEmpty()}",
+                    "max_output_tokens_compare_enabled=${values["max_output_tokens_compare_enabled"].orEmpty().ifBlank { "false" }}",
                 "raw_native_output=${escapeValue(values["raw_native_output"].orEmpty())}",
                 "raw_native_output_length=${values["raw_native_output_length"].orEmpty()}",
                 "raw_output=${escapeValue(values["raw_output"].orEmpty())}",
@@ -236,6 +246,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         const val EXTRA_ENABLE_DEVELOPER_ACCESS = "enable_developer_access"
         const val EXTRA_ENABLE_ROUTE = "enable_route"
         const val EXTRA_RUN = "run"
+        const val EXTRA_ALLOW_MAX_OUTPUT_TOKENS_COMPARE = "allow_max_output_tokens_compare"
         const val EXTRA_TEMPLATE = "template"
         const val EXTRA_TEMPLATE_MODE = "template_mode"
         const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"

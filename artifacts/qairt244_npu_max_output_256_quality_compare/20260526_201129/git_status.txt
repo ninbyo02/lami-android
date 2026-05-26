@@ -1,0 +1,8 @@
+ M app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt
+ M app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapter.kt
+ M app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGate.kt
+ M app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt
+ M app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt
+ M app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapterTest.kt
+ M app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGateTest.kt
+?? scripts/run_qairt244_npu_max_output_256_quality_compare.sh

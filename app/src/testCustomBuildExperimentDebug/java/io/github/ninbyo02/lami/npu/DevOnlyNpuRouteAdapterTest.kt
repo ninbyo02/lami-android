@@ -13,6 +13,11 @@ class DevOnlyNpuRouteAdapterTest {
     }
 
     @Test
+    fun `compare max output tokens limit is hidden experimental only`() {
+        assertEquals(256, DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT)
+    }
+
+    @Test
     fun `blocked adapter returns not connected result`() = runBlocking {
         val result = BlockedDevOnlyNpuRouteAdapter().runOnce(prompt = "Hello")
 
