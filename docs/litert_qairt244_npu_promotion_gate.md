@@ -1,5 +1,20 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 512 Repeated Code Timeout Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_timeout_root_cause_review/20260527_065926/`
+
+The 512 code prompt remains non-promotable. It can complete once in an isolated
+bounded run, but it timed out when run second in the code-aware three-prompt
+comparison. The timeout happens after native pre-RunDecode evidence and before
+native success, cleanup, receiver completion, or sanitized code output.
+
+Gate decision: 512 is not a hidden baseline candidate. Keep 256 as the hidden
+experimental candidate, keep H1 pinned to 128, and keep 1024/2048/4096 blocked.
+Any future 512 runtime attempt requires separate approval and must explain
+whether it is code-only isolated, order-swapped, or per-run force-stop.
+
 ## Max Output Tokens 512 Code-Aware Rerun - 2026-05-27
 
 Artifact:

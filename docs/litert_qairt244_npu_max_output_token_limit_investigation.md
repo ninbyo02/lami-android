@@ -9,6 +9,37 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Code Prompt Repeated Timeout Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_timeout_root_cause_review/20260527_065926/`
+
+Scope: artifact/log/runner/docs review only. No additional NPU execution, 512
+rerun, 1024+ expansion, native guard change, QAIRT rebuild, or UI promotion was
+performed.
+
+Classification: primary `sequential_decode_timeout`, secondary
+`code_prompt_decode_too_long_under_three_prompt_runner`. Possible contributing
+factors are `cleanup_dependency_between_runs` and
+`thermal_or_resource_slowdown_possible`; direct thermal evidence is not present.
+`runner_wait_condition_too_strict` is not supported as the primary cause
+because the isolated 512 code retry and code-aware three-prompt runner both use
+the same 60 second state-file wait, and the isolated retry completed.
+
+The key difference is run context. The 512 isolated Python code retry completed
+as `useful_code` with `decode_ms=11600`, `elapsed_ms=14000`, QNN evidence, and
+cleanup evidence. The code-aware three-prompt run placed the same prompt second
+after `こんにちは`; it reached `before RunDecode SetMaxOutputTokens(512)`, then
+timed out with no native success, no cleanup/`Engine.close`, no completed
+backend evidence, and no completed raw/sanitized code output.
+
+Decision: 512 remains extended experimental and code-prompt unstable. 512 is
+not a hidden baseline candidate. 256 remains the hidden experimental baseline
+candidate. 1024, 2048, and 4096 remain blocked. A future runtime phase, if
+approved separately, should choose one of: 512 code-only isolated retry with
+artifact, 512 three-prompt order-swapped comparison, or 512 per-run force-stop
+between prompts.
+
 ## Max512 Code-Aware Three-Prompt Rerun - 2026-05-27
 
 Artifact:

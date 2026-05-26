@@ -1,5 +1,21 @@
 # QAIRT244 NPU Phase H1 Transient UI Surface
 
+## Max Output Tokens 512 Repeated Code Timeout Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_timeout_root_cause_review/20260527_065926/`
+
+The repeated 512 code prompt timeout confirms there is no new H1 display input.
+The code-aware sanitizer is necessary for code display quality, but the
+sequential 512 code prompt did not return a completed sanitized response to
+display. The issue is now tracked as 512 code-prompt instability in sequential
+hidden runs.
+
+H1 impact: no change. H1 remains pinned to
+`sanitizer_only + max_output_tokens=128`. The 512 artifacts must not feed the
+transient card, Compose adapter, PreviewHost, normal ChatScreen, or assistant
+message list.
+
 ## Max Output Tokens 512 Code-Aware Rerun - 2026-05-27
 
 Artifact:

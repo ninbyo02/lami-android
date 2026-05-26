@@ -1,5 +1,18 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: repeated max_output_tokens=512 code prompt timeout
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 code prompt stability | `artifacts/qairt244_npu_512_code_timeout_root_cause_review/20260527_065926/` | The code prompt can complete in isolated 512 bounded mode but times out as the second prompt in a sequential three-prompt 512 run after pre-RunDecode evidence. | Classify as `sequential_decode_timeout` / `code_prompt_decode_too_long_under_three_prompt_runner`; keep 512 extended experimental and block 1024. |
+
+Comparison: 256 three-prompt code succeeded as `useful_code` with
+`decode_ms=7351`; isolated 512 code succeeded once with `decode_ms=11600` and
+cleanup evidence; code-aware sequential 512 code timed out with no native
+success, no cleanup, no completed backend evidence, and no sanitized code
+output. Memory after 10 seconds did not show high-retention rollback, so memory
+retention is not the primary root cause.
+
 ## 2026-05-27: max_output_tokens=512 code-aware rerun still times out on code prompt
 
 | Area | Evidence | Root cause | Decision |

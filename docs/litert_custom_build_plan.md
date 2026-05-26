@@ -1,5 +1,22 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Repeated Code Timeout Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_timeout_root_cause_review/20260527_065926/`
+
+This review did not rebuild LiteRT-LM/QAIRT and did not change native code. It
+compares the isolated 512 code success, the code-aware sequential 512 timeout,
+and the 256 three-prompt success.
+
+Build interpretation: the max512 native guard works, but 512 code generation is
+not stable enough for baseline progression. The likely root is sequential
+decode timeout or decode-too-long behavior under the three-prompt runner, with
+cleanup/resource sequencing as an unproven contributor. The next build plan
+does not move to 1024. If runtime work is approved later, test one bounded
+axis: code-only isolated retry, order-swapped three-prompt comparison, or
+per-run force-stop between prompts.
+
 ## QAIRT244 Max512 Code-Aware Three-Prompt Rerun - 2026-05-27
 
 Artifact:

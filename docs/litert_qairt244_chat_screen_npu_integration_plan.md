@@ -1,5 +1,20 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Repeated Code Timeout Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_timeout_root_cause_review/20260527_065926/`
+
+The ChatScreen integration plan remains blocked for 512. The Python code prompt
+is unstable at 512: it completed in an isolated bounded retry, but timed out
+when run second in the code-aware three-prompt comparison. No completed
+sanitized code output is available from the sequential run.
+
+Decision: no normal ChatScreen promotion, assistant-list insertion, DB, TTS,
+Markdown, streaming, or selectedPath persistence. 256 remains the hidden
+experimental candidate; 512 remains extended experimental; 1024+ remains
+blocked.
+
 ## Max512 Code-Aware Three-Prompt Rerun - 2026-05-27
 
 Artifact:
