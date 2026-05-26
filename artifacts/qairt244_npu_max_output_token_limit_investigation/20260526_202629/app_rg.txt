@@ -1,0 +1,1073 @@
+docs/litert_custom_build_static_compare.md:15:| Library | Build ID | SHA-256 | Size | NEEDED | Notes |
+docs/litert_custom_build_static_compare.md:40:SHA-256: 45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:278:#00 pc 000000000007128c  /apex/com.android.runtime/lib64/bionic/libc.so (abort+160)
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:416:- `artifacts/litertlm_flavor_dependencies/20260516_204821/`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:3:## Max Output Tokens 256 Compare Note - 2026-05-26
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:5:Phase H1 remains pinned to the adopted `sanitizer_only + max_output_tokens=128`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:8:The 256-token hidden comparison artifact
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:9:`artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:11:reports `native_max_output_tokens_limit=128`. The 256 attempts produced empty
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:14:Do not feed 256 metadata into the H1 transient card, Compose adapter, or
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:16:fresh 128-token sanitized natural Japanese metadata with DB/TTS/Markdown/
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:34:max_output_tokens=128
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:35:baseline=enhanced_sanitizer_only_128
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:68:- `maxOutputTokens=128`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:228:- `maxOutputTokens=128`, short backend evidence, decode time, and short
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:253:- require `max_output_tokens=128`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:326:- `max_output_tokens`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:379:- `maxOutputTokens=128`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:445:- `maxOutputTokens=128`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:622:- `maxOutputTokens=128`
+docs/litert_custom_build_results.md:61:| Library | Build ID | SHA-256 |
+docs/litert_custom_build_results.md:93:SHA-256: 45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6
+docs/litert_custom_build_results.md:255:| Library | Build ID | SHA-256 |
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:17:max_output_tokens=128
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:18:baseline=enhanced_sanitizer_only_128
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:160:- `sanitizer_only + max_output_tokens=128` baseline passes
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:133:  `max_output_tokens=1`, output `!`, and no normal UI wiring
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:383:#00 pc 000000000007128c  /apex/com.android.runtime/lib64/bionic/libc.so (abort+160)
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:544:- `artifacts/litertlm_flavor_dependencies/20260516_204821/`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:733:`DecodeConfig.SetMaxOutputTokens(1)`, so the next safe step is an isolated
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:744:max_output_tokens=1
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:751:max_output_tokens=1
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:755:The native diagnostic file shows `before RunDecode SetMaxOutputTokens(1)` and
+docs/litert_custom_build_qairt244_compare.md:89:| Library | Build ID | SHA-256 |
+docs/litert_custom_build_qairt244_compare.md:217:- SHA-256
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:9:OUT_DIR="$ROOT_DIR/artifacts/qairt244_npu_max_output_256_quality_compare/$TIMESTAMP"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:14:MAX_OUTPUT_TOKENS=256
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:30:  scripts/run_qairt244_npu_max_output_256_quality_compare.sh [--device <serial>] [--timeout <seconds>] [--template <mode>]
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:33:sanitizer_only and max_output_tokens=256. The existing
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:35:used as the 128-token baseline reference; this runner does not rerun 128.
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:38:  - max_output_tokens is capped at 256 by this runner.
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:52:if [ "$MAX_OUTPUT_TOKENS" -gt 256 ]; then
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:53:  printf 'ERROR: max_output_tokens must be <=256\n' >&2
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:60:log() { printf '[qairt244-max-output-256-compare] %s\n' "$*"; }
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:270:  local remote_png="/sdcard/qairt244_max_output_256_${slug}.png"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:274:  cp "$run_dir/screenshot.png" "$OUT_DIR/screenshot_256_${slug}.png" 2>/dev/null || true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:277:run_prompt_256() {
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:280:  local run_dir="$OUT_DIR/run_256_${slug}"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:284:  log "run prompt=$prompt max_output_tokens=$MAX_OUTPUT_TOKENS timeout=${TIMEOUT_SECONDS}s"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:287:    printf 'case_id=max_output_tokens_256\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:289:    printf 'requested_max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:308:    --ei max_output_tokens "$MAX_OUTPUT_TOKENS" \
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:309:    --ez allow_max_output_tokens_compare true \
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:332:  cp "$run_dir/result.txt" "$OUT_DIR/result_256_${slug}.txt" 2>/dev/null || : >"$OUT_DIR/result_256_${slug}.txt"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:333:  cp "$run_dir/native_diag.txt" "$OUT_DIR/native_diag_256_${slug}.txt" 2>/dev/null || : >"$OUT_DIR/native_diag_256_${slug}.txt"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:334:  write_unescaped_case_value raw_output "$run_dir" "$OUT_DIR/raw_output_256_${slug}.txt"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:335:  write_unescaped_case_value sanitized_output "$run_dir" "$OUT_DIR/sanitized_output_256_${slug}.txt"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:345:  actual_max="$(case_value max_output_tokens "$run_dir")"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:352:  quality="$(classify_quality "$prompt" "$run_dir" "$OUT_DIR/sanitized_output_256_${slug}.txt" "$wait_status")"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:379:    printf 'actual_max_output_tokens=%s\n' "$actual_max"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:380:    printf 'max_output_tokens_honored=%s\n' "$([ "$actual_max" = "$MAX_OUTPUT_TOKENS" ] && printf true || printf false)"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:473:    printf '# QAIRT244 NPU max_output_tokens 256 quality/safety comparison\n\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:474:    printf '128 baseline reference: `%s`\n\n' "${BASELINE_DIR#$ROOT_DIR/}"
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:475:    printf '| prompt | 128_ref_status | 128_ref_quality | 128_ref_decode_ms | 256_status | 256_quality | 256_decode_ms | 256_elapsed_ms | 256_len | npu_evidence | fallback_used | timeout | fresh_crash | selected_path_npu_saved |\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:481:      if [ -z "$baseline_status" ]; then baseline_status="not_in_128_reference"; fi
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:482:      if [ -z "$baseline_quality" ]; then baseline_quality="not_in_128_reference"; fi
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:506:      rg -n "QNN|HTP|FastRPC|RunDecode|EngineFactory|native_prompt|sanitizer|selected_path_npu|fallback_used|timeout|fresh_crash|max_output_tokens|quality_classification|db=false|tts=false|markdown=false|streaming=false|Engine\\.initialize|RunDecode" "$file" | sed "s#^#${file#$OUT_DIR/}:#" || true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:516:    printf 'max_output_tokens=256\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:517:    printf 'max_output_tokens_compare_enabled=true\n\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:518:    rg -n "allow_max_output_tokens_compare|QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT|max_output_tokens|selectedPath.*npu|selected_path_npu|tts=true|markdown=true|streaming=true|db=true|generateResponse|assistant_message_list|standard_route_connected" \
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:519:      scripts/run_qairt244_npu_max_output_256_quality_compare.sh app/src/debug/java app/src/main/java app/src/customBuildExperimentDebug 2>&1 || true
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:529:    printf 'max_output_tokens_over_256=false\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:546:    printf '# QAIRT244 NPU max_output_tokens 256 quality/safety compare\n\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:554:    printf -- '- executable_case: `sanitizer_only + max_output_tokens=256`\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:564:    printf -- '- 128 remains the adopted hidden experimental H1 display baseline unless 256 is separately accepted after this artifact review.\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:565:    printf -- '- The 256 run is hidden experimental compare-only and requires explicit `allow_max_output_tokens_compare=true`.\n'
+scripts/run_qairt244_npu_max_output_256_quality_compare.sh:594:    run_prompt_256 "$prompt" "$slug"
+docs/litert_qairt244_npu_promotion_gate.md:3:## Max Output Tokens 256 Compare - 2026-05-26
+docs/litert_qairt244_npu_promotion_gate.md:6:`artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/`
+docs/litert_qairt244_npu_promotion_gate.md:8:Result: keep `sanitizer_only + max_output_tokens=128` as the hidden
+docs/litert_qairt244_npu_promotion_gate.md:12:`allow_max_output_tokens_compare=true` request, but the lower native editable
+docs/litert_qairt244_npu_promotion_gate.md:13:prompt entrypoint rejected `max_output_tokens=256` with
+docs/litert_qairt244_npu_promotion_gate.md:14:`invalid_max_output_tokens value=256 native_max_output_tokens_limit=128`.
+docs/litert_qairt244_npu_promotion_gate.md:25:Promotion blocker: `max_output_tokens=256` is rollback-only until native
+docs/litert_qairt244_npu_promotion_gate.md:26:`native_max_output_tokens_limit` is deliberately raised and separately gated.
+docs/litert_qairt244_npu_promotion_gate.md:27:H1 UI promotion remains blocked from using 256; H1 metadata/card contracts
+docs/litert_qairt244_npu_promotion_gate.md:28:continue to require `max_output_tokens=128`.
+docs/litert_qairt244_npu_promotion_gate.md:42:max_output_tokens=128
+docs/litert_qairt244_npu_promotion_gate.md:43:baseline=enhanced_sanitizer_only_128
+docs/litert_qairt244_npu_promotion_gate.md:155:- Native artifact provenance must be recorded by path and SHA-256 in the
+docs/litert_qairt244_npu_promotion_gate.md:194:  `sanitizer_only + max_output_tokens=128` adoption, raw/sanitized output
+docs/litert_qairt244_htp_log_callback_result.md:33:| Library | Build ID | SHA-256 |
+docs/litert_qairt244_htp_log_callback_result.md:52:artifacts/qairt244_htp_log_callback_dry_run/20260522_225623/
+docs/litert_qairt244_htp_log_callback_result.md:53:artifacts/npu_diagnostics/20260522_225623_customnpu/
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:16:CASE_LABELS=("enhanced sanitizer_only + fixed max_output_tokens_128")
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:17:CASE_MAX_TOKENS=("128")
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:42:  - sanitizer_only, fixed max_output_tokens=128
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:64:  if ! [[ "$max_tokens" =~ ^[0-9]+$ ]] || [ "$max_tokens" -gt 128 ]; then
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:65:    printf 'ERROR: case max_output_tokens must be <=128, got: %s\n' "$max_tokens" >&2
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:70:  if ! [[ "$max_tokens" =~ ^[0-9]+$ ]] || [ "$max_tokens" -ge 128 ]; then
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:71:    printf 'ERROR: rollback case max_output_tokens must be below 128, got: %s\n' "$max_tokens" >&2
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:284:  log "run case=$case_id prompt=$prompt requested_max_output_tokens=$requested_max_tokens timeout=${TIMEOUT_SECONDS}s"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:290:    printf 'requested_max_output_tokens=%s\n' "$requested_max_tokens"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:309:    --ei max_output_tokens "$requested_max_tokens" \
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:341:  actual_max="$(case_value max_output_tokens "$run_dir")"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:368:    printf 'actual_max_output_tokens=%s\n' "$actual_max"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:369:    printf 'max_output_tokens_honored=%s\n' "$([ "$actual_max" = "$requested_max_tokens" ] && printf true || printf false)"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:413:        printf "requested_max_output_tokens=%s\n" "$requested_max_tokens"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:417:        printf "actual_max_output_tokens=not_run\n"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:418:        printf "max_output_tokens_honored=not_run\n"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:460:      printf 'requested_max_output_tokens=128\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:464:      printf 'actual_max_output_tokens=not_run\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:465:      printf 'max_output_tokens_honored=not_run\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:510:        printf 'requested_max_output_tokens=%s\n' "$requested_max_tokens"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:514:        printf 'actual_max_output_tokens=not_run\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:515:        printf 'max_output_tokens_honored=not_run\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:577:    printf '| case | prompt | requested_max_output_tokens | actual_max_output_tokens | status | npu_evidence | fallback_used | fresh_crash | quality_classification | sanitized_output_length | reasonCode | stop_reason |\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:582:        requested="$(summary_field requested_max_output_tokens "$case_id" "$prompt")"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:583:        actual="$(summary_field actual_max_output_tokens "$case_id" "$prompt")"
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:604:      rg -n "QNN|HTP|FastRPC|RunDecode|EngineFactory|native_prompt|sanitizer|selected_path_npu|fallback_used|timeout|fresh_crash|max_output_tokens|stop_reason|end_of_turn|quality_classification|repetition_suppression|db=false|tts=false|markdown=false|streaming=false" "$file" | sed "s#^#${file#$OUT_DIR/}:#" || true
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:614:    rg -n "customnpu|io\\.github\\.ninbyo02\\.lami|StandardHiddenQairt244PromptReceiver|STANDARD_HIDDEN_QAIRT244_PROMPT|max_output_tokens|stop_sequence|Backend\\.NPU|selectedPath.*npu|selected_path_npu|tts=true|markdown=true|streaming=true|db=true|generateResponse|repetition" \
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:651:    printf -- '- maxOutputTokens_policy: `128 or lower only`\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:658:    printf -- '- `sanitizer_only`: standard hidden run, fixed max_output_tokens=128\n'
+scripts/run_qairt244_npu_turn_stop_quality_compare.sh:666:    printf -- '- `max_output_tokens` is fixed at 128 for the hidden safety baseline; lower token caps are recorded only as rollback rows.\n'
+docs/litert_qairt244_ui_integration_safety_plan.md:83:- hard cap: `max_output_tokens=3`
+docs/litert_qairt244_ui_integration_safety_plan.md:98:- hard cap: `max_output_tokens=3`
+docs/litert_qairt244_ui_integration_safety_plan.md:401:- native `DecodeConfig.SetMaxOutputTokens(3)` evidence
+docs/litert_qairt244_ui_integration_safety_plan.md:414:- `max_output_tokens=3`
+docs/litert_qairt244_ui_integration_safety_plan.md:801:Static LiteRT-LM inspection found `native stop not exposed` for the qairt244 lower-level Android route. Runtime metadata can carry stop token ids internally, but this JNI path creates a default session config and exposes only `DecodeConfig.SetMaxOutputTokens()` for the editable-prompt run; no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter is available. Public sampler controls expose topK/topP/temperature/seed, but the qairt244 lower-level native entrypoint does not accept sampler config, and no repetition penalty API was found.
+docs/litert_qairt244_ui_integration_safety_plan.md:803:The fixed executable baseline is `enhanced_sanitizer_only_128`. `lower_max_tokens_64_sanitizer` and `lower_max_tokens_32_sanitizer` are rollback-only records, not executable adoption candidates, and `stop_sequence_end_of_turn` is recorded as `not_run/native_stop_not_exposed`. The prompts are `こんにちは`, `はじめまして`, and `こんばんは`; the executable sanitizer-only case uses `max_output_tokens=128` and a 30 second timeout.
+docs/litert_qairt244_ui_integration_safety_plan.md:805:The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+docs/litert_qairt244_ui_integration_safety_plan.md:810:passes this checklist with the fixed `enhanced_sanitizer_only_128` baseline:
+docs/litert_qairt244_ui_integration_safety_plan.md:840:Commit baseline: `sanitizer_only + max_output_tokens=128` is the provisional
+docs/litert_qairt244_ui_integration_safety_plan.md:863:`sanitizer_only + max_output_tokens=128` as the required baseline and does not
+docs/litert_qairt244_ui_integration_safety_plan.md:877:evidence, `maxOutputTokens=128`, and short artifact path. It clears on new
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:3:## Max Output Tokens 256 Compare - 2026-05-26
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:8:artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:13:- Reference: `sanitizer_only + max_output_tokens=128` from
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:15:- New run: `sanitizer_only + max_output_tokens=256`, one run each for
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:19:Result: `256` is not a baseline candidate.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:22:with `max_output_tokens=256`, but native diagnostics reported
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:23:`invalid_max_output_tokens value=256 native_max_output_tokens_limit=128`.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:24:All three 256 attempts returned empty sanitized output:
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:34:Recommendation: keep `enhanced_sanitizer_only_128` as the hidden experimental
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:35:baseline. Treat 256 as rollback-only until native max-output-token support is
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:59:LiteRT-LM runtime has internal metadata-derived stop token handling, including `SessionConfig` stop token ids and a `StopTokenDetector`, but the Android JNI / `DecodeConfig` surface used by this qairt244 lower-level route exposes only `max_output_tokens` for the editable-prompt decode path. `DecodeConfig` exposes `SetConstraint()` and `SetMaxOutputTokens()`, but no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter. The qairt244 editable prompt native entrypoint creates a default `SessionConfig`, sets `DecodeConfig.SetMaxOutputTokens(max_output_tokens)`, and calls `RunDecode(decode_config)`.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:87:- `sanitizer_only`: hidden standard run, fixed `max_output_tokens=128`
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:93:Per-run timeout remains 30 seconds by default. The hidden safety baseline ignores lower token-cap requests and runs at `max_output_tokens=128`.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:128:pass this gate with the fixed `enhanced_sanitizer_only_128` baseline:
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:181:The adopted hidden experimental display-quality baseline is enhanced sanitizer-only with `max_output_tokens=128`. Lower token caps are not a safe baseline in this run and are rollback-only for future artifacts.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:196:The hidden experimental runner and receiver now fix the minimum safe display baseline at `enhanced_sanitizer_only_128`.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:198:- `max_output_tokens=128` is the only executable hidden display-quality baseline.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:199:- Requested `max_output_tokens=64` and `max_output_tokens=32` are not adopted and are recorded as rollback-only cases.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:209:Commit baseline: `sanitizer_only + max_output_tokens=128` is the provisional
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:231:Result: keep `sanitizer_only + max_output_tokens=128`; do not implement native
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:238:`DecodeConfig.SetMaxOutputTokens(...)` for the comparison path. No repetition
+docs/litert_qairt244_htp_dependency_analysis.md:33:- `metadata.tsv`: ELF class, machine, size, SHA-256, Build ID, SONAME, and
+scripts/run_qairt244_npu_output_sanitizer.sh:135:    printf -- '- max_output_tokens: `%s`\n' "$(summary_value max_output_tokens)"
+docs/litert_custom_build_insertion_experiment.md:57:| Library | Expected Build ID | Expected SHA-256 |
+docs/litert_custom_build_plan.md:3:## QAIRT244 Max Output Tokens 256 Hidden Compare - 2026-05-26
+docs/litert_custom_build_plan.md:6:`artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/`
+docs/litert_custom_build_plan.md:8:The Java hidden compare gate was extended only for a controlled 256-token
+docs/litert_custom_build_plan.md:10:`native_max_output_tokens_limit=128`. The 256 request reached native diagnostics
+docs/litert_custom_build_plan.md:11:and was rejected as `invalid_max_output_tokens`, producing empty sanitized
+docs/litert_custom_build_plan.md:17:baseline at `max_output_tokens=128` unless a future native/API change explicitly
+docs/litert_custom_build_plan.md:116:- SHA-256.
+docs/litert_custom_build_plan.md:287:  lower-level JNI or CLI path that calls `DecodeConfig.SetMaxOutputTokens(1)`.
+docs/litert_custom_build_plan.md:297:- LiteRT-LM C++ has the required `DecodeConfig.SetMaxOutputTokens(1)` primitive.
+docs/litert_custom_build_plan.md:313:- Hard cap: `max_output_tokens=1`.
+docs/litert_custom_build_plan.md:316:- Native diag confirms `before RunDecode SetMaxOutputTokens(1)` and
+docs/litert_custom_build_plan.md:335:- Hard cap: `max_output_tokens=1`.
+docs/litert_custom_build_plan.md:338:- Native diag confirms `before RunDecode SetMaxOutputTokens(1)` and
+docs/litert_custom_build_plan.md:369:- Hard cap: `max_output_tokens=1`.
+docs/litert_custom_build_plan.md:381:- `sanitizer_only + max_output_tokens=128` remains the hidden experimental
+docs/litert_custom_build_plan.md:437:- Detail lines include `maxOutputTokens=128`, decode time, short backend
+docs/litert_custom_build_plan.md:516:- The native artifact proves `DecodeConfig.SetMaxOutputTokens(3)` and includes
+docs/litert_custom_build_plan.md:611:- Hard cap: `max_output_tokens=3`.
+docs/litert_custom_build_plan.md:815:| Library | Build ID | SHA-256 |
+docs/litert_custom_build_plan.md:1171:  `result=success`, `output=! How Hi`, `max_output_tokens=3`.
+docs/litert_custom_build_plan.md:1202:- both captured result files retained `max_output_tokens=3`
+docs/litert_custom_build_plan.md:1234:- both result files retained `max_output_tokens=3`
+docs/litert_custom_build_plan.md:1423:  `prompt_source=editable_prompt`, `max_output_tokens=3`, timing, native diag,
+docs/litert_custom_build_plan.md:1441:- native token cap evidence: `DecodeConfig.SetMaxOutputTokens(3)`
+docs/litert_custom_build_plan.md:1451:  `prompt_source=editable_prompt`, `max_output_tokens=3`,
+docs/litert_custom_build_plan.md:1860:- `maxOutputTokens=128`
+docs/litert_custom_build_plan.md:1879:Static LiteRT-LM inspection found `native stop not exposed` for the qairt244 lower-level Android route. Runtime metadata can carry stop token ids internally, but this JNI path creates a default session config and exposes only `DecodeConfig.SetMaxOutputTokens()` for the editable-prompt run; no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter is available. Public sampler controls expose topK/topP/temperature/seed, but the qairt244 lower-level native entrypoint does not accept sampler config, and no repetition penalty API was found.
+docs/litert_custom_build_plan.md:1881:The fixed executable baseline is `enhanced_sanitizer_only_128`. `lower_max_tokens_64_sanitizer` and `lower_max_tokens_32_sanitizer` are rollback-only records, not executable adoption candidates, and `stop_sequence_end_of_turn` is recorded as `not_run/native_stop_not_exposed`. The prompts are `こんにちは`, `はじめまして`, and `こんばんは`; the executable sanitizer-only case uses `max_output_tokens=128` and a 30 second timeout.
+docs/litert_custom_build_plan.md:1883:The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+docs/litert_custom_build_plan.md:1887:Commit baseline: `sanitizer_only + max_output_tokens=128` is the provisional
+docs/litert_custom_build_plan.md:1910:`sanitizer_only + max_output_tokens=128` as the required baseline and does not
+docs/litert_custom_build_plan.md:1924:evidence, `maxOutputTokens=128`, and short artifact path. It clears on new
+docs/litert_custom_build_plan.md:1978:- `maxOutputTokens=128`
+docs/litert_qairt244_token_timing_verifier_result.md:53:- `max_output_tokens=1`
+docs/litert_qairt244_token_timing_verifier_result.md:95:max_output_tokens=1
+scripts/sync_qairt244_npu_diagnostic_summary_to_app.sh:258:  echo "max_output_tokens=$(first_non_empty "$(summary_value max_output_tokens)" "$(kv_get "${RUN1_SOURCE}" max_output_tokens)" "3")"
+docs/litert_qairt244_htp_backend_trace_result.md:38:| Library | Build ID | SHA-256 |
+docs/litert_qairt244_htp_backend_trace_result.md:45:| `libQnnHtp.so` | `f2c90c1775a109e1` | `090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a` |
+docs/litert_npu_engine_initialize_crash_analysis.md:146:- dispatch runtime missing: runtime is present in `nativeLibraryDir` with the expected SHA-256
+docs/qairt244_standard_hidden_experimental_plan.md:13:- 128-token UTF-8 `internal_intent` Japanese prompts passed 3/3:
+docs/qairt244_standard_hidden_experimental_plan.md:15:- `max_output_tokens=128`
+docs/qairt244_standard_hidden_experimental_plan.md:16:- `native_max_output_tokens_limit=128`
+docs/qairt244_standard_hidden_experimental_plan.md:33:- 128-token bounded route constants
+docs/qairt244_standard_hidden_experimental_plan.md:123:- The route keeps `max_output_tokens=128`, SM8750-only model basename guards,
+docs/qairt244_standard_hidden_experimental_plan.md:208:- `max_output_tokens=128`
+docs/qairt244_standard_hidden_experimental_plan.md:209:- `native_max_output_tokens_limit=128`
+docs/qairt244_standard_hidden_experimental_plan.md:229:- the native artifact does not report the 128-token guard
+docs/qairt244_standard_hidden_experimental_plan.md:233:- the implementation raises token limits above 128
+docs/qairt244_standard_hidden_experimental_plan.md:259:- `max_output_tokens=128` remains fixed, `RunDecode` is reached, and
+docs/qairt244_standard_hidden_experimental_plan.md:269:- `max_output_tokens`, `decode_elapsed_ms`, `route_type`, and
+docs/qairt244_standard_hidden_experimental_plan.md:411:`fallback_used=false`, and `max_output_tokens=128`.
+docs/qairt244_standard_hidden_experimental_plan.md:443:128-token output bound, UTF-8 safety checks, SM8750 model guard, NPU evidence,
+docs/qairt244_standard_hidden_experimental_plan.md:446:### 2026-05-24 128 Output / 128 Input Bounded Phase
+docs/qairt244_standard_hidden_experimental_plan.md:449:phase. The output cap remains `max_output_tokens=128`; only the final model
+docs/qairt244_standard_hidden_experimental_plan.md:450:input guard used by the standard hidden template experiment is raised to 128
+docs/qairt244_standard_hidden_experimental_plan.md:461:- `prompt_input_code_point_limit=128`
+docs/qairt244_standard_hidden_experimental_plan.md:463:- `native_prompt_input_code_point_limit=128`
+docs/qairt244_standard_hidden_experimental_plan.md:472:`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt`
+docs/qairt244_standard_hidden_experimental_plan.md:474:`liblitertlm_jni.so` sha256:
+docs/qairt244_standard_hidden_experimental_plan.md:478:`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+docs/qairt244_standard_hidden_experimental_plan.md:481:`patches/qairt244_litertlm_utf8_128token_128input.patch`
+docs/qairt244_standard_hidden_experimental_plan.md:487:### 2026-05-24 128 Input Template Comparison
+docs/qairt244_standard_hidden_experimental_plan.md:498:`prompt_input_code_point_limit=128`,
+docs/qairt244_standard_hidden_experimental_plan.md:499:`native_prompt_input_code_point_limit=128`,
+docs/qairt244_standard_hidden_experimental_plan.md:501:`max_output_tokens=128`, `native_max_output_tokens_limit=128`,
+docs/qairt244_standard_hidden_experimental_plan.md:512:Current comparison result: the 128 input guard resolves the native-entry
+docs/qairt244_native_patch_management.md:3:## 2026-05-24 128 Output / 128 Input Hidden Template Phase
+docs/qairt244_native_patch_management.md:9:patches/qairt244_litertlm_utf8_128token_128input.patch
+docs/qairt244_native_patch_management.md:12:This patch is a phase snapshot after the 128-token patch. It keeps
+docs/qairt244_native_patch_management.md:13:`max_output_tokens` bounded to `1..128` and adds a hidden-template prompt input
+docs/qairt244_native_patch_management.md:14:limit of 128 UTF-8 code points for the editable prompt entrypoint. It records
+docs/qairt244_native_patch_management.md:15:`native_prompt_input_code_point_limit=128` and
+docs/qairt244_native_patch_management.md:18:The earlier 16/32/64/128-token patches remain checked in and must not be
+docs/qairt244_native_patch_management.md:22:128 output / 128 input artifact:
+docs/qairt244_native_patch_management.md:23:`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt`
+docs/qairt244_native_patch_management.md:25:128 output / 128 input `liblitertlm_jni.so` sha256:
+docs/qairt244_native_patch_management.md:28:128 output / 128 input JNI build log:
+docs/qairt244_native_patch_management.md:29:`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+docs/qairt244_native_patch_management.md:31:`scripts/check_qairt244_native_patch.sh` now defaults to the 128 output / 128
+docs/qairt244_native_patch_management.md:35:## 2026-05-24 128-Token Bounded Phase
+docs/qairt244_native_patch_management.md:40:patches/qairt244_litertlm_utf8_128token.patch
+docs/qairt244_native_patch_management.md:51:The 16/32/64/128-token patches are ordered phase snapshots over the same
+docs/qairt244_native_patch_management.md:54:the UTF-8 internal intent route, and the 32-, 64-, and 128-token patches raise
+docs/qairt244_native_patch_management.md:55:only the bounded native `max_output_tokens` guard and diagnostic limit for that
+docs/qairt244_native_patch_management.md:59:The 128-token patch keeps the UTF-8 prompt validation contract unchanged:
+docs/qairt244_native_patch_management.md:63:128-token artifact:
+docs/qairt244_native_patch_management.md:64:`artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt`
+docs/qairt244_native_patch_management.md:66:128-token `liblitertlm_jni.so` sha256:
+docs/qairt244_native_patch_management.md:69:128-token JNI build log:
+docs/qairt244_native_patch_management.md:70:`artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+docs/qairt244_native_patch_management.md:91:`max_output_tokens` guard and diagnostic limit from `16` to `32`.
+docs/qairt244_native_patch_management.md:93:`scripts/check_qairt244_native_patch.sh` now defaults to the 128 output / 128
+docs/qairt244_native_patch_management.md:94:input patch. To inspect the historical 16-, 32-, 64-, or 128-token patches
+docs/qairt244_native_patch_management.md:98:`artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt`
+docs/qairt244_native_patch_management.md:100:32-token `liblitertlm_jni.so` sha256:
+docs/qairt244_native_patch_management.md:104:`artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+docs/qairt244_native_patch_management.md:118:  `patches/qairt244_litertlm_utf8_128token_128input.patch`
+docs/qairt244_native_patch_management.md:123:  `patches/qairt244_litertlm_utf8_128token.patch`
+docs/qairt244_native_patch_management.md:124:- Current checkout state: 128 output / 128 input patch already applied as a
+docs/qairt244_native_patch_management.md:126:- 128 output / 128 input artifact:
+docs/qairt244_native_patch_management.md:127:  `artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt`
+docs/qairt244_native_patch_management.md:128:- 128 output / 128 input `liblitertlm_jni.so` sha256:
+docs/qairt244_native_patch_management.md:130:- 128-token artifact:
+docs/qairt244_native_patch_management.md:131:  `artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt`
+docs/qairt244_native_patch_management.md:132:- 128-token `liblitertlm_jni.so` sha256:
+docs/qairt244_native_patch_management.md:135:  `artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt`
+docs/qairt244_native_patch_management.md:136:- Historical 32-token `liblitertlm_jni.so` sha256:
+docs/qairt244_native_patch_management.md:140:- Historical 16-token `liblitertlm_jni.so` sha256:
+docs/qairt244_native_patch_management.md:150:The 16/32/64/128-token patches preserve earlier bounded phases; the active
+docs/qairt244_native_patch_management.md:151:128 output / 128 input patch preserves the same route scope and does not
+docs/qairt244_native_patch_management.md:156:- active `max_output_tokens` range `1..128`; historical 16/32/64/128-token
+docs/qairt244_native_patch_management.md:159:- rejection of empty prompt, NUL byte, invalid UTF-8, and prompts above 128
+docs/qairt244_native_patch_management.md:163:- `native_prompt_input_code_point_limit=128`
+docs/qairt244_native_patch_management.md:182:  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
+docs/qairt244_native_patch_management.md:185:  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
+docs/qairt244_native_patch_management.md:199:  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
+docs/qairt244_native_patch_management.md:204:Rebuild the active 128 output / 128 input native artifact from lami-android:
+docs/qairt244_native_patch_management.md:210:  --label qairt244_128token_128input_utf8prompt
+docs/qairt244_native_patch_management.md:217:sha256sum <artifact>/jni/arm64-v8a/liblitertlm_jni.so
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:137:- `max_output_tokens=3`
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:151:- `SetMaxOutputTokens(3)` evidence
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:186:- `max_output_tokens=3`
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:232:- valid execution keeps `DecodeConfig.SetMaxOutputTokens(3)` hard-coded
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:255:- `set_max_output_tokens_3_evidence=true`
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:272:- `max_output_tokens=3`
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:308:- `max_output_tokens=3`
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:393:- keep `DecodeConfig.SetMaxOutputTokens(3)` hard-coded
+docs/qairt_244_acquisition_notes.md:179:sha256sum /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225/lib/aarch64-android/libQnnSystem.so
+docs/qairt_244_acquisition_notes.md:185:- SHA-256
+docs/qairt_244_acquisition_notes.md:197:This helper refuses roots that resolve to the known `2.46.0.260424` SDK and records SHA-256, Build IDs, `NEEDED`, and version strings under:
+scripts/stage_qairt242_sdk_from_download.sh:6:DEST="${QAIRT242_DEST:-$HOME/compose/qairt/workspace/sdk/qairt/2.42.0.251225}"
+scripts/stage_qairt242_sdk_from_download.sh:7:EXPECTED_VERSION="2.42.0.251225"
+scripts/stage_qairt242_sdk_from_download.sh:22:  bash scripts/stage_qairt242_sdk_from_download.sh ~/Downloads/v2.42.0.251225.zip
+scripts/stage_qairt242_sdk_from_download.sh:23:  bash scripts/stage_qairt242_sdk_from_download.sh ~/Downloads/qairt/2.42.0.251225
+scripts/stage_qairt242_sdk_from_download.sh:25:Safely stages an officially obtained QAIRT 2.42.0.251225 SDK into:
+scripts/stage_qairt242_sdk_from_download.sh:26:  ~/compose/qairt/workspace/sdk/qairt/2.42.0.251225
+scripts/stage_qairt242_sdk_from_download.sh:106:    if ! find "$CANDIDATE" -maxdepth 3 -type f 2>/dev/null | grep -E "$EXPECTED_VERSION|251225" >/dev/null; then
+docs/litert_qairt244_single_token_smoke_plan.md:33:   `DecodeConfig.SetMaxOutputTokens(1)`.
+docs/radxa_qairt_ecosystem_analysis.md:29:QAIRT 2.42.0.251225
+docs/radxa_qairt_ecosystem_analysis.md:35:qairt/2.42.0.251225
+docs/radxa_qairt_ecosystem_analysis.md:48:export QAIRT_VERSION=2.42.0.251225
+docs/radxa_qairt_ecosystem_analysis.md:98:cd qairt/2.42.0.251225
+docs/radxa_qairt_ecosystem_analysis.md:158:| Radxa public docs | QAIRT `2.42.0.251225` | Stable public Linux/SBC workflow for QCS6490/QCS9075. |
+docs/radxa_qairt_ecosystem_analysis.md:168:- Radxa Linux docs: QAIRT `2.42.0.251225`
+docs/radxa_qairt_ecosystem_analysis.md:247:QAIRT `2.42.0.251225` was searched locally and was not found:
+scripts/stage_litert_custom_build_stack_for_experiment.sh:39:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/stage_litert_custom_build_stack_for_experiment.sh:40:    sha256sum "$file" | awk '{print $1}'
+scripts/stage_litert_custom_build_stack_for_experiment.sh:79:printf 'library\tstatus\tsource\tsize\tsha256\tbuild_id\tneeded\n' >"$OUT_DIR/staged_libs.tsv"
+scripts/stage_litert_custom_build_stack_for_experiment.sh:80:printf 'library\tstatus\tsource\tsize\tsha256\tbuild_id\tneeded\n' >"$OUT_DIR/staged_qnn_runtime_libs.tsv"
+scripts/stage_litert_custom_build_stack_for_experiment.sh:100:  log "staged $lib build_id=$(build_id_for "$TARGET_DIR/$lib") sha256=$(sha_for "$TARGET_DIR/$lib")"
+scripts/stage_litert_custom_build_stack_for_experiment.sh:124:    log "staged QNN runtime $lib build_id=$(build_id_for "$TARGET_DIR/$lib") sha256=$(sha_for "$TARGET_DIR/$lib")"
+scripts/stage_litert_custom_build_stack_for_experiment.sh:161:  printf '| Library | Status | Build ID | SHA-256 | NEEDED |\n'
+scripts/stage_litert_custom_build_stack_for_experiment.sh:165:  printf '| Library | Status | Build ID | SHA-256 | NEEDED |\n'
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:48:- SHA-256: `92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777`
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:65:| `libQnnHtpV79Skel.so` | no GNU Build ID | no GNU Build ID, different SHA-256 | different |
+docs/litert_qairt244_single_token_smoke_impl.md:35:  `decode_config.SetMaxOutputTokens(1)`.
+docs/litert_qairt244_single_token_smoke_impl.md:87:max_output_tokens=1
+docs/litert_qairt244_single_token_smoke_impl.md:99:max_output_tokens=1
+docs/litert_qairt244_single_token_smoke_impl.md:106:statically calls `SetMaxOutputTokens(1)`. The native diagnostic file confirms:
+docs/litert_qairt244_single_token_smoke_impl.md:109:before RunDecode SetMaxOutputTokens(1)
+docs/litert_qairt244_single_token_smoke_impl.md:127:- hard cap: `DecodeConfig.SetMaxOutputTokens(1)`
+docs/litert_qairt244_single_token_smoke_impl.md:138:5. runs decode with `DecodeConfig.SetMaxOutputTokens(1)`
+docs/litert_qairt244_single_token_smoke_impl.md:145:- `SetMaxOutputTokens(1)`
+docs/litert_qairt244_single_token_smoke_impl.md:162:- static source marker `SetMaxOutputTokens(1)`
+docs/litert_qairt244_single_token_smoke_impl.md:172:max_output_tokens=1
+docs/qairt_242_acquisition_notes.md:1:# QAIRT 2.42.0.251225 Acquisition Notes
+docs/qairt_242_acquisition_notes.md:7:QAIRT `2.42.0.251225` was not found as a real local SDK install.
+docs/qairt_242_acquisition_notes.md:16:for a QAIRT `2.42.0.251225` comparison root.
+docs/qairt_242_acquisition_notes.md:26:QAIRT 2.42.0.251225
+docs/qairt_242_acquisition_notes.md:49:export QAIRT_VERSION=2.42.0.251225
+docs/qairt_242_acquisition_notes.md:68:/home/sato/compose/qairt/workspace/sdk/qairt/2.42.0.251225
+docs/qairt_242_acquisition_notes.md:82:After obtaining QAIRT `2.42.0.251225`, verify it with:
+docs/qairt_242_acquisition_notes.md:86:  /home/sato/compose/qairt/workspace/sdk/qairt/2.42.0.251225
+docs/qairt_242_acquisition_notes.md:93:- SHA-256
+docs/qairt_242_acquisition_notes.md:129:bash scripts/stage_qairt242_sdk_from_download.sh ~/Downloads/v2.42.0.251225.zip
+docs/qairt_242_acquisition_notes.md:135:bash scripts/stage_qairt242_sdk_from_download.sh ~/Downloads/qairt/2.42.0.251225
+docs/qairt_242_acquisition_notes.md:140:- copies only into `/home/sato/compose/qairt/workspace/sdk/qairt/2.42.0.251225`
+docs/qairt_242_acquisition_notes.md:150:After QAIRT `2.42.0.251225` exists locally:
+docs/qairt_242_acquisition_notes.md:154:  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.42.0.251225 \
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:164:- `SetMaxOutputTokens(3)` evidence available
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:177:`enhanced_sanitizer_only_128`; `64` and `32` token caps are rollback-only, and
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:770:Static LiteRT-LM inspection found `native stop not exposed` for the qairt244 lower-level Android route. Runtime metadata can carry stop token ids internally, but this JNI path creates a default session config and exposes only `DecodeConfig.SetMaxOutputTokens()` for the editable-prompt run; no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter is available. Public sampler controls expose topK/topP/temperature/seed, but the qairt244 lower-level native entrypoint does not accept sampler config, and no repetition penalty API was found.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:772:The fixed executable baseline is `enhanced_sanitizer_only_128`. `lower_max_tokens_64_sanitizer` and `lower_max_tokens_32_sanitizer` are rollback-only records, not executable adoption candidates, and `stop_sequence_end_of_turn` is recorded as `not_run/native_stop_not_exposed`. The prompts are `こんにちは`, `はじめまして`, and `こんばんは`; the executable sanitizer-only case uses `max_output_tokens=128` and a 30 second timeout.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:774:The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:778:Commit baseline: `sanitizer_only + max_output_tokens=128` is the provisional
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:801:`sanitizer_only + max_output_tokens=128` as the required baseline and does not
+docs/litert_native_compatibility_matrix.md:49:| Source | Library | SHA-256 | Build ID | ELF class | SONAME | NEEDED | Exported symbols | `LiteRtDispatchGetApi` | `LiteRtQualcommOptionsGet` | Risk |
+docs/litert_native_compatibility_matrix.md:57:| Gallery | `libQnnHtp.so` | `090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a` | `f2c90c1775a109e1` | ELF 64-bit ARM aarch64 shared object | `libQnnHtp.so` | `libc.so`, `libm.so`, `libdl.so`, `liblog.so` | 4 | no | no | medium |
+docs/litert_qairt244_short_multitoken_smoke_result.md:23:max_output_tokens=3
+docs/litert_qairt244_short_multitoken_smoke_result.md:39:max_output_tokens=3
+docs/litert_qairt244_short_multitoken_smoke_result.md:54:DecodeConfig.SetMaxOutputTokens(3)
+docs/litert_qairt244_short_multitoken_smoke_result.md:77:- Build IDs / sha256 / metadata
+docs/litert_qairt244_short_multitoken_smoke_result.md:97:- `SetMaxOutputTokens(3)` present in artifact metadata
+docs/litert_qairt244_short_multitoken_smoke_result.md:181:- call `RunDecode` once with `DecodeConfig.SetMaxOutputTokens(3)`
+docs/litert_qairt244_failure_root_cause_matrix.md:3:## 2026-05-26: max_output_tokens=256 hidden compare rollback
+docs/litert_qairt244_failure_root_cause_matrix.md:7:| Hidden NPU output length | `artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/` | Lower native editable-prompt entrypoint reports `invalid_max_output_tokens value=256 native_max_output_tokens_limit=128`. | Keep `sanitizer_only + max_output_tokens=128`; 256 is rollback-only. |
+docs/litert_qairt244_failure_root_cause_matrix.md:66:- native cap: `DecodeConfig.SetMaxOutputTokens(3)`
+docs/litert_qairt244_failure_root_cause_matrix.md:94:- `max_output_tokens=3`
+docs/litert_qairt244_failure_root_cause_matrix.md:251:- Lower-level C++ does expose `DecodeConfig.SetMaxOutputTokens(1)`.
+docs/litert_qairt244_failure_root_cause_matrix.md:268:- LiteRT-LM C++ has `DecodeConfig.SetMaxOutputTokens(1)` capability.
+docs/litert_qairt244_failure_root_cause_matrix.md:270:  statically call `SetMaxOutputTokens(1)`.
+docs/litert_qairt244_failure_root_cause_matrix.md:293:- hard cap: `max_output_tokens=1`
+docs/litert_qairt244_failure_root_cause_matrix.md:296:- native diag reached `before RunDecode SetMaxOutputTokens(1)`
+docs/litert_qairt244_failure_root_cause_matrix.md:319:- hard cap: `max_output_tokens=1`
+docs/litert_qairt244_failure_root_cause_matrix.md:322:- native diag reached `before RunDecode SetMaxOutputTokens(1)`
+docs/litert_qairt244_failure_root_cause_matrix.md:353:- hard cap: `max_output_tokens=1`
+docs/litert_qairt244_failure_root_cause_matrix.md:417:- hard cap: `max_output_tokens=3`
+docs/litert_qairt244_failure_root_cause_matrix.md:450:- native artifact proves `DecodeConfig.SetMaxOutputTokens(3)`
+docs/litert_qairt244_failure_root_cause_matrix.md:491:- hard cap: `max_output_tokens=3`
+docs/litert_qairt244_failure_root_cause_matrix.md:521:- hard cap: `max_output_tokens=3`
+docs/litert_qairt244_failure_root_cause_matrix.md:880:artifacts/qairt244_htp_log_callback_dry_run/20260522_225623/
+docs/litert_qairt244_failure_root_cause_matrix.md:881:artifacts/npu_diagnostics/20260522_225623_customnpu/
+docs/litert_qairt244_failure_root_cause_matrix.md:999:  `result=success`, `output=! How Hi`, `max_output_tokens=3`.
+docs/litert_qairt244_failure_root_cause_matrix.md:1030:  `max_output_tokens=3`, `npu_backend=NPU`
+docs/litert_qairt244_failure_root_cause_matrix.md:1032:  `max_output_tokens=3`, `npu_backend=NPU`
+docs/litert_qairt244_failure_root_cause_matrix.md:1064:  `max_output_tokens=3`, and `npu_backend=NPU`
+docs/litert_qairt244_failure_root_cause_matrix.md:1337:Static LiteRT-LM inspection found `native stop not exposed` for the qairt244 lower-level Android route. Runtime metadata can carry stop token ids internally, but this JNI path creates a default session config and exposes only `DecodeConfig.SetMaxOutputTokens()` for the editable-prompt run; no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter is available. Public sampler controls expose topK/topP/temperature/seed, but the qairt244 lower-level native entrypoint does not accept sampler config, and no repetition penalty API was found.
+docs/litert_qairt244_failure_root_cause_matrix.md:1339:The fixed executable baseline is `enhanced_sanitizer_only_128`. `lower_max_tokens_64_sanitizer` and `lower_max_tokens_32_sanitizer` are rollback-only records, not executable adoption candidates, and `stop_sequence_end_of_turn` is recorded as `not_run/native_stop_not_exposed`. The prompts are `こんにちは`, `はじめまして`, and `こんばんは`; the executable sanitizer-only case uses `max_output_tokens=128` and a 30 second timeout.
+docs/litert_qairt244_failure_root_cause_matrix.md:1341:The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+docs/litert_qairt244_failure_root_cause_matrix.md:1345:Commit baseline: `sanitizer_only + max_output_tokens=128` is the provisional
+docs/litert_qairt244_failure_root_cause_matrix.md:1368:`sanitizer_only + max_output_tokens=128` as the required baseline and does not
+docs/qairt244_native_artifact_reproducibility.md:3:## 2026-05-24 128 Output / 128 Input Hidden Template Artifact
+docs/qairt244_native_artifact_reproducibility.md:6:native artifact that keeps output generation capped at `max_output_tokens=128`
+docs/qairt244_native_artifact_reproducibility.md:7:and raises only the editable prompt input guard to 128 UTF-8 code points for
+docs/qairt244_native_artifact_reproducibility.md:13:`patches/qairt244_litertlm_utf8_128token_128input.patch`
+docs/qairt244_native_artifact_reproducibility.md:20:- `patches/qairt244_litertlm_utf8_128token.patch`
+docs/qairt244_native_artifact_reproducibility.md:28:  --label qairt244_128token_128input_utf8prompt
+docs/qairt244_native_artifact_reproducibility.md:32:`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt`
+docs/qairt244_native_artifact_reproducibility.md:35:`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+docs/qairt244_native_artifact_reproducibility.md:37:`liblitertlm_jni.so` sha256:
+docs/qairt244_native_artifact_reproducibility.md:41:`max_output_tokens=128`, `native_max_output_tokens_limit=128`,
+docs/qairt244_native_artifact_reproducibility.md:42:`native_prompt_input_code_point_limit=128`,
+docs/qairt244_native_artifact_reproducibility.md:47:## 2026-05-24 128-Token Bounded Artifact
+docs/qairt244_native_artifact_reproducibility.md:50:artifact to a 128-token bounded artifact for customBuildExperimentDebug only.
+docs/qairt244_native_artifact_reproducibility.md:52:routing. The native guard must not allow values above `128`.
+docs/qairt244_native_artifact_reproducibility.md:55:`patches/qairt244_litertlm_utf8_128token.patch`
+docs/qairt244_native_artifact_reproducibility.md:65:intent, and 32/64/128-token phases raise only the bounded native token cap. The
+docs/qairt244_native_artifact_reproducibility.md:82:  --label qairt244_128token_utf8prompt
+docs/qairt244_native_artifact_reproducibility.md:86:`artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt`
+docs/qairt244_native_artifact_reproducibility.md:89:`artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+docs/qairt244_native_artifact_reproducibility.md:91:`liblitertlm_jni.so` sha256:
+docs/qairt244_native_artifact_reproducibility.md:95:`max_output_tokens=128`, `native_max_output_tokens_limit=128`,
+docs/qairt244_native_artifact_reproducibility.md:99:The 128-token artifact has bounded Phase A stability evidence in
+docs/qairt244_native_artifact_reproducibility.md:103:`max_output_tokens=128`, `native_max_output_tokens_limit=128`,
+docs/qairt244_native_artifact_reproducibility.md:111:formal generation speed value. This records only the 128-token DEV-only bounded
+docs/qairt244_native_artifact_reproducibility.md:157:`liblitertlm_jni.so` sha256:
+docs/qairt244_native_artifact_reproducibility.md:161:`max_output_tokens=64`, `native_max_output_tokens_limit=64`,
+docs/qairt244_native_artifact_reproducibility.md:169:`max_output_tokens=64`, `native_max_output_tokens_limit=64`,
+docs/qairt244_native_artifact_reproducibility.md:176:historical 64-token DEV-only bounded experiment; the later 128-token phase is
+docs/qairt244_native_artifact_reproducibility.md:208:`artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt`
+docs/qairt244_native_artifact_reproducibility.md:211:`artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+docs/qairt244_native_artifact_reproducibility.md:213:`liblitertlm_jni.so` sha256:
+docs/qairt244_native_artifact_reproducibility.md:217:`max_output_tokens=32`, `native_max_output_tokens_limit=32`,
+docs/qairt244_native_artifact_reproducibility.md:240:patches/qairt244_litertlm_utf8_128token.patch
+docs/qairt244_native_artifact_reproducibility.md:241:patches/qairt244_litertlm_utf8_128token_128input.patch
+docs/qairt244_native_artifact_reproducibility.md:257:Expected current result for the no-argument helper is the active 128 output /
+docs/qairt244_native_artifact_reproducibility.md:258:128 input patch: `status=applied`. Historical patches can still be checked by
+docs/qairt244_native_artifact_reproducibility.md:264:  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
+docs/qairt244_native_artifact_reproducibility.md:267:  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
+docs/qairt244_native_artifact_reproducibility.md:276:  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
+docs/qairt244_native_artifact_reproducibility.md:290:Known `liblitertlm_jni.so` sha256:
+docs/qairt244_native_artifact_reproducibility.md:294:`sha256sum` output in this document or the run-specific docs. Do not add `.so`,
+docs/qairt244_native_artifact_reproducibility.md:330:sha256=51e9a54c7ec32daabba7a6521ed378b8ebad72c4dfcd4597d6f4b0360e3ac947
+docs/qairt244_native_artifact_reproducibility.md:358:The active 128-token change uses this native guard in that entrypoint:
+docs/qairt244_native_artifact_reproducibility.md:361:if (max_output_tokens < 1 || max_output_tokens > 128) {
+docs/qairt244_native_artifact_reproducibility.md:362:  ... invalid_max_output_tokens ... native_max_output_tokens_limit=128 ...
+docs/qairt244_native_artifact_reproducibility.md:366:decode_config.SetMaxOutputTokens(max_output_tokens);
+docs/qairt244_native_artifact_reproducibility.md:369:The older 8-token staged artifact rejected `max_output_tokens=16` before RunDecode with `invalid_max_output_tokens value=16`. The active 128-token artifact keeps that DEV-only editable-prompt path bounded to `1..128`, records `native_max_output_tokens_limit=128`, and then calls `RunDecode` with `SetMaxOutputTokens(max_output_tokens)`.
+docs/qairt244_native_artifact_reproducibility.md:371:The UTF-8 prompt update is limited to the DEV-only editable-prompt validator. It trims ASCII spaces, rejects empty prompts, rejects NUL, rejects invalid UTF-8, rejects prompts above 32 UTF-8 code points, and no longer rejects non-ASCII UTF-8 solely because bytes are above ASCII. The result file records `native_prompt_validation_mode=utf8_internal_intent` and `utf8_allowed=true`; diagnostic logs include the same mode on entry and prompt validation. This does not change `max_output_tokens`, the UI text runner, normal ChatScreen routing, fallback behavior, or production `Backend.NPU` wiring.
+docs/qairt244_native_artifact_reproducibility.md:437:- Native guard is exactly bounded to `max_output_tokens < 1 || max_output_tokens > 64`.
+docs/qairt244_native_artifact_reproducibility.md:438:- Result writer records `native_max_output_tokens_limit=64`.
+docs/qairt244_native_artifact_reproducibility.md:441:- Decode path logs `before RunDecode SetMaxOutputTokens(%d)` and calls `decode_config.SetMaxOutputTokens(max_output_tokens)`.
+docs/qairt244_native_artifact_reproducibility.md:444:- `metadata/liblitertlm_jni.so.txt` records size, SHA-256, build ID, and `NEEDED` dependencies.
+docs/qairt244_native_artifact_reproducibility.md:445:- `strings/built_libs` or `strings/liblitertlm_jni.so.filtered.txt` includes qairt244 markers, `invalid_max_output_tokens`, `native_prompt_validation_mode`, and `utf8_allowed` evidence.
+docs/qairt244_native_artifact_reproducibility.md:453:liblitertlm_jni_sha256=cd85bd4979cac7325148d8ad72bc0ee69cbf684d9f7e9373fab07844b5110ad6
+docs/qairt244_native_artifact_reproducibility.md:458:max_output_tokens_range=1..64
+docs/litert_qairt244_dlopen_trace_result.md:68:| Library | Build ID | SHA-256 |
+docs/litert_qairt244_short_multitoken_smoke_plan.md:64:DecodeConfig.SetMaxOutputTokens(3)
+docs/litert_qairt244_short_multitoken_smoke_plan.md:103:- `SetMaxOutputTokens(3)` static evidence required
+docs/litert_qairt244_short_multitoken_smoke_plan.md:127:max_output_tokens=3
+scripts/plan_gallery_native_stack_experiment.sh:20:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/plan_gallery_native_stack_experiment.sh:21:    sha256sum "$file" | awk '{print $1}'
+scripts/plan_gallery_native_stack_experiment.sh:154:  printf 'apk_sha256=%s\n' "$(sha_for "$APK_PATH")"
+scripts/plan_gallery_native_stack_experiment.sh:160:  printf 'apk_path\tlibrary\tcategory\trisk\tsize\tsha256\tbuild_id\tsoname\tneeded\texported_symbols\tfocus_symbols\telf\n'
+scripts/plan_gallery_native_stack_experiment.sh:211:  printf '%s\n' "- APK SHA-256: \`$(sha_for "$APK_PATH")\`"
+docs/litert_lm_runtime_version_matrix.md:27:| Source | Library | SHA-256 | Build ID | NEEDED | Exported symbols | Dispatch API exports |
+docs/litert_lm_runtime_version_matrix.md:40:| Source | Library | SHA-256 | Build ID | NEEDED | Exported symbols | Dispatch API exports |
+docs/litert_lm_runtime_version_matrix.md:46:| Gallery SM8750 | `libQnnHtp.so` | `090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a` | `f2c90c1775a109e1` | `libc.so`, `libm.so`, `libdl.so`, `liblog.so` | 4 | none |
+scripts/stage_gallery_native_stack_for_experiment.sh:44:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/stage_gallery_native_stack_for_experiment.sh:45:    sha256sum "$file" | awk '{print $1}'
+scripts/stage_gallery_native_stack_for_experiment.sh:85:  log "staged $lib build_id=$(build_id_for "$TARGET_DIR/$lib") sha256=$(sha_for "$TARGET_DIR/$lib")"
+scripts/stage_gallery_native_stack_for_experiment.sh:98:printf 'library\trequirement\tstatus\tsize\tsha256\tbuild_id\tneeded\n' >"$OUT_DIR/staged_libs.tsv"
+scripts/stage_gallery_native_stack_for_experiment.sh:123:  printf '%s\n' "- APK SHA-256: \`$(sha_for "$APK_PATH")\`"
+scripts/stage_gallery_native_stack_for_experiment.sh:128:  printf '| Library | Status | Build ID | SHA-256 | NEEDED |\n'
+docs/litert_qairt244_dispatch_logging_dry_run_result.md:29:| Library | Build ID | SHA-256 |
+docs/litert_qairt244_dispatch_logging_dry_run_result.md:104:| Library | Expected in APK | Present in APK | Build ID | SHA-256 | Notes |
+docs/qairt244_non_ascii_prompt_plan.md:14:`artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt`
+docs/qairt244_non_ascii_prompt_plan.md:16:`liblitertlm_jni.so` sha256:
+docs/qairt244_non_ascii_prompt_plan.md:30:- `max_output_tokens=32`
+docs/qairt244_non_ascii_prompt_plan.md:31:- `native_max_output_tokens_limit=32`
+docs/qairt244_non_ascii_prompt_plan.md:48:- Extras: `prompt`, `expected_model_basename`, `max_output_tokens`
+docs/qairt244_non_ascii_prompt_plan.md:53:- Native JNI sha256: `51e9a54c7ec32daabba7a6521ed378b8ebad72c4dfcd4597d6f4b0360e3ac947`
+docs/qairt244_non_ascii_prompt_plan.md:57:basename, `max_output_tokens` in `1..16`, UTF-8 prompt validation through
+docs/qairt244_non_ascii_prompt_plan.md:79:- The qairt244 SM8750 DEV-only route is stable for the ASCII runner prompt set `Hello`, `test`, and `OK` at `max_output_tokens=16`.
+docs/qairt244_non_ascii_prompt_plan.md:86:The current runner should remain ASCII-only. Japanese prompt coverage should be a separate phase with a controlled input path. The native artifact for that internal path is now rebuilt as `artifacts/litert_custom_build/20260524_144803_qairt244_16token_utf8prompt` with `native_prompt_validation_mode=utf8_internal_intent`, `utf8_allowed=true`, and `liblitertlm_jni.so` SHA-256 `51e9a54c7ec32daabba7a6521ed378b8ebad72c4dfcd4597d6f4b0360e3ac947`.
+docs/qairt244_non_ascii_prompt_plan.md:193:max_output_tokens=16
+docs/qairt244_non_ascii_prompt_plan.md:219:max_output_tokens=16
+docs/qairt244_non_ascii_prompt_plan.md:220:native_max_output_tokens_limit=16
+docs/qairt244_non_ascii_prompt_plan.md:259:  --ei max_output_tokens 16
+docs/qairt244_non_ascii_prompt_plan.md:270:  --ei max_output_tokens 16
+docs/qairt244_non_ascii_prompt_plan.md:297:8. Start with one prompt, `こんにちは`, and one run only. Keep `max_output_tokens=16`.
+docs/qairt244_non_ascii_prompt_plan.md:308:- `max_output_tokens=16` remains unchanged.
+scripts/package_npu_issue_artifacts.sh:62:  copy_path "artifacts/litertlm_flavor_dependencies/20260516_204821" "$bundle_dir/artifacts/litertlm_flavor_dependencies_20260516_204821"
+scripts/package_npu_issue_artifacts.sh:84:  mkdir -p "$bundle_dir/artifacts/litertlm_flavor_dependencies_20260516_204821"
+scripts/package_npu_issue_artifacts.sh:85:  copy_path "artifacts/litertlm_flavor_dependencies/20260516_204821/summary.txt" "$bundle_dir/artifacts/litertlm_flavor_dependencies_20260516_204821/summary.txt"
+scripts/stage_gallery_dispatch_for_npu_experiment.sh:24:  sha256sum "$1" | awk '{print $1}'
+scripts/stage_gallery_dispatch_for_npu_experiment.sh:43:  printf 'sha256: %s\n' "$sha"
+scripts/stage_gallery_dispatch_for_npu_experiment.sh:47:    printf 'ERROR: sha256 mismatch. expected=%s actual=%s\n' "$EXPECTED_SHA" "$sha" >&2
+scripts/stage_gallery_dispatch_for_npu_experiment.sh:109:require_tool sha256sum
+scripts/stage_gallery_dispatch_for_npu_experiment.sh:142:printf 'sha256: %s\n' "$(sha_for "$TARGET_SO")"
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:193:- result file with prompt, output, `max_output_tokens`, elapsed, and status
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:207:- `max_output_tokens=3`
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:303:- native hard cap evidence: `DecodeConfig.SetMaxOutputTokens(3)`.
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewConsistencyTest.kt:101:            - maxOutputTokens=128
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewConsistencyTest.kt:118:            - maxOutputTokens=128
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewConsistencyTest.kt:135:            - maxOutputTokens=128
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewConsistencyTest.kt:152:            - maxOutputTokens=128
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewConsistencyTest.kt:212:        - maxOutputTokens=128
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewConsistencyTest.kt:251:            maxOutputTokens = 128,
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:3:## Max Output Tokens 256 Hidden Compare - 2026-05-26
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:5:The hidden experimental 256-token comparison was run in
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:6:`artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/`.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:11:- requested `max_output_tokens=256`
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:12:- native entrypoint reported `native_max_output_tokens_limit=128`
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:13:- native detail: `invalid_max_output_tokens`
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:20:Decision: do not promote 256 into ChatScreen or H1. Keep
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:21:`sanitizer_only + max_output_tokens=128` as the hidden display baseline.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:40:- editable prompt `Hello` succeeds with `max_output_tokens=3`.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:91:- native evidence confirms `DecodeConfig.SetMaxOutputTokens(3)` or a stricter
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:655:Static LiteRT-LM inspection found `native stop not exposed` for the qairt244 lower-level Android route. Runtime metadata can carry stop token ids internally, but this JNI path creates a default session config and exposes only `DecodeConfig.SetMaxOutputTokens()` for the editable-prompt run; no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter is available. Public sampler controls expose topK/topP/temperature/seed, but the qairt244 lower-level native entrypoint does not accept sampler config, and no repetition penalty API was found.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:657:The fixed executable baseline is `enhanced_sanitizer_only_128`. `lower_max_tokens_64_sanitizer` and `lower_max_tokens_32_sanitizer` are rollback-only records, not executable adoption candidates, and `stop_sequence_end_of_turn` is recorded as `not_run/native_stop_not_exposed`. The prompts are `こんにちは`, `はじめまして`, and `こんばんは`; the executable sanitizer-only case uses `max_output_tokens=128` and a 30 second timeout.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:659:The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:663:Commit baseline: `sanitizer_only + max_output_tokens=128` is the provisional
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:686:`sanitizer_only + max_output_tokens=128` as the required baseline and does not
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:700:evidence, `maxOutputTokens=128`, and short artifact path. It clears on new
+docs/litert_qairt244_qnn_status_14001.md:106:artifacts/qairt244_htp_log_callback_dry_run/20260522_225623/
+scripts/stage_device_libcdsprpc_for_custom_experiment.sh:20:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/stage_device_libcdsprpc_for_custom_experiment.sh:21:    sha256sum "$file" | awk '{print $1}'
+scripts/stage_device_libcdsprpc_for_custom_experiment.sh:79:  printf 'library\tsource\tstaged_to\tsize\tsha256\tbuild_id\tneeded\n'
+scripts/stage_device_libcdsprpc_for_custom_experiment.sh:109:  printf '| Library | Build ID | SHA-256 | NEEDED |\n'
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1XmlCardContractTest.kt:33:            - maxOutputTokens=128
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1XmlCardContractTest.kt:145:            maxOutputTokens = 128,
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:65:## 2026-05-24 128 Output / 128 Input Hidden Template Phase
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:68:prompt-input phase. The output limit remains `max_output_tokens=128` and
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:69:`native_max_output_tokens_limit=128`; the final model input guard for
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:70:standardDebug hidden template experiments is raised to 128 code points so the
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:76:- `prompt_input_code_point_limit=128`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:78:- `native_prompt_input_code_point_limit=128`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:82:`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:84:`liblitertlm_jni.so` sha256:
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:88:`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:91:128, does not add fallback, does not support generic/E4B/qcs8275 models, and
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:94:128 input same-prompt confirmation for `こんにちは`:
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:109:## 2026-05-24 128-Token Bounded Phase
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:111:The runner default artifact now points to the 128-token custom native artifact
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:115:artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:118:The internal intent dispatch uses `--ei max_output_tokens 128` and still avoids
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:123:`max_output_tokens=128`, `native_max_output_tokens_limit=128`,
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:133:128-token single-device confirmation:
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:143:- `max_output_tokens=128`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:144:- `native_max_output_tokens_limit=128`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:153:128-token bounded Phase A stability evidence:
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:162:max_output_tokens=128
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:163:native_max_output_tokens_limit=128
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:184:route, not production or normal-route NPU enablement. Do not raise beyond 128
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:198:The internal intent dispatch uses `--ei max_output_tokens 64` and still avoids
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:203:`max_output_tokens=64`, `native_max_output_tokens_limit=64`,
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:223:- `max_output_tokens=64`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:224:- `native_max_output_tokens_limit=64`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:242:max_output_tokens=64
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:243:native_max_output_tokens_limit=64
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:261:route, not production or normal-route NPU enablement. The later 128-token phase
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:270:artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:273:The internal intent dispatch uses `--ei max_output_tokens 32` and still avoids
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:278:`max_output_tokens=32`, `native_max_output_tokens_limit=32`,
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:293:- `max_output_tokens=32`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:294:- `native_max_output_tokens_limit=32`
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:309:max_output_tokens=32
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:310:native_max_output_tokens_limit=32
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:352:`gemma-4-E2B-it_qualcomm_sm8750.litertlm`, and `max_output_tokens=16`. The
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:398:max_output_tokens=3
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:415:When the toggle is ON and the user sends from the local ChatScreen target, the app calls the qairt244 SM8750 DEV-only adapter with `max_output_tokens=128`. The model basename must be either `gemma-4-E2B-it_qualcomm_sm8750.litertlm` or a downloader timestamp form such as `<digits>_gemma-4-E2B-it_qualcomm_sm8750.litertlm`. This accepts the app-private import naming convention without copying, deleting, or renaming the model. Generic, E4B, non-numeric prefix, and qcs8275 models remain rejected by the Kotlin resolver.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:430:max_output_tokens=128
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:438:`max_output_tokens` is now fixed at `128` for the 128-token phase. The DEV route is a short, lower-level, non-streaming run, so Stop is best-effort and is not guaranteed to behave like normal streaming cancellation. The UI must clear its generating state on success, failure, and exception, and the DEV branch also keeps an in-process duplicate-run guard so repeated sends do not start overlapping qairt244 runs.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:451:Before raising the token cap beyond `128`, require a new bounded native guard and repeated evidence that: the exact SM8750 basename is selected, `required_sm8750_model_path=true`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, no GPU/CPU fallback is detected, generating state clears after success/failure/Stop, duplicate sends are blocked, and no TTS/streaming/standard-route side effects appear.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:455:The current bounded DEV-only step raises only the qairt244 SM8750 experiment route from `max_output_tokens=8` to `max_output_tokens=16`. This remains DEV-only and does not enable `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:457:The 16 token phase is acceptable only if one guarded `Hello` run records: exact basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `required_sm8750_model_path=true`, `max_output_tokens=16`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `fresh_crash=false`, `timeout=false`, no `duplicate_run_blocked`, and the ChatScreen loading state clears after completion.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:459:Initial 16 token attempt on 2026-05-24 stopped before RunDecode in `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_114330` because the staged native editable-prompt artifact still rejected 16 with `invalid_max_output_tokens value=16`. The native DEV guard was then changed from exact `8` to the bounded range `1..16`, rebuilt as `artifacts/litert_custom_build/20260524_114833_qairt244_16token`, and restaged for `customBuildExperimentDebug`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:473:max_output_tokens=16
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:474:native_max_output_tokens_limit=16
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:475:run_decode=before RunDecode SetMaxOutputTokens(16)
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:492:The current stability prompt set is `Hello`, `test`, and `OK`. Each run still uses `max_output_tokens=64`, exact SM8750 model selection, no model copy/delete, no fallback, and the DEV-only route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:502:The native editable-prompt artifact for this path was rebuilt as `artifacts/litert_custom_build/20260524_162218_qairt244_64token_utf8prompt`. Its `liblitertlm_jni.so` SHA-256 is `cd85bd4979cac7325148d8ad72bc0ee69cbf684d9f7e9373fab07844b5110ad6`, and the JNI build log is `artifacts/litert_custom_build/20260524_162218_qairt244_64token_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`. The native validator records `native_prompt_validation_mode=utf8_internal_intent` and `utf8_allowed=true`, rejects empty/NUL/invalid UTF-8/over-32-code-point prompts, and keeps `max_output_tokens` bounded to `1..64`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:527:  --ei max_output_tokens 64
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:538:  --ei max_output_tokens 64
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:562:The dedicated section is shown only for `selected_route=qairt244_sm8750_dev_npu` stats and summarizes: exact model basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `max_output_tokens=64`, `native_max_output_tokens_limit=64`, `required_sm8750_model_path=true`, RunDecode reachability, `decode_elapsed_ms`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, and the DEV UI cleanup status. Decode elapsed time is treated as DEV evidence, not as the normal token/s speed metric.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:574:- Token budget: `max_output_tokens=128` is being validated as a bounded DEV-only phase; normal use still needs broader repeated evidence before the route can represent useful generation behavior.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:577:- Native artifact reproducibility: the successful path depends on a custom native artifact, currently `artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt`; the source patch, build commands, ABI contents, and packaging rules must be reproducible without staging `.so` binaries in Git.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:587:- Phase A: Keep the current DEV-only route. Continue using explicit toggle, SM8750-only model guard, `max_output_tokens=128`, no fallback, and diagnostic-first artifacts.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:590:- Phase D: Consider `Backend.NPU` candidate promotion only after 128-token bounded runs, Japanese prompt coverage, failure UX, cleanup, memory, and thermal evidence meet the same bar as existing local inference candidates.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:595:- 10 or more consecutive 128-token DEV runs across `Hello`, `test`, `OK`, and at least one non-ASCII internal intent prompt path, all with `result=success` when actually sent.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:596:- Bounded 128-token phase passes with exact basename, `required_sm8750_model_path=true`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `timeout=false`, and `fresh_crash=false`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:602:Next action: do not promote yet. Keep Phase A, then decide between broader native artifact reproducibility work and repeated Japanese/non-ASCII prompt evidence before increasing token count beyond 128 or exposing a hidden experimental candidate.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:606:hidden behind developer access, default OFF, SM8750-only, capped at 128 tokens,
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:616:The next bounded DEV-only step raises only the qairt244 SM8750 experiment route from `max_output_tokens=3` to `max_output_tokens=8`. This is not a production NPU rollout and still does not enable `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:618:The 8 token phase is considered acceptable only if one guarded `Hello` run records: exact basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `required_sm8750_model_path=true`, `max_output_tokens=8`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `fresh_crash=false`, `timeout=false`, no `duplicate_run_blocked`, and the ChatScreen loading state clears after completion.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:632:max_output_tokens=8
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:633:run_decode=before RunDecode SetMaxOutputTokens(8)
+scripts/check_litert_npu_dispatch.sh:26:sha256_for_file() {
+scripts/check_litert_npu_dispatch.sh:28:  if command -v sha256sum >/dev/null 2>&1; then
+scripts/check_litert_npu_dispatch.sh:29:    sha256sum "$path" 2>/dev/null | awk '{print $1}'
+scripts/check_litert_npu_dispatch.sh:31:    printf 'sha256sum-unavailable'
+scripts/check_litert_npu_dispatch.sh:35:sha256_for_zip_entry() {
+scripts/check_litert_npu_dispatch.sh:38:  if command -v sha256sum >/dev/null 2>&1; then
+scripts/check_litert_npu_dispatch.sh:39:    unzip -p "$zip_path" "$entry" 2>/dev/null | sha256sum | awk '{print $1}'
+scripts/check_litert_npu_dispatch.sh:41:    printf 'sha256sum-unavailable'
+scripts/check_litert_npu_dispatch.sh:48:  sha="$(sha256_for_file "$path")"
+scripts/check_litert_npu_dispatch.sh:55:  printf '  sha256: %s\n' "$sha"
+scripts/check_litert_npu_dispatch.sh:156:        printf '    sha256: %s\n' "$(sha256_for_zip_entry "$aar" "$entry")"
+scripts/check_litert_npu_dispatch.sh:202:        printf '    sha256: %s\n' "$(sha256_for_zip_entry "$apk" "$entry")"
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewHostTest.kt:20:        assertTrue(host.renderText.contains("- maxOutputTokens=128"))
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewHostTest.kt:97:            - maxOutputTokens=128
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewHostTest.kt:189:            maxOutputTokens = 128,
+docs/litert_generation_strategy_options.md:37:5. Use QAIRT `2.42.0.251225` as a static comparison baseline if it becomes
+docs/litert_generation_strategy_options.md:46:Radxa public documentation makes QAIRT `2.42.0.251225` a useful public
+docs/litert_generation_strategy_options.md:59:  /home/sato/compose/qairt/workspace/sdk/qairt/2.42.0.251225
+docs/litert_generation_strategy_options.md:62:  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.42.0.251225
+docs/litert_qairt244_android_logcat_patch.md:66:| Library | Build ID | SHA-256 |
+docs/litert_qairt244_npu_coldstart_force_stop_profile.md:32:max_output_tokens=3
+docs/litert_qairt244_npu_coldstart_force_stop_profile.md:89:before RunDecode SetMaxOutputTokens(3)
+scripts/map_gallery_litert_versions.sh:32:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/map_gallery_litert_versions.sh:33:    sha256sum "$file" | awk '{print $1}'
+scripts/map_gallery_litert_versions.sh:202:    printf 'sha256=%s\n\n' "$(sha_for "$apk")"
+scripts/map_gallery_litert_versions.sh:270:printf 'source\tlibrary\tsha256\tbuild_id\tsoname\tneeded\texported_symbols\tLiteRtDispatchGetApi\tLiteRtQualcommOptionsGet\tfile\n' >"$OUT_DIR/native_lib_matrix.tsv"
+docs/litert_qairt244_qnn_runtime_alignment_result.md:22:| Library | Build ID | SHA-256 | Source |
+docs/litert_qairt244_qnn_runtime_alignment_result.md:29:| `libQnnHtp.so` | `f2c90c1775a109e1` | `090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a` | QAIRT 2.44 `lib/aarch64-android` |
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ComposeAdapterTest.kt:21:        assertTrue(model.detailLines.contains("maxOutputTokens=128"))
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ComposeAdapterTest.kt:89:            detailLines=maxOutputTokens=128|decode_ms=2756|backendEvidence=QNN_HTP_V79_FastRPC|artifact=qairt244_npu_turn_stop_quality_compare/20260525_211810|selectedPathSaved=false|db=false|tts=false|markdown=false|streaming=false
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ComposeAdapterTest.kt:145:                maxOutputTokens = 128,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ComposeAdapterTest.kt:159:                maxOutputTokens = 128,
+docs/litert_qairt244_qnn_provider_trace_result.md:19:| Library | Build ID | SHA-256 |
+scripts/inspect_apk_dispatch_runtime.sh:76:if command -v sha256sum >/dev/null 2>&1; then
+scripts/inspect_apk_dispatch_runtime.sh:77:  sha256sum "$APK_PATH" || true
+scripts/build_litert_custom_artifacts.sh:109:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/build_litert_custom_artifacts.sh:110:    sha256sum "$file" | awk '{print $1}'
+scripts/build_litert_custom_artifacts.sh:150:      printf 'sha256=%s\n' "$(sha_for "$file")"
+scripts/build_litert_custom_artifacts.sh:347:  grep -nE 'LITERT_REF|LITERT_SHA256|qairt|android_ndk_repository|android_sdk_repository' WORKSPACE 2>/dev/null || true
+scripts/build_litert_custom_artifacts.sh:411:printf 'source\tlibrary\tpresent\tsize\tsha256\tbuild_id\tsoname\tneeded\n' >"$MATRIX"
+docs/litert_qairt244_libcdsprpc_staging_result.md:18:- records SHA-256, Build ID, `DT_NEEDED`, `file`, and `readelf` outputs
+docs/litert_qairt244_qnn_dependency_chain.md:31:- `metadata.tsv`: ELF class, machine, Build ID, SHA-256, source path.
+docs/litert_qairt244_qnn_dependency_chain.md:103:SHA-256 confirms the same pattern for V79 skel:
+scripts/run_qairt244_single_token_smoke.sh:23:  printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_single_token_smoke.sh:36:  rg -n "nativeRunDecode|RunDecode\\(|DecodeConfig|SetMaxOutputTokens|SessionConfig|SamplerConfig|sendMessage|generateContent|createConversation|createSession" \
+scripts/run_qairt244_single_token_smoke.sh:46:required_next_step=Implement a customBuildExperimentDebug-only lower-level JNI or CLI route that calls DecodeConfig.SetMaxOutputTokens(1), then re-run this smoke once after static checks pass.
+scripts/run_qairt244_single_token_smoke.sh:53:max_output_tokens_eq_1	fail	No current app-accessible API path statically guarantees SetMaxOutputTokens(1).
+scripts/run_qairt244_single_token_smoke.sh:83:- Lower-level C++ has `DecodeConfig.SetMaxOutputTokens(1)`, but no
+scripts/run_qairt244_single_token_smoke.sh:91:JNI or CLI route that statically contains `SetMaxOutputTokens(1)` and no normal
+scripts/compare_qairt_generations.sh:48:    "$HOME/compose/qairt/workspace/sdk/qairt/2.42.0.251225" \
+scripts/compare_qairt_generations.sh:82:  sha="$(sha256sum "$file" 2>/dev/null | awk '{print $1}' || true)"
+scripts/compare_qairt_generations.sh:90:    printf 'sha256=%s\n' "$sha"
+scripts/compare_qairt_generations.sh:104:printf 'label\tlibrary\tpresent\tsize\tsha256\tbuild_id\tneeded\tpath\n' >"$OUT_DIR/qnn_generation_matrix.tsv"
+scripts/compare_qairt_generations.sh:128:    *2.42.0.251225*) version="2.42.0.251225" ;;
+docs/litertlm_gallery_java_api_surface_mismatch.md:16:- SHA-256: `cb0eb290c546de29a48864fd3972d8b8a487f5a87e277447f52377ffa60ee5ba`
+docs/litert_gallery_native_stack_experiment_plan.md:30:- source APK SHA-256: `cb0eb290c546de29a48864fd3972d8b8a487f5a87e277447f52377ffa60ee5ba`
+docs/litert_gallery_native_stack_experiment_plan.md:143:   - Check nativeLibraryDir presence, SHA-256, Build IDs, NEEDED, and collision-free packaging.
+docs/litert_gallery_native_stack_experiment_plan.md:196:| Library | Build ID | SHA-256 |
+docs/litert_gallery_native_stack_experiment_plan.md:202:| `libQnnHtp.so` | `f2c90c1775a109e1` | `090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a` |
+docs/litert_gallery_native_stack_experiment_plan.md:255:  dispatch runtime sha256=92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777
+docs/litert_gallery_native_stack_experiment_plan.md:256:  expected sha256 match=true
+scripts/analyze_qairt_qnn_coupling.sh:76:  if [ -f "$file" ] && command -v sha256sum >/dev/null 2>&1; then
+scripts/analyze_qairt_qnn_coupling.sh:77:    sha256sum "$file" | awk '{print $1}'
+scripts/analyze_qairt_qnn_coupling.sh:228:printf 'label\tlibrary\tstatus\tpath\tsize\tsha256\tbuild_id\tsoname\tneeded\tfiltered_string_hits\n' >"$OUT_DIR/qnn_lib_matrix.tsv"
+scripts/analyze_qairt_qnn_coupling.sh:312:    printf '%s\n' "- SHA-256: \`$(sha_for "$LOCAL_MODEL")\`"
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1TransientPreviewWiringTest.kt:139:            put("max_output_tokens", "128")
+docs/litert_qairt244_native_file_logger_result.md:50:| Library | Build ID | SHA-256 |
+docs/litert_qairt244_jni_sentinel_logcat_result.md:49:| Library | Build ID | SHA-256 |
+docs/litertlm_010_api_surface_check.md:117:| Library | SHA-256 | Build ID | NEEDED |
+docs/litertlm_010_api_surface_check.md:125:| Library | SHA-256 | Build ID | NEEDED |
+scripts/analyze_litert_runtime_compatibility.sh:46:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/analyze_litert_runtime_compatibility.sh:47:    sha256sum "$file" | awk '{print $1}'
+scripts/analyze_litert_runtime_compatibility.sh:171:    printf 'sha256=%s\n' "$(sha_for "$file")"
+scripts/analyze_litert_runtime_compatibility.sh:186:    printf 'library\tstate\tgallery_build_id\tlami_build_id\tgallery_sha256\tlami_sha256\tnotes\n'
+scripts/analyze_litert_runtime_compatibility.sh:290:        adb shell sha256sum "$native_dir/$lib" 2>/dev/null | tr -d '\r' || true
+scripts/analyze_litert_runtime_compatibility.sh:329:  printf 'source\tlibrary\tsha256\tbuild_id\tsoname\tneeded\texported_symbols\tLiteRtDispatchGetApi\tLiteRtQualcommOptionsGet\telf_class\tpath\n'
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewRendererTest.kt:25:                "- maxOutputTokens=128",
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewRendererTest.kt:83:        assertEquals("- maxOutputTokens=128", lines[detailsIndex + 1])
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewRendererTest.kt:116:            - maxOutputTokens=128
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewRendererTest.kt:141:                maxOutputTokens = 128,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1PreviewRendererTest.kt:155:                maxOutputTokens = 128,
+scripts/compare_native_libs.sh:92:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/compare_native_libs.sh:93:    sha256sum "$file" | awk '{print $1}'
+scripts/compare_native_libs.sh:204:printf 'source\tlibrary\tpresent\tpath\tsha256\tbuild_id\telf_class\tsoname\tneeded\texported_symbols\tLiteRtDispatchGetApi\tLiteRtQualcommOptionsGet\n'
+docs/litert_gallery_dispatch_runtime_investigation.md:72:- sha256: `92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777`
+docs/litert_gallery_dispatch_runtime_investigation.md:134:- sha256: `31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24`
+docs/litert_gallery_dispatch_runtime_investigation.md:139:- sha256: `146f699ef6822a1e1f9489101a9dc5733e3788643396cab4fc768063cfde346c`
+docs/litert_gallery_dispatch_runtime_investigation.md:144:- sha256: `ac97fd1a7e3755eb77127599928011a7ecd75f3170749f034f568de1e0d27b6f`
+docs/litert_gallery_dispatch_runtime_investigation.md:149:- sha256: `607c4af2d405ff53a2a01415b47e202594b4e0dcce7f08f270bdfa7dd900c6d7`
+scripts/run_qairt244_short_multitoken_smoke.sh:45:DecodeConfig.SetMaxOutputTokens(3).
+scripts/run_qairt244_short_multitoken_smoke.sh:74:    printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_short_multitoken_smoke.sh:99:      "$MARKER|SetMaxOutputTokens\\(3\\)|SetMaxOutputTokens\\($MAX_OUTPUT_TOKENS\\)|RunPrefill|RunDecode\\(" \
+scripts/run_qairt244_short_multitoken_smoke.sh:110:        grep -E "$MARKER|SetMaxOutputTokens\\(3\\)|SetMaxOutputTokens\\($MAX_OUTPUT_TOKENS\\)" \
+scripts/run_qairt244_short_multitoken_smoke.sh:128:  if grep -q 'SetMaxOutputTokens(3)' "$OUT_DIR/litert_lm_short_multitoken_static_hits.txt" ||
+scripts/run_qairt244_short_multitoken_smoke.sh:129:    grep -q 'SetMaxOutputTokens(3)' "$OUT_DIR/custom_artifact_short_multitoken_static_hits.txt"; then
+scripts/run_qairt244_short_multitoken_smoke.sh:132:  grep -q 'SetMaxOutputTokens(3)' "$OUT_DIR/custom_artifact_short_multitoken_static_hits.txt" && artifact_native_cap_present=true
+scripts/run_qairt244_short_multitoken_smoke.sh:152:    printf 'max_output_tokens_le_3\tpass\tRequested hard cap is %s.\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_short_multitoken_smoke.sh:155:    printf 'native_set_max_output_tokens_3_static\t%s\tExecution requires SetMaxOutputTokens(3) static evidence in external source or artifact metadata.\n' "$([ "$native_cap_present" = true ] && printf pass || printf blocked_preflight)"
+scripts/run_qairt244_short_multitoken_smoke.sh:156:    printf 'artifact_set_max_output_tokens_3_static\t%s\tExecution requires SetMaxOutputTokens(3) evidence from the supplied artifact metadata.\n' "$([ "$artifact_native_cap_present" = true ] && printf pass || printf blocked_preflight)"
+scripts/run_qairt244_short_multitoken_smoke.sh:176:reason=A custom LiteRT-LM native rebuild with $MARKER and DecodeConfig.SetMaxOutputTokens(3) is required before one allowed run.
+scripts/run_qairt244_short_multitoken_smoke.sh:194:    printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_short_multitoken_smoke.sh:315:  if ! grep -q 'SetMaxOutputTokens(3)' "$OUT_DIR/custom_artifact_short_multitoken_static_hits.txt"; then
+scripts/run_qairt244_short_multitoken_smoke.sh:316:    printf 'missing SetMaxOutputTokens(3) evidence in supplied artifact metadata\n' >"$OUT_DIR/run/artifact_integrity_check.txt"
+scripts/run_qairt244_short_multitoken_smoke.sh:399:max_output_tokens=$MAX_OUTPUT_TOKENS
+scripts/run_qairt244_short_multitoken_smoke.sh:406:unless \`--run\` is supplied and static evidence proves \`SetMaxOutputTokens(3)\`.
+scripts/run_qairt244_short_multitoken_smoke.sh:425:- DecodeConfig.SetMaxOutputTokens(3)
+scripts/analyze_gallery_dispatch_runtime_requirements.sh:34:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/analyze_gallery_dispatch_runtime_requirements.sh:35:    sha256sum "$file" | awk '{print $1}'
+scripts/analyze_gallery_dispatch_runtime_requirements.sh:90:  printf 'library\tpresent\tsize\tsha256\tbuild_id\tsoname\tneeded\n' >"$summary"
+scripts/compare_gallery_litertlm_api_surface.sh:89:  if command -v sha256sum >/dev/null 2>&1; then
+scripts/compare_gallery_litertlm_api_surface.sh:90:    printf 'apk_sha256=%s\n' "$(sha256sum "$APK_PATH" | awk '{print $1}')"
+docs/litert_qairt244_lower_level_single_token_smoke_result.md:44:max_output_tokens=1
+docs/litert_qairt244_lower_level_single_token_smoke_result.md:57:max_output_tokens=1
+docs/litert_qairt244_lower_level_single_token_smoke_result.md:65:before RunDecode SetMaxOutputTokens(1)
+docs/litert_qairt244_lower_level_single_token_smoke_result.md:71:| Library | Build ID | SHA-256 |
+docs/litert_qairt244_lower_level_single_token_smoke_result.md:99:DecodeConfig.SetMaxOutputTokens(1)
+docs/litert_qairt244_lower_level_single_token_smoke_result.md:154:max_output_tokens=1
+docs/litert_dispatch_experiment_plan.md:78:sha256: 92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777
+docs/litert_dispatch_experiment_plan.md:98:It verifies the expected SHA-256, build id, `libLiteRt.so` dependency, and `LiteRtDispatchGetApi` export before copying.
+docs/litert_dispatch_experiment_plan.md:130:- dispatch runtime SHA-256
+docs/litert_dispatch_experiment_plan.md:131:- expected SHA-256 match
+docs/litert_dispatch_experiment_plan.md:298:- dispatch SHA-256 matches the staged Gallery SM8750 runtime
+docs/litert_qualcomm_sm8750_model_schema_probe.md:21:- sha256: `41dd675fbe735b6029012b5576a5716bac614fd8156de0128db4c9dff3cebd4e`
+docs/litert_qairt244_npu_diagnostic_chat_design.md:253:  `result=success`, `output=! How Hi`, `max_output_tokens=3`.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:260:  `before RunDecode SetMaxOutputTokens(3)`.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:294:  `result=success`, `output=! How Hi`, `max_output_tokens=3`.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:327:- run1: `result=success`, `output=! How Hi`, `max_output_tokens=3`,
+docs/litert_qairt244_npu_diagnostic_chat_design.md:329:- run2: `result=success`, `output=! How Hi`, `max_output_tokens=3`,
+docs/litert_qairt244_npu_diagnostic_chat_design.md:353:- run1: `result=success`, `output=! How Hi`, `max_output_tokens=3`,
+docs/litert_qairt244_npu_diagnostic_chat_design.md:355:- run2: `result=success`, `output=! How Hi`, `max_output_tokens=3`,
+docs/litert_qairt244_npu_diagnostic_chat_design.md:625:- `DecodeConfig.SetMaxOutputTokens(3)` evidence
+docs/litert_qairt244_npu_diagnostic_chat_design.md:646:- `max_output_tokens=3`
+docs/litert_qairt244_npu_diagnostic_chat_design.md:666:disabled after completion. Prompt remained `Hello`, `max_output_tokens=3`, and
+docs/litert_dispatch_detailed_logging_patch.md:118:| Library | Build ID | SHA-256 |
+docs/litert_qairt244_npu_memory_cleanup_profile.md:26:max_output_tokens=3
+docs/litert_qairt244_npu_memory_cleanup_profile.md:71:before RunDecode SetMaxOutputTokens(3)
+docs/litert_qairt244_npu_memory_cleanup_profile.md:116:max_output_tokens=3
+scripts/collect_npu_tombstone_diagnostics_v2.sh:79:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/collect_npu_tombstone_diagnostics_v2.sh:80:    sha256sum "$file" | awk '{print $1}'
+scripts/collect_npu_tombstone_diagnostics_v2.sh:237:  printf 'library\tpresent\tsize\tsha256\tbuild_id\tsoname\tneeded\tsource\n'
+scripts/collect_npu_tombstone_diagnostics_v2.sh:250:      sha="$(adb shell sha256sum "$NATIVE_DIR/$lib" 2>/dev/null | awk '{print $1}' | tr -d '\r' || printf '-')"
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1CardViewModelTest.kt:57:        assertTrue(viewModel.detailLines.contains("maxOutputTokens=128"))
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1CardViewModelTest.kt:92:            detailLines=maxOutputTokens=128|decode_ms=2756|backendEvidence=QNN_HTP_V79_FastRPC|artifact=qairt244_npu_turn_stop_quality_compare/20260525_211810|selectedPathSaved=false|db=false|tts=false|markdown=false|streaming=false
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1CardViewModelTest.kt:118:            detailLines=maxOutputTokens=128|decode_ms=2756|backendEvidence=QNN_HTP_V79_FastRPC|artifact=qairt244_npu_turn_stop_quality_compare/20260525_211810|selectedPathSaved=false|db=false|tts=false|markdown=false|streaming=false
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1CardViewModelTest.kt:139:                maxOutputTokens = 128,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1CardViewModelTest.kt:153:                maxOutputTokens = 128,
+scripts/qairt-find-litertlm-aar.sh:24:  echo "sha256=$(sha256sum "${aar}" 2>/dev/null | awk '{print $1}')"
+docs/litert_qnn_qairt_coupling_findings.md:52:| Library | Build ID | SHA-256 |
+docs/litert_qnn_qairt_coupling_findings.md:366:QAIRT `2.42.0.251225` was not found locally. The existing SDK tree contains
+docs/litert_qnn_qairt_coupling_findings.md:372:- Radxa public docs use QAIRT `2.42.0.251225`.
+docs/litert_qnn_qairt_coupling_findings.md:392:3. QAIRT `2.42.0.251225` static comparison only, if obtained,
+docs/litert_qnn_qairt_coupling_findings.md:434:workflow centered on QAIRT `2.42.0.251225`. That public workflow assumes:
+docs/litert_qnn_qairt_coupling_findings.md:452:| Radxa public Linux docs | QAIRT `2.42.0.251225` | stable public Linux/SBC generation, not SM8750-specific |
+scripts/run_qairt244_rebuild_compare.sh:37:    printf 'sha256='
+scripts/run_qairt244_rebuild_compare.sh:38:    sha256sum "$file" 2>/dev/null | awk '{print $1}' || true
+scripts/run_qairt244_rebuild_compare.sh:60:  sha="$(sha256sum "$file" 2>/dev/null | awk '{print $1}' || true)"
+scripts/run_qairt244_rebuild_compare.sh:118:printf 'label\tlibrary\tpresent\tsize\tsha256\tbuild_id\tneeded\n' >"$QNN_MATRIX"
+scripts/run_qairt244_rebuild_compare.sh:160:printf 'label\tlibrary\tpresent\tsize\tsha256\tbuild_id\tneeded\n' >"$LIB_MATRIX"
+scripts/collect_npu_tombstone_diagnostics.sh:133:      adb shell sha256sum "$path" 2>&1 | tr -d '\r'
+scripts/collect_npu_tombstone_diagnostics.sh:149:        sha256sum "$APK_LIB_DIR/$lib" 2>/dev/null || true
+scripts/check_litertlm_flavor_dependencies.sh:68:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/check_litertlm_flavor_dependencies.sh:69:    sha256sum "$file" | awk '{print $1}'
+scripts/check_litertlm_flavor_dependencies.sh:145:        printf '%s\tsha256=%s\tbuild_id=%s\tneeded=%s\n' \
+scripts/check_qairt244_sdk.sh:45:      printf 'sha256='
+scripts/check_qairt244_sdk.sh:46:      sha256sum "$file" 2>/dev/null | awk '{print $1}' || true
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1MetadataPresenterIntegrationTest.kt:23:        assertEquals("maxOutputTokens=128", state.maxOutputTokensText)
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1MetadataPresenterIntegrationTest.kt:155:                put("max_output_tokens", "128")
+scripts/check_qairt244_native_patch.sh:6:PATCH_FILE="${2:-$ROOT_DIR/patches/qairt244_litertlm_utf8_128token_128input.patch}"
+scripts/check_qairt242_sdk.sh:8:EXPECTED_VERSION="2.42.0.251225"
+scripts/check_qairt242_sdk.sh:24:  bash scripts/check_qairt242_sdk.sh /path/to/qairt/2.42.0.251225
+scripts/check_qairt242_sdk.sh:26:Checks that the given QAIRT root looks like the exact 2.42.0.251225 SDK used
+scripts/check_qairt242_sdk.sh:46:      printf 'sha256='
+scripts/check_qairt242_sdk.sh:47:      sha256sum "$file" 2>/dev/null | awk '{print $1}' || true
+scripts/check_qairt242_sdk.sh:56:        grep -Ei 'QNN|QAIRT|HTP|V79|V75|V73|V68|2\.42|251225|version|build|sdk' |
+scripts/query_litert_custom_build_targets.sh:117:  grep -nE 'LITERT_REF|LITERT_SHA256|qairt|android_ndk_repository|android_sdk_repository' WORKSPACE 2>/dev/null || true
+scripts/emulator.sh:188:  echo $((size_kb / 1024))
+scripts/emulator.sh:196:  echo $((avail_kb / 1024))
+scripts/run_qairt244_npu_memory_cleanup_profile.sh:105:    printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_npu_memory_cleanup_profile.sh:120:      grep -E "$MARKER|SetMaxOutputTokens\\(3\\)" "$ARTIFACT/metadata/litertlm_external_diff.patch" || true
+scripts/run_qairt244_npu_memory_cleanup_profile.sh:127:  if ! grep -q 'SetMaxOutputTokens(3)' "$OUT_DIR/preflight/custom_artifact_static_hits.txt"; then
+scripts/run_qairt244_npu_memory_cleanup_profile.sh:128:    printf 'artifact_integrity=fail\nreason=missing SetMaxOutputTokens(3) evidence\n' >"$OUT_DIR/preflight/artifact_integrity_check.txt"
+scripts/run_qairt244_npu_memory_cleanup_profile.sh:358:max_output_tokens=$MAX_OUTPUT_TOKENS
+scripts/run_qairt244_npu_memory_cleanup_profile.sh:416:    printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+scripts/prepare_litert_custom_build_workspace.sh:88:for tool in git java python3 bazel bazelisk cmake ninja adb unzip readelf nm strings sha256sum; do
+scripts/prepare_litert_custom_build_workspace.sh:134:  grep -nE 'LITERT_REF|LITERT_SHA256|TENSORFLOW_REF|TENSORFLOW_SHA256|http_archive\(name = "litert"' \
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParserTest.kt:194:            put("max_output_tokens", "128")
+scripts/run_qairt244_chat_screen_real_npu_first_run.sh:80:  if { [ -f "$artifact_lib" ] && strings "$artifact_lib" 2>/dev/null | grep -q 'SetMaxOutputTokens(3)'; } || { [ -f "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch" ] && grep -q 'SetMaxOutputTokens(3)' "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch"; }; then
+scripts/run_qairt244_chat_screen_real_npu_first_run.sh:89:    printf 'set_max_output_tokens_3_evidence=%s\n' "$setmax_present"
+scripts/run_qairt244_chat_screen_real_npu_first_run.sh:93:    printf 'max_output_tokens=3\n'
+scripts/run_qairt244_chat_screen_real_npu_first_run.sh:126:  local result_status=not_run output=not_run actual_prompt=not_run normalized_prompt=not_run max_output_tokens=not_run timeout=false
+scripts/run_qairt244_chat_screen_real_npu_first_run.sh:132:  if grep -q '^max_output_tokens=' "$OUT_DIR/result.txt" 2>/dev/null; then max_output_tokens="$(grep -m1 '^max_output_tokens=' "$OUT_DIR/result.txt" | cut -d= -f2-)"; fi
+scripts/run_qairt244_chat_screen_real_npu_first_run.sh:153:    printf 'max_output_tokens=%s\n' "$max_output_tokens"
+scripts/plan_qairt_coupling_investigation.sh:43:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/plan_qairt_coupling_investigation.sh:44:    sha256sum "$file" | awk '{print $1}'
+scripts/plan_qairt_coupling_investigation.sh:83:printf 'label\tlibrary\tstatus\tpath\tsize\tsha256\tbuild_id\tneeded\n' >"$OUT_DIR/library_matrix.tsv"
+scripts/run_qairt244_lower_level_single_token_smoke.sh:86:    printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_lower_level_single_token_smoke.sh:116:    printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_lower_level_single_token_smoke.sh:124:      "DecodeConfig|SetMaxOutputTokens|RunPrefill|RunDecode\\(|RunSingleTurnSession|nativeRunDecode|nativeCreateSession|Conversation|Generate" \
+scripts/run_qairt244_lower_level_single_token_smoke.sh:133:      "$LOWER_LEVEL_MARKER|SetMaxOutputTokens\\(1\\)|runLowerLevelSingleTokenSmoke|runLowerLevelSingleTokenSmokeOnly|lower_level_single_token|run_qairt244_lower_level_single_token_smoke" \
+scripts/run_qairt244_lower_level_single_token_smoke.sh:147:  if grep -q 'SetMaxOutputTokens' "$OUT_DIR/litert_lm_static_hits.txt" &&
+scripts/run_qairt244_lower_level_single_token_smoke.sh:156:  if grep -q 'SetMaxOutputTokens(1)' "$OUT_DIR/lami_lower_level_static_hits.txt" ||
+scripts/run_qairt244_lower_level_single_token_smoke.sh:157:    grep -q 'SetMaxOutputTokens\\(1\\)' "$OUT_DIR/lami_lower_level_static_hits.txt"; then
+scripts/run_qairt244_lower_level_single_token_smoke.sh:174:    printf 'cxx_decode_config_capability\t%s\tLiteRT-LM C++ source exposes DecodeConfig.SetMaxOutputTokens and RunDecode.\n' "$([ "$cxx_cap_available" = true ] && printf pass || printf fail)"
+scripts/run_qairt244_lower_level_single_token_smoke.sh:176:    printf 'max_output_tokens_eq_1_static\t%s\tNo execution allowed unless the runnable app path contains SetMaxOutputTokens(1).\n' "$([ "$lami_hard_cap_available" = true ] && printf pass || printf fail)"
+scripts/run_qairt244_lower_level_single_token_smoke.sh:190:reason=LiteRT-LM C++ SetMaxOutputTokens/RunDecode capability was not found by static scan.
+scripts/run_qairt244_lower_level_single_token_smoke.sh:196:reason=LiteRT-LM C++ supports DecodeConfig.SetMaxOutputTokens(1), but lami customBuildExperimentDebug does not yet contain a runnable JNI/CLI entrypoint that statically calls SetMaxOutputTokens(1).
+scripts/run_qairt244_lower_level_single_token_smoke.sh:482:max_output_tokens=$MAX_OUTPUT_TOKENS
+scripts/run_qairt244_lower_level_single_token_smoke.sh:502:before RunDecode SetMaxOutputTokens(1)
+scripts/run_qairt244_lower_level_single_token_smoke.sh:528:`SetMaxOutputTokens(1)経路なし -> 未実行`
+scripts/run_qairt244_lower_level_single_token_smoke.sh:532:entrypoint that calls `DecodeConfig.SetMaxOutputTokens(1)`.
+scripts/run_qairt244_lower_level_single_token_smoke.sh:544:- `DecodeConfig.SetMaxOutputTokens(1)`
+scripts/run_qairt244_lower_level_single_token_smoke.sh:578:      grep -E '^(result|marker|verifier_marker|prompt|max_output_tokens|prompt_bytes|prompt_token_count|prompt_token_count_source|output|output_bytes|output_token_count|output_token_count_source|elapsed_ms|model_assets_elapsed_ms|engine_settings_elapsed_ms|engine_create_elapsed_ms|session_create_elapsed_ms|prefill_elapsed_ms|decode_elapsed_ms|cleanup_elapsed_ms|npu_backend|npu_backend_evidence)=' "$OUT_DIR/run/result.txt" || true
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:9:CUSTOM_BUILD_ARTIFACT="artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt"
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:42:Runs one DEV-only ChatScreen NPU adapter attempt with the qualcomm_sm8750 model and maxOutputTokens=128.
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:170:    printf 'command=adb -s <device> shell run-as %s am broadcast --user 0 -a %s -n %s/%s --es prompt "<utf8-prompt>" --es expected_model_basename %s --ei max_output_tokens 128
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:272:  if { [ -f "$artifact_lib" ] && strings "$artifact_lib" 2>/dev/null | grep -q 'SetMaxOutputTokens(128)'; } ||
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:273:    { [ -f "$artifact_lib" ] && strings "$artifact_lib" 2>/dev/null | grep -q 'SetMaxOutputTokens(%d)' && strings "$artifact_lib" 2>/dev/null | grep -q 'invalid_max_output_tokens'; } ||
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:274:    { [ -f "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch" ] && grep -q 'SetMaxOutputTokens(128)' "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch"; }; then
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:283:    printf 'set_max_output_tokens_128_evidence=%s\n' "$setmax_present"
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:301:    printf 'max_output_tokens=128\n'
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:357:  local result_status=not_run output=not_run actual_prompt=not_run normalized_prompt=not_run max_output_tokens=not_run timeout=false
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:365:  if grep -q '^max_output_tokens=' "$OUT_DIR/result.txt" 2>/dev/null; then max_output_tokens="$(grep -m1 '^max_output_tokens=' "$OUT_DIR/result.txt" | cut -d= -f2-)"; fi
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:401:    printf 'max_output_tokens=%s\n' "$max_output_tokens"
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:465:      --ei max_output_tokens 128 >"$OUT_DIR/internal_intent_broadcast.txt" 2>&1; then
+scripts/run_qairt244_npu_diagnostic_editable_prompt_guarded_run.sh:118:  if { [ -f "$artifact_lib" ] && strings "$artifact_lib" 2>/dev/null | grep -q 'SetMaxOutputTokens(3)'; } || { [ -f "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch" ] && grep -q 'SetMaxOutputTokens(3)' "$CUSTOM_BUILD_ARTIFACT/metadata/litertlm_external_diff.patch"; }; then
+scripts/run_qairt244_npu_diagnostic_editable_prompt_guarded_run.sh:133:    printf 'set_max_output_tokens_3_evidence=%s\n' "$setmax_present"
+scripts/run_qairt244_npu_diagnostic_editable_prompt_guarded_run.sh:135:    printf 'max_output_tokens=3\n'
+scripts/run_qairt244_npu_diagnostic_chat_ui_smoke.sh:242:  max_tokens="$(grep -m1 '^max_output_tokens=' "$OUT_DIR/result.txt" 2>/dev/null | cut -d= -f2-)"
+scripts/run_qairt244_npu_diagnostic_chat_ui_smoke.sh:256:    printf 'max_output_tokens=%s\n' "${max_tokens:-none}"
+scripts/run_custom_build_stack_probe.sh:28:EXPECTED_QAIRT244_LITERT_SHA256="84e2d8a90490ddd7948f3922caaca521554d3f32675476bf5dc78d0b699b1553"
+scripts/run_custom_build_stack_probe.sh:29:EXPECTED_QAIRT244_DISPATCH_SHA256="00c26484621ab42bea6e3bee0d7e908451a428cf19cbd1ebfecf4ccee79e1739"
+scripts/run_custom_build_stack_probe.sh:30:EXPECTED_QAIRT244_LITERTLM_JNI_SHA256="310e37ff7cf770c24d636bbb0f9647a0d59dd893ba0c2530acdfc06569704230"
+scripts/run_custom_build_stack_probe.sh:31:EXPECTED_QAIRT244_COMPILER_PLUGIN_SHA256="c56c7cd5ea3aaee69bae18085b270491507e5736ba8ec1af18aa798f7ac1a64c"
+scripts/run_custom_build_stack_probe.sh:32:EXPECTED_QAIRT244_GEMMA_PROVIDER_SHA256="45ca57e55d52976e5d2dadfc0e874499fc0671c169a28077772c25264f9d81f6"
+scripts/run_custom_build_stack_probe.sh:33:EXPECTED_QAIRT244_LOGGING_LITERT_SHA256="3ba100245ed79d45abf3c34230aee77d6aabd0b6c302a1ce8dd060b95575e7ec"
+scripts/run_custom_build_stack_probe.sh:34:EXPECTED_QAIRT244_LOGGING_DISPATCH_SHA256="459ceb6e3912fa72b43363c763315b2fbf5d336e744e82e4850f33967c7bbeba"
+scripts/run_custom_build_stack_probe.sh:35:EXPECTED_QAIRT244_LOGGING_LITERTLM_JNI_SHA256="462d69fbb71a7bb5e2aa74562959885e7d4f647fc92f4725e726039bbae57474"
+scripts/run_custom_build_stack_probe.sh:36:EXPECTED_QAIRT244_LOGGING_COMPILER_PLUGIN_SHA256="299769ef90f9ee4b74b357bd867545e1f48312bb8b1d97f9d16968a2be175655"
+scripts/run_custom_build_stack_probe.sh:42:EXPECTED_QAIRT244_QNN_SYSTEM_SHA256="7e69258e1278cc9b2bb62dbc6e2a52c227a100d6505a13fd6324a87993d0bba8"
+scripts/run_custom_build_stack_probe.sh:43:EXPECTED_QAIRT244_QNN_HTP_SHA256="090e993822564851eab1405aff171643b21e644e3f696c95c96f2732aaed813a"
+scripts/run_custom_build_stack_probe.sh:44:EXPECTED_QAIRT244_QNN_HTP_PREPARE_SHA256="09b1c15c62b6875af49ffd3d841961c098b85c367f584fee370f986c62511298"
+scripts/run_custom_build_stack_probe.sh:45:EXPECTED_QAIRT244_QNN_HTP_V79_STUB_SHA256="005bd3de462851ce3dde55260d7d8560d6d07dbc309f554780b1f6412e6d9df1"
+scripts/run_custom_build_stack_probe.sh:46:EXPECTED_QAIRT244_QNN_HTP_V79_SKEL_SHA256="41f83395ed4b1bcfc43417a1b82f3f137c825747711c9ab4c9d50034ed198f98"
+scripts/run_custom_build_stack_probe.sh:79:  libLiteRt.so build_id=$EXPECTED_QAIRT244_LITERT_BUILD_ID sha256=$EXPECTED_QAIRT244_LITERT_SHA256
+scripts/run_custom_build_stack_probe.sh:80:  libLiteRtDispatch_Qualcomm.so build_id=$EXPECTED_QAIRT244_DISPATCH_BUILD_ID sha256=$EXPECTED_QAIRT244_DISPATCH_SHA256
+scripts/run_custom_build_stack_probe.sh:81:  liblitertlm_jni.so build_id=$EXPECTED_QAIRT244_LITERTLM_JNI_BUILD_ID sha256=$EXPECTED_QAIRT244_LITERTLM_JNI_SHA256
+scripts/run_custom_build_stack_probe.sh:82:  libLiteRtCompilerPlugin_Qualcomm.so build_id=$EXPECTED_QAIRT244_COMPILER_PLUGIN_BUILD_ID sha256=$EXPECTED_QAIRT244_COMPILER_PLUGIN_SHA256
+scripts/run_custom_build_stack_probe.sh:83:  libGemmaModelConstraintProvider.so build_id=$EXPECTED_QAIRT244_GEMMA_PROVIDER_BUILD_ID sha256=$EXPECTED_QAIRT244_GEMMA_PROVIDER_SHA256
+scripts/run_custom_build_stack_probe.sh:85:  libLiteRt.so build_id=$EXPECTED_QAIRT244_LOGGING_LITERT_BUILD_ID sha256=$EXPECTED_QAIRT244_LOGGING_LITERT_SHA256
+scripts/run_custom_build_stack_probe.sh:86:  libLiteRtDispatch_Qualcomm.so build_id=$EXPECTED_QAIRT244_LOGGING_DISPATCH_BUILD_ID sha256=$EXPECTED_QAIRT244_LOGGING_DISPATCH_SHA256
+scripts/run_custom_build_stack_probe.sh:87:  liblitertlm_jni.so build_id=$EXPECTED_QAIRT244_LOGGING_LITERTLM_JNI_BUILD_ID sha256=$EXPECTED_QAIRT244_LOGGING_LITERTLM_JNI_SHA256
+scripts/run_custom_build_stack_probe.sh:88:  libLiteRtCompilerPlugin_Qualcomm.so build_id=$EXPECTED_QAIRT244_LOGGING_COMPILER_PLUGIN_BUILD_ID sha256=$EXPECTED_QAIRT244_LOGGING_COMPILER_PLUGIN_SHA256
+scripts/run_custom_build_stack_probe.sh:89:  libGemmaModelConstraintProvider.so build_id=$EXPECTED_QAIRT244_GEMMA_PROVIDER_BUILD_ID sha256=$EXPECTED_QAIRT244_GEMMA_PROVIDER_SHA256
+scripts/run_custom_build_stack_probe.sh:91:  libQnnSystem.so build_id=$EXPECTED_QAIRT244_QNN_SYSTEM_BUILD_ID sha256=$EXPECTED_QAIRT244_QNN_SYSTEM_SHA256
+scripts/run_custom_build_stack_probe.sh:92:  libQnnHtp.so build_id=$EXPECTED_QAIRT244_QNN_HTP_BUILD_ID sha256=$EXPECTED_QAIRT244_QNN_HTP_SHA256
+scripts/run_custom_build_stack_probe.sh:93:  libQnnHtpPrepare.so build_id=$EXPECTED_QAIRT244_QNN_HTP_PREPARE_BUILD_ID sha256=$EXPECTED_QAIRT244_QNN_HTP_PREPARE_SHA256
+scripts/run_custom_build_stack_probe.sh:94:  libQnnHtpV79Stub.so build_id=$EXPECTED_QAIRT244_QNN_HTP_V79_STUB_BUILD_ID sha256=$EXPECTED_QAIRT244_QNN_HTP_V79_STUB_SHA256
+scripts/run_custom_build_stack_probe.sh:95:  libQnnHtpV79Skel.so build_id=$EXPECTED_QAIRT244_QNN_HTP_V79_SKEL_BUILD_ID sha256=$EXPECTED_QAIRT244_QNN_HTP_V79_SKEL_SHA256
+scripts/run_custom_build_stack_probe.sh:110:  if command -v sha256sum >/dev/null 2>&1 && [ -f "$file" ]; then
+scripts/run_custom_build_stack_probe.sh:111:    sha256sum "$file" | awk '{print $1}'
+scripts/run_custom_build_stack_probe.sh:140:  printf '[custom-build-probe] packaged %s build_id=%s sha256=%s\n' "$lib" "$actual_build_id" "$actual_sha"
+scripts/run_custom_build_stack_probe.sh:174:check_apk_lib "$CUSTOM_APK" "libQnnSystem.so" "$EXPECTED_QAIRT244_QNN_SYSTEM_BUILD_ID" "$EXPECTED_QAIRT244_QNN_SYSTEM_SHA256" "$APK_QNN_CHECK_DIR" || exit 7
+scripts/run_custom_build_stack_probe.sh:175:check_apk_lib "$CUSTOM_APK" "libQnnHtp.so" "$EXPECTED_QAIRT244_QNN_HTP_BUILD_ID" "$EXPECTED_QAIRT244_QNN_HTP_SHA256" "$APK_QNN_CHECK_DIR" || exit 7
+scripts/run_custom_build_stack_probe.sh:176:check_apk_lib "$CUSTOM_APK" "libQnnHtpPrepare.so" "$EXPECTED_QAIRT244_QNN_HTP_PREPARE_BUILD_ID" "$EXPECTED_QAIRT244_QNN_HTP_PREPARE_SHA256" "$APK_QNN_CHECK_DIR" || exit 7
+scripts/run_custom_build_stack_probe.sh:177:check_apk_lib "$CUSTOM_APK" "libQnnHtpV79Stub.so" "$EXPECTED_QAIRT244_QNN_HTP_V79_STUB_BUILD_ID" "$EXPECTED_QAIRT244_QNN_HTP_V79_STUB_SHA256" "$APK_QNN_CHECK_DIR" || exit 7
+scripts/run_custom_build_stack_probe.sh:178:check_apk_lib "$CUSTOM_APK" "libQnnHtpV79Skel.so" "$EXPECTED_QAIRT244_QNN_HTP_V79_SKEL_BUILD_ID" "$EXPECTED_QAIRT244_QNN_HTP_V79_SKEL_SHA256" "$APK_QNN_CHECK_DIR" || exit 7
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapterTest.kt:12:        assertEquals(128, DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS)
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapterTest.kt:17:        assertEquals(256, DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT)
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapterTest.kt:27:        assertEquals(DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS, result.maxOutputTokens)
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapterTest.kt:41:            maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapterTest.kt:47:        assertEquals(DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS, result.maxOutputTokens)
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapterTest.kt:60:            maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+scripts/run_qairt244_npu_diagnostic_chat_ui_multirun.sh:300:    printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1StateReducerTest.kt:162:            put("max_output_tokens", "128")
+scripts/plan_qairt244_single_token_smoke.sh:25:  rg -n "createConversation|sendMessage|sendMessageAsync|createSession|runPrefill|runDecode|DecodeConfig|SetMaxOutputTokens|GenerateContent|GenerateContentStream" \
+scripts/plan_qairt244_single_token_smoke.sh:27:  rg -n "Conversation|Session|generateResponse|sendMessage|LocalStreamingRunner|SetMaxOutputTokens" \
+scripts/plan_qairt244_single_token_smoke.sh:38:2. Smoke source must contain SetMaxOutputTokens(1) or equivalent hard cap.
+scripts/plan_qairt244_single_token_smoke.sh:67:`DecodeConfig.SetMaxOutputTokens(1)`.
+scripts/plan_qairt244_single_token_smoke.sh:78:7. Decode with `SetMaxOutputTokens(1)`.
+scripts/run_qairt244_npu_coldstart_force_stop_profile.sh:103:    printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_npu_coldstart_force_stop_profile.sh:117:      grep -E 'qairt244_short_multitoken_smoke_v1|SetMaxOutputTokens\(3\)' "$ARTIFACT/metadata/litertlm_external_diff.patch" || true
+scripts/run_qairt244_npu_coldstart_force_stop_profile.sh:124:  if ! grep -q 'SetMaxOutputTokens(3)' "$OUT_DIR/preflight/custom_artifact_static_hits.txt"; then
+scripts/run_qairt244_npu_coldstart_force_stop_profile.sh:125:    printf 'artifact_integrity=fail\nreason=missing SetMaxOutputTokens(3) evidence\n' >"$OUT_DIR/preflight/artifact_integrity_check.txt"
+scripts/run_qairt244_npu_coldstart_force_stop_profile.sh:249:max_output_tokens=$MAX_OUTPUT_TOKENS
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapperTest.kt:103:                "max_output_tokens" to "128",
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapperTest.kt:109:        assertEquals("maxOutputTokens=128", state.maxOutputTokensText)
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapperTest.kt:152:            put("max_output_tokens", "128")
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlannerTest.kt:24:        assertEquals(DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS, result.maxOutputTokens)
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlannerTest.kt:41:                maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlannerTest.kt:53:            maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlannerTest.kt:61:        assertEquals(DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS, adapter.lastMaxOutputTokens)
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlannerTest.kt:75:        assertEquals(DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS, result.maxOutputTokens)
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlannerTest.kt:160:        maxOutputTokens: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGateTest.kt:106:                maxOutputTokens = DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGateTest.kt:108:                maxOutputTokenRangeLimit = DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGateTest.kt:120:                maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS + 1,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGateTest.kt:146:        maxOutputTokens: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGateTest.kt:148:        maxOutputTokenRangeLimit: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1UiStateTest.kt:111:        assertEquals("maxOutputTokens=128", state.maxOutputTokensText)
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1UiStateTest.kt:141:        maxOutputTokens: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParserTest.kt:34:            max_output_tokens=128
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParserTest.kt:42:        assertEquals("128", parsed.values["max_output_tokens"])
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteDisplayModelTest.kt:121:        maxOutputTokens: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/customBuildExperimentDebug/cpp/lami_qairt244_smoke.cpp:11:#define QAIRT244_SMOKE_MAX_TEXT 1024
+app/src/customBuildExperimentDebug/cpp/lami_qairt244_smoke.cpp:12:#define QAIRT244_SMOKE_MAX_PATH 1024
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:33:        val maxOutputTokens = intent.getIntExtra(EXTRA_MAX_OUTPUT_TOKENS, DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS)
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:57:                    "max_output_tokens=$maxOutputTokens",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:87:                    "max_output_tokens=$maxOutputTokens",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:123:        if (maxOutputTokens !in 1..DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS) {
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:124:            writeState("rejected", "invalid_max_output_tokens")
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:125:            writeFailure("invalid_max_output_tokens")
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:180:        const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:97:                "maxOutputTokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:389:            "qairt244_diagnostic_chat_guarded_run_v1 runId=$runId state=started max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS} prompt_source=$promptSource actual_prompt=$prompt\n",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:424:                        maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:607:            maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:615:                maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:731:            "max_output_tokens=128",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:759:            "maxOutputTokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:789:                "max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+app/src/test/java/io/github/ninbyo02/lami/viewmodels/OllamaModelContextWindowParserTest.kt:12:              "options": { "num_ctx": 4096 },
+app/src/test/java/io/github/ninbyo02/lami/viewmodels/OllamaModelContextWindowParserTest.kt:19:        assertEquals(4096, actual)
+app/src/main/res/drawable/source.xml:4:    android:viewportWidth="256"
+app/src/main/res/drawable/source.xml:5:    android:viewportHeight="256">
+app/src/main/res/drawable/logo.xml:7:      android:pathData="M140.63,0.24C132.66,1.53 123.1,5.7 116.35,10.85C95.94,26.35 80.13,59.27 73.44,100.28C70.93,115.79 69.21,137.31 69.21,153.74C69.21,173.11 71.48,197.87 74.73,214.98C75.47,218.78 75.83,222.15 75.53,222.4C75.28,222.64 72.28,225.09 68.91,227.79C57.38,236.98 44.2,251.15 35.13,264.08C17.72,288.78 6.44,316.86 1.72,347.27C-0.12,359.28 -0.61,383.55 0.86,395.57C4.11,423.28 12.45,446.7 26.73,468.15L31.39,475.08L30.04,477.35C20.48,493.41 12.33,516.64 8.53,538.95C5.52,556.61 5.15,561.33 5.15,584.99C5.15,608.84 5.46,613.56 8.28,630.05C11.65,649.79 18.52,670.69 26.18,684.6C28.69,689.14 34.82,698.58 35.56,699.07C35.8,699.19 35.07,701.46 33.9,704.1C25.08,723.41 17.54,749.09 14.41,770.73C12.2,785.57 11.9,790.35 11.9,805.98C11.9,825.9 13,835.59 17.17,851.47L17.78,853.79H44.02H70.32L68.6,850.55C58,830.93 57.01,794.52 66.15,758.17C70.32,741.37 75.04,729.05 83.86,712.07L89.14,701.77V695.46C89.14,689.57 89.01,688.9 87.11,685.03C85.64,682.09 83.68,679.58 80.19,676.15C74.24,670.38 69.95,664.31 66.52,656.84C51.44,624.1 48.49,575.49 59.1,534.05C63.51,516.76 70.81,501.38 78.47,492.98C83.68,487.21 86.38,480.78 86.38,474.1C86.38,467.17 83.93,461.47 78.41,455.52C62.59,438.6 52.85,418.01 49.35,394.04C44.39,359.89 53.4,322.68 73.87,293.2C93.92,264.26 122.06,245.69 153.5,240.72C160.55,239.56 173.73,239.74 181.09,241.09C189.12,242.5 194.15,242.07 199.29,239.62C205.67,236.62 208.86,232.88 212.6,224.29C215.91,216.63 218.48,212.46 225.41,203.82C233.75,193.46 241.78,186.41 254.65,177.89C269.36,168.27 286.1,161.28 302.77,157.91C308.84,156.68 311.66,156.5 323,156.5C334.34,156.5 337.16,156.68 343.23,157.91C367.69,162.87 391.96,175.5 411.33,193.4C415.5,197.26 425.49,209.64 428.68,214.79C429.91,216.82 432.05,221.11 433.4,224.29C437.14,232.88 440.33,236.62 446.7,239.62C451.67,242.01 456.88,242.5 464.61,241.21C476.8,239.13 486.18,239.31 498.14,241.77C538.84,249.98 574.27,283.51 589.97,328.45C603.64,367.86 599.77,409.12 579.42,440.63C575.99,445.96 572.56,450.25 567.59,455.52C556.86,466.99 556.86,481.21 567.53,492.98C585.06,512.16 596.03,559.37 592.72,600.99C590.52,628.45 583.47,653.03 573.78,666.95C572.07,669.4 568.51,673.57 565.81,676.15C562.32,679.58 560.36,682.09 558.89,685.03C556.99,688.9 556.86,689.57 556.86,695.46V701.77L562.14,712.07C570.96,729.05 575.68,741.37 579.85,758.17C588.86,794.03 588.07,829.7 577.77,849.99C576.91,851.71 576.17,853.3 576.17,853.49C576.17,853.67 587.88,853.79 602.23,853.79H628.22L628.89,851.16C629.26,849.75 629.87,847.6 630.18,846.38C630.85,843.68 632.2,835.71 633.31,828.05C634.35,820.33 634.35,791.88 633.31,783.3C629.38,752.16 622.82,727.45 612.1,704.1C610.93,701.46 610.2,699.19 610.44,699.07C610.75,698.89 612.46,696.44 614.3,693.68C627.67,673.45 635.88,648.01 640.05,614.41C641.15,605.16 641.15,565.37 640.05,556.48C637.11,533.56 633.55,517.99 627.67,502.23C625.21,495.67 618.72,481.82 615.96,477.35L614.61,475.08L619.27,468.15C633.55,446.7 641.89,423.28 645.14,395.57C646.61,383.55 646.12,359.28 644.28,347.27C639.5,316.8 628.28,288.85 610.87,264.08C601.8,251.15 588.62,236.98 577.09,227.79C573.72,225.09 570.72,222.64 570.47,222.4C570.17,222.15 570.53,218.78 571.27,214.98C578.69,176.3 578.44,128.05 570.66,90.35C563.91,57.5 551.65,31.38 535.84,16.3C523.21,4.29 510.34,-0.86 494.89,0.12C459.46,2.2 430.89,42.97 419.61,107.21C417.77,117.57 416.18,129.71 416.18,133.02C416.18,134.3 415.93,135.35 415.63,135.35C415.32,135.35 412.93,134.12 410.35,132.59C383.01,116.4 352.61,107.76 323,107.76C293.39,107.76 262.99,116.4 235.65,132.59C233.07,134.12 230.68,135.35 230.37,135.35C230.07,135.35 229.82,134.3 229.82,133.02C229.82,129.59 228.17,117.08 226.39,107.21C216.15,49.53 192.67,11.34 161.47,1.71C157.18,0.42 144.98,-0.43 140.63,0.24ZM151.05,50.14C159.88,57.13 169.69,77.11 175.33,99.49C176.37,103.53 177.47,108.19 177.78,109.91C178.02,111.56 178.7,115.3 179.25,118.18C181.64,131.18 182.74,145.22 182.87,162.32L182.93,179.18L178.7,185.43L174.47,191.74H164.6C153.07,191.74 141.61,193.22 130.64,196.16C126.71,197.14 122.91,198.12 122.18,198.3C121.01,198.55 120.83,198.18 120.15,193.15C116.54,165.88 116.72,135.65 120.71,110.52C125.12,82.51 135.42,57.13 145.47,49.65C147.86,47.87 148.29,47.93 151.05,50.14ZM500.59,49.71C506.66,54.18 513.34,66.08 518.3,81.28C528.3,111.68 531.12,153.43 525.84,193.15C525.17,198.18 524.99,198.55 523.82,198.3C523.09,198.12 519.29,197.14 515.36,196.16C504.39,193.22 492.93,191.74 481.4,191.74H471.53L467.3,185.43L463.07,179.18L463.13,162.32C463.26,138.54 465.46,119.96 470.73,99.3C476.31,77.11 486.18,57.13 494.95,50.14C497.71,47.93 498.14,47.87 500.59,49.71Z"
+app/src/main/res/drawable/logo.xml:10:      android:pathData="M313.5,358.24C300.2,359.52 296.58,360.02 290.2,361.3C279.84,363.45 265.99,368.23 256.36,372.95C222.9,389.32 199.85,416.6 192.8,448.17C191.39,454.42 191.2,456.5 191.2,467.05C191.2,477.47 191.39,479.74 192.74,485.68C202.11,526.94 240.12,557.41 289.28,562.98C299.95,564.15 346.05,564.15 356.71,562.98C396.19,558.51 430.15,537.11 445.42,507.08C449.46,499.05 451.42,493.83 453.26,485.68C454.61,479.74 454.8,477.47 454.8,467.05C454.8,456.5 454.61,454.42 453.2,448.17C442.96,402.31 398.46,366.21 343.9,359.34C336.79,358.48 318.16,357.75 313.5,358.24ZM336.42,391.58C354.63,393.55 372.96,400.05 387.67,409.85C395.58,415.13 406.74,426.16 411.52,433.39C417.4,442.34 420.77,451.48 422.31,462.57C422.98,467.66 422.61,471.52 420.77,479.74C417.89,492 408.94,504.81 396.87,513.76C391.23,517.86 379.52,523.81 372.35,526.14C358.74,530.49 349.85,531.29 318.1,531.04C297.38,530.86 293.7,530.68 287.75,529.57C267.46,525.77 251.4,517.68 239.75,505.36C230.31,495.43 226.02,486.36 223.69,471.71C222.65,464.9 224.61,453.62 228.6,444.12C233.44,432.53 245.94,418.13 258.33,409.85C272.67,400.29 291.55,393.49 308.9,391.65C315.58,390.91 329.74,390.91 336.42,391.58Z"
+app/src/main/res/drawable/ic_launcher_foreground.xml:11:        android:pathData="M140.63,0.24C132.66,1.53 123.1,5.7 116.35,10.85C95.94,26.35 80.13,59.27 73.44,100.28C70.93,115.79 69.21,137.31 69.21,153.74C69.21,173.11 71.48,197.87 74.73,214.98C75.47,218.78 75.83,222.15 75.53,222.4C75.28,222.64 72.28,225.09 68.91,227.79C57.38,236.98 44.2,251.15 35.13,264.08C17.72,288.78 6.44,316.86 1.72,347.27C-0.12,359.28 -0.61,383.55 0.86,395.57C4.11,423.28 12.45,446.7 26.73,468.15L31.39,475.08L30.04,477.35C20.48,493.41 12.33,516.64 8.53,538.95C5.52,556.61 5.15,561.33 5.15,584.99C5.15,608.84 5.46,613.56 8.28,630.05C11.65,649.79 18.52,670.69 26.18,684.6C28.69,689.14 34.82,698.58 35.56,699.07C35.8,699.19 35.07,701.46 33.9,704.1C25.08,723.41 17.54,749.09 14.41,770.73C12.2,785.57 11.9,790.35 11.9,805.98C11.9,825.9 13,835.59 17.17,851.47L17.78,853.79H44.02H70.32L68.6,850.55C58,830.93 57.01,794.52 66.15,758.17C70.32,741.37 75.04,729.05 83.86,712.07L89.14,701.77V695.46C89.14,689.57 89.01,688.9 87.11,685.03C85.64,682.09 83.68,679.58 80.19,676.15C74.24,670.38 69.95,664.31 66.52,656.84C51.44,624.1 48.49,575.49 59.1,534.05C63.51,516.76 70.81,501.38 78.47,492.98C83.68,487.21 86.38,480.78 86.38,474.1C86.38,467.17 83.93,461.47 78.41,455.52C62.59,438.6 52.85,418.01 49.35,394.04C44.39,359.89 53.4,322.68 73.87,293.2C93.92,264.26 122.06,245.69 153.5,240.72C160.55,239.56 173.73,239.74 181.09,241.09C189.12,242.5 194.15,242.07 199.29,239.62C205.67,236.62 208.86,232.88 212.6,224.29C215.91,216.63 218.48,212.46 225.41,203.82C233.75,193.46 241.78,186.41 254.65,177.89C269.36,168.27 286.1,161.28 302.77,157.91C308.84,156.68 311.66,156.5 323,156.5C334.34,156.5 337.16,156.68 343.23,157.91C367.69,162.87 391.96,175.5 411.33,193.4C415.5,197.26 425.49,209.64 428.68,214.79C429.91,216.82 432.05,221.11 433.4,224.29C437.14,232.88 440.33,236.62 446.7,239.62C451.67,242.01 456.88,242.5 464.61,241.21C476.8,239.13 486.18,239.31 498.14,241.77C538.84,249.98 574.27,283.51 589.97,328.45C603.64,367.86 599.77,409.12 579.42,440.63C575.99,445.96 572.56,450.25 567.59,455.52C556.86,466.99 556.86,481.21 567.53,492.98C585.06,512.16 596.03,559.37 592.72,600.99C590.52,628.45 583.47,653.03 573.78,666.95C572.07,669.4 568.51,673.57 565.81,676.15C562.32,679.58 560.36,682.09 558.89,685.03C556.99,688.9 556.86,689.57 556.86,695.46V701.77L562.14,712.07C570.96,729.05 575.68,741.37 579.85,758.17C588.86,794.03 588.07,829.7 577.77,849.99C576.91,851.71 576.17,853.3 576.17,853.49C576.17,853.67 587.88,853.79 602.23,853.79H628.22L628.89,851.16C629.26,849.75 629.87,847.6 630.18,846.38C630.85,843.68 632.2,835.71 633.31,828.05C634.35,820.33 634.35,791.88 633.31,783.3C629.38,752.16 622.82,727.45 612.1,704.1C610.93,701.46 610.2,699.19 610.44,699.07C610.75,698.89 612.46,696.44 614.3,693.68C627.67,673.45 635.88,648.01 640.05,614.41C641.15,605.16 641.15,565.37 640.05,556.48C637.11,533.56 633.55,517.99 627.67,502.23C625.21,495.67 618.72,481.82 615.96,477.35L614.61,475.08L619.27,468.15C633.55,446.7 641.89,423.28 645.14,395.57C646.61,383.55 646.12,359.28 644.28,347.27C639.5,316.8 628.28,288.85 610.87,264.08C601.8,251.15 588.62,236.98 577.09,227.79C573.72,225.09 570.72,222.64 570.47,222.4C570.17,222.15 570.53,218.78 571.27,214.98C578.69,176.3 578.44,128.05 570.66,90.35C563.91,57.5 551.65,31.38 535.84,16.3C523.21,4.29 510.34,-0.86 494.89,0.12C459.46,2.2 430.89,42.97 419.61,107.21C417.77,117.57 416.18,129.71 416.18,133.02C416.18,134.3 415.93,135.35 415.63,135.35C415.32,135.35 412.93,134.12 410.35,132.59C383.01,116.4 352.61,107.76 323,107.76C293.39,107.76 262.99,116.4 235.65,132.59C233.07,134.12 230.68,135.35 230.37,135.35C230.07,135.35 229.82,134.3 229.82,133.02C229.82,129.59 228.17,117.08 226.39,107.21C216.15,49.53 192.67,11.34 161.47,1.71C157.18,0.42 144.98,-0.43 140.63,0.24ZM151.05,50.14C159.88,57.13 169.69,77.11 175.33,99.49C176.37,103.53 177.47,108.19 177.78,109.91C178.02,111.56 178.7,115.3 179.25,118.18C181.64,131.18 182.74,145.22 182.87,162.32L182.93,179.18L178.7,185.43L174.47,191.74H164.6C153.07,191.74 141.61,193.22 130.64,196.16C126.71,197.14 122.91,198.12 122.18,198.3C121.01,198.55 120.83,198.18 120.15,193.15C116.54,165.88 116.72,135.65 120.71,110.52C125.12,82.51 135.42,57.13 145.47,49.65C147.86,47.87 148.29,47.93 151.05,50.14ZM500.59,49.71C506.66,54.18 513.34,66.08 518.3,81.28C528.3,111.68 531.12,153.43 525.84,193.15C525.17,198.18 524.99,198.55 523.82,198.3C523.09,198.12 519.29,197.14 515.36,196.16C504.39,193.22 492.93,191.74 481.4,191.74H471.53L467.3,185.43L463.07,179.18L463.13,162.32C463.26,138.54 465.46,119.96 470.73,99.3C476.31,77.11 486.18,57.13 494.95,50.14C497.71,47.93 498.14,47.87 500.59,49.71Z"
+app/src/main/res/drawable/ic_launcher_foreground.xml:14:        android:pathData="M313.5,358.24C300.2,359.52 296.58,360.02 290.2,361.3C279.84,363.45 265.99,368.23 256.36,372.95C222.9,389.32 199.85,416.6 192.8,448.17C191.39,454.42 191.2,456.5 191.2,467.05C191.2,477.47 191.39,479.74 192.74,485.68C202.11,526.94 240.12,557.41 289.28,562.98C299.95,564.15 346.05,564.15 356.71,562.98C396.19,558.51 430.15,537.11 445.42,507.08C449.46,499.05 451.42,493.83 453.26,485.68C454.61,479.74 454.8,477.47 454.8,467.05C454.8,456.5 454.61,454.42 453.2,448.17C442.96,402.31 398.46,366.21 343.9,359.34C336.79,358.48 318.16,357.75 313.5,358.24ZM336.42,391.58C354.63,393.55 372.96,400.05 387.67,409.85C395.58,415.13 406.74,426.16 411.52,433.39C417.4,442.34 420.77,451.48 422.31,462.57C422.98,467.66 422.61,471.52 420.77,479.74C417.89,492 408.94,504.81 396.87,513.76C391.23,517.86 379.52,523.81 372.35,526.14C358.74,530.49 349.85,531.29 318.1,531.04C297.38,530.86 293.7,530.68 287.75,529.57C267.46,525.77 251.4,517.68 239.75,505.36C230.31,495.43 226.02,486.36 223.69,471.71C222.65,464.9 224.61,453.62 228.6,444.12C233.44,432.53 245.94,418.13 258.33,409.85C272.67,400.29 291.55,393.49 308.9,391.65C315.58,390.91 329.74,390.91 336.42,391.58Z"
+app/src/main/res/drawable/coffee.xml:7:      android:pathData="M3,4C3,2.895 3.895,2 5,2H17C18.105,2 19,2.895 19,4V5.09C19.389,5.151 19.865,5.256 20.351,5.439C20.944,5.661 21.604,6.018 22.122,6.601C22.66,7.205 23,8.004 23,9C23,9.996 22.66,10.795 22.122,11.399C21.604,11.982 20.944,12.339 20.351,12.561C19.831,12.756 19.322,12.863 18.92,12.922L18.919,12.93C18.84,13.457 18.68,14.177 18.349,14.91C18.019,15.645 17.503,16.425 16.697,17.022C15.879,17.628 14.823,18 13.5,18H8.5C7.177,18 6.121,17.628 5.303,17.022C4.497,16.425 3.981,15.645 3.651,14.91C3.248,14.015 3.003,12.99 3,12.002L3,4ZM19,10.876V7.124C19.209,7.169 19.431,7.23 19.649,7.311C20.056,7.464 20.396,7.67 20.628,7.93C20.84,8.17 21,8.496 21,9C21,9.504 20.84,9.83 20.628,10.07C20.396,10.33 20.056,10.536 19.649,10.689C19.431,10.77 19.209,10.831 19,10.876ZM5,11.997C5.009,12.707 5.185,13.446 5.474,14.09C5.706,14.605 6.034,15.075 6.494,15.415C6.942,15.747 7.573,16 8.5,16H13.5C14.427,16 15.058,15.747 15.506,15.415C15.966,15.075 16.294,14.605 16.526,14.09C16.814,13.45 16.997,12.705 17,11.997L17,4H5V11.997Z"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:22:        "max_output_tokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:51:    private val intFields: Set<String> = setOf("max_output_tokens")
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:160:            maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/npuExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuExperimentProbeActivity.kt:118:                "dispatch runtime sha256=${snapshot.dispatchRuntimeSha256 ?: "unknown"}; " +
+app/src/npuExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuExperimentProbeActivity.kt:119:                "expected sha256 match=${snapshot.dispatchRuntimeExpectedSha256Match ?: "unknown"}; " +
+app/src/main/java/io/github/ninbyo02/lami/viewmodels/OllamaViewModel.kt:1143:                    val maxLongEdgePx = 1280
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1StateReducer.kt:71:        maxOutputTokensText: String = "maxOutputTokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRoutePlanner.kt:10:        maxOutputTokens: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:14:        val maxOutputTokens = values.value("max_output_tokens")
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:15:            .toIntOrNull() ?: DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:81:            maxOutputTokens != DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS -> "max_output_tokens_not_128"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGate.kt:14:    val maxOutputTokenRangeLimit: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGate.kt:54:                input.maxOutputTokens != DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS ->
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOpsTest.kt:85:        bitmap.setPixel(0, 1, Color.argb(128, 0, 0, 255))
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOpsTest.kt:698:        val bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOpsTest.kt:797:        bitmap.setPixel(1, 0, Color.argb(128, 40, 50, 60))
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1UiState.kt:104:            input.maxOutputTokens != DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS -> "max_output_tokens_not_128"
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:24:        assertEquals("102", clampPxInput("102", 1024))
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:25:        assertEquals("1024", clampPxInput("1024", 1024))
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:26:        assertEquals("1024", clampPxInput("9999", 1024))
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:42:        val safe = (parsed ?: 288).coerceIn(1, 4096)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:43:        assertEquals(4096, safe)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:62:        val next = TextFieldValue("4096")
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:63:        val result = clampPxFieldValue(prev, next, 4096)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:64:        assertEquals("4096", result.text)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:70:        val next = TextFieldValue("4096")
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:71:        val result = clampPxFieldValue(prev, next, 4096)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:72:        assertEquals("4096", result.text)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:77:        val prev = TextFieldValue("4096")
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:79:        val result = clampPxFieldValue(prev, next, 4096)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:80:        assertEquals("4096", result.text)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:92:    fun clampFieldClampsCanvasSizeTo4096() {
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:95:        val result = clampPxFieldValue(prev, next, 4096)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:96:        assertEquals("4096", result.text)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:102:        val prev = TextFieldValue("1024", selection = TextRange(4))
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:103:        val result = rejectPxFieldValueOverMaxDigits(prev, "10245", maxDigits = 4)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/ClampPxInputTest.kt:104:        assertEquals("1024", result.text)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244NpuDiagnosticPromptValidatorTest.kt:18:        assertEquals(128, result.promptInputCodePointLimit)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244NpuDiagnosticPromptValidatorTest.kt:31:        assertEquals(128, result.promptInputCodePointLimit)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244DevNpuInferenceStatsSectionTest.kt:19:                native_max_output_tokens_limit=128
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244DevNpuInferenceStatsSectionTest.kt:22:                max_output_tokens=128
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244DevNpuInferenceStatsSectionTest.kt:39:                "max_output_tokens" to "128",
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244DevNpuInferenceStatsSectionTest.kt:40:                "native_max_output_tokens_limit" to "128",
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/Qairt244DevNpuInferenceStatsSectionTest.kt:59:                max_output_tokens=128
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapter.kt:6:        maxOutputTokens: Int = DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapter.kt:11:        const val DEFAULT_MAX_OUTPUT_TOKENS = 128
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapter.kt:12:        const val QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT = 256
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/TtsMemoryReleasePolicyTest.kt:15:                thresholdMemoryMb = 128,
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/TtsMemoryReleasePolicyTest.kt:31:                thresholdMemoryMb = 128,
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/TtsMemoryReleasePolicyTest.kt:47:                thresholdMemoryMb = 128,
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/TtsMemoryReleasePolicyTest.kt:63:                thresholdMemoryMb = 128,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:48:                    maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:51:                maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:87:                        maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:90:                    maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:130:            maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:143:        val baselineMaxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:144:        val compareLimit = DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:182:                "requested_max_output_tokens=$requestedMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:183:                "max_output_tokens=$effectiveMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:184:                "native_max_output_tokens_limit=$effectiveMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:185:                "hidden_safety_baseline=${if (allowMaxOutputTokensCompare) "compare_only_sanitizer_256" else "enhanced_sanitizer_only_128"}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:187:                "max_output_tokens_compare_enabled=$allowMaxOutputTokensCompare",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:239:                        DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:241:                        DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:257:                        DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:259:                        DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:324:        val nativeMaxOutputTokensLimit = nativeResult["native_max_output_tokens_limit"].orEmpty()
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:325:            .ifBlank { DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS.toString() }
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:391:            "requested_max_output_tokens=$requestedMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:392:            "max_output_tokens=${result.maxOutputTokens}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:393:            "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit.ifBlank { result.maxOutputTokens.toString() })}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:394:            "hidden_safety_baseline=${if (allowMaxOutputTokensCompare) "compare_only_sanitizer_256" else "enhanced_sanitizer_only_128"}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:396:            "max_output_tokens_compare_enabled=$allowMaxOutputTokensCompare",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:19:    private val maxOutputTokenRangeLimit: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:41:        allowMaxOutputTokenRange = maxOutputTokenRangeLimit != DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:90:            maxOutputTokens == DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:96:                reasonCode = "invalid_max_output_tokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:162:                    "max_output_tokens=$maxOutputTokens engine_initialize=false run_decode=false db=false tts=false markdown=false stream=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:236:                "max_output_tokens=$maxOutputTokens " +
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:525:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:565:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:616:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:678:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/debug/QnnDirectProbeActivity.kt:238:        val sha256Prefix = runCatching { sha256Prefix(file) }.getOrElse { "unavailable:${it.javaClass.simpleName}" }
+app/src/debug/java/io/github/ninbyo02/lami/debug/QnnDirectProbeActivity.kt:243:                "BuildId=${inspection?.buildId.orEmpty().ifBlank { "missing" }} sha256Prefix=$sha256Prefix",
+app/src/debug/java/io/github/ninbyo02/lami/debug/QnnDirectProbeActivity.kt:247:    private fun sha256Prefix(file: File): String {
+app/src/debug/java/io/github/ninbyo02/lami/debug/QnnDirectProbeActivity.kt:249:        val digest = MessageDigest.getInstance("SHA-256")
+app/src/debug/java/io/github/ninbyo02/lami/debug/QnnDirectProbeActivity.kt:251:            val buffer = ByteArray(64 * 1024)
+app/src/debug/java/io/github/ninbyo02/lami/debug/QnnDirectProbeActivity.kt:258:        return digest.digest().joinToString(separator = "") { byte -> "%02x".format(byte) }.take(SHA256_PREFIX_CHARS)
+app/src/debug/java/io/github/ninbyo02/lami/debug/QnnDirectProbeActivity.kt:426:        private const val SHA256_PREFIX_CHARS = 16
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:43:        "max_output_tokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:44:        "native_max_output_tokens_limit",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:34:            DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:38:            requestedMaxOutputTokens in 1..DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:42:            DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:196:                    "requested_max_output_tokens=${values["requested_max_output_tokens"].orEmpty()}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:197:                    "max_output_tokens_compare_enabled=${values["max_output_tokens_compare_enabled"].orEmpty().ifBlank { "false" }}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:213:                    "max_output_tokens=${values["max_output_tokens"].orEmpty()}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:249:        const val EXTRA_ALLOW_MAX_OUTPUT_TOKENS_COMPARE = "allow_max_output_tokens_compare"
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:252:        const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:470:            val buffer = ByteArray(4096)
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:642:        val sha256Prefix = runCatching { sha256Prefix(file = file, prefixChars = SHA256_PREFIX_CHARS) }
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:648:                "buildId=${inspection?.buildId.orEmpty().ifBlank { "missing" }} sha256Prefix=$sha256Prefix",
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:652:    private fun sha256Prefix(file: File, prefixChars: Int): String {
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:654:        val digest = MessageDigest.getInstance("SHA-256")
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:656:            val buffer = ByteArray(64 * 1024)
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:745:            val buffer = ByteArray(32 * 1024)
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:817:            val buffer = ByteArray(32 * 1024)
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:1616:        private const val MODEL_VERSION_SCAN_MAX_BYTES = 256L * 1024L * 1024L
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:1617:        private const val MODEL_SIGNATURE_REGION_BYTES = 16L * 1024L * 1024L
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:1620:        private const val MODEL_SCAN_MAX_STRING_LENGTH = 256
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:1621:        private const val MODEL_SCAN_BUFFER_BYTES = 32 * 1024
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:1634:        private const val SHA256_PREFIX_CHARS = 16
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticPromptValidator.kt:5:    const val HIDDEN_TEMPLATE_MAX_LENGTH = 128
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOps.kt:13:const val BINARIZE_FALLBACK_THRESHOLD = 128
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteBitmapOps.kt:928:    val histogram = IntArray(256)
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:595:                                    val maxWidth = state?.bitmap?.width ?: 4096
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:633:                                    val maxHeight = state?.bitmap?.height ?: 4096
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:2716:                                        4096,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:2735:                                        4096,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:2844:                                val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 4096)
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor/SpriteEditorScreen.kt:2845:                                val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 4096)
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:638:                                supporting = "customBuildExperimentDebug限定。key=dev_enable_qairt244_sm8750_npu_route。既定OFF、128-token phase、失敗時もGPU/CPUへfallbackしません。",
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/InferenceStatsSheetContentTest.kt:147:                contextWindow = 4096,
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/InferenceStatsSheetContentTest.kt:153:        assertEquals(4096, withMax.max)
+app/src/test/java/io/github/ninbyo02/lami/ui/screens/home/InferenceStatsSheetContentTest.kt:454:            contextWindow = 4096,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:23:    private const val MAX_ELF_NOTE_SCAN_BYTES = 1024 * 1024
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:37:    private const val GALLERY_SM8750_DISPATCH_SHA256 = "92d923e70d301d088c2c7c50e42ea97694ed1d3b740f614cd1ce85efd2090777"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:330:            dispatchRuntimeSha256 = dispatchRuntimeCompatibility.dispatchRuntimeSha256,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:331:            dispatchRuntimeExpectedSha256Match = dispatchRuntimeCompatibility.dispatchRuntimeExpectedSha256Match,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:485:            val dispatchRuntimeSha256 = dispatchRuntimeFile?.let(::sha256ForFileSafely)
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:505:                dispatchRuntimeSha256 = dispatchRuntimeSha256,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:506:                dispatchRuntimeExpectedSha256Match = dispatchRuntimeSha256?.equals(GALLERY_SM8750_DISPATCH_SHA256, ignoreCase = true),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1273:            BuildConfig.CURRENT_FLAVOR != "customBuildExperiment" && dispatchRuntimeCompatibility.dispatchRuntimeExpectedSha256Match != true -> "dispatch-sha256-mismatch"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:2045:    private fun sha256ForFileSafely(file: File): String? {
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:2048:            val digest = MessageDigest.getInstance("SHA-256")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:2167:                    "sha256Match=${snapshot.dispatchRuntimeExpectedSha256Match ?: false} " +
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:3056:        val dispatchRuntimeSha256: String? = null,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:3057:        val dispatchRuntimeExpectedSha256Match: Boolean? = null,
+app/src/debug/cpp/qnn_direct_probe_debug.cpp:16:#define QNN_DIRECT_MAX_TEXT 4096
+app/src/debug/cpp/qnn_direct_probe_debug.cpp:17:#define QNN_DIRECT_MAX_PATH 1024
+app/src/debug/cpp/qnn_direct_probe_debug.cpp:18:#define QNN_DIRECT_MAX_LINE 4096
+app/src/debug/cpp/qnn_direct_probe_debug.cpp:802:    char run_id[128];
+app/src/debug/cpp/qnn_direct_probe_debug.cpp:838:        char stage_name[256];
+app/src/debug/cpp/qnn_direct_probe_debug.cpp:926:        char stage_name[256];
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:745:    val maxOutputTokens = values["max_output_tokens"].orUnknown()
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:756:            InferenceStatItemUi(label = "max_output_tokens", value = maxOutputTokens),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:757:            InferenceStatItemUi(label = "native_max_output_tokens_limit", value = values["native_max_output_tokens_limit"].orUnknown()),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1633:        InferenceStatItemUi(label = "dispatch runtime sha256", value = probe.dispatchRuntimeSha256?.ifBlank { "unknown" } ?: "unknown"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1634:        InferenceStatItemUi(label = "dispatch runtime expected sha256 match", value = probe.dispatchRuntimeExpectedSha256Match?.toString() ?: "unknown"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbeSnapshot.kt:108:    val dispatchRuntimeSha256: String? = null,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbeSnapshot.kt:109:    val dispatchRuntimeExpectedSha256Match: Boolean? = null,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/SpriteSettingsScreen.kt:6516:- [dp] 縦: TopAppBar の余白 IconButton padding(余白) … L1287
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:4920:        availableMemoryMb = if (hasSystemMemoryInfo) systemMemoryInfo.availMem / (1024L * 1024L) else null,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:4921:        thresholdMemoryMb = if (hasSystemMemoryInfo) systemMemoryInfo.threshold / (1024L * 1024L) else null,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5412:        value = 128,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5418:        value = 128,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5425:        value = 128,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5431:        value = 128,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:7978:            "native_max_output_tokens_limit=${nativeMaxOutputTokensLimit ?: "unknown"}",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:7980:            "max_output_tokens=$maxOutputTokens",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8028:        "native_max_output_tokens_limit=${nativeMaxOutputTokensLimit ?: "unknown"}",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8031:        "max_output_tokens=$maxOutputTokens",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8100:                nativeMaxOutputTokensLimit = values["native_max_output_tokens_limit"]?.toIntOrNull(),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8105:                maxOutputTokens = values["max_output_tokens"]?.toIntOrNull() ?: 16,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8184:                "max_output_tokens=${result.maxOutputTokens}",

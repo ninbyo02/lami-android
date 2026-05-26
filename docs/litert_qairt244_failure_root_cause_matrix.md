@@ -1,5 +1,15 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-26: native max output token limit source
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU max output token limit | `artifacts/qairt244_npu_max_output_token_limit_investigation/20260526_202629/` | Custom qairt244 editable-prompt JNI guard rejects `max_output_tokens > 128` before `DecodeConfig::SetMaxOutputTokens` and `RunDecode`. | Classify current limit as `custom_safety_guard_only`; keep 128 baseline and require staged guard expansion before any 256+ run. |
+
+The investigation did not change native code, rebuild LiteRT-LM/QAIRT, execute
+NPU, call `Engine.initialize`, or call `RunDecode`. It does not prove compiled
+model, context/KV cache, QNN runtime, or memory safety above 128 tokens.
+
 ## 2026-05-26: max_output_tokens=256 hidden compare rollback
 
 | Area | Evidence | Root cause | Decision |

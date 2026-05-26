@@ -1,5 +1,23 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Native Max Output Token Limit Investigation - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_token_limit_investigation/20260526_202629/`
+
+The current `native_max_output_tokens_limit=128` is implemented in the custom
+qairt244 editable-prompt JNI entrypoint in the external LiteRT-LM checkout. The
+256 request is rejected before `DecodeConfig::SetMaxOutputTokens` and before
+`RunDecode`, so the finding is classified as `custom_safety_guard_only` for the
+observed failure.
+
+No custom-build action is authorized by this investigation. A later phase may
+prepare a minimal native patch that raises the guard only to 256, records the
+requested/actual token limit consistently, rebuilds the custom artifact, and
+then validates one prompt before any broader comparison. 4096 remains a final
+target that must be reached only through 256, 512, 1024, and 2048 gates with
+timeout, memory, cleanup, and quality evidence.
+
 ## QAIRT244 Max Output Tokens 256 Hidden Compare - 2026-05-26
 
 Artifact:

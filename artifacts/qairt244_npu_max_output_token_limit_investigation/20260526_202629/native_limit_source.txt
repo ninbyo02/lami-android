@@ -1,0 +1,52 @@
+QAIRT244 native max output token limit source
+
+Investigated source:
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+
+Definition points:
+
+- line 1920-1928: editable-prompt native entrypoint rejects any value outside
+  1..128 before path validation, ModelAssets creation, Engine creation,
+  RunPrefill, DecodeConfig creation, SetMaxOutputTokens, or RunDecode.
+
+  Guard:
+  max_output_tokens < 1 || max_output_tokens > 128
+
+  Diagnostic string:
+  invalid_max_output_tokens value=%d native_max_output_tokens_limit=128
+
+- line 461: WriteQairt244EditablePromptResult currently writes
+  max_output_tokens=128 and native_max_output_tokens_limit=128 into the
+  result metadata.
+
+- line 2119-2125: DecodeConfig::CreateDefault(),
+  decode_config.SetMaxOutputTokens(max_output_tokens), and RunDecode are
+  downstream of the 128 guard. A 256 request therefore never reaches
+  SetMaxOutputTokens or RunDecode in the observed editable-prompt path.
+
+Static classification:
+
+A. custom_safety_guard_only
+
+Rationale:
+
+- LiteRT-LM runtime/engine/io_types.h exposes DecodeConfig::SetMaxOutputTokens
+  as an optional int setter with no 128 constant in the setter.
+- LiteRT-LM runtime/core/tasks.h and pipeline/session code route max output
+  token counts as int values, commonly defaulting to numeric_limits<int>::max.
+- The observed 256 failure text is produced by the custom qairt244 JNI guard,
+  not by DecodeConfig, model metadata, the compiled model, or a runtime memory
+  error.
+
+Unknowns not proven by this static-only pass:
+
+- Whether the SM8750 compiled model, QNN/HTP runtime, KV/cache behavior, or
+  device memory remains stable beyond 128 tokens.
+- Whether 512/1024/2048/4096 require longer timeout, larger artifact limits,
+  additional cleanup evidence, or tighter process-alive checks.
+- Whether long generations increase repetition, multilingual drift, or
+  sanitizer memory pressure.
+
+No native file was changed in this investigation.
+No QAIRT rebuild was performed.
+No NPU run, Engine.initialize, or RunDecode was performed.

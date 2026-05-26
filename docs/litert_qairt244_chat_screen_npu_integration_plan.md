@@ -1,5 +1,17 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Native Max Output Token Limit Investigation - 2026-05-26
+
+The 128-token ceiling is currently a custom qairt244 native editable-prompt
+guard, not a proven ChatScreen/UI limit. The guard runs before
+`DecodeConfig::SetMaxOutputTokens` and before `RunDecode`, so the 256 hidden
+compare never exercised LiteRT-LM decode or QNN runtime behavior at 256.
+
+ChatScreen plan impact: none. Do not connect 256, 512, 1024, 2048, or 4096
+token requests to normal ChatScreen. Keep H1 and any future handoff work pinned
+to sanitized 128-token metadata until a staged native guard patch and hidden
+runtime validation pass separately.
+
 ## Max Output Tokens 256 Hidden Compare - 2026-05-26
 
 The hidden experimental 256-token comparison was run in

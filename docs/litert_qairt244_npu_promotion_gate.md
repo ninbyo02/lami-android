@@ -1,5 +1,27 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Token Limit Investigation - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_token_limit_investigation/20260526_202629/`
+
+Static finding: the 128-token ceiling is currently enforced by the custom
+qairt244 editable-prompt JNI guard in external LiteRT-LM
+`kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc`. The guard rejects
+`max_output_tokens > 128` and reports
+`invalid_max_output_tokens ... native_max_output_tokens_limit=128` before
+`DecodeConfig::SetMaxOutputTokens(max_output_tokens)` and before `RunDecode`.
+
+Classification: `A. custom_safety_guard_only` for the observed 256 rejection.
+No static evidence in the inspected `DecodeConfig` setter path shows a 128 API
+limit, but model/runtime/memory safety above 128 remains unproven.
+
+Promotion decision: keep `sanitizer_only + max_output_tokens=128` as the only
+accepted hidden display baseline. 256/512/1024/2048/4096 require staged native
+guard review, rebuild, one-shot runs, memory-after-10s evidence, cleanup
+evidence, fresh crash checks, and sanitizer quality gates before they can be
+considered.
+
 ## Max Output Tokens 256 Compare - 2026-05-26
 
 Artifact:
