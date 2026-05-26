@@ -1,0 +1,9 @@
+
+===== before_konnichiwa =====
+No process found for: io.github.ninbyo02.lami
+
+===== before_python_calculator =====
+No process found for: io.github.ninbyo02.lami
+
+===== before_lami_npu_short =====
+No process found for: io.github.ninbyo02.lami

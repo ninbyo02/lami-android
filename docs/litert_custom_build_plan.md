@@ -1,5 +1,26 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Force-Stop Between Prompts - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_force_stop_between_prompts/20260527_074002/`
+
+No native guard change, QAIRT rebuild, or `app/src/main/jniLibs` change was
+performed. The runner staged the existing max512 `liblitertlm_jni.so` artifact
+from `artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/`
+into a temporary standardDebug APK, then restored the source JNI directory.
+
+Result: force-stop between prompts passed. The three approved prompts all
+completed once at `max_output_tokens=512` under `timeout_seconds=60`; the code
+prompt returned `useful_code` with indentation/fence checks passing. This
+supports the hypothesis that the repeated code timeout is tied to sequential
+process/resource behavior rather than the max512 native guard itself.
+
+Build plan decision: do not rebuild or move to 1024 yet. Decide next whether
+512 should be constrained to hidden per-run isolated mode, or whether another
+sequential cleanup/order investigation is required before any 512 baseline
+classification.
+
 ## QAIRT244 Max512 Repeated Code Timeout Review - 2026-05-27
 
 Artifact:

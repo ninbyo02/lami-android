@@ -1,5 +1,32 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 512 Force-Stop Between Prompts - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_force_stop_between_prompts/20260527_074002/`
+
+Gate result: per-run isolated comparison passed. The runner force-stopped the
+app before and after each approved prompt, then executed exactly one
+`max_output_tokens=512` hidden run per prompt with a bounded 60 second timeout.
+All three prompts succeeded with QNN/HTP/FastRPC evidence, no fallback, no
+timeout, no fresh crash, cleanup/`Engine.close` evidence, and side-effect flags
+false.
+
+Prompt results:
+
+- `こんにちは`: `natural_japanese`, `decode_ms=835`, `elapsed_ms=3000`
+- `Pythonで簡単な電卓コードを書いて`: `useful_code`, `decode_ms=12448`,
+  `elapsed_ms=14000`, indentation preserved, code fence closed
+- `ラミィのNPU推論について短く説明して`: `natural_japanese`,
+  `decode_ms=4359`, `elapsed_ms=6000`
+
+Promotion decision: 512 can be considered a hidden per-run isolated mode
+candidate, but it is not promoted as the general 512 baseline because the
+sequential three-prompt runner still has a reproduced code-prompt timeout.
+Keep 256 as the hidden experimental baseline candidate, keep H1 pinned to 128,
+and keep 1024/2048/4096 blocked until a separate gate accepts per-run
+force-stop as the intended 512 operating mode or sequential 512 passes.
+
 ## Max Output Tokens 512 Repeated Code Timeout Review - 2026-05-27
 
 Artifact:

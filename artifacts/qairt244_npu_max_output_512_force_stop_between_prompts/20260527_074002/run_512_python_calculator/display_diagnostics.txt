@@ -1,0 +1,61 @@
+route_type=standard_hidden_chat_screen
+selected_route=qairt244_sm8750_hidden_npu
+assistant_message_id=receiver_runner
+success=true
+reasonCode=success
+raw_user_prompt=Pythonで簡単な電卓コードを書いて
+normalized_prompt=Pythonで簡単な電卓コードを書いて
+final_model_input=<start_of_turn>user\nPythonで簡単な電卓コードを書いて\n<end_of_turn>\n<start_of_turn>model
+final_model_input_length=74
+conversation_history_count=0
+system_prompt_used=none
+chat_template_used=gemma_it_like
+template_mode=gemma_it_like
+template_prefix_length=20
+template_suffix_length=35
+prompt_source=chat_screen
+prompt_validation_mode=utf8_hidden_template_experiment
+prompt_input_code_points=74
+prompt_input_code_point_limit=128
+prompt_input_limit_mode=hidden_template_experiment
+native_prompt_input_code_point_limit=128
+native_prompt_input_limit_mode=hidden_template_experiment
+prompt_formatting_mode=hidden_prompt_template_experiment
+requested_max_output_tokens=512
+max_output_tokens_compare_enabled=true
+raw_native_output=>\nはい、承知いたしました。Pythonで簡単な電卓のコードを作成します。\n\nここでは、基本的な四則演算（加算、減算、乗算、除算）ができるシンプルなコマンドライン電卓の例を示します。\n\n### Pythonによる簡単な電卓コード\n\n```python\ndef add(x, y):\n    """2つの数を加算する"""\n    return x + y\n\ndef subtract(x, y):\n    """2つの数を減算する"""\n    return x - y\n\ndef multiply(x, y):\n    """2つの数を乗算する"""\n    return x * y\n\ndef divide(x, y):\n    """2つの数を除算する (ゼロ除算のチェックを含む)"""\n    if y == 0:\n        return "エラー: ゼロによる除算はできません。"\n    return x / y\n\ndef simple_calculator():\n    """簡単なコマンドライン電卓のメイン関数"""\n    print("--- 簡単なPython電卓 ---")\n    print("選択肢: 1. 加算 (+), 2. 減算 (-), 3. 乗算 (*), 4. 除算 (/)")\n    \n    while True:\n        print("\\\n--- 演算を選択してください ---")\n        print("1. 加算 (+)")\n        print("2. 減算 (-)")\n        print("3. 乗算 (*)")\n        print("4. 除算 (/)")\n        print("5. 終了 (Exit)")\n        \n        choice = input("選択してください (1-5): ")\n\n        if choice == '5':\n            print("電卓を終了します。お疲れ様でした！")\n            break\n\n        if choice in ('1', '2', '3', '4'):\n            try:\n                num1 = float(input("最初の数値を入力してください: "))\n                num2 = float(input("2番目の数値を入力してください: "))\n                \n                if choice == '1':\n                    result = add(num1, num2)\n                    operation_symbol = "+"\n                elif choice == '2':\n                    result = subtract(num1, num2)\n                    operation_symbol = "-"\n                elif choice == '3':\n                    result = multiply(num1, num2)\n                    operation_symbol = "*"\n                elif choice == '
+raw_native_output_length=1503
+raw_output=>\nはい、承知いたしました。Pythonで簡単な電卓のコードを作成します。\n\nここでは、基本的な四則演算（加算、減算、乗算、除算）ができるシンプルなコマンドライン電卓の例を示します。\n\n### Pythonによる簡単な電卓コード\n\n```python\ndef add(x, y):\n    """2つの数を加算する"""\n    return x + y\n\ndef subtract(x, y):\n    """2つの数を減算する"""\n    return x - y\n\ndef multiply(x, y):\n    """2つの数を乗算する"""\n    return x * y\n\ndef divide(x, y):\n    """2つの数を除算する (ゼロ除算のチェックを含む)"""\n    if y == 0:\n        return "エラー: ゼロによる除算はできません。"\n    return x / y\n\ndef simple_calculator():\n    """簡単なコマンドライン電卓のメイン関数"""\n    print("--- 簡単なPython電卓 ---")\n    print("選択肢: 1. 加算 (+), 2. 減算 (-), 3. 乗算 (*), 4. 除算 (/)")\n    \n    while True:\n        print("\\\n--- 演算を選択してください ---")\n        print("1. 加算 (+)")\n        print("2. 減算 (-)")\n        print("3. 乗算 (*)")\n        print("4. 除算 (/)")\n        print("5. 終了 (Exit)")\n        \n        choice = input("選択してください (1-5): ")\n\n        if choice == '5':\n            print("電卓を終了します。お疲れ様でした！")\n            break\n\n        if choice in ('1', '2', '3', '4'):\n            try:\n                num1 = float(input("最初の数値を入力してください: "))\n                num2 = float(input("2番目の数値を入力してください: "))\n                \n                if choice == '1':\n                    result = add(num1, num2)\n                    operation_symbol = "+"\n                elif choice == '2':\n                    result = subtract(num1, num2)\n                    operation_symbol = "-"\n                elif choice == '3':\n                    result = multiply(num1, num2)\n                    operation_symbol = "*"\n                elif choice == '
+raw_output_length=1503
+sanitized_output=はい、承知いたしました。Pythonで簡単な電卓のコードを作成します。\n\nここでは、基本的な四則演算（加算、減算、乗算、除算）ができるシンプルなコマンドライン電卓の例を示します。\n\n### Pythonによる簡単な電卓コード\n\n```python\ndef add(x, y):\n    """2つの数を加算する"""\n    return x + y\n\ndef subtract(x, y):\n    """2つの数を減算する"""\n    return x - y\n\ndef multiply(x, y):\n    """2つの数を乗算する"""\n    return x * y\n\ndef divide(x, y):\n    """2つの数を除算する (ゼロ除算のチェックを含む)"""\n    if y == 0:\n        return "エラー: ゼロによる除算はできません。"\n    return x / y\n\ndef simple_calculator():\n    """簡単なコマンドライン電卓のメイン関数"""\n    print("--- 簡単なPython電卓 ---")\n    print("選択肢: 1. 加算 (+), 2. 減算 (-), 3. 乗算 (*), 4. 除算 (/)")\n\n    while True:\n        print("\\\n--- 演算を選択してください ---")\n        print("1. 加算 (+)")\n        print("2. 減算 (-)")\n        print("3. 乗算 (*)")\n        print("4. 除算 (/)")\n        print("5. 終了 (Exit)")\n\n        choice = input("選択してください (1-5): ")\n\n        if choice == '5':\n            print("電卓を終了します。お疲れ様でした！")\n            break\n\n        if choice in ('1', '2', '3', '4'):\n            try:\n                num1 = float(input("最初の数値を入力してください: "))\n                num2 = float(input("2番目の数値を入力してください: "))\n\n                if choice == '1':\n                    result = add(num1, num2)\n                    operation_symbol = "+"\n                elif choice == '2':\n                    result = subtract(num1, num2)\n                    operation_symbol = "-"\n                elif choice == '3':\n                    result = multiply(num1, num2)\n                    operation_symbol = "*"\n                elif choice == '\n```
+sanitized_output_length=1477
+sanitizer_applied=true
+removed_template_token_count=1
+removed_prompt_echo=false
+code_block_detected=
+code_fence_completed=
+adapter_output=はい、承知いたしました。Pythonで簡単な電卓のコードを作成します。\n\nここでは、基本的な四則演算（加算、減算、乗算、除算）ができるシンプルなコマンドライン電卓の例を示します。\n\n### Pythonによる簡単な電卓コード\n\n```python\ndef add(x, y):\n    """2つの数を加算する"""\n    return x + y\n\ndef subtract(x, y):\n    """2つの数を減算する"""\n    return x - y\n\ndef multiply(x, y):\n    """2つの数を乗算する"""\n    return x * y\n\ndef divide(x, y):\n    """2つの数を除算する (ゼロ除算のチェックを含む)"""\n    if y == 0:\n        return "エラー: ゼロによる除算はできません。"\n    return x / y\n\ndef simple_calculator():\n    """簡単なコマンドライン電卓のメイン関数"""\n    print("--- 簡単なPython電卓 ---")\n    print("選択肢: 1. 加算 (+), 2. 減算 (-), 3. 乗算 (*), 4. 除算 (/)")\n\n    while True:\n        print("\\\n--- 演算を選択してください ---")\n        print("1. 加算 (+)")\n        print("2. 減算 (-)")\n        print("3. 乗算 (*)")\n        print("4. 除算 (/)")\n        print("5. 終了 (Exit)")\n\n        choice = input("選択してください (1-5): ")\n\n        if choice == '5':\n            print("電卓を終了します。お疲れ様でした！")\n            break\n\n        if choice in ('1', '2', '3', '4'):\n            try:\n                num1 = float(input("最初の数値を入力してください: "))\n                num2 = float(input("2番目の数値を入力してください: "))\n\n                if choice == '1':\n                    result = add(num1, num2)\n                    operation_symbol = "+"\n                elif choice == '2':\n                    result = subtract(num1, num2)\n                    operation_symbol = "-"\n                elif choice == '3':\n                    result = multiply(num1, num2)\n                    operation_symbol = "*"\n                elif choice == '\n```
+adapter_output_length=1477
+displayed_assistant_text=はい、承知いたしました。Pythonで簡単な電卓のコードを作成します。\n\nここでは、基本的な四則演算（加算、減算、乗算、除算）ができるシンプルなコマンドライン電卓の例を示します。\n\n### Pythonによる簡単な電卓コード\n\n```python\ndef add(x, y):\n    """2つの数を加算する"""\n    return x + y\n\ndef subtract(x, y):\n    """2つの数を減算する"""\n    return x - y\n\ndef multiply(x, y):\n    """2つの数を乗算する"""\n    return x * y\n\ndef divide(x, y):\n    """2つの数を除算する (ゼロ除算のチェックを含む)"""\n    if y == 0:\n        return "エラー: ゼロによる除算はできません。"\n    return x / y\n\ndef simple_calculator():\n    """簡単なコマンドライン電卓のメイン関数"""\n    print("--- 簡単なPython電卓 ---")\n    print("選択肢: 1. 加算 (+), 2. 減算 (-), 3. 乗算 (*), 4. 除算 (/)")\n\n    while True:\n        print("\\\n--- 演算を選択してください ---")\n        print("1. 加算 (+)")\n        print("2. 減算 (-)")\n        print("3. 乗算 (*)")\n        print("4. 除算 (/)")\n        print("5. 終了 (Exit)")\n\n        choice = input("選択してください (1-5): ")\n\n        if choice == '5':\n            print("電卓を終了します。お疲れ様でした！")\n            break\n\n        if choice in ('1', '2', '3', '4'):\n            try:\n                num1 = float(input("最初の数値を入力してください: "))\n                num2 = float(input("2番目の数値を入力してください: "))\n\n                if choice == '1':\n                    result = add(num1, num2)\n                    operation_symbol = "+"\n                elif choice == '2':\n                    result = subtract(num1, num2)\n                    operation_symbol = "-"\n                elif choice == '3':\n                    result = multiply(num1, num2)\n                    operation_symbol = "*"\n                elif choice == '\n```
+displayed_assistant_text_length=1477
+output_token_count=unavailable
+finish_reason=not_exposed_by_lower_level_entrypoint
+stop_reason=
+eos_detected=false
+output_contains_replacement_chars=false
+replacement_char_count=0
+output_contains_control_chars=true
+output_unicode_summary=utf16_length=1503;code_point_count=1503;utf8_byte_count=2025;classification=unicode_decoded_string;replacement_char_count=0;control_chars=U+000Ax60;white_circle_u3007_count=0;question_mark_count=0;first_code_points=U+003E U+000A U+306F U+3044 U+3001 U+627F U+77E5 U+3044 U+305F U+3057 U+307E U+3057 U+305F U+3002 U+0050 U+0079 U+0074 U+0068 U+006F U+006E U+3067 U+7C21 U+5358 U+306A U+96FB U+5353 U+306E U+30B3 U+30FC U+30C9 U+3092 U+4F5C
+quality_classification=mixed_language
+output_first_200_chars=>\nはい、承知いたしました。Pythonで簡単な電卓のコードを作成します。\n\nここでは、基本的な四則演算（加算、減算、乗算、除算）ができるシンプルなコマンドライン電卓の例を示します。\n\n### Pythonによる簡単な電卓コード\n\n```python\ndef add(x, y):\n    """2つの数を加算する"""\n    return x + y\n\ndef subtract(x, y):\n
+output_last_200_chars=                operation_symbol = "-"\n                elif choice == '3':\n                    result = multiply(num1, num2)\n                    operation_symbol = "*"\n                elif choice == '
+max_output_tokens=512
+decode_elapsed_ms=12448
+npu_backend=NPU
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_used=false
+timeout=false
+fresh_crash=false
+markdown_mode=non_streaming_direct_insert
+repair_applied=false
+streaming=false

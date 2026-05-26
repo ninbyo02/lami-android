@@ -1,5 +1,24 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Force-Stop Between Prompts - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_force_stop_between_prompts/20260527_074002/`
+
+The hidden comparison passed when every prompt was isolated by app force-stop
+before and after the run. The Python calculator prompt returned `useful_code`
+with `decode_ms=12448`, `elapsed_ms=14000`, preserved indentation, and a closed
+code fence. All runs recorded QNN/HTP/FastRPC evidence,
+cleanup/`Engine.close`, `timeout=false`, `fresh_crash=false`, and
+`fallback_used=false`.
+
+ChatScreen plan impact: no normal ChatScreen promotion. The result narrows the
+512 issue to sequential/resource-cleanup behavior and supports a possible
+hidden per-run isolated mode, but it does not authorize assistant-list
+insertion, DB persistence, TTS, Markdown renderer, streaming, selectedPath=NPU
+persistence, release behavior, or standard behavior. 256 remains the hidden
+experimental candidate and 1024+ remains blocked.
+
 ## Max512 Repeated Code Timeout Review - 2026-05-27
 
 Artifact:

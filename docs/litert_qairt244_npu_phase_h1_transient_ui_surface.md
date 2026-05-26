@@ -1,5 +1,23 @@
 # QAIRT244 NPU Phase H1 Transient UI Surface
 
+## Max Output Tokens 512 Force-Stop Between Prompts - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_force_stop_between_prompts/20260527_074002/`
+
+The per-run force-stop comparison produced complete sanitized responses for
+all three hidden prompts, including `useful_code` for the Python calculator
+prompt with indentation preserved and a closed code fence. The run also
+recorded cleanup/`Engine.close` evidence and no after-10s retained process
+after each post-run force-stop.
+
+H1 impact: no change. This artifact is hidden experimental evidence for a
+possible per-run isolated 512 mode only. H1 remains pinned to
+`sanitizer_only + max_output_tokens=128`, and 512 output must not feed the
+transient card, Compose adapter, PreviewHost, normal ChatScreen, assistant
+message list, DB, TTS, Markdown renderer, streaming, or selected-path
+persistence.
+
 ## Max Output Tokens 512 Repeated Code Timeout Review - 2026-05-27
 
 Artifact:

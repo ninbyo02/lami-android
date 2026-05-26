@@ -1,5 +1,21 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: max_output_tokens=512 passes with force-stop between prompts
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 per-run isolation | `artifacts/qairt244_npu_max_output_512_force_stop_between_prompts/20260527_074002/` | The same 512 code prompt that timed out in sequential three-prompt mode completes when each prompt is bracketed by app force-stop. This supports `sequential_decode_timeout` or resource/cleanup interaction as the active failure mode. | Treat 512 as a per-run isolated hidden candidate only; do not promote general sequential 512 and keep 1024 blocked. |
+
+Prompt comparison: `こんにちは` completed as `natural_japanese` with
+`decode_ms=835`; `Pythonで簡単な電卓コードを書いて` completed as `useful_code`
+with `decode_ms=12448`, preserved indentation, and closed code fence;
+`ラミィのNPU推論について短く説明して` completed as `natural_japanese` with
+`decode_ms=4359`. All runs recorded `QNN_HTP_V79_FastRPC_native_diag`,
+cleanup/`Engine.close=unique_ptr_cleanup`, `timeout=false`,
+`fresh_crash=false`, `fallback_used=false`, and side-effect flags false.
+After each post-run force-stop, after-10s meminfo reported no process for the
+package, so no retained-memory rollback was observed.
+
 ## 2026-05-27: repeated max_output_tokens=512 code prompt timeout
 
 | Area | Evidence | Root cause | Decision |

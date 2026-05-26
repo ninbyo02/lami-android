@@ -9,6 +9,43 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Force-Stop Between Prompts Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_force_stop_between_prompts/20260527_074002/`
+
+The three approved hidden prompts ran once each at `max_output_tokens=512` with
+`timeout_seconds=60`, code-aware sanitizer enabled, and app force-stop before
+and after every prompt. This tests a per-run isolated/fresh-process equivalent
+mode, not the earlier sequential runner.
+
+Results:
+
+- `こんにちは`: success, `natural_japanese`, `decode_ms=835`,
+  `elapsed_ms=3000`
+- `Pythonで簡単な電卓コードを書いて`: success, `useful_code`,
+  `decode_ms=12448`, `elapsed_ms=14000`, indentation preserved, code fence
+  closed/completed
+- `ラミィのNPU推論について短く説明して`: success, `natural_japanese`,
+  `decode_ms=4359`, `elapsed_ms=6000`
+
+All three runs reached `before RunDecode SetMaxOutputTokens(512)` with
+`native_max_output_tokens_limit=512` and
+`qairt244_editable_prompt_max512_v1`. Completed diagnostics recorded
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`,
+`Engine.close=unique_ptr_cleanup`, and cleanup timings of 126 ms, 130 ms, and
+142 ms. `timeout=false`, `fresh_crash=false`, `fallback_used=false`,
+`selected_path_npu_saved=false`, and DB/TTS/Markdown/streaming remained false.
+After each post-run force-stop, after-10s meminfo reported no process for the
+package, so no retained-memory rollback was observed.
+
+Decision: 512 is viable as a per-run isolated hidden experimental candidate
+when every prompt is bracketed by app force-stop. It is still not a general
+sequential 512 baseline and is not promoted to H1 or normal ChatScreen. 256
+remains the hidden experimental baseline candidate. 1024, 2048, and 4096 remain
+blocked until a separate gate decides whether per-run isolated 512 is an
+acceptable operating mode or whether sequential 512 must pass first.
+
 ## Max512 Code Prompt Repeated Timeout Review - 2026-05-27
 
 Artifact:
