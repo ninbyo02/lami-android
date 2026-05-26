@@ -204,6 +204,8 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 "sanitizer_applied=${values["sanitizer_applied"].orEmpty()}",
                 "removed_template_token_count=${values["removed_template_token_count"].orEmpty()}",
                 "removed_prompt_echo=${values["removed_prompt_echo"].orEmpty()}",
+                "code_block_detected=${values["code_block_detected"].orEmpty()}",
+                "code_fence_completed=${values["code_fence_completed"].orEmpty()}",
                 "adapter_output=${escapeValue(values["adapter_output"].orEmpty())}",
                 "adapter_output_length=${values["adapter_output_length"].orEmpty()}",
                 "displayed_assistant_text=${escapeValue(displayedText)}",

@@ -1,5 +1,20 @@
 # QAIRT244 NPU Phase H1 Transient UI Surface
 
+## Max Output Tokens 512 Code-Aware Rerun - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_codeaware_compare/20260527_014523/`
+
+The code-aware 512 rerun is not H1 display input. The code prompt timed out and
+did not produce a completed sanitized code response, even though the two
+Japanese prompts succeeded. Raw output remains diagnostic-only and the normal
+ChatScreen, assistant list, DB, TTS, Markdown renderer, streaming, and
+selected-path persistence remain disconnected.
+
+H1 impact: no change. H1 remains pinned to
+`sanitizer_only + max_output_tokens=128`. 512 cannot feed the transient card,
+Compose adapter, PreviewHost, or normal ChatScreen from this artifact.
+
 ## Code-Aware Sanitizer Update - 2026-05-27
 
 Artifact:

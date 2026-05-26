@@ -1,5 +1,19 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: max_output_tokens=512 code-aware rerun still times out on code prompt
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 code-aware comparison | `artifacts/qairt244_npu_max_output_512_three_prompt_codeaware_compare/20260527_014523/` | The Python calculator prompt timed out under the bounded 60 second runner after native `SetMaxOutputTokens(512)` pre-decode evidence. No completed code sanitizer result was produced. | Keep 512 non-baseline, keep 256 as the hidden experimental candidate, and block 1024. |
+
+The Japanese prompts remain healthy: `こんにちは` completed as
+`natural_japanese` with `decode_ms=848`, and the short Lami NPU prompt completed
+as `natural_japanese` with `decode_ms=3989`. The code prompt recorded
+`timeout=true`, no completed `fallback_used=false` result, no cleanup evidence,
+and no completed code indentation/fence evidence. After-10s memory decreased to
+`TOTAL PSS=275865 KB / Native Heap=53864 KB`, so retained memory is not the
+rollback reason.
+
 ## 2026-05-27: code-aware sanitizer preserves code output shape
 
 | Area | Evidence | Root cause | Decision |

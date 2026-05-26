@@ -1,5 +1,19 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Code-Aware Three-Prompt Rerun - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_codeaware_compare/20260527_014523/`
+
+The hidden code-aware rerun remains non-promotable to ChatScreen. `こんにちは`
+and the short Lami NPU prompt returned sanitized Japanese responses, but the
+Python calculator prompt timed out with no completed sanitized code output.
+The artifact therefore does not prove code display quality for 512.
+
+Decision: do not connect 512 to normal ChatScreen, assistant-list insertion,
+DB, TTS, Markdown renderer, streaming, or selectedPath persistence. 512 remains
+extended experimental; 1024 remains blocked.
+
 ## Code-Aware Sanitizer Update - 2026-05-27
 
 Artifact:

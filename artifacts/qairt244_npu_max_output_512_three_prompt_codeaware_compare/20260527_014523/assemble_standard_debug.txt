@@ -1,0 +1,56 @@
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preStandardDebugBuild UP-TO-DATE
+> Task :app:mergeStandardDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateStandardDebugBuildConfig
+> Task :app:checkStandardDebugAarMetadata UP-TO-DATE
+> Task :app:processStandardDebugNavigationResources UP-TO-DATE
+> Task :app:compileStandardDebugNavigationResources UP-TO-DATE
+> Task :app:generateStandardDebugResValues UP-TO-DATE
+> Task :app:mapStandardDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateStandardDebugResources UP-TO-DATE
+> Task :app:mergeStandardDebugResources UP-TO-DATE
+> Task :app:packageStandardDebugResources UP-TO-DATE
+> Task :app:parseStandardDebugLocalResources UP-TO-DATE
+> Task :app:createStandardDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksStandardDebug UP-TO-DATE
+> Task :app:processStandardDebugMainManifest UP-TO-DATE
+> Task :app:processStandardDebugManifest UP-TO-DATE
+> Task :app:processStandardDebugManifestForPackage UP-TO-DATE
+> Task :app:processStandardDebugResources UP-TO-DATE
+> Task :app:javaPreCompileStandardDebug UP-TO-DATE
+> Task :app:mergeStandardDebugShaders UP-TO-DATE
+> Task :app:compileStandardDebugShaders NO-SOURCE
+> Task :app:generateStandardDebugAssets UP-TO-DATE
+> Task :app:mergeStandardDebugAssets UP-TO-DATE
+> Task :app:compressStandardDebugAssets UP-TO-DATE
+> Task :app:checkStandardDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarStandardDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexStandardDebug UP-TO-DATE
+> Task :app:mergeLibDexStandardDebug UP-TO-DATE
+> Task :app:stageQairt244StandardDebugNativeLibs UP-TO-DATE
+> Task :app:buildQnnDirectProbeDebugJni UP-TO-DATE
+> Task :app:mergeStandardDebugJniLibFolders UP-TO-DATE
+> Task :app:validateSigningStandardDebug UP-TO-DATE
+> Task :app:writeStandardDebugAppMetadata UP-TO-DATE
+> Task :app:writeStandardDebugSigningConfigVersions UP-TO-DATE
+> Task :app:mergeStandardDebugNativeLibs
+> Task :app:overlayQairt244StandardDebugNativeLibs
+> Task :app:stripStandardDebugDebugSymbols UP-TO-DATE
+> Task :app:overlayQairt244StandardDebugStrippedNativeLibs UP-TO-DATE
+> Task :app:kspStandardDebugKotlin
+> Task :app:compileStandardDebugKotlin
+> Task :app:compileStandardDebugJavaWithJavac
+> Task :app:dexBuilderStandardDebug
+> Task :app:processStandardDebugJavaRes UP-TO-DATE
+> Task :app:mergeStandardDebugJavaResource UP-TO-DATE
+> Task :app:mergeProjectDexStandardDebug
+
+> Task :app:packageStandardDebug
+PackagingOptions.jniLibs.useLegacyPackaging should be set to true because android:extractNativeLibs is set to "true" in AndroidManifest.xml.
+
+> Task :app:createStandardDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleStandardDebug
+
+BUILD SUCCESSFUL in 17s
+43 actionable tasks: 9 executed, 34 up-to-date

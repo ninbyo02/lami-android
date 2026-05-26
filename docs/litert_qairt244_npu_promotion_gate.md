@@ -1,5 +1,22 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 512 Code-Aware Rerun - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_codeaware_compare/20260527_014523/`
+
+Gate result: failure. The two Japanese prompts completed with sanitized
+`natural_japanese` output and QNN/HTP/FastRPC evidence, but the Python
+calculator prompt timed out under the bounded 60 second runner after native
+pre-decode evidence. Because the code prompt returned no completed sanitizer
+result, `useful_code`, indentation preservation, and fence closure are not
+proven by this artifact.
+
+Promotion decision: do not classify 512 as a hidden baseline candidate. Keep
+256 as the hidden experimental candidate, keep H1 pinned to 128, and keep 1024
+blocked. A future 512 attempt needs separate approval and must resolve the code
+prompt timeout before any promotion review.
+
 ## Code-Aware Sanitizer Gate Update - 2026-05-27
 
 Artifact:

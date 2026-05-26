@@ -9,6 +9,34 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Code-Aware Three-Prompt Rerun - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_codeaware_compare/20260527_014523/`
+
+The code-aware sanitizer was applied and the three approved hidden prompts were
+run once each at `max_output_tokens=512` with a bounded 60 second timeout. The
+rerun still fails the 512 baseline gate because the Python calculator prompt
+timed out after reaching `before RunDecode SetMaxOutputTokens(512)`. No
+completed raw/sanitized code output was returned for that prompt, so
+indentation and fence completion could not be evaluated from a completed
+response.
+
+Results:
+
+- `こんにちは`: success, `natural_japanese`, `decode_ms=848`,
+  `elapsed_ms=2000`
+- `Pythonで簡単な電卓コードを書いて`: timeout, `elapsed_ms=70000`,
+  pre-RunDecode evidence present, no completed sanitizer result
+- `ラミィのNPU推論について短く説明して`: success, `natural_japanese`,
+  `decode_ms=3989`, `elapsed_ms=5000`
+
+Decision: 512 remains extended experimental and is not a hidden baseline
+candidate. 256 remains the hidden experimental baseline candidate. 1024 remains
+blocked until a 512 code prompt returns under a bounded gate with `useful_code`,
+cleanup evidence, code indentation preserved, closed/completed fence, QNN
+evidence, side-effect flags false, and memory recovery.
+
 ## Code-Aware Sanitizer Minimal Implementation - 2026-05-27
 
 Artifact:

@@ -1,5 +1,23 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Code-Aware Three-Prompt Rerun - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_codeaware_compare/20260527_014523/`
+
+No native guard change or QAIRT rebuild was performed. The existing max512
+artifact was used with the Kotlin code-aware sanitizer. The three approved
+prompts ran once each with `timeout_seconds=60`.
+
+Result: rollback. The two Japanese prompts succeeded, but the Python calculator
+prompt timed out after reaching native `SetMaxOutputTokens(512)` pre-decode
+evidence. Memory after 10 seconds decreased from the final after-run sample, so
+the rollback reason is the code prompt timeout, not retained memory.
+
+Build plan decision: no 1024 expansion. 512 remains extended experimental until
+the code prompt can complete under a bounded gate and pass the display-quality
+checks.
+
 ## QAIRT244 Code-Aware Sanitizer Implementation - 2026-05-27
 
 Artifact:
