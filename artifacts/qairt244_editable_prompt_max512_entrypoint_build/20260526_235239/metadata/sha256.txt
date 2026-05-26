@@ -1,0 +1,1 @@
+7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105  /home/sato/project/lami-android/artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/built_libs/liblitertlm_jni.so

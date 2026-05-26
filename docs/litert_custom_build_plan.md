@@ -1,5 +1,37 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Guard-Only Preflight - 2026-05-26
+
+Artifacts:
+
+- build/static artifact:
+  `artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/`
+- preflight artifact:
+  `artifacts/qairt244_npu_max512_guard_preflight/20260527_000522/`
+
+Result: QAIRT 2.44 limited rebuild completed for the max512 guard-only native
+patch. The patch is limited to the qairt244 editable-prompt native path and
+raises the custom guard from 256 to 512. It adds the marker
+`qairt244_editable_prompt_max512_v1`, records
+`native_max_output_tokens_limit=512`, and emits pre-RunDecode diagnostic text
+`before RunDecode SetMaxOutputTokens(512)` before calling
+`decode_config.SetMaxOutputTokens(512)`.
+
+Built `liblitertlm_jni.so` metadata:
+
+```text
+build_id=82cf5b24f5b2897edf3b4b8a6970cf8e
+sha256=7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105
+```
+
+The Lami preflight passed required checks for
+`qairt244_editable_prompt_max512_v1`, `native_max_output_tokens_limit=512`,
+`SetMaxOutputTokens(512)`, SM8750 model selection, and staged
+`liblitertlm_jni.so` presence. No rebuilt `.so` was copied into
+`app/src/main/jniLibs`, no release or standard behavior changed, and no
+DB/TTS/Markdown/streaming or selected-path behavior was touched. NPU
+generation, `Engine.initialize`, and `RunDecode` were not executed.
+
 ## QAIRT244 Max256 Guard-Only Limited Rebuild - 2026-05-26
 
 Artifacts:

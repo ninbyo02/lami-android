@@ -1,0 +1,7 @@
+ M docs/litert_custom_build_plan.md
+ M docs/litert_qairt244_failure_root_cause_matrix.md
+ M docs/litert_qairt244_npu_max_output_token_limit_investigation.md
+ M docs/litert_qairt244_npu_promotion_gate.md
+ M scripts/check_qairt244_native_patch.sh
+?? scripts/run_qairt244_npu_max_output_512_guard_preflight.sh
+?? scripts/run_qairt244_npu_max_output_512_quality_compare.sh

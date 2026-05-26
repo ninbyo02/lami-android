@@ -9,6 +9,38 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Guard Preflight Update - 2026-05-26
+
+Status: 512 guard-only patch built; run not executed.
+
+Artifacts:
+
+- build/static artifact:
+  `artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/`
+- preflight artifact:
+  `artifacts/qairt244_npu_max512_guard_preflight/20260527_000522/`
+
+The max512 quality entrypoint is preflight-only for this phase. It exits before
+device selection, app launch, NPU generation, `Engine.initialize`, or
+`RunDecode`. The preflight refuses progression unless static evidence shows:
+
+- `qairt244_editable_prompt_max512_v1`
+- `native_max_output_tokens_limit=512`
+- `SetMaxOutputTokens(512)`
+- SM8750 model-selection evidence
+
+The preflight summary records `guard_status=pass`, `npu_run_executed=false`,
+`engine_initialize_executed=false`, and `run_decode_executed=false`. The staged
+binary check records the rebuilt `liblitertlm_jni.so` with:
+
+```text
+build_id=82cf5b24f5b2897edf3b4b8a6970cf8e
+sha256=7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105
+```
+
+No `.so` was copied into `app/src/main/jniLibs`, and no runtime generation was
+attempted.
+
 ## Max256 Guard Preflight Update - 2026-05-26
 
 Status: 256 guard-only patch built; run not executed.

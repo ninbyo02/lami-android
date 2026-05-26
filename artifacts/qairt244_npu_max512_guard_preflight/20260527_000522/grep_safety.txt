@@ -1,0 +1,850 @@
+# grep safety scan
+script=scripts/run_qairt244_npu_max_output_512_guard_preflight.sh
+preflight_only=true
+npu_run_executed=false
+engine_initialize_executed=false
+run_decode_executed=false
+assistant_message_list_inserted=false
+db=false
+tts=false
+markdown=false
+streaming=false
+
+scripts/run_qairt244_npu_max_output_512_guard_preflight.sh:31:Engine.initialize, or RunDecode.
+scripts/run_qairt244_npu_max_output_512_guard_preflight.sh:91:    printf 'assistant_message_list_inserted=false\n'
+scripts/run_qairt244_npu_max_output_512_guard_preflight.sh:92:    printf 'selected_path_npu_saved=false\n'
+scripts/run_qairt244_npu_max_output_512_guard_preflight.sh:169:    printf 'assistant_message_list_inserted=false\n'
+scripts/run_qairt244_npu_max_output_512_guard_preflight.sh:174:    rg -n "RunDecode|Engine\\.initialize|am start|am broadcast|adb|selectedPath.*npu|selected_path_npu|db=true|tts=true|markdown=true|streaming=true|assistant_message_list|generateResponse" \
+scripts/run_qairt244_npu_max_output_512_guard_preflight.sh:214:      printf '512 guard-only patch evidence incomplete; run refused before device selection, NPU, Engine.initialize, or RunDecode.\n'
+docs/DEV_LLM_SESSION_POC_CODEX_PROMPT.md:1:# LlmInferenceSession.createFromOptions → addQueryChunk → generateResponseAsync の最小PoCを DEV 専用で追加する
+docs/DEV_LLM_SESSION_POC_CODEX_PROMPT.md:9:目的は、**DEV専用**で `LlmInferenceSession.createFromOptions` → `addQueryChunk` → `generateResponseAsync` を通す最小PoCを、安全に既存本線へ影響を出さず追加することです。
+docs/DEV_LLM_SESSION_POC_CODEX_PROMPT.md:31:rg -n "LlmInferenceSession|createFromOptions|addQueryChunk|generateResponseAsync|DEV" app/src/main
+docs/DEV_LLM_SESSION_POC_CODEX_PROMPT.md:42:  3. `generateResponseAsync` の戻り型判定（Future系）ログ
+docs/google_ai_edge_issue_posting_checklist.md:13:- The public API under test is LiteRT-LM Android: `Backend.NPU(nativeLibraryDir)`, `EngineConfig`, `Engine`, and `Engine.initialize()`.
+docs/google_ai_edge_issue_posting_checklist.md:14:- The user-visible failure is an `Engine.initialize()` process abort.
+docs/google_ai_edge_issue_posting_checklist.md:29:1. `[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+docs/google_ai_edge_issue_posting_checklist.md:30:2. `[LiteRT-LM][Android][Qualcomm SM8750] Backend.NPU Engine.initialize aborts despite mapped Gallery dispatch runtime`
+docs/google_ai_edge_issue_posting_checklist.md:31:3. `[Android][LiteRT-LM][QNN] Engine.initialize SIGABRT on SM8750 with libLiteRtDispatch_Qualcomm.so loaded`
+docs/google_ai_edge_issue_posting_checklist.md:32:4. `[SM8750][Gemma 4 E2B Qualcomm] Backend.NPU(nativeLibraryDir) fails in Engine.initialize with no usable dispatch runtime`
+docs/google_ai_edge_issue_posting_checklist.md:37:`[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+docs/google_ai_edge_issue_posting_checklist.md:204:The experiment stops at explicit `Engine.initialize()` dry-run. `Conversation`, `Session`, and `generateResponse` were not called.
+docs/litert_qairt244_android_logcat_dry_run_result.md:6:classification. The one allowed explicit `Engine.initialize` dry-run was
+docs/litert_qairt244_android_logcat_dry_run_result.md:20:  `Engine.initialize invoking method=Engine.initialize(): void`
+docs/litert_qairt244_android_logcat_dry_run_result.md:24:- Additional `adb logcat -d -t 2000` check after collection: no matching
+docs/litert_qairt244_android_logcat_dry_run_result.md:40:- Current adb availability during preflight: one device was available.
+docs/litert_qairt244_android_logcat_dry_run_result.md:41:- Explicitly not run: `Conversation`, `Session`, `generateResponse`,
+docs/litert_qairt244_android_logcat_dry_run_result.md:42:  selectedPath=`npu`, normal UI NPU inference, or single-token smoke.
+docs/litert_qairt244_android_logcat_dry_run_result.md:77:- final stage: `Engine.initialize invoking method=Engine.initialize(): void`
+docs/litert_qairt244_android_logcat_dry_run_result.md:99:  `Engine.initialize invoking method=Engine.initialize(): void`.
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:3:On a Nubia Z70S Ultra / Snapdragon 8 Elite / SM8750 device running Android 16, `Engine.initialize()` crashes the process with `SIGABRT` when using LiteRT-LM Android `Backend.NPU(nativeLibraryDir)` with the Gemma 4 E2B Qualcomm SM8750 `.litertlm` model.
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:39:- the isolated `customBuildExperimentDebug` `Engine.initialize` dry-run still
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:57:- the process still aborts at `Engine.initialize`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:117:- the connected-device dry-run has not been executed yet because no adb device
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:131:- `Engine.initialize` returns successfully in the isolated custom path
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:141:- no high-level `generateResponse`, `Conversation`, or normal UI NPU route has
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:150:- and whether `Engine.initialize()` can return a Java/Kotlin exception instead of aborting the process for this failure class.
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:239:   - `Engine.initialize` crashed with `SIGABRT`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:246:   - no `Conversation`, `Session`, or `generateResponse`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:256:   - process dies during `Engine.initialize()`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:267:   - isolated `customBuildExperimentDebug` still failed in `Engine.initialize`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:292:     `Engine.initialize`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:293:   - `Engine.initialize` did not return and aborted with
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:295:   - no `Conversation`, `Session`, `generateResponse`, normal UI NPU wiring, or
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:320:- `Engine.initialize()`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:328:- `generateResponse`
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:333:`Engine.initialize()` should either initialize successfully or fail with a catchable Java/Kotlin exception containing the exact dispatch/QNN/runtime reason.
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:339:The process aborts during `Engine.initialize()`.
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:344:Engine.initialize invoking method=Engine.initialize(): void
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:404:#27 pc ... base.apk (com.google.ai.edge.litertlm.Engine.initialize+0)
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:524:7. Should `Engine.initialize()` return a Java/Kotlin exception instead of aborting the process when no usable dispatch runtime is found?
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:566:The isolated dry-run only reaches `Engine.initialize()`. It does not create `Conversation` or `Session`, does not call `generateResponse`, does not evaluate a prompt, and does not wire `Backend.NPU` into normal app inference. Normal `standardDebug` GPU inference remains separate and working.
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:717:Engine.initialize returned
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:720:No `Conversation`, `Session`, `generateResponse`, normal UI NPU wiring, or token
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:725:`Engine.initialize`, both called `Engine.close` successfully, and
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:755:The native diagnostic file shows `before RunDecode SetMaxOutputTokens(1)` and
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:759:high-level `generateResponse`, and did not connect NPU to the normal UI path.
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:762:because the Nubia device was not visible to `adb` at the time of the verifier
+docs/litert_npu_engine_initialize_crash_analysis.md:1:# LiteRT-LM Qualcomm NPU Engine.initialize Crash Analysis
+docs/litert_npu_engine_initialize_crash_analysis.md:3:This note tracks the `npuExperimentDebug` Engine.initialize dry-run crash. It is
+docs/litert_npu_engine_initialize_crash_analysis.md:17:  - `generateResponse`
+docs/litert_npu_engine_initialize_crash_analysis.md:18:  - `selectedPath=npu`
+docs/litert_npu_engine_initialize_crash_analysis.md:49:- `Engine.initialize()`: invoked
+docs/litert_npu_engine_initialize_crash_analysis.md:50:- `Engine.initialize()`: did not return
+docs/litert_npu_engine_initialize_crash_analysis.md:54:after entering `Engine.initialize()`, inside the LiteRT-LM native engine creation path.
+docs/litert_npu_engine_initialize_crash_analysis.md:112:#27 base.apk com.google.ai.edge.litertlm.Engine.initialize+0
+docs/litert_npu_engine_initialize_crash_analysis.md:168:3. The crash occurs inside `Engine.initialize()` / `nativeCreateEngine`, after
+docs/litert_custom_build_static_compare.md:80:- the same JNI side needed to connect LiteRT-LM `Engine.initialize()` to the built LiteRT stack
+docs/litert_generation_strategy_options.md:8:pinned LiteRT still fails during `Engine.initialize`:
+docs/litert_generation_strategy_options.md:19:| Option | Pros | Cons / Risks | Effort | Confidence for reaching `Engine.initialize` success |
+docs/litert_generation_strategy_options.md:36:   and `Engine.initialize` dry-run only.
+docs/litert_generation_strategy_options.md:70:- no `selectedPath=npu`
+docs/litert_generation_strategy_options.md:73:- no `generateResponse`
+docs/litert_custom_build_source_mapping.md:19:- `Engine.initialize()`: SIGABRT
+docs/litert_gallery_source_version_mapping.md:7:This investigation is static only. It does not build LiteRT, LiteRT-LM, or `dispatch_api_so`; it does not replace native libraries; and it does not run NPU inference, `Conversation`, `Session`, or `generateResponse`.
+docs/litert_gallery_source_version_mapping.md:11:`npuExperimentDebug` proved that the Gallery SM8750 `libLiteRtDispatch_Qualcomm.so` is present in `nativeLibraryDir`, and that `Backend.NPU(String)` plus `EngineConfig.backend = Backend.NPU(...)` can be created. The isolated `Engine.initialize()` dry-run still aborts with:
+docs/litert_gallery_source_version_mapping.md:174:   - no `Conversation`, `Session`, or `generateResponse` in the NPU experiment path.
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:10:`Engine.initialize`, and did not call `RunDecode`.
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:24:device selection, app launch, NPU generation, `Engine.initialize`, or
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:25:`RunDecode`. The preflight refuses progression unless static evidence shows:
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:56:before device selection, app launch, NPU generation, `Engine.initialize`, or
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:57:`RunDecode`. Non-preflight execution is refused unless supplied static native
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:94:  `before RunDecode SetMaxOutputTokens(256) native_max_output_tokens_limit=256`
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:101:- `selected_path_npu_saved=false`
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:142:All rows recorded `RunDecode` reached, `npu_backend=NPU`,
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:145:`selected_path_npu_saved=false`, `standard_route_connected=false`,
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:160:`RunDecode` reached, QNN evidence, no timeout, no fresh crash, no fallback,
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:177:`RunDecode` are downstream of that guard, so the 256 request did not reach the
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:250:- `selected_path_npu_saved=false`
+docs/litert_custom_build_risk_analysis.md:54:`Engine.initialize()` can abort from native code. Kotlin/Java cannot catch SIGABRT or SIGSEGV. All experiments must stay in isolated flavors/applicationIds with stage files and tombstone collection.
+docs/litert_custom_build_risk_analysis.md:156:3. Keep `Engine.initialize` explicit opt-in.
+docs/litert_custom_build_risk_analysis.md:197:- `Engine.initialize` may still SIGABRT or SIGSEGV, so stage files and tombstone collection remain mandatory
+docs/litert_custom_build_risk_analysis.md:232:- `Engine.initialize` invoking
+docs/litert_custom_build_risk_analysis.md:252:- no `Conversation`, `Session`, `generateResponse`, token generation, or `selectedPath=npu` was used
+docs/litert_custom_build_risk_analysis.md:311:`Engine.initialize` and still failed with no usable dispatch runtime, another
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:13:This document narrows the cause of the `npuExperimentDebug` Engine.initialize dry-run SIGABRT. It does not propose enabling NPU inference in the app. `Conversation`, `Session`, and `generateResponse` remain forbidden for this phase.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:24:- final stage: `Engine.initialize invoking method=Engine.initialize(): void`
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:32:- `com.google.ai.edge.litertlm.Engine.initialize`
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:179:   - evidence that dispatch is present but `Engine.initialize` aborts with `No usable Dispatch runtime found`
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:184:   - no `Conversation` / `Session` / `generateResponse` in the NPU experiment path.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:225:Engine.initialize dry-run evidence:
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:235:Engine.initialize invoking method=Engine.initialize(): void
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:249:The latest tombstone does not contain a clear `Abort message:` line. The observable change is the native generation in the crash stack: it now uses Maven `0.10.0` `liblitertlm_jni.so` (`ecaced...`) instead of Maven `0.11.0` (`c2c...`). The process still aborts during `Engine.initialize` after the `Engine(EngineConfig)` constructor returns.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:284:3. Run the existing guarded probes in order: `Backend.NPU(String)` instantiate, `EngineConfig` dry-build, then explicit opt-in `Engine.initialize` dry-run.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:316:final stage: Engine.initialize invoking method=Engine.initialize(): void
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:330:#13 base.apk com.google.ai.edge.litertlm.Engine.initialize
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:367:4. If another experiment is needed, isolate it under a separate app id and verify `EngineConfig` constructor/JNI argument layout before calling `Engine.initialize`.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:391:Engine.initialize dry-run result:
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:396:last stage: Engine.initialize invoking method=Engine.initialize(): void
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:513:- current failure: `Engine.initialize` `SIGABRT`
+docs/litert_gallery_native_stack_experiment_plan.md:5:This plan prepares the next isolated experiment after `npuExperimentDebug` was switched to Maven `litertlm-android:0.10.0` and still aborted during `Engine.initialize`. It keeps Gallery native libraries isolated in `galleryStackExperimentDebug`, does not replace standard or `npuExperiment` native libraries, does not build `dispatch_api_so`, does not run NPU inference, does not create `Conversation` / `Session`, and does not call `generateResponse`.
+docs/litert_gallery_native_stack_experiment_plan.md:17:The dry-run still reaches `Engine.initialize` and then ends in `SIGABRT`. This suggests that Maven `0.10.0` API compatibility alone is not enough; the Gallery SM8750 APK likely ships a matched native payload.
+docs/litert_gallery_native_stack_experiment_plan.md:152:7. Phase 7: `Engine.initialize` dry-run only with explicit opt-in.
+docs/litert_gallery_native_stack_experiment_plan.md:153:   - No `Conversation`, no `Session`, no `generateResponse`.
+docs/litert_gallery_native_stack_experiment_plan.md:231:- `Engine.initialize` remains explicit opt-in only.
+docs/litert_gallery_native_stack_experiment_plan.md:288:No `--engine-dry-run` flag was passed. `Engine.initialize`, `Conversation`, `Session`, and `generateResponse` were not executed.
+docs/litert_gallery_native_stack_experiment_plan.md:318:Engine.initialize invoking method=Engine.initialize(): void
+docs/litert_gallery_native_stack_experiment_plan.md:337:#13 base.apk com.google.ai.edge.litertlm.Engine.initialize
+docs/litert_gallery_native_stack_experiment_plan.md:368:3. Do not proceed to `Conversation`, `Session`, `generateResponse`, or normal app inference wiring.
+docs/litert_gallery_native_stack_experiment_plan.md:413:Explicit opt-in Engine.initialize dry-run:
+docs/litert_gallery_native_stack_experiment_plan.md:425:final stage: Engine.initialize invoking method=Engine.initialize(): void
+docs/litert_gallery_native_stack_experiment_plan.md:459:- `generateResponse`
+docs/litert_gallery_native_stack_experiment_plan.md:461:- `selectedPath=npu`
+docs/litert_gallery_native_stack_experiment_plan.md:492:Loaded library result from the latest explicit `Engine.initialize` dry-run:
+docs/litert_gallery_native_stack_experiment_plan.md:510:final stage=Engine.initialize invoking method=Engine.initialize(): void
+docs/litert_custom_build_results.md:13:- no `Engine.initialize` dry-run
+docs/litert_custom_build_results.md:15:- no `Conversation`, `Session`, or `generateResponse`
+docs/litert_custom_build_results.md:16:- no `selectedPath=npu`
+docs/litert_custom_build_results.md:134:- keep `Engine.initialize` explicit opt-in
+docs/litert_custom_build_results.md:135:- still no `Conversation` or `generateResponse`
+docs/litert_custom_build_results.md:157:The probe path remains explicit opt-in and calls only `Engine.initialize`; it does not create `Conversation`/`Session` and does not call `generateResponse`.
+docs/litert_custom_build_results.md:176:- last stage: `Engine.initialize invoking method=Engine.initialize(): void`
+docs/litert_custom_build_results.md:188:- `Engine.initialize` did not return.
+docs/litert_custom_build_results.md:189:- No `Conversation`, `Session`, `generateResponse`, token generation, or normal UI NPU path was executed.
+docs/litert_custom_build_results.md:215:No build, install, app launch, `Engine.initialize`, `Conversation`, `Session`, `generateResponse`, or NPU inference was performed.
+docs/litert_custom_build_results.md:251:- `Engine.initialize` was not invoked in that attempt. No `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, or normal UI NPU inference path was used.
+docs/litert_custom_build_results.md:273:- final stage: `Engine.initialize invoking method=Engine.initialize(): void`
+docs/litert_custom_build_results.md:274:- `Engine.initialize` invoked: yes
+docs/litert_custom_build_results.md:275:- `Engine.initialize` returned: no
+docs/litert_custom_build_results.md:279:- `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, and normal UI NPU inference were not used.
+docs/litert_native_compatibility_matrix.md:58:| Lami | `libQnnHtp.so` | `3e5592d4a7361082f958aa1534f1d3adb29639a74dd5d47a014a4ce37e9fd927` | `e227353d86be672b` | ELF 64-bit ARM aarch64 shared object | `libQnnHtp.so` | `libc.so`, `libm.so`, `libdl.so`, `liblog.so` | 4 | no | no | medium |
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:15:`Engine.initialize`, or `RunDecode`, and it does not connect ChatScreen, DB,
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:75:not call `Engine.initialize` or `RunDecode`, does not connect the standard
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:144:- save `selectedPath=npu` or equivalent normal-route NPU settings
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:191:- `selected_path_npu_saved=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:219:- no `Engine.initialize`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:220:- no `RunDecode`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:290:call `Engine.initialize`, call `RunDecode`, or promote the standard route.
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:302:- require `selected_path_npu_saved=false`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:370:- `selected_path_npu_saved`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:387:- `selectedPath=npu` is never saved by this boundary
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:406:  `Engine.initialize`, or `RunDecode`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:442:- `db=true` -> `db_connected`
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:524:no ChatScreen call site, no NPU run, no `Engine.initialize`, and no
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:525:`RunDecode`.
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:641:Markdown, no streaming, no selected-path NPU persistence, no `Engine.initialize`,
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:642:no `RunDecode`, and no additional NPU execution.
+docs/litert_lm_runtime_version_matrix.md:33:| `qnn-runtime:2.34.0` | `libQnnHtp.so` | `3e5592d4a7361082f958aa1534f1d3adb29639a74dd5d47a014a4ce37e9fd927` | `e227353d86be672b` | `libc.so`, `libm.so`, `libdl.so`, `liblog.so` | 4 | none |
+docs/litert_custom_build_qairt244_compare.md:37:At that point, `Engine.initialize` had not yet been invoked for the qairt244
+docs/litert_custom_build_qairt244_compare.md:39:`Engine.initialize` dry-run candidate. It still did not create
+docs/litert_custom_build_qairt244_compare.md:41:`generateResponse`, set `selectedPath=npu`, or wire `Backend.NPU` into the
+docs/litert_custom_build_qairt244_compare.md:49:- `Engine.initialize` invoked: yes
+docs/litert_custom_build_qairt244_compare.md:50:- `Engine.initialize` returned: no
+docs/litert_custom_build_qairt244_compare.md:54:- `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, and normal UI NPU inference remained unused.
+docs/litert_custom_build_qairt244_compare.md:101:The expected Build ID guard passed far enough to invoke `Engine.initialize`.
+docs/litert_custom_build_qairt244_compare.md:110:| Final stage | `Engine.initialize invoking method=Engine.initialize(): void` |
+docs/litert_custom_build_qairt244_compare.md:111:| `Engine.initialize` invoked | yes |
+docs/litert_custom_build_qairt244_compare.md:112:| `Engine.initialize` returned | no |
+docs/litert_custom_build_qairt244_compare.md:118:`generateResponse`, no `selectedPath=npu`, and no normal UI NPU inference.
+docs/litert_custom_build_qairt244_compare.md:153:Engine.initialize -> SIGABRT
+docs/litert_custom_build_qairt244_compare.md:249:Do not run `Engine.initialize` until the identical-output result is documented.
+docs/litert_custom_build_qairt244_compare.md:264:- explicit opt-in `Engine.initialize` dry-run
+docs/litert_custom_build_qairt244_compare.md:266:It must not run `Conversation`, `Session`, or `generateResponse`.
+docs/litert_custom_build_qairt244_compare.md:295:No app integration, `Engine.initialize`, NPU inference, `Conversation`, `Session`, `generateResponse`, or `selectedPath=npu` was performed for this compare step.
+docs/litert_dispatch_experiment_plan.md:109:- `selectedPath=npu`
+docs/litert_dispatch_experiment_plan.md:161:- `Engine.initialize`
+docs/litert_dispatch_experiment_plan.md:162:- `generateResponse`
+docs/litert_dispatch_experiment_plan.md:212:- `generateResponse`
+docs/litert_dispatch_experiment_plan.md:263:- `Engine.initialize`
+docs/litert_dispatch_experiment_plan.md:268:- `generateResponse`
+docs/litert_dispatch_experiment_plan.md:273:isolated `Engine.initialize` dry-run. That phase has not been performed.
+docs/litert_dispatch_experiment_plan.md:275:## Engine.initialize dry-run phase
+docs/litert_dispatch_experiment_plan.md:281:adb shell am start \
+docs/litert_dispatch_experiment_plan.md:327:- `Engine.initialize invoking`
+docs/litert_dispatch_experiment_plan.md:328:- `Engine.initialize returned`
+docs/litert_dispatch_experiment_plan.md:338:perform native initialization before `Engine.initialize()` is called. If the process
+docs/litert_dispatch_experiment_plan.md:340:If it dies after `Engine.initialize invoking`, the explicit initialize call is the
+docs/litert_dispatch_experiment_plan.md:376:- `generateResponse`
+docs/litert_dispatch_experiment_plan.md:379:- `selectedPath=npu`
+docs/litert_dispatch_experiment_plan.md:407:8. Run Engine.initialize dry-run only with explicit opt-in, staged diagnostics, and no Conversation/generation.
+docs/litert_qairt244_short_multitoken_smoke_plan.md:16:- no high-level `generateResponse`
+docs/litert_qairt244_short_multitoken_smoke_plan.md:19:- no `selectedPath=npu` normal path
+docs/litert_qairt244_short_multitoken_smoke_plan.md:105:- no high-level `generateResponse`
+docs/qpm_installation_notes.md:24:and no `Engine.initialize` or NPU inference was executed.
+docs/qpm_installation_notes.md:202:- do not run `Engine.initialize`
+docs/qpm_installation_notes.md:205:- do not call `generateResponse`
+docs/qpm_installation_notes.md:206:- do not set `selectedPath=npu`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:8:route, does not run NPU, does not call `Engine.initialize` or `RunDecode`, does
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:43:- no persisted `selectedPath=npu`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:58:- no persisted `selectedPath=npu`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:132:- no persisted `selectedPath=npu`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:171:- `selected_path_npu_saved=false`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:213:- `selectedPath=npu` or equivalent normal-route NPU setting is saved
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:232:- `selectedPath=npu` persistence remains blocked
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:284:- no `Engine.initialize`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:285:- no `RunDecode`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:300:selected-path persistence, retry/fallback, `Engine.initialize`, `RunDecode`, or
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:332:- call `Engine.initialize`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:333:- call `RunDecode`
+docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md:376:- no NPU run, `Engine.initialize`, or `RunDecode`
+docs/litert_dispatch_detailed_logging_patch.md:133:this pass because `adb devices` reported no connected device.
+docs/litert_dispatch_detailed_logging_patch.md:135:The one allowed detailed-logging `Engine.initialize` dry-run remains unused.
+docs/litert_qairt244_qnn_status_14001.md:6:diagnostic build. No `Conversation`, `Session`, `generateResponse`,
+docs/qairt_244_acquisition_notes.md:223:- does not run `Engine.initialize`
+docs/qairt_244_acquisition_notes.md:257:- do not run `Engine.initialize`
+docs/qairt_244_acquisition_notes.md:260:- do not call `generateResponse`
+docs/qairt_244_acquisition_notes.md:261:- do not set `selectedPath=npu`
+docs/radxa_qairt_ecosystem_analysis.md:11:`Engine.initialize` or NPU inference was executed for this analysis.
+docs/radxa_qairt_ecosystem_analysis.md:263:install, modify `jniLibs`, or run `Engine.initialize`.
+docs/qairt_242_acquisition_notes.md:19:and no `Engine.initialize` or NPU inference was executed.
+docs/qairt_242_acquisition_notes.md:146:- does not run `Engine.initialize`
+docs/qairt_242_acquisition_notes.md:159:execute `Engine.initialize`.
+docs/qairt_242_acquisition_notes.md:165:- do not run `Engine.initialize`
+docs/qairt_242_acquisition_notes.md:168:- do not call `generateResponse`
+docs/qairt_242_acquisition_notes.md:169:- do not set `selectedPath=npu`
+docs/litert_lm_initialize_only_cli_design.md:205:RunDecode
+docs/litert_lm_initialize_only_cli_design.md:247:rg -n 'Conversation::Create|ConversationConfig|SessionConfig|CreateSession|SendMessageAsync|GenerateContent|GenerateContentStream|RunPrefill|RunDecode|input_prompt|default prompt' \
+docs/litert_qairt244_npu_promotion_gate.md:17:launch, NPU generation, `Engine.initialize`, or `RunDecode`.
+docs/litert_qairt244_npu_promotion_gate.md:48:exits before device selection, app launch, NPU generation, `Engine.initialize`,
+docs/litert_qairt244_npu_promotion_gate.md:49:or `RunDecode`.
+docs/litert_qairt244_npu_promotion_gate.md:73:`max_output_tokens=256`. `RunDecode` was reached, QNN/HTP/FastRPC evidence was
+docs/litert_qairt244_npu_promotion_gate.md:82:- `selected_path_npu_saved=false`
+docs/litert_qairt244_npu_promotion_gate.md:102:Gate status for all rows: `RunDecode` reached, QNN/HTP/FastRPC evidence
+docs/litert_qairt244_npu_promotion_gate.md:104:`selected_path_npu_saved=false`, `standard_route_connected=false`,
+docs/litert_qairt244_npu_promotion_gate.md:105:`normal_ui_route_connected=false`, `assistant_message_list_inserted=false`,
+docs/litert_qairt244_npu_promotion_gate.md:132:`DecodeConfig::SetMaxOutputTokens(max_output_tokens)` and before `RunDecode`.
+docs/litert_qairt244_npu_promotion_gate.md:162:`selected_path_npu_saved=false`, `standard_route_connected=false`,
+docs/litert_qairt244_npu_promotion_gate.md:212:- `selected_path_npu_saved=false`
+docs/litert_qairt244_npu_promotion_gate.md:215:- `selected_path_npu_normal_route=no`
+docs/litert_qairt244_npu_promotion_gate.md:267:- `selectedPath=npu` or equivalent normal-route NPU selection is saved
+docs/litert_qairt244_npu_promotion_gate.md:282:- no persisted `selectedPath=npu`
+docs/litert_qairt244_npu_promotion_gate.md:446:- NPU run, `Engine.initialize`, and `RunDecode` remain false at host level
+docs/litert_qairt244_npu_promotion_gate.md:461:- metadata read, NPU run, `Engine.initialize`, and `RunDecode` remain false at
+docs/litert_lm_main_npu_cli_proof_plan.md:133:| Java/JNI | `Engine.initialize()` via `liblitertlm_jni.so` | Pure C++ target if built |
+docs/litert_qairt244_qnn_runtime_alignment_result.md:5:Scope: `customBuildExperimentDebug` explicit `Engine.initialize` dry-run only.
+docs/litert_qairt244_qnn_runtime_alignment_result.md:6:No `Conversation`, `Session`, `generateResponse`, selected-path NPU routing,
+docs/litert_qairt244_qnn_runtime_alignment_result.md:64:- `Engine.initialize` did not return
+docs/litertlm_gallery_java_api_surface_mismatch.md:5:This is a static API surface comparison only. It does not change Gradle dependencies, does not replace native libraries, does not run `Engine.initialize`, does not run NPU inference, and does not call `Conversation`, `Session`, or `generateResponse`.
+docs/litertlm_gallery_java_api_surface_mismatch.md:73:## Engine.initialize Difference
+docs/litertlm_gallery_java_api_surface_mismatch.md:75:`Engine.initialize()` exists in Gallery, Maven `0.10.0`, and Maven `0.11.0`:
+docs/litertlm_gallery_java_api_surface_mismatch.md:81:The difference is the native call that `Engine.initialize()` eventually performs.
+docs/litertlm_gallery_java_api_surface_mismatch.md:137:This explains why `Backend.NPU(String)` instantiate-only succeeded even when `Engine.initialize()` later crashed.
+docs/litertlm_gallery_java_api_surface_mismatch.md:147:com.google.ai.edge.litertlm.Engine.initialize
+docs/litertlm_gallery_java_api_surface_mismatch.md:164:Mixing Gallery native libraries with Maven `litertlm-android:0.10.0` Java/Kotlin classes is not a valid experiment for `Engine.initialize`. The observed CheckJNI SIGSEGV is expected from this mismatch.
+docs/litertlm_gallery_java_api_surface_mismatch.md:174:1. Do not continue `Engine.initialize` with Gallery native libs plus Maven `0.10.0` classes.
+docs/litertlm_gallery_java_api_surface_mismatch.md:218:The explicit opt-in `Engine.initialize` dry-run still crashed, but it changed to `SIGABRT` at `LiteRtLmJni_nativeCreateEngine+1668`. The tombstone register fragments include the same error text pattern as the earlier dispatch failure, consistent with:
+docs/litert_qairt244_htp_backend_trace_result.md:5:Scope: `customBuildExperimentDebug` explicit `Engine.initialize` dry-run only.
+docs/litert_qairt244_htp_backend_trace_result.md:6:No `Conversation`, `Session`, `generateResponse`, selected-path NPU routing,
+docs/litert_qairt244_htp_backend_trace_result.md:80:- `Engine.initialize` did not return
+docs/qpm_qairt244_install_workflow.md:168:- no `Engine.initialize`
+docs/qpm_qairt244_install_workflow.md:172:- no `generateResponse`
+docs/qpm_qairt244_install_workflow.md:173:- no `selectedPath=npu`
+docs/qairt244_native_artifact_reproducibility.md:106:RunDecode reached, `npu_backend=NPU`,
+docs/qairt244_native_artifact_reproducibility.md:172:RunDecode reached, `npu_backend=NPU`,
+docs/qairt244_native_artifact_reproducibility.md:224:completed 3/3 with prompt requested/actual/normalized equality, RunDecode
+docs/qairt244_native_artifact_reproducibility.md:369:The older 8-token staged artifact rejected `max_output_tokens=16` before RunDecode with `invalid_max_output_tokens value=16`. The active 128-token artifact keeps that DEV-only editable-prompt path bounded to `1..128`, records `native_max_output_tokens_limit=128`, and then calls `RunDecode` with `SetMaxOutputTokens(max_output_tokens)`.
+docs/qairt244_native_artifact_reproducibility.md:441:- Decode path logs `before RunDecode SetMaxOutputTokens(%d)` and calls `decode_config.SetMaxOutputTokens(max_output_tokens)`.
+docs/qairt244_standard_hidden_experimental_plan.md:37:  native token limit, RunDecode reachability, NPU evidence, fallback state, and
+docs/qairt244_standard_hidden_experimental_plan.md:82:- ADB flag: an app-private debug flag written by `adb shell run-as` for
+docs/qairt244_standard_hidden_experimental_plan.md:178:- RunDecode reached true/false
+docs/qairt244_standard_hidden_experimental_plan.md:244:As of 2026-05-24, the standard hidden route can reach NPU and RunDecode for
+docs/qairt244_standard_hidden_experimental_plan.md:259:- `max_output_tokens=128` remains fixed, `RunDecode` is reached, and
+docs/litert_custom_build_plan.md:16:`native_max_output_tokens_limit=512`, and emits pre-RunDecode diagnostic text
+docs/litert_custom_build_plan.md:17:`before RunDecode SetMaxOutputTokens(512)` before calling
+docs/litert_custom_build_plan.md:33:generation, `Engine.initialize`, and `RunDecode` were not executed.
+docs/litert_custom_build_plan.md:48:`native_max_output_tokens_limit=256`, and emits pre-RunDecode diagnostic text
+docs/litert_custom_build_plan.md:60:artifact, but NPU generation, `Engine.initialize`, and `RunDecode` were not
+docs/litert_custom_build_plan.md:87:`RunDecode` and retained `QNN_HTP_V79_FastRPC_native_diag` evidence.
+docs/litert_custom_build_plan.md:115:`RunDecode`, so the finding is classified as `custom_safety_guard_only` for the
+docs/litert_custom_build_plan.md:150:The current failure is not a missing file. `libLiteRtDispatch_Qualcomm.so` is present and mapped, but `Engine.initialize()` aborts with evidence consistent with:
+docs/litert_custom_build_plan.md:269:- explicit opt-in `Engine.initialize` dry-run only.
+docs/litert_custom_build_plan.md:272:- no `generateResponse`.
+docs/litert_custom_build_plan.md:285:- run only explicit opt-in `Engine.initialize` dry-run
+docs/litert_custom_build_plan.md:287:## Phase 6: If Engine.initialize Succeeds
+docs/litert_custom_build_plan.md:307:- the allowed initialize-only dry-run still aborts at `Engine.initialize`
+docs/litert_custom_build_plan.md:328:- the allowed initialize-only dry-run still aborts at `Engine.initialize`
+docs/litert_custom_build_plan.md:353:- the connected-device dry-run was not executed because no adb device was
+docs/litert_custom_build_plan.md:384:2. Treat `Engine.initialize` as proven only for the explicit dry-run path.
+docs/litert_custom_build_plan.md:395:- Results: `Engine.initialize` returned successfully `2/2`; `Engine.close`
+docs/litert_custom_build_plan.md:398:- No `Conversation`, `Session`, `generateResponse`, or NPU inference was run.
+docs/litert_custom_build_plan.md:410:- No `Conversation`, `Session`, `generateResponse`, or token generation was run.
+docs/litert_custom_build_plan.md:424:- No install, app launch, `Conversation`, `generateResponse`, or token
+docs/litert_custom_build_plan.md:438:- Native diag confirms `before RunDecode SetMaxOutputTokens(1)` and
+docs/litert_custom_build_plan.md:441:  create a `Conversation`, did not call high-level `generateResponse`, and did
+docs/litert_custom_build_plan.md:460:- Native diag confirms `before RunDecode SetMaxOutputTokens(1)` and
+docs/litert_custom_build_plan.md:464:- Still no `Conversation`, no high-level `generateResponse`, and no normal UI
+docs/litert_custom_build_plan.md:477:- The verifier was not executed because `adb devices` returned no connected
+docs/litert_custom_build_plan.md:486:  `adb devices`.
+docs/litert_custom_build_plan.md:506:  no standard route connection, no NPU execution, no `Engine.initialize`, no
+docs/litert_custom_build_plan.md:507:  `RunDecode`, no DB, no TTS, no Markdown, no streaming, and no
+docs/litert_custom_build_plan.md:508:  `selectedPath=npu` persistence.
+docs/litert_custom_build_plan.md:547:- This remains pre-ChatScreen: no NPU run, no `Engine.initialize`, no
+docs/litert_custom_build_plan.md:548:  `RunDecode`, no DB, no TTS, no Markdown, no streaming, no standard route
+docs/litert_custom_build_plan.md:598:- Still no high-level `generateResponse`, no `Conversation`, and no normal UI
+docs/litert_custom_build_plan.md:626:- No launch extra was provided, and no generation, `Engine.initialize`, or
+docs/litert_custom_build_plan.md:627:  `RunDecode` was executed by this verification.
+docs/litert_custom_build_plan.md:628:- Normal `ChatScreen` and `selectedPath=npu` routes remain disconnected.
+docs/litert_custom_build_plan.md:647:  high-level `generateResponse` or connect NPU to the normal UI route.
+docs/litert_custom_build_plan.md:665:- Still no normal UI NPU route, no `selectedPath=npu` normal path, and no
+docs/litert_custom_build_plan.md:666:  high-level `generateResponse`.
+docs/litert_custom_build_plan.md:685:- Still no normal UI NPU route, no `selectedPath=npu` normal path, no
+docs/litert_custom_build_plan.md:686:  high-level `generateResponse`, and no streaming generation.
+docs/litert_custom_build_plan.md:705:- Still no normal UI NPU route, no `selectedPath=npu` normal path, no
+docs/litert_custom_build_plan.md:706:  high-level `generateResponse`, and no streaming generation.
+docs/litert_custom_build_plan.md:724:- Still no normal UI NPU route, no `selectedPath=npu` normal path, no
+docs/litert_custom_build_plan.md:725:  high-level `generateResponse`, and no streaming generation.
+docs/litert_custom_build_plan.md:740:- Still no normal UI NPU route, no `selectedPath=npu` normal path, no
+docs/litert_custom_build_plan.md:741:  high-level `generateResponse`, and no streaming generation.
+docs/litert_custom_build_plan.md:776:4. Continue to avoid `Conversation`, `Session`, `generateResponse`, normal UI
+docs/litert_custom_build_plan.md:777:   NPU wiring, and single-token smoke until `Engine.initialize` returns.
+docs/litert_custom_build_plan.md:855:- `Engine.initialize`: did not return
+docs/litert_custom_build_plan.md:893:Do not proceed to single-token smoke until `Engine.initialize` returns successfully in an isolated flavor.
+docs/litert_custom_build_plan.md:933:- `Engine.initialize` was not invoked. No `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, normal UI `Backend.NPU` wiring, or single-token smoke test was run.
+docs/litert_custom_build_plan.md:945:Next run will execute only the explicit opt-in `Engine.initialize` dry-run
+docs/litert_custom_build_plan.md:954:- final stage: `Engine.initialize invoking method=Engine.initialize(): void`
+docs/litert_custom_build_plan.md:955:- `Engine.initialize` invoked: yes
+docs/litert_custom_build_plan.md:956:- `Engine.initialize` returned: no
+docs/litert_custom_build_plan.md:960:- no `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, normal UI NPU inference, or single-token smoke test was run.
+docs/litert_custom_build_plan.md:978:`customBuildExperimentDebug` explicit opt-in `Engine.initialize` dry-run reached
+docs/litert_custom_build_plan.md:1016:2. Refresh rootless device QNN/CDSP path collection when adb is connected.
+docs/litert_custom_build_plan.md:1044:not stage app native libraries, and do not run `Engine.initialize`.
+docs/litert_custom_build_plan.md:1118:4. Do not proceed to `Conversation` or `generateResponse` until an isolated `Engine.initialize` result is clean.
+docs/litert_custom_build_plan.md:1154:4. run explicit opt-in `Engine.initialize` dry-run only
+docs/litert_custom_build_plan.md:1155:5. do not run `Conversation`, `Session`, or `generateResponse`
+docs/litert_custom_build_plan.md:1192:3. continue to avoid `Conversation`, `Session`, `generateResponse`, normal UI
+docs/litert_custom_build_plan.md:1230:3. repeat only the explicit `Engine.initialize` dry-run
+docs/litert_custom_build_plan.md:1301:does not set `selectedPath=npu` in the normal route, does not call high-level
+docs/litert_custom_build_plan.md:1302:`generateResponse`, and does not use streaming generation.
+docs/litert_custom_build_plan.md:1374:- no normal `selectedPath=npu` routing
+docs/litert_custom_build_plan.md:1375:- no high-level `generateResponse`
+docs/litert_custom_build_plan.md:1414:The script does not launch the Activity, initialize LiteRT, run RunDecode, or
+docs/litert_custom_build_plan.md:1437:not run Engine.initialize or RunDecode.
+docs/litert_custom_build_plan.md:1495:- no normal `ChatScreen` route, no normal `selectedPath=npu`, no high-level
+docs/litert_custom_build_plan.md:1496:  `generateResponse`, no streaming
+docs/litert_custom_build_plan.md:1525:- no NPU generation, Engine.initialize, or RunDecode is run by editing,
+docs/litert_custom_build_plan.md:1592:- timeout simulation: DEV-only path, `Engine.initialize=false`,
+docs/litert_custom_build_plan.md:1593:  `RunDecode=false`, final `state=timeout`
+docs/litert_custom_build_plan.md:1595:- normal ChatScreen route and normal `selectedPath=npu` route remained
+docs/litert_custom_build_plan.md:1605:- normal `selectedPath=npu`: still disabled
+docs/litert_custom_build_plan.md:1614:- this planning pass did not run NPU generation, Engine.initialize, RunDecode,
+docs/litert_custom_build_plan.md:1615:  high-level `generateResponse`, or normal UI NPU routing
+docs/litert_custom_build_plan.md:1630:  high-level `generateResponse`, and normal `selectedPath=npu`
+docs/litert_custom_build_plan.md:1644:- NPU generation, Engine.initialize, RunDecode, high-level
+docs/litert_custom_build_plan.md:1645:  `generateResponse`, normal `selectedPath=npu`, DB, TTS, Markdown,
+docs/litert_custom_build_plan.md:1657:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1658:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1672:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1673:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1694:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1695:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1713:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1714:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1732:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1733:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1752:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1753:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1773:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1774:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1792:  streaming, stop-button ownership, and persistent `selectedPath=npu`
+docs/litert_custom_build_plan.md:1806:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_custom_build_plan.md:1807:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1827:  no `selectedPath=npu` evidence from this path
+docs/litert_custom_build_plan.md:1829:  not run; no `Engine.initialize` or `RunDecode`
+docs/litert_custom_build_plan.md:1846:  none for `adapter_not_connected`, blocked branch, `selectedPath=npu`,
+docs/litert_custom_build_plan.md:1847:  `Engine.initialize`, `RunDecode`, QNN/HTP/FastRPC, or `generateResponse`
+docs/litert_custom_build_plan.md:1849:  no `selectedPath=npu` evidence from this path
+docs/litert_custom_build_plan.md:1875:  no `selectedPath=npu` evidence
+docs/litert_custom_build_plan.md:1883:- The verification did not run NPU generation, `Engine.initialize`, `RunDecode`, or `Backend.NPU`.
+docs/litert_custom_build_plan.md:1906:- `selectedPath=npu` not saved
+docs/litert_custom_build_plan.md:1935:- `selectedPath=npu`: not saved
+docs/litert_custom_build_plan.md:1967:- normal ChatScreen DB/TTS/Markdown/streaming and `selectedPath=npu` remained disconnected
+docs/litert_custom_build_plan.md:2005:The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+docs/litert_custom_build_plan.md:2107:streaming, selected-path NPU persistence, retry, fallback, `Engine.initialize`,
+docs/litert_custom_build_plan.md:2108:`RunDecode`, or additional NPU execution is introduced.
+docs/litert_custom_build_plan.md:2122:The regression did not run NPU generation and did not call `Engine.initialize`
+docs/litert_custom_build_plan.md:2123:or `RunDecode`. DB, TTS, Markdown, streaming, standard route, normal UI route,
+docs/litert_qairt244_libcdsprpc_visibility_result.md:6:No `Conversation`, `Session`, `generateResponse`, or token smoke was run.
+docs/litert_qairt244_libcdsprpc_visibility_result.md:72:Engine.initialize returned resultClass=com.google.ai.edge.litertlm.Engine
+docs/litert_qairt244_libcdsprpc_visibility_result.md:107:The current QAIRT 2.44 custom stack can complete `Engine.initialize` in the
+docs/google_ai_edge_issue_short_summary.md:1:# Short Summary: LiteRT-LM SM8750 NPU Engine.initialize SIGABRT
+docs/google_ai_edge_issue_short_summary.md:7:`[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+docs/google_ai_edge_issue_short_summary.md:52:- `Engine.initialize()` explicit dry-run only
+docs/google_ai_edge_issue_short_summary.md:67:- same-source/tag LiteRT-LM `v0.11.0` + pinned LiteRT custom stack also failed at `Engine.initialize`
+docs/google_ai_edge_issue_short_summary.md:103:  no adb device was connected during the build attempt
+docs/google_ai_edge_issue_short_summary.md:122:- Should `Engine.initialize()` return a Java exception instead of aborting for this class?
+docs/litert_qairt244_qnn_provider_trace_result.md:5:Scope: `customBuildExperimentDebug` explicit `Engine.initialize` dry-run only.
+docs/litert_qairt244_qnn_provider_trace_result.md:6:No `Conversation`, `Session`, `generateResponse`, selected-path NPU routing,
+docs/litert_qairt244_qnn_provider_trace_result.md:66:- `Engine.initialize` did not return
+docs/litert_custom_build_insertion_experiment.md:9:The goal is to stage the same-source/tag custom LiteRT-LM native stack into a new debug-only flavor and run only the explicit opt-in `Engine.initialize` dry-run probe.
+docs/litert_custom_build_insertion_experiment.md:15:- `generateResponse`
+docs/litert_custom_build_insertion_experiment.md:17:- `selectedPath=npu`
+docs/litert_custom_build_insertion_experiment.md:76:Run explicit Engine.initialize dry-run only:
+docs/litert_custom_build_insertion_experiment.md:95:Use this classification for `Engine.initialize` dry-run:
+docs/litert_custom_build_insertion_experiment.md:105:## Engine.initialize Dry-Run Result
+docs/litert_custom_build_insertion_experiment.md:126:- final stage: `Engine.initialize invoking method=Engine.initialize(): void`
+docs/litert_custom_build_insertion_experiment.md:135:The same-source/tag custom native stack reached the same failure class as the earlier Gallery stack investigation. The result did not produce `SIGSEGV` or `CheckJNI`, and it did not return from `Engine.initialize`.
+docs/litert_custom_build_insertion_experiment.md:141:- `generateResponse`
+docs/litert_custom_build_insertion_experiment.md:144:- `selectedPath=npu`
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:3:日本語要約: Nubia Z70S Ultra / SM8750 / Android 16 で、LiteRT-LM Android の `Backend.NPU(nativeLibraryDir)` と Gemma 4 E2B Qualcomm SM8750 モデルを使った `Engine.initialize` dry-run が `SIGABRT` で終了します。Gallery SM8750 由来 stack だけでなく、LiteRT-LM `v0.11.0` と pinned LiteRT ref から同一source/tagで built native stack を作って隔離flavorへ投入しても `DispatchDelegate::CreateDelegateKernelInterface()+312` で `No usable Dispatch runtime found` となるため、現時点の最有力は QAIRT/QNN generation/capability mismatch です。QAIRT 2.44 exact SDK は未入手で、QAIRT 2.46 対応 public source/ref も見つかっていません。
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:7:`[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:33:- `Engine.initialize()` still aborted
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:68:| dispatch-only probe | `npuExperimentDebug`, `litertlm-android:0.10.0`, Gallery dispatch only | `Engine.initialize` SIGABRT |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:70:| Gallery stack with matching Java API | `galleryStackExperimentDebug`, Gallery native stack + Maven `0.11.0` Java API | SIGSEGV fixed, `Engine.initialize` SIGABRT |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:84:No generation, `Conversation`, `Session`, or `generateResponse` has been run.
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:88:On a Nubia Z70S Ultra / Snapdragon 8 Elite / SM8750 device running Android 16, `Engine.initialize()` crashes the process with `SIGABRT` when using LiteRT-LM Android `Backend.NPU(nativeLibraryDir)` with the Gemma 4 E2B Qualcomm SM8750 `.litertlm` model.
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:177:   - `Engine.initialize` crashed with `SIGABRT`
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:184:   - no `Conversation`, `Session`, or `generateResponse`
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:194:   - process dies during `Engine.initialize()`
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:220:- `Engine.initialize()`
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:228:- `generateResponse`
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:233:`Engine.initialize()` should either:
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:242:The process aborts during `Engine.initialize()`.
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:247:Engine.initialize invoking method=Engine.initialize(): void
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:299:#27 pc ... base.apk (com.google.ai.edge.litertlm.Engine.initialize+0)
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:389:1. dispatch runtime compatibility / capability mismatch between the Gallery SM8750 native stack and the model/runtime context used by `Engine.initialize`, or
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:399:5. Should `Engine.initialize()` return a Java/Kotlin exception instead of aborting the process when no usable dispatch runtime is found?
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:431:The isolated dry-run only reaches `Engine.initialize()`. It does not create `Conversation` or `Session`, does not call `generateResponse`, does not evaluate a prompt, and does not wire `Backend.NPU` into normal app inference. Normal `standardDebug` GPU inference remains separate and working.
+docs/litert_qairt244_qnn_dependency_chain.md:5:Scope: static analysis only. No APK install, adb execution, `Conversation`,
+docs/litert_qairt244_qnn_dependency_chain.md:6:`Session`, `generateResponse`, or NPU inference path was run.
+docs/litert_qairt244_android_logcat_patch.md:9:`customBuildExperimentDebug` `Engine.initialize` crash. This patch adds direct
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:26:- Engine.initialize
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:27:- RunDecode
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:29:- normal `selectedPath=npu` route
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:30:- high-level `generateResponse`
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:135:adb shell am start \
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:162:- high-level `generateResponse`: forbidden
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:185:validation, Engine.initialize, RunDecode, or generation.
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:218:- do not start Engine.initialize
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:220:- do not run RunDecode
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:250:- normal `selectedPath=npu` untouched
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:251:- high-level `generateResponse` not referenced
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:261:- no Engine.initialize, RunDecode, or NPU generation is invoked
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:295:validator `reasonCode` must be displayed, and no Engine.initialize, native
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:296:session, RunDecode, or NPU generation may start.
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:307:  before Engine or RunDecode work.
+docs/google_ai_edge_issue_submission_steps.md:25:[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack
+docs/litert_qairt244_android_logcat_root_cause_update.md:8:`customBuildExperimentDebug` explicit `Engine.initialize` dry-run.
+docs/litert_qairt244_android_logcat_root_cause_update.md:14:- final stage: `Engine.initialize invoking method=Engine.initialize(): void`
+docs/litert_qairt244_android_logcat_root_cause_update.md:52:`Engine.initialize` reaches LiteRT delegate creation. A good target is the JNI
+docs/litert_qairt244_android_logcat_root_cause_update.md:53:entry used by `Engine.initialize` or a guaranteed LiteRT-LM engine creation
+docs/litert_qairt244_android_logcat_root_cause_update.md:85:Engine.initialize invoking method=Engine.initialize(): void
+docs/litert_qairt244_android_logcat_root_cause_update.md:135:- `QAIRT244_SMOKE` in `adb logcat -b all -d -v time`: no
+docs/litert_qairt244_android_logcat_root_cause_update.md:139:`Engine.initialize`. This confirms that the logging problem is broader than
+docs/litertlm_flavor_version_experiment_plan.md:7:This is a design-only investigation. It does not change app dependencies, replace native libraries, build dispatch, run NPU inference, call `Engine.initialize`, create `Conversation` / `Session`, or call `generateResponse`.
+docs/litertlm_flavor_version_experiment_plan.md:97:`0.10.0` exposes `Backend.NPU`, `Engine`, and `Engine.initialize`, but `EngineConfig` differs:
+docs/litertlm_flavor_version_experiment_plan.md:167:Engine.initialize dry-run result with `npuExperimentDebug` on `litertlm-android:0.10.0`:
+docs/litertlm_flavor_version_experiment_plan.md:176:Engine.initialize invoking method=Engine.initialize(): void
+docs/litertlm_flavor_version_experiment_plan.md:191:- The error still reaches a native SIGABRT during `Engine.initialize`, after `Engine(EngineConfig)` returns.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:32:`selected_path_npu_saved=false`, and DB/TTS/Markdown/streaming remained false.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:40:Scope: hidden experimental display-quality tuning after the ChatScreen DEV-only NPU route success. This pass does not change release or standard behavior, does not touch `app/src/main/jniLibs`, does not persist `selectedPath=npu`, and does not connect DB, TTS, Markdown, or streaming.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:59:LiteRT-LM runtime has internal metadata-derived stop token handling, including `SessionConfig` stop token ids and a `StopTokenDetector`, but the Android JNI / `DecodeConfig` surface used by this qairt244 lower-level route exposes only `max_output_tokens` for the editable-prompt decode path. `DecodeConfig` exposes `SetConstraint()` and `SetMaxOutputTokens()`, but no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter. The qairt244 editable prompt native entrypoint creates a default `SessionConfig`, sets `DecodeConfig.SetMaxOutputTokens(max_output_tokens)`, and calls `RunDecode(decode_config)`.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:119:- `selectedPath=npu` not saved
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:123:Rollback triggers are fresh crash, timeout, missing NPU evidence, empty output after sanitize, sanitizer removing meaning, worse repetition or multilingual drift, DB/TTS/Markdown/streaming ingress, or persisted `selectedPath=npu`.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:135:- `selected_path_npu_saved=false`
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:138:- `selected_path_npu_normal_route=no`
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:162:1. Adopt `sanitizer_only` as the minimum safe display baseline if all three prompts stay `natural_japanese`, `fallback_used=false`, `fresh_crash=false`, `timeout=false`, and `selected_path_npu_saved=false`.
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:189:- `selected_path_npu_saved=false`
+docs/litert_qairt244_npu_turn_stop_quality_compare.md:204:- Required safety fields remain `fallback_used=false`, `fresh_crash=false`, `timeout=false` for the sanitizer-only baseline, and `selected_path_npu_saved=false`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:119:`adb shell input text`. The expected diagnostics for single-device confirmation
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:199:`adb shell input text`. The expected diagnostics for single-device confirmation
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:274:`adb shell input text`. The expected diagnostics for single-device confirmation
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:339:`adb shell run-as io.github.ninbyo02.lami.customnpu am broadcast --user 0`, so
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:343:`adb shell input text`. It records `requested_prompt`, `actual_prompt`,
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:377:- `Qairt244DevOnlyNpuRouteAdapter` rechecks the resolved path before Engine creation or RunDecode and stops with `model_file_not_required_sm8750` if the basename is not exact.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:457:The 16 token phase is acceptable only if one guarded `Hello` run records: exact basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `required_sm8750_model_path=true`, `max_output_tokens=16`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `fresh_crash=false`, `timeout=false`, no `duplicate_run_blocked`, and the ChatScreen loading state clears after completion.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:459:Initial 16 token attempt on 2026-05-24 stopped before RunDecode in `artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_114330` because the staged native editable-prompt artifact still rejected 16 with `invalid_max_output_tokens value=16`. The native DEV guard was then changed from exact `8` to the bounded range `1..16`, rebuilt as `artifacts/litert_custom_build/20260524_114833_qairt244_16token`, and restaged for `customBuildExperimentDebug`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:475:run_decode=before RunDecode SetMaxOutputTokens(16)
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:522:adb -s <device> shell am start -W \
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:533:adb -s <device> shell am broadcast \
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:550:adb_shell_input_text_unicode=false
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:556:Japanese prompts are allowed only through this internal intent flow. The runner must not use `adb shell input text` for Japanese because that path is Unicode-fragile on the target device and can fail or be rewritten before the app receives the intended prompt. Keeping UI text mode ASCII-only preserves the stable qairt244 route baseline while non-ASCII coverage gets a separate artifact contract.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:562:The dedicated section is shown only for `selected_route=qairt244_sm8750_dev_npu` stats and summarizes: exact model basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `max_output_tokens=64`, `native_max_output_tokens_limit=64`, `required_sm8750_model_path=true`, RunDecode reachability, `decode_elapsed_ms`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, and the DEV UI cleanup status. Decode elapsed time is treated as DEV evidence, not as the normal token/s speed metric.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:596:- Bounded 128-token phase passes with exact basename, `required_sm8750_model_path=true`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `timeout=false`, and `fresh_crash=false`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:599:- Diagnostics identify failure stage, model basename, native token limit, RunDecode reachability, QNN/HTP evidence, fallback status, and cleanup status.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:618:The 8 token phase is considered acceptable only if one guarded `Hello` run records: exact basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `required_sm8750_model_path=true`, `max_output_tokens=8`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `fresh_crash=false`, `timeout=false`, no `duplicate_run_blocked`, and the ChatScreen loading state clears after completion.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:633:run_decode=before RunDecode SetMaxOutputTokens(8)
+docs/litert_qairt244_android_qnn_path_analysis.md:9:`adb` was available on the workstation, but no device was connected at collection time:
+docs/litert_qairt244_android_qnn_path_analysis.md:97:- path uncertainty: current `/dev`, vendor lib, RFSA, DSP, and property state could not be refreshed because no adb device was connected
+docs/litert_qairt244_android_qnn_path_analysis.md:110:Next useful read-only step when the device is connected: rerun the captured rootless adb collection and compare actual `/dev/*rpc*`, `/vendor/lib64/libcdsprpc.so`, `/system_ext/lib64`, RFSA/DSP directory visibility, and `ro.vendor`/qcom/adsp/cdsp properties against the app tombstone load profile.
+docs/litert_qairt244_dispatch_logging_root_cause_update.md:53:| H2 Android namespace/path issue | Preflight adb collection could not run because no device was connected. | medium |
+docs/qairt244_non_ascii_prompt_plan.md:50:- Dispatch path: `adb shell run-as io.github.ninbyo02.lami.customnpu am broadcast --user 0`
+docs/qairt244_non_ascii_prompt_plan.md:83:- Direct `adb shell input text こんにちは` is not safe: it produced an Android input command NPE before send.
+docs/qairt244_non_ascii_prompt_plan.md:92:Use a dedicated ADB keyboard IME such as `com.android.adbkeyboard/.AdbIME` and send text through broadcast intents instead of `adb shell input text`.
+docs/qairt244_non_ascii_prompt_plan.md:115:- Avoids `adb shell input text` Unicode parsing.
+docs/qairt244_non_ascii_prompt_plan.md:134:- Avoids IME, clipboard, and `adb shell input text` Unicode limitations.
+docs/qairt244_non_ascii_prompt_plan.md:196:selectedPath=npu not persisted
+docs/qairt244_non_ascii_prompt_plan.md:249:The `internal_intent` mode is the only planned mode for Japanese/non-ASCII prompts. The existing UI text mode remains ASCII-only and must continue to reject Japanese before send. The runner must not use `adb shell input text` for Japanese/non-ASCII prompts; that command path is reserved only for the stable ASCII UI smoke after prompt validation.
+docs/qairt244_non_ascii_prompt_plan.md:254:adb -s <device> shell am start -W \
+docs/qairt244_non_ascii_prompt_plan.md:265:adb -s <device> shell am broadcast \
+docs/qairt244_non_ascii_prompt_plan.md:284:adb_shell_input_text_unicode=false
+docs/qairt244_non_ascii_prompt_plan.md:292:3. Accept the prompt through an Intent extra, not through `adb shell input text`.
+docs/qairt244_non_ascii_prompt_plan.md:309:- RunDecode reaches NPU with `QNN_HTP_V79_FastRPC_native_diag`.
+docs/litert_qairt244_jni_sentinel_logcat_result.md:62:`Engine.initialize` dry-run:
+docs/litert_qairt244_jni_sentinel_logcat_result.md:86:Engine.initialize invoking method=Engine.initialize(): void
+docs/litert_qairt244_jni_sentinel_logcat_result.md:91:- `Engine.initialize` returned: no
+docs/litert_qairt244_jni_sentinel_logcat_result.md:136:that does not touch LiteRT, dispatch, QNN, NPU, `Engine.initialize`,
+docs/litert_qairt244_dispatch_logging_dry_run_result.md:5:Scope: planning and preflight collection for the one allowed explicit `Engine.initialize` dry-run after Agent A provides a new detailed logging build artifact. This document is currently a template/preflight note, not a completed dry-run result.
+docs/litert_qairt244_dispatch_logging_dry_run_result.md:10:- Reason: no adb device was connected after the detailed logging build was
+docs/litert_qairt244_dispatch_logging_dry_run_result.md:14:- Device status at preflight: no connected adb device.
+docs/litert_qairt244_dispatch_logging_dry_run_result.md:19:No `Engine.initialize`, `Conversation`, `Session`, `generateResponse`, selected
+docs/litert_qairt244_dispatch_logging_dry_run_result.md:23:The one allowed detailed-logging `Engine.initialize` dry-run remains unused.
+docs/litert_qairt244_dispatch_logging_dry_run_result.md:46:- Installs `customBuildExperimentDebug` only if an adb device is connected.
+docs/litert_qairt244_dispatch_logging_dry_run_result.md:48:- Runs the explicit `Engine.initialize` dry-run only with `--engine-dry-run`.
+docs/litert_qairt244_dispatch_logging_dry_run_result.md:69:- An adb device is connected and visible as `device`.
+docs/litert_qairt244_htp_log_callback_result.md:5:Scope: `customBuildExperimentDebug` explicit `Engine.initialize` dry-run only.
+docs/litert_qairt244_htp_log_callback_result.md:6:No `Conversation`, `Session`, `generateResponse`, selected-path NPU routing,
+docs/litert_qairt244_htp_log_callback_result.md:112:`Engine.initialize` did not return.
+docs/litert_qairt244_npu_memory_cleanup_profile.md:38:NPU to the normal UI, did not set `selectedPath=npu` on the normal route, did
+docs/litert_qairt244_npu_memory_cleanup_profile.md:39:not call high-level `generateResponse`, and did not use streaming.
+docs/litert_qairt244_npu_memory_cleanup_profile.md:71:before RunDecode SetMaxOutputTokens(3)
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:16:generation, `Engine.initialize`, or `RunDecode` was executed or connected in
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:25:`max_output_tokens=256`. It succeeded with `RunDecode` reached and sanitized
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:52:single-prompt hidden run with `RunDecode` reached, QNN evidence, no timeout, no
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:60:`DecodeConfig::SetMaxOutputTokens` and before `RunDecode`, so the 256 hidden
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:81:- `selected_path_npu_saved=false`
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:94:does not authorize implementation, NPU generation, `Engine.initialize`,
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:95:`RunDecode`, high-level `generateResponse`, or normal `selectedPath=npu`.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:111:- normal `selectedPath=npu`: not used.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:129:- Do not call high-level `generateResponse`.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:165:## selectedPath=npu Conditions
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:168:- `selectedPath=npu` is allowed only inside the DEV-only guarded route.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:221:- `selectedPath=npu` persists into normal settings
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:326:- no NPU generation, `Engine.initialize`, or `RunDecode` is run
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:351:- no run, retry, fallback, `Engine.initialize`, or `RunDecode` is attached
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:398:  `Engine.initialize`, `RunDecode`, or selected-path persistence
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:424:  persisting `selectedPath=npu`.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:437:- no NPU generation, `Engine.initialize`, or `RunDecode`
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:456:This planning pass did not run NPU generation, `Engine.initialize`,
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:457:`RunDecode`, high-level `generateResponse`, normal `ChatScreen` NPU routing, or
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:458:normal `selectedPath=npu`.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:476:- `selectedPath=npu` applied by this path: no evidence
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:478:- `Engine.initialize`: not run
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:479:- `RunDecode`: not run
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:513:  `DEV NPU blocked`, `Engine.initialize`, `RunDecode`, `selectedPath=npu`,
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:514:  QNN, HTP, FastRPC, and `generateResponse`
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:515:- normal `selectedPath=npu`: not applied
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:549:- `selectedPath=npu` was not applied
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:550:- NPU generation, `Engine.initialize`, and `RunDecode` were not run
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:565:- `selectedPath=npu` was not applied or persisted.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:566:- Real NPU execution remained disconnected: no `Engine.initialize`, `RunDecode`, `Backend.NPU`, QNN, HTP, FastRPC, or QAIRT runtime markers were found in the post-run marker scan.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:585:- `selectedPath=npu` saved or applied to normal route state
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:604:- `selectedPath=npu` not saved
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:635:- `Engine.initialize`: not reached
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:636:- `RunDecode`: not reached
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:639:- `selectedPath=npu`: not saved
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:674:- `selectedPath=npu`: not saved
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:714:does not persist `selectedPath=npu`.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:724:The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+docs/litert_qairt244_htp_dependency_analysis.md:7:`generateResponse`, selected-path NPU routing, or NPU inference was executed.
+docs/litert_qairt244_diagnostic_fallback_recovery.md:7:Normal `ChatScreen`, normal `selectedPath=npu`, high-level
+docs/litert_qairt244_diagnostic_fallback_recovery.md:8:`generateResponse`, streaming generation, and release changes remain out of
+docs/litert_qairt244_diagnostic_fallback_recovery.md:37:- normal `selectedPath=npu` route: disabled
+docs/litert_qairt244_diagnostic_fallback_recovery.md:61:This path intentionally does not call native Engine or RunDecode.
+docs/litert_qairt244_diagnostic_fallback_recovery.md:83:- normal `selectedPath=npu` route remained disabled
+docs/litert_qairt244_diagnostic_fallback_recovery.md:89:returns the UI to a non-running state without calling Engine.initialize or
+docs/litert_qairt244_diagnostic_fallback_recovery.md:90:RunDecode.
+docs/litert_qairt244_diagnostic_fallback_recovery.md:109:`selectedPath=npu`, avoid DB/TTS/Markdown/streaming integration in the first
+docs/litertlm_010_api_surface_check.md:52:Engine.initialize(): void
+docs/litertlm_010_api_surface_check.md:59:The isolated dry-run APIs exist in `0.10.0`. This does not mean `Engine.initialize` is safe or compatible with the staged dispatch runtime.
+docs/litert_qairt244_native_file_logger_result.md:13:allowed `customBuildExperimentDebug` `Engine.initialize` dry-run.
+docs/litert_qairt244_native_file_logger_result.md:95:`Engine.initialize` did not return. The process still crashed with `SIGABRT`.
+docs/litert_qairt244_native_file_logger_result.md:162:The connected-device dry-run was not executed because no adb device was
+docs/litert_qairt244_lower_level_single_token_smoke_result.md:65:before RunDecode SetMaxOutputTokens(1)
+docs/litert_qairt244_lower_level_single_token_smoke_result.md:100:Session::RunDecode(decode_config)
+docs/litert_qairt244_lower_level_single_token_smoke_result.md:116:- high-level `generateResponse`: not used
+docs/litert_qairt244_npu_coldstart_force_stop_profile.md:44:did not connect NPU to the normal UI, did not set `selectedPath=npu`, did not
+docs/litert_qairt244_npu_coldstart_force_stop_profile.md:45:call high-level `generateResponse`, did not stream, and did not exceed
+docs/litert_qairt244_npu_coldstart_force_stop_profile.md:89:before RunDecode SetMaxOutputTokens(3)
+docs/litert_qairt244_failure_root_cause_matrix.md:7:| Hidden NPU max-output guard | `artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/` and `artifacts/qairt244_npu_max512_guard_preflight/20260527_000522/` | The next expansion is limited to a guard-only native rebuild and preflight: `qairt244_editable_prompt_max512_v1`, `native_max_output_tokens_limit=512`, `SetMaxOutputTokens(512)`, staged `liblitertlm_jni.so`, and SM8750 model selection. | 512 run is not executed; no NPU generation, `Engine.initialize`, or `RunDecode` occurred in this phase. |
+docs/litert_qairt244_failure_root_cause_matrix.md:25:| Hidden NPU max-output guard | `artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/` and `artifacts/qairt244_npu_max256_guard_preflight/20260526_205300/` | Prior 256 failure was caused by the custom editable-prompt guard. A limited rebuild now contains `qairt244_editable_prompt_max256_v1` and `native_max_output_tokens_limit=256`. | 256 is staged for a separately approved runtime run; no NPU generation or RunDecode was executed in this phase. |
+docs/litert_qairt244_failure_root_cause_matrix.md:42:| Hidden NPU 256 runtime | `artifacts/qairt244_npu_max_output_256_single_prompt/20260526_211046/` | The prior native guard blocker is removed; one 256 decode reached `RunDecode` and returned safe sanitized Japanese. | Allow next 256 three-prompt hidden comparison; do not promote 256 baseline yet. |
+docs/litert_qairt244_failure_root_cause_matrix.md:53:| Hidden NPU 256 quality/safety | `artifacts/qairt244_npu_max_output_256_three_prompt_compare/20260526_211856/` | The max256 guard-only patch allows 256 through to `RunDecode`; all three approved hidden prompts completed without fallback, timeout, fresh crash, or side-effect ingress. | Treat 256 as a hidden experimental candidate; do not promote it to H1 or normal UI. |
+docs/litert_qairt244_failure_root_cause_matrix.md:70:| Hidden NPU max output token limit | `artifacts/qairt244_npu_max_output_token_limit_investigation/20260526_202629/` | Custom qairt244 editable-prompt JNI guard rejects `max_output_tokens > 128` before `DecodeConfig::SetMaxOutputTokens` and `RunDecode`. | Classify current limit as `custom_safety_guard_only`; keep 128 baseline and require staged guard expansion before any 256+ run. |
+docs/litert_qairt244_failure_root_cause_matrix.md:73:NPU, call `Engine.initialize`, or call `RunDecode`. It does not prove compiled
+docs/litert_qairt244_failure_root_cause_matrix.md:84:`selected_path_npu_saved=false`, `standard_route_connected=false`,
+docs/litert_qairt244_failure_root_cause_matrix.md:119:  `uses-native-library libcdsprpc.so -> QnnDevice_create success -> LiteRtDispatchCheckRuntimeCompatibility success -> Engine.initialize success -> lower-level RunDecode maxOutputTokens=1 success -> token/timing verifier success -> lower-level RunDecode maxOutputTokens=3 success 2/2 -> memory cleanup baseline collected -> cold-start force-stop cleanup passes -> Diagnostic Chat editable prompt guarded RunDecode maxOutputTokens=3 success`
+docs/litert_qairt244_failure_root_cause_matrix.md:123:`Session` object, did not call high-level `generateResponse`, and did not wire
+docs/litert_qairt244_failure_root_cause_matrix.md:195:- timeout simulation: native Engine and RunDecode not called
+docs/litert_qairt244_failure_root_cause_matrix.md:200:- normal `selectedPath=npu` route: disabled
+docs/litert_qairt244_failure_root_cause_matrix.md:219:- Normal `selectedPath=npu` remains unused and disabled.
+docs/litert_qairt244_failure_root_cause_matrix.md:237:normal setting persistence of `selectedPath=npu`, or unclear cleanup.
+docs/litert_qairt244_failure_root_cause_matrix.md:256:- normal `selectedPath=npu`
+docs/litert_qairt244_failure_root_cause_matrix.md:262:- high-level `generateResponse`
+docs/litert_qairt244_failure_root_cause_matrix.md:286:- `Engine.initialize` returns successfully in the explicit dry-run path.
+docs/litert_qairt244_failure_root_cause_matrix.md:303:- `Engine.initialize` returned successfully in both runs
+docs/litert_qairt244_failure_root_cause_matrix.md:308:- no `Conversation`, `Session`, `generateResponse`, token generation, or normal
+docs/litert_qairt244_failure_root_cause_matrix.md:320:- `Session.runDecode()` calls JNI `nativeRunDecode(handle)` with no
+docs/litert_qairt244_failure_root_cause_matrix.md:347:  `generateResponse`, or generate tokens.
+docs/litert_qairt244_failure_root_cause_matrix.md:351:`generateResponse`, and normal UI routing.
+docs/litert_qairt244_failure_root_cause_matrix.md:369:- native diag reached `before RunDecode SetMaxOutputTokens(1)`
+docs/litert_qairt244_failure_root_cause_matrix.md:395:- native diag reached `before RunDecode SetMaxOutputTokens(1)`
+docs/litert_qairt244_failure_root_cause_matrix.md:437:  the lower-level entrypoint does not expose tokenizer counts and `RunDecode`
+docs/litert_qairt244_failure_root_cause_matrix.md:470:- no `selectedPath=npu` normal route
+docs/litert_qairt244_failure_root_cause_matrix.md:471:- no high-level `generateResponse`
+docs/litert_qairt244_failure_root_cause_matrix.md:496:- no `selectedPath=npu` normal route
+docs/litert_qairt244_failure_root_cause_matrix.md:497:- no high-level `generateResponse`
+docs/litert_qairt244_failure_root_cause_matrix.md:531:- no high-level `generateResponse`
+docs/litert_qairt244_failure_root_cause_matrix.md:574:- no normal UI route, no `selectedPath=npu` normal path, no high-level
+docs/litert_qairt244_failure_root_cause_matrix.md:575:  `generateResponse`, and no streaming generation
+docs/litert_qairt244_failure_root_cause_matrix.md:605:- no normal UI route, no `selectedPath=npu` normal path, no high-level
+docs/litert_qairt244_failure_root_cause_matrix.md:606:  `generateResponse`, and no streaming generation
+docs/litert_qairt244_failure_root_cause_matrix.md:625:  `Engine.initialize` dry-run
+docs/litert_qairt244_failure_root_cause_matrix.md:626:- final stage remained `Engine.initialize invoking`
+docs/litert_qairt244_failure_root_cause_matrix.md:653:  `Engine.initialize` dry-run
+docs/litert_qairt244_failure_root_cause_matrix.md:654:- final stage remained `Engine.initialize invoking`
+docs/litert_qairt244_failure_root_cause_matrix.md:681:- no `Backend.NPU`, `Engine.initialize`, LiteRT engine, `Conversation`,
+docs/litert_qairt244_failure_root_cause_matrix.md:685:- `adb logcat -b all -d -v time` did not contain `QAIRT244_SMOKE` or the marker
+docs/litert_qairt244_failure_root_cause_matrix.md:754:The connected-device dry-run was not executed because no adb device was
+docs/litert_qairt244_failure_root_cause_matrix.md:969:- `Engine.initialize` did not return
+docs/litert_qairt244_failure_root_cause_matrix.md:980:| B | `docs/litert_qairt244_android_qnn_path_analysis.md` | No adb device was connected for live rootless collection. Existing artifacts show app packaging is not a simple missing-file case, but app-process QNN/CDSP path state remains unrefreshed. |
+docs/litert_qairt244_failure_root_cause_matrix.md:1000:2. Treat explicit `Engine.initialize` as proven for this diagnostic path only;
+docs/litert_qairt244_failure_root_cause_matrix.md:1025:The dry-run was not executed because no adb device was connected, so H1-H6
+docs/litert_qairt244_failure_root_cause_matrix.md:1037:-> Engine.initialize returned
+docs/litert_qairt244_failure_root_cause_matrix.md:1077:  `selectedPath=npu` route remains unused.
+docs/litert_qairt244_failure_root_cause_matrix.md:1083:| H1. SM8750/V79 dispatch capability mismatch | Reproducible 3-token Diagnostic Chat UI smoke reaches RunDecode with V79/FastRPC evidence. | Low for bounded smoke. |
+docs/litert_qairt244_failure_root_cause_matrix.md:1165:- normal `selectedPath=npu` route disabled
+docs/litert_qairt244_failure_root_cause_matrix.md:1166:- high-level `generateResponse=false`
+docs/litert_qairt244_failure_root_cause_matrix.md:1194:- no NPU generation, Engine.initialize, or RunDecode was executed for this
+docs/litert_qairt244_failure_root_cause_matrix.md:1208:- Engine.initialize: not run
+docs/litert_qairt244_failure_root_cause_matrix.md:1209:- RunDecode: not run
+docs/litert_qairt244_failure_root_cause_matrix.md:1211:- normal `selectedPath=npu`: not used
+docs/litert_qairt244_failure_root_cause_matrix.md:1228:- NPU generation, Engine.initialize, RunDecode, high-level `generateResponse`,
+docs/litert_qairt244_failure_root_cause_matrix.md:1229:  normal `ChatScreen`, and normal `selectedPath=npu` remain unused
+docs/litert_qairt244_failure_root_cause_matrix.md:1251:- observed preflight: `blocked_native_fixed_hi`, no Engine.initialize, no
+docs/litert_qairt244_failure_root_cause_matrix.md:1252:  RunDecode, no NPU generation
+docs/litert_qairt244_failure_root_cause_matrix.md:1278:- Engine.initialize / RunDecode / high-level generateResponse:
+docs/litert_qairt244_failure_root_cause_matrix.md:1298:- `generateResponse`
+docs/litert_qairt244_failure_root_cause_matrix.md:1302:- `selectedPath=npu`
+docs/litert_qairt244_failure_root_cause_matrix.md:1305:- more than the single allowed native file logger `Engine.initialize` dry-run
+docs/litert_qairt244_failure_root_cause_matrix.md:1315:| `selectedPath=npu` | Not applied | toggle state files and runtime marker scan | OK |
+docs/litert_qairt244_failure_root_cause_matrix.md:1316:| NPU execution | Not executed | empty `runtime_marker_scan.txt` for Engine/RunDecode/QNN/HTP markers | OK |
+docs/litert_qairt244_failure_root_cause_matrix.md:1327:| `selectedPath=npu` saved/applied | Roll back and fix settings path | NPU must not become normal route state |
+docs/litert_qairt244_failure_root_cause_matrix.md:1337:NPU generation, `Engine.initialize`, and `RunDecode` were not executed.
+docs/litert_qairt244_failure_root_cause_matrix.md:1349:| Engine.initialize | not reached | `native_diag.txt` | Safe stop |
+docs/litert_qairt244_failure_root_cause_matrix.md:1350:| RunDecode | not reached | `native_diag.txt` | Safe stop |
+docs/litert_qairt244_failure_root_cause_matrix.md:1352:| selectedPath=npu | not saved | summary / toggle state | OK |
+docs/litert_qairt244_failure_root_cause_matrix.md:1372:| selectedPath=npu | not saved | resolver artifact / summary | OK |
+docs/litert_qairt244_failure_root_cause_matrix.md:1393:| selectedPath=npu | not saved | `result.txt` | OK |
+docs/litert_qairt244_failure_root_cause_matrix.md:1414:The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+docs/litert_qairt244_app_jni_logcat_smoke.md:9:QNN, `Backend.NPU`, or `Engine.initialize`.
+docs/litert_qairt244_app_jni_logcat_smoke.md:69:`Backend.NPU`, does not call `Engine.initialize`, and does not enter any
+docs/litert_qairt244_app_jni_logcat_smoke.md:85:6. collects `adb logcat -b all -d -v time`
+docs/litert_qairt244_app_jni_logcat_smoke.md:114:The script collected 66 logcat lines after `adb logcat -b all -d -v time`, but
+docs/litert_qairt244_dlopen_trace_result.md:79:The connected-device dry-run was not executed because no adb device was
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:32:- Engine.initialize
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:33:- RunDecode
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:35:- normal `selectedPath=npu` route
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:36:- high-level `generateResponse`
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:56:- normal `selectedPath=npu` route remains disabled
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:122:- high-level `generateResponse`
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:152:- lower-level RunDecode evidence
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:198:- no Engine.initialize
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:200:- no RunDecode
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:220:calling `EngineFactory::CreateDefault`, `RunPrefill`, or `RunDecode`.
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:279:- normal `selectedPath=npu` route remained disabled
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:343:- normal `selectedPath=npu` route: disabled
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:363:- no Engine.initialize
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:364:- no RunDecode
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:413:- verify normal `selectedPath=npu` route remains untouched
+docs/litert_qairt244_initialize_stability_result.md:6:NPU route was changed. No `Conversation`, `Session`, `generateResponse`, or
+docs/litert_qairt244_initialize_stability_result.md:23:Each run clears app diagnostic files, calls `Engine.initialize`, calls
+docs/litert_qairt244_initialize_stability_result.md:53:run_1/stage_file.txt: Engine.initialize returned
+docs/litert_qairt244_initialize_stability_result.md:55:run_2/stage_file.txt: Engine.initialize returned
+docs/litert_qairt244_initialize_stability_result.md:67:warning=initialize-only; no Conversation; no generateResponse; not wired to app inference
+docs/litert_qairt244_initialize_stability_result.md:89:- `generateResponse`
+docs/litert_qairt246_ref_search_results.md:110:- `Engine.initialize`: not run
+docs/litert_qairt246_ref_search_results.md:129:`Engine.initialize()` still failed with:
+docs/litert_qairt244_htp_pd_fastrpc_config_analysis.md:6:collection. No `Conversation`, `Session`, `generateResponse`, selected-path
+docs/litert_qairt244_htp_pd_fastrpc_config_analysis.md:131:`Conversation` or `Session`, must not call `generateResponse`, and must not
+docs/litert_qairt244_tombstone_runtime_mapping.md:16:- final stage: `1779317195995 runId=1779317161924 Engine.initialize invoking method=Engine.initialize(): void`
+docs/litert_qairt244_tombstone_runtime_mapping.md:21:The stage file stops in `Engine.initialize`. It does not show `generateResponse`, `Conversation`, `Session`, or inference execution.
+docs/litert_qairt244_single_token_smoke_impl.md:12:- `Engine.initialize`: `2/2` success
+docs/litert_qairt244_single_token_smoke_impl.md:27:- Kotlin `Session.runDecode()` calls `LiteRtLmJni.nativeRunDecode(handle)`.
+docs/litert_qairt244_single_token_smoke_impl.md:28:- JNI `nativeRunDecode` calls native `session->RunDecode()` without a
+docs/litert_qairt244_single_token_smoke_impl.md:109:before RunDecode SetMaxOutputTokens(1)
+docs/litert_qairt244_single_token_smoke_impl.md:206:visible in `adb devices`.
+docs/litert_qairt244_single_token_smoke_impl.md:220:- `Session::RunDecode(decode_config)` with `maxOutputTokens=1`
+docs/litert_qairt244_single_token_smoke_impl.md:226:- high-level `generateResponse`
+docs/litert_qnn_qairt_coupling_investigation_plan.md:21:The explicit opt-in `Engine.initialize` dry-run reached:
+docs/litert_qnn_qairt_coupling_investigation_plan.md:26:- `Engine.initialize`: invoked, did not return
+docs/litert_qnn_qairt_coupling_investigation_plan.md:54:No NPU inference, `Conversation`, `Session`, `generateResponse`, token generation, or `selectedPath=npu` was used.
+docs/litert_qnn_qairt_coupling_investigation_plan.md:295:- no `selectedPath=npu`
+docs/litert_qnn_qairt_coupling_investigation_plan.md:298:- no `generateResponse`
+docs/litert_qnn_qairt_coupling_investigation_plan.md:299:- no token generation until `Engine.initialize` returns successfully in an isolated flavor
+docs/litert_qnn_qairt_coupling_investigation_plan.md:325:- no `Engine.initialize`
+docs/litert_qnn_qairt_coupling_investigation_plan.md:355:4. keep all runtime checks at `Engine.initialize` dry-run until initialization succeeds.
+docs/litert_qairt244_single_token_smoke_plan.md:18:  `selectedPath=npu`.
+docs/litert_qairt244_single_token_smoke_plan.md:29:5. Call `Engine.initialize()`.
+docs/litert_qairt244_single_token_smoke_plan.md:83:`generateResponse`, or generate tokens.
+docs/litert_qairt244_token_timing_verifier_result.md:56:- `output_token_count_source=not_exposed_by_RunDecode_response`
+docs/litert_qairt244_token_timing_verifier_result.md:69:entrypoint does not expose a tokenizer count API and `RunDecode` returns text,
+docs/litert_qairt244_token_timing_verifier_result.md:75:`adb devices` as `NX733J`.
+docs/litert_qairt244_token_timing_verifier_result.md:98:output_token_count_source=not_exposed_by_RunDecode_response
+docs/litert_qairt244_token_timing_verifier_result.md:140:- no high-level `generateResponse`
+docs/litert_qairt246_source_ref_candidates.md:16:- `Engine.initialize`: not executed
+docs/litert_qnn_qairt_coupling_findings.md:12:- `Engine.initialize`: invoked, did not return
+docs/litert_qnn_qairt_coupling_findings.md:17:The static coupling pass did not run `Engine.initialize`, did not launch the app, did not install an APK, and did not modify native libraries.
+docs/litert_qnn_qairt_coupling_findings.md:65:(`custom-stack-build-id-mismatch`), so `Engine.initialize` was still uninvoked
+docs/litert_qnn_qairt_coupling_findings.md:69:invoked `Engine.initialize` and aborted with `SIGABRT`. Diagnostics are in
+docs/litert_qnn_qairt_coupling_findings.md:81:| Final stage | `Engine.initialize invoking method=Engine.initialize(): void` |
+docs/litert_qnn_qairt_coupling_findings.md:82:| `Engine.initialize` invoked | yes |
+docs/litert_qnn_qairt_coupling_findings.md:83:| `Engine.initialize` returned | no |
+docs/litert_qnn_qairt_coupling_findings.md:88:No `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, or normal
+docs/litert_qnn_qairt_coupling_findings.md:149:- The first dry-run attempt was skipped before `Engine.initialize` because the app guard still expected the old 2.46-overlay dispatch/compiler Build IDs.
+docs/litert_qnn_qairt_coupling_findings.md:150:- After updating the expected qairt244 IDs, `Engine.initialize` was invoked and aborted with `No usable Dispatch runtime found`.
+docs/litert_qnn_qairt_coupling_findings.md:156:inside dispatch delegate creation after `Engine.initialize` starts. This remains
+docs/litert_qnn_qairt_coupling_findings.md:243:3. Prepare an isolated QNN-libs alignment experiment for `customBuildExperimentDebug`, but only after licensing/reuse review and only for `Engine.initialize` dry-run.
+docs/litert_qnn_qairt_coupling_findings.md:250:- no `selectedPath=npu`
+docs/litert_qnn_qairt_coupling_findings.md:253:- no `generateResponse`
+docs/litert_qnn_qairt_coupling_findings.md:345:2. Investigate why qairt244 still reports no usable dispatch runtime after `Engine.initialize` starts.
+docs/litert_qnn_qairt_coupling_findings.md:348:   `selectedPath=npu`, or wire `Backend.NPU` into normal UI inference.
+docs/litert_qnn_qairt_coupling_findings.md:419:Safety status remains unchanged: no normal UI NPU path, no `selectedPath=npu`,
+docs/litert_qnn_qairt_coupling_findings.md:420:no `Conversation`, no `Session`, and no `generateResponse`.
+docs/litert_qnn_qairt_coupling_findings.md:460:rebuilt; the initialize-only dry-run now reaches `Engine.initialize` and still
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:7:normal `ChatScreen`, set normal `selectedPath=npu`, run NPU generation,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:8:`Engine.initialize`, `RunDecode`, high-level `generateResponse`, or streaming.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:28:`Conversation` / `Session` / `generateResponse` entrypoints for the first
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:187:- `selected_path_npu_saved=false`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:190:- `selected_path_npu_normal_route=no`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:213:## selectedPath=npu Boundary
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:216:`selectedPath=npu` settings. If a future call site needs to expose backend
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:247:- no normal `selectedPath=npu`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:254:- no high-level `generateResponse`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:298:The blocked adapter does not call NPU generation, `Engine.initialize`,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:299:`RunDecode`, high-level `generateResponse`, `selectedPath=npu`, DB, TTS,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:338:call the adapter and the planner itself does not call Engine.initialize or
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:339:RunDecode.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:373:`Engine.initialize`, `RunDecode`, or any normal inference path.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:393:- any persistent `selectedPath=npu` state
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:421:`selectedPath=npu`, run NPU generation, call `Engine.initialize`, call
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:422:`RunDecode`, call high-level `generateResponse`, write DB messages, speak TTS,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:457:adapter, NPU generation, `Engine.initialize`, `RunDecode`, high-level
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:458:`generateResponse`, DB, TTS, Markdown, streaming, or normal `selectedPath=npu`.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:478:`ChatScreen`, apply normal `selectedPath=npu`, run NPU generation, call
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:479:`Engine.initialize`, or call `RunDecode`.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:514:the planner, adapter, NPU generation, `Engine.initialize`, `RunDecode`,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:515:high-level `generateResponse`, or normal `selectedPath=npu`.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:541:`ChatScreen`, apply normal `selectedPath=npu`, run NPU generation, call
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:542:`Engine.initialize`, call `RunDecode`, or invoke high-level `generateResponse`.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:556:connect normal `ChatScreen`, set normal `selectedPath=npu`, run NPU generation,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:557:call `Engine.initialize`, call `RunDecode`, call high-level
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:558:`generateResponse`, or run streaming.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:573:  `Engine.initialize`, `RunDecode`, `selectedPath=npu`, QNN, HTP, or FastRPC
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:606:- `selectedPath=npu` is not applied
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:607:- `Engine.initialize` and `RunDecode` are not run
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:674:if cleanup is not proven, if `selectedPath=npu` is saved, or if stale artifacts
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:704:ChatScreen side effect path was reached. `Engine.initialize` and `RunDecode`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:764:`streaming=false`, and does not persist `selectedPath=npu`.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:774:The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+docs/litert_qairt244_symbol_resolution_experiment.md:6:`generateResponse`, selected-path NPU routing, normal UI NPU wiring, or
+docs/litert_qairt244_short_multitoken_smoke_result.md:102:- high-level `generateResponse`
+docs/litert_qairt244_short_multitoken_smoke_result.md:104:- `selectedPath=npu` normal path
+docs/litert_qairt244_short_multitoken_smoke_result.md:181:- call `RunDecode` once with `DecodeConfig.SetMaxOutputTokens(3)`
+docs/litert_qairt244_short_multitoken_smoke_result.md:186:- call high-level `generateResponse`
+docs/litert_qualcomm_sm8750_model_schema_probe.md:14:- `/data/local/tmp/gemma-4-E2B-it_qualcomm_sm8750.litertlm`: not probed; `adb devices` showed no connected device.
+docs/litert_qualcomm_sm8750_model_schema_probe.md:131:- No device-side copy was available because `adb` reported no device.
+docs/litert_qualcomm_sm8750_model_schema_probe.md:134:- No inference, `Engine.initialize`, `Conversation`, `Session`, or generation
+docs/litert_qairt244_npu_diagnostic_chat_design.md:13:- `Engine.initialize`: success
+docs/litert_qairt244_npu_diagnostic_chat_design.md:16:- `RunDecode`: success
+docs/litert_qairt244_npu_diagnostic_chat_design.md:32:adb shell am start \
+docs/litert_qairt244_npu_diagnostic_chat_design.md:46:adb shell am start \
+docs/litert_qairt244_npu_diagnostic_chat_design.md:63:Engine.initialize, RunDecode, or token generation.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:126:- high-level `generateResponse`
+docs/litert_qairt244_npu_diagnostic_chat_design.md:128:- `selectedPath=npu` in the normal route
+docs/litert_qairt244_npu_diagnostic_chat_design.md:130:`Engine.initialize` and `RunDecode` can be reached only if the DEV checkbox is
+docs/litert_qairt244_npu_diagnostic_chat_design.md:139:adb shell am start \
+docs/litert_qairt244_npu_diagnostic_chat_design.md:173:verification did not run `Engine.initialize`, `RunDecode`, generation, or the
+docs/litert_qairt244_npu_diagnostic_chat_design.md:238:No button was clicked. This verification did not run `Engine.initialize`,
+docs/litert_qairt244_npu_diagnostic_chat_design.md:239:`RunDecode`, generation, or the normal chat UI path.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:260:  `before RunDecode SetMaxOutputTokens(3)`.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:308:normal `selectedPath=npu` route, does not call high-level `generateResponse`,
+docs/litert_qairt244_npu_diagnostic_chat_design.md:364:the normal `ChatScreen`, the normal `selectedPath=npu` route, high-level
+docs/litert_qairt244_npu_diagnostic_chat_design.md:365:`generateResponse`, or streaming generation.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:384:- normal `selectedPath=npu` route disabled status
+docs/litert_qairt244_npu_diagnostic_chat_design.md:482:run Engine.initialize, RunDecode, or token generation.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:504:- normal `ChatScreen`, normal `selectedPath=npu`, high-level
+docs/litert_qairt244_npu_diagnostic_chat_design.md:505:  `generateResponse`, and streaming remain forbidden
+docs/litert_qairt244_npu_diagnostic_chat_design.md:538:- no NPU generation, Engine.initialize, or RunDecode is triggered by editing or
+docs/litert_qairt244_npu_diagnostic_chat_design.md:558:- normal `ChatScreen` and normal `selectedPath=npu` routes remained
+docs/litert_qairt244_npu_diagnostic_chat_design.md:591:NPU generation, Engine.initialize, or RunDecode.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:611:Engine.initialize, RunDecode, or NPU generation evidence.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:655:The normal `ChatScreen` route and normal `selectedPath=npu` route remain
+docs/litert_qairt244_npu_diagnostic_chat_design.md:677:kept Run disabled. Timeout simulation did not call Engine.initialize or
+docs/litert_qairt244_npu_diagnostic_chat_design.md:678:RunDecode and returned the UI to DEV checkbox off / Run disabled.
+docs/litert_qairt244_npu_diagnostic_chat_design.md:684:- add `selectedPath=npu` to the normal route
+docs/litert_qairt244_ui_integration_safety_plan.md:13:- No `selectedPath=npu` in the normal route.
+docs/litert_qairt244_ui_integration_safety_plan.md:14:- No high-level `generateResponse`.
+docs/litert_qairt244_ui_integration_safety_plan.md:73:`selectedPath=npu`, or high-level `generateResponse`. Host-side timeout,
+docs/litert_qairt244_ui_integration_safety_plan.md:127:`selectedPath=npu` route remain untouched.
+docs/litert_qairt244_ui_integration_safety_plan.md:154:  normal `selectedPath=npu` disabled
+docs/litert_qairt244_ui_integration_safety_plan.md:180:- Engine.initialize: not run
+docs/litert_qairt244_ui_integration_safety_plan.md:181:- RunDecode: not run
+docs/litert_qairt244_ui_integration_safety_plan.md:183:- normal `selectedPath=npu`: not used
+docs/litert_qairt244_ui_integration_safety_plan.md:199:- Engine.initialize: not run
+docs/litert_qairt244_ui_integration_safety_plan.md:200:- RunDecode: not run
+docs/litert_qairt244_ui_integration_safety_plan.md:216:- normal `selectedPath=npu`:
+docs/litert_qairt244_ui_integration_safety_plan.md:220:- `Engine.initialize`:
+docs/litert_qairt244_ui_integration_safety_plan.md:222:- `RunDecode`:
+docs/litert_qairt244_ui_integration_safety_plan.md:240:  empty for blocked branch, `Engine.initialize`, `RunDecode`,
+docs/litert_qairt244_ui_integration_safety_plan.md:241:  `selectedPath=npu`, QNN, HTP, FastRPC, and `generateResponse`
+docs/litert_qairt244_ui_integration_safety_plan.md:263:  normal `selectedPath=npu` is still not applied or persisted
+docs/litert_qairt244_ui_integration_safety_plan.md:266:- `Engine.initialize` / `RunDecode`:
+docs/litert_qairt244_ui_integration_safety_plan.md:286:- normal `ChatScreen`, normal `selectedPath=npu`, high-level
+docs/litert_qairt244_ui_integration_safety_plan.md:287:  `generateResponse`, and streaming remain forbidden
+docs/litert_qairt244_ui_integration_safety_plan.md:328:- normal `ChatScreen`, normal `selectedPath=npu`, high-level
+docs/litert_qairt244_ui_integration_safety_plan.md:329:  `generateResponse`, DB writes, TTS, and Markdown remain forbidden
+docs/litert_qairt244_ui_integration_safety_plan.md:437:- normal `ChatScreen` route and normal `selectedPath=npu` route untouched
+docs/litert_qairt244_ui_integration_safety_plan.md:452:- timeout simulation does not call Engine.initialize or RunDecode
+docs/litert_qairt244_ui_integration_safety_plan.md:473:- normal `selectedPath=npu` is never persisted or auto-restored
+docs/litert_qairt244_ui_integration_safety_plan.md:483:not set normal `selectedPath=npu`, and does not run NPU generation.
+docs/litert_qairt244_ui_integration_safety_plan.md:498:streaming partials, stop button ownership, high-level `generateResponse`, and
+docs/litert_qairt244_ui_integration_safety_plan.md:499:normal `selectedPath=npu`.
+docs/litert_qairt244_ui_integration_safety_plan.md:514:not call NPU generation, `Engine.initialize`, `RunDecode`, high-level
+docs/litert_qairt244_ui_integration_safety_plan.md:515:`generateResponse`, normal `selectedPath=npu`, DB, TTS, Markdown, streaming, or
+docs/litert_qairt244_ui_integration_safety_plan.md:551:planner does not call Engine.initialize or RunDecode by itself.
+docs/litert_qairt244_ui_integration_safety_plan.md:568:- normal `selectedPath=npu` is not applied
+docs/litert_qairt244_ui_integration_safety_plan.md:570:- `Engine.initialize` is false
+docs/litert_qairt244_ui_integration_safety_plan.md:571:- `RunDecode` is false
+docs/litert_qairt244_ui_integration_safety_plan.md:572:- high-level `generateResponse` is false
+docs/litert_qairt244_ui_integration_safety_plan.md:691:- No NPU generation, `Engine.initialize`, or `RunDecode` was executed.
+docs/litert_qairt244_ui_integration_safety_plan.md:692:- No `selectedPath=npu` normal-route state was applied or persisted.
+docs/litert_qairt244_ui_integration_safety_plan.md:705:- never persist `selectedPath=npu`
+docs/litert_qairt244_ui_integration_safety_plan.md:722:`Engine.initialize`, `RunDecode`, or `Backend.NPU`.
+docs/litert_qairt244_ui_integration_safety_plan.md:734:- `Engine.initialize`: not reached
+docs/litert_qairt244_ui_integration_safety_plan.md:735:- `RunDecode`: not reached
+docs/litert_qairt244_ui_integration_safety_plan.md:740:- `selectedPath=npu`: not saved
+docs/litert_qairt244_ui_integration_safety_plan.md:762:- `selectedPath=npu`: not saved
+docs/litert_qairt244_ui_integration_safety_plan.md:791:- `selected_path_npu_normal_route=no`
+docs/litert_qairt244_ui_integration_safety_plan.md:792:- `selected_path_npu_saved=false`
+docs/litert_qairt244_ui_integration_safety_plan.md:805:The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+docs/litert_qairt244_ui_integration_safety_plan.md:817:- `selected_path_npu_saved=false`
+docs/litert_qairt244_ui_integration_safety_plan.md:820:- `selected_path_npu_normal_route=no`

@@ -1,5 +1,37 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 512 Guard Preflight - 2026-05-26
+
+Status: 512 guard-only patch built; run not executed.
+
+Artifacts:
+
+- build/static artifact:
+  `artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/`
+- preflight artifact:
+  `artifacts/qairt244_npu_max512_guard_preflight/20260527_000522/`
+
+The max512 runner is guard/preflight-only in this phase. It records summary,
+native marker scan, `SetMaxOutputTokens(512)` evidence, build artifact path,
+grep-safety, and staged-binary check, then exits before device selection, app
+launch, NPU generation, `Engine.initialize`, or `RunDecode`.
+
+Promotion remains blocked from any 512 runtime use unless supplied evidence
+continues to prove `qairt244_editable_prompt_max512_v1`,
+`native_max_output_tokens_limit=512`, `SetMaxOutputTokens(512)`, and SM8750
+model selection. ChatScreen, DB, TTS, Markdown, streaming, selected-path
+persistence, release behavior, and standard behavior remain disconnected.
+
+The staged-binary check records the rebuilt `liblitertlm_jni.so`:
+
+```text
+build_id=82cf5b24f5b2897edf3b4b8a6970cf8e
+sha256=7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105
+```
+
+Promotion decision: no normal UI or H1 baseline change; the next 512 step
+still requires separately approved single-prompt hidden safety execution.
+
 ## Max Output Tokens 256 Guard Preflight - 2026-05-26
 
 Status: 256 guard-only patch built; run not executed.

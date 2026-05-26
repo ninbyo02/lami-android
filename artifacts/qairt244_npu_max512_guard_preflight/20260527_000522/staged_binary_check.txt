@@ -1,0 +1,10 @@
+# staged binary check
+native_artifact=artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239
+binary=artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/built_libs/liblitertlm_jni.so
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/built_libs/liblitertlm_jni.so: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[md5/uuid]=82cf5b24f5b2897edf3b4b8a6970cf8e, with debug_info, not stripped
+7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105  artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/built_libs/liblitertlm_jni.so
+
+# strings evidence
+%s before RunDecode SetMaxOutputTokens(512) native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s
+%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s
+qairt244_editable_prompt_max512_v1

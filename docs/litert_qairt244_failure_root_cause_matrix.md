@@ -1,5 +1,23 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-26: max_output_tokens=512 guard-only patch preflighted
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU max-output guard | `artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/` and `artifacts/qairt244_npu_max512_guard_preflight/20260527_000522/` | The next expansion is limited to a guard-only native rebuild and preflight: `qairt244_editable_prompt_max512_v1`, `native_max_output_tokens_limit=512`, `SetMaxOutputTokens(512)`, staged `liblitertlm_jni.so`, and SM8750 model selection. | 512 run is not executed; no NPU generation, `Engine.initialize`, or `RunDecode` occurred in this phase. |
+
+The max512 preflight records `guard_status=pass` and all runtime side-effect
+flags false. It also records `staged_binary_present=true` for the rebuilt JNI
+artifact:
+
+```text
+liblitertlm_jni.so build_id=82cf5b24f5b2897edf3b4b8a6970cf8e
+liblitertlm_jni.so sha256=7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105
+```
+
+Release behavior, standard behavior, `app/src/main/jniLibs`,
+DB/TTS/Markdown/streaming, and selected-path behavior remain unchanged.
+
 ## 2026-05-26: max_output_tokens=256 guard-only patch staged
 
 | Area | Evidence | Root cause | Decision |
