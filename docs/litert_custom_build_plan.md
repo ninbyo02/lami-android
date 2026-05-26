@@ -30,6 +30,17 @@ before the bounded runner timeout, with cleanup unknown. Any retry must use the
 same max512 artifact unless a separate native-change phase is explicitly
 approved.
 
+Bounded retry artifact:
+`artifacts/qairt244_npu_max_output_512_code_bounded_retry/20260527_010116/`
+
+The retry used the existing max512 artifact only; no native guard change or
+QAIRT rebuild was performed. The same Python prompt completed once under
+`timeout_seconds=60` with `decode_ms=11600`, `elapsed_ms=14000`,
+`cleanup_elapsed_ms=142`, and `Engine.close=unique_ptr_cleanup`. This
+reclassifies the specific 30 second failure as too short for the code prompt,
+but it does not make 512 a baseline because the full three-prompt gate has not
+been re-run and the sanitized code display is truncated/indentation-damaged.
+
 ## QAIRT244 Max512 Single Runtime Verification - 2026-05-27
 
 Artifact:

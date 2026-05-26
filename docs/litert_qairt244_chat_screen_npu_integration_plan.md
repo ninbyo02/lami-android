@@ -23,6 +23,15 @@ entered the native path and reached pre-RunDecode `SetMaxOutputTokens(512)`
 evidence, but no completed result or cleanup evidence was captured before the
 runner force-stop. Normal ChatScreen remains disconnected.
 
+Bounded retry:
+`artifacts/qairt244_npu_max_output_512_code_bounded_retry/20260527_010116/`
+completed the same prompt once with `timeout_seconds=60`,
+`quality_classification=useful_code`, QNN evidence, and cleanup/`Engine.close`
+evidence. ChatScreen plan impact remains none. The retry does not connect
+normal ChatScreen, assistant-list insertion, DB, TTS, Markdown, streaming, or
+selectedPath persistence, and it does not promote 512. A full 512 comparison
+and display-format review are still required before any UI-facing change.
+
 ## Max512 Single Hidden Prompt - 2026-05-27
 
 Artifact:

@@ -25,6 +25,16 @@ diagnostics reached `before RunDecode SetMaxOutputTokens(512)`, but no native
 success, cleanup timing, or `Engine.close` evidence was captured before the
 runner force-stop. No fresh crash classification is asserted from this artifact.
 
+Bounded retry artifact:
+`artifacts/qairt244_npu_max_output_512_code_bounded_retry/20260527_010116/`.
+The same Python prompt completed once with `timeout_seconds=60`,
+`quality_classification=useful_code`, `decode_ms=11600`,
+`elapsed_ms=14000`, QNN/HTP/FastRPC evidence, `cleanup_elapsed_ms=142`, and
+`Engine.close=unique_ptr_cleanup`. The narrow timeout root cause is therefore
+`30s runner bound too short for this 512 code prompt`; the broader 512 baseline
+decision remains blocked because the full three-prompt comparison was not
+re-run and code display quality still needs review.
+
 ## 2026-05-27: max_output_tokens=512 single prompt passes
 
 | Area | Evidence | Root cause | Decision |

@@ -1,0 +1,6 @@
+timeout_seconds=60
+timeout_bounded=true
+timeout_max_allowed_seconds=60
+timeout_unlimited=false
+prompt=Pythonで簡単な電卓コードを書いて
+max_output_tokens=512

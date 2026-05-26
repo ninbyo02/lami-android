@@ -23,6 +23,14 @@ bounded runner deadline, with cleanup unknown. This reinforces the H1 decision:
 512 must not be displayed or surfaced. The H1 contract stays 128-only until a
 separate fully passing baseline and H1-specific gate revision exist.
 
+Bounded retry:
+`artifacts/qairt244_npu_max_output_512_code_bounded_retry/20260527_010116/`
+shows the same Python prompt can return at 512 with a 60 second bounded timeout
+and cleanup evidence. H1 impact remains unchanged: the retry is single-prompt
+evidence only, the code response is long/truncated with indentation loss after
+sanitize, and it must not feed the transient card, Compose adapter, PreviewHost,
+normal ChatScreen, or assistant message list.
+
 ## Max Output Tokens 512 Single Prompt - 2026-05-27
 
 Artifact:

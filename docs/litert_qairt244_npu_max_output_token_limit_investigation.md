@@ -72,6 +72,34 @@ only, and must pass `useful_code`, `timeout=false`, `fresh_crash=false`,
 `fallback_used=false`, QNN evidence, cleanup/`Engine.close` evidence, memory
 recovery, and side-effect flags false.
 
+## Max512 Code Prompt Bounded Retry - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_code_bounded_retry/20260527_010116/`
+
+The same Python calculator prompt was retried once at `max_output_tokens=512`
+with a bounded `timeout_seconds=60`. No additional retry was run.
+
+Result classification: `A. success_but_slow`. The retry returned
+`result=success`, `quality_classification=useful_code`, `timeout=false`,
+`fresh_crash=false`, `fallback_used=false`, and
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`. Native diagnostics
+recorded `before RunDecode SetMaxOutputTokens(512)`,
+`decode_elapsed_ms=11600`, `cleanup_elapsed_ms=142`, and
+`Engine.close=unique_ptr_cleanup`. Runner elapsed time was `14000 ms`.
+
+The output is useful as code-generation evidence but not display-baseline
+evidence: the sanitized code block is long, truncated at the tail, and the
+sanitized display form loses indentation. Memory was not a rollback reason:
+`after TOTAL PSS=251268 KB / Native Heap=33172 KB`; `after_10s TOTAL PSS=258999
+KB / Native Heap=33172 KB`. Side-effect flags remained false.
+
+Decision: the 30 second timeout was too short for this 512 code prompt, but
+512 still is not promoted to a hidden baseline, H1 baseline, or normal
+ChatScreen. 1024 remains blocked until a separately approved full 512
+three-prompt comparison passes all prompts under explicit bounded gates and the
+code display/indentation issue is reviewed.
+
 ## Max512 Single Prompt Verification - 2026-05-27
 
 Artifact:

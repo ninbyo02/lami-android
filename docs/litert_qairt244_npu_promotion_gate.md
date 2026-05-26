@@ -43,6 +43,25 @@ experimental candidate, H1 remains 128-only, and 1024+ expansion remains
 blocked. A retry proposal must be separately approved and bounded; an
 unlimited timeout is not acceptable.
 
+### Code Prompt Bounded Retry
+
+Retry artifact:
+`artifacts/qairt244_npu_max_output_512_code_bounded_retry/20260527_010116/`
+
+The approved one-run retry used the same Python calculator prompt with
+`max_output_tokens=512` and `timeout_seconds=60`. It returned within the bound:
+`result=success`, `quality_classification=useful_code`,
+`decode_ms=11600`, `elapsed_ms=14000`, `timeout=false`,
+`fresh_crash=false`, `fallback_used=false`, QNN/HTP/FastRPC evidence present,
+and cleanup/`Engine.close` evidence present.
+
+Promotion decision: still no baseline promotion. This proves the code prompt
+can complete under a 60 second bounded gate, but it does not replace the failed
+512 three-prompt artifact. The output is long/truncated and the sanitized
+display form loses indentation, so H1 and normal UI remain blocked. 1024
+remains blocked until a full 512 three-prompt comparison is separately
+approved and passes.
+
 ## Max Output Tokens 512 Single Prompt - 2026-05-27
 
 Artifact:
