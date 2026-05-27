@@ -100,6 +100,7 @@ fi
 cd "$ROOT_DIR" || exit 1
 mkdir -p "$OUT_DIR"
 . "$ROOT_DIR/scripts/qairt244_lifecycle_summary_lib.sh"
+. "$ROOT_DIR/scripts/qairt244_process_boundary_lib.sh"
 
 log() { printf '[qairt244-max-output-512-soft-reset-runtime] %s\n' "$*"; }
 
@@ -460,6 +461,58 @@ append_meminfo_after_10s_each_run() {
   } >>"$OUT_DIR/meminfo_after_10s_each_run.txt" 2>&1 || true
 }
 
+process_boundary_snapshot_for_run() {
+  local run_dir="$1"
+  local index="$2"
+  local slug="$3"
+  local boundary="$4"
+  local summary_file="$run_dir/process_boundary_${boundary}.txt"
+  qairt244_process_boundary_snapshot "$OUT_DIR" "$APP_ID" "$index" "$slug" "$boundary" >"$summary_file"
+  qairt244_process_append_boundary_table_row "$summary_file" "$OUT_DIR/process_boundary_results.md"
+}
+
+process_boundary_value() {
+  local key="$1"
+  local file="$2"
+  [ -f "$file" ] || {
+    printf 'unavailable'
+    return 0
+  }
+  awk -F= -v key="$key" '$1 == key { value=$2; found=1 } END { if (found) print value; else print "unavailable" }' "$file"
+}
+
+process_boundary_stop_if_needed() {
+  local run_dir="$1"
+  local boundary="$2"
+  local summary_file="$run_dir/process_boundary_${boundary}.txt"
+  local classification can_dispatch suspect
+  classification="$(process_boundary_value classification "$summary_file")"
+  can_dispatch="$(process_boundary_value can_dispatch "$summary_file")"
+  suspect="$(process_boundary_value process_disappeared_suspect "$summary_file")"
+
+  if [ "$boundary" = before_dispatch ] && [ "$can_dispatch" != true ]; then
+    STOP_REASON="PROCESS_DISAPPEARED_SUSPECT_${classification}"
+    return 10
+  fi
+  if [ "$suspect" = true ]; then
+    STOP_REASON="PROCESS_DISAPPEARED_SUSPECT_${classification}"
+    return 10
+  fi
+  return 0
+}
+
+process_boundary_any_suspect() {
+  local run_dir="$1"
+  local boundary
+  for boundary in after_dispatch after_result_or_timeout after_cleanup after_10s; do
+    if [ "$(process_boundary_value process_disappeared_suspect "$run_dir/process_boundary_${boundary}.txt")" = true ]; then
+      STOP_REASON="PROCESS_DISAPPEARED_SUSPECT_$(process_boundary_value classification "$run_dir/process_boundary_${boundary}.txt")"
+      return 0
+    fi
+  done
+  return 1
+}
+
 capture_screenshot() {
   local slug="$1"
   local run_dir="$2"
@@ -539,6 +592,37 @@ run_prompt_512() {
     printf 'activity_start_invoked_for_prompt=false\n'
   } >"$run_dir/activity_lifecycle.txt"
   append_meminfo_before_each_run "before_${slug}"
+  process_boundary_snapshot_for_run "$run_dir" "$index" "$slug" before_dispatch
+  if ! process_boundary_stop_if_needed "$run_dir" before_dispatch; then
+    {
+      cat "$run_dir/request.txt"
+      printf 'status=process_absent_before_dispatch\n'
+      printf 'receiver_success=false\n'
+      printf 'wait_status=process_absent_before_dispatch\n'
+      printf 'timeout=false\n'
+      printf 'reasonCode=process_absent_before_dispatch\n'
+      printf 'process_boundary_classification=%s\n' "$(process_boundary_value classification "$run_dir/process_boundary_before_dispatch.txt")"
+      printf 'process_disappeared_suspect=true\n'
+      printf 'process_boundary_forced_stop_reason=%s\n' "$STOP_REASON"
+      printf 'reuse_allowed=false\n'
+      printf 'runtime_reuse_allowed=false\n'
+      printf 'next_prompt_allowed=false\n'
+      printf 'runtime_reuse_policy=per_run_isolated_required\n'
+      printf 'hidden_per_run_isolated_required=true\n'
+      printf 'standard_route_connected=false\n'
+      printf 'normal_ui_route_connected=false\n'
+      printf 'assistant_message_list_inserted=false\n'
+      printf 'db=false\n'
+      printf 'tts=false\n'
+      printf 'markdown=false\n'
+      printf 'streaming=false\n'
+    } >"$run_dir/case_summary.txt"
+    cat "$run_dir/case_summary.txt" >>"$OUT_DIR/case_summaries.txt"
+    printf '\n' >>"$OUT_DIR/case_summaries.txt"
+    append_lifecycle_gate_result "$index" "$prompt" "$run_dir"
+    append_runtime_sequence_result "$index" "$prompt" "$run_dir" stop
+    return 10
+  fi
   start_ms="$(date +%s000)"
   adb_cmd shell am broadcast --receiver-foreground --user 0 \
     -a "$ACTION" \
@@ -552,6 +636,7 @@ run_prompt_512() {
     --ez enable_developer_access true \
     --ez enable_route true \
     --ez run true >"$run_dir/broadcast.txt" 2>&1 || true
+  process_boundary_snapshot_for_run "$run_dir" "$index" "$slug" after_dispatch
 
   wait_status=success
   if ! wait_for_state; then
@@ -563,6 +648,7 @@ run_prompt_512() {
       printf 'sequence_policy=stop_without_process_kill\n'
     } >"$run_dir/timeout_no_force_stop.txt"
   fi
+  process_boundary_snapshot_for_run "$run_dir" "$index" "$slug" after_result_or_timeout
   end_ms="$(date +%s000)"
   elapsed_ms=$((end_ms - start_ms))
 
@@ -575,8 +661,10 @@ run_prompt_512() {
   adb_cmd logcat -d -t 900 >"$run_dir/logcat_tail.txt" 2>&1 || true
   capture_screenshot "$slug" "$run_dir"
   append_meminfo_after_each_run "after_${slug}"
+  process_boundary_snapshot_for_run "$run_dir" "$index" "$slug" after_cleanup
   sleep 10
   append_meminfo_after_10s_each_run "after_10s_${slug}"
+  process_boundary_snapshot_for_run "$run_dir" "$index" "$slug" after_10s
 
   cp "$run_dir/result.txt" "$OUT_DIR/result_512_${slug}.txt" 2>/dev/null || : >"$OUT_DIR/result_512_${slug}.txt"
   cp "$run_dir/native_diag.txt" "$OUT_DIR/native_diag_512_${slug}.txt" 2>/dev/null || : >"$OUT_DIR/native_diag_512_${slug}.txt"
@@ -676,6 +764,11 @@ run_prompt_512() {
     printf 'selected_path_npu_saved=%s\n' "$(case_value selected_path_npu_saved "$run_dir")"
     printf 'quality_classification=%s\n' "$quality"
     printf 'native_quality_classification=%s\n' "$(case_value quality_classification "$run_dir")"
+    printf 'process_boundary_after_dispatch=%s\n' "$(process_boundary_value classification "$run_dir/process_boundary_after_dispatch.txt")"
+    printf 'process_boundary_after_result_or_timeout=%s\n' "$(process_boundary_value classification "$run_dir/process_boundary_after_result_or_timeout.txt")"
+    printf 'process_boundary_after_cleanup=%s\n' "$(process_boundary_value classification "$run_dir/process_boundary_after_cleanup.txt")"
+    printf 'process_boundary_after_10s=%s\n' "$(process_boundary_value classification "$run_dir/process_boundary_after_10s.txt")"
+    printf 'process_disappeared_suspect=%s\n' "$(process_boundary_value process_disappeared_suspect "$run_dir/process_boundary_after_10s.txt")"
     printf 'standard_route_connected=false\n'
     printf 'normal_ui_route_connected=false\n'
     printf 'assistant_message_list_inserted=false\n'
@@ -685,12 +778,25 @@ run_prompt_512() {
     printf 'streaming=false\n'
   } >"$run_dir/case_summary.txt"
   qairt244_lifecycle_summary_lines "$run_dir" "$wait_status" "sequential_soft_reset_runtime" >>"$run_dir/case_summary.txt"
+  if process_boundary_any_suspect "$run_dir"; then
+    printf 'process_boundary_forced_stop_reason=%s\n' "$STOP_REASON" >>"$run_dir/case_summary.txt"
+    printf 'reuse_allowed=false\n' >>"$run_dir/case_summary.txt"
+    printf 'runtime_reuse_allowed=false\n' >>"$run_dir/case_summary.txt"
+    printf 'next_prompt_allowed=false\n' >>"$run_dir/case_summary.txt"
+    printf 'runtime_reuse_policy=per_run_isolated_required\n' >>"$run_dir/case_summary.txt"
+    printf 'hidden_per_run_isolated_required=true\n' >>"$run_dir/case_summary.txt"
+  fi
 
   cat "$run_dir/case_summary.txt" >>"$OUT_DIR/case_summaries.txt"
   printf '\n' >>"$OUT_DIR/case_summaries.txt"
   cat "$run_dir/logcat_tail.txt" >>"$OUT_DIR/logcat_tail.txt" 2>/dev/null || true
 
   append_lifecycle_gate_result "$index" "$prompt" "$run_dir"
+  if process_boundary_any_suspect "$run_dir"; then
+    gate_decision=stop
+    append_runtime_sequence_result "$index" "$prompt" "$run_dir" "$gate_decision"
+    return 10
+  fi
   if lifecycle_gate_allows_next "$run_dir"; then
     gate_decision=continue
     append_runtime_sequence_result "$index" "$prompt" "$run_dir" "$gate_decision"
@@ -828,6 +934,15 @@ write_grep_safety() {
     printf 'force_stop_between_prompts=false\n'
     printf 'activity_restart_between_prompts=false\n'
     printf 'sequential_continuation_requires_success_clean=true\n'
+    printf 'process_boundary_instrumentation=true\n'
+    printf 'process_absent_before_dispatch_stops=true\n'
+    printf 'process_disappeared_suspect_reuse_allowed=false\n'
+    printf 'process_disappeared_suspect_hidden_per_run_isolated_required=true\n'
+    rg -n "PROCESS_DISAPPEARED|process_boundary|pidof|dumpsys activity processes|dumpsys activity top|logcat_slice|can_dispatch|hidden_per_run_isolated_required" \
+      scripts/qairt244_process_boundary_lib.sh \
+      scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh \
+      app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuProcessBoundaryPolicy.kt \
+      app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuProcessBoundaryPolicyTest.kt 2>&1 || true
   } >"$OUT_DIR/grep_safety.txt"
 }
 
@@ -1037,6 +1152,7 @@ write_summary() {
     printf -- '- activity_restart_between_prompts: `false`\n'
     printf -- '- force_stop_between_prompts: `false`\n'
     printf -- '- process_policy: `maintain process; lifecycle summary gate only`\n'
+    printf -- '- process_boundary_instrumentation: `pidof + ps + dumpsys activity processes/top + logcat slice at every prompt boundary`\n'
     printf -- '- overall_status: `%s`\n' "$overall_status"
     printf -- '- result_classification: `%s`\n' "$RESULT_CLASSIFICATION"
     printf -- '- sequence_stopped: `%s`\n' "$SEQUENCE_STOPPED"
@@ -1050,6 +1166,8 @@ write_summary() {
     cat "$OUT_DIR/comparison_table.md" 2>/dev/null || true
     printf '\n## Lifecycle Gate\n\n'
     cat "$OUT_DIR/lifecycle_gate_results.md" 2>/dev/null || true
+    printf '\n## Process Boundary\n\n'
+    cat "$OUT_DIR/process_boundary_results.md" 2>/dev/null || true
     printf '\n## Safety Notes\n\n'
     printf -- '- H1 remains pinned to max_output_tokens=128.\n'
     printf -- '- 256 remains the hidden experimental baseline candidate.\n'
@@ -1059,6 +1177,7 @@ write_summary() {
     printf -- '- The runner does not connect standard route, normal ChatScreen assistant list, DB, TTS, Markdown, or streaming.\n'
     printf -- '- The runner does not perform retry, fallback, or multiple unbounded generations.\n'
     printf -- '- Sequential continuation requires `SUCCESS_CLEAN`, `next_prompt_allowed=true`, `reuse_allowed=true`, `runtime_reuse_allowed=true`, and `hidden_per_run_isolated_required=false`.\n'
+    printf -- '- `PROCESS_DISAPPEARED_SUSPECT` prevents sequential continuation and requires hidden per-run isolated handling.\n'
   } >"$OUT_DIR/summary.md"
 }
 
@@ -1085,6 +1204,10 @@ write_three_prompt_notes() {
     printf 'activity_restart_between_prompts=false\n'
     printf 'force_stop_between_prompts=false\n'
     printf 'process_maintained_between_prompts=true\n'
+    printf 'process_boundary_instrumentation=true\n'
+    printf 'process_boundary_snapshot_points=before_dispatch,after_dispatch,after_result_or_timeout,after_cleanup,after_10s\n'
+    printf 'process_disappeared_suspect_count=%s\n' "$(awk -F= '$1 == "process_disappeared_suspect" && $2 == "true" { count++ } END { print count + 0 }' "$OUT_DIR/case_summaries.txt")"
+    printf 'process_boundary_forced_stop_reasons=%s\n' "$(awk -F= '$1 == "process_boundary_forced_stop_reason" { if (value != "") value=value "," $2; else value=$2 } END { print value }' "$OUT_DIR/case_summaries.txt")"
     printf 'sequence_stopped=%s\n' "$SEQUENCE_STOPPED"
     printf 'stopped_at_prompt=%s\n' "$STOPPED_AT_PROMPT"
     printf 'stop_reason=%s\n' "$STOP_REASON"
@@ -1118,6 +1241,7 @@ main() {
     printf '| prompt_index | prompt | lifecycle_classification | next_prompt_allowed | reuse_allowed | runtime_reuse_allowed | runtime_reuse_policy | hidden_per_run_isolated_required | cleanup_elapsed_ms | engine_close_evidence | suspect_session | stop_reason | run_dir |\n'
     printf '| ---: | --- | --- | --- | --- | --- | --- | --- | ---: | --- | --- | --- | --- |\n'
   } >"$OUT_DIR/lifecycle_gate_results.md"
+  qairt244_process_append_boundary_table_header "$OUT_DIR/process_boundary_results.md"
   {
     printf '# Runtime sequence\n\n'
     printf -- '- mode: `sequential_soft_reset_runtime`\n'
@@ -1139,6 +1263,8 @@ main() {
     exit 1
   }
   printf '%s\n' "$DEVICE_SERIAL" >"$OUT_DIR/selected_device.txt"
+  QAIRT244_PROCESS_DEVICE_SERIAL="$DEVICE_SERIAL"
+  export QAIRT244_PROCESS_DEVICE_SERIAL
   stage_build_and_install || {
     log "failed to stage/install standardDebug max512 APK"
     write_summary install_failure
@@ -1174,7 +1300,9 @@ main() {
   if [ "$SEQUENCE_STOPPED" = true ]; then
     overall_status=failure
     RESULT_CLASSIFICATION=runtime_policy_stopped_sequence
-    if [ "$STOPPED_AT_PROMPT" = 2 ] && [ "$(summary_field timeout "Pythonで簡単な電卓コードを書いて")" = true ]; then
+    if printf '%s' "$STOP_REASON" | grep -q '^PROCESS_DISAPPEARED_SUSPECT_'; then
+      RESULT_CLASSIFICATION=process_disappeared_suspect
+    elif [ "$STOPPED_AT_PROMPT" = 2 ] && [ "$(summary_field timeout "Pythonで簡単な電卓コードを書いて")" = true ]; then
       RESULT_CLASSIFICATION=prompt2_timeout_again
     elif [ "$STOPPED_AT_PROMPT" = 1 ] && [ "$(summary_field lifecycle_classification "こんにちは")" = CLEANUP_MISSING_SUSPECT ]; then
       RESULT_CLASSIFICATION=cleanup_missing_after_prompt1

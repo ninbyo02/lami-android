@@ -1,5 +1,23 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Process Boundary Instrumentation - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_process_boundary_instrumentation/20260528_050222/`
+
+This phase adds hidden runner process-boundary instrumentation, preflight
+policy, docs, and unit tests. It does not run NPU, invoke RunDecode, rebuild
+LiteRT-LM/QAIRT, change native guard code, change staged JNI libraries, or
+authorize a max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The next
+runtime phase, if separately approved, should use the added `pidof`/`ps`/
+`dumpsys activity`/logcat boundary snapshots to identify when the process
+disappears after the clean Python prompt. Keep 512 hidden
+`hidden_per_run_isolated_512` candidate only, keep 256 as the hidden
+experimental baseline candidate, keep H1 pinned to 128, and keep
+1024/2048/4096 blocked.
+
 ## QAIRT244 Max512 Soft-Reset Process Disappearance Review - 2026-05-28
 
 Artifact:

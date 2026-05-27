@@ -1,5 +1,23 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Process Boundary Instrumentation - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_process_boundary_instrumentation/20260528_050222/`
+
+This phase adds hidden runner instrumentation only. It does not execute NPU,
+rerun 512, change native code, rebuild QAIRT, or connect ChatScreen output.
+
+ChatScreen impact: none. Process disappearance is now a hidden diagnostic
+classification (`PROCESS_DISAPPEARED_SUSPECT`) that stops sequential
+continuation and requires hidden per-run isolation. It must not insert
+assistant messages, persist selectedPath=NPU, enter DB/TTS/Markdown/streaming,
+or promote normal ChatScreen.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated candidate only while sequential support is
+incomplete, and 1024+ remains blocked.
+
 ## Max512 Soft-Reset Process Disappearance Review - 2026-05-28
 
 Artifact:

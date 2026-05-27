@@ -9,6 +9,33 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Process Boundary Instrumentation - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_process_boundary_instrumentation/20260528_050222/`
+
+Scope: instrumentation, preflight policy, docs, and tests only. No NPU
+execution, 512 rerun, native change, QAIRT/LiteRT-LM rebuild, ChatScreen
+promotion, assistant-list insertion, DB, TTS, Markdown renderer, streaming,
+selectedPath persistence, standard/release behavior, or 1024+ expansion was
+performed.
+
+Change: the 512 sequential soft-reset runner now records process boundary
+snapshots at `before_dispatch`, `after_dispatch`,
+`after_result_or_timeout`, `after_cleanup`, and `after_10s`. Each snapshot
+captures `pidof`, `ps`, `dumpsys activity processes`, `dumpsys activity top`,
+visible-window state, timestamps, and a filtered logcat slice. Process absence
+before dispatch stops the run before prompt dispatch; any disappearance after
+dispatch/cleanup/10s is classified as `PROCESS_DISAPPEARED_SUSPECT` and maps
+to `reuse_allowed=false` plus `hidden_per_run_isolated_required=true`.
+
+Decision: 512 sequential support remains incomplete. The prior Python prompt
+`SUCCESS_CLEAN` is still a useful signal, but prompt-boundary process
+disappearance is the next blocker to identify in a separately approved runtime
+rerun. 512 remains a `hidden_per_run_isolated_512` candidate, 256 remains the
+hidden experimental baseline candidate, H1 remains pinned to 128, and
+1024/2048/4096 remain blocked.
+
 ## Max512 Soft-Reset Process Disappearance Review - 2026-05-28
 
 Artifact:

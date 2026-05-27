@@ -1,5 +1,28 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max512 Process Boundary Instrumentation - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_process_boundary_instrumentation/20260528_050222/`
+
+Gate status: instrumentation/preflight/docs/tests only. No additional NPU
+execution, 512 rerun, native work, or QAIRT rebuild was performed.
+
+The sequential soft-reset runner now has a process-boundary gate. It captures
+`before_dispatch`, `after_dispatch`, `after_result_or_timeout`,
+`after_cleanup`, and `after_10s` snapshots using `pidof`, `ps`, `dumpsys
+activity processes`, `dumpsys activity top`, and filtered logcat evidence.
+`PROCESS_ABSENT_BEFORE_DISPATCH` stops before dispatch. Any
+`PROCESS_DISAPPEARED_*` classification becomes
+`PROCESS_DISAPPEARED_SUSPECT`, forbids sequential reuse, and requires hidden
+per-run isolation.
+
+Promotion decision: unchanged. 512 sequential is still not a baseline; this
+only instruments the next approved runtime pass. 512 remains
+`hidden_per_run_isolated_512` candidate only, 256 remains the hidden
+experimental baseline candidate, H1 remains pinned to 128, and
+1024/2048/4096 remain blocked.
+
 ## Max512 Soft-Reset Process Disappearance Review - 2026-05-28
 
 Artifact:

@@ -1,5 +1,18 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-28: max_output_tokens=512 process boundary instrumentation
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Prompt-boundary process disappearance | `artifacts/qairt244_npu_512_process_boundary_instrumentation/20260528_050222/` | The previous soft-reset runtime showed prompt 2 completing cleanly, then the process disappearing before prompt 3 could complete. Existing artifacts did not capture enough boundary evidence to determine whether the disappearance was runner-induced, lifecycle-induced, OS kill, native abort, or unexplained. | Add hidden runner instrumentation at `before_dispatch`, `after_dispatch`, `after_result_or_timeout`, `after_cleanup`, and `after_10s`. Classify process loss as `PROCESS_DISAPPEARED_SUSPECT`, stop sequential continuation, and require hidden per-run isolation. |
+
+This is instrumentation only; no NPU rerun was performed. The root-cause
+ranking remains open until a separately approved runtime pass captures the new
+boundary snapshots. 512 sequential remains incomplete and non-baseline, 512
+per-run isolated remains the only 512 candidate mode, 256 remains the hidden
+experimental baseline candidate, H1 remains pinned to 128, and
+1024/2048/4096 remain blocked.
+
 ## 2026-05-28: max_output_tokens=512 soft-reset process disappearance review
 
 | Area | Evidence | Root cause | Decision |
