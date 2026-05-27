@@ -1,0 +1,4 @@
+activity_restart_before_prompt=false
+process_force_stop_before_prompt=false
+soft_reset_app_files=true
+activity_start_invoked_for_prompt=false

@@ -1,0 +1,3 @@
+label=after
+device=192.168.52.52:34543
+No process found for: io.github.ninbyo02.lami

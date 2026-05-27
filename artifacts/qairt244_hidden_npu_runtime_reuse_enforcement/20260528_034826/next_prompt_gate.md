@@ -6,6 +6,7 @@ Required fields for continuation:
 
 - `lifecycle_classification=SUCCESS_CLEAN`
 - `reuse_allowed=true`
+- `runtime_reuse_allowed=true`
 - `next_prompt_allowed=true`
 - `runtime_reuse_policy=reuse_allowed`
 - `hidden_per_run_isolated_required=false`

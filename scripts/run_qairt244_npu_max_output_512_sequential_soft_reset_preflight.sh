@@ -133,11 +133,12 @@ append_sequence_case() {
   local run_dir="$4"
   local execution_isolation="$5"
   local summary_file="$6"
-  local classification reuse next_prompt_allowed runtime_reuse_policy per_run_required stale mismatch expected cleanup engine_close reason can_continue
+  local classification reuse runtime_reuse_allowed next_prompt_allowed runtime_reuse_policy per_run_required stale mismatch expected cleanup engine_close reason can_continue
 
   write_lifecycle_summary "$run_dir" "$execution_isolation" "$summary_file"
   classification="$(summary_value lifecycle_classification "$summary_file")"
   reuse="$(summary_value reuse_allowed "$summary_file")"
+  runtime_reuse_allowed="$(summary_value runtime_reuse_allowed "$summary_file")"
   next_prompt_allowed="$(summary_value next_prompt_allowed "$summary_file")"
   runtime_reuse_policy="$(summary_value runtime_reuse_policy "$summary_file")"
   per_run_required="$(summary_value hidden_per_run_isolated_required "$summary_file")"
@@ -153,8 +154,8 @@ append_sequence_case() {
     can_continue=false
   fi
 
-  printf '| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | `%s` |\n' \
-    "$suite" "$prompt_index" "$prompt_label" "$classification" "$reuse" "$next_prompt_allowed" "$runtime_reuse_policy" "$per_run_required" \
+  printf '| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | `%s` |\n' \
+    "$suite" "$prompt_index" "$prompt_label" "$classification" "$reuse" "$runtime_reuse_allowed" "$next_prompt_allowed" "$runtime_reuse_policy" "$per_run_required" \
     "$cleanup" "$engine_close" "$can_continue" "$reason" "${run_dir#$ROOT_DIR/}" >>"$TABLE_FILE"
 
   printf '%s\n' "$can_continue"
@@ -209,8 +210,8 @@ simulate_sequence() {
 
 {
   printf '# Preflight Simulation\n\n'
-  printf '| suite | prompt_index | prompt | lifecycle_classification | reuse_allowed | next_prompt_allowed | runtime_reuse_policy | hidden_per_run_isolated_required | cleanup_elapsed_ms | engine_close_evidence | sequence_can_continue_after_prompt | stop_reason | source_run_dir |\n'
-  printf '|---|---|---|---|---|---|---|---|---|---|---|---|---|\n'
+  printf '| suite | prompt_index | prompt | lifecycle_classification | reuse_allowed | runtime_reuse_allowed | next_prompt_allowed | runtime_reuse_policy | hidden_per_run_isolated_required | cleanup_elapsed_ms | engine_close_evidence | sequence_can_continue_after_prompt | stop_reason | source_run_dir |\n'
+  printf '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n'
 } >"$TABLE_FILE"
 
 simulate_sequence baseline_256_clean hidden_experimental_256 \

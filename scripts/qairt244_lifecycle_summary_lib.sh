@@ -195,6 +195,7 @@ qairt244_lifecycle_summary_lines() {
   printf 'result_completed_evidence=%s\n' "$result_completed"
   printf 'suspect_session=%s\n' "$suspect"
   printf 'reuse_allowed=%s\n' "$reuse"
+  printf 'runtime_reuse_allowed=%s\n' "$next_prompt_allowed"
   printf 'next_prompt_allowed=%s\n' "$next_prompt_allowed"
   printf 'runtime_reuse_policy=%s\n' "$runtime_reuse_policy"
   printf 'per_run_isolated_required=%s\n' "$per_run_required"

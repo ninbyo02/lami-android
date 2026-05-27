@@ -1,5 +1,26 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Sequential Soft-Reset Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime/20260528_041357/`
+
+This runtime validation remains hidden-route only. It ran the 512 sequential
+soft-reset runner once with process continuity, no force-stop between prompts,
+and no Activity restart between prompts.
+
+ChatScreen impact: none. Prompt 1 and the Python code prompt were
+`SUCCESS_CLEAN`; the Python output was `useful_code` with indentation and code
+fence checks passing. Prompt 3 timed out and was classified
+`TIMEOUT_SUSPECT`; the lifecycle gate set `next_prompt_allowed=false`,
+`reuse_allowed=false`, and `hidden_per_run_isolated_required=true`.
+
+Normal ChatScreen promotion, assistant-list insertion, DB, TTS, Markdown
+renderer, streaming renderer, selectedPath=NPU persistence, release behavior,
+and standard behavior remain blocked. H1 remains 128-only, 256 remains the
+hidden experimental baseline candidate, 512 remains hidden per-run isolated
+only, and 1024+ remains blocked.
+
 ## Hidden NPU Runtime Reuse Enforcement - 2026-05-28
 
 Artifact:

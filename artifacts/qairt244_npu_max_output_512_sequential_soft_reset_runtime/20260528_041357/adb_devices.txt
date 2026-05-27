@@ -1,0 +1,2 @@
+List of devices attached
+192.168.52.52:34543	device

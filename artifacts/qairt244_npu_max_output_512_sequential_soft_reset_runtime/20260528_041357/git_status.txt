@@ -1,0 +1,5 @@
+ M artifacts/qairt244_hidden_npu_runtime_reuse_enforcement/20260528_034826/next_prompt_gate.md
+ M artifacts/qairt244_hidden_npu_runtime_reuse_enforcement/20260528_034826/parser_runtime_mapping.md
+ M scripts/qairt244_lifecycle_summary_lib.sh
+ M scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_preflight.sh
+?? scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh

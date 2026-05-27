@@ -9,6 +9,29 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Sequential Soft-Reset Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime/20260528_041357/`
+
+Scope: hidden runtime-policy validation only. This pass ran one approved 512
+sequential soft-reset sequence with no force-stop between prompts and no
+Activity restart between prompts. It did not change native code, rebuild
+QAIRT/LiteRT-LM, promote ChatScreen, connect assistant-list insertion, DB, TTS,
+Markdown renderer, streaming, selectedPath persistence, standard/release
+behavior, or progress to 1024+.
+
+Result: prompt 1 was `SUCCESS_CLEAN`; prompt 2 was `SUCCESS_CLEAN` with
+`useful_code`, preserved indentation, closed code fence, cleanup evidence, and
+QNN evidence; prompt 3 timed out and classified as `TIMEOUT_SUSPECT`. The
+runtime gate then set `next_prompt_allowed=false`, `reuse_allowed=false`, and
+`hidden_per_run_isolated_required=true`.
+
+Decision: the soft-reset lifecycle gate works as a safety mechanism, but 512
+sequential is still not stable enough for baseline use. 512 remains hidden
+`hidden_per_run_isolated_512` only; 256 remains the hidden experimental
+baseline candidate; H1 remains pinned to 128; 1024/2048/4096 remain blocked.
+
 ## Edge Gallery Streaming Lifecycle Compare - 2026-05-27
 
 Artifact:

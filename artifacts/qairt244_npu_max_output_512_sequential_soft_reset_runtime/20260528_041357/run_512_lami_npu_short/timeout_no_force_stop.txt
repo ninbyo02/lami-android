@@ -1,0 +1,4 @@
+timeout=true
+force_stop_invoked=false
+activity_restart_invoked=false
+sequence_policy=stop_without_process_kill

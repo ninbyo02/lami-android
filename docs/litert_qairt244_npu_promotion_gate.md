@@ -1,5 +1,29 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 512 Sequential Soft-Reset Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime/20260528_041357/`
+
+Gate status: hidden experimental runtime-policy validation only. This was one
+512 sequential soft-reset runtime attempt with no force-stop between prompts,
+no Activity restart between prompts, no native change, and no QAIRT rebuild.
+
+Runtime result: prompt 1 (`こんにちは`) classified `SUCCESS_CLEAN`, prompt 2
+(`Pythonで簡単な電卓コードを書いて`) classified `SUCCESS_CLEAN` with
+`useful_code`, preserved indentation, closed code fence, QNN evidence, and
+`Engine.close=unique_ptr_cleanup`. Prompt 3
+(`ラミィのNPU推論について短く説明して`) hit `TIMEOUT_SUSPECT`, with
+`next_prompt_allowed=false`, `reuse_allowed=false`,
+`runtime_reuse_policy=per_run_isolated_required`, missing cleanup, and no
+completed backend evidence.
+
+Promotion decision: unchanged. The lifecycle gate worked and stopped on the
+suspect session, but 512 sequential is still not a baseline candidate. 512
+remains hidden `hidden_per_run_isolated_512` only; 256 remains the hidden
+experimental baseline candidate; H1 remains pinned to 128; 1024/2048/4096
+remain blocked.
+
 ## Hidden NPU Runtime Reuse Enforcement - 2026-05-28
 
 Artifact:

@@ -11,6 +11,22 @@ QAIRT/LiteRT-LM, did not promote ChatScreen, did not connect assistant-list
 insertion, DB, TTS, Markdown renderer, streaming, or selectedPath=NPU
 persistence, and did not progress to 1024/2048/4096.
 
+## Sequential Soft-Reset Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime/20260528_041357/`
+
+The hidden lifecycle gate was exercised once at runtime. Prompt 1 and the
+Python code prompt both reached `SUCCESS_CLEAN`; prompt 2 returned
+`useful_code` with code-aware sanitizer checks passing. Prompt 3 timed out and
+classified as `TIMEOUT_SUSPECT`, which correctly forced
+`next_prompt_allowed=false` and `hidden_per_run_isolated_required=true`.
+
+Interpretation: the Edge Gallery-inspired lifecycle gate is useful as a
+runtime safety boundary, but it does not yet make 512 sequential mode stable.
+Gallery-style streaming renderer remains out of scope, 512 per-run isolated
+remains the only 512 candidate mode, and 1024/2048/4096 remain blocked.
+
 ## Sequential Soft-Reset Preflight - 2026-05-28
 
 Artifact:

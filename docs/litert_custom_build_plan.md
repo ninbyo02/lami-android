@@ -1,5 +1,21 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Sequential Soft-Reset Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime/20260528_041357/`
+
+This phase ran one hidden 512 sequential soft-reset runtime validation. It did
+not rebuild LiteRT-LM/QAIRT, change native guard code, change staged JNI
+libraries, authorize a max-output expansion, or promote ChatScreen.
+
+Build plan decision: no native work follows from this artifact. The runtime
+gate operated correctly: two clean prompts continued and the third prompt
+timeout stopped the sequence with `TIMEOUT_SUSPECT`,
+`reuse_allowed=false`, and `hidden_per_run_isolated_required=true`. Keep 512
+hidden `hidden_per_run_isolated_512` only, keep 256 as the hidden experimental
+baseline candidate, keep H1 pinned to 128, and keep 1024/2048/4096 blocked.
+
 ## QAIRT244 Hidden NPU Runtime Reuse Enforcement - 2026-05-28
 
 Artifact:

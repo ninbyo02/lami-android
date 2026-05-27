@@ -1,5 +1,17 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-28: max_output_tokens=512 sequential soft-reset runtime
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden sequential runtime policy | `artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime/20260528_041357/` | The runtime lifecycle gate allowed prompt 1 and the Python code prompt after `SUCCESS_CLEAN`, but prompt 3 timed out with no cleanup or completed backend evidence. The policy then correctly set `next_prompt_allowed=false`, `reuse_allowed=false`, and `hidden_per_run_isolated_required=true`. | Runtime enforcement works, but 512 sequential remains unstable and non-baseline. Keep 512 hidden per-run isolated only; keep 256 candidate; keep 1024+ blocked. |
+
+This shifts the observed runtime failure from the earlier prompt-2 Python
+timeout to a later prompt-3 timeout under the soft-reset gate. The root-cause
+ranking remains lifecycle/resource inheritance or native callback non-return
+under sequential reuse. The code prompt can return cleanly under this gate, but
+the sequence still cannot be promoted because a later prompt becomes suspect.
+
 ## 2026-05-28: hidden NPU runtime reuse enforcement
 
 | Area | Evidence | Root cause | Decision |

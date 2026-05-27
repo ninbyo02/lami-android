@@ -4,7 +4,7 @@
 the same runtime policy:
 
 - clean parser evidence produces `SUCCESS_CLEAN`, `reuse_allowed=true`, and
-  `next_prompt_allowed=true`.
+  `runtime_reuse_allowed=true` / `next_prompt_allowed=true`.
 - timeout evidence produces `TIMEOUT_SUSPECT`, `reuse_allowed=false`, and
   `next_prompt_allowed=false`.
 - missing terminal/native/cleanup/Engine.close evidence produces
