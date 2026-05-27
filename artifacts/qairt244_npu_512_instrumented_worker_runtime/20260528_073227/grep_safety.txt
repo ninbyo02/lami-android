@@ -1,0 +1,260 @@
+# grep safety scan
+package_target=io.github.ninbyo02.lami
+receiver=io.github.ninbyo02.lami.npu.StandardHiddenQairt244PromptReceiver
+max_output_tokens=512
+max_output_tokens_compare_enabled=true
+
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:53:prompt with sanitizer_only and max_output_tokens=512. Prompt-to-prompt
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:66:  - native_max_output_tokens_limit=512
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:76:  - max_output_tokens is capped at 512 by this runner.
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:97:  printf 'ERROR: max_output_tokens must be <=512\n' >&2
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:333:  if printf '%s\n%s\n' "$evidence" "$backend" | grep -Eiq 'QNN|HTP|FastRPC|NPU|selected_path_npu'; then
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:336:  if rg -q "QNN|HTP|FastRPC|selected_path_npu|Backend\\.NPU|RunDecode" "$run_dir/native_diag.txt" "$run_dir/result.txt" "$run_dir/logcat_tail.txt" 2>/dev/null; then
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:546:      grep -E "$MAX512_GUARD_MARKER|native_max_output_tokens_limit=512|SetMaxOutputTokens\\(512\\)" || true
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:571:  log "run prompt=$prompt max_output_tokens=$MAX_OUTPUT_TOKENS timeout=${TIMEOUT_SECONDS}s"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:574:    printf 'case_id=max_output_tokens_512\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:577:    printf 'requested_max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:612:      printf 'standard_route_connected=false\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:614:      printf 'assistant_message_list_inserted=false\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:634:    --ei max_output_tokens "$MAX_OUTPUT_TOKENS" \
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:635:    --ez allow_max_output_tokens_compare true \
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:689:  actual_max="$(case_value max_output_tokens "$run_dir")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:739:    printf 'actual_max_output_tokens=%s\n' "$actual_max"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:740:    printf 'max_output_tokens_honored=%s\n' "$([ "$actual_max" = "$MAX_OUTPUT_TOKENS" ] && printf true || printf false)"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:766:    printf 'selected_path_npu_saved=%s\n' "$(case_value selected_path_npu_saved "$run_dir")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:774:    printf 'standard_route_connected=false\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:776:    printf 'assistant_message_list_inserted=false\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:848:      if (in_record && cid == "max_output_tokens_256" && p == prompt && found) {
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:864:      if (!printed && in_record && cid == "max_output_tokens_256" && p == prompt && found) {
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:874:    printf '# QAIRT244 NPU max_output_tokens 512 quality/safety comparison\n\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:876:    printf '| prompt | 256_ref_status | 256_ref_quality | 256_ref_decode_ms | 512_status | 512_quality | code_indent | code_fence | 512_decode_ms | 512_elapsed_ms | 512_len | npu_evidence | fallback_used | timeout | fresh_crash | selected_path_npu_saved |\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:895:      selected="$(summary_field selected_path_npu_saved "$prompt")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:910:      rg -n "QNN|HTP|FastRPC|RunDecode|EngineFactory|native_prompt|sanitizer|code_block_detected|code_fence_completed|code_indentation_preserved|code_fence_closed|selected_path_npu|fallback_used|timeout|fresh_crash|max_output_tokens|quality_classification|lifecycle_classification|next_prompt_allowed|runtime_reuse_allowed|reuse_allowed|hidden_per_run_isolated_required|receiver_enter|go_async_started|worker_thread_started|run_for_chatscreen_enter|before_native_adapter_run|before_run_decode_marker_seen|after_native_adapter_run|before_terminal_result_write|after_terminal_result_write|before_cleanup|after_cleanup|throwable_caught|finally_enter|finally_exit|worker_finished|db=false|tts=false|markdown=false|streaming=false|Engine\\.initialize|Engine\\.close|RunDecode" "$file" | sed "s#^#${file#$OUT_DIR/}:#" || true
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:920:    printf 'max_output_tokens=512\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:921:    printf 'max_output_tokens_compare_enabled=true\n\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:922:    rg -n "allow_max_output_tokens_compare|QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT|max_output_tokens|selectedPath.*npu|selected_path_npu|tts=true|markdown=true|streaming=true|db=true|generateResponse|assistant_message_list|standard_route_connected" \
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:927:    printf 'assistant_message_list_inserted=false\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:932:    printf 'selected_path_npu_saved_by_runner=false\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:933:    printf 'max_output_tokens_over_512=false\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:976:    printf 'required_native_limit=native_max_output_tokens_limit=512\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1004:    rg -n "$MAX512_GUARD_MARKER|native_max_output_tokens_limit=512|SetMaxOutputTokens\\(512\\)|SM8750|sm8750|gemma-4-E2B-it_qualcomm_sm8750" \
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1017:        grep -E "$MAX512_GUARD_MARKER|native_max_output_tokens_limit=512|SetMaxOutputTokens\\(512\\)|SM8750|sm8750|gemma-4-E2B-it_qualcomm_sm8750" || true
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1043:    printf '# QAIRT244 max_output_tokens=512 guard preflight\n\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1046:    printf -- '- requested_max_output_tokens: `%s`\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1056:    printf '| `native_max_output_tokens_limit=512` | `%s` |\n' "$native_limit_present"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1087:  grep -q 'native_max_output_tokens_limit=512' "$PREFLIGHT_DIR/evidence.txt" && native_limit_present=true
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1126:    printf -- '- max_output_tokens: `%s`\n' "$MAX_OUTPUT_TOKENS"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1143:    printf '# QAIRT244 NPU max_output_tokens 512 sequential soft-reset runtime\n\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1151:    printf -- '- executable_case: `sanitizer_only + max_output_tokens=512`\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1174:    printf -- '- H1 remains pinned to max_output_tokens=128.\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1189:    printf '# QAIRT244 max_output_tokens=512 sequential soft-reset runtime notes\n\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1194:    printf 'max_output_tokens=512\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1250:    printf -- '- max_output_tokens: `%s`\n' "$MAX_OUTPUT_TOKENS"
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevNpuChatScreenToggleActivity.kt:63:            appendLine("selected_path_npu=false")
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:57:                    "max_output_tokens=$maxOutputTokens",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:87:                    "max_output_tokens=$maxOutputTokens",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:96:                    "selected_path_npu_saved=false",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:124:            writeState("rejected", "invalid_max_output_tokens")
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:125:            writeFailure("invalid_max_output_tokens")
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:180:        const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:89:                "selectedPath=npu normal route=not used",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:336:                "no selectedPath=npu normal route",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:338:                "no high-level generateResponse",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:389:            "qairt244_diagnostic_chat_guarded_run_v1 runId=$runId state=started max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS} prompt_source=$promptSource actual_prompt=$prompt\n",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:582:            "selectedPath=npu disabled=true",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:583:            "high-level generateResponse=false",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:723:            "selected_path_npu_saved=false",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:724:            "standard_route_connected=false",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:731:            "max_output_tokens=128",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:789:                "max_output_tokens=${DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:43:        "max_output_tokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:44:        "native_max_output_tokens_limit",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:74:        "selected_path_npu_saved",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:97:                reasonCode = "invalid_max_output_tokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:163:                    "max_output_tokens=$maxOutputTokens engine_initialize=false run_decode=false db=false tts=false markdown=false stream=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:237:                "max_output_tokens=$maxOutputTokens " +
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:554:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:564:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:594:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:615:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:645:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:666:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:707:                "max_output_tokens=$maxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:716:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:80:            requestedMaxOutputTokens in 1..DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:264:                    "requested_max_output_tokens=${values["requested_max_output_tokens"].orEmpty()}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:265:                    "max_output_tokens_compare_enabled=${values["max_output_tokens_compare_enabled"].orEmpty().ifBlank { "false" }}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:283:                    "max_output_tokens=${values["max_output_tokens"].orEmpty()}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:319:        const val EXTRA_ALLOW_MAX_OUTPUT_TOKENS_COMPARE = "allow_max_output_tokens_compare"
+app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt:322:        const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1TransientPreviewWiring.kt:33:                "standard_route_connected=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:14:        val maxOutputTokens = values.value("max_output_tokens")
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:48:            standardRouteConnected = values.isTrue("standard_route_connected"),
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:72:            values.isTrue("selected_path_npu_saved") -> "selected_path_npu_saved"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:73:            values.isTrue("standard_route_connected") -> "standard_route_connected"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMapper.kt:81:            maxOutputTokens != DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS -> "max_output_tokens_not_128"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1UiState.kt:98:            input.standardRouteConnected -> "standard_route_connected"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1UiState.kt:104:            input.maxOutputTokens != DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS -> "max_output_tokens_not_128"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:14:        "selected_path_npu_saved",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:15:        "standard_route_connected",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:22:        "max_output_tokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:36:        "selected_path_npu_saved",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:37:        "standard_route_connected",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuPhaseH1ArtifactMetadataParser.kt:51:    private val intFields: Set<String> = setOf("max_output_tokens")
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuHiddenExperimentalModeGate.kt:79:            input.maxOutputTokens > DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT ->
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteAdapter.kt:15:        const val QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT = 512
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuLifecycleArtifactParser.kt:146:            assistantMessageListInserted = bool(values, "assistant_message_list_inserted"),
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuLifecycleArtifactParser.kt:147:            selectedPathSaved = bool(values, "selected_path_npu_saved") ||
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:667:                                    text = "default=false / blocked adapter only / normal selectedPath=npu disabled / real NPU not connected",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:19:        "standard_route_connected=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:22:        "selected_path_npu_normal_route=no",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:145:        val compareLimit = DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:183:                "requested_max_output_tokens=$requestedMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:184:                "max_output_tokens=$effectiveMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:185:                "native_max_output_tokens_limit=$effectiveMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:188:                "max_output_tokens_compare_enabled=$allowMaxOutputTokensCompare",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:242:                        DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:261:                        DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:328:        val nativeMaxOutputTokensLimit = nativeResult["native_max_output_tokens_limit"].orEmpty()
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:395:            "requested_max_output_tokens=$requestedMaxOutputTokens",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:396:            "max_output_tokens=${result.maxOutputTokens}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:397:            "native_max_output_tokens_limit=${escapeValue(nativeMaxOutputTokensLimit.ifBlank { result.maxOutputTokens.toString() })}",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:400:            "max_output_tokens_compare_enabled=$allowMaxOutputTokensCompare",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1221:        val warning = "initialize-only; no Conversation; no generateResponse; not wired to app inference"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:3208:        val warning: String = "initialize-only; no Conversation; no generateResponse; not wired to app inference",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:745:    val maxOutputTokens = values["max_output_tokens"].orUnknown()
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:756:            InferenceStatItemUi(label = "max_output_tokens", value = maxOutputTokens),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:757:            InferenceStatItemUi(label = "native_max_output_tokens_limit", value = values["native_max_output_tokens_limit"].orUnknown()),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1693:        InferenceStatItemUi(label = "load policy", value = "diagnostic-only; Engine.initialize explicit opt-in only; no Conversation; no generateResponse"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1851:        InferenceStatItemUi(label = "warning", value = probe.engineInitializeDryRunWarning?.ifBlank { "initialize-only; no Conversation; no generateResponse; not wired to app inference" } ?: "initialize-only; no Conversation; no generateResponse; not wired to app inference"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:3319:            (method.name == "sendMessage" || method.name == "generateResponse") && method.parameterTypes.size == 1
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:3652:            (method.name == "sendMessage" || method.name == "generateResponse") && method.parameterTypes.size == 1
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5449:        "generateResponseAsync",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5600:        "generateResponseAsync",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5995:            method.name == "generateResponseAsync" && method.parameterTypes.isEmpty()
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5996:        } ?: throw NoSuchMethodException("generateResponseAsync() not found")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:5998:            ?: throw IllegalStateException("generateResponseAsync() returned null")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:6052:            root.message?.contains("generateResponseAsync", ignoreCase = true) == true -> "generateResponseAsync"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:6105:    val candidateMethodNames = listOf("generateResponse", "generate", "infer")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:6142:    val candidateMethodNames = listOf("generateResponse", "generate", "infer")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:7978:            "native_max_output_tokens_limit=${nativeMaxOutputTokensLimit ?: "unknown"}",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:7980:            "max_output_tokens=$maxOutputTokens",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8028:        "native_max_output_tokens_limit=${nativeMaxOutputTokensLimit ?: "unknown"}",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8031:        "max_output_tokens=$maxOutputTokens",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8100:                nativeMaxOutputTokensLimit = values["native_max_output_tokens_limit"]?.toIntOrNull(),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8105:                maxOutputTokens = values["max_output_tokens"]?.toIntOrNull() ?: 16,
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt:8184:                "max_output_tokens=${result.maxOutputTokens}",
+
+# safety assertions recorded by runner
+standard_hidden_receiver_only=true
+normal_chat_screen_connected=false
+assistant_message_list_inserted=false
+db=false
+tts=false
+markdown=false
+streaming=false
+selected_path_npu_saved_by_runner=false
+max_output_tokens_over_512=false
+code_aware_sanitizer_required=true
+raw_output_ui_display=false
+force_stop_between_prompts=false
+activity_restart_between_prompts=false
+sequential_continuation_requires_success_clean=true
+process_boundary_instrumentation=true
+process_absent_before_dispatch_stops=true
+process_disappeared_suspect_reuse_allowed=false
+process_disappeared_suspect_hidden_per_run_isolated_required=true
+app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuProcessBoundaryPolicyTest.kt:41:            DevOnlyNpuProcessBoundaryClassification.PROCESS_DISAPPEARED_AFTER_CLEANUP,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuProcessBoundaryPolicy.kt:14:    PROCESS_DISAPPEARED_AFTER_DISPATCH,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuProcessBoundaryPolicy.kt:15:    PROCESS_DISAPPEARED_AFTER_CLEANUP,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuProcessBoundaryPolicy.kt:16:    PROCESS_DISAPPEARED_AFTER_10S,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuProcessBoundaryPolicy.kt:43:            DevOnlyNpuProcessBoundaryClassification.PROCESS_DISAPPEARED_AFTER_DISPATCH,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuProcessBoundaryPolicy.kt:44:            DevOnlyNpuProcessBoundaryClassification.PROCESS_DISAPPEARED_AFTER_CLEANUP,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuProcessBoundaryPolicy.kt:45:            DevOnlyNpuProcessBoundaryClassification.PROCESS_DISAPPEARED_AFTER_10S,
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuProcessBoundaryPolicy.kt:70:                DevOnlyNpuProcessBoundaryClassification.PROCESS_DISAPPEARED_AFTER_DISPATCH
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuProcessBoundaryPolicy.kt:73:                DevOnlyNpuProcessBoundaryClassification.PROCESS_DISAPPEARED_AFTER_CLEANUP
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuProcessBoundaryPolicy.kt:75:                DevOnlyNpuProcessBoundaryClassification.PROCESS_DISAPPEARED_AFTER_10S
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:103:. "$ROOT_DIR/scripts/qairt244_process_boundary_lib.sh"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:224:  per_run="$(case_summary_value hidden_per_run_isolated_required "$run_dir")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:237:    printf 'hidden_per_run_isolated_required'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:267:      "$(case_summary_value hidden_per_run_isolated_required "$run_dir")" \
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:290:    printf -- '- hidden_per_run_isolated_required: `%s`\n' "$(case_summary_value hidden_per_run_isolated_required "$run_dir")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:464:process_boundary_snapshot_for_run() {
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:469:  local summary_file="$run_dir/process_boundary_${boundary}.txt"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:470:  qairt244_process_boundary_snapshot "$OUT_DIR" "$APP_ID" "$index" "$slug" "$boundary" >"$summary_file"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:471:  qairt244_process_append_boundary_table_row "$summary_file" "$OUT_DIR/process_boundary_results.md"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:474:process_boundary_value() {
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:484:process_boundary_stop_if_needed() {
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:487:  local summary_file="$run_dir/process_boundary_${boundary}.txt"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:488:  local classification can_dispatch suspect
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:489:  classification="$(process_boundary_value classification "$summary_file")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:490:  can_dispatch="$(process_boundary_value can_dispatch "$summary_file")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:491:  suspect="$(process_boundary_value process_disappeared_suspect "$summary_file")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:493:  if [ "$boundary" = before_dispatch ] && [ "$can_dispatch" != true ]; then
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:494:    STOP_REASON="PROCESS_DISAPPEARED_SUSPECT_${classification}"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:498:    STOP_REASON="PROCESS_DISAPPEARED_SUSPECT_${classification}"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:504:process_boundary_any_suspect() {
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:508:    if [ "$(process_boundary_value process_disappeared_suspect "$run_dir/process_boundary_${boundary}.txt")" = true ]; then
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:509:      STOP_REASON="PROCESS_DISAPPEARED_SUSPECT_$(process_boundary_value classification "$run_dir/process_boundary_${boundary}.txt")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:595:  process_boundary_snapshot_for_run "$run_dir" "$index" "$slug" before_dispatch
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:596:  if ! process_boundary_stop_if_needed "$run_dir" before_dispatch; then
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:604:      printf 'process_boundary_classification=%s\n' "$(process_boundary_value classification "$run_dir/process_boundary_before_dispatch.txt")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:606:      printf 'process_boundary_forced_stop_reason=%s\n' "$STOP_REASON"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:611:      printf 'hidden_per_run_isolated_required=true\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:639:  process_boundary_snapshot_for_run "$run_dir" "$index" "$slug" after_dispatch
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:651:  process_boundary_snapshot_for_run "$run_dir" "$index" "$slug" after_result_or_timeout
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:665:  process_boundary_snapshot_for_run "$run_dir" "$index" "$slug" after_cleanup
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:668:  process_boundary_snapshot_for_run "$run_dir" "$index" "$slug" after_10s
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:769:    printf 'process_boundary_after_dispatch=%s\n' "$(process_boundary_value classification "$run_dir/process_boundary_after_dispatch.txt")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:770:    printf 'process_boundary_after_result_or_timeout=%s\n' "$(process_boundary_value classification "$run_dir/process_boundary_after_result_or_timeout.txt")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:771:    printf 'process_boundary_after_cleanup=%s\n' "$(process_boundary_value classification "$run_dir/process_boundary_after_cleanup.txt")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:772:    printf 'process_boundary_after_10s=%s\n' "$(process_boundary_value classification "$run_dir/process_boundary_after_10s.txt")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:773:    printf 'process_disappeared_suspect=%s\n' "$(process_boundary_value process_disappeared_suspect "$run_dir/process_boundary_after_10s.txt")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:783:  if process_boundary_any_suspect "$run_dir"; then
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:784:    printf 'process_boundary_forced_stop_reason=%s\n' "$STOP_REASON" >>"$run_dir/case_summary.txt"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:789:    printf 'hidden_per_run_isolated_required=true\n' >>"$run_dir/case_summary.txt"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:797:  if process_boundary_any_suspect "$run_dir"; then
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:910:      rg -n "QNN|HTP|FastRPC|RunDecode|EngineFactory|native_prompt|sanitizer|code_block_detected|code_fence_completed|code_indentation_preserved|code_fence_closed|selected_path_npu|fallback_used|timeout|fresh_crash|max_output_tokens|quality_classification|lifecycle_classification|next_prompt_allowed|runtime_reuse_allowed|reuse_allowed|hidden_per_run_isolated_required|receiver_enter|go_async_started|worker_thread_started|run_for_chatscreen_enter|before_native_adapter_run|before_run_decode_marker_seen|after_native_adapter_run|before_terminal_result_write|after_terminal_result_write|before_cleanup|after_cleanup|throwable_caught|finally_enter|finally_exit|worker_finished|db=false|tts=false|markdown=false|streaming=false|Engine\\.initialize|Engine\\.close|RunDecode" "$file" | sed "s#^#${file#$OUT_DIR/}:#" || true
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:939:    printf 'process_boundary_instrumentation=true\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:942:    printf 'process_disappeared_suspect_hidden_per_run_isolated_required=true\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:943:    rg -n "PROCESS_DISAPPEARED|process_boundary|pidof|dumpsys activity processes|dumpsys activity top|logcat_slice|can_dispatch|hidden_per_run_isolated_required" \
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:944:      scripts/qairt244_process_boundary_lib.sh \
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1157:    printf -- '- process_boundary_instrumentation: `pidof + ps + dumpsys activity processes/top + logcat slice at every prompt boundary`\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1172:    cat "$OUT_DIR/process_boundary_results.md" 2>/dev/null || true
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1181:    printf -- '- Sequential continuation requires `SUCCESS_CLEAN`, `next_prompt_allowed=true`, `reuse_allowed=true`, `runtime_reuse_allowed=true`, and `hidden_per_run_isolated_required=false`.\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1182:    printf -- '- `PROCESS_DISAPPEARED_SUSPECT` prevents sequential continuation and requires hidden per-run isolated handling.\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1209:    printf 'process_boundary_instrumentation=true\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1210:    printf 'process_boundary_snapshot_points=before_dispatch,after_dispatch,after_result_or_timeout,after_cleanup,after_10s\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1212:    printf 'process_boundary_forced_stop_reasons=%s\n' "$(awk -F= '$1 == "process_boundary_forced_stop_reason" { if (value != "") value=value "," $2; else value=$2 } END { print value }' "$OUT_DIR/case_summaries.txt")"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1220:    printf 'hidden_per_run_isolated_required_on_suspect=true\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1243:    printf '| prompt_index | prompt | lifecycle_classification | next_prompt_allowed | reuse_allowed | runtime_reuse_allowed | runtime_reuse_policy | hidden_per_run_isolated_required | cleanup_elapsed_ms | engine_close_evidence | suspect_session | stop_reason | run_dir |\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1246:  qairt244_process_append_boundary_table_header "$OUT_DIR/process_boundary_results.md"
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1255:    printf -- '- continuation_gate: `SUCCESS_CLEAN + next_prompt_allowed=true + reuse_allowed=true + runtime_reuse_allowed=true + hidden_per_run_isolated_required=false`\n\n'
+scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh:1305:    if printf '%s' "$STOP_REASON" | grep -q '^PROCESS_DISAPPEARED_SUSPECT_'; then
+scripts/qairt244_process_boundary_lib.sh:11:qairt244_process_boundary_classification() {
+scripts/qairt244_process_boundary_lib.sh:21:    after_dispatch) printf 'PROCESS_DISAPPEARED_AFTER_DISPATCH' ;;
+scripts/qairt244_process_boundary_lib.sh:22:    after_result_or_timeout|after_cleanup) printf 'PROCESS_DISAPPEARED_AFTER_CLEANUP' ;;
+scripts/qairt244_process_boundary_lib.sh:23:    after_10s) printf 'PROCESS_DISAPPEARED_AFTER_10S' ;;
+scripts/qairt244_process_boundary_lib.sh:28:qairt244_process_can_dispatch() {
+scripts/qairt244_process_boundary_lib.sh:36:    PROCESS_ABSENT_BEFORE_DISPATCH|PROCESS_DISAPPEARED_AFTER_DISPATCH|PROCESS_DISAPPEARED_AFTER_CLEANUP|PROCESS_DISAPPEARED_AFTER_10S)
+scripts/qairt244_process_boundary_lib.sh:50:qairt244_process_boundary_snapshot() {
+scripts/qairt244_process_boundary_lib.sh:56:  local dir="$out_dir/process_boundary/prompt_${prompt_index}_${slug}/${boundary}"
+scripts/qairt244_process_boundary_lib.sh:57:  local classification can_dispatch reuse_allowed per_run_required suspect
+scripts/qairt244_process_boundary_lib.sh:66:  qairt244_process_adb shell pidof "$package_name" >"$dir/pidof.txt" 2>&1 || true
+scripts/qairt244_process_boundary_lib.sh:69:  qairt244_process_adb shell dumpsys activity processes >"$dir/dumpsys_activity_processes.txt" 2>&1 || true
+scripts/qairt244_process_boundary_lib.sh:71:  qairt244_process_adb shell dumpsys activity top >"$dir/dumpsys_activity_top.txt" 2>&1 || true
+scripts/qairt244_process_boundary_lib.sh:73:  qairt244_process_adb logcat -d -t 1200 >"$dir/logcat_slice.txt" 2>&1 || true
+scripts/qairt244_process_boundary_lib.sh:75:    "$dir/logcat_slice.txt" >"$dir/logcat_process_markers.txt" 2>/dev/null || true
+scripts/qairt244_process_boundary_lib.sh:77:  classification="$(qairt244_process_boundary_classification "$boundary" "$dir/pidof.txt" "$dir/ps_package.txt")"
+scripts/qairt244_process_boundary_lib.sh:78:  if qairt244_process_can_dispatch "$classification"; then
+scripts/qairt244_process_boundary_lib.sh:79:    can_dispatch=true
+scripts/qairt244_process_boundary_lib.sh:81:    can_dispatch=false
+scripts/qairt244_process_boundary_lib.sh:98:    printf 'pidof=%s\n' "$(tr '\n' ' ' <"$dir/pidof.txt" | sed 's/[[:space:]]*$//')"
+scripts/qairt244_process_boundary_lib.sh:100:    printf 'can_dispatch=%s\n' "$can_dispatch"
+scripts/qairt244_process_boundary_lib.sh:103:    printf 'hidden_per_run_isolated_required=%s\n' "$per_run_required"
+scripts/qairt244_process_boundary_lib.sh:112:    printf '| prompt_index | slug | boundary | classification | can_dispatch | process_disappeared_suspect | reuse_allowed | hidden_per_run_isolated_required | pidof |\n'
+scripts/qairt244_process_boundary_lib.sh:120:  local prompt_index slug boundary classification can_dispatch suspect reuse per_run pidof
+scripts/qairt244_process_boundary_lib.sh:125:  can_dispatch="$(awk -F= '$1 == "can_dispatch" { print $2 }' "$snapshot_summary")"
+scripts/qairt244_process_boundary_lib.sh:128:  per_run="$(awk -F= '$1 == "hidden_per_run_isolated_required" { print $2 }' "$snapshot_summary")"
+scripts/qairt244_process_boundary_lib.sh:129:  pidof="$(awk -F= '$1 == "pidof" { print $2 }' "$snapshot_summary")"
+scripts/qairt244_process_boundary_lib.sh:131:    "$prompt_index" "$slug" "$boundary" "$classification" "$can_dispatch" "$suspect" "$reuse" "$per_run" "${pidof:-none}" >>"$dest"

@@ -1,5 +1,23 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Instrumented Worker Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_instrumented_worker_runtime/20260528_073227/`
+
+This phase ran one hidden instrumented 512 sequential soft-reset runtime. It
+did not rebuild LiteRT-LM/QAIRT, change native guard code, change staged JNI
+libraries, authorize a max-output expansion, or promote ChatScreen.
+
+Build plan decision: no native guard change follows from this artifact. The
+terminal trace narrows prompt 2 to native decode non-return/process death
+under sequential reuse: Kotlin recorded `before_native_adapter_run`, native
+diagnostics recorded pre-RunDecode `SetMaxOutputTokens(512)`, and Kotlin never
+recorded `after_native_adapter_run`, throwable, `finally`, or worker finish.
+Keep 512 hidden `hidden_per_run_isolated_512` candidate only, keep 256 as the
+hidden experimental baseline candidate, keep H1 pinned to 128, and keep
+1024/2048/4096 blocked.
+
 ## QAIRT244 Max512 Receiver/Native Worker Instrumentation - 2026-05-28
 
 Artifact:

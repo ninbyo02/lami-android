@@ -1,0 +1,3 @@
+not_run=true
+reason=PROCESS_DISAPPEARED_SUSPECT_PROCESS_DISAPPEARED_AFTER_CLEANUP
+prompt=ラミィのNPU推論について短く説明して

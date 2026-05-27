@@ -1,0 +1,10 @@
+prompt_index=1
+slug=konnichiwa
+boundary=before_dispatch
+package=io.github.ninbyo02.lami
+pidof=2618
+classification=PROCESS_PRESENT
+can_dispatch=true
+process_disappeared_suspect=false
+reuse_allowed=true
+hidden_per_run_isolated_required=false

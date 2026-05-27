@@ -1,5 +1,24 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Instrumented Worker Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_instrumented_worker_runtime/20260528_073227/`
+
+This hidden runtime investigation does not change ChatScreen wiring. The
+terminal trace proves prompt 2 reached the native adapter boundary and did not
+return to Kotlin: no terminal result write, cleanup, `finally`, throwable, or
+worker-finished marker was recorded.
+
+ChatScreen impact: none. The prompt 2 suspect session cannot become normal
+assistant output, cannot insert into the assistant list, cannot persist
+selectedPath=NPU, and cannot enter DB/TTS/Markdown/streaming. Normal
+ChatScreen promotion remains blocked.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated candidate only while sequential support is
+incomplete, and 1024+ remains blocked.
+
 ## Max512 Receiver/Native Worker Terminal Instrumentation - 2026-05-28
 
 Artifact:

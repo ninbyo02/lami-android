@@ -9,6 +9,37 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Instrumented Worker Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_instrumented_worker_runtime/20260528_073227/`
+
+Scope: one approved hidden experimental runtime execution. No retry, second
+run, force-stop between prompts, Activity restart, native change, QAIRT/
+LiteRT-LM rebuild, ChatScreen promotion, assistant-list insertion, DB, TTS,
+Markdown renderer, streaming, selectedPath persistence, standard/release
+behavior, or 1024+ expansion was performed.
+
+Result: prompt 1 (`こんにちは`) completed `SUCCESS_CLEAN` with terminal trace
+through `after_native_adapter_run`, terminal result write, cleanup, `finally`,
+and `worker_finished`. Prompt 2 (`Pythonで簡単な電卓コードを書いて`) reached
+`before_native_adapter_run` and native diagnostics reached
+`before RunDecode SetMaxOutputTokens(512)`, but the terminal trace never
+recorded `after_native_adapter_run`, `throwable_caught`, `finally_enter`, or
+`worker_finished`. The lifecycle gate classified prompt 2 as
+`TIMEOUT_SUSPECT`; process snapshots were present at dispatch and absent by
+the post-timeout boundary. Prompt 3 was not dispatched.
+
+Classification: `NATIVE_NON_RETURN_OR_PROCESS_DEATH` with
+`PROCESS_DISAPPEARED_AFTER_CLEANUP` observed after timeout. This makes the
+active sequential blocker the native decode/non-return or process-death
+window, not terminal result writing or cleanup writing.
+
+Decision: 512 sequential remains incomplete and non-baseline; 512 remains
+`hidden_per_run_isolated_512` candidate only; 256 remains the hidden
+experimental baseline candidate; H1 remains pinned to 128; 1024/2048/4096
+remain blocked.
+
 ## Max512 Receiver/Native Worker Terminal Instrumentation - 2026-05-28
 
 Artifact:

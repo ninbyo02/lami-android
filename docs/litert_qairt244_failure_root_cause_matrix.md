@@ -1,5 +1,17 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-28: max_output_tokens=512 instrumented worker runtime
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Prompt 2 native adapter non-return/process death | `artifacts/qairt244_npu_512_instrumented_worker_runtime/20260528_073227/` | Prompt 1 completed cleanly through worker finish. Prompt 2 wrote terminal trace through `before_native_adapter_run`; native diag reached `before RunDecode SetMaxOutputTokens(512)`, but no `after_native_adapter_run`, `throwable_caught`, `finally_enter`, `finally_exit`, `worker_finished`, terminal result, cleanup, or `Engine.close` evidence appeared. The process was present at dispatch and absent by the post-timeout boundary. | Classify prompt 2 as `NATIVE_NON_RETURN_OR_PROCESS_DEATH` plus `TIMEOUT_SUSPECT`. Keep 512 sequential non-baseline and focus next review on native decode/process death under sequential reuse. |
+
+This refines the active 512 sequential blocker. The failure is past the
+receiver and worker entrypoint, not the terminal result writer or cleanup
+writer. 512 per-run isolated remains the only 512 candidate mode, 256 remains
+the hidden experimental baseline candidate, H1 remains pinned to 128, and
+1024/2048/4096 remain blocked.
+
 ## 2026-05-28: max_output_tokens=512 receiver/native-worker terminal instrumentation
 
 | Area | Evidence | Root cause | Decision |

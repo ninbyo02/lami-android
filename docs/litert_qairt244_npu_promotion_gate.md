@@ -1,5 +1,27 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max512 Instrumented Worker Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_instrumented_worker_runtime/20260528_073227/`
+
+Gate status: hidden runtime investigation only. This was one instrumented 512
+sequential soft-reset execution; it is not a baseline promotion.
+
+Runtime result: prompt 1 was `SUCCESS_CLEAN`. Prompt 2 reached
+`before_native_adapter_run`, then native diagnostics reached
+`SetMaxOutputTokens(512)` pre-RunDecode evidence, but no
+`after_native_adapter_run`, `throwable_caught`, `finally_enter`,
+`finally_exit`, or `worker_finished` marker was written. Prompt 2 became
+`TIMEOUT_SUSPECT` with missing cleanup and missing `Engine.close`. Prompt 3
+was not dispatched because the gate set `next_prompt_allowed=false`,
+`reuse_allowed=false`, and `hidden_per_run_isolated_required=true`.
+
+Promotion decision: unchanged. 512 sequential is still incomplete and
+non-baseline. 512 remains `hidden_per_run_isolated_512` candidate only, 256
+remains the hidden experimental baseline candidate, H1 remains pinned to 128,
+and 1024/2048/4096 remain blocked.
+
 ## Max512 Receiver/Native Worker Terminal Instrumentation - 2026-05-28
 
 Artifact:
