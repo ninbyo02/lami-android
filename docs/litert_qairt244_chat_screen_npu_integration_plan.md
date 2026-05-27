@@ -1,5 +1,24 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Soft-Reset Process Disappearance Review - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_soft_reset_process_disappearance_review/20260528_043922/`
+
+This is review-only and does not change ChatScreen wiring. The review confirms
+that the 512 soft-reset sequential path remains hidden diagnostic work. Python
+code now succeeds under the soft-reset gate, but prompt 2 is followed by
+process disappearance and prompt 3 times out without state/result/native
+diagnostic files.
+
+ChatScreen impact: none. The failure mode is not allowed to create assistant
+messages or persist selectedPath=NPU. Normal ChatScreen promotion, assistant
+list insertion, DB, TTS, Markdown renderer, streaming renderer, selectedPath
+persistence, release behavior, and standard behavior remain blocked.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated only, and 1024+ remains blocked.
+
 ## Max512 Sequential Soft-Reset Runtime - 2026-05-28
 
 Artifact:

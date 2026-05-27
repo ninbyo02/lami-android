@@ -1,0 +1,29 @@
+# grep safety review
+
+Reviewed source artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime/20260528_041357/`
+
+Reviewed runner:
+`scripts/run_qairt244_npu_max_output_512_sequential_soft_reset_runtime.sh`
+
+Safety conclusions:
+
+- additional_npu_execution=false
+- native_change=false
+- qairt_rebuild=false
+- max_output_tokens_over_512=false
+- explicit_force_stop_between_prompts=false
+- activity_restart_between_prompts=false
+- assistant_message_list_inserted=false
+- db=false
+- tts=false
+- markdown=false
+- streaming=false
+- selected_path_npu_saved=false for completed prompt 1 and prompt 2
+
+Searched concepts:
+
+- force-stop / am force-stop / am kill / pm clear / monkey
+- ProcessRecord / Killing / am_proc_died / lowmemorykiller / lmkd / LMK
+- FATAL EXCEPTION / SIGSEGV / SIGABRT / tombstone / ANR
+- RunDecode / Engine.close / cleanup_elapsed_ms / QNN evidence

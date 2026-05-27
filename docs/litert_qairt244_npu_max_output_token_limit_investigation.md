@@ -9,6 +9,34 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Soft-Reset Process Disappearance Review - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_soft_reset_process_disappearance_review/20260528_043922/`
+
+Scope: artifact/log/runner review only. No additional NPU execution, 512 rerun,
+native change, QAIRT/LiteRT-LM rebuild, ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming, selectedPath persistence,
+standard/release behavior, or 1024+ expansion was performed.
+
+Finding: the soft-reset runtime partially improved 512 sequential behavior.
+The Python code prompt now returns `SUCCESS_CLEAN` with `useful_code`,
+indentation preserved, closed/completed code fence, QNN evidence, cleanup
+`137ms`, and `Engine.close=unique_ptr_cleanup`. The new blocker is process
+disappearance after prompt 2: immediate meminfo still found pid `4758`, but
+after 10 seconds `dumpsys meminfo` returned `No process found`. Prompt 3 then
+broadcasted but produced no state/result/native-diagnostic/cleanup files and
+classified `TIMEOUT_SUSPECT`.
+
+Classification: primary `process_disappearance_unexplained`, secondary
+`os_killed_cached_process_possible`. The review found no runner force-stop,
+Activity restart, `am kill`, `pm clear`, crash, tombstone, ANR, or explicit LMK
+marker in the saved artifacts.
+
+Decision: 512 sequential remains unfinished and cannot be a baseline. Keep 512
+as `hidden_per_run_isolated_512` only, keep 256 as the hidden experimental
+baseline candidate, keep H1 pinned to 128, and keep 1024/2048/4096 blocked.
+
 ## Max512 Sequential Soft-Reset Runtime - 2026-05-28
 
 Artifact:

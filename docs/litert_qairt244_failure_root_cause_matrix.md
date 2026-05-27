@@ -1,5 +1,16 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-28: max_output_tokens=512 soft-reset process disappearance review
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Process disappearance after prompt 2 | `artifacts/qairt244_npu_512_soft_reset_process_disappearance_review/20260528_043922/` | Prompt 2 completes cleanly and immediately after-run meminfo still finds pid `4758`, but after 10 seconds the process is gone. Prompt 3 broadcast returns from shell but creates no state/result/native-diagnostic/cleanup files and becomes `TIMEOUT_SUSPECT`. No runner force-stop, Activity restart, crash, tombstone, ANR, or explicit LMK marker was found. | Classify primary `process_disappearance_unexplained`, secondary `os_killed_cached_process_possible`. Keep 512 sequential non-baseline and keep 512 per-run isolated only. |
+
+This refines the 512 sequential root cause. The Python code prompt can now
+return cleanly under soft-reset gating, so the active blocker is no longer only
+the code prompt itself. The remaining blocker is process continuity between
+clean prompt completion and the next hidden broadcast.
+
 ## 2026-05-28: max_output_tokens=512 sequential soft-reset runtime
 
 | Area | Evidence | Root cause | Decision |

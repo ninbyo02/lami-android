@@ -1,5 +1,24 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max512 Soft-Reset Process Disappearance Review - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_soft_reset_process_disappearance_review/20260528_043922/`
+
+Gate status: review-only. No additional NPU execution or native work was
+performed.
+
+The 512 soft-reset runtime is not promotable. It proved the Python code prompt
+can return `SUCCESS_CLEAN` under the lifecycle gate, but prompt 2 was followed
+by process disappearance and prompt 3 became `TIMEOUT_SUSPECT`. The process
+loss is classified primary `process_disappearance_unexplained`, secondary
+`os_killed_cached_process_possible`; runner-induced stop, crash/native abort,
+and explicit LMK are not supported by the saved artifacts.
+
+Promotion decision: unchanged. 512 sequential remains non-baseline. 512 is
+still only `hidden_per_run_isolated_512`; 256 remains the hidden experimental
+baseline candidate; H1 remains pinned to 128; 1024/2048/4096 remain blocked.
+
 ## Max Output Tokens 512 Sequential Soft-Reset Runtime - 2026-05-28
 
 Artifact:

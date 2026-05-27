@@ -1,5 +1,20 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Soft-Reset Process Disappearance Review - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_soft_reset_process_disappearance_review/20260528_043922/`
+
+This phase is artifact/log/runner review only. It does not run NPU, rebuild
+LiteRT-LM/QAIRT, change native guard code, change staged JNI libraries, or
+authorize a max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The 512
+soft-reset runtime's Python code prompt now returns cleanly, but prompt 2 is
+followed by unexplained process disappearance and prompt 3 times out. Keep 512
+hidden `hidden_per_run_isolated_512` only, keep 256 as the hidden experimental
+baseline candidate, keep H1 pinned to 128, and keep 1024/2048/4096 blocked.
+
 ## QAIRT244 Max512 Sequential Soft-Reset Runtime - 2026-05-28
 
 Artifact:
