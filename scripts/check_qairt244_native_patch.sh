@@ -35,6 +35,8 @@ Usage:
 contains qairt244_editable_prompt_max512_v1,
 native_max_output_tokens_limit=512, SetMaxOutputTokens(512), and either the
 patch or --sm8750-evidence contains SM8750 model selection evidence.
+The only formal 512 runtime gate is hidden_per_run_isolated_512; sequential
+and Activity-restart-only 512 remain rollback modes.
 --evidence-only exits after evidence validation and does not run git apply
 checks against the external checkout.
 EOF
@@ -112,6 +114,10 @@ printf 'patch_has_max256_marker=%s\n' "$(grep -q "$MAX256_MARKER" "$PATCH_FILE" 
 printf 'patch_has_native_limit_256=%s\n' "$(grep -q 'native_max_output_tokens_limit=256' "$PATCH_FILE" && printf true || printf false)"
 printf 'patch_has_set_max_output_tokens_256=%s\n' "$(grep -q 'SetMaxOutputTokens(256)' "$PATCH_FILE" && printf true || printf false)"
 printf 'max512_marker=%s\n' "$MAX512_MARKER"
+printf 'max512_formal_mode=hidden_per_run_isolated_512\n'
+printf 'max512_required_execution_isolation=per_run_force_stop\n'
+printf 'sequential_512_rollback=true\n'
+printf 'activity_restart_only_512_rollback=true\n'
 printf 'patch_has_max512_marker=%s\n' "$(grep -q "$MAX512_MARKER" "$PATCH_FILE" && printf true || printf false)"
 printf 'patch_has_native_limit_512=%s\n' "$(grep -q 'native_max_output_tokens_limit=512' "$PATCH_FILE" && printf true || printf false)"
 printf 'patch_has_set_max_output_tokens_512=%s\n' "$(grep -q 'SetMaxOutputTokens(512)' "$PATCH_FILE" && printf true || printf false)"
@@ -135,7 +141,7 @@ if [ "$REQUIRE_MAX512" = true ]; then
   fi
   if [ "$EVIDENCE_ONLY" = true ]; then
     printf 'status=max512_evidence_present\n'
-    printf 'next=preflight_only_or_separately_approved_runtime_gate\n'
+    printf 'next=preflight_only_or_hidden_per_run_isolated_512_gate\n'
     exit 0
   fi
 fi

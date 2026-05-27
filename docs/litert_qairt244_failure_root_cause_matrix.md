@@ -1,5 +1,17 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: max_output_tokens=512 per-run isolated formalized
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 gate | `artifacts/qairt244_npu_512_per_run_isolated_formalization/20260527_215325/` | Sequential 512 and Activity-restart-only 512 reproduce the Python code timeout, while force-stop between prompts succeeds. The active failure class is therefore sequential/lifecycle resource inheritance, not max512 native guard rejection. | Formalize 512 only as `hidden_per_run_isolated_512`; keep sequential and Activity-restart-only rollback; keep 256 candidate and block 1024+. |
+
+The formal gate requires force-stop before/after each prompt, native max512
+evidence, QNN/HTP/FastRPC evidence, cleanup/`Engine.close`, no timeout/crash
+fallback, no retained process after 10 seconds, code-aware sanitizer with
+indentation/fence checks, selectedPath not saved, assistant-list insertion
+false, and DB/TTS/Markdown/streaming false.
+
 ## 2026-05-27: max_output_tokens=512 Activity restart only remains insufficient
 
 | Area | Evidence | Root cause | Decision |

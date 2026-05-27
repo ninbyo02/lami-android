@@ -1,5 +1,21 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Per-Run Isolated Formalization - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_formalization/20260527_215325/`
+
+512 is now formalized only as hidden `mode=hidden_per_run_isolated_512`.
+Sequential 512 and Activity-restart-only 512 remain rollback paths. The mode
+requires force-stop before/after each prompt and a full hidden safety/code
+display evidence set; it is not a ChatScreen operating mode.
+
+ChatScreen plan impact: no normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming, selectedPath=NPU persistence,
+release behavior, or standard behavior change. 256 remains the hidden
+experimental baseline candidate, H1 remains 128-only, and 1024+ remains
+blocked.
+
 ## Max512 Activity Restart Only Comparison - 2026-05-27
 
 Artifact:

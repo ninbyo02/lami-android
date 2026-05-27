@@ -1,5 +1,21 @@
 # QAIRT244 NPU Phase H1 Transient UI Surface
 
+## Max Output Tokens 512 Per-Run Isolated Formalization - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_formalization/20260527_215325/`
+
+The formalized 512 mode is hidden-only `hidden_per_run_isolated_512`. It does
+not change H1 input eligibility. Sequential 512 and Activity-restart-only 512
+are rollback modes, and the force-stop passing artifact is not a normal UI
+contract.
+
+H1 impact: no change. The H1 transient surface remains pinned to
+`sanitizer_only + max_output_tokens=128`; 512 output must not feed the
+transient card, Compose adapter, PreviewHost, normal ChatScreen, assistant
+message list, DB, TTS, Markdown renderer, streaming, or selected-path
+persistence.
+
 ## Max Output Tokens 512 Per-Run Isolated Gate - 2026-05-27
 
 Artifact:

@@ -1,0 +1,20 @@
+# grep safety
+
+additional_npu_execution=false
+native_change=false
+qairt_rebuild=false
+mode=hidden_per_run_isolated_512
+execution_isolation=per_run_force_stop
+sequential_512_rollback=true
+activity_restart_only_512_rollback=true
+normal_chat_screen_connected=false
+assistant_message_list_inserted=false
+db=false
+tts=false
+markdown=false
+streaming=false
+selected_path_npu_saved=false
+max_output_tokens_over_512=false
+1024_blocked=true
+2048_blocked=true
+4096_blocked=true

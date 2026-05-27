@@ -9,6 +9,41 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Per-Run Isolated Formalization - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_formalization/20260527_215325/`
+
+Scope: runner/gate/docs/tests formalization only. No additional NPU execution,
+sequential 512 rerun, Activity-restart rerun, native change, QAIRT rebuild,
+ChatScreen promotion, assistant-list insertion, DB, TTS, Markdown renderer,
+streaming, selectedPath=NPU persistence, release behavior, or standard
+behavior change was performed.
+
+Formal mode matrix:
+
+- `hidden_experimental_256`: maintained as the hidden experimental baseline
+  candidate.
+- `hidden_per_run_isolated_512`: the only accepted 512 hidden candidate mode.
+  It requires force-stop before and after each prompt, `max_output_tokens=512`,
+  `RunDecode` and `SetMaxOutputTokens(512)` evidence, `timeout=false`,
+  `fresh_crash=false`, `fallback_used=false`,
+  `QNN_HTP_V79_FastRPC_native_diag`, `Engine.close=unique_ptr_cleanup`,
+  cleanup evidence, no retained process after 10 seconds, code-aware sanitizer,
+  preserved indentation, completed/closed code fence, `selectedPathSaved=false`,
+  assistant-list insertion false, and DB/TTS/Markdown/streaming false.
+
+Rollback remains mandatory for sequential 512, Activity-restart-only 512,
+timeout, missing cleanup, retained memory/process, broken indentation,
+incomplete fence, fresh crash, fallback, selectedPath persistence,
+assistant-list insertion, or DB/TTS/Markdown/streaming ingress.
+
+Decision: 512 is formalized as hidden-only `mode=hidden_per_run_isolated_512`.
+It is not a sequential baseline, not Activity-restart-only baseline, not H1,
+not normal ChatScreen, not standard/release behavior, and not a path to
+1024/2048/4096. H1 remains pinned to
+`sanitizer_only + max_output_tokens=128`.
+
 ## Max512 Activity Restart Only Comparison - 2026-05-27
 
 Artifact:

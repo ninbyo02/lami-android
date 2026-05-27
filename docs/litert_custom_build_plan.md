@@ -1,5 +1,20 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Per-Run Isolated Formalization - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_formalization/20260527_215325/`
+
+This is runner/gate/docs/tests formalization only. It does not rebuild
+LiteRT-LM/QAIRT, change the native max512 guard, change staged JNI libraries,
+or run NPU again.
+
+Build plan decision: the existing max512 artifact is sufficient only for
+hidden `mode=hidden_per_run_isolated_512` review. Sequential 512 and
+Activity-restart-only 512 remain rollback modes. Do not expand the native
+guard to 1024/2048/4096 and do not move 512 into standard/release or normal
+ChatScreen behavior.
+
 ## QAIRT244 Max512 Activity Restart Only Comparison - 2026-05-27
 
 Artifact:

@@ -13,6 +13,8 @@ DEVICE_SERIAL=""
 TIMEOUT_SECONDS=60
 TEMPLATE_MODE="gemma_it_like"
 MAX_OUTPUT_TOKENS=512
+EXPERIMENTAL_MODE="hidden_per_run_isolated_512"
+EXECUTION_ISOLATION="per_run_force_stop"
 MAX512_GUARD_MARKER="qairt244_editable_prompt_max512_v1"
 NATIVE_ARTIFACT="${QAIRT244_MAX512_NATIVE_ARTIFACT:-}"
 PREFLIGHT_ONLY=false
@@ -65,6 +67,7 @@ The runner writes artifacts/qairt244_npu_max_output_512_force_stop_between_promp
 
 Safety constraints:
   - max_output_tokens is capped at 512 by this runner.
+  - mode is hidden_per_run_isolated_512.
   - exactly three approved prompts are executed once each.
   - the app is force-stopped before and after each prompt.
   - DB/TTS/Markdown/streaming and selectedPath persistence remain disconnected.
@@ -410,6 +413,9 @@ run_prompt_512() {
     printf 'case_id=max_output_tokens_512\n'
     printf 'prompt=%s\n' "$prompt"
     printf 'requested_max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+    printf 'experimental_mode=%s\n' "$EXPERIMENTAL_MODE"
+    printf 'mode=%s\n' "$EXPERIMENTAL_MODE"
+    printf 'execution_isolation=%s\n' "$EXECUTION_ISOLATION"
     printf 'template_mode=%s\n' "$TEMPLATE_MODE"
     printf 'timeout_seconds=%s\n' "$TIMEOUT_SECONDS"
     printf 'sanitizer_mode=sanitizer_only\n'
@@ -542,6 +548,10 @@ run_prompt_512() {
     printf 'sanitizer_applied=%s\n' "$(case_value sanitizer_applied "$run_dir")"
     printf 'force_stop_before=true\n'
     printf 'force_stop_after=true\n'
+    printf 'mode=%s\n' "$EXPERIMENTAL_MODE"
+    printf 'execution_isolation=%s\n' "$EXECUTION_ISOLATION"
+    printf 'sequential_512_rollback=true\n'
+    printf 'activity_restart_only_512_rollback=true\n'
     printf 'fresh_process_mode=force_stop_before_after_prompt\n'
     printf 'removed_template_token_count=%s\n' "$(case_value removed_template_token_count "$run_dir")"
     printf 'removed_prompt_echo=%s\n' "$(case_value removed_prompt_echo "$run_dir")"
@@ -681,6 +691,8 @@ write_grep_safety() {
     printf 'package_target=%s\n' "$APP_ID"
     printf 'receiver=%s\n' "$RECEIVER"
     printf 'max_output_tokens=512\n'
+    printf 'mode=hidden_per_run_isolated_512\n'
+    printf 'execution_isolation=per_run_force_stop\n'
     printf 'max_output_tokens_compare_enabled=true\n\n'
     rg -n "allow_max_output_tokens_compare|QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT|max_output_tokens|selectedPath.*npu|selected_path_npu|tts=true|markdown=true|streaming=true|db=true|generateResponse|assistant_message_list|standard_route_connected" \
       scripts/run_qairt244_npu_max_output_512_force_stop_between_prompts.sh app/src/debug/java app/src/main/java app/src/customBuildExperimentDebug 2>&1 || true
@@ -695,6 +707,9 @@ write_grep_safety() {
     printf 'selected_path_npu_saved_by_runner=false\n'
     printf 'max_output_tokens_over_512=false\n'
     printf 'code_aware_sanitizer_required=true\n'
+    printf 'hidden_per_run_isolated_512=true\n'
+    printf 'sequential_512_rollback=true\n'
+    printf 'activity_restart_only_512_rollback=true\n'
     printf 'force_stop_between_prompts=true\n'
     printf 'raw_output_ui_display=false\n'
   } >"$OUT_DIR/grep_safety.txt"
@@ -725,6 +740,10 @@ collect_max512_preflight_evidence() {
     printf 'mode=%s\n' "$([ "$PREFLIGHT_ONLY" = true ] && printf preflight-only || printf execution-guard)"
     printf 'native_artifact=%s\n' "${NATIVE_ARTIFACT:-none}"
     printf 'required_marker=%s\n' "$MAX512_GUARD_MARKER"
+    printf 'required_mode=hidden_per_run_isolated_512\n'
+    printf 'required_execution_isolation=per_run_force_stop\n'
+    printf 'sequential_512_rollback=true\n'
+    printf 'activity_restart_only_512_rollback=true\n'
     printf 'required_native_limit=native_max_output_tokens_limit=512\n'
     printf 'required_decode_setter=SetMaxOutputTokens(512)\n'
     printf 'required_sm8750_selection=true\n'
@@ -796,6 +815,8 @@ write_max512_preflight_summary() {
     printf -- '- artifact: `%s`\n' "${PREFLIGHT_DIR#$ROOT_DIR/}"
     printf -- '- native_artifact: `%s`\n' "${NATIVE_ARTIFACT:-none}"
     printf -- '- requested_max_output_tokens: `%s`\n' "$MAX_OUTPUT_TOKENS"
+    printf -- '- required_mode: `hidden_per_run_isolated_512`\n'
+    printf -- '- required_execution_isolation: `per_run_force_stop`\n'
     printf -- '- guard_status: `%s`\n' "$guard_status"
     printf -- '- npu_run_executed: `false`\n'
     printf -- '- run_decode_executed: `false`\n'
@@ -824,6 +845,10 @@ write_max512_preflight_summary() {
     printf 'guard_status=%s\n' "$guard_status"
     printf 'npu_run_executed=false\n'
     printf 'run_decode_executed=false\n'
+    printf 'required_mode=hidden_per_run_isolated_512\n'
+    printf 'required_execution_isolation=per_run_force_stop\n'
+    printf 'sequential_512_rollback=true\n'
+    printf 'activity_restart_only_512_rollback=true\n'
   } >"$PREFLIGHT_DIR/marker.txt"
 }
 
@@ -900,6 +925,7 @@ write_summary() {
     printf -- '- receiver: `%s`\n' "$RECEIVER"
     printf -- '- timeout_seconds_per_run: `%s`\n' "$TIMEOUT_SECONDS"
     printf -- '- template_mode: `%s`\n' "$TEMPLATE_MODE"
+    printf -- '- mode: `%s`\n' "$EXPERIMENTAL_MODE"
     printf -- '- executable_case: `sanitizer_only + max_output_tokens=512`\n'
     printf -- '- sanitizer: `code-aware indentation/fence preservation`\n'
     printf -- '- run_count_policy: `three approved prompts, one run per prompt only`\n'
@@ -914,6 +940,8 @@ write_summary() {
     printf '\n## Safety Notes\n\n'
     printf -- '- 128 remains the adopted hidden experimental H1 display baseline unless 512 is separately accepted after this artifact review.\n'
     printf -- '- The 512 run is hidden experimental compare-only and requires explicit `allow_max_output_tokens_compare=true`.\n'
+    printf -- '- The only accepted 512 mode from this runner is `hidden_per_run_isolated_512`.\n'
+    printf -- '- Sequential 512 and Activity-restart-only 512 remain rollback modes.\n'
     printf -- '- The app is force-stopped before and after each prompt to test per-run isolated mode.\n'
     printf -- '- The runner does not connect standard route, normal ChatScreen assistant list, DB, TTS, Markdown, or streaming.\n'
     printf -- '- The runner does not perform retry, fallback, or multiple unbounded generations.\n'
@@ -930,7 +958,10 @@ write_three_prompt_notes() {
     printf 'prompt_2=Pythonで簡単な電卓コードを書いて\n'
     printf 'prompt_3=ラミィのNPU推論について短く説明して\n'
     printf 'max_output_tokens=512\n'
+    printf 'mode=hidden_per_run_isolated_512\n'
     printf 'execution_isolation=force_stop_before_after_each_prompt\n'
+    printf 'sequential_512_rollback=true\n'
+    printf 'activity_restart_only_512_rollback=true\n'
     printf 'timeout_seconds_per_run=%s\n' "$TIMEOUT_SECONDS"
     printf 'build_artifact=%s\n' "$NATIVE_ARTIFACT"
     printf 'installed_liblitertlm_jni_sha256=7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105\n'

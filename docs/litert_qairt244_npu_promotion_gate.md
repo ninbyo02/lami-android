@@ -1,5 +1,30 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 512 Per-Run Isolated Formalization - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_formalization/20260527_215325/`
+
+Gate status: formalized for hidden-only operation. The gate now distinguishes
+`hidden_experimental_256` from `hidden_per_run_isolated_512`. It does not
+promote 512 to H1, normal ChatScreen, release behavior, or standard behavior.
+
+`hidden_per_run_isolated_512` is accepted only when all required evidence is
+present: force-stop before/after each prompt, `max_output_tokens=512`,
+`RunDecode` reached, `SetMaxOutputTokens(512)` evidence, `timeout=false`,
+`fresh_crash=false`, `fallback_used=false`, QNN/HTP/FastRPC evidence,
+`Engine.close=unique_ptr_cleanup`, cleanup evidence, no retained process or
+high retained memory after 10 seconds, code-aware sanitizer, preserved code
+indentation, completed/closed code fence, selectedPath not saved, no assistant
+message-list insertion, and DB/TTS/Markdown/streaming false.
+
+Explicit rollback modes: sequential 512 and Activity-restart-only 512. Both
+are rejected even though the native max512 guard exists. The passing force-stop
+artifact is scoped to per-run isolated hidden operation only.
+
+Promotion decision: 256 remains the hidden experimental baseline candidate,
+H1 remains pinned to 128, and 1024/2048/4096 remain blocked.
+
 ## Max Output Tokens 512 Activity Restart Only Comparison - 2026-05-27
 
 Artifact:
