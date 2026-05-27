@@ -9,6 +9,32 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Dispatch Process Disappearance Review - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_dispatch_process_death_review/20260528_061808/`
+
+Scope: artifact/log/dumpsys/runner review only. No additional NPU execution,
+512 rerun, native change, QAIRT/LiteRT-LM rebuild, ChatScreen promotion,
+assistant-list insertion, DB, TTS, Markdown renderer, streaming, selectedPath
+persistence, standard/release behavior, or 1024+ expansion was performed.
+
+Finding: prompt 2 was process-present before dispatch (`pid=17226`) and
+process-absent at the first post-broadcast snapshot. The broadcast itself
+completed with `result=0`, the receiver wrote started state, and native
+diagnostics reached `before RunDecode SetMaxOutputTokens(512)`. No completed
+result, cleanup, `Engine.close`, raw output, sanitized output, explicit
+runner stop, Activity restart, framework rejection, fatal exception,
+tombstone, ANR, or explicit LMK line was found.
+
+Classification: primary `broadcast_receiver_native_worker_process_exit`.
+The next single fix candidate is hidden-only receiver/native-worker terminal
+instrumentation around `DevOnlyNpuChatScreenBlockedBranch.runForChatScreen`.
+512 sequential remains incomplete and non-baseline; 512 remains
+`hidden_per_run_isolated_512` candidate only; 256 remains the hidden
+experimental baseline candidate; H1 remains pinned to 128; 1024/2048/4096
+remain blocked.
+
 ## Max512 Instrumented Sequential Soft-Reset Runtime - 2026-05-28
 
 Artifact:

@@ -1,5 +1,18 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-28: max_output_tokens=512 dispatch process disappearance review
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden broadcast/native worker process exit | `artifacts/qairt244_npu_512_dispatch_process_death_review/20260528_061808/` | `am broadcast` completed with `result=0`; the receiver wrote started state and native diag through `before RunDecode SetMaxOutputTokens(512)`. The process was present before dispatch and absent by the first post-broadcast snapshot. No runner stop, Activity restart, broadcast rejection, stale/mismatch, visible fatal exception, tombstone, ANR, or explicit LMK line was found. | Classify primary `broadcast_receiver_native_worker_process_exit`. Next fix should add debug-only receiver/native-worker terminal markers around `runForChatScreen` before any new NPU rerun. |
+
+This refines the active 512 sequential blocker: the post-dispatch process
+loss is inside the receiver/native worker window, not a runner-side stop.
+512 sequential remains incomplete and non-baseline, 512 per-run isolated
+remains the only 512 candidate mode, 256 remains the hidden experimental
+baseline candidate, H1 remains pinned to 128, and 1024/2048/4096 remain
+blocked.
+
 ## 2026-05-28: max_output_tokens=512 instrumented sequential runtime
 
 | Area | Evidence | Root cause | Decision |

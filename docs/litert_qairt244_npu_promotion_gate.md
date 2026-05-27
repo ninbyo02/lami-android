@@ -1,5 +1,25 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max512 Dispatch Process Disappearance Review - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_dispatch_process_death_review/20260528_061808/`
+
+Gate status: review-only. No additional NPU execution, native work, QAIRT
+rebuild, or promotion was performed.
+
+The dispatch-triggered process loss is classified as
+`broadcast_receiver_native_worker_process_exit`. Prompt 2 was accepted by
+`am broadcast`, wrote started state, and reached native
+`SetMaxOutputTokens(512)` pre-RunDecode evidence, but the app process was
+absent by the first post-broadcast snapshot and no terminal cleanup/result was
+written. This keeps `PROCESS_DISAPPEARED_SUSPECT` as a hard sequential stop.
+
+Promotion decision: unchanged. 512 sequential is incomplete and non-baseline.
+512 remains `hidden_per_run_isolated_512` candidate only, 256 remains the
+hidden experimental baseline candidate, H1 remains pinned to 128, and
+1024/2048/4096 remain blocked.
+
 ## Max512 Instrumented Sequential Soft-Reset Runtime - 2026-05-28
 
 Artifact:

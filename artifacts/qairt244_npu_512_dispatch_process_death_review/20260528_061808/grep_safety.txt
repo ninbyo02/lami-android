@@ -1,0 +1,19 @@
+# grep safety
+
+additional_npu_execution=false
+rerun_512=false
+native_changed=false
+qairt_rebuild=false
+chat_screen_promotion=false
+assistant_message_list_inserted=false
+db=false
+tts=false
+markdown=false
+streaming=false
+selected_path_npu_saved=false
+release_standard_changed=false
+max_output_tokens_over_512=false
+
+reviewed_source_artifact=artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime_instrumented/20260528_052237/
+classification=broadcast_receiver_native_worker_process_exit
+next_fix=receiver_native_worker_terminal_instrumentation

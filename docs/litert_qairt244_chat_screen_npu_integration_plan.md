@@ -1,5 +1,24 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Dispatch Process Disappearance Review - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_dispatch_process_death_review/20260528_061808/`
+
+This review does not change ChatScreen wiring. Prompt 2 process loss occurred
+inside the hidden broadcast receiver/native-worker window after broadcast
+acceptance and before terminal result/cleanup.
+
+ChatScreen impact: none. The failure remains hidden diagnostic evidence only.
+It cannot insert assistant messages, persist selectedPath=NPU, enter DB/TTS/
+Markdown/streaming, or promote normal ChatScreen. The next safe implementation
+candidate is debug-only receiver-worker terminal instrumentation, not UI
+streaming or normal route connection.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated candidate only while sequential support is
+incomplete, and 1024+ remains blocked.
+
 ## Max512 Instrumented Sequential Soft-Reset Runtime - 2026-05-28
 
 Artifact:
