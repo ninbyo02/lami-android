@@ -28,8 +28,8 @@ calls adb, RunDecode, native code, QAIRT rebuilds, force-stop, or Activity resta
 The future runtime rule being modeled:
   - each prompt must have a unique runId and isolated state/result/native_diag/cleanup files
   - the lifecycle summary is regenerated after every prompt
-  - only SUCCESS_CLEAN with reuse_allowed=true and hidden_per_run_isolated_required=false may continue
-  - TIMEOUT_SUSPECT, CLEANUP_MISSING_SUSPECT, stale result, runId mismatch, or reuse_allowed=false stops immediately
+  - only SUCCESS_CLEAN with next_prompt_allowed=true and runtime_reuse_policy=reuse_allowed may continue
+  - suspect/stale/mismatch/non-success-clean classifications stop immediately and require isolated runtime reuse
 EOF
 }
 
@@ -102,6 +102,7 @@ sequence_stop_reason() {
   local stale="$4"
   local mismatch="$5"
   local expected_run_id="$6"
+  local next_prompt_allowed="${7:-unavailable}"
   if [ -z "$expected_run_id" ] || [ "$expected_run_id" = unavailable ]; then
     printf 'run_id_missing'
   elif [ "$stale" = true ]; then
@@ -114,6 +115,8 @@ sequence_stop_reason() {
     printf 'cleanup_missing_suspect'
   elif [ "$classification" != SUCCESS_CLEAN ]; then
     printf 'non_success_clean_classification'
+  elif [ "$next_prompt_allowed" != true ]; then
+    printf 'next_prompt_not_allowed'
   elif [ "$reuse" != true ]; then
     printf 'reuse_not_allowed'
   elif [ "$per_run_required" = true ]; then
@@ -130,26 +133,28 @@ append_sequence_case() {
   local run_dir="$4"
   local execution_isolation="$5"
   local summary_file="$6"
-  local classification reuse per_run_required stale mismatch expected cleanup engine_close reason can_continue
+  local classification reuse next_prompt_allowed runtime_reuse_policy per_run_required stale mismatch expected cleanup engine_close reason can_continue
 
   write_lifecycle_summary "$run_dir" "$execution_isolation" "$summary_file"
   classification="$(summary_value lifecycle_classification "$summary_file")"
   reuse="$(summary_value reuse_allowed "$summary_file")"
+  next_prompt_allowed="$(summary_value next_prompt_allowed "$summary_file")"
+  runtime_reuse_policy="$(summary_value runtime_reuse_policy "$summary_file")"
   per_run_required="$(summary_value hidden_per_run_isolated_required "$summary_file")"
   stale="$(summary_value stale_result_rejected "$summary_file")"
   mismatch="$(summary_value run_id_mismatch_rejected "$summary_file")"
   expected="$(summary_value expected_run_id "$summary_file")"
   cleanup="$(summary_value cleanup_elapsed_ms "$summary_file")"
   engine_close="$(summary_value engine_close_evidence "$summary_file")"
-  reason="$(sequence_stop_reason "$classification" "$reuse" "$per_run_required" "$stale" "$mismatch" "$expected")"
+  reason="$(sequence_stop_reason "$classification" "$reuse" "$per_run_required" "$stale" "$mismatch" "$expected" "$next_prompt_allowed")"
   if [ "$reason" = ok ]; then
     can_continue=true
   else
     can_continue=false
   fi
 
-  printf '| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | `%s` |\n' \
-    "$suite" "$prompt_index" "$prompt_label" "$classification" "$reuse" "$per_run_required" \
+  printf '| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | `%s` |\n' \
+    "$suite" "$prompt_index" "$prompt_label" "$classification" "$reuse" "$next_prompt_allowed" "$runtime_reuse_policy" "$per_run_required" \
     "$cleanup" "$engine_close" "$can_continue" "$reason" "${run_dir#$ROOT_DIR/}" >>"$TABLE_FILE"
 
   printf '%s\n' "$can_continue"
@@ -174,7 +179,7 @@ simulate_sequence() {
   printf '| 1 | %s | %s | %s | %s |\n' "$PROMPT_1" \
     "$(summary_value lifecycle_classification "$OUT_DIR/work/${suite}_1.txt")" \
     "$c1" \
-    "$(sequence_stop_reason "$(summary_value lifecycle_classification "$OUT_DIR/work/${suite}_1.txt")" "$(summary_value reuse_allowed "$OUT_DIR/work/${suite}_1.txt")" "$(summary_value hidden_per_run_isolated_required "$OUT_DIR/work/${suite}_1.txt")" "$(summary_value stale_result_rejected "$OUT_DIR/work/${suite}_1.txt")" "$(summary_value run_id_mismatch_rejected "$OUT_DIR/work/${suite}_1.txt")" "$(summary_value expected_run_id "$OUT_DIR/work/${suite}_1.txt")")" >>"$result_file"
+    "$(sequence_stop_reason "$(summary_value lifecycle_classification "$OUT_DIR/work/${suite}_1.txt")" "$(summary_value reuse_allowed "$OUT_DIR/work/${suite}_1.txt")" "$(summary_value hidden_per_run_isolated_required "$OUT_DIR/work/${suite}_1.txt")" "$(summary_value stale_result_rejected "$OUT_DIR/work/${suite}_1.txt")" "$(summary_value run_id_mismatch_rejected "$OUT_DIR/work/${suite}_1.txt")" "$(summary_value expected_run_id "$OUT_DIR/work/${suite}_1.txt")" "$(summary_value next_prompt_allowed "$OUT_DIR/work/${suite}_1.txt")")" >>"$result_file"
   if [ "$c1" != true ]; then
     printf 'sequence_result=stopped_at_prompt_1\n' >>"$result_file"
     return 0
@@ -184,7 +189,7 @@ simulate_sequence() {
   printf '| 2 | %s | %s | %s | %s |\n' "$PROMPT_2" \
     "$(summary_value lifecycle_classification "$OUT_DIR/work/${suite}_2.txt")" \
     "$c2" \
-    "$(sequence_stop_reason "$(summary_value lifecycle_classification "$OUT_DIR/work/${suite}_2.txt")" "$(summary_value reuse_allowed "$OUT_DIR/work/${suite}_2.txt")" "$(summary_value hidden_per_run_isolated_required "$OUT_DIR/work/${suite}_2.txt")" "$(summary_value stale_result_rejected "$OUT_DIR/work/${suite}_2.txt")" "$(summary_value run_id_mismatch_rejected "$OUT_DIR/work/${suite}_2.txt")" "$(summary_value expected_run_id "$OUT_DIR/work/${suite}_2.txt")")" >>"$result_file"
+    "$(sequence_stop_reason "$(summary_value lifecycle_classification "$OUT_DIR/work/${suite}_2.txt")" "$(summary_value reuse_allowed "$OUT_DIR/work/${suite}_2.txt")" "$(summary_value hidden_per_run_isolated_required "$OUT_DIR/work/${suite}_2.txt")" "$(summary_value stale_result_rejected "$OUT_DIR/work/${suite}_2.txt")" "$(summary_value run_id_mismatch_rejected "$OUT_DIR/work/${suite}_2.txt")" "$(summary_value expected_run_id "$OUT_DIR/work/${suite}_2.txt")" "$(summary_value next_prompt_allowed "$OUT_DIR/work/${suite}_2.txt")")" >>"$result_file"
   if [ "$c2" != true ]; then
     printf 'sequence_result=stopped_at_prompt_2\n' >>"$result_file"
     return 0
@@ -194,7 +199,7 @@ simulate_sequence() {
   printf '| 3 | %s | %s | %s | %s |\n' "$PROMPT_3" \
     "$(summary_value lifecycle_classification "$OUT_DIR/work/${suite}_3.txt")" \
     "$c3" \
-    "$(sequence_stop_reason "$(summary_value lifecycle_classification "$OUT_DIR/work/${suite}_3.txt")" "$(summary_value reuse_allowed "$OUT_DIR/work/${suite}_3.txt")" "$(summary_value hidden_per_run_isolated_required "$OUT_DIR/work/${suite}_3.txt")" "$(summary_value stale_result_rejected "$OUT_DIR/work/${suite}_3.txt")" "$(summary_value run_id_mismatch_rejected "$OUT_DIR/work/${suite}_3.txt")" "$(summary_value expected_run_id "$OUT_DIR/work/${suite}_3.txt")")" >>"$result_file"
+    "$(sequence_stop_reason "$(summary_value lifecycle_classification "$OUT_DIR/work/${suite}_3.txt")" "$(summary_value reuse_allowed "$OUT_DIR/work/${suite}_3.txt")" "$(summary_value hidden_per_run_isolated_required "$OUT_DIR/work/${suite}_3.txt")" "$(summary_value stale_result_rejected "$OUT_DIR/work/${suite}_3.txt")" "$(summary_value run_id_mismatch_rejected "$OUT_DIR/work/${suite}_3.txt")" "$(summary_value expected_run_id "$OUT_DIR/work/${suite}_3.txt")" "$(summary_value next_prompt_allowed "$OUT_DIR/work/${suite}_3.txt")")" >>"$result_file"
   if [ "$c3" != true ]; then
     printf 'sequence_result=stopped_at_prompt_3\n' >>"$result_file"
   else
@@ -204,8 +209,8 @@ simulate_sequence() {
 
 {
   printf '# Preflight Simulation\n\n'
-  printf '| suite | prompt_index | prompt | lifecycle_classification | reuse_allowed | hidden_per_run_isolated_required | cleanup_elapsed_ms | engine_close_evidence | sequence_can_continue_after_prompt | stop_reason | source_run_dir |\n'
-  printf '|---|---|---|---|---|---|---|---|---|---|---|\n'
+  printf '| suite | prompt_index | prompt | lifecycle_classification | reuse_allowed | next_prompt_allowed | runtime_reuse_policy | hidden_per_run_isolated_required | cleanup_elapsed_ms | engine_close_evidence | sequence_can_continue_after_prompt | stop_reason | source_run_dir |\n'
+  printf '|---|---|---|---|---|---|---|---|---|---|---|---|---|\n'
 } >"$TABLE_FILE"
 
 simulate_sequence baseline_256_clean hidden_experimental_256 \
@@ -240,10 +245,10 @@ cat >"$OUT_DIR/soft_reset_runner_spec.md" <<EOF
 - unique runId required per prompt
 - state/result/native_diag/cleanup paths must be runId-scoped and must not read previous results
 - lifecycle summary must be regenerated after each prompt
-- only lifecycle_classification=SUCCESS_CLEAN may continue
+- only lifecycle_classification=SUCCESS_CLEAN with next_prompt_allowed=true may continue
 - cleanup_elapsed_ms and Engine.close=unique_ptr_cleanup are required
 - stale result or runId mismatch rejects the run
-- suspect_session, reuse_allowed=false, or hidden_per_run_isolated_required=true stops the sequence
+- suspect_session, next_prompt_allowed=false, reuse_allowed=false, or hidden_per_run_isolated_required=true stops the sequence
 - this script is preflight-only and does not execute NPU
 EOF
 
@@ -252,12 +257,15 @@ cat >"$OUT_DIR/sequence_gate_matrix.md" <<'EOF'
 
 | condition | sequence action |
 |---|---|
-| lifecycle_classification=SUCCESS_CLEAN and reuse_allowed=true and hidden_per_run_isolated_required=false | continue |
+| lifecycle_classification=SUCCESS_CLEAN and next_prompt_allowed=true and runtime_reuse_policy=reuse_allowed | continue |
+| lifecycle_classification=FAILURE_CLEAN | stop immediately |
 | TIMEOUT_SUSPECT | stop immediately |
 | CLEANUP_MISSING_SUSPECT | stop immediately |
 | STALE_RESULT_REJECTED | stop immediately |
 | RUN_ID_MISMATCH_REJECTED | stop immediately |
 | reuse_allowed=false | stop immediately |
+| next_prompt_allowed=false | stop immediately |
+| runtime_reuse_policy=per_run_isolated_required | stop immediately |
 | hidden_per_run_isolated_required=true | stop immediately |
 | cleanup_elapsed_ms=missing | stop immediately |
 | engine_close_evidence=false | stop immediately |

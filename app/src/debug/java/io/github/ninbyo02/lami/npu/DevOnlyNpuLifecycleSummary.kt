@@ -4,6 +4,12 @@ data class DevOnlyNpuLifecycleSummary(
     val lifecycleClassification: DevOnlyNpuLifecycleClassification,
     val acceptsCurrentRun: Boolean,
     val reuseAllowed: Boolean,
+    val nextPromptAllowed: Boolean = reuseAllowed,
+    val runtimeReusePolicy: String = if (nextPromptAllowed) {
+        "reuse_allowed"
+    } else {
+        "per_run_isolated_required"
+    },
     val suspectSession: Boolean,
     val perRunIsolatedRequired: Boolean,
     val expectedRunId: String,
@@ -18,6 +24,8 @@ data class DevOnlyNpuLifecycleSummary(
         "lifecycle_classification" to lifecycleClassification.name,
         "accepts_current_run" to acceptsCurrentRun.toString(),
         "reuse_allowed" to reuseAllowed.toString(),
+        "next_prompt_allowed" to nextPromptAllowed.toString(),
+        "runtime_reuse_policy" to runtimeReusePolicy,
         "suspect_session" to suspectSession.toString(),
         "per_run_isolated_required" to perRunIsolatedRequired.toString(),
         "hidden_per_run_isolated_required" to perRunIsolatedRequired.toString(),
@@ -39,6 +47,8 @@ object DevOnlyNpuLifecycleSummaryBuilder {
             lifecycleClassification = classification,
             acceptsCurrentRun = result.decision.acceptsCurrentRun,
             reuseAllowed = result.decision.sessionReuseAllowed,
+            nextPromptAllowed = result.decision.nextPromptAllowed,
+            runtimeReusePolicy = result.decision.runtimeReusePolicy,
             suspectSession = classification == DevOnlyNpuLifecycleClassification.TIMEOUT_SUSPECT ||
                 classification == DevOnlyNpuLifecycleClassification.CLEANUP_MISSING_SUSPECT,
             perRunIsolatedRequired = result.decision.perRunIsolatedRequired,

@@ -70,29 +70,32 @@ object DevOnlyNpuSequentialSoftResetGate {
         if (summary.runIdMismatchRejected) {
             return DevOnlyNpuSequentialSoftResetGateReason.RUN_ID_MISMATCH_REJECTED
         }
-        if (summary.lifecycleClassification == DevOnlyNpuLifecycleClassification.TIMEOUT_SUSPECT) {
-            return DevOnlyNpuSequentialSoftResetGateReason.TIMEOUT_SUSPECT
-        }
-        if (summary.lifecycleClassification == DevOnlyNpuLifecycleClassification.CLEANUP_MISSING_SUSPECT) {
-            return DevOnlyNpuSequentialSoftResetGateReason.CLEANUP_MISSING_SUSPECT
-        }
-        if (summary.lifecycleClassification != DevOnlyNpuLifecycleClassification.SUCCESS_CLEAN) {
-            return DevOnlyNpuSequentialSoftResetGateReason.NON_SUCCESS_CLEAN_CLASSIFICATION
-        }
-        if (summary.suspectSession) {
-            return DevOnlyNpuSequentialSoftResetGateReason.SUSPECT_SESSION
-        }
-        if (!summary.acceptsCurrentRun) {
-            return DevOnlyNpuSequentialSoftResetGateReason.CURRENT_RUN_REJECTED
-        }
-        if (!summary.reuseAllowed) {
-            return DevOnlyNpuSequentialSoftResetGateReason.REUSE_NOT_ALLOWED
-        }
-        if (summary.perRunIsolatedRequired) {
-            return DevOnlyNpuSequentialSoftResetGateReason.PER_RUN_ISOLATED_REQUIRED
-        }
-        if (!summary.sideEffectsClear) {
-            return DevOnlyNpuSequentialSoftResetGateReason.SIDE_EFFECTS_NOT_CLEAR
+        val policy = DevOnlyNpuRuntimeReusePolicy.from(summary)
+        if (!policy.nextPromptAllowed) {
+            return when (policy.reason) {
+                DevOnlyNpuRuntimeReusePolicyReason.TIMEOUT_SUSPECT ->
+                    DevOnlyNpuSequentialSoftResetGateReason.TIMEOUT_SUSPECT
+                DevOnlyNpuRuntimeReusePolicyReason.CLEANUP_MISSING_SUSPECT ->
+                    DevOnlyNpuSequentialSoftResetGateReason.CLEANUP_MISSING_SUSPECT
+                DevOnlyNpuRuntimeReusePolicyReason.STALE_RESULT_REJECTED ->
+                    DevOnlyNpuSequentialSoftResetGateReason.STALE_RESULT_REJECTED
+                DevOnlyNpuRuntimeReusePolicyReason.RUN_ID_MISMATCH_REJECTED ->
+                    DevOnlyNpuSequentialSoftResetGateReason.RUN_ID_MISMATCH_REJECTED
+                DevOnlyNpuRuntimeReusePolicyReason.NON_SUCCESS_CLEAN_CLASSIFICATION ->
+                    DevOnlyNpuSequentialSoftResetGateReason.NON_SUCCESS_CLEAN_CLASSIFICATION
+                DevOnlyNpuRuntimeReusePolicyReason.SUSPECT_SESSION ->
+                    DevOnlyNpuSequentialSoftResetGateReason.SUSPECT_SESSION
+                DevOnlyNpuRuntimeReusePolicyReason.REUSE_NOT_ALLOWED ->
+                    DevOnlyNpuSequentialSoftResetGateReason.REUSE_NOT_ALLOWED
+                DevOnlyNpuRuntimeReusePolicyReason.PER_RUN_ISOLATED_REQUIRED ->
+                    DevOnlyNpuSequentialSoftResetGateReason.PER_RUN_ISOLATED_REQUIRED
+                DevOnlyNpuRuntimeReusePolicyReason.CURRENT_RUN_REJECTED ->
+                    DevOnlyNpuSequentialSoftResetGateReason.CURRENT_RUN_REJECTED
+                DevOnlyNpuRuntimeReusePolicyReason.SIDE_EFFECTS_NOT_CLEAR ->
+                    DevOnlyNpuSequentialSoftResetGateReason.SIDE_EFFECTS_NOT_CLEAR
+                DevOnlyNpuRuntimeReusePolicyReason.OK ->
+                    DevOnlyNpuSequentialSoftResetGateReason.OK
+            }
         }
         return DevOnlyNpuSequentialSoftResetGateReason.OK
     }

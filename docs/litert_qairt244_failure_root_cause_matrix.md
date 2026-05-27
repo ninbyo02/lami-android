@@ -1,5 +1,16 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-28: hidden NPU runtime reuse enforcement
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Runtime reuse policy | `artifacts/qairt244_hidden_npu_runtime_reuse_enforcement/20260528_034826/` | Lifecycle summaries existed, but runtime policy needed a formal next-prompt gate. `SUCCESS_CLEAN` is now the only state that allows sequential continuation; timeout, cleanup-missing, stale, mismatch, and non-success classifications block reuse. | Enforce `next_prompt_allowed=false` after suspect or rejected sessions and require hidden per-run isolation before any later hidden attempt. Keep 512 sequential rollback and keep 512 per-run isolated only. |
+
+This keeps the current root-cause ranking intact: sequential/resource
+inheritance remains the primary 512 risk, with callback and cleanup ambiguity
+guarded by runtime policy. H1 remains pinned to 128, 256 remains the hidden
+experimental baseline candidate, and 1024/2048/4096 remain blocked.
+
 ## 2026-05-28: max_output_tokens=512 sequential soft-reset preflight
 
 | Area | Evidence | Root cause | Decision |

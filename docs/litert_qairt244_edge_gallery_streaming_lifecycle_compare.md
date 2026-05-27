@@ -215,3 +215,31 @@ Policy mapping: timeout and missing cleanup are suspect; stale and mismatched
 artifacts are rejected; suspect/rejected outcomes set `reuse_allowed=false` and
 require hidden per-run isolated operation. This is artifact summary
 integration only and does not adopt Gallery streaming UI.
+
+## Runtime Reuse Enforcement - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_runtime_reuse_enforcement/20260528_034826/`
+
+The hidden lifecycle classification now has an explicit runtime reuse mapping:
+
+| Lifecycle classification | Runtime session state | `next_prompt_allowed` |
+| --- | --- | --- |
+| `SUCCESS_CLEAN` with side-effect flags clear | current run accepted; session reuse allowed | `true` |
+| `TIMEOUT_SUSPECT` | session suspect; do not reuse | `false` |
+| `CLEANUP_MISSING_SUSPECT` | session suspect; do not reuse | `false` |
+| `STALE_RESULT_REJECTED` | artifact rejected; do not reuse | `false` |
+| `RUN_ID_MISMATCH_REJECTED` | artifact rejected; do not reuse | `false` |
+
+`DevOnlyNpuRuntimeReusePolicy` exposes the wrapper decision as
+`next_prompt_allowed`. A later prompt can reuse the runtime only after a clean
+terminal result, run-id matched artifacts, cleanup timing, and
+`Engine.close=unique_ptr_cleanup` evidence. Any timeout, missing cleanup, stale
+result, or run-id mismatch keeps `next_prompt_allowed=false` and
+`hidden_per_run_isolated_required=true`.
+
+Policy remains unchanged: H1 stays pinned to
+`sanitizer_only + max_output_tokens=128`, 256 remains the hidden experimental
+baseline candidate, 512 remains `hidden_per_run_isolated_512` only, and 1024+
+remains blocked. This documentation and test pass did not execute NPU, run adb,
+change native code, rebuild, or promote normal ChatScreen behavior.

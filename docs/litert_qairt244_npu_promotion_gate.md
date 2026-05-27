@@ -1,5 +1,25 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Hidden NPU Runtime Reuse Enforcement - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_runtime_reuse_enforcement/20260528_034826/`
+
+Gate status: runtime policy, preflight enforcement, tests, and docs only. No
+NPU runtime, RunDecode, native change, or QAIRT rebuild was performed.
+
+Lifecycle classification now drives runtime reuse policy. `SUCCESS_CLEAN` is
+the only state that opens `next_prompt_allowed=true`. `TIMEOUT_SUSPECT`,
+`CLEANUP_MISSING_SUSPECT`, stale result rejection, run-id mismatch rejection,
+and other non-success classifications forbid sequential continuation. Suspect
+sessions set `reuse_allowed=false` and require hidden per-run isolation before
+any later hidden attempt.
+
+Promotion decision: unchanged. 512 remains hidden
+`hidden_per_run_isolated_512` only; sequential 512 and Activity-restart-only
+512 remain rollback. 256 remains the hidden experimental baseline candidate,
+H1 remains pinned to 128, and 1024/2048/4096 remain blocked.
+
 ## Max Output Tokens 512 Sequential Soft-Reset Preflight - 2026-05-28
 
 Artifact:

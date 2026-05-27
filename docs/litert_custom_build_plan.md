@@ -1,5 +1,19 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Hidden NPU Runtime Reuse Enforcement - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_runtime_reuse_enforcement/20260528_034826/`
+
+This phase adds app-side runtime reuse policy and preflight enforcement fields.
+It does not run NPU, invoke RunDecode, rebuild LiteRT-LM/QAIRT, change native
+guard code, change staged JNI libraries, or authorize max-output expansion.
+
+Build plan decision: no native work follows from this artifact. Suspect
+sessions and rejected artifacts now formally block sequential reuse and require
+the hidden per-run isolated path before any later hidden attempt. Keep 512
+hidden `hidden_per_run_isolated_512` only and keep 1024/2048/4096 blocked.
+
 ## QAIRT244 Max512 Sequential Soft-Reset Preflight - 2026-05-28
 
 Artifact:

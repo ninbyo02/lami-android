@@ -61,6 +61,8 @@ data class DevOnlyNpuLifecycleDecision(
     val classification: DevOnlyNpuLifecycleClassification,
     val acceptsCurrentRun: Boolean,
     val sessionReuseAllowed: Boolean,
+    val nextPromptAllowed: Boolean,
+    val runtimeReusePolicy: String,
     val perRunIsolatedRequired: Boolean,
     val sideEffectsClear: Boolean,
 )
@@ -88,13 +90,18 @@ object DevOnlyNpuLifecycleWrapper {
             evidence.resultSuccess -> DevOnlyNpuLifecycleClassification.SUCCESS_CLEAN
             else -> DevOnlyNpuLifecycleClassification.FAILURE_CLEAN
         }
-        val clean = classification == DevOnlyNpuLifecycleClassification.SUCCESS_CLEAN ||
-            classification == DevOnlyNpuLifecycleClassification.FAILURE_CLEAN
-        val accepted = clean && evidence.sideEffects.clear
+        val accepted = classification == DevOnlyNpuLifecycleClassification.SUCCESS_CLEAN && evidence.sideEffects.clear
+        val runtimeReusePolicy = if (accepted) {
+            "reuse_allowed"
+        } else {
+            "per_run_isolated_required"
+        }
         return DevOnlyNpuLifecycleDecision(
             classification = classification,
             acceptsCurrentRun = accepted,
             sessionReuseAllowed = accepted,
+            nextPromptAllowed = accepted,
+            runtimeReusePolicy = runtimeReusePolicy,
             perRunIsolatedRequired = !accepted,
             sideEffectsClear = evidence.sideEffects.clear,
         )

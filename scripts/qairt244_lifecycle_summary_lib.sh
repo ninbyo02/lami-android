@@ -132,7 +132,7 @@ qairt244_lifecycle_summary_lines() {
   local wait_status="$2"
   local execution_isolation="${3:-unknown}"
   local expected observed cleanup engine_close native_completed result_completed stale timeout classification
-  local mismatch suspect reuse per_run_required result_rejected completed_accepted
+  local mismatch suspect reuse per_run_required result_rejected completed_accepted next_prompt_allowed runtime_reuse_policy
 
   expected="$(qairt244_lifecycle_first_run_id "$run_dir/result.txt" "$run_dir/receiver_state.txt" "$run_dir/native_diag.txt" 2>/dev/null || printf 'unavailable')"
   observed="$(qairt244_lifecycle_observed_run_ids "$run_dir/result.txt" "$run_dir/receiver_state.txt" "$run_dir/native_diag.txt" "$run_dir/ui_cleanup_state.txt")"
@@ -162,19 +162,27 @@ qairt244_lifecycle_summary_lines() {
   fi
 
   case "$classification" in
-    SUCCESS_CLEAN|FAILURE_CLEAN)
+    SUCCESS_CLEAN)
       suspect=false
       reuse=true
       per_run_required=false
       result_rejected=false
       completed_accepted=true
+      next_prompt_allowed=true
+      runtime_reuse_policy=reuse_allowed
       ;;
     *)
-      suspect=true
+      if [ "$classification" = FAILURE_CLEAN ]; then
+        suspect=false
+      else
+        suspect=true
+      fi
       reuse=false
       per_run_required=true
       result_rejected=true
       completed_accepted=false
+      next_prompt_allowed=false
+      runtime_reuse_policy=per_run_isolated_required
       ;;
   esac
 
@@ -187,6 +195,8 @@ qairt244_lifecycle_summary_lines() {
   printf 'result_completed_evidence=%s\n' "$result_completed"
   printf 'suspect_session=%s\n' "$suspect"
   printf 'reuse_allowed=%s\n' "$reuse"
+  printf 'next_prompt_allowed=%s\n' "$next_prompt_allowed"
+  printf 'runtime_reuse_policy=%s\n' "$runtime_reuse_policy"
   printf 'per_run_isolated_required=%s\n' "$per_run_required"
   printf 'hidden_per_run_isolated_required=%s\n' "$per_run_required"
   printf 'stale_result_rejected=%s\n' "$stale"

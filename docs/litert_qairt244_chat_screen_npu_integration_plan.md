@@ -1,5 +1,23 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Hidden NPU Runtime Reuse Enforcement - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_runtime_reuse_enforcement/20260528_034826/`
+
+Runtime reuse enforcement is still hidden-route only. It maps lifecycle
+classification into `next_prompt_allowed` and runtime reuse policy before any
+future hidden sequential attempt can dispatch a following prompt.
+
+ChatScreen impact: none. Suspect sessions, stale results, run-id mismatches,
+or any non-`SUCCESS_CLEAN` summary cannot become ChatScreen output and cannot
+continue sequential execution. Normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming renderer, selectedPath=NPU
+persistence, release behavior, and standard behavior remain blocked.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated only, and 1024+ remains blocked.
+
 ## Max512 Sequential Soft-Reset Preflight - 2026-05-28
 
 Artifact:

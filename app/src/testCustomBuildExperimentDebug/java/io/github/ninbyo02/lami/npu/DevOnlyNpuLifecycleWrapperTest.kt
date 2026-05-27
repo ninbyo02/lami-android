@@ -23,6 +23,8 @@ class DevOnlyNpuLifecycleWrapperTest {
         assertEquals(DevOnlyNpuLifecycleClassification.SUCCESS_CLEAN, decision.classification)
         assertTrue(decision.acceptsCurrentRun)
         assertTrue(decision.sessionReuseAllowed)
+        assertTrue(decision.nextPromptAllowed)
+        assertEquals("reuse_allowed", decision.runtimeReusePolicy)
         assertFalse(decision.perRunIsolatedRequired)
     }
 
@@ -99,8 +101,11 @@ class DevOnlyNpuLifecycleWrapperTest {
         )
 
         assertEquals(DevOnlyNpuLifecycleClassification.FAILURE_CLEAN, decision.classification)
-        assertTrue(decision.acceptsCurrentRun)
-        assertTrue(decision.sessionReuseAllowed)
+        assertFalse(decision.acceptsCurrentRun)
+        assertFalse(decision.sessionReuseAllowed)
+        assertFalse(decision.nextPromptAllowed)
+        assertEquals("per_run_isolated_required", decision.runtimeReusePolicy)
+        assertTrue(decision.perRunIsolatedRequired)
     }
 
     @Test
@@ -112,6 +117,7 @@ class DevOnlyNpuLifecycleWrapperTest {
         assertEquals(DevOnlyNpuLifecycleClassification.CLEANUP_MISSING_SUSPECT, decision.classification)
         assertFalse(decision.acceptsCurrentRun)
         assertFalse(decision.sessionReuseAllowed)
+        assertFalse(decision.nextPromptAllowed)
         assertTrue(decision.perRunIsolatedRequired)
     }
 
@@ -147,6 +153,7 @@ class DevOnlyNpuLifecycleWrapperTest {
         assertFalse(decision.sideEffectsClear)
         assertFalse(decision.acceptsCurrentRun)
         assertFalse(decision.sessionReuseAllowed)
+        assertFalse(decision.nextPromptAllowed)
     }
 
     @Test

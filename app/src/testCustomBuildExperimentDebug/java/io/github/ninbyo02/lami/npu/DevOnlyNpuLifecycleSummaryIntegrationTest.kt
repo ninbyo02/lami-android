@@ -13,6 +13,8 @@ class DevOnlyNpuLifecycleSummaryIntegrationTest {
         assertEquals("SUCCESS_CLEAN", summary["lifecycle_classification"])
         assertEquals("true", summary["accepts_current_run"])
         assertEquals("true", summary["reuse_allowed"])
+        assertEquals("true", summary["next_prompt_allowed"])
+        assertEquals("reuse_allowed", summary["runtime_reuse_policy"])
         assertEquals("false", summary["suspect_session"])
         assertEquals("false", summary["per_run_isolated_required"])
         assertEquals("42", summary["cleanup_elapsed_ms"])
@@ -29,6 +31,8 @@ class DevOnlyNpuLifecycleSummaryIntegrationTest {
         assertEquals("TIMEOUT_SUSPECT", summary["lifecycle_classification"])
         assertEquals("true", summary["suspect_session"])
         assertEquals("false", summary["reuse_allowed"])
+        assertEquals("false", summary["next_prompt_allowed"])
+        assertEquals("per_run_isolated_required", summary["runtime_reuse_policy"])
         assertEquals("true", summary["hidden_per_run_isolated_required"])
     }
 
@@ -43,6 +47,7 @@ class DevOnlyNpuLifecycleSummaryIntegrationTest {
         assertEquals("CLEANUP_MISSING_SUSPECT", summary["lifecycle_classification"])
         assertEquals("true", summary["suspect_session"])
         assertEquals("false", summary["reuse_allowed"])
+        assertEquals("false", summary["next_prompt_allowed"])
         assertEquals("true", summary["per_run_isolated_required"])
     }
 
@@ -75,6 +80,7 @@ class DevOnlyNpuLifecycleSummaryIntegrationTest {
         assertEquals("false", summary["side_effects_clear"])
         assertEquals("false", summary["accepts_current_run"])
         assertEquals("false", summary["reuse_allowed"])
+        assertEquals("false", summary["next_prompt_allowed"])
     }
 
     @Test
