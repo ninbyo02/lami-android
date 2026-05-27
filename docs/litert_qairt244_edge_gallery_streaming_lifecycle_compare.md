@@ -11,6 +11,21 @@ QAIRT/LiteRT-LM, did not promote ChatScreen, did not connect assistant-list
 insertion, DB, TTS, Markdown renderer, streaming, or selectedPath=NPU
 persistence, and did not progress to 1024/2048/4096.
 
+## Lifecycle Summary Regeneration - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_summary_regeneration/20260528_030629/`
+
+The hidden lifecycle parser was checked against existing artifacts only. This
+confirms the Edge Gallery comparison follow-up is compatible with real Lami
+artifact shapes: clean runs become `SUCCESS_CLEAN`, and the sequential and
+Activity-restart-only 512 Python timeouts become `TIMEOUT_SUSPECT`.
+
+Policy impact: suspect sessions prevent reuse and require hidden per-run
+isolation. This does not authorize Gallery-style streaming UI, normal
+ChatScreen integration, assistant-list insertion, DB/TTS/Markdown/streaming,
+selectedPath=NPU persistence, native rebuilds, or 1024+ progression.
+
 ## Summary
 
 Google AI Edge Gallery is useful as a lifecycle reference, but it should not be

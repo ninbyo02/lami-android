@@ -1,5 +1,26 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Hidden NPU Lifecycle Summary Regeneration - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_summary_regeneration/20260528_030629/`
+
+The lifecycle summary regeneration is diagnostic-only and parses existing
+artifacts. It does not execute NPU, call RunDecode, rebuild native code, or
+create ChatScreen output.
+
+Real artifact compatibility is confirmed: clean force-stop 512, isolated
+bounded 512 code retry, and clean 256 runs classify as `SUCCESS_CLEAN`; the
+Python code timeout in sequential 512 and Activity-restart-only 512 classifies
+as `TIMEOUT_SUSPECT`. Suspect sessions keep `reuse_allowed=false` and require
+hidden per-run isolation before any future 512 attempt.
+
+ChatScreen impact: none. Normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming renderer, selectedPath=NPU
+persistence, release behavior, and standard behavior remain blocked. H1
+remains 128-only; 512 remains hidden per-run isolated only; 1024+ remains
+blocked.
+
 ## Hidden NPU Lifecycle Summary Integration - 2026-05-28
 
 Artifact:

@@ -1,5 +1,27 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Hidden NPU Lifecycle Summary Regeneration - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_summary_regeneration/20260528_030629/`
+
+Gate status: preflight-only regeneration from existing artifacts. No NPU
+execution, no RunDecode invocation, no native change, and no QAIRT rebuild
+were performed.
+
+The lifecycle parser was run against real 512/256 artifacts. Force-stop
+between prompts, bounded 512 code retry, and the 256 three-prompt baseline
+candidate classify as `SUCCESS_CLEAN`. The Python code prompt in both
+Activity-restart-only 512 and sequential code-aware 512 classifies as
+`TIMEOUT_SUSPECT` with `reuse_allowed=false` and
+`hidden_per_run_isolated_required=true`. No stale-result or run-id mismatch
+marker was present in the reviewed source artifacts.
+
+Promotion decision: unchanged. 512 remains hidden
+`hidden_per_run_isolated_512` only; sequential 512 and Activity-restart-only
+512 remain rollback. 256 remains the hidden experimental baseline candidate,
+H1 remains pinned to 128, and 1024/2048/4096 remain blocked.
+
 ## Hidden NPU Lifecycle Summary Integration - 2026-05-28
 
 Artifact:

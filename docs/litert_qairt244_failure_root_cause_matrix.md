@@ -1,5 +1,16 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-28: hidden NPU lifecycle summary regeneration
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Real artifact lifecycle compatibility | `artifacts/qairt244_hidden_npu_lifecycle_summary_regeneration/20260528_030629/` | Existing artifacts predate the final summary integration and needed a preflight-only compatibility pass. The parser maps force-stop 512, bounded retry 512, and 256 completed runs to `SUCCESS_CLEAN`, and maps sequential/Activity-restart Python code timeouts to `TIMEOUT_SUSPECT`. | Treat suspect sessions as non-reusable and require hidden per-run isolation. Keep 512 only as `hidden_per_run_isolated_512`; keep sequential and Activity-restart-only 512 rollback; keep 256 candidate and block 1024+. |
+
+No stale-result or run-id mismatch marker was present in the parsed source
+artifacts. The absence of stale/mismatch does not weaken the gate: those
+markers remain rejected when present, and timeout/missing cleanup still forbids
+reuse.
+
 ## 2026-05-28: hidden NPU lifecycle summary integration
 
 | Area | Evidence | Root cause | Decision |

@@ -1,5 +1,21 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Hidden NPU Lifecycle Summary Regeneration - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_summary_regeneration/20260528_030629/`
+
+This phase adds a preflight-only regeneration script and stores regenerated
+lifecycle summaries from existing artifacts. It does not run NPU, invoke
+RunDecode, rebuild LiteRT-LM/QAIRT, change native guard code, change staged JNI
+libraries, or authorize max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The real
+artifact compatibility check confirms clean 512 force-stop and 256 baseline
+candidate runs classify as `SUCCESS_CLEAN`, while sequential/Activity-restart
+512 Python timeouts classify as suspect and require per-run isolation. Keep
+512 hidden `hidden_per_run_isolated_512` only and keep 1024/2048/4096 blocked.
+
 ## QAIRT244 Hidden NPU Lifecycle Summary Integration - 2026-05-28
 
 Artifact:
