@@ -1,5 +1,15 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: hidden NPU lifecycle artifact parser
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Runner/preflight evidence collision | `artifacts/qairt244_hidden_npu_lifecycle_runner_integration/20260527_231211/` | Future sequential experiments need parser-level rejection for stale result files, run-id mismatches, missing native completion, and missing cleanup/`Engine.close` evidence. | Add a hidden artifact parser that classifies clean, suspect, stale, and run-id rejected outcomes before any reuse decision. |
+
+Timeout and missing cleanup continue to classify as suspect session and forbid
+session reuse. 512 remains hidden per-run isolated only until a separately
+approved runtime phase proves otherwise.
+
 ## 2026-05-27: hidden NPU lifecycle wrapper contract
 
 | Area | Evidence | Root cause | Decision |

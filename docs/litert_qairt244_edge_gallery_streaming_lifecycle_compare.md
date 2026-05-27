@@ -144,3 +144,27 @@ Contract:
 
 This remains hidden-only and does not connect Gallery's streaming renderer,
 ChatScreen insertion, DB persistence, TTS, Markdown, or selectedPath=NPU.
+
+## Hidden Lifecycle Artifact Parser - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_runner_integration/20260527_231211/`
+
+`DevOnlyNpuLifecycleArtifactParser` connects the wrapper contract to
+runner/preflight artifact text. It accepts expected `runId`, state text, result
+text, native diag text, cleanup text, and an artifact timestamp, then produces
+the same lifecycle classifications as the wrapper.
+
+Parser rules:
+
+- stale result timestamps are rejected
+- state/result/native_diag/cleanup run-id mismatch is rejected
+- timeout becomes `TIMEOUT_SUSPECT`
+- missing terminal result, missing native completed evidence, missing
+  `cleanup_elapsed_ms`, or missing `Engine.close=unique_ptr_cleanup` becomes
+  `CLEANUP_MISSING_SUSPECT`
+- side-effect flags must remain false before a clean run is accepted
+
+This remains hidden-only and does not introduce LiteRT-LM streaming,
+ChatScreen streaming, assistant-list insertion, DB, TTS, Markdown renderer, or
+selectedPath=NPU behavior.

@@ -1,0 +1,19 @@
+Safety record:
+
+- No NPU runner executed.
+- No adb command executed.
+- No native file changed.
+- No QAIRT or LiteRT-LM rebuild executed.
+- No ChatScreen promotion added.
+- No assistant message list insertion added.
+- No DB, TTS, Markdown renderer, streaming renderer, or selectedPath=NPU
+  persistence added.
+- No release/standard behavior changed.
+- No `app/src/main/jniLibs` change.
+- No 1024/2048/4096 progression.
+
+Changed source scope:
+
+- debug-only lifecycle artifact parser
+- customBuildExperimentDebug unit tests
+- documentation and markdown artifacts

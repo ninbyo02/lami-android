@@ -1,5 +1,19 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Hidden NPU Lifecycle Artifact Parser - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_runner_integration/20260527_231211/`
+
+This phase adds debug-only artifact parsing and unit tests. It does not rebuild
+LiteRT-LM/QAIRT, change native guard code, change staged JNI libraries, run
+NPU, or authorize max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The parser
+only makes future hidden runner/preflight evidence stricter: run-id isolation,
+stale result rejection, cleanup evidence, and `Engine.close` evidence must be
+present before a run can be classified clean.
+
 ## QAIRT244 Hidden NPU Lifecycle Wrapper Contract - 2026-05-27
 
 Artifact:

@@ -1,5 +1,20 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Hidden NPU Lifecycle Artifact Parser - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_runner_integration/20260527_231211/`
+
+The lifecycle artifact parser is diagnostic-only. It reads hidden runner/
+preflight state, result, native diag, and cleanup text and maps it to the
+wrapper classifications. It does not create UI messages and does not connect
+streaming.
+
+ChatScreen impact: none. Normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming renderer, selectedPath=NPU
+persistence, release behavior, and standard behavior remain blocked. 512
+remains hidden per-run isolated only.
+
 ## Hidden NPU Lifecycle Wrapper Contract - 2026-05-27
 
 Artifact:

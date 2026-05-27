@@ -1,5 +1,25 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Hidden NPU Lifecycle Artifact Parser - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_runner_integration/20260527_231211/`
+
+Gate status: parser integration and unit tests only. No NPU runtime evidence is
+added.
+
+`DevOnlyNpuLifecycleArtifactParser` now converts runner/preflight artifact text
+into the lifecycle wrapper decision. It rejects stale results and run-id
+mismatches across state, result, native diag, and cleanup channels. It requires
+terminal result evidence, native completed evidence, `cleanup_elapsed_ms`, and
+`Engine.close=unique_ptr_cleanup` for a clean run. Timeout or missing cleanup
+is classified as suspect and forbids session reuse.
+
+Promotion decision: unchanged. 512 remains hidden
+`hidden_per_run_isolated_512` only; sequential 512 and Activity-restart-only
+512 remain rollback modes. 256 remains the hidden experimental baseline
+candidate, H1 remains pinned to 128, and 1024/2048/4096 remain blocked.
+
 ## Hidden NPU Lifecycle Wrapper Contract - 2026-05-27
 
 Artifact:
