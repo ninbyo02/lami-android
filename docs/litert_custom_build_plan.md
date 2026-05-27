@@ -1,5 +1,24 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Edge Gallery Streaming Lifecycle Compare - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_edge_gallery_streaming_lifecycle_compare/20260527_223704/`
+
+This phase is static docs/review only. It does not rebuild LiteRT-LM/QAIRT,
+change native guard code, change staged JNI libraries, or run NPU.
+
+Build interpretation: Edge Gallery and LiteRT-LM do not justify a new native
+build or max-output expansion. The useful next work is app-side hidden
+lifecycle design: per-turn run-id separation, terminal callback/result
+evidence, and bounded cleanup/close evidence. Gallery's cooperative cancel and
+streaming UI are not enough to replace the proven force-stop boundary for 512.
+
+Build plan decision: keep the existing max512 artifact limited to hidden
+`hidden_per_run_isolated_512`. Do not rebuild for sequential 512, do not
+expand to 1024/2048/4096, and do not move 512 into standard/release or normal
+ChatScreen behavior.
+
 ## QAIRT244 Max512 Per-Run Isolated Formalization - 2026-05-27
 
 Artifact:

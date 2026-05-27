@@ -1,5 +1,29 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Edge Gallery Streaming Lifecycle Compare - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_edge_gallery_streaming_lifecycle_compare/20260527_223704/`
+
+Gate status: docs/static review only. No runtime evidence is added and no
+promotion boundary changes.
+
+Edge Gallery shows a callback-driven chat lifecycle with engine reuse,
+conversation reset, cooperative cancel, cleanup listener, and streaming chunks
+delivered into ViewModel state. LiteRT-LM shows that cancellation and close are
+cooperative, and Flow cancellation does not automatically call native cancel.
+Therefore Gallery's streaming UI model is not a promotion path for Lami 512.
+
+Promotion decision: unchanged. Before any sequential 512 retest, design a
+hidden-only lifecycle wrapper that separates run ids across state/result/native
+diag files and requires terminal callback plus cleanup/`Engine.close` evidence.
+Do not adopt normal streaming renderer, assistant-list insertion, DB, TTS,
+Markdown renderer, selectedPath=NPU persistence, or ChatScreen promotion.
+512 remains hidden `hidden_per_run_isolated_512` only; sequential 512 and
+Activity-restart-only 512 remain rollback. 256 remains the hidden experimental
+baseline candidate, H1 remains pinned to 128, and 1024/2048/4096 remain
+blocked.
+
 ## Max Output Tokens 512 Per-Run Isolated Formalization - 2026-05-27
 
 Artifact:

@@ -9,6 +9,37 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Edge Gallery Streaming Lifecycle Compare - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_edge_gallery_streaming_lifecycle_compare/20260527_223704/`
+
+Scope: static investigation and documentation only. No Lami code change, NPU
+execution, native change, QAIRT/LiteRT-LM rebuild, ChatScreen promotion,
+assistant-list insertion, DB, TTS, Markdown renderer, streaming, selectedPath
+persistence, standard/release change, or 1024+ expansion was performed.
+
+Finding: Google AI Edge Gallery separates engine lifecycle from conversation
+lifecycle, delivers streaming through direct callbacks, and uses cooperative
+`cancelProcess()` plus conversation reset. LiteRT-LM's Kotlin Flow wrapper does
+not cancel native work on collector close, and C++ session cleanup can wait for
+in-flight work before executor reset. This means Gallery is a useful lifecycle
+reference, but not a drop-in fix for Lami's 512 sequential timeout.
+
+Lami interpretation: the 512 Python timeout remains most consistent with
+sequential process/native resource inheritance or missing terminal
+callback/cleanup evidence. The passing force-stop comparison is still the only
+accepted 512 operating mode. The next design work should be a hidden-only
+session lifecycle wrapper plus per-turn state/result/native-diag id separation
+and a bounded cleanup/close wait contract. Do not adopt Gallery's streaming
+renderer, assistant message insertion, DB, TTS, Markdown, selectedPath=NPU, or
+normal ChatScreen pipeline.
+
+Decision: 256 remains the hidden experimental baseline candidate. 512 remains
+hidden `hidden_per_run_isolated_512` only; sequential 512 and
+Activity-restart-only 512 remain rollback modes. H1 remains pinned to
+`sanitizer_only + max_output_tokens=128`. 1024/2048/4096 remain blocked.
+
 ## Max512 Per-Run Isolated Formalization - 2026-05-27
 
 Artifact:

@@ -1,5 +1,27 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Edge Gallery Streaming Lifecycle Compare - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_edge_gallery_streaming_lifecycle_compare/20260527_223704/`
+
+Edge Gallery's chat implementation was reviewed only as a lifecycle reference.
+It is not a ChatScreen promotion source for Lami. Gallery streams callbacks
+directly into assistant text messages and has persisted chat/session concepts;
+those remain explicitly out of scope for Lami's hidden QAIRT244 route.
+
+ChatScreen plan impact: no normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming renderer, selectedPath=NPU
+persistence, release behavior, or standard behavior change. The useful design
+candidate is lower level: a hidden route lifecycle wrapper with per-turn run-id
+separation, terminal callback/result evidence, and bounded cleanup/close
+evidence before any sequential 512 reuse.
+
+Decision: keep 512 as hidden `hidden_per_run_isolated_512` only. Sequential
+512 and Activity-restart-only 512 remain rollback. 256 remains the hidden
+experimental baseline candidate, H1 remains 128-only, and 1024+ remains
+blocked.
+
 ## Max512 Per-Run Isolated Formalization - 2026-05-27
 
 Artifact:

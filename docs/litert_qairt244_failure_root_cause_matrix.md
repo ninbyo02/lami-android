@@ -1,5 +1,18 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: Edge Gallery streaming lifecycle comparison
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| 512 sequential cleanup/callback design | `artifacts/qairt244_edge_gallery_streaming_lifecycle_compare/20260527_223704/` | Edge Gallery relies on callback-driven streaming, engine reuse, conversation reset, and cooperative cancel. LiteRT-LM cancellation/close are cooperative and may not provide a hard boundary if a decode path does not return a terminal callback. | Do not copy Gallery streaming UI. Design a hidden lifecycle wrapper with per-turn run-id separation and mandatory cleanup/`Engine.close` evidence before any sequential 512 retest. |
+
+Root-cause ranking remains: primary `sequential_resource_inheritance`,
+secondary `native_callback_missing_after_decode_or_decode_never_returns`, with
+`cleanup_wait_insufficient` and `state_file_or_receiver_collision` still worth
+guarding. 512 remains hidden `hidden_per_run_isolated_512` only. 256 remains
+the hidden experimental baseline candidate, H1 remains pinned to 128, and
+1024/2048/4096 remain blocked.
+
 ## 2026-05-27: max_output_tokens=512 per-run isolated formalized
 
 | Area | Evidence | Root cause | Decision |
