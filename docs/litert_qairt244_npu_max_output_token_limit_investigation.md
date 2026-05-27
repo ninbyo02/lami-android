@@ -9,6 +9,33 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Instrumented Sequential Soft-Reset Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime_instrumented/20260528_052237/`
+
+Scope: one approved hidden experimental runtime execution. No second run,
+force-stop between prompts, Activity restart, native change, QAIRT/LiteRT-LM
+rebuild, ChatScreen promotion, assistant-list insertion, DB, TTS, Markdown
+renderer, streaming, selectedPath persistence, standard/release behavior, or
+1024+ expansion was performed.
+
+Result: prompt 1 (`こんにちは`) classified `SUCCESS_CLEAN` with process pid
+`17226` present at every boundary. Prompt 2
+(`Pythonで簡単な電卓コードを書いて`) had pid `17226` at `before_dispatch`,
+then immediately classified `PROCESS_DISAPPEARED_AFTER_DISPATCH` at
+`after_dispatch`. Prompt 2 reached native
+`before RunDecode SetMaxOutputTokens(512)` evidence but did not produce
+completed callback, cleanup, `Engine.close`, raw output, or sanitized output.
+The lifecycle summary classified it as `TIMEOUT_SUSPECT`.
+
+Decision: instrumentation worked and stopped the sequence before prompt 3.
+The process disappearance boundary is prompt 2 `after_dispatch`, not
+after-cleanup/after-10s. 512 sequential remains incomplete and non-baseline.
+512 remains a `hidden_per_run_isolated_512` candidate only; 256 remains the
+hidden experimental baseline candidate; H1 remains pinned to 128; and
+1024/2048/4096 remain blocked.
+
 ## Max512 Process Boundary Instrumentation - 2026-05-28
 
 Artifact:

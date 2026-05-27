@@ -1,0 +1,9 @@
+prompt_index=3
+slug=lami_npu_short
+not_dispatched=true
+reason=PROCESS_DISAPPEARED_SUSPECT_PROCESS_DISAPPEARED_AFTER_DISPATCH
+previous_prompt=Pythonで簡単な電卓コードを書いて
+previous_lifecycle_classification=TIMEOUT_SUSPECT
+next_prompt_allowed=false
+reuse_allowed=false
+hidden_per_run_isolated_required=true

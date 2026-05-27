@@ -1,5 +1,18 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-28: max_output_tokens=512 instrumented sequential runtime
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Prompt 2 post-dispatch process disappearance | `artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime_instrumented/20260528_052237/` | Prompt 1 remained process-present at all boundaries and classified `SUCCESS_CLEAN`. Prompt 2 was process-present before dispatch with pid `17226`, but `pidof`/`ps` were absent immediately at `after_dispatch`; `dumpsys activity top` reported `io.github.ninbyo02.lami/.MainActivity ... pid=(not running)`. Native diag reached `before RunDecode SetMaxOutputTokens(512)` but produced no completed callback or cleanup. | Classify as `PROCESS_DISAPPEARED_SUSPECT_PROCESS_DISAPPEARED_AFTER_DISPATCH`. Stop before prompt 3. Keep 512 sequential non-baseline and keep 512 per-run isolated only. |
+
+This narrows the previous process-disappearance blocker from "after prompt 2"
+to "immediately after prompt 2 dispatch." The next investigation should focus
+on why the hidden broadcast/native entrypoint can leave the process absent
+right after dispatch while still having written native pre-RunDecode evidence.
+256 remains the hidden experimental baseline candidate, H1 remains pinned to
+128, and 1024/2048/4096 remain blocked.
+
 ## 2026-05-28: max_output_tokens=512 process boundary instrumentation
 
 | Area | Evidence | Root cause | Decision |

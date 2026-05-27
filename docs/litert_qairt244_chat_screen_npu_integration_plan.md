@@ -1,5 +1,23 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Instrumented Sequential Soft-Reset Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime_instrumented/20260528_052237/`
+
+This hidden runtime investigation does not change ChatScreen wiring. Prompt 2
+lost the app process immediately after hidden broadcast dispatch and the
+process-boundary gate stopped the sequence before prompt 3.
+
+ChatScreen impact: none. `PROCESS_DISAPPEARED_SUSPECT` cannot become normal
+assistant output, cannot insert into the assistant list, cannot persist
+selectedPath=NPU, and cannot enter DB/TTS/Markdown/streaming. Normal
+ChatScreen promotion remains blocked.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated candidate only while sequential support is
+incomplete, and 1024+ remains blocked.
+
 ## Max512 Process Boundary Instrumentation - 2026-05-28
 
 Artifact:

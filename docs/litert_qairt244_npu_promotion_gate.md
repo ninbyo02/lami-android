@@ -1,5 +1,26 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max512 Instrumented Sequential Soft-Reset Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime_instrumented/20260528_052237/`
+
+Gate status: hidden runtime investigation only. This was one instrumented 512
+sequential soft-reset execution; it is not a baseline promotion.
+
+Runtime result: prompt 1 was `SUCCESS_CLEAN`. Prompt 2 was process-present
+before dispatch but became `PROCESS_DISAPPEARED_AFTER_DISPATCH` immediately
+after dispatch. It later classified `TIMEOUT_SUSPECT` with missing cleanup,
+missing `Engine.close`, and no completed backend evidence. Prompt 3 was not
+dispatched because `PROCESS_DISAPPEARED_SUSPECT` forced
+`next_prompt_allowed=false`, `reuse_allowed=false`, and
+`hidden_per_run_isolated_required=true`.
+
+Promotion decision: unchanged. 512 sequential remains non-baseline and
+incomplete. 512 remains `hidden_per_run_isolated_512` candidate only, 256
+remains the hidden experimental baseline candidate, H1 remains pinned to 128,
+and 1024/2048/4096 remain blocked.
+
 ## Max512 Process Boundary Instrumentation - 2026-05-28
 
 Artifact:

@@ -1,5 +1,22 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Instrumented Sequential Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime_instrumented/20260528_052237/`
+
+This phase ran one hidden instrumented 512 sequential soft-reset runtime. It
+did not rebuild LiteRT-LM/QAIRT, change native guard code, change staged JNI
+libraries, authorize a max-output expansion, or promote ChatScreen.
+
+Build plan decision: no native work follows from this artifact. The process
+loss now has a narrower boundary: prompt 2 was process-present before
+dispatch and process-absent immediately after dispatch. Prompt 2 still reached
+`SetMaxOutputTokens(512)` pre-RunDecode evidence before failing to produce
+completion/cleanup. Keep 512 hidden `hidden_per_run_isolated_512` candidate
+only, keep 256 as the hidden experimental baseline candidate, keep H1 pinned
+to 128, and keep 1024/2048/4096 blocked.
+
 ## QAIRT244 Max512 Process Boundary Instrumentation - 2026-05-28
 
 Artifact:
