@@ -1,5 +1,20 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Sequential Soft-Reset Preflight - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_sequential_soft_reset_preflight/20260528_033653/`
+
+This phase adds a preflight-only soft-reset runner design, lifecycle gate, and
+tests. It does not run NPU, invoke RunDecode, rebuild LiteRT-LM/QAIRT, change
+native guard code, change staged JNI libraries, or authorize max-output
+expansion.
+
+Build plan decision: no native work follows from this artifact. The next
+runtime phase, if separately approved, should only test the soft-reset
+sequential lifecycle gate at 512. It must still stop after any suspect session
+and must not expand to 1024/2048/4096.
+
 ## QAIRT244 Hidden NPU Lifecycle Summary Regeneration - 2026-05-28
 
 Artifact:

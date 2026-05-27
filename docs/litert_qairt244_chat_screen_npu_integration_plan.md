@@ -1,5 +1,25 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Sequential Soft-Reset Preflight - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_sequential_soft_reset_preflight/20260528_033653/`
+
+The sequential soft-reset work is preflight-only. It does not connect normal
+ChatScreen, assistant-list insertion, DB, TTS, Markdown renderer, streaming,
+or selectedPath=NPU persistence. It also does not execute NPU.
+
+If a future hidden run is separately approved, the runner may continue to the
+next prompt only after a run-id scoped lifecycle summary reports
+`SUCCESS_CLEAN`, cleanup elapsed time, `Engine.close=unique_ptr_cleanup`,
+`reuse_allowed=true`, and no per-run-isolated requirement. A suspect session
+or stale/mismatch result stops the sequence and falls back to the existing
+per-run isolated requirement.
+
+ChatScreen impact: none. H1 remains pinned to 128, 256 remains the hidden
+experimental baseline candidate, 512 remains hidden per-run isolated only, and
+1024+ remains blocked.
+
 ## Hidden NPU Lifecycle Summary Regeneration - 2026-05-28
 
 Artifact:

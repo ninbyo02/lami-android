@@ -1,5 +1,27 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 512 Sequential Soft-Reset Preflight - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_sequential_soft_reset_preflight/20260528_033653/`
+
+Gate status: runner design, preflight simulation, and tests only. No NPU
+runtime, RunDecode, native change, or QAIRT rebuild was performed.
+
+The future soft-reset sequential runner is gated so each prompt must have a
+unique runId and isolated state/result/native-diag/cleanup evidence. After
+each prompt, the lifecycle summary must be `SUCCESS_CLEAN` with
+`reuse_allowed=true`, `hidden_per_run_isolated_required=false`,
+`cleanup_elapsed_ms`, and `Engine.close=unique_ptr_cleanup`. Any
+`TIMEOUT_SUSPECT`, `CLEANUP_MISSING_SUSPECT`, stale result, run-id mismatch,
+or reuse denial stops the sequence immediately.
+
+Preflight simulation keeps the policy unchanged: 256 clean artifacts can
+continue, the existing 512 sequential code-aware artifact stops at prompt 2
+with `TIMEOUT_SUSPECT`, and the 512 force-stop artifact is only a clean
+reference. 512 remains hidden `hidden_per_run_isolated_512` only; sequential
+512 is not a baseline.
+
 ## Hidden NPU Lifecycle Summary Regeneration - 2026-05-28
 
 Artifact:

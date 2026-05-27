@@ -11,6 +11,21 @@ QAIRT/LiteRT-LM, did not promote ChatScreen, did not connect assistant-list
 insertion, DB, TTS, Markdown renderer, streaming, or selectedPath=NPU
 persistence, and did not progress to 1024/2048/4096.
 
+## Sequential Soft-Reset Preflight - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_sequential_soft_reset_preflight/20260528_033653/`
+
+The Edge Gallery lifecycle lesson is still limited to hidden lifecycle gating,
+not streaming UI. The new soft-reset preflight models per-turn run-id
+separation, terminal lifecycle classification, cleanup/close evidence, and
+immediate stop on suspect sessions before any future sequential 512 runtime
+attempt.
+
+Gallery-style streaming renderer remains out of scope. The preflight keeps
+512 per-run isolated as the only candidate mode and keeps 1024/2048/4096
+blocked.
+
 ## Lifecycle Summary Regeneration - 2026-05-28
 
 Artifact:

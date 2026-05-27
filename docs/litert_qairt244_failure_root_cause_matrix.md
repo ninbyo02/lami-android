@@ -1,5 +1,16 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-28: max_output_tokens=512 sequential soft-reset preflight
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Sequential 512 lifecycle enforcement | `artifacts/qairt244_npu_512_sequential_soft_reset_preflight/20260528_033653/` | Sequential 512 needs a stricter prompt-to-prompt lifecycle barrier before any new runtime attempt. Existing sequential code-aware evidence still stops at prompt 2 with `TIMEOUT_SUSPECT`, while 256 clean artifacts continue and force-stop 512 remains clean as a reference. | Add preflight-only soft-reset gating: continue only after `SUCCESS_CLEAN`, cleanup elapsed time, `Engine.close=unique_ptr_cleanup`, `reuse_allowed=true`, and no per-run-isolated requirement. Keep 512 per-run isolated only until a separately approved runtime test proves otherwise. |
+
+This does not change the root-cause ranking. Sequential/resource inheritance
+remains the leading hypothesis, with native callback/cleanup ambiguity still
+guarded by run-id scoped evidence and immediate stop on suspect sessions.
+1024/2048/4096 remain blocked.
+
 ## 2026-05-28: hidden NPU lifecycle summary regeneration
 
 | Area | Evidence | Root cause | Decision |
