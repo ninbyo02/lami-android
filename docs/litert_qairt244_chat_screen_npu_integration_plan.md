@@ -1,5 +1,20 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Hidden NPU Lifecycle Summary Integration - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_summary_integration/20260528_024448/`
+
+Hidden runner summaries now include lifecycle classification and reuse policy,
+but this remains diagnostic-only. `suspect_session=true`,
+`reuse_allowed=false`, stale result rejection, or run-id mismatch rejection
+must not be used as ChatScreen display input.
+
+ChatScreen impact: none. Normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming renderer, selectedPath=NPU
+persistence, release behavior, and standard behavior remain blocked. H1
+remains 128-only.
+
 ## Hidden NPU Lifecycle Artifact Parser - 2026-05-27
 
 Artifact:

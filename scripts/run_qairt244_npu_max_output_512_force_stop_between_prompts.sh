@@ -92,6 +92,7 @@ if [ "$MAX_OUTPUT_TOKENS" -gt 512 ]; then
 fi
 cd "$ROOT_DIR" || exit 1
 mkdir -p "$OUT_DIR"
+. "$ROOT_DIR/scripts/qairt244_lifecycle_summary_lib.sh"
 
 log() { printf '[qairt244-max-output-512-force-stop] %s\n' "$*"; }
 
@@ -576,6 +577,7 @@ run_prompt_512() {
     printf 'markdown=false\n'
     printf 'streaming=false\n'
   } >"$run_dir/case_summary.txt"
+  qairt244_lifecycle_summary_lines "$run_dir" "$wait_status" "$EXECUTION_ISOLATION" >>"$run_dir/case_summary.txt"
 
   cat "$run_dir/case_summary.txt" >>"$OUT_DIR/case_summaries.txt"
   printf '\n' >>"$OUT_DIR/case_summaries.txt"
@@ -711,6 +713,11 @@ write_grep_safety() {
     printf 'sequential_512_rollback=true\n'
     printf 'activity_restart_only_512_rollback=true\n'
     printf 'force_stop_between_prompts=true\n'
+    printf 'lifecycle_summary_integrated=true\n'
+    printf 'lifecycle_classifications=%s\n' "$(awk -F= '$1 == "lifecycle_classification" { if (value != "") value=value "," $2; else value=$2 } END { print value }' "$OUT_DIR/case_summaries.txt")"
+    printf 'suspect_session_count=%s\n' "$(awk -F= '$1 == "suspect_session" && $2 == "true" { count++ } END { print count + 0 }' "$OUT_DIR/case_summaries.txt")"
+    printf 'reuse_allowed_all=%s\n' "$(awk -F= '$1 == "reuse_allowed" && $2 != "true" { bad=1 } END { print bad ? "false" : "true" }' "$OUT_DIR/case_summaries.txt")"
+    printf 'hidden_per_run_isolated_required_on_suspect=true\n'
     printf 'raw_output_ui_display=false\n'
   } >"$OUT_DIR/grep_safety.txt"
 }
@@ -945,6 +952,7 @@ write_summary() {
     printf -- '- The app is force-stopped before and after each prompt to test per-run isolated mode.\n'
     printf -- '- The runner does not connect standard route, normal ChatScreen assistant list, DB, TTS, Markdown, or streaming.\n'
     printf -- '- The runner does not perform retry, fallback, or multiple unbounded generations.\n'
+    printf -- '- Lifecycle classification is written to case summaries; suspect sessions set `reuse_allowed=false` and require hidden per-run isolation.\n'
     printf -- '- Adoption requires QNN/HTP/FastRPC evidence, `fallback_used=false`, `timeout=false`, `fresh_crash=false`, artifact-free sanitized output, code indentation/fence pass for the code prompt, cleanup evidence, and no retained memory anomaly after 10 seconds.\n'
   } >"$OUT_DIR/summary.md"
 }
@@ -973,6 +981,11 @@ write_three_prompt_notes() {
     printf 'code_prompt_fence_closed=%s\n' "$(summary_field code_fence_closed "Pythonで簡単な電卓コードを書いて")"
     printf 'code_prompt_fence_completed=%s\n' "$(summary_field code_fence_completed "Pythonで簡単な電卓コードを書いて")"
     printf 'baseline_promotion=false\n'
+    printf 'lifecycle_summary_integrated=true\n'
+    printf 'lifecycle_classifications=%s\n' "$(awk -F= '$1 == "lifecycle_classification" { if (value != "") value=value "," $2; else value=$2 } END { print value }' "$OUT_DIR/case_summaries.txt")"
+    printf 'suspect_session_count=%s\n' "$(awk -F= '$1 == "suspect_session" && $2 == "true" { count++ } END { print count + 0 }' "$OUT_DIR/case_summaries.txt")"
+    printf 'reuse_allowed_all=%s\n' "$(awk -F= '$1 == "reuse_allowed" && $2 != "true" { bad=1 } END { print bad ? "false" : "true" }' "$OUT_DIR/case_summaries.txt")"
+    printf 'hidden_per_run_isolated_required_on_suspect=true\n'
     printf 'hidden_baseline_candidate=%s\n' "$(awk -F= '$1 == "prompt" { p=$2 } $1 == "status" && $2 != "success" { bad=1 } $1 == "quality_classification" && $2 != "natural_japanese" && $2 != "useful_code" && $2 != "useful_long_response" { bad=1 } p == "Pythonで簡単な電卓コードを書いて" && $1 == "code_indentation_preserved" && $2 != "true" { bad=1 } p == "Pythonで簡単な電卓コードを書いて" && $1 == "code_fence_closed" && $2 != "true" { bad=1 } END { print bad ? "false" : "true" }' "$OUT_DIR/case_summaries.txt")"
     printf 'next_phase=512_per_run_isolated_mode_review_before_any_baseline_or_1024_decision\n'
   } >"$OUT_DIR/post_run_notes.txt"

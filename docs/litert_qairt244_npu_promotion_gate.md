@@ -1,5 +1,25 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Hidden NPU Lifecycle Summary Integration - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_summary_integration/20260528_024448/`
+
+Gate status: runner/preflight summary integration and unit tests only. No NPU
+runtime evidence is added.
+
+Hidden summaries now report lifecycle classifications:
+`SUCCESS_CLEAN`, `FAILURE_CLEAN`, `TIMEOUT_SUSPECT`,
+`CLEANUP_MISSING_SUSPECT`, `STALE_RESULT_REJECTED`, and
+`RUN_ID_MISMATCH_REJECTED`. Timeout, cleanup-missing, stale, and mismatch
+outcomes prevent reuse and require hidden per-run isolation. Clean
+classifications still require side-effect flags false before acceptance.
+
+Promotion decision: unchanged. 512 remains hidden
+`hidden_per_run_isolated_512` only; sequential 512 and Activity-restart-only
+512 remain rollback. 256 remains the hidden experimental baseline candidate,
+H1 remains pinned to 128, and 1024/2048/4096 remain blocked.
+
 ## Hidden NPU Lifecycle Artifact Parser - 2026-05-27
 
 Artifact:

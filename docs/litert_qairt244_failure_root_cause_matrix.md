@@ -1,5 +1,15 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-28: hidden NPU lifecycle summary integration
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden runner reuse policy | `artifacts/qairt244_hidden_npu_lifecycle_summary_integration/20260528_024448/` | Runner summaries previously reported timeout/cleanup facts but did not expose a single lifecycle classification and reuse policy. | Add lifecycle classification, suspect-session, stale/mismatch rejection, and reuse fields to hidden summaries. |
+
+Timeout, cleanup missing, stale result, and run-id mismatch continue to forbid
+reuse and require hidden per-run isolated operation. Sequential 512 and
+Activity-restart-only 512 remain rollback modes.
+
 ## 2026-05-27: hidden NPU lifecycle artifact parser
 
 | Area | Evidence | Root cause | Decision |

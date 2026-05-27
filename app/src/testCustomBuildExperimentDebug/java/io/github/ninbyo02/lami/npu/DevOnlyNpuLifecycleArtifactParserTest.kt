@@ -64,6 +64,20 @@ class DevOnlyNpuLifecycleArtifactParserTest {
     }
 
     @Test
+    fun `unscoped artifact files are rejected`() {
+        val files = DevOnlyNpuLifecycleFiles(
+            stateFileName = "state.txt",
+            resultFileName = "result.txt",
+            nativeDiagFileName = "native_diag.txt",
+            cleanupFileName = "cleanup.txt",
+        )
+        assertParserClassification(
+            validInput().copy(files = files),
+            DevOnlyNpuLifecycleClassification.RUN_ID_MISMATCH_REJECTED,
+        )
+    }
+
+    @Test
     fun `timeout is suspect`() {
         val parsed = DevOnlyNpuLifecycleArtifactParser.parse(
             validInput(

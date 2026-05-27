@@ -168,3 +168,20 @@ Parser rules:
 This remains hidden-only and does not introduce LiteRT-LM streaming,
 ChatScreen streaming, assistant-list insertion, DB, TTS, Markdown renderer, or
 selectedPath=NPU behavior.
+
+## Hidden Lifecycle Summary Integration - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_summary_integration/20260528_024448/`
+
+The hidden runner summaries now surface lifecycle classification from local
+artifact text. The summary keys include `lifecycle_classification`,
+`expected_run_id`, `observed_run_id`, `cleanup_elapsed_ms`,
+`engine_close_evidence`, `suspect_session`, `reuse_allowed`,
+`hidden_per_run_isolated_required`, `stale_result_rejected`, and
+`run_id_mismatch_rejected`.
+
+Policy mapping: timeout and missing cleanup are suspect; stale and mismatched
+artifacts are rejected; suspect/rejected outcomes set `reuse_allowed=false` and
+require hidden per-run isolated operation. This is artifact summary
+integration only and does not adopt Gallery streaming UI.

@@ -1,5 +1,18 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Hidden NPU Lifecycle Summary Integration - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_summary_integration/20260528_024448/`
+
+This phase updates runner summary generation, debug-only summary code, tests,
+and docs. It does not rebuild LiteRT-LM/QAIRT, change native guard code, change
+staged JNI libraries, run NPU, or authorize max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The next
+runtime phase, if approved, should consume lifecycle summary fields without
+changing native guard limits. 1024/2048/4096 remain blocked.
+
 ## QAIRT244 Hidden NPU Lifecycle Artifact Parser - 2026-05-27
 
 Artifact:

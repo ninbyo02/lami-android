@@ -87,6 +87,7 @@ if [ "$MAX_OUTPUT_TOKENS" -gt 512 ]; then
 fi
 cd "$ROOT_DIR" || exit 1
 mkdir -p "$OUT_DIR"
+. "$ROOT_DIR/scripts/qairt244_lifecycle_summary_lib.sh"
 
 log() { printf '[qairt244-max-output-512-three-codeaware] %s\n' "$*"; }
 
@@ -526,6 +527,7 @@ run_prompt_512() {
     printf 'markdown=false\n'
     printf 'streaming=false\n'
   } >"$run_dir/case_summary.txt"
+  qairt244_lifecycle_summary_lines "$run_dir" "$wait_status" "sequential" >>"$run_dir/case_summary.txt"
 
   cat "$run_dir/case_summary.txt" >>"$OUT_DIR/case_summaries.txt"
   printf '\n' >>"$OUT_DIR/case_summaries.txt"
@@ -896,6 +898,11 @@ write_three_prompt_notes() {
     printf 'code_prompt_fence_closed=%s\n' "$(summary_field code_fence_closed "Pythonで簡単な電卓コードを書いて")"
     printf 'code_prompt_fence_completed=%s\n' "$(summary_field code_fence_completed "Pythonで簡単な電卓コードを書いて")"
     printf 'baseline_promotion=false\n'
+    printf 'lifecycle_summary_integrated=true\n'
+    printf 'lifecycle_classifications=%s\n' "$(awk -F= '$1 == "lifecycle_classification" { if (value != "") value=value "," $2; else value=$2 } END { print value }' "$OUT_DIR/case_summaries.txt")"
+    printf 'suspect_session_count=%s\n' "$(awk -F= '$1 == "suspect_session" && $2 == "true" { count++ } END { print count + 0 }' "$OUT_DIR/case_summaries.txt")"
+    printf 'reuse_allowed_all=%s\n' "$(awk -F= '$1 == "reuse_allowed" && $2 != "true" { bad=1 } END { print bad ? "false" : "true" }' "$OUT_DIR/case_summaries.txt")"
+    printf 'hidden_per_run_isolated_required_on_suspect=true\n'
     printf 'hidden_baseline_candidate=%s\n' "$(awk -F= '$1 == "prompt" { p=$2 } $1 == "status" && $2 != "success" { bad=1 } $1 == "quality_classification" && $2 != "natural_japanese" && $2 != "useful_code" && $2 != "useful_long_response" { bad=1 } p == "Pythonで簡単な電卓コードを書いて" && $1 == "code_indentation_preserved" && $2 != "true" { bad=1 } p == "Pythonで簡単な電卓コードを書いて" && $1 == "code_fence_closed" && $2 != "true" { bad=1 } END { print bad ? "false" : "true" }' "$OUT_DIR/case_summaries.txt")"
     printf 'next_phase=512_hidden_baseline_review_or_1024_guard_preflight_if_review_accepts\n'
   } >"$OUT_DIR/post_run_notes.txt"
