@@ -1,5 +1,37 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max Output Tokens 512 Activity Restart Only Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_activity_restart_compare/20260527_213930/`
+
+Gate result: failure. Activity finish/relaunch between prompts did not solve
+the 512 Python code prompt timeout. The two Japanese prompts completed with
+QNN/HTP/FastRPC evidence and `fallback_used=false`, but the Python prompt
+timed out after pre-RunDecode `SetMaxOutputTokens(512)` evidence and before a
+completed result, cleanup, `Engine.close`, backend evidence, raw output, or
+sanitized output was available.
+
+Prompt results:
+
+- `こんにちは`: `natural_japanese`, `decode_ms=834`, `elapsed_ms=2000`
+- `Pythonで簡単な電卓コードを書いて`: timeout, `elapsed_ms=70000`, no
+  `useful_code`, no indentation/fence result
+- `ラミィのNPU推論について短く説明して`: `natural_japanese`,
+  `decode_ms=4393`, `elapsed_ms=6000`
+
+The runner records `process_force_stop_used=false`. The first prompt relaunch
+was delivered to the already-running top-most Activity with the same PID, so
+Activity restart only is not equivalent to the force-stop isolated gate. After
+the Python timeout, no process was found before the runner relaunched the
+Activity into a new PID, without explicit force-stop.
+
+Promotion decision: do not promote 512 as a sequential or Activity-restart-only
+hidden baseline. Keep 512 only as the hidden `per_run_isolated` candidate that
+requires force-stop before and after each prompt. Keep 256 as the hidden
+experimental baseline candidate, keep H1 pinned to 128, and keep
+1024/2048/4096 blocked.
+
 ## Max Output Tokens 512 Sequential Cleanup/Resource Investigation - 2026-05-27
 
 Artifact:

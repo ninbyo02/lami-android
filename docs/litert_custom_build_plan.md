@@ -1,5 +1,25 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Activity Restart Only Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_activity_restart_compare/20260527_213930/`
+
+No native guard change, QAIRT rebuild, or `app/src/main/jniLibs` source change
+was performed. The existing max512 native artifact was staged temporarily for a
+hidden Activity-restart-only comparison, then restored by the runner.
+
+Result: Activity restart only did not pass. The Python code prompt timed out at
+`elapsed_ms=70000` after pre-RunDecode `SetMaxOutputTokens(512)` evidence,
+without completed backend, cleanup, or `Engine.close` evidence. The Japanese
+prompts succeeded. The run used no process force-stop, so this does not replace
+the previously passing per-run force-stop isolated artifact.
+
+Build plan decision: do not rebuild and do not expand to 1024. Keep the max512
+artifact limited to hidden per-run isolated review. Sequential and
+Activity-restart-only 512 remain non-baseline; 256 remains the hidden
+experimental baseline candidate.
+
 ## QAIRT244 Max512 Sequential Cleanup/Resource Investigation - 2026-05-27
 
 Artifact:

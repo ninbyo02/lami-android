@@ -1,0 +1,197 @@
+Activity Resolver Table:
+  Non-Data Actions:
+      android.intent.action.MAIN:
+        754f0db io.github.ninbyo02.lami/.MainActivity filter 4ef7778
+          Action: "android.intent.action.MAIN"
+          Category: "android.intent.category.LAUNCHER"
+
+Receiver Resolver Table:
+  Non-Data Actions:
+      androidx.profileinstaller.action.SAVE_PROFILE:
+        5a7bfb7 io.github.ninbyo02.lami/androidx.profileinstaller.ProfileInstallReceiver filter 3c41842
+          Action: "androidx.profileinstaller.action.SAVE_PROFILE"
+      androidx.profileinstaller.action.INSTALL_PROFILE:
+        5a7bfb7 io.github.ninbyo02.lami/androidx.profileinstaller.ProfileInstallReceiver filter 3609324
+          Action: "androidx.profileinstaller.action.INSTALL_PROFILE"
+      androidx.profileinstaller.action.SKIP_FILE:
+        5a7bfb7 io.github.ninbyo02.lami/androidx.profileinstaller.ProfileInstallReceiver filter ecbce8d
+          Action: "androidx.profileinstaller.action.SKIP_FILE"
+      androidx.profileinstaller.action.BENCHMARK_OPERATION:
+        5a7bfb7 io.github.ninbyo02.lami/androidx.profileinstaller.ProfileInstallReceiver filter eeea053
+          Action: "androidx.profileinstaller.action.BENCHMARK_OPERATION"
+      io.github.ninbyo02.lami.action.STANDARD_HIDDEN_QAIRT244_PROMPT:
+        f2c9e51 io.github.ninbyo02.lami/.npu.StandardHiddenQairt244PromptReceiver filter 1e246b6
+          Action: "io.github.ninbyo02.lami.action.STANDARD_HIDDEN_QAIRT244_PROMPT"
+
+Domain verification status:
+
+Permissions:
+  Permission [io.github.ninbyo02.lami.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION] (f02f09f):
+    sourcePackage=io.github.ninbyo02.lami
+    uid=10626 gids=[] type=0 prot=signature
+    perm=PermissionInfo{38b15ec io.github.ninbyo02.lami.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION}
+    flags=0x0
+
+Registered ContentProviders:
+  io.github.ninbyo02.lami/androidx.startup.InitializationProvider:
+    Provider{36e6db5 io.github.ninbyo02.lami/androidx.startup.InitializationProvider}
+
+ContentProvider Authorities:
+  [io.github.ninbyo02.lami.androidx-startup]:
+    Provider{36e6db5 io.github.ninbyo02.lami/androidx.startup.InitializationProvider}
+      applicationInfo=ApplicationInfo{a700c4a io.github.ninbyo02.lami}
+
+Key Set Manager:
+  [io.github.ninbyo02.lami]
+      Signing KeySets: 771
+
+Packages:
+  Package [io.github.ninbyo02.lami] (bf204a7):
+    appId=10626
+    pkg=Package{e09a4d8 io.github.ninbyo02.lami}
+    codePath=/data/app/~~HRdvtpcvEo5c-vIzFLEHPg==/io.github.ninbyo02.lami-MY2jUXX8D45D3dn3UD7Lqw==
+    resourcePath=/data/app/~~HRdvtpcvEo5c-vIzFLEHPg==/io.github.ninbyo02.lami-MY2jUXX8D45D3dn3UD7Lqw==
+    legacyNativeLibraryDir=/data/app/~~HRdvtpcvEo5c-vIzFLEHPg==/io.github.ninbyo02.lami-MY2jUXX8D45D3dn3UD7Lqw==/lib
+    extractNativeLibs=true
+    primaryCpuAbi=arm64-v8a
+    secondaryCpuAbi=null
+    cpuAbiOverride=null
+    versionCode=1 minSdk=34 targetSdk=35
+    minExtensionVersions=[]
+    versionName=1.0.0
+    hiddenApiEnforcementPolicy=2
+    usesNonSdkApi=false
+    splits=[base]
+    apkSigningVersion=2
+    flags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP ]
+    privateFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PARTIALLY_DIRECT_BOOT_AWARE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    forceQueryable=false
+    pageSizeCompat=0
+    scannedAsStoppedSystemApp=false
+    supportsScreens=[small, medium, large, xlarge, resizeable, anyDensity]
+    usesOptionalNativeLibraries:
+      libcdsprpc.so
+      libvndksupport.so
+      libOpenCL.so
+      libOpenCL-car.so
+      libOpenCL-pixel.so
+    usesLibraryFiles:
+      libcdsprpc.so
+      libOpenCL.so
+    timeStamp=2026-05-27 21:40:13
+    lastUpdateTime=2026-05-27 21:40:15
+    installerPackageName=null
+    installerPackageUid=-1
+    initiatingPackageName=com.android.shell
+    originatingPackageName=null
+    packageSource=1
+    appMetadataFilePath=null
+    appMetadataSource=0
+    signatures=PackageSignatures{6b44104 version:2, signatures:[8a813f09], past signatures:[]}
+    installPermissionsFixed=false
+    pkgFlags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP ]
+    privatePkgFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PARTIALLY_DIRECT_BOOT_AWARE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    apexModuleName=null
+    declared permissions:
+      io.github.ninbyo02.lami.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: prot=signature
+    requested permissions:
+      android.permission.INTERNET
+      android.permission.ACCESS_NETWORK_STATE
+      io.github.ninbyo02.lami.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+    install permissions:
+      android.permission.INTERNET: granted=true
+      android.permission.ACCESS_NETWORK_STATE: granted=true
+      io.github.ninbyo02.lami.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: granted=true
+    User 0: ceDataInode=413406 deDataInode=374321 installed=true hidden=false suspended=false distractionFlags=0 stopped=false notLaunched=false enabled=0 instant=false virtual=false quarantined=false
+      installReason=0
+      dataDir=/data/user/0/io.github.ninbyo02.lami
+      firstInstallTime=2026-05-10 14:33:58
+      uninstallReason=0
+      overlay paths:
+        /product/overlay/NavigationBarMode3Button/NavigationBarMode3ButtonOverlay.apk
+        /data/resource-cache/com.android.systemui-neutral-IkpS.frro
+        /data/resource-cache/com.android.systemui-accent-0Pwc.frro
+        /data/resource-cache/com.android.systemui-dynamic-NJrz.frro
+      legacy overlay paths:
+        /product/overlay/NavigationBarMode3Button/NavigationBarMode3ButtonOverlay.apk
+      gids=[3003]
+      runtime permissions:
+
+Queries:
+  system apps queryable: false
+  queries via forceQueryable:
+  queries via package name:
+  queries via component:
+    com.zte.nubrowser:
+      io.github.ninbyo02.lami
+    com.zte.mifavor.globalzboard:
+      io.github.ninbyo02.lami
+    cn.nubia.gamehelperline:
+      io.github.ninbyo02.lami
+    cn.zte.gamefloat:
+      io.github.ninbyo02.lami
+    com.zte.storagecleanup:
+      io.github.ninbyo02.lami
+    com.zte.weather:
+      io.github.ninbyo02.lami
+    com.google.android.as:
+      io.github.ninbyo02.lami
+    com.google.android.as.oss:
+      io.github.ninbyo02.lami
+    com.android.settings.intelligence:
+      io.github.ninbyo02.lami
+    com.whatsapp:
+      io.github.ninbyo02.lami
+    com.vrchat.mobile.playstore:
+      io.github.ninbyo02.lami
+    jp.co.dwango.seiga.manga.android:
+      io.github.ninbyo02.lami
+    jp.naver.line.android:
+      io.github.ninbyo02.lami
+    com.amazon.mShop.android.shopping:
+      io.github.ninbyo02.lami
+    com.dencreak.esmemo:
+      io.github.ninbyo02.lami
+    jp.co.yahoo.android.apps.transit:
+      io.github.ninbyo02.lami
+    com.facebook.orca:
+      io.github.ninbyo02.lami
+    com.adobe.reader:
+      io.github.ninbyo02.lami
+    com.nttdocomo.android.dpoint:
+      io.github.ninbyo02.lami
+    com.moonshot.kimichat:
+      io.github.ninbyo02.lami
+    com.amazon.kindle:
+      io.github.ninbyo02.lami
+    com.wireguard.android:
+      io.github.ninbyo02.lami
+    com.sony.songpal:
+      io.github.ninbyo02.lami
+    com.appmind.radios.jp:
+      io.github.ninbyo02.lami
+    jp.co.yahoo.android.apps.map:
+      io.github.ninbyo02.lami
+    com.jalglobalwallet.jgw:
+      io.github.ninbyo02.lami
+    jp.co.ccc.Tsite:
+      io.github.ninbyo02.lami
+    net.wrightflyer.le.reality:
+      io.github.ninbyo02.lami
+    jp.ponta.myponta:
+      io.github.ninbyo02.lami
+  queryable via interaction:
+    User 0:
+      io.github.ninbyo02.lami:
+        [com.android.providers.downloads.ui,com.android.mtp,com.android.providers.downloads,com.android.providers.media,com.android.soundpicker]
+  queryable via uses-library:
+
+Dexopt state:
+  [io.github.ninbyo02.lami]
+    path: /data/app/~~HRdvtpcvEo5c-vIzFLEHPg==/io.github.ninbyo02.lami-MY2jUXX8D45D3dn3UD7Lqw==/base.apk
+      arm64: [status=run-from-apk] [reason=unknown] [primary-abi]
+        [location is error]
+
+Compiler stats:
+  [io.github.ninbyo02.lami]
+     base.apk - 1846

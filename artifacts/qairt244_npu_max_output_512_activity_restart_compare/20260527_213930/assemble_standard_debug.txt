@@ -1,0 +1,60 @@
+Starting a Gradle Daemon, 1 incompatible Daemon could not be reused, use --status for details
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preStandardDebugBuild UP-TO-DATE
+> Task :app:mergeStandardDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateStandardDebugBuildConfig
+> Task :app:checkStandardDebugAarMetadata UP-TO-DATE
+> Task :app:processStandardDebugNavigationResources UP-TO-DATE
+> Task :app:compileStandardDebugNavigationResources UP-TO-DATE
+> Task :app:generateStandardDebugResValues UP-TO-DATE
+> Task :app:mapStandardDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateStandardDebugResources UP-TO-DATE
+> Task :app:mergeStandardDebugResources UP-TO-DATE
+> Task :app:packageStandardDebugResources UP-TO-DATE
+> Task :app:parseStandardDebugLocalResources UP-TO-DATE
+> Task :app:createStandardDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksStandardDebug UP-TO-DATE
+> Task :app:processStandardDebugMainManifest UP-TO-DATE
+> Task :app:processStandardDebugManifest UP-TO-DATE
+> Task :app:processStandardDebugManifestForPackage UP-TO-DATE
+> Task :app:processStandardDebugResources UP-TO-DATE
+> Task :app:javaPreCompileStandardDebug UP-TO-DATE
+> Task :app:mergeStandardDebugShaders UP-TO-DATE
+> Task :app:compileStandardDebugShaders NO-SOURCE
+> Task :app:generateStandardDebugAssets UP-TO-DATE
+> Task :app:mergeStandardDebugAssets UP-TO-DATE
+> Task :app:compressStandardDebugAssets UP-TO-DATE
+> Task :app:checkStandardDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarStandardDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexStandardDebug UP-TO-DATE
+> Task :app:mergeLibDexStandardDebug UP-TO-DATE
+> Task :app:stageQairt244StandardDebugNativeLibs
+> Task :app:buildQnnDirectProbeDebugJni UP-TO-DATE
+> Task :app:mergeStandardDebugJniLibFolders UP-TO-DATE
+> Task :app:validateSigningStandardDebug UP-TO-DATE
+> Task :app:writeStandardDebugAppMetadata UP-TO-DATE
+> Task :app:writeStandardDebugSigningConfigVersions UP-TO-DATE
+> Task :app:mergeStandardDebugNativeLibs
+> Task :app:overlayQairt244StandardDebugNativeLibs
+
+> Task :app:stripStandardDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libLiteRt.so, libLiteRtClGlAccelerator.so, libQnnDsp.so, libQnnDspV66Skel.so, libQnnDspV66Stub.so, libQnnGpu.so, libQnnHtp.so, libQnnHtpPrepare.so, libQnnHtpV68Skel.so, libQnnHtpV68Stub.so, libQnnHtpV69Skel.so, libQnnHtpV69Stub.so, libQnnHtpV73Skel.so, libQnnHtpV73Stub.so, libQnnHtpV75Skel.so, libQnnHtpV75Stub.so, libQnnHtpV79Skel.so, libQnnHtpV79Stub.so, libQnnSystem.so, libQnnTFLiteDelegate.so, libandroidx.graphics.path.so, libdatastore_shared_counter.so, liblitertlm_jni.so, libllm_inference_engine_jni.so, libqnn_delegate_jni.so, libqnn_direct_probe_debug.so. Run with --info option to learn more.
+
+> Task :app:overlayQairt244StandardDebugStrippedNativeLibs
+> Task :app:kspStandardDebugKotlin
+> Task :app:compileStandardDebugKotlin
+> Task :app:compileStandardDebugJavaWithJavac
+> Task :app:dexBuilderStandardDebug
+> Task :app:processStandardDebugJavaRes UP-TO-DATE
+> Task :app:mergeStandardDebugJavaResource UP-TO-DATE
+> Task :app:mergeProjectDexStandardDebug
+
+> Task :app:packageStandardDebug
+PackagingOptions.jniLibs.useLegacyPackaging should be set to true because android:extractNativeLibs is set to "true" in AndroidManifest.xml.
+
+> Task :app:createStandardDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleStandardDebug
+
+BUILD SUCCESSFUL in 40s
+43 actionable tasks: 12 executed, 31 up-to-date

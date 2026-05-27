@@ -1,5 +1,24 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Activity Restart Only Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_activity_restart_compare/20260527_213930/`
+
+Activity restart only is not a ChatScreen promotion path. The hidden comparison
+kept the app process alive when possible and did not use force-stop between
+prompts. The Python code prompt still timed out after native pre-RunDecode
+`SetMaxOutputTokens(512)` evidence, with no completed result, cleanup,
+`Engine.close`, raw output, or sanitized output. The two Japanese prompts
+completed as `natural_japanese`.
+
+ChatScreen plan impact: no normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming, selectedPath=NPU persistence,
+release behavior, or standard behavior change. Sequential and
+Activity-restart-only 512 remain non-baseline. 512 remains hidden
+per-run-isolated candidate only, 256 remains the hidden experimental candidate,
+H1 remains 128-only, and 1024+ remains blocked.
+
 ## Max512 Sequential Cleanup/Resource Investigation - 2026-05-27
 
 Artifact:

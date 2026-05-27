@@ -9,6 +9,48 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Activity Restart Only Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_activity_restart_compare/20260527_213930/`
+
+The three approved hidden prompts ran once each at `max_output_tokens=512` with
+code-aware sanitizer enabled and a bounded 60 second timeout. The runner used
+Activity finish/relaunch between prompts and explicitly did not issue app
+process force-stop.
+
+Results:
+
+- `こんにちは`: success, `natural_japanese`, `decode_ms=834`,
+  `elapsed_ms=2000`
+- `Pythonで簡単な電卓コードを書いて`: timeout, `elapsed_ms=70000`,
+  pre-RunDecode `SetMaxOutputTokens(512)` evidence present, no completed
+  backend result, raw output, sanitized output, cleanup, or `Engine.close`
+  evidence
+- `ラミィのNPU推論について短く説明して`: success, `natural_japanese`,
+  `decode_ms=4393`, `elapsed_ms=6000`
+
+The Activity restart sequence did not create a reliable fresh Activity/process
+boundary. After the first prompt, the relaunch was delivered to the current
+top-most Activity and the PID stayed `17789`. The Python prompt then timed out;
+after that timeout, meminfo reported no process before the runner relaunched
+the Activity into a new PID `18538`. No explicit force-stop was used, and no
+fresh crash is asserted from the completed receiver result because that result
+was unavailable for the timed-out prompt.
+
+Classification: primary `activity_restart_insufficient`; secondary
+`cleanup_or_process_resource_issue`; still possible
+`native_callback_missing_or_decode_never_returns`. Activity/lifecycle restart
+alone does not solve the 512 sequential code prompt timeout. The successful
+force-stop comparison remains the evidence for a hidden per-run isolated 512
+candidate.
+
+Decision: 512 remains non-baseline for sequential and Activity-restart-only
+modes. 512 may be reviewed only as hidden `mode=per_run_isolated` with
+force-stop before and after each prompt. 256 remains the hidden experimental
+baseline candidate. H1 remains pinned to sanitizer-only
+`max_output_tokens=128`. 1024, 2048, and 4096 remain blocked.
+
 ## Max512 Sequential Cleanup/Resource Investigation - 2026-05-27
 
 Artifact:

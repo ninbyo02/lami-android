@@ -1,5 +1,17 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: max_output_tokens=512 Activity restart only remains insufficient
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 Activity-restart comparison | `artifacts/qairt244_npu_max_output_512_activity_restart_compare/20260527_213930/` | Activity finish/relaunch did not create the same isolation boundary as force-stop. The Python code prompt still timed out after pre-RunDecode evidence, with no completed result, cleanup, `Engine.close`, backend evidence, raw output, or sanitized output. | Classify primary `activity_restart_insufficient`, secondary `cleanup_or_process_resource_issue`, with `native_callback_missing_or_decode_never_returns` still possible. Keep 512 per-run isolated candidate only. |
+
+The first Activity relaunch was delivered to the already-running top-most
+Activity with the same PID, and the Python timeout later left no process before
+the runner relaunched into a new PID. No explicit force-stop was used. This
+keeps sequential and Activity-restart-only 512 non-baseline, keeps 256 as the
+hidden experimental baseline candidate, and keeps 1024/2048/4096 blocked.
+
 ## 2026-05-27: max_output_tokens=512 sequential cleanup/resource investigation
 
 | Area | Evidence | Root cause | Decision |
