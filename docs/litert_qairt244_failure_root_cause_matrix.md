@@ -1,5 +1,15 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-27: hidden NPU lifecycle wrapper contract
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Sequential 512 callback/state cleanup ambiguity | `artifacts/qairt244_hidden_npu_lifecycle_wrapper_design/20260527_225303/` | Prior sequential timeout artifacts lacked completed result, cleanup, and `Engine.close` evidence. Future sequential experiments need run-id scoped files and cleanup evidence to rule out stale/colliding state. | Add a hidden-only lifecycle wrapper contract. Timeout or missing cleanup is `suspect_session` and forbids reuse; per-run isolated remains required for 512. |
+
+The contract rejects stale results and run-id mismatches across callback, state,
+result, native diag, and cleanup channels. It requires `cleanup_elapsed_ms` and
+`Engine.close=unique_ptr_cleanup` before a run can be considered clean.
+
 ## 2026-05-27: Edge Gallery streaming lifecycle comparison
 
 | Area | Evidence | Root cause | Decision |

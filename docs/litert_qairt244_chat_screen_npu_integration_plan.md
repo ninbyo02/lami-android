@@ -1,5 +1,21 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Hidden NPU Lifecycle Wrapper Contract - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_wrapper_design/20260527_225303/`
+
+The hidden lifecycle wrapper is not a ChatScreen promotion. It defines a
+diagnostic-only contract for future hidden runs: run-id scoped state/result/
+native-diag/cleanup files, stale result rejection, mandatory cleanup elapsed
+time, mandatory `Engine.close=unique_ptr_cleanup`, and suspect-session
+classification for timeout or missing cleanup.
+
+ChatScreen impact: none. Do not connect assistant message-list insertion, DB,
+TTS, Markdown renderer, streaming renderer, selectedPath=NPU persistence,
+release behavior, or standard behavior. H1 remains pinned to 128 and 512
+remains hidden per-run isolated only.
+
 ## Edge Gallery Streaming Lifecycle Compare - 2026-05-27
 
 Artifact:

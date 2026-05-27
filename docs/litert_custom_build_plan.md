@@ -1,5 +1,18 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Hidden NPU Lifecycle Wrapper Contract - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_wrapper_design/20260527_225303/`
+
+This phase adds a Kotlin debug-only lifecycle contract and unit tests. It does
+not rebuild LiteRT-LM/QAIRT, change native guard code, change staged JNI
+libraries, run NPU, or authorize max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The next
+runtime work, if approved separately, should test only the hidden wrapper's
+run-id/cleanup contract at 512. 1024/2048/4096 remain blocked.
+
 ## QAIRT244 Edge Gallery Streaming Lifecycle Compare - 2026-05-27
 
 Artifact:

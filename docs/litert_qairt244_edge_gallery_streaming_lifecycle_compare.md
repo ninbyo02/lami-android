@@ -117,3 +117,30 @@ Do not adopt the following in this phase:
 `hidden_per_run_isolated_512` only. Sequential 512 and Activity-restart-only
 512 remain rollback modes. H1 remains pinned to
 `sanitizer_only + max_output_tokens=128`. 1024/2048/4096 remain blocked.
+
+## Hidden Lifecycle Wrapper Contract - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_wrapper_design/20260527_225303/`
+
+The first implementation step after this comparison is a hidden-only lifecycle
+contract, not streaming UI. `DevOnlyNpuLifecycleWrapper` defines the run-id and
+cleanup evidence rules that any future sequential 512 retest must satisfy.
+
+Contract:
+
+- `runId` is mandatory.
+- State, result, native diag, and cleanup file names must be scoped to that
+  `runId`.
+- Callback, state, result, native diag, and cleanup observed run ids must match
+  the current `runId`.
+- Stale result files are rejected.
+- Cleanup requires `cleanup_elapsed_ms` and
+  `Engine.close=unique_ptr_cleanup`.
+- Timeout or missing cleanup classifies the run as suspect and forbids session
+  reuse.
+- Side-effect flags for assistant list, selectedPath, DB, TTS, Markdown, and
+  streaming must remain false.
+
+This remains hidden-only and does not connect Gallery's streaming renderer,
+ChatScreen insertion, DB persistence, TTS, Markdown, or selectedPath=NPU.

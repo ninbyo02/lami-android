@@ -1,5 +1,24 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Hidden NPU Lifecycle Wrapper Contract - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_wrapper_design/20260527_225303/`
+
+Gate status: contract and unit tests only. No NPU runtime evidence is added.
+
+The hidden lifecycle wrapper fixes the evidence contract for any future
+sequential 512 retest. A current run is accepted only when callback, state,
+result, native diag, and cleanup evidence all match the same `runId`, stale
+results are absent, cleanup has `cleanup_elapsed_ms`, and
+`Engine.close=unique_ptr_cleanup` is present. Timeout or missing cleanup
+classifies the run as suspect and forbids session reuse.
+
+Promotion decision: unchanged. Sequential 512 and Activity-restart-only 512
+remain rollback modes. 512 remains hidden `hidden_per_run_isolated_512` only,
+256 remains the hidden experimental baseline candidate, H1 remains pinned to
+128, and 1024/2048/4096 remain blocked.
+
 ## Edge Gallery Streaming Lifecycle Compare - 2026-05-27
 
 Artifact:
