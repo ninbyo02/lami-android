@@ -1,0 +1,16 @@
+NPU追加実行なし
+512再実行なし
+native変更なし
+QAIRT rebuildなし
+ChatScreen通常会話昇格なし
+assistant message list挿入なし
+DB=false
+TTS=false
+Markdown=false
+streaming=false
+selectedPath=NPU保存なし
+release/standard変更なし
+H1=max_output_tokens=128 pinned
+256=hidden experimental baseline candidate
+512=hidden_per_run_isolated_512 candidate only
+1024/2048/4096 blocked

@@ -1,5 +1,22 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Receiver/Native Worker Instrumentation - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_receiver_native_worker_instrumentation/20260528_070541/`
+
+This phase adds app-side hidden receiver/native-worker terminal
+instrumentation and tests only. It does not run NPU, invoke a new RunDecode,
+rebuild LiteRT-LM/QAIRT, change native guard code, change staged JNI
+libraries, or authorize a max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The next
+approved runtime can use `terminal_trace_<runId>.txt` to distinguish worker
+throwable, terminal result write loss, cleanup loss, and native non-return or
+process death. Keep 512 hidden `hidden_per_run_isolated_512` candidate only,
+keep 256 as the hidden experimental baseline candidate, keep H1 pinned to
+128, and keep 1024/2048/4096 blocked.
+
 ## QAIRT244 Max512 Dispatch Process Review - 2026-05-28
 
 Artifact:

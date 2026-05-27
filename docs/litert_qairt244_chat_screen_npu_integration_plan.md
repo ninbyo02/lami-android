@@ -1,5 +1,24 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Receiver/Native Worker Terminal Instrumentation - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_receiver_native_worker_instrumentation/20260528_070541/`
+
+This phase adds hidden diagnostic instrumentation only. It does not execute
+NPU, rerun 512, change native code, rebuild QAIRT, or connect ChatScreen
+output.
+
+ChatScreen impact: none. The terminal trace is scoped to the hidden broadcast
+receiver and native-worker path. It records worker/native boundaries for
+post-run artifacts but does not insert assistant messages, persist
+selectedPath=NPU, enter DB/TTS/Markdown/streaming, or promote normal
+ChatScreen. Edge Gallery-style streaming remains out of scope.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated candidate only while sequential support is
+incomplete, and 1024+ remains blocked.
+
 ## Max512 Dispatch Process Disappearance Review - 2026-05-28
 
 Artifact:

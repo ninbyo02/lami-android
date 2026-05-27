@@ -17,6 +17,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
     context: Context,
     private val promptTemplateMode: HiddenQairt244PromptTemplateMode = HiddenQairt244PromptTemplateMode.RAW,
     private val maxOutputTokenRangeLimit: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+    private val terminalTraceRunId: String? = null,
 ) : DevOnlyNpuRouteAdapter {
     private val appContext = context.applicationContext
     private val resultFile: File = appContext.filesDir.resolve(RESULT_FILE_NAME)
@@ -241,7 +242,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
         return try {
             withTimeout(timeoutMs) {
                 withContext(Dispatchers.IO) {
-                    Qairt244ShortMultitokenSmoke.runEditablePrompt(
+                    traceTerminal(DevOnlyNpuTerminalTraceMarker.BEFORE_NATIVE_ADAPTER_RUN)
+                    val nativeResult = Qairt244ShortMultitokenSmoke.runEditablePrompt(
                         context = appContext,
                         modelPath = resolvedModelPath,
                         runId = runId,
@@ -249,8 +251,11 @@ class Qairt244DevOnlyNpuRouteAdapter(
                         maxOutputTokens = maxOutputTokens,
                         promptValidationMode = finalInputValidation.promptValidationMode,
                     )
+                    traceTerminal(DevOnlyNpuTerminalTraceMarker.AFTER_NATIVE_ADAPTER_RUN)
+                    nativeResult
                 }
             }
+            traceRunDecodeMarkerIfSeen()
             val elapsed = SystemClock.elapsedRealtime() - start
             val valuesBeforeMetadata = parseResultFile()
             appendRouteResultMetadata(
@@ -309,6 +314,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 timeout = false,
             )
         } catch (timeout: TimeoutCancellationException) {
+            traceRunDecodeMarkerIfSeen()
             val elapsed = SystemClock.elapsedRealtime() - start
             appendRouteMarker(
                 "runId=$runId state=timeout elapsed_ms=$elapsed timeout_ms=$timeoutMs db=false tts=false markdown=false stream=false",
@@ -339,6 +345,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 timeout = true,
             )
         } catch (throwable: Throwable) {
+            traceRunDecodeMarkerIfSeen()
             val elapsed = SystemClock.elapsedRealtime() - start
             appendRouteMarker(
                 "runId=$runId state=failure elapsed_ms=$elapsed class=${throwable.javaClass.name} " +
@@ -494,6 +501,26 @@ class Qairt244DevOnlyNpuRouteAdapter(
 
     private fun appendRouteMarker(message: String) {
         resultFile.appendText("$ROUTE_MARKER $message\n")
+    }
+
+    private fun traceTerminal(marker: DevOnlyNpuTerminalTraceMarker) {
+        val runId = terminalTraceRunId ?: return
+        DevOnlyNpuTerminalTrace.append(
+            context = appContext,
+            runId = runId,
+            marker = marker,
+        )
+    }
+
+    private fun traceRunDecodeMarkerIfSeen() {
+        if (!nativeDiagFile.isFile) return
+        val text = nativeDiagFile.readText()
+        val markerSeen = text.contains("before RunDecode SetMaxOutputTokens") ||
+            text.contains("SetMaxOutputTokens(512)") ||
+            text.contains("RunDecode")
+        if (markerSeen) {
+            traceTerminal(DevOnlyNpuTerminalTraceMarker.BEFORE_RUN_DECODE_MARKER_SEEN)
+        }
     }
 
     private fun appendInvalidPromptResult(

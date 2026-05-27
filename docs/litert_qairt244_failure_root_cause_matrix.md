@@ -1,5 +1,16 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-28: max_output_tokens=512 receiver/native-worker terminal instrumentation
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden receiver/native-worker terminal window | `artifacts/qairt244_npu_512_receiver_native_worker_instrumentation/20260528_070541/` | Prior review narrowed prompt 2 process loss to the hidden broadcast receiver -> `goAsync` worker -> `runForChatScreen`/native adapter window. Existing process-boundary artifacts could not distinguish worker throwable, terminal result write loss, cleanup loss, or native non-return/process death. | Add runId-scoped `terminal_trace_<runId>.txt` markers at receiver, worker, native adapter, terminal result, cleanup, throwable, and `finally` boundaries. Use the next approved runtime to classify the process death window. |
+
+This is instrumentation only; no NPU rerun was performed. 512 sequential
+remains incomplete and non-baseline, 512 per-run isolated remains the only
+512 candidate mode, 256 remains the hidden experimental baseline candidate,
+H1 remains pinned to 128, and 1024/2048/4096 remain blocked.
+
 ## 2026-05-28: max_output_tokens=512 dispatch process disappearance review
 
 | Area | Evidence | Root cause | Decision |

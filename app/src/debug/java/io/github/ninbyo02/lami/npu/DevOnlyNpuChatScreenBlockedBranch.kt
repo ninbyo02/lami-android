@@ -139,6 +139,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
         maxOutputTokens: Int,
         requestedMaxOutputTokens: Int = maxOutputTokens,
         allowMaxOutputTokensCompare: Boolean = false,
+        terminalTraceRunId: String? = null,
     ): String {
         val baselineMaxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
         val compareLimit = DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT
@@ -208,6 +209,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 maxOutputTokens = effectiveMaxOutputTokens,
                 requestedMaxOutputTokens = requestedMaxOutputTokens,
                 allowMaxOutputTokensCompare = allowMaxOutputTokensCompare,
+                terminalTraceRunId = terminalTraceRunId,
             )
         } finally {
             chatScreenRunInProgress.set(false)
@@ -221,6 +223,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
         maxOutputTokens: Int,
         requestedMaxOutputTokens: Int,
         allowMaxOutputTokensCompare: Boolean,
+        terminalTraceRunId: String?,
     ): String {
         val appContext = context.applicationContext
         val validation = if (io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
@@ -240,6 +243,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
                     } else {
                         DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
                     },
+                    terminalTraceRunId = terminalTraceRunId,
                 ),
             ).runIfAllowed(
                 gateInput = DevOnlyNpuRouteGateInput(

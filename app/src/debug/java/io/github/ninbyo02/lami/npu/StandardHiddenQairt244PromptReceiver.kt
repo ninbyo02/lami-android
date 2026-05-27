@@ -12,17 +12,59 @@ import kotlinx.coroutines.runBlocking
 
 class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val appContext = context.applicationContext
+        val traceRunId = intent.getStringExtra(EXTRA_RUN_ID)
+            ?.takeIf { it.isNotBlank() }
+            ?: "receiver-${System.currentTimeMillis()}"
+        DevOnlyNpuTerminalTrace.append(
+            context = appContext,
+            runId = traceRunId,
+            marker = DevOnlyNpuTerminalTraceMarker.RECEIVER_ENTER,
+        )
         val pendingResult = goAsync()
+        DevOnlyNpuTerminalTrace.append(
+            context = appContext,
+            runId = traceRunId,
+            marker = DevOnlyNpuTerminalTraceMarker.GO_ASYNC_STARTED,
+        )
         Thread {
             try {
-                handle(context.applicationContext, intent)
+                DevOnlyNpuTerminalTrace.append(
+                    context = appContext,
+                    runId = traceRunId,
+                    marker = DevOnlyNpuTerminalTraceMarker.WORKER_THREAD_STARTED,
+                )
+                handle(appContext, intent, traceRunId)
+            } catch (throwable: Throwable) {
+                DevOnlyNpuTerminalTrace.append(
+                    context = appContext,
+                    runId = traceRunId,
+                    marker = DevOnlyNpuTerminalTraceMarker.THROWABLE_CAUGHT,
+                    throwable = throwable,
+                )
+                throw throwable
             } finally {
+                DevOnlyNpuTerminalTrace.append(
+                    context = appContext,
+                    runId = traceRunId,
+                    marker = DevOnlyNpuTerminalTraceMarker.FINALLY_ENTER,
+                )
                 pendingResult.finish()
+                DevOnlyNpuTerminalTrace.append(
+                    context = appContext,
+                    runId = traceRunId,
+                    marker = DevOnlyNpuTerminalTraceMarker.FINALLY_EXIT,
+                )
+                DevOnlyNpuTerminalTrace.append(
+                    context = appContext,
+                    runId = traceRunId,
+                    marker = DevOnlyNpuTerminalTraceMarker.WORKER_FINISHED,
+                )
             }
         }.start()
     }
 
-    private fun handle(appContext: Context, intent: Intent) {
+    private fun handle(appContext: Context, intent: Intent, traceRunId: String) {
         val stateFile = File(appContext.filesDir, STATE_FILE_NAME)
         val prompt = intent.getStringExtra(EXTRA_PROMPT).orEmpty().ifBlank { "Hello" }
         val enableDeveloperAccess = intent.getBooleanExtra(EXTRA_ENABLE_DEVELOPER_ACCESS, false)
@@ -97,6 +139,11 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
 
             val templateMode = requestedTemplateMode
                 ?: preferences.hiddenQairt244PromptTemplateModeFlow.first()
+            DevOnlyNpuTerminalTrace.append(
+                context = appContext,
+                runId = traceRunId,
+                marker = DevOnlyNpuTerminalTraceMarker.RUN_FOR_CHATSCREEN_ENTER,
+            )
             DevOnlyNpuChatScreenBlockedBranch.runForChatScreen(
                 context = appContext,
                 prompt = prompt,
@@ -104,9 +151,14 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 maxOutputTokens = baselineMaxOutputTokens,
                 requestedMaxOutputTokens = requestedMaxOutputTokens,
                 allowMaxOutputTokensCompare = allowMaxOutputTokensCompare,
+                terminalTraceRunId = traceRunId,
             ).also { result ->
+                DevOnlyNpuTerminalTrace.append(
+                    context = appContext,
+                    runId = traceRunId,
+                    marker = DevOnlyNpuTerminalTraceMarker.BEFORE_TERMINAL_RESULT_WRITE,
+                )
                 writeDisplayDiagnostics(appContext, result)
-                writeRunnerCleanupState(appContext)
                 writeState(
                     stateFile = stateFile,
                     prompt = prompt,
@@ -114,6 +166,22 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                     routeEnabled = preferences.devEnableQairt244Sm8750NpuRouteFlow.first(),
                     resultText = result,
                     status = if (result.lineSequence().any { it == "success=true" }) "success" else "failure",
+                )
+                DevOnlyNpuTerminalTrace.append(
+                    context = appContext,
+                    runId = traceRunId,
+                    marker = DevOnlyNpuTerminalTraceMarker.AFTER_TERMINAL_RESULT_WRITE,
+                )
+                DevOnlyNpuTerminalTrace.append(
+                    context = appContext,
+                    runId = traceRunId,
+                    marker = DevOnlyNpuTerminalTraceMarker.BEFORE_CLEANUP,
+                )
+                writeRunnerCleanupState(appContext)
+                DevOnlyNpuTerminalTrace.append(
+                    context = appContext,
+                    runId = traceRunId,
+                    marker = DevOnlyNpuTerminalTraceMarker.AFTER_CLEANUP,
                 )
             }
         }
@@ -252,6 +320,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         const val EXTRA_TEMPLATE = "template"
         const val EXTRA_TEMPLATE_MODE = "template_mode"
         const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
+        const val EXTRA_RUN_ID = "run_id"
         const val STATE_FILE_NAME = "qairt244_standard_hidden_prompt_state.txt"
     }
 }

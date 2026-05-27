@@ -1,5 +1,27 @@
 # QAIRT244 Hidden NPU Promotion Gate
 
+## Max512 Receiver/Native Worker Terminal Instrumentation - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_receiver_native_worker_instrumentation/20260528_070541/`
+
+Gate status: instrumentation/docs/tests only. No additional NPU execution,
+native work, QAIRT rebuild, or promotion was performed.
+
+The hidden runner now has a terminal worker trace contract for the next
+approved 512 sequential investigation. Clean worker completion requires
+ordered markers through `after_native_adapter_run`,
+`after_terminal_result_write`, `after_cleanup`, `finally_exit`, and
+`worker_finished`. `throwable_caught`, missing `after_native_adapter_run`,
+missing terminal result write, missing cleanup, missing `finally`, runId
+mismatch, or stale trace classify the run as suspect/rejected and keep
+`reuse_allowed=false` with hidden per-run isolation required.
+
+Promotion decision: unchanged. 512 sequential remains incomplete and
+non-baseline. 512 remains `hidden_per_run_isolated_512` candidate only, 256
+remains the hidden experimental baseline candidate, H1 remains pinned to 128,
+and 1024/2048/4096 remain blocked.
+
 ## Max512 Dispatch Process Disappearance Review - 2026-05-28
 
 Artifact:

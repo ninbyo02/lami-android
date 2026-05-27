@@ -658,6 +658,7 @@ run_prompt_512() {
   pull_app_file "files/qairt244_chat_screen_model_path_resolution.txt" "$run_dir/resolved_model_path.txt"
   pull_app_file "files/qairt244_dev_npu_ui_cleanup_state.txt" "$run_dir/ui_cleanup_state.txt"
   pull_app_file "files/qairt244_standard_hidden_display_diagnostics.txt" "$run_dir/display_diagnostics.txt"
+  pull_app_file "files/terminal_trace_${runner_run_id}.txt" "$run_dir/terminal_trace.txt"
   adb_cmd logcat -d -t 900 >"$run_dir/logcat_tail.txt" 2>&1 || true
   capture_screenshot "$slug" "$run_dir"
   append_meminfo_after_each_run "after_${slug}"
@@ -669,6 +670,7 @@ run_prompt_512() {
   cp "$run_dir/result.txt" "$OUT_DIR/result_512_${slug}.txt" 2>/dev/null || : >"$OUT_DIR/result_512_${slug}.txt"
   cp "$run_dir/native_diag.txt" "$OUT_DIR/native_diag_512_${slug}.txt" 2>/dev/null || : >"$OUT_DIR/native_diag_512_${slug}.txt"
   cp "$run_dir/ui_cleanup_state.txt" "$OUT_DIR/cleanup_${index}.txt" 2>/dev/null || : >"$OUT_DIR/cleanup_${index}.txt"
+  cp "$run_dir/terminal_trace.txt" "$OUT_DIR/terminal_trace_${index}.txt" 2>/dev/null || : >"$OUT_DIR/terminal_trace_${index}.txt"
   write_unescaped_case_value raw_output "$run_dir" "$OUT_DIR/raw_output_512_${slug}.txt"
   write_unescaped_case_value sanitized_output "$run_dir" "$OUT_DIR/sanitized_output_512_${slug}.txt"
   cp "$OUT_DIR/result_512_${slug}.txt" "$OUT_DIR/result_${index}.txt" 2>/dev/null || : >"$OUT_DIR/result_${index}.txt"
@@ -903,9 +905,9 @@ write_comparison_table() {
 
 write_runtime_marker_scan() {
   {
-    for file in "$OUT_DIR"/run_*/*.txt "$OUT_DIR"/native_diag_*.txt "$OUT_DIR/logcat_tail.txt" "$OUT_DIR/comparison_table.md"; do
+    for file in "$OUT_DIR"/run_*/*.txt "$OUT_DIR"/native_diag_*.txt "$OUT_DIR"/terminal_trace_*.txt "$OUT_DIR/logcat_tail.txt" "$OUT_DIR/comparison_table.md"; do
       [ -f "$file" ] || continue
-      rg -n "QNN|HTP|FastRPC|RunDecode|EngineFactory|native_prompt|sanitizer|code_block_detected|code_fence_completed|code_indentation_preserved|code_fence_closed|selected_path_npu|fallback_used|timeout|fresh_crash|max_output_tokens|quality_classification|lifecycle_classification|next_prompt_allowed|runtime_reuse_allowed|reuse_allowed|hidden_per_run_isolated_required|db=false|tts=false|markdown=false|streaming=false|Engine\\.initialize|Engine\\.close|RunDecode" "$file" | sed "s#^#${file#$OUT_DIR/}:#" || true
+      rg -n "QNN|HTP|FastRPC|RunDecode|EngineFactory|native_prompt|sanitizer|code_block_detected|code_fence_completed|code_indentation_preserved|code_fence_closed|selected_path_npu|fallback_used|timeout|fresh_crash|max_output_tokens|quality_classification|lifecycle_classification|next_prompt_allowed|runtime_reuse_allowed|reuse_allowed|hidden_per_run_isolated_required|receiver_enter|go_async_started|worker_thread_started|run_for_chatscreen_enter|before_native_adapter_run|before_run_decode_marker_seen|after_native_adapter_run|before_terminal_result_write|after_terminal_result_write|before_cleanup|after_cleanup|throwable_caught|finally_enter|finally_exit|worker_finished|db=false|tts=false|markdown=false|streaming=false|Engine\\.initialize|Engine\\.close|RunDecode" "$file" | sed "s#^#${file#$OUT_DIR/}:#" || true
     done
   } >"$OUT_DIR/runtime_marker_scan.txt"
 }

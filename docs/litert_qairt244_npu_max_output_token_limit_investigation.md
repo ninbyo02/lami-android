@@ -9,6 +9,32 @@ Scope: static investigation only. This pass did not change native code, did
 not rebuild QAIRT/LiteRT-LM, did not execute NPU generation, did not call
 `Engine.initialize`, and did not call `RunDecode`.
 
+## Max512 Receiver/Native Worker Terminal Instrumentation - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_receiver_native_worker_instrumentation/20260528_070541/`
+
+Scope: instrumentation, runner artifact schema, docs, and tests only. No NPU
+execution, 512 rerun, native change, QAIRT/LiteRT-LM rebuild, ChatScreen
+promotion, assistant-list insertion, DB, TTS, Markdown renderer, streaming,
+selectedPath persistence, standard/release behavior, or 1024+ expansion was
+performed.
+
+Change: the hidden broadcast receiver now writes a runId-scoped
+`terminal_trace_<runId>.txt` file. It records receiver entry, `goAsync`,
+worker start, `runForChatScreen` entry, native adapter boundary,
+pre-RunDecode marker detection, terminal result writes, cleanup boundary,
+throwable, `finally`, and worker finish markers with timestamp, runId, thread,
+and process id. The sequential soft-reset runner now pulls this trace as a
+first-class artifact.
+
+Decision: prompt 2 dispatch-triggered process disappearance remains the
+active 512 sequential blocker until a separately approved runtime captures
+the new terminal trace. 512 sequential remains incomplete and non-baseline;
+512 remains `hidden_per_run_isolated_512` candidate only; 256 remains the
+hidden experimental baseline candidate; H1 remains pinned to 128; and
+1024/2048/4096 remain blocked.
+
 ## Max512 Dispatch Process Disappearance Review - 2026-05-28
 
 Artifact:
