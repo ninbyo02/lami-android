@@ -336,9 +336,12 @@ write_selected_cases_summary() {
   local limit="$1"
   local rows_written=0
   local template target overhead prompt_tokens prompt prompt_chars final_chars expected_validation native_pre_reject prompt_preview
-  printf '## Selected Cases\n\n'
-  printf 'The rows below are the cases that this invocation will consider after `--only-template` and `--only-target`, then after `--limit-cases` if it is non-zero.\n\n'
-  printf '| selected_index | template | target | prompt_chars | final_input_chars_approx | native_pre_reject_expected_by_128_gate | prompt_source | prompt_preview |\n'
+    printf '## Selected Cases\n\n'
+    printf 'The rows below are the cases that this invocation will consider after `--only-template` and `--only-target`, then after `--limit-cases` if it is non-zero.\n\n'
+    if [ -n "$CUSTOM_PROMPT" ]; then
+      printf 'Note: `--prompt` is set, so `target` remains a case label only. It does not generate filler length. Use `prompt_chars` and `final_input_chars_approx` as the source of truth for prompt length and 128 gate expectations.\n\n'
+    fi
+    printf '| selected_index | template | target | prompt_chars | final_input_chars_approx | native_pre_reject_expected_by_128_gate | prompt_source | prompt_preview |\n'
   printf '| ---: | --- | ---: | ---: | ---: | --- | --- | --- |\n'
   for template in "${TEMPLATES[@]}"; do
     for target in "${TARGETS[@]}"; do
@@ -510,6 +513,13 @@ write_summary() {
     printf -- '- device: `%s`\n' "${DEVICE_SERIAL:-not_selected}"
     printf -- '- limit_cases: `%s`\n' "$LIMIT_CASES"
     printf -- '- custom_prompt: `%s`\n' "$(if [ -n "$CUSTOM_PROMPT" ]; then printf true; else printf false; fi)"
+    if [ -n "$CUSTOM_PROMPT" ]; then
+      printf -- '- target_length_semantics: `case_label_only_custom_prompt`\n'
+      printf -- '- input_length_source_of_truth: `prompt_chars_and_final_input_chars_approx`\n'
+    else
+      printf -- '- target_length_semantics: `generated_x_filler_input_length_approximation`\n'
+      printf -- '- input_length_source_of_truth: `target_generated_filler_estimate`\n'
+    fi
     printf -- '- only_template: `%s`\n' "${ONLY_TEMPLATE:-all}"
     printf -- '- only_target: `%s`\n' "${ONLY_TARGET:-all}"
     printf -- '- selected_case_count_before_limit: `%s`\n' "$(selected_case_count)"
@@ -544,6 +554,9 @@ write_summary() {
     printf '\n'
     write_selected_cases_summary "$LIMIT_CASES"
     printf '## 128 Gate Preflight\n\n'
+    if [ -n "$CUSTOM_PROMPT" ]; then
+      printf 'Important: because `--prompt` is set, selected-case gate expectations come from the Selected Cases table above. The full matrix table below still shows the default generated `x ` filler assumptions for comparison only.\n\n'
+    fi
     printf 'Cases with `final_input_chars_approx > %s` are expected to reject before native entry through the current hidden-route prompt validation gate. These rows prove app-side validation behavior, not the `.litertlm` graph sequence limit.\n\n' "$HIDDEN_TEMPLATE_MAX_LENGTH"
     printf 'For rows marked `true`: `128 gate によりこのcaseは native前reject見込み`.\n\n'
     printf '| template | target | final_input_chars_approx | native_pre_reject_expected_by_128_gate |\n'

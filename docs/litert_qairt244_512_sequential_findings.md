@@ -553,6 +553,38 @@ Interpretation: `simple_ja_chat` reaches the same native/decode path, but its
 template echo and mixed-script output can still be fully removed by the
 sanitizer. This is separate from the raw NPU path stability question.
 
+A later custom-prompt run used `--only-target 128` with the same short natural
+prompt:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_054242/summary.md
+template=raw
+target=128
+custom_prompt=true
+prompt=日本語で一言だけ挨拶してください。
+prompt_chars=17
+final_input_chars_approx=17
+native_pre_reject_expected_by_128_gate=false
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+requested/effective=16/16
+native_file_first_max=16
+quality=natural_japanese
+```
+
+This result confirms that short custom prompts continue to decode even when
+the case label is `target=128`, but it is not a 128 gate boundary check and is
+not 512 sequential evidence. When `--prompt` is set, the script does not use
+the target to generate filler; `target` remains a case label, and
+`prompt_chars` / `final_input_chars_approx` are the source of truth. A real
+Phase 1 baseline reject requires either the generated-filler raw target `128`
+case with no `--prompt`, or an explicit custom prompt whose final input exceeds
+the 128-codepoint gate.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
@@ -637,7 +669,10 @@ cannot directly test 512/640 final-input rows because `HIDDEN_TEMPLATE_MAX_LENGT
 rejects those cases before native entry. Within the current hidden-route
 128-codepoint gate, raw custom-prompt NPU decode is stable through the highest
 native-eligible raw target in the existing matrix (`64`); raw target `128` and
-higher remain expected native-before rejects under the current gate.
+higher remain expected native-before rejects under the current gate only when
+the generated filler is used or the custom prompt actually exceeds the gate.
+For custom-prompt invocations, the target value is a case label rather than an
+input length guarantee.
 
 Policy remains unchanged:
 - H1 remains pinned to `max_output_tokens=128`.

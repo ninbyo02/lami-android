@@ -141,6 +141,16 @@ Run raw target `128` with no bypass and confirm:
 - native/decode do not run;
 - summary classifies it as `native_pre_reject_expected_by_128_gate=true`.
 
+This baseline must use either:
+- no `--prompt`, so raw target `128` generates the default filler input that
+  exceeds the 128-codepoint gate; or
+- an explicit custom prompt whose recorded `final_input_chars_approx` exceeds
+  `128`.
+
+If `--prompt` is set to a short natural prompt, `target=128` is only a case
+label. It does not create a 128-target-length input, and a successful decode
+from such a run is not a gate-boundary or 512 sequential result.
+
 This proves the classification boundary before enabling bypass.
 
 ### Phase 2: First Bypassed Native Case
