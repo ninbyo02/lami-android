@@ -725,6 +725,45 @@ Before using generated-filler rows for larger input/prefill checks, rerun a
 single guarded dry-run/runtime case and confirm the receiver sees the intended
 prompt length and requested max output tokens.
 
+After applying `prompt_base64`, the generated-filler raw target `256` case was
+rerun:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_062513/summary.md
+template=raw
+target=256
+custom_prompt=false
+prompt_transport=base64
+prompt_chars=512
+prompt_base64_length=684
+final_input_chars_approx=512
+native_pre_reject_expected_by_128_gate=true
+status=failure
+reason=gate_blocked:VALIDATOR_INVALID
+native=false
+decode=false
+npu_evidence=
+fallback=false
+fresh_crash=false
+requested/effective=16/16
+native_limit=128
+native_file_first_max=missing
+raw_len=0
+sanitized_len=0
+quality=empty_output
+```
+
+This confirms the transport fix changed the observation: the space-containing
+generated filler prompt reached the receiver with its intended length, and raw
+target `256` (`final_input_chars_approx=512`) was rejected by the validator
+before native entry. The earlier raw target `256` native/decode result is best
+treated as a transport false positive caused by the prompt collapsing to `x`
+and losing the compare/max-output extras. With shell-safe prompt transport, the
+current measured boundary is raw target `64` (`final_input_chars_approx=128`)
+inside the gate and raw target `128+` above the gate. Direct 512 sequential or
+4096-input/prefill validation still requires a separately approved dev-only,
+hidden-receiver-only 128-gate bypass.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:

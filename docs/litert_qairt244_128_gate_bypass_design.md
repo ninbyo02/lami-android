@@ -212,6 +212,32 @@ source of truth. The dev-only hidden receiver and sequence probe runner now use
 confirm `prompt_transport=base64`, `prompt_decode_success=true`, and the
 expected prompt/final-input lengths in artifacts.
 
+Phase 1 was repeated after `prompt_base64` landed:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_062513/summary.md
+template=raw
+target=256
+custom_prompt=false
+prompt_transport=base64
+prompt_chars=512
+final_input_chars_approx=512
+native_pre_reject_expected_by_128_gate=true
+status=failure
+reason=gate_blocked:VALIDATOR_INVALID
+native=false
+decode=false
+requested/effective=16/16
+```
+
+This restores the expected Phase 1 interpretation: with shell-safe prompt
+transport, raw target `256` is blocked by the app-side validator before native
+entry. The earlier native/decode observation was likely a false positive from
+prompt transport collapse, not evidence that the 128-codepoint gate was absent.
+Bypass necessity is therefore no longer on hold for transport reasons; crossing
+raw target `128+` into native graph/prefill behavior requires a separate
+dev-only, hidden-receiver-only gate bypass.
+
 ### Phase 2: First Bypassed Native Case
 
 Requires separate approval and implementation first.
