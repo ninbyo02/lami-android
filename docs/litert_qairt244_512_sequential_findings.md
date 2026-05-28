@@ -672,7 +672,9 @@ scripts/run_npu_512_sequence_probe.sh --execute --device 192.168.52.52:41591 --t
 4. If direct 512 graph/prefill boundary evidence is still required, design a
    separately approved dev-only validation bypass that is non-ChatScreen,
    non-persistent, does not connect DB/TTS/Markdown/streaming, and does not
-   hide fallback.
+   hide fallback. The design is documented in
+   `docs/litert_qairt244_128_gate_bypass_design.md`; no bypass implementation
+   exists in this pass.
 
 If all targets above the existing 128-codepoint hidden route gate reject before
 native entry, the next safe design step is a dev-only, non-ChatScreen,
