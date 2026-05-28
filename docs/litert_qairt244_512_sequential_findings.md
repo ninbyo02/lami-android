@@ -585,6 +585,59 @@ Phase 1 baseline reject requires either the generated-filler raw target `128`
 case with no `--prompt`, or an explicit custom prompt whose final input exceeds
 the 128-codepoint gate.
 
+The generated-filler raw target `128` Phase 1 check was then run:
+
+```bash
+scripts/run_npu_512_sequence_probe.sh \
+  --execute \
+  --device 192.168.52.52:41591 \
+  --timeout 60 \
+  --max-output-tokens 16 \
+  --only-template raw \
+  --only-target 128 \
+  --limit-cases 1
+```
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_512_sequence_probe/20260529_055209/summary.md
+```
+
+Observed result:
+- custom prompt: `false`
+- target length semantics: `generated_x_filler_input_length_approximation`
+- input length source of truth: `target_generated_filler_estimate`
+- template: `raw`
+- target: `128`
+- prompt chars: `256`
+- final input chars approx: `256`
+- preflight expected native-before reject: `true`
+- expected validation: `expected_app_prompt_validation_reject`
+- status: `failure`
+- native reached: `true`
+- decode reached: `true`
+- NPU evidence: `QNN_HTP_V79_FastRPC_native_diag`
+- fallback: `false`
+- fresh crash: `false`
+- requested/effective max output tokens: `128/128`
+- native limit: `512`
+- native first max output tokens: `128`
+- raw output length: `192`
+- sanitized output length: `0`
+- quality: `mixed_language`
+- control chars observed: `true`
+- reason: `empty_after_sanitize`
+
+This is a preflight prediction mismatch. The runner predicted
+`native_pre_reject_expected_by_128_gate=true`, but receiver/native artifacts
+show that the hidden receiver path reached native decode. Therefore the
+current preflight table is only a heuristic expectation, and the source of
+truth is the receiver/result/native artifacts (`native=true`, `decode=true`,
+and NPU evidence). The raw target `128` failure is not an app-side validation
+reject and is not evidence of a 512 graph/prefill boundary failure; it is a
+post-decode sanitizer/output classification failure.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
@@ -665,14 +718,11 @@ no longer the active blocker for the one-case probe, and generated raw `x`
 filler is not a reliable sanitizer/echo probe. `simple_ja_chat` is a separate
 template echo / mixed-script sanitizer problem: it can reach native/decode and
 still collapse to `empty_after_sanitize`. The existing hidden route still
-cannot directly test 512/640 final-input rows because `HIDDEN_TEMPLATE_MAX_LENGTH=128`
-rejects those cases before native entry. Within the current hidden-route
-128-codepoint gate, raw custom-prompt NPU decode is stable through the highest
-native-eligible raw target in the existing matrix (`64`); raw target `128` and
-higher remain expected native-before rejects under the current gate only when
-the generated filler is used or the custom prompt actually exceeds the gate.
-For custom-prompt invocations, the target value is a case label rather than an
-input length guarantee.
+cannot be assumed to reject every target above the 128-codepoint preflight
+threshold: generated-filler raw target `128` was predicted to reject before
+native, but actually reached native/decode and failed after sanitization. For
+custom-prompt invocations, the target value remains a case label rather than
+an input length guarantee.
 
 Policy remains unchanged:
 - H1 remains pinned to `max_output_tokens=128`.
@@ -698,21 +748,21 @@ artifacts/qairt244_litertlm_512_sequence_constraints/20260528_083149/summary.md
 scripts/run_npu_512_sequence_probe.sh --execute --device 192.168.52.52:41591 --timeout 60 --max-output-tokens 16 --limit-cases 1
 ```
 
-3. For any broader hidden matrix run, treat raw path stability, template
-   echo/sanitizer behavior, and the 128-codepoint gate as separate tracks.
-   Prefer natural language or echo-resistant custom prompts through
-   `--prompt`, while keeping `--only-template`, `--only-target`, and
-   `--limit-cases 1` for first-pass safety.
+3. Treat the 128 gate preflight table as a prediction, not ground truth. The
+   next safe runtime question, if approved separately, is whether generated
+   raw target `256` also reaches native/decode or starts failing before native.
+   Keep `--only-template`, `--only-target`, and `--limit-cases 1`.
 
 4. If direct 512 graph/prefill boundary evidence is still required, design a
    separately approved dev-only validation bypass that is non-ChatScreen,
    non-persistent, does not connect DB/TTS/Markdown/streaming, and does not
    hide fallback. The design is documented in
    `docs/litert_qairt244_128_gate_bypass_design.md`; no bypass implementation
-   exists in this pass.
+   exists in this pass. Because raw target `128` reached native without a
+   bypass, the bypass necessity should be re-evaluated after more measured
+   gate-condition probes.
 
-If all targets above the existing 128-codepoint hidden route gate reject before
-native entry, the next safe design step is a dev-only, non-ChatScreen,
-non-persistent validation bypass dedicated to prefill-length probing. That
-would be a separate approval because it changes app-side guard behavior, even
-if it remains hidden-only.
+If later targets reject before native entry, the next safe design step remains
+a dev-only, non-ChatScreen, non-persistent validation bypass dedicated to
+prefill-length probing. That would be a separate approval because it changes
+app-side guard behavior, even if it remains hidden-only.

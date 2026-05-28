@@ -132,14 +132,16 @@ Already established:
 - `fallback=false`;
 - `fresh_crash=false`.
 
-### Phase 1: No-Bypass Rejection Check
+### Phase 1: No-Bypass Prediction Comparison
 
 Design intent only; do not run as part of this document.
 
-Run raw target `128` with no bypass and confirm:
-- app-side validation rejects before native;
-- native/decode do not run;
-- summary classifies it as `native_pre_reject_expected_by_128_gate=true`.
+Run raw target `128` with no bypass and compare preflight prediction with
+receiver/native artifacts:
+- preflight may classify the row as
+  `native_pre_reject_expected_by_128_gate=true`;
+- the source of truth is the measured receiver/result/native artifact state:
+  native entry, decode entry, NPU evidence, and receiver failure reason.
 
 This baseline must use either:
 - no `--prompt`, so raw target `128` generates the default filler input that
@@ -151,7 +153,29 @@ If `--prompt` is set to a short natural prompt, `target=128` is only a case
 label. It does not create a 128-target-length input, and a successful decode
 from such a run is not a gate-boundary or 512 sequential result.
 
-This proves the classification boundary before enabling bypass.
+Observed follow-up:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_055209/summary.md
+template=raw
+target=128
+custom_prompt=false
+prompt_chars=256
+final_input_chars_approx=256
+native_pre_reject_expected_by_128_gate=true
+status=failure
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+reason=empty_after_sanitize
+```
+
+This means Phase 1 did not confirm a native-before validation reject. Instead,
+it showed a preflight prediction mismatch: the generated-filler raw target
+`128` case reached native/decode and failed after output sanitization. Bypass
+necessity is therefore on hold until measured gate behavior is rechecked at
+larger generated-filler targets. A bypass may still be needed later, but it
+should not be assumed solely from the preflight table.
 
 ### Phase 2: First Bypassed Native Case
 
