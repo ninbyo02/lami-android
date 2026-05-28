@@ -200,8 +200,12 @@ native-before-reject prediction. This further weakens the assumption that the
 current hidden receiver path enforces the 128-codepoint gate as modeled by
 preflight. It also surfaced a separate unresolved issue: the command requested
 `--max-output-tokens 16`, but artifacts recorded requested/effective `128`.
-Before implementing a bypass, first inspect script/receiver max-output
-argument propagation and continue treating measured native/decode state as the
+Follow-up inspection showed the generated space-separated filler prompt likely
+broke `adb shell am broadcast` argument parsing: `broadcast.txt` showed
+`pkg=x`, while receiver/native artifacts recorded `prompt=x`,
+`max_output_tokens_compare_enabled=false`, and `SetMaxOutputTokens(128)`.
+Before implementing a bypass, first make prompt transport shell-safe for long
+generated prompts and continue treating measured native/decode state as the
 source of truth.
 
 ### Phase 2: First Bypassed Native Case

@@ -686,13 +686,33 @@ This extends the preflight prediction mismatch: raw target `256`
 but it reached native/decode. It is still not a 512 graph/prefill failure
 because decode completed and the failure was `empty_after_sanitize`.
 
-However, this run exposes a separate unresolved max-output propagation issue.
-The command requested `--max-output-tokens 16`, but the recorded
-requested/effective/native-first max output values were `128`. That suggests
-the target value or another hidden-route clamp/default may be influencing
-`max_output_tokens` for generated-filler sequence probes. This should be
-investigated as argument propagation before using these generated-filler rows
-as clean sequence-boundary evidence.
+However, this run exposed a separate max-output propagation issue. The command
+requested `--max-output-tokens 16`, but the recorded
+requested/effective/native-first max output values were `128`.
+
+Follow-up code/artifact inspection without rerunning runtime points to adb
+broadcast argument transport, not native decode or summary parsing:
+- `request.txt` planned `prompt_chars=512` and `final_input_chars_approx=512`,
+  but it did not record `max_output_tokens`.
+- `broadcast.txt` showed `pkg=x`, which indicates the space-separated generated
+  filler prompt (`x x x ...`) was split by the device-side shell/am broadcast
+  command line.
+- `receiver_state.txt` recorded `prompt=x`, `final_model_input=x`,
+  `prompt_input_code_points=1`, `max_output_tokens_compare_enabled=false`,
+  and requested/effective `128/128`.
+- `native_diag.txt` recorded prompt length `1` and
+  `SetMaxOutputTokens(128)`.
+- `result.txt` and `case_summary.txt` also consistently recorded
+  requested/effective/native-first `128`.
+
+The hidden receiver defaults to `DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS`
+when `allow_max_output_tokens_compare` is absent or false, so the most likely
+cause is that the space-containing generated filler prompt broke broadcast
+extra parsing before the `max_output_tokens=16` and compare flag reached the
+receiver. Generated-filler rows that use space-separated prompts should
+therefore not be treated as clean sequence-boundary evidence until prompt
+transport is made shell-safe, for example by a dev-only base64 or file-backed
+prompt extra.
 
 ## Runtime Classification Plan
 
