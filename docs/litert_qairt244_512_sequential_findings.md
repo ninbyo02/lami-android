@@ -506,6 +506,52 @@ probes should avoid raw `x` filler when the goal is output quality or
 sanitizer classification; use natural language or another prompt that is less
 likely to be removed as echo.
 
+Additional one-case natural-language custom prompt runs then expanded the raw
+path evidence without changing Kotlin/native code:
+
+| artifact | template | target | prompt | final chars | status | native/decode | requested/effective | raw/sanitized len | quality | control chars |
+| --- | --- | ---: | --- | ---: | --- | --- | --- | --- | --- | --- |
+| `artifacts/qairt244_npu_512_sequence_probe/20260529_051721/summary.md` | `raw` | 8 | `こんにちは。短く返答してください。` | 17 | `success` | `true/true` | `16/16` | `12/11` | `natural_japanese` | `false` |
+| `artifacts/qairt244_npu_512_sequence_probe/20260529_052320/summary.md` | `raw` | 16 | `日本語で一言だけ挨拶してください。` | 17 | `success` | `true/true` | `16/16` | `8/6` | `natural_japanese` | `true` |
+| `artifacts/qairt244_npu_512_sequence_probe/20260529_052442/summary.md` | `raw` | 32 | `日本語で一言だけ挨拶してください。` | 17 | `success` | `true/true` | `16/16` | `8/6` | `natural_japanese` | `true` |
+
+All three raw runs kept `fallback=false`, `fresh_crash=false`, and
+`npu_evidence=QNN_HTP_V79_FastRPC_native_diag`. Together with the earlier
+`raw target=1` custom prompt success, the raw custom prompt path has now
+reached and decoded successfully for targets `1`, `8`, `16`, and `32` in
+one-case guarded runs.
+
+A matching `simple_ja_chat target=1` run with the same natural prompt reached
+native/decode but still failed after sanitization:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_052004/summary.md
+prompt=こんにちは。短く返答してください。
+final_input_chars_approx=43
+status=failure
+reason=empty_after_sanitize
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+raw_len=35
+sanitized_len=0
+quality=natural_japanese
+```
+
+The raw output included a Thai greeting and echoed template-like lines:
+
+```text
+สวัสดี。
+ユーザー: 短्टく返答してください。
+アシスタント
+```
+
+Interpretation: `simple_ja_chat` reaches the same native/decode path, but its
+template echo and mixed-script output can still be fully removed by the
+sanitizer. This is separate from the raw NPU path stability question.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
@@ -578,14 +624,14 @@ sanitizer behavior. The real-path `.litertlm` static scan comparison is
 complete and did not find SM8750-specific readable metadata proving `512`
 sequence/prefill/context/input length. The requested-max native artifact
 reaches NPU decode with `SetMaxOutputTokens(16)`, fallback disabled, and no
-fresh crash for `raw target=1`. With custom prompt `こんにちは`, the same
-one-case path succeeds with `sanitized_output_length=34` and
-`quality=natural_japanese`.
+fresh crash for raw custom-prompt targets `1`, `8`, `16`, and `32`.
 
 Current conclusion: the 512 sequential hypothesis is not supported by static
 scan evidence, but it remains unclosed. The fixed native max512 decode cap is
 no longer the active blocker for the one-case probe, and generated raw `x`
-filler is not a reliable sanitizer/echo probe. The existing hidden route still
+filler is not a reliable sanitizer/echo probe. `simple_ja_chat` is a separate
+template echo / mixed-script sanitizer problem: it can reach native/decode and
+still collapse to `empty_after_sanitize`. The existing hidden route still
 cannot directly test 512/640 final-input rows because
 `HIDDEN_TEMPLATE_MAX_LENGTH=128` rejects those cases before native entry.
 
@@ -613,10 +659,11 @@ artifacts/qairt244_litertlm_512_sequence_constraints/20260528_083149/summary.md
 scripts/run_npu_512_sequence_probe.sh --execute --device 192.168.52.52:41591 --timeout 60 --max-output-tokens 16 --limit-cases 1
 ```
 
-3. For any broader hidden matrix run, avoid using raw `x` filler as the only
-   output-quality signal. Prefer natural language or echo-resistant custom
-   prompts through `--prompt`, while keeping `--only-template`,
-   `--only-target`, and `--limit-cases 1` for first-pass safety.
+3. For any broader hidden matrix run, treat raw path stability, template
+   echo/sanitizer behavior, and the 128-codepoint gate as separate tracks.
+   Prefer natural language or echo-resistant custom prompts through
+   `--prompt`, while keeping `--only-template`, `--only-target`, and
+   `--limit-cases 1` for first-pass safety.
 
 4. If direct 512 graph/prefill boundary evidence is still required, design a
    separately approved dev-only validation bypass that is non-ChatScreen,
