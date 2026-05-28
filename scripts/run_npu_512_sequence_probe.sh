@@ -12,13 +12,14 @@ TIMEOUT_SECONDS=60
 MAX_OUTPUT_TOKENS=16
 EXECUTE=false
 HIDDEN_TEMPLATE_MAX_LENGTH=128
+LIMIT_CASES=0
 TARGETS=(1 8 16 32 64 128 256 384 512 640)
 TEMPLATES=(raw simple_ja_chat gemma_it_like)
 
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/run_npu_512_sequence_probe.sh [--dry-run] [--execute] [--device <serial>] [--timeout <seconds>] [--max-output-tokens <n>]
+  scripts/run_npu_512_sequence_probe.sh [--dry-run] [--execute] [--device <serial>] [--timeout <seconds>] [--max-output-tokens <n>] [--limit-cases <n>]
 
 Prepares or runs a dev-only hidden NPU sequence/prefill probe matrix. Default
 mode is preflight-only and does not execute NPU.
@@ -36,6 +37,8 @@ Safety:
   - no fallback hiding
   - max_output_tokens defaults to 16 to isolate prefill/input length behavior
   - each probe case is force-stopped before dispatch to avoid sequential reuse
+  - --limit-cases can restrict execution to the first N matrix rows for
+    guarded real-device rechecks after ANR-like behavior
 
 Prerequisite:
   - install a standardDebug build that already contains the QAIRT244 max512
@@ -51,6 +54,7 @@ while [ $# -gt 0 ]; do
     --device) DEVICE_SERIAL="${2:-}"; shift 2 ;;
     --timeout) TIMEOUT_SECONDS="${2:-}"; shift 2 ;;
     --max-output-tokens) MAX_OUTPUT_TOKENS="${2:-}"; shift 2 ;;
+    --limit-cases) LIMIT_CASES="${2:-}"; shift 2 ;;
     --out-dir) OUT_DIR="${2:-}"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     *) printf 'ERROR: unknown argument: %s\n' "$1" >&2; exit 2 ;;
@@ -65,6 +69,10 @@ if ! [[ "$MAX_OUTPUT_TOKENS" =~ ^[0-9]+$ ]] || [ "$MAX_OUTPUT_TOKENS" -le 0 ] ||
   printf 'ERROR: --max-output-tokens must be 1..512\n' >&2
   exit 2
 fi
+if ! [[ "$LIMIT_CASES" =~ ^[0-9]+$ ]]; then
+  printf 'ERROR: --limit-cases must be a non-negative integer\n' >&2
+  exit 2
+fi
 
 cd "$ROOT_DIR" || exit 1
 mkdir -p "$OUT_DIR"
@@ -74,6 +82,77 @@ adb_cmd() {
     adb -s "$DEVICE_SERIAL" "$@"
   else
     adb "$@"
+  fi
+}
+
+run_adb_capture() {
+  local seconds="$1"
+  local dest="$2"
+  local rc
+  shift 2
+  local adb_args=(adb)
+  if [ -n "$DEVICE_SERIAL" ]; then
+    adb_args=(adb -s "$DEVICE_SERIAL")
+  fi
+  if command -v timeout >/dev/null 2>&1; then
+    timeout --kill-after=5s "${seconds}s" "${adb_args[@]}" "$@" >"$dest" 2>"$dest.err"
+    rc=$?
+  else
+    "${adb_args[@]}" "$@" >"$dest" 2>"$dest.err"
+    rc=$?
+  fi
+  printf 'exit_code=%s\n' "$rc" >"$dest.exit_code"
+  return 0
+}
+
+line_count() {
+  local file="$1"
+  if [ -f "$file" ]; then
+    wc -l <"$file" | tr -d ' '
+  else
+    printf '0'
+  fi
+}
+
+exit_code_value() {
+  local file="$1"
+  if [ -f "$file.exit_code" ]; then
+    awk -F= '$1 == "exit_code" { print $2; found=1 } END { if (!found) print "missing" }' "$file.exit_code"
+  else
+    printf 'missing'
+  fi
+}
+
+collect_diagnostics() {
+  local label="$1"
+  local dest_dir="$2"
+  mkdir -p "$dest_dir"
+  run_adb_capture 10 "$dest_dir/logcat_${label}.txt" logcat -d -v time
+  run_adb_capture 10 "$dest_dir/dumpsys_window_${label}.txt" shell dumpsys window
+  run_adb_capture 10 "$dest_dir/dumpsys_activity_activities_${label}.txt" shell dumpsys activity activities
+  run_adb_capture 10 "$dest_dir/dumpsys_activity_processes_${label}.txt" shell dumpsys activity processes
+  run_adb_capture 10 "$dest_dir/dumpsys_activity_broadcasts_${label}.txt" shell dumpsys activity broadcasts
+  run_adb_capture 10 "$dest_dir/dumpsys_activity_anr_${label}.txt" shell dumpsys activity anr
+  run_adb_capture 10 "$dest_dir/dumpsys_input_${label}.txt" shell dumpsys input
+  run_adb_capture 10 "$dest_dir/ps_A_${label}.txt" shell ps -A
+  run_adb_capture 5 "$dest_dir/pidof_${label}.txt" shell pidof "$APP_ID"
+  run_adb_capture 10 "$dest_dir/anr_traces_${label}.txt" exec-out cat /data/anr/traces.txt
+  run_adb_capture 15 "$dest_dir/dropbox_system_app_anr_${label}.txt" shell dumpsys dropbox --print system_app_anr
+  run_adb_capture 15 "$dest_dir/dropbox_data_app_anr_${label}.txt" shell dumpsys dropbox --print data_app_anr
+  run_adb_capture 15 "$dest_dir/dropbox_system_app_crash_${label}.txt" shell dumpsys dropbox --print system_app_crash
+  run_adb_capture 15 "$dest_dir/dropbox_data_app_crash_${label}.txt" shell dumpsys dropbox --print data_app_crash
+  run_adb_capture 15 "$dest_dir/dropbox_tombstone_${label}.txt" shell dumpsys dropbox --print tombstone
+  find "$dest_dir" -maxdepth 1 -type f | sort >"$dest_dir/file_list.txt"
+}
+
+app_process_alive_from_pidof() {
+  local file="$1"
+  if [ ! -f "$file" ]; then
+    printf 'unknown'
+  elif [ -s "$file" ]; then
+    printf 'true'
+  else
+    printf 'false'
   fi
 }
 
@@ -151,6 +230,16 @@ kv_value() {
   awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); value=$0; found=1 } END { if (found) print value; else print "missing" }' "$file"
 }
 
+first_kv_value() {
+  local key="$1"
+  local file="$2"
+  [ -f "$file" ] || {
+    printf 'missing'
+    return 0
+  }
+  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; found=1; exit } END { if (!found) print "missing" }' "$file"
+}
+
 write_plan() {
   {
     printf '# QAIRT244 NPU 512 sequence/prefill probe plan\n\n'
@@ -158,6 +247,7 @@ write_plan() {
     printf -- '- execute: `%s`\n' "$EXECUTE"
     printf -- '- timeout_seconds: `%s`\n' "$TIMEOUT_SECONDS"
     printf -- '- max_output_tokens: `%s`\n' "$MAX_OUTPUT_TOKENS"
+    printf -- '- limit_cases: `%s`\n' "$LIMIT_CASES"
     printf -- '- hidden_template_codepoint_gate: `%s`\n' "$HIDDEN_TEMPLATE_MAX_LENGTH"
     printf -- '- case_count: `%s`\n\n' "$((${#TARGETS[@]} * ${#TEMPLATES[@]}))"
     printf '| template | target_final_tokens_approx | prompt_tokens_approx | final_input_chars_approx | expected_existing_app_validation | native_pre_reject_expected_by_128_gate | command_mode |\n'
@@ -181,7 +271,10 @@ write_plan() {
 run_case() {
   local template="$1"
   local target="$2"
-  local overhead prompt_tokens prompt prompt_chars final_chars expected_validation native_pre_reject slug run_id run_dir status timeout success
+  local overhead prompt_tokens prompt prompt_chars final_chars expected_validation native_pre_reject slug run_id run_dir status receiver_state_timeout success
+  local adb_broadcast_timeout=false
+  local force_stopped_after_timeout=false
+  local force_stop_after_timeout_exit_code=not_run
   overhead="$(template_overhead_tokens "$template")"
   prompt_tokens=$((target - overhead))
   [ "$prompt_tokens" -gt 0 ] || prompt_tokens=1
@@ -214,7 +307,7 @@ run_case() {
     files/qairt244_native_diag.txt \
     files/qairt244_standard_hidden_display_diagnostics.txt \
     "files/terminal_trace_${run_id}.txt" >"$run_dir/cleanup_app_files.txt" 2>&1 || true
-  adb_cmd shell am broadcast --receiver-foreground --user 0 \
+  run_adb_capture "$TIMEOUT_SECONDS" "$run_dir/broadcast.txt" shell am broadcast --receiver-foreground --user 0 \
     -a "$ACTION" \
     -n "$APP_ID/$RECEIVER" \
     --es prompt "$prompt" \
@@ -225,30 +318,49 @@ run_case() {
     --ez allow_max_output_tokens_compare true \
     --ez enable_developer_access true \
     --ez enable_route true \
-    --ez run true >"$run_dir/broadcast.txt" 2>&1 || true
+    --ez run true
+  case "$(exit_code_value "$run_dir/broadcast.txt")" in
+    124|137) adb_broadcast_timeout=true ;;
+  esac
 
-  timeout=true
-  local deadline=$((SECONDS + TIMEOUT_SECONDS))
-  while [ "$SECONDS" -lt "$deadline" ]; do
-    if adb_cmd shell run-as "$APP_ID" test -s files/qairt244_standard_hidden_prompt_state.txt >/dev/null 2>&1; then
-      timeout=false
-      break
+  receiver_state_timeout=true
+  if [ "$adb_broadcast_timeout" = true ]; then
+    adb_cmd shell am force-stop "$APP_ID" >"$run_dir/force_stop_after_broadcast_timeout.txt" 2>&1
+    force_stop_after_timeout_exit_code=$?
+    force_stopped_after_timeout=true
+  else
+    local deadline=$((SECONDS + TIMEOUT_SECONDS))
+    while [ "$SECONDS" -lt "$deadline" ]; do
+      if adb_cmd shell run-as "$APP_ID" test -s files/qairt244_standard_hidden_prompt_state.txt >/dev/null 2>&1; then
+        receiver_state_timeout=false
+        break
+      fi
+      sleep 1
+    done
+    if [ "$receiver_state_timeout" = true ]; then
+      adb_cmd shell am force-stop "$APP_ID" >"$run_dir/force_stop_after_receiver_state_timeout.txt" 2>&1
+      force_stop_after_timeout_exit_code=$?
+      force_stopped_after_timeout=true
     fi
-    sleep 1
-  done
+  fi
   pull_app_file files/qairt244_standard_hidden_prompt_state.txt "$run_dir/receiver_state.txt"
   pull_app_file files/qairt244_short_multitoken_smoke_result.txt "$run_dir/result.txt"
   pull_app_file files/qairt244_native_diag.txt "$run_dir/native_diag.txt"
   pull_app_file files/qairt244_standard_hidden_display_diagnostics.txt "$run_dir/display_diagnostics.txt"
   pull_app_file "files/terminal_trace_${run_id}.txt" "$run_dir/terminal_trace.txt"
-  adb_cmd logcat -d -t 300 >"$run_dir/logcat_tail.txt" 2>&1 || true
+  collect_diagnostics "after_case" "$run_dir/diagnostics_after_case"
 
   success="$(kv_value success "$run_dir/receiver_state.txt")"
-  [ "$timeout" = false ] && [ "$success" = true ] && status=success || status=failure
+  [ "$receiver_state_timeout" = false ] && [ "$success" = true ] && status=success || status=failure
   {
     cat "$run_dir/request.txt"
     printf 'status=%s\n' "$status"
-    printf 'timeout=%s\n' "$timeout"
+    printf 'reasonCode=%s\n' "$(kv_value reasonCode "$run_dir/receiver_state.txt")"
+    printf 'timeout=%s\n' "$receiver_state_timeout"
+    printf 'receiver_state_timeout=%s\n' "$receiver_state_timeout"
+    printf 'adb_broadcast_timeout=%s\n' "$adb_broadcast_timeout"
+    printf 'force_stopped_after_timeout=%s\n' "$force_stopped_after_timeout"
+    printf 'force_stop_after_timeout_exit_code=%s\n' "$force_stop_after_timeout_exit_code"
     printf 'receiver_success=%s\n' "$success"
     printf 'native_reached=%s\n' "$(grep -q 'qairt244_native_file_v1' "$run_dir/native_diag.txt" 2>/dev/null && printf true || printf false)"
     printf 'decode_reached=%s\n' "$(grep -q 'RunDecode' "$run_dir/native_diag.txt" "$run_dir/result.txt" 2>/dev/null && printf true || printf false)"
@@ -258,6 +370,19 @@ run_case() {
     printf 'fresh_crash=%s\n' "$(kv_value fresh_crash "$run_dir/receiver_state.txt")"
     printf 'npu_backend_evidence=%s\n' "$(kv_value npu_backend_evidence "$run_dir/receiver_state.txt")"
     printf 'replacement_char_count=%s\n' "$(kv_value replacement_char_count "$run_dir/display_diagnostics.txt")"
+    printf 'requested_max_output_tokens=%s\n' "$(kv_value requested_max_output_tokens "$run_dir/receiver_state.txt")"
+    printf 'effective_max_output_tokens=%s\n' "$(kv_value max_output_tokens "$run_dir/receiver_state.txt")"
+    printf 'native_max_output_tokens_limit=%s\n' "$(kv_value native_max_output_tokens_limit "$run_dir/receiver_state.txt")"
+    printf 'native_result_first_max_output_tokens=%s\n' "$(first_kv_value max_output_tokens "$run_dir/result.txt")"
+    printf 'raw_native_output_length=%s\n' "$(kv_value raw_native_output_length "$run_dir/receiver_state.txt")"
+    printf 'sanitized_output_length=%s\n' "$(kv_value sanitized_output_length "$run_dir/receiver_state.txt")"
+    printf 'removed_prompt_echo=%s\n' "$(kv_value removed_prompt_echo "$run_dir/receiver_state.txt")"
+    printf 'output_contains_control_chars=%s\n' "$(kv_value output_contains_control_chars "$run_dir/receiver_state.txt")"
+    printf 'quality_classification=%s\n' "$(kv_value quality_classification "$run_dir/receiver_state.txt")"
+    printf 'logcat_line_count=%s\n' "$(line_count "$run_dir/diagnostics_after_case/logcat_after_case.txt")"
+    printf 'app_process_alive_after_probe=%s\n' "$(app_process_alive_from_pidof "$run_dir/diagnostics_after_case/pidof_after_case.txt")"
+    printf 'app_not_responding_observed=unknown\n'
+    printf 'diagnostic_artifact_dir=%s\n' "${run_dir#$ROOT_DIR/}/diagnostics_after_case"
   } >"$run_dir/case_summary.txt"
   cat "$run_dir/case_summary.txt" >>"$OUT_DIR/case_summaries.txt"
   printf '\n' >>"$OUT_DIR/case_summaries.txt"
@@ -265,14 +390,50 @@ run_case() {
 
 write_summary() {
   {
+    local adb_broadcast_timeout_summary=false
+    local force_stopped_after_timeout_summary=false
+    local logcat_line_count_summary=not_collected
+    local app_process_alive_after_probe_summary=unknown
+    if [ -f "$OUT_DIR/case_summaries.txt" ]; then
+      grep -q '^adb_broadcast_timeout=true$' "$OUT_DIR/case_summaries.txt" && adb_broadcast_timeout_summary=true
+      grep -q '^force_stopped_after_timeout=true$' "$OUT_DIR/case_summaries.txt" && force_stopped_after_timeout_summary=true
+      logcat_line_count_summary="$(awk -F= '$1 == "logcat_line_count" { sum += $2; found=1 } END { if (found) print sum; else print "not_collected" }' "$OUT_DIR/case_summaries.txt")"
+      app_process_alive_after_probe_summary="$(awk -F= '$1 == "app_process_alive_after_probe" { value=$2; found=1 } END { if (found) print value; else print "unknown" }' "$OUT_DIR/case_summaries.txt")"
+    fi
     printf '# QAIRT244 NPU 512 sequence/prefill probe\n\n'
     printf -- '- artifact: `%s`\n' "${OUT_DIR#$ROOT_DIR/}"
     printf -- '- execute: `%s`\n' "$EXECUTE"
     printf -- '- device: `%s`\n' "${DEVICE_SERIAL:-not_selected}"
+    printf -- '- limit_cases: `%s`\n' "$LIMIT_CASES"
     printf -- '- hidden_receiver_only: `true`\n'
     printf -- '- standard_chat_route_connected: `false`\n'
     printf -- '- db_tts_markdown_streaming_connected: `false`\n'
     printf -- '- selected_path_npu_saved_by_runner: `false`\n\n'
+    printf '## Execution Safety\n\n'
+    printf -- '- adb_broadcast_timeout: `%s`\n' "$adb_broadcast_timeout_summary"
+    printf -- '- force_stopped_after_timeout: `%s`\n' "$force_stopped_after_timeout_summary"
+    printf -- '- logcat_line_count: `%s`\n' "$logcat_line_count_summary"
+    printf -- '- app_process_alive_after_probe: `%s`\n' "$app_process_alive_after_probe_summary"
+    printf -- '- app_not_responding_observed: `unknown`\n'
+    printf -- '- logcat_clear_before_probe_exit_code: `%s`\n' "$(exit_code_value "$OUT_DIR/logcat_clear_before_probe.txt")"
+    printf '\n'
+    printf 'Saved diagnostic artifact paths:\n\n'
+    if [ -d "$OUT_DIR/diagnostics_before_probe" ]; then
+      printf -- '- `%s`\n' "${OUT_DIR#$ROOT_DIR/}/diagnostics_before_probe"
+    fi
+    if [ -f "$OUT_DIR/case_summaries.txt" ]; then
+      awk -F= '$1 == "diagnostic_artifact_dir" { printf "- `%s`\n", $2 }' "$OUT_DIR/case_summaries.txt"
+    fi
+    if [ -d "$OUT_DIR/diagnostics_after_probe" ]; then
+      printf -- '- `%s`\n' "${OUT_DIR#$ROOT_DIR/}/diagnostics_after_probe"
+    fi
+    if [ -d "$OUT_DIR/diagnostics_interrupt" ]; then
+      printf -- '- `%s`\n' "${OUT_DIR#$ROOT_DIR/}/diagnostics_interrupt"
+    fi
+    if [ ! -d "$OUT_DIR/diagnostics_before_probe" ] && [ ! -f "$OUT_DIR/case_summaries.txt" ] && [ ! -d "$OUT_DIR/diagnostics_after_probe" ] && [ ! -d "$OUT_DIR/diagnostics_interrupt" ]; then
+      printf -- '- `not_collected`\n'
+    fi
+    printf '\n'
     printf '## 128 Gate Preflight\n\n'
     printf 'Cases with `final_input_chars_approx > %s` are expected to reject before native entry through the current hidden-route prompt validation gate. These rows prove app-side validation behavior, not the `.litertlm` graph sequence limit.\n\n' "$HIDDEN_TEMPLATE_MAX_LENGTH"
     printf 'For rows marked `true`: `128 gate によりこのcaseは native前reject見込み`.\n\n'
@@ -293,7 +454,11 @@ write_summary() {
     printf '\n'
     printf '## Reproduction\n\n'
     printf '```bash\n'
-    printf 'scripts/run_npu_512_sequence_probe.sh --execute --timeout %s --max-output-tokens %s\n' "$TIMEOUT_SECONDS" "$MAX_OUTPUT_TOKENS"
+    printf 'scripts/run_npu_512_sequence_probe.sh --execute --timeout %s --max-output-tokens %s' "$TIMEOUT_SECONDS" "$MAX_OUTPUT_TOKENS"
+    if [ "$LIMIT_CASES" -gt 0 ]; then
+      printf ' --limit-cases %s' "$LIMIT_CASES"
+    fi
+    printf '\n'
     printf '```\n\n'
     printf '## Case Summary\n\n'
     if [ -f "$OUT_DIR/case_summaries.txt" ]; then
@@ -316,6 +481,28 @@ write_summary() {
           t=target=status=timeout=native=decode=npu=fallback=fresh=""
         }
       ' "$OUT_DIR/case_summaries.txt"
+      printf '\n## Output / Max Token Summary\n\n'
+      printf '| template | target | reason | requested | effective | native_limit | native_file_first_max | raw_len | sanitized_len | quality | control_chars |\n'
+      printf '| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |\n'
+      awk -F= '
+        /^template=/ { t=$2 }
+        /^target_final_tokens_approx=/ { target=$2 }
+        /^reasonCode=/ { reason=$2 }
+        /^requested_max_output_tokens=/ { requested=$2 }
+        /^effective_max_output_tokens=/ { effective=$2 }
+        /^native_max_output_tokens_limit=/ { native_limit=$2 }
+        /^native_result_first_max_output_tokens=/ { native_first=$2 }
+        /^raw_native_output_length=/ { raw_len=$2 }
+        /^sanitized_output_length=/ { sanitized_len=$2 }
+        /^quality_classification=/ { quality=$2 }
+        /^output_contains_control_chars=/ { control=$2 }
+        /^$/ {
+          if (t != "") {
+            printf "| `%s` | %s | `%s` | `%s` | `%s` | `%s` | `%s` | `%s` | `%s` | `%s` | `%s` |\n", t, target, reason, requested, effective, native_limit, native_first, raw_len, sanitized_len, quality, control
+          }
+          t=target=reason=requested=effective=native_limit=native_first=raw_len=sanitized_len=quality=control=""
+        }
+      ' "$OUT_DIR/case_summaries.txt"
     else
       printf 'No runtime cases executed. Re-run with `--execute` to collect behavior.\n'
     fi
@@ -329,17 +516,42 @@ if [ "$EXECUTE" != true ]; then
   exit 0
 fi
 
+interrupt_cleanup() {
+  printf 'interrupted=true\n' >"$OUT_DIR/interrupted.txt"
+  if [ -n "${DEVICE_SERIAL:-}" ]; then
+    adb_cmd shell am force-stop "$APP_ID" >"$OUT_DIR/force_stop_on_interrupt.txt" 2>&1 || true
+    collect_diagnostics "interrupt" "$OUT_DIR/diagnostics_interrupt"
+  fi
+  write_summary
+  printf 'summary=%s\n' "$OUT_DIR/summary.md"
+  exit 130
+}
+
+trap interrupt_cleanup INT TERM
+
 choose_device || {
   write_summary
   printf 'ERROR: no device connected\n' >&2
   exit 1
 }
 printf '%s\n' "$DEVICE_SERIAL" >"$OUT_DIR/selected_device.txt"
+run_adb_capture 10 "$OUT_DIR/logcat_clear_before_probe.txt" logcat -c
+collect_diagnostics "before_probe" "$OUT_DIR/diagnostics_before_probe"
 : >"$OUT_DIR/case_summaries.txt"
+cases_run=0
+limit_reached=false
 for template in "${TEMPLATES[@]}"; do
   for target in "${TARGETS[@]}"; do
+    if [ "$LIMIT_CASES" -gt 0 ] && [ "$cases_run" -ge "$LIMIT_CASES" ]; then
+      limit_reached=true
+      break
+    fi
     run_case "$template" "$target"
+    cases_run=$((cases_run + 1))
   done
+  [ "$limit_reached" = true ] && break
 done
+printf 'cases_run=%s\nlimit_cases=%s\nlimit_reached=%s\n' "$cases_run" "$LIMIT_CASES" "$limit_reached" >"$OUT_DIR/execution_limit.txt"
+collect_diagnostics "after_probe" "$OUT_DIR/diagnostics_after_probe"
 write_summary
 printf 'summary=%s\n' "$OUT_DIR/summary.md"

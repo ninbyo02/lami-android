@@ -113,6 +113,144 @@ It stopped before any NPU case because no device was connected
 (`adb devices` returned an empty device list). No runtime matrix rows were
 executed.
 
+A later connected-device runtime attempt was manually interrupted after the
+app displayed Android's "Lami is not responding" dialog during probe startup:
+
+```text
+artifacts/qairt244_npu_anr_probe/20260528_205140/
+```
+
+That artifact was not enough to classify NPU/runtime behavior. `logcat.txt`
+had `0` lines, `lami_ps.txt` had `0` lines, and `dumpsys activity anr` was not
+supported on the device (`Unknown command: anr`). This means the failure
+happened before useful 512 sequential evidence was collected. Before any
+further runtime probing, the runner must collect safer diagnostics and must
+avoid getting stuck if `am broadcast` does not return.
+
+The probe runner was therefore hardened for future runs with:
+- `--limit-cases`, so the next connected-device check can execute only the
+  first matrix row;
+- an outer timeout around `adb shell am broadcast`;
+- `am force-stop io.github.ninbyo02.lami` after broadcast or receiver-state
+  timeout;
+- interrupt handling that force-stops the app and saves interrupt diagnostics
+  if the runner is stopped manually;
+- saved diagnostics for `logcat -d -v time`, logcat clear result, dumpsys
+  window/activity/input variants, `ps -A`, `pidof`, readable
+  `/data/anr/traces.txt`, and dropbox ANR/crash/tombstone tags.
+
+### First safe runtime probe result: raw target=1
+
+The hardened one-case runtime probe completed without timeout or fallback:
+
+```text
+artifacts/qairt244_npu_512_sequence_probe/20260528_212207/
+```
+
+Observed case:
+- template: `raw`
+- target: `1`
+- status: `failure`
+- timeout: `false`
+- native reached: `true`
+- decode reached: `true`
+- NPU evidence: `QNN_HTP_V79_FastRPC_native_diag`
+- fallback: `false`
+- fresh crash: `false`
+
+This is not 512 sequence/prefill boundary evidence. The first useful finding
+is instead a max-output-token propagation and output-quality classification
+problem:
+- broadcast requested `max_output_tokens=16`;
+- the hidden receiver and route metadata record
+  `requested_max_output_tokens=16` and effective `max_output_tokens=16`;
+- native diag records entry with `max_output_tokens=16`, but immediately
+  before decode it records `SetMaxOutputTokens(512)`,
+  `native_max_output_tokens_limit=512`, and
+  `qairt244_editable_prompt_max512_v1`;
+- `result.txt` therefore has native-written leading metadata with
+  `max_output_tokens=512`, followed later by route-appended metadata with
+  `max_output_tokens=16`;
+- raw native output was `768` characters of repeated `"\n\nx"` and
+  `output_unicode_summary` reported `control_chars=U+000Ax512`;
+- the sanitizer treated repeated prompt echo lines as prompt echo
+  (`removed_prompt_echo=true`) and produced `sanitized_output_length=0`;
+- final failure was `reasonCode=empty_after_sanitize` at
+  `failure_stage=native_result`, even though decode itself completed.
+
+Current interpretation: the runtime has reached the NPU decode path, but the
+installed native artifact appears to keep the max512 native decode cap active
+at `SetMaxOutputTokens(512)` despite the hidden route requesting/effectively
+recording `16`. The raw output also repeats the prompt token, so this line of
+investigation should shift away from 512 sequence length and toward
+`max_output_tokens` propagation, native result metadata layering, and output
+quality/sanitizer classification.
+
+### Installed native artifact static scan
+
+Before rerunning runtime probe, the installed APK and current local native
+build artifacts were scanned for the max512 marker:
+
+```text
+artifacts/qairt244_native_max_output_static_scan/20260528_static_preflight/summary.md
+```
+
+Device APK path:
+
+```text
+package:/data/app/~~B4eK-DcXwwGOMXJvFLuIsw==/io.github.ninbyo02.lami-P1h-FJ3hcWAUx7djtn9eRA==/base.apk
+```
+
+Pulled APK:
+
+```text
+artifacts/qairt244_native_max_output_static_scan/20260528_static_preflight/installed_base.apk
+```
+
+The installed APK contains `lib/arm64-v8a/liblitertlm_jni.so`, extracted as:
+
+```text
+artifacts/qairt244_native_max_output_static_scan/20260528_static_preflight/apk_libs/liblitertlm_jni.so
+```
+
+Static strings in the installed arm64 library include:
+
+```text
+qairt244_editable_prompt_max512_v1
+%s before RunDecode SetMaxOutputTokens(512) native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s
+%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s
+invalid_max_output_tokens_limit_512
+native_max_output_tokens_limit=%d
+max_output_tokens_limit_marker=%s
+max_output_tokens=%d
+Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+Invalid FastRPC buffer address
+Invalid FastRPC buffer fd
+```
+
+The installed library sha256 is:
+
+```text
+7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105
+```
+
+That sha256 exactly matches the current `standardDebug` local build artifacts:
+
+```text
+app/build/generated/qairt244StandardDebugJniLibs/arm64-v8a/liblitertlm_jni.so
+app/build/intermediates/merged_native_libs/standardDebug/mergeStandardDebugNativeLibs/out/lib/arm64-v8a/liblitertlm_jni.so
+app/build/intermediates/stripped_native_libs/standardDebug/stripStandardDebugDebugSymbols/out/lib/arm64-v8a/liblitertlm_jni.so
+```
+
+Conclusion: the installed APK and current local build artifact are consistent,
+and both are max512 marker builds. This strengthens the hypothesis that the
+Kotlin route can request/record `16` while the installed native decode cap is
+still the max512 path. Before rerunning a `--max-output-tokens 16` propagation
+check, the safe next step is to stage a dev-only native artifact that either
+uses the requested decode cap or records the exact requested value at
+`SetMaxOutputTokens(...)`.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
@@ -193,7 +331,9 @@ scan evidence, but it remains unclosed. The existence of a compiled graph
 shape limit still has to be checked with runtime evidence at the final-input
 boundary. The existing hidden route cannot directly test 512/640 final-input
 rows because `HIDDEN_TEMPLATE_MAX_LENGTH=128` rejects those cases before
-native entry.
+native entry. The first safe runtime row also shows that max-output-token
+propagation/output quality must be understood before broader sequential
+probing.
 
 Policy remains unchanged:
 - H1 remains pinned to `max_output_tokens=128`.
@@ -211,15 +351,20 @@ artifacts/qairt244_litertlm_512_sequence_constraints/20260528_083125/summary.md
 artifacts/qairt244_litertlm_512_sequence_constraints/20260528_083149/summary.md
 ```
 
-2. If runtime probing is approved, run exactly one 30-case hidden matrix,
-   understanding that current 512/640 final-input rows are expected to reject
-   before native because of the 128-codepoint gate:
+2. If runtime probing is approved, first run only one hidden matrix row with
+   the hardened runner. This is a runner-safety check, not a 512 sequential
+   conclusion:
 
 ```bash
-scripts/run_npu_512_sequence_probe.sh --execute --timeout 60 --max-output-tokens 16
+scripts/run_npu_512_sequence_probe.sh --execute --device 192.168.52.52:41591 --timeout 60 --max-output-tokens 16 --limit-cases 1
 ```
 
-3. If direct 512 graph/prefill boundary evidence is still required, design a
+3. Before any broader hidden matrix run, replace or rebuild the dev-only
+   native artifact if the goal is to verify `--max-output-tokens 16`
+   propagation. The installed APK library and local build artifact both
+   contain the max512 marker path.
+
+4. If direct 512 graph/prefill boundary evidence is still required, design a
    separately approved dev-only validation bypass that is non-ChatScreen,
    non-persistent, does not connect DB/TTS/Markdown/streaming, and does not
    hide fallback.
