@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.npu
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Base64
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
@@ -66,7 +67,26 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
 
     private fun handle(appContext: Context, intent: Intent, traceRunId: String) {
         val stateFile = File(appContext.filesDir, STATE_FILE_NAME)
-        val prompt = intent.getStringExtra(EXTRA_PROMPT).orEmpty().ifBlank { "Hello" }
+        val promptTransport = decodePrompt(intent)
+        if (!promptTransport.decodeSuccess) {
+            writeState(
+                stateFile = stateFile,
+                prompt = "",
+                developerAccessEnabled = false,
+                routeEnabled = false,
+                resultText = listOf(
+                    "success=false",
+                    "reasonCode=invalid_prompt_base64",
+                    "failure_stage=receiver_preflight",
+                    "assistant_message=${escapeValue("実験的NPU route failed: invalid_prompt_base64")}",
+                    "output=",
+                ).joinToString("\n"),
+                status = "failure",
+                promptTransport = promptTransport,
+            )
+            return
+        }
+        val prompt = promptTransport.prompt.ifBlank { "Hello" }
         val enableDeveloperAccess = intent.getBooleanExtra(EXTRA_ENABLE_DEVELOPER_ACCESS, false)
         val enableRoute = intent.getBooleanExtra(EXTRA_ENABLE_ROUTE, false)
         val shouldRun = intent.getBooleanExtra(EXTRA_RUN, true)
@@ -111,6 +131,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                     routeEnabled = routeEnabled,
                     resultText = "success=false\nreasonCode=wrong_variant\n",
                     status = "blocked",
+                    promptTransport = promptTransport,
                 )
                 return@runBlocking null
             }
@@ -122,6 +143,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                     routeEnabled = routeEnabled,
                     resultText = "success=false\nreasonCode=hidden_gate_disabled\n",
                     status = "blocked",
+                    promptTransport = promptTransport,
                 )
                 return@runBlocking null
             }
@@ -133,6 +155,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                     routeEnabled = routeEnabled,
                     resultText = "success=true\nreasonCode=gate_enabled_no_run\n",
                     status = "gate_enabled",
+                    promptTransport = promptTransport,
                 )
                 return@runBlocking null
             }
@@ -166,6 +189,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                     routeEnabled = preferences.devEnableQairt244Sm8750NpuRouteFlow.first(),
                     resultText = result,
                     status = if (result.lineSequence().any { it == "success=true" }) "success" else "failure",
+                    promptTransport = promptTransport,
                 )
                 DevOnlyNpuTerminalTrace.append(
                     context = appContext,
@@ -188,6 +212,33 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         if (resultText == null) return
     }
 
+    private fun decodePrompt(intent: Intent): PromptTransport {
+        val promptBase64 = intent.getStringExtra(EXTRA_PROMPT_BASE64).orEmpty()
+        if (promptBase64.isNotBlank()) {
+            return try {
+                PromptTransport(
+                    prompt = Base64.decode(promptBase64, Base64.NO_WRAP).toString(Charsets.UTF_8),
+                    transport = "base64",
+                    base64Present = true,
+                    decodeSuccess = true,
+                )
+            } catch (_: IllegalArgumentException) {
+                PromptTransport(
+                    prompt = "",
+                    transport = "base64",
+                    base64Present = true,
+                    decodeSuccess = false,
+                )
+            }
+        }
+        return PromptTransport(
+            prompt = intent.getStringExtra(EXTRA_PROMPT).orEmpty(),
+            transport = "plain",
+            base64Present = false,
+            decodeSuccess = true,
+        )
+    }
+
     private fun writeState(
         stateFile: File,
         prompt: String,
@@ -195,16 +246,29 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         routeEnabled: Boolean,
         resultText: String,
         status: String,
+        promptTransport: PromptTransport,
     ) {
+        val resultValues = parseKeyValueText(resultText)
+        val finalModelInput = resultValues["final_model_input"].orEmpty()
+        val finalModelInputCodePoints = if (finalModelInput.isNotEmpty()) {
+            finalModelInput.codePointCount(0, finalModelInput.length).toString()
+        } else {
+            ""
+        }
         stateFile.writeText(
             buildString {
                 appendLine("receiver=standard_hidden_qairt244_prompt")
                 appendLine("status=$status")
                 appendLine("prompt=$prompt")
+                appendLine("prompt_transport=${promptTransport.transport}")
+                appendLine("prompt_base64_present=${promptTransport.base64Present}")
+                appendLine("prompt_decode_success=${promptTransport.decodeSuccess}")
+                appendLine("receiver_prompt_input_code_points=${prompt.codePointCount(0, prompt.length)}")
                 appendLine("developer_access_enabled=$developerAccessEnabled")
                 appendLine("dev_enable_qairt244_sm8750_npu_route=$routeEnabled")
                 appendLine("toggle_retained_after_run=$routeEnabled")
                 appendLine(resultText.trim())
+                appendLine("final_model_input_code_points=$finalModelInputCodePoints")
                 appendLine("ui_cleanup_wait_status=success")
             },
         )
@@ -313,6 +377,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION = "io.github.ninbyo02.lami.action.STANDARD_HIDDEN_QAIRT244_PROMPT"
         const val EXTRA_PROMPT = "prompt"
+        const val EXTRA_PROMPT_BASE64 = "prompt_base64"
         const val EXTRA_ENABLE_DEVELOPER_ACCESS = "enable_developer_access"
         const val EXTRA_ENABLE_ROUTE = "enable_route"
         const val EXTRA_RUN = "run"
@@ -323,4 +388,11 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         const val EXTRA_RUN_ID = "run_id"
         const val STATE_FILE_NAME = "qairt244_standard_hidden_prompt_state.txt"
     }
+
+    private data class PromptTransport(
+        val prompt: String,
+        val transport: String,
+        val base64Present: Boolean,
+        val decodeSuccess: Boolean,
+    )
 }

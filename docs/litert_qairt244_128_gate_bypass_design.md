@@ -206,7 +206,11 @@ broke `adb shell am broadcast` argument parsing: `broadcast.txt` showed
 `max_output_tokens_compare_enabled=false`, and `SetMaxOutputTokens(128)`.
 Before implementing a bypass, first make prompt transport shell-safe for long
 generated prompts and continue treating measured native/decode state as the
-source of truth.
+source of truth. The dev-only hidden receiver and sequence probe runner now use
+`prompt_base64` for this transport path, while preserving the existing plain
+`prompt` extra as a receiver fallback. Any future Phase 1/2 check should first
+confirm `prompt_transport=base64`, `prompt_decode_success=true`, and the
+expected prompt/final-input lengths in artifacts.
 
 ### Phase 2: First Bypassed Native Case
 

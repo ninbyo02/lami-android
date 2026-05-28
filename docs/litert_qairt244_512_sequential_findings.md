@@ -714,6 +714,17 @@ therefore not be treated as clean sequence-boundary evidence until prompt
 transport is made shell-safe, for example by a dev-only base64 or file-backed
 prompt extra.
 
+The probe runner and dev-only hidden receiver were updated to use
+`prompt_base64` for shell-safe prompt transport. The receiver now decodes
+UTF-8 base64 when present and records `prompt_transport`,
+`prompt_base64_present`, `prompt_decode_success`, and final input codepoint
+metadata in the receiver artifact. The runner records `prompt_transport=base64`
+and `prompt_base64_length` in request/summary artifacts and no longer sends
+space-containing generated filler prompts directly via `--es prompt`.
+Before using generated-filler rows for larger input/prefill checks, rerun a
+single guarded dry-run/runtime case and confirm the receiver sees the intended
+prompt length and requested max output tokens.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:

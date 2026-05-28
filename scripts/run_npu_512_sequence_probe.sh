@@ -39,6 +39,8 @@ Safety:
   - no selectedPath=NPU persistence
   - no fallback hiding
   - max_output_tokens defaults to 16 to isolate prefill/input length behavior
+  - prompt text is sent as UTF-8 base64 through prompt_base64 so generated
+    filler prompts with spaces do not break adb shell am broadcast parsing
   - each probe case is force-stopped before dispatch to avoid sequential reuse
   - --limit-cases can restrict execution to the first N matrix rows for
     guarded real-device rechecks after ANR-like behavior
@@ -208,6 +210,15 @@ prompt_chars_for_text() {
   printf '%s' "$prompt" | wc -m | tr -d ' '
 }
 
+prompt_base64_for_text() {
+  local prompt="$1"
+  if base64 --help 2>/dev/null | grep -q -- '-w'; then
+    printf '%s' "$prompt" | base64 -w 0
+  else
+    printf '%s' "$prompt" | base64 | tr -d '\n'
+  fi
+}
+
 case_selected_by_filters() {
   local template="$1"
   local target="$2"
@@ -234,6 +245,16 @@ selected_case_count() {
 
 markdown_cell() {
   printf '%s' "$1" | tr '\n\r' '  ' | sed 's/|/\\|/g'
+}
+
+markdown_preview_cell() {
+  local escaped
+  escaped="$(markdown_cell "$1")"
+  if [ "${#escaped}" -gt 80 ]; then
+    printf '%s...' "${escaped:0:80}"
+  else
+    printf '%s' "$escaped"
+  fi
 }
 
 template_overhead_tokens() {
@@ -308,6 +329,7 @@ write_plan() {
     printf -- '- execute: `%s`\n' "$EXECUTE"
     printf -- '- timeout_seconds: `%s`\n' "$TIMEOUT_SECONDS"
     printf -- '- max_output_tokens: `%s`\n' "$MAX_OUTPUT_TOKENS"
+    printf -- '- prompt_transport: `base64`\n'
     printf -- '- limit_cases: `%s`\n' "$LIMIT_CASES"
     printf -- '- custom_prompt: `%s`\n' "$(if [ -n "$CUSTOM_PROMPT" ]; then printf true; else printf false; fi)"
     printf -- '- only_template: `%s`\n' "${ONLY_TEMPLATE:-all}"
@@ -335,14 +357,14 @@ write_plan() {
 write_selected_cases_summary() {
   local limit="$1"
   local rows_written=0
-  local template target overhead prompt_tokens prompt prompt_chars final_chars expected_validation native_pre_reject prompt_preview
+  local template target overhead prompt_tokens prompt prompt_chars prompt_base64 prompt_base64_length final_chars expected_validation native_pre_reject prompt_preview
     printf '## Selected Cases\n\n'
     printf 'The rows below are the cases that this invocation will consider after `--only-template` and `--only-target`, then after `--limit-cases` if it is non-zero.\n\n'
     if [ -n "$CUSTOM_PROMPT" ]; then
       printf 'Note: `--prompt` is set, so `target` remains a case label only. It does not generate filler length. Use `prompt_chars` and `final_input_chars_approx` as the source of truth for prompt length and 128 gate expectations.\n\n'
     fi
-    printf '| selected_index | template | target | prompt_chars | final_input_chars_approx | native_pre_reject_expected_by_128_gate | prompt_source | prompt_preview |\n'
-  printf '| ---: | --- | ---: | ---: | ---: | --- | --- | --- |\n'
+    printf '| selected_index | template | target | prompt_chars | final_input_chars_approx | native_pre_reject_expected_by_128_gate | prompt_transport | prompt_base64_length | prompt_source | prompt_preview |\n'
+  printf '| ---: | --- | ---: | ---: | ---: | --- | --- | ---: | --- | --- |\n'
   for template in "${TEMPLATES[@]}"; do
     for target in "${TARGETS[@]}"; do
       case_selected_by_filters "$template" "$target" || continue
@@ -354,13 +376,15 @@ write_selected_cases_summary() {
       [ "$prompt_tokens" -gt 0 ] || prompt_tokens=1
       prompt="$(prompt_for_case "$prompt_tokens")"
       prompt_chars="$(prompt_chars_for_text "$prompt")"
+      prompt_base64="$(prompt_base64_for_text "$prompt")"
+      prompt_base64_length="${#prompt_base64}"
       final_chars=$((prompt_chars + $(template_overhead_chars "$template")))
       expected_validation="$(expected_validation_for_chars "$final_chars")"
       native_pre_reject="$(native_pre_reject_for_chars "$final_chars")"
-      prompt_preview="$(markdown_cell "$prompt")"
-      printf '| %s | `%s` | %s | %s | %s | `%s` | `%s` | `%s` |\n' \
+      prompt_preview="$(markdown_preview_cell "$prompt")"
+      printf '| %s | `%s` | %s | %s | %s | `%s` | `base64` | %s | `%s` | `%s` |\n' \
         "$((rows_written + 1))" "$template" "$target" "$prompt_chars" "$final_chars" \
-        "$native_pre_reject" "$(if [ -n "$CUSTOM_PROMPT" ]; then printf custom; else printf generated_x_filler; fi)" "$prompt_preview"
+        "$native_pre_reject" "$prompt_base64_length" "$(if [ -n "$CUSTOM_PROMPT" ]; then printf custom; else printf generated_x_filler; fi)" "$prompt_preview"
       if [ "$native_pre_reject" = true ]; then
         printf '\n`128 gate によりこのcaseは native前reject見込み`: template=`%s`, target=`%s`, final_input_chars_approx=`%s`, expected_validation=`%s`.\n\n' \
           "$template" "$target" "$final_chars" "$expected_validation"
@@ -369,7 +393,7 @@ write_selected_cases_summary() {
     done
   done
   if [ "$rows_written" -eq 0 ]; then
-    printf '| 0 | `none` | 0 | 0 | 0 | `unknown` | `none` | `no matching selected cases` |\n'
+    printf '| 0 | `none` | 0 | 0 | 0 | `unknown` | `base64` | 0 | `none` | `no matching selected cases` |\n'
   fi
   printf '\n'
 }
@@ -377,7 +401,7 @@ write_selected_cases_summary() {
 run_case() {
   local template="$1"
   local target="$2"
-  local overhead prompt_tokens prompt prompt_chars final_chars expected_validation native_pre_reject slug run_id run_dir status receiver_state_timeout success
+  local overhead prompt_tokens prompt prompt_chars prompt_base64 prompt_base64_length final_chars expected_validation native_pre_reject slug run_id run_dir status receiver_state_timeout success
   local adb_broadcast_timeout=false
   local force_stopped_after_timeout=false
   local force_stop_after_timeout_exit_code=not_run
@@ -386,6 +410,8 @@ run_case() {
   [ "$prompt_tokens" -gt 0 ] || prompt_tokens=1
   prompt="$(prompt_for_case "$prompt_tokens")"
   prompt_chars="$(prompt_chars_for_text "$prompt")"
+  prompt_base64="$(prompt_base64_for_text "$prompt")"
+  prompt_base64_length="${#prompt_base64}"
   final_chars=$((prompt_chars + $(template_overhead_chars "$template")))
   expected_validation="$(expected_validation_for_chars "$final_chars")"
   native_pre_reject="$(native_pre_reject_for_chars "$final_chars")"
@@ -399,7 +425,11 @@ run_case() {
     printf 'target_final_tokens_approx=%s\n' "$target"
     printf 'prompt_tokens_approx=%s\n' "$prompt_tokens"
     printf 'prompt_source=%s\n' "$(if [ -n "$CUSTOM_PROMPT" ]; then printf custom; else printf generated_x_filler; fi)"
+    printf 'prompt_transport=base64\n'
     printf 'prompt_chars=%s\n' "$prompt_chars"
+    printf 'prompt_base64_length=%s\n' "$prompt_base64_length"
+    printf 'prompt_preview=%s\n' "$(markdown_preview_cell "$prompt")"
+    printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
     printf 'final_input_chars_approx=%s\n' "$final_chars"
     printf 'expected_existing_app_validation=%s\n' "$expected_validation"
     printf 'native_pre_reject_expected_by_128_gate=%s\n' "$native_pre_reject"
@@ -417,7 +447,7 @@ run_case() {
   run_adb_capture "$TIMEOUT_SECONDS" "$run_dir/broadcast.txt" shell am broadcast --receiver-foreground --user 0 \
     -a "$ACTION" \
     -n "$APP_ID/$RECEIVER" \
-    --es prompt "$prompt" \
+    --es prompt_base64 "$prompt_base64" \
     --es run_id "$run_id" \
     --es template "$template" \
     --es template_mode "$template" \
@@ -476,6 +506,10 @@ run_case() {
     printf 'fallback_used=%s\n' "$(kv_value fallback_used "$run_dir/receiver_state.txt")"
     printf 'fresh_crash=%s\n' "$(kv_value fresh_crash "$run_dir/receiver_state.txt")"
     printf 'npu_backend_evidence=%s\n' "$(kv_value npu_backend_evidence "$run_dir/receiver_state.txt")"
+    printf 'prompt_transport=%s\n' "$(kv_value prompt_transport "$run_dir/receiver_state.txt")"
+    printf 'prompt_base64_present=%s\n' "$(kv_value prompt_base64_present "$run_dir/receiver_state.txt")"
+    printf 'prompt_decode_success=%s\n' "$(kv_value prompt_decode_success "$run_dir/receiver_state.txt")"
+    printf 'final_model_input_code_points=%s\n' "$(kv_value final_model_input_code_points "$run_dir/receiver_state.txt")"
     printf 'replacement_char_count=%s\n' "$(kv_value replacement_char_count "$run_dir/display_diagnostics.txt")"
     printf 'requested_max_output_tokens=%s\n' "$(kv_value requested_max_output_tokens "$run_dir/receiver_state.txt")"
     printf 'effective_max_output_tokens=%s\n' "$(kv_value max_output_tokens "$run_dir/receiver_state.txt")"
@@ -511,6 +545,7 @@ write_summary() {
     printf -- '- artifact: `%s`\n' "${OUT_DIR#$ROOT_DIR/}"
     printf -- '- execute: `%s`\n' "$EXECUTE"
     printf -- '- device: `%s`\n' "${DEVICE_SERIAL:-not_selected}"
+    printf -- '- prompt_transport: `base64`\n'
     printf -- '- limit_cases: `%s`\n' "$LIMIT_CASES"
     printf -- '- custom_prompt: `%s`\n' "$(if [ -n "$CUSTOM_PROMPT" ]; then printf true; else printf false; fi)"
     if [ -n "$CUSTOM_PROMPT" ]; then
