@@ -70,6 +70,14 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
                 validation = rawValidation,
                 unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
             )
+            val nativePromptInputLimitMode = if (
+                unsafeDevBypassPromptLengthGate &&
+                validation.promptInputLimitMode == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+            ) {
+                UNSAFE_DEV_BYPASS_HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+            } else {
+                validation.promptInputLimitMode
+            }
             check(validation.isValid) {
                 "editable prompt rejected before native execution: reasonCode=${validation.reasonCode}"
             }
@@ -88,7 +96,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
                 resultPath = resultPath,
                 diagPath = diagPath,
                 prompt = normalizedPrompt,
-                promptInputLimitMode = validation.promptInputLimitMode,
+                promptInputLimitMode = nativePromptInputLimitMode,
                 maxOutputTokens = maxOutputTokens,
             )
             return "qairt244_editable_prompt_smoke_v1 runId=$runId result=success actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt output=$output"
@@ -106,6 +114,9 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             validation.reasonCode == "too_long" &&
                 validation.promptInputCodePointLimit == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH &&
                 validation.promptInputLimitMode == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+
+        private const val UNSAFE_DEV_BYPASS_HIDDEN_TEMPLATE_INPUT_LIMIT_MODE =
+            "unsafe_dev_bypass_hidden_template_experiment"
 
         @JvmStatic
         private external fun nativeRun(

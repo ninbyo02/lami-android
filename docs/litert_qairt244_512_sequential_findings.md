@@ -810,6 +810,36 @@ other non-length validator failures. Adapter artifacts additionally record
 `adapter_prompt_length_gate_would_block`,
 `adapter_prompt_length_gate_bypassed`, and `final_model_input_code_points`.
 
+A later bypassed raw target `128` run reached the native C++ entrypoint but was
+still rejected by native prompt validation:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_074542/summary.md
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+requested/effective=16/16
+status=failure
+reason=native_result:invalid_prompt
+native_diag prompt_validation reason=too_long
+prompt_input_code_points=255
+native_prompt_input_code_point_limit=128
+native_prompt_input_limit_mode=hidden_template_experiment
+```
+
+This shows the receiver, route, and Kotlin debug wrapper gates had been
+bypassed, but the native validation layer still enforced the same
+hidden-template length gate before usable graph/prefill evidence could be
+collected. The Android wrapper now passes
+`unsafe_dev_bypass_hidden_template_experiment` as the native
+`promptInputLimitMode` only when the explicit unsafe flag is set. The native
+source recognizes that mode, preserves the 128 limit as metadata, bypasses only
+the `too_long` length result, and records
+`native_prompt_length_gate_would_block`,
+`native_prompt_length_gate_bypassed`, and
+`unsafe_dev_bypass_prompt_length_gate_effective`. This requires a new dev-only
+native artifact build before APK/install/runtime verification.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:

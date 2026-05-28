@@ -281,6 +281,27 @@ hidden-template `too_long` prompt-length validation result can be bypassed.
 This keeps non-length validation, max-output validation, model checks, fallback
 visibility, and non-persistent hidden receiver scoping unchanged.
 
+A follow-up raw target `128` run then reached native but failed at native C++
+prompt validation:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_074542/summary.md
+reason=native_result:invalid_prompt
+native=true
+decode=true
+native_diag prompt_validation reason=too_long
+native_prompt_input_code_point_limit=128
+native_prompt_input_limit_mode=hidden_template_experiment
+```
+
+The native source now has a matching explicit mode,
+`unsafe_dev_bypass_hidden_template_experiment`, selected only by the debug
+wrapper when the hidden receiver unsafe flag is active. Native validation keeps
+UTF-8, empty prompt, control character, model path, and max-output checks
+unchanged, but skips the 128-codepoint `too_long` result for that mode and
+records the native length-gate would-block/bypassed metadata. A new native
+artifact build is required before the next APK install and runtime probe.
+
 ### Phase 2: First Bypassed Native Case
 
 Requires separate approval before runtime execution.
