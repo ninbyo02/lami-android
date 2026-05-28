@@ -251,6 +251,128 @@ check, the safe next step is to stage a dev-only native artifact that either
 uses the requested decode cap or records the exact requested value at
 `SetMaxOutputTokens(...)`.
 
+### Native requested max output propagation target
+
+Static source inspection found the max512 fixed decode cap in the local
+LiteRT-LM checkout, not in the Kotlin route:
+
+```text
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+```
+
+Relevant source locations in that checkout:
+
+```text
+108: kQairt244EditablePromptMax512Marker = "qairt244_editable_prompt_max512_v1"
+119: kQairt244EditablePromptMaxOutputTokensLimit = 512
+1795: Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunEditablePrompt(...)
+1921..1934: validates max_output_tokens is in 1..512, otherwise returns invalid_max_output_tokens_limit_512
+2131..2134: logs SetMaxOutputTokens(512), then calls decode_config.SetMaxOutputTokens(512)
+```
+
+The important split is that the JNI method already receives
+`jint max_output_tokens` from the route and validates the range against
+`1..512`, but the decode call ignores the accepted value and hard-codes
+`512`. The result writer also records `max_output_tokens` as the fixed native
+limit rather than the requested/effective value.
+
+Minimal native patch direction for a later, separately approved change:
+
+```diff
+- constexpr char kQairt244EditablePromptMax512Marker[] =
+-     "qairt244_editable_prompt_max512_v1";
++ constexpr char kQairt244EditablePromptRequestedMaxMarker[] =
++     "qairt244_editable_prompt_requested_max_v1";
+
+- std::fprintf(file, "max_output_tokens=%d\n",
+-              kQairt244EditablePromptMaxOutputTokensLimit);
++ std::fprintf(file, "requested_max_output_tokens=%d\n", requested);
++ std::fprintf(file, "effective_max_output_tokens=%d\n", effective);
++ std::fprintf(file, "max_output_tokens=%d\n", effective);
+
+- "%s before RunDecode SetMaxOutputTokens(512) native_max_output_tokens_limit=512 ..."
+- decode_config.SetMaxOutputTokens(512);
++ "%s before RunDecode SetMaxOutputTokens(%d) requested_max_output_tokens=%d effective_max_output_tokens=%d native_max_output_tokens_limit=512 ..."
++ decode_config.SetMaxOutputTokens(effective_max_output_tokens);
+```
+
+Patch constraints:
+- keep the accepted native range explicit: `1..512`;
+- reject invalid values as failure and do not silently fall back to `512`;
+- set `effective_max_output_tokens = max_output_tokens` after validation;
+- keep `native_max_output_tokens_limit=512` as the upper bound;
+- update the marker to `qairt244_editable_prompt_requested_max_v1`;
+- include both `requested_max_output_tokens` and
+  `effective_max_output_tokens` in result and diag output;
+- log the actual `SetMaxOutputTokens(<effective>)` value.
+
+The built `liblitertlm_jni.so` is produced by:
+
+```text
+scripts/build_litert_custom_artifacts.sh
+target: //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni
+artifact output: artifacts/litert_custom_build/<timestamp>_<label>/built_libs/liblitertlm_jni.so
+```
+
+The currently installed max512 artifact was recorded at:
+
+```text
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/built_libs/liblitertlm_jni.so
+sha256=7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105
+```
+
+StandardDebug packaging path:
+
+```text
+app/src/customBuildExperimentDebug/jniLibs/arm64-v8a/liblitertlm_jni.so
+app/build/generated/qairt244StandardDebugJniLibs/arm64-v8a/liblitertlm_jni.so
+app/build/intermediates/merged_native_libs/standardDebug/mergeStandardDebugNativeLibs/out/lib/arm64-v8a/liblitertlm_jni.so
+app/build/intermediates/stripped_native_libs/standardDebug/stripStandardDebugDebugSymbols/out/lib/arm64-v8a/liblitertlm_jni.so
+```
+
+The Gradle wiring is in `app/build.gradle.kts`:
+- `stageQairt244StandardDebugNativeLibs` copies `.so` files from
+  `src/customBuildExperimentDebug/jniLibs/arm64-v8a` to
+  `build/generated/qairt244StandardDebugJniLibs/arm64-v8a`;
+- `overlayQairt244StandardDebugNativeLibs` overlays generated libs into
+  `mergeStandardDebugNativeLibs`;
+- `overlayQairt244StandardDebugStrippedNativeLibs` keeps the staged libs after
+  AGP strip;
+- `packageStandardDebug` depends on the stripped overlay task.
+
+Candidate rebuild/stage commands for a later approved implementation phase:
+
+```bash
+scripts/build_litert_custom_artifacts.sh \
+  /home/sato/project/litert-custom-build/LiteRT-LM \
+  --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
+  --label qairt244_requested_max
+
+scripts/stage_litert_custom_build_stack_for_experiment.sh \
+  artifacts/litert_custom_build/<timestamp>_qairt244_requested_max
+
+./gradlew :app:assembleStandardDebug
+```
+
+Static verification before any runtime probe:
+
+```bash
+strings artifacts/litert_custom_build/<timestamp>_qairt244_requested_max/built_libs/liblitertlm_jni.so |
+  grep -E 'qairt244_editable_prompt_requested_max_v1|SetMaxOutputTokens|requested_max_output_tokens|effective_max_output_tokens|native_max_output_tokens_limit'
+
+strings app/build/generated/qairt244StandardDebugJniLibs/arm64-v8a/liblitertlm_jni.so |
+  grep -E 'qairt244_editable_prompt_requested_max_v1|SetMaxOutputTokens|requested_max_output_tokens|effective_max_output_tokens|native_max_output_tokens_limit'
+
+unzip -p app/build/outputs/apk/standard/debug/app-standard-debug.apk \
+  lib/arm64-v8a/liblitertlm_jni.so > /tmp/lami_standard_debug_liblitertlm_jni.so
+
+strings /tmp/lami_standard_debug_liblitertlm_jni.so |
+  grep -E 'qairt244_editable_prompt_requested_max_v1|SetMaxOutputTokens|requested_max_output_tokens|effective_max_output_tokens|native_max_output_tokens_limit'
+```
+
+This remains a dev-only native artifact investigation target. No source
+change, APK rebuild, install, or runtime probe was performed in this pass.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
@@ -362,7 +484,9 @@ scripts/run_npu_512_sequence_probe.sh --execute --device 192.168.52.52:41591 --t
 3. Before any broader hidden matrix run, replace or rebuild the dev-only
    native artifact if the goal is to verify `--max-output-tokens 16`
    propagation. The installed APK library and local build artifact both
-   contain the max512 marker path.
+   contain the max512 marker path, and the source candidate hard-codes
+   `decode_config.SetMaxOutputTokens(512)` after accepting the requested JNI
+   value.
 
 4. If direct 512 graph/prefill boundary evidence is still required, design a
    separately approved dev-only validation bypass that is non-ChatScreen,
