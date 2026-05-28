@@ -528,6 +528,8 @@ run_case() {
     printf 'prompt_length_gate_limit=%s\n' "$(kv_value prompt_length_gate_limit "$run_dir/receiver_state.txt")"
     printf 'prompt_length_gate_would_block=%s\n' "$(kv_value prompt_length_gate_would_block "$run_dir/receiver_state.txt")"
     printf 'prompt_length_gate_bypassed=%s\n' "$(kv_value prompt_length_gate_bypassed "$run_dir/receiver_state.txt")"
+    printf 'adapter_prompt_length_gate_would_block=%s\n' "$(kv_value adapter_prompt_length_gate_would_block "$run_dir/receiver_state.txt")"
+    printf 'adapter_prompt_length_gate_bypassed=%s\n' "$(kv_value adapter_prompt_length_gate_bypassed "$run_dir/receiver_state.txt")"
     printf 'replacement_char_count=%s\n' "$(kv_value replacement_char_count "$run_dir/display_diagnostics.txt")"
     printf 'requested_max_output_tokens=%s\n' "$(kv_value requested_max_output_tokens "$run_dir/receiver_state.txt")"
     printf 'effective_max_output_tokens=%s\n' "$(kv_value max_output_tokens "$run_dir/receiver_state.txt")"

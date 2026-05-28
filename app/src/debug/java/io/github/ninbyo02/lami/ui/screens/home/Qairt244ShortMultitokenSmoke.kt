@@ -51,12 +51,13 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             prompt: String,
             maxOutputTokens: Int,
             promptValidationMode: String = NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE,
+            unsafeDevBypassPromptLengthGate: Boolean = false,
         ): String {
             check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
                 "editable prompt smoke is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
             }
             check(modelPath.isNotBlank()) { "modelPath is required" }
-            val validation = when (promptValidationMode) {
+            val rawValidation = when (promptValidationMode) {
                 NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE ->
                     NpuDiagnosticPromptValidator.validateUtf8InternalIntent(prompt)
                 NpuDiagnosticPromptValidator.UTF8_HIDDEN_EXPERIMENTAL_MODE ->
@@ -65,6 +66,10 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
                     NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt)
                 else -> NpuDiagnosticPromptValidator.validateAsciiDiagnostic(prompt)
             }
+            val validation = promptLengthGateBypassedValidation(
+                validation = rawValidation,
+                unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
+            )
             check(validation.isValid) {
                 "editable prompt rejected before native execution: reasonCode=${validation.reasonCode}"
             }
@@ -88,6 +93,19 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             )
             return "qairt244_editable_prompt_smoke_v1 runId=$runId result=success actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt output=$output"
         }
+
+        private fun promptLengthGateBypassedValidation(
+            validation: NpuDiagnosticPromptValidator.Result,
+            unsafeDevBypassPromptLengthGate: Boolean,
+        ): NpuDiagnosticPromptValidator.Result {
+            if (!unsafeDevBypassPromptLengthGate || !isHiddenPromptLengthGateBlock(validation)) return validation
+            return validation.copy(isValid = true)
+        }
+
+        private fun isHiddenPromptLengthGateBlock(validation: NpuDiagnosticPromptValidator.Result): Boolean =
+            validation.reasonCode == "too_long" &&
+                validation.promptInputCodePointLimit == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH &&
+                validation.promptInputLimitMode == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
 
         @JvmStatic
         private external fun nativeRun(

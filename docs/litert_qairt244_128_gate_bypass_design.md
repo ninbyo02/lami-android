@@ -263,6 +263,24 @@ The first runtime use should be exactly one case, preferably raw target `128`
 or raw target `256`, with `--limit-cases 1`, timeout `60`, and
 `--max-output-tokens 16`.
 
+The first raw target `128` attempt confirmed the receiver-side bypass but found
+one more pre-native length gate in the debug editable-prompt wrapper:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_072125/summary.md
+reason=adapter_failure:IllegalStateException
+message=editable prompt rejected before native execution: reasonCode=too_long
+native=false
+decode=false
+prompt_length_gate_bypassed=true
+```
+
+The same unsafe flag is now passed into
+`Qairt244ShortMultitokenSmoke.runEditablePrompt`, where only the
+hidden-template `too_long` prompt-length validation result can be bypassed.
+This keeps non-length validation, max-output validation, model checks, fallback
+visibility, and non-persistent hidden receiver scoping unchanged.
+
 ### Phase 2: First Bypassed Native Case
 
 Requires separate approval before runtime execution.

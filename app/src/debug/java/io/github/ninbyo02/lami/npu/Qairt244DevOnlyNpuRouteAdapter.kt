@@ -255,6 +255,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                         prompt = promptTemplate.finalModelInput,
                         maxOutputTokens = maxOutputTokens,
                         promptValidationMode = finalInputValidation.promptValidationMode,
+                        unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
                     )
                     traceTerminal(DevOnlyNpuTerminalTraceMarker.AFTER_NATIVE_ADAPTER_RUN)
                     nativeResult
@@ -466,6 +467,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         "normalized_prompt=${escapeValue(normalizedPrompt)}",
         "final_model_input=${escapeValue(promptTemplate.finalModelInput)}",
         "final_model_input_length=${promptTemplate.finalModelInput.length}",
+        "final_model_input_code_points=${promptTemplate.finalModelInput.codePointCount(0, promptTemplate.finalModelInput.length)}",
         "conversation_history_count=0",
         "system_prompt_used=none",
         "chat_template_used=${promptTemplate.chatTemplateUsed}",
@@ -505,6 +507,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
             "prompt_length_gate_limit=${NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH}",
             "prompt_length_gate_would_block=$wouldBlock",
             "prompt_length_gate_bypassed=${unsafeDevBypassPromptLengthGate && wouldBlock}",
+            "adapter_prompt_length_gate_would_block=$wouldBlock",
+            "adapter_prompt_length_gate_bypassed=${unsafeDevBypassPromptLengthGate && wouldBlock}",
         )
     }
 

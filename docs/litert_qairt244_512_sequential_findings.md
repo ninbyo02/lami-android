@@ -777,6 +777,39 @@ record `unsafe_dev_bypass_prompt_length_gate_requested`,
 `prompt_length_gate_limit`, `prompt_length_gate_would_block`, and
 `prompt_length_gate_bypassed`.
 
+The first bypassed raw target `128` runtime attempt then showed that the
+receiver/route gate was bypassed, but the debug editable-prompt wrapper still
+re-ran the hidden-template prompt-length validator immediately before native
+execution:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_072125/summary.md
+template=raw
+target=128
+prompt_transport=base64
+prompt_chars=256
+final_input_chars_approx=256
+unsafe_dev_bypass_prompt_length_gate_requested=true
+unsafe_dev_bypass_prompt_length_gate_effective=true
+prompt_length_gate_would_block=true
+prompt_length_gate_bypassed=true
+requested/effective=16/16
+status=failure
+reason=adapter_failure:IllegalStateException
+native=false
+decode=false
+message=editable prompt rejected before native execution: reasonCode=too_long
+```
+
+The bypass was therefore propagated one step deeper into the debug
+`Qairt244ShortMultitokenSmoke.runEditablePrompt` wrapper. That wrapper now uses
+the same default-false unsafe flag and only skips the hidden-template
+`too_long` prompt-length result. It still preserves model/max-output checks,
+empty prompt rejection, invalid UTF-8/control-character validation, and all
+other non-length validator failures. Adapter artifacts additionally record
+`adapter_prompt_length_gate_would_block`,
+`adapter_prompt_length_gate_bypassed`, and `final_model_input_code_points`.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
