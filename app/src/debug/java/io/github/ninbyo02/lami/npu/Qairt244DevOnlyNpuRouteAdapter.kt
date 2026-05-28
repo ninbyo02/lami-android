@@ -17,6 +17,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
     context: Context,
     private val promptTemplateMode: HiddenQairt244PromptTemplateMode = HiddenQairt244PromptTemplateMode.RAW,
     private val maxOutputTokenRangeLimit: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+    private val unsafeDevBypassPromptLengthGate: Boolean = false,
     private val terminalTraceRunId: String? = null,
 ) : DevOnlyNpuRouteAdapter {
     private val appContext = context.applicationContext
@@ -34,11 +35,13 @@ class Qairt244DevOnlyNpuRouteAdapter(
         maxOutputTokens = maxOutputTokens,
         timeoutMs = timeoutMs,
         promptSource = PROMPT_SOURCE_CHAT_SCREEN,
-        validation = if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
-            NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
-        } else {
-            NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt)
-        },
+        validation = promptLengthGateBypassedValidation(
+            validation = if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+                NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
+            } else {
+                NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt)
+            },
+        ),
         allowMaxOutputTokenRange = maxOutputTokenRangeLimit != DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
         expectedModelBasename = REQUIRED_MODEL_BASENAME,
         templateMode = if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
@@ -127,7 +130,9 @@ class Qairt244DevOnlyNpuRouteAdapter(
             promptSource == PROMPT_SOURCE_CHAT_SCREEN &&
             !BuildConfig.CUSTOM_BUILD_EXPERIMENT
         ) {
-            NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(promptTemplate.finalModelInput)
+            promptLengthGateBypassedValidation(
+                NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(promptTemplate.finalModelInput),
+            )
         } else {
             validation
         }
@@ -480,6 +485,29 @@ class Qairt244DevOnlyNpuRouteAdapter(
         "prompt_input_limit_mode=${values["prompt_input_limit_mode"] ?: validation.promptInputLimitMode}",
     )
 
+    private fun promptLengthGateBypassedValidation(
+        validation: NpuDiagnosticPromptValidator.Result,
+    ): NpuDiagnosticPromptValidator.Result {
+        if (!unsafeDevBypassPromptLengthGate || !isHiddenPromptLengthGateBlock(validation)) return validation
+        return validation.copy(isValid = true)
+    }
+
+    private fun isHiddenPromptLengthGateBlock(validation: NpuDiagnosticPromptValidator.Result): Boolean =
+        validation.reasonCode == "too_long" &&
+            validation.promptInputCodePointLimit == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH &&
+            validation.promptInputLimitMode == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+
+    private fun promptLengthGateDiagnostics(validation: NpuDiagnosticPromptValidator.Result): List<String> {
+        val wouldBlock = isHiddenPromptLengthGateBlock(validation)
+        return listOf(
+            "unsafe_dev_bypass_prompt_length_gate_requested=$unsafeDevBypassPromptLengthGate",
+            "unsafe_dev_bypass_prompt_length_gate_effective=$unsafeDevBypassPromptLengthGate",
+            "prompt_length_gate_limit=${NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH}",
+            "prompt_length_gate_would_block=$wouldBlock",
+            "prompt_length_gate_bypassed=${unsafeDevBypassPromptLengthGate && wouldBlock}",
+        )
+    }
+
     private fun escapeValue(value: String): String =
         value.replace("\\", "\\\\").replace("\n", "\\n")
 
@@ -551,6 +579,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 ).toTypedArray(),
                 "prompt_validation_mode=${validation.promptValidationMode}",
                 *promptInputDiagnostics(validation).toTypedArray(),
+                *promptLengthGateDiagnostics(validation).toTypedArray(),
                 "max_output_tokens=$maxOutputTokens",
                 "fallback_used=false",
                 "timeout=false",
@@ -591,6 +620,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 ).toTypedArray(),
                 "prompt_validation_mode=${validation.promptValidationMode}",
                 *promptInputDiagnostics(validation).toTypedArray(),
+                *promptLengthGateDiagnostics(validation).toTypedArray(),
                 "max_output_tokens=$maxOutputTokens",
                 "resolved_model_path=${resolution.path ?: ""}",
                 "resolved_model_basename=${resolution.modelInfo?.resolvedModelBasename ?: ""}",
@@ -642,6 +672,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 ).toTypedArray(),
                 "prompt_validation_mode=${validation.promptValidationMode}",
                 *promptInputDiagnostics(validation).toTypedArray(),
+                *promptLengthGateDiagnostics(validation).toTypedArray(),
                 "max_output_tokens=$maxOutputTokens",
                 "resolved_model_path=${resolution.path ?: ""}",
                 "resolved_model_basename=${resolution.modelInfo?.resolvedModelBasename ?: ""}",
@@ -700,6 +731,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 ).toTypedArray(),
                 "prompt_validation_mode=${validation.promptValidationMode}",
                 *promptInputDiagnostics(validation, values).toTypedArray(),
+                *promptLengthGateDiagnostics(validation).toTypedArray(),
                 "native_prompt_validation_mode=${values["native_prompt_validation_mode"] ?: validation.promptValidationMode}",
                 "native_prompt_input_code_point_limit=${values["native_prompt_input_code_point_limit"].orEmpty()}",
                 "native_prompt_input_limit_mode=${values["native_prompt_input_limit_mode"].orEmpty()}",

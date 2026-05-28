@@ -764,6 +764,19 @@ inside the gate and raw target `128+` above the gate. Direct 512 sequential or
 4096-input/prefill validation still requires a separately approved dev-only,
 hidden-receiver-only 128-gate bypass.
 
+Phase 2 preparation added that bypass as an explicit hidden receiver flag:
+`--unsafe-dev-bypass-prompt-length-gate`, sent as
+`unsafe_dev_bypass_prompt_length_gate=true`. The default remains false. The
+flag is only read by `StandardHiddenQairt244PromptReceiver`, is not connected
+to standard ChatScreen routing, does not persist backend/UI settings, and only
+allows the hidden sequence probe to bypass the `too_long` result from the
+128-codepoint hidden-template validator. Other validator failures and all
+existing route/model/max-output safety gates remain active. Artifacts now
+record `unsafe_dev_bypass_prompt_length_gate_requested`,
+`unsafe_dev_bypass_prompt_length_gate_effective`,
+`prompt_length_gate_limit`, `prompt_length_gate_would_block`, and
+`prompt_length_gate_bypassed`.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:

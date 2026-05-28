@@ -139,6 +139,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
         maxOutputTokens: Int,
         requestedMaxOutputTokens: Int = maxOutputTokens,
         allowMaxOutputTokensCompare: Boolean = false,
+        unsafeDevBypassPromptLengthGate: Boolean = false,
         terminalTraceRunId: String? = null,
     ): String {
         val baselineMaxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
@@ -154,6 +155,11 @@ object DevOnlyNpuChatScreenBlockedBranch {
         val resolvedTemplateMode = HiddenQairt244PromptTemplateMode.fromStorage(templateMode)
         if (!chatScreenRunInProgress.compareAndSet(false, true)) {
             val promptTemplate = buildPromptTemplate(prompt = prompt, mode = resolvedTemplateMode)
+            val promptLengthGate = promptLengthGateState(
+                prompt = prompt,
+                promptTemplate = promptTemplate,
+                requested = unsafeDevBypassPromptLengthGate,
+            )
             return listOf(
                 "selected_route=$HIDDEN_SELECTED_ROUTE",
                 "success=false",
@@ -186,6 +192,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 "hidden_safety_baseline=${if (allowMaxOutputTokensCompare) "compare_only_sanitizer_512" else "enhanced_sanitizer_only_128"}",
                 "lower_token_caps_policy=rollback_only",
                 "max_output_tokens_compare_enabled=$allowMaxOutputTokensCompare",
+                *promptLengthGate.toTypedArray(),
                 "turn_stop_compare_marker=qairt244_turn_stop_compare_v1",
                 "resolved_model_basename=",
                 "required_sm8750_model_path=false",
@@ -209,6 +216,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 maxOutputTokens = effectiveMaxOutputTokens,
                 requestedMaxOutputTokens = requestedMaxOutputTokens,
                 allowMaxOutputTokensCompare = allowMaxOutputTokensCompare,
+                unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
                 terminalTraceRunId = terminalTraceRunId,
             )
         } finally {
@@ -223,15 +231,26 @@ object DevOnlyNpuChatScreenBlockedBranch {
         maxOutputTokens: Int,
         requestedMaxOutputTokens: Int,
         allowMaxOutputTokensCompare: Boolean,
+        unsafeDevBypassPromptLengthGate: Boolean,
         terminalTraceRunId: String?,
     ): String {
         val appContext = context.applicationContext
-        val validation = if (io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+        val rawValidation = if (io.github.ninbyo02.lami.BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
         } else {
             NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt)
         }
+        val validation = promptLengthGateBypassedValidation(
+            validation = rawValidation,
+            requested = unsafeDevBypassPromptLengthGate,
+        )
         val normalizedPrompt = validation.normalizedPrompt.ifBlank { prompt }
+        val promptTemplateForGate = buildPromptTemplate(prompt = normalizedPrompt, mode = templateMode)
+        val promptLengthGate = promptLengthGateState(
+            prompt = normalizedPrompt,
+            promptTemplate = promptTemplateForGate,
+            requested = unsafeDevBypassPromptLengthGate,
+        )
         File(appContext.filesDir, "qairt244_chat_screen_real_npu_once_guard.txt").delete()
         val result = runBlocking {
             DevOnlyNpuRoutePlanner(
@@ -243,6 +262,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
                     } else {
                         DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS
                     },
+                    unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
                     terminalTraceRunId = terminalTraceRunId,
                 ),
             ).runIfAllowed(
@@ -398,6 +418,7 @@ object DevOnlyNpuChatScreenBlockedBranch {
             "hidden_safety_baseline=${if (allowMaxOutputTokensCompare) "compare_only_sanitizer_512" else "enhanced_sanitizer_only_128"}",
             "lower_token_caps_policy=rollback_only",
             "max_output_tokens_compare_enabled=$allowMaxOutputTokensCompare",
+            *promptLengthGate.toTypedArray(),
             "turn_stop_compare_marker=qairt244_turn_stop_compare_v1",
             "native_prompt_input_code_point_limit=${escapeValue(nativeResult["native_prompt_input_code_point_limit"].orEmpty())}",
             "native_prompt_input_limit_mode=${escapeValue(nativeResult["native_prompt_input_limit_mode"].orEmpty())}",
@@ -430,6 +451,38 @@ object DevOnlyNpuChatScreenBlockedBranch {
                 line.substring(0, index) to line.substring(index + 1)
             }
             .toMap()
+    }
+
+    private fun promptLengthGateBypassedValidation(
+        validation: NpuDiagnosticPromptValidator.Result,
+        requested: Boolean,
+    ): NpuDiagnosticPromptValidator.Result {
+        if (!requested || !isHiddenPromptLengthGateBlock(validation)) return validation
+        return validation.copy(isValid = true)
+    }
+
+    private fun isHiddenPromptLengthGateBlock(validation: NpuDiagnosticPromptValidator.Result): Boolean =
+        validation.reasonCode == "too_long" &&
+            validation.promptInputCodePointLimit == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH &&
+            validation.promptInputLimitMode == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+
+    private fun promptLengthGateState(
+        prompt: String,
+        promptTemplate: PromptTemplate,
+        requested: Boolean,
+    ): List<String> {
+        val promptValidation = NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt)
+        val finalValidation = NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(promptTemplate.finalModelInput)
+        val wouldBlock = isHiddenPromptLengthGateBlock(promptValidation) ||
+            isHiddenPromptLengthGateBlock(finalValidation)
+        return listOf(
+            "unsafe_dev_bypass_prompt_length_gate_requested=$requested",
+            "unsafe_dev_bypass_prompt_length_gate_effective=$requested",
+            "prompt_length_gate_limit=${NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH}",
+            "prompt_length_gate_would_block=$wouldBlock",
+            "prompt_length_gate_bypassed=${requested && wouldBlock}",
+            "final_model_input_code_points=${promptTemplate.finalModelInput.codePointCount(0, promptTemplate.finalModelInput.length)}",
+        )
     }
 
     private fun escapeValue(value: String): String =

@@ -11,6 +11,7 @@ DEVICE_SERIAL=""
 TIMEOUT_SECONDS=60
 MAX_OUTPUT_TOKENS=16
 EXECUTE=false
+UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE=false
 HIDDEN_TEMPLATE_MAX_LENGTH=128
 LIMIT_CASES=0
 CUSTOM_PROMPT=""
@@ -22,7 +23,7 @@ TEMPLATES=(raw simple_ja_chat gemma_it_like)
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/run_npu_512_sequence_probe.sh [--dry-run] [--execute] [--device <serial>] [--timeout <seconds>] [--max-output-tokens <n>] [--limit-cases <n>] [--prompt <text>] [--only-template <raw|simple_ja_chat|gemma_it_like>] [--only-target <n>]
+  scripts/run_npu_512_sequence_probe.sh [--dry-run] [--execute] [--device <serial>] [--timeout <seconds>] [--max-output-tokens <n>] [--limit-cases <n>] [--prompt <text>] [--only-template <raw|simple_ja_chat|gemma_it_like>] [--only-target <n>] [--unsafe-dev-bypass-prompt-length-gate]
 
 Prepares or runs a dev-only hidden NPU sequence/prefill probe matrix. Default
 mode is preflight-only and does not execute NPU.
@@ -47,6 +48,8 @@ Safety:
   - --prompt replaces the generated "x " filler for selected cases
   - --only-template and --only-target narrow the matrix to one intended case
     before --limit-cases is applied
+  - --unsafe-dev-bypass-prompt-length-gate is a hidden-receiver-only,
+    dev-only validation bypass for one-case sequence boundary investigation
 
 Prerequisite:
   - install a standardDebug build that already contains the QAIRT244 max512
@@ -59,6 +62,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) EXECUTE=false; shift ;;
     --execute) EXECUTE=true; shift ;;
+    --unsafe-dev-bypass-prompt-length-gate) UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE=true; shift ;;
     --device) DEVICE_SERIAL="${2:-}"; shift 2 ;;
     --timeout) TIMEOUT_SECONDS="${2:-}"; shift 2 ;;
     --max-output-tokens) MAX_OUTPUT_TOKENS="${2:-}"; shift 2 ;;
@@ -330,6 +334,7 @@ write_plan() {
     printf -- '- timeout_seconds: `%s`\n' "$TIMEOUT_SECONDS"
     printf -- '- max_output_tokens: `%s`\n' "$MAX_OUTPUT_TOKENS"
     printf -- '- prompt_transport: `base64`\n'
+    printf -- '- unsafe_dev_bypass_prompt_length_gate_requested: `%s`\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
     printf -- '- limit_cases: `%s`\n' "$LIMIT_CASES"
     printf -- '- custom_prompt: `%s`\n' "$(if [ -n "$CUSTOM_PROMPT" ]; then printf true; else printf false; fi)"
     printf -- '- only_template: `%s`\n' "${ONLY_TEMPLATE:-all}"
@@ -363,8 +368,8 @@ write_selected_cases_summary() {
     if [ -n "$CUSTOM_PROMPT" ]; then
       printf 'Note: `--prompt` is set, so `target` remains a case label only. It does not generate filler length. Use `prompt_chars` and `final_input_chars_approx` as the source of truth for prompt length and 128 gate expectations.\n\n'
     fi
-    printf '| selected_index | template | target | prompt_chars | final_input_chars_approx | native_pre_reject_expected_by_128_gate | prompt_transport | prompt_base64_length | prompt_source | prompt_preview |\n'
-  printf '| ---: | --- | ---: | ---: | ---: | --- | --- | ---: | --- | --- |\n'
+    printf '| selected_index | template | target | prompt_chars | final_input_chars_approx | native_pre_reject_expected_by_128_gate | unsafe_bypass_requested | unsafe_bypass_effective | prompt_transport | prompt_base64_length | prompt_source | prompt_preview |\n'
+  printf '| ---: | --- | ---: | ---: | ---: | --- | --- | --- | --- | ---: | --- | --- |\n'
   for template in "${TEMPLATES[@]}"; do
     for target in "${TARGETS[@]}"; do
       case_selected_by_filters "$template" "$target" || continue
@@ -382,9 +387,9 @@ write_selected_cases_summary() {
       expected_validation="$(expected_validation_for_chars "$final_chars")"
       native_pre_reject="$(native_pre_reject_for_chars "$final_chars")"
       prompt_preview="$(markdown_preview_cell "$prompt")"
-      printf '| %s | `%s` | %s | %s | %s | `%s` | `base64` | %s | `%s` | `%s` |\n' \
+      printf '| %s | `%s` | %s | %s | %s | `%s` | `%s` | `%s` | `base64` | %s | `%s` | `%s` |\n' \
         "$((rows_written + 1))" "$template" "$target" "$prompt_chars" "$final_chars" \
-        "$native_pre_reject" "$prompt_base64_length" "$(if [ -n "$CUSTOM_PROMPT" ]; then printf custom; else printf generated_x_filler; fi)" "$prompt_preview"
+        "$native_pre_reject" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$prompt_base64_length" "$(if [ -n "$CUSTOM_PROMPT" ]; then printf custom; else printf generated_x_filler; fi)" "$prompt_preview"
       if [ "$native_pre_reject" = true ]; then
         printf '\n`128 gate によりこのcaseは native前reject見込み`: template=`%s`, target=`%s`, final_input_chars_approx=`%s`, expected_validation=`%s`.\n\n' \
           "$template" "$target" "$final_chars" "$expected_validation"
@@ -393,7 +398,7 @@ write_selected_cases_summary() {
     done
   done
   if [ "$rows_written" -eq 0 ]; then
-    printf '| 0 | `none` | 0 | 0 | 0 | `unknown` | `base64` | 0 | `none` | `no matching selected cases` |\n'
+    printf '| 0 | `none` | 0 | 0 | 0 | `unknown` | `%s` | `%s` | `base64` | 0 | `none` | `no matching selected cases` |\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
   fi
   printf '\n'
 }
@@ -430,6 +435,8 @@ run_case() {
     printf 'prompt_base64_length=%s\n' "$prompt_base64_length"
     printf 'prompt_preview=%s\n' "$(markdown_preview_cell "$prompt")"
     printf 'max_output_tokens=%s\n' "$MAX_OUTPUT_TOKENS"
+    printf 'unsafe_dev_bypass_prompt_length_gate_requested=%s\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
+    printf 'unsafe_dev_bypass_prompt_length_gate_effective=%s\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
     printf 'final_input_chars_approx=%s\n' "$final_chars"
     printf 'expected_existing_app_validation=%s\n' "$expected_validation"
     printf 'native_pre_reject_expected_by_128_gate=%s\n' "$native_pre_reject"
@@ -444,18 +451,24 @@ run_case() {
     files/qairt244_native_diag.txt \
     files/qairt244_standard_hidden_display_diagnostics.txt \
     "files/terminal_trace_${run_id}.txt" >"$run_dir/cleanup_app_files.txt" 2>&1 || true
-  run_adb_capture "$TIMEOUT_SECONDS" "$run_dir/broadcast.txt" shell am broadcast --receiver-foreground --user 0 \
-    -a "$ACTION" \
-    -n "$APP_ID/$RECEIVER" \
-    --es prompt_base64 "$prompt_base64" \
-    --es run_id "$run_id" \
-    --es template "$template" \
-    --es template_mode "$template" \
-    --ei max_output_tokens "$MAX_OUTPUT_TOKENS" \
-    --ez allow_max_output_tokens_compare true \
-    --ez enable_developer_access true \
-    --ez enable_route true \
+  local broadcast_args=(
+    shell am broadcast --receiver-foreground --user 0
+    -a "$ACTION"
+    -n "$APP_ID/$RECEIVER"
+    --es prompt_base64 "$prompt_base64"
+    --es run_id "$run_id"
+    --es template "$template"
+    --es template_mode "$template"
+    --ei max_output_tokens "$MAX_OUTPUT_TOKENS"
+    --ez allow_max_output_tokens_compare true
+    --ez enable_developer_access true
+    --ez enable_route true
     --ez run true
+  )
+  if [ "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" = true ]; then
+    broadcast_args+=(--ez unsafe_dev_bypass_prompt_length_gate true)
+  fi
+  run_adb_capture "$TIMEOUT_SECONDS" "$run_dir/broadcast.txt" "${broadcast_args[@]}"
   case "$(exit_code_value "$run_dir/broadcast.txt")" in
     124|137) adb_broadcast_timeout=true ;;
   esac
@@ -510,6 +523,11 @@ run_case() {
     printf 'prompt_base64_present=%s\n' "$(kv_value prompt_base64_present "$run_dir/receiver_state.txt")"
     printf 'prompt_decode_success=%s\n' "$(kv_value prompt_decode_success "$run_dir/receiver_state.txt")"
     printf 'final_model_input_code_points=%s\n' "$(kv_value final_model_input_code_points "$run_dir/receiver_state.txt")"
+    printf 'unsafe_dev_bypass_prompt_length_gate_requested=%s\n' "$(kv_value unsafe_dev_bypass_prompt_length_gate_requested "$run_dir/receiver_state.txt")"
+    printf 'unsafe_dev_bypass_prompt_length_gate_effective=%s\n' "$(kv_value unsafe_dev_bypass_prompt_length_gate_effective "$run_dir/receiver_state.txt")"
+    printf 'prompt_length_gate_limit=%s\n' "$(kv_value prompt_length_gate_limit "$run_dir/receiver_state.txt")"
+    printf 'prompt_length_gate_would_block=%s\n' "$(kv_value prompt_length_gate_would_block "$run_dir/receiver_state.txt")"
+    printf 'prompt_length_gate_bypassed=%s\n' "$(kv_value prompt_length_gate_bypassed "$run_dir/receiver_state.txt")"
     printf 'replacement_char_count=%s\n' "$(kv_value replacement_char_count "$run_dir/display_diagnostics.txt")"
     printf 'requested_max_output_tokens=%s\n' "$(kv_value requested_max_output_tokens "$run_dir/receiver_state.txt")"
     printf 'effective_max_output_tokens=%s\n' "$(kv_value max_output_tokens "$run_dir/receiver_state.txt")"
@@ -546,6 +564,8 @@ write_summary() {
     printf -- '- execute: `%s`\n' "$EXECUTE"
     printf -- '- device: `%s`\n' "${DEVICE_SERIAL:-not_selected}"
     printf -- '- prompt_transport: `base64`\n'
+    printf -- '- unsafe_dev_bypass_prompt_length_gate_requested: `%s`\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
+    printf -- '- unsafe_dev_bypass_prompt_length_gate_effective: `%s`\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
     printf -- '- limit_cases: `%s`\n' "$LIMIT_CASES"
     printf -- '- custom_prompt: `%s`\n' "$(if [ -n "$CUSTOM_PROMPT" ]; then printf true; else printf false; fi)"
     if [ -n "$CUSTOM_PROMPT" ]; then
@@ -592,6 +612,9 @@ write_summary() {
     if [ -n "$CUSTOM_PROMPT" ]; then
       printf 'Important: because `--prompt` is set, selected-case gate expectations come from the Selected Cases table above. The full matrix table below still shows the default generated `x ` filler assumptions for comparison only.\n\n'
     fi
+    if [ "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" = true ]; then
+      printf 'Unsafe dev-only bypass is requested for this hidden receiver invocation. Rows with `native_pre_reject_expected_by_128_gate=true` are still expected to exceed the normal 128 gate, but this run is intentionally configured to test whether native entry is reachable after bypassing that prompt-length gate. This does not alter standard ChatScreen routing or persisted backend selection.\n\n'
+    fi
     printf 'Cases with `final_input_chars_approx > %s` are expected to reject before native entry through the current hidden-route prompt validation gate. These rows prove app-side validation behavior, not the `.litertlm` graph sequence limit.\n\n' "$HIDDEN_TEMPLATE_MAX_LENGTH"
     printf 'For rows marked `true`: `128 gate によりこのcaseは native前reject見込み`.\n\n'
     printf '| template | target | final_input_chars_approx | native_pre_reject_expected_by_128_gate |\n'
@@ -620,6 +643,9 @@ write_summary() {
     fi
     if [ -n "$ONLY_TARGET" ]; then
       printf ' --only-target %q' "$ONLY_TARGET"
+    fi
+    if [ "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" = true ]; then
+      printf ' --unsafe-dev-bypass-prompt-length-gate'
     fi
     if [ "$LIMIT_CASES" -gt 0 ]; then
       printf ' --limit-cases %s' "$LIMIT_CASES"

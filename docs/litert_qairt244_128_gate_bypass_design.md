@@ -238,9 +238,34 @@ Bypass necessity is therefore no longer on hold for transport reasons; crossing
 raw target `128+` into native graph/prefill behavior requires a separate
 dev-only, hidden-receiver-only gate bypass.
 
+### Phase 2 Implementation Note
+
+The bypass is implemented behind the explicit script flag
+`--unsafe-dev-bypass-prompt-length-gate`, which sends the hidden receiver extra
+`unsafe_dev_bypass_prompt_length_gate=true`. It is intentionally scoped to
+`StandardHiddenQairt244PromptReceiver` and the dev-only route used by the probe:
+it is not exposed in UI settings, does not persist `Backend.NPU`, and is not
+connected to standard ChatScreen generation, DB, TTS, Markdown, or streaming.
+
+The bypass only applies to the 128-codepoint hidden-template prompt-length gate
+when the validator reason is `too_long`. Other validation failures, developer
+access checks, route enablement checks, model resolution, max-output validation,
+timeout handling, force-stop behavior, and fallback visibility are unchanged.
+Artifacts must be checked for:
+- `unsafe_dev_bypass_prompt_length_gate_requested=true`
+- `unsafe_dev_bypass_prompt_length_gate_effective=true`
+- `prompt_length_gate_would_block=true`
+- `prompt_length_gate_bypassed=true`
+- `prompt_transport=base64`
+- requested/effective max output tokens, normally `16/16`
+
+The first runtime use should be exactly one case, preferably raw target `128`
+or raw target `256`, with `--limit-cases 1`, timeout `60`, and
+`--max-output-tokens 16`.
+
 ### Phase 2: First Bypassed Native Case
 
-Requires separate approval and implementation first.
+Requires separate approval before runtime execution.
 
 Run exactly one case:
 - template: `raw`

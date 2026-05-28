@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Base64
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
 import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import java.io.File
@@ -83,6 +84,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 ).joinToString("\n"),
                 status = "failure",
                 promptTransport = promptTransport,
+                unsafeDevBypassPromptLengthGate = false,
             )
             return
         }
@@ -91,6 +93,10 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         val enableRoute = intent.getBooleanExtra(EXTRA_ENABLE_ROUTE, false)
         val shouldRun = intent.getBooleanExtra(EXTRA_RUN, true)
         val allowMaxOutputTokensCompare = intent.getBooleanExtra(EXTRA_ALLOW_MAX_OUTPUT_TOKENS_COMPARE, false)
+        val unsafeDevBypassPromptLengthGate = intent.getBooleanExtra(
+            EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE,
+            false,
+        )
         val requestedMaxOutputTokens = intent.getIntExtra(
             EXTRA_MAX_OUTPUT_TOKENS,
             DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
@@ -132,6 +138,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                     resultText = "success=false\nreasonCode=wrong_variant\n",
                     status = "blocked",
                     promptTransport = promptTransport,
+                    unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
                 )
                 return@runBlocking null
             }
@@ -144,6 +151,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                     resultText = "success=false\nreasonCode=hidden_gate_disabled\n",
                     status = "blocked",
                     promptTransport = promptTransport,
+                    unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
                 )
                 return@runBlocking null
             }
@@ -156,6 +164,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                     resultText = "success=true\nreasonCode=gate_enabled_no_run\n",
                     status = "gate_enabled",
                     promptTransport = promptTransport,
+                    unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
                 )
                 return@runBlocking null
             }
@@ -174,6 +183,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 maxOutputTokens = baselineMaxOutputTokens,
                 requestedMaxOutputTokens = requestedMaxOutputTokens,
                 allowMaxOutputTokensCompare = allowMaxOutputTokensCompare,
+                unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
                 terminalTraceRunId = traceRunId,
             ).also { result ->
                 DevOnlyNpuTerminalTrace.append(
@@ -190,6 +200,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                     resultText = result,
                     status = if (result.lineSequence().any { it == "success=true" }) "success" else "failure",
                     promptTransport = promptTransport,
+                    unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
                 )
                 DevOnlyNpuTerminalTrace.append(
                     context = appContext,
@@ -247,6 +258,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         resultText: String,
         status: String,
         promptTransport: PromptTransport,
+        unsafeDevBypassPromptLengthGate: Boolean,
     ) {
         val resultValues = parseKeyValueText(resultText)
         val finalModelInput = resultValues["final_model_input"].orEmpty()
@@ -255,6 +267,9 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         } else {
             ""
         }
+        val promptCodePoints = prompt.codePointCount(0, prompt.length)
+        val promptLengthGateLimit = NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH
+        val promptLengthGateWouldBlock = promptCodePoints > promptLengthGateLimit
         stateFile.writeText(
             buildString {
                 appendLine("receiver=standard_hidden_qairt244_prompt")
@@ -263,7 +278,12 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
                 appendLine("prompt_transport=${promptTransport.transport}")
                 appendLine("prompt_base64_present=${promptTransport.base64Present}")
                 appendLine("prompt_decode_success=${promptTransport.decodeSuccess}")
-                appendLine("receiver_prompt_input_code_points=${prompt.codePointCount(0, prompt.length)}")
+                appendLine("receiver_prompt_input_code_points=$promptCodePoints")
+                appendLine("unsafe_dev_bypass_prompt_length_gate_requested=$unsafeDevBypassPromptLengthGate")
+                appendLine("unsafe_dev_bypass_prompt_length_gate_effective=$unsafeDevBypassPromptLengthGate")
+                appendLine("prompt_length_gate_limit=$promptLengthGateLimit")
+                appendLine("prompt_length_gate_would_block=$promptLengthGateWouldBlock")
+                appendLine("prompt_length_gate_bypassed=${unsafeDevBypassPromptLengthGate && promptLengthGateWouldBlock}")
                 appendLine("developer_access_enabled=$developerAccessEnabled")
                 appendLine("dev_enable_qairt244_sm8750_npu_route=$routeEnabled")
                 appendLine("toggle_retained_after_run=$routeEnabled")
@@ -378,6 +398,7 @@ class StandardHiddenQairt244PromptReceiver : BroadcastReceiver() {
         const val ACTION = "io.github.ninbyo02.lami.action.STANDARD_HIDDEN_QAIRT244_PROMPT"
         const val EXTRA_PROMPT = "prompt"
         const val EXTRA_PROMPT_BASE64 = "prompt_base64"
+        const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE = "unsafe_dev_bypass_prompt_length_gate"
         const val EXTRA_ENABLE_DEVELOPER_ACCESS = "enable_developer_access"
         const val EXTRA_ENABLE_ROUTE = "enable_route"
         const val EXTRA_RUN = "run"
