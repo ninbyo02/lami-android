@@ -638,6 +638,62 @@ and NPU evidence). The raw target `128` failure is not an app-side validation
 reject and is not evidence of a 512 graph/prefill boundary failure; it is a
 post-decode sanitizer/output classification failure.
 
+The generated-filler raw target `256` check was then run:
+
+```bash
+scripts/run_npu_512_sequence_probe.sh \
+  --execute \
+  --device 192.168.52.52:41591 \
+  --timeout 60 \
+  --max-output-tokens 16 \
+  --only-template raw \
+  --only-target 256 \
+  --limit-cases 1
+```
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_512_sequence_probe/20260529_055701/summary.md
+```
+
+Observed result:
+- custom prompt: `false`
+- target length semantics: `generated_x_filler_input_length_approximation`
+- template: `raw`
+- target: `256`
+- prompt chars: `512`
+- final input chars approx: `512`
+- preflight expected native-before reject: `true`
+- expected validation: `expected_app_prompt_validation_reject`
+- status: `failure`
+- native reached: `true`
+- decode reached: `true`
+- NPU evidence: `QNN_HTP_V79_FastRPC_native_diag`
+- fallback: `false`
+- fresh crash: `false`
+- reason: `empty_after_sanitize`
+- requested/effective max output tokens: `128/128`
+- native limit: `512`
+- native first max output tokens: `128`
+- raw output length: `192`
+- sanitized output length: `0`
+- quality: `mixed_language`
+- control chars observed: `true`
+
+This extends the preflight prediction mismatch: raw target `256`
+(`final_input_chars_approx=512`) was also predicted to reject before native,
+but it reached native/decode. It is still not a 512 graph/prefill failure
+because decode completed and the failure was `empty_after_sanitize`.
+
+However, this run exposes a separate unresolved max-output propagation issue.
+The command requested `--max-output-tokens 16`, but the recorded
+requested/effective/native-first max output values were `128`. That suggests
+the target value or another hidden-route clamp/default may be influencing
+`max_output_tokens` for generated-filler sequence probes. This should be
+investigated as argument propagation before using these generated-filler rows
+as clean sequence-boundary evidence.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
@@ -720,9 +776,12 @@ template echo / mixed-script sanitizer problem: it can reach native/decode and
 still collapse to `empty_after_sanitize`. The existing hidden route still
 cannot be assumed to reject every target above the 128-codepoint preflight
 threshold: generated-filler raw target `128` was predicted to reject before
-native, but actually reached native/decode and failed after sanitization. For
-custom-prompt invocations, the target value remains a case label rather than
-an input length guarantee.
+native, but actually reached native/decode and failed after sanitization; raw
+target `256` did the same with `final_input_chars_approx=512`. This weakens
+the 512 sequential hypothesis, but does not close it because the raw target
+`256` run also showed a max-output recording mismatch (`16` requested on the
+command line, `128` recorded in artifacts). For custom-prompt invocations, the
+target value remains a case label rather than an input length guarantee.
 
 Policy remains unchanged:
 - H1 remains pinned to `max_output_tokens=128`.
@@ -748,19 +807,20 @@ artifacts/qairt244_litertlm_512_sequence_constraints/20260528_083149/summary.md
 scripts/run_npu_512_sequence_probe.sh --execute --device 192.168.52.52:41591 --timeout 60 --max-output-tokens 16 --limit-cases 1
 ```
 
-3. Treat the 128 gate preflight table as a prediction, not ground truth. The
-   next safe runtime question, if approved separately, is whether generated
-   raw target `256` also reaches native/decode or starts failing before native.
-   Keep `--only-template`, `--only-target`, and `--limit-cases 1`.
+3. Treat the 128 gate preflight table as a prediction, not ground truth. Before
+   probing larger generated-filler targets, inspect script/receiver argument
+   propagation for why `--max-output-tokens 16` was recorded as `128` in the
+   raw target `256` artifact.
 
 4. If direct 512 graph/prefill boundary evidence is still required, design a
    separately approved dev-only validation bypass that is non-ChatScreen,
    non-persistent, does not connect DB/TTS/Markdown/streaming, and does not
    hide fallback. The design is documented in
    `docs/litert_qairt244_128_gate_bypass_design.md`; no bypass implementation
-   exists in this pass. Because raw target `128` reached native without a
-   bypass, the bypass necessity should be re-evaluated after more measured
-   gate-condition probes.
+   exists in this pass. Because raw targets `128` and `256` reached native
+   without a bypass, the bypass necessity should be re-evaluated after
+   measured gate-condition probes and max-output argument propagation are
+   understood.
 
 If later targets reject before native entry, the next safe design step remains
 a dev-only, non-ChatScreen, non-persistent validation bypass dedicated to

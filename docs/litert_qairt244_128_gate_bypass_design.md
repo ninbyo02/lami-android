@@ -177,6 +177,33 @@ necessity is therefore on hold until measured gate behavior is rechecked at
 larger generated-filler targets. A bypass may still be needed later, but it
 should not be assumed solely from the preflight table.
 
+Additional measured follow-up:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_055701/summary.md
+template=raw
+target=256
+custom_prompt=false
+prompt_chars=512
+final_input_chars_approx=512
+native_pre_reject_expected_by_128_gate=true
+status=failure
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+reason=empty_after_sanitize
+requested/effective=128/128
+```
+
+The raw target `256` result also reached native/decode despite the preflight
+native-before-reject prediction. This further weakens the assumption that the
+current hidden receiver path enforces the 128-codepoint gate as modeled by
+preflight. It also surfaced a separate unresolved issue: the command requested
+`--max-output-tokens 16`, but artifacts recorded requested/effective `128`.
+Before implementing a bypass, first inspect script/receiver max-output
+argument propagation and continue treating measured native/decode state as the
+source of truth.
+
 ### Phase 2: First Bypassed Native Case
 
 Requires separate approval and implementation first.
