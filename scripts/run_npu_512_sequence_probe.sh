@@ -13,13 +13,16 @@ MAX_OUTPUT_TOKENS=16
 EXECUTE=false
 HIDDEN_TEMPLATE_MAX_LENGTH=128
 LIMIT_CASES=0
+CUSTOM_PROMPT=""
+ONLY_TEMPLATE=""
+ONLY_TARGET=""
 TARGETS=(1 8 16 32 64 128 256 384 512 640)
 TEMPLATES=(raw simple_ja_chat gemma_it_like)
 
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/run_npu_512_sequence_probe.sh [--dry-run] [--execute] [--device <serial>] [--timeout <seconds>] [--max-output-tokens <n>] [--limit-cases <n>]
+  scripts/run_npu_512_sequence_probe.sh [--dry-run] [--execute] [--device <serial>] [--timeout <seconds>] [--max-output-tokens <n>] [--limit-cases <n>] [--prompt <text>] [--only-template <raw|simple_ja_chat|gemma_it_like>] [--only-target <n>]
 
 Prepares or runs a dev-only hidden NPU sequence/prefill probe matrix. Default
 mode is preflight-only and does not execute NPU.
@@ -39,6 +42,9 @@ Safety:
   - each probe case is force-stopped before dispatch to avoid sequential reuse
   - --limit-cases can restrict execution to the first N matrix rows for
     guarded real-device rechecks after ANR-like behavior
+  - --prompt replaces the generated "x " filler for selected cases
+  - --only-template and --only-target narrow the matrix to one intended case
+    before --limit-cases is applied
 
 Prerequisite:
   - install a standardDebug build that already contains the QAIRT244 max512
@@ -55,6 +61,9 @@ while [ $# -gt 0 ]; do
     --timeout) TIMEOUT_SECONDS="${2:-}"; shift 2 ;;
     --max-output-tokens) MAX_OUTPUT_TOKENS="${2:-}"; shift 2 ;;
     --limit-cases) LIMIT_CASES="${2:-}"; shift 2 ;;
+    --prompt) CUSTOM_PROMPT="${2:-}"; shift 2 ;;
+    --only-template) ONLY_TEMPLATE="${2:-}"; shift 2 ;;
+    --only-target) ONLY_TARGET="${2:-}"; shift 2 ;;
     --out-dir) OUT_DIR="${2:-}"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     *) printf 'ERROR: unknown argument: %s\n' "$1" >&2; exit 2 ;;
@@ -71,6 +80,16 @@ if ! [[ "$MAX_OUTPUT_TOKENS" =~ ^[0-9]+$ ]] || [ "$MAX_OUTPUT_TOKENS" -le 0 ] ||
 fi
 if ! [[ "$LIMIT_CASES" =~ ^[0-9]+$ ]]; then
   printf 'ERROR: --limit-cases must be a non-negative integer\n' >&2
+  exit 2
+fi
+if [ -n "$ONLY_TEMPLATE" ]; then
+  case "$ONLY_TEMPLATE" in
+    raw|simple_ja_chat|gemma_it_like) ;;
+    *) printf 'ERROR: --only-template must be raw, simple_ja_chat, or gemma_it_like\n' >&2; exit 2 ;;
+  esac
+fi
+if [ -n "$ONLY_TARGET" ] && ! [[ "$ONLY_TARGET" =~ ^[0-9]+$ ]]; then
+  printf 'ERROR: --only-target must be a non-negative integer\n' >&2
   exit 2
 fi
 
@@ -175,6 +194,48 @@ prompt_for_target() {
   done
 }
 
+prompt_for_case() {
+  local prompt_tokens="$1"
+  if [ -n "$CUSTOM_PROMPT" ]; then
+    printf '%s' "$CUSTOM_PROMPT"
+  else
+    prompt_for_target "$prompt_tokens"
+  fi
+}
+
+prompt_chars_for_text() {
+  local prompt="$1"
+  printf '%s' "$prompt" | wc -m | tr -d ' '
+}
+
+case_selected_by_filters() {
+  local template="$1"
+  local target="$2"
+  if [ -n "$ONLY_TEMPLATE" ] && [ "$template" != "$ONLY_TEMPLATE" ]; then
+    return 1
+  fi
+  if [ -n "$ONLY_TARGET" ] && [ "$target" != "$ONLY_TARGET" ]; then
+    return 1
+  fi
+  return 0
+}
+
+selected_case_count() {
+  local count=0 template target
+  for template in "${TEMPLATES[@]}"; do
+    for target in "${TARGETS[@]}"; do
+      if case_selected_by_filters "$template" "$target"; then
+        count=$((count + 1))
+      fi
+    done
+  done
+  printf '%s' "$count"
+}
+
+markdown_cell() {
+  printf '%s' "$1" | tr '\n\r' '  ' | sed 's/|/\\|/g'
+}
+
 template_overhead_tokens() {
   case "$1" in
     raw) printf '0' ;;
@@ -248,6 +309,9 @@ write_plan() {
     printf -- '- timeout_seconds: `%s`\n' "$TIMEOUT_SECONDS"
     printf -- '- max_output_tokens: `%s`\n' "$MAX_OUTPUT_TOKENS"
     printf -- '- limit_cases: `%s`\n' "$LIMIT_CASES"
+    printf -- '- custom_prompt: `%s`\n' "$(if [ -n "$CUSTOM_PROMPT" ]; then printf true; else printf false; fi)"
+    printf -- '- only_template: `%s`\n' "${ONLY_TEMPLATE:-all}"
+    printf -- '- only_target: `%s`\n' "${ONLY_TARGET:-all}"
     printf -- '- hidden_template_codepoint_gate: `%s`\n' "$HIDDEN_TEMPLATE_MAX_LENGTH"
     printf -- '- case_count: `%s`\n\n' "$((${#TARGETS[@]} * ${#TEMPLATES[@]}))"
     printf '| template | target_final_tokens_approx | prompt_tokens_approx | final_input_chars_approx | expected_existing_app_validation | native_pre_reject_expected_by_128_gate | command_mode |\n'
@@ -268,6 +332,45 @@ write_plan() {
   } >"$OUT_DIR/plan.md"
 }
 
+write_selected_cases_summary() {
+  local limit="$1"
+  local rows_written=0
+  local template target overhead prompt_tokens prompt prompt_chars final_chars expected_validation native_pre_reject prompt_preview
+  printf '## Selected Cases\n\n'
+  printf 'The rows below are the cases that this invocation will consider after `--only-template` and `--only-target`, then after `--limit-cases` if it is non-zero.\n\n'
+  printf '| selected_index | template | target | prompt_chars | final_input_chars_approx | native_pre_reject_expected_by_128_gate | prompt_source | prompt_preview |\n'
+  printf '| ---: | --- | ---: | ---: | ---: | --- | --- | --- |\n'
+  for template in "${TEMPLATES[@]}"; do
+    for target in "${TARGETS[@]}"; do
+      case_selected_by_filters "$template" "$target" || continue
+      if [ "$limit" -gt 0 ] && [ "$rows_written" -ge "$limit" ]; then
+        continue
+      fi
+      overhead="$(template_overhead_tokens "$template")"
+      prompt_tokens=$((target - overhead))
+      [ "$prompt_tokens" -gt 0 ] || prompt_tokens=1
+      prompt="$(prompt_for_case "$prompt_tokens")"
+      prompt_chars="$(prompt_chars_for_text "$prompt")"
+      final_chars=$((prompt_chars + $(template_overhead_chars "$template")))
+      expected_validation="$(expected_validation_for_chars "$final_chars")"
+      native_pre_reject="$(native_pre_reject_for_chars "$final_chars")"
+      prompt_preview="$(markdown_cell "$prompt")"
+      printf '| %s | `%s` | %s | %s | %s | `%s` | `%s` | `%s` |\n' \
+        "$((rows_written + 1))" "$template" "$target" "$prompt_chars" "$final_chars" \
+        "$native_pre_reject" "$(if [ -n "$CUSTOM_PROMPT" ]; then printf custom; else printf generated_x_filler; fi)" "$prompt_preview"
+      if [ "$native_pre_reject" = true ]; then
+        printf '\n`128 gate によりこのcaseは native前reject見込み`: template=`%s`, target=`%s`, final_input_chars_approx=`%s`, expected_validation=`%s`.\n\n' \
+          "$template" "$target" "$final_chars" "$expected_validation"
+      fi
+      rows_written=$((rows_written + 1))
+    done
+  done
+  if [ "$rows_written" -eq 0 ]; then
+    printf '| 0 | `none` | 0 | 0 | 0 | `unknown` | `none` | `no matching selected cases` |\n'
+  fi
+  printf '\n'
+}
+
 run_case() {
   local template="$1"
   local target="$2"
@@ -278,8 +381,8 @@ run_case() {
   overhead="$(template_overhead_tokens "$template")"
   prompt_tokens=$((target - overhead))
   [ "$prompt_tokens" -gt 0 ] || prompt_tokens=1
-  prompt="$(prompt_for_target "$prompt_tokens")"
-  prompt_chars="$(printf '%s' "$prompt" | wc -m)"
+  prompt="$(prompt_for_case "$prompt_tokens")"
+  prompt_chars="$(prompt_chars_for_text "$prompt")"
   final_chars=$((prompt_chars + $(template_overhead_chars "$template")))
   expected_validation="$(expected_validation_for_chars "$final_chars")"
   native_pre_reject="$(native_pre_reject_for_chars "$final_chars")"
@@ -292,6 +395,7 @@ run_case() {
     printf 'template=%s\n' "$template"
     printf 'target_final_tokens_approx=%s\n' "$target"
     printf 'prompt_tokens_approx=%s\n' "$prompt_tokens"
+    printf 'prompt_source=%s\n' "$(if [ -n "$CUSTOM_PROMPT" ]; then printf custom; else printf generated_x_filler; fi)"
     printf 'prompt_chars=%s\n' "$prompt_chars"
     printf 'final_input_chars_approx=%s\n' "$final_chars"
     printf 'expected_existing_app_validation=%s\n' "$expected_validation"
@@ -405,6 +509,10 @@ write_summary() {
     printf -- '- execute: `%s`\n' "$EXECUTE"
     printf -- '- device: `%s`\n' "${DEVICE_SERIAL:-not_selected}"
     printf -- '- limit_cases: `%s`\n' "$LIMIT_CASES"
+    printf -- '- custom_prompt: `%s`\n' "$(if [ -n "$CUSTOM_PROMPT" ]; then printf true; else printf false; fi)"
+    printf -- '- only_template: `%s`\n' "${ONLY_TEMPLATE:-all}"
+    printf -- '- only_target: `%s`\n' "${ONLY_TARGET:-all}"
+    printf -- '- selected_case_count_before_limit: `%s`\n' "$(selected_case_count)"
     printf -- '- hidden_receiver_only: `true`\n'
     printf -- '- standard_chat_route_connected: `false`\n'
     printf -- '- db_tts_markdown_streaming_connected: `false`\n'
@@ -434,6 +542,7 @@ write_summary() {
       printf -- '- `not_collected`\n'
     fi
     printf '\n'
+    write_selected_cases_summary "$LIMIT_CASES"
     printf '## 128 Gate Preflight\n\n'
     printf 'Cases with `final_input_chars_approx > %s` are expected to reject before native entry through the current hidden-route prompt validation gate. These rows prove app-side validation behavior, not the `.litertlm` graph sequence limit.\n\n' "$HIDDEN_TEMPLATE_MAX_LENGTH"
     printf 'For rows marked `true`: `128 gate によりこのcaseは native前reject見込み`.\n\n'
@@ -455,6 +564,15 @@ write_summary() {
     printf '## Reproduction\n\n'
     printf '```bash\n'
     printf 'scripts/run_npu_512_sequence_probe.sh --execute --timeout %s --max-output-tokens %s' "$TIMEOUT_SECONDS" "$MAX_OUTPUT_TOKENS"
+    if [ -n "$CUSTOM_PROMPT" ]; then
+      printf ' --prompt %q' "$CUSTOM_PROMPT"
+    fi
+    if [ -n "$ONLY_TEMPLATE" ]; then
+      printf ' --only-template %q' "$ONLY_TEMPLATE"
+    fi
+    if [ -n "$ONLY_TARGET" ]; then
+      printf ' --only-target %q' "$ONLY_TARGET"
+    fi
     if [ "$LIMIT_CASES" -gt 0 ]; then
       printf ' --limit-cases %s' "$LIMIT_CASES"
     fi
@@ -542,6 +660,7 @@ cases_run=0
 limit_reached=false
 for template in "${TEMPLATES[@]}"; do
   for target in "${TARGETS[@]}"; do
+    case_selected_by_filters "$template" "$target" || continue
     if [ "$LIMIT_CASES" -gt 0 ] && [ "$cases_run" -ge "$LIMIT_CASES" ]; then
       limit_reached=true
       break

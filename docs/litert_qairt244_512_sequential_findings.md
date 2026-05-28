@@ -444,6 +444,68 @@ single explicit non-`x` prompt case. That requires script support such as
 `--prompt`, `--only-template raw`, and `--only-target 1`, but no sanitizer
 change or rerun was performed in this pass.
 
+The probe runner was then extended, without runtime re-execution, with
+script-only controls for this sanitizer/echo split:
+
+```bash
+scripts/run_npu_512_sequence_probe.sh \
+  --dry-run \
+  --prompt "こんにちは" \
+  --only-template raw \
+  --only-target 1 \
+  --limit-cases 1
+```
+
+The dry-run summary now records the selected case and actual custom prompt
+length before execution. For the example above it selects only `raw target=1`,
+uses prompt source `custom`, records `final_input_chars_approx=5`, and marks
+`native_pre_reject_expected_by_128_gate=false`.
+
+The same single selected case was then executed with the custom prompt:
+
+```bash
+scripts/run_npu_512_sequence_probe.sh \
+  --execute \
+  --device 192.168.52.52:41591 \
+  --timeout 60 \
+  --max-output-tokens 16 \
+  --prompt "こんにちは" \
+  --only-template raw \
+  --only-target 1 \
+  --limit-cases 1
+```
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_512_sequence_probe/20260529_050810/summary.md
+```
+
+Result:
+- status: `success`
+- timeout: `false`
+- native reached: `true`
+- decode reached: `true`
+- NPU evidence: `QNN_HTP_V79_FastRPC_native_diag`
+- fallback: `false`
+- fresh crash: `false`
+- requested max output tokens: `16`
+- effective max output tokens: `16`
+- native limit: `512`
+- native first max output tokens: `16`
+- raw output length: `34`
+- sanitized output length: `34`
+- quality: `natural_japanese`
+- control chars observed: `true`
+
+This confirms that requested max-output propagation remains correct and that
+NPU decode still succeeds with the requested-max native artifact. The earlier
+`raw target=1` failure with generated `x` filler was therefore likely a
+prompt-design/sanitizer-echo artifact, not a decode failure. Future boundary
+probes should avoid raw `x` filler when the goal is output quality or
+sanitizer classification; use natural language or another prompt that is less
+likely to be removed as echo.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
@@ -511,19 +573,20 @@ app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch
 
 ## Current Position
 
-Current evidence now separates the max-output issue from the remaining output
-quality issue. The real-path `.litertlm` static scan comparison is complete
-and did not find SM8750-specific readable metadata proving `512`
+Current evidence now separates the max-output issue from prompt design and
+sanitizer behavior. The real-path `.litertlm` static scan comparison is
+complete and did not find SM8750-specific readable metadata proving `512`
 sequence/prefill/context/input length. The requested-max native artifact
 reaches NPU decode with `SetMaxOutputTokens(16)`, fallback disabled, and no
-fresh crash for `raw target=1`.
+fresh crash for `raw target=1`. With custom prompt `こんにちは`, the same
+one-case path succeeds with `sanitized_output_length=34` and
+`quality=natural_japanese`.
 
 Current conclusion: the 512 sequential hypothesis is not supported by static
 scan evidence, but it remains unclosed. The fixed native max512 decode cap is
-no longer the active blocker for the one-case probe. The current runtime
-blocker is `empty_after_sanitize` from `"\n\nx..."`-style output, likely
-interacting with prompt echo removal for the raw prompt `x`. The existing
-hidden route still cannot directly test 512/640 final-input rows because
+no longer the active blocker for the one-case probe, and generated raw `x`
+filler is not a reliable sanitizer/echo probe. The existing hidden route still
+cannot directly test 512/640 final-input rows because
 `HIDDEN_TEMPLATE_MAX_LENGTH=128` rejects those cases before native entry.
 
 Policy remains unchanged:
@@ -550,10 +613,10 @@ artifacts/qairt244_litertlm_512_sequence_constraints/20260528_083149/summary.md
 scripts/run_npu_512_sequence_probe.sh --execute --device 192.168.52.52:41591 --timeout 60 --max-output-tokens 16 --limit-cases 1
 ```
 
-3. Before any broader hidden matrix run, split sanitizer/prompt-echo behavior
-   from native decode behavior with one explicit non-`x` prompt case. A safe
-   script-only direction is to add single-case controls such as `--prompt`,
-   `--only-template raw`, and `--only-target 1`, then run one case only.
+3. For any broader hidden matrix run, avoid using raw `x` filler as the only
+   output-quality signal. Prefer natural language or echo-resistant custom
+   prompts through `--prompt`, while keeping `--only-template`,
+   `--only-target`, and `--limit-cases 1` for first-pass safety.
 
 4. If direct 512 graph/prefill boundary evidence is still required, design a
    separately approved dev-only validation bypass that is non-ChatScreen,
