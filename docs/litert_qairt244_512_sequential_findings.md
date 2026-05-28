@@ -370,8 +370,79 @@ strings /tmp/lami_standard_debug_liblitertlm_jni.so |
   grep -E 'qairt244_editable_prompt_requested_max_v1|SetMaxOutputTokens|requested_max_output_tokens|effective_max_output_tokens|native_max_output_tokens_limit'
 ```
 
-This remains a dev-only native artifact investigation target. No source
-change, APK rebuild, install, or runtime probe was performed in this pass.
+At the time of this source-inspection pass, this remained only a dev-only
+native artifact investigation target. No source change, APK rebuild, install,
+or runtime probe was performed in that pass.
+
+### Requested max output runtime confirmation
+
+The requested-max native artifact was built, staged into the standardDebug
+APK, installed manually, and checked with one hardened runtime probe. The APK
+contained the requested-max `liblitertlm_jni.so`:
+
+```text
+sha256=3ad4b291d1014ff61e57a9de634f317b8343d9293955230e7128b3633c5d7b7a
+marker=qairt244_editable_prompt_requested_max_v1
+```
+
+One case was then run:
+
+```bash
+scripts/run_npu_512_sequence_probe.sh \
+  --execute \
+  --device 192.168.52.52:41591 \
+  --timeout 60 \
+  --max-output-tokens 16 \
+  --limit-cases 1
+```
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_512_sequence_probe/20260529_045504
+```
+
+Observed case:
+- template: `raw`
+- target: `1`
+- status: `failure`
+- timeout: `false`
+- native reached: `true`
+- decode reached: `true`
+- NPU evidence: `QNN_HTP_V79_FastRPC_native_diag`
+- fallback: `false`
+- fresh crash: `false`
+
+Max-output propagation result:
+- requested max output tokens: `16`
+- effective max output tokens: `16`
+- native limit: `512`
+- native first max output tokens: `16`
+- marker: `qairt244_editable_prompt_requested_max_v1`
+- native diag recorded `SetMaxOutputTokens(16)`
+
+This confirms that the requested max output value now reaches the native
+decode cap. The prior max512 build produced `native first max=512` and
+`raw_native_output_length=768`; this requested-max build produced
+`native first max=16` and `raw_native_output_length=24`.
+
+The remaining failure is not a max-output propagation failure:
+- `reason=empty_after_sanitize`
+- `raw_native_output_length=24`
+- `sanitized_output_length=0`
+- `quality=mixed_language`
+- `control_chars=true`
+- `decode_elapsed_ms=362`
+
+Current interpretation: NPU decode still reaches the native path without
+fallback or fresh crash, and the fixed `SetMaxOutputTokens(512)` problem is
+resolved. The next blocker is output classification. Because this row uses the
+raw prompt `x`, the native output's `"\n\nx..."` pattern may be prompt echo
+that the sanitizer removes completely. The next investigation should therefore
+separate sanitizer/echo handling from NPU decode behavior, for example with a
+single explicit non-`x` prompt case. That requires script support such as
+`--prompt`, `--only-template raw`, and `--only-target 1`, but no sanitizer
+change or rerun was performed in this pass.
 
 ## Runtime Classification Plan
 
@@ -440,22 +511,20 @@ app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch
 
 ## Current Position
 
-Current evidence from the instrumented worker runtime shows prompt 2 reaches
-`before_native_adapter_run`, native diagnostics reach
-`before RunDecode SetMaxOutputTokens(512)`, and Kotlin does not regain
-control. That narrows the active 512 sequential blocker to native
-non-return/process death under sequential reuse. The real-path `.litertlm`
-static scan comparison is now complete and did not find SM8750-specific
-readable metadata proving `512` sequence/prefill/context/input length.
+Current evidence now separates the max-output issue from the remaining output
+quality issue. The real-path `.litertlm` static scan comparison is complete
+and did not find SM8750-specific readable metadata proving `512`
+sequence/prefill/context/input length. The requested-max native artifact
+reaches NPU decode with `SetMaxOutputTokens(16)`, fallback disabled, and no
+fresh crash for `raw target=1`.
 
 Current conclusion: the 512 sequential hypothesis is not supported by static
-scan evidence, but it remains unclosed. The existence of a compiled graph
-shape limit still has to be checked with runtime evidence at the final-input
-boundary. The existing hidden route cannot directly test 512/640 final-input
-rows because `HIDDEN_TEMPLATE_MAX_LENGTH=128` rejects those cases before
-native entry. The first safe runtime row also shows that max-output-token
-propagation/output quality must be understood before broader sequential
-probing.
+scan evidence, but it remains unclosed. The fixed native max512 decode cap is
+no longer the active blocker for the one-case probe. The current runtime
+blocker is `empty_after_sanitize` from `"\n\nx..."`-style output, likely
+interacting with prompt echo removal for the raw prompt `x`. The existing
+hidden route still cannot directly test 512/640 final-input rows because
+`HIDDEN_TEMPLATE_MAX_LENGTH=128` rejects those cases before native entry.
 
 Policy remains unchanged:
 - H1 remains pinned to `max_output_tokens=128`.
@@ -481,12 +550,10 @@ artifacts/qairt244_litertlm_512_sequence_constraints/20260528_083149/summary.md
 scripts/run_npu_512_sequence_probe.sh --execute --device 192.168.52.52:41591 --timeout 60 --max-output-tokens 16 --limit-cases 1
 ```
 
-3. Before any broader hidden matrix run, replace or rebuild the dev-only
-   native artifact if the goal is to verify `--max-output-tokens 16`
-   propagation. The installed APK library and local build artifact both
-   contain the max512 marker path, and the source candidate hard-codes
-   `decode_config.SetMaxOutputTokens(512)` after accepting the requested JNI
-   value.
+3. Before any broader hidden matrix run, split sanitizer/prompt-echo behavior
+   from native decode behavior with one explicit non-`x` prompt case. A safe
+   script-only direction is to add single-case controls such as `--prompt`,
+   `--only-template raw`, and `--only-target 1`, then run one case only.
 
 4. If direct 512 graph/prefill boundary evidence is still required, design a
    separately approved dev-only validation bypass that is non-ChatScreen,
