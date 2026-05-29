@@ -46,7 +46,7 @@ class NpuStandardRouteS1InvokerTest {
     @Test
     fun `invoker can be supplied a test raw result without ChatScreen dependency`() {
         val invoker = NpuStandardRouteS1Invoker(
-            rawResultProvider = {
+            provider = NpuStandardRouteS1Provider {
                 NpuStandardRouteS1RawResult(
                     status = "failure",
                     result = "failure",
