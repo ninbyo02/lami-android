@@ -579,6 +579,34 @@ The detailed `20260529_205211/raw_2048` native logs show prompt validation
 therefore belong to output quality/prompt-shaping behavior, not to the 128 gate
 bypass or 512/prefill reachability question.
 
+#### Long Input / Natural Prompt Quality Matrix
+
+All rows are existing dev-only hidden receiver artifacts with prompt-length
+bypass enabled, `prompt_base64` transport, raw template, and
+requested/effective max output tokens `16/16`.
+
+| artifact | prompt_type | target | prompt/final input | status | native/decode | npu_evidence | output | quality | conclusion |
+| --- | --- | ---: | --- | --- | --- | --- | --- | --- | --- |
+| `20260529_200054` | generated filler | 128 | `256/256` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 32 / sanitized 31 | mixed_language | first successful bypassed native decode |
+| `20260529_200533` | generated filler | 256 | `512/512` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 32 / sanitized 31 | mixed_language | 512-ish input reached NPU decode |
+| `20260529_201022` | generated filler | 384 | `768/768` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 32 / sanitized 31 | mixed_language | larger prefill reached NPU decode |
+| `20260529_201139` | generated filler | 512 | `1024/1024` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 32 / sanitized 31 | mixed_language | 1024-ish input reached NPU decode |
+| `20260529_201630` | generated filler | 640 | `1280/1280` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 32 / sanitized 31 | mixed_language | previous script maximum reached NPU decode |
+| `20260529_202602` | generated filler | 1024 | `2048/2048` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 32 / sanitized 31 | mixed_language | 2048-ish input reached NPU decode |
+| `20260529_202732` | generated filler | 2048 | `4096/4096` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 64 / sanitized 64 | natural_japanese | 4096-ish generated filler reached NPU decode |
+| `20260529_204237` | natural prompt-file | 2048 | `3759/3759` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 25 / sanitized 15 | mixed_language | Japanese natural prompt near 4096 reached NPU decode |
+| `20260529_204816` | strict short-answer prompt-file | 2048 | `5614/5614` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
+| `20260529_205044` | strict short-answer prompt-file | 2048 | `3754/3754` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
+| `20260529_205211` | loose greeting prompt-file | 2048 | `4104/4104` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | output_bytes 0 / raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
+
+The matrix confirms that generated filler reaches NPU decode through
+`final_input_chars_approx=4096`, and natural Japanese prompt-file input also
+reaches decode near that range. Empty-output cases are not bypass or prefill
+reachability failures; they are prompt/output quality cases. Standard
+ChatScreen promotion remains out of scope. Future runtime expansion should
+change only one axis per one-case run: prompt tail instruction, template, or
+max output tokens.
+
 Run exactly one case:
 - template: `raw`
 - target: `128`
