@@ -6,6 +6,9 @@ Scope: design only. This document does not implement a validation bypass,
 does not run runtime probes, does not build or install an APK, and does not
 connect Backend.NPU to any standard ChatScreen route.
 
+Related prompt-quality design note:
+[`docs/litert_qairt244_prompt_tail_quality_design.md`](litert_qairt244_prompt_tail_quality_design.md).
+
 ## Current Evidence
 
 - Static scans of the SM8750 and regular E2B `.litertlm` files did not find

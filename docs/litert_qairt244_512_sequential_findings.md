@@ -7,6 +7,9 @@ Backend.NPU to the standard chat route, does not connect DB/TTS/Markdown/
 streaming, does not hide fallback, does not change GPU/CPU/held-official
 flows, and does not modify production inference behavior.
 
+Related prompt-quality design note:
+[`docs/litert_qairt244_prompt_tail_quality_design.md`](litert_qairt244_prompt_tail_quality_design.md).
+
 ## Added Investigation Scripts
 
 ### Static `.litertlm` scan
