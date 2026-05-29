@@ -376,3 +376,20 @@ Step 5 receiver result-code diagnostic:
   contract includes `result_code=244`;
 - `244` is a temporary dev-only broadcast delivery diagnostic, not product
   behavior and not a standard route promotion signal.
+
+Step 5 Activity auto-run fallback:
+- because the receiver is registered but `am broadcast` still does not reach
+  `onReceive` on the device path under investigation, Step 5 runtime
+  confirmation moves back to the debug-only Activity;
+- `Qairt244DevOnlyNpuConversationActivity` now accepts
+  `auto_run=<boolean, default false>`, `user_prompt=<string, default こんにちは>`,
+  and `unsafe_dev_bypass_prompt_length_gate=<boolean, default true>`;
+- `auto_run=false` preserves the existing idle/manual-button behavior and does
+  not execute NPU work during Activity creation;
+- `auto_run=true` calls the same dev-only one-turn path once after `onCreate`,
+  guarded by `runStarted`, and keeps `max_output_tokens=16`;
+- Activity-triggered runs also write
+  `files/dev_only_npu_one_turn_conversation_result.txt` with the same
+  disconnected side-effect contract when possible;
+- this remains debug-only and does not connect the standard ChatScreen route,
+  Backend.NPU persistence, DB, TTS, Markdown, or streaming.

@@ -53,6 +53,27 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     }
 
     @Test
+    fun `activity auto run is opt in and builds fixed max output request`() {
+        val request = DevOnlyNpuOneTurnConversationContract.activityRequest(
+            userPrompt = "",
+            contextText = "",
+            unsafeDevBypassPromptLengthGate = true,
+        )
+
+        assertEquals("auto_run", DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN)
+        assertEquals("こんにちは", request.userPrompt)
+        assertEquals("", request.contextText)
+        assertTrue(request.unsafeDevBypassPromptLengthGate)
+        assertEquals(16, DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS)
+        assertTrue(DevOnlyNpuOneTurnConversationContract.INITIAL_DISPLAY_TEXT.contains("status=idle"))
+        assertTrue(
+            DevOnlyNpuOneTurnConversationContract.INITIAL_DISPLAY_TEXT.contains(
+                "adapter_execution=manual_trigger_only",
+            ),
+        )
+    }
+
+    @Test
     fun `receiver contract is debug-only named and writes dedicated result file`() {
         assertEquals(
             "io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION",

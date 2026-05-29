@@ -7,7 +7,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationEntry
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
-import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
+import java.io.File
 import kotlinx.coroutines.runBlocking
 
 class Qairt244DevOnlyNpuConversationActivity : Activity() {
@@ -23,10 +23,10 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
         val runButton = Button(this).apply {
             text = "Run dev-only NPU one turn"
             setOnClickListener {
-                if (runStarted) return@setOnClickListener
-                runStarted = true
-                outputView.text = "DEV ONLY NPU ONE TURN\nstatus=starting"
-                startDevOnlyRun(outputView)
+                triggerDevOnlyRun(
+                    outputView = outputView,
+                    trigger = "activity_manual_button",
+                )
             }
         }
         setContentView(
@@ -36,25 +36,66 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                 addView(outputView)
             },
         )
+        if (intent?.getBooleanExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN, false) == true) {
+            triggerDevOnlyRun(
+                outputView = outputView,
+                trigger = "activity_auto_run",
+            )
+        }
     }
 
-    private fun startDevOnlyRun(outputView: TextView) {
+    private fun triggerDevOnlyRun(
+        outputView: TextView,
+        trigger: String,
+    ) {
+        if (runStarted) return
+        runStarted = true
+        outputView.text = "DEV ONLY NPU ONE TURN\nstatus=starting"
+        startDevOnlyRun(
+            outputView = outputView,
+            trigger = trigger,
+        )
+    }
+
+    private fun startDevOnlyRun(
+        outputView: TextView,
+        trigger: String,
+    ) {
         Thread({
-            val request = DevOnlyNpuOneTurnConversationRequest(
-                userPrompt = intent?.getStringExtra(EXTRA_USER_PROMPT).orEmpty().ifBlank { DEFAULT_PROMPT },
-                contextText = intent?.getStringExtra(EXTRA_CONTEXT).orEmpty(),
-                unsafeDevBypassPromptLengthGate = intent?.getBooleanExtra(
-                    EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE,
-                    true,
-                ) ?: true,
+            runOnUiThread {
+                outputView.text = "DEV ONLY NPU ONE TURN\nstatus=running"
+            }
+            val resultFile = File(
+                applicationContext.filesDir,
+                DevOnlyNpuOneTurnConversationContract.RECEIVER_RESULT_FILE_NAME,
             )
             val text = try {
-                runBlocking {
+                writeProgressResultFile(
+                    resultFile = resultFile,
+                    trigger = trigger,
+                    status = "running",
+                )
+                val request = DevOnlyNpuOneTurnConversationContract.activityRequest(
+                    userPrompt = intent?.getStringExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_USER_PROMPT),
+                    contextText = intent?.getStringExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_CONTEXT).orEmpty(),
+                    unsafeDevBypassPromptLengthGate = intent?.getBooleanExtra(
+                        DevOnlyNpuOneTurnConversationContract.EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE,
+                        true,
+                    ) ?: true,
+                )
+                val display = runBlocking {
                     DevOnlyNpuOneTurnConversationEntry(this@Qairt244DevOnlyNpuConversationActivity)
                         .run(request)
-                        .text
                 }
+                resultFile.writeText(
+                    DevOnlyNpuOneTurnConversationContract.receiverResultText(
+                        display = display,
+                        timestampMs = System.currentTimeMillis(),
+                    ),
+                )
+                display.text
             } catch (throwable: Throwable) {
+                writeFailureResultFile(resultFile, throwable)
                 "DEV ONLY NPU ONE TURN\n" +
                     "status=failure\n" +
                     "reason=activity_failure:${throwable.javaClass.simpleName}\n" +
@@ -81,11 +122,37 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
         }, "Qairt244DevOnlyNpuConversation").start()
     }
 
-    private companion object {
-        private const val EXTRA_USER_PROMPT = "user_prompt"
-        private const val EXTRA_CONTEXT = "context"
-        private const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE =
-            "unsafe_dev_bypass_prompt_length_gate"
-        private const val DEFAULT_PROMPT = "こんにちは。"
+    private fun writeFailureResultFile(
+        resultFile: File,
+        throwable: Throwable,
+    ) {
+        runCatching {
+            resultFile.writeText(
+                DevOnlyNpuOneTurnConversationContract.receiverFailureText(
+                    reason = "activity_failure:${throwable.javaClass.simpleName}",
+                    message = throwable.message.orEmpty(),
+                    timestampMs = System.currentTimeMillis(),
+                ),
+            )
+        }
+    }
+
+    private fun writeProgressResultFile(
+        resultFile: File,
+        trigger: String,
+        status: String,
+    ) {
+        resultFile.writeText(
+            DevOnlyNpuOneTurnConversationContract.receiverProgressText(
+                status = status,
+                action = trigger,
+                packageName = packageName,
+                className = javaClass.name,
+                userPromptPresent = intent?.hasExtra(
+                    DevOnlyNpuOneTurnConversationContract.EXTRA_USER_PROMPT,
+                ) == true,
+                timestampMs = System.currentTimeMillis(),
+            ),
+        )
     }
 }

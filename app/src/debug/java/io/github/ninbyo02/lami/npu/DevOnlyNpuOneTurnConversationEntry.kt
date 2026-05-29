@@ -47,6 +47,7 @@ data class DevOnlyNpuOneTurnConversationDisplay(
 
 object DevOnlyNpuOneTurnConversationContract {
     const val RECEIVER_ACTION = "io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"
+    const val EXTRA_AUTO_RUN = "auto_run"
     const val EXTRA_USER_PROMPT = "user_prompt"
     const val EXTRA_CONTEXT = "context"
     const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE = "unsafe_dev_bypass_prompt_length_gate"
@@ -62,6 +63,17 @@ object DevOnlyNpuOneTurnConversationContract {
     const val INITIAL_DISPLAY_TEXT = "DEV ONLY NPU ONE TURN\nstatus=idle\nadapter_execution=manual_trigger_only"
 
     fun safety(): DevOnlyNpuOneTurnConversationSafety = DevOnlyNpuOneTurnConversationSafety()
+
+    fun activityRequest(
+        userPrompt: String?,
+        contextText: String,
+        unsafeDevBypassPromptLengthGate: Boolean,
+    ): DevOnlyNpuOneTurnConversationRequest =
+        DevOnlyNpuOneTurnConversationRequest(
+            userPrompt = userPrompt.orEmpty().ifBlank { DEFAULT_USER_PROMPT },
+            contextText = contextText,
+            unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
+        )
 
     fun buildRawDialogTailPrompt(contextText: String, userPrompt: String): String {
         val normalizedContext = contextText.trim()
