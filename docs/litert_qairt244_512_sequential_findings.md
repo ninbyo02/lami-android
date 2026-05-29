@@ -1079,6 +1079,76 @@ dev-only hidden receiver bypass condition. Output quality remains a separate
 issue because this run was classified as `mixed_language` with control
 characters present.
 
+Additional prompt-file quality comparisons reached native/decode but produced
+empty native output:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_204816/summary.md
+prompt_file=/tmp/lami_npu_prompt/ja_quality_short_answer_4096.txt
+prompt_chars=5614
+final_input_chars_approx=5614
+status=failure
+reason=empty_after_sanitize
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=0
+sanitized_len=0
+quality=empty_output
+
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_205044/summary.md
+prompt_file=/tmp/lami_npu_prompt/ja_quality_short_answer_3800.txt
+prompt_chars=3754
+final_input_chars_approx=3754
+status=failure
+reason=empty_after_sanitize
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=0
+sanitized_len=0
+quality=empty_output
+
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_205211/summary.md
+prompt_file=/tmp/lami_npu_prompt/ja_quality_loose_answer_3800.txt
+prompt_chars=4104
+final_input_chars_approx=4104
+status=failure
+reason=empty_after_sanitize
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=0
+sanitized_len=0
+quality=empty_output
+```
+
+The `20260529_205211/raw_2048` detail confirms this is not an NPU reachability
+failure: native diag recorded `result=success`, prompt validation `ok`,
+`prompt_input_code_points=4104`, `native_prompt_length_gate_bypassed=true`,
+prefill reached, decode reached with `SetMaxOutputTokens(16)`,
+`output_candidates=1`, and `output_bytes=0`. The receiver then classified the
+case as `empty_after_sanitize` with raw and sanitized output length `0`.
+
+Therefore these strict/loose short-answer prompt-file failures are an
+empty-output/quality issue, not a 512 sequential or prefill boundary failure.
+They should be separated from the generated-filler 4096 success and the earlier
+natural prompt 3759 success. Next quality work should vary prompt tail
+instructions, temperature/stop/eos behavior, max output tokens, and template
+formatting as separate axes.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:

@@ -517,6 +517,68 @@ natural-language long prompt near 4096 input. It remains a dev-only hidden
 receiver result, not standard ChatScreen enablement. Output quality and
 sanitizer/template behavior remain separate follow-up topics.
 
+Subsequent natural-language prompt-file quality comparisons also reached
+native/decode, but produced empty native output:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_204816/summary.md
+prompt_file=/tmp/lami_npu_prompt/ja_quality_short_answer_4096.txt
+prompt_chars=5614
+final_input_chars_approx=5614
+status=failure
+reason=empty_after_sanitize
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=0
+sanitized_len=0
+quality=empty_output
+
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_205044/summary.md
+prompt_file=/tmp/lami_npu_prompt/ja_quality_short_answer_3800.txt
+prompt_chars=3754
+final_input_chars_approx=3754
+status=failure
+reason=empty_after_sanitize
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=0
+sanitized_len=0
+quality=empty_output
+
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_205211/summary.md
+prompt_file=/tmp/lami_npu_prompt/ja_quality_loose_answer_3800.txt
+prompt_chars=4104
+final_input_chars_approx=4104
+status=failure
+reason=empty_after_sanitize
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=0
+sanitized_len=0
+quality=empty_output
+```
+
+The detailed `20260529_205211/raw_2048` native logs show prompt validation
+`ok`, length gate bypass effective, prefill and decode reached, native
+`result=success`, `output_candidates=1`, and `output_bytes=0`. These failures
+therefore belong to output quality/prompt-shaping behavior, not to the 128 gate
+bypass or 512/prefill reachability question.
+
 Run exactly one case:
 - template: `raw`
 - target: `128`
