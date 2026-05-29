@@ -840,6 +840,43 @@ the `too_long` length result, and records
 `unsafe_dev_bypass_prompt_length_gate_effective`. This requires a new dev-only
 native artifact build before APK/install/runtime verification.
 
+After rebuilding and installing the native length-gate bypass artifact, raw
+target `128` succeeded through NPU decode:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_200054/summary.md
+command=scripts/run_npu_512_sequence_probe.sh --execute --device 192.168.52.52:34437 --timeout 60 --max-output-tokens 16 --unsafe-dev-bypass-prompt-length-gate --only-template raw --only-target 128 --limit-cases 1
+prompt_transport=base64
+unsafe_dev_bypass_prompt_length_gate_requested=true
+unsafe_dev_bypass_prompt_length_gate_effective=true
+template=raw
+target=128
+prompt_chars=256
+final_input_chars_approx=256
+native_pre_reject_expected_by_128_gate=true
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+requested/effective=16/16
+native_limit=512
+native_file_first_max=16
+raw_len=32
+sanitized_len=31
+quality=mixed_language
+control_chars=false
+```
+
+This confirms the receiver, route, Kotlin debug wrapper, and native C++ length
+gate bypasses are connected for the hidden receiver path. A raw
+`final_input_chars_approx=256` input can now cross the original 128-codepoint
+gate and complete NPU decode without fallback or fresh crash. This is a
+milestone before direct 512 sequential validation; the next decisive case is
+raw target `256` (`final_input_chars_approx=512`) with the same one-case,
+max-output-16, timeout/force-stop/diagnostics constraints.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:

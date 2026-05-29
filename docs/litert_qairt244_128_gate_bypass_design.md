@@ -304,6 +304,37 @@ artifact build is required before the next APK install and runtime probe.
 
 ### Phase 2: First Bypassed Native Case
 
+Phase 2 first succeeded with the native length-gate bypass artifact:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_200054/summary.md
+template=raw
+target=128
+prompt_transport=base64
+prompt_chars=256
+final_input_chars_approx=256
+unsafe_dev_bypass_prompt_length_gate_requested=true
+unsafe_dev_bypass_prompt_length_gate_effective=true
+native_pre_reject_expected_by_128_gate=true
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+requested/effective=16/16
+native_limit=512
+native_file_first_max=16
+raw_len=32
+sanitized_len=31
+quality=mixed_language
+```
+
+The end-to-end hidden receiver bypass path is therefore validated through
+native decode for raw target `128` (`final_input_chars_approx=256`). This does
+not yet prove the 512 sequential boundary, but it clears the app/Kotlin/native
+length-gate stack needed to test raw target `256` as the next one-case probe.
+
 Requires separate approval before runtime execution.
 
 Run exactly one case:
