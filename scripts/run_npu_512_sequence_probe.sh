@@ -17,7 +17,8 @@ LIMIT_CASES=0
 CUSTOM_PROMPT=""
 ONLY_TEMPLATE=""
 ONLY_TARGET=""
-TARGETS=(1 8 16 32 64 128 256 384 512 640)
+TEMPLATE_TARGETS=(1 8 16 32 64 128 256 384 512 640)
+RAW_TARGETS=(1 8 16 32 64 128 256 384 512 640 1024 2048)
 TEMPLATES=(raw simple_ja_chat gemma_it_like)
 
 usage() {
@@ -31,7 +32,8 @@ mode is preflight-only and does not execute NPU.
 
 Matrix:
   templates: raw, simple_ja_chat, gemma_it_like
-  approximate final-input token targets: 1,8,16,32,64,128,256,384,512,640
+  raw approximate final-input token targets: 1,8,16,32,64,128,256,384,512,640,1024,2048
+  template approximate final-input token targets: 1,8,16,32,64,128,256,384,512,640
 
 Safety:
   - hidden StandardHiddenQairt244PromptReceiver only
@@ -235,13 +237,31 @@ case_selected_by_filters() {
   return 0
 }
 
+target_list_for_template() {
+  local template="$1"
+  case "$template" in
+    raw) printf '%s\n' "${RAW_TARGETS[@]}" ;;
+    *) printf '%s\n' "${TEMPLATE_TARGETS[@]}" ;;
+  esac
+}
+
 selected_case_count() {
   local count=0 template target
   for template in "${TEMPLATES[@]}"; do
-    for target in "${TARGETS[@]}"; do
+    for target in $(target_list_for_template "$template"); do
       if case_selected_by_filters "$template" "$target"; then
         count=$((count + 1))
       fi
+    done
+  done
+  printf '%s' "$count"
+}
+
+total_case_count() {
+  local count=0 template target
+  for template in "${TEMPLATES[@]}"; do
+    for target in $(target_list_for_template "$template"); do
+      count=$((count + 1))
     done
   done
   printf '%s' "$count"
@@ -340,13 +360,13 @@ write_plan() {
     printf -- '- only_template: `%s`\n' "${ONLY_TEMPLATE:-all}"
     printf -- '- only_target: `%s`\n' "${ONLY_TARGET:-all}"
     printf -- '- hidden_template_codepoint_gate: `%s`\n' "$HIDDEN_TEMPLATE_MAX_LENGTH"
-    printf -- '- case_count: `%s`\n\n' "$((${#TARGETS[@]} * ${#TEMPLATES[@]}))"
+    printf -- '- case_count: `%s`\n\n' "$(total_case_count)"
     printf '| template | target_final_tokens_approx | prompt_tokens_approx | final_input_chars_approx | expected_existing_app_validation | native_pre_reject_expected_by_128_gate | command_mode |\n'
     printf '| --- | ---: | ---: | ---: | --- | --- | --- |\n'
     for template in "${TEMPLATES[@]}"; do
       local overhead prompt_tokens prompt_chars final_chars expected_validation native_pre_reject
       overhead="$(template_overhead_tokens "$template")"
-      for target in "${TARGETS[@]}"; do
+      for target in $(target_list_for_template "$template"); do
         prompt_tokens=$((target - overhead))
         [ "$prompt_tokens" -gt 0 ] || prompt_tokens=1
         prompt_chars=$((prompt_tokens * 2))
@@ -371,7 +391,7 @@ write_selected_cases_summary() {
     printf '| selected_index | template | target | prompt_chars | final_input_chars_approx | native_pre_reject_expected_by_128_gate | unsafe_bypass_requested | unsafe_bypass_effective | prompt_transport | prompt_base64_length | prompt_source | prompt_preview |\n'
   printf '| ---: | --- | ---: | ---: | ---: | --- | --- | --- | --- | ---: | --- | --- |\n'
   for template in "${TEMPLATES[@]}"; do
-    for target in "${TARGETS[@]}"; do
+    for target in $(target_list_for_template "$template"); do
       case_selected_by_filters "$template" "$target" || continue
       if [ "$limit" -gt 0 ] && [ "$rows_written" -ge "$limit" ]; then
         continue
@@ -624,7 +644,7 @@ write_summary() {
     for template in "${TEMPLATES[@]}"; do
       local overhead prompt_tokens prompt_chars final_chars native_pre_reject
       overhead="$(template_overhead_tokens "$template")"
-      for target in "${TARGETS[@]}"; do
+      for target in $(target_list_for_template "$template"); do
         prompt_tokens=$((target - overhead))
         [ "$prompt_tokens" -gt 0 ] || prompt_tokens=1
         prompt_chars=$((prompt_tokens * 2))
@@ -735,7 +755,7 @@ collect_diagnostics "before_probe" "$OUT_DIR/diagnostics_before_probe"
 cases_run=0
 limit_reached=false
 for template in "${TEMPLATES[@]}"; do
-  for target in "${TARGETS[@]}"; do
+  for target in $(target_list_for_template "$template"); do
     case_selected_by_filters "$template" "$target" || continue
     if [ "$LIMIT_CASES" -gt 0 ] && [ "$cases_run" -ge "$LIMIT_CASES" ]; then
       limit_reached=true

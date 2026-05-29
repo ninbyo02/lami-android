@@ -433,9 +433,11 @@ quality=mixed_language
 ```
 
 The bypassed raw path now reaches native decode through
-`final_input_chars_approx=1280`. Further 4096-input prefill investigation needs
-script support for larger explicit raw targets, starting with raw `1024` and
-then raw `2048`, still as single-case guarded probes.
+`final_input_chars_approx=1280`. The probe runner now includes raw-only target
+`1024` and raw-only target `2048` for 4096-input prefill investigation, without
+adding those larger targets to `simple_ja_chat` or `gemma_it_like`. These must
+be used as single-case guarded probes with `--max-output-tokens 16`,
+`--limit-cases 1`, timeout/force-stop, and diagnostics collection.
 
 Requires separate approval before runtime execution.
 
@@ -472,8 +474,8 @@ Only after Phase 2 succeeds safely:
 - target `384`
 - target `512`
 - target `640`
-- target `1024` after adding script support
-- target `2048` after adding script support
+- raw target `1024`
+- raw target `2048`
 
 Each target requires separate approval or an explicit bounded plan. Do not jump
 from target `128` directly to a broad matrix.

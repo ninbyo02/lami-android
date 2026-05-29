@@ -984,11 +984,13 @@ control_chars=false
 
 Raw generated-filler input now reaches NPU decode through
 `final_input_chars_approx=1280`, so the 512 sequential hypothesis is further
-unsupported for this measured condition. Because `640` is the current maximum
-target in `scripts/run_npu_512_sequence_probe.sh`, continuing toward 4096 input
-prefill requires adding explicit raw targets `1024` and `2048` and running them
-one case at a time with max output tokens fixed at `16`, timeout/force-stop,
-and diagnostics collection.
+unsupported for this measured condition. The runner was extended with raw-only
+targets `1024` and `2048` so 4096 input prefill can be checked without
+expanding the `simple_ja_chat` or `gemma_it_like` matrices. Those larger raw
+targets must still run one case at a time with max output tokens fixed at
+`16`, timeout/force-stop, and diagnostics collection. Expected final input
+estimates are raw target `1024` -> `final_input_chars_approx=2048` and raw
+target `2048` -> `final_input_chars_approx=4096`.
 
 ## Runtime Classification Plan
 
