@@ -349,3 +349,18 @@ Step 5 broadcast static fix:
   `status=received`, then `status=running`, then a final success/failure
   contract, so ADB can distinguish delivery, execution start, and final result
   without depending only on `qairt244_short_multitoken_smoke_result.txt`.
+
+Step 5 receiver delivery diagnostic fix:
+- device observation showed the broadcast completed and the receiver/action was
+  registered, but the dedicated result file was not created;
+- the `status=received` write is now the first receiver-side operation after
+  resolving `context.filesDir`, before action validation, guard checks, or
+  worker-thread startup;
+- `status=received` and `status=running` include `action`, `package_name`,
+  `class_name`, `user_prompt_present`, and `timestamp`;
+- action mismatch writes `status=ignored_action` to the same result file, so a
+  delivered but mismatched broadcast still leaves a debug artifact.
+- result-file inspection must use the installed application id from dumpsys or
+  the merged manifest. `standardDebug` uses `io.github.ninbyo02.lami`, while
+  `customBuildExperimentDebug` uses `io.github.ninbyo02.lami.customnpu`; a
+  mismatched `run-as` package will inspect a different app sandbox.

@@ -200,11 +200,19 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     fun `receiver progress file is written before entry finishes`() {
         val text = DevOnlyNpuOneTurnConversationContract.receiverProgressText(
             status = "received",
+            action = DevOnlyNpuOneTurnConversationContract.RECEIVER_ACTION,
+            packageName = "io.github.ninbyo02.lami.debug",
+            className = "io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver",
+            userPromptPresent = true,
             timestampMs = 1234L,
         )
 
         assertTrue(text.contains("timestamp=1234"))
         assertTrue(text.contains("status=received"))
+        assertTrue(text.contains("action=io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"))
+        assertTrue(text.contains("package_name=io.github.ninbyo02.lami.debug"))
+        assertTrue(text.contains("class_name=io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"))
+        assertTrue(text.contains("user_prompt_present=true"))
         assertTrue(text.contains("result=pending"))
         assertTrue(text.contains("requested_max_output_tokens=16"))
         assertTrue(text.contains("effective_max_output_tokens=16"))

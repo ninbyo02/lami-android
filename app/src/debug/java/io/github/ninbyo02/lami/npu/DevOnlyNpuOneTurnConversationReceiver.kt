@@ -14,18 +14,47 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
             appContext.filesDir,
             DevOnlyNpuOneTurnConversationContract.RECEIVER_RESULT_FILE_NAME,
         )
-        if (intent.action != DevOnlyNpuOneTurnConversationContract.RECEIVER_ACTION) {
+        try {
+            handleReceive(
+                appContext = appContext,
+                intent = intent,
+                resultFile = resultFile,
+            )
+        } catch (throwable: Throwable) {
             writeFailure(
                 resultFile = resultFile,
-                reason = "unexpected_action",
-                message = intent.action.orEmpty(),
+                reason = "receiver_on_receive_failure:${throwable.javaClass.simpleName}",
+                message = throwable.message.orEmpty(),
             )
-            return
         }
+    }
+
+    private fun handleReceive(
+        appContext: Context,
+        intent: Intent,
+        resultFile: File,
+    ) {
+        val action = intent.action.orEmpty()
+        val userPromptPresent = intent.hasExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_USER_PROMPT)
         writeProgress(
             resultFile = resultFile,
             status = "received",
+            action = action,
+            packageName = appContext.packageName,
+            className = javaClass.name,
+            userPromptPresent = userPromptPresent,
         )
+        if (action != DevOnlyNpuOneTurnConversationContract.RECEIVER_ACTION) {
+            writeProgress(
+                resultFile = resultFile,
+                status = "ignored_action",
+                action = action,
+                packageName = appContext.packageName,
+                className = javaClass.name,
+                userPromptPresent = userPromptPresent,
+            )
+            return
+        }
         if (!running.compareAndSet(false, true)) {
             writeFailure(
                 resultFile = resultFile,
@@ -41,6 +70,10 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                 writeProgress(
                     resultFile = resultFile,
                     status = "running",
+                    action = action,
+                    packageName = appContext.packageName,
+                    className = javaClass.name,
+                    userPromptPresent = userPromptPresent,
                 )
                 val request = DevOnlyNpuOneTurnConversationRequest(
                     userPrompt = intent.getStringExtra(
@@ -81,10 +114,18 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
     private fun writeProgress(
         resultFile: File,
         status: String,
+        action: String,
+        packageName: String,
+        className: String,
+        userPromptPresent: Boolean,
     ) {
         resultFile.writeText(
             DevOnlyNpuOneTurnConversationContract.receiverProgressText(
                 status = status,
+                action = action,
+                packageName = packageName,
+                className = className,
+                userPromptPresent = userPromptPresent,
                 timestampMs = System.currentTimeMillis(),
             ),
         )

@@ -228,12 +228,20 @@ object DevOnlyNpuOneTurnConversationContract {
 
     fun receiverProgressText(
         status: String,
+        action: String = "",
+        packageName: String = "",
+        className: String = "",
+        userPromptPresent: Boolean = false,
         timestampMs: Long,
         safety: DevOnlyNpuOneTurnConversationSafety = safety(),
     ): String {
         val lines = listOf(
             "timestamp=$timestampMs",
             "status=$status",
+            "action=$action",
+            "package_name=$packageName",
+            "class_name=$className",
+            "user_prompt_present=$userPromptPresent",
             "result=pending",
             "success=false",
             "reason=$status",
