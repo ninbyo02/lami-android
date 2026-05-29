@@ -273,6 +273,36 @@ Interpretation:
   characters should be downgraded from a quality warning, and whether
   `mixed_language` should track ASCII probe-term echo separately.
 
+### Proposed Quality Policy
+
+Do not treat `control_chars=true` as an automatic quality failure. Split it
+into explicit classes:
+
+| class | condition | proposed outcome |
+| --- | --- | --- |
+| `control_chars_newline_only` | only `U+000A` line breaks are present, `replacement_char_count=0`, and `raw_len > 0` | soft pass as acceptable formatting |
+| `control_chars_disallowed` | control characters other than allowed whitespace/newline are present | fail |
+| `replacement_chars_present` | `replacement_char_count > 0` or invalid Unicode replacement is observed | fail |
+
+Mixed-language classification should be independent from control-character
+classification. Candidate causes for `mixed_language` in these probes are:
+- ASCII probe terms in the prompt or echo, such as `NPU`, `prefill`, and
+  `raw_dialog_tail`;
+- Japanese plus ASCII/katakana mixtures from diagnostic wording;
+- prompt echo or tail echo, including `ユーザー:` and `アシスタント:`.
+
+Next classifier design:
+- newline-only + `replacement_char_count=0` + non-empty raw/sanitized output
+  is a soft pass for control-character policy;
+- replacement characters are a failure regardless of language mix;
+- disallowed control characters are a failure regardless of language mix;
+- `mixed_language` should be judged using `output_first_200_chars` and
+  prompt/tail echo detection, not by the newline-only flag.
+
+This is a runtime-result reclassification design only. It is not standard
+route promotion. If implemented later, use the sequence: docs, classifier
+design, tests, then dev-only display/reporting updates.
+
 ### simple_ja_chat / gemma_it_like
 
 These remain separate comparisons. Earlier template probes showed echo and

@@ -1449,6 +1449,33 @@ The remaining quality issue should be tracked separately:
   sanitizer/quality-classifier rule that distinguishes harmless newline-only
   formatting from true control-character degradation.
 
+#### Proposed Output Quality Classes
+
+The result classifier should split control-character and language-mix concerns:
+
+| proposed class | detection | outcome |
+| --- | --- | --- |
+| `control_chars_newline_only` | `control_chars` contains only `U+000A`, `replacement_char_count=0`, `raw_len > 0`, and `sanitized_len > 0` | soft pass; acceptable output formatting candidate |
+| `control_chars_disallowed` | control characters other than allowed newline/formatting whitespace are present | fail; output-quality degradation |
+| `replacement_chars_present` | replacement characters or invalid Unicode replacement are present | fail; decode/text integrity concern |
+| `mixed_language_probe_echo` | `mixed_language` plus `output_first_200_chars` contains probe terms or echoed context/tail | separate warning; investigate echo/template behavior |
+
+This means `control_chars=true` should not be a one-bit quality gate. In the
+current `raw_dialog_tail` artifacts, the control-character component is
+newline-only and can be treated as a soft pass candidate. The unresolved
+quality question is the `mixed_language` label and whether the output is
+continuing with prompt/context text rather than producing a direct assistant
+answer.
+
+Potential causes for the language-mix label:
+- ASCII probe terms: `NPU`, `prefill`, `raw_dialog_tail`;
+- prompt or tail echo, including `ユーザー:` and `アシスタント:`;
+- Japanese context text that contains ASCII diagnostic vocabulary.
+
+If this is implemented later, do it as a classifier/design/test change before
+any new runtime: docs first, classifier policy second, tests third, then
+dev-only reporting/display. It is not standard route promotion.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:

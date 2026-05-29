@@ -867,6 +867,31 @@ Follow-up classification:
 - before more runtime, design the sanitizer/quality-classifier distinction and
   compare manual dialog-tail formatting against script `raw_dialog_tail`.
 
+Proposed dev-only quality policy:
+
+| class | condition | classification |
+| --- | --- | --- |
+| `control_chars_newline_only` | only `U+000A` is present, `replacement_char_count=0`, `raw_len > 0`, and `sanitized_len > 0` | soft pass for control-character policy |
+| `control_chars_disallowed` | non-newline control characters are present | fail |
+| `replacement_chars_present` | replacement characters or invalid Unicode replacement are present | fail |
+| `mixed_language_probe_echo` | `mixed_language` appears with ASCII probe terms or prompt/tail echo in `output_first_200_chars` | separate warning from control chars |
+
+This keeps the bypass classification stable. Newline-only formatting does not
+make a bypassed NPU result unsafe by itself, and `control_chars=true` should
+not be treated as an automatic failure. `mixed_language` remains a separate
+output-quality concern that should be checked against prompt echo, tail echo,
+and ASCII probe terms such as `NPU`, `prefill`, `raw_dialog_tail`,
+`ユーザー:`, and `アシスタント:`.
+
+Implementation order, if pursued later:
+- docs;
+- classifier design;
+- tests for newline-only, disallowed control characters, replacement
+  characters, and probe-term echo;
+- dev-only display/reporting changes.
+
+Do not use this policy as standard route promotion evidence.
+
 Earlier bypass validation guidance, retained for the original raw target 128
 phase, was:
 - template: `raw`
