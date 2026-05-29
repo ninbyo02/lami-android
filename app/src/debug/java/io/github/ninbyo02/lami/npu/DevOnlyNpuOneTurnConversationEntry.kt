@@ -9,7 +9,6 @@ data class DevOnlyNpuOneTurnConversationRequest(
     val userPrompt: String,
     val contextText: String = "",
     val unsafeDevBypassPromptLengthGate: Boolean = true,
-    val maxOutputTokens: Int = DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS,
     val timeoutMs: Long = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
 )
 
@@ -37,6 +36,9 @@ data class DevOnlyNpuOneTurnConversationDisplay(
     val fallback: Boolean,
     val freshCrash: Boolean,
     val timeout: Boolean,
+    val requestedMaxOutputTokens: Int,
+    val effectiveMaxOutputTokens: Int,
+    val nativeMaxOutputTokensLimit: String,
     val rawLen: Int,
     val sanitizedLen: Int,
     val quality: String,
@@ -107,15 +109,25 @@ object DevOnlyNpuOneTurnConversationContract {
             .substringAfter("control_chars=", "control_chars=unknown")
             .substringBefore(";")
         val fallback = values["fallback_used"]?.toBooleanStrictOrNull() ?: false
+        val requestedMaxOutputTokens = result.maxOutputTokens
+        val effectiveMaxOutputTokens = values["max_output_tokens"]?.toIntOrNull() ?: result.maxOutputTokens
+        val nativeMaxOutputTokensLimit = values["native_max_output_tokens_limit"].orEmpty().ifBlank { "-" }
         val status = if (result.success) "success" else "failure"
         val lines = listOf(
             "DEV ONLY NPU ONE TURN",
             "sanitized_output=$sanitizedOutput",
             "status=$status",
             "reason=${result.reasonCode}",
+            "requested_max_output_tokens=$requestedMaxOutputTokens",
+            "effective_max_output_tokens=$effectiveMaxOutputTokens",
+            "max_output_tokens=$effectiveMaxOutputTokens",
+            "native_max_output_tokens_limit=$nativeMaxOutputTokensLimit",
             "native=$nativeReached",
             "decode=$decodeReached",
+            "run_decode_reached=$decodeReached",
+            "npu_backend_evidence=${npuEvidence.ifBlank { "-" }}",
             "npu_evidence=${npuEvidence.ifBlank { "-" }}",
+            "fallback_used=$fallback",
             "fallback=$fallback",
             "fresh_crash=${result.freshCrash}",
             "timeout=${result.timeout}",
@@ -135,6 +147,9 @@ object DevOnlyNpuOneTurnConversationContract {
             fallback = fallback,
             freshCrash = result.freshCrash,
             timeout = result.timeout,
+            requestedMaxOutputTokens = requestedMaxOutputTokens,
+            effectiveMaxOutputTokens = effectiveMaxOutputTokens,
+            nativeMaxOutputTokensLimit = nativeMaxOutputTokensLimit,
             rawLen = rawLen,
             sanitizedLen = sanitizedLen,
             quality = quality,
@@ -166,7 +181,7 @@ class DevOnlyNpuOneTurnConversationEntry(
         val result = adapterFactory(appContext, request.unsafeDevBypassPromptLengthGate)
             .runDevOnlyConversationOnce(
                 prompt = transportedPrompt,
-                maxOutputTokens = request.maxOutputTokens,
+                maxOutputTokens = DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS,
                 timeoutMs = request.timeoutMs,
             )
         val values = if (resultFile.isFile) {

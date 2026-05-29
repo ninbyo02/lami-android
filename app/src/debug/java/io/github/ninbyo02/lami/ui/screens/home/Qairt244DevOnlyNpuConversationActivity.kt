@@ -58,6 +58,15 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                 "DEV ONLY NPU ONE TURN\n" +
                     "status=failure\n" +
                     "reason=activity_failure:${throwable.javaClass.simpleName}\n" +
+                    "requested_max_output_tokens=${DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS}\n" +
+                    "effective_max_output_tokens=${DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS}\n" +
+                    "max_output_tokens=${DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS}\n" +
+                    "native_max_output_tokens_limit=-\n" +
+                    "run_decode_reached=false\n" +
+                    "npu_backend_evidence=-\n" +
+                    "fallback_used=false\n" +
+                    "timeout=false\n" +
+                    "fresh_crash=false\n" +
                     "message=${throwable.message.orEmpty()}\n" +
                     "standard_route_connected=false\n" +
                     "backend_npu_persisted=false\n" +

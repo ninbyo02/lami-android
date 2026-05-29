@@ -231,3 +231,45 @@ produced long, template-like mixed output. `mixed_language` and
 as a reason to promote the route. The next safe checks are to restore or
 explicitly display the intended low max-output cap, and to verify stop, error,
 fallback, timeout, and rerun behavior before any standard route discussion.
+
+## Step 5 Front-Half Contract Fix
+
+Before the next runtime check, the dev-only one-turn Activity/Entry fixes the
+conversation cap to:
+
+```text
+max_output_tokens=16
+```
+
+This keeps the Activity aligned with the short-output probe path and avoids the
+initial `128`-token result shape, which was long, template-like, and
+`mixed_language`. The cap is not a Settings option, is not persisted as
+`Backend.NPU`, and does not affect the standard ChatScreen route.
+
+The display contract now has to show the token and safety fields explicitly:
+
+```text
+requested_max_output_tokens=16
+effective_max_output_tokens=16
+max_output_tokens=16
+native_max_output_tokens_limit=<native reported limit or ->
+fallback_used=<true|false>
+timeout=<true|false>
+fresh_crash=<true|false>
+run_decode_reached=<true|false>
+npu_backend_evidence=<evidence or ->
+standard_route_connected=false
+backend_npu_persisted=false
+db=false
+tts=false
+markdown=false
+streaming=false
+route_type=dev_only_one_turn_conversation
+```
+
+This is still pre-runtime Step 5 preparation. It does not prove the corrected
+`16`-token path on device yet, does not install an APK, does not run an NPU
+probe, and does not connect DB/TTS/Markdown/streaming or the standard route.
+The next runtime check should be a single explicit-button dev-only one-turn run
+that verifies the displayed requested/effective token values, fallback,
+timeout, fresh crash, decode evidence, and rerun behavior.

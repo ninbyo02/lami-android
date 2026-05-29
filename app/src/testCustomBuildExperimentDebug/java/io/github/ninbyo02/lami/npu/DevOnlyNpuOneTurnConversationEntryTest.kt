@@ -45,6 +45,14 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     }
 
     @Test
+    fun `one turn request uses fixed max output tokens contract`() {
+        val request = DevOnlyNpuOneTurnConversationRequest(userPrompt = "こんにちは。")
+
+        assertEquals(16, DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS)
+        assertEquals("こんにちは。", request.userPrompt)
+    }
+
+    @Test
     fun `display includes only dev-only side effect flags`() {
         val display = DevOnlyNpuOneTurnConversationContract.display(
             result = DevOnlyNpuRouteResult(
@@ -65,11 +73,25 @@ class DevOnlyNpuOneTurnConversationEntryTest {
                 "sanitized_output_length" to "6",
                 "raw_native_output" to " こんにちは。",
                 "raw_native_output_length" to "7",
+                "max_output_tokens" to "16",
+                "native_max_output_tokens_limit" to "512",
                 "quality_classification" to "natural_japanese",
                 "output_unicode_summary" to "control_chars=none;replacement_char_count=0",
             ),
         )
 
+        assertEquals(16, display.requestedMaxOutputTokens)
+        assertEquals(16, display.effectiveMaxOutputTokens)
+        assertEquals("512", display.nativeMaxOutputTokensLimit)
+        assertTrue(display.text.contains("requested_max_output_tokens=16"))
+        assertTrue(display.text.contains("effective_max_output_tokens=16"))
+        assertTrue(display.text.contains("max_output_tokens=16"))
+        assertTrue(display.text.contains("native_max_output_tokens_limit=512"))
+        assertTrue(display.text.contains("run_decode_reached=true"))
+        assertTrue(display.text.contains("npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag"))
+        assertTrue(display.text.contains("fallback_used=false"))
+        assertTrue(display.text.contains("timeout=false"))
+        assertTrue(display.text.contains("fresh_crash=false"))
         assertTrue(display.text.contains("standard_route_connected=false"))
         assertTrue(display.text.contains("route_type=dev_only_one_turn_conversation"))
         assertTrue(display.text.contains("backend_npu_persisted=false"))
