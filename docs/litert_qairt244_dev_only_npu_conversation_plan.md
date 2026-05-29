@@ -364,3 +364,15 @@ Step 5 receiver delivery diagnostic fix:
   the merged manifest. `standardDebug` uses `io.github.ninbyo02.lami`, while
   `customBuildExperimentDebug` uses `io.github.ninbyo02.lami.customnpu`; a
   mismatched `run-as` package will inspect a different app sandbox.
+
+Step 5 receiver result-code diagnostic:
+- the debug manifest already declares the receiver with
+  `android:exported="true"`;
+- `DevOnlyNpuOneTurnConversationReceiver.onReceive` now calls
+  `setResultCode(244)` before resolving `context.filesDir` or validating the
+  action;
+- `status=received` still writes synchronously to
+  `files/dev_only_npu_one_turn_conversation_result.txt`, and the progress
+  contract includes `result_code=244`;
+- `244` is a temporary dev-only broadcast delivery diagnostic, not product
+  behavior and not a standard route promotion signal.

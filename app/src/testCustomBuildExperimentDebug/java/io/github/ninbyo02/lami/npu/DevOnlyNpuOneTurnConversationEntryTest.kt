@@ -70,6 +70,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         )
         assertTrue(DevOnlyNpuOneTurnConversationContract.RECEIVER_ACTION.contains("DEV_ONLY"))
         assertEquals("こんにちは", DevOnlyNpuOneTurnConversationContract.DEFAULT_USER_PROMPT)
+        assertEquals(244, DevOnlyNpuOneTurnConversationContract.RECEIVER_RESULT_CODE_RECEIVED)
     }
 
     @Test
@@ -209,6 +210,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
 
         assertTrue(text.contains("timestamp=1234"))
         assertTrue(text.contains("status=received"))
+        assertTrue(text.contains("result_code=244"))
         assertTrue(text.contains("action=io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"))
         assertTrue(text.contains("package_name=io.github.ninbyo02.lami.debug"))
         assertTrue(text.contains("class_name=io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"))

@@ -9,6 +9,7 @@ import kotlinx.coroutines.runBlocking
 
 class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        setResultCode(DevOnlyNpuOneTurnConversationContract.RECEIVER_RESULT_CODE_RECEIVED)
         val appContext = context.applicationContext
         val resultFile = File(
             appContext.filesDir,

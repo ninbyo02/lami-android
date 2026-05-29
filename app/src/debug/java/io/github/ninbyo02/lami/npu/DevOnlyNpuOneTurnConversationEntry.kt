@@ -52,6 +52,7 @@ object DevOnlyNpuOneTurnConversationContract {
     const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE = "unsafe_dev_bypass_prompt_length_gate"
     const val DEFAULT_USER_PROMPT = "こんにちは"
     const val RECEIVER_RESULT_FILE_NAME = "dev_only_npu_one_turn_conversation_result.txt"
+    const val RECEIVER_RESULT_CODE_RECEIVED = 244
     const val TEMPLATE = "raw_dialog_tail"
     const val PROMPT_TAIL_MODE = "raw_dialog_tail"
     const val PROMPT_TRANSPORT = "base64"
@@ -238,6 +239,7 @@ object DevOnlyNpuOneTurnConversationContract {
         val lines = listOf(
             "timestamp=$timestampMs",
             "status=$status",
+            "result_code=$RECEIVER_RESULT_CODE_RECEIVED",
             "action=$action",
             "package_name=$packageName",
             "class_name=$className",
