@@ -69,6 +69,7 @@ internal data class NpuStandardRouteS1Result(
             !fallbackUsed &&
             !timeout &&
             !freshCrash &&
+            displayText.isNotBlank() &&
             sanitizedOutput.isNotBlank() &&
             qualityClassification == NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE
 }

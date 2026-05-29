@@ -1,0 +1,110 @@
+package io.github.ninbyo02.lami.ui.screens.home
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class NpuStandardRouteS1MapperTest {
+    @Test
+    fun `natural Japanese dev-only result maps to successful S1 result`() {
+        val result = NpuStandardRouteS1Mapper.map(successRaw())
+
+        assertTrue(result.successCriteriaMet)
+        assertEquals("こんにちは。", result.displayText)
+        assertEquals("こんにちは。", result.sanitizedOutput)
+        assertEquals("natural_japanese", result.qualityClassification)
+        assertEquals("QNN_HTP_V79_FastRPC_native_diag", result.npuBackendEvidence)
+        assertEquals(32, result.selection.requestedMaxOutputTokens)
+        assertEquals(32, result.selection.effectiveMaxOutputTokens)
+        assertFalse(result.selection.sideEffects.db)
+        assertFalse(result.selection.sideEffects.tts)
+        assertFalse(result.selection.sideEffects.markdown)
+        assertFalse(result.selection.sideEffects.streaming)
+        assertFalse(result.selection.sideEffects.backendNpuPersisted)
+        assertFalse(result.selection.sideEffects.conversationHistorySaved)
+    }
+
+    @Test
+    fun `result success string is accepted as success equivalent`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(status = "", result = "success", success = null),
+        )
+
+        assertTrue(result.successCriteriaMet)
+    }
+
+    @Test
+    fun `success boolean is accepted as success equivalent`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(status = "", result = "", success = true),
+        )
+
+        assertTrue(result.successCriteriaMet)
+    }
+
+    @Test
+    fun `FastRPC evidence alone is normalized to S1 NPU evidence`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(npuBackendEvidence = "FastRPC native diag"),
+        )
+
+        assertTrue(result.successCriteriaMet)
+        assertEquals("QNN_HTP_V79_FastRPC_native_diag", result.npuBackendEvidence)
+    }
+
+    @Test
+    fun `failure conditions do not meet S1 success criteria`() {
+        assertFalse(NpuStandardRouteS1Mapper.map(successRaw(fallbackUsed = true)).successCriteriaMet)
+        assertFalse(NpuStandardRouteS1Mapper.map(successRaw(timeout = true)).successCriteriaMet)
+        assertFalse(NpuStandardRouteS1Mapper.map(successRaw(freshCrash = true)).successCriteriaMet)
+        assertFalse(NpuStandardRouteS1Mapper.map(successRaw(runDecodeReached = false)).successCriteriaMet)
+        assertFalse(NpuStandardRouteS1Mapper.map(successRaw(npuBackendEvidence = "")).successCriteriaMet)
+        assertFalse(NpuStandardRouteS1Mapper.map(successRaw(sanitizedOutput = "")).successCriteriaMet)
+        assertFalse(NpuStandardRouteS1Mapper.map(successRaw(qualityClassification = "mixed_language")).successCriteriaMet)
+        assertFalse(NpuStandardRouteS1Mapper.map(successRaw(status = "failure", result = "failure", success = false)).successCriteriaMet)
+    }
+
+    @Test
+    fun `mapper keeps S1 side effects disconnected and max output fixed`() {
+        val result = NpuStandardRouteS1Mapper.map(successRaw())
+        val text = result.displayText
+
+        assertEquals(32, result.selection.requestedMaxOutputTokens)
+        assertEquals(32, result.selection.effectiveMaxOutputTokens)
+        assertTrue(result.selection.sideEffects.allDisconnected)
+        assertEquals("こんにちは。", text)
+        assertFalse(result.selection.sideEffects.db)
+        assertFalse(result.selection.sideEffects.tts)
+        assertFalse(result.selection.sideEffects.markdown)
+        assertFalse(result.selection.sideEffects.streaming)
+    }
+
+    private fun successRaw(
+        status: String = "success",
+        result: String = "",
+        success: Boolean? = null,
+        sanitizedOutput: String = "こんにちは。",
+        qualityClassification: String = "natural_japanese",
+        runDecodeReached: Boolean = true,
+        npuBackendEvidence: String = "QNN_HTP_V79_FastRPC_native_diag",
+        fallbackUsed: Boolean = false,
+        timeout: Boolean = false,
+        freshCrash: Boolean = false,
+    ): NpuStandardRouteS1RawResult = NpuStandardRouteS1RawResult(
+        status = status,
+        result = result,
+        success = success,
+        reason = "success",
+        rawOutput = "こんにちは。",
+        sanitizedOutput = sanitizedOutput,
+        qualityClassification = qualityClassification,
+        runDecodeReached = runDecodeReached,
+        npuBackendEvidence = npuBackendEvidence,
+        fallbackUsed = fallbackUsed,
+        timeout = timeout,
+        freshCrash = freshCrash,
+        requestedMaxOutputTokens = 32,
+        effectiveMaxOutputTokens = 32,
+    )
+}
