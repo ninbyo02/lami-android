@@ -402,10 +402,8 @@ quality=mixed_language
 ```
 
 Phase 2/3 now demonstrates native decode beyond the original 128 gate through
-`final_input_chars_approx=1024`. Continue with single-case, max-output-16
-checks only. The next proposed targets are raw `1024`
-(`final_input_chars_approx=2048`) and then raw `2048`
-(`final_input_chars_approx=4096`) if the first remains stable.
+`final_input_chars_approx=1024`. The following checks continued as
+single-case, max-output-16 guarded probes.
 
 Raw target `640`, the current largest built-in script target, also succeeded:
 
@@ -433,13 +431,49 @@ quality=mixed_language
 ```
 
 The bypassed raw path now reaches native decode through
-`final_input_chars_approx=1280`. The probe runner now includes raw-only target
-`1024` and raw-only target `2048` for 4096-input prefill investigation, without
-adding those larger targets to `simple_ja_chat` or `gemma_it_like`. These must
-be used as single-case guarded probes with `--max-output-tokens 16`,
-`--limit-cases 1`, timeout/force-stop, and diagnostics collection.
+`final_input_chars_approx=4096`. Raw-only target `1024` and raw-only target
+`2048` both succeeded without adding those larger targets to `simple_ja_chat`
+or `gemma_it_like`:
 
-Requires separate approval before runtime execution.
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_202602/summary.md
+template=raw
+target=1024
+final_input_chars_approx=2048
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=32
+sanitized_len=31
+quality=mixed_language
+
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_202732/summary.md
+template=raw
+target=2048
+final_input_chars_approx=4096
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=64
+sanitized_len=64
+quality=natural_japanese
+control_chars=false
+```
+
+This establishes 4096-input-prefill-equivalent native decode reachability only
+for the dev-only hidden receiver, raw generated-filler, max-output-16, bypassed
+gate condition. It is not standard ChatScreen enablement and does not remove
+the need for standard-route safety gate redesign.
 
 Run exactly one case:
 - template: `raw`
@@ -469,7 +503,7 @@ Required outcome fields:
 
 ### Phase 3: Larger Boundaries
 
-Only after Phase 2 succeeds safely:
+Completed as separate guarded single-case checks:
 - target `256`
 - target `384`
 - target `512`
@@ -477,8 +511,8 @@ Only after Phase 2 succeeds safely:
 - raw target `1024`
 - raw target `2048`
 
-Each target requires separate approval or an explicit bounded plan. Do not jump
-from target `128` directly to a broad matrix.
+Future larger targets still require separate approval or an explicit bounded
+plan. Do not jump from a single-case result directly to a broad matrix.
 
 ## Classification Rules
 

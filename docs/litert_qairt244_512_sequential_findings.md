@@ -950,11 +950,9 @@ quality=mixed_language
 With the dev-only bypass chain active, raw generated-filler inputs at
 `final_input_chars_approx=768` and `1024` also reach NPU decode. The 512
 sequential hypothesis is therefore not supported for this raw hidden-receiver
-probe condition. The investigation can move toward larger prefill/input
-checks: raw target `1024` (`final_input_chars_approx=2048`) first, then raw
-target `2048` (`final_input_chars_approx=4096`) if the 2048-character case is
-stable. Keep max output tokens at `16`, `--limit-cases 1`, timeout/force-stop,
-and diagnostics collection.
+probe condition. The investigation then moved to larger raw-only
+prefill/input checks with max output tokens at `16`, `--limit-cases 1`,
+timeout/force-stop, and diagnostics collection.
 
 The current script's largest built-in raw target, `640`, also succeeded:
 
@@ -982,15 +980,55 @@ quality=mixed_language
 control_chars=false
 ```
 
+The larger raw-only targets `1024` and `2048` also succeeded with the dev-only
+bypass chain active:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_202602/summary.md
+template=raw
+target=1024
+final_input_chars_approx=2048
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=32
+sanitized_len=31
+quality=mixed_language
+
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_202732/summary.md
+template=raw
+target=2048
+final_input_chars_approx=4096
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=64
+sanitized_len=64
+quality=natural_japanese
+control_chars=false
+```
+
 Raw generated-filler input now reaches NPU decode through
-`final_input_chars_approx=1280`, so the 512 sequential hypothesis is further
-unsupported for this measured condition. The runner was extended with raw-only
-targets `1024` and `2048` so 4096 input prefill can be checked without
-expanding the `simple_ja_chat` or `gemma_it_like` matrices. Those larger raw
-targets must still run one case at a time with max output tokens fixed at
-`16`, timeout/force-stop, and diagnostics collection. Expected final input
-estimates are raw target `1024` -> `final_input_chars_approx=2048` and raw
-target `2048` -> `final_input_chars_approx=4096`.
+`final_input_chars_approx=4096`. This confirms 4096-input-prefill-equivalent
+native decode reachability under the hidden receiver, raw generated-filler,
+max-output-16, dev-only bypass condition. The 512 sequential hypothesis is not
+supported for this measured condition. This is not standard ChatScreen NPU
+enablement and does not prove safety for the standard route.
+
+Next topics should be separated: natural-language long-prompt checks near
+4096, template-path echo/sanitizer behavior, safety gate redesign before any
+standard route promotion, and output lengths above 512 or future 4096-output
+work as separate investigations.
 
 ## Runtime Classification Plan
 
@@ -1086,7 +1124,9 @@ Policy remains unchanged:
 - 256 remains the hidden experimental baseline candidate.
 - 512 remains `hidden_per_run_isolated_512` candidate only.
 - 512 sequential remains incomplete and non-baseline.
-- 1024/2048/4096 remain blocked.
+- 1024/2048/4096 are only demonstrated under the dev-only hidden receiver,
+  raw generated-filler, prompt-length-bypass, max-output-16 probe condition;
+  they remain outside standard ChatScreen routing.
 
 ## Next Safe Step
 
