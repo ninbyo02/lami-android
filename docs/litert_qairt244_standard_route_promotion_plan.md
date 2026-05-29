@@ -132,6 +132,23 @@ Blockers:
 - inability to render the result without DB insertion
 - any standard-route call path that automatically starts TTS or Markdown
 
+S1 Gate ON display check:
+
+- temporary local flag: `ENABLE_NPU_STANDARD_ROUTE_S1=true`;
+- installed `standardDebug`;
+- launched `MainActivity`;
+- sent through the Local ChatScreen path;
+- confirmed the transient UI block displayed `NPU STANDARD ROUTE S1`;
+- confirmed the visible response text `こんにちは。`;
+- rollback restored `ENABLE_NPU_STANDARD_ROUTE_S1=false`;
+- reinstalled `standardDebug` after rollback;
+- `git status -sb` was clean after rollback.
+
+This confirms the S1 display-only gate can render the bridge result in
+ChatScreen. It does not change the Phase S1 boundary: DB, TTS, Markdown,
+streaming, `Backend.NPU` persistence, and conversation history save remain
+unconnected by design.
+
 ## Phase S2: DB Connection
 
 Goal: persist the user prompt and final assistant response after a successful

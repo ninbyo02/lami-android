@@ -268,3 +268,41 @@ Already present and reusable:
 
 This keeps S1 isolated: one visible standard ChatScreen selection experiment,
 no persistence, no downstream feature connection, and gate-off rollback.
+
+## Gate ON Display Check Result
+
+Date: 2026-05-30
+
+S1 Gate ON display was checked on device with the following temporary local
+change:
+
+```text
+ENABLE_NPU_STANDARD_ROUTE_S1=true
+```
+
+Check flow:
+
+- installed `standardDebug`;
+- launched `MainActivity`;
+- selected the Local send path;
+- sent a text prompt;
+- confirmed that ChatScreen displayed the transient S1 block.
+
+Observed UI:
+
+```text
+NPU STANDARD ROUTE S1
+こんにちは。
+```
+
+Rollback was completed by restoring:
+
+```text
+ENABLE_NPU_STANDARD_ROUTE_S1=false
+```
+
+and reinstalling `standardDebug`. After rollback, `git status -sb` was clean.
+
+The result is a display-only S1 success. Per S1 design, this path still does
+not connect DB, TTS, Markdown, streaming, `Backend.NPU` persistence, or
+conversation history save.
