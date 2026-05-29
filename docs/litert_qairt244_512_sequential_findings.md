@@ -1168,6 +1168,7 @@ requested/effective max output tokens `16/16`.
 | `20260529_204816` | strict short-answer prompt-file | 2048 | `5614/5614` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | 16/16 | raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
 | `20260529_205044` | strict short-answer prompt-file | 2048 | `3754/3754` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | 16/16 | raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
 | `20260529_205211` | loose greeting prompt-file | 2048 | `4104/4104` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | 16/16 | output_bytes 0 / raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
+| `20260529_211227` | dialog-tail prompt-file | 2048 | `4422/4422` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | 16/16 | raw 31 / sanitized 30 | natural_japanese | dialog continuation tail restored output |
 
 This matrix separates reachability from output quality. Raw generated filler
 reaches NPU decode through `final_input_chars_approx=4096`, and a Japanese
@@ -1190,6 +1191,7 @@ executed for this classification.
 | `20260529_204237/raw_2048` | natural prompt 3759 success | repeated Japanese natural sentence ending with "短く返答してください。" | 3759 | actual/prompt 9519 | true | `SetMaxOutputTokens(16)` | candidates 1, bytes 51 | prefill 476 ms, decode 373 ms | raw 25, sanitized 15, mixed_language | stop blank, reason success | natural long prompt reaches decode and returns output |
 | `20260529_205044/raw_2048` | strict short-answer 3754 empty | repeated context plus final instruction: "日本語で「こんにちは」と一言だけ返答してください。" | 3754 | actual/prompt 9934 | true | `SetMaxOutputTokens(16)` | candidates 1, bytes 0 | prefill 205 ms, decode 22 ms | raw 0, sanitized 0, empty_output | receiver stop empty_after_sanitize | decode succeeds but native output is empty |
 | `20260529_205211/raw_2048` | loose greeting 4104 empty | repeated natural sentence plus final instruction: "日本語で短く挨拶してください。" | 4104 | actual/prompt 10544 | true | `SetMaxOutputTokens(16)` | candidates 1, bytes 0 | prefill 322 ms, decode 22 ms | raw 0, sanitized 0, empty_output | receiver stop empty_after_sanitize | decode succeeds but native output is empty |
+| `20260529_211227/raw_2048` | dialog-tail 4422 success | conversation continuation tail: "ユーザー: こんにちは。" then "アシスタント:" | 4422 | not re-extracted | true | `SetMaxOutputTokens(16)` | not re-extracted | not re-extracted | raw 31, sanitized 30, natural_japanese | reason success | prompt-tail change restores non-empty output |
 
 The common path across all four cases is successful prompt validation,
 effective native prompt-length bypass, prefill, and RunDecode with
@@ -1228,6 +1230,36 @@ for this loose natural prompt. That weakens the hypothesis that the cap of 16
 alone caused the empty output. Keep this classified as prompt-tail,
 stop/eos/template, or model-output behavior rather than a prefill boundary. If
 runtime expands again, change prompt tail only and keep max output fixed.
+
+The prompt-tail-only comparison restored output:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_211227/summary.md
+prompt_file=/tmp/lami_npu_prompt/ja_quality_dialog_tail_3800.txt
+prompt_chars=4422
+final_input_chars_approx=4422
+prompt_tail=ユーザー: こんにちは。 / アシスタント:
+requested/effective=16/16
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+raw_len=31
+sanitized_len=30
+quality=natural_japanese
+control_chars=false
+```
+
+Changing only the natural prompt tail from a closed instruction style such as
+"最後の指示: ... 一言だけ返答してください" to a dialog continuation style
+(`ユーザー: ...` / `アシスタント:`) moved the same long-input class back from
+empty output to `natural_japanese` success with max output still fixed at `16`.
+Long prefill length itself is therefore unlikely to be the primary cause of
+the empty-output cases. Standard-route promotion should not use raw string
+injection directly; template and tail design need separate treatment.
 
 ## Runtime Classification Plan
 

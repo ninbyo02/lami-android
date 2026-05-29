@@ -598,6 +598,7 @@ requested/effective max output tokens `16/16`.
 | `20260529_204816` | strict short-answer prompt-file | 2048 | `5614/5614` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
 | `20260529_205044` | strict short-answer prompt-file | 2048 | `3754/3754` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
 | `20260529_205211` | loose greeting prompt-file | 2048 | `4104/4104` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | output_bytes 0 / raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
+| `20260529_211227` | dialog-tail prompt-file | 2048 | `4422/4422` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 31 / sanitized 30 | natural_japanese | dialog continuation tail restored output |
 
 The matrix confirms that generated filler reaches NPU decode through
 `final_input_chars_approx=4096`, and natural Japanese prompt-file input also
@@ -618,6 +619,7 @@ output bytes:
 | `20260529_204237/raw_2048` | natural prompt success | repeated Japanese sentence ending with "短く返答してください。" | 3759 / 9519 | 16 | candidates 1, bytes 51 | prefill 476 ms, decode 373 ms | raw 25, sanitized 15, mixed_language | non-empty output after decode |
 | `20260529_205044/raw_2048` | strict short-answer empty | final instruction asks for exactly "こんにちは" | 3754 / 9934 | 16 | candidates 1, bytes 0 | prefill 205 ms, decode 22 ms | raw 0, sanitized 0, empty_output | decode succeeds but output is empty |
 | `20260529_205211/raw_2048` | loose greeting empty | final instruction asks for a short Japanese greeting | 4104 / 10544 | 16 | candidates 1, bytes 0 | prefill 322 ms, decode 22 ms | raw 0, sanitized 0, empty_output | decode succeeds but output is empty |
+| `20260529_211227/raw_2048` | dialog-tail success | tail uses "ユーザー: こんにちは。" followed by "アシスタント:" | 4422 / not re-extracted | 16 | not re-extracted | not re-extracted | raw 31, sanitized 30, natural_japanese | prompt-tail change restores output |
 
 All four cases have prompt validation `ok`, native length-gate bypass
 effective, and `SetMaxOutputTokens(16)`. The failures are therefore not 128
@@ -651,6 +653,33 @@ quality=empty_output
 The loose prompt therefore remains empty at max output `32`, so max output `16`
 alone is unlikely to explain this case. Next runtime work should change the
 prompt tail only, with max output held fixed.
+
+That prompt-tail-only comparison restored output:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_211227/summary.md
+prompt_file=/tmp/lami_npu_prompt/ja_quality_dialog_tail_3800.txt
+prompt_chars=4422
+final_input_chars_approx=4422
+prompt_tail=ユーザー: こんにちは。 / アシスタント:
+requested/effective=16/16
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+raw_len=31
+sanitized_len=30
+quality=natural_japanese
+control_chars=false
+```
+
+This confirms the empty-output behavior is sensitive to prompt tail shape:
+dialog continuation (`ユーザー: ...` / `アシスタント:`) recovers output without
+changing max output, bypass state, or template. Treat this as prompt shaping
+and template design work, not as a prefill reachability problem.
 
 Run exactly one case:
 - template: `raw`
