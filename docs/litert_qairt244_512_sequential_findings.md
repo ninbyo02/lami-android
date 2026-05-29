@@ -1179,6 +1179,29 @@ boundary. It is a prompt/output-quality axis. Do not promote this to standard
 ChatScreen routing from these results; if runtime is expanded, change only one
 axis per one-case run: prompt tail instruction, template, or max output tokens.
 
+### Prompt Tail / Native Output Metadata Comparison
+
+The table below compares existing artifacts only. No additional runtime was
+executed for this classification.
+
+| artifact | case | prompt tail pattern | prompt code points | bytes | gate bypass | max output | native output | timing | receiver output | stop/reason | conclusion |
+| --- | --- | --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- |
+| `20260529_202732/raw_2048` | generated filler 4096 success | tail remains repeated `x ` filler | 4095 | actual/prompt 4095 | true | `SetMaxOutputTokens(16)` | candidates 1, bytes 192 | prefill 267 ms, decode 434 ms | raw 64, sanitized 64, natural_japanese | stop blank, reason success | reaches decode and returns non-empty output |
+| `20260529_204237/raw_2048` | natural prompt 3759 success | repeated Japanese natural sentence ending with "短く返答してください。" | 3759 | actual/prompt 9519 | true | `SetMaxOutputTokens(16)` | candidates 1, bytes 51 | prefill 476 ms, decode 373 ms | raw 25, sanitized 15, mixed_language | stop blank, reason success | natural long prompt reaches decode and returns output |
+| `20260529_205044/raw_2048` | strict short-answer 3754 empty | repeated context plus final instruction: "日本語で「こんにちは」と一言だけ返答してください。" | 3754 | actual/prompt 9934 | true | `SetMaxOutputTokens(16)` | candidates 1, bytes 0 | prefill 205 ms, decode 22 ms | raw 0, sanitized 0, empty_output | receiver stop empty_after_sanitize | decode succeeds but native output is empty |
+| `20260529_205211/raw_2048` | loose greeting 4104 empty | repeated natural sentence plus final instruction: "日本語で短く挨拶してください。" | 4104 | actual/prompt 10544 | true | `SetMaxOutputTokens(16)` | candidates 1, bytes 0 | prefill 322 ms, decode 22 ms | raw 0, sanitized 0, empty_output | receiver stop empty_after_sanitize | decode succeeds but native output is empty |
+
+The common path across all four cases is successful prompt validation,
+effective native prompt-length bypass, prefill, and RunDecode with
+`SetMaxOutputTokens(16)`. The split is after decode: the two successful cases
+return non-empty native output bytes, while the strict/loose short-answer
+prompt tails return `output_candidates=1` with `output_bytes=0`. That makes the
+likely variables prompt-tail shape, repeated prompt structure, stop/eos
+behavior, and the low max-output cap rather than NPU reachability or a 512
+sequential/prefill boundary. The next runtime comparison should be one case
+only and change one axis, for example `max_output_tokens=32`, with all other
+conditions held fixed.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:

@@ -607,6 +607,25 @@ ChatScreen promotion remains out of scope. Future runtime expansion should
 change only one axis per one-case run: prompt tail instruction, template, or
 max output tokens.
 
+#### Prompt Tail / Native Output Metadata Comparison
+
+Existing artifacts show the same native reachability path but different native
+output bytes:
+
+| artifact | case | prompt tail pattern | code points / bytes | max output | native output | timing | receiver output | conclusion |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `20260529_202732/raw_2048` | generated filler success | repeated `x ` filler | 4095 / 4095 | 16 | candidates 1, bytes 192 | prefill 267 ms, decode 434 ms | raw 64, sanitized 64, natural_japanese | non-empty output after decode |
+| `20260529_204237/raw_2048` | natural prompt success | repeated Japanese sentence ending with "短く返答してください。" | 3759 / 9519 | 16 | candidates 1, bytes 51 | prefill 476 ms, decode 373 ms | raw 25, sanitized 15, mixed_language | non-empty output after decode |
+| `20260529_205044/raw_2048` | strict short-answer empty | final instruction asks for exactly "こんにちは" | 3754 / 9934 | 16 | candidates 1, bytes 0 | prefill 205 ms, decode 22 ms | raw 0, sanitized 0, empty_output | decode succeeds but output is empty |
+| `20260529_205211/raw_2048` | loose greeting empty | final instruction asks for a short Japanese greeting | 4104 / 10544 | 16 | candidates 1, bytes 0 | prefill 322 ms, decode 22 ms | raw 0, sanitized 0, empty_output | decode succeeds but output is empty |
+
+All four cases have prompt validation `ok`, native length-gate bypass
+effective, and `SetMaxOutputTokens(16)`. The failures are therefore not 128
+gate or 512/prefill boundary failures. They point at prompt-tail shape,
+repetition structure, stop/eos behavior, or max-output cap. If runtime is
+expanded, keep it one case at a time and change only one axis, such as moving
+from max output 16 to 32.
+
 Run exactly one case:
 - template: `raw`
 - target: `128`
