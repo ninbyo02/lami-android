@@ -367,6 +367,46 @@ sequential limit hypothesis for the current raw hidden-route probe condition.
 Continue with one-case increments only: raw target `384` for the safer next
 step, or raw target `512` for a faster boundary check.
 
+Raw target `384` and `512` then succeeded as well:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_201022/summary.md
+template=raw
+target=384
+final_input_chars_approx=768
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+requested/effective=16/16
+raw_len=32
+sanitized_len=31
+quality=mixed_language
+
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_201139/summary.md
+template=raw
+target=512
+final_input_chars_approx=1024
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+requested/effective=16/16
+raw_len=32
+sanitized_len=31
+quality=mixed_language
+```
+
+Phase 2/3 now demonstrates native decode beyond the original 128 gate through
+`final_input_chars_approx=1024`. Continue with single-case, max-output-16
+checks only. The next proposed targets are raw `1024`
+(`final_input_chars_approx=2048`) and then raw `2048`
+(`final_input_chars_approx=4096`) if the first remains stable.
+
 Requires separate approval before runtime execution.
 
 Run exactly one case:

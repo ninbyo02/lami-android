@@ -913,6 +913,49 @@ one case at raw target `384`; the faster boundary check is raw target `512`.
 Keep `--max-output-tokens 16`, force-stop/timeout diagnostics, and one-case
 execution.
 
+The follow-up raw target `384` and `512` checks also succeeded:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_201022/summary.md
+template=raw
+target=384
+final_input_chars_approx=768
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+requested/effective=16/16
+raw_len=32
+sanitized_len=31
+quality=mixed_language
+
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_201139/summary.md
+template=raw
+target=512
+final_input_chars_approx=1024
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+requested/effective=16/16
+raw_len=32
+sanitized_len=31
+quality=mixed_language
+```
+
+With the dev-only bypass chain active, raw generated-filler inputs at
+`final_input_chars_approx=768` and `1024` also reach NPU decode. The 512
+sequential hypothesis is therefore not supported for this raw hidden-receiver
+probe condition. The investigation can move toward larger prefill/input
+checks: raw target `1024` (`final_input_chars_approx=2048`) first, then raw
+target `2048` (`final_input_chars_approx=4096`) if the 2048-character case is
+stable. Keep max output tokens at `16`, `--limit-cases 1`, timeout/force-stop,
+and diagnostics collection.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
