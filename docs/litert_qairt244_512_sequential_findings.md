@@ -956,6 +956,40 @@ target `2048` (`final_input_chars_approx=4096`) if the 2048-character case is
 stable. Keep max output tokens at `16`, `--limit-cases 1`, timeout/force-stop,
 and diagnostics collection.
 
+The current script's largest built-in raw target, `640`, also succeeded:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_201630/summary.md
+prompt_transport=base64
+unsafe_dev_bypass_prompt_length_gate_requested=true
+unsafe_dev_bypass_prompt_length_gate_effective=true
+template=raw
+target=640
+prompt_chars=1280
+final_input_chars_approx=1280
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+requested/effective=16/16
+native_limit=512
+native_file_first_max=16
+raw_len=32
+sanitized_len=31
+quality=mixed_language
+control_chars=false
+```
+
+Raw generated-filler input now reaches NPU decode through
+`final_input_chars_approx=1280`, so the 512 sequential hypothesis is further
+unsupported for this measured condition. Because `640` is the current maximum
+target in `scripts/run_npu_512_sequence_probe.sh`, continuing toward 4096 input
+prefill requires adding explicit raw targets `1024` and `2048` and running them
+one case at a time with max output tokens fixed at `16`, timeout/force-stop,
+and diagnostics collection.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:

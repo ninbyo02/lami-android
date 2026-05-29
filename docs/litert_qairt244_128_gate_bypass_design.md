@@ -407,6 +407,36 @@ checks only. The next proposed targets are raw `1024`
 (`final_input_chars_approx=2048`) and then raw `2048`
 (`final_input_chars_approx=4096`) if the first remains stable.
 
+Raw target `640`, the current largest built-in script target, also succeeded:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_201630/summary.md
+template=raw
+target=640
+prompt_transport=base64
+prompt_chars=1280
+final_input_chars_approx=1280
+unsafe_dev_bypass_prompt_length_gate_requested=true
+unsafe_dev_bypass_prompt_length_gate_effective=true
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+requested/effective=16/16
+native_limit=512
+native_file_first_max=16
+raw_len=32
+sanitized_len=31
+quality=mixed_language
+```
+
+The bypassed raw path now reaches native decode through
+`final_input_chars_approx=1280`. Further 4096-input prefill investigation needs
+script support for larger explicit raw targets, starting with raw `1024` and
+then raw `2048`, still as single-case guarded probes.
+
 Requires separate approval before runtime execution.
 
 Run exactly one case:
@@ -441,6 +471,9 @@ Only after Phase 2 succeeds safely:
 - target `256`
 - target `384`
 - target `512`
+- target `640`
+- target `1024` after adding script support
+- target `2048` after adding script support
 
 Each target requires separate approval or an explicit bounded plan. Do not jump
 from target `128` directly to a broad matrix.
