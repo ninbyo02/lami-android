@@ -520,3 +520,31 @@ Phase A max-output propagation fix:
 - this is still debug-only and does not run runtime probes, install an APK,
   change native code, connect standard ChatScreen, persist Backend.NPU, or
   connect DB/TTS/Markdown/streaming.
+
+Phase A max-output 32 comparison result:
+- after the propagation fix, the Activity auto-run path correctly reported
+  `requested/effective/max_output_tokens=32`;
+- observed result:
+
+```text
+status=success
+requested_max_output_tokens=32
+effective_max_output_tokens=32
+max_output_tokens=32
+run_decode_reached=true
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+timeout=false
+fresh_crash=false
+raw_len=1
+sanitized_len=1
+sanitized_output=。
+```
+
+- this confirms the 32-token option is now propagated through the dev-only
+  Activity, Entry, adapter, and result contract;
+- the output is still only `。`, matching the weak 16-token comparison result;
+- max-output length is therefore unlikely to be the main cause of the short
+  answer;
+- the next quality comparison should change prompt-tail design rather than
+  increasing max output further.
