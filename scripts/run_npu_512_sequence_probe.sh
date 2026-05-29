@@ -15,6 +15,7 @@ UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE=false
 HIDDEN_TEMPLATE_MAX_LENGTH=128
 LIMIT_CASES=0
 CUSTOM_PROMPT=""
+PROMPT_FILE=""
 ONLY_TEMPLATE=""
 ONLY_TARGET=""
 TEMPLATE_TARGETS=(1 8 16 32 64 128 256 384 512 640)
@@ -24,7 +25,7 @@ TEMPLATES=(raw simple_ja_chat gemma_it_like)
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/run_npu_512_sequence_probe.sh [--dry-run] [--execute] [--device <serial>] [--timeout <seconds>] [--max-output-tokens <n>] [--limit-cases <n>] [--prompt <text>] [--only-template <raw|simple_ja_chat|gemma_it_like>] [--only-target <n>] [--unsafe-dev-bypass-prompt-length-gate]
+  scripts/run_npu_512_sequence_probe.sh [--dry-run] [--execute] [--device <serial>] [--timeout <seconds>] [--max-output-tokens <n>] [--limit-cases <n>] [--prompt <text>] [--prompt-file <path>] [--only-template <raw|simple_ja_chat|gemma_it_like>] [--only-target <n>] [--unsafe-dev-bypass-prompt-length-gate]
 
 Prepares or runs a dev-only hidden NPU sequence/prefill probe matrix. Default
 mode is preflight-only and does not execute NPU.
@@ -48,6 +49,8 @@ Safety:
   - --limit-cases can restrict execution to the first N matrix rows for
     guarded real-device rechecks after ANR-like behavior
   - --prompt replaces the generated "x " filler for selected cases
+  - --prompt-file reads UTF-8 prompt text from a file and also replaces the
+    generated "x " filler; --prompt and --prompt-file are mutually exclusive
   - --only-template and --only-target narrow the matrix to one intended case
     before --limit-cases is applied
   - --unsafe-dev-bypass-prompt-length-gate is a hidden-receiver-only,
@@ -70,6 +73,7 @@ while [ $# -gt 0 ]; do
     --max-output-tokens) MAX_OUTPUT_TOKENS="${2:-}"; shift 2 ;;
     --limit-cases) LIMIT_CASES="${2:-}"; shift 2 ;;
     --prompt) CUSTOM_PROMPT="${2:-}"; shift 2 ;;
+    --prompt-file) PROMPT_FILE="${2:-}"; shift 2 ;;
     --only-template) ONLY_TEMPLATE="${2:-}"; shift 2 ;;
     --only-target) ONLY_TARGET="${2:-}"; shift 2 ;;
     --out-dir) OUT_DIR="${2:-}"; shift 2 ;;
@@ -99,6 +103,39 @@ fi
 if [ -n "$ONLY_TARGET" ] && ! [[ "$ONLY_TARGET" =~ ^[0-9]+$ ]]; then
   printf 'ERROR: --only-target must be a non-negative integer\n' >&2
   exit 2
+fi
+if [ -n "$CUSTOM_PROMPT" ] && [ -n "$PROMPT_FILE" ]; then
+  printf 'ERROR: --prompt and --prompt-file cannot be used together\n' >&2
+  exit 2
+fi
+if [ -n "$PROMPT_FILE" ]; then
+  if [ ! -e "$PROMPT_FILE" ]; then
+    printf 'ERROR: --prompt-file does not exist: %s\n' "$PROMPT_FILE" >&2
+    exit 2
+  fi
+  if [ ! -f "$PROMPT_FILE" ]; then
+    printf 'ERROR: --prompt-file is not a regular file: %s\n' "$PROMPT_FILE" >&2
+    exit 2
+  fi
+  if [ ! -r "$PROMPT_FILE" ]; then
+    printf 'ERROR: --prompt-file is not readable: %s\n' "$PROMPT_FILE" >&2
+    exit 2
+  fi
+  if [ ! -s "$PROMPT_FILE" ]; then
+    printf 'ERROR: --prompt-file is empty: %s\n' "$PROMPT_FILE" >&2
+    exit 2
+  fi
+  if ! LC_ALL=C tr -d '\000' <"$PROMPT_FILE" | cmp -s "$PROMPT_FILE" -; then
+    printf 'ERROR: --prompt-file contains NUL bytes: %s\n' "$PROMPT_FILE" >&2
+    exit 2
+  fi
+  if command -v iconv >/dev/null 2>&1 && ! iconv -f UTF-8 -t UTF-8 "$PROMPT_FILE" >/dev/null 2>&1; then
+    printf 'ERROR: --prompt-file is not valid UTF-8: %s\n' "$PROMPT_FILE" >&2
+    exit 2
+  fi
+  prompt_file_sentinel="__LAMI_PROMPT_FILE_SENTINEL__"
+  CUSTOM_PROMPT="$(cat "$PROMPT_FILE"; printf '%s' "$prompt_file_sentinel")"
+  CUSTOM_PROMPT="${CUSTOM_PROMPT%$prompt_file_sentinel}"
 fi
 
 cd "$ROOT_DIR" || exit 1
@@ -208,6 +245,20 @@ prompt_for_case() {
     printf '%s' "$CUSTOM_PROMPT"
   else
     prompt_for_target "$prompt_tokens"
+  fi
+}
+
+prompt_override_enabled() {
+  [ -n "$CUSTOM_PROMPT" ]
+}
+
+prompt_source_label() {
+  if [ -n "$PROMPT_FILE" ]; then
+    printf 'prompt_file'
+  elif [ -n "$CUSTOM_PROMPT" ]; then
+    printf 'custom'
+  else
+    printf 'generated_x_filler'
   fi
 }
 
@@ -356,7 +407,11 @@ write_plan() {
     printf -- '- prompt_transport: `base64`\n'
     printf -- '- unsafe_dev_bypass_prompt_length_gate_requested: `%s`\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
     printf -- '- limit_cases: `%s`\n' "$LIMIT_CASES"
-    printf -- '- custom_prompt: `%s`\n' "$(if [ -n "$CUSTOM_PROMPT" ]; then printf true; else printf false; fi)"
+    printf -- '- custom_prompt: `%s`\n' "$(if prompt_override_enabled; then printf true; else printf false; fi)"
+    printf -- '- prompt_source: `%s`\n' "$(prompt_source_label)"
+    if [ -n "$PROMPT_FILE" ]; then
+      printf -- '- prompt_file: `%s`\n' "$PROMPT_FILE"
+    fi
     printf -- '- only_template: `%s`\n' "${ONLY_TEMPLATE:-all}"
     printf -- '- only_target: `%s`\n' "${ONLY_TARGET:-all}"
     printf -- '- hidden_template_codepoint_gate: `%s`\n' "$HIDDEN_TEMPLATE_MAX_LENGTH"
@@ -385,11 +440,14 @@ write_selected_cases_summary() {
   local template target overhead prompt_tokens prompt prompt_chars prompt_base64 prompt_base64_length final_chars expected_validation native_pre_reject prompt_preview
     printf '## Selected Cases\n\n'
     printf 'The rows below are the cases that this invocation will consider after `--only-template` and `--only-target`, then after `--limit-cases` if it is non-zero.\n\n'
-    if [ -n "$CUSTOM_PROMPT" ]; then
-      printf 'Note: `--prompt` is set, so `target` remains a case label only. It does not generate filler length. Use `prompt_chars` and `final_input_chars_approx` as the source of truth for prompt length and 128 gate expectations.\n\n'
+    if prompt_override_enabled; then
+      printf 'Note: `--prompt` or `--prompt-file` is set, so `target` remains a case label only. It does not generate filler length. Use `prompt_chars` and `final_input_chars_approx` as the source of truth for prompt length and 128 gate expectations.\n\n'
+      if [ -n "$PROMPT_FILE" ]; then
+        printf 'Prompt file: `%s`\n\n' "$PROMPT_FILE"
+      fi
     fi
-    printf '| selected_index | template | target | prompt_chars | final_input_chars_approx | native_pre_reject_expected_by_128_gate | unsafe_bypass_requested | unsafe_bypass_effective | prompt_transport | prompt_base64_length | prompt_source | prompt_preview |\n'
-  printf '| ---: | --- | ---: | ---: | ---: | --- | --- | --- | --- | ---: | --- | --- |\n'
+    printf '| selected_index | template | target | prompt_chars | final_input_chars_approx | native_pre_reject_expected_by_128_gate | unsafe_bypass_requested | unsafe_bypass_effective | prompt_transport | prompt_base64_length | prompt_source | prompt_file | prompt_preview |\n'
+  printf '| ---: | --- | ---: | ---: | ---: | --- | --- | --- | --- | ---: | --- | --- | --- |\n'
   for template in "${TEMPLATES[@]}"; do
     for target in $(target_list_for_template "$template"); do
       case_selected_by_filters "$template" "$target" || continue
@@ -407,9 +465,9 @@ write_selected_cases_summary() {
       expected_validation="$(expected_validation_for_chars "$final_chars")"
       native_pre_reject="$(native_pre_reject_for_chars "$final_chars")"
       prompt_preview="$(markdown_preview_cell "$prompt")"
-      printf '| %s | `%s` | %s | %s | %s | `%s` | `%s` | `%s` | `base64` | %s | `%s` | `%s` |\n' \
+      printf '| %s | `%s` | %s | %s | %s | `%s` | `%s` | `%s` | `base64` | %s | `%s` | `%s` | `%s` |\n' \
         "$((rows_written + 1))" "$template" "$target" "$prompt_chars" "$final_chars" \
-        "$native_pre_reject" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$prompt_base64_length" "$(if [ -n "$CUSTOM_PROMPT" ]; then printf custom; else printf generated_x_filler; fi)" "$prompt_preview"
+        "$native_pre_reject" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$prompt_base64_length" "$(prompt_source_label)" "$(if [ -n "$PROMPT_FILE" ]; then printf '%s' "$PROMPT_FILE"; else printf none; fi)" "$prompt_preview"
       if [ "$native_pre_reject" = true ]; then
         printf '\n`128 gate によりこのcaseは native前reject見込み`: template=`%s`, target=`%s`, final_input_chars_approx=`%s`, expected_validation=`%s`.\n\n' \
           "$template" "$target" "$final_chars" "$expected_validation"
@@ -418,7 +476,7 @@ write_selected_cases_summary() {
     done
   done
   if [ "$rows_written" -eq 0 ]; then
-    printf '| 0 | `none` | 0 | 0 | 0 | `unknown` | `%s` | `%s` | `base64` | 0 | `none` | `no matching selected cases` |\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
+    printf '| 0 | `none` | 0 | 0 | 0 | `unknown` | `%s` | `%s` | `base64` | 0 | `none` | `none` | `no matching selected cases` |\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
   fi
   printf '\n'
 }
@@ -449,7 +507,10 @@ run_case() {
     printf 'template=%s\n' "$template"
     printf 'target_final_tokens_approx=%s\n' "$target"
     printf 'prompt_tokens_approx=%s\n' "$prompt_tokens"
-    printf 'prompt_source=%s\n' "$(if [ -n "$CUSTOM_PROMPT" ]; then printf custom; else printf generated_x_filler; fi)"
+    printf 'prompt_source=%s\n' "$(prompt_source_label)"
+    if [ -n "$PROMPT_FILE" ]; then
+      printf 'prompt_file=%s\n' "$PROMPT_FILE"
+    fi
     printf 'prompt_transport=base64\n'
     printf 'prompt_chars=%s\n' "$prompt_chars"
     printf 'prompt_base64_length=%s\n' "$prompt_base64_length"
@@ -589,8 +650,12 @@ write_summary() {
     printf -- '- unsafe_dev_bypass_prompt_length_gate_requested: `%s`\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
     printf -- '- unsafe_dev_bypass_prompt_length_gate_effective: `%s`\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
     printf -- '- limit_cases: `%s`\n' "$LIMIT_CASES"
-    printf -- '- custom_prompt: `%s`\n' "$(if [ -n "$CUSTOM_PROMPT" ]; then printf true; else printf false; fi)"
-    if [ -n "$CUSTOM_PROMPT" ]; then
+    printf -- '- custom_prompt: `%s`\n' "$(if prompt_override_enabled; then printf true; else printf false; fi)"
+    printf -- '- prompt_source: `%s`\n' "$(prompt_source_label)"
+    if [ -n "$PROMPT_FILE" ]; then
+      printf -- '- prompt_file: `%s`\n' "$PROMPT_FILE"
+    fi
+    if prompt_override_enabled; then
       printf -- '- target_length_semantics: `case_label_only_custom_prompt`\n'
       printf -- '- input_length_source_of_truth: `prompt_chars_and_final_input_chars_approx`\n'
     else
@@ -631,8 +696,8 @@ write_summary() {
     printf '\n'
     write_selected_cases_summary "$LIMIT_CASES"
     printf '## 128 Gate Preflight\n\n'
-    if [ -n "$CUSTOM_PROMPT" ]; then
-      printf 'Important: because `--prompt` is set, selected-case gate expectations come from the Selected Cases table above. The full matrix table below still shows the default generated `x ` filler assumptions for comparison only.\n\n'
+    if prompt_override_enabled; then
+      printf 'Important: because `--prompt` or `--prompt-file` is set, selected-case gate expectations come from the Selected Cases table above. The full matrix table below still shows the default generated `x ` filler assumptions for comparison only.\n\n'
     fi
     if [ "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" = true ]; then
       printf 'Unsafe dev-only bypass is requested for this hidden receiver invocation. Rows with `native_pre_reject_expected_by_128_gate=true` are still expected to exceed the normal 128 gate, but this run is intentionally configured to test whether native entry is reachable after bypassing that prompt-length gate. This does not alter standard ChatScreen routing or persisted backend selection.\n\n'
@@ -657,7 +722,9 @@ write_summary() {
     printf '## Reproduction\n\n'
     printf '```bash\n'
     printf 'scripts/run_npu_512_sequence_probe.sh --execute --timeout %s --max-output-tokens %s' "$TIMEOUT_SECONDS" "$MAX_OUTPUT_TOKENS"
-    if [ -n "$CUSTOM_PROMPT" ]; then
+    if [ -n "$PROMPT_FILE" ]; then
+      printf ' --prompt-file %q' "$PROMPT_FILE"
+    elif [ -n "$CUSTOM_PROMPT" ]; then
       printf ' --prompt %q' "$CUSTOM_PROMPT"
     fi
     if [ -n "$ONLY_TEMPLATE" ]; then

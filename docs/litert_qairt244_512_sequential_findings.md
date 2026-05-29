@@ -1030,6 +1030,17 @@ Next topics should be separated: natural-language long-prompt checks near
 standard route promotion, and output lengths above 512 or future 4096-output
 work as separate investigations.
 
+For the natural-language long-prompt follow-up, use `--prompt-file` rather than
+putting the text directly on the `adb shell am broadcast` command line. The
+script reads a UTF-8 text file, rejects empty/unreadable/NUL-containing input,
+preserves newlines, and sends the content through the existing
+`prompt_base64` transport. With `--prompt-file`, `target` is only a case label:
+`prompt_chars` and `final_input_chars_approx` from the file content are the
+source of truth. Treat generated-filler results and natural-language prompt
+results as separate evidence classes. The 4096-near check should remain raw
+template, hidden receiver only, dev-only prompt-length bypass, max-output `16`,
+and `--limit-cases 1`.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:

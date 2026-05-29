@@ -475,6 +475,13 @@ for the dev-only hidden receiver, raw generated-filler, max-output-16, bypassed
 gate condition. It is not standard ChatScreen enablement and does not remove
 the need for standard-route safety gate redesign.
 
+Natural-language long-prompt checks near 4096 input should use
+`--prompt-file` so the prompt body is read from a UTF-8 text file and sent via
+`prompt_base64`, not directly through `adb shell am broadcast --es prompt`.
+When `--prompt-file` is set, `target` is only a case label; the file-derived
+`prompt_chars` and `final_input_chars_approx` are the source of truth. Keep
+generated-filler and natural-language evidence separate.
+
 Run exactly one case:
 - template: `raw`
 - target: `128`
