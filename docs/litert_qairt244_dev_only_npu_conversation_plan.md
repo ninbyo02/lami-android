@@ -607,3 +607,27 @@ quality_classification=natural_japanese
   integration yet;
 - the next safe step is to keep the path dev-only and run a small multi-run
   stability check for `raw_dialog_tail_variant_b` at `max_output_tokens=32`.
+
+Phase B five-run stability result:
+- the dev-only Activity auto-run path with `raw_dialog_tail_variant_b` and
+  `max_output_tokens=32` completed five consecutive successful runs;
+- observed aggregate result:
+
+```text
+5/5 status=success
+5/5 reason=success
+5/5 requested/effective max_output_tokens=32
+5/5 run_decode_reached=true
+5/5 npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+5/5 fallback_used=false
+5/5 timeout=false
+5/5 fresh_crash=false
+5/5 sanitized_output=こんにちは。
+5/5 quality_classification=natural_japanese
+```
+
+- this confirms the dev-only NPU inference conversation path is stable for the
+  current one-turn Japanese greeting case;
+- the dev-only stability gate before standard-route design review is passed;
+- the next step should be a standard route promotion design review, still
+  without changing code in this docs-only commit.
