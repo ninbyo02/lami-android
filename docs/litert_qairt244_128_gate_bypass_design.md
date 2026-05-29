@@ -626,6 +626,32 @@ repetition structure, stop/eos behavior, or max-output cap. If runtime is
 expanded, keep it one case at a time and change only one axis, such as moving
 from max output 16 to 32.
 
+The one-axis max-output comparison for the loose greeting prompt still produced
+empty output:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_210719/summary.md
+prompt_file=/tmp/lami_npu_prompt/ja_quality_loose_answer_3800.txt
+prompt_chars=4104
+final_input_chars_approx=4104
+requested/effective=32/32
+status=failure
+reason=empty_after_sanitize
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+raw_len=0
+sanitized_len=0
+quality=empty_output
+```
+
+The loose prompt therefore remains empty at max output `32`, so max output `16`
+alone is unlikely to explain this case. Next runtime work should change the
+prompt tail only, with max output held fixed.
+
 Run exactly one case:
 - template: `raw`
 - target: `128`

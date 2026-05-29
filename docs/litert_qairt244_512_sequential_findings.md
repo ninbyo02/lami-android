@@ -1202,6 +1202,33 @@ sequential/prefill boundary. The next runtime comparison should be one case
 only and change one axis, for example `max_output_tokens=32`, with all other
 conditions held fixed.
 
+That one-axis max-output comparison was run for the loose greeting prompt:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_210719/summary.md
+prompt_file=/tmp/lami_npu_prompt/ja_quality_loose_answer_3800.txt
+prompt_chars=4104
+final_input_chars_approx=4104
+requested/effective=32/32
+status=failure
+reason=empty_after_sanitize
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+raw_len=0
+sanitized_len=0
+quality=empty_output
+```
+
+Increasing the cap from `16` to `32` did not change the empty-output behavior
+for this loose natural prompt. That weakens the hypothesis that the cap of 16
+alone caused the empty output. Keep this classified as prompt-tail,
+stop/eos/template, or model-output behavior rather than a prefill boundary. If
+runtime expands again, change prompt tail only and keep max output fixed.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
