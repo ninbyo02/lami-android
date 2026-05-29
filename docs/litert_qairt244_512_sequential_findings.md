@@ -1421,6 +1421,34 @@ native and sanitized output through the `raw_dialog_tail` suffix. However,
 completed output-quality fix. Classify it as prompt shaping evidence, not a
 new prefill boundary result and not standard ChatScreen promotion.
 
+### Raw Dialog Tail Control Character Classification
+
+Existing artifact-only inspection of the successful `raw_dialog_tail` cases
+shows that `control_chars=true` is newline-only:
+
+| artifact | shape | raw output | sanitized output | unicode summary | quality | classification |
+| --- | --- | --- | --- | --- | --- | --- |
+| `20260529_213520/raw_dialog_tail_2048` | loose context + script tail | ` こんにちは。\n\n私はNPU長文prefill検証用の日本語自然文です` | `こんにちは。\n\n私はNPU長文prefill検証用の日本語自然文です` | `replacement_char_count=0`, `control_chars=U+000A x2` | `mixed_language` | newline-only control chars; not invalid text |
+| `20260529_220023/raw_dialog_tail_2048` | neutral context + script tail | ` こんにちは。\nこれはNPU長文prefill検証用の日本語自然文です` | `こんにちは。\nこれはNPU長文prefill検証用の日本語自然文です` | `replacement_char_count=0`, `control_chars=U+000A x1` | `mixed_language` | newline-only control chars; not invalid text |
+| `20260529_211227/raw_2048` | manual dialog-tail prompt | ` はい、どういたしまして。何かお手伝いできることはありますか？` | `はい、どういたしまして。何かお手伝いできることはありますか？` | `replacement_char_count=0`, `control_chars=none` | `natural_japanese` | clean comparison output |
+
+The first code points for the two `raw_dialog_tail` rows place `U+000A` after
+the initial greeting punctuation. No other control character appears in the
+artifact summaries. Therefore `control_chars=true` in these rows is not
+evidence of binary corruption or an unsafe character stream. It is a
+line-break formatting signal.
+
+The remaining quality issue should be tracked separately:
+- `mixed_language` likely comes from the output continuing with probe/context
+  text containing ASCII terms such as `NPU` and `prefill`, not from the newline
+  itself;
+- manual dialog-tail produced a direct assistant-style Japanese answer with
+  `control_chars=false`;
+- script `raw_dialog_tail` may need comparison against manual dialog-tail
+  formatting, but before more runtime the safer step is to design a
+  sanitizer/quality-classifier rule that distinguishes harmless newline-only
+  formatting from true control-character degradation.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:

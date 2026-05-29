@@ -247,6 +247,32 @@ Interpretation:
 - this is prompt shaping / output quality evidence, not prefill reachability
   evidence or standard route promotion.
 
+## Raw Dialog Tail Control Character Classification
+
+Existing artifact inspection shows that the `control_chars=true` flag in the
+two script-level `raw_dialog_tail` success cases is caused only by newline
+characters:
+
+| artifact | context | raw/sanitized length | quality | output_contains_control_chars | control chars | replacement chars | output preview |
+| --- | --- | --- | --- | --- | --- | ---: | --- |
+| `20260529_213520/raw_dialog_tail_2048` | loose context | `35/34` | `mixed_language` | `true` | `U+000A x2` | 0 | `こんにちは。\n\n私はNPU長文prefill検証用の日本語自然文です` |
+| `20260529_220023/raw_dialog_tail_2048` | neutral context | `35/34` | `mixed_language` | `true` | `U+000A x1` | 0 | `こんにちは。\nこれはNPU長文prefill検証用の日本語自然文です` |
+| `20260529_211227/raw_2048` | manual dialog-tail prompt | `31/30` | `natural_japanese` | `false` | `none` | 0 | `はい、どういたしまして。何かお手伝いできることはありますか？` |
+
+Interpretation:
+- the observed control character is newline only, not an unexpected binary,
+  escape, null, replacement, or invalid Unicode artifact;
+- newline-only output can be considered a potentially acceptable formatting
+  control character for quality classification;
+- `mixed_language` remains separate from `control_chars=true`: both
+  `raw_dialog_tail` outputs echo ASCII-heavy probe terms such as `NPU`,
+  `prefill`, and the natural prompt text, while the manual dialog-tail output
+  is a direct Japanese assistant response;
+- the next safe work should be a sanitizer/quality-classifier design review
+  before adding runtime. The question is whether newline-only control
+  characters should be downgraded from a quality warning, and whether
+  `mixed_language` should track ASCII probe-term echo separately.
+
 ### simple_ja_chat / gemma_it_like
 
 These remain separate comparisons. Earlier template probes showed echo and

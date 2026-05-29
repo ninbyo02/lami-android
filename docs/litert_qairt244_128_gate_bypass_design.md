@@ -840,6 +840,33 @@ streaming, and preserves fallback/crash visibility. The comparison is useful
 for output-quality classification only: empty output stayed fixed, while
 `mixed_language/control_chars=true` remained unresolved.
 
+### Raw Dialog Tail Control Character Classification
+
+Artifact-only inspection of the raw-dialog-tail success cases shows that the
+control character flag is caused by newline characters only:
+
+| artifact | case | control chars | replacement chars | output_contains_control_chars | quality | sanitized output |
+| --- | --- | --- | ---: | --- | --- | --- |
+| `20260529_213520/raw_dialog_tail_2048` | loose context + script tail | `U+000A x2` | 0 | `true` | `mixed_language` | `こんにちは。\n\n私はNPU長文prefill検証用の日本語自然文です` |
+| `20260529_220023/raw_dialog_tail_2048` | neutral context + script tail | `U+000A x1` | 0 | `true` | `mixed_language` | `こんにちは。\nこれはNPU長文prefill検証用の日本語自然文です` |
+| `20260529_211227/raw_2048` | manual dialog-tail prompt | `none` | 0 | `false` | `natural_japanese` | `はい、どういたしまして。何かお手伝いできることはありますか？` |
+
+This does not change the bypass interpretation. The bypassed hidden receiver
+path reached native/decode, returned non-empty output, and preserved fallback,
+crash, timeout, and side-effect visibility. The control-character finding is
+only an output-quality classification detail.
+
+Follow-up classification:
+- newline-only `U+000A` should be considered separately from harmful control
+  characters such as nulls, escapes, or replacement/invalid Unicode;
+- if the quality classifier keeps a strict `control_chars=true` warning, it
+  may need a subcategory such as newline-only formatting;
+- `mixed_language` remains unresolved even if newline-only control chars are
+  treated as acceptable, because the raw-dialog-tail output still contains
+  probe/context text with ASCII terms;
+- before more runtime, design the sanitizer/quality-classifier distinction and
+  compare manual dialog-tail formatting against script `raw_dialog_tail`.
+
 Earlier bypass validation guidance, retained for the original raw target 128
 phase, was:
 - template: `raw`
