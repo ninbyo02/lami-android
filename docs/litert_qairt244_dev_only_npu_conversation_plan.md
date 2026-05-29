@@ -160,3 +160,15 @@ Static review result:
 Step 3 remains static only. It does not run the NPU, install an APK, or prove
 device UI behavior. Step 4 is still the first real-device one-turn NPU
 conversation test.
+
+Step 3 launch-retention note:
+- initial Activity launch checks showed `Qairt244DevOnlyNpuConversationActivity`
+  could be started with `am start`, but immediately returned to `MainActivity`;
+- dumpsys showed the dev-only Activity as the last paused Activity and logcat
+  did not show a fatal exception;
+- the debug manifest had `android:noHistory="true"` on the dev-only
+  conversation Activity, so the Activity could not remain in the foreground
+  for display-only confirmation;
+- `noHistory` was removed from this debug-only Activity while preserving
+  `excludeFromRecents=true`, `exported=true`, standard route disconnection,
+  non-persistence, and DB/TTS/Markdown/streaming disconnection.
