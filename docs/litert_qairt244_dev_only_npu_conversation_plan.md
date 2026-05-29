@@ -172,3 +172,62 @@ Step 3 launch-retention note:
 - `noHistory` was removed from this debug-only Activity while preserving
   `excludeFromRecents=true`, `exported=true`, standard route disconnection,
   non-persistence, and DB/TTS/Markdown/streaming disconnection.
+
+## Step 4 First Device One-Turn Result
+
+The first dev-only Activity one-turn NPU conversation reached native decode
+after explicit button activation. Source artifact on device:
+
+```text
+files/qairt244_short_multitoken_smoke_result.txt
+```
+
+Observed result:
+
+```text
+result=success
+prompt=こんにちは
+prompt_input_code_points=5
+requested/effective/max_output_tokens=128
+output_bytes=671
+elapsed_ms=4902
+prefill_elapsed_ms=34
+decode_elapsed_ms=3235
+npu_backend=NPU
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+run_decode_reached=true
+fallback_used=false
+timeout=false
+fresh_crash=false
+db=false
+tts=false
+markdown=false
+streaming=false
+conversation_created=no
+generate_response=no
+normal_ui_connected=no
+selected_path_npu_normal_route=no
+selected_path_npu_saved=false
+sanitized_output_length=172
+quality_classification=mixed_language
+output_contains_control_chars=true
+control_chars=U+000A x32
+replacement_char_count=0
+```
+
+Interpretation:
+- explicit dev-only Activity activation can reach NPU decode for a one-turn
+  conversation-shaped prompt;
+- the standard ChatScreen main route remains disconnected;
+- DB, TTS, Markdown, streaming, and Backend.NPU persistence remain
+  disconnected;
+- fallback, crash, and timeout visibility remained explicit;
+- this establishes minimal NPU inference conversation reachability through the
+  dev-only entry.
+
+The result is not a quality or promotion pass. It used max output `128`, which
+produced long, template-like mixed output. `mixed_language` and
+`control_chars=U+000A x32` must be treated as Step 5 safety/quality work, not
+as a reason to promote the route. The next safe checks are to restore or
+explicitly display the intended low max-output cap, and to verify stop, error,
+fallback, timeout, and rerun behavior before any standard route discussion.
