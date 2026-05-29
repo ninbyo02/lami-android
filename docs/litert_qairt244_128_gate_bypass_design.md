@@ -727,7 +727,83 @@ mixed-language/control-character output means this is not a quality baseline;
 the safe next comparison is neutral context plus `raw_dialog_tail`, with the
 "返答してください" instruction pattern removed from the long prompt body.
 
-Run exactly one case:
+### Neutral Context Raw Dialog Tail Bypass-Scope Design
+
+The next comparison should keep the bypass scope exactly unchanged and vary
+only the prompt-file body. The purpose is output quality, not bypass
+validation or prefill boundary expansion.
+
+Fixed axes:
+- `template=raw_dialog_tail`
+- `app_template_mode=raw`
+- `prompt_transport=base64`
+- `unsafe_dev_bypass_prompt_length_gate=true`
+- `max_output_tokens=16`
+- `--only-target 2048`
+- `--limit-cases 1`
+- standard ChatScreen route remains disconnected
+- DB, TTS, Markdown, and streaming remain disconnected
+
+Changed axis:
+- prompt-file body only;
+- remove answer instructions such as "返答してください" and "最後の指示" from
+  the body;
+- keep only neutral context in the file;
+- let the script append the `raw_dialog_tail` conversation suffix:
+
+```text
+ユーザー: こんにちは。
+アシスタント:
+```
+
+Prompt-file candidate:
+
+```text
+/tmp/lami_npu_prompt/ja_neutral_context_3800.txt
+```
+
+Candidate repeated body:
+
+```text
+これはNPU長文prefill検証用の日本語自然文です。
+この文章は文脈長と安定性を確認するための中立的な説明文です。
+回答指示は本文には含めません。
+```
+
+Do not put a final answer instruction in the file. The answer cue should exist
+only in the script-level `raw_dialog_tail` tail.
+
+Required outcome fields:
+- `status`
+- `native` / `decode`
+- `npu_evidence`
+- `fallback` / `fresh_crash` / `timeout`
+- requested/effective max output tokens
+- `raw_len` / `sanitized_len`
+- `quality`
+- `control_chars`
+- `output_first_200_chars`
+- native diag `output_bytes`
+
+Success criteria:
+- `native=true`
+- `decode=true`
+- `npu_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fallback=false`
+- `fresh_crash=false`
+- `timeout=false`
+- `raw_len > 0`
+- `sanitized_len > 0`
+- `quality=natural_japanese`, or at least improved versus the prior
+  `mixed_language/control_chars=true` result
+- `control_chars=false` is preferred
+
+This comparison is not standard route promotion and not a wider bypass. It is
+a single-case prompt-shaping probe to be run only after this design is
+committed.
+
+Earlier bypass validation guidance, retained for the original raw target 128
+phase, was:
 - template: `raw`
 - target: `128`
 - custom natural-language or echo-resistant prompt

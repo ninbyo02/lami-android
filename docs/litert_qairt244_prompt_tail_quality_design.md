@@ -130,6 +130,85 @@ Interpretation:
   observed, it is reachability and non-empty-output evidence, but not yet a
   clean quality baseline.
 
+## Neutral Context Raw Dialog Tail Probe Design
+
+Purpose:
+- improve output quality by removing duplicated answer instructions from the
+  prompt body and tail;
+- compare prompt shaping and output quality only, not prefill reachability or
+  standard route promotion;
+- keep answer induction centralized in the script-provided `raw_dialog_tail`
+  suffix:
+
+```text
+ユーザー: こんにちは。
+アシスタント:
+```
+
+Fixed axes:
+- `template=raw_dialog_tail`
+- `app_template_mode=raw`
+- `prompt_transport=base64`
+- `unsafe_dev_bypass_prompt_length_gate=true`
+- `max_output_tokens=16`
+- `--only-target 2048`
+- `--limit-cases 1`
+- standard ChatScreen route remains disconnected
+- DB, TTS, Markdown, and streaming remain disconnected
+
+Changed axis:
+- only the `prompt_file` body changes;
+- replace the current loose-answer body with neutral long context that removes
+  answer instructions such as "返答してください" and "最後の指示";
+- keep the conversation tail delegated to the `raw_dialog_tail` template.
+
+Prompt-file candidate:
+
+```text
+/tmp/lami_npu_prompt/ja_neutral_context_3800.txt
+```
+
+Body pattern:
+
+```text
+これはNPU長文prefill検証用の日本語自然文です。
+この文章は文脈長と安定性を確認するための中立的な説明文です。
+回答指示は本文には含めません。
+```
+
+Repeat the neutral sentences to the desired length. Do not add a final answer
+instruction at the end of the file.
+
+Required result fields:
+- `status`
+- `native` / `decode`
+- `npu_evidence`
+- `fallback` / `fresh_crash` / `timeout`
+- requested/effective max output tokens
+- `raw_len` / `sanitized_len`
+- `quality`
+- `control_chars`
+- `output_first_200_chars`
+- native diag `output_bytes`
+
+Success criteria:
+- `native=true`
+- `decode=true`
+- `npu_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fallback=false`
+- `fresh_crash=false`
+- `timeout=false`
+- `raw_len > 0`
+- `sanitized_len > 0`
+- `quality=natural_japanese`, or at least an improvement over the prior
+  `mixed_language` result
+- `control_chars=false` is preferred
+
+This comparison remains a dev-only hidden receiver quality probe. It is not
+standard route enablement, not a prefill boundary test, and not permission to
+connect DB, TTS, Markdown, streaming, or persisted backend selection. Execute
+at most one case after this design is committed.
+
 ### simple_ja_chat / gemma_it_like
 
 These remain separate comparisons. Earlier template probes showed echo and

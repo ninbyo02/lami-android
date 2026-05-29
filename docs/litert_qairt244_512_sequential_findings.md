@@ -1307,6 +1307,83 @@ the next safe quality comparison is a neutral-context `raw_dialog_tail` run
 that removes "返答してください"-style instructions from the prompt body while
 holding max output, bypass state, and transport fixed.
 
+### Neutral Context Raw Dialog Tail Comparison Design
+
+This is an output-quality comparison, not a prefill boundary check. The prior
+`20260529_213520` run proved that the script-level `raw_dialog_tail` case can
+avoid empty output, but the prompt-file body still contained answer-inducing
+phrases such as "最後に短く返答してください". That may have duplicated or
+conflicted with the appended dialog tail and contributed to
+`quality=mixed_language` and `control_chars=true`.
+
+Goal:
+- remove body-level answer instructions from the long context;
+- keep the long body as neutral context only;
+- leave answer induction to the appended `raw_dialog_tail` suffix:
+
+```text
+ユーザー: こんにちは。
+アシスタント:
+```
+
+Fixed axes:
+- `template=raw_dialog_tail`
+- `app_template_mode=raw`
+- `prompt_transport=base64`
+- `unsafe_dev_bypass_prompt_length_gate=true`
+- `max_output_tokens=16`
+- `--only-target 2048`
+- `--limit-cases 1`
+- standard route remains disconnected
+- DB, TTS, Markdown, and streaming remain disconnected
+
+Changed axis:
+- only the prompt-file body changes;
+- derive the new body from the current `ja_quality_loose_answer_3800.txt`
+  class, but remove "返答してください", "最後の指示", and similar answer
+  instructions;
+- do not modify script, Kotlin, native code, sanitizer behavior, or max output.
+
+Prompt-file candidate:
+
+```text
+/tmp/lami_npu_prompt/ja_neutral_context_3800.txt
+```
+
+Candidate repeated body:
+
+```text
+これはNPU長文prefill検証用の日本語自然文です。
+この文章は文脈長と安定性を確認するための中立的な説明文です。
+回答指示は本文には含めません。
+```
+
+Do not append a final instruction to the file. The conversation tail must come
+from `raw_dialog_tail`.
+
+Record and compare:
+- `status`
+- `native` / `decode`
+- `npu_evidence`
+- `fallback` / `fresh_crash` / `timeout`
+- requested/effective max output tokens
+- `raw_len` / `sanitized_len`
+- `quality`
+- `control_chars`
+- `output_first_200_chars`
+- native diag `output_bytes`
+
+Success means native/decode remain true with
+`QNN_HTP_V79_FastRPC_native_diag`, no fallback, no fresh crash, no timeout, and
+non-empty raw and sanitized output. The target quality result is
+`natural_japanese`; a measurable improvement over the prior
+`mixed_language/control_chars=true` result is still useful. `control_chars=false`
+is preferred.
+
+This design does not change the 512/prefill interpretation. It is a prompt
+shaping and output-quality probe, and the runtime follow-up should be exactly
+one case after the design commit.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
