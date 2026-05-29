@@ -129,10 +129,16 @@ class DevOnlyNpuOneTurnConversationEntryTest {
                 "sanitized_output_length" to "6",
                 "raw_native_output" to " こんにちは。",
                 "raw_native_output_length" to "7",
+                "output_first_200_chars" to "こんにちは。",
                 "max_output_tokens" to "16",
                 "native_max_output_tokens_limit" to "512",
                 "quality_classification" to "natural_japanese",
                 "output_unicode_summary" to "control_chars=none;replacement_char_count=0",
+                "sanitizer_applied" to "false",
+                "removed_template_token_count" to "0",
+                "removed_prompt_echo" to "false",
+                "replacement_char_count" to "0",
+                "output_contains_control_chars" to "false",
             ),
         )
 
@@ -148,6 +154,13 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(display.text.contains("fallback_used=false"))
         assertTrue(display.text.contains("timeout=false"))
         assertTrue(display.text.contains("fresh_crash=false"))
+        assertTrue(display.text.contains("raw_output_first_200_chars=こんにちは。"))
+        assertTrue(display.text.contains("raw_unicode_summary=control_chars=none;replacement_char_count=0"))
+        assertTrue(display.text.contains("sanitizer_applied=false"))
+        assertTrue(display.text.contains("removed_template_token_count=0"))
+        assertTrue(display.text.contains("removed_prompt_echo=false"))
+        assertTrue(display.text.contains("replacement_char_count=0"))
+        assertTrue(display.text.contains("output_contains_control_chars=false"))
         assertTrue(display.text.contains("standard_route_connected=false"))
         assertTrue(display.text.contains("route_type=dev_only_one_turn_conversation"))
         assertTrue(display.text.contains("backend_npu_persisted=false"))
@@ -185,6 +198,13 @@ class DevOnlyNpuOneTurnConversationEntryTest {
                 "native_max_output_tokens_limit" to "512",
                 "quality_classification" to "natural_japanese",
                 "output_unicode_summary" to "control_chars=U+000A x1;replacement_char_count=0",
+                "output_first_200_chars" to "こんにちは。\n短い応答です。",
+                "output_last_200_chars" to "こんにちは。\n短い応答です。",
+                "sanitizer_applied" to "false",
+                "removed_template_token_count" to "0",
+                "removed_prompt_echo" to "false",
+                "replacement_char_count" to "0",
+                "output_contains_control_chars" to "true",
             ),
         )
 
@@ -206,6 +226,16 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(text.contains("fallback_used=false"))
         assertTrue(text.contains("timeout=false"))
         assertTrue(text.contains("fresh_crash=false"))
+        assertTrue(text.contains("raw_len=12"))
+        assertTrue(text.contains("sanitized_len=12"))
+        assertTrue(text.contains("raw_output_first_200_chars=こんにちは。\\n短い応答です。"))
+        assertTrue(text.contains("raw_output_last_200_chars=こんにちは。\\n短い応答です。"))
+        assertTrue(text.contains("raw_unicode_summary=control_chars=U+000A x1;replacement_char_count=0"))
+        assertTrue(text.contains("sanitizer_applied=false"))
+        assertTrue(text.contains("removed_template_token_count=0"))
+        assertTrue(text.contains("removed_prompt_echo=false"))
+        assertTrue(text.contains("replacement_char_count=0"))
+        assertTrue(text.contains("output_contains_control_chars=true"))
         assertTrue(text.contains("standard_route_connected=false"))
         assertTrue(text.contains("backend_npu_persisted=false"))
         assertTrue(text.contains("db=false"))

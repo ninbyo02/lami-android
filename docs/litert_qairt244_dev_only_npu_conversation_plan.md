@@ -393,3 +393,23 @@ Step 5 Activity auto-run fallback:
   disconnected side-effect contract when possible;
 - this remains debug-only and does not connect the standard ChatScreen route,
   Backend.NPU persistence, DB, TTS, Markdown, or streaming.
+
+Step 5 empty-after-sanitize diagnostic:
+- the auto-run path reached native NPU decode with `native=true`,
+  `decode=true`, `fallback=false`, `fresh_crash=false`, and `timeout=false`,
+  but returned `reason=empty_after_sanitize`;
+- this means the native result was successful and non-empty before adapter
+  sanitization, but the sanitizer returned an empty display string;
+- the likely causes are prompt/tail echo removal, template/role-line removal,
+  leading non-Japanese drift removal, or duplicate assistant line removal;
+- the existing dedicated Activity result file only preserved
+  `sanitized_output`, so a non-zero raw length such as `raw_len=59` could not
+  be explained from that file alone;
+- the dedicated result contract now mirrors the key raw/sanitizer diagnostics:
+  `raw_len`, `sanitized_len`, `raw_output_first_200_chars`,
+  `raw_output_last_200_chars`, `raw_unicode_summary`, `sanitizer_applied`,
+  `removed_template_token_count`, `removed_prompt_echo`,
+  `replacement_char_count`, and `output_contains_control_chars`;
+- NPU reachability remains a pass. `empty_after_sanitize` should be treated as
+  a quality/diagnostic failure for the dev-only path, not as a fallback,
+  crash, timeout, or standard route promotion blocker by itself.

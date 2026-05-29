@@ -43,6 +43,14 @@ data class DevOnlyNpuOneTurnConversationDisplay(
     val sanitizedLen: Int,
     val quality: String,
     val controlCharSummary: String,
+    val rawOutputFirst200Chars: String,
+    val rawOutputLast200Chars: String,
+    val rawUnicodeSummary: String,
+    val sanitizerApplied: String,
+    val removedTemplateTokenCount: String,
+    val removedPromptEcho: String,
+    val replacementCharCount: String,
+    val outputContainsControlChars: String,
 )
 
 object DevOnlyNpuOneTurnConversationContract {
@@ -114,6 +122,12 @@ object DevOnlyNpuOneTurnConversationContract {
         }
         val sanitizedLen = values["sanitized_output_length"]?.toIntOrNull() ?: sanitizedOutput.length
         val rawLen = values["raw_native_output_length"]?.toIntOrNull() ?: rawOutput.length
+        val rawOutputFirst200Chars = values["output_first_200_chars"].orEmpty().ifBlank {
+            rawOutput.take(200)
+        }
+        val rawOutputLast200Chars = values["output_last_200_chars"].orEmpty().ifBlank {
+            rawOutput.takeLast(200)
+        }
         val npuEvidence = result.backendEvidence.orEmpty().ifBlank {
             values["npu_backend_evidence"].orEmpty()
         }
@@ -124,13 +138,19 @@ object DevOnlyNpuOneTurnConversationContract {
         } ?: false
         val nativeReached = npuEvidence.isNotBlank() || decodeReached || engineInitializeReached
         val quality = values["quality_classification"].orEmpty().ifBlank { "unknown" }
-        val controlSummary = values["output_unicode_summary"].orEmpty()
+        val rawUnicodeSummary = values["output_unicode_summary"].orEmpty()
+        val controlSummary = rawUnicodeSummary
             .substringAfter("control_chars=", "control_chars=unknown")
             .substringBefore(";")
         val fallback = values["fallback_used"]?.toBooleanStrictOrNull() ?: false
         val requestedMaxOutputTokens = result.maxOutputTokens
         val effectiveMaxOutputTokens = values["max_output_tokens"]?.toIntOrNull() ?: result.maxOutputTokens
         val nativeMaxOutputTokensLimit = values["native_max_output_tokens_limit"].orEmpty().ifBlank { "-" }
+        val sanitizerApplied = values["sanitizer_applied"].orEmpty().ifBlank { "unknown" }
+        val removedTemplateTokenCount = values["removed_template_token_count"].orEmpty().ifBlank { "unknown" }
+        val removedPromptEcho = values["removed_prompt_echo"].orEmpty().ifBlank { "unknown" }
+        val replacementCharCount = values["replacement_char_count"].orEmpty().ifBlank { "unknown" }
+        val outputContainsControlChars = values["output_contains_control_chars"].orEmpty().ifBlank { "unknown" }
         val status = if (result.success) "success" else "failure"
         val lines = listOf(
             "DEV ONLY NPU ONE TURN",
@@ -154,6 +174,13 @@ object DevOnlyNpuOneTurnConversationContract {
             "sanitized_len=$sanitizedLen",
             "quality=$quality",
             "control_chars=$controlSummary",
+            "raw_output_first_200_chars=$rawOutputFirst200Chars",
+            "raw_unicode_summary=$rawUnicodeSummary",
+            "sanitizer_applied=$sanitizerApplied",
+            "removed_template_token_count=$removedTemplateTokenCount",
+            "removed_prompt_echo=$removedPromptEcho",
+            "replacement_char_count=$replacementCharCount",
+            "output_contains_control_chars=$outputContainsControlChars",
         ).plus(safetyLines(safety))
         return DevOnlyNpuOneTurnConversationDisplay(
             text = lines.joinToString("\n"),
@@ -173,6 +200,14 @@ object DevOnlyNpuOneTurnConversationContract {
             sanitizedLen = sanitizedLen,
             quality = quality,
             controlCharSummary = controlSummary,
+            rawOutputFirst200Chars = rawOutputFirst200Chars,
+            rawOutputLast200Chars = rawOutputLast200Chars,
+            rawUnicodeSummary = rawUnicodeSummary,
+            sanitizerApplied = sanitizerApplied,
+            removedTemplateTokenCount = removedTemplateTokenCount,
+            removedPromptEcho = removedPromptEcho,
+            replacementCharCount = replacementCharCount,
+            outputContainsControlChars = outputContainsControlChars,
         )
     }
 
@@ -197,6 +232,16 @@ object DevOnlyNpuOneTurnConversationContract {
             "fallback_used=${display.fallback}",
             "timeout=${display.timeout}",
             "fresh_crash=${display.freshCrash}",
+            "raw_len=${display.rawLen}",
+            "sanitized_len=${display.sanitizedLen}",
+            "raw_output_first_200_chars=${escapeResultValue(display.rawOutputFirst200Chars)}",
+            "raw_output_last_200_chars=${escapeResultValue(display.rawOutputLast200Chars)}",
+            "raw_unicode_summary=${escapeResultValue(display.rawUnicodeSummary)}",
+            "sanitizer_applied=${display.sanitizerApplied}",
+            "removed_template_token_count=${display.removedTemplateTokenCount}",
+            "removed_prompt_echo=${display.removedPromptEcho}",
+            "replacement_char_count=${display.replacementCharCount}",
+            "output_contains_control_chars=${display.outputContainsControlChars}",
         ).plus(safetyLines(safety)).plus(
             listOf(
                 "sanitized_output=${escapeResultValue(display.output)}",
