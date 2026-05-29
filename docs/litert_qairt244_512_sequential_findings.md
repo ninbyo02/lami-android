@@ -1178,6 +1178,7 @@ requested/effective max output tokens `16/16`.
 | `20260529_205044` | strict short-answer prompt-file | 2048 | `3754/3754` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | 16/16 | raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
 | `20260529_205211` | loose greeting prompt-file | 2048 | `4104/4104` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | 16/16 | output_bytes 0 / raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
 | `20260529_211227` | dialog-tail prompt-file | 2048 | `4422/4422` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | 16/16 | raw 31 / sanitized 30 | natural_japanese | dialog continuation tail restored output |
+| `20260529_213520` | raw-dialog-tail case label | 2048 | `4126/4126` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | 16/16 | raw 35 / sanitized 34 | mixed_language | script-level raw_dialog_tail avoids empty output, but quality/control chars still need work |
 
 This matrix separates reachability from output quality. Raw generated filler
 reaches NPU decode through `final_input_chars_approx=4096`, and a Japanese
@@ -1201,6 +1202,7 @@ executed for this classification.
 | `20260529_205044/raw_2048` | strict short-answer 3754 empty | repeated context plus final instruction: "日本語で「こんにちは」と一言だけ返答してください。" | 3754 | actual/prompt 9934 | true | `SetMaxOutputTokens(16)` | candidates 1, bytes 0 | prefill 205 ms, decode 22 ms | raw 0, sanitized 0, empty_output | receiver stop empty_after_sanitize | decode succeeds but native output is empty |
 | `20260529_205211/raw_2048` | loose greeting 4104 empty | repeated natural sentence plus final instruction: "日本語で短く挨拶してください。" | 4104 | actual/prompt 10544 | true | `SetMaxOutputTokens(16)` | candidates 1, bytes 0 | prefill 322 ms, decode 22 ms | raw 0, sanitized 0, empty_output | receiver stop empty_after_sanitize | decode succeeds but native output is empty |
 | `20260529_211227/raw_2048` | dialog-tail 4422 success | conversation continuation tail: "ユーザー: こんにちは。" then "アシスタント:" | 4422 | not re-extracted | true | `SetMaxOutputTokens(16)` | not re-extracted | not re-extracted | raw 31, sanitized 30, natural_japanese | reason success | prompt-tail change restores non-empty output |
+| `20260529_213520/raw_dialog_tail_2048` | raw-dialog-tail case label success | script appends raw dialog tail to loose greeting prompt-file | 4126 | not re-extracted | true | `SetMaxOutputTokens(16)` | not re-extracted | not re-extracted | raw 35, sanitized 34, mixed_language, control chars true | reason success | dev-only case label avoids empty output; quality is not yet clean |
 
 The common path across all four cases is successful prompt validation,
 effective native prompt-length bypass, prefill, and RunDecode with
@@ -1269,6 +1271,41 @@ empty output to `natural_japanese` success with max output still fixed at `16`.
 Long prefill length itself is therefore unlikely to be the primary cause of
 the empty-output cases. Standard-route promotion should not use raw string
 injection directly; template and tail design need separate treatment.
+
+The script-level `raw_dialog_tail` case label was then run against the loose
+greeting prompt-file without connecting a new app-facing template:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_213520/summary.md
+template=raw_dialog_tail
+app_template_mode=raw
+prompt_tail_mode=raw_dialog_tail
+prompt_file=/tmp/lami_npu_prompt/ja_quality_loose_answer_3800.txt
+prompt_chars=4126
+final_input_chars_approx=4126
+prompt_transport=base64
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=35
+sanitized_len=34
+quality=mixed_language
+control_chars=true
+```
+
+This is additional dev-only hidden receiver evidence that raw-dialog-tail
+prompt shaping can avoid empty output near 4096 input while preserving NPU
+decode and fallback visibility. It is not standard ChatScreen routing, not
+DB/TTS/Markdown/streaming integration, and not a new Kotlin/native route. The
+quality result is weaker than the earlier dialog-tail prompt-file success, so
+the next safe quality comparison is a neutral-context `raw_dialog_tail` run
+that removes "返答してください"-style instructions from the prompt body while
+holding max output, bypass state, and transport fixed.
 
 ## Runtime Classification Plan
 

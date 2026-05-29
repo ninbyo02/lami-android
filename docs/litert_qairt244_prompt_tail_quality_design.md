@@ -19,6 +19,7 @@ condition:
 | strict short-answer prompt-file | `prompt_chars=3754` and `5614` | decode reached, `output_bytes=0` |
 | loose greeting prompt-file | `prompt_chars=4104`, max output `16` and `32` | decode reached, `output_bytes=0` |
 | dialog-tail prompt-file | `prompt_chars=4422`, tail `ユーザー: こんにちは。\nアシスタント:` | success, `natural_japanese` |
+| raw-dialog-tail case label | `prompt_chars=4126`, app template mode `raw` | success, `mixed_language`, control chars observed |
 
 The empty-output cases are therefore not NPU reachability failures. They are
 prompt/output quality behavior after successful native decode.
@@ -93,6 +94,42 @@ This template is for output-quality comparison after long-input reachability
 has already been demonstrated. It is not new evidence by itself for 4096
 prefill reachability.
 
+Runtime result recorded after this template was added:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_213520/summary.md
+template=raw_dialog_tail
+app_template_mode=raw
+prompt_tail_mode=raw_dialog_tail
+prompt_file=/tmp/lami_npu_prompt/ja_quality_loose_answer_3800.txt
+prompt_chars=4126
+final_input_chars_approx=4126
+prompt_transport=base64
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=35
+sanitized_len=34
+quality=mixed_language
+control_chars=true
+```
+
+Interpretation:
+- the script-level `raw_dialog_tail` dev-only template candidate can reach NPU
+  decode and avoid empty output;
+- the app-facing template mode remains `raw`, so this does not add a
+  standard ChatScreen template or route;
+- DB, TTS, Markdown, streaming, and persisted backend selection remain
+  disconnected;
+- because the result is `quality=mixed_language` with control characters
+  observed, it is reachability and non-empty-output evidence, but not yet a
+  clean quality baseline.
+
 ### simple_ja_chat / gemma_it_like
 
 These remain separate comparisons. Earlier template probes showed echo and
@@ -136,4 +173,7 @@ diagnostic artifact collection.
 Treat `raw_dialog_tail` as the preferred dev-only quality baseline. Keep
 closed short-answer tails as known-risk cases for empty native output. Keep
 512 sequential/prefill boundary conclusions separate from output quality
-conclusions.
+conclusions. The next safe comparison is a neutral-context
+`raw_dialog_tail` prompt-file run that removes "返答してください"-style
+instructions from the body while keeping template, bypass state, transport,
+and max output fixed.

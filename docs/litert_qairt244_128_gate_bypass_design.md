@@ -607,6 +607,7 @@ requested/effective max output tokens `16/16`.
 | `20260529_205044` | strict short-answer prompt-file | 2048 | `3754/3754` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
 | `20260529_205211` | loose greeting prompt-file | 2048 | `4104/4104` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | output_bytes 0 / raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
 | `20260529_211227` | dialog-tail prompt-file | 2048 | `4422/4422` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 31 / sanitized 30 | natural_japanese | dialog continuation tail restored output |
+| `20260529_213520` | raw-dialog-tail case label | 2048 | `4126/4126` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 35 / sanitized 34 | mixed_language | dev-only case label avoids empty output, but quality/control chars still need work |
 
 The matrix confirms that generated filler reaches NPU decode through
 `final_input_chars_approx=4096`, and natural Japanese prompt-file input also
@@ -628,6 +629,7 @@ output bytes:
 | `20260529_205044/raw_2048` | strict short-answer empty | final instruction asks for exactly "こんにちは" | 3754 / 9934 | 16 | candidates 1, bytes 0 | prefill 205 ms, decode 22 ms | raw 0, sanitized 0, empty_output | decode succeeds but output is empty |
 | `20260529_205211/raw_2048` | loose greeting empty | final instruction asks for a short Japanese greeting | 4104 / 10544 | 16 | candidates 1, bytes 0 | prefill 322 ms, decode 22 ms | raw 0, sanitized 0, empty_output | decode succeeds but output is empty |
 | `20260529_211227/raw_2048` | dialog-tail success | tail uses "ユーザー: こんにちは。" followed by "アシスタント:" | 4422 / not re-extracted | 16 | not re-extracted | not re-extracted | raw 31, sanitized 30, natural_japanese | prompt-tail change restores output |
+| `20260529_213520/raw_dialog_tail_2048` | raw-dialog-tail case label success | script appends raw dialog tail to loose greeting prompt-file | 4126 / not re-extracted | 16 | not re-extracted | not re-extracted | raw 35, sanitized 34, mixed_language, control chars true | dev-only case label avoids empty output; quality is not yet clean |
 
 All four cases have prompt validation `ok`, native length-gate bypass
 effective, and `SetMaxOutputTokens(16)`. The failures are therefore not 128
@@ -688,6 +690,42 @@ This confirms the empty-output behavior is sensitive to prompt tail shape:
 dialog continuation (`ユーザー: ...` / `アシスタント:`) recovers output without
 changing max output, bypass state, or template. Treat this as prompt shaping
 and template design work, not as a prefill reachability problem.
+
+The script-level `raw_dialog_tail` case label was also verified through the
+same bypassed hidden receiver path:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_213520/summary.md
+template=raw_dialog_tail
+app_template_mode=raw
+prompt_tail_mode=raw_dialog_tail
+prompt_file=/tmp/lami_npu_prompt/ja_quality_loose_answer_3800.txt
+prompt_chars=4126
+final_input_chars_approx=4126
+prompt_transport=base64
+unsafe_dev_bypass_prompt_length_gate_requested=true
+unsafe_dev_bypass_prompt_length_gate_effective=true
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=35
+sanitized_len=34
+quality=mixed_language
+control_chars=true
+```
+
+This confirms that the dev-only case label can pass through the bypassed
+hidden receiver path and avoid empty output. It does not expand bypass scope:
+the app-facing template mode remains `raw`, and standard ChatScreen, DB, TTS,
+Markdown, streaming, and persisted backend selection remain disconnected. The
+mixed-language/control-character output means this is not a quality baseline;
+the safe next comparison is neutral context plus `raw_dialog_tail`, with the
+"返答してください" instruction pattern removed from the long prompt body.
 
 Run exactly one case:
 - template: `raw`
