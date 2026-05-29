@@ -104,7 +104,7 @@ true:
 
 ## Step 2 Minimal Implementation Shape
 
-When implementation is approved later, keep the first change narrow:
+The first implementation should stay narrow:
 - add a debug-only one-turn NPU entry point;
 - accept one user prompt and optional neutral context;
 - always build the final input with `raw_dialog_tail`;
@@ -119,3 +119,23 @@ When implementation is approved later, keep the first change narrow:
 Implementation should follow docs first, classifier design second, tests
 third, and dev-only display/reporting changes last. Runtime testing belongs
 after the implementation is reviewed and built in a separate step.
+
+Step 2 implementation notes:
+- code location: `app/src/debug/java/io/github/ninbyo02/lami/npu/` and
+  `app/src/debug/java/io/github/ninbyo02/lami/ui/screens/home/`;
+- entry contract: `DevOnlyNpuOneTurnConversationEntry`;
+- UI shell: `Qairt244DevOnlyNpuConversationActivity`;
+- Activity registration is debug-source-set only in `app/src/debug/AndroidManifest.xml`;
+- fixed template: `raw_dialog_tail`;
+- app-facing template mode: `raw`;
+- prompt transport policy: base64 encode/decode before entering the adapter;
+- max output tokens: `16`;
+- unsafe prompt-length bypass: explicit dev-only request flag;
+- diagnostics include `standard_route_connected=false`,
+  `backend_npu_persisted=false`, `db=false`, `tts=false`, `markdown=false`,
+  and `streaming=false`.
+
+Step 2 is not Step 3 or Step 4. It does not prove on-screen behavior on a
+device, does not run runtime probes, and does not install an APK. Step 3 must
+confirm display-only behavior before Step 4 runs a real-device one-turn NPU
+conversation test.

@@ -67,6 +67,23 @@ class Qairt244DevOnlyNpuRouteAdapter(
         templateMode = HiddenQairt244PromptTemplateMode.RAW,
     )
 
+    suspend fun runDevOnlyConversationOnce(
+        prompt: String,
+        maxOutputTokens: Int,
+        timeoutMs: Long,
+    ): DevOnlyNpuRouteResult = runRoute(
+        requestedPrompt = prompt,
+        maxOutputTokens = maxOutputTokens,
+        timeoutMs = timeoutMs,
+        promptSource = PROMPT_SOURCE_DEV_ONLY_CONVERSATION,
+        validation = promptLengthGateBypassedValidation(
+            validation = NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt),
+        ),
+        allowMaxOutputTokenRange = true,
+        expectedModelBasename = REQUIRED_MODEL_BASENAME,
+        templateMode = HiddenQairt244PromptTemplateMode.RAW,
+    )
+
     private suspend fun runRoute(
         requestedPrompt: String,
         maxOutputTokens: Int,
@@ -832,6 +849,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         const val ROUTE_MARKER = "qairt244_chat_screen_real_npu_adapter_v1"
         const val PROMPT_SOURCE_CHAT_SCREEN = "chat_screen"
         const val PROMPT_SOURCE_INTERNAL_INTENT = "internal_intent"
+        const val PROMPT_SOURCE_DEV_ONLY_CONVERSATION = "dev_only_conversation"
         const val REQUIRED_MODEL_BASENAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
         private const val RESULT_FILE_NAME = "qairt244_short_multitoken_smoke_result.txt"
         private const val NATIVE_DIAG_FILE_NAME = "qairt244_native_diag.txt"
@@ -849,6 +867,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
         fun routeType(promptSource: String): String =
             if (promptSource == PROMPT_SOURCE_CHAT_SCREEN) {
                 "standard_hidden_chat_screen"
+            } else if (promptSource == PROMPT_SOURCE_DEV_ONLY_CONVERSATION) {
+                "dev_only_one_turn_conversation"
             } else {
                 "internal_intent"
             }
