@@ -413,3 +413,22 @@ Step 5 empty-after-sanitize diagnostic:
 - NPU reachability remains a pass. `empty_after_sanitize` should be treated as
   a quality/diagnostic failure for the dev-only path, not as a fallback,
   crash, timeout, or standard route promotion blocker by itself.
+
+Step 5 Japanese-only tail shaping:
+- the next auto-run observation showed the raw NPU output was Hindi:
+  `नमस्कार! कैसे हैं आप? मैं आपकी किस तरह से मदद कर सकता हूँ?`;
+- `native=true`, `decode=true`, `run_decode_reached=true`, NPU evidence,
+  no fallback, no crash, and no timeout still confirm reachability;
+- `empty_after_sanitize` in this case is a prompt/output-language quality
+  failure, not a reason to relax the sanitizer;
+- keep `raw_dialog_tail` and `max_output_tokens=16`, but strengthen only the
+  tail with a short Japanese-only instruction:
+
+```text
+必ず日本語だけで短く返答してください。
+ユーザー: <prompt>
+アシスタント:
+```
+
+- this remains debug-only and does not connect the standard ChatScreen route,
+  Backend.NPU persistence, DB, TTS, Markdown, or streaming.

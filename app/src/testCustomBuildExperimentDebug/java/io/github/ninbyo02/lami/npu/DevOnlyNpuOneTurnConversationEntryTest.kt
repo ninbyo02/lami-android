@@ -13,9 +13,10 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             userPrompt = "こんにちは。",
         )
 
+        assertTrue(formatted.contains("必ず日本語だけで短く返答してください。"))
         assertTrue(formatted.contains("ユーザー: こんにちは。"))
         assertTrue(formatted.endsWith("アシスタント:"))
-        assertTrue(formatted.contains("\n\nユーザー:"))
+        assertTrue(formatted.contains("\n\n必ず日本語だけで短く返答してください。\nユーザー:"))
     }
 
     @Test
@@ -32,6 +33,10 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertEquals("raw", safety.appTemplateMode)
         assertEquals("raw_dialog_tail", safety.template)
         assertEquals("base64", safety.promptTransport)
+        assertEquals(
+            "必ず日本語だけで短く返答してください。",
+            DevOnlyNpuOneTurnConversationContract.JAPANESE_ONLY_TAIL_INSTRUCTION,
+        )
         assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("route_type=dev_only_one_turn_conversation"))
     }
 

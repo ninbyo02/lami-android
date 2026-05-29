@@ -69,6 +69,7 @@ object DevOnlyNpuOneTurnConversationContract {
     const val MAX_OUTPUT_TOKENS = 16
     const val TIMEOUT_MS = 60_000L
     const val INITIAL_DISPLAY_TEXT = "DEV ONLY NPU ONE TURN\nstatus=idle\nadapter_execution=manual_trigger_only"
+    const val JAPANESE_ONLY_TAIL_INSTRUCTION = "必ず日本語だけで短く返答してください。"
 
     fun safety(): DevOnlyNpuOneTurnConversationSafety = DevOnlyNpuOneTurnConversationSafety()
 
@@ -91,7 +92,7 @@ object DevOnlyNpuOneTurnConversationContract {
         } else {
             "$normalizedContext\n\n"
         }
-        return "${head}ユーザー: $normalizedUserPrompt\nアシスタント:"
+        return "$head$JAPANESE_ONLY_TAIL_INSTRUCTION\nユーザー: $normalizedUserPrompt\nアシスタント:"
     }
 
     fun safetyLines(safety: DevOnlyNpuOneTurnConversationSafety = safety()): List<String> = listOf(
