@@ -20,6 +20,7 @@ condition:
 | loose greeting prompt-file | `prompt_chars=4104`, max output `16` and `32` | decode reached, `output_bytes=0` |
 | dialog-tail prompt-file | `prompt_chars=4422`, tail `ユーザー: こんにちは。\nアシスタント:` | success, `natural_japanese` |
 | raw-dialog-tail case label | `prompt_chars=4126`, app template mode `raw` | success, `mixed_language`, control chars observed |
+| neutral-context raw-dialog-tail | `prompt_chars=5272`, app template mode `raw` | success, `mixed_language`, control chars observed |
 
 The empty-output cases are therefore not NPU reachability failures. They are
 prompt/output quality behavior after successful native decode.
@@ -209,6 +210,43 @@ standard route enablement, not a prefill boundary test, and not permission to
 connect DB, TTS, Markdown, streaming, or persisted backend selection. Execute
 at most one case after this design is committed.
 
+Runtime result:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_220023/summary.md
+template=raw_dialog_tail
+app_template_mode=raw
+prompt_tail_mode=raw_dialog_tail
+prompt_file=/tmp/lami_npu_prompt/ja_neutral_context_3800.txt
+prompt_chars=5272
+final_input_chars_approx=5272
+prompt_transport=base64
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=35
+sanitized_len=34
+quality=mixed_language
+control_chars=true
+native_diag output_bytes=81
+output_first_200_chars=こんにちは。\nこれはNPU長文prefill検証用の日本語自然文です
+```
+
+Interpretation:
+- neutral context plus `raw_dialog_tail` still avoids empty output;
+- removing "返答してください"-style body instructions does not prevent output;
+- the result supports the hypothesis that the dialog tail is the key
+  empty-output recovery axis in this family;
+- quality is still not clean because `mixed_language` and control characters
+  remain;
+- this is prompt shaping / output quality evidence, not prefill reachability
+  evidence or standard route promotion.
+
 ### simple_ja_chat / gemma_it_like
 
 These remain separate comparisons. Earlier template probes showed echo and
@@ -252,7 +290,6 @@ diagnostic artifact collection.
 Treat `raw_dialog_tail` as the preferred dev-only quality baseline. Keep
 closed short-answer tails as known-risk cases for empty native output. Keep
 512 sequential/prefill boundary conclusions separate from output quality
-conclusions. The next safe comparison is a neutral-context
-`raw_dialog_tail` prompt-file run that removes "返答してください"-style
-instructions from the body while keeping template, bypass state, transport,
-and max output fixed.
+conclusions. The neutral-context `raw_dialog_tail` run confirms non-empty
+output without body-level answer instructions, but quality still needs a
+separate prompt-shaping or sanitizer-classification follow-up.

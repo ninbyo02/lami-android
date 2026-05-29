@@ -1179,6 +1179,7 @@ requested/effective max output tokens `16/16`.
 | `20260529_205211` | loose greeting prompt-file | 2048 | `4104/4104` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | 16/16 | output_bytes 0 / raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
 | `20260529_211227` | dialog-tail prompt-file | 2048 | `4422/4422` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | 16/16 | raw 31 / sanitized 30 | natural_japanese | dialog continuation tail restored output |
 | `20260529_213520` | raw-dialog-tail case label | 2048 | `4126/4126` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | 16/16 | raw 35 / sanitized 34 | mixed_language | script-level raw_dialog_tail avoids empty output, but quality/control chars still need work |
+| `20260529_220023` | neutral-context raw-dialog-tail | 2048 | `5272/5272` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | 16/16 | raw 35 / sanitized 34 | mixed_language | neutral body still avoids empty output, but quality/control chars remain |
 
 This matrix separates reachability from output quality. Raw generated filler
 reaches NPU decode through `final_input_chars_approx=4096`, and a Japanese
@@ -1203,12 +1204,14 @@ executed for this classification.
 | `20260529_205211/raw_2048` | loose greeting 4104 empty | repeated natural sentence plus final instruction: "日本語で短く挨拶してください。" | 4104 | actual/prompt 10544 | true | `SetMaxOutputTokens(16)` | candidates 1, bytes 0 | prefill 322 ms, decode 22 ms | raw 0, sanitized 0, empty_output | receiver stop empty_after_sanitize | decode succeeds but native output is empty |
 | `20260529_211227/raw_2048` | dialog-tail 4422 success | conversation continuation tail: "ユーザー: こんにちは。" then "アシスタント:" | 4422 | not re-extracted | true | `SetMaxOutputTokens(16)` | not re-extracted | not re-extracted | raw 31, sanitized 30, natural_japanese | reason success | prompt-tail change restores non-empty output |
 | `20260529_213520/raw_dialog_tail_2048` | raw-dialog-tail case label success | script appends raw dialog tail to loose greeting prompt-file | 4126 | not re-extracted | true | `SetMaxOutputTokens(16)` | not re-extracted | not re-extracted | raw 35, sanitized 34, mixed_language, control chars true | reason success | dev-only case label avoids empty output; quality is not yet clean |
+| `20260529_220023/raw_dialog_tail_2048` | neutral-context raw-dialog-tail success | script appends raw dialog tail to neutral context prompt-file | 5272 | not re-extracted | true | `SetMaxOutputTokens(16)` | candidates 1, bytes 81 | prefill 490 ms, decode 362 ms | raw 35, sanitized 34, mixed_language, control chars true | reason success | body instructions removed; empty output stays fixed but quality remains mixed |
 
-The common path across all four cases is successful prompt validation,
+The common path across these cases is successful prompt validation,
 effective native prompt-length bypass, prefill, and RunDecode with
-`SetMaxOutputTokens(16)`. The split is after decode: the two successful cases
-return non-empty native output bytes, while the strict/loose short-answer
-prompt tails return `output_candidates=1` with `output_bytes=0`. That makes the
+`SetMaxOutputTokens(16)`. The split is after decode: the dialog-tail and
+raw-dialog-tail cases return non-empty native output bytes, while the
+strict/loose short-answer prompt tails return `output_candidates=1` with
+`output_bytes=0`. That makes the
 likely variables prompt-tail shape, repeated prompt structure, stop/eos
 behavior, and the low max-output cap rather than NPU reachability or a 512
 sequential/prefill boundary. The next runtime comparison should be one case
@@ -1383,6 +1386,40 @@ is preferred.
 This design does not change the 512/prefill interpretation. It is a prompt
 shaping and output-quality probe, and the runtime follow-up should be exactly
 one case after the design commit.
+
+The neutral-context follow-up was then run as exactly one case:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_220023/summary.md
+command=scripts/run_npu_512_sequence_probe.sh --execute --device 192.168.52.52:34437 --timeout 60 --max-output-tokens 16 --prompt-file /tmp/lami_npu_prompt/ja_neutral_context_3800.txt --only-template raw_dialog_tail --only-target 2048 --unsafe-dev-bypass-prompt-length-gate --limit-cases 1
+template=raw_dialog_tail
+app_template_mode=raw
+prompt_tail_mode=raw_dialog_tail
+prompt_chars=5272
+final_input_chars_approx=5272
+prompt_transport=base64
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=35
+sanitized_len=34
+quality=mixed_language
+control_chars=true
+native_diag output_bytes=81
+output_first_200_chars=こんにちは。\nこれはNPU長文prefill検証用の日本語自然文です
+```
+
+Interpretation: removing body-level answer instructions did not regress the
+empty-output recovery. The neutral-context body still produced non-empty
+native and sanitized output through the `raw_dialog_tail` suffix. However,
+`quality=mixed_language` and `control_chars=true` remain, so this is not a
+completed output-quality fix. Classify it as prompt shaping evidence, not a
+new prefill boundary result and not standard ChatScreen promotion.
 
 ## Runtime Classification Plan
 

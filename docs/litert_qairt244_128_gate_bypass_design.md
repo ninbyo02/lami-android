@@ -608,6 +608,7 @@ requested/effective max output tokens `16/16`.
 | `20260529_205211` | loose greeting prompt-file | 2048 | `4104/4104` | failure | true/true | QNN_HTP_V79_FastRPC_native_diag | output_bytes 0 / raw 0 / sanitized 0 | empty_output | decode reached; native output was empty |
 | `20260529_211227` | dialog-tail prompt-file | 2048 | `4422/4422` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 31 / sanitized 30 | natural_japanese | dialog continuation tail restored output |
 | `20260529_213520` | raw-dialog-tail case label | 2048 | `4126/4126` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 35 / sanitized 34 | mixed_language | dev-only case label avoids empty output, but quality/control chars still need work |
+| `20260529_220023` | neutral-context raw-dialog-tail | 2048 | `5272/5272` | success | true/true | QNN_HTP_V79_FastRPC_native_diag | raw 35 / sanitized 34 | mixed_language | neutral body still avoids empty output, but quality/control chars remain |
 
 The matrix confirms that generated filler reaches NPU decode through
 `final_input_chars_approx=4096`, and natural Japanese prompt-file input also
@@ -630,8 +631,9 @@ output bytes:
 | `20260529_205211/raw_2048` | loose greeting empty | final instruction asks for a short Japanese greeting | 4104 / 10544 | 16 | candidates 1, bytes 0 | prefill 322 ms, decode 22 ms | raw 0, sanitized 0, empty_output | decode succeeds but output is empty |
 | `20260529_211227/raw_2048` | dialog-tail success | tail uses "ユーザー: こんにちは。" followed by "アシスタント:" | 4422 / not re-extracted | 16 | not re-extracted | not re-extracted | raw 31, sanitized 30, natural_japanese | prompt-tail change restores output |
 | `20260529_213520/raw_dialog_tail_2048` | raw-dialog-tail case label success | script appends raw dialog tail to loose greeting prompt-file | 4126 / not re-extracted | 16 | not re-extracted | not re-extracted | raw 35, sanitized 34, mixed_language, control chars true | dev-only case label avoids empty output; quality is not yet clean |
+| `20260529_220023/raw_dialog_tail_2048` | neutral-context raw-dialog-tail success | script appends raw dialog tail to neutral context prompt-file | 5272 / not re-extracted | 16 | candidates 1, bytes 81 | prefill 490 ms, decode 362 ms | raw 35, sanitized 34, mixed_language, control chars true | body instructions removed; empty output stays fixed but quality remains mixed |
 
-All four cases have prompt validation `ok`, native length-gate bypass
+These cases have prompt validation `ok`, native length-gate bypass
 effective, and `SetMaxOutputTokens(16)`. The failures are therefore not 128
 gate or 512/prefill boundary failures. They point at prompt-tail shape,
 repetition structure, stop/eos behavior, or max-output cap. If runtime is
@@ -801,6 +803,42 @@ Success criteria:
 This comparison is not standard route promotion and not a wider bypass. It is
 a single-case prompt-shaping probe to be run only after this design is
 committed.
+
+The neutral-context follow-up stayed within that scope:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_220023/summary.md
+template=raw_dialog_tail
+app_template_mode=raw
+prompt_tail_mode=raw_dialog_tail
+prompt_file=/tmp/lami_npu_prompt/ja_neutral_context_3800.txt
+prompt_chars=5272
+final_input_chars_approx=5272
+prompt_transport=base64
+unsafe_dev_bypass_prompt_length_gate_requested=true
+unsafe_dev_bypass_prompt_length_gate_effective=true
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+raw_len=35
+sanitized_len=34
+quality=mixed_language
+control_chars=true
+native_diag output_bytes=81
+output_first_200_chars=こんにちは。\nこれはNPU長文prefill検証用の日本語自然文です
+```
+
+This confirms that removing answer instructions from the body does not expand
+or change the bypass scope. The hidden receiver still uses app-facing
+`raw`, remains disconnected from standard ChatScreen and DB/TTS/Markdown/
+streaming, and preserves fallback/crash visibility. The comparison is useful
+for output-quality classification only: empty output stayed fixed, while
+`mixed_language/control_chars=true` remained unresolved.
 
 Earlier bypass validation guidance, retained for the original raw target 128
 phase, was:
