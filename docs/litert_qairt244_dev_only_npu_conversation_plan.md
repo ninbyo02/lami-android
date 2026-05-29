@@ -580,3 +580,30 @@ prompt_tail_variant=<raw_dialog_tail_variant_a|raw_dialog_tail_variant_b>
   `sanitized_output`, and `quality_classification` contract fields;
 - this remains debug-only and does not connect standard ChatScreen, persist
   Backend.NPU, connect DB/TTS/Markdown/streaming, or change native code.
+
+Phase B natural-Japanese success result:
+- `raw_dialog_tail_variant_b` with `max_output_tokens=32` produced the first
+  minimal natural-Japanese dev-only NPU conversation success;
+- observed result:
+
+```text
+prompt_tail_variant=raw_dialog_tail_variant_b
+max_output_tokens=32
+status=success
+run_decode_reached=true
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_used=false
+timeout=false
+fresh_crash=false
+raw_output=こんにちは。
+sanitized_output=こんにちは。
+quality_classification=natural_japanese
+```
+
+- this confirms the dev-only one-turn NPU conversation path can reach native
+  decode and return a natural Japanese answer without fallback, timeout, or a
+  fresh crash;
+- the result is still dev-only and does not justify standard ChatScreen
+  integration yet;
+- the next safe step is to keep the path dev-only and run a small multi-run
+  stability check for `raw_dialog_tail_variant_b` at `max_output_tokens=32`.
