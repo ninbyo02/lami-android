@@ -548,3 +548,35 @@ sanitized_output=。
   answer;
 - the next quality comparison should change prompt-tail design rather than
   increasing max output further.
+
+Phase B prompt-tail variant comparison:
+- because both `max_output_tokens=16` and `max_output_tokens=32` produced only
+  `。`, the next comparison keeps `max_output_tokens=32` and changes only the
+  prompt tail;
+- add a dev-only Activity extra for the tail comparison:
+
+```text
+prompt_tail_variant=<raw_dialog_tail_variant_a|raw_dialog_tail_variant_b>
+```
+
+- `raw_dialog_tail_variant_a` removes the assistant seed entirely:
+
+```text
+必ず日本語だけで短く返答してください。
+ユーザー: <prompt>
+アシスタント:
+```
+
+- `raw_dialog_tail_variant_b` keeps a weaker Japanese continuation seed:
+
+```text
+必ず日本語だけで短く返答してください。
+ユーザー: <prompt>
+アシスタント: はい、
+```
+
+- invalid or missing variants round to `raw_dialog_tail_variant_b`;
+- result inspection continues to use the existing `raw_output_first_200_chars`,
+  `sanitized_output`, and `quality_classification` contract fields;
+- this remains debug-only and does not connect standard ChatScreen, persist
+  Backend.NPU, connect DB/TTS/Markdown/streaming, or change native code.

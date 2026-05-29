@@ -79,6 +79,7 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                     trigger = trigger,
                     status = "running",
                     maxOutputTokens = request.maxOutputTokens,
+                    promptTailVariant = request.promptTailVariant,
                 )
                 val display = runBlocking {
                     DevOnlyNpuOneTurnConversationEntry(this@Qairt244DevOnlyNpuConversationActivity)
@@ -96,6 +97,7 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                     resultFile = resultFile,
                     throwable = throwable,
                     maxOutputTokens = request.maxOutputTokens,
+                    promptTailVariant = request.promptTailVariant,
                 )
                 val maxOutputTokens = request.maxOutputTokens
                 "DEV ONLY NPU ONE TURN\n" +
@@ -128,6 +130,7 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
         resultFile: File,
         throwable: Throwable,
         maxOutputTokens: Int,
+        promptTailVariant: String,
     ) {
         runCatching {
             resultFile.writeText(
@@ -136,6 +139,9 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                     message = throwable.message.orEmpty(),
                     timestampMs = System.currentTimeMillis(),
                     maxOutputTokens = maxOutputTokens,
+                    safety = DevOnlyNpuOneTurnConversationContract.safety(
+                        promptTailVariant = promptTailVariant,
+                    ),
                 ),
             )
         }
@@ -153,6 +159,9 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                 DevOnlyNpuOneTurnConversationContract.EXTRA_MAX_OUTPUT_TOKENS,
                 DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
             ) ?: DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
+            requestedPromptTailVariant = intent?.getStringExtra(
+                DevOnlyNpuOneTurnConversationContract.EXTRA_PROMPT_TAIL_VARIANT,
+            ),
         )
 
     private fun writeProgressResultFile(
@@ -160,6 +169,7 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
         trigger: String,
         status: String,
         maxOutputTokens: Int,
+        promptTailVariant: String,
     ) {
         resultFile.writeText(
             DevOnlyNpuOneTurnConversationContract.receiverProgressText(
@@ -172,6 +182,9 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                 ) == true,
                 timestampMs = System.currentTimeMillis(),
                 maxOutputTokens = maxOutputTokens,
+                safety = DevOnlyNpuOneTurnConversationContract.safety(
+                    promptTailVariant = promptTailVariant,
+                ),
             ),
         )
     }

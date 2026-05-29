@@ -10,6 +10,7 @@ data class DevOnlyNpuOneTurnConversationRequest(
     val contextText: String = "",
     val unsafeDevBypassPromptLengthGate: Boolean = true,
     val maxOutputTokens: Int = DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
+    val promptTailVariant: String = DevOnlyNpuOneTurnConversationContract.DEFAULT_PROMPT_TAIL_VARIANT,
     val timeoutMs: Long = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
 )
 
@@ -23,6 +24,7 @@ data class DevOnlyNpuOneTurnConversationSafety(
     val selectedPathNpuSaved: Boolean = false,
     val appTemplateMode: String = HiddenQairt244PromptTemplateMode.RAW.storageValue,
     val template: String = DevOnlyNpuOneTurnConversationContract.TEMPLATE,
+    val promptTailVariant: String = DevOnlyNpuOneTurnConversationContract.DEFAULT_PROMPT_TAIL_VARIANT,
     val promptTransport: String = DevOnlyNpuOneTurnConversationContract.PROMPT_TRANSPORT,
 )
 
@@ -58,6 +60,7 @@ object DevOnlyNpuOneTurnConversationContract {
     const val RECEIVER_ACTION = "io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"
     const val EXTRA_AUTO_RUN = "auto_run"
     const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
+    const val EXTRA_PROMPT_TAIL_VARIANT = "prompt_tail_variant"
     const val EXTRA_USER_PROMPT = "user_prompt"
     const val EXTRA_CONTEXT = "context"
     const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE = "unsafe_dev_bypass_prompt_length_gate"
@@ -66,6 +69,9 @@ object DevOnlyNpuOneTurnConversationContract {
     const val RECEIVER_RESULT_CODE_RECEIVED = 244
     const val TEMPLATE = "raw_dialog_tail"
     const val PROMPT_TAIL_MODE = "raw_dialog_tail"
+    const val RAW_DIALOG_TAIL_VARIANT_A = "raw_dialog_tail_variant_a"
+    const val RAW_DIALOG_TAIL_VARIANT_B = "raw_dialog_tail_variant_b"
+    const val DEFAULT_PROMPT_TAIL_VARIANT = RAW_DIALOG_TAIL_VARIANT_B
     const val PROMPT_TRANSPORT = "base64"
     const val ROUTE_TYPE = "dev_only_one_turn_conversation"
     const val DEFAULT_MAX_OUTPUT_TOKENS = 16
@@ -74,21 +80,27 @@ object DevOnlyNpuOneTurnConversationContract {
     const val TIMEOUT_MS = 60_000L
     const val INITIAL_DISPLAY_TEXT = "DEV ONLY NPU ONE TURN\nstatus=idle\nadapter_execution=manual_trigger_only"
     const val JAPANESE_ONLY_TAIL_INSTRUCTION = "必ず日本語だけで短く返答してください。"
-    const val JAPANESE_ASSISTANT_PREFIX = "こんにちは"
+    const val JAPANESE_ASSISTANT_PREFIX_VARIANT_B = "はい、"
 
-    fun safety(): DevOnlyNpuOneTurnConversationSafety = DevOnlyNpuOneTurnConversationSafety()
+    fun safety(
+        promptTailVariant: String = DEFAULT_PROMPT_TAIL_VARIANT,
+    ): DevOnlyNpuOneTurnConversationSafety = DevOnlyNpuOneTurnConversationSafety(
+        promptTailVariant = sanitizePromptTailVariant(promptTailVariant),
+    )
 
     fun activityRequest(
         userPrompt: String?,
         contextText: String,
         unsafeDevBypassPromptLengthGate: Boolean,
         requestedMaxOutputTokens: Int = DEFAULT_MAX_OUTPUT_TOKENS,
+        requestedPromptTailVariant: String? = DEFAULT_PROMPT_TAIL_VARIANT,
     ): DevOnlyNpuOneTurnConversationRequest =
         DevOnlyNpuOneTurnConversationRequest(
             userPrompt = userPrompt.orEmpty().ifBlank { DEFAULT_USER_PROMPT },
             contextText = contextText,
             unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
             maxOutputTokens = sanitizeMaxOutputTokens(requestedMaxOutputTokens),
+            promptTailVariant = sanitizePromptTailVariant(requestedPromptTailVariant),
         )
 
     fun sanitizeMaxOutputTokens(requestedMaxOutputTokens: Int): Int =
@@ -98,7 +110,18 @@ object DevOnlyNpuOneTurnConversationContract {
             DEFAULT_MAX_OUTPUT_TOKENS
         }
 
-    fun buildRawDialogTailPrompt(contextText: String, userPrompt: String): String {
+    fun sanitizePromptTailVariant(requestedPromptTailVariant: String?): String =
+        when (requestedPromptTailVariant) {
+            RAW_DIALOG_TAIL_VARIANT_A -> RAW_DIALOG_TAIL_VARIANT_A
+            RAW_DIALOG_TAIL_VARIANT_B -> RAW_DIALOG_TAIL_VARIANT_B
+            else -> DEFAULT_PROMPT_TAIL_VARIANT
+        }
+
+    fun buildRawDialogTailPrompt(
+        contextText: String,
+        userPrompt: String,
+        promptTailVariant: String = DEFAULT_PROMPT_TAIL_VARIANT,
+    ): String {
         val normalizedContext = contextText.trim()
         val normalizedUserPrompt = userPrompt.trim()
         val head = if (normalizedContext.isBlank()) {
@@ -106,9 +129,13 @@ object DevOnlyNpuOneTurnConversationContract {
         } else {
             "$normalizedContext\n\n"
         }
+        val assistantLine = when (sanitizePromptTailVariant(promptTailVariant)) {
+            RAW_DIALOG_TAIL_VARIANT_A -> "アシスタント:"
+            else -> "アシスタント: $JAPANESE_ASSISTANT_PREFIX_VARIANT_B"
+        }
         return "$head$JAPANESE_ONLY_TAIL_INSTRUCTION\n" +
             "ユーザー: $normalizedUserPrompt\n" +
-            "アシスタント: $JAPANESE_ASSISTANT_PREFIX"
+            assistantLine
     }
 
     fun safetyLines(safety: DevOnlyNpuOneTurnConversationSafety = safety()): List<String> = listOf(
@@ -123,6 +150,7 @@ object DevOnlyNpuOneTurnConversationContract {
         "template=${safety.template}",
         "app_template_mode=${safety.appTemplateMode}",
         "prompt_tail_mode=$PROMPT_TAIL_MODE",
+        "prompt_tail_variant=${safety.promptTailVariant}",
         "prompt_transport=${safety.promptTransport}",
     )
 
@@ -366,6 +394,7 @@ class DevOnlyNpuOneTurnConversationEntry(
         val finalPrompt = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
             contextText = request.contextText,
             userPrompt = request.userPrompt,
+            promptTailVariant = request.promptTailVariant,
         )
         val transportedPrompt = transportPromptBase64(finalPrompt)
         val result = adapterFactory(appContext, request.unsafeDevBypassPromptLengthGate)
@@ -382,6 +411,9 @@ class DevOnlyNpuOneTurnConversationEntry(
         return DevOnlyNpuOneTurnConversationContract.display(
             result = result,
             values = values,
+            safety = DevOnlyNpuOneTurnConversationContract.safety(
+                promptTailVariant = request.promptTailVariant,
+            ),
         )
     }
 

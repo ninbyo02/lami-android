@@ -7,16 +7,25 @@ import org.junit.Test
 
 class DevOnlyNpuOneTurnConversationEntryTest {
     @Test
-    fun `raw dialog tail formatting is fixed for one turn`() {
-        val formatted = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+    fun `raw dialog tail variants are fixed for one turn`() {
+        val variantA = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
             contextText = "これは中立文脈です。",
             userPrompt = "こんにちは。",
+            promptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_A,
+        )
+        val variantB = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+            contextText = "これは中立文脈です。",
+            userPrompt = "こんにちは。",
+            promptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
         )
 
-        assertTrue(formatted.contains("必ず日本語だけで短く返答してください。"))
-        assertTrue(formatted.contains("ユーザー: こんにちは。"))
-        assertTrue(formatted.endsWith("アシスタント: こんにちは"))
-        assertTrue(formatted.contains("\n\n必ず日本語だけで短く返答してください。\nユーザー:"))
+        assertTrue(variantA.contains("必ず日本語だけで短く返答してください。"))
+        assertTrue(variantA.contains("ユーザー: こんにちは。"))
+        assertTrue(variantA.endsWith("アシスタント:"))
+        assertTrue(variantB.contains("必ず日本語だけで短く返答してください。"))
+        assertTrue(variantB.contains("ユーザー: こんにちは。"))
+        assertTrue(variantB.endsWith("アシスタント: はい、"))
+        assertTrue(variantB.contains("\n\n必ず日本語だけで短く返答してください。\nユーザー:"))
     }
 
     @Test
@@ -37,8 +46,17 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             "必ず日本語だけで短く返答してください。",
             DevOnlyNpuOneTurnConversationContract.JAPANESE_ONLY_TAIL_INSTRUCTION,
         )
-        assertEquals("こんにちは", DevOnlyNpuOneTurnConversationContract.JAPANESE_ASSISTANT_PREFIX)
+        assertEquals("はい、", DevOnlyNpuOneTurnConversationContract.JAPANESE_ASSISTANT_PREFIX_VARIANT_B)
+        assertEquals(
+            "raw_dialog_tail_variant_b",
+            DevOnlyNpuOneTurnConversationContract.DEFAULT_PROMPT_TAIL_VARIANT,
+        )
         assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("route_type=dev_only_one_turn_conversation"))
+        assertTrue(
+            DevOnlyNpuOneTurnConversationContract.safetyLines().contains(
+                "prompt_tail_variant=raw_dialog_tail_variant_b",
+            ),
+        )
     }
 
     @Test
@@ -72,6 +90,10 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(request.unsafeDevBypassPromptLengthGate)
         assertEquals(16, DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS)
         assertEquals(16, request.maxOutputTokens)
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+            request.promptTailVariant,
+        )
         assertTrue(DevOnlyNpuOneTurnConversationContract.INITIAL_DISPLAY_TEXT.contains("status=idle"))
         assertTrue(
             DevOnlyNpuOneTurnConversationContract.INITIAL_DISPLAY_TEXT.contains(
@@ -107,6 +129,53 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     }
 
     @Test
+    fun `activity prompt tail variant option allows only variant a or b`() {
+        val requestA = DevOnlyNpuOneTurnConversationContract.activityRequest(
+            userPrompt = "こんにちは",
+            contextText = "",
+            unsafeDevBypassPromptLengthGate = true,
+            requestedPromptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_A,
+        )
+        val requestB = DevOnlyNpuOneTurnConversationContract.activityRequest(
+            userPrompt = "こんにちは",
+            contextText = "",
+            unsafeDevBypassPromptLengthGate = true,
+            requestedPromptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+        )
+        val requestInvalid = DevOnlyNpuOneTurnConversationContract.activityRequest(
+            userPrompt = "こんにちは",
+            contextText = "",
+            unsafeDevBypassPromptLengthGate = true,
+            requestedPromptTailVariant = "raw_dialog_tail_variant_c",
+        )
+
+        assertEquals("prompt_tail_variant", DevOnlyNpuOneTurnConversationContract.EXTRA_PROMPT_TAIL_VARIANT)
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_A,
+            DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant(
+                DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_A,
+            ),
+        )
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+            DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant(
+                DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+            ),
+        )
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+            DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant(null),
+        )
+        assertEquals(
+            DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+            DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant("raw_dialog_tail_variant_c"),
+        )
+        assertEquals(DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_A, requestA.promptTailVariant)
+        assertEquals(DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B, requestB.promptTailVariant)
+        assertEquals(DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B, requestInvalid.promptTailVariant)
+    }
+
+    @Test
     fun `receiver contract is debug-only named and writes dedicated result file`() {
         assertEquals(
             "io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION",
@@ -117,6 +186,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             DevOnlyNpuOneTurnConversationContract.RECEIVER_RESULT_FILE_NAME,
         )
         assertEquals("user_prompt", DevOnlyNpuOneTurnConversationContract.EXTRA_USER_PROMPT)
+        assertEquals("prompt_tail_variant", DevOnlyNpuOneTurnConversationContract.EXTRA_PROMPT_TAIL_VARIANT)
         assertEquals("context", DevOnlyNpuOneTurnConversationContract.EXTRA_CONTEXT)
         assertEquals(
             "unsafe_dev_bypass_prompt_length_gate",
@@ -203,6 +273,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(display.text.contains("streaming=false"))
         assertTrue(display.text.contains("app_template_mode=raw"))
         assertTrue(display.text.contains("template=raw_dialog_tail"))
+        assertTrue(display.text.contains("prompt_tail_variant=raw_dialog_tail_variant_b"))
         assertTrue(display.text.contains("prompt_transport=base64"))
     }
 

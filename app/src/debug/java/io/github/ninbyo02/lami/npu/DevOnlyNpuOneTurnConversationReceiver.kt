@@ -89,6 +89,11 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                         DevOnlyNpuOneTurnConversationContract.EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE,
                         true,
                     ),
+                    promptTailVariant = DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant(
+                        intent.getStringExtra(
+                            DevOnlyNpuOneTurnConversationContract.EXTRA_PROMPT_TAIL_VARIANT,
+                        ),
+                    ),
                 )
                 val display = runBlocking {
                     DevOnlyNpuOneTurnConversationEntry(appContext).run(request)
