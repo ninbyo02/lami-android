@@ -451,3 +451,36 @@ Step 5 Japanese prefix continuation:
 - max output remains fixed to `16`, and the dev-only path remains disconnected
   from the standard ChatScreen route, Backend.NPU persistence, DB, TTS,
   Markdown, and streaming.
+
+Step 5 dev-only NPU conversation success:
+- after the Japanese prefix continuation tail, the auto-run Activity reached
+  the minimum one-turn NPU conversation success condition with max output `16`;
+- observed result:
+
+```text
+status=success
+requested_max_output_tokens=16
+effective_max_output_tokens=16
+max_output_tokens=16
+run_decode_reached=true
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_used=false
+timeout=false
+fresh_crash=false
+sanitized_len=1
+sanitized_output=。
+db=false
+tts=false
+markdown=false
+streaming=false
+route_type=dev_only_one_turn_conversation
+```
+
+- this confirms the dev-only one-turn path can perform NPU decode and return a
+  sanitized non-empty result without fallback, timeout, or fresh crash;
+- standard ChatScreen wiring is still not connected;
+- DB, TTS, Markdown, streaming, and Backend.NPU persistence remain
+  disconnected;
+- output quality is still weak because the result is only `。`; treat this as
+  the next phase's prompt/output quality problem, not as a reachability
+  failure.
