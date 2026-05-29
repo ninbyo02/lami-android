@@ -82,6 +82,10 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                         DevOnlyNpuOneTurnConversationContract.EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE,
                         true,
                     ) ?: true,
+                    requestedMaxOutputTokens = intent?.getIntExtra(
+                        DevOnlyNpuOneTurnConversationContract.EXTRA_MAX_OUTPUT_TOKENS,
+                        DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
+                    ) ?: DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
                 )
                 val display = runBlocking {
                     DevOnlyNpuOneTurnConversationEntry(this@Qairt244DevOnlyNpuConversationActivity)
@@ -96,12 +100,13 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                 display.text
             } catch (throwable: Throwable) {
                 writeFailureResultFile(resultFile, throwable)
+                val maxOutputTokens = currentMaxOutputTokens()
                 "DEV ONLY NPU ONE TURN\n" +
                     "status=failure\n" +
                     "reason=activity_failure:${throwable.javaClass.simpleName}\n" +
-                    "requested_max_output_tokens=${DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS}\n" +
-                    "effective_max_output_tokens=${DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS}\n" +
-                    "max_output_tokens=${DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS}\n" +
+                    "requested_max_output_tokens=$maxOutputTokens\n" +
+                    "effective_max_output_tokens=$maxOutputTokens\n" +
+                    "max_output_tokens=$maxOutputTokens\n" +
                     "native_max_output_tokens_limit=-\n" +
                     "run_decode_reached=false\n" +
                     "npu_backend_evidence=-\n" +
@@ -132,10 +137,19 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                     reason = "activity_failure:${throwable.javaClass.simpleName}",
                     message = throwable.message.orEmpty(),
                     timestampMs = System.currentTimeMillis(),
+                    maxOutputTokens = currentMaxOutputTokens(),
                 ),
             )
         }
     }
+
+    private fun currentMaxOutputTokens(): Int =
+        DevOnlyNpuOneTurnConversationContract.sanitizeMaxOutputTokens(
+            intent?.getIntExtra(
+                DevOnlyNpuOneTurnConversationContract.EXTRA_MAX_OUTPUT_TOKENS,
+                DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
+            ) ?: DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
+        )
 
     private fun writeProgressResultFile(
         resultFile: File,
@@ -152,6 +166,7 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                     DevOnlyNpuOneTurnConversationContract.EXTRA_USER_PROMPT,
                 ) == true,
                 timestampMs = System.currentTimeMillis(),
+                maxOutputTokens = currentMaxOutputTokens(),
             ),
         )
     }

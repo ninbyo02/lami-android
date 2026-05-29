@@ -9,6 +9,7 @@ data class DevOnlyNpuOneTurnConversationRequest(
     val userPrompt: String,
     val contextText: String = "",
     val unsafeDevBypassPromptLengthGate: Boolean = true,
+    val maxOutputTokens: Int = DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
     val timeoutMs: Long = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
 )
 
@@ -56,6 +57,7 @@ data class DevOnlyNpuOneTurnConversationDisplay(
 object DevOnlyNpuOneTurnConversationContract {
     const val RECEIVER_ACTION = "io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"
     const val EXTRA_AUTO_RUN = "auto_run"
+    const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
     const val EXTRA_USER_PROMPT = "user_prompt"
     const val EXTRA_CONTEXT = "context"
     const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE = "unsafe_dev_bypass_prompt_length_gate"
@@ -66,7 +68,9 @@ object DevOnlyNpuOneTurnConversationContract {
     const val PROMPT_TAIL_MODE = "raw_dialog_tail"
     const val PROMPT_TRANSPORT = "base64"
     const val ROUTE_TYPE = "dev_only_one_turn_conversation"
-    const val MAX_OUTPUT_TOKENS = 16
+    const val DEFAULT_MAX_OUTPUT_TOKENS = 16
+    const val COMPARE_MAX_OUTPUT_TOKENS = 32
+    const val MAX_OUTPUT_TOKENS = DEFAULT_MAX_OUTPUT_TOKENS
     const val TIMEOUT_MS = 60_000L
     const val INITIAL_DISPLAY_TEXT = "DEV ONLY NPU ONE TURN\nstatus=idle\nadapter_execution=manual_trigger_only"
     const val JAPANESE_ONLY_TAIL_INSTRUCTION = "必ず日本語だけで短く返答してください。"
@@ -78,12 +82,21 @@ object DevOnlyNpuOneTurnConversationContract {
         userPrompt: String?,
         contextText: String,
         unsafeDevBypassPromptLengthGate: Boolean,
+        requestedMaxOutputTokens: Int = DEFAULT_MAX_OUTPUT_TOKENS,
     ): DevOnlyNpuOneTurnConversationRequest =
         DevOnlyNpuOneTurnConversationRequest(
             userPrompt = userPrompt.orEmpty().ifBlank { DEFAULT_USER_PROMPT },
             contextText = contextText,
             unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
+            maxOutputTokens = sanitizeMaxOutputTokens(requestedMaxOutputTokens),
         )
+
+    fun sanitizeMaxOutputTokens(requestedMaxOutputTokens: Int): Int =
+        if (requestedMaxOutputTokens == COMPARE_MAX_OUTPUT_TOKENS) {
+            COMPARE_MAX_OUTPUT_TOKENS
+        } else {
+            DEFAULT_MAX_OUTPUT_TOKENS
+        }
 
     fun buildRawDialogTailPrompt(contextText: String, userPrompt: String): String {
         val normalizedContext = contextText.trim()
@@ -260,8 +273,10 @@ object DevOnlyNpuOneTurnConversationContract {
         reason: String,
         message: String,
         timestampMs: Long,
+        maxOutputTokens: Int = DEFAULT_MAX_OUTPUT_TOKENS,
         safety: DevOnlyNpuOneTurnConversationSafety = safety(),
     ): String {
+        val effectiveMaxOutputTokens = sanitizeMaxOutputTokens(maxOutputTokens)
         val lines = listOf(
             "timestamp=$timestampMs",
             "status=failure",
@@ -269,9 +284,9 @@ object DevOnlyNpuOneTurnConversationContract {
             "success=false",
             "reason=$reason",
             "message=${escapeResultValue(message)}",
-            "requested_max_output_tokens=$MAX_OUTPUT_TOKENS",
-            "effective_max_output_tokens=$MAX_OUTPUT_TOKENS",
-            "max_output_tokens=$MAX_OUTPUT_TOKENS",
+            "requested_max_output_tokens=$effectiveMaxOutputTokens",
+            "effective_max_output_tokens=$effectiveMaxOutputTokens",
+            "max_output_tokens=$effectiveMaxOutputTokens",
             "native_max_output_tokens_limit=-",
             "run_decode_reached=false",
             "npu_backend_evidence=-",
@@ -295,8 +310,10 @@ object DevOnlyNpuOneTurnConversationContract {
         className: String = "",
         userPromptPresent: Boolean = false,
         timestampMs: Long,
+        maxOutputTokens: Int = DEFAULT_MAX_OUTPUT_TOKENS,
         safety: DevOnlyNpuOneTurnConversationSafety = safety(),
     ): String {
+        val effectiveMaxOutputTokens = sanitizeMaxOutputTokens(maxOutputTokens)
         val lines = listOf(
             "timestamp=$timestampMs",
             "status=$status",
@@ -308,9 +325,9 @@ object DevOnlyNpuOneTurnConversationContract {
             "result=pending",
             "success=false",
             "reason=$status",
-            "requested_max_output_tokens=$MAX_OUTPUT_TOKENS",
-            "effective_max_output_tokens=$MAX_OUTPUT_TOKENS",
-            "max_output_tokens=$MAX_OUTPUT_TOKENS",
+            "requested_max_output_tokens=$effectiveMaxOutputTokens",
+            "effective_max_output_tokens=$effectiveMaxOutputTokens",
+            "max_output_tokens=$effectiveMaxOutputTokens",
             "native_max_output_tokens_limit=-",
             "run_decode_reached=false",
             "npu_backend_evidence=-",
@@ -354,7 +371,7 @@ class DevOnlyNpuOneTurnConversationEntry(
         val result = adapterFactory(appContext, request.unsafeDevBypassPromptLengthGate)
             .runDevOnlyConversationOnce(
                 prompt = transportedPrompt,
-                maxOutputTokens = DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS,
+                maxOutputTokens = request.maxOutputTokens,
                 timeoutMs = request.timeoutMs,
             )
         val values = if (resultFile.isFile) {

@@ -484,3 +484,23 @@ route_type=dev_only_one_turn_conversation
 - output quality is still weak because the result is only `。`; treat this as
   the next phase's prompt/output quality problem, not as a reachability
   failure.
+
+Phase A max-output quality comparison:
+- `max_output_tokens=16` has reached the dev-only one-turn NPU conversation
+  success condition, but the useful output was only `。`;
+- add a dev-only Activity extra for quality comparison:
+
+```text
+max_output_tokens=<16|32>
+```
+
+- default remains `16`;
+- only `16` and `32` are accepted, and any other requested value is rounded
+  back to `16`;
+- the option is only for the debug-only Activity auto-run/manual path and does
+  not affect the standard ChatScreen route;
+- result contracts continue to show `requested_max_output_tokens`,
+  `effective_max_output_tokens`, `max_output_tokens`, and
+  `native_max_output_tokens_limit`;
+- Backend.NPU persistence, DB, TTS, Markdown, streaming, and native code remain
+  untouched.

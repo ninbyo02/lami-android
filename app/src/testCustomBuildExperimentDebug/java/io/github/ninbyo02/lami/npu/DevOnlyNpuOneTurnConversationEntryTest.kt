@@ -71,12 +71,39 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertEquals("", request.contextText)
         assertTrue(request.unsafeDevBypassPromptLengthGate)
         assertEquals(16, DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS)
+        assertEquals(16, request.maxOutputTokens)
         assertTrue(DevOnlyNpuOneTurnConversationContract.INITIAL_DISPLAY_TEXT.contains("status=idle"))
         assertTrue(
             DevOnlyNpuOneTurnConversationContract.INITIAL_DISPLAY_TEXT.contains(
                 "adapter_execution=manual_trigger_only",
             ),
         )
+    }
+
+    @Test
+    fun `activity max output tokens compare option allows only 16 or 32`() {
+        val request32 = DevOnlyNpuOneTurnConversationContract.activityRequest(
+            userPrompt = "こんにちは",
+            contextText = "",
+            unsafeDevBypassPromptLengthGate = true,
+            requestedMaxOutputTokens = 32,
+        )
+        val requestInvalid = DevOnlyNpuOneTurnConversationContract.activityRequest(
+            userPrompt = "こんにちは",
+            contextText = "",
+            unsafeDevBypassPromptLengthGate = true,
+            requestedMaxOutputTokens = 128,
+        )
+
+        assertEquals("max_output_tokens", DevOnlyNpuOneTurnConversationContract.EXTRA_MAX_OUTPUT_TOKENS)
+        assertEquals(16, DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS)
+        assertEquals(32, DevOnlyNpuOneTurnConversationContract.COMPARE_MAX_OUTPUT_TOKENS)
+        assertEquals(16, DevOnlyNpuOneTurnConversationContract.sanitizeMaxOutputTokens(16))
+        assertEquals(32, DevOnlyNpuOneTurnConversationContract.sanitizeMaxOutputTokens(32))
+        assertEquals(16, DevOnlyNpuOneTurnConversationContract.sanitizeMaxOutputTokens(0))
+        assertEquals(16, DevOnlyNpuOneTurnConversationContract.sanitizeMaxOutputTokens(128))
+        assertEquals(32, request32.maxOutputTokens)
+        assertEquals(16, requestInvalid.maxOutputTokens)
     }
 
     @Test
