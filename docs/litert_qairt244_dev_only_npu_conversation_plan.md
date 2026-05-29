@@ -432,3 +432,22 @@ Step 5 Japanese-only tail shaping:
 
 - this remains debug-only and does not connect the standard ChatScreen route,
   Backend.NPU persistence, DB, TTS, Markdown, or streaming.
+
+Step 5 Japanese prefix continuation:
+- the following auto-run output drifted to Korean, `안녕하세요.`, while native
+  decode still succeeded;
+- keep treating this as output-language quality drift after successful NPU
+  reachability, not as fallback, crash, timeout, or a sanitizer relaxation
+  trigger;
+- update the raw dialog tail to provide the first Japanese assistant tokens and
+  continue generation from there:
+
+```text
+必ず日本語だけで短く返答してください。
+ユーザー: <prompt>
+アシスタント: こんにちは
+```
+
+- max output remains fixed to `16`, and the dev-only path remains disconnected
+  from the standard ChatScreen route, Backend.NPU persistence, DB, TTS,
+  Markdown, and streaming.

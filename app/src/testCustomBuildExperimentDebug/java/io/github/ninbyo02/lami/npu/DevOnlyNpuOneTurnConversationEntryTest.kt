@@ -15,7 +15,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
 
         assertTrue(formatted.contains("必ず日本語だけで短く返答してください。"))
         assertTrue(formatted.contains("ユーザー: こんにちは。"))
-        assertTrue(formatted.endsWith("アシスタント:"))
+        assertTrue(formatted.endsWith("アシスタント: こんにちは"))
         assertTrue(formatted.contains("\n\n必ず日本語だけで短く返答してください。\nユーザー:"))
     }
 
@@ -37,6 +37,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             "必ず日本語だけで短く返答してください。",
             DevOnlyNpuOneTurnConversationContract.JAPANESE_ONLY_TAIL_INSTRUCTION,
         )
+        assertEquals("こんにちは", DevOnlyNpuOneTurnConversationContract.JAPANESE_ASSISTANT_PREFIX)
         assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("route_type=dev_only_one_turn_conversation"))
     }
 
