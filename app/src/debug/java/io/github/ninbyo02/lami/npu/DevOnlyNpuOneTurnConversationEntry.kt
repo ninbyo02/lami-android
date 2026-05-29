@@ -46,6 +46,12 @@ data class DevOnlyNpuOneTurnConversationDisplay(
 )
 
 object DevOnlyNpuOneTurnConversationContract {
+    const val RECEIVER_ACTION = "io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"
+    const val EXTRA_USER_PROMPT = "user_prompt"
+    const val EXTRA_CONTEXT = "context"
+    const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE = "unsafe_dev_bypass_prompt_length_gate"
+    const val DEFAULT_USER_PROMPT = "こんにちは"
+    const val RECEIVER_RESULT_FILE_NAME = "dev_only_npu_one_turn_conversation_result.txt"
     const val TEMPLATE = "raw_dialog_tail"
     const val PROMPT_TAIL_MODE = "raw_dialog_tail"
     const val PROMPT_TRANSPORT = "base64"
@@ -156,6 +162,72 @@ object DevOnlyNpuOneTurnConversationContract {
             controlCharSummary = controlSummary,
         )
     }
+
+    fun receiverResultText(
+        display: DevOnlyNpuOneTurnConversationDisplay,
+        timestampMs: Long,
+        safety: DevOnlyNpuOneTurnConversationSafety = safety(),
+    ): String {
+        val result = display.status
+        val lines = listOf(
+            "timestamp=$timestampMs",
+            "status=$result",
+            "result=$result",
+            "success=${result == "success"}",
+            "reason=${display.reason}",
+            "requested_max_output_tokens=${display.requestedMaxOutputTokens}",
+            "effective_max_output_tokens=${display.effectiveMaxOutputTokens}",
+            "max_output_tokens=${display.effectiveMaxOutputTokens}",
+            "native_max_output_tokens_limit=${display.nativeMaxOutputTokensLimit}",
+            "run_decode_reached=${display.decodeReached}",
+            "npu_backend_evidence=${display.npuEvidence.ifBlank { "-" }}",
+            "fallback_used=${display.fallback}",
+            "timeout=${display.timeout}",
+            "fresh_crash=${display.freshCrash}",
+        ).plus(safetyLines(safety)).plus(
+            listOf(
+                "sanitized_output=${escapeResultValue(display.output)}",
+                "quality_classification=${display.quality}",
+                "output_first_200_chars=${escapeResultValue(display.output.take(200))}",
+            ),
+        )
+        return lines.joinToString(separator = "\n", postfix = "\n")
+    }
+
+    fun receiverFailureText(
+        reason: String,
+        message: String,
+        timestampMs: Long,
+        safety: DevOnlyNpuOneTurnConversationSafety = safety(),
+    ): String {
+        val lines = listOf(
+            "timestamp=$timestampMs",
+            "status=failure",
+            "result=failure",
+            "success=false",
+            "reason=$reason",
+            "message=${escapeResultValue(message)}",
+            "requested_max_output_tokens=$MAX_OUTPUT_TOKENS",
+            "effective_max_output_tokens=$MAX_OUTPUT_TOKENS",
+            "max_output_tokens=$MAX_OUTPUT_TOKENS",
+            "native_max_output_tokens_limit=-",
+            "run_decode_reached=false",
+            "npu_backend_evidence=-",
+            "fallback_used=false",
+            "timeout=false",
+            "fresh_crash=false",
+        ).plus(safetyLines(safety)).plus(
+            listOf(
+                "sanitized_output=",
+                "quality_classification=unknown",
+                "output_first_200_chars=",
+            ),
+        )
+        return lines.joinToString(separator = "\n", postfix = "\n")
+    }
+
+    private fun escapeResultValue(value: String): String =
+        value.replace("\\", "\\\\").replace("\n", "\\n")
 }
 
 class DevOnlyNpuOneTurnConversationEntry(

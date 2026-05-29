@@ -53,6 +53,26 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     }
 
     @Test
+    fun `receiver contract is debug-only named and writes dedicated result file`() {
+        assertEquals(
+            "io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION",
+            DevOnlyNpuOneTurnConversationContract.RECEIVER_ACTION,
+        )
+        assertEquals(
+            "dev_only_npu_one_turn_conversation_result.txt",
+            DevOnlyNpuOneTurnConversationContract.RECEIVER_RESULT_FILE_NAME,
+        )
+        assertEquals("user_prompt", DevOnlyNpuOneTurnConversationContract.EXTRA_USER_PROMPT)
+        assertEquals("context", DevOnlyNpuOneTurnConversationContract.EXTRA_CONTEXT)
+        assertEquals(
+            "unsafe_dev_bypass_prompt_length_gate",
+            DevOnlyNpuOneTurnConversationContract.EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE,
+        )
+        assertTrue(DevOnlyNpuOneTurnConversationContract.RECEIVER_ACTION.contains("DEV_ONLY"))
+        assertEquals("こんにちは", DevOnlyNpuOneTurnConversationContract.DEFAULT_USER_PROMPT)
+    }
+
+    @Test
     fun `display includes only dev-only side effect flags`() {
         val display = DevOnlyNpuOneTurnConversationContract.display(
             result = DevOnlyNpuRouteResult(
@@ -102,5 +122,63 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(display.text.contains("app_template_mode=raw"))
         assertTrue(display.text.contains("template=raw_dialog_tail"))
         assertTrue(display.text.contains("prompt_transport=base64"))
+    }
+
+    @Test
+    fun `receiver result file includes token evidence and disconnected side effects`() {
+        val display = DevOnlyNpuOneTurnConversationContract.display(
+            result = DevOnlyNpuRouteResult(
+                success = true,
+                output = "こんにちは。\n短い応答です。",
+                reasonCode = "success",
+                elapsedMs = 10,
+                decodeElapsedMs = 5,
+                prompt = "ユーザー: こんにちは\nアシスタント:",
+                maxOutputTokens = DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS,
+                backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                artifactPath = null,
+                freshCrash = false,
+                timeout = false,
+            ),
+            values = mapOf(
+                "sanitized_output" to "こんにちは。\n短い応答です。",
+                "sanitized_output_length" to "12",
+                "raw_native_output" to "こんにちは。\n短い応答です。",
+                "raw_native_output_length" to "12",
+                "max_output_tokens" to "16",
+                "native_max_output_tokens_limit" to "512",
+                "quality_classification" to "natural_japanese",
+                "output_unicode_summary" to "control_chars=U+000A x1;replacement_char_count=0",
+            ),
+        )
+
+        val text = DevOnlyNpuOneTurnConversationContract.receiverResultText(
+            display = display,
+            timestampMs = 1234L,
+        )
+
+        assertTrue(text.contains("timestamp=1234"))
+        assertTrue(text.contains("status=success"))
+        assertTrue(text.contains("result=success"))
+        assertTrue(text.contains("success=true"))
+        assertTrue(text.contains("requested_max_output_tokens=16"))
+        assertTrue(text.contains("effective_max_output_tokens=16"))
+        assertTrue(text.contains("max_output_tokens=16"))
+        assertTrue(text.contains("native_max_output_tokens_limit=512"))
+        assertTrue(text.contains("run_decode_reached=true"))
+        assertTrue(text.contains("npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag"))
+        assertTrue(text.contains("fallback_used=false"))
+        assertTrue(text.contains("timeout=false"))
+        assertTrue(text.contains("fresh_crash=false"))
+        assertTrue(text.contains("standard_route_connected=false"))
+        assertTrue(text.contains("backend_npu_persisted=false"))
+        assertTrue(text.contains("db=false"))
+        assertTrue(text.contains("tts=false"))
+        assertTrue(text.contains("markdown=false"))
+        assertTrue(text.contains("streaming=false"))
+        assertTrue(text.contains("route_type=dev_only_one_turn_conversation"))
+        assertTrue(text.contains("sanitized_output=こんにちは。\\n短い応答です。"))
+        assertTrue(text.contains("quality_classification=natural_japanese"))
+        assertTrue(text.contains("output_first_200_chars=こんにちは。\\n短い応答です。"))
     }
 }

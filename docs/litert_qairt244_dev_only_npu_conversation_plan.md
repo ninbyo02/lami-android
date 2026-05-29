@@ -273,3 +273,64 @@ probe, and does not connect DB/TTS/Markdown/streaming or the standard route.
 The next runtime check should be a single explicit-button dev-only one-turn run
 that verifies the displayed requested/effective token values, fallback,
 timeout, fresh crash, decode evidence, and rerun behavior.
+
+## Step 5 Broadcast Entry For Buttonless Check
+
+Termux can take foreground focus while driving ADB, which makes the dev-only
+Activity button path awkward for Step 5 runtime confirmation. Add a debug-only
+broadcast entry so the same one-turn Entry can be invoked explicitly from ADB
+without touching the standard ChatScreen route.
+
+Broadcast action:
+
+```text
+io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION
+```
+
+Extras:
+
+```text
+user_prompt=<string, default こんにちは>
+context=<string, default empty>
+unsafe_dev_bypass_prompt_length_gate=<boolean, default true>
+```
+
+Result file:
+
+```text
+files/dev_only_npu_one_turn_conversation_result.txt
+```
+
+The receiver is registered only in the debug manifest, is named with
+`DevOnly`, and writes a dedicated key/value result file. The result contract
+includes:
+
+```text
+status=<success|failure>
+result=<success|failure>
+success=<true|false>
+requested_max_output_tokens=16
+effective_max_output_tokens=16
+max_output_tokens=16
+native_max_output_tokens_limit=<native reported limit or ->
+run_decode_reached=<true|false>
+npu_backend_evidence=<evidence or ->
+fallback_used=<true|false>
+timeout=<true|false>
+fresh_crash=<true|false>
+standard_route_connected=false
+backend_npu_persisted=false
+db=false
+tts=false
+markdown=false
+streaming=false
+sanitized_output=<escaped output>
+quality_classification=<classification>
+output_first_200_chars=<escaped prefix>
+timestamp=<epoch ms>
+```
+
+This is still a dev-only Step 5 check path, not a standard route promotion.
+It keeps `raw_dialog_tail`, app-facing `raw` mode, max output `16`, no
+Backend.NPU persistence, and no DB/TTS/Markdown/streaming connection. Runtime
+broadcast execution remains a later explicit device step after compile/tests.
