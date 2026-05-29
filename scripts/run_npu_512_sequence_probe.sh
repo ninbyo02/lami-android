@@ -20,20 +20,21 @@ ONLY_TEMPLATE=""
 ONLY_TARGET=""
 TEMPLATE_TARGETS=(1 8 16 32 64 128 256 384 512 640)
 RAW_TARGETS=(1 8 16 32 64 128 256 384 512 640 1024 2048)
-TEMPLATES=(raw simple_ja_chat gemma_it_like)
+TEMPLATES=(raw raw_dialog_tail simple_ja_chat gemma_it_like)
+RAW_DIALOG_TAIL=$'\n\nユーザー: こんにちは。\nアシスタント:'
 
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/run_npu_512_sequence_probe.sh [--dry-run] [--execute] [--device <serial>] [--timeout <seconds>] [--max-output-tokens <n>] [--limit-cases <n>] [--prompt <text>] [--prompt-file <path>] [--only-template <raw|simple_ja_chat|gemma_it_like>] [--only-target <n>] [--unsafe-dev-bypass-prompt-length-gate]
+  scripts/run_npu_512_sequence_probe.sh [--dry-run] [--execute] [--device <serial>] [--timeout <seconds>] [--max-output-tokens <n>] [--limit-cases <n>] [--prompt <text>] [--prompt-file <path>] [--only-template <raw|raw_dialog_tail|simple_ja_chat|gemma_it_like>] [--only-target <n>] [--unsafe-dev-bypass-prompt-length-gate]
 
 Prepares or runs a dev-only hidden NPU sequence/prefill probe matrix. Default
 mode is preflight-only and does not execute NPU.
 --dry-run is an explicit alias for the default preflight-only mode.
 
 Matrix:
-  templates: raw, simple_ja_chat, gemma_it_like
-  raw approximate final-input token targets: 1,8,16,32,64,128,256,384,512,640,1024,2048
+  templates: raw, raw_dialog_tail, simple_ja_chat, gemma_it_like
+  raw/raw_dialog_tail approximate final-input token targets: 1,8,16,32,64,128,256,384,512,640,1024,2048
   template approximate final-input token targets: 1,8,16,32,64,128,256,384,512,640
 
 Safety:
@@ -96,8 +97,8 @@ if ! [[ "$LIMIT_CASES" =~ ^[0-9]+$ ]]; then
 fi
 if [ -n "$ONLY_TEMPLATE" ]; then
   case "$ONLY_TEMPLATE" in
-    raw|simple_ja_chat|gemma_it_like) ;;
-    *) printf 'ERROR: --only-template must be raw, simple_ja_chat, or gemma_it_like\n' >&2; exit 2 ;;
+    raw|raw_dialog_tail|simple_ja_chat|gemma_it_like) ;;
+    *) printf 'ERROR: --only-template must be raw, raw_dialog_tail, simple_ja_chat, or gemma_it_like\n' >&2; exit 2 ;;
   esac
 fi
 if [ -n "$ONLY_TARGET" ] && ! [[ "$ONLY_TARGET" =~ ^[0-9]+$ ]]; then
@@ -240,11 +241,18 @@ prompt_for_target() {
 }
 
 prompt_for_case() {
-  local prompt_tokens="$1"
+  local template="$1"
+  local prompt_tokens="$2"
+  local context
   if [ -n "$CUSTOM_PROMPT" ]; then
-    printf '%s' "$CUSTOM_PROMPT"
+    context="$CUSTOM_PROMPT"
   else
-    prompt_for_target "$prompt_tokens"
+    context="$(prompt_for_target "$prompt_tokens")"
+  fi
+  if [ "$template" = raw_dialog_tail ]; then
+    printf '%s%s' "$context" "$RAW_DIALOG_TAIL"
+  else
+    printf '%s' "$context"
   fi
 }
 
@@ -260,6 +268,27 @@ prompt_source_label() {
   else
     printf 'generated_x_filler'
   fi
+}
+
+prompt_tail_mode_for_template() {
+  case "$1" in
+    raw_dialog_tail) printf 'raw_dialog_tail' ;;
+    *) printf 'none' ;;
+  esac
+}
+
+prompt_tail_preview_for_template() {
+  case "$1" in
+    raw_dialog_tail) markdown_preview_cell "$RAW_DIALOG_TAIL" ;;
+    *) printf 'none' ;;
+  esac
+}
+
+app_template_mode_for_template() {
+  case "$1" in
+    raw_dialog_tail) printf 'raw' ;;
+    *) printf '%s' "$1" ;;
+  esac
 }
 
 prompt_chars_for_text() {
@@ -291,7 +320,7 @@ case_selected_by_filters() {
 target_list_for_template() {
   local template="$1"
   case "$template" in
-    raw) printf '%s\n' "${RAW_TARGETS[@]}" ;;
+    raw|raw_dialog_tail) printf '%s\n' "${RAW_TARGETS[@]}" ;;
     *) printf '%s\n' "${TEMPLATE_TARGETS[@]}" ;;
   esac
 }
@@ -334,7 +363,7 @@ markdown_preview_cell() {
 
 template_overhead_tokens() {
   case "$1" in
-    raw) printf '0' ;;
+    raw|raw_dialog_tail) printf '0' ;;
     simple_ja_chat) printf '3' ;;
     gemma_it_like) printf '4' ;;
     *) printf '0' ;;
@@ -343,7 +372,7 @@ template_overhead_tokens() {
 
 template_overhead_chars() {
   case "$1" in
-    raw) printf '0' ;;
+    raw|raw_dialog_tail) printf '0' ;;
     simple_ja_chat) printf '26' ;;
     gemma_it_like) printf '42' ;;
     *) printf '0' ;;
@@ -419,12 +448,13 @@ write_plan() {
     printf '| template | target_final_tokens_approx | prompt_tokens_approx | final_input_chars_approx | expected_existing_app_validation | native_pre_reject_expected_by_128_gate | command_mode |\n'
     printf '| --- | ---: | ---: | ---: | --- | --- | --- |\n'
     for template in "${TEMPLATES[@]}"; do
-      local overhead prompt_tokens prompt_chars final_chars expected_validation native_pre_reject
+      local overhead prompt_tokens prompt prompt_chars final_chars expected_validation native_pre_reject
       overhead="$(template_overhead_tokens "$template")"
       for target in $(target_list_for_template "$template"); do
         prompt_tokens=$((target - overhead))
         [ "$prompt_tokens" -gt 0 ] || prompt_tokens=1
-        prompt_chars=$((prompt_tokens * 2))
+        prompt="$(prompt_for_case "$template" "$prompt_tokens")"
+        prompt_chars="$(prompt_chars_for_text "$prompt")"
         final_chars=$((prompt_chars + $(template_overhead_chars "$template")))
         expected_validation="$(expected_validation_for_chars "$final_chars")"
         native_pre_reject="$(native_pre_reject_for_chars "$final_chars")"
@@ -437,7 +467,7 @@ write_plan() {
 write_selected_cases_summary() {
   local limit="$1"
   local rows_written=0
-  local template target overhead prompt_tokens prompt prompt_chars prompt_base64 prompt_base64_length final_chars expected_validation native_pre_reject prompt_preview
+  local template target overhead prompt_tokens prompt prompt_chars prompt_base64 prompt_base64_length final_chars expected_validation native_pre_reject prompt_preview prompt_tail_mode prompt_tail_preview app_template_mode
     printf '## Selected Cases\n\n'
     printf 'The rows below are the cases that this invocation will consider after `--only-template` and `--only-target`, then after `--limit-cases` if it is non-zero.\n\n'
     if prompt_override_enabled; then
@@ -446,8 +476,8 @@ write_selected_cases_summary() {
         printf 'Prompt file: `%s`\n\n' "$PROMPT_FILE"
       fi
     fi
-    printf '| selected_index | template | target | prompt_chars | final_input_chars_approx | native_pre_reject_expected_by_128_gate | unsafe_bypass_requested | unsafe_bypass_effective | prompt_transport | prompt_base64_length | prompt_source | prompt_file | prompt_preview |\n'
-  printf '| ---: | --- | ---: | ---: | ---: | --- | --- | --- | --- | ---: | --- | --- | --- |\n'
+    printf '| selected_index | template | app_template_mode | target | prompt_chars | final_input_chars_approx | native_pre_reject_expected_by_128_gate | unsafe_bypass_requested | unsafe_bypass_effective | prompt_transport | prompt_base64_length | prompt_source | prompt_file | prompt_tail_mode | prompt_tail_preview | prompt_preview |\n'
+  printf '| ---: | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- | ---: | --- | --- | --- | --- | --- |\n'
   for template in "${TEMPLATES[@]}"; do
     for target in $(target_list_for_template "$template"); do
       case_selected_by_filters "$template" "$target" || continue
@@ -457,7 +487,7 @@ write_selected_cases_summary() {
       overhead="$(template_overhead_tokens "$template")"
       prompt_tokens=$((target - overhead))
       [ "$prompt_tokens" -gt 0 ] || prompt_tokens=1
-      prompt="$(prompt_for_case "$prompt_tokens")"
+      prompt="$(prompt_for_case "$template" "$prompt_tokens")"
       prompt_chars="$(prompt_chars_for_text "$prompt")"
       prompt_base64="$(prompt_base64_for_text "$prompt")"
       prompt_base64_length="${#prompt_base64}"
@@ -465,9 +495,12 @@ write_selected_cases_summary() {
       expected_validation="$(expected_validation_for_chars "$final_chars")"
       native_pre_reject="$(native_pre_reject_for_chars "$final_chars")"
       prompt_preview="$(markdown_preview_cell "$prompt")"
-      printf '| %s | `%s` | %s | %s | %s | `%s` | `%s` | `%s` | `base64` | %s | `%s` | `%s` | `%s` |\n' \
-        "$((rows_written + 1))" "$template" "$target" "$prompt_chars" "$final_chars" \
-        "$native_pre_reject" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$prompt_base64_length" "$(prompt_source_label)" "$(if [ -n "$PROMPT_FILE" ]; then printf '%s' "$PROMPT_FILE"; else printf none; fi)" "$prompt_preview"
+      prompt_tail_mode="$(prompt_tail_mode_for_template "$template")"
+      prompt_tail_preview="$(prompt_tail_preview_for_template "$template")"
+      app_template_mode="$(app_template_mode_for_template "$template")"
+      printf '| %s | `%s` | `%s` | %s | %s | %s | `%s` | `%s` | `%s` | `base64` | %s | `%s` | `%s` | `%s` | `%s` | `%s` |\n' \
+        "$((rows_written + 1))" "$template" "$app_template_mode" "$target" "$prompt_chars" "$final_chars" \
+        "$native_pre_reject" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$prompt_base64_length" "$(prompt_source_label)" "$(if [ -n "$PROMPT_FILE" ]; then printf '%s' "$PROMPT_FILE"; else printf none; fi)" "$prompt_tail_mode" "$prompt_tail_preview" "$prompt_preview"
       if [ "$native_pre_reject" = true ]; then
         printf '\n`128 gate によりこのcaseは native前reject見込み`: template=`%s`, target=`%s`, final_input_chars_approx=`%s`, expected_validation=`%s`.\n\n' \
           "$template" "$target" "$final_chars" "$expected_validation"
@@ -476,7 +509,7 @@ write_selected_cases_summary() {
     done
   done
   if [ "$rows_written" -eq 0 ]; then
-    printf '| 0 | `none` | 0 | 0 | 0 | `unknown` | `%s` | `%s` | `base64` | 0 | `none` | `none` | `no matching selected cases` |\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
+    printf '| 0 | `none` | `none` | 0 | 0 | 0 | `unknown` | `%s` | `%s` | `base64` | 0 | `none` | `none` | `none` | `none` | `no matching selected cases` |\n' "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE"
   fi
   printf '\n'
 }
@@ -485,13 +518,14 @@ run_case() {
   local template="$1"
   local target="$2"
   local overhead prompt_tokens prompt prompt_chars prompt_base64 prompt_base64_length final_chars expected_validation native_pre_reject slug run_id run_dir status receiver_state_timeout success
+  local app_template_mode
   local adb_broadcast_timeout=false
   local force_stopped_after_timeout=false
   local force_stop_after_timeout_exit_code=not_run
   overhead="$(template_overhead_tokens "$template")"
   prompt_tokens=$((target - overhead))
   [ "$prompt_tokens" -gt 0 ] || prompt_tokens=1
-  prompt="$(prompt_for_case "$prompt_tokens")"
+  prompt="$(prompt_for_case "$template" "$prompt_tokens")"
   prompt_chars="$(prompt_chars_for_text "$prompt")"
   prompt_base64="$(prompt_base64_for_text "$prompt")"
   prompt_base64_length="${#prompt_base64}"
@@ -500,11 +534,13 @@ run_case() {
   native_pre_reject="$(native_pre_reject_for_chars "$final_chars")"
   slug="${template}_${target}"
   run_id="seqprobe_${slug}_${TIMESTAMP}"
+  app_template_mode="$(app_template_mode_for_template "$template")"
   run_dir="$OUT_DIR/$slug"
   mkdir -p "$run_dir"
   printf '%s' "$prompt" >"$run_dir/prompt.txt"
   {
     printf 'template=%s\n' "$template"
+    printf 'app_template_mode=%s\n' "$app_template_mode"
     printf 'target_final_tokens_approx=%s\n' "$target"
     printf 'prompt_tokens_approx=%s\n' "$prompt_tokens"
     printf 'prompt_source=%s\n' "$(prompt_source_label)"
@@ -512,6 +548,8 @@ run_case() {
       printf 'prompt_file=%s\n' "$PROMPT_FILE"
     fi
     printf 'prompt_transport=base64\n'
+    printf 'prompt_tail_mode=%s\n' "$(prompt_tail_mode_for_template "$template")"
+    printf 'prompt_tail_preview=%s\n' "$(prompt_tail_preview_for_template "$template")"
     printf 'prompt_chars=%s\n' "$prompt_chars"
     printf 'prompt_base64_length=%s\n' "$prompt_base64_length"
     printf 'prompt_preview=%s\n' "$(markdown_preview_cell "$prompt")"
@@ -538,8 +576,8 @@ run_case() {
     -n "$APP_ID/$RECEIVER"
     --es prompt_base64 "$prompt_base64"
     --es run_id "$run_id"
-    --es template "$template"
-    --es template_mode "$template"
+    --es template "$app_template_mode"
+    --es template_mode "$app_template_mode"
     --ei max_output_tokens "$MAX_OUTPUT_TOKENS"
     --ez allow_max_output_tokens_compare true
     --ez enable_developer_access true
@@ -697,7 +735,7 @@ write_summary() {
     write_selected_cases_summary "$LIMIT_CASES"
     printf '## 128 Gate Preflight\n\n'
     if prompt_override_enabled; then
-      printf 'Important: because `--prompt` or `--prompt-file` is set, selected-case gate expectations come from the Selected Cases table above. The full matrix table below still shows the default generated `x ` filler assumptions for comparison only.\n\n'
+      printf 'Important: because `--prompt` or `--prompt-file` is set, `target` is a case label. Selected-case gate expectations come from the Selected Cases table above. The full matrix table below applies the same prompt override across matching target labels for comparison only.\n\n'
     fi
     if [ "$UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE" = true ]; then
       printf 'Unsafe dev-only bypass is requested for this hidden receiver invocation. Rows with `native_pre_reject_expected_by_128_gate=true` are still expected to exceed the normal 128 gate, but this run is intentionally configured to test whether native entry is reachable after bypassing that prompt-length gate. This does not alter standard ChatScreen routing or persisted backend selection.\n\n'
@@ -707,12 +745,13 @@ write_summary() {
     printf '| template | target | final_input_chars_approx | native_pre_reject_expected_by_128_gate |\n'
     printf '| --- | ---: | ---: | --- |\n'
     for template in "${TEMPLATES[@]}"; do
-      local overhead prompt_tokens prompt_chars final_chars native_pre_reject
+      local overhead prompt_tokens prompt prompt_chars final_chars native_pre_reject
       overhead="$(template_overhead_tokens "$template")"
       for target in $(target_list_for_template "$template"); do
         prompt_tokens=$((target - overhead))
         [ "$prompt_tokens" -gt 0 ] || prompt_tokens=1
-        prompt_chars=$((prompt_tokens * 2))
+        prompt="$(prompt_for_case "$template" "$prompt_tokens")"
+        prompt_chars="$(prompt_chars_for_text "$prompt")"
         final_chars=$((prompt_chars + $(template_overhead_chars "$template")))
         native_pre_reject="$(native_pre_reject_for_chars "$final_chars")"
         printf '| `%s` | %s | %s | `%s` |\n' "$template" "$target" "$final_chars" "$native_pre_reject"

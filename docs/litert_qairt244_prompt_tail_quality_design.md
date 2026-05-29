@@ -72,7 +72,26 @@ continuation form did recover `natural_japanese` output.
 ```
 
 Use this as the next dev-only raw template candidate before any standard route
-promotion discussion.
+promotion discussion. `scripts/run_npu_512_sequence_probe.sh` now exposes this
+as `--only-template raw_dialog_tail` for dry-run and guarded hidden-receiver
+probes. This is still a dev-only probe template and is not standard ChatScreen
+routing.
+
+Generation rules:
+
+- with `--prompt` or `--prompt-file`, treat that content as the long context
+  and append `\n\nユーザー: こんにちは。\nアシスタント:`;
+- without `--prompt` or `--prompt-file`, generate the same long `x ` context
+  used by raw and append the same tail;
+- with prompt overrides, `target` remains a case label and
+  `final_input_chars_approx` comes from context plus the appended tail.
+- the script records `template=raw_dialog_tail`, but sends the existing
+  hidden receiver `raw` template mode to the app so no Kotlin route or
+  standard ChatScreen template support is required.
+
+This template is for output-quality comparison after long-input reachability
+has already been demonstrated. It is not new evidence by itself for 4096
+prefill reachability.
 
 ### simple_ja_chat / gemma_it_like
 
