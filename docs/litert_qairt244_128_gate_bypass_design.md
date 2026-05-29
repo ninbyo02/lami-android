@@ -482,6 +482,41 @@ When `--prompt-file` is set, `target` is only a case label; the file-derived
 `prompt_chars` and `final_input_chars_approx` are the source of truth. Keep
 generated-filler and natural-language evidence separate.
 
+The first prompt-file natural-language check succeeded:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_204237/summary.md
+prompt_source=prompt_file
+prompt_file=/tmp/lami_npu_prompt/ja_long_4096.txt
+prompt_transport=base64
+template=raw
+target=2048
+prompt_chars=3759
+final_input_chars_approx=3759
+native_pre_reject_expected_by_128_gate=true
+unsafe_dev_bypass_prompt_length_gate_requested=true
+unsafe_dev_bypass_prompt_length_gate_effective=true
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+native_limit=512
+native_file_first_max=16
+raw_len=25
+sanitized_len=15
+quality=mixed_language
+control_chars=true
+```
+
+This extends the bypass result from generated filler to a Japanese
+natural-language long prompt near 4096 input. It remains a dev-only hidden
+receiver result, not standard ChatScreen enablement. Output quality and
+sanitizer/template behavior remain separate follow-up topics.
+
 Run exactly one case:
 - template: `raw`
 - target: `128`

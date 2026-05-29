@@ -1041,6 +1041,44 @@ results as separate evidence classes. The 4096-near check should remain raw
 template, hidden receiver only, dev-only prompt-length bypass, max-output `16`,
 and `--limit-cases 1`.
 
+The first prompt-file natural-language long-prompt check also reached NPU
+decode:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_204237/summary.md
+prompt_source=prompt_file
+prompt_file=/tmp/lami_npu_prompt/ja_long_4096.txt
+prompt_transport=base64
+template=raw
+target=2048
+prompt_chars=3759
+final_input_chars_approx=3759
+native_pre_reject_expected_by_128_gate=true
+unsafe_dev_bypass_prompt_length_gate_requested=true
+unsafe_dev_bypass_prompt_length_gate_effective=true
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+timeout=false
+requested/effective=16/16
+native_limit=512
+native_file_first_max=16
+raw_len=25
+sanitized_len=15
+quality=mixed_language
+control_chars=true
+```
+
+This shows that the 4096-near result is not limited to generated `x ` filler:
+approximately 3759 Japanese natural-language prompt characters were delivered
+through prompt-file/base64 transport and reached native decode under the same
+dev-only hidden receiver bypass condition. Output quality remains a separate
+issue because this run was classified as `mixed_language` with control
+characters present.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
