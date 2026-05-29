@@ -877,6 +877,42 @@ milestone before direct 512 sequential validation; the next decisive case is
 raw target `256` (`final_input_chars_approx=512`) with the same one-case,
 max-output-16, timeout/force-stop/diagnostics constraints.
 
+The next one-case probe, raw target `256`, also succeeded through NPU decode:
+
+```text
+artifact=artifacts/qairt244_npu_512_sequence_probe/20260529_200533/summary.md
+prompt_transport=base64
+unsafe_dev_bypass_prompt_length_gate_requested=true
+unsafe_dev_bypass_prompt_length_gate_effective=true
+template=raw
+target=256
+prompt_chars=512
+final_input_chars_approx=512
+native_pre_reject_expected_by_128_gate=true
+status=success
+native=true
+decode=true
+npu_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback=false
+fresh_crash=false
+requested/effective=16/16
+native_limit=512
+native_file_first_max=16
+raw_len=32
+sanitized_len=31
+quality=mixed_language
+control_chars=false
+```
+
+This is the first direct bypassed runtime check at
+`final_input_chars_approx=512`. Under this measured condition, the 512
+sequential hypothesis is not supported: the input reached native, reached
+decode, used QNN/HTP/FastRPC evidence, and did not fall back or freshly crash.
+This clears the path toward larger prefill/input checks. The next safe step is
+one case at raw target `384`; the faster boundary check is raw target `512`.
+Keep `--max-output-tokens 16`, force-stop/timeout diagnostics, and one-case
+execution.
+
 ## Runtime Classification Plan
 
 For each case, the runner records:
