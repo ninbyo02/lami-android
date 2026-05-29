@@ -237,6 +237,7 @@ private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
 private const val DEV_UI_DEBUG_MODE = false
+private const val ENABLE_NPU_STANDARD_ROUTE_S1 = false
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED = true
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
 private const val DEV_USE_HELD_PATH_ONLY = false
@@ -790,6 +791,7 @@ fun Home(
     var devDebugText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DisplayText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devRunnerWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
@@ -2391,6 +2393,21 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
+                                                    if (
+                                                        shouldEnterNpuStandardRouteS1(
+                                                            enabled = ENABLE_NPU_STANDARD_ROUTE_S1,
+                                                            selectedInferenceTarget = selectedInferenceTarget,
+                                                            hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                                            requestPrompt = requestPrompt,
+                                                        )
+                                                    ) {
+                                                        val s1Result = NpuStandardRouteS1Bridge().run()
+                                                        npuStandardRouteS1DisplayText = s1Result.displayText
+                                                        prompt = ""
+                                                        userPrompt = ""
+                                                        selectedImageUriStrings = emptyList()
+                                                        return@IconButton
+                                                    }
                                                     val standardHiddenQairt244NpuEnabled =
                                                         BuildConfig.DEBUG &&
                                                             !BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
@@ -3948,6 +3965,25 @@ fun Home(
                                             message = localRespondingMessage,
                                             isStreaming = true,
                                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                        )
+                                    }
+                                }
+                                if (npuStandardRouteS1DisplayText != null) {
+                                    item(key = "npu_standard_route_s1_display") {
+                                        val s1Text = npuStandardRouteS1DisplayText!!
+                                        CopyableDebugBlock(
+                                            text = s1Text,
+                                            title = "NPU STANDARD ROUTE S1",
+                                            onCopy = {
+                                                clipboardManager.setText(AnnotatedString(s1Text))
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "NPU S1 result をコピーしました",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                         )
                                     }
                                 }
@@ -7832,6 +7868,17 @@ internal fun shouldAutoCreateNewChat(
 ): Boolean {
     return !suppressAutoNewChat && resolvedChatId == null && !isCreatingChat
 }
+
+internal fun shouldEnterNpuStandardRouteS1(
+    enabled: Boolean,
+    selectedInferenceTarget: InferenceTarget,
+    hasImageInput: Boolean,
+    requestPrompt: String,
+): Boolean =
+    enabled &&
+        selectedInferenceTarget == InferenceTarget.LOCAL &&
+        !hasImageInput &&
+        requestPrompt.isNotBlank()
 
 private fun computeLatestUserAnchor(messages: List<Message>): Int {
     if (messages.isEmpty()) {
