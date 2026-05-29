@@ -6,6 +6,11 @@ Scope: dev-only design memo only. This does not implement standard ChatScreen
 NPU routing, does not run probes, does not build or install an APK, and does
 not connect DB, TTS, Markdown, streaming, or persisted backend selection.
 
+Related dev-only conversation plan:
+[`docs/litert_qairt244_dev_only_npu_conversation_plan.md`](litert_qairt244_dev_only_npu_conversation_plan.md).
+That plan defines the five-step path toward a debug-only one-turn NPU
+conversation entry and keeps standard ChatScreen promotion out of scope.
+
 ## Current Evidence
 
 The dev-only hidden receiver path uses `prompt_base64`, explicit unsafe prompt

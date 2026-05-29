@@ -8,6 +8,8 @@ connect Backend.NPU to any standard ChatScreen route.
 
 Related prompt-quality design note:
 [`docs/litert_qairt244_prompt_tail_quality_design.md`](litert_qairt244_prompt_tail_quality_design.md).
+Related dev-only conversation plan:
+[`docs/litert_qairt244_dev_only_npu_conversation_plan.md`](litert_qairt244_dev_only_npu_conversation_plan.md).
 The probe runner also has a dev-only `raw_dialog_tail` template candidate for
 output-quality comparison. It appends `ユーザー: こんにちは。` /
 `アシスタント:` to the long context and is not standard ChatScreen routing or a

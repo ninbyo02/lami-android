@@ -1,0 +1,121 @@
+# QAIRT244 Dev-Only NPU Conversation Plan
+
+Date: 2026-05-29
+
+Scope: design only. This document does not run runtime probes, does not
+implement Kotlin/script/native changes, does not build or install an APK, and
+does not connect Backend.NPU to the standard ChatScreen route.
+
+## Goal
+
+Move from hidden receiver probe evidence toward a dev-only, one-turn NPU
+conversation entry that can display a single NPU result on screen without
+promoting NPU to the standard product route.
+
+This plan keeps the following boundaries:
+- no standard ChatScreen main-route connection yet;
+- no Backend.NPU production application yet;
+- no permanent Settings entry;
+- dev-only/debug-only entry only;
+- one turn only;
+- non-persistent;
+- display only;
+- no DB, TTS, Markdown, or streaming connection.
+
+## Five-Step Plan
+
+1. Design the dev-only NPU conversation entry in docs.
+2. Implement a dev-only one-turn conversation entry fixed to `raw_dialog_tail`.
+3. Confirm display-only behavior while DB, TTS, Markdown, and streaming remain
+   disconnected.
+4. Run one real-device one-turn NPU conversation test.
+5. Verify stop, error, fallback, and rerun safety.
+
+## Step 1: Dev-Only Entry Design
+
+The entry must be isolated from the standard chat route. It should be reachable
+only from a debug/dev-only surface, receiver, or diagnostic screen, and it must
+not write a persistent backend choice.
+
+Required fixed behavior:
+- template candidate: `raw_dialog_tail`;
+- app-facing native template mode: existing `raw`;
+- prompt transport: existing base64 prompt transport;
+- prompt length gate bypass: explicit unsafe dev-only bypass only;
+- max output tokens: keep the guarded small value first, normally `16`;
+- route side effects: none;
+- message persistence: none;
+- DB/TTS/Markdown/streaming: disconnected;
+- result handling: display sanitized text and diagnostics only.
+
+Prompt shaping:
+
+```text
+<context or user text>
+
+ユーザー: <one-turn user prompt>
+アシスタント:
+```
+
+The implementation should not introduce `simple_ja_chat` or `gemma_it_like`
+as the entry template. Existing evidence shows those are still affected by
+echo/sanitizer behavior. Keep the first entry fixed to `raw_dialog_tail`.
+
+## Success Conditions
+
+The first usable one-turn result should satisfy:
+- `native=true`
+- `decode=true`
+- `npu_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fallback=false`
+- `fresh_crash=false`
+- `timeout=false`
+- `raw_len > 0`
+- `sanitized_len > 0`
+- the UI displays the result
+
+Newline-only control characters are not automatically a failure under the
+current quality-policy design. Replacement characters or disallowed control
+characters remain failures. `mixed_language` must be reported separately from
+control-character classification.
+
+## Failure Handling
+
+Failures must not affect the standard route.
+
+Required behavior:
+- fallback must be explicitly shown if it occurs;
+- crash, ANR, or timeout must save an artifact and stop the dev-only run;
+- no silent fallback-to-success classification;
+- no DB/TTS/Markdown/streaming side effects;
+- no persisted Backend.NPU state;
+- rerun must start from an isolated state.
+
+## Promotion Blocks
+
+Do not promote to standard ChatScreen routing while any of the following remain
+true:
+- `simple_ja_chat` echo/sanitizer behavior is unresolved;
+- quality classifier policy is not implemented and tested;
+- stop, error, fallback, and rerun behavior is unverified;
+- DB, TTS, Markdown, and streaming behavior is unverified;
+- Settings exposure and backend persistence safety are not designed;
+- fallback visibility can be hidden or confused with NPU success.
+
+## Step 2 Minimal Implementation Shape
+
+When implementation is approved later, keep the first change narrow:
+- add a debug-only one-turn NPU entry point;
+- accept one user prompt and optional neutral context;
+- always build the final input with `raw_dialog_tail`;
+- send app-facing native template mode as `raw`;
+- reuse base64 prompt transport and existing unsafe length-gate bypass;
+- call the existing dev-only NPU route path;
+- render only the sanitized result plus diagnostic metadata;
+- do not insert chat messages into the normal conversation store;
+- do not connect TTS, Markdown rendering, streaming, or selected backend
+  persistence.
+
+Implementation should follow docs first, classifier design second, tests
+third, and dev-only display/reporting changes last. Runtime testing belongs
+after the implementation is reviewed and built in a separate step.
