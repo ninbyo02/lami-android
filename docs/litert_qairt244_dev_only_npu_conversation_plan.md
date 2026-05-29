@@ -504,3 +504,19 @@ max_output_tokens=<16|32>
   `native_max_output_tokens_limit`;
 - Backend.NPU persistence, DB, TTS, Markdown, streaming, and native code remain
   untouched.
+
+Phase A max-output propagation fix:
+- a 32-token Activity launch using `--ei max_output_tokens 32` still produced
+  a result contract with `requested/effective/max_output_tokens=16`;
+- the static risk was that the Activity read intent extras at multiple points
+  instead of creating one request object and carrying that request through the
+  progress file, Entry execution, and failure contract;
+- the Activity now builds a single
+  `DevOnlyNpuOneTurnConversationRequest` before starting the worker thread,
+  then passes `request.maxOutputTokens` to the progress/failure result file and
+  the same request to `DevOnlyNpuOneTurnConversationEntry`;
+- tests cover that the 32-token compare request is preserved in display,
+  final result, progress, and failure contracts;
+- this is still debug-only and does not run runtime probes, install an APK,
+  change native code, connect standard ChatScreen, persist Backend.NPU, or
+  connect DB/TTS/Markdown/streaming.

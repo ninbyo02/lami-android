@@ -7,6 +7,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationEntry
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
+import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
 import java.io.File
 import kotlinx.coroutines.runBlocking
 
@@ -50,16 +51,19 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
     ) {
         if (runStarted) return
         runStarted = true
+        val request = currentRequest()
         outputView.text = "DEV ONLY NPU ONE TURN\nstatus=starting"
         startDevOnlyRun(
             outputView = outputView,
             trigger = trigger,
+            request = request,
         )
     }
 
     private fun startDevOnlyRun(
         outputView: TextView,
         trigger: String,
+        request: DevOnlyNpuOneTurnConversationRequest,
     ) {
         Thread({
             runOnUiThread {
@@ -74,18 +78,7 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                     resultFile = resultFile,
                     trigger = trigger,
                     status = "running",
-                )
-                val request = DevOnlyNpuOneTurnConversationContract.activityRequest(
-                    userPrompt = intent?.getStringExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_USER_PROMPT),
-                    contextText = intent?.getStringExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_CONTEXT).orEmpty(),
-                    unsafeDevBypassPromptLengthGate = intent?.getBooleanExtra(
-                        DevOnlyNpuOneTurnConversationContract.EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE,
-                        true,
-                    ) ?: true,
-                    requestedMaxOutputTokens = intent?.getIntExtra(
-                        DevOnlyNpuOneTurnConversationContract.EXTRA_MAX_OUTPUT_TOKENS,
-                        DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
-                    ) ?: DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
+                    maxOutputTokens = request.maxOutputTokens,
                 )
                 val display = runBlocking {
                     DevOnlyNpuOneTurnConversationEntry(this@Qairt244DevOnlyNpuConversationActivity)
@@ -99,8 +92,12 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                 )
                 display.text
             } catch (throwable: Throwable) {
-                writeFailureResultFile(resultFile, throwable)
-                val maxOutputTokens = currentMaxOutputTokens()
+                writeFailureResultFile(
+                    resultFile = resultFile,
+                    throwable = throwable,
+                    maxOutputTokens = request.maxOutputTokens,
+                )
+                val maxOutputTokens = request.maxOutputTokens
                 "DEV ONLY NPU ONE TURN\n" +
                     "status=failure\n" +
                     "reason=activity_failure:${throwable.javaClass.simpleName}\n" +
@@ -130,6 +127,7 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
     private fun writeFailureResultFile(
         resultFile: File,
         throwable: Throwable,
+        maxOutputTokens: Int,
     ) {
         runCatching {
             resultFile.writeText(
@@ -137,15 +135,21 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                     reason = "activity_failure:${throwable.javaClass.simpleName}",
                     message = throwable.message.orEmpty(),
                     timestampMs = System.currentTimeMillis(),
-                    maxOutputTokens = currentMaxOutputTokens(),
+                    maxOutputTokens = maxOutputTokens,
                 ),
             )
         }
     }
 
-    private fun currentMaxOutputTokens(): Int =
-        DevOnlyNpuOneTurnConversationContract.sanitizeMaxOutputTokens(
-            intent?.getIntExtra(
+    private fun currentRequest(): DevOnlyNpuOneTurnConversationRequest =
+        DevOnlyNpuOneTurnConversationContract.activityRequest(
+            userPrompt = intent?.getStringExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_USER_PROMPT),
+            contextText = intent?.getStringExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_CONTEXT).orEmpty(),
+            unsafeDevBypassPromptLengthGate = intent?.getBooleanExtra(
+                DevOnlyNpuOneTurnConversationContract.EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE,
+                true,
+            ) ?: true,
+            requestedMaxOutputTokens = intent?.getIntExtra(
                 DevOnlyNpuOneTurnConversationContract.EXTRA_MAX_OUTPUT_TOKENS,
                 DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
             ) ?: DevOnlyNpuOneTurnConversationContract.DEFAULT_MAX_OUTPUT_TOKENS,
@@ -155,6 +159,7 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
         resultFile: File,
         trigger: String,
         status: String,
+        maxOutputTokens: Int,
     ) {
         resultFile.writeText(
             DevOnlyNpuOneTurnConversationContract.receiverProgressText(
@@ -166,7 +171,7 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                     DevOnlyNpuOneTurnConversationContract.EXTRA_USER_PROMPT,
                 ) == true,
                 timestampMs = System.currentTimeMillis(),
-                maxOutputTokens = currentMaxOutputTokens(),
+                maxOutputTokens = maxOutputTokens,
             ),
         )
     }

@@ -207,6 +207,71 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     }
 
     @Test
+    fun `display and result contract preserve 32 token compare request`() {
+        val display = DevOnlyNpuOneTurnConversationContract.display(
+            result = DevOnlyNpuRouteResult(
+                success = true,
+                output = "こんにちは。短い応答です。",
+                reasonCode = "success",
+                elapsedMs = 10,
+                decodeElapsedMs = 5,
+                prompt = "ユーザー: こんにちは\nアシスタント: こんにちは",
+                maxOutputTokens = DevOnlyNpuOneTurnConversationContract.COMPARE_MAX_OUTPUT_TOKENS,
+                backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                artifactPath = null,
+                freshCrash = false,
+                timeout = false,
+            ),
+            values = mapOf(
+                "sanitized_output" to "こんにちは。短い応答です。",
+                "sanitized_output_length" to "12",
+                "raw_native_output" to "こんにちは。短い応答です。",
+                "raw_native_output_length" to "12",
+                "max_output_tokens" to "32",
+                "native_max_output_tokens_limit" to "512",
+                "quality_classification" to "natural_japanese",
+                "output_unicode_summary" to "control_chars=none;replacement_char_count=0",
+                "sanitizer_applied" to "false",
+                "removed_template_token_count" to "0",
+                "removed_prompt_echo" to "false",
+                "replacement_char_count" to "0",
+                "output_contains_control_chars" to "false",
+            ),
+        )
+
+        val resultText = DevOnlyNpuOneTurnConversationContract.receiverResultText(
+            display = display,
+            timestampMs = 1234L,
+        )
+        val progressText = DevOnlyNpuOneTurnConversationContract.receiverProgressText(
+            status = "running",
+            timestampMs = 1234L,
+            maxOutputTokens = DevOnlyNpuOneTurnConversationContract.COMPARE_MAX_OUTPUT_TOKENS,
+        )
+        val failureText = DevOnlyNpuOneTurnConversationContract.receiverFailureText(
+            reason = "activity_failure:IllegalStateException",
+            message = "failed",
+            timestampMs = 1234L,
+            maxOutputTokens = DevOnlyNpuOneTurnConversationContract.COMPARE_MAX_OUTPUT_TOKENS,
+        )
+
+        assertEquals(32, display.requestedMaxOutputTokens)
+        assertEquals(32, display.effectiveMaxOutputTokens)
+        assertTrue(display.text.contains("requested_max_output_tokens=32"))
+        assertTrue(display.text.contains("effective_max_output_tokens=32"))
+        assertTrue(display.text.contains("max_output_tokens=32"))
+        assertTrue(resultText.contains("requested_max_output_tokens=32"))
+        assertTrue(resultText.contains("effective_max_output_tokens=32"))
+        assertTrue(resultText.contains("max_output_tokens=32"))
+        assertTrue(progressText.contains("requested_max_output_tokens=32"))
+        assertTrue(progressText.contains("effective_max_output_tokens=32"))
+        assertTrue(progressText.contains("max_output_tokens=32"))
+        assertTrue(failureText.contains("requested_max_output_tokens=32"))
+        assertTrue(failureText.contains("effective_max_output_tokens=32"))
+        assertTrue(failureText.contains("max_output_tokens=32"))
+    }
+
+    @Test
     fun `receiver result file includes token evidence and disconnected side effects`() {
         val display = DevOnlyNpuOneTurnConversationContract.display(
             result = DevOnlyNpuRouteResult(
