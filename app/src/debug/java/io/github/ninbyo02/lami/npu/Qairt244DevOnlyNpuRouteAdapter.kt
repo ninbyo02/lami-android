@@ -177,7 +177,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 reasonCode = "invalid_prompt:${finalInputValidation.reasonCode}",
             )
         }
-        if (!runGuardFile.createNewFile()) {
+        val usesSharedOnceGuard = usesSharedOnceGuard(promptSource)
+        if (usesSharedOnceGuard && !runGuardFile.createNewFile()) {
             appendRouteMarker(
                 "state=duplicate_run_blocked actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt " +
                     "prompt_source=$promptSource prompt_validation_mode=${finalInputValidation.promptValidationMode} " +
@@ -190,7 +191,9 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 reasonCode = "duplicate_run_blocked",
             )
         }
-        runGuardFile.writeText("created_at_ms=${System.currentTimeMillis()}\n")
+        if (usesSharedOnceGuard) {
+            runGuardFile.writeText("created_at_ms=${System.currentTimeMillis()}\n")
+        }
 
         val modelResolution = Qairt244ModelPathResolver.resolve(appContext)
         writeModelResolution(modelResolution)
@@ -872,5 +875,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
             } else {
                 "internal_intent"
             }
+
+        fun usesSharedOnceGuard(promptSource: String): Boolean =
+            promptSource != PROMPT_SOURCE_DEV_ONLY_CONVERSATION
     }
 }

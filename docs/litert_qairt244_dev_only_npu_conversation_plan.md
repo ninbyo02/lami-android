@@ -334,3 +334,18 @@ This is still a dev-only Step 5 check path, not a standard route promotion.
 It keeps `raw_dialog_tail`, app-facing `raw` mode, max output `16`, no
 Backend.NPU persistence, and no DB/TTS/Markdown/streaming connection. Runtime
 broadcast execution remains a later explicit device step after compile/tests.
+
+Step 5 broadcast static fix:
+- the first broadcast reached `prompt_source=dev_only_conversation` and
+  propagated `max_output_tokens=16`, but the adapter stopped before native
+  engine initialization with `engine_initialize=false` and `run_decode=false`;
+- the marker source is the adapter `duplicate_run_blocked` branch, which used
+  the standard hidden route shared once guard
+  `qairt244_chat_screen_real_npu_once_guard.txt` for dev-only conversation
+  runs too;
+- dev-only one-turn conversation now skips that shared once guard while the
+  standard ChatScreen route still keeps it;
+- the receiver writes the dedicated result file synchronously as
+  `status=received`, then `status=running`, then a final success/failure
+  contract, so ADB can distinguish delivery, execution start, and final result
+  without depending only on `qairt244_short_multitoken_smoke_result.txt`.

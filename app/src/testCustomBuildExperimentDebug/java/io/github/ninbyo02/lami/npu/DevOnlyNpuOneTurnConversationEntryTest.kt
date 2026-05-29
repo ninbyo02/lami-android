@@ -73,6 +73,20 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     }
 
     @Test
+    fun `dev-only conversation does not use shared standard route once guard`() {
+        assertFalse(
+            Qairt244DevOnlyNpuRouteAdapter.usesSharedOnceGuard(
+                Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_DEV_ONLY_CONVERSATION,
+            ),
+        )
+        assertTrue(
+            Qairt244DevOnlyNpuRouteAdapter.usesSharedOnceGuard(
+                Qairt244DevOnlyNpuRouteAdapter.PROMPT_SOURCE_CHAT_SCREEN,
+            ),
+        )
+    }
+
+    @Test
     fun `display includes only dev-only side effect flags`() {
         val display = DevOnlyNpuOneTurnConversationContract.display(
             result = DevOnlyNpuRouteResult(
@@ -180,5 +194,31 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(text.contains("sanitized_output=こんにちは。\\n短い応答です。"))
         assertTrue(text.contains("quality_classification=natural_japanese"))
         assertTrue(text.contains("output_first_200_chars=こんにちは。\\n短い応答です。"))
+    }
+
+    @Test
+    fun `receiver progress file is written before entry finishes`() {
+        val text = DevOnlyNpuOneTurnConversationContract.receiverProgressText(
+            status = "received",
+            timestampMs = 1234L,
+        )
+
+        assertTrue(text.contains("timestamp=1234"))
+        assertTrue(text.contains("status=received"))
+        assertTrue(text.contains("result=pending"))
+        assertTrue(text.contains("requested_max_output_tokens=16"))
+        assertTrue(text.contains("effective_max_output_tokens=16"))
+        assertTrue(text.contains("max_output_tokens=16"))
+        assertTrue(text.contains("run_decode_reached=false"))
+        assertTrue(text.contains("fallback_used=false"))
+        assertTrue(text.contains("timeout=false"))
+        assertTrue(text.contains("fresh_crash=false"))
+        assertTrue(text.contains("standard_route_connected=false"))
+        assertTrue(text.contains("backend_npu_persisted=false"))
+        assertTrue(text.contains("db=false"))
+        assertTrue(text.contains("tts=false"))
+        assertTrue(text.contains("markdown=false"))
+        assertTrue(text.contains("streaming=false"))
+        assertTrue(text.contains("route_type=dev_only_one_turn_conversation"))
     }
 }

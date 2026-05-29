@@ -22,6 +22,10 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
             )
             return
         }
+        writeProgress(
+            resultFile = resultFile,
+            status = "received",
+        )
         if (!running.compareAndSet(false, true)) {
             writeFailure(
                 resultFile = resultFile,
@@ -34,6 +38,10 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         Thread({
             try {
+                writeProgress(
+                    resultFile = resultFile,
+                    status = "running",
+                )
                 val request = DevOnlyNpuOneTurnConversationRequest(
                     userPrompt = intent.getStringExtra(
                         DevOnlyNpuOneTurnConversationContract.EXTRA_USER_PROMPT,
@@ -68,6 +76,18 @@ class DevOnlyNpuOneTurnConversationReceiver : BroadcastReceiver() {
                 pendingResult.finish()
             }
         }, "DevOnlyNpuOneTurnConversationReceiver").start()
+    }
+
+    private fun writeProgress(
+        resultFile: File,
+        status: String,
+    ) {
+        resultFile.writeText(
+            DevOnlyNpuOneTurnConversationContract.receiverProgressText(
+                status = status,
+                timestampMs = System.currentTimeMillis(),
+            ),
+        )
     }
 
     private fun writeFailure(

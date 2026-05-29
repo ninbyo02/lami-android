@@ -226,6 +226,36 @@ object DevOnlyNpuOneTurnConversationContract {
         return lines.joinToString(separator = "\n", postfix = "\n")
     }
 
+    fun receiverProgressText(
+        status: String,
+        timestampMs: Long,
+        safety: DevOnlyNpuOneTurnConversationSafety = safety(),
+    ): String {
+        val lines = listOf(
+            "timestamp=$timestampMs",
+            "status=$status",
+            "result=pending",
+            "success=false",
+            "reason=$status",
+            "requested_max_output_tokens=$MAX_OUTPUT_TOKENS",
+            "effective_max_output_tokens=$MAX_OUTPUT_TOKENS",
+            "max_output_tokens=$MAX_OUTPUT_TOKENS",
+            "native_max_output_tokens_limit=-",
+            "run_decode_reached=false",
+            "npu_backend_evidence=-",
+            "fallback_used=false",
+            "timeout=false",
+            "fresh_crash=false",
+        ).plus(safetyLines(safety)).plus(
+            listOf(
+                "sanitized_output=",
+                "quality_classification=unknown",
+                "output_first_200_chars=",
+            ),
+        )
+        return lines.joinToString(separator = "\n", postfix = "\n")
+    }
+
     private fun escapeResultValue(value: String): String =
         value.replace("\\", "\\\\").replace("\n", "\\n")
 }
