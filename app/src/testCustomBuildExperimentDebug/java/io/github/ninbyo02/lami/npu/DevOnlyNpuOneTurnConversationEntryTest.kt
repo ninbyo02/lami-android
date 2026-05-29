@@ -32,6 +32,16 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertEquals("raw", safety.appTemplateMode)
         assertEquals("raw_dialog_tail", safety.template)
         assertEquals("base64", safety.promptTransport)
+        assertTrue(DevOnlyNpuOneTurnConversationContract.safetyLines().contains("route_type=dev_only_one_turn_conversation"))
+    }
+
+    @Test
+    fun `initial display is idle until manual trigger`() {
+        val text = DevOnlyNpuOneTurnConversationContract.INITIAL_DISPLAY_TEXT
+
+        assertTrue(text.contains("status=idle"))
+        assertTrue(text.contains("adapter_execution=manual_trigger_only"))
+        assertFalse(text.contains("status=starting"))
     }
 
     @Test
@@ -61,6 +71,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         )
 
         assertTrue(display.text.contains("standard_route_connected=false"))
+        assertTrue(display.text.contains("route_type=dev_only_one_turn_conversation"))
         assertTrue(display.text.contains("backend_npu_persisted=false"))
         assertTrue(display.text.contains("db=false"))
         assertTrue(display.text.contains("tts=false"))

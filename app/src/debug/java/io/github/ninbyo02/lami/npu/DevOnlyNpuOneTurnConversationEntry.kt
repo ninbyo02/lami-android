@@ -47,8 +47,10 @@ object DevOnlyNpuOneTurnConversationContract {
     const val TEMPLATE = "raw_dialog_tail"
     const val PROMPT_TAIL_MODE = "raw_dialog_tail"
     const val PROMPT_TRANSPORT = "base64"
+    const val ROUTE_TYPE = "dev_only_one_turn_conversation"
     const val MAX_OUTPUT_TOKENS = 16
     const val TIMEOUT_MS = 60_000L
+    const val INITIAL_DISPLAY_TEXT = "DEV ONLY NPU ONE TURN\nstatus=idle\nadapter_execution=manual_trigger_only"
 
     fun safety(): DevOnlyNpuOneTurnConversationSafety = DevOnlyNpuOneTurnConversationSafety()
 
@@ -71,6 +73,7 @@ object DevOnlyNpuOneTurnConversationContract {
         "markdown=${safety.markdown}",
         "streaming=${safety.streaming}",
         "selected_path_npu_saved=${safety.selectedPathNpuSaved}",
+        "route_type=$ROUTE_TYPE",
         "template=${safety.template}",
         "app_template_mode=${safety.appTemplateMode}",
         "prompt_tail_mode=$PROMPT_TAIL_MODE",

@@ -2,21 +2,43 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.app.Activity
 import android.os.Bundle
+import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationEntry
+import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
 import kotlinx.coroutines.runBlocking
 
 class Qairt244DevOnlyNpuConversationActivity : Activity() {
+    private var runStarted = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val outputView = TextView(this).apply {
-            text = "DEV ONLY NPU ONE TURN\nstatus=starting"
+            text = DevOnlyNpuOneTurnConversationContract.INITIAL_DISPLAY_TEXT
             setTextIsSelectable(true)
             setPadding(24, 24, 24, 24)
         }
-        setContentView(outputView)
+        val runButton = Button(this).apply {
+            text = "Run dev-only NPU one turn"
+            setOnClickListener {
+                if (runStarted) return@setOnClickListener
+                runStarted = true
+                outputView.text = "DEV ONLY NPU ONE TURN\nstatus=starting"
+                startDevOnlyRun(outputView)
+            }
+        }
+        setContentView(
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(runButton)
+                addView(outputView)
+            },
+        )
+    }
 
+    private fun startDevOnlyRun(outputView: TextView) {
         Thread({
             val request = DevOnlyNpuOneTurnConversationRequest(
                 userPrompt = intent?.getStringExtra(EXTRA_USER_PROMPT).orEmpty().ifBlank { DEFAULT_PROMPT },

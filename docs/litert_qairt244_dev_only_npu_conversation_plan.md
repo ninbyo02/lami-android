@@ -139,3 +139,24 @@ Step 2 is not Step 3 or Step 4. It does not prove on-screen behavior on a
 device, does not run runtime probes, and does not install an APK. Step 3 must
 confirm display-only behavior before Step 4 runs a real-device one-turn NPU
 conversation test.
+
+## Step 3 Static Display Review
+
+Static review result:
+- the Activity is registered only in `app/src/debug/AndroidManifest.xml`;
+- the standard `ChatScreen` source remains disconnected;
+- Activity launch shows an idle display first and does not start NPU execution
+  from `onCreate`;
+- adapter execution requires the explicit dev-only button trigger;
+- the display contract includes `status`, `sanitized_output`, `reason`,
+  `native`, `decode`, `npu_evidence`, `fallback`, `fresh_crash`, `timeout`,
+  `raw_len`, `sanitized_len`, `quality`, and `control_chars`;
+- the display contract also emits `standard_route_connected=false`,
+  `backend_npu_persisted=false`, `db=false`, `tts=false`, `markdown=false`,
+  `streaming=false`, and `route_type=dev_only_one_turn_conversation`;
+- no Backend.NPU preference is saved;
+- no DB, TTS, Markdown, or streaming API is called by the dev-only entry.
+
+Step 3 remains static only. It does not run the NPU, install an APK, or prove
+device UI behavior. Step 4 is still the first real-device one-turn NPU
+conversation test.
