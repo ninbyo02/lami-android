@@ -28,5 +28,5 @@ internal object RealNpuStandardRouteS1ResultMapper {
     }
 
     fun failure(reason: String): NpuStandardRouteS1RawResult =
-        FailureNpuStandardRouteS1Provider(reason = reason).invoke(userPrompt = "")
+        FailureNpuStandardRouteS1Provider(reason = reason).invoke(userPrompt = "", trace = {})
 }

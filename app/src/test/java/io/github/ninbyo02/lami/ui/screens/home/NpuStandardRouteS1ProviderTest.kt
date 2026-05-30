@@ -11,7 +11,7 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `fixed provider returns default S1 success raw result`() {
-        val raw = FixedNpuStandardRouteS1Provider().invoke(userPrompt)
+        val raw = FixedNpuStandardRouteS1Provider().invoke(userPrompt, trace = {})
 
         assertEquals("success", raw.status)
         assertEquals("success", raw.result)
@@ -31,7 +31,7 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `failure provider returns mapper compatible failure raw result`() {
-        val raw = FailureNpuStandardRouteS1Provider(reason = "test_failure").invoke(userPrompt)
+        val raw = FailureNpuStandardRouteS1Provider(reason = "test_failure").invoke(userPrompt, trace = {})
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         assertEquals("failure", raw.status)
@@ -65,7 +65,7 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `default provider follows build variant provider selection`() {
-        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke(userPrompt)
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke(userPrompt, trace = {})
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
@@ -82,7 +82,7 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `provider selector uses fixed provider when S1 gate is disabled`() {
-        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = false).invoke(userPrompt)
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = false).invoke(userPrompt, trace = {})
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         assertTrue(mapped.successCriteriaMet)
@@ -92,7 +92,7 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `provider selector uses real provider path when S1 gate is enabled`() {
-        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = true).invoke(userPrompt)
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = true).invoke(userPrompt, trace = {})
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         assertFalse(mapped.successCriteriaMet)
@@ -102,8 +102,10 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `provider selector for Settings mode keeps standard OFF fixed and S1 real while preserving custom compatibility`() {
-        val offRaw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.OFF).invoke(userPrompt)
-        val s1Raw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.S1_ONLY).invoke(userPrompt)
+        val offRaw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.OFF)
+            .invoke(userPrompt, trace = {})
+        val s1Raw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.S1_ONLY)
+            .invoke(userPrompt, trace = {})
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertEquals("failure", offRaw.status)
@@ -137,5 +139,16 @@ class NpuStandardRouteS1ProviderTest {
         assertEquals("provider_injected_failure", mapped.reason)
         assertTrue(mapped.fallbackUsed)
         assertTrue(mapped.selection.sideEffects.allDisconnected)
+    }
+
+    @Test
+    fun `real prompt trace uses hash and preview without full prompt`() {
+        val trace = buildNpuRealPromptHandoffTrace(stage = "chat", userPrompt = userPrompt)
+
+        assertTrue(trace.contains("NPU_REAL_PROMPT chat_prompt_hash="))
+        assertTrue(trace.contains("chat_prompt_length=${userPrompt.length}"))
+        assertTrue(trace.contains("chat_prompt_code_points=${userPrompt.codePointCount(0, userPrompt.length)}"))
+        assertTrue(trace.contains("chat_prompt_preview="))
+        assertFalse(trace.contains(userPrompt))
     }
 }

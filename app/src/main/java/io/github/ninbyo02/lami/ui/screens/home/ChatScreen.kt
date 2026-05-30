@@ -2411,8 +2411,26 @@ fun Home(
                                                             requestPrompt = requestPrompt,
                                                         )
                                                     ) {
-                                                        val s1Result = NpuStandardRouteS1Bridge(npuStandardRouteMode)
+                                                        val npuRealPromptTrace: (String) -> Unit = { message ->
+                                                            logStreamTrace(message)
+                                                        }
+                                                        npuRealPromptTrace(
+                                                            buildNpuRealPromptHandoffTrace(
+                                                                stage = "chat",
+                                                                userPrompt = requestPrompt,
+                                                            ),
+                                                        )
+                                                        val s1Result = NpuStandardRouteS1Bridge(
+                                                            mode = npuStandardRouteMode,
+                                                            trace = npuRealPromptTrace,
+                                                        )
                                                             .run(userPrompt = requestPrompt)
+                                                        npuRealPromptTrace(
+                                                            buildNpuRealPromptResultTrace(
+                                                                sanitizedOutput = s1Result.sanitizedOutput,
+                                                                qualityClassification = s1Result.qualityClassification,
+                                                            ),
+                                                        )
                                                         npuStandardRouteS1DisplayText = s1Result.displayText
                                                         npuStandardRouteS4PseudoStreamingText = null
                                                         npuStandardRouteS4PseudoStreamingActive = false

@@ -16,14 +16,14 @@ class RealNpuStandardRouteS1ProviderTest {
             requestRunner = { successDisplay() },
         )
 
-        assertEquals("success", provider.invoke(userPrompt).reason)
+        assertEquals("success", provider.invoke(userPrompt, trace = {}).reason)
     }
 
     @Test
     fun `real provider maps dev only success display to S1 raw result`() {
         val raw = RealNpuStandardRouteS1Provider(
             requestRunner = { successDisplay() },
-        ).invoke(userPrompt)
+        ).invoke(userPrompt, trace = {})
 
         assertEquals("success", raw.status)
         assertEquals("success", raw.result)
@@ -45,7 +45,7 @@ class RealNpuStandardRouteS1ProviderTest {
     fun `real provider maps dev only failure reason to S1 raw result`() {
         val raw = RealNpuStandardRouteS1Provider(
             requestRunner = { failureDisplay(reason = "npu_evidence_missing") },
-        ).invoke(userPrompt)
+        ).invoke(userPrompt, trace = {})
 
         assertEquals("failure", raw.status)
         assertEquals("failure", raw.result)
@@ -65,7 +65,7 @@ class RealNpuStandardRouteS1ProviderTest {
 
     @Test
     fun `real provider returns explicit failure when dev only entry is unavailable in unit test`() {
-        val raw = RealNpuStandardRouteS1Provider().invoke(userPrompt)
+        val raw = RealNpuStandardRouteS1Provider().invoke(userPrompt, trace = {})
 
         assertEquals("failure", raw.status)
         assertEquals("failure", raw.result)
@@ -88,7 +88,7 @@ class RealNpuStandardRouteS1ProviderTest {
         val result = NpuStandardRouteS1Mapper.map(
             RealNpuStandardRouteS1Provider(
                 requestRunner = { failureDisplay(reason = "timeout") },
-            ).invoke(userPrompt),
+            ).invoke(userPrompt, trace = {}),
         )
 
         assertFalse(result.successCriteriaMet)
@@ -105,7 +105,7 @@ class RealNpuStandardRouteS1ProviderTest {
 
     @Test
     fun `custom build experiment default provider selects real provider and reports unavailable in unit test`() {
-        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke(userPrompt)
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke(userPrompt, trace = {})
         val result = NpuStandardRouteS1Mapper.map(raw)
 
         assertFalse(result.successCriteriaMet)
@@ -118,7 +118,7 @@ class RealNpuStandardRouteS1ProviderTest {
     @Test
     fun `custom build experiment keeps provider selector real compatible for Settings mode OFF`() {
         val raw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.OFF)
-            .invoke(userPrompt)
+            .invoke(userPrompt, trace = {})
         val result = NpuStandardRouteS1Mapper.map(raw)
 
         assertFalse(result.successCriteriaMet)
@@ -140,13 +140,14 @@ class RealNpuStandardRouteS1ProviderTest {
     @Test
     fun `real provider passes user prompt into dev only request`() {
         var capturedRequest: DevOnlyNpuOneTurnConversationRequest? = null
+        val traces = mutableListOf<String>()
 
         val raw = RealNpuStandardRouteS1Provider(
             requestRunner = { request ->
                 capturedRequest = request
                 successDisplay()
             },
-        ).invoke(userPrompt)
+        ).invoke(userPrompt, trace = traces::add)
 
         val request = requireNotNull(capturedRequest)
         assertEquals("success", raw.status)
@@ -156,6 +157,14 @@ class RealNpuStandardRouteS1ProviderTest {
         assertEquals(32, request.maxOutputTokens)
         assertEquals("raw_dialog_tail_variant_b", request.promptTailVariant)
         assertEquals(60_000L, request.timeoutMs)
+        assertTrue(traces.any { it.contains("NPU_REAL_PROMPT provider_prompt_hash=") })
+        assertTrue(traces.any { it.contains("NPU_REAL_PROMPT request_prompt_hash=") })
+        assertTrue(traces.any { it.contains("prompt_source=dev_only_conversation") })
+        assertTrue(traces.any { it.contains("final_input_tokens=unavailable") })
+        assertTrue(traces.any { it.contains("final_input_code_points=") })
+        assertTrue(traces.any { it.contains("sanitized_output_hash=") })
+        assertTrue(traces.any { it.contains("quality_classification=natural_japanese") })
+        assertFalse(traces.joinToString("\n").contains(userPrompt))
     }
 
     private fun successDisplay(): DevOnlyNpuOneTurnConversationDisplay =

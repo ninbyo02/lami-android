@@ -1,7 +1,10 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 internal class FixedNpuStandardRouteS1Provider : NpuStandardRouteS1Provider {
-    override fun invoke(userPrompt: String): NpuStandardRouteS1RawResult =
+    override fun invoke(
+        userPrompt: String,
+        trace: (String) -> Unit,
+    ): NpuStandardRouteS1RawResult =
         NpuStandardRouteS1RawResult(
             status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
             result = NpuStandardRouteS1Contract.STATUS_SUCCESS,

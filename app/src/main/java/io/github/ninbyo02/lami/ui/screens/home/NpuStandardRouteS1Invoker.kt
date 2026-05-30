@@ -2,11 +2,18 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 internal class NpuStandardRouteS1Invoker(
     private val provider: NpuStandardRouteS1Provider = NpuStandardRouteS1ProviderSelector.defaultProvider(),
+    private val trace: (String) -> Unit = {},
 ) {
-    constructor(mode: NpuStandardRouteMode) : this(
+    constructor(
+        mode: NpuStandardRouteMode,
+        trace: (String) -> Unit = {},
+    ) : this(
         provider = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(mode),
+        trace = trace,
     )
 
-    fun invoke(userPrompt: String): NpuStandardRouteS1RawResult =
-        provider.invoke(userPrompt)
+    fun invoke(userPrompt: String): NpuStandardRouteS1RawResult {
+        trace(buildNpuRealPromptHandoffTrace(stage = "invoker", userPrompt = userPrompt))
+        return provider.invoke(userPrompt, trace)
+    }
 }

@@ -43,26 +43,31 @@ class NpuStandardRouteS1BridgeTest {
 
     @Test
     fun `bridge uses injected invoker without owning side effects`() {
+        val traces = mutableListOf<String>()
         val bridge = NpuStandardRouteS1Bridge(
-            invoker = NpuStandardRouteS1Invoker { receivedPrompt ->
-                assertEquals(userPrompt, receivedPrompt)
-                NpuStandardRouteS1RawResult(
-                    status = "failure",
-                    result = "failure",
-                    success = false,
-                    reason = "test_failure",
-                    rawOutput = "",
-                    sanitizedOutput = "",
-                    qualityClassification = "unknown",
-                    runDecodeReached = false,
-                    npuBackendEvidence = "",
-                    fallbackUsed = false,
-                    timeout = false,
-                    freshCrash = false,
-                    requestedMaxOutputTokens = 32,
-                    effectiveMaxOutputTokens = 32,
-                )
-            },
+            invoker = NpuStandardRouteS1Invoker(
+                provider = NpuStandardRouteS1Provider { receivedPrompt, _ ->
+                    assertEquals(userPrompt, receivedPrompt)
+                    NpuStandardRouteS1RawResult(
+                        status = "failure",
+                        result = "failure",
+                        success = false,
+                        reason = "test_failure",
+                        rawOutput = "",
+                        sanitizedOutput = "",
+                        qualityClassification = "unknown",
+                        runDecodeReached = false,
+                        npuBackendEvidence = "",
+                        fallbackUsed = false,
+                        timeout = false,
+                        freshCrash = false,
+                        requestedMaxOutputTokens = 32,
+                        effectiveMaxOutputTokens = 32,
+                    )
+                },
+                trace = traces::add,
+            ),
+            trace = traces::add,
         )
 
         val result = bridge.run(userPrompt = userPrompt)
@@ -71,5 +76,8 @@ class NpuStandardRouteS1BridgeTest {
         assertEquals("failure", result.status)
         assertEquals("test_failure", result.reason)
         assertTrue(result.selection.sideEffects.allDisconnected)
+        assertTrue(traces.any { it.contains("NPU_REAL_PROMPT bridge_prompt_hash=") })
+        assertTrue(traces.any { it.contains("NPU_REAL_PROMPT invoker_prompt_hash=") })
+        assertFalse(traces.joinToString("\n").contains(userPrompt))
     }
 }

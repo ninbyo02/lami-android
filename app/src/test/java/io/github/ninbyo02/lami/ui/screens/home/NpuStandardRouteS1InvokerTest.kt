@@ -49,8 +49,9 @@ class NpuStandardRouteS1InvokerTest {
 
     @Test
     fun `invoker can be supplied a test raw result without ChatScreen dependency`() {
+        val traces = mutableListOf<String>()
         val invoker = NpuStandardRouteS1Invoker(
-            provider = NpuStandardRouteS1Provider { receivedPrompt ->
+            provider = NpuStandardRouteS1Provider { receivedPrompt, _ ->
                 assertEquals(userPrompt, receivedPrompt)
                 NpuStandardRouteS1RawResult(
                     status = "failure",
@@ -69,6 +70,7 @@ class NpuStandardRouteS1InvokerTest {
                     effectiveMaxOutputTokens = 32,
                 )
             },
+            trace = traces::add,
         )
 
         val mapped = NpuStandardRouteS1Mapper.map(invoker.invoke(userPrompt))
@@ -76,5 +78,7 @@ class NpuStandardRouteS1InvokerTest {
         assertFalse(mapped.successCriteriaMet)
         assertEquals("failure", mapped.status)
         assertEquals("test_failure", mapped.reason)
+        assertTrue(traces.any { it.contains("NPU_REAL_PROMPT invoker_prompt_hash=") })
+        assertFalse(traces.joinToString("\n").contains(userPrompt))
     }
 }
