@@ -167,6 +167,27 @@ After sending a local prompt from ChatScreen, verify:
 For Markdown-specific behavior, use a later safe prompt-shaping plan before
 testing code fences or escaped newlines through real NPU output.
 
+## Smoke Check Result
+
+S3 Markdown gate ON was smoke-checked manually:
+
+- temporarily set `ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN=true`;
+- installed and launched `customBuildExperimentDebug` successfully;
+- captured `/tmp/npu_s3_gate_on.png`;
+- rollback restored `ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN=false`;
+- reinstalled after rollback;
+- `git status -sb` was clean after rollback.
+
+Interpretation:
+
+- The gate can be enabled without blocking install/start for the custom build.
+- The observed assistant response was still `こんにちは。`, so this run did not
+  prove a visible Markdown rendering difference.
+- The real S3 Markdown behavior still needs a separate Markdown-fixed response
+  test.
+- No code, runtime, APK install, or native work is part of this documentation
+  update.
+
 ## Test Coverage To Keep
 
 Current static/unit coverage should continue to include:
