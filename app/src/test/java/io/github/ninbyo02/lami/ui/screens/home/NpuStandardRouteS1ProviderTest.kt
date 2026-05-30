@@ -151,4 +151,49 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(trace.contains("chat_prompt_preview="))
         assertFalse(trace.contains(userPrompt))
     }
+
+    @Test
+    fun `S1 dev trace summarizes input and outputs without full long text`() {
+        val longPrompt = "こんばんは。NPU標準ルートのデバッグ表示で全文が出ないことを確認します。"
+        val longRawOutput = "こんばんは。これはraw outputの長い確認文です。全文ではなくpreviewだけを表示します。"
+        val longSanitizedOutput = "こんばんは。これはsanitized outputの長い確認文です。全文ではなくpreviewだけを表示します。"
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = longRawOutput,
+                sanitizedOutput = longSanitizedOutput,
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val trace = buildNpuStandardRouteS1DevTraceText(input = longPrompt, result = result)
+
+        assertTrue(trace.contains("input_hash="))
+        assertTrue(trace.contains("input_preview="))
+        assertTrue(trace.contains("..."))
+        assertTrue(trace.contains("input_length=${longPrompt.length}"))
+        assertTrue(trace.contains("input_code_points=${longPrompt.codePointCount(0, longPrompt.length)}"))
+        assertTrue(trace.contains("raw_output_hash="))
+        assertTrue(trace.contains("raw_output_length=${longRawOutput.length}"))
+        assertTrue(trace.contains("sanitized_output_hash="))
+        assertTrue(trace.contains("sanitized_output_length=${longSanitizedOutput.length}"))
+        assertTrue(trace.contains("status=success"))
+        assertTrue(trace.contains("reason=success"))
+        assertTrue(trace.contains("quality_classification=natural_japanese"))
+        assertTrue(trace.contains("run_decode_reached=true"))
+        assertTrue(trace.contains("timeout=false"))
+        assertTrue(trace.contains("fallback=false"))
+        assertTrue(trace.contains("fresh_crash=false"))
+        assertFalse(trace.contains(longPrompt))
+        assertFalse(trace.contains(longRawOutput))
+        assertFalse(trace.contains(longSanitizedOutput))
+    }
 }

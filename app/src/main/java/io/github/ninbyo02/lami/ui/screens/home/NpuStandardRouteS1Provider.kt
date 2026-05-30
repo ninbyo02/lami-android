@@ -70,6 +70,31 @@ internal fun buildNpuRealPromptResultTrace(
     append(freshCrash)
 }
 
+internal fun buildNpuStandardRouteS1DevTraceText(
+    input: String,
+    result: NpuStandardRouteS1Result,
+): String = listOf(
+    "input_hash=${npuRealPromptHash(input)}",
+    "input_preview=${npuStandardRouteS1DevPreview(input)}",
+    "input_length=${input.length}",
+    "input_code_points=${input.codePointCount(0, input.length)}",
+    "raw_output_hash=${npuRealPromptHash(result.rawOutput)}",
+    "raw_output_preview=${npuStandardRouteS1DevPreview(result.rawOutput)}",
+    "raw_output_length=${result.rawOutput.length}",
+    "raw_output_code_points=${result.rawOutput.codePointCount(0, result.rawOutput.length)}",
+    "sanitized_output_hash=${npuRealPromptHash(result.sanitizedOutput)}",
+    "sanitized_output_preview=${npuStandardRouteS1DevPreview(result.sanitizedOutput)}",
+    "sanitized_output_length=${result.sanitizedOutput.length}",
+    "sanitized_output_code_points=${result.sanitizedOutput.codePointCount(0, result.sanitizedOutput.length)}",
+    "status=${result.status}",
+    "reason=${result.reason}",
+    "quality_classification=${result.qualityClassification}",
+    "run_decode_reached=${result.runDecodeReached}",
+    "timeout=${result.timeout}",
+    "fallback=${result.fallbackUsed}",
+    "fresh_crash=${result.freshCrash}",
+).joinToString("\n")
+
 internal fun npuRealPromptHash(text: String): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
     return digest.joinToString(separator = "") { byte ->
@@ -83,3 +108,17 @@ internal fun npuRealPromptPreview(text: String): String =
         .trim()
         .take(12)
         .ifBlank { "-" }
+
+internal fun npuStandardRouteS1DevPreview(text: String): String {
+    val normalized = text.map { char -> if (char.isWhitespace()) ' ' else char }
+        .joinToString(separator = "")
+        .trim()
+    if (normalized.isBlank()) return "-"
+    return if (normalized.length <= NPU_STANDARD_ROUTE_S1_DEV_PREVIEW_LIMIT) {
+        normalized
+    } else {
+        normalized.take(NPU_STANDARD_ROUTE_S1_DEV_PREVIEW_LIMIT) + "..."
+    }
+}
+
+private const val NPU_STANDARD_ROUTE_S1_DEV_PREVIEW_LIMIT = 32

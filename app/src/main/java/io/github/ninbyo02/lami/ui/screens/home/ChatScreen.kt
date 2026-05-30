@@ -800,6 +800,7 @@ fun Home(
     var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DisplayText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DevTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingActive by remember(effectiveChatId) { mutableStateOf(false) }
     var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
@@ -2439,6 +2440,14 @@ fun Home(
                                                             ),
                                                         )
                                                         npuStandardRouteS1DisplayText = s1Result.displayText
+                                                        npuStandardRouteS1DevTraceText = if (BuildConfig.DEBUG) {
+                                                            buildNpuStandardRouteS1DevTraceText(
+                                                                input = requestPrompt,
+                                                                result = s1Result,
+                                                            )
+                                                        } else {
+                                                            null
+                                                        }
                                                         npuStandardRouteS4PseudoStreamingText = null
                                                         npuStandardRouteS4PseudoStreamingActive = false
                                                         if (npuStandardRouteS2DbEnabled) {
@@ -4245,6 +4254,7 @@ fun Home(
                                 if (npuStandardRouteS1DisplayText != null) {
                                     item(key = "npu_standard_route_s1_display") {
                                         val s1Text = npuStandardRouteS1DisplayText!!
+                                        val s1DevTraceText = npuStandardRouteS1DevTraceText
                                         CopyableDebugBlock(
                                             text = s1Text,
                                             title = "NPU STANDARD ROUTE S1",
@@ -4259,6 +4269,9 @@ fun Home(
                                                 }
                                             },
                                         )
+                                        if (BuildConfig.DEBUG && !s1DevTraceText.isNullOrBlank()) {
+                                            NpuStandardRouteS1DevTraceBlock(text = s1DevTraceText)
+                                        }
                                     }
                                 }
                                 if (npuStandardRouteS4PseudoStreamingText != null) {
@@ -7521,6 +7534,20 @@ private fun CopyableDebugBlock(
             )
         }
     }
+}
+
+@Composable
+private fun NpuStandardRouteS1DevTraceBlock(
+    text: String,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = Color.Red,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
+    )
 }
 
 private fun resolveInferenceTargetForStats(
