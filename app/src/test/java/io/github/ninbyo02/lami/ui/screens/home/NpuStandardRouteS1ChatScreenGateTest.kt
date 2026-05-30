@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -224,6 +225,98 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertFalse(mapping.hasPseudoStreamingCandidate)
         assertFalse(
             shouldStartNpuStandardRouteS4APseudoStreaming(
+                enabled = true,
+                mapping = mapping,
+            ),
+        )
+    }
+
+    @Test
+    fun `S5 TTS gate off preserves existing final text path`() {
+        val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。",
+            ttsEnabled = true,
+        )
+
+        assertTrue(mapping.hasTtsCandidate)
+        assertFalse(
+            shouldPrepareNpuStandardRouteS5Tts(
+                enabled = false,
+                mapping = mapping,
+            ),
+        )
+        assertEquals("こんにちは。", mapping.ttsCandidate?.speakText)
+    }
+
+    @Test
+    fun `S5 TTS gate on prepares candidate without invoking TTS`() {
+        val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。",
+            ttsEnabled = true,
+            sanitizeForTts = { it },
+        )
+
+        assertTrue(
+            shouldPrepareNpuStandardRouteS5Tts(
+                enabled = true,
+                mapping = mapping,
+            ),
+        )
+        assertFalse(mapping.ttsCandidate?.sideEffects?.ttsInvoked ?: true)
+        assertFalse(mapping.ttsCandidate?.sideEffects?.streaming ?: true)
+        assertFalse(mapping.ttsCandidate?.sideEffects?.backendNpuPersisted ?: true)
+    }
+
+    @Test
+    fun `S5 TTS gate on does not prepare candidate for failed S1 result`() {
+        val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = NpuStandardRouteS1Mapper.map(
+                NpuStandardRouteS1RawResult(
+                    status = "failure",
+                    result = "failure",
+                    success = false,
+                    reason = "test_failure",
+                    rawOutput = "",
+                    sanitizedOutput = "",
+                    qualityClassification = "unknown",
+                    runDecodeReached = false,
+                    npuBackendEvidence = "",
+                    fallbackUsed = false,
+                    timeout = false,
+                    freshCrash = false,
+                    requestedMaxOutputTokens = 32,
+                    effectiveMaxOutputTokens = 32,
+                ),
+            ),
+            finalAssistantText = "こんにちは。",
+            ttsEnabled = true,
+        )
+
+        assertFalse(mapping.hasTtsCandidate)
+        assertNull(mapping.ttsCandidate)
+        assertFalse(
+            shouldPrepareNpuStandardRouteS5Tts(
+                enabled = true,
+                mapping = mapping,
+            ),
+        )
+    }
+
+    @Test
+    fun `S5 TTS gate on does not prepare candidate while streaming is active`() {
+        val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。",
+            ttsEnabled = true,
+            streamingActive = true,
+        )
+
+        assertFalse(mapping.hasTtsCandidate)
+        assertNull(mapping.ttsCandidate)
+        assertFalse(
+            shouldPrepareNpuStandardRouteS5Tts(
                 enabled = true,
                 mapping = mapping,
             ),

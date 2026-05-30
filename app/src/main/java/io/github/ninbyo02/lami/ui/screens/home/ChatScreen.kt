@@ -222,6 +222,7 @@ private const val ENABLE_NPU_STANDARD_ROUTE_S2_DB = false
 private const val ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN = false
 private const val ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING = false
 private const val NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS = 120L
+private const val ENABLE_NPU_STANDARD_ROUTE_S5_TTS = false
 private val SpriteMessageGap = 16.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
@@ -2498,6 +2499,20 @@ fun Home(
                                                                             )
                                                                         )
                                                                     }
+                                                                    if (ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                                        val s5TtsMapping = NpuStandardRouteS5TtsBridge()
+                                                                            .prepareTtsCandidate(
+                                                                                s1Result = s1Result,
+                                                                                finalAssistantText = assistantTextForPersist,
+                                                                                ttsEnabled = ttsEnabled,
+                                                                                streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                                sanitizeForTts = ::sanitizeTextForTts,
+                                                                            )
+                                                                        shouldPrepareNpuStandardRouteS5Tts(
+                                                                            enabled = ENABLE_NPU_STANDARD_ROUTE_S5_TTS,
+                                                                            mapping = s5TtsMapping,
+                                                                        )
+                                                                    }
                                                                 }
                                                                 return@IconButton
                                                             }
@@ -2524,15 +2539,31 @@ fun Home(
                                                         prompt = ""
                                                         userPrompt = ""
                                                         selectedImageUriStrings = emptyList()
-                                                        if (s4DisplayOnlyCandidate != null) {
+                                                        if (s4DisplayOnlyCandidate != null || ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
                                                             coroutineScope.launch {
-                                                                npuStandardRouteS4PseudoStreamingActive = true
-                                                                s4DisplayOnlyCandidate.chunks.forEach { chunk ->
-                                                                    npuStandardRouteS4PseudoStreamingText = chunk
-                                                                    delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
+                                                                if (s4DisplayOnlyCandidate != null) {
+                                                                    npuStandardRouteS4PseudoStreamingActive = true
+                                                                    s4DisplayOnlyCandidate.chunks.forEach { chunk ->
+                                                                        npuStandardRouteS4PseudoStreamingText = chunk
+                                                                        delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
+                                                                    }
+                                                                    npuStandardRouteS4PseudoStreamingText = s4DisplayOnlyCandidate.finalText
+                                                                    npuStandardRouteS4PseudoStreamingActive = false
                                                                 }
-                                                                npuStandardRouteS4PseudoStreamingText = s4DisplayOnlyCandidate.finalText
-                                                                npuStandardRouteS4PseudoStreamingActive = false
+                                                                if (ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                                    val s5TtsMapping = NpuStandardRouteS5TtsBridge()
+                                                                        .prepareTtsCandidate(
+                                                                            s1Result = s1Result,
+                                                                            finalAssistantText = s4DisplayOnlyCandidate?.finalText ?: s1Result.displayText,
+                                                                            ttsEnabled = ttsEnabled,
+                                                                            streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                            sanitizeForTts = ::sanitizeTextForTts,
+                                                                        )
+                                                                    shouldPrepareNpuStandardRouteS5Tts(
+                                                                        enabled = ENABLE_NPU_STANDARD_ROUTE_S5_TTS,
+                                                                        mapping = s5TtsMapping,
+                                                                    )
+                                                                }
                                                             }
                                                         }
                                                         return@IconButton
@@ -8043,6 +8074,12 @@ internal fun shouldStartNpuStandardRouteS4APseudoStreaming(
     mapping: NpuStandardRouteS4PseudoStreamingMapping,
 ): Boolean =
     enabled && mapping.hasPseudoStreamingCandidate
+
+internal fun shouldPrepareNpuStandardRouteS5Tts(
+    enabled: Boolean,
+    mapping: NpuStandardRouteS5TtsMapping,
+): Boolean =
+    enabled && mapping.hasTtsCandidate
 
 private fun computeLatestUserAnchor(messages: List<Message>): Int {
     if (messages.isEmpty()) {
