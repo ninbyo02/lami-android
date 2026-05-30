@@ -2411,7 +2411,8 @@ fun Home(
                                                             requestPrompt = requestPrompt,
                                                         )
                                                     ) {
-                                                        val s1Result = NpuStandardRouteS1Bridge(npuStandardRouteMode).run()
+                                                        val s1Result = NpuStandardRouteS1Bridge(npuStandardRouteMode)
+                                                            .run(userPrompt = requestPrompt)
                                                         npuStandardRouteS1DisplayText = s1Result.displayText
                                                         npuStandardRouteS4PseudoStreamingText = null
                                                         npuStandardRouteS4PseudoStreamingActive = false

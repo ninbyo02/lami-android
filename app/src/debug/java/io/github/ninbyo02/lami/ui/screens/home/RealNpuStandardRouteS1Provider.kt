@@ -8,26 +8,17 @@ import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
 import kotlinx.coroutines.runBlocking
 
 internal class RealNpuStandardRouteS1Provider(
-    private val displayRunner: () -> DevOnlyNpuOneTurnConversationDisplay = {
+    private val requestRunner: (DevOnlyNpuOneTurnConversationRequest) -> DevOnlyNpuOneTurnConversationDisplay = { request ->
         val appContext = resolveApplicationContext()
             ?: error(REASON_DEV_ONLY_ENTRY_UNAVAILABLE)
         runBlocking {
-            DevOnlyNpuOneTurnConversationEntry(appContext).run(
-                DevOnlyNpuOneTurnConversationRequest(
-                    userPrompt = DevOnlyNpuOneTurnConversationContract.DEFAULT_USER_PROMPT,
-                    contextText = "",
-                    unsafeDevBypassPromptLengthGate = true,
-                    maxOutputTokens = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
-                    promptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
-                    timeoutMs = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
-                ),
-            )
+            DevOnlyNpuOneTurnConversationEntry(appContext).run(request)
         }
     },
 ) : NpuStandardRouteS1Provider {
-    override fun invoke(): NpuStandardRouteS1RawResult =
+    override fun invoke(userPrompt: String): NpuStandardRouteS1RawResult =
         runCatching {
-            RealNpuStandardRouteS1ResultMapper.fromDisplay(displayRunner())
+            RealNpuStandardRouteS1ResultMapper.fromDisplay(requestRunner(request(userPrompt)))
         }.getOrElse { throwable ->
             RealNpuStandardRouteS1ResultMapper.failure(
                 reason = throwable.message
@@ -39,6 +30,16 @@ internal class RealNpuStandardRouteS1Provider(
     companion object {
         const val REASON_DEV_ONLY_ENTRY_UNAVAILABLE = "dev_only_entry_unavailable"
         const val REASON_DEV_ONLY_REQUEST_FAILED = "dev_only_request_failed"
+
+        fun request(userPrompt: String): DevOnlyNpuOneTurnConversationRequest =
+            DevOnlyNpuOneTurnConversationRequest(
+                userPrompt = userPrompt,
+                contextText = "",
+                unsafeDevBypassPromptLengthGate = true,
+                maxOutputTokens = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
+                promptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+                timeoutMs = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
+            )
 
         private fun resolveApplicationContext(): Context? {
             val currentApplication = runCatching {

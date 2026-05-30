@@ -7,6 +7,6 @@ internal class NpuStandardRouteS1Bridge(
         invoker = NpuStandardRouteS1Invoker(mode),
     )
 
-    fun run(): NpuStandardRouteS1Result =
-        NpuStandardRouteS1Mapper.map(invoker.invoke())
+    fun run(userPrompt: String): NpuStandardRouteS1Result =
+        NpuStandardRouteS1Mapper.map(invoker.invoke(userPrompt))
 }

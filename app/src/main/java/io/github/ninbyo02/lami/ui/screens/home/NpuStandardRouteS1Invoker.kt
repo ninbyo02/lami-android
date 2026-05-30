@@ -7,5 +7,6 @@ internal class NpuStandardRouteS1Invoker(
         provider = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(mode),
     )
 
-    fun invoke(): NpuStandardRouteS1RawResult = provider.invoke()
+    fun invoke(userPrompt: String): NpuStandardRouteS1RawResult =
+        provider.invoke(userPrompt)
 }

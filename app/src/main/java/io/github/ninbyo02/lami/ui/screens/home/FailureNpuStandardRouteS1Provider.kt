@@ -6,7 +6,7 @@ internal class FailureNpuStandardRouteS1Provider(
     private val timeout: Boolean = false,
     private val freshCrash: Boolean = false,
 ) : NpuStandardRouteS1Provider {
-    override fun invoke(): NpuStandardRouteS1RawResult =
+    override fun invoke(userPrompt: String): NpuStandardRouteS1RawResult =
         NpuStandardRouteS1RawResult(
             status = STATUS_FAILURE,
             result = STATUS_FAILURE,

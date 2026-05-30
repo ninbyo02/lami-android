@@ -6,9 +6,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NpuStandardRouteS1InvokerTest {
+    private val userPrompt = "好きな色を一つだけ答えてください"
+
     @Test
     fun `invoker returns mapper compatible success raw result`() {
-        val raw = NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()).invoke()
+        val raw = NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()).invoke(userPrompt)
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         assertTrue(mapped.successCriteriaMet)
@@ -22,7 +24,7 @@ class NpuStandardRouteS1InvokerTest {
 
     @Test
     fun `invoker preserves NPU evidence and max output`() {
-        val raw = NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()).invoke()
+        val raw = NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()).invoke(userPrompt)
 
         assertTrue(raw.runDecodeReached)
         assertEquals("QNN_HTP_V79_FastRPC_native_diag", raw.npuBackendEvidence)
@@ -33,7 +35,7 @@ class NpuStandardRouteS1InvokerTest {
     @Test
     fun `invoker result maps with side effects disconnected`() {
         val mapped = NpuStandardRouteS1Mapper.map(
-            NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()).invoke(),
+            NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()).invoke(userPrompt),
         )
 
         assertTrue(mapped.selection.sideEffects.allDisconnected)
@@ -48,7 +50,8 @@ class NpuStandardRouteS1InvokerTest {
     @Test
     fun `invoker can be supplied a test raw result without ChatScreen dependency`() {
         val invoker = NpuStandardRouteS1Invoker(
-            provider = NpuStandardRouteS1Provider {
+            provider = NpuStandardRouteS1Provider { receivedPrompt ->
+                assertEquals(userPrompt, receivedPrompt)
                 NpuStandardRouteS1RawResult(
                     status = "failure",
                     result = "failure",
@@ -68,7 +71,7 @@ class NpuStandardRouteS1InvokerTest {
             },
         )
 
-        val mapped = NpuStandardRouteS1Mapper.map(invoker.invoke())
+        val mapped = NpuStandardRouteS1Mapper.map(invoker.invoke(userPrompt))
 
         assertFalse(mapped.successCriteriaMet)
         assertEquals("failure", mapped.status)

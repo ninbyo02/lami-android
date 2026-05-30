@@ -7,9 +7,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NpuStandardRouteS1ProviderTest {
+    private val userPrompt = "好きな色を一つだけ答えてください"
+
     @Test
     fun `fixed provider returns default S1 success raw result`() {
-        val raw = FixedNpuStandardRouteS1Provider().invoke()
+        val raw = FixedNpuStandardRouteS1Provider().invoke(userPrompt)
 
         assertEquals("success", raw.status)
         assertEquals("success", raw.result)
@@ -29,7 +31,7 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `failure provider returns mapper compatible failure raw result`() {
-        val raw = FailureNpuStandardRouteS1Provider(reason = "test_failure").invoke()
+        val raw = FailureNpuStandardRouteS1Provider(reason = "test_failure").invoke(userPrompt)
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         assertEquals("failure", raw.status)
@@ -48,7 +50,7 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `invoker default provider follows build variant provider selection`() {
-        val raw = NpuStandardRouteS1Invoker().invoke()
+        val raw = NpuStandardRouteS1Invoker().invoke(userPrompt)
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
@@ -63,7 +65,7 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `default provider follows build variant provider selection`() {
-        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke()
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke(userPrompt)
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
@@ -80,7 +82,7 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `provider selector uses fixed provider when S1 gate is disabled`() {
-        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = false).invoke()
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = false).invoke(userPrompt)
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         assertTrue(mapped.successCriteriaMet)
@@ -90,7 +92,7 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `provider selector uses real provider path when S1 gate is enabled`() {
-        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = true).invoke()
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = true).invoke(userPrompt)
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         assertFalse(mapped.successCriteriaMet)
@@ -100,8 +102,8 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `provider selector for Settings mode keeps standard OFF fixed and S1 real while preserving custom compatibility`() {
-        val offRaw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.OFF).invoke()
-        val s1Raw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.S1_ONLY).invoke()
+        val offRaw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.OFF).invoke(userPrompt)
+        val s1Raw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.S1_ONLY).invoke(userPrompt)
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertEquals("failure", offRaw.status)
@@ -129,7 +131,7 @@ class NpuStandardRouteS1ProviderTest {
                 fallbackUsed = true,
             ),
         )
-        val mapped = NpuStandardRouteS1Mapper.map(invoker.invoke())
+        val mapped = NpuStandardRouteS1Mapper.map(invoker.invoke(userPrompt))
 
         assertFalse(mapped.successCriteriaMet)
         assertEquals("provider_injected_failure", mapped.reason)

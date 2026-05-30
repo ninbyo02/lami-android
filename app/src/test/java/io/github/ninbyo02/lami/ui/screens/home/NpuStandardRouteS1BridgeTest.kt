@@ -6,11 +6,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NpuStandardRouteS1BridgeTest {
+    private val userPrompt = "好きな色を一つだけ答えてください"
+
     @Test
     fun `bridge returns successful mapped S1 result`() {
         val result = NpuStandardRouteS1Bridge(
             invoker = NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()),
-        ).run()
+        ).run(userPrompt = userPrompt)
 
         assertTrue(result.successCriteriaMet)
         assertEquals("success", result.status)
@@ -28,7 +30,7 @@ class NpuStandardRouteS1BridgeTest {
     fun `bridge keeps S1 side effects disconnected`() {
         val sideEffects = NpuStandardRouteS1Bridge(
             invoker = NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()),
-        ).run().selection.sideEffects
+        ).run(userPrompt = userPrompt).selection.sideEffects
 
         assertTrue(sideEffects.allDisconnected)
         assertFalse(sideEffects.db)
@@ -42,7 +44,8 @@ class NpuStandardRouteS1BridgeTest {
     @Test
     fun `bridge uses injected invoker without owning side effects`() {
         val bridge = NpuStandardRouteS1Bridge(
-            invoker = NpuStandardRouteS1Invoker {
+            invoker = NpuStandardRouteS1Invoker { receivedPrompt ->
+                assertEquals(userPrompt, receivedPrompt)
                 NpuStandardRouteS1RawResult(
                     status = "failure",
                     result = "failure",
@@ -62,7 +65,7 @@ class NpuStandardRouteS1BridgeTest {
             },
         )
 
-        val result = bridge.run()
+        val result = bridge.run(userPrompt = userPrompt)
 
         assertFalse(result.successCriteriaMet)
         assertEquals("failure", result.status)

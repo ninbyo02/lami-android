@@ -120,7 +120,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
 
     @Test
     fun `bridge path keeps side effects disconnected`() {
-        val result = NpuStandardRouteS1Bridge().run()
+        val result = NpuStandardRouteS1Bridge().run(userPrompt = "好きな色を一つだけ答えてください")
 
         assertFalse(result.selection.sideEffects.db)
         assertFalse(result.selection.sideEffects.tts)
