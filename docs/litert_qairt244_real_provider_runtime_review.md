@@ -176,3 +176,52 @@ adb -s <device> shell run-as io.github.ninbyo02.lami.customnpu cat files/qairt24
 
 Do not run this confirmation until the temporary S1 gate change is intentional
 and rollback is ready.
+
+## 6. Runtime Success Result
+
+Date: 2026-05-30
+
+The RealProvider runtime confirmation succeeded on the custom build experiment
+package:
+
+```text
+app_package=io.github.ninbyo02.lami.customnpu
+```
+
+Observed UI:
+
+```text
+NPU STANDARD ROUTE S1
+こんにちは。
+```
+
+The app file `qairt244_short_multitoken_smoke_result.txt` was updated by the
+run. Recorded result:
+
+```text
+result=success
+prompt_source=dev_only_conversation
+requested_max_output_tokens=32
+effective_max_output_tokens=32
+max_output_tokens=32
+run_decode_reached=true
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_used=false
+timeout=false
+fresh_crash=false
+route_type=dev_only_one_turn_conversation
+sanitized_output=こんにちは。
+quality_classification=natural_japanese
+db=false
+tts=false
+markdown=false
+stream=false
+```
+
+Interpretation:
+
+- the `customBuildExperimentDebug` standard UI path reached
+  `S1 Gate -> RealProvider -> DevOnlyEntry -> real NPU -> UI display`;
+- `standardDebug` remains on S1 Gate disabled / FixedProvider behavior;
+- DB, TTS, Markdown, streaming, and `Backend.NPU` persistence remain
+  unconnected.

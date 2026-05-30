@@ -149,6 +149,33 @@ ChatScreen. It does not change the Phase S1 boundary: DB, TTS, Markdown,
 streaming, `Backend.NPU` persistence, and conversation history save remain
 unconnected by design.
 
+RealProvider S1 runtime check:
+
+- app package: `io.github.ninbyo02.lami.customnpu`;
+- ChatScreen displayed `NPU STANDARD ROUTE S1`;
+- ChatScreen displayed `こんにちは。`;
+- `qairt244_short_multitoken_smoke_result.txt` was updated;
+- `result=success`;
+- `prompt_source=dev_only_conversation`;
+- requested/effective `max_output_tokens=32`;
+- `run_decode_reached=true`;
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`;
+- `fallback_used=false`;
+- `timeout=false`;
+- `fresh_crash=false`;
+- `route_type=dev_only_one_turn_conversation`;
+- `sanitized_output=こんにちは。`;
+- `quality_classification=natural_japanese`;
+- `db=false`;
+- `tts=false`;
+- `markdown=false`;
+- `stream=false`.
+
+This confirms the `customBuildExperimentDebug` path
+`standard UI -> S1 Gate -> RealProvider -> DevOnlyEntry -> real NPU -> UI
+display` is working. `standardDebug` remains S1 Gate disabled / FixedProvider,
+and DB/TTS/Markdown/streaming/Backend persistence remain unconnected.
+
 ## Phase S2: DB Connection
 
 Goal: persist the user prompt and final assistant response after a successful
