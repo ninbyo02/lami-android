@@ -219,6 +219,7 @@ private val EmptyNewConversationBaseTopPadding = 12.dp
 // UI調整用パラメータなので、位置調整はこの値のみ変更する。
 private val EmptyNewConversationTopAdjust = (-120).dp
 private const val ENABLE_NPU_STANDARD_ROUTE_S2_DB = false
+private const val ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN = false
 private val SpriteMessageGap = 16.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
@@ -2414,6 +2415,18 @@ fun Home(
                                                                 )
                                                             ) {
                                                                 val saveCandidate = requireNotNull(s2DbMapping.saveCandidate)
+                                                                val assistantTextForPersist = NpuStandardRouteS3MarkdownBridge()
+                                                                    .resolveFinalizedText(
+                                                                        enabled = ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN,
+                                                                        s1Result = s1Result,
+                                                                        fallbackText = saveCandidate.assistantMessage.text,
+                                                                        finalizeMarkdown = { text ->
+                                                                            buildFinalizedStreamingResponseForPersist(
+                                                                                response = text,
+                                                                                markdownStreamingMode = markdownStreamingMode,
+                                                                            )
+                                                                        },
+                                                                    )
                                                                 prompt = ""
                                                                 userPrompt = ""
                                                                 selectedImageUriStrings = emptyList()
@@ -2446,7 +2459,7 @@ fun Home(
                                                                         viewModel.insertAssistantMessageAndReturnId(
                                                                             createAssistantMessage(
                                                                                 chatId = resolvedChatId,
-                                                                                response = saveCandidate.assistantMessage.text,
+                                                                                response = assistantTextForPersist,
                                                                                 localSourceSummary = saveCandidate.assistantMessage.sourceDisplayText,
                                                                             )
                                                                         )

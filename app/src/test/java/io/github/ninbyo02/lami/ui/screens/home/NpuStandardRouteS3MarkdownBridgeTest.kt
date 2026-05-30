@@ -73,6 +73,52 @@ class NpuStandardRouteS3MarkdownBridgeTest {
         assertTrue(candidate.readyToRender)
     }
 
+    @Test
+    fun `gate off returns fallback text without finalizing markdown`() {
+        var finalizerCalled = false
+        val text = NpuStandardRouteS3MarkdownBridge().resolveFinalizedText(
+            enabled = false,
+            s1Result = successResult(sanitizedOutput = "line\\nnext"),
+            fallbackText = "line\\nnext",
+            finalizeMarkdown = {
+                finalizerCalled = true
+                it.replace("\\n", "\n")
+            },
+        )
+
+        assertEquals("line\\nnext", text)
+        assertFalse(finalizerCalled)
+    }
+
+    @Test
+    fun `gate on returns markdown candidate finalized text`() {
+        val text = NpuStandardRouteS3MarkdownBridge().resolveFinalizedText(
+            enabled = true,
+            s1Result = successResult(sanitizedOutput = "line\\nnext"),
+            fallbackText = "line\\nnext",
+            finalizeMarkdown = { it.replace("\\n", "\n") },
+        )
+
+        assertEquals("line\nnext", text)
+    }
+
+    @Test
+    fun `gate on with failed S1 returns fallback without finalizing markdown`() {
+        var finalizerCalled = false
+        val text = NpuStandardRouteS3MarkdownBridge().resolveFinalizedText(
+            enabled = true,
+            s1Result = successResult(fallbackUsed = true),
+            fallbackText = "fallback",
+            finalizeMarkdown = {
+                finalizerCalled = true
+                it.uppercase()
+            },
+        )
+
+        assertEquals("fallback", text)
+        assertFalse(finalizerCalled)
+    }
+
     private fun successResult(
         sanitizedOutput: String = "こんにちは。",
         displayText: String = sanitizedOutput,

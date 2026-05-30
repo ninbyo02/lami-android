@@ -11,4 +11,17 @@ internal class NpuStandardRouteS3MarkdownBridge(
             s1Result = s1Result,
             finalizeMarkdown = finalizeMarkdown,
         )
+
+    fun resolveFinalizedText(
+        enabled: Boolean,
+        s1Result: NpuStandardRouteS1Result,
+        fallbackText: String,
+        finalizeMarkdown: (String) -> String = { it.trim() },
+    ): String {
+        if (!enabled) return fallbackText
+        return prepareMarkdownCandidate(
+            s1Result = s1Result,
+            finalizeMarkdown = finalizeMarkdown,
+        ).markdownCandidate?.finalizedText ?: fallbackText
+    }
 }
