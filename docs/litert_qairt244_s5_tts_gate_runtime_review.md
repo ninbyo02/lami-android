@@ -273,6 +273,32 @@ Interpretation:
 - TTS playback remains unconnected.
 - `Backend.NPU` persistence remains disconnected.
 
+## Speak Gate ON Runtime Result
+
+Temporary runtime check:
+
+- temporarily set `ENABLE_NPU_STANDARD_ROUTE_S2_DB=true`;
+- temporarily set `ENABLE_NPU_STANDARD_ROUTE_S5_TTS=true`;
+- installed and started `customBuildExperimentDebug`;
+- confirmed the ChatScreen UI displayed the normal chat exchange:
+  user `こんにちは` and assistant `こんにちは。`;
+- confirmed the ChatScreen UI displayed `NPU STANDARD ROUTE S1`;
+- confirmed the visible S1 text `こんにちは。`;
+- confirmed TTS speech by listening on the device;
+- `logcat` grep for `NPU_S5_TTS` returned no lines, so trace visibility needs
+  improvement;
+- no crash occurred;
+- rolled back by restoring both S2 and S5 gates to false and reinstalling;
+- `git status -sb` was clean after rollback.
+
+Interpretation:
+
+- The gated S5 `ttsController.speak(...)` path succeeded on device.
+- S1 through S5 are complete for the current gated integration roadmap.
+- `Backend.NPU` persistence remains disconnected.
+- Remaining work: improve S5 trace visibility, verify S4-A long-text chunking,
+  and decide the permanent gate-on policy.
+
 ## Stop Conditions
 
 Stop and roll back if:

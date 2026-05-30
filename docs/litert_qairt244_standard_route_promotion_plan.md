@@ -365,6 +365,29 @@ This confirms the S5 candidate gate can be enabled without breaking the current
 standard UI NPU path. It does not validate actual TTS playback. TTS playback and
 `Backend.NPU` persistence remain unconnected.
 
+S5 TTS speak runtime check:
+
+- temporarily set `ENABLE_NPU_STANDARD_ROUTE_S2_DB=true`;
+- temporarily set `ENABLE_NPU_STANDARD_ROUTE_S5_TTS=true`;
+- installed and started `customBuildExperimentDebug`;
+- confirmed the standard ChatScreen displayed user `こんにちは` and assistant
+  `こんにちは。`;
+- confirmed the diagnostic block displayed `NPU STANDARD ROUTE S1`;
+- confirmed the visible S1 text `こんにちは。`;
+- confirmed TTS speech by listening on the device;
+- `logcat` grep for `NPU_S5_TTS` returned no lines, so trace visibility needs
+  improvement;
+- no crash occurred;
+- rollback restored both S2 and S5 gates to false;
+- reinstalled after rollback;
+- `git status -sb` was clean after rollback.
+
+This confirms the gated S5 `ttsController.speak(...)` path works through the
+custom build experiment route. The S1 through S5 gated roadmap is complete for
+the current standard UI promotion track. Remaining tasks are S5 trace
+visibility, S4-A long-text chunk confirmation, and permanent gate-on policy.
+`Backend.NPU` persistence remains disconnected.
+
 Change target files:
 
 - `ChatScreen.kt`
