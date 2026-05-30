@@ -8,7 +8,7 @@ import org.junit.Test
 class NpuStandardRouteS1InvokerTest {
     @Test
     fun `invoker returns mapper compatible success raw result`() {
-        val raw = NpuStandardRouteS1Invoker().invoke()
+        val raw = NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()).invoke()
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         assertTrue(mapped.successCriteriaMet)
@@ -22,7 +22,7 @@ class NpuStandardRouteS1InvokerTest {
 
     @Test
     fun `invoker preserves NPU evidence and max output`() {
-        val raw = NpuStandardRouteS1Invoker().invoke()
+        val raw = NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()).invoke()
 
         assertTrue(raw.runDecodeReached)
         assertEquals("QNN_HTP_V79_FastRPC_native_diag", raw.npuBackendEvidence)
@@ -32,7 +32,9 @@ class NpuStandardRouteS1InvokerTest {
 
     @Test
     fun `invoker result maps with side effects disconnected`() {
-        val mapped = NpuStandardRouteS1Mapper.map(NpuStandardRouteS1Invoker().invoke())
+        val mapped = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()).invoke(),
+        )
 
         assertTrue(mapped.selection.sideEffects.allDisconnected)
         assertFalse(mapped.selection.sideEffects.db)

@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.BuildConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -46,12 +47,35 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `invoker default provider remains fixed provider`() {
-        val mapped = NpuStandardRouteS1Mapper.map(NpuStandardRouteS1Invoker().invoke())
+    fun `invoker default provider follows build variant provider selection`() {
+        val raw = NpuStandardRouteS1Invoker().invoke()
+        val mapped = NpuStandardRouteS1Mapper.map(raw)
 
-        assertTrue(mapped.successCriteriaMet)
-        assertEquals("こんにちは。", mapped.displayText)
+        if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+            assertFalse(mapped.successCriteriaMet)
+            assertEquals("real_provider_not_implemented", mapped.reason)
+        } else {
+            assertTrue(mapped.successCriteriaMet)
+            assertEquals("こんにちは。", mapped.displayText)
+        }
         assertTrue(mapped.selection.sideEffects.allDisconnected)
+    }
+
+    @Test
+    fun `default provider follows build variant provider selection`() {
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke()
+        val mapped = NpuStandardRouteS1Mapper.map(raw)
+
+        if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+            assertFalse(mapped.successCriteriaMet)
+            assertEquals("failure", raw.status)
+            assertEquals("real_provider_not_implemented", raw.reason)
+        } else {
+            assertTrue(mapped.successCriteriaMet)
+            assertEquals("success", raw.status)
+            assertEquals("こんにちは。", raw.sanitizedOutput)
+            assertEquals("QNN_HTP_V79_FastRPC_native_diag", raw.npuBackendEvidence)
+        }
     }
 
     @Test

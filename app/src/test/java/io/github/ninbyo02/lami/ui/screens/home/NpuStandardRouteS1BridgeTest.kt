@@ -8,7 +8,9 @@ import org.junit.Test
 class NpuStandardRouteS1BridgeTest {
     @Test
     fun `bridge returns successful mapped S1 result`() {
-        val result = NpuStandardRouteS1Bridge().run()
+        val result = NpuStandardRouteS1Bridge(
+            invoker = NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()),
+        ).run()
 
         assertTrue(result.successCriteriaMet)
         assertEquals("success", result.status)
@@ -24,7 +26,9 @@ class NpuStandardRouteS1BridgeTest {
 
     @Test
     fun `bridge keeps S1 side effects disconnected`() {
-        val sideEffects = NpuStandardRouteS1Bridge().run().selection.sideEffects
+        val sideEffects = NpuStandardRouteS1Bridge(
+            invoker = NpuStandardRouteS1Invoker(provider = FixedNpuStandardRouteS1Provider()),
+        ).run().selection.sideEffects
 
         assertTrue(sideEffects.allDisconnected)
         assertFalse(sideEffects.db)

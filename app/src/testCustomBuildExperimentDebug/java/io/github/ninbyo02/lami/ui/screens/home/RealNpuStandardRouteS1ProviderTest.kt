@@ -48,4 +48,26 @@ class RealNpuStandardRouteS1ProviderTest {
         assertFalse(result.selection.sideEffects.backendNpuPersisted)
         assertFalse(result.selection.sideEffects.conversationHistorySaved)
     }
+
+    @Test
+    fun `custom build experiment default provider selects real provider scaffold`() {
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke()
+        val result = NpuStandardRouteS1Mapper.map(raw)
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals("failure", raw.status)
+        assertEquals("real_provider_not_implemented", raw.reason)
+        assertEquals("real_provider_not_implemented", result.reason)
+        assertTrue(result.selection.sideEffects.allDisconnected)
+    }
+
+    @Test
+    fun `custom build experiment invoker default propagates real provider scaffold failure`() {
+        val result = NpuStandardRouteS1Mapper.map(NpuStandardRouteS1Invoker().invoke())
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals("failure", result.status)
+        assertEquals("real_provider_not_implemented", result.reason)
+        assertTrue(result.selection.sideEffects.allDisconnected)
+    }
 }
