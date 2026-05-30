@@ -220,6 +220,8 @@ private val EmptyNewConversationBaseTopPadding = 12.dp
 private val EmptyNewConversationTopAdjust = (-120).dp
 private const val ENABLE_NPU_STANDARD_ROUTE_S2_DB = false
 private const val ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN = false
+private const val ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING = false
+private const val NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS = 120L
 private val SpriteMessageGap = 16.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
@@ -793,6 +795,8 @@ fun Home(
     var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DisplayText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS4PseudoStreamingText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS4PseudoStreamingActive by remember(effectiveChatId) { mutableStateOf(false) }
     var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devRunnerWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
@@ -2404,6 +2408,8 @@ fun Home(
                                                     ) {
                                                         val s1Result = NpuStandardRouteS1Bridge().run()
                                                         npuStandardRouteS1DisplayText = s1Result.displayText
+                                                        npuStandardRouteS4PseudoStreamingText = null
+                                                        npuStandardRouteS4PseudoStreamingActive = false
                                                         if (ENABLE_NPU_STANDARD_ROUTE_S2_DB) {
                                                             val s2DbMapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
                                                                 userPrompt = requestPrompt,
@@ -2427,10 +2433,38 @@ fun Home(
                                                                             )
                                                                         },
                                                                     )
+                                                                val s4PseudoStreamingCandidate =
+                                                                    if (ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING) {
+                                                                        val s4PseudoStreamingMapping = NpuStandardRouteS4PseudoStreamingBridge()
+                                                                            .preparePseudoStreamingCandidate(
+                                                                                s1Result = s1Result,
+                                                                                finalText = assistantTextForPersist,
+                                                                                sourceDisplayText = saveCandidate.assistantMessage.sourceDisplayText,
+                                                                            )
+                                                                        s4PseudoStreamingMapping
+                                                                            .takeIf {
+                                                                                shouldStartNpuStandardRouteS4APseudoStreaming(
+                                                                                    enabled = ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING,
+                                                                                    mapping = it,
+                                                                                )
+                                                                            }
+                                                                            ?.pseudoStreamingCandidate
+                                                                    } else {
+                                                                        null
+                                                                    }
                                                                 prompt = ""
                                                                 userPrompt = ""
                                                                 selectedImageUriStrings = emptyList()
                                                                 coroutineScope.launch {
+                                                                    if (s4PseudoStreamingCandidate != null) {
+                                                                        npuStandardRouteS4PseudoStreamingActive = true
+                                                                        s4PseudoStreamingCandidate.chunks.forEach { chunk ->
+                                                                            npuStandardRouteS4PseudoStreamingText = chunk
+                                                                            delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
+                                                                        }
+                                                                        npuStandardRouteS4PseudoStreamingText = s4PseudoStreamingCandidate.finalText
+                                                                        npuStandardRouteS4PseudoStreamingActive = false
+                                                                    }
                                                                     var currentChatId = effectiveChatId
                                                                     if (currentChatId == null) {
                                                                         isCreatingChat = true
@@ -2468,9 +2502,39 @@ fun Home(
                                                                 return@IconButton
                                                             }
                                                         }
+                                                        val s4DisplayOnlyCandidate =
+                                                            if (ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING) {
+                                                                val s4DisplayOnlyMapping = NpuStandardRouteS4PseudoStreamingBridge()
+                                                                    .preparePseudoStreamingCandidate(
+                                                                        s1Result = s1Result,
+                                                                        finalText = s1Result.displayText,
+                                                                        sourceDisplayText = s1Result.displayText,
+                                                                    )
+                                                                s4DisplayOnlyMapping
+                                                                    .takeIf {
+                                                                        shouldStartNpuStandardRouteS4APseudoStreaming(
+                                                                            enabled = ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING,
+                                                                            mapping = it,
+                                                                        )
+                                                                    }
+                                                                    ?.pseudoStreamingCandidate
+                                                            } else {
+                                                                null
+                                                            }
                                                         prompt = ""
                                                         userPrompt = ""
                                                         selectedImageUriStrings = emptyList()
+                                                        if (s4DisplayOnlyCandidate != null) {
+                                                            coroutineScope.launch {
+                                                                npuStandardRouteS4PseudoStreamingActive = true
+                                                                s4DisplayOnlyCandidate.chunks.forEach { chunk ->
+                                                                    npuStandardRouteS4PseudoStreamingText = chunk
+                                                                    delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
+                                                                }
+                                                                npuStandardRouteS4PseudoStreamingText = s4DisplayOnlyCandidate.finalText
+                                                                npuStandardRouteS4PseudoStreamingActive = false
+                                                            }
+                                                        }
                                                         return@IconButton
                                                     }
                                                     val standardHiddenQairt244NpuEnabled =
@@ -4045,6 +4109,29 @@ fun Home(
                                                     snackbarHostState.currentSnackbarData?.dismiss()
                                                     snackbarHostState.showSnackbar(
                                                         message = "NPU S1 result をコピーしました",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                                if (npuStandardRouteS4PseudoStreamingText != null) {
+                                    item(key = "npu_standard_route_s4a_pseudo_streaming_display") {
+                                        val s4Text = npuStandardRouteS4PseudoStreamingText!!
+                                        CopyableDebugBlock(
+                                            text = s4Text,
+                                            title = if (npuStandardRouteS4PseudoStreamingActive) {
+                                                "NPU STANDARD ROUTE S4-A PSEUDO STREAMING"
+                                            } else {
+                                                "NPU STANDARD ROUTE S4-A FINAL"
+                                            },
+                                            onCopy = {
+                                                clipboardManager.setText(AnnotatedString(s4Text))
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "NPU S4-A result をコピーしました",
                                                         duration = SnackbarDuration.Short,
                                                     )
                                                 }
@@ -7950,6 +8037,12 @@ internal fun shouldPersistNpuStandardRouteS2Db(
     mapping: NpuStandardRouteS2DbMapping,
 ): Boolean =
     enabled && mapping.hasSaveCandidate
+
+internal fun shouldStartNpuStandardRouteS4APseudoStreaming(
+    enabled: Boolean,
+    mapping: NpuStandardRouteS4PseudoStreamingMapping,
+): Boolean =
+    enabled && mapping.hasPseudoStreamingCandidate
 
 private fun computeLatestUserAnchor(messages: List<Message>): Int {
     if (messages.isEmpty()) {

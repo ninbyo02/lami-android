@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -153,4 +154,97 @@ class NpuStandardRouteS1ChatScreenGateTest {
             ),
         )
     }
+
+    @Test
+    fun `S4A pseudo streaming gate off preserves final text without starting chunks`() {
+        val mapping = NpuStandardRouteS4PseudoStreamingBridge().preparePseudoStreamingCandidate(
+            s1Result = s1SuccessResult(),
+            finalText = "こんにちは。今日はNPU応答を段階表示します。最終保存は全文だけです。",
+        )
+
+        assertTrue(mapping.hasPseudoStreamingCandidate)
+        assertFalse(
+            shouldStartNpuStandardRouteS4APseudoStreaming(
+                enabled = false,
+                mapping = mapping,
+            ),
+        )
+        assertEquals(
+            "こんにちは。今日はNPU応答を段階表示します。最終保存は全文だけです。",
+            mapping.pseudoStreamingCandidate?.dbPersistedText,
+        )
+    }
+
+    @Test
+    fun `S4A pseudo streaming gate on starts only when candidate is available`() {
+        val mapping = NpuStandardRouteS4PseudoStreamingBridge().preparePseudoStreamingCandidate(
+            s1Result = s1SuccessResult(),
+            finalText = "こんにちは。今日はNPU応答を段階表示します。最終保存は全文だけです。",
+        )
+
+        assertTrue(
+            shouldStartNpuStandardRouteS4APseudoStreaming(
+                enabled = true,
+                mapping = mapping,
+            ),
+        )
+        assertEquals(
+            mapping.pseudoStreamingCandidate?.finalText,
+            mapping.pseudoStreamingCandidate?.chunks?.last(),
+        )
+        assertFalse(mapping.pseudoStreamingCandidate?.sideEffects?.realTokenStreaming ?: true)
+        assertFalse(mapping.pseudoStreamingCandidate?.sideEffects?.tts ?: true)
+        assertFalse(mapping.pseudoStreamingCandidate?.sideEffects?.backendNpuPersisted ?: true)
+    }
+
+    @Test
+    fun `S4A pseudo streaming does not start for failed S1 result`() {
+        val mapping = NpuStandardRouteS4PseudoStreamingBridge().preparePseudoStreamingCandidate(
+            s1Result = NpuStandardRouteS1Mapper.map(
+                NpuStandardRouteS1RawResult(
+                    status = "failure",
+                    result = "failure",
+                    success = false,
+                    reason = "test_failure",
+                    rawOutput = "",
+                    sanitizedOutput = "",
+                    qualityClassification = "unknown",
+                    runDecodeReached = false,
+                    npuBackendEvidence = "",
+                    fallbackUsed = false,
+                    timeout = false,
+                    freshCrash = false,
+                    requestedMaxOutputTokens = 32,
+                    effectiveMaxOutputTokens = 32,
+                ),
+            ),
+            finalText = "この本文は使われません。",
+        )
+
+        assertFalse(mapping.hasPseudoStreamingCandidate)
+        assertFalse(
+            shouldStartNpuStandardRouteS4APseudoStreaming(
+                enabled = true,
+                mapping = mapping,
+            ),
+        )
+    }
+
+    private fun s1SuccessResult(): NpuStandardRouteS1Result =
+        NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 32,
+                effectiveMaxOutputTokens = 32,
+            ),
+        )
 }
