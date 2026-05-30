@@ -218,11 +218,7 @@ private val EmptyNewConversationBaseTopPadding = 12.dp
 // gradient → sprite bottom の視覚差分をここで補正している。
 // UI調整用パラメータなので、位置調整はこの値のみ変更する。
 private val EmptyNewConversationTopAdjust = (-120).dp
-private const val ENABLE_NPU_STANDARD_ROUTE_S2_DB = false
-private const val ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN = false
-private const val ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING = false
 private const val NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS = 120L
-private const val ENABLE_NPU_STANDARD_ROUTE_S5_TTS = false
 private const val ENABLE_LEGACY_QAIRT244_CHATSCREEN_ROUTE = false
 private val SpriteMessageGap = 16.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
@@ -716,6 +712,10 @@ fun Home(
     val npuStandardRouteMode by settingsPreferences.npuStandardRouteModeFlow.collectAsState(
         initial = NpuStandardRouteMode.OFF,
     )
+    val npuStandardRouteS2DbEnabled = npuStandardRouteMode.isS2Enabled()
+    val npuStandardRouteS3MarkdownEnabled = npuStandardRouteMode.isS3Enabled()
+    val npuStandardRouteS4aPseudoStreamingEnabled = npuStandardRouteMode.isS4AEnabled()
+    val npuStandardRouteS5TtsEnabled = npuStandardRouteMode.isS5Enabled()
     val developerAccessEnabled by settingsPreferences.developerAccessEnabledFlow.collectAsState(
         initial = false,
     )
@@ -2415,20 +2415,20 @@ fun Home(
                                                         npuStandardRouteS1DisplayText = s1Result.displayText
                                                         npuStandardRouteS4PseudoStreamingText = null
                                                         npuStandardRouteS4PseudoStreamingActive = false
-                                                        if (ENABLE_NPU_STANDARD_ROUTE_S2_DB) {
+                                                        if (npuStandardRouteS2DbEnabled) {
                                                             val s2DbMapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
                                                                 userPrompt = requestPrompt,
                                                                 s1Result = s1Result,
                                                             )
                                                             if (shouldPersistNpuStandardRouteS2Db(
-                                                                    enabled = ENABLE_NPU_STANDARD_ROUTE_S2_DB,
+                                                                    enabled = npuStandardRouteS2DbEnabled,
                                                                     mapping = s2DbMapping,
                                                                 )
                                                             ) {
                                                                 val saveCandidate = requireNotNull(s2DbMapping.saveCandidate)
                                                                 val assistantTextForPersist = NpuStandardRouteS3MarkdownBridge()
                                                                     .resolveFinalizedText(
-                                                                        enabled = ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN,
+                                                                        enabled = npuStandardRouteS3MarkdownEnabled,
                                                                         s1Result = s1Result,
                                                                         fallbackText = saveCandidate.assistantMessage.text,
                                                                         finalizeMarkdown = { text ->
@@ -2437,9 +2437,9 @@ fun Home(
                                                                                 markdownStreamingMode = markdownStreamingMode,
                                                                             )
                                                                         },
-                                                                    )
+                                                                )
                                                                 val s4PseudoStreamingCandidate =
-                                                                    if (ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING) {
+                                                                    if (npuStandardRouteS4aPseudoStreamingEnabled) {
                                                                         val s4PseudoStreamingMapping = NpuStandardRouteS4PseudoStreamingBridge()
                                                                             .preparePseudoStreamingCandidate(
                                                                                 s1Result = s1Result,
@@ -2449,7 +2449,7 @@ fun Home(
                                                                         s4PseudoStreamingMapping
                                                                             .takeIf {
                                                                                 shouldStartNpuStandardRouteS4APseudoStreaming(
-                                                                                    enabled = ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING,
+                                                                                    enabled = npuStandardRouteS4aPseudoStreamingEnabled,
                                                                                     mapping = it,
                                                                                 )
                                                                             }
@@ -2503,7 +2503,7 @@ fun Home(
                                                                             )
                                                                         ).toInt()
                                                                     }
-                                                                    if (ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                                    if (npuStandardRouteS5TtsEnabled) {
                                                                         val s5TtsMapping = NpuStandardRouteS5TtsBridge()
                                                                             .prepareTtsCandidate(
                                                                                 s1Result = s1Result,
@@ -2522,7 +2522,7 @@ fun Home(
                                                                             ),
                                                                         )
                                                                         val s5TtsSkipReason = classifyNpuStandardRouteS5TtsSkipReason(
-                                                                            enabled = ENABLE_NPU_STANDARD_ROUTE_S5_TTS,
+                                                                            enabled = npuStandardRouteS5TtsEnabled,
                                                                             mapping = s5TtsMapping,
                                                                             ttsEnabled = ttsEnabled,
                                                                             streamingActive = npuStandardRouteS4PseudoStreamingActive,
@@ -2572,7 +2572,7 @@ fun Home(
                                                             }
                                                         }
                                                         val s4DisplayOnlyCandidate =
-                                                            if (ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING) {
+                                                            if (npuStandardRouteS4aPseudoStreamingEnabled) {
                                                                 val s4DisplayOnlyMapping = NpuStandardRouteS4PseudoStreamingBridge()
                                                                     .preparePseudoStreamingCandidate(
                                                                         s1Result = s1Result,
@@ -2582,7 +2582,7 @@ fun Home(
                                                                 s4DisplayOnlyMapping
                                                                     .takeIf {
                                                                         shouldStartNpuStandardRouteS4APseudoStreaming(
-                                                                            enabled = ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING,
+                                                                            enabled = npuStandardRouteS4aPseudoStreamingEnabled,
                                                                             mapping = it,
                                                                         )
                                                                     }
@@ -2593,7 +2593,7 @@ fun Home(
                                                         prompt = ""
                                                         userPrompt = ""
                                                         selectedImageUriStrings = emptyList()
-                                                        if (!ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                        if (!npuStandardRouteS5TtsEnabled) {
                                                             logStreamTrace(
                                                                 buildNpuStandardRouteS5TtsSkipTrace(
                                                                     reason = NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF,
@@ -2601,7 +2601,7 @@ fun Home(
                                                                 ),
                                                             )
                                                         }
-                                                        if (s4DisplayOnlyCandidate != null || ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                        if (s4DisplayOnlyCandidate != null || npuStandardRouteS5TtsEnabled) {
                                                             coroutineScope.launch {
                                                                 if (s4DisplayOnlyCandidate != null) {
                                                                     npuStandardRouteS4PseudoStreamingActive = true
@@ -2612,7 +2612,7 @@ fun Home(
                                                                     npuStandardRouteS4PseudoStreamingText = s4DisplayOnlyCandidate.finalText
                                                                     npuStandardRouteS4PseudoStreamingActive = false
                                                                 }
-                                                                if (ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                                if (npuStandardRouteS5TtsEnabled) {
                                                                     val s5TtsMapping = NpuStandardRouteS5TtsBridge()
                                                                         .prepareTtsCandidate(
                                                                             s1Result = s1Result,
@@ -2633,7 +2633,7 @@ fun Home(
                                                                     logStreamTrace(
                                                                         buildNpuStandardRouteS5TtsSkipTrace(
                                                                             reason = classifyNpuStandardRouteS5TtsSkipReason(
-                                                                                enabled = ENABLE_NPU_STANDARD_ROUTE_S5_TTS,
+                                                                                enabled = npuStandardRouteS5TtsEnabled,
                                                                                 mapping = s5TtsMapping,
                                                                                 ttsEnabled = ttsEnabled,
                                                                                 streamingActive = npuStandardRouteS4PseudoStreamingActive,

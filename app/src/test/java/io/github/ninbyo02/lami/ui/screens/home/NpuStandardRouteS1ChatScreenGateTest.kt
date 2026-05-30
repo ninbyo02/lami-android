@@ -647,6 +647,30 @@ class NpuStandardRouteS1ChatScreenGateTest {
         )
     }
 
+    @Test
+    fun `S2 through S5 phase gates follow NPU standard route mode`() {
+        val s2Mapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "こんにちは",
+            s1Result = s1SuccessResult(),
+        )
+        val s4Mapping = NpuStandardRouteS4PseudoStreamingBridge().preparePseudoStreamingCandidate(
+            s1Result = s1SuccessResult(),
+            finalText = "こんにちは。今日はNPU応答を段階表示します。",
+        )
+        val s5Mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。",
+            ttsEnabled = true,
+        )
+
+        assertFalse(shouldPersistNpuStandardRouteS2Db(NpuStandardRouteMode.S1_ONLY.isS2Enabled(), s2Mapping))
+        assertTrue(shouldPersistNpuStandardRouteS2Db(NpuStandardRouteMode.S2_DB.isS2Enabled(), s2Mapping))
+        assertFalse(shouldStartNpuStandardRouteS4APseudoStreaming(NpuStandardRouteMode.S3_MARKDOWN.isS4AEnabled(), s4Mapping))
+        assertTrue(shouldStartNpuStandardRouteS4APseudoStreaming(NpuStandardRouteMode.S4A_PSEUDO_STREAMING.isS4AEnabled(), s4Mapping))
+        assertFalse(shouldPrepareNpuStandardRouteS5Tts(NpuStandardRouteMode.S4A_PSEUDO_STREAMING.isS5Enabled(), s5Mapping))
+        assertTrue(shouldPrepareNpuStandardRouteS5Tts(NpuStandardRouteMode.FULL.isS5Enabled(), s5Mapping))
+    }
+
     private fun s1SuccessResult(): NpuStandardRouteS1Result =
         NpuStandardRouteS1Mapper.map(
             NpuStandardRouteS1RawResult(
