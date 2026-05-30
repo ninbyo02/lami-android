@@ -347,6 +347,24 @@ Blockers:
 Goal: speak successful final NPU assistant output after DB, Markdown, and
 streaming behavior are stable.
 
+S5 TTS candidate gate ON smoke check:
+
+- temporarily set `ENABLE_NPU_STANDARD_ROUTE_S5_TTS=true`;
+- used `customBuildExperimentDebug`;
+- confirmed install/start succeeded;
+- confirmed ChatScreen displayed `NPU STANDARD ROUTE S1`;
+- confirmed ChatScreen displayed `こんにちは。`;
+- no actual speech occurred because this is still the candidate-only phase and
+  `ttsController.speak(...)` is not connected;
+- no crash occurred;
+- rollback restored `ENABLE_NPU_STANDARD_ROUTE_S5_TTS=false`;
+- reinstalled after rollback;
+- `git status -sb` was clean after rollback.
+
+This confirms the S5 candidate gate can be enabled without breaking the current
+standard UI NPU path. It does not validate actual TTS playback. TTS playback and
+`Backend.NPU` persistence remain unconnected.
+
 Change target files:
 
 - `ChatScreen.kt`

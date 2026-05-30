@@ -250,6 +250,29 @@ confirm git status -sb is clean
 - `streamingActive=true` would reject candidate generation.
 - No `Backend.NPU` persistence is introduced.
 
+## Candidate Gate ON Runtime Result
+
+Temporary runtime check:
+
+- temporarily set `ENABLE_NPU_STANDARD_ROUTE_S5_TTS=true`;
+- installed and started `customBuildExperimentDebug`;
+- confirmed the ChatScreen UI displayed `NPU STANDARD ROUTE S1`;
+- confirmed the final visible answer `こんにちは。`;
+- no actual speech occurred because this phase is candidate-only and
+  `ttsController.speak(...)` is not connected;
+- no crash occurred;
+- rolled back by restoring `ENABLE_NPU_STANDARD_ROUTE_S5_TTS=false` and
+  reinstalling;
+- `git status -sb` was clean after rollback.
+
+Interpretation:
+
+- The S5 candidate gate can be enabled without breaking the current standard
+  UI NPU path.
+- This result does not validate actual TTS playback.
+- TTS playback remains unconnected.
+- `Backend.NPU` persistence remains disconnected.
+
 ## Stop Conditions
 
 Stop and roll back if:
