@@ -1,0 +1,21 @@
+# Docs Diff Summary
+
+Updated documents:
+
+- `docs/litert_qairt244_npu_max_output_token_limit_investigation.md`
+- `docs/litert_qairt244_npu_promotion_gate.md`
+- `docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md`
+- `docs/litert_qairt244_chat_screen_npu_integration_plan.md`
+- `docs/litert_custom_build_plan.md`
+- `docs/litert_qairt244_failure_root_cause_matrix.md`
+
+Recorded decisions:
+
+- 512 Python code prompt timeout is classified as native no-return/no-callback
+  before the bounded runner deadline, with cleanup unknown.
+- 512 remains non-promotable and is not a hidden baseline candidate.
+- 256 remains the hidden experimental baseline candidate.
+- H1 remains pinned to 128.
+- 1024/2048/4096 remain blocked.
+- Any 512 code-prompt retry requires separate approval, one run only, a
+  bounded timeout, and full safety/quality/memory gates.

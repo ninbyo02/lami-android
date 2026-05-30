@@ -1,0 +1,12 @@
+case_id=lower_max_tokens_32_sanitizer
+case_label=lower_max_tokens_32 + sanitizer
+prompt=こんばんは
+requested_max_output_tokens=32
+template_mode=gemma_it_like
+timeout_seconds=30
+stop_sequence_control=native_api_not_exposed
+repetition_suppression_marker=not_requested_api_pending
+db=false
+tts=false
+markdown=false
+streaming=false

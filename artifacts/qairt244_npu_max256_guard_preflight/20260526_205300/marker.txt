@@ -1,0 +1,7 @@
+marker_present=true
+native_limit_present=true
+setter_present=true
+sm8750_present=true
+guard_status=pass
+npu_run_executed=false
+run_decode_executed=false

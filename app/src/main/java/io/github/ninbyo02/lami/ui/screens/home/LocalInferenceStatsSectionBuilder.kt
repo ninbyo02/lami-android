@@ -733,6 +733,7 @@ internal fun buildInferenceDetailSections(
 }
 
 private const val DEV_QAIRT244_SM8750_ROUTE = "qairt244_sm8750_dev_npu"
+private const val HIDDEN_QAIRT244_SM8750_ROUTE = "qairt244_sm8750_hidden_npu"
 
 private fun buildDevQairt244Sm8750NpuSection(stats: InferenceStats): InferenceStatsSectionUi? {
     val values = parseDevQairt244StatsValues(stats)
@@ -740,7 +741,7 @@ private fun buildDevQairt244Sm8750NpuSection(stats: InferenceStats): InferenceSt
         ?: stats.modelName
         ?: stats.model
         ?: stats.modelLabel
-    if (selectedRoute != DEV_QAIRT244_SM8750_ROUTE) return null
+    if (selectedRoute != DEV_QAIRT244_SM8750_ROUTE && selectedRoute != HIDDEN_QAIRT244_SM8750_ROUTE) return null
     val maxOutputTokens = values["max_output_tokens"].orUnknown()
     val decodeElapsedMs = values["decode_elapsed_ms"].orUnknown()
     val runDecodeReached = values["run_decode_reached"]

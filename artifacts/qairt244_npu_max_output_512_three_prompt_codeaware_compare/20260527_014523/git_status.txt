@@ -1,0 +1,2 @@
+ M app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt
+?? scripts/run_qairt244_npu_max_output_512_three_prompt_codeaware_compare.sh

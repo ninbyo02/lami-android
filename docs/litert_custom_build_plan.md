@@ -1,5 +1,593 @@
 # LiteRT / LiteRT-LM Custom Build Plan
 
+## QAIRT244 Max512 Instrumented Worker Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_instrumented_worker_runtime/20260528_073227/`
+
+This phase ran one hidden instrumented 512 sequential soft-reset runtime. It
+did not rebuild LiteRT-LM/QAIRT, change native guard code, change staged JNI
+libraries, authorize a max-output expansion, or promote ChatScreen.
+
+Build plan decision: no native guard change follows from this artifact. The
+terminal trace narrows prompt 2 to native decode non-return/process death
+under sequential reuse: Kotlin recorded `before_native_adapter_run`, native
+diagnostics recorded pre-RunDecode `SetMaxOutputTokens(512)`, and Kotlin never
+recorded `after_native_adapter_run`, throwable, `finally`, or worker finish.
+Keep 512 hidden `hidden_per_run_isolated_512` candidate only, keep 256 as the
+hidden experimental baseline candidate, keep H1 pinned to 128, and keep
+1024/2048/4096 blocked.
+
+## QAIRT244 Max512 Receiver/Native Worker Instrumentation - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_receiver_native_worker_instrumentation/20260528_070541/`
+
+This phase adds app-side hidden receiver/native-worker terminal
+instrumentation and tests only. It does not run NPU, invoke a new RunDecode,
+rebuild LiteRT-LM/QAIRT, change native guard code, change staged JNI
+libraries, or authorize a max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The next
+approved runtime can use `terminal_trace_<runId>.txt` to distinguish worker
+throwable, terminal result write loss, cleanup loss, and native non-return or
+process death. Keep 512 hidden `hidden_per_run_isolated_512` candidate only,
+keep 256 as the hidden experimental baseline candidate, keep H1 pinned to
+128, and keep 1024/2048/4096 blocked.
+
+## QAIRT244 Max512 Dispatch Process Review - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_dispatch_process_death_review/20260528_061808/`
+
+This phase is artifact/log/dumpsys/runner review only. It does not run NPU,
+invoke a new RunDecode, rebuild LiteRT-LM/QAIRT, change native guard code,
+change staged JNI libraries, or authorize a max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The next
+implementation candidate is app-side hidden receiver/native-worker terminal
+instrumentation around `runForChatScreen`, so the next approved runtime can
+separate worker exception, process exit, and native non-return. Keep 512
+hidden `hidden_per_run_isolated_512` candidate only, keep 256 as the hidden
+experimental baseline candidate, keep H1 pinned to 128, and keep
+1024/2048/4096 blocked.
+
+## QAIRT244 Max512 Instrumented Sequential Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime_instrumented/20260528_052237/`
+
+This phase ran one hidden instrumented 512 sequential soft-reset runtime. It
+did not rebuild LiteRT-LM/QAIRT, change native guard code, change staged JNI
+libraries, authorize a max-output expansion, or promote ChatScreen.
+
+Build plan decision: no native work follows from this artifact. The process
+loss now has a narrower boundary: prompt 2 was process-present before
+dispatch and process-absent immediately after dispatch. Prompt 2 still reached
+`SetMaxOutputTokens(512)` pre-RunDecode evidence before failing to produce
+completion/cleanup. Keep 512 hidden `hidden_per_run_isolated_512` candidate
+only, keep 256 as the hidden experimental baseline candidate, keep H1 pinned
+to 128, and keep 1024/2048/4096 blocked.
+
+## QAIRT244 Max512 Process Boundary Instrumentation - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_process_boundary_instrumentation/20260528_050222/`
+
+This phase adds hidden runner process-boundary instrumentation, preflight
+policy, docs, and unit tests. It does not run NPU, invoke RunDecode, rebuild
+LiteRT-LM/QAIRT, change native guard code, change staged JNI libraries, or
+authorize a max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The next
+runtime phase, if separately approved, should use the added `pidof`/`ps`/
+`dumpsys activity`/logcat boundary snapshots to identify when the process
+disappears after the clean Python prompt. Keep 512 hidden
+`hidden_per_run_isolated_512` candidate only, keep 256 as the hidden
+experimental baseline candidate, keep H1 pinned to 128, and keep
+1024/2048/4096 blocked.
+
+## QAIRT244 Max512 Soft-Reset Process Disappearance Review - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_soft_reset_process_disappearance_review/20260528_043922/`
+
+This phase is artifact/log/runner review only. It does not run NPU, rebuild
+LiteRT-LM/QAIRT, change native guard code, change staged JNI libraries, or
+authorize a max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The 512
+soft-reset runtime's Python code prompt now returns cleanly, but prompt 2 is
+followed by unexplained process disappearance and prompt 3 times out. Keep 512
+hidden `hidden_per_run_isolated_512` only, keep 256 as the hidden experimental
+baseline candidate, keep H1 pinned to 128, and keep 1024/2048/4096 blocked.
+
+## QAIRT244 Max512 Sequential Soft-Reset Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime/20260528_041357/`
+
+This phase ran one hidden 512 sequential soft-reset runtime validation. It did
+not rebuild LiteRT-LM/QAIRT, change native guard code, change staged JNI
+libraries, authorize a max-output expansion, or promote ChatScreen.
+
+Build plan decision: no native work follows from this artifact. The runtime
+gate operated correctly: two clean prompts continued and the third prompt
+timeout stopped the sequence with `TIMEOUT_SUSPECT`,
+`reuse_allowed=false`, and `hidden_per_run_isolated_required=true`. Keep 512
+hidden `hidden_per_run_isolated_512` only, keep 256 as the hidden experimental
+baseline candidate, keep H1 pinned to 128, and keep 1024/2048/4096 blocked.
+
+## QAIRT244 Hidden NPU Runtime Reuse Enforcement - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_runtime_reuse_enforcement/20260528_034826/`
+
+This phase adds app-side runtime reuse policy and preflight enforcement fields.
+It does not run NPU, invoke RunDecode, rebuild LiteRT-LM/QAIRT, change native
+guard code, change staged JNI libraries, or authorize max-output expansion.
+
+Build plan decision: no native work follows from this artifact. Suspect
+sessions and rejected artifacts now formally block sequential reuse and require
+the hidden per-run isolated path before any later hidden attempt. Keep 512
+hidden `hidden_per_run_isolated_512` only and keep 1024/2048/4096 blocked.
+
+## QAIRT244 Max512 Sequential Soft-Reset Preflight - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_sequential_soft_reset_preflight/20260528_033653/`
+
+This phase adds a preflight-only soft-reset runner design, lifecycle gate, and
+tests. It does not run NPU, invoke RunDecode, rebuild LiteRT-LM/QAIRT, change
+native guard code, change staged JNI libraries, or authorize max-output
+expansion.
+
+Build plan decision: no native work follows from this artifact. The next
+runtime phase, if separately approved, should only test the soft-reset
+sequential lifecycle gate at 512. It must still stop after any suspect session
+and must not expand to 1024/2048/4096.
+
+## QAIRT244 Hidden NPU Lifecycle Summary Regeneration - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_summary_regeneration/20260528_030629/`
+
+This phase adds a preflight-only regeneration script and stores regenerated
+lifecycle summaries from existing artifacts. It does not run NPU, invoke
+RunDecode, rebuild LiteRT-LM/QAIRT, change native guard code, change staged JNI
+libraries, or authorize max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The real
+artifact compatibility check confirms clean 512 force-stop and 256 baseline
+candidate runs classify as `SUCCESS_CLEAN`, while sequential/Activity-restart
+512 Python timeouts classify as suspect and require per-run isolation. Keep
+512 hidden `hidden_per_run_isolated_512` only and keep 1024/2048/4096 blocked.
+
+## QAIRT244 Hidden NPU Lifecycle Summary Integration - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_summary_integration/20260528_024448/`
+
+This phase updates runner summary generation, debug-only summary code, tests,
+and docs. It does not rebuild LiteRT-LM/QAIRT, change native guard code, change
+staged JNI libraries, run NPU, or authorize max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The next
+runtime phase, if approved, should consume lifecycle summary fields without
+changing native guard limits. 1024/2048/4096 remain blocked.
+
+## QAIRT244 Hidden NPU Lifecycle Artifact Parser - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_runner_integration/20260527_231211/`
+
+This phase adds debug-only artifact parsing and unit tests. It does not rebuild
+LiteRT-LM/QAIRT, change native guard code, change staged JNI libraries, run
+NPU, or authorize max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The parser
+only makes future hidden runner/preflight evidence stricter: run-id isolation,
+stale result rejection, cleanup evidence, and `Engine.close` evidence must be
+present before a run can be classified clean.
+
+## QAIRT244 Hidden NPU Lifecycle Wrapper Contract - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_wrapper_design/20260527_225303/`
+
+This phase adds a Kotlin debug-only lifecycle contract and unit tests. It does
+not rebuild LiteRT-LM/QAIRT, change native guard code, change staged JNI
+libraries, run NPU, or authorize max-output expansion.
+
+Build plan decision: no native work follows from this artifact. The next
+runtime work, if approved separately, should test only the hidden wrapper's
+run-id/cleanup contract at 512. 1024/2048/4096 remain blocked.
+
+## QAIRT244 Edge Gallery Streaming Lifecycle Compare - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_edge_gallery_streaming_lifecycle_compare/20260527_223704/`
+
+This phase is static docs/review only. It does not rebuild LiteRT-LM/QAIRT,
+change native guard code, change staged JNI libraries, or run NPU.
+
+Build interpretation: Edge Gallery and LiteRT-LM do not justify a new native
+build or max-output expansion. The useful next work is app-side hidden
+lifecycle design: per-turn run-id separation, terminal callback/result
+evidence, and bounded cleanup/close evidence. Gallery's cooperative cancel and
+streaming UI are not enough to replace the proven force-stop boundary for 512.
+
+Build plan decision: keep the existing max512 artifact limited to hidden
+`hidden_per_run_isolated_512`. Do not rebuild for sequential 512, do not
+expand to 1024/2048/4096, and do not move 512 into standard/release or normal
+ChatScreen behavior.
+
+## QAIRT244 Max512 Per-Run Isolated Formalization - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_formalization/20260527_215325/`
+
+This is runner/gate/docs/tests formalization only. It does not rebuild
+LiteRT-LM/QAIRT, change the native max512 guard, change staged JNI libraries,
+or run NPU again.
+
+Build plan decision: the existing max512 artifact is sufficient only for
+hidden `mode=hidden_per_run_isolated_512` review. Sequential 512 and
+Activity-restart-only 512 remain rollback modes. Do not expand the native
+guard to 1024/2048/4096 and do not move 512 into standard/release or normal
+ChatScreen behavior.
+
+## QAIRT244 Max512 Activity Restart Only Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_activity_restart_compare/20260527_213930/`
+
+No native guard change, QAIRT rebuild, or `app/src/main/jniLibs` source change
+was performed. The existing max512 native artifact was staged temporarily for a
+hidden Activity-restart-only comparison, then restored by the runner.
+
+Result: Activity restart only did not pass. The Python code prompt timed out at
+`elapsed_ms=70000` after pre-RunDecode `SetMaxOutputTokens(512)` evidence,
+without completed backend, cleanup, or `Engine.close` evidence. The Japanese
+prompts succeeded. The run used no process force-stop, so this does not replace
+the previously passing per-run force-stop isolated artifact.
+
+Build plan decision: do not rebuild and do not expand to 1024. Keep the max512
+artifact limited to hidden per-run isolated review. Sequential and
+Activity-restart-only 512 remain non-baseline; 256 remains the hidden
+experimental baseline candidate.
+
+## QAIRT244 Max512 Sequential Cleanup/Resource Investigation - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_sequential_cleanup_resource_investigation/20260527_082307/`
+
+This is an artifact/log/runner review only. It does not rebuild LiteRT-LM or
+QAIRT, change the max512 native guard, modify staged JNI libraries, or run NPU
+again.
+
+Build interpretation: the max512 native artifact is sufficient for per-run
+isolated 512, but sequential 512 still fails on the Python code prompt after
+pre-RunDecode evidence. The leading root cause is warm-process/resource
+inheritance rather than a native guard rejection. No 1024 build or guard
+expansion is authorized. If runtime work continues, the next one-axis test
+should be Activity restart only between prompts.
+
+## QAIRT244 Max512 Per-Run Isolated Gate - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_gate/20260527_075622/`
+
+This is a docs/gate phase only. It does not rebuild LiteRT-LM/QAIRT, change the
+native max512 guard, change staged JNI libraries, or run NPU again.
+
+Build plan decision: the existing max512 native artifact is sufficient for a
+hidden per-run isolated gate, but not for a general sequential 512 baseline.
+The accepted 512 mode requires app force-stop before and after each prompt,
+RunDecode/`SetMaxOutputTokens(512)` evidence, QNN/HTP/FastRPC evidence,
+cleanup/`Engine.close`, memory recovery or no retained process, code-aware
+sanitizer with indentation/fence checks, and side-effect flags false. 1024,
+2048, and 4096 remain blocked; no further native build work is authorized from
+this gate alone.
+
+## QAIRT244 Max512 Force-Stop Between Prompts - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_force_stop_between_prompts/20260527_074002/`
+
+No native guard change, QAIRT rebuild, or `app/src/main/jniLibs` change was
+performed. The runner staged the existing max512 `liblitertlm_jni.so` artifact
+from `artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/`
+into a temporary standardDebug APK, then restored the source JNI directory.
+
+Result: force-stop between prompts passed. The three approved prompts all
+completed once at `max_output_tokens=512` under `timeout_seconds=60`; the code
+prompt returned `useful_code` with indentation/fence checks passing. This
+supports the hypothesis that the repeated code timeout is tied to sequential
+process/resource behavior rather than the max512 native guard itself.
+
+Build plan decision: do not rebuild or move to 1024 yet. Decide next whether
+512 should be constrained to hidden per-run isolated mode, or whether another
+sequential cleanup/order investigation is required before any 512 baseline
+classification.
+
+## QAIRT244 Max512 Repeated Code Timeout Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_timeout_root_cause_review/20260527_065926/`
+
+This review did not rebuild LiteRT-LM/QAIRT and did not change native code. It
+compares the isolated 512 code success, the code-aware sequential 512 timeout,
+and the 256 three-prompt success.
+
+Build interpretation: the max512 native guard works, but 512 code generation is
+not stable enough for baseline progression. The likely root is sequential
+decode timeout or decode-too-long behavior under the three-prompt runner, with
+cleanup/resource sequencing as an unproven contributor. The next build plan
+does not move to 1024. If runtime work is approved later, test one bounded
+axis: code-only isolated retry, order-swapped three-prompt comparison, or
+per-run force-stop between prompts.
+
+## QAIRT244 Max512 Code-Aware Three-Prompt Rerun - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_codeaware_compare/20260527_014523/`
+
+No native guard change or QAIRT rebuild was performed. The existing max512
+artifact was used with the Kotlin code-aware sanitizer. The three approved
+prompts ran once each with `timeout_seconds=60`.
+
+Result: rollback. The two Japanese prompts succeeded, but the Python calculator
+prompt timed out after reaching native `SetMaxOutputTokens(512)` pre-decode
+evidence. Memory after 10 seconds decreased from the final after-run sample, so
+the rollback reason is the code prompt timeout, not retained memory.
+
+Build plan decision: no 1024 expansion. 512 remains extended experimental until
+the code prompt can complete under a bounded gate and pass the display-quality
+checks.
+
+## QAIRT244 Code-Aware Sanitizer Implementation - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_code_aware_sanitizer_review/20260527_012650/`
+
+This phase did not rebuild LiteRT-LM/QAIRT, change native code, change staged
+JNI libraries, or run NPU again. It is a Kotlin sanitizer/display-quality fix
+for the hidden experimental route.
+
+The sanitizer now distinguishes fenced code from prose. Inside code fences it
+preserves indentation, tabs, and blank lines. Outside code fences it keeps the
+existing turn-template, prompt-echo, leading-drift, and repeated-line cleanup.
+For truncated code output, it appends a derived closing fence to sanitized
+display text and records the repair through `code_fence_completed`.
+
+Build plan decision: no 1024 expansion. 512 remains extended experimental until
+a bounded 512 three-prompt comparison passes with the code-aware sanitizer.
+
+## QAIRT244 Max512 Code Output Quality Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_output_quality_review/20260527_011217/`
+
+This review did not rebuild QAIRT/LiteRT-LM, change the native guard, or run
+NPU again. It reviews the bounded retry artifact only.
+
+Result: the existing max512 artifact is runtime-safe for the single Python code
+prompt under `timeout_seconds=60`, but not display-baseline ready. Raw output
+preserves code indentation; sanitized output strips indentation inside the
+fenced Python block. The response ends mid-statement and lacks a closing code
+fence, which is classified as token-limit truncation after normal native
+completion.
+
+Build plan decision: no 1024 expansion and no additional native work from this
+artifact. The next custom-build-independent step is a code display sanitizer
+design for indentation/fence handling, then a separately approved bounded 512
+three-prompt comparison. 256 remains the hidden experimental baseline
+candidate.
+
+## QAIRT244 Max512 Three-Prompt Hidden Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_compare/20260527_003429/`
+
+A temporary standardDebug APK was assembled with the staged max512
+`liblitertlm_jni.so` from
+`artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/`.
+The runner executed the three approved hidden prompts once each at
+`max_output_tokens=512`.
+
+Result: rollback. `こんにちは` and `ラミィのNPU推論について短く説明して`
+completed with sanitized natural Japanese output. The Python calculator prompt
+timed out under the bounded 30 second timeout after native diagnostics reached
+`SetMaxOutputTokens(512)`, so no completed useful code output was available.
+
+No source `app/src/main/jniLibs` file was changed and no rebuilt binary is
+tracked by Git. 1024 expansion remains blocked until a separately approved 512
+three-prompt comparison passes with no timeout, no fallback, no fresh crash,
+QNN evidence, memory recovery, and `useful_code` for the code prompt.
+
+Timeout review artifact:
+`artifacts/qairt244_npu_max_output_512_code_timeout_review/20260527_005112/`
+
+The review did not rebuild QAIRT/LiteRT-LM and did not change native code. It
+classifies the Python code prompt failure as native no-return/no-callback
+before the bounded runner timeout, with cleanup unknown. Any retry must use the
+same max512 artifact unless a separate native-change phase is explicitly
+approved.
+
+Bounded retry artifact:
+`artifacts/qairt244_npu_max_output_512_code_bounded_retry/20260527_010116/`
+
+The retry used the existing max512 artifact only; no native guard change or
+QAIRT rebuild was performed. The same Python prompt completed once under
+`timeout_seconds=60` with `decode_ms=11600`, `elapsed_ms=14000`,
+`cleanup_elapsed_ms=142`, and `Engine.close=unique_ptr_cleanup`. This
+reclassifies the specific 30 second failure as too short for the code prompt,
+but it does not make 512 a baseline because the full three-prompt gate has not
+been re-run and the sanitized code display is truncated/indentation-damaged.
+
+## QAIRT244 Max512 Single Runtime Verification - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_single_prompt/20260527_002303/`
+
+A temporary standardDebug APK was assembled with the staged max512
+`liblitertlm_jni.so` from
+`artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/`
+for device verification only. The APK-contained native diagnostics reached
+`RunDecode` with `SetMaxOutputTokens(512)`,
+`native_max_output_tokens_limit=512`, and marker
+`qairt244_editable_prompt_max512_v1`.
+
+The single prompt `こんにちは` succeeded at `max_output_tokens=512` with
+`decode_ms=822`, `elapsed_ms=3000`, `fallback_used=false`, `timeout=false`,
+`fresh_crash=false`, and QNN/HTP/FastRPC evidence. Sanitized output was
+natural Japanese. No source `app/src/main/jniLibs` file was changed and no
+rebuilt binary is tracked by Git.
+
+Decision: keep 128 as the H1/display baseline and 256 as the hidden
+experimental baseline candidate. The 512 run is single-prompt evidence only
+and may proceed to a separately approved three-prompt hidden comparison.
+
+## QAIRT244 Max512 Guard-Only Preflight - 2026-05-26
+
+Artifacts:
+
+- build/static artifact:
+  `artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/`
+- preflight artifact:
+  `artifacts/qairt244_npu_max512_guard_preflight/20260527_000522/`
+
+Result: QAIRT 2.44 limited rebuild completed for the max512 guard-only native
+patch. The patch is limited to the qairt244 editable-prompt native path and
+raises the custom guard from 256 to 512. It adds the marker
+`qairt244_editable_prompt_max512_v1`, records
+`native_max_output_tokens_limit=512`, and emits pre-RunDecode diagnostic text
+`before RunDecode SetMaxOutputTokens(512)` before calling
+`decode_config.SetMaxOutputTokens(512)`.
+
+Built `liblitertlm_jni.so` metadata:
+
+```text
+build_id=82cf5b24f5b2897edf3b4b8a6970cf8e
+sha256=7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105
+```
+
+The Lami preflight passed required checks for
+`qairt244_editable_prompt_max512_v1`, `native_max_output_tokens_limit=512`,
+`SetMaxOutputTokens(512)`, SM8750 model selection, and staged
+`liblitertlm_jni.so` presence. No rebuilt `.so` was copied into
+`app/src/main/jniLibs`, no release or standard behavior changed, and no
+DB/TTS/Markdown/streaming or selected-path behavior was touched. NPU
+generation, `Engine.initialize`, and `RunDecode` were not executed.
+
+## QAIRT244 Max256 Guard-Only Limited Rebuild - 2026-05-26
+
+Artifacts:
+
+- build/static artifact:
+  `artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/`
+- preflight artifact:
+  `artifacts/qairt244_npu_max256_guard_preflight/20260526_205300/`
+
+Result: QAIRT 2.44 limited rebuild completed for the guard-only native patch.
+The patch is limited to the qairt244 editable-prompt native path and raises the
+custom guard from 128 to 256. It adds the marker
+`qairt244_editable_prompt_max256_v1`, records
+`native_max_output_tokens_limit=256`, and emits pre-RunDecode diagnostic text
+that will include `SetMaxOutputTokens(256)` when a later approved run executes.
+
+Built `liblitertlm_jni.so` metadata:
+
+```text
+build_id=c42e4438f1b39e384ab075b9392831ca
+sha256=3767332f97ffee57b635fc13e2741714c994f7a2cc94d0fde5d4fbbce9c731ba
+```
+
+No rebuilt `.so` was copied into `app/src/main/jniLibs` and no large binary is
+intended for Git tracking. The lami runner preflight passed against the build
+artifact, but NPU generation, `Engine.initialize`, and `RunDecode` were not
+executed in this phase.
+
+## QAIRT244 Max256 Single Runtime Verification - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_single_prompt/20260526_211046/`
+
+A temporary standardDebug APK was assembled with the staged max256
+`liblitertlm_jni.so` from the build artifact for device verification only. The
+APK-contained `liblitertlm_jni.so` sha256 matched:
+
+```text
+3767332f97ffee57b635fc13e2741714c994f7a2cc94d0fde5d4fbbce9c731ba
+```
+
+The single prompt `こんにちは` succeeded at `max_output_tokens=256`.
+No source `app/src/main/jniLibs` file was changed and no rebuilt binary is
+tracked by Git.
+
+## QAIRT244 Max256 Three-Prompt Hidden Comparison - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_three_prompt_compare/20260526_211856/`
+
+Using the same staged max256 JNI artifact, the hidden receiver completed the
+three approved prompts once each at `max_output_tokens=256`. All three reached
+`RunDecode` and retained `QNN_HTP_V79_FastRPC_native_diag` evidence.
+
+Results:
+
+- `こんにちは`: `natural_japanese`, `decode_ms=884`.
+- `Pythonで簡単な電卓コードを書いて`: `useful_code`,
+  `decode_ms=7351`.
+- `ラミィのNPU推論について短く説明して`: `natural_japanese`,
+  `decode_ms=4110`.
+
+No source `app/src/main/jniLibs` file was changed and no rebuilt binary is
+tracked by Git. 256 is a hidden expansion candidate only; 512 requires a new
+guard/build/preflight and one prompt before any three-prompt comparison.
+
+Result commit decision: record the current max256 build as sufficient for a
+hidden experimental baseline candidate, not for H1 or normal UI promotion. The
+next custom-build action for token expansion is a 512 guard/build/preflight
+phase followed by a single-prompt hidden safety run; do not jump directly to
+1024, 2048, or 4096.
+
+## QAIRT244 Native Max Output Token Limit Investigation - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_token_limit_investigation/20260526_202629/`
+
+The current `native_max_output_tokens_limit=128` is implemented in the custom
+qairt244 editable-prompt JNI entrypoint in the external LiteRT-LM checkout. The
+256 request is rejected before `DecodeConfig::SetMaxOutputTokens` and before
+`RunDecode`, so the finding is classified as `custom_safety_guard_only` for the
+observed failure.
+
+No custom-build action is authorized by this investigation. A later phase may
+prepare a minimal native patch that raises the guard only to 256, records the
+requested/actual token limit consistently, rebuilds the custom artifact, and
+then validates one prompt before any broader comparison. 4096 remains a final
+target that must be reached only through 256, 512, 1024, and 2048 gates with
+timeout, memory, cleanup, and quality evidence.
+
+## QAIRT244 Max Output Tokens 256 Hidden Compare - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/`
+
+The Java hidden compare gate was extended only for a controlled 256-token
+diagnostic request, but the native editable-prompt entrypoint still enforces
+`native_max_output_tokens_limit=128`. The 256 request reached native diagnostics
+and was rejected as `invalid_max_output_tokens`, producing empty sanitized
+output for all three prompts.
+
+No native code, JNI libraries, release behavior, standard route selection,
+DB/TTS/Markdown/streaming path, or selected-path persistence was changed. The
+current custom-build recommendation remains unchanged: keep the safe hidden
+baseline at `max_output_tokens=128` unless a future native/API change explicitly
+raises and validates the limit.
+
 Date: 2026-05-16
 
 This plan prepares a custom build path without building or installing any native artifact yet.
@@ -358,6 +946,104 @@ Updated next recommendation:
   strings and does not infer counts from bytes or text.
 - Native diagnostics show QNN HTP V79 FastRPC execution evidence.
 - Tombstone classification: `stale-tombstone-ignored`; no fresh crash evidence.
+
+2026-05-25 Phase H1 hidden-to-UI freshness/state test update:
+
+- `sanitizer_only + max_output_tokens=128` remains the hidden experimental
+  display-quality baseline.
+- Phase H1 remains pre-ChatScreen and transient-only: no normal UI promotion,
+  no standard route connection, no NPU execution, no `Engine.initialize`, no
+  `RunDecode`, no DB, no TTS, no Markdown, no streaming, and no
+  `selectedPath=npu` persistence.
+- Artifact freshness is now a pure Kotlin gate: epoch milliseconds may come
+  from `artifact_timestamp_ms`, `artifact_timestamp`, `synced_at`, or
+  `created_at`; only timestamps within 24 hours are fresh.
+- Missing timestamps are `stale_or_unknown`, future timestamps are
+  `stale_or_invalid`, and older artifacts are `stale_artifact`.
+- Refresh is metadata-only and may reapply the mapper only for fresh artifacts;
+  it explicitly does not run NPU, initialize an engine, or run decode.
+
+2026-05-26 Phase H1 artifact metadata boundary update:
+
+- The future transient UI wiring has a pure Kotlin input boundary for artifact
+  key-value text, maps, and already-read file content.
+- The boundary keeps only minimum gate/display fields and drops `raw_output`,
+  model paths, token dumps, full native diagnostics, and unknown keys before UI
+  input.
+- Missing required fields, invalid booleans, and invalid numbers become
+  rollback input before mapper/freshness handoff.
+- Duplicate keys are fixed as last-value-wins.
+- `dev_enable_npu_chatscreen_route=false` means metadata is not read and not
+  parsed. `true` still requires fresh artifact metadata and the full H1 gate.
+- No ChatScreen connection, NPU run, engine initialize, decode, retry,
+  fallback, DB, TTS, Markdown, streaming, standard route connection, or
+  selected-path persistence is introduced by this boundary.
+
+2026-05-26 Phase H1 metadata-to-presenter integration test update:
+
+- A pure Kotlin integration test now covers key-value metadata text through the
+  artifact metadata boundary, `DevOnlyNpuPhaseH1UiInput`, presenter, and
+  `DevOnlyNpuPhaseH1UiState`.
+- Fresh valid baseline metadata produces a visible transient state with
+  sanitized output only, `reasonCode=ok`, decode-ms text, max token text, short
+  QNN HTP V79 FastRPC evidence, and short artifact path.
+- Gate failures for fallback, timeout, non-natural quality classification,
+  standard route connection, and DB ingress become hidden rollback states.
+- `raw_output` does not propagate into UI input or UI state, and side-effect
+  flags remain false.
+- Toggle false continues to skip provider invocation, so metadata is not read
+  or parsed.
+- This remains pre-ChatScreen: no NPU run, no `Engine.initialize`, no
+  `RunDecode`, no DB, no TTS, no Markdown, no streaming, no standard route
+  connection, and no selected-path persistence.
+
+2026-05-26 Phase H1 card view model contract update:
+
+- `DevOnlyNpuPhaseH1CardViewModel` now defines the read-only display object for
+  a future transient card.
+- The contract maps `DevOnlyNpuPhaseH1UiState` into title, subtitle, body,
+  status, reason, detail lines, warning lines, and a `DEV ONLY` badge.
+- Success displays sanitized output only. Rollback/failure and hidden states
+  have `body=null`.
+- Detail lines include `maxOutputTokens=128`, decode time, short backend
+  evidence, short artifact path, `selectedPathSaved=false`, and
+  DB/TTS/Markdown/streaming false.
+- Raw output, retry, persistence, TTS, Markdown, and streaming controls remain
+  false, with snapshot contract tests covering success and rollback text.
+- This is still not a UI implementation and does not connect ChatScreen.
+
+2026-05-26 Phase H1 preview renderer contract update:
+
+- `DevOnlyNpuPhaseH1PreviewRenderer` now formats the read-only card view model
+  into text lines with a stable order.
+- Success rendering emits badge/title, status, subtitle, sanitized output,
+  reason, and detail lines.
+- Rollback and hidden models render no lines because their view model
+  `visible=false`.
+- Raw output, `<end_of_turn>`, `<start_of_turn>`, retry, persist, TTS,
+  Markdown button, and streaming indicator labels are absent from rendered
+  output.
+- This is still formatter/test-only: no Compose UI, no ChatScreen connection,
+  no NPU run, no engine initialization, no decode, no DB, no TTS, no Markdown,
+  no streaming, no standard route connection, and no selected-path persistence.
+
+2026-05-26 Phase H1 minimal Diagnostic/DEV wiring update:
+
+- `NpuDiagnosticChatActivity` now has a read-only Phase H1 transient preview
+  section.
+- The section is guarded by `dev_enable_npu_chatscreen_route`, which defaults
+  false and skips metadata read/parse when false.
+- When true, the section reads artifact metadata only and runs the existing
+  H1 parser, presenter, card view model, and renderer.
+- Fresh gate-passing metadata renders sanitized output only. Stale, rollback,
+  and hidden states render no preview lines.
+- The wiring records `selectedPathNpuSaved=false`,
+  `standard_route_connected=false`, `normal_ui_route_connected=false`,
+  `db=false`, `tts=false`, `markdown=false`, `streaming=false`, `retry=false`,
+  `auto_fallback=false`, `npu_generation=false`, `engine_initialize=false`,
+  and `run_decode=false`.
+- This is still not a normal ChatScreen promotion and does not insert assistant
+  messages.
 - Still no high-level `generateResponse`, no `Conversation`, and no normal UI
   NPU connection.
 
@@ -1731,3 +2417,230 @@ Observed:
 
 Next build step: replace or generate the app-private model with a QAIRT NPU
 compiled LiteRT-LM artifact that contains the required `TF_LITE_AUX` data.
+
+## DEV-only NPU Output Sanitizer Result (2026-05-25)
+
+With the SM8750 compiled LiteRT-LM model in place, the ChatScreen DEV-only NPU
+route reached native decode and returned Gemma turn-template artifacts in the
+raw text. The custom build/native stack is unchanged; the app now sanitizes the
+debug-route display output only.
+
+- artifact: `artifacts/qairt244_npu_output_sanitizer/20260525_015040/`
+- template mode: `gemma_it_like`
+- prompt: `こんにちは`
+- `maxOutputTokens=128`
+- `npu_backend=NPU`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fallback_used=false`
+- `timeout=false`
+- `fresh_crash=false`
+- raw output preserved in `raw_output.txt`
+- sanitized output preserved in `sanitized_output.txt`
+- sanitized output: `こんにちは！何かお手伝いできることはありますか？`
+- `removed_template_token_count=2`
+- `removed_prompt_echo=true`
+
+No native artifact was rebuilt for this change. No `.so`, `.apk`, `.aar`,
+`.zip`, `.tar`, `.gz`, or `.litertlm` artifact is part of the Git change.
+
+## QAIRT244 Turn-Stop Quality Compare - 2026-05-25
+
+The ChatScreen DEV-only NPU route is treated as route-successful; this phase is display-quality tuning only. The comparison is documented in `docs/litert_qairt244_npu_turn_stop_quality_compare.md` and implemented by `scripts/run_qairt244_npu_turn_stop_quality_compare.sh`.
+
+Static LiteRT-LM inspection found `native stop not exposed` for the qairt244 lower-level Android route. Runtime metadata can carry stop token ids internally, but this JNI path creates a default session config and exposes only `DecodeConfig.SetMaxOutputTokens()` for the editable-prompt run; no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter is available. Public sampler controls expose topK/topP/temperature/seed, but the qairt244 lower-level native entrypoint does not accept sampler config, and no repetition penalty API was found.
+
+The fixed executable baseline is `enhanced_sanitizer_only_128`. `lower_max_tokens_64_sanitizer` and `lower_max_tokens_32_sanitizer` are rollback-only records, not executable adoption candidates, and `stop_sequence_end_of_turn` is recorded as `not_run/native_stop_not_exposed`. The prompts are `こんにちは`, `はじめまして`, and `こんばんは`; the executable sanitizer-only case uses `max_output_tokens=128` and a 30 second timeout.
+
+The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+
+## NPU Sanitizer Quality Baseline Commit - 2026-05-25
+
+Commit baseline: `sanitizer_only + max_output_tokens=128` is the provisional
+hidden experimental display-quality baseline, backed by
+`artifacts/qairt244_npu_turn_stop_quality_compare/20260525_211810`.
+
+Promotion gate: `fallback_used=false`, `fresh_crash=false`, `timeout=false`,
+sanitized `quality_classification=natural_japanese`, no template artifact after
+sanitize, no repetition or multilingual drift after sanitize, and
+`db=false`, `tts=false`, `markdown=false`, `streaming=false`.
+
+Raw native `template_artifact` remains acceptable only as diagnostic evidence;
+the displayed sanitized output must be natural Japanese. Native stop sequence /
+native turn-stop is not required for this provisional baseline. Standard route
+non-connection is covered by `DevOnlyNpuChatScreenBlockedBranchTest`.
+
+The follow-up static investigation is recorded at
+`artifacts/qairt244_npu_stop_api_investigation/20260525_214513/`. It found no
+public Android/JNI per-run stop sequence, stop token, EOS, or `<end_of_turn>`
+API for this qairt244 path, so no native stop comparison is implemented.
+
+## NPU Hidden-To-UI Handoff Plan - 2026-05-25
+
+The next pre-promotion design is documented in
+`docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md`. It keeps
+`sanitizer_only + max_output_tokens=128` as the required baseline and does not
+implement normal UI promotion.
+
+The first eligible handoff phase is H1 transient preview only: display
+`sanitized_output` in a DEV-only transient UI surface, keep `raw_output` in
+artifacts only, and keep DB, TTS, Markdown, streaming, selected-path NPU
+persistence, and standard route connection disabled. Later phases evaluate
+assistant-style temporary display, DB persistence, and TTS/Markdown/streaming
+as separate gates.
+
+Phase H1 surface details are fixed in
+`docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md`: ChatScreen may use
+only a DEV-only transient card/banner/snackbar, outside the assistant message
+list, with `sanitized_output`, status, `reasonCode`, `decode_ms`, short backend
+evidence, `maxOutputTokens=128`, and short artifact path. It clears on new
+input, navigation away, toggle OFF, failure/rollback, app restart, or stale
+artifact; refresh may reread artifact metadata only.
+
+Before ChatScreen wiring, Phase H1 is limited to state/display-model/presenter
+tests. Those tests must prove sanitized-output-only display, raw-output
+exclusion, reason-only failure display, rollback hiding, and
+`shouldPersistToDb=false`, `shouldSpeakTts=false`,
+`shouldRenderMarkdown=false`, `shouldStream=false`.
+
+The artifact metadata mapper is also tested before ChatScreen wiring. It reads
+hidden result key-value metadata, maps only `sanitized_output` into H1 UI input,
+discards `raw_output`, and turns promotion-gate mismatches into
+rollback/failure input.
+
+## Phase H1 Transient Preview UI Capture - 2026-05-26
+
+Supplemental artifact:
+`artifacts/qairt244_phase_h1_transient_preview_ui_capture/20260526_064732`.
+
+This artifact complements the prior Diagnostic-only wiring artifact
+`artifacts/qairt244_phase_h1_transient_preview_wiring/20260526_062814` with a
+representative connected-device screenshot and window dump. The capture shows
+the Phase H1 section in `NpuDiagnosticChatActivity` with:
+
+- `DEV ONLY - DEV NPU transient preview`
+- `Status: SUCCESS`
+- sanitized output only:
+  `こんにちは！何かお手伝いできることはありますか？`
+- `metadata_read=true`
+- `preview_visible=true`
+- raw output and template tokens absent from UI
+- `selectedPathNpuSaved=false`
+- `standard_route_connected=false`
+- `normal_ui_route_connected=false`
+- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+- `npu_generation=false`, `engine_initialize=false`, `run_decode=false`
+
+No code implementation, NPU execution, native change, model change, or normal
+ChatScreen promotion was performed for this capture supplement.
+
+## Phase H1 Read-Only Transient Card - 2026-05-26
+
+`NpuDiagnosticChatActivity` now renders the H1 transient preview through a
+dedicated read-only card in customBuildExperimentDebug.
+
+The card is visible only for fresh, gate-passing metadata and remains hidden for
+rollback, stale, hidden, or gate-failed results. It displays only the renderer
+output:
+
+- `DEV ONLY`
+- `DEV NPU transient preview`
+- `Status: SUCCESS`
+- sanitized natural Japanese output
+- `maxOutputTokens=128`
+- `decode_ms`
+- short backend evidence
+- short artifact path
+- side-effect flags false
+
+No normal ChatScreen route, assistant message list, DB, TTS, Markdown,
+streaming, selected-path NPU persistence, retry, fallback, `Engine.initialize`,
+`RunDecode`, or additional NPU execution is introduced.
+
+## Phase H1 Read-Only Card Hidden-State Regression - 2026-05-26
+
+Connected-device artifact:
+`artifacts/qairt244_phase_h1_readonly_card_hidden_state_regression/20260526_074740/`
+
+The read-only card now has capture evidence for both visible and hidden states:
+
+- success metadata: visible card, sanitized output only
+- stale metadata: hidden card, `reasonCode=stale_artifact`
+- rollback metadata: hidden card, `reasonCode=fallback_used`
+- toggle false: hidden card, `metadata_read=false`
+
+The regression did not run NPU generation and did not call `Engine.initialize`
+or `RunDecode`. DB, TTS, Markdown, streaming, standard route, normal UI route,
+and selected-path NPU persistence all remain disconnected.
+
+## Phase H1 Compose Adapter Contract - 2026-05-26
+
+Added a contract-only adapter for future Diagnostic-only Compose display:
+
+```text
+DevOnlyNpuPhaseH1CardViewModel -> DevOnlyNpuPhaseH1ComposeModel
+```
+
+The adapter maps visible success cards to `shouldShowSurface=true` with sanitized
+body text only. Hidden and rollback cards map to `shouldShowSurface=false` and
+`body=null`.
+
+The contract fixes all side-effect and route flags to false:
+
+- assistant list insertion
+- DB persistence
+- TTS
+- Markdown
+- streaming
+- retry
+- fallback
+
+No ChatScreen connection, Compose UI implementation, NPU execution, native
+change, release/standard change, or selected-path persistence is included.
+
+## Phase H1 Diagnostic Preview Host Contract - 2026-05-26
+
+Added a contract-only host state for the Diagnostic preview:
+
+```text
+DevOnlyNpuPhaseH1ComposeModel -> DevOnlyNpuPhaseH1PreviewHostState
+```
+
+The host renders text only for visible success models and hides stale, rollback,
+hidden, and toggle-false models. It does not read metadata, run NPU, initialize
+the engine, decode, insert assistant messages, persist DB records, speak TTS,
+render Markdown, stream, retry, or fallback.
+
+This remains a debug/customBuildExperiment contract test layer only. It does not
+connect ChatScreen or implement the formal Compose UI surface.
+
+## Phase H1 XML Card / Preview Host Consistency - 2026-05-26
+
+Added `DevOnlyNpuPhaseH1XmlCardContract` as the pure helper shared by the
+existing Diagnostic XML/read-only card and the preview host render path.
+
+The contract tests fix:
+
+- success XML card text equals preview host render text
+- hidden, stale, rollback, and toggle-false states render empty text
+- raw output and turn template tokens are not displayed
+- assistant insertion, DB, TTS, Markdown, streaming, retry, fallback, metadata
+  read, NPU run, engine initialize, and decode stay false
+
+This is a test/contract alignment only. It does not run NPU and does not connect
+ChatScreen, standard route, release, or the formal Compose UI.
+
+## Phase H1 Preview Consistency Contract - 2026-05-26
+
+Added `DevOnlyNpuPhaseH1PreviewConsistency` and snapshot tests to compare all
+Diagnostic-only read-only preview outputs:
+
+- XML card helper output
+- PreviewRenderer output
+- PreviewHost output
+- Compose adapter render output
+- Compose/host safety contract flags
+
+The consistency contract keeps success render text aligned and keeps
+hidden/rollback/stale/toggle-false states empty. It also confirms raw output,
+turn tokens, assistant insertion, DB, TTS, Markdown, streaming, retry/fallback,
+metadata read, NPU run, engine initialize, and decode are not introduced.

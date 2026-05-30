@@ -1,0 +1,65 @@
+# Grep Safety
+
+Success window positive checks:
+- `DEV ONLY`: present
+- `DEV NPU transient preview`: present
+- `Status: SUCCESS`: present
+- `こんにちは！何かお手伝いできることはありますか？`: present
+- `metadata_read=true`: present
+- `preview_visible=true`: present
+- `readonly_card_visible=true`: present
+
+Stale window checks:
+- `metadata_read=true`: present
+- `preview_visible=false`: present
+- `readonly_card_visible=false`: present
+- `reasonCode=stale_artifact`: present
+- `DEV ONLY`: not present
+- sanitized output text: not present
+- `raw_output`: not present
+- `<start_of_turn>`: not present
+- `<end_of_turn>`: not present
+
+Rollback window checks:
+- `metadata_read=true`: present
+- `preview_visible=false`: present
+- `readonly_card_visible=false`: present
+- `reasonCode=fallback_used`: present
+- `DEV ONLY`: not present
+- sanitized output text: not present
+- `raw_output`: not present
+- `<start_of_turn>`: not present
+- `<end_of_turn>`: not present
+
+Toggle false window checks:
+- `dev_enable_npu_chatscreen_route=false`: present
+- `metadata_read=false`: present
+- `preview_visible=false`: present
+- `readonly_card_visible=false`: present
+- `reasonCode=initial`: present
+- `DEV ONLY`: not present
+- sanitized output text: not present
+- `raw_output`: not present
+- `<start_of_turn>`: not present
+- `<end_of_turn>`: not present
+
+Side-effect checks, all cases:
+- `selectedPathNpuSaved=false`
+- `standard_route_connected=false`
+- `normal_ui_route_connected=false`
+- `db=false`
+- `tts=false`
+- `markdown=false`
+- `streaming=false`
+- `retry=false`
+- `auto_fallback=false`
+- `npu_generation=false`
+- `engine_initialize=false`
+- `run_decode=false`
+
+Note:
+- `success_metadata_input.txt`, `stale_metadata_input.txt`, and
+  `rollback_metadata_input.txt` intentionally contain `raw_output` as artifact
+  input evidence only.
+- UI hierarchy captures and rendered output files do not propagate raw output or
+  template tokens.

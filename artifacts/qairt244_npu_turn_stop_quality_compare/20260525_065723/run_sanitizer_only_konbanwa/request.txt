@@ -1,0 +1,12 @@
+case_id=sanitizer_only
+case_label=sanitizer_only + max_output_tokens_128
+prompt=こんばんは
+requested_max_output_tokens=128
+template_mode=gemma_it_like
+timeout_seconds=30
+stop_sequence_control=native_api_not_exposed
+repetition_suppression_marker=not_requested_api_pending
+db=false
+tts=false
+markdown=false
+streaming=false

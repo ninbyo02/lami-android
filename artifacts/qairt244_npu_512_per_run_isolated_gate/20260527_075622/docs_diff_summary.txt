@@ -1,0 +1,30 @@
+docs_changed=6
+artifact=artifacts/qairt244_npu_512_per_run_isolated_gate/20260527_075622
+npu_execution=false
+native_change=false
+qairt_rebuild=false
+chat_screen_promotion=false
+standard_or_release_change=false
+
+docs/litert_qairt244_npu_max_output_token_limit_investigation.md:
+  Added max512 per-run isolated mode gate. Sequential 512 remains non-baseline;
+  512 is extended experimental / per-run isolated candidate only.
+
+docs/litert_qairt244_npu_promotion_gate.md:
+  Added gate status, required pass signals, rollback conditions, and promotion
+  boundary for hidden per-run isolated 512.
+
+docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md:
+  Recorded no H1 impact. H1 remains pinned to sanitizer_only +
+  max_output_tokens=128.
+
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:
+  Recorded no normal ChatScreen promotion, no assistant-list insertion, no
+  DB/TTS/Markdown/streaming, no selectedPath=NPU persistence.
+
+docs/litert_custom_build_plan.md:
+  Recorded docs/gate-only scope and no further native build authorization.
+
+docs/litert_qairt244_failure_root_cause_matrix.md:
+  Recorded root-cause boundary: sequential/resource-cleanup behavior is the
+  active distinction from current evidence.

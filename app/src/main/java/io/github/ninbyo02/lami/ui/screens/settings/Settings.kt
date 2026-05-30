@@ -672,6 +672,77 @@ fun Settings(
                         }
                         Spacer(modifier = Modifier.height(2.dp))
                     }
+                    if (!BuildConfig.CUSTOM_BUILD_EXPERIMENT && settingsData.developerAccessEnabled) {
+                        Card {
+                            SettingsToggleRowItem(
+                                headline = "実験的NPU（SM8750）",
+                                supporting = "SM8750専用の開発者向けNPU実験です。失敗時は手動でOFFにしてください。",
+                                leadingIcon = Icons.Filled.BugReport,
+                                checked = settingsData.devEnableQairt244Sm8750NpuRoute,
+                                enabled = true,
+                                onCheckedChange = { enabled ->
+                                    scope.launch {
+                                        settingsPreferences.saveDevEnableQairt244Sm8750NpuRoute(enabled)
+                                    }
+                                },
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Card {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = "実験的NPU prompt template",
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Text(
+                                    text = "standardDebug hidden qairt244 NPU route限定。customBuildExperimentDebugのinternal_intent routeには適用しません。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                val currentTemplateMode = settingsData.hiddenQairt244PromptTemplateMode
+                                HiddenQairt244PromptTemplateMode.entries.forEach { mode ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                scope.launch {
+                                                    settingsPreferences.saveHiddenQairt244PromptTemplateMode(mode)
+                                                }
+                                            }
+                                            .padding(vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        RadioButton(
+                                            selected = currentTemplateMode == mode,
+                                            onClick = {
+                                                scope.launch {
+                                                    settingsPreferences.saveHiddenQairt244PromptTemplateMode(mode)
+                                                }
+                                            },
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text(
+                                                text = mode.displayName,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                            Text(
+                                                text = mode.description,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
                     Card {
                         Column(
                             modifier = Modifier

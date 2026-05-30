@@ -1,0 +1,13 @@
+はい、承知いたしました。
+
+```python
+def add(x, y):
+    # 2つの数を加算する
+    return x + y
+
+def divide(x, y):
+    if y == 0:
+        return "エラー"
+    return x / y
+elif choice == '
+```

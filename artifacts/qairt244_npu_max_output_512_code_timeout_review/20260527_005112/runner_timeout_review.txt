@@ -1,0 +1,48 @@
+# Runner Timeout Review
+
+Runner:
+`scripts/run_qairt244_npu_max_output_512_three_prompt_compare.sh`
+
+Timeout path:
+
+```text
+TIMEOUT_SECONDS=30
+wait_for_state checks files/qairt244_standard_hidden_prompt_state.txt once per second
+on timeout: adb shell am force-stop io.github.ninbyo02.lami
+elapsed_ms is measured around am broadcast + wait loop + force-stop/pull overhead
+```
+
+The Python prompt recorded:
+
+```text
+timeout_seconds=30
+wait_status=timeout
+elapsed_ms=40000
+receiver_success=false
+quality_classification=timeout
+```
+
+Interpretation:
+
+- The runner-side wait timeout fired.
+- There is no evidence of an adb/uiautomator timeout.
+- There is no explicit native timeout mechanism in this runner.
+- The app-side receiver state file was not created before the deadline.
+- Native diag reached `before RunDecode SetMaxOutputTokens(512)` and did not
+  return a native success/cleanup line before force-stop.
+
+Bounded retry design, if separately approved:
+
+- one run only
+- same prompt: `Pythonで簡単な電卓コードを書いて`
+- same max_output_tokens: `512`
+- same SM8750 model and max512 native artifact
+- bounded timeout only; no unbounded wait
+- recommended first retry timeout: `60s`
+- record whether result completes between 30s and 60s
+- success requires `result=success`, `quality_classification=useful_code`,
+  `timeout=false`, `fresh_crash=false`, `fallback_used=false`,
+  `QNN_HTP_V79_FastRPC_native_diag`, native cleanup/`Engine.close` evidence,
+  memory after 10 seconds not retained high, and all side-effect flags false
+- failure requires rollback on timeout recurrence, cleanup unknown, memory high
+  retained, fresh crash, fallback, empty output, or side-effect ingress

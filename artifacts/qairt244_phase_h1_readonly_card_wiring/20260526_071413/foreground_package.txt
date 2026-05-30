@@ -1,0 +1,3 @@
+topResumedActivity=ActivityRecord{197958146 u0 io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity t9540}
+foreground_package=io.github.ninbyo02.lami.customnpu
+foreground_activity=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity

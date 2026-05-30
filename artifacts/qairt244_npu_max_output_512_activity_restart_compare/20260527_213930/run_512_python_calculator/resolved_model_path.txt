@@ -1,0 +1,15 @@
+reasonCode=ok
+resolved=true
+resolved_model_path=/data/user/0/io.github.ninbyo02.lami/files/local_models/1779611766669_gemma-4-E2B-it_qualcomm_sm8750.litertlm
+resolved_model_basename=1779611766669_gemma-4-E2B-it_qualcomm_sm8750.litertlm
+canonical_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+timestamp_prefix_stripped=true
+checked_model_path=/data/user/0/io.github.ninbyo02.lami/files/local_models/1779611766669_gemma-4-E2B-it_qualcomm_sm8750.litertlm
+candidate_count=1
+checked_exists=true
+checked_can_read=true
+checked_length=3016294400
+candidate_0=/data/user/0/io.github.ninbyo02.lami/files/local_models/1779611766669_gemma-4-E2B-it_qualcomm_sm8750.litertlm
+required_sm8750_model_path=true
+stop_reason=
+saved_to_settings=false

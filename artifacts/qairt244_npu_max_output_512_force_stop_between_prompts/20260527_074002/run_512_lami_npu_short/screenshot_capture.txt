@@ -1,0 +1,2 @@
+screenshot_capture=skipped_for_text_only_codeaware_artifact
+slug=lami_npu_short

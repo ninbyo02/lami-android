@@ -1,0 +1,41 @@
+# Phase H1 Transient Preview Runtime Marker Scan
+
+Artifact: `artifacts/qairt244_phase_h1_transient_preview_ui_capture/20260526_064732`
+
+## Positive UI Markers
+
+- `Phase H1 transient preview`: present in `window.xml`
+- `DEV ONLY - DEV NPU transient preview`: present in `window.xml`
+- `Status: SUCCESS`: present in `window.xml`
+- sanitized output: `こんにちは！何かお手伝いできることはありますか？`
+- `metadata_read=true`: present
+- `preview_visible=true`: present
+- `renderer_line_count=16`: present
+
+## Safety Markers
+
+- `selectedPathNpuSaved=false`
+- `standard_route_connected=false`
+- `normal_ui_route_connected=false`
+- `db=false`
+- `tts=false`
+- `markdown=false`
+- `streaming=false`
+- `retry=false`
+- `auto_fallback=false`
+- `npu_generation=false`
+- `engine_initialize=false`
+- `run_decode=false`
+
+## Negative UI Markers
+
+- `raw_output`: not present in `window.xml`
+- `<end_of_turn>`: not present in `window.xml`
+- `<start_of_turn>`: not present in `window.xml`
+
+## Execution Scope
+
+- Additional NPU execution: `false`
+- `Engine.initialize`: `false`
+- `RunDecode`: `false`
+- Normal ChatScreen conversation route: `not connected`

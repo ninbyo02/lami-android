@@ -1,0 +1,10 @@
+prompt_index=2
+slug=python_calculator
+boundary=after_dispatch
+package=io.github.ninbyo02.lami
+pidof=
+classification=PROCESS_DISAPPEARED_AFTER_DISPATCH
+can_dispatch=true
+process_disappeared_suspect=true
+reuse_allowed=false
+hidden_per_run_isolated_required=true

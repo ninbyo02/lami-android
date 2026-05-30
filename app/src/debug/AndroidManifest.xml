@@ -36,6 +36,19 @@
             android:process=":qnn_direct_probe"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <activity
+            android:name="io.github.ninbyo02.lami.ui.screens.home.Qairt244DevOnlyNpuConversationActivity"
+            android:excludeFromRecents="true"
+            android:exported="true" />
+
+        <receiver
+            android:name="io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name="io.github.ninbyo02.lami.debug.QairtNpuProbeService"
             android:exported="true"

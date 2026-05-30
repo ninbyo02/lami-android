@@ -1,0 +1,497 @@
+/home/sato/project/litert-custom-build/LiteRT-LM/c/engine.cc:239:void litert_lm_session_config_set_max_output_tokens(
+/home/sato/project/litert-custom-build/LiteRT-LM/c/engine.cc:240:    LiteRtLmSessionConfig* config, int max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/c/engine.cc:242:    config->config->SetMaxOutputTokens(max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/c/engine.cc:568:  auto responses = session->session->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/c/engine.cc:583:      session->session->RunDecodeAsync(CreateCallback(callback, callback_data));
+/home/sato/project/litert-custom-build/LiteRT-LM/c/engine_test.cc:760:TEST(EngineCTest, CreateSessionWithMaxOutputTokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/c/engine_test.cc:776:  // Test with max_output_tokens=1. The response length should be short (<10).
+/home/sato/project/litert-custom-build/LiteRT-LM/c/engine_test.cc:781:    litert_lm_session_config_set_max_output_tokens(session_config.get(), 1);
+/home/sato/project/litert-custom-build/LiteRT-LM/c/engine_test.cc:806:  // Test without max_output_tokens. The response length should be long (>=10).
+/home/sato/project/litert-custom-build/LiteRT-LM/c/engine.h:123:// @param max_output_tokens The maximum number of output tokens.
+/home/sato/project/litert-custom-build/LiteRT-LM/c/engine.h:125:void litert_lm_session_config_set_max_output_tokens(
+/home/sato/project/litert-custom-build/LiteRT-LM/c/engine.h:126:    LiteRtLmSessionConfig* config, int max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/artifacts/qairt244_editable_prompt_entrypoint_build/20260524_8token/reference_symbols/maven_0.11.0/liblitertlm_jni.so.exports.txt:17:00000000004b118c T Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeRunDecode@@VERS_1.0
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/threaded_execution_manager.h:161:  // - max_output_tokens: The maximum number of tokens to decode.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/threaded_execution_manager.h:169:      int max_output_tokens) override
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/threaded_execution_manager.cc:816:    int max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/threaded_execution_manager.cc:822:               max_output_tokens]() mutable -> void {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/threaded_execution_manager.cc:880:        max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/artifacts/qairt244_editable_prompt_entrypoint_build/20260524_8token/reference_symbols/gallery_stack/liblitertlm_jni.so.exports.txt:13:000000000057bbc0 T Java_com_google_ai_edge_litertlm_LiteRtLmJni_nativeRunDecode@@VERS_1.0
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/serial_execution_manager.h:150:  // - max_output_tokens: The maximum number of tokens to decode.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/serial_execution_manager.h:157:      int max_output_tokens) override;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.h:233:  absl::Status BindTensorsAndRunDecode(TensorBuffer* output_logits);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.h:234:  // Static version of BindTensorsAndRunDecode to be used as a callback for
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.h:236:  static int BindTensorsAndRunDecodeStatic(void* arg);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/serial_execution_manager.cc:744:    int max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/serial_execution_manager.cc:749:  auto task = [this, task_id, constraint, max_output_tokens]() mutable {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/serial_execution_manager.cc:794:        max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/execution_manager.h:173:      int max_output_tokens) = 0;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.cc:842:    // BindTensorsAndRunDecodeStatic().
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.cc:914:  return BindTensorsAndRunDecode(&output_logits);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.cc:917:absl::Status LlmLiteRtCompiledModelExecutorBase::BindTensorsAndRunDecode(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.cc:956:int LlmLiteRtCompiledModelExecutorBase::BindTensorsAndRunDecodeStatic(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.cc:960:  auto status = self->BindTensorsAndRunDecode(/*output_logits=*/nullptr);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/executor/llm_litert_compiled_model_executor.cc:1312:      BindTensorsAndRunDecodeStatic, this);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/execution_manager_test.cc:778:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/framework/resource_management/execution_manager_test.cc:837:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/python/litert_lm/engine.py:205:      max_output_tokens: int | None = None,
+/home/sato/project/litert-custom-build/LiteRT-LM/python/litert_lm/engine.py:221:    if max_output_tokens is not None:
+/home/sato/project/litert-custom-build/LiteRT-LM/python/litert_lm/engine.py:222:      self._lib.litert_lm_session_config_set_max_output_tokens(
+/home/sato/project/litert-custom-build/LiteRT-LM/python/litert_lm/engine.py:223:          session_config, int(max_output_tokens)
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/tasks.h:49:    int max_output_tokens = std::numeric_limits<int>::max());
+/home/sato/project/litert-custom-build/LiteRT-LM/python/litert_lm/_ffi.py:176:  lib.litert_lm_session_config_set_max_output_tokens.argtypes = [
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/shared_flags.h:34:ABSL_DECLARE_FLAG(int, max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/tasks.cc:88:                int max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/tasks.cc:102:  } else if (num_decoded_steps >= max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/tasks.cc:430:    std::atomic<bool>* cancelled, int max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/tasks.cc:540:                   current_step, max_num_tokens, max_output_tokens)) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/shared_flags.cc:45:ABSL_FLAG(int, max_output_tokens, -1,
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_lib.h:80:  int max_output_tokens = -1;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:351:TEST_F(SessionBasicTest, RunDecode) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:373:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:382:TEST_F(SessionBasicTest, RunDecodeWithMaxOutputTokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:405:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:406:  decode_config.SetMaxOutputTokens(2);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:407:  auto responses = (*session)->RunDecode(decode_config);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:414:TEST_F(SessionBasicTest, RunDecodeWithMultipleOutputCandidates) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:443:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:453:TEST_F(SessionBasicTest, RunDecodeWithSamplerAndConstrainedDecoding) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:489:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:492:  ASSERT_OK_AND_ASSIGN(auto responses, (*session)->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:498:TEST_F(SessionBasicTest, RunDecodeWithConstrainedDecodingNoSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:522:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:525:  ASSERT_OK_AND_ASSIGN(auto responses, (*session)->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:570:TEST_F(SessionBasicTest, RunDecodeAsync) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:596:  EXPECT_OK((*session)->RunDecodeAsync(CreateTestCallback(done_decode)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:602:TEST_F(SessionBasicTest, RunDecodeAsyncWithSamplerAndConstrainedDecoding) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:645:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:647:  EXPECT_OK((*session)->RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:656:TEST_F(SessionBasicTest, RunDecodeAsyncWithConstrainedDecodingNoSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:687:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:689:  EXPECT_OK((*session)->RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1142:    EXPECT_OK(session->RunDecode());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1150:    EXPECT_OK(session->RunDecode());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic_test.cc:1695:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_lib.cc:213:  if (settings.max_output_tokens > 0) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_lib.cc:214:    optional_args.max_output_tokens = settings.max_output_tokens;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_lib.cc:268:    if (settings.max_output_tokens > 0) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_lib.cc:269:      optional_args.max_output_tokens = settings.max_output_tokens;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_lib.cc:301:  DecodeConfig decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_lib.cc:302:  if (settings.max_output_tokens > 0) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_lib.cc:303:    decode_config.SetMaxOutputTokens(settings.max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_lib.cc:319:  ASSIGN_OR_RETURN(auto responses, session->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:81:      const DecodeConfig& decode_config) override;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:111:  absl::StatusOr<Responses> RunDecode() override;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:113:  absl::StatusOr<Responses> RunDecode(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:114:      const DecodeConfig& decode_config) override;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:117:  RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:121:  RunDecodeAsync(absl::AnyInvocable<void(absl::StatusOr<Responses>)> callback,
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:122:                 const DecodeConfig& decode_config) override;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:191:  absl::StatusOr<Responses> DecodeInternal(const DecodeConfig& decode_config);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:194:      const DecodeConfig& decode_config);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.h:240:  // `RunPrefill` or `RunDecode` is called multiple times.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/litert_lm_advanced_main.cc:210:  settings.max_output_tokens = absl::GetFlag(FLAGS_max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:398:    const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:428:               decode_config.GetMaxOutputTokens().value_or(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:429:                   session_config_.GetMaxOutputTokens())));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:445:                             decode_config.GetMaxOutputTokens().value_or(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:446:                                 session_config_.GetMaxOutputTokens())));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:453:    const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:459:        decode_config.GetMaxOutputTokens().value_or(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:460:            session_config_.GetMaxOutputTokens())));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:474:        decode_config.GetMaxOutputTokens().value_or(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:475:            session_config_.GetMaxOutputTokens())));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:480:absl::StatusOr<Responses> SessionBasic::RunDecode() {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:481:  return RunDecode(DecodeConfig::CreateDefault());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:484:absl::StatusOr<Responses> SessionBasic::RunDecode(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:485:    const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:486:  ABSL_LOG(INFO) << "RunDecodeSync";
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:494:absl::StatusOr<std::unique_ptr<TaskController>> SessionBasic::RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:496:  return RunDecodeAsync(std::move(callback), DecodeConfig::CreateDefault());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:499:absl::StatusOr<std::unique_ptr<TaskController>> SessionBasic::RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:501:    const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:502:  ABSL_LOG(INFO) << "RunDecodeAsync";
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:522:  return RunDecode(DecodeConfig::CreateDefault());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:577:                               DecodeConfig::CreateDefault());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:583:    const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_basic.cc:603:              auto status = RunDecodeAsync(std::move(callback), decode_config);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types_test.cc:996:TEST(DecodeConfigTest, CreateDefault) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types_test.cc:997:  DecodeConfig decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types_test.cc:999:  EXPECT_EQ(decode_config.GetMaxOutputTokens(), std::nullopt);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types_test.cc:1002:TEST(DecodeConfigTest, SetAndGetConstraint) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types_test.cc:1003:  DecodeConfig decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types_test.cc:1009:TEST(DecodeConfigTest, SetAndGetMaxOutputTokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types_test.cc:1010:  DecodeConfig decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types_test.cc:1011:  EXPECT_EQ(decode_config.GetMaxOutputTokens(), std::nullopt);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types_test.cc:1013:  decode_config.SetMaxOutputTokens(42);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types_test.cc:1014:  EXPECT_EQ(decode_config.GetMaxOutputTokens(), 42);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types.h:387:// defined as a single RunPrefill or RunDecode call.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types.h:509:class DecodeConfig {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types.h:511:  // Creates a default DecodeConfig.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types.h:512:  static DecodeConfig CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types.h:515:  // `DecodeConfig` does not take ownership of the `constraint`, which must
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types.h:525:  void SetMaxOutputTokens(int max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types.h:526:    max_output_tokens_ = max_output_tokens;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types.h:530:  std::optional<int> GetMaxOutputTokens() const { return max_output_tokens_; }
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types.h:533:  DecodeConfig() = default;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types.h:536:  std::optional<int> max_output_tokens_ = std::nullopt;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:325:TEST_F(SessionAdvancedTest, RunDecodeWithInternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:354:  auto responses = session->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:363:TEST_F(SessionAdvancedTest, RunDecodeWithMaxOutputTokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:393:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:394:  decode_config.SetMaxOutputTokens(2);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:395:  auto responses = session->RunDecode(decode_config);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:402:TEST_F(SessionAdvancedTest, RunDecodeWithExternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:433:  auto responses = session->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:443:       RunDecodeWithMultipleOutputCandidatesWithInternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:479:  auto responses = session->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:490:       RunDecodeWithMultipleOutputCandidatesWithExternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:528:  auto responses = session->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:539:       RunDecodeWithConstrainedDecodingWithInternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:582:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:585:  ASSERT_OK_AND_ASSIGN(auto responses, session->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:592:       RunDecodeWithConstrainedDecodingWithExternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:637:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:640:  ASSERT_OK_AND_ASSIGN(auto responses, session->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:693:TEST_F(SessionAdvancedTest, RunDecodeAsyncWithInternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:725:  EXPECT_OK(session->RunDecodeAsync(CreateTestCallback(done_decode)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:731:TEST_F(SessionAdvancedTest, RunDecodeAsyncWithExternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:765:  EXPECT_OK(session->RunDecodeAsync(CreateTestCallback(done_decode)));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:772:       RunDecodeAsyncWithConstrainedDecodingWithInternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:821:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:824:                       session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:836:       RunDecodeAsyncWithConstrainedDecodingWithExternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:887:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:890:                       session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:911:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:912:  decode_config.SetMaxOutputTokens(2);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:913:  ASSERT_OK_AND_ASSIGN(auto responses1, session->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:921:  decode_config.SetMaxOutputTokens(2);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:922:  ASSERT_OK_AND_ASSIGN(auto responses3, session->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:950:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:951:  decode_config.SetMaxOutputTokens(2);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:952:  ASSERT_OK_AND_ASSIGN(auto responses, session->RunDecode(decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:993:                       session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1040:                       session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1174:TEST_F(SessionAdvancedTest, RunDecodeAsyncFailed) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1213:                       session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1222:TEST_F(SessionAdvancedTest, RunDecodeAsyncWithCancellationWithInternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1261:                       session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1277:TEST_F(SessionAdvancedTest, RunDecodeAsyncWithCancellationWithExternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1318:                       session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1335:       RunDecodeAsyncWithTaskCancellationWithInternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1375:      session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1391:       RunDecodeAsyncWithTaskCancellationWithExternalSampler) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1433:      session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1468:       RunDecodeAsyncCancelThenGenerateWithBenchmarkWithInternalSamplerFailed) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1516:      session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1534:      session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1542:       RunDecodeAsyncCancelThenGenerateWithBenchmarkWithExternalSamplerFailed) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1592:      session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1610:      session->RunDecodeAsync(CreateStreamingTestCallback(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1805:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1809:  ASSERT_OK_AND_ASSIGN(auto task_controller, (*session)->RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1871:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1875:  ASSERT_OK_AND_ASSIGN(auto task_controller, (*session)->RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1942:    EXPECT_OK(session->RunDecode());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced_test.cc:1950:    EXPECT_OK(session->RunDecode());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/io_types.cc:560:DecodeConfig DecodeConfig::CreateDefault() { return DecodeConfig(); }
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:101:      const DecodeConfig& decode_config) override;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:131:  absl::StatusOr<Responses> RunDecode() override;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:133:  absl::StatusOr<Responses> RunDecode(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:134:      const DecodeConfig& decode_config) override;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:136:  absl::StatusOr<std::unique_ptr<TaskController>> RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:140:  absl::StatusOr<std::unique_ptr<TaskController>> RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:142:      const DecodeConfig& decode_config) override ABSL_LOCKS_EXCLUDED(mutex_);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.h:211:  // `RunPrefill` or `RunDecode` is called multiple times.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:134:absl::StatusOr<Responses> SessionAdvanced::RunDecode() {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:135:  return RunDecode(DecodeConfig::CreateDefault());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:138:absl::StatusOr<Responses> SessionAdvanced::RunDecode(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:139:    const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:200:      RunDecodeAsync(std::move(decode_sync_callback), decode_config));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:205:absl::StatusOr<std::unique_ptr<TaskController>> SessionAdvanced::RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:207:  return RunDecodeAsync(std::move(callback), DecodeConfig::CreateDefault());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:210:absl::StatusOr<std::unique_ptr<TaskController>> SessionAdvanced::RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:212:    const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:255:      decode_config.GetMaxOutputTokens().value_or(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:256:          session_info_->session_config.GetMaxOutputTokens())));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:317:  return RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:324:                               DecodeConfig::CreateDefault());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:330:    const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/session_advanced.cc:340:              RunDecodeAsync(std::move(stream_callback), decode_config);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine_settings.h:261:  int GetMaxOutputTokens() const { return max_output_tokens_; }
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine_settings.h:262:  void SetMaxOutputTokens(int max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine_settings.h:263:    max_output_tokens_ = max_output_tokens;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine_settings.h:319:  int max_output_tokens_ = std::numeric_limits<int>::max();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline_test.cc:249:TEST_F(PipelineTest, DecodeWithMaxOutputTokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline_test.cc:268:             /*max_output_tokens=*/3);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline_test.cc:270:  // The response is truncated at max_output_tokens.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline_test.cc:421:TEST_F(PipelineTest, DecodeStreamingWithMaxOutputTokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline_test.cc:445:                            /*cancelled=*/nullptr, /*max_output_tokens=*/3));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline_test.cc:446:  // The response is truncated at max_output_tokens.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline_test.cc:965:TEST_F(PipelineCustomSamplingTest, DecodeCustomSamplingWithMaxOutputTokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline_test.cc:1005:      /*max_output_tokens=*/3);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline_test.cc:1130:       DecodeCustomSamplingStreamingWithMaxOutputTokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline_test.cc:1175:      /*max_output_tokens=*/3));
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:80:using litert::lm::DecodeConfig;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:98:constexpr char kQairt244NativeFileMarker[] = "qairt244_native_file_v1";
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:99:constexpr char kQairt244LowerLevelSingleTokenMarker[] =
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:101:constexpr char kQairt244TokenTimingVerifierMarker[] =
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:103:constexpr char kQairt244ShortMultitokenMarker[] =
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:105:constexpr char kQairt244EditablePromptMarker[] =
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:107:constexpr char kQairt244EditablePromptValidationMode[] =
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:109:constexpr char kQairt244HiddenTemplatePromptValidationMode[] =
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:111:constexpr char kQairt244DefaultPromptInputLimitMode[] =
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:113:constexpr char kQairt244HiddenTemplatePromptInputLimitMode[] =
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:115:constexpr size_t kQairt244DefaultPromptInputCodePointLimit = 32;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:116:constexpr size_t kQairt244HiddenTemplatePromptInputCodePointLimit = 128;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:117:constexpr char kQairt244NativeDiagPath[] =
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:123:      (path != nullptr && path[0] != '\0') ? path : kQairt244NativeDiagPath;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:128:  std::fprintf(file, "%s ", kQairt244NativeFileMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:141:                            kQairt244LowerLevelSingleTokenMarker) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:178:  std::fprintf(file, "marker=%s\n", kQairt244LowerLevelSingleTokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:181:  std::fprintf(file, "max_output_tokens=1\n");
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:209:  std::fprintf(file, "marker=%s\n", kQairt244LowerLevelSingleTokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:210:  std::fprintf(file, "verifier_marker=%s\n", kQairt244TokenTimingVerifierMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:216:  std::fprintf(file, "max_output_tokens=1\n");
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:222:  std::fprintf(file, "output_token_count_source=not_exposed_by_RunDecode_response\n");
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:256:  std::fprintf(file, "marker=%s\n", kQairt244ShortMultitokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:262:  std::fprintf(file, "max_output_tokens=3\n");
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:268:  std::fprintf(file, "output_token_count_source=not_exposed_by_RunDecode_response\n");
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:355:      kQairt244HiddenTemplatePromptInputLimitMode) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:356:    return kQairt244HiddenTemplatePromptInputCodePointLimit;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:358:  return kQairt244DefaultPromptInputCodePointLimit;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:364:      kQairt244HiddenTemplatePromptInputLimitMode) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:365:    return kQairt244HiddenTemplatePromptValidationMode;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:367:  return kQairt244EditablePromptValidationMode;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:393:        prompt_input_limit_mode != kQairt244HiddenTemplatePromptInputLimitMode) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:405:               kQairt244HiddenTemplatePromptInputLimitMode)) ||
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:438:  std::fprintf(file, "marker=%s\n", kQairt244EditablePromptMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:439:  std::fprintf(file, "base_marker=%s\n", kQairt244ShortMultitokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:460:  std::fprintf(file, "max_output_tokens=128\n");
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:461:  std::fprintf(file, "native_max_output_tokens_limit=128\n");
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:468:  std::fprintf(file, "output_token_count_source=not_exposed_by_RunDecode_response\n");
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:498:      kQairt244EditablePromptValidationMode, 0,
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:499:      kQairt244DefaultPromptInputCodePointLimit,
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:500:      kQairt244DefaultPromptInputLimitMode, elapsed_ms,
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1270:JNI_METHOD(nativeRunDecode)(JNIEnv* env, jclass thiz, jlong session_pointer) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1274:  auto responses = session->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1315:      "%s %s ENTRY prompt=Hi prompt_bytes=%zu max_output_tokens=1 "
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1318:      kQairt244LowerLevelSingleTokenMarker, kQairt244TokenTimingVerifierMarker,
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1340:                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1349:                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1356:                     kQairt244LowerLevelSingleTokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1365:                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1376:                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1384:                     kQairt244LowerLevelSingleTokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1393:                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1407:                     kQairt244LowerLevelSingleTokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1416:                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1424:                     kQairt244LowerLevelSingleTokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1434:                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1447:      kQairt244LowerLevelSingleTokenMarker, kQairt244TokenTimingVerifierMarker,
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1457:                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1463:  DecodeConfig decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1464:  decode_config.SetMaxOutputTokens(1);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1466:                     "%s %s before RunDecode SetMaxOutputTokens(1)",
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1467:                     kQairt244LowerLevelSingleTokenMarker,
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1468:                     kQairt244TokenTimingVerifierMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1470:  auto responses = session_ptr->RunDecode(decode_config);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1476:                       kQairt244LowerLevelSingleTokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1497:      "output_token_count_source=not_exposed_by_RunDecode_response "
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1504:      kQairt244LowerLevelSingleTokenMarker, kQairt244TokenTimingVerifierMarker,
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1539:                     kQairt244ShortMultitokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1542:      "%s ENTRY prompt=Hi prompt_bytes=%zu max_output_tokens=3 "
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1545:      kQairt244ShortMultitokenMarker, kPromptBytes, model_path == nullptr,
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1551:                          kQairt244ShortMultitokenMarker) ||
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1554:                          kQairt244ShortMultitokenMarker) ||
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1557:                          kQairt244ShortMultitokenMarker) ||
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1560:                          kQairt244ShortMultitokenMarker)) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1575:                       kQairt244ShortMultitokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1589:                       kQairt244ShortMultitokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1600:                     kQairt244ShortMultitokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1609:                       kQairt244ShortMultitokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1624:                       kQairt244ShortMultitokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1636:                     kQairt244ShortMultitokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1645:                       kQairt244ShortMultitokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1663:                     kQairt244ShortMultitokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1672:                       kQairt244ShortMultitokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1684:                     kQairt244ShortMultitokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1694:                       kQairt244ShortMultitokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1711:      kQairt244ShortMultitokenMarker, kPromptBytes);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1720:                       kQairt244ShortMultitokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1730:  DecodeConfig decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1731:  decode_config.SetMaxOutputTokens(3);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1733:                     "%s before RunDecode SetMaxOutputTokens(3)",
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1734:                     kQairt244ShortMultitokenMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1736:  auto responses = session_ptr->RunDecode(decode_config);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1742:                       kQairt244ShortMultitokenMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1767:      "output_token_count_source=not_exposed_by_RunDecode_response "
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1774:      kQairt244ShortMultitokenMarker, responses->GetTexts().size(),
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1792:    jint max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1809:      kQairt244DefaultPromptInputLimitMode;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1811:      kQairt244EditablePromptValidationMode;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1814:      kQairt244DefaultPromptInputCodePointLimit;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1817:                     kQairt244EditablePromptMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1821:                         kQairt244EditablePromptMarker)) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1823:        kQairt244HiddenTemplatePromptInputLimitMode) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1824:      prompt_input_limit_mode_str = kQairt244DefaultPromptInputLimitMode;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1827:    prompt_input_limit_mode_str = kQairt244DefaultPromptInputLimitMode;
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1835:      "%s ENTRY prompt_source=editable_prompt max_output_tokens=%d "
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1841:      kQairt244EditablePromptMarker, max_output_tokens,
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1852:                       kQairt244EditablePromptMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1855:                       kQairt244EditablePromptMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1867:                          "prompt", kQairt244EditablePromptMarker)) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1872:                       kQairt244EditablePromptMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1893:      kQairt244EditablePromptMarker, validation_reason.c_str(),
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1902:                       kQairt244EditablePromptMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1914:  if (max_output_tokens < 1 || max_output_tokens > 128) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1919:                       kQairt244EditablePromptMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1921:                       "%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=128",
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1922:                       kQairt244EditablePromptMarker, max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1924:        result_path_str, "failure", "invalid_max_output_tokens",
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1934:                          kQairt244EditablePromptMarker) ||
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1937:                          kQairt244EditablePromptMarker) ||
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1940:                          kQairt244EditablePromptMarker) ||
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1943:                          kQairt244EditablePromptMarker)) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1959:                       kQairt244EditablePromptMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1973:                       kQairt244EditablePromptMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1984:                     kQairt244EditablePromptMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:1993:                       kQairt244EditablePromptMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2008:                       kQairt244EditablePromptMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2020:                     kQairt244EditablePromptMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2029:                       kQairt244EditablePromptMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2047:                     kQairt244EditablePromptMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2056:                       kQairt244EditablePromptMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2068:                     kQairt244EditablePromptMarker);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2078:                       kQairt244EditablePromptMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2098:      kQairt244EditablePromptMarker, normalized_prompt.size(),
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2109:                       kQairt244EditablePromptMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2119:  DecodeConfig decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2120:  decode_config.SetMaxOutputTokens(max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2122:                     "%s before RunDecode SetMaxOutputTokens(%d)",
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2123:                     kQairt244EditablePromptMarker, max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2125:  auto responses = session_ptr->RunDecode(decode_config);
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2131:                       kQairt244EditablePromptMarker, detail.c_str());
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2156:      "output_token_count_source=not_exposed_by_RunDecode_response "
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc:2163:      kQairt244EditablePromptMarker, responses->GetTexts().size(),
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:138:        const DecodeConfig& decode_config) = 0;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:189:    virtual absl::StatusOr<Responses> RunDecode() = 0;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:193:    virtual absl::StatusOr<Responses> RunDecode(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:194:        const DecodeConfig& decode_config) = 0;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:201:    virtual absl::StatusOr<std::unique_ptr<TaskController>> RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:208:    virtual absl::StatusOr<std::unique_ptr<TaskController>> RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:210:        const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:261:    //   session1->RunDecodeAsync(...);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/engine/engine.h:263:    //   session2->RunDecodeAsync(...);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline.h:69:    int max_output_tokens = std::numeric_limits<int>::max());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline.h:83:    int max_output_tokens = std::numeric_limits<int>::max());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline.h:103:    int max_output_tokens = std::numeric_limits<int>::max());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline.h:118:    int max_output_tokens = std::numeric_limits<int>::max());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline.cc:66:                                 int max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline.cc:72:      max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline.cc:80:    std::atomic<bool>* cancelled, int max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline.cc:90:                    max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline.cc:104:    std::atomic<bool>* cancelled, int max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline.cc:109:                       /*callback=*/callback, cancelled, max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline.cc:118:    std::atomic<bool>* cancelled, int max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/pipeline.cc:126:      cancelled, max_output_tokens);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:85:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:97:  responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:128:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:159:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:198:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:210:  responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:226:  responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:276:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_advanced_impl_test.cc:333:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:78:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:90:  responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:122:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:162:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:174:  responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:190:  responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:241:  auto responses = (*session)->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/core/engine_impl_test.cc:335:  auto responses = session.value()->RunDecode();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:113:       const DecodeConfig& decode_config),
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:134:  MOCK_METHOD(absl::StatusOr<Responses>, RunDecode, (), (override));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:135:  MOCK_METHOD(absl::StatusOr<Responses>, RunDecode,
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:136:              (const DecodeConfig& decode_config), (override));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:139:      RunDecodeAsync,
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:144:      RunDecodeAsync,
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:146:       const DecodeConfig& decode_config),
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:516:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:519:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:601:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:604:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:699:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:702:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:773:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:776:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:842:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:845:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:939:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:942:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1017:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1020:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1069:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1072:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1117:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1120:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1160:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1163:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1323:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1326:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1387:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1390:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1487:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1490:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1567:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1570:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1642:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1645:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1706:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1709:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1771:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1774:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1828:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1831:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1978:  // Expect RunDecodeAsync to be called and return the second task controller.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1979:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:1982:              const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2305:  // Verify that the constraint is passed to RunDecode.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2308:      RunDecodeAsync(testing::_, testing::Property(&DecodeConfig::GetConstraint,
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2312:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2355:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2358:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2391:  EXPECT_CALL(*cloned_mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2394:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2408:TEST_P(ConversationTest, SendMessageWithMaxOutputTokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2452:  // Verify that the max_output_tokens is passed to RunDecode.
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2454:              RunDecodeAsync(testing::_, testing::Property(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2455:                                             &DecodeConfig::GetMaxOutputTokens,
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2459:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2467:      conversation->SendMessage(user_message, {.max_output_tokens = 42}));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2591:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2594:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2734:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2737:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2962:  EXPECT_CALL(*mock_session_ptr, RunDecodeAsync(testing::_, testing::_))
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation_test.cc:2965:             const DecodeConfig& decode_config) {
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/Session.kt:74:    return LiteRtLmJni.nativeRunDecode(handle)
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.h:336:  std::optional<int> max_output_tokens = std::nullopt;
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.h:559:  absl::StatusOr<DecodeConfig> CreateDecodeConfig(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.h:561:      std::optional<int> max_output_tokens = std::nullopt);
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:270:absl::StatusOr<DecodeConfig> Conversation::CreateDecodeConfig(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:272:    std::optional<int> max_output_tokens) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:273:  auto decode_config = DecodeConfig::CreateDefault();
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:274:  if (max_output_tokens.has_value()) {
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:275:    decode_config.SetMaxOutputTokens(max_output_tokens.value());
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:528:      CreateDecodeConfig(std::move(optional_args.decoding_constraint),
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:529:                         optional_args.max_output_tokens));
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:565:                auto decode_task_controller = session_->RunDecodeAsync(
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:570:                // If RunDecodeAsync returns a task controller, it means the
+/home/sato/project/litert-custom-build/LiteRT-LM/runtime/conversation/conversation.cc:579:                  // RunDecodeAsync failed to schedule. Invoke the callback
+/home/sato/project/litert-custom-build/LiteRT-LM/kotlin/java/com/google/ai/edge/litertlm/LiteRtLmJni.kt:128:  external fun nativeRunDecode(sessionPointer: Long): String
+/home/sato/project/litert-custom-build/LiteRT-LM/artifacts/qairt244_editable_prompt_entrypoint_build/20260524_8token/reference_symbols/gallery_stack/libllm_inference_engine_jni.so.exports.txt:38232:0000000000d9e678 W _ZNK9audio_dsp19qresampler_internal17QResamplerFiltersIdE15MaxOutputFramesEi
+/home/sato/project/litert-custom-build/LiteRT-LM/artifacts/qairt244_editable_prompt_entrypoint_build/20260524_8token/reference_symbols/gallery_stack/libllm_inference_engine_jni.so.exports.txt:38242:0000000000d9e488 W _ZNK9audio_dsp19qresampler_internal17QResamplerFiltersIfE15MaxOutputFramesEi

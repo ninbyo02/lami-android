@@ -170,6 +170,34 @@ All gates must pass:
 - one-shot hardening artifact pass
 - no fresh tombstone evidence
 
+## Hidden Experimental Safe Promotion Gate
+
+For the hidden experimental NPU route, the pre-promotion gate is stricter than
+route success. The only adopted display baseline is
+`enhanced_sanitizer_only_128`; `64` and `32` token caps are rollback-only, and
+native stop sequence remains `not_run/native_stop_not_exposed`.
+
+Required promotion evidence:
+
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fallback_used=false`
+- `fresh_crash=false`
+- `timeout=false`
+- `quality_classification=natural_japanese`
+- `selected_path_npu_saved=false`
+- `normal_ui_route_connected=false`
+- `standard_route_connected=false`
+- `selected_path_npu_normal_route=no`
+- `conversation_created=no`
+- `generate_response=no`
+- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+- sanitized output has no visible template/sanitizer artifact
+
+Raw native output may show Gemma turn continuation or drift, but promotion is
+blocked unless the sanitized display output is meaningful natural Japanese and
+free of visible artifact, prompt echo, repeated completion classification, and
+multilingual drift classification.
+
 ## Failure And Timeout Semantics
 
 - Failure returns `success=false`.
@@ -695,3 +723,87 @@ artifacts/qairt244_chat_screen_real_npu_model_path_resolution/20260524_091657/
 The path resolver selected exactly one readable model file, then the native
 engine create step failed with `TF_LITE_AUX not found in the model`. A DEV-only
 one-shot guard blocked repeated native entry after the first attempt.
+
+## DEV-only NPU Output Sanitizer Result (2026-05-25)
+
+The ChatScreen DEV-only qairt244 adapter keeps the SM8750 NPU route unchanged
+and sanitizes only the adapter output before the transient ChatScreen display.
+The raw native text remains in the artifact for inspection.
+
+- artifact: `artifacts/qairt244_npu_output_sanitizer/20260525_015040/`
+- template mode: `gemma_it_like`
+- prompt: `こんにちは`
+- result: `success`
+- `run_decode_reached=true`
+- `npu_backend=NPU`
+- `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`
+- `fallback_used=false`
+- `timeout=false`
+- `fresh_crash=false`
+- `sanitizer_applied=true`
+- `removed_template_token_count=2`
+- `removed_prompt_echo=true`
+- raw output:
+
+```text
+>こんにちは
+<end_of_turn>
+こんにちは！何かお手伝いできることはありますか？
+<end_of_turn>
+```
+
+- sanitized output:
+
+```text
+こんにちは！何かお手伝いできることはありますか？
+```
+
+If sanitizer cleanup leaves an empty string, the adapter reports
+`reasonCode=empty_after_sanitize` instead of displaying an empty assistant
+message. The adapter still records `db=false`, `tts=false`, `markdown=false`,
+`streaming=false`, and does not persist `selectedPath=npu`.
+
+## QAIRT244 Turn-Stop Quality Compare - 2026-05-25
+
+The ChatScreen DEV-only NPU route is treated as route-successful; this phase is display-quality tuning only. The comparison is documented in `docs/litert_qairt244_npu_turn_stop_quality_compare.md` and implemented by `scripts/run_qairt244_npu_turn_stop_quality_compare.sh`.
+
+Static LiteRT-LM inspection found `native stop not exposed` for the qairt244 lower-level Android route. Runtime metadata can carry stop token ids internally, but this JNI path creates a default session config and exposes only `DecodeConfig.SetMaxOutputTokens()` for the editable-prompt run; no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter is available. Public sampler controls expose topK/topP/temperature/seed, but the qairt244 lower-level native entrypoint does not accept sampler config, and no repetition penalty API was found.
+
+The fixed executable baseline is `enhanced_sanitizer_only_128`. `lower_max_tokens_64_sanitizer` and `lower_max_tokens_32_sanitizer` are rollback-only records, not executable adoption candidates, and `stop_sequence_end_of_turn` is recorded as `not_run/native_stop_not_exposed`. The prompts are `こんにちは`, `はじめまして`, and `こんばんは`; the executable sanitizer-only case uses `max_output_tokens=128` and a 30 second timeout.
+
+The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+
+## NPU Sanitizer Quality Baseline Commit - 2026-05-25
+
+Commit baseline: `sanitizer_only + max_output_tokens=128` is the provisional
+hidden experimental display-quality baseline, backed by
+`artifacts/qairt244_npu_turn_stop_quality_compare/20260525_211810`.
+
+Promotion gate: `fallback_used=false`, `fresh_crash=false`, `timeout=false`,
+sanitized `quality_classification=natural_japanese`, no template artifact after
+sanitize, no repetition or multilingual drift after sanitize, and
+`db=false`, `tts=false`, `markdown=false`, `streaming=false`.
+
+Raw native `template_artifact` remains acceptable only as diagnostic evidence;
+the displayed sanitized output must be natural Japanese. Native stop sequence /
+native turn-stop is not required for this provisional baseline. Standard route
+non-connection is covered by `DevOnlyNpuChatScreenBlockedBranchTest`.
+
+The follow-up static investigation is recorded at
+`artifacts/qairt244_npu_stop_api_investigation/20260525_214513/`. It found no
+public Android/JNI per-run stop sequence, stop token, EOS, or `<end_of_turn>`
+API for this qairt244 path, so no native stop comparison is implemented.
+
+## NPU Hidden-To-UI Handoff Plan - 2026-05-25
+
+The next pre-promotion design is documented in
+`docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md`. It keeps
+`sanitizer_only + max_output_tokens=128` as the required baseline and does not
+implement normal UI promotion.
+
+The first eligible handoff phase is H1 transient preview only: display
+`sanitized_output` in a DEV-only transient UI surface, keep `raw_output` in
+artifacts only, and keep DB, TTS, Markdown, streaming, selected-path NPU
+persistence, and standard route connection disabled. Later phases evaluate
+assistant-style temporary display, DB persistence, and TTS/Markdown/streaming
+as separate gates.

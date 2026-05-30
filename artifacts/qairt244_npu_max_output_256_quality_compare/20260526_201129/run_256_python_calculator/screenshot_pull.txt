@@ -1,0 +1,1 @@
+/sdcard/qairt244_max_output_256_python_calculator.png: 1 file pulled, 0 skipped. 8.1 MB/s (107307 bytes in 0.013s)

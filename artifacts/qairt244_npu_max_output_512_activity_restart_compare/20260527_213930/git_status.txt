@@ -1,0 +1,1 @@
+?? scripts/run_qairt244_npu_max_output_512_activity_restart_compare.sh

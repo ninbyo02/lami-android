@@ -1,0 +1,1 @@
+/sdcard/qairt244_max_output_256_konnichiwa.png: 1 file pulled, 0 skipped. 10.1 MB/s (108508 bytes in 0.010s)

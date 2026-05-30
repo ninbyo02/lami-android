@@ -1,5 +1,111 @@
 # QAIRT244 ChatScreen DEV-only SM8750 NPU Model Run
 
+## 2026-05-24 Standard Hidden Prompt Template Experiment
+
+The standardDebug hidden qairt244 route now supports a developer-only template
+comparison mode. This is not Backend.NPU promotion and does not change the
+native artifact, token limit, or fallback policy.
+
+Runner usage:
+
+```text
+scripts/run_qairt244_standard_hidden_npu_route.sh --prompt こんにちは --template raw
+scripts/run_qairt244_standard_hidden_npu_route.sh --prompt こんにちは --template simple_ja_chat
+scripts/run_qairt244_standard_hidden_npu_route.sh --prompt こんにちは --template gemma_it_like
+```
+
+Each run records:
+
+- `template_mode`
+- `final_model_input_length`
+- `raw_native_output_length`
+- `displayed_assistant_text_length`
+- `decode_elapsed_ms`
+- `output_token_count`
+- `finish_reason` and `stop_reason`
+- `output_contains_replacement_chars`
+- `replacement_char_count`
+- `output_unicode_summary`
+- `quality_classification`
+
+Use these fields to compare raw prompting against simple Japanese assistant
+formatting and Gemma instruction-tuning-like turn markers. The comparison is
+valid only when the run still reports `npu_backend=NPU`,
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`,
+`fallback_used=false`, `timeout=false`, and successful UI cleanup.
+
+Initial same-prompt result for `こんにちは`:
+
+```text
+raw artifact=artifacts/qairt244_standard_hidden_npu_route/20260524_213504
+raw result=success
+raw final_model_input_length=5
+raw decode_elapsed_ms=3418
+raw quality_classification=mixed_language
+raw npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+
+simple_ja_chat artifact=artifacts/qairt244_standard_hidden_npu_route/20260524_213513
+simple_ja_chat result=adapter_failure:IllegalStateException
+simple_ja_chat final_model_input_length=38
+simple_ja_chat run_decode_reached=false
+simple_ja_chat stop_reason=adapter_failure:IllegalStateException
+
+gemma_it_like artifact=artifacts/qairt244_standard_hidden_npu_route/20260524_213541
+gemma_it_like result=adapter_failure:IllegalStateException
+gemma_it_like final_model_input_length=60
+gemma_it_like run_decode_reached=false
+gemma_it_like stop_reason=adapter_failure:IllegalStateException
+```
+
+The templated modes are blocked before native execution by the current
+editable-prompt length guard (`reasonCode=too_long`). Do not interpret those
+two runs as model quality results. A follow-up bounded prompt-input phase is
+required before the requested templates can be compared on NPU decode.
+
+## 2026-05-24 128 Output / 128 Input Hidden Template Phase
+
+The standard hidden template comparison now has an explicit bounded
+prompt-input phase. The output limit remains `max_output_tokens=128` and
+`native_max_output_tokens_limit=128`; the final model input guard for
+standardDebug hidden template experiments is raised to 128 code points so the
+named templates can reach native decode.
+
+The runner and artifacts now record:
+
+- `prompt_input_code_points`
+- `prompt_input_code_point_limit=128`
+- `prompt_input_limit_mode=hidden_template_experiment`
+- `native_prompt_input_code_point_limit=128`
+- `native_prompt_input_limit_mode=hidden_template_experiment`
+
+Native artifact:
+`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt`
+
+`liblitertlm_jni.so` sha256:
+`4065d88c4788eaf28be140e133b7141783cad0698061c942b6942fa1fa886c2e`
+
+JNI build log:
+`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+
+This remains hidden experimental only. It does not raise output tokens above
+128, does not add fallback, does not support generic/E4B/qcs8275 models, and
+does not promote `Backend.NPU` to the normal route.
+
+128 input same-prompt confirmation for `こんにちは`:
+
+| template_mode | artifact | result | input code points | decode_elapsed_ms | quality_classification |
+| --- | --- | --- | ---: | ---: | --- |
+| `raw` | `artifacts/qairt244_standard_hidden_npu_route/20260524_220541` | `success` | 5 | 2756 | `mixed_language` |
+| `simple_ja_chat` | `artifacts/qairt244_standard_hidden_npu_route/20260524_220551` | `success` | 38 | 3203 | `natural_japanese` |
+| `gemma_it_like` | `artifacts/qairt244_standard_hidden_npu_route/20260524_220559` | `success` | 60 | 716 | `template_artifact` |
+
+All three runs recorded `run_decode_reached=true`, `npu_backend=NPU`,
+`npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`,
+`timeout=false`, `fresh_crash=false`, and `ui_cleanup_wait_status=success`.
+There was no `reasonCode=too_long`. Output quality remains experimental:
+`simple_ja_chat` reduces placeholder artifacts but still mixes Thai text, while
+`gemma_it_like` gives a concise Japanese response with leaked turn markers.
+
 ## 2026-05-24 128-Token Bounded Phase
 
 The runner default artifact now points to the 128-token custom native artifact
@@ -306,7 +412,7 @@ This confirms one bounded `--run` success through the ChatScreen DEV-only NPU ro
 
 The ChatScreen UI route remains experimental and DEV-only. In `customBuildExperimentDebug`, Settings exposes `DEV: SM8750 NPU実験` using preference key `dev_enable_qairt244_sm8750_npu_route`; the default is always OFF and the toggle is automatically cleared after a guarded attempt. This is separate from the standard local inference route and is not a production NPU enablement.
 
-When the toggle is ON and the user sends from the local ChatScreen target, the app calls the qairt244 SM8750 DEV-only adapter with `max_output_tokens=64`. The model basename must still exactly match `gemma-4-E2B-it_qualcomm_sm8750.litertlm`; generic, E4B, and qcs8275 models remain rejected by the Kotlin resolver. The path does not copy or delete model files.
+When the toggle is ON and the user sends from the local ChatScreen target, the app calls the qairt244 SM8750 DEV-only adapter with `max_output_tokens=128`. The model basename must be either `gemma-4-E2B-it_qualcomm_sm8750.litertlm` or a downloader timestamp form such as `<digits>_gemma-4-E2B-it_qualcomm_sm8750.litertlm`. This accepts the app-private import naming convention without copying, deleting, or renaming the model. Generic, E4B, non-numeric prefix, and qcs8275 models remain rejected by the Kotlin resolver.
 
 The DEV UI route does not fallback to GPU or CPU. On failure it inserts a non-streaming assistant message like `DEV NPU route failed: <reason>` and leaves normal local inference untouched. It does not connect TTS or streaming sentence TTS. Stop cancellation is intentionally best-effort because the guarded run is bounded to a short lower-level decode.
 
@@ -315,6 +421,8 @@ Success/failure diagnostics to inspect:
 ```text
 selected_route=qairt244_sm8750_dev_npu
 resolved_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+canonical_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+timestamp_prefix_stripped=<true|false>
 required_sm8750_model_path=true
 npu_backend=NPU
 npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
@@ -472,11 +580,11 @@ Open items before promotion:
 - Thermal and memory stability: current runs are short. Promotion requires longer soak, repeated runs, post-run memory checks, and thermal observation under device load.
 - Failure UX: failures currently surface as DEV messages and diagnostics. A normal candidate needs clear user-facing errors, retry behavior, and no silent fallback unless fallback is deliberately designed and reported.
 - Persistence and stats: DEV diagnostics are visible, but production-facing stats, DB persistence strategy, and normal speed display integration are not settled. Decode elapsed time must not be confused with token/s until token accounting is available.
-- Device/model gating: the current guard is SM8750 basename exact-match. Promotion needs device capability checks, model availability checks, and clear behavior when the exact model is absent.
+- Device/model gating: the current guard allows only the canonical SM8750 basename or a numeric timestamp-prefixed canonical basename. Promotion needs device capability checks, model availability checks, and clear behavior when the exact SM8750 model is absent.
 
 Recommended promotion phases:
 
-- Phase A: Keep the current DEV-only route. Continue using explicit toggle, exact SM8750 model guard, `max_output_tokens=128`, no fallback, and diagnostic-first artifacts.
+- Phase A: Keep the current DEV-only route. Continue using explicit toggle, SM8750-only model guard, `max_output_tokens=128`, no fallback, and diagnostic-first artifacts.
 - Phase B: Move to a hidden experimental option only after repeated bounded runs cover multiple prompts without timeout, crash, stale UI, or fallback ambiguity.
 - Phase C: Expose an experimental NPU candidate only when device detection, exact model detection, native artifact provenance, and QNN/HTP evidence all pass preflight.
 - Phase D: Consider `Backend.NPU` candidate promotion only after 128-token bounded runs, Japanese prompt coverage, failure UX, cleanup, memory, and thermal evidence meet the same bar as existing local inference candidates.
@@ -492,6 +600,16 @@ Minimum gates before leaving Phase A:
 - Normal-route behavior remains unchanged with the DEV toggle OFF.
 
 Next action: do not promote yet. Keep Phase A, then decide between broader native artifact reproducibility work and repeated Japanese/non-ASCII prompt evidence before increasing token count beyond 128 or exposing a hidden experimental candidate.
+
+The `standardDebug` hidden experimental migration design is tracked in
+`docs/qairt244_standard_hidden_experimental_plan.md`. That plan keeps the route
+hidden behind developer access, default OFF, SM8750-only, capped at 128 tokens,
+and explicitly not production `Backend.NPU` enablement.
+
+Step 2 of that plan has migrated only shared resolver and prompt-validation
+logic into the main source set. The executable adapter, receiver, native smoke
+entrypoints, Settings row, and ChatScreen activation remain
+`customBuildExperimentDebug`-only.
 
 ## 8 Token Phase
 

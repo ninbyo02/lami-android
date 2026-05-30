@@ -27,4 +27,21 @@ class DevOnlyNpuChatScreenBlockedBranchTest {
         assertTrue(summary.contains("markdown=false"))
         assertTrue(summary.contains("stream=false"))
     }
+
+    @Test
+    fun `hidden npu safety lines keep standard route and side effects disconnected`() {
+        val safetyLines = DevOnlyNpuChatScreenBlockedBranch.hiddenNpuNoStandardRouteSafetyLines()
+
+        assertTrue(safetyLines.contains("normal_ui_route_connected=false"))
+        assertTrue(safetyLines.contains("standard_route_connected=false"))
+        assertTrue(safetyLines.contains("conversation_created=no"))
+        assertTrue(safetyLines.contains("generate_response=no"))
+        assertTrue(safetyLines.contains("selected_path_npu_normal_route=no"))
+        assertTrue(safetyLines.contains("db=false"))
+        assertTrue(safetyLines.contains("tts=false"))
+        assertTrue(safetyLines.contains("markdown=false"))
+        assertTrue(safetyLines.contains("streaming=false"))
+        assertTrue(safetyLines.none { it == "normal_ui_route_connected=true" })
+        assertTrue(safetyLines.none { it == "standard_route_connected=true" })
+    }
 }

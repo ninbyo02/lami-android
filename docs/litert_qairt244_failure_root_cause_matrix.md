@@ -1,5 +1,423 @@
 # QAIRT 2.44 NPU Dispatch Failure Root Cause Matrix
 
+## 2026-05-28: max_output_tokens=512 instrumented worker runtime
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Prompt 2 native adapter non-return/process death | `artifacts/qairt244_npu_512_instrumented_worker_runtime/20260528_073227/` | Prompt 1 completed cleanly through worker finish. Prompt 2 wrote terminal trace through `before_native_adapter_run`; native diag reached `before RunDecode SetMaxOutputTokens(512)`, but no `after_native_adapter_run`, `throwable_caught`, `finally_enter`, `finally_exit`, `worker_finished`, terminal result, cleanup, or `Engine.close` evidence appeared. The process was present at dispatch and absent by the post-timeout boundary. | Classify prompt 2 as `NATIVE_NON_RETURN_OR_PROCESS_DEATH` plus `TIMEOUT_SUSPECT`. Keep 512 sequential non-baseline and focus next review on native decode/process death under sequential reuse. |
+
+This refines the active 512 sequential blocker. The failure is past the
+receiver and worker entrypoint, not the terminal result writer or cleanup
+writer. 512 per-run isolated remains the only 512 candidate mode, 256 remains
+the hidden experimental baseline candidate, H1 remains pinned to 128, and
+1024/2048/4096 remain blocked.
+
+## 2026-05-28: max_output_tokens=512 receiver/native-worker terminal instrumentation
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden receiver/native-worker terminal window | `artifacts/qairt244_npu_512_receiver_native_worker_instrumentation/20260528_070541/` | Prior review narrowed prompt 2 process loss to the hidden broadcast receiver -> `goAsync` worker -> `runForChatScreen`/native adapter window. Existing process-boundary artifacts could not distinguish worker throwable, terminal result write loss, cleanup loss, or native non-return/process death. | Add runId-scoped `terminal_trace_<runId>.txt` markers at receiver, worker, native adapter, terminal result, cleanup, throwable, and `finally` boundaries. Use the next approved runtime to classify the process death window. |
+
+This is instrumentation only; no NPU rerun was performed. 512 sequential
+remains incomplete and non-baseline, 512 per-run isolated remains the only
+512 candidate mode, 256 remains the hidden experimental baseline candidate,
+H1 remains pinned to 128, and 1024/2048/4096 remain blocked.
+
+## 2026-05-28: max_output_tokens=512 dispatch process disappearance review
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden broadcast/native worker process exit | `artifacts/qairt244_npu_512_dispatch_process_death_review/20260528_061808/` | `am broadcast` completed with `result=0`; the receiver wrote started state and native diag through `before RunDecode SetMaxOutputTokens(512)`. The process was present before dispatch and absent by the first post-broadcast snapshot. No runner stop, Activity restart, broadcast rejection, stale/mismatch, visible fatal exception, tombstone, ANR, or explicit LMK line was found. | Classify primary `broadcast_receiver_native_worker_process_exit`. Next fix should add debug-only receiver/native-worker terminal markers around `runForChatScreen` before any new NPU rerun. |
+
+This refines the active 512 sequential blocker: the post-dispatch process
+loss is inside the receiver/native worker window, not a runner-side stop.
+512 sequential remains incomplete and non-baseline, 512 per-run isolated
+remains the only 512 candidate mode, 256 remains the hidden experimental
+baseline candidate, H1 remains pinned to 128, and 1024/2048/4096 remain
+blocked.
+
+## 2026-05-28: max_output_tokens=512 instrumented sequential runtime
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Prompt 2 post-dispatch process disappearance | `artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime_instrumented/20260528_052237/` | Prompt 1 remained process-present at all boundaries and classified `SUCCESS_CLEAN`. Prompt 2 was process-present before dispatch with pid `17226`, but `pidof`/`ps` were absent immediately at `after_dispatch`; `dumpsys activity top` reported `io.github.ninbyo02.lami/.MainActivity ... pid=(not running)`. Native diag reached `before RunDecode SetMaxOutputTokens(512)` but produced no completed callback or cleanup. | Classify as `PROCESS_DISAPPEARED_SUSPECT_PROCESS_DISAPPEARED_AFTER_DISPATCH`. Stop before prompt 3. Keep 512 sequential non-baseline and keep 512 per-run isolated only. |
+
+This narrows the previous process-disappearance blocker from "after prompt 2"
+to "immediately after prompt 2 dispatch." The next investigation should focus
+on why the hidden broadcast/native entrypoint can leave the process absent
+right after dispatch while still having written native pre-RunDecode evidence.
+256 remains the hidden experimental baseline candidate, H1 remains pinned to
+128, and 1024/2048/4096 remain blocked.
+
+## 2026-05-28: max_output_tokens=512 process boundary instrumentation
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Prompt-boundary process disappearance | `artifacts/qairt244_npu_512_process_boundary_instrumentation/20260528_050222/` | The previous soft-reset runtime showed prompt 2 completing cleanly, then the process disappearing before prompt 3 could complete. Existing artifacts did not capture enough boundary evidence to determine whether the disappearance was runner-induced, lifecycle-induced, OS kill, native abort, or unexplained. | Add hidden runner instrumentation at `before_dispatch`, `after_dispatch`, `after_result_or_timeout`, `after_cleanup`, and `after_10s`. Classify process loss as `PROCESS_DISAPPEARED_SUSPECT`, stop sequential continuation, and require hidden per-run isolation. |
+
+This is instrumentation only; no NPU rerun was performed. The root-cause
+ranking remains open until a separately approved runtime pass captures the new
+boundary snapshots. 512 sequential remains incomplete and non-baseline, 512
+per-run isolated remains the only 512 candidate mode, 256 remains the hidden
+experimental baseline candidate, H1 remains pinned to 128, and
+1024/2048/4096 remain blocked.
+
+## 2026-05-28: max_output_tokens=512 soft-reset process disappearance review
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Process disappearance after prompt 2 | `artifacts/qairt244_npu_512_soft_reset_process_disappearance_review/20260528_043922/` | Prompt 2 completes cleanly and immediately after-run meminfo still finds pid `4758`, but after 10 seconds the process is gone. Prompt 3 broadcast returns from shell but creates no state/result/native-diagnostic/cleanup files and becomes `TIMEOUT_SUSPECT`. No runner force-stop, Activity restart, crash, tombstone, ANR, or explicit LMK marker was found. | Classify primary `process_disappearance_unexplained`, secondary `os_killed_cached_process_possible`. Keep 512 sequential non-baseline and keep 512 per-run isolated only. |
+
+This refines the 512 sequential root cause. The Python code prompt can now
+return cleanly under soft-reset gating, so the active blocker is no longer only
+the code prompt itself. The remaining blocker is process continuity between
+clean prompt completion and the next hidden broadcast.
+
+## 2026-05-28: max_output_tokens=512 sequential soft-reset runtime
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden sequential runtime policy | `artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime/20260528_041357/` | The runtime lifecycle gate allowed prompt 1 and the Python code prompt after `SUCCESS_CLEAN`, but prompt 3 timed out with no cleanup or completed backend evidence. The policy then correctly set `next_prompt_allowed=false`, `reuse_allowed=false`, and `hidden_per_run_isolated_required=true`. | Runtime enforcement works, but 512 sequential remains unstable and non-baseline. Keep 512 hidden per-run isolated only; keep 256 candidate; keep 1024+ blocked. |
+
+This shifts the observed runtime failure from the earlier prompt-2 Python
+timeout to a later prompt-3 timeout under the soft-reset gate. The root-cause
+ranking remains lifecycle/resource inheritance or native callback non-return
+under sequential reuse. The code prompt can return cleanly under this gate, but
+the sequence still cannot be promoted because a later prompt becomes suspect.
+
+## 2026-05-28: hidden NPU runtime reuse enforcement
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Runtime reuse policy | `artifacts/qairt244_hidden_npu_runtime_reuse_enforcement/20260528_034826/` | Lifecycle summaries existed, but runtime policy needed a formal next-prompt gate. `SUCCESS_CLEAN` is now the only state that allows sequential continuation; timeout, cleanup-missing, stale, mismatch, and non-success classifications block reuse. | Enforce `next_prompt_allowed=false` after suspect or rejected sessions and require hidden per-run isolation before any later hidden attempt. Keep 512 sequential rollback and keep 512 per-run isolated only. |
+
+This keeps the current root-cause ranking intact: sequential/resource
+inheritance remains the primary 512 risk, with callback and cleanup ambiguity
+guarded by runtime policy. H1 remains pinned to 128, 256 remains the hidden
+experimental baseline candidate, and 1024/2048/4096 remain blocked.
+
+## 2026-05-28: max_output_tokens=512 sequential soft-reset preflight
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Sequential 512 lifecycle enforcement | `artifacts/qairt244_npu_512_sequential_soft_reset_preflight/20260528_033653/` | Sequential 512 needs a stricter prompt-to-prompt lifecycle barrier before any new runtime attempt. Existing sequential code-aware evidence still stops at prompt 2 with `TIMEOUT_SUSPECT`, while 256 clean artifacts continue and force-stop 512 remains clean as a reference. | Add preflight-only soft-reset gating: continue only after `SUCCESS_CLEAN`, cleanup elapsed time, `Engine.close=unique_ptr_cleanup`, `reuse_allowed=true`, and no per-run-isolated requirement. Keep 512 per-run isolated only until a separately approved runtime test proves otherwise. |
+
+This does not change the root-cause ranking. Sequential/resource inheritance
+remains the leading hypothesis, with native callback/cleanup ambiguity still
+guarded by run-id scoped evidence and immediate stop on suspect sessions.
+1024/2048/4096 remain blocked.
+
+## 2026-05-28: hidden NPU lifecycle summary regeneration
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Real artifact lifecycle compatibility | `artifacts/qairt244_hidden_npu_lifecycle_summary_regeneration/20260528_030629/` | Existing artifacts predate the final summary integration and needed a preflight-only compatibility pass. The parser maps force-stop 512, bounded retry 512, and 256 completed runs to `SUCCESS_CLEAN`, and maps sequential/Activity-restart Python code timeouts to `TIMEOUT_SUSPECT`. | Treat suspect sessions as non-reusable and require hidden per-run isolation. Keep 512 only as `hidden_per_run_isolated_512`; keep sequential and Activity-restart-only 512 rollback; keep 256 candidate and block 1024+. |
+
+No stale-result or run-id mismatch marker was present in the parsed source
+artifacts. The absence of stale/mismatch does not weaken the gate: those
+markers remain rejected when present, and timeout/missing cleanup still forbids
+reuse.
+
+## 2026-05-28: hidden NPU lifecycle summary integration
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden runner reuse policy | `artifacts/qairt244_hidden_npu_lifecycle_summary_integration/20260528_024448/` | Runner summaries previously reported timeout/cleanup facts but did not expose a single lifecycle classification and reuse policy. | Add lifecycle classification, suspect-session, stale/mismatch rejection, and reuse fields to hidden summaries. |
+
+Timeout, cleanup missing, stale result, and run-id mismatch continue to forbid
+reuse and require hidden per-run isolated operation. Sequential 512 and
+Activity-restart-only 512 remain rollback modes.
+
+## 2026-05-27: hidden NPU lifecycle artifact parser
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Runner/preflight evidence collision | `artifacts/qairt244_hidden_npu_lifecycle_runner_integration/20260527_231211/` | Future sequential experiments need parser-level rejection for stale result files, run-id mismatches, missing native completion, and missing cleanup/`Engine.close` evidence. | Add a hidden artifact parser that classifies clean, suspect, stale, and run-id rejected outcomes before any reuse decision. |
+
+Timeout and missing cleanup continue to classify as suspect session and forbid
+session reuse. 512 remains hidden per-run isolated only until a separately
+approved runtime phase proves otherwise.
+
+## 2026-05-27: hidden NPU lifecycle wrapper contract
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Sequential 512 callback/state cleanup ambiguity | `artifacts/qairt244_hidden_npu_lifecycle_wrapper_design/20260527_225303/` | Prior sequential timeout artifacts lacked completed result, cleanup, and `Engine.close` evidence. Future sequential experiments need run-id scoped files and cleanup evidence to rule out stale/colliding state. | Add a hidden-only lifecycle wrapper contract. Timeout or missing cleanup is `suspect_session` and forbids reuse; per-run isolated remains required for 512. |
+
+The contract rejects stale results and run-id mismatches across callback, state,
+result, native diag, and cleanup channels. It requires `cleanup_elapsed_ms` and
+`Engine.close=unique_ptr_cleanup` before a run can be considered clean.
+
+## 2026-05-27: Edge Gallery streaming lifecycle comparison
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| 512 sequential cleanup/callback design | `artifacts/qairt244_edge_gallery_streaming_lifecycle_compare/20260527_223704/` | Edge Gallery relies on callback-driven streaming, engine reuse, conversation reset, and cooperative cancel. LiteRT-LM cancellation/close are cooperative and may not provide a hard boundary if a decode path does not return a terminal callback. | Do not copy Gallery streaming UI. Design a hidden lifecycle wrapper with per-turn run-id separation and mandatory cleanup/`Engine.close` evidence before any sequential 512 retest. |
+
+Root-cause ranking remains: primary `sequential_resource_inheritance`,
+secondary `native_callback_missing_after_decode_or_decode_never_returns`, with
+`cleanup_wait_insufficient` and `state_file_or_receiver_collision` still worth
+guarding. 512 remains hidden `hidden_per_run_isolated_512` only. 256 remains
+the hidden experimental baseline candidate, H1 remains pinned to 128, and
+1024/2048/4096 remain blocked.
+
+## 2026-05-27: max_output_tokens=512 per-run isolated formalized
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 gate | `artifacts/qairt244_npu_512_per_run_isolated_formalization/20260527_215325/` | Sequential 512 and Activity-restart-only 512 reproduce the Python code timeout, while force-stop between prompts succeeds. The active failure class is therefore sequential/lifecycle resource inheritance, not max512 native guard rejection. | Formalize 512 only as `hidden_per_run_isolated_512`; keep sequential and Activity-restart-only rollback; keep 256 candidate and block 1024+. |
+
+The formal gate requires force-stop before/after each prompt, native max512
+evidence, QNN/HTP/FastRPC evidence, cleanup/`Engine.close`, no timeout/crash
+fallback, no retained process after 10 seconds, code-aware sanitizer with
+indentation/fence checks, selectedPath not saved, assistant-list insertion
+false, and DB/TTS/Markdown/streaming false.
+
+## 2026-05-27: max_output_tokens=512 Activity restart only remains insufficient
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 Activity-restart comparison | `artifacts/qairt244_npu_max_output_512_activity_restart_compare/20260527_213930/` | Activity finish/relaunch did not create the same isolation boundary as force-stop. The Python code prompt still timed out after pre-RunDecode evidence, with no completed result, cleanup, `Engine.close`, backend evidence, raw output, or sanitized output. | Classify primary `activity_restart_insufficient`, secondary `cleanup_or_process_resource_issue`, with `native_callback_missing_or_decode_never_returns` still possible. Keep 512 per-run isolated candidate only. |
+
+The first Activity relaunch was delivered to the already-running top-most
+Activity with the same PID, and the Python timeout later left no process before
+the runner relaunched into a new PID. No explicit force-stop was used. This
+keeps sequential and Activity-restart-only 512 non-baseline, keeps 256 as the
+hidden experimental baseline candidate, and keeps 1024/2048/4096 blocked.
+
+## 2026-05-27: max_output_tokens=512 sequential cleanup/resource investigation
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 sequential timeout | `artifacts/qairt244_npu_512_sequential_cleanup_resource_investigation/20260527_082307/` | The Python code prompt reaches pre-RunDecode evidence but does not produce native success, cleanup, backend evidence, raw output, or sanitized output before the bounded timeout. The same prompt succeeds when every prompt is force-stopped before and after execution. | Rank `sequential_resource_inheritance` highest; keep 512 per-run isolated candidate only and keep sequential 512 non-baseline. |
+
+Secondary hypotheses are `native_callback_missing_after_decode_or_decode_never_returns`,
+`cleanup_wait_insufficient`, and `code_decode_slow_after_warm_run`. The shared
+state-file wait is not primary from current evidence. 256 remains the hidden
+experimental baseline candidate, and 1024/2048/4096 remain blocked. The next
+single-axis experiment should be Activity restart only between prompts.
+
+## 2026-05-27: max_output_tokens=512 per-run isolated gate defined
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 gate boundary | `artifacts/qairt244_npu_512_per_run_isolated_gate/20260527_075622/` | Sequential 512 still has a reproduced code-prompt timeout, while force-stop per-run isolation passes all three prompts. The failure mode is therefore bounded to sequential/resource-cleanup behavior from current evidence. | Define 512 as `extended experimental / per-run isolated candidate` only; keep sequential 512 non-baseline, keep 256 candidate, and block 1024+. |
+
+Rollback remains mandatory for timeout, missing cleanup/`Engine.close`, memory
+high retained, broken code indentation, unclosed code fence, fresh crash,
+fallback, missing QNN evidence, selectedPath=NPU persistence, assistant-list
+insertion, or DB/TTS/Markdown/streaming ingress.
+
+## 2026-05-27: max_output_tokens=512 passes with force-stop between prompts
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 per-run isolation | `artifacts/qairt244_npu_max_output_512_force_stop_between_prompts/20260527_074002/` | The same 512 code prompt that timed out in sequential three-prompt mode completes when each prompt is bracketed by app force-stop. This supports `sequential_decode_timeout` or resource/cleanup interaction as the active failure mode. | Treat 512 as a per-run isolated hidden candidate only; do not promote general sequential 512 and keep 1024 blocked. |
+
+Prompt comparison: `こんにちは` completed as `natural_japanese` with
+`decode_ms=835`; `Pythonで簡単な電卓コードを書いて` completed as `useful_code`
+with `decode_ms=12448`, preserved indentation, and closed code fence;
+`ラミィのNPU推論について短く説明して` completed as `natural_japanese` with
+`decode_ms=4359`. All runs recorded `QNN_HTP_V79_FastRPC_native_diag`,
+cleanup/`Engine.close=unique_ptr_cleanup`, `timeout=false`,
+`fresh_crash=false`, `fallback_used=false`, and side-effect flags false.
+After each post-run force-stop, after-10s meminfo reported no process for the
+package, so no retained-memory rollback was observed.
+
+## 2026-05-27: repeated max_output_tokens=512 code prompt timeout
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 code prompt stability | `artifacts/qairt244_npu_512_code_timeout_root_cause_review/20260527_065926/` | The code prompt can complete in isolated 512 bounded mode but times out as the second prompt in a sequential three-prompt 512 run after pre-RunDecode evidence. | Classify as `sequential_decode_timeout` / `code_prompt_decode_too_long_under_three_prompt_runner`; keep 512 extended experimental and block 1024. |
+
+Comparison: 256 three-prompt code succeeded as `useful_code` with
+`decode_ms=7351`; isolated 512 code succeeded once with `decode_ms=11600` and
+cleanup evidence; code-aware sequential 512 code timed out with no native
+success, no cleanup, no completed backend evidence, and no sanitized code
+output. Memory after 10 seconds did not show high-retention rollback, so memory
+retention is not the primary root cause.
+
+## 2026-05-27: max_output_tokens=512 code-aware rerun still times out on code prompt
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 code-aware comparison | `artifacts/qairt244_npu_max_output_512_three_prompt_codeaware_compare/20260527_014523/` | The Python calculator prompt timed out under the bounded 60 second runner after native `SetMaxOutputTokens(512)` pre-decode evidence. No completed code sanitizer result was produced. | Keep 512 non-baseline, keep 256 as the hidden experimental candidate, and block 1024. |
+
+The Japanese prompts remain healthy: `こんにちは` completed as
+`natural_japanese` with `decode_ms=848`, and the short Lami NPU prompt completed
+as `natural_japanese` with `decode_ms=3989`. The code prompt recorded
+`timeout=true`, no completed `fallback_used=false` result, no cleanup evidence,
+and no completed code indentation/fence evidence. After-10s memory decreased to
+`TOTAL PSS=275865 KB / Native Heap=53864 KB`, so retained memory is not the
+rollback reason.
+
+## 2026-05-27: code-aware sanitizer preserves code output shape
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU code display sanitizer | `artifacts/qairt244_code_aware_sanitizer_review/20260527_012650/` | The 512 Python prompt problem was a sanitizer/display issue: line-level trimming stripped indentation and truncation left the code fence unclosed. | Preserve indentation in fenced code blocks, complete truncated fences in sanitized output, keep raw output diagnostic-only, and require a new bounded 512 three-prompt comparison before promotion. |
+
+Safety boundary: no NPU execution, 512 retry, native guard change, QAIRT
+rebuild, ChatScreen promotion, assistant-list insertion, DB, TTS, Markdown
+renderer connection, streaming, or selected-path persistence was performed in
+this phase. 512 remains extended experimental; 256 remains the hidden
+experimental baseline candidate; 1024 remains blocked.
+
+## 2026-05-27: max_output_tokens=512 code output quality review
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 code display quality | `artifacts/qairt244_npu_512_code_output_quality_review/20260527_011217/` | Raw output preserves Python indentation, but sanitized output strips leading code indentation. The output also ends mid-statement with an unclosed code fence, consistent with 512 token-limit truncation after normal native completion. | Keep 512 as extended experimental, keep 256 as hidden experimental candidate, and block 1024 until code display quality is gated and a full 512 comparison passes. |
+
+Safety notes: the source bounded retry remained successful with
+`quality_classification=useful_code`, `timeout=false`, `fresh_crash=false`,
+`fallback_used=false`, QNN/HTP/FastRPC evidence, `cleanup_elapsed_ms=142`, and
+`Engine.close=unique_ptr_cleanup`. No additional NPU execution was performed
+for this review.
+
+Display-quality classification: `indentation_broken_by_sanitizer`,
+`code_fence_unclosed_due_to_truncation`, `output_truncated_by_token_limit`, and
+`markdown_display_risk`. This is not a native crash, not fallback, not retained
+memory, and not a reason to proceed to 1024.
+
+## 2026-05-27: max_output_tokens=512 three-prompt comparison rolls back
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 quality/safety | `artifacts/qairt244_npu_max_output_512_three_prompt_compare/20260527_003429/` | The 512 code-generation prompt timed out under the bounded 30 second runner timeout after reaching native `SetMaxOutputTokens(512)` evidence, leaving no completed sanitized code output. | Do not classify 512 as a hidden baseline candidate; keep 256 candidate and keep H1/normal UI on existing gates. |
+
+Quality notes: `こんにちは` passed as `natural_japanese` with `decode_ms=727`.
+`ラミィのNPU推論について短く説明して` passed as `natural_japanese` with
+`decode_ms=4250`. `Pythonで簡単な電卓コードを書いて` timed out and did not
+produce `useful_code`.
+
+Safety notes: no selected-path persistence, standard route connection, normal
+UI route connection, assistant-list insertion, DB, TTS, Markdown, or streaming
+ingress was recorded. Memory after 10 seconds dropped from
+`TOTAL PSS=292816 KB / Native Heap=82828 KB` to
+`TOTAL PSS=272689 KB / Native Heap=54604 KB`, so the rollback reason is timeout
+and empty sanitized output for the code prompt, not retained memory.
+
+Timeout review artifact:
+`artifacts/qairt244_npu_max_output_512_code_timeout_review/20260527_005112/`.
+Classification is `native_hang_or_no_callback` with `cleanup_unknown`: native
+diagnostics reached `before RunDecode SetMaxOutputTokens(512)`, but no native
+success, cleanup timing, or `Engine.close` evidence was captured before the
+runner force-stop. No fresh crash classification is asserted from this artifact.
+
+Bounded retry artifact:
+`artifacts/qairt244_npu_max_output_512_code_bounded_retry/20260527_010116/`.
+The same Python prompt completed once with `timeout_seconds=60`,
+`quality_classification=useful_code`, `decode_ms=11600`,
+`elapsed_ms=14000`, QNN/HTP/FastRPC evidence, `cleanup_elapsed_ms=142`, and
+`Engine.close=unique_ptr_cleanup`. The narrow timeout root cause is therefore
+`30s runner bound too short for this 512 code prompt`; the broader 512 baseline
+decision remains blocked because the full three-prompt comparison was not
+re-run and code display quality still needs review.
+
+## 2026-05-27: max_output_tokens=512 single prompt passes
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 512 runtime | `artifacts/qairt244_npu_max_output_512_single_prompt/20260527_002303/` | The max512 guard-only patch allows one approved prompt through to `RunDecode` with `SetMaxOutputTokens(512)` and QNN/HTP/FastRPC evidence. Raw output still needs sanitizer for prompt echo and turn markers. | Allow a separately approved 512 three-prompt hidden comparison; do not promote 512 to H1 or normal UI. |
+
+Safety notes: `fallback_used=false`, `timeout=false`, `fresh_crash=false`,
+`npu_backend=NPU`, QNN/HTP/FastRPC evidence present, selected-path persistence
+false, standard/normal UI route connection false, assistant-list insertion
+false, and DB/TTS/Markdown/streaming false. Sanitized output was natural
+Japanese: `こんにちは！何かお手伝いできることはありますか？`.
+
+Memory after 10 seconds dropped from `TOTAL PSS=299933 KB` and
+`Native Heap=82768 KB` to `TOTAL PSS=253806 KB` and `Native Heap=28632 KB`, so
+no retained-memory rollback was recorded.
+
+## 2026-05-26: max_output_tokens=512 guard-only patch preflighted
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU max-output guard | `artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/` and `artifacts/qairt244_npu_max512_guard_preflight/20260527_000522/` | The next expansion is limited to a guard-only native rebuild and preflight: `qairt244_editable_prompt_max512_v1`, `native_max_output_tokens_limit=512`, `SetMaxOutputTokens(512)`, staged `liblitertlm_jni.so`, and SM8750 model selection. | 512 run is not executed; no NPU generation, `Engine.initialize`, or `RunDecode` occurred in this phase. |
+
+The max512 preflight records `guard_status=pass` and all runtime side-effect
+flags false. It also records `staged_binary_present=true` for the rebuilt JNI
+artifact:
+
+```text
+liblitertlm_jni.so build_id=82cf5b24f5b2897edf3b4b8a6970cf8e
+liblitertlm_jni.so sha256=7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105
+```
+
+Release behavior, standard behavior, `app/src/main/jniLibs`,
+DB/TTS/Markdown/streaming, and selected-path behavior remain unchanged.
+
+## 2026-05-26: max_output_tokens=256 guard-only patch staged
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU max-output guard | `artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/` and `artifacts/qairt244_npu_max256_guard_preflight/20260526_205300/` | Prior 256 failure was caused by the custom editable-prompt guard. A limited rebuild now contains `qairt244_editable_prompt_max256_v1` and `native_max_output_tokens_limit=256`. | 256 is staged for a separately approved runtime run; no NPU generation or RunDecode was executed in this phase. |
+
+Build metadata for the staged JNI artifact:
+
+```text
+liblitertlm_jni.so build_id=c42e4438f1b39e384ab075b9392831ca
+liblitertlm_jni.so sha256=3767332f97ffee57b635fc13e2741714c994f7a2cc94d0fde5d4fbbce9c731ba
+```
+
+The staged patch does not validate model/runtime memory behavior at 256. It
+only removes the custom native guard blocker and records static evidence needed
+before the next hidden experimental run.
+
+## 2026-05-26: max_output_tokens=256 single prompt passes
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 256 runtime | `artifacts/qairt244_npu_max_output_256_single_prompt/20260526_211046/` | The prior native guard blocker is removed; one 256 decode reached `RunDecode` and returned safe sanitized Japanese. | Allow next 256 three-prompt hidden comparison; do not promote 256 baseline yet. |
+
+Safety notes: `fallback_used=false`, `timeout=false`, `fresh_crash=false`,
+QNN/HTP/FastRPC evidence present, selected-path persistence false, and
+DB/TTS/Markdown/streaming false. Raw output retained template artifacts, but
+sanitizer removed them for display.
+
+## 2026-05-26: max_output_tokens=256 three-prompt comparison passes
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU 256 quality/safety | `artifacts/qairt244_npu_max_output_256_three_prompt_compare/20260526_211856/` | The max256 guard-only patch allows 256 through to `RunDecode`; all three approved hidden prompts completed without fallback, timeout, fresh crash, or side-effect ingress. | Treat 256 as a hidden experimental candidate; do not promote it to H1 or normal UI. |
+
+Quality notes: `こんにちは` and `ラミィのNPU推論について短く説明して`
+classified as `natural_japanese`; the Python calculator prompt classified as
+`useful_code`. Memory after 10 seconds dropped to `TOTAL PSS=224993 KB` and
+`Native Heap=34500 KB`, so no retained-memory rollback was recorded.
+
+Result commit decision: classify this as a successful hidden experimental
+baseline-candidate result, not a UI promotion. H1 and normal ChatScreen remain
+on the existing 128-token gate. The Python code response is useful but requires
+separate indentation/display-format review before any UI-facing baseline
+change.
+
+## 2026-05-26: native max output token limit source
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU max output token limit | `artifacts/qairt244_npu_max_output_token_limit_investigation/20260526_202629/` | Custom qairt244 editable-prompt JNI guard rejects `max_output_tokens > 128` before `DecodeConfig::SetMaxOutputTokens` and `RunDecode`. | Classify current limit as `custom_safety_guard_only`; keep 128 baseline and require staged guard expansion before any 256+ run. |
+
+The investigation did not change native code, rebuild LiteRT-LM/QAIRT, execute
+NPU, call `Engine.initialize`, or call `RunDecode`. It does not prove compiled
+model, context/KV cache, QNN runtime, or memory safety above 128 tokens.
+
+## 2026-05-26: max_output_tokens=256 hidden compare rollback
+
+| Area | Evidence | Root cause | Decision |
+| --- | --- | --- | --- |
+| Hidden NPU output length | `artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/` | Lower native editable-prompt entrypoint reports `invalid_max_output_tokens value=256 native_max_output_tokens_limit=128`. | Keep `sanitizer_only + max_output_tokens=128`; 256 is rollback-only. |
+
+Safety notes: QNN/HTP/FastRPC evidence remained present and
+`fallback_used=false`, `timeout=false`, `fresh_crash=false`,
+`selected_path_npu_saved=false`, `standard_route_connected=false`,
+`normal_ui_route_connected=false`, `db=false`, `tts=false`, `markdown=false`,
+and `streaming=false` were preserved. The failure is not a route fallback or
+fresh crash; it is a native max-token limit rejection that leaves sanitized
+output empty.
+
 Date: 2026-05-21
 
 Scope: coordinator synthesis of the tombstone/runtime mapping, Android QNN path
@@ -1290,3 +1708,73 @@ Classification: `rollback-model-missing-tf-lite-aux`. The previous
 `rollback-model-file-not-found` root cause is closed for this device state; the
 current root cause is an app-private model file that is readable but not in the
 compiled NPU format expected by the QAIRT LiteRT-LM executor.
+
+## DEV-only NPU Output Artifact Leakage (2026-05-25)
+
+| Stage | Result | Evidence | Status |
+| --- | --- | --- | --- |
+| Native decode | reached | `run_decode_reached=true` | OK |
+| NPU backend | `NPU` | `QNN_HTP_V79_FastRPC_native_diag` | OK |
+| Raw output | prompt echo and Gemma turn artifacts | `raw_output.txt` | Needs cleanup |
+| Sanitizer | removed template artifacts and leading prompt echo | `sanitized_output.txt` | OK |
+| Display output | natural Japanese sentence | `result.txt` | OK |
+| Fallback | `false` | `result.txt` | OK |
+| Timeout/fresh crash | `false` / `false` | `summary.md` | OK |
+| DB/TTS/Markdown/streaming | disconnected | route marker / `result.txt` | OK |
+| selectedPath=npu | not saved | `result.txt` | OK |
+
+Artifact:
+
+```text
+artifacts/qairt244_npu_output_sanitizer/20260525_015040/
+```
+
+Classification: `dev-only-output-template-artifact-sanitized`. The remaining
+NPU route is healthy; the observed issue was display-quality leakage from Gemma
+turn markers (`<end_of_turn>` and related role markers), not a QNN fallback,
+timeout, crash, or model-selection regression.
+
+## QAIRT244 Turn-Stop Quality Compare - 2026-05-25
+
+The ChatScreen DEV-only NPU route is treated as route-successful; this phase is display-quality tuning only. The comparison is documented in `docs/litert_qairt244_npu_turn_stop_quality_compare.md` and implemented by `scripts/run_qairt244_npu_turn_stop_quality_compare.sh`.
+
+Static LiteRT-LM inspection found `native stop not exposed` for the qairt244 lower-level Android route. Runtime metadata can carry stop token ids internally, but this JNI path creates a default session config and exposes only `DecodeConfig.SetMaxOutputTokens()` for the editable-prompt run; no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter is available. Public sampler controls expose topK/topP/temperature/seed, but the qairt244 lower-level native entrypoint does not accept sampler config, and no repetition penalty API was found.
+
+The fixed executable baseline is `enhanced_sanitizer_only_128`. `lower_max_tokens_64_sanitizer` and `lower_max_tokens_32_sanitizer` are rollback-only records, not executable adoption candidates, and `stop_sequence_end_of_turn` is recorded as `not_run/native_stop_not_exposed`. The prompts are `こんにちは`, `はじめまして`, and `こんばんは`; the executable sanitizer-only case uses `max_output_tokens=128` and a 30 second timeout.
+
+The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+
+## NPU Sanitizer Quality Baseline Commit - 2026-05-25
+
+Commit baseline: `sanitizer_only + max_output_tokens=128` is the provisional
+hidden experimental display-quality baseline, backed by
+`artifacts/qairt244_npu_turn_stop_quality_compare/20260525_211810`.
+
+Promotion gate: `fallback_used=false`, `fresh_crash=false`, `timeout=false`,
+sanitized `quality_classification=natural_japanese`, no template artifact after
+sanitize, no repetition or multilingual drift after sanitize, and
+`db=false`, `tts=false`, `markdown=false`, `streaming=false`.
+
+Raw native `template_artifact` remains acceptable only as diagnostic evidence;
+the displayed sanitized output must be natural Japanese. Native stop sequence /
+native turn-stop is not required for this provisional baseline. Standard route
+non-connection is covered by `DevOnlyNpuChatScreenBlockedBranchTest`.
+
+The follow-up static investigation is recorded at
+`artifacts/qairt244_npu_stop_api_investigation/20260525_214513/`. It found no
+public Android/JNI per-run stop sequence, stop token, EOS, or `<end_of_turn>`
+API for this qairt244 path, so no native stop comparison is implemented.
+
+## NPU Hidden-To-UI Handoff Plan - 2026-05-25
+
+The next pre-promotion design is documented in
+`docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md`. It keeps
+`sanitizer_only + max_output_tokens=128` as the required baseline and does not
+implement normal UI promotion.
+
+The first eligible handoff phase is H1 transient preview only: display
+`sanitized_output` in a DEV-only transient UI surface, keep `raw_output` in
+artifacts only, and keep DB, TTS, Markdown, streaming, selected-path NPU
+persistence, and standard route connection disabled. Later phases evaluate
+assistant-style temporary display, DB persistence, and TTS/Markdown/streaming
+as separate gates.

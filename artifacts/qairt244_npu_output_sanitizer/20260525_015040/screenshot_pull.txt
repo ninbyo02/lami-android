@@ -1,0 +1,1 @@
+/sdcard/qairt244_npu_output_sanitizer.png: 1 file pulled, 0 skipped. 1.6 MB/s (106841 bytes in 0.063s)

@@ -1,0 +1,2 @@
+status=not_run
+reasonCode=rollback_adapter_failure_or_timeout

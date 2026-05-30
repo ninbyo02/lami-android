@@ -1,0 +1,25 @@
+# grep safety scan
+
+review_only=true
+additional_npu_run=false
+native_guard_changed=false
+qairt_rebuild=false
+chat_screen_promotion=false
+assistant_message_list_inserted=false
+db=false
+tts=false
+markdown=false
+streaming=false
+selected_path_npu_saved=false
+release_standard_change=false
+app_src_main_jniLibs_change=false
+max_output_tokens_over_512=false
+next_1024=false
+
+Source runner evidence:
+
+```text
+TIMEOUT_SECONDS=30
+wait_for_state -> files/qairt244_standard_hidden_prompt_state.txt
+timeout path -> adb shell am force-stop io.github.ninbyo02.lami
+```

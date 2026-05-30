@@ -1,0 +1,32 @@
+Package dump extract:
+
+- package: `io.github.ninbyo02.lami.customnpu`
+- flavor: `customBuildExperimentDebug`
+- activity:
+  `io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity`
+- capture launch extra: `dev_enable_npu_chatscreen_route=true`
+- capture launch extra: `allowGuardedNpuRun=false`
+- capture launch extra: `allowEditablePromptExecution=false`
+- capture launch extra: `allowEditablePromptPreview=false`
+
+Observed UI hierarchy package:
+
+- `window.xml` package=`io.github.ninbyo02.lami.customnpu`
+- `window.xml` section=`Phase H1 transient preview`
+- `window.xml` preview=`DEV ONLY - DEV NPU transient preview`
+
+Safety extract:
+
+- normal ChatScreen route connected: `false`
+- selectedPath NPU saved: `false`
+- DB: `false`
+- TTS: `false`
+- Markdown: `false`
+- streaming: `false`
+- retry/fallback: `false`
+- NPU generation: `false`
+- Engine.initialize: `false`
+- RunDecode: `false`
+
+Full package dump was used only as an intermediate inspection source and is not
+tracked in Git.

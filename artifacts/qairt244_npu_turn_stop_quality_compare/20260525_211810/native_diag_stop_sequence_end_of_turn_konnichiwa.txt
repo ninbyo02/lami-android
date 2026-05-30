@@ -1,0 +1,2 @@
+status=not_run
+reasonCode=native_stop_not_exposed

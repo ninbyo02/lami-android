@@ -218,6 +218,12 @@ private val EmptyNewConversationBaseTopPadding = 12.dp
 // gradient → sprite bottom の視覚差分をここで補正している。
 // UI調整用パラメータなので、位置調整はこの値のみ変更する。
 private val EmptyNewConversationTopAdjust = (-120).dp
+private const val ENABLE_NPU_STANDARD_ROUTE_S2_DB = false
+private const val ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN = false
+private const val ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING = false
+private const val NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS = 120L
+private const val ENABLE_NPU_STANDARD_ROUTE_S5_TTS = false
+private const val ENABLE_LEGACY_QAIRT244_CHATSCREEN_ROUTE = false
 private val SpriteMessageGap = 16.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
@@ -707,6 +713,9 @@ fun Home(
     val devEnableQairt244Sm8750NpuRoute by settingsPreferences.devEnableQairt244Sm8750NpuRouteFlow.collectAsState(
         initial = false,
     )
+    val developerAccessEnabled by settingsPreferences.developerAccessEnabledFlow.collectAsState(
+        initial = false,
+    )
     val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(
         initial = true,
     )
@@ -787,6 +796,9 @@ fun Home(
     var devDebugText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DisplayText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS4PseudoStreamingText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS4PseudoStreamingActive by remember(effectiveChatId) { mutableStateOf(false) }
     var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devRunnerWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
@@ -2389,9 +2401,267 @@ fun Home(
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
                                                     if (
-                                                        BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
-                                                        devEnableQairt244Sm8750NpuRoute
+                                                        shouldEnterNpuStandardRouteS1(
+                                                            enabled = NpuStandardRouteS1GateConfig.enabled,
+                                                            selectedInferenceTarget = selectedInferenceTarget,
+                                                            hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                                            requestPrompt = requestPrompt,
+                                                        )
                                                     ) {
+                                                        val s1Result = NpuStandardRouteS1Bridge().run()
+                                                        npuStandardRouteS1DisplayText = s1Result.displayText
+                                                        npuStandardRouteS4PseudoStreamingText = null
+                                                        npuStandardRouteS4PseudoStreamingActive = false
+                                                        if (ENABLE_NPU_STANDARD_ROUTE_S2_DB) {
+                                                            val s2DbMapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+                                                                userPrompt = requestPrompt,
+                                                                s1Result = s1Result,
+                                                            )
+                                                            if (shouldPersistNpuStandardRouteS2Db(
+                                                                    enabled = ENABLE_NPU_STANDARD_ROUTE_S2_DB,
+                                                                    mapping = s2DbMapping,
+                                                                )
+                                                            ) {
+                                                                val saveCandidate = requireNotNull(s2DbMapping.saveCandidate)
+                                                                val assistantTextForPersist = NpuStandardRouteS3MarkdownBridge()
+                                                                    .resolveFinalizedText(
+                                                                        enabled = ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN,
+                                                                        s1Result = s1Result,
+                                                                        fallbackText = saveCandidate.assistantMessage.text,
+                                                                        finalizeMarkdown = { text ->
+                                                                            buildFinalizedStreamingResponseForPersist(
+                                                                                response = text,
+                                                                                markdownStreamingMode = markdownStreamingMode,
+                                                                            )
+                                                                        },
+                                                                    )
+                                                                val s4PseudoStreamingCandidate =
+                                                                    if (ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING) {
+                                                                        val s4PseudoStreamingMapping = NpuStandardRouteS4PseudoStreamingBridge()
+                                                                            .preparePseudoStreamingCandidate(
+                                                                                s1Result = s1Result,
+                                                                                finalText = assistantTextForPersist,
+                                                                                sourceDisplayText = saveCandidate.assistantMessage.sourceDisplayText,
+                                                                            )
+                                                                        s4PseudoStreamingMapping
+                                                                            .takeIf {
+                                                                                shouldStartNpuStandardRouteS4APseudoStreaming(
+                                                                                    enabled = ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING,
+                                                                                    mapping = it,
+                                                                                )
+                                                                            }
+                                                                            ?.pseudoStreamingCandidate
+                                                                    } else {
+                                                                        null
+                                                                    }
+                                                                prompt = ""
+                                                                userPrompt = ""
+                                                                selectedImageUriStrings = emptyList()
+                                                                coroutineScope.launch {
+                                                                    if (s4PseudoStreamingCandidate != null) {
+                                                                        npuStandardRouteS4PseudoStreamingActive = true
+                                                                        s4PseudoStreamingCandidate.chunks.forEach { chunk ->
+                                                                            npuStandardRouteS4PseudoStreamingText = chunk
+                                                                            delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
+                                                                        }
+                                                                        npuStandardRouteS4PseudoStreamingText = s4PseudoStreamingCandidate.finalText
+                                                                        npuStandardRouteS4PseudoStreamingActive = false
+                                                                    }
+                                                                    var currentChatId = effectiveChatId
+                                                                    if (currentChatId == null) {
+                                                                        isCreatingChat = true
+                                                                        try {
+                                                                            val newChatId = withContext(Dispatchers.IO) {
+                                                                                viewModel.insertChatAndReturnId(
+                                                                                    Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                                                                                )
+                                                                            }
+                                                                            effectiveChatId = newChatId
+                                                                            pendingNavigateChatId = newChatId
+                                                                            currentChatId = newChatId
+                                                                        } finally {
+                                                                            isCreatingChat = false
+                                                                        }
+                                                                    }
+                                                                    val resolvedChatId = currentChatId
+                                                                    val assistantId = withContext(Dispatchers.IO) {
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            Message(
+                                                                                chatId = resolvedChatId,
+                                                                                message = saveCandidate.userMessage.text,
+                                                                                isSendbyMe = saveCandidate.userMessage.isSendByMe,
+                                                                            )
+                                                                        )
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            createAssistantMessage(
+                                                                                chatId = resolvedChatId,
+                                                                                response = assistantTextForPersist,
+                                                                                localSourceSummary = saveCandidate.assistantMessage.sourceDisplayText,
+                                                                            )
+                                                                        ).toInt()
+                                                                    }
+                                                                    if (ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                                        val s5TtsMapping = NpuStandardRouteS5TtsBridge()
+                                                                            .prepareTtsCandidate(
+                                                                                s1Result = s1Result,
+                                                                                finalAssistantText = assistantTextForPersist,
+                                                                                ttsEnabled = ttsEnabled,
+                                                                                streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                                sanitizeForTts = ::sanitizeTextForTts,
+                                                                            )
+                                                                        logStreamTrace(
+                                                                            buildNpuStandardRouteS5TtsCandidateTrace(
+                                                                                mapping = s5TtsMapping,
+                                                                                finalTextLength = assistantTextForPersist.length,
+                                                                                ttsEnabled = ttsEnabled,
+                                                                                streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                                assistantId = assistantId,
+                                                                            ),
+                                                                        )
+                                                                        val s5TtsSkipReason = classifyNpuStandardRouteS5TtsSkipReason(
+                                                                            enabled = ENABLE_NPU_STANDARD_ROUTE_S5_TTS,
+                                                                            mapping = s5TtsMapping,
+                                                                            ttsEnabled = ttsEnabled,
+                                                                            streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                            assistantId = assistantId,
+                                                                            suppressedForAssistant = isTtsSuppressedForAssistant(assistantId),
+                                                                            inCooldown = ttsController.isInCooldown(),
+                                                                        )
+                                                                        if (s5TtsSkipReason == NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE) {
+                                                                            val ttsCandidate = requireNotNull(s5TtsMapping.ttsCandidate)
+                                                                            currentSpeakingAssistantMessageId = assistantId
+                                                                            stopButtonOwnerAssistantMessageId = assistantId
+                                                                            stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
+                                                                            maybeReleaseHeldEngineForTtsPlayback()
+                                                                            logStreamTrace(
+                                                                                buildNpuStandardRouteS5TtsSpeakTrace(
+                                                                                    stage = "before",
+                                                                                    assistantId = assistantId,
+                                                                                    speakTextLength = ttsCandidate.speakText.length,
+                                                                                ),
+                                                                            )
+                                                                            ttsController.speak(ttsCandidate.speakText)
+                                                                            logStreamTrace(
+                                                                                buildNpuStandardRouteS5TtsSpeakTrace(
+                                                                                    stage = "after",
+                                                                                    assistantId = assistantId,
+                                                                                    speakTextLength = ttsCandidate.speakText.length,
+                                                                                ),
+                                                                            )
+                                                                        } else {
+                                                                            logStreamTrace(
+                                                                                buildNpuStandardRouteS5TtsSkipTrace(
+                                                                                    reason = s5TtsSkipReason,
+                                                                                    assistantId = assistantId,
+                                                                                ),
+                                                                            )
+                                                                        }
+                                                                    } else {
+                                                                        logStreamTrace(
+                                                                            buildNpuStandardRouteS5TtsSkipTrace(
+                                                                                reason = NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF,
+                                                                                assistantId = assistantId,
+                                                                            ),
+                                                                        )
+                                                                    }
+                                                                }
+                                                                return@IconButton
+                                                            }
+                                                        }
+                                                        val s4DisplayOnlyCandidate =
+                                                            if (ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING) {
+                                                                val s4DisplayOnlyMapping = NpuStandardRouteS4PseudoStreamingBridge()
+                                                                    .preparePseudoStreamingCandidate(
+                                                                        s1Result = s1Result,
+                                                                        finalText = s1Result.displayText,
+                                                                        sourceDisplayText = s1Result.displayText,
+                                                                    )
+                                                                s4DisplayOnlyMapping
+                                                                    .takeIf {
+                                                                        shouldStartNpuStandardRouteS4APseudoStreaming(
+                                                                            enabled = ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING,
+                                                                            mapping = it,
+                                                                        )
+                                                                    }
+                                                                    ?.pseudoStreamingCandidate
+                                                            } else {
+                                                                null
+                                                        }
+                                                        prompt = ""
+                                                        userPrompt = ""
+                                                        selectedImageUriStrings = emptyList()
+                                                        if (!ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                            logStreamTrace(
+                                                                buildNpuStandardRouteS5TtsSkipTrace(
+                                                                    reason = NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF,
+                                                                    assistantId = null,
+                                                                ),
+                                                            )
+                                                        }
+                                                        if (s4DisplayOnlyCandidate != null || ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                            coroutineScope.launch {
+                                                                if (s4DisplayOnlyCandidate != null) {
+                                                                    npuStandardRouteS4PseudoStreamingActive = true
+                                                                    s4DisplayOnlyCandidate.chunks.forEach { chunk ->
+                                                                        npuStandardRouteS4PseudoStreamingText = chunk
+                                                                        delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
+                                                                    }
+                                                                    npuStandardRouteS4PseudoStreamingText = s4DisplayOnlyCandidate.finalText
+                                                                    npuStandardRouteS4PseudoStreamingActive = false
+                                                                }
+                                                                if (ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                                    val s5TtsMapping = NpuStandardRouteS5TtsBridge()
+                                                                        .prepareTtsCandidate(
+                                                                            s1Result = s1Result,
+                                                                            finalAssistantText = s4DisplayOnlyCandidate?.finalText ?: s1Result.displayText,
+                                                                            ttsEnabled = ttsEnabled,
+                                                                            streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                            sanitizeForTts = ::sanitizeTextForTts,
+                                                                        )
+                                                                    logStreamTrace(
+                                                                        buildNpuStandardRouteS5TtsCandidateTrace(
+                                                                            mapping = s5TtsMapping,
+                                                                            finalTextLength = (s4DisplayOnlyCandidate?.finalText ?: s1Result.displayText).length,
+                                                                            ttsEnabled = ttsEnabled,
+                                                                            streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                            assistantId = null,
+                                                                        ),
+                                                                    )
+                                                                    logStreamTrace(
+                                                                        buildNpuStandardRouteS5TtsSkipTrace(
+                                                                            reason = classifyNpuStandardRouteS5TtsSkipReason(
+                                                                                enabled = ENABLE_NPU_STANDARD_ROUTE_S5_TTS,
+                                                                                mapping = s5TtsMapping,
+                                                                                ttsEnabled = ttsEnabled,
+                                                                                streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                                assistantId = null,
+                                                                                suppressedForAssistant = false,
+                                                                                inCooldown = ttsController.isInCooldown(),
+                                                                            ),
+                                                                            assistantId = null,
+                                                                        ),
+                                                                    )
+                                                                } else {
+                                                                    logStreamTrace(
+                                                                        buildNpuStandardRouteS5TtsSkipTrace(
+                                                                            reason = NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF,
+                                                                            assistantId = null,
+                                                                        ),
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+                                                        return@IconButton
+                                                    }
+                                                    val legacyQairt244ChatScreenRouteEnabled =
+                                                        shouldEnterLegacyQairt244ChatScreenRoute(
+                                                            hardGateEnabled = ENABLE_LEGACY_QAIRT244_CHATSCREEN_ROUTE,
+                                                            debugBuild = BuildConfig.DEBUG,
+                                                            customBuildExperiment = BuildConfig.CUSTOM_BUILD_EXPERIMENT,
+                                                            developerAccessEnabled = developerAccessEnabled,
+                                                            legacyToggleEnabled = devEnableQairt244Sm8750NpuRoute,
+                                                        )
+                                                    if (legacyQairt244ChatScreenRouteEnabled) {
                                                         // DEV-only experiment: when the toggle is OFF, execution falls through to the unchanged local route.
                                                         isLocalInferenceRunning = true
                                                         debugLocalUiTrace(
@@ -2451,7 +2721,7 @@ fun Home(
                                                                     if (devResult.success) {
                                                                         devResult.output
                                                                     } else {
-                                                                        "DEV NPU route failed: ${devResult.reasonCode}"
+                                                                        "実験的NPU route failed: ${devResult.reasonCode}"
                                                                     }
                                                                 }
                                                                 val stats = devResult.toInferenceStats()
@@ -2472,20 +2742,26 @@ fun Home(
                                                                     if (assistantId > 0) {
                                                                         immediateInferenceStatsByMessageId[assistantId] = stats
                                                                     }
+                                                                    writeDevQairt244Sm8750DisplayDiagnostics(
+                                                                        context = context.applicationContext,
+                                                                        result = devResult,
+                                                                        displayedAssistantText = assistantText,
+                                                                        assistantMessageId = assistantId,
+                                                                    )
                                                                 }
                                                                 cleanupDevQairt244NpuUiState(reason = "dev-qairt244-finish")
                                                                 snackbarHostState.currentSnackbarData?.dismiss()
                                                                 snackbarHostState.showSnackbar(
                                                                     message = if (devResult.success) {
-                                                                        "DEV SM8750 NPU route success"
+                                                                        "実験的NPU route success"
                                                                     } else {
-                                                                        "DEV NPU route failed: ${devResult.reasonCode}"
+                                                                        "実験的NPU route failed: ${devResult.reasonCode}"
                                                                     },
                                                                     duration = SnackbarDuration.Short,
                                                                 )
                                                             } catch (exception: Exception) {
                                                                 devDebugText = listOf(
-                                                                    "selected_route=qairt244_sm8750_dev_npu",
+                                                                    "selected_route=qairt244_sm8750_hidden_npu",
                                                                     "failure_stage=ui_exception",
                                                                     "stop_reason=${exception.javaClass.simpleName}",
                                                                     "required_sm8750_model_path=false",
@@ -2498,7 +2774,7 @@ fun Home(
                                                                         viewModel.insertAssistantMessageAndReturnId(
                                                                             createAssistantMessage(
                                                                                 chatId = resolvedChatId,
-                                                                                response = "DEV NPU route failed: ${exception.javaClass.simpleName}",
+                                                                                response = "実験的NPU route failed: ${exception.javaClass.simpleName}",
                                                                                 localSourceSummary = devDebugText,
                                                                             )
                                                                         )
@@ -2507,7 +2783,7 @@ fun Home(
                                                                 cleanupDevQairt244NpuUiState(reason = "dev-qairt244-exception")
                                                                 snackbarHostState.currentSnackbarData?.dismiss()
                                                                 snackbarHostState.showSnackbar(
-                                                                    message = "DEV NPU route failed: ${exception.javaClass.simpleName}",
+                                                                    message = "実験的NPU route failed: ${exception.javaClass.simpleName}",
                                                                     duration = SnackbarDuration.Short,
                                                                 )
                                                             } finally {
@@ -3934,6 +4210,48 @@ fun Home(
                                             message = localRespondingMessage,
                                             isStreaming = true,
                                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                        )
+                                    }
+                                }
+                                if (npuStandardRouteS1DisplayText != null) {
+                                    item(key = "npu_standard_route_s1_display") {
+                                        val s1Text = npuStandardRouteS1DisplayText!!
+                                        CopyableDebugBlock(
+                                            text = s1Text,
+                                            title = "NPU STANDARD ROUTE S1",
+                                            onCopy = {
+                                                clipboardManager.setText(AnnotatedString(s1Text))
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "NPU S1 result をコピーしました",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                                if (npuStandardRouteS4PseudoStreamingText != null) {
+                                    item(key = "npu_standard_route_s4a_pseudo_streaming_display") {
+                                        val s4Text = npuStandardRouteS4PseudoStreamingText!!
+                                        CopyableDebugBlock(
+                                            text = s4Text,
+                                            title = if (npuStandardRouteS4PseudoStreamingActive) {
+                                                "NPU STANDARD ROUTE S4-A PSEUDO STREAMING"
+                                            } else {
+                                                "NPU STANDARD ROUTE S4-A FINAL"
+                                            },
+                                            onCopy = {
+                                                clipboardManager.setText(AnnotatedString(s4Text))
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "NPU S4-A result をコピーしました",
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
                                         )
                                     }
                                 }
@@ -7819,6 +8137,153 @@ internal fun shouldAutoCreateNewChat(
     return !suppressAutoNewChat && resolvedChatId == null && !isCreatingChat
 }
 
+internal fun shouldEnterNpuStandardRouteS1(
+    enabled: Boolean,
+    selectedInferenceTarget: InferenceTarget,
+    hasImageInput: Boolean,
+    requestPrompt: String,
+): Boolean =
+    enabled &&
+        selectedInferenceTarget == InferenceTarget.LOCAL &&
+        !hasImageInput &&
+        requestPrompt.isNotBlank()
+
+internal fun shouldEnterLegacyQairt244ChatScreenRoute(
+    hardGateEnabled: Boolean,
+    debugBuild: Boolean,
+    customBuildExperiment: Boolean,
+    developerAccessEnabled: Boolean,
+    legacyToggleEnabled: Boolean,
+): Boolean =
+    hardGateEnabled &&
+        legacyToggleEnabled &&
+        (
+            customBuildExperiment ||
+                (debugBuild && developerAccessEnabled)
+            )
+
+internal fun shouldPersistNpuStandardRouteS2Db(
+    enabled: Boolean,
+    mapping: NpuStandardRouteS2DbMapping,
+): Boolean =
+    enabled && mapping.hasSaveCandidate
+
+internal fun shouldStartNpuStandardRouteS4APseudoStreaming(
+    enabled: Boolean,
+    mapping: NpuStandardRouteS4PseudoStreamingMapping,
+): Boolean =
+    enabled && mapping.hasPseudoStreamingCandidate
+
+internal fun shouldPrepareNpuStandardRouteS5Tts(
+    enabled: Boolean,
+    mapping: NpuStandardRouteS5TtsMapping,
+): Boolean =
+    enabled && mapping.hasTtsCandidate
+
+internal fun shouldSpeakNpuStandardRouteS5Tts(
+    enabled: Boolean,
+    mapping: NpuStandardRouteS5TtsMapping,
+    ttsEnabled: Boolean,
+    streamingActive: Boolean,
+    assistantId: Int?,
+    suppressedForAssistant: Boolean,
+    inCooldown: Boolean,
+): Boolean =
+    shouldPrepareNpuStandardRouteS5Tts(
+        enabled = enabled,
+        mapping = mapping,
+    ) &&
+        ttsEnabled &&
+        !streamingActive &&
+        assistantId != null &&
+        !suppressedForAssistant &&
+        !inCooldown
+
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE = "none"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF = "gate_off"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_CANDIDATE_NULL = "candidate_null"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_TTS_DISABLED = "tts_disabled"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_STREAMING_ACTIVE = "streaming_active"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_ASSISTANT_ID_NULL = "assistant_id_null"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_COOLDOWN = "cooldown"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_STOP_SUPPRESSED = "stop_suppressed"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_EMPTY_AFTER_SANITIZE = "empty_after_sanitize"
+
+internal fun classifyNpuStandardRouteS5TtsSkipReason(
+    enabled: Boolean,
+    mapping: NpuStandardRouteS5TtsMapping,
+    ttsEnabled: Boolean,
+    streamingActive: Boolean,
+    assistantId: Int?,
+    suppressedForAssistant: Boolean,
+    inCooldown: Boolean,
+): String = when {
+    !enabled -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF
+    !ttsEnabled -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_TTS_DISABLED
+    streamingActive -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_STREAMING_ACTIVE
+    assistantId == null -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_ASSISTANT_ID_NULL
+    inCooldown -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_COOLDOWN
+    suppressedForAssistant -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_STOP_SUPPRESSED
+    mapping.failureReason == NpuStandardRouteS5TtsContract.FAILURE_EMPTY_SPEAK_TEXT ->
+        NPU_STANDARD_ROUTE_S5_TTS_SKIP_EMPTY_AFTER_SANITIZE
+    !mapping.hasTtsCandidate -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_CANDIDATE_NULL
+    else -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE
+}
+
+internal fun buildNpuStandardRouteS5TtsCandidateTrace(
+    mapping: NpuStandardRouteS5TtsMapping,
+    finalTextLength: Int,
+    ttsEnabled: Boolean,
+    streamingActive: Boolean,
+    assistantId: Int?,
+): String = buildString {
+    append("NPU_S5_TTS ttsCandidate_created=")
+    append(mapping.hasTtsCandidate)
+    append(" failure_reason=")
+    append(mapping.failureReason ?: "none")
+    append(" speak_text_length=")
+    append(mapping.ttsCandidate?.speakText?.length ?: 0)
+    append(" final_text_length=")
+    append(finalTextLength)
+    append(" tts_enabled=")
+    append(ttsEnabled)
+    append(" streaming_active=")
+    append(streamingActive)
+    append(" assistant_id=")
+    append(assistantId ?: "null")
+    append(" backend_npu_persisted=false")
+}
+
+internal fun buildNpuStandardRouteS5TtsSkipTrace(
+    reason: String,
+    assistantId: Int?,
+): String = buildString {
+    append("NPU_S5_TTS tts_speak_invoked=false")
+    append(" tts_skipped_reason=")
+    append(reason)
+    append(" assistant_id=")
+    append(assistantId ?: "null")
+    append(" backend_npu_persisted=false")
+}
+
+internal fun buildNpuStandardRouteS5TtsSpeakTrace(
+    stage: String,
+    assistantId: Int,
+    speakTextLength: Int,
+): String = buildString {
+    append("NPU_S5_TTS tts_speak_invoked=true")
+    append(" stage=")
+    append(stage)
+    append(" speak_text_length=")
+    append(speakTextLength)
+    append(" assistant_id=")
+    append(assistantId)
+    append(" cooldown=false")
+    append(" stop_suppressed=false")
+    append(" streaming_active=false")
+    append(" backend_npu_persisted=false")
+}
+
 private fun computeLatestUserAnchor(messages: List<Message>): Int {
     if (messages.isEmpty()) {
         return 0
@@ -7871,7 +8336,8 @@ private fun runDevQairt244Sm8750NpuChatScreenRouteViaReflection(
         return DevQairt244Sm8750NpuChatScreenResult(
             success = false,
             reasonCode = "reflection_unavailable:${throwable.javaClass.simpleName}",
-            assistantMessage = "DEV NPU route failed: ${throwable.javaClass.simpleName}",
+            assistantMessage = "実験的NPU route failed: ${throwable.javaClass.simpleName}",
+            selectedRoute = "qairt244_sm8750_hidden_npu",
             failureStage = "reflection",
             stopReason = "reflection_unavailable",
         )
@@ -7885,7 +8351,22 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
     val assistantMessage: String,
     val output: String = "",
     val selectedRoute: String = "qairt244_sm8750_dev_npu",
+    val rawUserPrompt: String = "",
+    val normalizedPrompt: String = "",
+    val finalModelInput: String = "",
+    val finalModelInputLength: Int = 0,
+    val conversationHistoryCount: Int = 0,
+    val systemPromptUsed: String = "",
+    val chatTemplateUsed: String = "",
+    val templateMode: String = "",
+    val templatePrefixLength: Int = 0,
+    val templateSuffixLength: Int = 0,
+    val promptSource: String = "",
+    val promptValidationMode: String = "",
+    val promptFormattingMode: String = "",
     val resolvedModelBasename: String = "",
+    val canonicalModelBasename: String = "",
+    val timestampPrefixStripped: Boolean = false,
     val requiredSm8750ModelPath: Boolean = false,
     val npuBackend: String = "",
     val npuBackendEvidence: String = "",
@@ -7898,7 +8379,26 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
     val fallbackUsed: Boolean = false,
     val failureStage: String = "",
     val stopReason: String = "",
+    val finishReason: String = "",
     val artifactPath: String = "",
+    val routeType: String = "",
+    val rawNativeOutput: String = "",
+    val rawNativeOutputLength: Int = 0,
+    val adapterOutput: String = "",
+    val adapterOutputLength: Int = 0,
+    val displayedAssistantText: String = "",
+    val displayedAssistantTextLength: Int = 0,
+    val outputTokenCount: String = "",
+    val eosDetected: String = "",
+    val outputContainsReplacementChars: String = "",
+    val replacementCharCount: String = "",
+    val outputContainsControlChars: String = "",
+    val outputUnicodeSummary: String = "",
+    val qualityClassification: String = "",
+    val outputFirst200Chars: String = "",
+    val outputLast200Chars: String = "",
+    val markdownMode: String = "",
+    val repairApplied: Boolean = false,
 ) {
     fun toInferenceStats(): InferenceStats = InferenceStats(
         modelName = selectedRoute,
@@ -7908,7 +8408,21 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
         tokenCountMode = "qairt244-dev-npu-lower-level",
         notes = listOf(
             "selected_route=$selectedRoute",
+            "raw_user_prompt_length=${rawUserPrompt.length}",
+            "normalized_prompt_length=${normalizedPrompt.length}",
+            "final_model_input_length=$finalModelInputLength",
+            "conversation_history_count=$conversationHistoryCount",
+            "system_prompt_used=${systemPromptUsed.ifBlank { "none" }}",
+            "chat_template_used=${chatTemplateUsed.ifBlank { "none" }}",
+            "template_mode=${templateMode.ifBlank { "raw" }}",
+            "template_prefix_length=$templatePrefixLength",
+            "template_suffix_length=$templateSuffixLength",
+            "prompt_source=$promptSource",
+            "prompt_validation_mode=$promptValidationMode",
+            "prompt_formatting_mode=${promptFormattingMode.ifBlank { "raw_normalized_prompt" }}",
             "resolved_model_basename=$resolvedModelBasename",
+            "canonical_model_basename=$canonicalModelBasename",
+            "timestamp_prefix_stripped=$timestampPrefixStripped",
             "required_sm8750_model_path=$requiredSm8750ModelPath",
             "npu_backend=$npuBackend",
             "npu_backend_evidence=$npuBackendEvidence",
@@ -7919,6 +8433,20 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
             "ui_cleanup_status=$uiCleanupStatus",
             "failure_stage=$failureStage",
             "stop_reason=$stopReason",
+            "finish_reason=$finishReason",
+            "route_type=$routeType",
+            "raw_native_output_length=$rawNativeOutputLength",
+            "adapter_output_length=$adapterOutputLength",
+            "displayed_assistant_text_length=${displayedAssistantText.ifBlank { assistantMessage }.length}",
+            "output_token_count=${outputTokenCount.ifBlank { "unknown" }}",
+            "eos_detected=${eosDetected.ifBlank { "unknown" }}",
+            "output_contains_replacement_chars=${outputContainsReplacementChars.ifBlank { "unknown" }}",
+            "replacement_char_count=${replacementCharCount.ifBlank { "unknown" }}",
+            "output_contains_control_chars=${outputContainsControlChars.ifBlank { "unknown" }}",
+            "output_unicode_summary=${outputUnicodeSummary.ifBlank { "unknown" }}",
+            "quality_classification=${qualityClassification.ifBlank { "unknown" }}",
+            "markdown_mode=${markdownMode.ifBlank { "non_streaming_direct_insert" }}",
+            "repair_applied=$repairApplied",
         ).joinToString(";"),
         finishReason = if (success) "success" else reasonCode,
         localSourceSummary = toLocalSourceSummary(),
@@ -7929,7 +8457,22 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
 
     fun toLocalSourceSummary(): String = listOf(
         "selected_route=$selectedRoute",
+        "raw_user_prompt=$rawUserPrompt",
+        "normalized_prompt=$normalizedPrompt",
+        "final_model_input=$finalModelInput",
+        "final_model_input_length=$finalModelInputLength",
+        "conversation_history_count=$conversationHistoryCount",
+        "system_prompt_used=${systemPromptUsed.ifBlank { "none" }}",
+        "chat_template_used=${chatTemplateUsed.ifBlank { "none" }}",
+        "template_mode=${templateMode.ifBlank { "raw" }}",
+        "template_prefix_length=$templatePrefixLength",
+        "template_suffix_length=$templateSuffixLength",
+        "prompt_source=$promptSource",
+        "prompt_validation_mode=$promptValidationMode",
+        "prompt_formatting_mode=${promptFormattingMode.ifBlank { "raw_normalized_prompt" }}",
         "resolved_model_basename=$resolvedModelBasename",
+        "canonical_model_basename=$canonicalModelBasename",
+        "timestamp_prefix_stripped=$timestampPrefixStripped",
         "required_sm8750_model_path=$requiredSm8750ModelPath",
         "npu_backend=$npuBackend",
         "npu_backend_evidence=$npuBackendEvidence",
@@ -7941,6 +8484,25 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
         "ui_cleanup_status=$uiCleanupStatus",
         "failure_stage=$failureStage",
         "stop_reason=$stopReason",
+        "finish_reason=$finishReason",
+        "route_type=$routeType",
+        "raw_native_output=${rawNativeOutput}",
+        "raw_native_output_length=$rawNativeOutputLength",
+        "adapter_output=${adapterOutput}",
+        "adapter_output_length=$adapterOutputLength",
+        "displayed_assistant_text=${displayedAssistantText.ifBlank { assistantMessage }}",
+        "displayed_assistant_text_length=${displayedAssistantText.ifBlank { assistantMessage }.length}",
+        "output_token_count=${outputTokenCount.ifBlank { "unknown" }}",
+        "eos_detected=${eosDetected.ifBlank { "unknown" }}",
+        "output_contains_replacement_chars=${outputContainsReplacementChars.ifBlank { "unknown" }}",
+        "replacement_char_count=${replacementCharCount.ifBlank { "unknown" }}",
+        "output_contains_control_chars=${outputContainsControlChars.ifBlank { "unknown" }}",
+        "output_unicode_summary=${outputUnicodeSummary.ifBlank { "unknown" }}",
+        "quality_classification=${qualityClassification.ifBlank { "unknown" }}",
+        "output_first_200_chars=$outputFirst200Chars",
+        "output_last_200_chars=$outputLast200Chars",
+        "markdown_mode=${markdownMode.ifBlank { "non_streaming_direct_insert" }}",
+        "repair_applied=$repairApplied",
         "normal_ui_route_connected=false",
         "artifact_path=$artifactPath",
     ).joinToString("\n")
@@ -7958,7 +8520,7 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
             val reasonCode = values["reasonCode"].orEmpty().ifBlank { if (success) "success" else "unknown" }
             val output = values["output"].orEmpty()
             val assistantMessage = values["assistant_message"].orEmpty().ifBlank {
-                if (success) output else "DEV NPU route failed: $reasonCode"
+                if (success) output else "実験的NPU route failed: $reasonCode"
             }
             return DevQairt244Sm8750NpuChatScreenResult(
                 success = success,
@@ -7966,7 +8528,23 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
                 assistantMessage = assistantMessage,
                 output = output,
                 selectedRoute = values["selected_route"].orEmpty().ifBlank { "qairt244_sm8750_dev_npu" },
+                rawUserPrompt = values["raw_user_prompt"].orEmpty(),
+                normalizedPrompt = values["normalized_prompt"].orEmpty(),
+                finalModelInput = values["final_model_input"].orEmpty(),
+                finalModelInputLength = values["final_model_input_length"]?.toIntOrNull()
+                    ?: values["final_model_input"].orEmpty().length,
+                conversationHistoryCount = values["conversation_history_count"]?.toIntOrNull() ?: 0,
+                systemPromptUsed = values["system_prompt_used"].orEmpty(),
+                chatTemplateUsed = values["chat_template_used"].orEmpty(),
+                templateMode = values["template_mode"].orEmpty(),
+                templatePrefixLength = values["template_prefix_length"]?.toIntOrNull() ?: 0,
+                templateSuffixLength = values["template_suffix_length"]?.toIntOrNull() ?: 0,
+                promptSource = values["prompt_source"].orEmpty(),
+                promptValidationMode = values["prompt_validation_mode"].orEmpty(),
+                promptFormattingMode = values["prompt_formatting_mode"].orEmpty(),
                 resolvedModelBasename = values["resolved_model_basename"].orEmpty(),
+                canonicalModelBasename = values["canonical_model_basename"].orEmpty(),
+                timestampPrefixStripped = values["timestamp_prefix_stripped"]?.toBooleanStrictOrNull() ?: false,
                 requiredSm8750ModelPath = values["required_sm8750_model_path"]?.toBooleanStrictOrNull() ?: false,
                 npuBackend = values["npu_backend"].orEmpty(),
                 npuBackendEvidence = values["npu_backend_evidence"].orEmpty(),
@@ -7979,7 +8557,29 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
                 fallbackUsed = values["fallback_used"]?.toBooleanStrictOrNull() ?: false,
                 failureStage = values["failure_stage"].orEmpty(),
                 stopReason = values["stop_reason"].orEmpty(),
+                finishReason = values["finish_reason"].orEmpty(),
                 artifactPath = values["artifact_path"].orEmpty(),
+                routeType = values["route_type"].orEmpty(),
+                rawNativeOutput = values["raw_native_output"].orEmpty(),
+                rawNativeOutputLength = values["raw_native_output_length"]?.toIntOrNull()
+                    ?: values["raw_native_output"].orEmpty().length,
+                adapterOutput = values["adapter_output"].orEmpty().ifBlank { output },
+                adapterOutputLength = values["adapter_output_length"]?.toIntOrNull()
+                    ?: values["adapter_output"].orEmpty().ifBlank { output }.length,
+                displayedAssistantText = values["displayed_assistant_text"].orEmpty().ifBlank { assistantMessage },
+                displayedAssistantTextLength = values["displayed_assistant_text_length"]?.toIntOrNull()
+                    ?: values["displayed_assistant_text"].orEmpty().ifBlank { assistantMessage }.length,
+                outputTokenCount = values["output_token_count"].orEmpty(),
+                eosDetected = values["eos_detected"].orEmpty(),
+                outputContainsReplacementChars = values["output_contains_replacement_chars"].orEmpty(),
+                replacementCharCount = values["replacement_char_count"].orEmpty(),
+                outputContainsControlChars = values["output_contains_control_chars"].orEmpty(),
+                outputUnicodeSummary = values["output_unicode_summary"].orEmpty(),
+                qualityClassification = values["quality_classification"].orEmpty(),
+                outputFirst200Chars = values["output_first_200_chars"].orEmpty(),
+                outputLast200Chars = values["output_last_200_chars"].orEmpty(),
+                markdownMode = values["markdown_mode"].orEmpty(),
+                repairApplied = values["repair_applied"]?.toBooleanStrictOrNull() ?: false,
             )
         }
 
@@ -7987,6 +8587,68 @@ private data class DevQairt244Sm8750NpuChatScreenResult(
             value.replace("\\n", "\n").replace("\\\\", "\\")
     }
 }
+
+private fun writeDevQairt244Sm8750DisplayDiagnostics(
+    context: Context,
+    result: DevQairt244Sm8750NpuChatScreenResult,
+    displayedAssistantText: String,
+    assistantMessageId: Int,
+) {
+    runCatching {
+        File(context.filesDir, "qairt244_standard_hidden_display_diagnostics.txt").writeText(
+            listOf(
+                "route_type=${result.routeType.ifBlank { "standard_hidden_chat_screen" }}",
+                "selected_route=${result.selectedRoute}",
+                "assistant_message_id=$assistantMessageId",
+                "success=${result.success}",
+                "reasonCode=${result.reasonCode}",
+                "raw_user_prompt=${escapeDevQairt244DiagnosticValue(result.rawUserPrompt)}",
+                "normalized_prompt=${escapeDevQairt244DiagnosticValue(result.normalizedPrompt)}",
+                "final_model_input=${escapeDevQairt244DiagnosticValue(result.finalModelInput)}",
+                "final_model_input_length=${result.finalModelInputLength}",
+                "conversation_history_count=${result.conversationHistoryCount}",
+                "system_prompt_used=${escapeDevQairt244DiagnosticValue(result.systemPromptUsed.ifBlank { "none" })}",
+                "chat_template_used=${escapeDevQairt244DiagnosticValue(result.chatTemplateUsed.ifBlank { "none" })}",
+                "template_mode=${result.templateMode.ifBlank { "raw" }}",
+                "template_prefix_length=${result.templatePrefixLength}",
+                "template_suffix_length=${result.templateSuffixLength}",
+                "prompt_source=${result.promptSource}",
+                "prompt_validation_mode=${result.promptValidationMode}",
+                "prompt_formatting_mode=${result.promptFormattingMode.ifBlank { "raw_normalized_prompt" }}",
+                "raw_native_output=${escapeDevQairt244DiagnosticValue(result.rawNativeOutput)}",
+                "raw_native_output_length=${result.rawNativeOutputLength}",
+                "adapter_output=${escapeDevQairt244DiagnosticValue(result.adapterOutput)}",
+                "adapter_output_length=${result.adapterOutputLength}",
+                "displayed_assistant_text=${escapeDevQairt244DiagnosticValue(displayedAssistantText)}",
+                "displayed_assistant_text_length=${displayedAssistantText.length}",
+                "finish_reason=${result.finishReason}",
+                "stop_reason=${result.stopReason}",
+                "output_token_count=${result.outputTokenCount.ifBlank { "unknown" }}",
+                "eos_detected=${result.eosDetected}",
+                "output_contains_replacement_chars=${result.outputContainsReplacementChars}",
+                "replacement_char_count=${result.replacementCharCount}",
+                "output_contains_control_chars=${result.outputContainsControlChars}",
+                "output_unicode_summary=${escapeDevQairt244DiagnosticValue(result.outputUnicodeSummary)}",
+                "quality_classification=${result.qualityClassification}",
+                "output_first_200_chars=${escapeDevQairt244DiagnosticValue(result.outputFirst200Chars)}",
+                "output_last_200_chars=${escapeDevQairt244DiagnosticValue(result.outputLast200Chars)}",
+                "max_output_tokens=${result.maxOutputTokens}",
+                "decode_elapsed_ms=${result.decodeElapsedMs ?: ""}",
+                "npu_backend=${result.npuBackend}",
+                "npu_backend_evidence=${result.npuBackendEvidence}",
+                "fallback_used=${result.fallbackUsed}",
+                "timeout=false",
+                "fresh_crash=false",
+                "markdown_mode=${result.markdownMode.ifBlank { "non_streaming_direct_insert" }}",
+                "repair_applied=${result.repairApplied}",
+                "streaming=false",
+            ).joinToString(separator = "\n", postfix = "\n"),
+        )
+    }
+}
+
+private fun escapeDevQairt244DiagnosticValue(value: String): String =
+    value.replace("\\", "\\\\").replace("\n", "\\n")
 
 private fun List<String>.toAttachmentUriStringsJson(): String =
     JSONArray().apply { forEach { uri -> put(uri) } }.toString()

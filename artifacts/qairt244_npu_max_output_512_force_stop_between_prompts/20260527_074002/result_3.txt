@@ -1,0 +1,116 @@
+marker=qairt244_editable_prompt_smoke_v1
+base_marker=qairt244_short_multitoken_smoke_v1
+result=success
+actual_prompt=<start_of_turn>user
+ラミィのNPU推論について短く説明して
+<end_of_turn>
+<start_of_turn>model
+normalized_prompt=<start_of_turn>user
+ラミィのNPU推論について短く説明して
+<end_of_turn>
+<start_of_turn>model
+prompt_source=editable_prompt
+native_prompt_validation_mode=utf8_hidden_template_experiment
+utf8_allowed=true
+prompt_bytes=106
+prompt_input_code_points=74
+prompt_input_code_point_limit=128
+prompt_input_limit_mode=hidden_template_experiment
+native_prompt_input_code_point_limit=128
+native_prompt_input_limit_mode=hidden_template_experiment
+prompt_token_count=unavailable
+prompt_token_count_source=not_exposed_by_lower_level_entrypoint
+max_output_tokens=512
+native_max_output_tokens_limit=512
+max_output_tokens_limit_marker=qairt244_editable_prompt_max512_v1
+conversation_created=no
+generate_response=no
+normal_ui_connected=no
+selected_path_npu_normal_route=no
+output_bytes=668
+output_token_count=unavailable
+output_token_count_source=not_exposed_by_RunDecode_response
+elapsed_ms=5487
+model_assets_elapsed_ms=0
+engine_settings_elapsed_ms=0
+engine_create_elapsed_ms=865
+session_create_elapsed_ms=0
+prefill_elapsed_ms=119
+decode_elapsed_ms=4359
+cleanup_elapsed_ms=142
+npu_backend=NPU
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+detail=completed
+output=_response>
+ラミィのNPU推論とは、**NPU（ニューラル・プロセ Processor）**という専用のチップを利用して、**AIモデル（特にラミィが扱うような画像認識や音声処理などの推論タスク）を非常に高速かつ低消費電力で実行する技術**を指します。
+
+**短くまとめると:**
+ラミィのNPU推論は、**専用のAI ラジオチップを使って、AIの計算をめちゃくちゃ速く、電気代を抑えて処理する仕組み**です。これにより、リアルタイムでの応答や、バッテリー駆動のデバイスでのスムーズなAI機能提供が可能になります。
+selected_route=qairt244_sm8750_hidden_npu
+resolved_model_basename=1779611766669_gemma-4-E2B-it_qualcomm_sm8750.litertlm
+canonical_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+timestamp_prefix_stripped=true
+required_sm8750_model_path=true
+requested_prompt=ラミィのNPU推論について短く説明して
+actual_prompt=ラミィのNPU推論について短く説明して
+raw_user_prompt=ラミィのNPU推論について短く説明して
+normalized_prompt=ラミィのNPU推論について短く説明して
+final_model_input=<start_of_turn>user\nラミィのNPU推論について短く説明して\n<end_of_turn>\n<start_of_turn>model
+final_model_input_length=74
+conversation_history_count=0
+system_prompt_used=none
+chat_template_used=gemma_it_like
+template_mode=gemma_it_like
+template_prefix_length=20
+template_suffix_length=35
+prompt_source=chat_screen
+prompt_formatting_mode=hidden_prompt_template_experiment
+prompt_validation_mode=utf8_hidden_template_experiment
+prompt_input_code_points=74
+prompt_input_code_point_limit=128
+prompt_input_limit_mode=hidden_template_experiment
+native_prompt_validation_mode=utf8_hidden_template_experiment
+native_prompt_input_code_point_limit=128
+native_prompt_input_limit_mode=hidden_template_experiment
+utf8_allowed=true
+max_output_tokens=512
+run_decode_reached=true
+fallback_used=false
+timeout=false
+fresh_crash=false
+db=false
+tts=false
+markdown=false
+streaming=false
+selected_path_npu_saved=false
+route_type=standard_hidden_chat_screen
+raw_native_output=_response>\nラミィのNPU推論とは、**NPU（ニューラル・プロセ Processor）**という専用のチップを利用して、**AIモデル（特にラミィが扱うような画像認識や音声処理などの推論タスク）を非常に高速かつ低消費電力で実行する技術**を指します。\n\n**短くまとめると:**\nラミィのNPU推論は、**専用のAI ラジオチップを使って、AIの計算をめちゃくちゃ速く、電気代を抑えて処理する仕組み**です。これにより、リアルタイムでの応答や、バッテリー駆動のデバイスでのスムーズなAI機能提供が可能になります。
+raw_native_output_length=262
+raw_output=_response>\nラミィのNPU推論とは、**NPU（ニューラル・プロセ Processor）**という専用のチップを利用して、**AIモデル（特にラミィが扱うような画像認識や音声処理などの推論タスク）を非常に高速かつ低消費電力で実行する技術**を指します。\n\n**短くまとめると:**\nラミィのNPU推論は、**専用のAI ラジオチップを使って、AIの計算をめちゃくちゃ速く、電気代を抑えて処理する仕組み**です。これにより、リアルタイムでの応答や、バッテリー駆動のデバイスでのスムーズなAI機能提供が可能になります。
+raw_output_length=262
+sanitized_output=ラミィのNPU推論とは、**NPU（ニューラル・プロセ Processor）**という専用のチップを利用して、**AIモデル（特にラミィが扱うような画像認識や音声処理などの推論タスク）を非常に高速かつ低消費電力で実行する技術**を指します。\n\n**短くまとめると:**\nラミィのNPU推論は、**専用のAI ラジオチップを使って、AIの計算をめちゃくちゃ速く、電気代を抑えて処理する仕組み**です。これにより、リアルタイムでの応答や、バッテリー駆動のデバイスでのスムーズなAI機能提供が可能になります。
+sanitized_output_length=251
+sanitizer_applied=true
+removed_template_token_count=1
+removed_prompt_echo=false
+code_block_detected=false
+code_fence_completed=false
+adapter_output=ラミィのNPU推論とは、**NPU（ニューラル・プロセ Processor）**という専用のチップを利用して、**AIモデル（特にラミィが扱うような画像認識や音声処理などの推論タスク）を非常に高速かつ低消費電力で実行する技術**を指します。\n\n**短くまとめると:**\nラミィのNPU推論は、**専用のAI ラジオチップを使って、AIの計算をめちゃくちゃ速く、電気代を抑えて処理する仕組み**です。これにより、リアルタイムでの応答や、バッテリー駆動のデバイスでのスムーズなAI機能提供が可能になります。
+adapter_output_length=251
+output_token_count=unavailable
+finish_reason=not_exposed_by_lower_level_entrypoint
+stop_reason=
+eos_detected=false
+output_contains_replacement_chars=false
+replacement_char_count=0
+output_contains_control_chars=true
+output_unicode_summary=utf16_length=262;code_point_count=262;utf8_byte_count=668;classification=unicode_decoded_string;replacement_char_count=0;control_chars=U+000Ax4;white_circle_u3007_count=0;question_mark_count=0;first_code_points=U+005F U+0072 U+0065 U+0073 U+0070 U+006F U+006E U+0073 U+0065 U+003E U+000A U+30E9 U+30DF U+30A3 U+306E U+004E U+0050 U+0055 U+63A8 U+8AD6 U+3068 U+306F U+3001 U+002A U+002A U+004E U+0050 U+0055 U+FF08 U+30CB U+30E5 U+30FC
+quality_classification=mixed_language
+output_first_200_chars=_response>\nラミィのNPU推論とは、**NPU（ニューラル・プロセ Processor）**という専用のチップを利用して、**AIモデル（特にラミィが扱うような画像認識や音声処理などの推論タスク）を非常に高速かつ低消費電力で実行する技術**を指します。\n\n**短くまとめると:**\nラミィのNPU推論は、**専用のAI ラジオチップを使って、AIの計算をめちゃくちゃ速く、電気代を抑えて処理
+output_last_200_chars=用して、**AIモデル（特にラミィが扱うような画像認識や音声処理などの推論タスク）を非常に高速かつ低消費電力で実行する技術**を指します。\n\n**短くまとめると:**\nラミィのNPU推論は、**専用のAI ラジオチップを使って、AIの計算をめちゃくちゃ速く、電気代を抑えて処理する仕組み**です。これにより、リアルタイムでの応答や、バッテリー駆動のデバイスでのスムーズなAI機能提供が可能になります。
+markdown_mode=non_streaming_direct_insert
+repair_applied=false
+qairt244_chat_screen_real_npu_adapter_v1 runId=chat-real-1779835268055-057dc397-1ad2-49a0-b641-2a6d6e6dd67f state=success elapsed_ms=5494 result=success output=ラミィのNPU推論とは、**NPU（ニューラル・プロセ Processor）**という専用のチップを利用して、**AIモデル（特にラミィが扱うような画像認識や音声処理などの推論タスク）を非常に高速かつ低消費電力で実行する技術**を指します。
+
+**短くまとめると:**
+ラミィのNPU推論は、**専用のAI ラジオチップを使って、AIの計算をめちゃくちゃ速く、電気代を抑えて処理する仕組み**です。これにより、リアルタイムでの応答や、バッテリー駆動のデバイスでのスムーズなAI機能提供が可能になります。 sanitizer_applied=true removed_template_token_count=1 removed_prompt_echo=false db=false tts=false markdown=false stream=false

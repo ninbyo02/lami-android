@@ -1,0 +1,463 @@
+docs/litert_qairt244_npu_coldstart_force_stop_profile.md:44:did not connect NPU to the normal UI, did not set `selectedPath=npu`, did not
+docs/qairt244_standard_hidden_experimental_plan.md:7:`Backend.NPU` enablement. It is a controlled developer-only bridge so
+docs/qairt244_standard_hidden_experimental_plan.md:40:Do not move this into the normal selected-path NPU route. Do not expose generic
+docs/qairt244_standard_hidden_experimental_plan.md:50:  detection, qcs8275/generic/E2B/E4B rejection, candidate resolution, and model
+docs/qairt244_standard_hidden_experimental_plan.md:68:execution branch, no production `Backend.NPU` promotion, and no automatic
+docs/qairt244_standard_hidden_experimental_plan.md:132:  `gemma-4-E2B-it_qualcomm_sm8750.litertlm` or
+docs/qairt244_standard_hidden_experimental_plan.md:133:  `<digits>_gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/qairt244_standard_hidden_experimental_plan.md:134:- Disabled with an explicit reason when the model is absent, ambiguous, generic,
+docs/qairt244_standard_hidden_experimental_plan.md:135:  qcs8275, E4B, plain E2B, or non-numeric-prefixed
+docs/qairt244_standard_hidden_experimental_plan.md:207:- qcs8275, generic, plain E2B, E4B, and non-numeric-prefixed files are rejected
+docs/qairt244_standard_hidden_experimental_plan.md:228:- only qcs8275, generic, E4B, or plain E2B models are present
+docs/qairt244_standard_hidden_experimental_plan.md:454:`Backend.NPU` promotion. The gate remains developer access plus
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:21:- `Backend.NPU(String nativeLibraryDir)`: created
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:22:- `EngineConfig(modelPath, Backend.NPU, ...)`: created
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:149:This matches the class of reports where `litertlm-android` exposes `Backend.NPU`, but the required Qualcomm dispatch runtime is not bundled or is not compatible with the Maven AAR native stack. It also matches the risk reported for standalone/public HEAD dispatch builds: a dispatch `.so` can export the expected symbol but still fail due to API layout, capability, or generation mismatch.
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:176:   - model: `gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:232:Backend.NPU created class=com.google.ai.edge.litertlm.Backend$NPU
+docs/litert_npu_dispatch_runtime_compatibility_analysis.md:284:3. Run the existing guarded probes in order: `Backend.NPU(String)` instantiate, `EngineConfig` dry-build, then explicit opt-in `Engine.initialize` dry-run.
+docs/litert_qnn_qairt_coupling_findings.md:9:- `Backend.NPU(String)`: success
+docs/litert_qnn_qairt_coupling_findings.md:88:No `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, or normal
+docs/litert_qnn_qairt_coupling_findings.md:212:- `Backend.NPU(nativeLibraryDir)` can instantiate, but dispatch runtime is still considered unusable.
+docs/litert_qnn_qairt_coupling_findings.md:250:- no `selectedPath=npu`
+docs/litert_qnn_qairt_coupling_findings.md:348:   `selectedPath=npu`, or wire `Backend.NPU` into normal UI inference.
+docs/litert_qnn_qairt_coupling_findings.md:377:- Lami's target remains Android app `Backend.NPU(nativeLibraryDir)` on
+docs/litert_qnn_qairt_coupling_findings.md:419:Safety status remains unchanged: no normal UI NPU path, no `selectedPath=npu`,
+docs/litert_qnn_qairt_coupling_findings.md:445:`lib/arm64-v8a` libraries and `Backend.NPU(nativeLibraryDir)` without shell
+scripts/run_qairt244_npu_output_sanitizer.sh:113:      rg -n "QNN|HTP|FastRPC|RunDecode|EngineFactory|native_prompt|sanitizer|selected_path_npu|fallback_used|timeout|fresh_crash" "$file" | sed "s#^#$(basename "$file"):#" || true
+scripts/run_qairt244_npu_output_sanitizer.sh:119:  rg -n "selectedPath.*npu|selected_path_npu|tts=true|markdown=true|streaming=true|Backend\\.NPU|gemma-4-E2B-it_qualcomm_sm8750|qcs8275|generic" \
+docs/radxa_qairt_ecosystem_analysis.md:203:- `Backend.NPU(nativeLibraryDir)` as the only API-level runtime path.
+docs/radxa_qairt_ecosystem_analysis.md:206:`Backend.NPU(nativeLibraryDir)` can discover or accept the same QNN/HTP runtime
+scripts/sync_qairt244_npu_diagnostic_summary_to_app.sh:280:  echo "selected_path_npu=disabled"
+docs/litert_qairt244_jni_sentinel_logcat_result.md:68:  --model-path /data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/litert_native_compatibility_matrix.md:9:This is a static ABI investigation only. No dispatch runtime was copied into Lami, no native library was loaded, and `Backend.NPU` was not connected to inference.
+docs/qualcomm-qnn-npu-setup.md:10:- LiteRT-LM backend API: `Backend.NPU` is present
+docs/qualcomm-qnn-npu-setup.md:98:This is intentionally conservative. A generic model such as `gemma-4-E4B-it.litertlm` should continue to use GPU until an NPU-specific model is selected and CLI proof exists.
+docs/qairt244_native_patch_management.md:56:route. They do not promote `Backend.NPU`, add fallback, support generic/E4B/
+docs/qairt244_native_patch_management.md:57:qcs8275 models, or elevate the normal UI route.
+docs/qairt244_native_patch_management.md:152:promote `Backend.NPU`, add fallback, or change normal app routing.
+docs/litert_qairt244_htp_pd_fastrpc_config_analysis.md:25:`QnnHtpDevice_CustomConfig_t`, carried through generic
+docs/qairt_244_acquisition_notes.md:261:- do not set `selectedPath=npu`
+scripts/stage_gallery_dispatch_for_npu_experiment.sh:97:printf 'staged for detection only; do not load; do not enable Backend.NPU\n'
+scripts/stage_gallery_dispatch_for_npu_experiment.sh:144:printf 'policy: staged for detection only; do not load; do not enable Backend.NPU\n'
+docs/qpm_installation_notes.md:63:QPM3 documentation uses the generic name `installer.deb`. Older public
+docs/qpm_installation_notes.md:206:- do not set `selectedPath=npu`
+docs/litert_lm_npu_readiness.md:16:- LiteRT-LM `Backend.NPU(String)` is detected.
+docs/litert_lm_npu_readiness.md:23:- `gemma-4-E2B-it.litertlm` is treated as generic GPU-compatible LiteRT-LM.
+docs/litert_lm_npu_readiness.md:24:- A generic `.litertlm` model is not assumed to be an NPU SoC-specific model.
+docs/litert_lm_npu_readiness.md:87:Both `litertlm-android-0.10.0` and `0.11.0` expose `com.google.ai.edge.litertlm.Backend.NPU` with constructors including `NPU()` and `NPU(String)`. This only proves the Kotlin API is present; it does not prove the Qualcomm dispatch runtime is packaged.
+docs/litert_lm_npu_readiness.md:114:Google AI Edge Gallery source uses `Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)` when the selected accelerator is NPU or TPU, while its default accelerator path remains GPU unless a model/user configuration selects NPU.
+docs/litert_lm_npu_readiness.md:129:- `google-ai-edge/LiteRT#6889` requests publishing a prebuilt `libLiteRtDispatch_Qualcomm.so` alongside `litertlm-android`. The issue reports that `litertlm-android:0.10.0` exposes `Backend.NPU()` but does not include the required Qualcomm dispatch library, and that missing or incompatible dispatch can lead to native abort: https://github.com/google-ai-edge/LiteRT/issues/6889
+docs/litert_lm_npu_readiness.md:138:- `litertlm-android` may expose `Backend.NPU` but may not package Qualcomm dispatch runtime in the public Maven AAR.
+docs/litert_lm_npu_readiness.md:155:Do not apply `Backend.NPU` from the app while the dispatch API `.so` is missing.
+app/src/main/java/io/github/ninbyo02/lami/npu/Qairt244ModelPathResolver.kt:7:    const val CANONICAL_MODEL_BASENAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+docs/litert_qairt244_ui_integration_safety_plan.md:13:- No `selectedPath=npu` in the normal route.
+docs/litert_qairt244_ui_integration_safety_plan.md:73:`selectedPath=npu`, or high-level `generateResponse`. Host-side timeout,
+docs/litert_qairt244_ui_integration_safety_plan.md:127:`selectedPath=npu` route remain untouched.
+docs/litert_qairt244_ui_integration_safety_plan.md:154:  normal `selectedPath=npu` disabled
+docs/litert_qairt244_ui_integration_safety_plan.md:183:- normal `selectedPath=npu`: not used
+docs/litert_qairt244_ui_integration_safety_plan.md:216:- normal `selectedPath=npu`:
+docs/litert_qairt244_ui_integration_safety_plan.md:241:  `selectedPath=npu`, QNN, HTP, FastRPC, and `generateResponse`
+docs/litert_qairt244_ui_integration_safety_plan.md:263:  normal `selectedPath=npu` is still not applied or persisted
+docs/litert_qairt244_ui_integration_safety_plan.md:286:- normal `ChatScreen`, normal `selectedPath=npu`, high-level
+docs/litert_qairt244_ui_integration_safety_plan.md:328:- normal `ChatScreen`, normal `selectedPath=npu`, high-level
+docs/litert_qairt244_ui_integration_safety_plan.md:437:- normal `ChatScreen` route and normal `selectedPath=npu` route untouched
+docs/litert_qairt244_ui_integration_safety_plan.md:473:- normal `selectedPath=npu` is never persisted or auto-restored
+docs/litert_qairt244_ui_integration_safety_plan.md:483:not set normal `selectedPath=npu`, and does not run NPU generation.
+docs/litert_qairt244_ui_integration_safety_plan.md:499:normal `selectedPath=npu`.
+docs/litert_qairt244_ui_integration_safety_plan.md:515:`generateResponse`, normal `selectedPath=npu`, DB, TTS, Markdown, streaming, or
+docs/litert_qairt244_ui_integration_safety_plan.md:568:- normal `selectedPath=npu` is not applied
+docs/litert_qairt244_ui_integration_safety_plan.md:692:- No `selectedPath=npu` normal-route state was applied or persisted.
+docs/litert_qairt244_ui_integration_safety_plan.md:705:- never persist `selectedPath=npu`
+docs/litert_qairt244_ui_integration_safety_plan.md:722:`Engine.initialize`, `RunDecode`, or `Backend.NPU`.
+docs/litert_qairt244_ui_integration_safety_plan.md:740:- `selectedPath=npu`: not saved
+docs/litert_qairt244_ui_integration_safety_plan.md:762:- `selectedPath=npu`: not saved
+docs/qairt244_native_artifact_reproducibility.md:9:does not promote `Backend.NPU`, does not add fallback, and does not support
+docs/qairt244_native_artifact_reproducibility.md:10:generic/E4B/qcs8275 models.
+docs/qairt244_native_artifact_reproducibility.md:51:This is still not `Backend.NPU` promotion and does not add fallback or normal UI
+docs/qairt244_native_artifact_reproducibility.md:118:This is still not `Backend.NPU` promotion and does not add fallback or normal UI
+docs/qairt244_native_artifact_reproducibility.md:183:This is still not `Backend.NPU` promotion and does not add fallback or normal UI
+docs/qairt244_native_artifact_reproducibility.md:371:The UTF-8 prompt update is limited to the DEV-only editable-prompt validator. It trims ASCII spaces, rejects empty prompts, rejects NUL, rejects invalid UTF-8, rejects prompts above 32 UTF-8 code points, and no longer rejects non-ASCII UTF-8 solely because bytes are above ASCII. The result file records `native_prompt_validation_mode=utf8_internal_intent` and `utf8_allowed=true`; diagnostic logs include the same mode on entry and prompt validation. This does not change `max_output_tokens`, the UI text runner, normal ChatScreen routing, fallback behavior, or production `Backend.NPU` wiring.
+docs/qairt_242_acquisition_notes.md:39:as proof of the expected SM8750 Android `Backend.NPU` runtime generation.
+docs/qairt_242_acquisition_notes.md:169:- do not set `selectedPath=npu`
+docs/qpm_qairt244_install_workflow.md:173:- no `selectedPath=npu`
+docs/qairt244_non_ascii_prompt_plan.md:51:- Target model: `gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/qairt244_non_ascii_prompt_plan.md:73:This document covers Japanese/non-ASCII prompt input for the DEV-only qairt244 SM8750 NPU runner. It does not change the NPU route, token limit, native artifact, fallback behavior, or production Backend.NPU wiring.
+docs/qairt244_non_ascii_prompt_plan.md:191:exact basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_non_ascii_prompt_plan.md:196:selectedPath=npu not persisted
+docs/qairt244_non_ascii_prompt_plan.md:313:- Release, standard debug, normal local inference, and Backend.NPU production paths remain unchanged.
+docs/litert_qairt244_single_token_smoke_plan.md:18:  `selectedPath=npu`.
+docs/litert_qairt244_single_token_smoke_plan.md:26:2. Create `Backend.NPU(nativeLibraryDir)`.
+docs/litert_lm_initialize_only_cli_design.md:121:`Backend.NPU(nativeLibraryDir)` argument.
+app/src/main/java/io/github/ninbyo02/lami/local/LocalInferenceFailureDiagnostics.kt:152:    appendLine("Backend.NPU(String) constructor availability=${diagnostics.backendNpuStringConstructorAvailable}")
+docs/litert_qairt244_short_multitoken_smoke_result.md:104:- `selectedPath=npu` normal path
+scripts/run_qairt244_npu_diagnostic_chat_ui_multirun.sh:320:    printf 'selectedPath_npu_normal_route=false\n'
+scripts/run_qairt244_npu_diagnostic_chat_ui_multirun.sh:351:    printf 'selectedPath_npu_normal_route=false\n'
+scripts/analyze_qairt_qnn_coupling.sh:11:MODEL_PATH="${MODEL_PATH:-/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm}"
+scripts/run_qairt244_app_jni_smoke.sh:109:  echo "- Backend.NPU: not created"
+docs/litert_qairt244_failure_root_cause_matrix.md:113:- normal `selectedPath=npu` route: disabled
+docs/litert_qairt244_failure_root_cause_matrix.md:132:- Normal `selectedPath=npu` remains unused and disabled.
+docs/litert_qairt244_failure_root_cause_matrix.md:150:normal setting persistence of `selectedPath=npu`, or unclear cleanup.
+docs/litert_qairt244_failure_root_cause_matrix.md:169:- normal `selectedPath=npu`
+docs/litert_qairt244_failure_root_cause_matrix.md:383:- no `selectedPath=npu` normal route
+docs/litert_qairt244_failure_root_cause_matrix.md:409:- no `selectedPath=npu` normal route
+docs/litert_qairt244_failure_root_cause_matrix.md:487:- no normal UI route, no `selectedPath=npu` normal path, no high-level
+docs/litert_qairt244_failure_root_cause_matrix.md:518:- no normal UI route, no `selectedPath=npu` normal path, no high-level
+docs/litert_qairt244_failure_root_cause_matrix.md:594:- no `Backend.NPU`, `Engine.initialize`, LiteRT engine, `Conversation`,
+docs/litert_qairt244_failure_root_cause_matrix.md:990:  `selectedPath=npu` route remains unused.
+docs/litert_qairt244_failure_root_cause_matrix.md:1078:- normal `selectedPath=npu` route disabled
+docs/litert_qairt244_failure_root_cause_matrix.md:1124:- normal `selectedPath=npu`: not used
+docs/litert_qairt244_failure_root_cause_matrix.md:1142:  normal `ChatScreen`, and normal `selectedPath=npu` remain unused
+docs/litert_qairt244_failure_root_cause_matrix.md:1215:- `selectedPath=npu`
+docs/litert_qairt244_failure_root_cause_matrix.md:1216:- normal UI `Backend.NPU` wiring
+docs/litert_qairt244_failure_root_cause_matrix.md:1228:| `selectedPath=npu` | Not applied | toggle state files and runtime marker scan | OK |
+docs/litert_qairt244_failure_root_cause_matrix.md:1240:| `selectedPath=npu` saved/applied | Roll back and fix settings path | NPU must not become normal route state |
+docs/litert_qairt244_failure_root_cause_matrix.md:1265:| selectedPath=npu | not saved | summary / toggle state | OK |
+docs/litert_qairt244_failure_root_cause_matrix.md:1285:| selectedPath=npu | not saved | resolver artifact / summary | OK |
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NativeResultParser.kt:74:        "selected_path_npu_saved",
+scripts/package_npu_issue_artifacts.sh:124:This bundle contains the prepared GitHub issue body and supporting local diagnostics for the isolated LiteRT-LM `Backend.NPU` Engine.initialize dry-run crashes on SM8750.
+scripts/package_npu_issue_artifacts.sh:139:- No normal app inference path was wired to `Backend.NPU`.
+scripts/run_custom_build_stack_probe.sh:18:DEFAULT_MODEL_BASENAME="gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+scripts/run_qairt244_short_multitoken_smoke.sh:13:MODEL_PATH="/data/user/0/$APP_ID/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+scripts/run_qairt244_short_multitoken_smoke.sh:81:    printf 'selected_path_npu_normal_route=no\n'
+scripts/run_qairt244_short_multitoken_smoke.sh:150:    printf 'normal_ui_disconnected\tpass\tNo ChatScreen route or selectedPath=npu normal path is touched.\n'
+scripts/map_gallery_litert_versions.sh:186:    grep -RInE 'LiteRtDispatch|dispatch_api|Qnn|QNN|jniLibs|nativeLibraryDir|Backend.NPU|EngineConfig' "$android" 2>/dev/null | head -n 200 || true
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:6:comparison mode. This is not Backend.NPU promotion and does not change the
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:91:128, does not add fallback, does not support generic/E4B/qcs8275 models, and
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:92:does not promote `Backend.NPU` to the normal route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:130:`Backend.NPU`, does not add automatic fallback, does not support
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:131:generic/E4B/qcs8275 models, and does not elevate the standard UI route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:210:`Backend.NPU`, does not add automatic fallback, does not support
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:211:generic/E4B/qcs8275 models, and does not elevate the standard UI route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:352:`gemma-4-E2B-it_qualcomm_sm8750.litertlm`, and `max_output_tokens=16`. The
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:366:gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:373:- Filenames containing `qcs8275` are rejected.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:374:- Generic/standard `gemma-4-E2B-it.litertlm`, timestamped generic E2B, E4B, and other generic `.litertlm` files are candidate-excluded.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:376:- `isRequiredSm8750ModelPath(path)` returns true only when the basename exactly equals `gemma-4-E2B-it_qualcomm_sm8750.litertlm`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:382:- The script permits the run only when the single `qualcomm_sm8750` candidate basename exactly matches `gemma-4-E2B-it_qualcomm_sm8750.litertlm`.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:383:- Generic, qcs8275, standard E2B/E4B, missing, or multiple `qualcomm_sm8750` candidates stop before ChatScreen launch.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:396:model=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:415:When the toggle is ON and the user sends from the local ChatScreen target, the app calls the qairt244 SM8750 DEV-only adapter with `max_output_tokens=128`. The model basename must be either `gemma-4-E2B-it_qualcomm_sm8750.litertlm` or a downloader timestamp form such as `<digits>_gemma-4-E2B-it_qualcomm_sm8750.litertlm`. This accepts the app-private import naming convention without copying, deleting, or renaming the model. Generic, E4B, non-numeric prefix, and qcs8275 models remain rejected by the Kotlin resolver.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:423:resolved_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:424:canonical_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:455:The current bounded DEV-only step raises only the qairt244 SM8750 experiment route from `max_output_tokens=8` to `max_output_tokens=16`. This remains DEV-only and does not enable `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:457:The 16 token phase is acceptable only if one guarded `Hello` run records: exact basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `required_sm8750_model_path=true`, `max_output_tokens=16`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `fresh_crash=false`, `timeout=false`, no `duplicate_run_blocked`, and the ChatScreen loading state clears after completion.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:471:resolved_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:560:As of 2026-05-24, the ChatScreen inference stats surface keeps the qairt244 SM8750 evidence in a dedicated DEV section instead of folding it into the normal generation-speed rows. This remains DEV-only and does not enable production `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:562:The dedicated section is shown only for `selected_route=qairt244_sm8750_dev_npu` stats and summarizes: exact model basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `max_output_tokens=64`, `native_max_output_tokens_limit=64`, `required_sm8750_model_path=true`, RunDecode reachability, `decode_elapsed_ms`, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, and the DEV UI cleanup status. Decode elapsed time is treated as DEV evidence, not as the normal token/s speed metric.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:590:- Phase D: Consider `Backend.NPU` candidate promotion only after 128-token bounded runs, Japanese prompt coverage, failure UX, cleanup, memory, and thermal evidence meet the same bar as existing local inference candidates.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:607:and explicitly not production `Backend.NPU` enablement.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:616:The next bounded DEV-only step raises only the qairt244 SM8750 experiment route from `max_output_tokens=3` to `max_output_tokens=8`. This is not a production NPU rollout and still does not enable `Backend.NPU`, automatic fallback, generic/E4B/qcs8275 models, TTS, Markdown streaming, or the standard selected-path NPU route.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:618:The 8 token phase is considered acceptable only if one guarded `Hello` run records: exact basename `gemma-4-E2B-it_qualcomm_sm8750.litertlm`, `required_sm8750_model_path=true`, `max_output_tokens=8`, RunDecode reached, `npu_backend=NPU`, `npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, `fresh_crash=false`, `timeout=false`, no `duplicate_run_blocked`, and the ChatScreen loading state clears after completion.
+docs/qairt244_chat_screen_real_npu_sm8750_model_run.md:630:resolved_model_basename=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+scripts/install_npu_experiment_and_check_dispatch.sh:53:  grep -Ei "dispatch|nativeLibraryDir|Backend.NPU|LiteRt|instantiate" || {
+scripts/install_npu_experiment_and_check_dispatch.sh:58:echo "[npu-experiment] staged for detection only; do not load; do not enable Backend.NPU"
+docs/litert_generation_strategy_options.md:42:   `Backend.NPU`.
+docs/litert_generation_strategy_options.md:53:- Lami's target is Android app `Backend.NPU(nativeLibraryDir)` on SM8750/V79.
+docs/litert_generation_strategy_options.md:70:- no `selectedPath=npu`
+docs/litert_qairt244_short_multitoken_smoke_plan.md:19:- no `selectedPath=npu` normal path
+scripts/run_qairt244_npu_memory_cleanup_profile.sh:9:MODEL_PATH="/data/user/0/$APP_ID/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+scripts/run_qairt244_npu_memory_cleanup_profile.sh:39:This script does not connect NPU to the normal UI, does not set selectedPath=npu
+scripts/run_qairt244_npu_memory_cleanup_profile.sh:108:    printf 'selected_path_npu_normal_route=no\n'
+scripts/run_qairt244_npu_memory_cleanup_profile.sh:388:connect NPU to the normal UI, did not set \`selectedPath=npu\` on the normal
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:533:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:584:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:635:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:685:                "selected_path_npu_saved=false",
+app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt:768:        const val REQUIRED_MODEL_BASENAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+scripts/run_qairt244_npu_diagnostic_fallback_recovery.sh:24:ChatScreen, selectedPath=npu, high-level generateResponse, or real timeout
+scripts/run_qairt244_npu_diagnostic_fallback_recovery.sh:163:    printf 'selected_path_npu_normal_route=false\n'
+scripts/run_qairt244_npu_diagnostic_fallback_recovery.sh:176:    printf 'selected_path_npu_normal_route=false\n'
+scripts/run_qairt244_npu_diagnostic_fallback_recovery.sh:192:    printf 'selected_path_npu_normal_route=false\n'
+scripts/run_qairt244_npu_diagnostic_fallback_recovery.sh:204:    printf 'selected_path_npu_normal_route=false\n'
+scripts/run_qairt244_npu_diagnostic_fallback_recovery.sh:282:selected_path_npu_normal_route=false
+docs/litert_qairt244_dispatch_logging_dry_run_result.md:70:- The target SM8750 LiteRT-LM model is present in the app files or staged to `/data/local/tmp/gemma-4-E2B-it_qualcomm_sm8750.litertlm`.
+docs/litertlm_gallery_java_api_surface_mismatch.md:127:## Backend.NPU Difference
+docs/litertlm_gallery_java_api_surface_mismatch.md:129:`Backend.NPU` is compatible across Gallery, Maven `0.10.0`, and Maven `0.11.0` for the constructor surface:
+docs/litertlm_gallery_java_api_surface_mismatch.md:137:This explains why `Backend.NPU(String)` instantiate-only succeeded even when `Engine.initialize()` later crashed.
+scripts/run_qairt244_npu_diagnostic_editable_prompt_guarded_run.sh:137:    printf 'selected_path_npu_normal_route=false\n'
+scripts/run_qairt244_npu_diagnostic_editable_prompt_guarded_run.sh:178:    printf 'selected_path_npu_normal_route=false\n'
+scripts/run_qairt244_npu_coldstart_force_stop_profile.sh:33:This does not connect NPU to the normal UI, does not set selectedPath=npu on the
+scripts/run_qairt244_npu_coldstart_force_stop_profile.sh:105:    printf 'selected_path_npu_normal_route=no\n'
+scripts/run_qairt244_npu_coldstart_force_stop_profile.sh:296:It did not connect NPU to the normal UI, did not set \`selectedPath=npu\`, did
+scripts/plan_qairt244_single_token_smoke.sh:71:1. Create `Backend.NPU(nativeLibraryDir)`.
+scripts/plan_qairt244_single_token_smoke.sh:72:2. Create `EngineConfig(modelPath, Backend.NPU, null, null, maxNumTokens=1,
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:45:        val modelPath = filesDir.resolve("local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm").absolutePath
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:80:                "selectedPath=npu normal route=not used",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:303:                "no selectedPath=npu normal route",
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/ui/screens/home/NpuDiagnosticChatActivity.kt:545:            "selectedPath=npu disabled=true",
+docs/litertlm_flavor_version_experiment_plan.md:97:`0.10.0` exposes `Backend.NPU`, `Engine`, and `Engine.initialize`, but `EngineConfig` differs:
+docs/litertlm_flavor_version_experiment_plan.md:173:Backend.NPU created class=com.google.ai.edge.litertlm.Backend$NPU
+scripts/run_qairt244_npu_diagnostic_chat_ui_smoke.sh:43:selectedPath=npu in the normal route, and does not call high-level
+scripts/run_qairt244_npu_diagnostic_chat_ui_smoke.sh:268:    printf 'selectedPath_npu_normal_route=false\n'
+scripts/run_qairt244_npu_diagnostic_chat_ui_smoke.sh:306:selectedPath_npu_normal_route=false
+docs/litert_qairt244_qnn_status_14001.md:41:pointers. The generic device options are:
+scripts/run_qairt244_lower_level_single_token_smoke.sh:17:MODEL_PATH="/data/user/0/$APP_ID/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+docs/litert_gallery_source_version_mapping.md:11:`npuExperimentDebug` proved that the Gallery SM8750 `libLiteRtDispatch_Qualcomm.so` is present in `nativeLibraryDir`, and that `Backend.NPU(String)` plus `EngineConfig.backend = Backend.NPU(...)` can be created. The isolated `Engine.initialize()` dry-run still aborts with:
+docs/litert_gallery_source_version_mapping.md:85:Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
+scripts/compare_gallery_litertlm_api_surface.sh:352:  printf '\n## Gallery Backend.NPU\n\n'
+scripts/compare_gallery_litertlm_api_surface.sh:355:    printf '\n## Maven %s Backend.NPU\n\n' "$version"
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:29:- normal `selectedPath=npu` route
+docs/litert_qairt244_diagnostic_short_prompt_guard_spec.md:250:- normal `selectedPath=npu` untouched
+docs/litert_qairt244_qnn_dependency_chain.md:190:than generic packaging absence.
+scripts/plan_litert_lm_main_npu_cli_proof.sh:6:MODEL_PATH="${MODEL_PATH:-/data/local/tmp/gemma-4-E2B-it_qualcomm_sm8750.litertlm}"
+docs/litertlm_010_api_surface_check.md:34:## Backend.NPU
+docs/litertlm_010_api_surface_check.md:39:Backend.NPU()
+docs/litertlm_010_api_surface_check.md:40:Backend.NPU(String nativeLibraryDir)
+docs/litertlm_010_api_surface_check.md:110:- LiteRT-LM `Backend.NPU` is a separate `com.google.ai.edge.litertlm.Backend` sealed hierarchy.
+docs/litertlm_010_api_surface_check.md:111:- The correct NPU connection candidate remains `EngineConfig.backend = Backend.NPU(nativeLibraryDir)`.
+scripts/run_qairt244_initialize_stability_probe.sh:8:DEFAULT_MODEL_BASENAME="gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:156:                "selected_path_npu_normal_route=no",
+app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt:353:                "selected_path_npu_normal_route=no",
+scripts/plan_litert_lm_initialize_only_cli.sh:6:MODEL_PATH="${MODEL_PATH:-/data/local/tmp/gemma-4-E2B-it_qualcomm_sm8750.litertlm}"
+docs/litert_gallery_native_stack_experiment_plan.md:146:5. Phase 5: `Backend.NPU(String)` instantiate-only.
+docs/litert_gallery_native_stack_experiment_plan.md:150:   - Confirm backend property is `Backend.NPU`.
+docs/litert_gallery_native_stack_experiment_plan.md:230:- `Backend.NPU(String)` instantiate-only and `EngineConfig` dry-build are allowed in `galleryStackExperimentDebug`.
+docs/litert_gallery_native_stack_experiment_plan.md:232:- Normal UI inference remains GPU/fallback oriented and is not wired to `Backend.NPU`.
+docs/litert_gallery_native_stack_experiment_plan.md:270:Backend.NPU Instantiate Probe:
+docs/litert_gallery_native_stack_experiment_plan.md:419:  --model-path /data/user/0/io.github.ninbyo02.lami.gallerynpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/litert_gallery_native_stack_experiment_plan.md:461:- `selectedPath=npu`
+docs/litert_qualcomm_sm8750_model_schema_probe.md:6:`gemma-4-E2B-it_qualcomm_sm8750.litertlm`.
+docs/litert_qualcomm_sm8750_model_schema_probe.md:14:- `/data/local/tmp/gemma-4-E2B-it_qualcomm_sm8750.litertlm`: not probed; `adb devices` showed no connected device.
+docs/litert_qualcomm_sm8750_model_schema_probe.md:19:- `/home/sato/Downloads/gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/litert_qualcomm_sm8750_model_schema_probe.md:109:payload, not a generic model that depends on app-side runtime compilation from
+docs/litert_qairt244_diagnostic_fallback_recovery.md:7:Normal `ChatScreen`, normal `selectedPath=npu`, high-level
+docs/litert_qairt244_diagnostic_fallback_recovery.md:37:- normal `selectedPath=npu` route: disabled
+docs/litert_qairt244_diagnostic_fallback_recovery.md:83:- normal `selectedPath=npu` route remained disabled
+docs/litert_qairt244_diagnostic_fallback_recovery.md:109:`selectedPath=npu`, avoid DB/TTS/Markdown/streaming integration in the first
+docs/litert_qairt244_npu_memory_cleanup_profile.md:38:NPU to the normal UI, did not set `selectedPath=npu` on the normal route, did
+docs/litert_gallery_dispatch_runtime_investigation.md:9:This investigation does not enable `Backend.NPU` in Lami and does not copy any Gallery native library into Lami.
+docs/litert_gallery_dispatch_runtime_investigation.md:20:`1.0.13` is the latest release found, but it only provides a generic APK. The SM8750-specific APK exists in `1.0.12`, so that APK is the primary dispatch runtime source investigated here.
+docs/litert_gallery_dispatch_runtime_investigation.md:155:This finding is consistent with reports that `litertlm-android` exposes `Backend.NPU`, while the public Maven AAR does not include `libLiteRtDispatch_Qualcomm.so`.
+docs/litert_gallery_dispatch_runtime_investigation.md:183:- connecting `Backend.NPU` to real inference;
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:18:TARGET_MODEL="gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:19:TARGET_MODEL_BASENAME_PATTERN='^([0-9]+_)?gemma-4-E2B-it_qualcomm_sm8750\.litertlm$'
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:307:    printf 'selected_path_npu_persistent=false\n'
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:341:  local marker_pattern='qairt244_chat_screen_real_npu_adapter_v1|qairt244_editable_prompt_smoke_v1|Engine.initialize|RunDecode|Backend.NPU|selectedPath=npu|generateResponse|QNN|HTP|DSP|NPU|QAIRT|FastRPC|npu_backend|npu_backend_evidence|fallback|GPU|CPU|adapter_not_connected|DEV NPU|ui_cleanup|Responding|Stop Button|応答中'
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:414:    printf 'selected_path_npu_saved=false\n'
+scripts/run_qairt244_chat_screen_real_npu_sm8750_model_run.sh:432:  rg -n 'dev_enable_npu_chatscreen_route|DevOnlyNpuChatScreenBlockedBranch|Qairt244DevOnlyNpuRouteAdapter|Backend.NPU|RunDecode|Engine.initialize|selectedPath.*npu|generateResponse' app/src/main/java app/src/customBuildExperimentDebug >"$OUT_DIR/grep_safety.txt" 2>&1 || true
+scripts/check_litertlm_flavor_dependencies.sh:135:    printf 'Backend.NPU=%s\n' "$(class_exists "$jar" 'com/google/ai/edge/litertlm/Backend$NPU')"
+docs/litert_qnn_qairt_coupling_investigation_plan.md:23:- `Backend.NPU(String)`: success
+docs/litert_qnn_qairt_coupling_investigation_plan.md:54:No NPU inference, `Conversation`, `Session`, `generateResponse`, token generation, or `selectedPath=npu` was used.
+docs/litert_qnn_qairt_coupling_investigation_plan.md:101:The app passes `nativeLibraryDir` to `Backend.NPU`, but some runtime components may still search outside that directory or use assumptions valid in Gallery but not in Lami.
+docs/litert_qnn_qairt_coupling_investigation_plan.md:268:- `gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/litert_qnn_qairt_coupling_investigation_plan.md:295:- no `selectedPath=npu`
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevQairt244PromptReceiver.kt:96:                    "selected_path_npu_saved=false",
+docs/litert_qairt244_npu_diagnostic_chat_design.md:128:- `selectedPath=npu` in the normal route
+docs/litert_qairt244_npu_diagnostic_chat_design.md:308:normal `selectedPath=npu` route, does not call high-level `generateResponse`,
+docs/litert_qairt244_npu_diagnostic_chat_design.md:364:the normal `ChatScreen`, the normal `selectedPath=npu` route, high-level
+docs/litert_qairt244_npu_diagnostic_chat_design.md:384:- normal `selectedPath=npu` route disabled status
+docs/litert_qairt244_npu_diagnostic_chat_design.md:504:- normal `ChatScreen`, normal `selectedPath=npu`, high-level
+docs/litert_qairt244_npu_diagnostic_chat_design.md:558:- normal `ChatScreen` and normal `selectedPath=npu` routes remained
+docs/litert_qairt244_npu_diagnostic_chat_design.md:655:The normal `ChatScreen` route and normal `selectedPath=npu` route remain
+docs/litert_qairt244_npu_diagnostic_chat_design.md:684:- add `selectedPath=npu` to the normal route
+app/src/customBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevNpuChatScreenToggleActivity.kt:63:            appendLine("selected_path_npu=false")
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:35:- normal `selectedPath=npu` route
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:56:- normal `selectedPath=npu` route remains disabled
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:279:- normal `selectedPath=npu` route remained disabled
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:343:- normal `selectedPath=npu` route: disabled
+docs/litert_qairt244_diagnostic_editable_prompt_connection_plan.md:413:- verify normal `selectedPath=npu` route remains untouched
+scripts/run_qairt244_chat_screen_real_npu_first_run.sh:99:    printf 'selected_path_npu_persistent=false\n'
+scripts/run_qairt244_chat_screen_real_npu_first_run.sh:120:    grep -Ei 'qairt244_chat_screen_real_npu_adapter_v1|qairt244_editable_prompt_smoke_v1|Engine.initialize|RunDecode|Backend.NPU|selectedPath=npu|generateResponse|QNN|HTP|FastRPC|adapter_not_connected|DEV NPU' "$OUT_DIR/logcat_tail.txt" || true
+scripts/run_qairt244_chat_screen_real_npu_first_run.sh:162:    printf 'selected_path_npu_saved=false\n'
+scripts/run_qairt244_chat_screen_real_npu_first_run.sh:178:  rg -n 'dev_enable_npu_chatscreen_route|DevOnlyNpuChatScreenBlockedBranch|Qairt244DevOnlyNpuRouteAdapter|Backend.NPU|RunDecode|Engine.initialize|selectedPath.*npu|generateResponse' app/src/main/java app/src/customBuildExperimentDebug >"$OUT_DIR/grep_safety.txt" 2>&1 || true
+docs/litert_dispatch_experiment_plan.md:11:- `Backend.NPU` is available.
+docs/litert_dispatch_experiment_plan.md:12:- `Backend.NPU(String)` is available.
+docs/litert_dispatch_experiment_plan.md:108:- connecting `Backend.NPU` to real inference
+docs/litert_dispatch_experiment_plan.md:109:- `selectedPath=npu`
+docs/litert_dispatch_experiment_plan.md:133:- load policy: `diagnostic-only; no System.loadLibrary; no Backend.NPU apply`
+docs/litert_dispatch_experiment_plan.md:142:Backend.NPU(String nativeLibraryDir)
+docs/litert_dispatch_experiment_plan.md:172:## Backend.NPU attach dry-run
+docs/litert_dispatch_experiment_plan.md:175:`Backend.NPU(String nativeLibraryDir)` object can be passed to an `EngineConfig` or
+docs/litert_dispatch_experiment_plan.md:184:- the `Backend.NPU(String)` instantiate-only probe succeeded
+docs/litert_dispatch_experiment_plan.md:220:## Backend.NPU API inventory phase
+docs/litert_dispatch_experiment_plan.md:223:is not the correct path for LiteRT-LM `Backend.NPU`. That setter appears to belong to
+docs/litert_dispatch_experiment_plan.md:225:assignable from the LiteRT-LM sealed `Backend.NPU` object.
+docs/litert_dispatch_experiment_plan.md:230:- `Backend.NPU`, `Backend.GPU`, `Backend.CPU`
+docs/litert_dispatch_experiment_plan.md:238:- `Backend` base class `<- Backend.NPU`
+docs/litert_dispatch_experiment_plan.md:239:- `EngineConfig` backend constructor parameter `<- Backend.NPU`
+docs/litert_dispatch_experiment_plan.md:240:- setter parameter type `<- Backend.NPU`
+docs/litert_dispatch_experiment_plan.md:254:backend = Backend.NPU(nativeLibraryDir)
+docs/litert_dispatch_experiment_plan.md:284:  --es model_path "/data/user/0/.../gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+docs/litert_dispatch_experiment_plan.md:290:bash scripts/run_npu_engine_initialize_dry_run.sh "/data/user/0/.../gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+docs/litert_dispatch_experiment_plan.md:299:- `Backend.NPU(String)` instantiate-only probe succeeded
+docs/litert_dispatch_experiment_plan.md:321:- `Backend.NPU creating`
+docs/litert_dispatch_experiment_plan.md:322:- `Backend.NPU created`
+docs/litert_dispatch_experiment_plan.md:379:- `selectedPath=npu`
+docs/litert_dispatch_experiment_plan.md:408:9. Only after ABI compatibility and dry-run evidence, consider a guarded `Backend.NPU` inference experiment with GPU fallback intact.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:7:normal `ChatScreen`, set normal `selectedPath=npu`, run NPU generation,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:185:## selectedPath=npu Boundary
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:188:`selectedPath=npu` settings. If a future call site needs to expose backend
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:219:- no normal `selectedPath=npu`
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:271:`RunDecode`, high-level `generateResponse`, `selectedPath=npu`, DB, TTS,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:365:- any persistent `selectedPath=npu` state
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:393:`selectedPath=npu`, run NPU generation, call `Engine.initialize`, call
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:430:`generateResponse`, DB, TTS, Markdown, streaming, or normal `selectedPath=npu`.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:450:`ChatScreen`, apply normal `selectedPath=npu`, run NPU generation, call
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:487:high-level `generateResponse`, or normal `selectedPath=npu`.
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:513:`ChatScreen`, apply normal `selectedPath=npu`, run NPU generation, call
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:528:connect normal `ChatScreen`, set normal `selectedPath=npu`, run NPU generation,
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:545:  `Engine.initialize`, `RunDecode`, `selectedPath=npu`, QNN, HTP, or FastRPC
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:578:- `selectedPath=npu` is not applied
+docs/litert_qairt244_dev_only_npu_route_adapter_plan.md:646:if cleanup is not proven, if `selectedPath=npu` is saved, or if stale artifacts
+docs/litert_dispatch_capability_source_trace.md:84:- Android app namespace access to the dispatch/QNN library directory passed via `Backend.NPU(nativeLibraryDir)` / LiteRT environment dispatch library dir.
+docs/litert_dispatch_capability_source_trace.md:131:The observed fatal is a generic late symptom of an earlier dispatch runtime initialization failure. In this codebase, the most plausible source-level explanations for "dispatch `.so` present and `LiteRtDispatchGetApi` exists, but runtime unusable" are QNN/QAIRT generation mismatch, Android library path/namespace failure for QNN HTP/System/V79 artifacts, unsupported or misdetected SM8750/V79 HTP setup, or a compiled model/context-binary mismatch that only becomes visible once the dispatch delegate tries to create invocation contexts.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:8:`RunDecode`, high-level `generateResponse`, or normal `selectedPath=npu`.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:24:- normal `selectedPath=npu`: not used.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:78:## selectedPath=npu Conditions
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:81:- `selectedPath=npu` is allowed only inside the DEV-only guarded route.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:134:- `selectedPath=npu` persists into normal settings
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:257:  persisting `selectedPath=npu`.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:291:normal `selectedPath=npu`.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:309:- `selectedPath=npu` applied by this path: no evidence
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:346:  `DEV NPU blocked`, `Engine.initialize`, `RunDecode`, `selectedPath=npu`,
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:348:- normal `selectedPath=npu`: not applied
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:382:- `selectedPath=npu` was not applied
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:398:- `selectedPath=npu` was not applied or persisted.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:399:- Real NPU execution remained disconnected: no `Engine.initialize`, `RunDecode`, `Backend.NPU`, QNN, HTP, FastRPC, or QAIRT runtime markers were found in the post-run marker scan.
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:418:- `selectedPath=npu` saved or applied to normal route state
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:437:- `selectedPath=npu` not saved
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:472:- `selectedPath=npu`: not saved
+docs/litert_qairt244_chat_screen_npu_integration_plan.md:507:- `selectedPath=npu`: not saved
+docs/litert_custom_build_source_mapping.md:16:- `Backend.NPU(String)` instantiate: success
+docs/litert_custom_build_source_mapping.md:17:- `EngineConfig.backend = Backend.NPU(...)`: success
+docs/litert_qairt244_app_jni_logcat_smoke.md:9:QNN, `Backend.NPU`, or `Engine.initialize`.
+docs/litert_qairt244_app_jni_logcat_smoke.md:69:`Backend.NPU`, does not call `Engine.initialize`, and does not enter any
+app/src/debug/java/io/github/ninbyo02/lami/debug/QairtNpuProbeRunner.kt:194:                BackendMode.NPU_PRIVATE -> Backend.NPU(requireNotNull(privateNativeRuntimeDir).absolutePath)
+docs/litert_custom_build_risk_analysis.md:229:- `Backend.NPU(String)` success
+docs/litert_custom_build_risk_analysis.md:251:- it is still unsafe to wire `Backend.NPU` into normal inference
+docs/litert_custom_build_risk_analysis.md:252:- no `Conversation`, `Session`, `generateResponse`, token generation, or `selectedPath=npu` was used
+docs/litert_qairt244_android_qnn_path_analysis.md:90:That external pass proves the device can expose QNN/HTP capability to the QAIRT tool environment. It does not prove the Android app process can load the same runtime generation or find DSP skel/stub assets through `Backend.NPU(nativeLibraryDir)`.
+docs/litert_custom_build_results.md:16:- no `selectedPath=npu`
+docs/litert_custom_build_results.md:173:- `Backend.NPU(String)`: success
+docs/litert_custom_build_results.md:251:- `Engine.initialize` was not invoked in that attempt. No `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, or normal UI NPU inference path was used.
+docs/litert_custom_build_results.md:279:- `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, and normal UI NPU inference were not used.
+docs/litert_qairt244_android_logcat_root_cause_update.md:138:The smoke path does not touch LiteRT, QAIRT, QNN, `Backend.NPU`, or
+docs/google_ai_edge_issue_submission_steps.md:25:[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack
+docs/google_ai_edge_issue_submission_steps.md:47:   - `Backend.NPU`
+docs/google_ai_edge_issue_short_summary.md:7:`[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+docs/google_ai_edge_issue_short_summary.md:15:- Model: `gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/google_ai_edge_issue_short_summary.md:44:- `Backend.NPU(String nativeLibraryDir)`: success
+docs/google_ai_edge_issue_short_summary.md:45:- `EngineConfig.backend = Backend.NPU`: dry-build success
+docs/google_ai_edge_issue_short_summary.md:118:- Which QNN libs should be packaged for SM8750/V79 `Backend.NPU` Android apps?
+docs/litert_custom_build_environment_readiness.md:11:| OS | Ubuntu 24.04 family, Linux `6.14.0-34-generic`, `x86_64` | usable |
+docs/litert_qairt244_android_logcat_dry_run_result.md:18:  `bash scripts/run_custom_build_stack_probe.sh artifacts/qairt244_android_log_build/20260521_210911 --engine-dry-run --model-path /data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/litert_qairt244_android_logcat_dry_run_result.md:42:  selectedPath=`npu`, normal UI NPU inference, or single-token smoke.
+docs/litert_custom_build_qairt244_compare.md:41:`generateResponse`, set `selectedPath=npu`, or wire `Backend.NPU` into the
+docs/litert_custom_build_qairt244_compare.md:54:- `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, and normal UI NPU inference remained unused.
+docs/litert_custom_build_qairt244_compare.md:118:`generateResponse`, no `selectedPath=npu`, and no normal UI NPU inference.
+docs/litert_custom_build_qairt244_compare.md:262:- `Backend.NPU(String)` instantiate
+docs/litert_custom_build_qairt244_compare.md:295:No app integration, `Engine.initialize`, NPU inference, `Conversation`, `Session`, `generateResponse`, or `selectedPath=npu` was performed for this compare step.
+docs/litert_custom_build_insertion_experiment.md:17:- `selectedPath=npu`
+docs/litert_custom_build_insertion_experiment.md:82:  --model-path /data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/litert_custom_build_insertion_experiment.md:118:- model path: `/data/user/0/io.github.ninbyo02.lami.customnpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/litert_custom_build_insertion_experiment.md:123:- `Backend.NPU(String)`: created successfully
+docs/litert_custom_build_insertion_experiment.md:144:- `selectedPath=npu`
+docs/litert_npu_engine_initialize_crash_analysis.md:10:- Backend path under test: `EngineConfig.backend = Backend.NPU(nativeLibraryDir)`
+docs/litert_npu_engine_initialize_crash_analysis.md:18:  - `selectedPath=npu`
+docs/litert_npu_engine_initialize_crash_analysis.md:32:  `/data/user/0/io.github.ninbyo02.lami.npu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm`
+docs/litert_npu_engine_initialize_crash_analysis.md:46:- `Backend.NPU(String)`: success
+docs/litert_npu_engine_initialize_crash_analysis.md:52:This means the current crash is not in `Backend.NPU(String)`, not in
+docs/litert_npu_engine_initialize_crash_analysis.md:147:- `Backend.NPU(String)` constructor: instantiate-only probe succeeds
+docs/litert_npu_engine_initialize_crash_analysis.md:148:- `EngineConfig` wiring: config-only dry-build succeeds and `getBackend()` returns `Backend.NPU`
+docs/litert_npu_engine_initialize_crash_analysis.md:169:   `Backend.NPU(String)`, `EngineConfig`, and `Engine(EngineConfig)` have all succeeded.
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:3:日本語要約: Nubia Z70S Ultra / SM8750 / Android 16 で、LiteRT-LM Android の `Backend.NPU(nativeLibraryDir)` と Gemma 4 E2B Qualcomm SM8750 モデルを使った `Engine.initialize` dry-run が `SIGABRT` で終了します。Gallery SM8750 由来 stack だけでなく、LiteRT-LM `v0.11.0` と pinned LiteRT ref から同一source/tagで built native stack を作って隔離flavorへ投入しても `DispatchDelegate::CreateDelegateKernelInterface()+312` で `No usable Dispatch runtime found` となるため、現時点の最有力は QAIRT/QNN generation/capability mismatch です。QAIRT 2.44 exact SDK は未入手で、QAIRT 2.46 対応 public source/ref も見つかっていません。
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:7:`[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:32:- `Backend.NPU(String)`, `EngineConfig`, and `Engine(EngineConfig)` succeeded
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:88:On a Nubia Z70S Ultra / Snapdragon 8 Elite / SM8750 device running Android 16, `Engine.initialize()` crashes the process with `SIGABRT` when using LiteRT-LM Android `Backend.NPU(nativeLibraryDir)` with the Gemma 4 E2B Qualcomm SM8750 `.litertlm` model.
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:115:| Model file | `gemma-4-E2B-it_qualcomm_sm8750.litertlm` |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:116:| Model path in isolated app | `/data/user/0/io.github.ninbyo02.lami.gallerynpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm` |
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:174:   - `Backend.NPU(String nativeLibraryDir)` instantiate succeeded
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:175:   - `EngineConfig.backend = Backend.NPU` dry-build succeeded
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:208:  --model-path /data/user/0/io.github.ninbyo02.lami.gallerynpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:217:- `Backend.NPU(nativeLibraryDir)` construction
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:218:- `EngineConfig(modelPath, Backend.NPU, ...)` construction
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:398:4. Is `gemma-4-E2B-it_qualcomm_sm8750.litertlm` expected to run through `Backend.NPU(nativeLibraryDir)` in third-party Android apps?
+docs/google_ai_edge_issue_report_litertlm_sm8750_npu.md:431:The isolated dry-run only reaches `Engine.initialize()`. It does not create `Conversation` or `Session`, does not call `generateResponse`, does not evaluate a prompt, and does not wire `Backend.NPU` into normal app inference. Normal `standardDebug` GPU inference remains separate and working.
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:3:On a Nubia Z70S Ultra / Snapdragon 8 Elite / SM8750 device running Android 16, `Engine.initialize()` crashes the process with `SIGABRT` when using LiteRT-LM Android `Backend.NPU(nativeLibraryDir)` with the Gemma 4 E2B Qualcomm SM8750 `.litertlm` model.
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:163:| Model file | `gemma-4-E2B-it_qualcomm_sm8750.litertlm` |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:164:| Model path in isolated app | `/data/user/0/io.github.ninbyo02.lami.gallerynpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm` |
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:236:   - `Backend.NPU(String nativeLibraryDir)` instantiate succeeded
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:237:   - `EngineConfig.backend = Backend.NPU` dry-build succeeded
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:308:  --model-path /data/user/0/io.github.ninbyo02.lami.gallerynpu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:317:- `Backend.NPU(nativeLibraryDir)` construction
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:318:- `EngineConfig(modelPath, Backend.NPU, ...)` construction
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:522:5. Which QNN libraries should be packaged for SM8750/V79 `Backend.NPU` Android apps?
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:523:6. Is `gemma-4-E2B-it_qualcomm_sm8750.litertlm` expected to run through `Backend.NPU(nativeLibraryDir)` in third-party Android apps?
+docs/google_ai_edge_issue_body_litertlm_sm8750_npu.md:566:The isolated dry-run only reaches `Engine.initialize()`. It does not create `Conversation` or `Session`, does not call `generateResponse`, does not evaluate a prompt, and does not wire `Backend.NPU` into normal app inference. Normal `standardDebug` GPU inference remains separate and working.
+docs/google_ai_edge_issue_posting_checklist.md:13:- The public API under test is LiteRT-LM Android: `Backend.NPU(nativeLibraryDir)`, `EngineConfig`, `Engine`, and `Engine.initialize()`.
+docs/google_ai_edge_issue_posting_checklist.md:29:1. `[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+docs/google_ai_edge_issue_posting_checklist.md:30:2. `[LiteRT-LM][Android][Qualcomm SM8750] Backend.NPU Engine.initialize aborts despite mapped Gallery dispatch runtime`
+docs/google_ai_edge_issue_posting_checklist.md:32:4. `[SM8750][Gemma 4 E2B Qualcomm] Backend.NPU(nativeLibraryDir) fails in Engine.initialize with no usable dispatch runtime`
+docs/google_ai_edge_issue_posting_checklist.md:33:5. `[LiteRT-LM Android] Need supported Qualcomm dispatch runtime/artifact guidance for SM8750 Backend.NPU`
+docs/google_ai_edge_issue_posting_checklist.md:37:`[Android][SM8750][Backend.NPU] Engine.initialize SIGABRT: No usable Dispatch runtime found with same-source custom stack`
+docs/google_ai_edge_issue_posting_checklist.md:49:- `Backend.NPU`
+docs/litert_custom_build_plan.md:128:- `Backend.NPU(String)` instantiate.
+docs/litert_custom_build_plan.md:246:3. Do not connect `Backend.NPU` to normal UI inference yet.
+docs/litert_custom_build_plan.md:391:- Normal `ChatScreen` and `selectedPath=npu` routes remain disconnected.
+docs/litert_custom_build_plan.md:428:- Still no normal UI NPU route, no `selectedPath=npu` normal path, and no
+docs/litert_custom_build_plan.md:448:- Still no normal UI NPU route, no `selectedPath=npu` normal path, no
+docs/litert_custom_build_plan.md:468:- Still no normal UI NPU route, no `selectedPath=npu` normal path, no
+docs/litert_custom_build_plan.md:487:- Still no normal UI NPU route, no `selectedPath=npu` normal path, no
+docs/litert_custom_build_plan.md:503:- Still no normal UI NPU route, no `selectedPath=npu` normal path, no
+docs/litert_custom_build_plan.md:615:- `Backend.NPU(String)`: success
+docs/litert_custom_build_plan.md:696:- `Engine.initialize` was not invoked. No `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, normal UI `Backend.NPU` wiring, or single-token smoke test was run.
+docs/litert_custom_build_plan.md:723:- no `Conversation`, `Session`, `generateResponse`, `selectedPath=npu`, normal UI NPU inference, or single-token smoke test was run.
+docs/litert_custom_build_plan.md:916:3. run detection and `Backend.NPU` instantiate first
+docs/litert_custom_build_plan.md:1064:does not set `selectedPath=npu` in the normal route, does not call high-level
+docs/litert_custom_build_plan.md:1137:- no normal `selectedPath=npu` routing
+docs/litert_custom_build_plan.md:1258:- no normal `ChatScreen` route, no normal `selectedPath=npu`, no high-level
+docs/litert_custom_build_plan.md:1358:- normal ChatScreen route and normal `selectedPath=npu` route remained
+docs/litert_custom_build_plan.md:1368:- normal `selectedPath=npu`: still disabled
+docs/litert_custom_build_plan.md:1393:  high-level `generateResponse`, and normal `selectedPath=npu`
+docs/litert_custom_build_plan.md:1408:  `generateResponse`, normal `selectedPath=npu`, DB, TTS, Markdown,
+docs/litert_custom_build_plan.md:1421:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1436:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1458:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1477:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1496:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1516:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1537:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1555:  streaming, stop-button ownership, and persistent `selectedPath=npu`
+docs/litert_custom_build_plan.md:1570:  normal `selectedPath=npu`, DB, TTS, Markdown, streaming, and stop button
+docs/litert_custom_build_plan.md:1590:  no `selectedPath=npu` evidence from this path
+docs/litert_custom_build_plan.md:1609:  none for `adapter_not_connected`, blocked branch, `selectedPath=npu`,
+docs/litert_custom_build_plan.md:1612:  no `selectedPath=npu` evidence from this path
+docs/litert_custom_build_plan.md:1638:  no `selectedPath=npu` evidence
+docs/litert_custom_build_plan.md:1646:- The verification did not run NPU generation, `Engine.initialize`, `RunDecode`, or `Backend.NPU`.
+docs/litert_custom_build_plan.md:1669:- `selectedPath=npu` not saved
+docs/litert_custom_build_plan.md:1698:- `selectedPath=npu`: not saved
+docs/litert_custom_build_plan.md:1730:- normal ChatScreen DB/TTS/Markdown/streaming and `selectedPath=npu` remained disconnected
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:782:                constructor = "Backend.NPU(String)",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:793:                constructor = "Backend.NPU(String)",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:920:            ?: throw ClassNotFoundException("Backend.NPU")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:925:            ?: throw NoSuchMethodException("Backend.NPU(String)")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1009:            assignability += "Backend base class <- Backend.NPU object class: ${backendClass.isAssignableFrom(npuClass)}"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1020:                        assignability += "${formatMethodSignature(clazz, method)} parameter <- Backend.NPU: $assignable"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1129:            ?: "MediaPipe LlmInference preferredBackend setter does not accept LiteRT-LM Backend.NPU."
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1322:            stage("Backend.NPU creating")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1324:            stage("Backend.NPU created class=${npuHandle.instance.javaClass.name}")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1530:            lower.endsWith(".litertlm") -> "generic-litertlm"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:1889:                npuObject -> "Backend.NPU"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/AcceleratorProbe.kt:3118:        val note: String = "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU.",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:589:                    title = "DEV診断: Backend.NPU Instantiate Probe",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:597:                    title = "DEV診断: Backend.NPU Attach Dry-Run Probe",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:621:                    title = "DEV診断: Backend.NPU Connection Candidate",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1558:                "TFLite QnnDelegate class was not found. LiteRT-LM NPU path is checked separately via Backend.NPU."
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1560:                "TFLite QnnDelegate class probe is separate from LiteRT-LM Backend.NPU readiness."
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1590:        InferenceStatItemUi(label = "Backend.NPU available", value = (probe.backendNpuClassCandidates.isNotEmpty() || probe.npuConstructorAvailable).toString()),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1591:        InferenceStatItemUi(label = "Backend.NPU(String)", value = if (probe.npuStringConstructorAvailable) "available" else "missing"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1592:        InferenceStatItemUi(label = "Backend.NPU(String) available", value = probe.npuStringConstructorAvailable.toString()),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1636:        InferenceStatItemUi(label = "load policy", value = "diagnostic-only; no System.loadLibrary; no Backend.NPU apply"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1704:        InferenceStatItemUi(label = "constructor", value = probe.backendNpuInstantiateConstructor?.ifBlank { "Backend.NPU(String)" } ?: "Backend.NPU(String)"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1733:        InferenceStatItemUi(label = "note", value = probe.backendNpuAttachDryRunNote?.ifBlank { "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU." } ?: "This setter belongs to MediaPipe LlmInference.Backend enum path and is not assignable from LiteRT-LM Backend.NPU."),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1822:        InferenceStatItemUi(label = "Backend.NPU object class", value = probe.engineInitializeDryRunBackendNpuObjectClass?.ifBlank { "—" } ?: "—"),
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1860:        "litertlm" in lower -> "generic-litertlm"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1869:        "litertlm" in lower -> "generic-gpu-compatible"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1891:        "generic-litertlm" -> "generic-litertlm-gpu-compatible"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:1971:            "1) keep GPU fallback\n2) resolve listed NPU prerequisite\n3) do not apply Backend.NPU until dispatch API .so and CLI proof are both present"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalInferenceStatsSectionBuilder.kt:2047:            reasons += "Backend.NPU API missing"
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings/Settings.kt:667:                                    text = "default=false / blocked adapter only / normal selectedPath=npu disabled / real NPU not connected",
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:4389:            ?: throw ClassNotFoundException("Backend.NPU")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:4404:            else -> throw NoSuchMethodException("Backend.NPU constructor")
+app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/LocalStreamingRunner.kt:4411:            error = "${throwable.javaClass.simpleName}:${throwable.message ?: "Backend.NPU"}",

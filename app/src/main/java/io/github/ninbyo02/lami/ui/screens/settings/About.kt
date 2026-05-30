@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.settings
 
 import android.content.res.Configuration
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -28,12 +29,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -61,6 +67,8 @@ import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlin.math.min
 import kotlinx.coroutines.launch
+
+private const val DeveloperAccessTapTarget = 7
 
 
 internal fun buildVersionLabel(version: String, sha: String): String {
@@ -90,8 +98,11 @@ fun About(
     val isLandscape =
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     val snackbarHostState = LocalAppSnackbarHostState.current
     val scope = rememberCoroutineScope()
+    val settingsPreferences = remember(context) { SettingsPreferences(context) }
+    var developerAccessTapCount by remember { mutableStateOf(0) }
 
     val licenseLine1 = stringResource(R.string.about_license_line1)
     val licenseLine2 = stringResource(R.string.about_license_line2)
@@ -100,6 +111,28 @@ fun About(
     val copiedText = stringResource(R.string.about_notice_copy_done)
     val fullLicenseText = listOf(licenseLine1, licenseLine2, licenseLine3).joinToString("\n")
     val readableBodyTextStyle = LamiTypographyTokens.bodyReadable()
+    fun handleDeveloperAccessTap() {
+        if (!BuildConfig.DEBUG) return
+        val nextCount = developerAccessTapCount + 1
+        developerAccessTapCount = nextCount
+        if (nextCount >= DeveloperAccessTapTarget) {
+            developerAccessTapCount = 0
+            scope.launch {
+                settingsPreferences.saveDeveloperAccessEnabled(true)
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "Developer access enabled",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+        }
+    }
+    val developerAccessTapModifier =
+        if (BuildConfig.DEBUG) {
+            Modifier.clickable { handleDeveloperAccessTap() }
+        } else {
+            Modifier
+        }
 
     val noticeAnnotatedText = buildAnnotatedString {
         val noticeStart = licenseLine3.indexOf(noticeText)
@@ -175,10 +208,12 @@ fun About(
                         Text(
                             versionLabel,
                             style = LamiTypographyTokens.aboutVersion(),
+                            modifier = developerAccessTapModifier,
                         )
                         Text(
                             buildPrLabel(BuildConfig.BUILD_PR_NUMBER),
                             style = LamiTypographyTokens.aboutBuild(),
+                            modifier = developerAccessTapModifier,
                         )
                         Spacer(Modifier.height(24.dp))
                         ElevatedCard(
@@ -320,10 +355,12 @@ fun About(
                     Text(
                         versionLabel,
                         style = LamiTypographyTokens.aboutVersion(),
+                        modifier = developerAccessTapModifier,
                     )
                     Text(
                         buildPrLabel(BuildConfig.BUILD_PR_NUMBER),
                         style = LamiTypographyTokens.aboutBuild(),
+                        modifier = developerAccessTapModifier,
                     )
                     Spacer(Modifier.height(24.dp))
                     ElevatedCard(

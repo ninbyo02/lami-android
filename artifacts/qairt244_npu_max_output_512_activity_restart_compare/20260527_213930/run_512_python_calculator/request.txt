@@ -1,0 +1,12 @@
+case_id=max_output_tokens_512
+prompt=Pythonで簡単な電卓コードを書いて
+requested_max_output_tokens=512
+template_mode=gemma_it_like
+timeout_seconds=60
+sanitizer_mode=sanitizer_only
+execution_mode=activity_restart_only
+process_force_stop_allowed=false
+db=false
+tts=false
+markdown=false
+streaming=false

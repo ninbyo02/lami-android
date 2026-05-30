@@ -1,0 +1,8 @@
+>はじめまして
+<end_of_turn>
+<start_of_turn>user>はじめまして
+<end_of_turn>
+<start_of_turn>model>はじめまして
+<end_of_turn>
+<start_of_turn>user>
+<end

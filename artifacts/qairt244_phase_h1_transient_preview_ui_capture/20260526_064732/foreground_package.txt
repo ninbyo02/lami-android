@@ -1,0 +1,18 @@
+Foreground capture method:
+- The device normally returned to Termux after each host-side command output.
+- The representative capture was taken by launching `NpuDiagnosticChatActivity`,
+  pinning the existing task with `cmd activity task lock`, scrolling once, and
+  capturing screenshot/window before returning control to the terminal.
+
+Representative foreground observed in captured window:
+- package=io.github.ninbyo02.lami.customnpu
+- activity=io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity
+- section=Phase H1 transient preview
+- dev_enable_npu_chatscreen_route=true
+- metadata_read=true
+- preview_visible=true
+
+Post-capture foreground note:
+- After the capture command returned, Termux resumed foreground as expected for
+  the interactive test session.
+- `screenshot.png` and `window.xml` are the representative UI capture files.

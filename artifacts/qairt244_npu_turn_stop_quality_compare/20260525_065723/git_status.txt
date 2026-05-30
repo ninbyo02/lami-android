@@ -1,0 +1,14 @@
+ M app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuChatScreenBlockedBranch.kt
+ M app/src/debug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGate.kt
+ M app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244DevOnlyNpuRouteAdapter.kt
+ M app/src/debug/java/io/github/ninbyo02/lami/npu/Qairt244NpuOutputSanitizer.kt
+ M app/src/debug/java/io/github/ninbyo02/lami/npu/StandardHiddenQairt244PromptReceiver.kt
+ M app/src/test/java/io/github/ninbyo02/lami/npu/Qairt244NpuOutputSanitizerTest.kt
+ M app/src/testCustomBuildExperimentDebug/java/io/github/ninbyo02/lami/npu/DevOnlyNpuRouteGateTest.kt
+ M docs/litert_custom_build_plan.md
+ M docs/litert_qairt244_chat_screen_npu_integration_plan.md
+ M docs/litert_qairt244_dev_only_npu_route_adapter_plan.md
+ M docs/litert_qairt244_failure_root_cause_matrix.md
+ M docs/litert_qairt244_ui_integration_safety_plan.md
+?? docs/litert_qairt244_npu_turn_stop_quality_compare.md
+?? scripts/run_qairt244_npu_turn_stop_quality_compare.sh

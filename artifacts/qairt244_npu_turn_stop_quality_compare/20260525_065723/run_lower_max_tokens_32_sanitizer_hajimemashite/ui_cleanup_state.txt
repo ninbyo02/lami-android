@@ -1,0 +1,10 @@
+reason=standard-hidden-runner-finish
+ui_cleanup_is_local_inference_running=false
+ui_cleanup_local_job_active=false
+ui_cleanup_local_stop_requested=false
+ui_cleanup_duplicate_guard=false
+ui_cleanup_streaming_assistant_placeholder=false
+ui_cleanup_stop_owner=false
+ui_cleanup_show_delayed_local_responding_placeholder=false
+ui_cleanup_local_inference_engine_state=READY
+ui_cleanup_reset_ui_state_called=true

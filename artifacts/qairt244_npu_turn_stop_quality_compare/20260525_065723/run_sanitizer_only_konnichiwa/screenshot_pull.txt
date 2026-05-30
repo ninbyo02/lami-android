@@ -1,0 +1,1 @@
+/sdcard/qairt244_turn_stop_sanitizer_only_konnichiwa.png: 1 file pulled, 0 skipped. 6.1 MB/s (114681 bytes in 0.018s)

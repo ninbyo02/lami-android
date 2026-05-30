@@ -1,0 +1,60 @@
+はい、承知いたしました。Pythonで簡単な電卓のコードを作成します。
+
+ここでは、基本的な四則演算（加算、減算、乗算、除算）ができるシンプルなコマンドライン電卓の例を示します。
+
+### Pythonによる簡単な電卓コード
+
+```python
+def add(x, y):
+"""2つの数を加算する"""
+return x + y
+
+def subtract(x, y):
+"""2つの数を減算する"""
+return x - y
+
+def multiply(x, y):
+"""2つの数を乗算する"""
+return x * y
+
+def divide(x, y):
+"""2つの数を除算する (ゼロ除算のチェックを含む)"""
+if y == 0:
+return "エラー: ゼロによる除算はできません。"
+return x / y
+
+def simple_calculator():
+"""簡単なコマンドライン電卓のメイン関数"""
+print("--- 簡単なPython電卓 ---")
+print("選択肢: 1. 加算 (+), 2. 減算 (-), 3. 乗算 (*), 4. 除算 (/)")
+
+while True:
+print("\
+--- 演算を選択してください ---")
+print("1. 加算 (+)")
+print("2. 減算 (-)")
+print("3. 乗算 (*)")
+print("4. 除算 (/)")
+print("5. 終了 (Exit)")
+
+choice = input("選択してください (1-5): ")
+
+if choice == '5':
+print("電卓を終了します。お疲れ様でした！")
+break
+
+if choice in ('1', '2', '3', '4'):
+try:
+num1 = float(input("最初の数値を入力してください: "))
+num2 = float(input("2番目の数値を入力してください: "))
+
+if choice == '1':
+result = add(num1, num2)
+operation_symbol = "+"
+elif choice == '2':
+result = subtract(num1, num2)
+operation_symbol = "-"
+elif choice == '3':
+result = multiply(num1, num2)
+operation_symbol = "*"
+elif choice == '

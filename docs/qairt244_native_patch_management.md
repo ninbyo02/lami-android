@@ -1,8 +1,40 @@
 # QAIRT244 Native Patch Management
 
+## 2026-05-24 128 Output / 128 Input Hidden Template Phase
+
+The current active native patch for the standard hidden qairt244 template
+comparison is:
+
+```text
+patches/qairt244_litertlm_utf8_128token_128input.patch
+```
+
+This patch is a phase snapshot after the 128-token patch. It keeps
+`max_output_tokens` bounded to `1..128` and adds a hidden-template prompt input
+limit of 128 UTF-8 code points for the editable prompt entrypoint. It records
+`native_prompt_input_code_point_limit=128` and
+`native_prompt_input_limit_mode=hidden_template_experiment`.
+
+The earlier 16/32/64/128-token patches remain checked in and must not be
+deleted. They preserve the preceding output-token phases and the original
+32-code-point prompt guard.
+
+128 output / 128 input artifact:
+`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt`
+
+128 output / 128 input `liblitertlm_jni.so` sha256:
+`4065d88c4788eaf28be140e133b7141783cad0698061c942b6942fa1fa886c2e`
+
+128 output / 128 input JNI build log:
+`artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt/build_logs/__kotlin_java_com_google_ai_edge_litertlm_jni_litertlm_jni.log`
+
+`scripts/check_qairt244_native_patch.sh` now defaults to the 128 output / 128
+input patch. Historical patches can still be checked by passing the patch path
+as the second argument.
+
 ## 2026-05-24 128-Token Bounded Phase
 
-The current active native patch for the qairt244 UTF-8 internal prompt route is:
+The previous active native patch for the qairt244 UTF-8 internal prompt route is:
 
 ```text
 patches/qairt244_litertlm_utf8_128token.patch
@@ -58,9 +90,9 @@ UTF-8 prompt validation contract, keeps the 32-code-point prompt bound, rejects
 NUL, invalid UTF-8, and empty prompts, and raises only the native
 `max_output_tokens` guard and diagnostic limit from `16` to `32`.
 
-`scripts/check_qairt244_native_patch.sh` now defaults to the 128-token patch. To
-inspect the historical 16-, 32-, or 64-token patches explicitly, pass a patch
-path as the second argument.
+`scripts/check_qairt244_native_patch.sh` now defaults to the 128 output / 128
+input patch. To inspect the historical 16-, 32-, 64-, or 128-token patches
+explicitly, pass a patch path as the second argument.
 
 32-token artifact:
 `artifacts/litert_custom_build/20260524_155121_qairt244_32token_utf8prompt`
@@ -83,12 +115,18 @@ not as a checked-in binary artifact.
 - Native source:
   `kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc`
 - Active patch:
-  `patches/qairt244_litertlm_utf8_128token.patch`
+  `patches/qairt244_litertlm_utf8_128token_128input.patch`
 - Historical patches:
   `patches/qairt244_litertlm_utf8_16token.patch`,
-  `patches/qairt244_litertlm_utf8_32token.patch`, and
-  `patches/qairt244_litertlm_utf8_64token.patch`
-- Current checkout state: 128-token patch already applied as a dirty native source change.
+  `patches/qairt244_litertlm_utf8_32token.patch`,
+  `patches/qairt244_litertlm_utf8_64token.patch`, and
+  `patches/qairt244_litertlm_utf8_128token.patch`
+- Current checkout state: 128 output / 128 input patch already applied as a
+  dirty native source change.
+- 128 output / 128 input artifact:
+  `artifacts/litert_custom_build/20260524_215218_qairt244_128token_128input_utf8prompt`
+- 128 output / 128 input `liblitertlm_jni.so` sha256:
+  `4065d88c4788eaf28be140e133b7141783cad0698061c942b6942fa1fa886c2e`
 - 128-token artifact:
   `artifacts/litert_custom_build/20260524_170102_qairt244_128token_utf8prompt`
 - 128-token `liblitertlm_jni.so` sha256:
@@ -109,17 +147,21 @@ from this patch in a clean checkout.
 ## Patch Scope
 
 The patch is scoped to the DEV-only editable/internal prompt diagnostic route.
-The 16/32/64-token patches preserve earlier bounded phases; the active
-128-token patch preserves the same route scope and does not promote
-`Backend.NPU`, add fallback, or change normal app routing.
+The 16/32/64/128-token patches preserve earlier bounded phases; the active
+128 output / 128 input patch preserves the same route scope and does not
+promote `Backend.NPU`, add fallback, or change normal app routing.
 
 The patch records and guards:
 
-- active `max_output_tokens` range `1..128`; historical 16/32/64-token patches remain available
-- UTF-8 prompt acceptance for the internal intent route
-- rejection of empty prompt, NUL byte, invalid UTF-8, and prompts above 32 code
-  points
-- `native_prompt_validation_mode=utf8_internal_intent`
+- active `max_output_tokens` range `1..128`; historical 16/32/64/128-token
+  patches remain available
+- UTF-8 prompt acceptance for the hidden editable prompt route
+- rejection of empty prompt, NUL byte, invalid UTF-8, and prompts above 128
+  code points in `hidden_template_experiment` mode
+- `native_prompt_validation_mode=utf8_hidden_template_experiment` for the
+  hidden template input mode
+- `native_prompt_input_code_point_limit=128`
+- `native_prompt_input_limit_mode=hidden_template_experiment`
 - `utf8_allowed=true`
 - existing `QNN_HTP_V79_FastRPC_native_diag` evidence and decode timing output
 
@@ -137,10 +179,10 @@ Manual checks:
 
 ```bash
 git -C /home/sato/project/litert-custom-build/LiteRT-LM apply --check \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token.patch
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
 
 git -C /home/sato/project/litert-custom-build/LiteRT-LM apply --reverse --check \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token.patch
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
 ```
 
 Interpretation:
@@ -154,18 +196,18 @@ To apply in a clean checkout:
 
 ```bash
 git -C /home/sato/project/litert-custom-build/LiteRT-LM apply \
-  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token.patch
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
 ```
 
 ## Build And Record
 
-Rebuild the active 128-token native artifact from lami-android:
+Rebuild the active 128 output / 128 input native artifact from lami-android:
 
 ```bash
 scripts/build_litert_custom_artifacts.sh \
   /home/sato/project/litert-custom-build/LiteRT-LM \
   --qairt-root /home/sato/compose/qairt/workspace/sdk/qairt/2.44.0.260225 \
-  --label qairt244_128token_utf8prompt
+  --label qairt244_128token_128input_utf8prompt
 ```
 
 Record the produced artifact directory, native build log path, and JNI library

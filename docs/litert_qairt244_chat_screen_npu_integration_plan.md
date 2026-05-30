@@ -1,5 +1,549 @@
 # QAIRT 2.44 Guarded ChatScreen NPU Integration Plan
 
+## Max512 Instrumented Worker Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_instrumented_worker_runtime/20260528_073227/`
+
+This hidden runtime investigation does not change ChatScreen wiring. The
+terminal trace proves prompt 2 reached the native adapter boundary and did not
+return to Kotlin: no terminal result write, cleanup, `finally`, throwable, or
+worker-finished marker was recorded.
+
+ChatScreen impact: none. The prompt 2 suspect session cannot become normal
+assistant output, cannot insert into the assistant list, cannot persist
+selectedPath=NPU, and cannot enter DB/TTS/Markdown/streaming. Normal
+ChatScreen promotion remains blocked.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated candidate only while sequential support is
+incomplete, and 1024+ remains blocked.
+
+## Max512 Receiver/Native Worker Terminal Instrumentation - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_receiver_native_worker_instrumentation/20260528_070541/`
+
+This phase adds hidden diagnostic instrumentation only. It does not execute
+NPU, rerun 512, change native code, rebuild QAIRT, or connect ChatScreen
+output.
+
+ChatScreen impact: none. The terminal trace is scoped to the hidden broadcast
+receiver and native-worker path. It records worker/native boundaries for
+post-run artifacts but does not insert assistant messages, persist
+selectedPath=NPU, enter DB/TTS/Markdown/streaming, or promote normal
+ChatScreen. Edge Gallery-style streaming remains out of scope.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated candidate only while sequential support is
+incomplete, and 1024+ remains blocked.
+
+## Max512 Dispatch Process Disappearance Review - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_dispatch_process_death_review/20260528_061808/`
+
+This review does not change ChatScreen wiring. Prompt 2 process loss occurred
+inside the hidden broadcast receiver/native-worker window after broadcast
+acceptance and before terminal result/cleanup.
+
+ChatScreen impact: none. The failure remains hidden diagnostic evidence only.
+It cannot insert assistant messages, persist selectedPath=NPU, enter DB/TTS/
+Markdown/streaming, or promote normal ChatScreen. The next safe implementation
+candidate is debug-only receiver-worker terminal instrumentation, not UI
+streaming or normal route connection.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated candidate only while sequential support is
+incomplete, and 1024+ remains blocked.
+
+## Max512 Instrumented Sequential Soft-Reset Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime_instrumented/20260528_052237/`
+
+This hidden runtime investigation does not change ChatScreen wiring. Prompt 2
+lost the app process immediately after hidden broadcast dispatch and the
+process-boundary gate stopped the sequence before prompt 3.
+
+ChatScreen impact: none. `PROCESS_DISAPPEARED_SUSPECT` cannot become normal
+assistant output, cannot insert into the assistant list, cannot persist
+selectedPath=NPU, and cannot enter DB/TTS/Markdown/streaming. Normal
+ChatScreen promotion remains blocked.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated candidate only while sequential support is
+incomplete, and 1024+ remains blocked.
+
+## Max512 Process Boundary Instrumentation - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_process_boundary_instrumentation/20260528_050222/`
+
+This phase adds hidden runner instrumentation only. It does not execute NPU,
+rerun 512, change native code, rebuild QAIRT, or connect ChatScreen output.
+
+ChatScreen impact: none. Process disappearance is now a hidden diagnostic
+classification (`PROCESS_DISAPPEARED_SUSPECT`) that stops sequential
+continuation and requires hidden per-run isolation. It must not insert
+assistant messages, persist selectedPath=NPU, enter DB/TTS/Markdown/streaming,
+or promote normal ChatScreen.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated candidate only while sequential support is
+incomplete, and 1024+ remains blocked.
+
+## Max512 Soft-Reset Process Disappearance Review - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_soft_reset_process_disappearance_review/20260528_043922/`
+
+This is review-only and does not change ChatScreen wiring. The review confirms
+that the 512 soft-reset sequential path remains hidden diagnostic work. Python
+code now succeeds under the soft-reset gate, but prompt 2 is followed by
+process disappearance and prompt 3 times out without state/result/native
+diagnostic files.
+
+ChatScreen impact: none. The failure mode is not allowed to create assistant
+messages or persist selectedPath=NPU. Normal ChatScreen promotion, assistant
+list insertion, DB, TTS, Markdown renderer, streaming renderer, selectedPath
+persistence, release behavior, and standard behavior remain blocked.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated only, and 1024+ remains blocked.
+
+## Max512 Sequential Soft-Reset Runtime - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_sequential_soft_reset_runtime/20260528_041357/`
+
+This runtime validation remains hidden-route only. It ran the 512 sequential
+soft-reset runner once with process continuity, no force-stop between prompts,
+and no Activity restart between prompts.
+
+ChatScreen impact: none. Prompt 1 and the Python code prompt were
+`SUCCESS_CLEAN`; the Python output was `useful_code` with indentation and code
+fence checks passing. Prompt 3 timed out and was classified
+`TIMEOUT_SUSPECT`; the lifecycle gate set `next_prompt_allowed=false`,
+`reuse_allowed=false`, and `hidden_per_run_isolated_required=true`.
+
+Normal ChatScreen promotion, assistant-list insertion, DB, TTS, Markdown
+renderer, streaming renderer, selectedPath=NPU persistence, release behavior,
+and standard behavior remain blocked. H1 remains 128-only, 256 remains the
+hidden experimental baseline candidate, 512 remains hidden per-run isolated
+only, and 1024+ remains blocked.
+
+## Hidden NPU Runtime Reuse Enforcement - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_runtime_reuse_enforcement/20260528_034826/`
+
+Runtime reuse enforcement is still hidden-route only. It maps lifecycle
+classification into `next_prompt_allowed` and runtime reuse policy before any
+future hidden sequential attempt can dispatch a following prompt.
+
+ChatScreen impact: none. Suspect sessions, stale results, run-id mismatches,
+or any non-`SUCCESS_CLEAN` summary cannot become ChatScreen output and cannot
+continue sequential execution. Normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming renderer, selectedPath=NPU
+persistence, release behavior, and standard behavior remain blocked.
+
+H1 remains 128-only, 256 remains the hidden experimental baseline candidate,
+512 remains hidden per-run isolated only, and 1024+ remains blocked.
+
+## Max512 Sequential Soft-Reset Preflight - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_npu_512_sequential_soft_reset_preflight/20260528_033653/`
+
+The sequential soft-reset work is preflight-only. It does not connect normal
+ChatScreen, assistant-list insertion, DB, TTS, Markdown renderer, streaming,
+or selectedPath=NPU persistence. It also does not execute NPU.
+
+If a future hidden run is separately approved, the runner may continue to the
+next prompt only after a run-id scoped lifecycle summary reports
+`SUCCESS_CLEAN`, cleanup elapsed time, `Engine.close=unique_ptr_cleanup`,
+`reuse_allowed=true`, and no per-run-isolated requirement. A suspect session
+or stale/mismatch result stops the sequence and falls back to the existing
+per-run isolated requirement.
+
+ChatScreen impact: none. H1 remains pinned to 128, 256 remains the hidden
+experimental baseline candidate, 512 remains hidden per-run isolated only, and
+1024+ remains blocked.
+
+## Hidden NPU Lifecycle Summary Regeneration - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_summary_regeneration/20260528_030629/`
+
+The lifecycle summary regeneration is diagnostic-only and parses existing
+artifacts. It does not execute NPU, call RunDecode, rebuild native code, or
+create ChatScreen output.
+
+Real artifact compatibility is confirmed: clean force-stop 512, isolated
+bounded 512 code retry, and clean 256 runs classify as `SUCCESS_CLEAN`; the
+Python code timeout in sequential 512 and Activity-restart-only 512 classifies
+as `TIMEOUT_SUSPECT`. Suspect sessions keep `reuse_allowed=false` and require
+hidden per-run isolation before any future 512 attempt.
+
+ChatScreen impact: none. Normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming renderer, selectedPath=NPU
+persistence, release behavior, and standard behavior remain blocked. H1
+remains 128-only; 512 remains hidden per-run isolated only; 1024+ remains
+blocked.
+
+## Hidden NPU Lifecycle Summary Integration - 2026-05-28
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_summary_integration/20260528_024448/`
+
+Hidden runner summaries now include lifecycle classification and reuse policy,
+but this remains diagnostic-only. `suspect_session=true`,
+`reuse_allowed=false`, stale result rejection, or run-id mismatch rejection
+must not be used as ChatScreen display input.
+
+ChatScreen impact: none. Normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming renderer, selectedPath=NPU
+persistence, release behavior, and standard behavior remain blocked. H1
+remains 128-only.
+
+## Hidden NPU Lifecycle Artifact Parser - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_runner_integration/20260527_231211/`
+
+The lifecycle artifact parser is diagnostic-only. It reads hidden runner/
+preflight state, result, native diag, and cleanup text and maps it to the
+wrapper classifications. It does not create UI messages and does not connect
+streaming.
+
+ChatScreen impact: none. Normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming renderer, selectedPath=NPU
+persistence, release behavior, and standard behavior remain blocked. 512
+remains hidden per-run isolated only.
+
+## Hidden NPU Lifecycle Wrapper Contract - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_hidden_npu_lifecycle_wrapper_design/20260527_225303/`
+
+The hidden lifecycle wrapper is not a ChatScreen promotion. It defines a
+diagnostic-only contract for future hidden runs: run-id scoped state/result/
+native-diag/cleanup files, stale result rejection, mandatory cleanup elapsed
+time, mandatory `Engine.close=unique_ptr_cleanup`, and suspect-session
+classification for timeout or missing cleanup.
+
+ChatScreen impact: none. Do not connect assistant message-list insertion, DB,
+TTS, Markdown renderer, streaming renderer, selectedPath=NPU persistence,
+release behavior, or standard behavior. H1 remains pinned to 128 and 512
+remains hidden per-run isolated only.
+
+## Edge Gallery Streaming Lifecycle Compare - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_edge_gallery_streaming_lifecycle_compare/20260527_223704/`
+
+Edge Gallery's chat implementation was reviewed only as a lifecycle reference.
+It is not a ChatScreen promotion source for Lami. Gallery streams callbacks
+directly into assistant text messages and has persisted chat/session concepts;
+those remain explicitly out of scope for Lami's hidden QAIRT244 route.
+
+ChatScreen plan impact: no normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming renderer, selectedPath=NPU
+persistence, release behavior, or standard behavior change. The useful design
+candidate is lower level: a hidden route lifecycle wrapper with per-turn run-id
+separation, terminal callback/result evidence, and bounded cleanup/close
+evidence before any sequential 512 reuse.
+
+Decision: keep 512 as hidden `hidden_per_run_isolated_512` only. Sequential
+512 and Activity-restart-only 512 remain rollback. 256 remains the hidden
+experimental baseline candidate, H1 remains 128-only, and 1024+ remains
+blocked.
+
+## Max512 Per-Run Isolated Formalization - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_formalization/20260527_215325/`
+
+512 is now formalized only as hidden `mode=hidden_per_run_isolated_512`.
+Sequential 512 and Activity-restart-only 512 remain rollback paths. The mode
+requires force-stop before/after each prompt and a full hidden safety/code
+display evidence set; it is not a ChatScreen operating mode.
+
+ChatScreen plan impact: no normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming, selectedPath=NPU persistence,
+release behavior, or standard behavior change. 256 remains the hidden
+experimental baseline candidate, H1 remains 128-only, and 1024+ remains
+blocked.
+
+## Max512 Activity Restart Only Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_activity_restart_compare/20260527_213930/`
+
+Activity restart only is not a ChatScreen promotion path. The hidden comparison
+kept the app process alive when possible and did not use force-stop between
+prompts. The Python code prompt still timed out after native pre-RunDecode
+`SetMaxOutputTokens(512)` evidence, with no completed result, cleanup,
+`Engine.close`, raw output, or sanitized output. The two Japanese prompts
+completed as `natural_japanese`.
+
+ChatScreen plan impact: no normal ChatScreen promotion, assistant-list
+insertion, DB, TTS, Markdown renderer, streaming, selectedPath=NPU persistence,
+release behavior, or standard behavior change. Sequential and
+Activity-restart-only 512 remain non-baseline. 512 remains hidden
+per-run-isolated candidate only, 256 remains the hidden experimental candidate,
+H1 remains 128-only, and 1024+ remains blocked.
+
+## Max512 Sequential Cleanup/Resource Investigation - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_sequential_cleanup_resource_investigation/20260527_082307/`
+
+The sequential timeout is now tracked as warm-process/resource inheritance, not
+as evidence that 512 or the SM8750 NPU path is unsupported. However, this does
+not create a ChatScreen integration path. The normal UI would be a sequential
+conversation surface, and sequential 512 remains non-baseline.
+
+Decision: no normal ChatScreen promotion, assistant-list insertion, DB, TTS,
+Markdown renderer, streaming, selectedPath=NPU persistence, release behavior,
+or standard behavior change. 512 remains hidden per-run isolated candidate
+only. 256 remains the hidden experimental candidate, H1 remains 128-only, and
+1024+ remains blocked. The next single-axis experiment, if approved, should be
+Activity restart only between prompts.
+
+## Max512 Per-Run Isolated Gate - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_per_run_isolated_gate/20260527_075622/`
+
+The 512 gate is defined only for hidden `mode=per_run_isolated`: app
+force-stop before and after each prompt, `max_output_tokens=512`, RunDecode and
+`SetMaxOutputTokens(512)` evidence, no timeout, no fresh crash, no fallback,
+QNN/HTP/FastRPC evidence, cleanup/`Engine.close`, no retained-memory condition,
+code-aware sanitizer, preserved indentation, closed/completed code fence, and
+side-effect flags false.
+
+ChatScreen plan impact: no normal ChatScreen promotion. Sequential 512 remains
+non-baseline, and the per-run isolated gate does not authorize assistant-list
+insertion, DB, TTS, Markdown renderer, streaming, selectedPath=NPU persistence,
+release behavior, or standard behavior. 256 remains the hidden experimental
+candidate, H1 remains 128-only, and 1024+ remains blocked.
+
+## Max512 Force-Stop Between Prompts - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_force_stop_between_prompts/20260527_074002/`
+
+The hidden comparison passed when every prompt was isolated by app force-stop
+before and after the run. The Python calculator prompt returned `useful_code`
+with `decode_ms=12448`, `elapsed_ms=14000`, preserved indentation, and a closed
+code fence. All runs recorded QNN/HTP/FastRPC evidence,
+cleanup/`Engine.close`, `timeout=false`, `fresh_crash=false`, and
+`fallback_used=false`.
+
+ChatScreen plan impact: no normal ChatScreen promotion. The result narrows the
+512 issue to sequential/resource-cleanup behavior and supports a possible
+hidden per-run isolated mode, but it does not authorize assistant-list
+insertion, DB persistence, TTS, Markdown renderer, streaming, selectedPath=NPU
+persistence, release behavior, or standard behavior. 256 remains the hidden
+experimental candidate and 1024+ remains blocked.
+
+## Max512 Repeated Code Timeout Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_timeout_root_cause_review/20260527_065926/`
+
+The ChatScreen integration plan remains blocked for 512. The Python code prompt
+is unstable at 512: it completed in an isolated bounded retry, but timed out
+when run second in the code-aware three-prompt comparison. No completed
+sanitized code output is available from the sequential run.
+
+Decision: no normal ChatScreen promotion, assistant-list insertion, DB, TTS,
+Markdown, streaming, or selectedPath persistence. 256 remains the hidden
+experimental candidate; 512 remains extended experimental; 1024+ remains
+blocked.
+
+## Max512 Code-Aware Three-Prompt Rerun - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_codeaware_compare/20260527_014523/`
+
+The hidden code-aware rerun remains non-promotable to ChatScreen. `こんにちは`
+and the short Lami NPU prompt returned sanitized Japanese responses, but the
+Python calculator prompt timed out with no completed sanitized code output.
+The artifact therefore does not prove code display quality for 512.
+
+Decision: do not connect 512 to normal ChatScreen, assistant-list insertion,
+DB, TTS, Markdown renderer, streaming, or selectedPath persistence. 512 remains
+extended experimental; 1024 remains blocked.
+
+## Code-Aware Sanitizer Update - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_code_aware_sanitizer_review/20260527_012650/`
+
+The hidden NPU sanitizer now handles fenced code blocks without stripping
+indentation and can close a truncated code fence in sanitized display text. This
+keeps raw native output out of UI/state/renderer paths and preserves the
+existing non-code sanitizer behavior for Gemma turn tokens and prompt echo.
+
+ChatScreen plan impact: no normal ChatScreen promotion. Do not connect this to
+assistant-list insertion, DB, TTS, Markdown renderer, streaming, or selectedPath
+persistence. The next ChatScreen-relevant evidence would be a separately
+approved bounded 512 three-prompt comparison after the sanitizer fix.
+
+## Max512 Code Output Quality Review - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_512_code_output_quality_review/20260527_011217/`
+
+The 512 code prompt bounded retry is not a ChatScreen promotion candidate. The
+raw output has useful calculator code and preserved indentation, but sanitized
+output strips indentation and leaves an unclosed code fence after token-limit
+truncation. This creates a Markdown/code display risk even though NPU safety
+signals passed.
+
+Decision: do not connect 512 code output to normal ChatScreen, assistant-list
+insertion, DB, TTS, Markdown, streaming, or selectedPath persistence. Keep 512
+as extended experimental until a code-aware display sanitizer/gate exists and a
+bounded 512 three-prompt comparison passes.
+
+## Max512 Three-Prompt Hidden Comparison - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_three_prompt_compare/20260527_003429/`
+
+The hidden receiver executed the three approved prompts once each at
+`max_output_tokens=512`. This is not promotable to ChatScreen because the
+Python calculator prompt timed out before a completed sanitized code response.
+The two Japanese prompts completed with sanitized `natural_japanese` output.
+
+Decision: do not promote 512 to normal ChatScreen or H1. Do not insert the
+output into the assistant message list, persist it to DB, route it through
+TTS/Markdown/streaming, or save selectedPath as NPU. Keep the 512 result as a
+rollback artifact until a separately approved 512 comparison passes all three
+prompts, especially the code-generation prompt as `useful_code`.
+
+Timeout review:
+`artifacts/qairt244_npu_max_output_512_code_timeout_review/20260527_005112/`
+confirms this is not a ChatScreen promotion candidate. The Python prompt
+entered the native path and reached pre-RunDecode `SetMaxOutputTokens(512)`
+evidence, but no completed result or cleanup evidence was captured before the
+runner force-stop. Normal ChatScreen remains disconnected.
+
+Bounded retry:
+`artifacts/qairt244_npu_max_output_512_code_bounded_retry/20260527_010116/`
+completed the same prompt once with `timeout_seconds=60`,
+`quality_classification=useful_code`, QNN evidence, and cleanup/`Engine.close`
+evidence. ChatScreen plan impact remains none. The retry does not connect
+normal ChatScreen, assistant-list insertion, DB, TTS, Markdown, streaming, or
+selectedPath persistence, and it does not promote 512. A full 512 comparison
+and display-format review are still required before any UI-facing change.
+
+## Max512 Single Hidden Prompt - 2026-05-27
+
+Artifact:
+`artifacts/qairt244_npu_max_output_512_single_prompt/20260527_002303/`
+
+The hidden standardDebug receiver executed one prompt, `こんにちは`, with
+`max_output_tokens=512`. It succeeded with `RunDecode` reached,
+`npu_backend=NPU`, QNN/HTP/FastRPC evidence, and sanitized natural Japanese
+output. The raw output still contained prompt echo and `<end_of_turn>` markers;
+sanitizer removed them before display-quality classification.
+
+Decision: proceed only to a 512 three-prompt hidden comparison after separate
+approval. Do not promote 512 to normal ChatScreen or H1. Do not insert the
+output into the assistant message list, persist it to DB, route it through
+TTS/Markdown/streaming, or save selectedPath as NPU.
+
+## Max256 Guard-Only Patch Staged - 2026-05-26
+
+Artifacts:
+
+- build/static artifact:
+  `artifacts/qairt244_editable_prompt_max256_entrypoint_build/20260526_204155/`
+- preflight artifact:
+  `artifacts/qairt244_npu_max256_guard_preflight/20260526_205300/`
+
+The external LiteRT-LM qairt244 editable-prompt guard has been raised to 256 in
+a limited rebuild and the lami preflight passed against that artifact. This
+does not change the ChatScreen plan: no normal ChatScreen route, assistant
+message list, DB, TTS, Markdown, streaming, selected-path persistence, NPU
+generation, `Engine.initialize`, or `RunDecode` was executed or connected in
+this phase.
+
+## Max256 Single Hidden Prompt - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_single_prompt/20260526_211046/`
+
+The hidden standardDebug receiver executed one prompt, `こんにちは`, with
+`max_output_tokens=256`. It succeeded with `RunDecode` reached and sanitized
+natural Japanese output. This remains hidden experimental only: no normal
+ChatScreen route, assistant message list insertion, DB, TTS, Markdown,
+streaming, or selected-path persistence is connected.
+
+Decision: proceed only to a 256 three-prompt hidden comparison. Do not promote
+256 to normal ChatScreen or H1.
+
+## Max256 Three-Prompt Hidden Comparison - 2026-05-26
+
+Artifact:
+`artifacts/qairt244_npu_max_output_256_three_prompt_compare/20260526_211856/`
+
+The hidden receiver ran the three approved prompts once each at
+`max_output_tokens=256`. All three succeeded with QNN/HTP/FastRPC evidence,
+no fallback, no timeout, no fresh crash, no selected-path persistence, and no
+DB/TTS/Markdown/streaming ingress. The code prompt was classified as
+`useful_code`; the two Japanese prompts were classified as `natural_japanese`.
+
+ChatScreen plan impact: none. This is hidden experimental evidence only. Do
+not insert the 256 output into the assistant message list, do not persist it to
+DB, do not route it through TTS/Markdown/streaming, and do not treat it as a
+normal ChatScreen baseline.
+
+Result commit decision: 256 is fixed only as a hidden experimental baseline
+candidate. Normal ChatScreen remains disconnected. Before considering 512, the
+next phase must produce a separate native guard/build/preflight, then one
+single-prompt hidden run with `RunDecode` reached, QNN evidence, no timeout, no
+fresh crash, no fallback, memory-after-10s recovery, and sanitizer quality
+review.
+
+## Native Max Output Token Limit Investigation - 2026-05-26
+
+The 128-token ceiling is currently a custom qairt244 native editable-prompt
+guard, not a proven ChatScreen/UI limit. The guard runs before
+`DecodeConfig::SetMaxOutputTokens` and before `RunDecode`, so the 256 hidden
+compare never exercised LiteRT-LM decode or QNN runtime behavior at 256.
+
+ChatScreen plan impact: none. Do not connect 256, 512, 1024, 2048, or 4096
+token requests to normal ChatScreen. Keep H1 and any future handoff work pinned
+to sanitized 128-token metadata until a staged native guard patch and hidden
+runtime validation pass separately.
+
+## Max Output Tokens 256 Hidden Compare - 2026-05-26
+
+The hidden experimental 256-token comparison was run in
+`artifacts/qairt244_npu_max_output_256_quality_compare/20260526_201129/`.
+It does not change the ChatScreen integration plan.
+
+Outcome:
+
+- requested `max_output_tokens=256`
+- native entrypoint reported `native_max_output_tokens_limit=128`
+- native detail: `invalid_max_output_tokens`
+- all three prompts returned `empty_after_sanitize`
+- `fallback_used=false`, `timeout=false`, `fresh_crash=false`
+- `selected_path_npu_saved=false`
+- `standard_route_connected=false`, `normal_ui_route_connected=false`
+- `db=false`, `tts=false`, `markdown=false`, `streaming=false`
+
+Decision: do not promote 256 into ChatScreen or H1. Keep
+`sanitizer_only + max_output_tokens=128` as the hidden display baseline.
+Normal ChatScreen, assistant message list, DB, TTS, Markdown, and streaming
+remain disconnected from NPU output.
+
 Date: 2026-05-23
 
 Scope: design only. This document defines the conditions for any future
@@ -229,6 +773,86 @@ blocked adapter preview renders:
 
 This confirms the transient state shape before any normal ChatScreen branch is
 introduced.
+
+## Phase H1 Freshness And Transition Guard
+
+The hidden-to-UI Phase H1 work now has a pure Kotlin pre-ChatScreen reducer for
+artifact metadata freshness and transient preview transitions:
+
+- no `ChatScreen` call site is added by this guard
+- no NPU generation, `Engine.initialize`, or `RunDecode` is run
+- artifact timestamps are accepted as epoch milliseconds through
+  `artifact_timestamp_ms`, `artifact_timestamp`, `synced_at`, or `created_at`
+- only artifacts within 24 hours are fresh
+- stale, missing, or future timestamps hide the preview or map to rollback
+- clear events cover new input, navigation away, toggle OFF, failure/rollback,
+  and app restart
+- refresh re-reads artifact metadata only and reapplies the mapper when fresh
+- refresh records `runsNpu=false`, `initializesEngine=false`, and
+  `runsDecode=false`
+- DB, TTS, Markdown, streaming, and selected-path persistence remain
+  disconnected
+
+The Phase H1 metadata boundary now fixes the future ChatScreen read contract:
+
+- read only artifact key-value text, maps, or already-read file content
+- require the minimum metadata fields documented in
+  `docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md`
+- drop `raw_output`, model path, token dumps, full native diagnostics, and
+  unknown keys before UI input
+- reject missing required fields, invalid booleans, and invalid numbers as
+  rollback input
+- use the last value for duplicate keys
+- when `dev_enable_npu_chatscreen_route=false`, do not read or parse metadata
+- when true, still require fresh artifact metadata and promotion gate pass
+- no run, retry, fallback, `Engine.initialize`, or `RunDecode` is attached
+
+The metadata-to-presenter integration test now fixes the future transient-card
+input/output contract before any ChatScreen wiring:
+
+- valid fresh key-value metadata maps to `DevOnlyNpuPhaseH1UiState.visible=true`
+- only `sanitized_output` becomes `outputPreview`
+- `raw_output` is not present in input/state output
+- fallback, timeout, non-natural quality classification, standard route
+  connection, and DB ingress map to hidden rollback state
+- side-effect flags stay false for every success and rollback state
+- toggle false still means metadata provider is not called
+
+The Phase H1 card view model contract now fixes the read-only display object a
+future transient card may receive:
+
+- success card is visible and shows sanitized body only
+- rollback/failure cards are hidden with `body=null` and reason summary
+- hidden card is invisible with no body and no warnings
+- detail lines include max-output, decode-ms, backend evidence, artifact path,
+  selected-path false, and DB/TTS/Markdown/streaming false
+- raw output is never exposed
+- retry, persistence, TTS, Markdown, and streaming controls are always false
+- snapshot text is tested before any UI component exists
+
+The Phase H1 preview renderer now fixes the future formatter contract before
+any Compose or ChatScreen wiring:
+
+- renderer API is `renderLines(model)` and `renderContractText(model)`
+- success lines render badge/title, status, subtitle, output label, sanitized
+  body, reason, details, and optional warnings in that order
+- rollback and hidden models render no lines because `visible=false`
+- raw output and turn-template tokens are absent from rendered text
+- retry, persist, TTS, Markdown button, and streaming indicator labels are not
+  rendered
+- detail lines keep stable order
+
+The first minimal H1 wiring is limited to `NpuDiagnosticChatActivity`:
+
+- no normal ChatScreen conversation route is connected
+- no assistant message list insertion
+- explicit `dev_enable_npu_chatscreen_route` intent extra defaults false
+- false means metadata is not read or parsed
+- true reads artifact metadata only and runs mapper/presenter/card/renderer
+- fresh gate-passing sanitized output becomes read-only diagnostic text
+- rollback, stale, or hidden states render no preview lines
+- no retry button, auto fallback, DB, TTS, Markdown, streaming,
+  `Engine.initialize`, `RunDecode`, or selected-path persistence
 
 ## Disabled Blocked Branch
 
@@ -510,3 +1134,211 @@ Observed result:
 This resolves the previous `model-file-not-found` boundary. The current
 rollback boundary is model content compatibility with the QAIRT NPU compiled
 model executor, not app-private path discovery.
+## 2026-05-25 DEV-only NPU Output Sanitizer
+
+The ChatScreen DEV-only qairt244 route now keeps the SM8750 NPU execution path
+unchanged and sanitizes only the transient output shown by the debug route. The
+target template for the current output-quality phase is `gemma_it_like`.
+
+Sanitizer scope:
+
+- removes Gemma turn artifacts such as `<start_of_turn>`, `<start_of_turn>user`,
+  `<start_of_turn>model`, `<end_of_turn>`, and partial `<end`
+- removes a leading user prompt echo line, including the observed
+  `>こんにちは` echo
+- collapses empty lines and stops before repeated user-turn artifacts
+- preserves `raw_output` and writes `sanitized_output` for display
+- reports `sanitizer_applied`, `removed_template_token_count`, and
+  `removed_prompt_echo`
+
+Real-device evidence:
+
+```text
+artifact=artifacts/qairt244_npu_output_sanitizer/20260525_015040
+template_mode=gemma_it_like
+prompt=こんにちは
+raw_output=>こんにちは\n<end_of_turn>\nこんにちは！何かお手伝いできることはありますか？\n<end_of_turn>
+sanitized_output=こんにちは！何かお手伝いできることはありますか？
+removed_template_token_count=2
+removed_prompt_echo=true
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_used=false
+timeout=false
+fresh_crash=false
+```
+
+This does not connect the NPU output to DB, TTS, Markdown, or streaming, and it
+does not persist `selectedPath=npu`.
+
+## QAIRT244 Turn-Stop Quality Compare - 2026-05-25
+
+The ChatScreen DEV-only NPU route is treated as route-successful; this phase is display-quality tuning only. The comparison is documented in `docs/litert_qairt244_npu_turn_stop_quality_compare.md` and implemented by `scripts/run_qairt244_npu_turn_stop_quality_compare.sh`.
+
+Static LiteRT-LM inspection found `native stop not exposed` for the qairt244 lower-level Android route. Runtime metadata can carry stop token ids internally, but this JNI path creates a default session config and exposes only `DecodeConfig.SetMaxOutputTokens()` for the editable-prompt run; no per-request stop sequence, stop token, EOS, or `<end_of_turn>` setter is available. Public sampler controls expose topK/topP/temperature/seed, but the qairt244 lower-level native entrypoint does not accept sampler config, and no repetition penalty API was found.
+
+The fixed executable baseline is `enhanced_sanitizer_only_128`. `lower_max_tokens_64_sanitizer` and `lower_max_tokens_32_sanitizer` are rollback-only records, not executable adoption candidates, and `stop_sequence_end_of_turn` is recorded as `not_run/native_stop_not_exposed`. The prompts are `こんにちは`, `はじめまして`, and `こんばんは`; the executable sanitizer-only case uses `max_output_tokens=128` and a 30 second timeout.
+
+The safe adopted baseline from the 2026-05-25 run is enhanced sanitizer-only at `max_output_tokens=128`. Lower caps are not adopted because `64` produced `empty_after_sanitize`, and `32` produced adapter failure / timeout in the comparison artifact. The required evidence remains `QNN_HTP_V79_FastRPC_native_diag`, `fallback_used=false`, sanitizer-only `timeout=false`, `fresh_crash=false`, `selected_path_npu_saved=false`, and no normal UI, DB, TTS, Markdown, or streaming connection.
+
+## NPU Sanitizer Quality Baseline Commit - 2026-05-25
+
+Commit baseline: `sanitizer_only + max_output_tokens=128` is the provisional
+hidden experimental display-quality baseline, backed by
+`artifacts/qairt244_npu_turn_stop_quality_compare/20260525_211810`.
+
+Promotion gate: `fallback_used=false`, `fresh_crash=false`, `timeout=false`,
+sanitized `quality_classification=natural_japanese`, no template artifact after
+sanitize, no repetition or multilingual drift after sanitize, and
+`db=false`, `tts=false`, `markdown=false`, `streaming=false`.
+
+Raw native `template_artifact` remains acceptable only as diagnostic evidence;
+the displayed sanitized output must be natural Japanese. Native stop sequence /
+native turn-stop is not required for this provisional baseline. Standard route
+non-connection is covered by `DevOnlyNpuChatScreenBlockedBranchTest`.
+
+The follow-up static investigation is recorded at
+`artifacts/qairt244_npu_stop_api_investigation/20260525_214513/`. It found no
+public Android/JNI per-run stop sequence, stop token, EOS, or `<end_of_turn>`
+API for this qairt244 path, so no native stop comparison is implemented.
+
+## NPU Hidden-To-UI Handoff Plan - 2026-05-25
+
+The next pre-promotion design is documented in
+`docs/litert_qairt244_npu_hidden_to_ui_handoff_plan.md`. It keeps
+`sanitizer_only + max_output_tokens=128` as the required baseline and does not
+implement normal UI promotion.
+
+The first eligible handoff phase is H1 transient preview only: display
+`sanitized_output` in a DEV-only transient UI surface, keep `raw_output` in
+artifacts only, and keep DB, TTS, Markdown, streaming, selected-path NPU
+persistence, and standard route connection disabled. Later phases evaluate
+assistant-style temporary display, DB persistence, and TTS/Markdown/streaming
+as separate gates.
+
+Phase H1 surface details are fixed in
+`docs/litert_qairt244_npu_phase_h1_transient_ui_surface.md`: ChatScreen may use
+only a DEV-only transient card/banner/snackbar, outside the assistant message
+list, with `sanitized_output`, status, `reasonCode`, `decode_ms`, short backend
+evidence, `maxOutputTokens=128`, and short artifact path. It clears on new
+input, navigation away, toggle OFF, failure/rollback, app restart, or stale
+artifact; refresh may reread artifact metadata only.
+
+Before ChatScreen wiring, Phase H1 is limited to state/display-model/presenter
+tests. Those tests must prove sanitized-output-only display, raw-output
+exclusion, reason-only failure display, rollback hiding, and
+`shouldPersistToDb=false`, `shouldSpeakTts=false`,
+`shouldRenderMarkdown=false`, `shouldStream=false`.
+
+The artifact metadata mapper is also tested before ChatScreen wiring. It reads
+hidden result key-value metadata, maps only `sanitized_output` into H1 UI input,
+discards `raw_output`, and turns promotion-gate mismatches into
+rollback/failure input.
+
+## Phase H1 Diagnostic UI Capture Supplement - 2026-05-26
+
+The H1 transient preview remains outside the normal ChatScreen conversation
+route. Supplemental artifact
+`artifacts/qairt244_phase_h1_transient_preview_ui_capture/20260526_064732`
+records the Diagnostic-only UI evidence for the existing wiring:
+
+- representative screenshot/window captured
+- `DEV ONLY - DEV NPU transient preview`
+- `Status: SUCCESS`
+- sanitized Japanese output rendered
+- raw output and template tokens absent from the UI
+- DB/TTS/Markdown/streaming flags false
+- standard and normal UI route flags false
+- `npu_generation=false`, `engine_initialize=false`, `run_decode=false`
+
+No ChatScreen assistant message insertion, DB write, TTS, Markdown, streaming,
+retry, fallback, or selected-path NPU persistence is introduced by this capture
+pass.
+
+## Phase H1 Read-Only Card Wiring - 2026-05-26
+
+The Diagnostic/DEV screen now contains a dedicated read-only transient card for
+the H1 preview. The normal ChatScreen conversation route remains disconnected.
+
+The card consumes the same H1 renderer output already covered by tests and
+artifact capture. It displays sanitized output and safety metadata only. It does
+not insert an assistant message, does not call the standard route, does not save
+to DB, does not speak TTS, does not render Markdown, and does not stream.
+
+Rollback, stale, hidden, or gate-failed metadata hides the card and does not
+offer retry, fallback, or rerun controls.
+
+## Phase H1 Hidden-State Regression - 2026-05-26
+
+The Diagnostic/DEV read-only card was captured with non-success metadata states
+before any normal ChatScreen promotion:
+
+- stale metadata hides the card
+- rollback metadata hides the card
+- `dev_enable_npu_chatscreen_route=false` skips metadata read and hides the card
+
+The success baseline still renders sanitized output. Hidden captures keep
+`standard_route_connected=false`, `normal_ui_route_connected=false`, `db=false`,
+`tts=false`, `markdown=false`, `streaming=false`, `engine_initialize=false`, and
+`run_decode=false`.
+
+## Phase H1 Compose Adapter Contract - 2026-05-26
+
+`DevOnlyNpuPhaseH1ComposeAdapter` now defines the narrow model a future
+Diagnostic-only Compose surface may read.
+
+The adapter explicitly keeps H1 out of the normal conversation path:
+
+- `insertIntoAssistantList=false`
+- no DB persistence
+- no TTS
+- no Markdown rendering
+- no streaming
+- no retry/fallback buttons
+- hidden or rollback card states become `shouldShowSurface=false`
+
+No ChatScreen wiring or Compose UI component is introduced by this step.
+
+## Phase H1 Diagnostic Preview Host Contract - 2026-05-26
+
+The H1 Diagnostic preview host contract fixes the final data shape before any
+future UI surface:
+
+- `DevOnlyNpuPhaseH1ComposeModel -> DevOnlyNpuPhaseH1PreviewHostState`
+- success produces read-only render text
+- stale/rollback/hidden/toggle false produce hidden host state
+- host never exposes assistant insertion
+- host never exposes DB/TTS/Markdown/streaming actions
+- host never exposes run/retry/fallback actions
+
+No ChatScreen normal route, assistant message list insertion, or Compose UI
+implementation is added by this contract.
+
+## Phase H1 XML Card / Preview Host Consistency - 2026-05-26
+
+The Diagnostic XML/read-only card display text and preview host render text are
+now covered by a shared pure helper and contract tests.
+
+The consistency tests assert:
+
+- success text order and content match
+- hidden, stale, rollback, and toggle-false outputs are empty
+- raw output and template tokens are absent
+- assistant insertion, DB, TTS, Markdown, streaming, retry, and fallback are
+  false
+
+No ChatScreen connection or formal Compose UI implementation is included.
+
+## Phase H1 Preview Consistency Contract - 2026-05-26
+
+Before any ChatScreen connection, the Diagnostic-only H1 preview chain is fixed
+by a consistency snapshot:
+
+- XML/read-only card helper output
+- PreviewRenderer contract text
+- PreviewHost render text
+- Compose adapter render text and safety contract
+
+The success path must match byte-for-byte across render outputs. Hidden,
+rollback, stale, and toggle-false states must remain empty/hidden. The contract
+also reasserts no assistant list insertion, no DB/TTS/Markdown/streaming, no
+retry/fallback, and no NPU/engine/decode execution.

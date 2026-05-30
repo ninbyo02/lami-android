@@ -1,0 +1,7 @@
+Starting: Intent { cmp=io.github.ninbyo02.lami/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: io.github.ninbyo02.lami/.MainActivity
+TotalTime: 892
+WaitTime: 899
+Complete

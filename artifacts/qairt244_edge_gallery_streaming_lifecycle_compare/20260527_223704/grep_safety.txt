@@ -1,0 +1,18 @@
+Static investigation safety record:
+
+- No NPU runner was executed.
+- No adb command was executed by this phase.
+- No native file was edited.
+- No QAIRT or LiteRT-LM rebuild was executed.
+- No app or script source file was modified.
+- No `app/src/main/jniLibs` file was modified.
+- No ChatScreen promotion was made.
+- No assistant-list, DB, TTS, Markdown renderer, streaming, or selectedPath=NPU
+  connection was added.
+- No 1024/2048/4096 progression was made.
+
+Inspected commands included read-only `rg`, `sed`, and `nl` over:
+
+- `/home/sato/project/google-ai-edge-gallery`
+- `/home/sato/project/litert-custom-build/LiteRT-LM`
+- `/home/sato/project/lami-android`

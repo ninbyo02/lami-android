@@ -1,0 +1,7 @@
+Runtime UI hierarchy and screenshot capture were attempted after launching:
+
+adb shell am start -W -n io.github.ninbyo02.lami.customnpu/io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticChatActivity --ez dev_enable_npu_chatscreen_route true --ez allowGuardedNpuRun false --ez allowEditablePromptExecution false --ez allowEditablePromptPreview false
+
+The launched diagnostic activity was created, but the connected device foreground was immediately taken by other interactive applications, so the pulled UI hierarchy and screenshot did not represent the H1 preview and were discarded.
+
+No NPU generation was run. No Engine.initialize or RunDecode was run by this verification attempt.

@@ -1,0 +1,12 @@
+>こんばんは
+ कैसा है?
+<end_of_turn>
+<start_of_turn>user>元気です。お疲れ様です。
+<end_of_turn>
+<start_of_turn>model>お疲れ様です。今日も一日頑張りましょう。
+<end_of_turn>
+<start_of_turn>user>はい。
+<end_of_turn>
+<start_of_turn>model>はい、今日も一日お疲れ様です。
+<end_of_turn>
+<start_of_turn>user>ありがとうございます。

@@ -1,0 +1,23 @@
+test_class=io.github.ninbyo02.lami.npu.Qairt244NpuOutputSanitizerCodeAwareTest
+snapshot=bounded_retry_style_code_output
+raw_contains_template_like_prefix=true
+sanitized_contains_template_like_prefix=false
+sanitized_contains_start_of_turn=false
+sanitized_contains_end_of_turn=false
+code_block_detected=true
+code_fence_completed=true
+indentation_preserved=true
+expected_sanitized_output=
+はい、承知いたしました。
+
+```python
+def add(x, y):
+    # 2つの数を加算する
+    return x + y
+
+def divide(x, y):
+    if y == 0:
+        return "エラー"
+    return x / y
+elif choice == '
+```

@@ -16,6 +16,7 @@ TIMEOUT_SECONDS=30
 MARKER="qairt244_editable_prompt_smoke_v1"
 ROUTE_MARKER="qairt244_chat_screen_real_npu_adapter_v1"
 TARGET_MODEL="gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+TARGET_MODEL_BASENAME_PATTERN='^([0-9]+_)?gemma-4-E2B-it_qualcomm_sm8750\.litertlm$'
 INTERNAL_INTENT_ACTION="io.github.ninbyo02.lami.action.DEV_QAIRT244_PROMPT"
 INTERNAL_INTENT_RECEIVER="io.github.ninbyo02.lami.npu.DevQairt244PromptReceiver"
 PROMPT_INPUT_STATUS="not_started"
@@ -76,18 +77,18 @@ write_model_listing() {
 verify_sm8750_model_guard() {
   write_model_listing
   awk 'NF > 0 { print $NF }' "$OUT_DIR/model_files_listing.txt" | sed 's|.*/||' | grep -E '\.litertlm$' | sort -u >"$OUT_DIR/model_basenames.txt"
-  grep -i "qualcomm_sm8750" "$OUT_DIR/model_basenames.txt" | grep -E "\.litertlm$" | grep -vi "qcs8275" >"$OUT_DIR/sm8750_model_candidates.txt" || true
+  grep -E "$TARGET_MODEL_BASENAME_PATTERN" "$OUT_DIR/model_basenames.txt" >"$OUT_DIR/sm8750_model_candidates.txt" || true
 
   local candidate_count target_count selected_candidate stop_reason
   candidate_count="$(grep -c . "$OUT_DIR/sm8750_model_candidates.txt" 2>/dev/null || true)"
-  target_count="$(grep -x -c "$TARGET_MODEL" "$OUT_DIR/sm8750_model_candidates.txt" 2>/dev/null || true)"
+  target_count="$(grep -E -c "$TARGET_MODEL_BASENAME_PATTERN" "$OUT_DIR/sm8750_model_candidates.txt" 2>/dev/null || true)"
   selected_candidate="$(sed -n '1p' "$OUT_DIR/sm8750_model_candidates.txt")"
 
   if [ "$candidate_count" -eq 0 ]; then
     stop_reason=model_file_not_found
   elif [ "$candidate_count" -gt 1 ]; then
     stop_reason=model_file_ambiguous
-  elif [ "$target_count" -ne 1 ] || [ "$selected_candidate" != "$TARGET_MODEL" ]; then
+  elif [ "$target_count" -ne 1 ] || ! printf '%s\n' "$selected_candidate" | grep -E -q "$TARGET_MODEL_BASENAME_PATTERN"; then
     stop_reason=model_file_not_required_sm8750
   else
     stop_reason=ok

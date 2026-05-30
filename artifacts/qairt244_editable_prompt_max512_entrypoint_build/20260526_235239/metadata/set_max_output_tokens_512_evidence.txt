@@ -1,0 +1,20 @@
+built_liblitertlm_jni=/home/sato/project/lami-android/artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/built_libs/liblitertlm_jni.so
+expected_runtime_diag=before RunDecode SetMaxOutputTokens(512) native_max_output_tokens_limit=512
+
+# source evidence
+108:    "qairt244_editable_prompt_max512_v1";
+119:constexpr int kQairt244EditablePromptMaxOutputTokensLimit = 512;
+464:               kQairt244EditablePromptMaxOutputTokensLimit);
+466:               kQairt244EditablePromptMaxOutputTokensLimit);
+1922:      max_output_tokens > kQairt244EditablePromptMaxOutputTokensLimit) {
+1929:                       "%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s",
+1933:        result_path_str, "failure", "invalid_max_output_tokens_limit_512",
+2131:      "%s before RunDecode SetMaxOutputTokens(512) "
+2132:      "native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s",
+2134:  decode_config.SetMaxOutputTokens(512);
+
+# binary strings evidence
+31375:%s before RunDecode SetMaxOutputTokens(512) native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s
+34543:invalid_max_output_tokens_limit_512
+37967:%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s
+41391:qairt244_editable_prompt_max512_v1

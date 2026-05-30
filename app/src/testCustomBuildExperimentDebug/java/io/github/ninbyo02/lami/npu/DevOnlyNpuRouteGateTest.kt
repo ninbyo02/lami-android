@@ -86,6 +86,44 @@ class DevOnlyNpuRouteGateTest {
         )
     }
 
+    @Test
+    fun `bounded max output token range can be allowed for hidden experiments`() {
+        val result = DevOnlyNpuRouteGate.evaluate(
+            validInput(
+                maxOutputTokens = 64,
+                allowMaxOutputTokenRange = true,
+            ),
+        )
+
+        assertTrue(result.allowed)
+        assertEquals(DevOnlyNpuRouteGateReason.OK, result.reason)
+    }
+
+    @Test
+    fun `bounded max output token range can use explicit compare limit`() {
+        val result = DevOnlyNpuRouteGate.evaluate(
+            validInput(
+                maxOutputTokens = DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT,
+                allowMaxOutputTokenRange = true,
+                maxOutputTokenRangeLimit = DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT,
+            ),
+        )
+
+        assertTrue(result.allowed)
+        assertEquals(DevOnlyNpuRouteGateReason.OK, result.reason)
+    }
+
+    @Test
+    fun `bounded max output token range still rejects values above phase limit`() {
+        assertRejected(
+            validInput(
+                maxOutputTokens = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS + 1,
+                allowMaxOutputTokenRange = true,
+            ),
+            DevOnlyNpuRouteGateReason.INVALID_MAX_OUTPUT_TOKENS,
+        )
+    }
+
     private fun assertRejected(
         input: DevOnlyNpuRouteGateInput,
         reason: DevOnlyNpuRouteGateReason,
@@ -106,6 +144,8 @@ class DevOnlyNpuRouteGateTest {
         nativeEditablePromptSupported: Boolean = true,
         running: Boolean = false,
         maxOutputTokens: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
+        allowMaxOutputTokenRange: Boolean = false,
+        maxOutputTokenRangeLimit: Int = DevOnlyNpuRouteAdapter.DEFAULT_MAX_OUTPUT_TOKENS,
     ): DevOnlyNpuRouteGateInput = DevOnlyNpuRouteGateInput(
         customBuildExperiment = customBuildExperiment,
         allowEditablePromptPreview = allowEditablePromptPreview,
@@ -116,5 +156,7 @@ class DevOnlyNpuRouteGateTest {
         nativeEditablePromptSupported = nativeEditablePromptSupported,
         running = running,
         maxOutputTokens = maxOutputTokens,
+        allowMaxOutputTokenRange = allowMaxOutputTokenRange,
+        maxOutputTokenRangeLimit = maxOutputTokenRangeLimit,
     )
 }

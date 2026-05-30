@@ -1,0 +1,19 @@
+# grep safety
+
+no_npu_execution=true
+no_512_rerun=true
+native_changed=false
+qairt_rebuild=false
+chat_screen_promotion=false
+assistant_message_list_inserted=false
+db=false
+tts=false
+markdown=false
+streaming=false
+selected_path_npu_saved=false
+release_standard_changed=false
+max_output_tokens_over_512=false
+process_boundary_instrumentation=true
+process_absent_before_dispatch_stops=true
+process_disappeared_suspect_reuse_allowed=false
+hidden_per_run_isolated_required_on_process_disappearance=true

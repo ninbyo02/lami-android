@@ -1,0 +1,47 @@
+## 512 code-aware sequential result_2
+
+qairt244_chat_screen_real_npu_adapter_v1 state=model_resolution reason=ok resolved_model_path=/data/user/0/io.github.ninbyo02.lami/files/local_models/1779611766669_gemma-4-E2B-it_qualcomm_sm8750.litertlm candidate_count=1
+qairt244_chat_screen_real_npu_adapter_v1 runId=chat-real-1779813949696-c19bd880-76ff-48af-8aa4-7a213c7910b8 state=started actual_prompt=Pythonで簡単な電卓コードを書いて normalized_prompt=Pythonで簡単な電卓コードを書いて turn_stop_compare_marker=qairt244_turn_stop_compare_v1 requested_prompt=Pythonで簡単な電卓コードを書いて prompt_source=chat_screen template_mode=gemma_it_like final_model_input_length=74 prompt_validation_mode=utf8_hidden_template_experiment prompt_input_code_points=74 prompt_input_code_point_limit=128 prompt_input_limit_mode=hidden_template_experiment max_output_tokens=512 resolved_model_path=/data/user/0/io.github.ninbyo02.lami/files/local_models/1779611766669_gemma-4-E2B-it_qualcomm_sm8750.litertlm
+
+## 512 code-aware sequential case summary
+
+status=timeout
+receiver_success=false
+wait_status=timeout
+elapsed_ms=70000
+actual_max_output_tokens=unavailable
+npu_evidence=true
+timeout=true
+reasonCode=timeout
+quality_classification=timeout
+code_indentation_preserved=false
+code_fence_closed=false
+
+## 512 isolated bounded retry case summary
+
+status=success
+receiver_success=true
+wait_status=success
+elapsed_ms=14000
+actual_max_output_tokens=512
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_used=false
+fresh_crash=false
+timeout=false
+decode_ms=11600
+cleanup_elapsed_ms=142
+quality_classification=useful_code
+
+## 256 three-prompt code case summary
+
+status=success
+receiver_success=true
+wait_status=success
+elapsed_ms=9000
+actual_max_output_tokens=256
+npu_backend_evidence=QNN_HTP_V79_FastRPC_native_diag
+fallback_used=false
+fresh_crash=false
+timeout=false
+decode_ms=7351
+quality_classification=useful_code

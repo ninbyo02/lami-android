@@ -1,0 +1,65 @@
+# static max512 guard evidence
+artifact=artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239
+
+sm8750_model_evidence=artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_175320/sm8750_model_preflight.txt
+
+artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_175320/sm8750_model_preflight.txt:1:target_model=gemma-4-E2B-it_qualcomm_sm8750.litertlm
+artifacts/qairt244_chat_screen_real_npu_sm8750_model_run/20260524_175320/sm8750_model_preflight.txt:4:selected_candidate=1779612108800_gemma-4-E2B-it_qualcomm_sm8750.litertlm
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/litertlm_external_diff.patch:51:+    "qairt244_editable_prompt_max512_v1";
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/litertlm_external_diff.patch:1382:+                       "%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s",
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/litertlm_external_diff.patch:1584:+      "%s before RunDecode SetMaxOutputTokens(512) "
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/litertlm_external_diff.patch:1585:+      "native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s",
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/litertlm_external_diff.patch:1587:+  decode_config.SetMaxOutputTokens(512);
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/native_marker_scan.txt:1:108:    "qairt244_editable_prompt_max512_v1";
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/native_marker_scan.txt:6:1929:                       "%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s",
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/native_marker_scan.txt:8:2131:      "%s before RunDecode SetMaxOutputTokens(512) "
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/native_marker_scan.txt:9:2132:      "native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s",
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/native_marker_scan.txt:10:2134:  decode_config.SetMaxOutputTokens(512);
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/set_max_output_tokens_512_evidence.txt:2:expected_runtime_diag=before RunDecode SetMaxOutputTokens(512) native_max_output_tokens_limit=512
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/set_max_output_tokens_512_evidence.txt:5:108:    "qairt244_editable_prompt_max512_v1";
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/set_max_output_tokens_512_evidence.txt:10:1929:                       "%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s",
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/set_max_output_tokens_512_evidence.txt:12:2131:      "%s before RunDecode SetMaxOutputTokens(512) "
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/set_max_output_tokens_512_evidence.txt:13:2132:      "native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s",
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/set_max_output_tokens_512_evidence.txt:14:2134:  decode_config.SetMaxOutputTokens(512);
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/set_max_output_tokens_512_evidence.txt:17:31375:%s before RunDecode SetMaxOutputTokens(512) native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/set_max_output_tokens_512_evidence.txt:19:37967:%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/metadata/set_max_output_tokens_512_evidence.txt:20:41391:qairt244_editable_prompt_max512_v1
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/reference_libs/gallery/MISSING_APK.txt:1:missing apk: /tmp/lami-gallery-apks/ai-edge-gallery-sm8750.apk
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/reference_strings/gallery_stack/libLiteRtDispatch_Qualcomm.so.filtered.txt:50:SM8750
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/reference_strings/gallery_stack/libQnnHtpPrepare.so.filtered.txt:1859:SM8750
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/reference_strings/gallery_stack/libQnnHtpV79Skel.so.filtered.txt:974:SM8750
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/reference_strings/gallery_stack/libQnnHtpV79Skel.so.filtered.txt:975:SM8750P
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_compare_matrix.tsv:13:gallery-sm8750	libLiteRt.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_compare_matrix.tsv:14:gallery-sm8750	libLiteRtRuntimeCApi.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_compare_matrix.tsv:15:gallery-sm8750	libLiteRtDispatch_Qualcomm.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_compare_matrix.tsv:16:gallery-sm8750	liblitertlm_jni.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_compare_matrix.tsv:17:gallery-sm8750	libLiteRtCompilerPlugin_Qualcomm.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_compare_matrix.tsv:18:gallery-sm8750	libQnnSystem.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_compare_matrix.tsv:19:gallery-sm8750	libQnnHtp.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_compare_matrix.tsv:20:gallery-sm8750	libQnnHtpPrepare.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_compare_matrix.tsv:21:gallery-sm8750	libQnnHtpV79Stub.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_compare_matrix.tsv:22:gallery-sm8750	libQnnHtpV79Skel.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_compare_matrix.tsv:23:gallery-sm8750	libllm_inference_engine_jni.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_summary.md:107:gallery-sm8750	libLiteRt.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_summary.md:108:gallery-sm8750	libLiteRtRuntimeCApi.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_summary.md:109:gallery-sm8750	libLiteRtDispatch_Qualcomm.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_summary.md:110:gallery-sm8750	liblitertlm_jni.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_summary.md:111:gallery-sm8750	libLiteRtCompilerPlugin_Qualcomm.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_summary.md:112:gallery-sm8750	libQnnSystem.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_summary.md:113:gallery-sm8750	libQnnHtp.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_summary.md:114:gallery-sm8750	libQnnHtpPrepare.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_summary.md:115:gallery-sm8750	libQnnHtpV79Stub.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_summary.md:116:gallery-sm8750	libQnnHtpV79Skel.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/static_summary.md:117:gallery-sm8750	libllm_inference_engine_jni.so	false	-	-	-	-	-
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/strings/libLiteRtCompilerPlugin_Qualcomm.so.filtered.txt:145:SM8750
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/strings/libLiteRtDispatch_Qualcomm.so.filtered.txt:49:SM8750
+# staged binary check
+native_artifact=artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239
+binary=artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/built_libs/liblitertlm_jni.so
+artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/built_libs/liblitertlm_jni.so: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[md5/uuid]=82cf5b24f5b2897edf3b4b8a6970cf8e, with debug_info, not stripped
+7db8f0d6674822627cd2877f7eaa6e3a4d89e13a3449708af6629f5d6a800105  artifacts/qairt244_editable_prompt_max512_entrypoint_build/20260526_235239/built_libs/liblitertlm_jni.so
+
+# strings evidence
+%s before RunDecode SetMaxOutputTokens(512) native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s
+%s invalid_max_output_tokens value=%d native_max_output_tokens_limit=512 max_output_tokens_limit_marker=%s
+qairt244_editable_prompt_max512_v1

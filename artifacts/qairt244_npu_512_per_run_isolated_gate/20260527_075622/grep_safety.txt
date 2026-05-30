@@ -1,0 +1,26 @@
+# grep safety summary
+
+No additional NPU execution was performed for this gate design artifact.
+
+Required invariant strings:
+
+```text
+max_output_tokens=512
+mode=per_run_isolated
+force_stop_before_after_each_prompt=true
+sequential_512_baseline=false
+normal_chat_screen_connected=false
+assistant_message_list_inserted=false
+db=false
+tts=false
+markdown=false
+streaming=false
+selected_path_npu_saved=false
+next_1024_blocked=true
+```
+
+Reference runner:
+`scripts/run_qairt244_npu_max_output_512_force_stop_between_prompts.sh`
+
+Reference evidence:
+`artifacts/qairt244_npu_max_output_512_force_stop_between_prompts/20260527_074002/`

@@ -1,0 +1,11 @@
+case_id=max_output_tokens_512
+runner_run_id=softreset512_3_lami_npu_short_20260528_041357
+prompt=ラミィのNPU推論について短く説明して
+requested_max_output_tokens=512
+template_mode=gemma_it_like
+timeout_seconds=60
+sanitizer_mode=sanitizer_only
+db=false
+tts=false
+markdown=false
+streaming=false
