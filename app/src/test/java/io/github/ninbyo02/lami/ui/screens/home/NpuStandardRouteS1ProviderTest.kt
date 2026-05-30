@@ -53,7 +53,7 @@ class NpuStandardRouteS1ProviderTest {
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertFalse(mapped.successCriteriaMet)
-            assertEquals("real_provider_not_implemented", mapped.reason)
+            assertEquals("dev_only_entry_unavailable", mapped.reason)
         } else {
             assertTrue(mapped.successCriteriaMet)
             assertEquals("こんにちは。", mapped.displayText)
@@ -69,7 +69,7 @@ class NpuStandardRouteS1ProviderTest {
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertFalse(mapped.successCriteriaMet)
             assertEquals("failure", raw.status)
-            assertEquals("real_provider_not_implemented", raw.reason)
+            assertEquals("dev_only_entry_unavailable", raw.reason)
         } else {
             assertTrue(mapped.successCriteriaMet)
             assertEquals("success", raw.status)
