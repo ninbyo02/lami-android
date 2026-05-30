@@ -2508,7 +2508,16 @@ fun Home(
                                                                                 streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                                 sanitizeForTts = ::sanitizeTextForTts,
                                                                             )
-                                                                        if (shouldSpeakNpuStandardRouteS5Tts(
+                                                                        logStreamTrace(
+                                                                            buildNpuStandardRouteS5TtsCandidateTrace(
+                                                                                mapping = s5TtsMapping,
+                                                                                finalTextLength = assistantTextForPersist.length,
+                                                                                ttsEnabled = ttsEnabled,
+                                                                                streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                                assistantId = assistantId,
+                                                                            ),
+                                                                        )
+                                                                        val s5TtsSkipReason = classifyNpuStandardRouteS5TtsSkipReason(
                                                                             enabled = ENABLE_NPU_STANDARD_ROUTE_S5_TTS,
                                                                             mapping = s5TtsMapping,
                                                                             ttsEnabled = ttsEnabled,
@@ -2516,14 +2525,43 @@ fun Home(
                                                                             assistantId = assistantId,
                                                                             suppressedForAssistant = isTtsSuppressedForAssistant(assistantId),
                                                                             inCooldown = ttsController.isInCooldown(),
-                                                                        )) {
+                                                                        )
+                                                                        if (s5TtsSkipReason == NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE) {
                                                                             val ttsCandidate = requireNotNull(s5TtsMapping.ttsCandidate)
                                                                             currentSpeakingAssistantMessageId = assistantId
                                                                             stopButtonOwnerAssistantMessageId = assistantId
                                                                             stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
                                                                             maybeReleaseHeldEngineForTtsPlayback()
+                                                                            logStreamTrace(
+                                                                                buildNpuStandardRouteS5TtsSpeakTrace(
+                                                                                    stage = "before",
+                                                                                    assistantId = assistantId,
+                                                                                    speakTextLength = ttsCandidate.speakText.length,
+                                                                                ),
+                                                                            )
                                                                             ttsController.speak(ttsCandidate.speakText)
+                                                                            logStreamTrace(
+                                                                                buildNpuStandardRouteS5TtsSpeakTrace(
+                                                                                    stage = "after",
+                                                                                    assistantId = assistantId,
+                                                                                    speakTextLength = ttsCandidate.speakText.length,
+                                                                                ),
+                                                                            )
+                                                                        } else {
+                                                                            logStreamTrace(
+                                                                                buildNpuStandardRouteS5TtsSkipTrace(
+                                                                                    reason = s5TtsSkipReason,
+                                                                                    assistantId = assistantId,
+                                                                                ),
+                                                                            )
                                                                         }
+                                                                    } else {
+                                                                        logStreamTrace(
+                                                                            buildNpuStandardRouteS5TtsSkipTrace(
+                                                                                reason = NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF,
+                                                                                assistantId = assistantId,
+                                                                            ),
+                                                                        )
                                                                     }
                                                                 }
                                                                 return@IconButton
@@ -2547,10 +2585,18 @@ fun Home(
                                                                     ?.pseudoStreamingCandidate
                                                             } else {
                                                                 null
-                                                            }
+                                                        }
                                                         prompt = ""
                                                         userPrompt = ""
                                                         selectedImageUriStrings = emptyList()
+                                                        if (!ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
+                                                            logStreamTrace(
+                                                                buildNpuStandardRouteS5TtsSkipTrace(
+                                                                    reason = NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF,
+                                                                    assistantId = null,
+                                                                ),
+                                                            )
+                                                        }
                                                         if (s4DisplayOnlyCandidate != null || ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
                                                             coroutineScope.launch {
                                                                 if (s4DisplayOnlyCandidate != null) {
@@ -2571,9 +2617,35 @@ fun Home(
                                                                             streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                             sanitizeForTts = ::sanitizeTextForTts,
                                                                         )
-                                                                    shouldPrepareNpuStandardRouteS5Tts(
-                                                                        enabled = ENABLE_NPU_STANDARD_ROUTE_S5_TTS,
-                                                                        mapping = s5TtsMapping,
+                                                                    logStreamTrace(
+                                                                        buildNpuStandardRouteS5TtsCandidateTrace(
+                                                                            mapping = s5TtsMapping,
+                                                                            finalTextLength = (s4DisplayOnlyCandidate?.finalText ?: s1Result.displayText).length,
+                                                                            ttsEnabled = ttsEnabled,
+                                                                            streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                            assistantId = null,
+                                                                        ),
+                                                                    )
+                                                                    logStreamTrace(
+                                                                        buildNpuStandardRouteS5TtsSkipTrace(
+                                                                            reason = classifyNpuStandardRouteS5TtsSkipReason(
+                                                                                enabled = ENABLE_NPU_STANDARD_ROUTE_S5_TTS,
+                                                                                mapping = s5TtsMapping,
+                                                                                ttsEnabled = ttsEnabled,
+                                                                                streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                                assistantId = null,
+                                                                                suppressedForAssistant = false,
+                                                                                inCooldown = ttsController.isInCooldown(),
+                                                                            ),
+                                                                            assistantId = null,
+                                                                        ),
+                                                                    )
+                                                                } else {
+                                                                    logStreamTrace(
+                                                                        buildNpuStandardRouteS5TtsSkipTrace(
+                                                                            reason = NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF,
+                                                                            assistantId = null,
+                                                                        ),
                                                                     )
                                                                 }
                                                             }
@@ -8111,6 +8183,91 @@ internal fun shouldSpeakNpuStandardRouteS5Tts(
         assistantId != null &&
         !suppressedForAssistant &&
         !inCooldown
+
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE = "none"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF = "gate_off"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_CANDIDATE_NULL = "candidate_null"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_TTS_DISABLED = "tts_disabled"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_STREAMING_ACTIVE = "streaming_active"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_ASSISTANT_ID_NULL = "assistant_id_null"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_COOLDOWN = "cooldown"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_STOP_SUPPRESSED = "stop_suppressed"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_EMPTY_AFTER_SANITIZE = "empty_after_sanitize"
+
+internal fun classifyNpuStandardRouteS5TtsSkipReason(
+    enabled: Boolean,
+    mapping: NpuStandardRouteS5TtsMapping,
+    ttsEnabled: Boolean,
+    streamingActive: Boolean,
+    assistantId: Int?,
+    suppressedForAssistant: Boolean,
+    inCooldown: Boolean,
+): String = when {
+    !enabled -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF
+    !ttsEnabled -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_TTS_DISABLED
+    streamingActive -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_STREAMING_ACTIVE
+    assistantId == null -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_ASSISTANT_ID_NULL
+    inCooldown -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_COOLDOWN
+    suppressedForAssistant -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_STOP_SUPPRESSED
+    mapping.failureReason == NpuStandardRouteS5TtsContract.FAILURE_EMPTY_SPEAK_TEXT ->
+        NPU_STANDARD_ROUTE_S5_TTS_SKIP_EMPTY_AFTER_SANITIZE
+    !mapping.hasTtsCandidate -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_CANDIDATE_NULL
+    else -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE
+}
+
+internal fun buildNpuStandardRouteS5TtsCandidateTrace(
+    mapping: NpuStandardRouteS5TtsMapping,
+    finalTextLength: Int,
+    ttsEnabled: Boolean,
+    streamingActive: Boolean,
+    assistantId: Int?,
+): String = buildString {
+    append("NPU_S5_TTS ttsCandidate_created=")
+    append(mapping.hasTtsCandidate)
+    append(" failure_reason=")
+    append(mapping.failureReason ?: "none")
+    append(" speak_text_length=")
+    append(mapping.ttsCandidate?.speakText?.length ?: 0)
+    append(" final_text_length=")
+    append(finalTextLength)
+    append(" tts_enabled=")
+    append(ttsEnabled)
+    append(" streaming_active=")
+    append(streamingActive)
+    append(" assistant_id=")
+    append(assistantId ?: "null")
+    append(" backend_npu_persisted=false")
+}
+
+internal fun buildNpuStandardRouteS5TtsSkipTrace(
+    reason: String,
+    assistantId: Int?,
+): String = buildString {
+    append("NPU_S5_TTS tts_speak_invoked=false")
+    append(" tts_skipped_reason=")
+    append(reason)
+    append(" assistant_id=")
+    append(assistantId ?: "null")
+    append(" backend_npu_persisted=false")
+}
+
+internal fun buildNpuStandardRouteS5TtsSpeakTrace(
+    stage: String,
+    assistantId: Int,
+    speakTextLength: Int,
+): String = buildString {
+    append("NPU_S5_TTS tts_speak_invoked=true")
+    append(" stage=")
+    append(stage)
+    append(" speak_text_length=")
+    append(speakTextLength)
+    append(" assistant_id=")
+    append(assistantId)
+    append(" cooldown=false")
+    append(" stop_suppressed=false")
+    append(" streaming_active=false")
+    append(" backend_npu_persisted=false")
+}
 
 private fun computeLatestUserAnchor(messages: List<Message>): Int {
     if (messages.isEmpty()) {
