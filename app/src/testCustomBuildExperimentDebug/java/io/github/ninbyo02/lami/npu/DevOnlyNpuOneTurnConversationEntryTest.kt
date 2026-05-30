@@ -195,6 +195,11 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(DevOnlyNpuOneTurnConversationContract.RECEIVER_ACTION.contains("DEV_ONLY"))
         assertEquals("こんにちは", DevOnlyNpuOneTurnConversationContract.DEFAULT_USER_PROMPT)
         assertEquals(244, DevOnlyNpuOneTurnConversationContract.RECEIVER_RESULT_CODE_RECEIVED)
+        assertEquals("auto_run_matrix", DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN_MATRIX)
+        assertEquals(
+            "dev_only_npu_one_turn_conversation_matrix_result.txt",
+            DevOnlyNpuOneTurnConversationContract.MATRIX_RESULT_FILE_NAME,
+        )
     }
 
     @Test
@@ -450,5 +455,109 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(text.contains("markdown=false"))
         assertTrue(text.contains("streaming=false"))
         assertTrue(text.contains("route_type=dev_only_one_turn_conversation"))
+    }
+
+    @Test
+    fun `matrix diagnostic covers greeting and short prompt comparison cases`() {
+        assertEquals(
+            listOf(
+                "こんばんは",
+                "こんばんは。",
+                "こんばんわ",
+                "こんばんは！",
+                "こんばんは？",
+                "こんにちは",
+                "おはよう",
+                "ありがとう",
+                "ハロー",
+                "あ",
+                "q",
+                "え",
+            ),
+            DevOnlyNpuOneTurnConversationMatrix.prompts,
+        )
+    }
+
+    @Test
+    fun `matrix diagnostic row exposes safe summaries without full prompt or output`() {
+        val longPrompt = "こんばんは。NPUの実機診断で全文を出さずに比較するための長い入力です。"
+        val longRawOutput = "こんばんは。raw outputの全文を出さずにhashとpreviewだけを記録するための長い出力です。"
+        val longSanitizedOutput = "こんばんは。sanitized outputの全文を出さずにhashとpreviewだけを記録するための長い出力です。"
+        val request = DevOnlyNpuOneTurnConversationRequest(
+            userPrompt = longPrompt,
+            maxOutputTokens = DevOnlyNpuOneTurnConversationContract.COMPARE_MAX_OUTPUT_TOKENS,
+        )
+        val display = DevOnlyNpuOneTurnConversationContract.display(
+            result = DevOnlyNpuRouteResult(
+                success = true,
+                output = longSanitizedOutput,
+                reasonCode = "success",
+                elapsedMs = 10,
+                decodeElapsedMs = 5,
+                prompt = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+                    contextText = "",
+                    userPrompt = longPrompt,
+                ),
+                maxOutputTokens = request.maxOutputTokens,
+                backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                artifactPath = null,
+                freshCrash = false,
+                timeout = false,
+            ),
+            values = mapOf(
+                "sanitized_output" to longSanitizedOutput,
+                "sanitized_output_length" to longSanitizedOutput.length.toString(),
+                "raw_native_output" to longRawOutput,
+                "raw_native_output_length" to longRawOutput.length.toString(),
+                "output_first_200_chars" to longRawOutput.take(200),
+                "max_output_tokens" to "32",
+                "native_max_output_tokens_limit" to "512",
+                "quality_classification" to "natural_japanese",
+                "output_unicode_summary" to "control_chars=none;replacement_char_count=0",
+                "sanitizer_applied" to "false",
+                "removed_template_token_count" to "0",
+                "removed_prompt_echo" to "false",
+                "replacement_char_count" to "0",
+                "output_contains_control_chars" to "false",
+                "stop_reason" to "eos",
+                "finish_reason" to "stop",
+                "eos_detected" to "true",
+                "output_token_count" to "7",
+                "prompt_token_count" to "12",
+            ),
+        )
+
+        val row = DevOnlyNpuOneTurnConversationMatrix.buildRow(
+            index = 1,
+            request = request,
+            display = display,
+        ).joinToString("\n")
+
+        assertTrue(row.contains("case_index=1"))
+        assertTrue(row.contains("input_hash="))
+        assertTrue(row.contains("input_length=${longPrompt.length}"))
+        assertTrue(row.contains("input_code_points=${longPrompt.codePointCount(0, longPrompt.length)}"))
+        assertTrue(row.contains("request_prompt_hash="))
+        assertTrue(row.contains("request_prompt_length="))
+        assertTrue(row.contains("request_prompt_code_points="))
+        assertTrue(row.contains("raw_output_hash="))
+        assertTrue(row.contains("raw_output_length=${longRawOutput.length}"))
+        assertTrue(row.contains("raw_output_code_points=${longRawOutput.codePointCount(0, longRawOutput.length)}"))
+        assertTrue(row.contains("sanitized_output_hash="))
+        assertTrue(row.contains("sanitized_output_length=${longSanitizedOutput.length}"))
+        assertTrue(row.contains("quality_classification=natural_japanese"))
+        assertTrue(row.contains("reason=success"))
+        assertTrue(row.contains("run_decode_reached=true"))
+        assertTrue(row.contains("timeout=false"))
+        assertTrue(row.contains("fallback=false"))
+        assertTrue(row.contains("fresh_crash=false"))
+        assertTrue(row.contains("stop_reason=eos"))
+        assertTrue(row.contains("finish_reason=stop"))
+        assertTrue(row.contains("eos_detected=true"))
+        assertTrue(row.contains("output_token_count=7"))
+        assertTrue(row.contains("prompt_token_count=12"))
+        assertFalse(row.contains(longPrompt))
+        assertFalse(row.contains(longRawOutput))
+        assertFalse(row.contains(longSanitizedOutput))
     }
 }

@@ -7,6 +7,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationEntry
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
+import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationMatrix
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationRequest
 import java.io.File
 import kotlinx.coroutines.runBlocking
@@ -37,7 +38,9 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                 addView(outputView)
             },
         )
-        if (intent?.getBooleanExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN, false) == true) {
+        if (intent?.getBooleanExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN_MATRIX, false) == true) {
+            triggerDevOnlyMatrixRun(outputView)
+        } else if (intent?.getBooleanExtra(DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN, false) == true) {
             triggerDevOnlyRun(
                 outputView = outputView,
                 trigger = "activity_auto_run",
@@ -124,6 +127,48 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                 outputView.text = text
             }
         }, "Qairt244DevOnlyNpuConversation").start()
+    }
+
+    private fun triggerDevOnlyMatrixRun(
+        outputView: TextView,
+    ) {
+        if (runStarted) return
+        runStarted = true
+        val request = currentRequest()
+        outputView.text = "DEV ONLY NPU ONE TURN MATRIX\nstatus=starting"
+        Thread({
+            runOnUiThread {
+                outputView.text = "DEV ONLY NPU ONE TURN MATRIX\nstatus=running"
+            }
+            val resultFile = File(
+                applicationContext.filesDir,
+                DevOnlyNpuOneTurnConversationContract.MATRIX_RESULT_FILE_NAME,
+            )
+            val text = try {
+                resultFile.writeText(
+                    DevOnlyNpuOneTurnConversationMatrix.buildHeader(
+                        baseRequest = request,
+                        status = "running",
+                    ).joinToString(separator = "\n", postfix = "\n"),
+                )
+                runBlocking {
+                    DevOnlyNpuOneTurnConversationMatrix.run(
+                        entry = DevOnlyNpuOneTurnConversationEntry(this@Qairt244DevOnlyNpuConversationActivity),
+                        baseRequest = request,
+                    )
+                }
+            } catch (throwable: Throwable) {
+                DevOnlyNpuOneTurnConversationMatrix.failureText(
+                    reason = "activity_matrix_failure",
+                    throwable = throwable,
+                    baseRequest = request,
+                )
+            }
+            resultFile.writeText(text)
+            runOnUiThread {
+                outputView.text = text
+            }
+        }, "Qairt244DevOnlyNpuConversationMatrix").start()
     }
 
     private fun writeFailureResultFile(

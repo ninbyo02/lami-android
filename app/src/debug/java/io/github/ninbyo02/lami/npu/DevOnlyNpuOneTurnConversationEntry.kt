@@ -54,11 +54,18 @@ data class DevOnlyNpuOneTurnConversationDisplay(
     val removedPromptEcho: String,
     val replacementCharCount: String,
     val outputContainsControlChars: String,
+    val rawOutput: String = "",
+    val stopReason: String = "",
+    val finishReason: String = "",
+    val eosDetected: String = "",
+    val outputTokenCount: String = "",
+    val promptTokenCount: String = "",
 )
 
 object DevOnlyNpuOneTurnConversationContract {
     const val RECEIVER_ACTION = "io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"
     const val EXTRA_AUTO_RUN = "auto_run"
+    const val EXTRA_AUTO_RUN_MATRIX = "auto_run_matrix"
     const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
     const val EXTRA_PROMPT_TAIL_VARIANT = "prompt_tail_variant"
     const val EXTRA_USER_PROMPT = "user_prompt"
@@ -66,6 +73,7 @@ object DevOnlyNpuOneTurnConversationContract {
     const val EXTRA_UNSAFE_DEV_BYPASS_PROMPT_LENGTH_GATE = "unsafe_dev_bypass_prompt_length_gate"
     const val DEFAULT_USER_PROMPT = "こんにちは"
     const val RECEIVER_RESULT_FILE_NAME = "dev_only_npu_one_turn_conversation_result.txt"
+    const val MATRIX_RESULT_FILE_NAME = "dev_only_npu_one_turn_conversation_matrix_result.txt"
     const val RECEIVER_RESULT_CODE_RECEIVED = 244
     const val TEMPLATE = "raw_dialog_tail"
     const val PROMPT_TAIL_MODE = "raw_dialog_tail"
@@ -196,6 +204,11 @@ object DevOnlyNpuOneTurnConversationContract {
         val removedPromptEcho = values["removed_prompt_echo"].orEmpty().ifBlank { "unknown" }
         val replacementCharCount = values["replacement_char_count"].orEmpty().ifBlank { "unknown" }
         val outputContainsControlChars = values["output_contains_control_chars"].orEmpty().ifBlank { "unknown" }
+        val stopReason = values["stop_reason"].orEmpty()
+        val finishReason = values["finish_reason"].orEmpty()
+        val eosDetected = values["eos_detected"].orEmpty()
+        val outputTokenCount = values["output_token_count"].orEmpty()
+        val promptTokenCount = values["prompt_token_count"].orEmpty()
         val status = if (result.success) "success" else "failure"
         val lines = listOf(
             "DEV ONLY NPU ONE TURN",
@@ -226,6 +239,11 @@ object DevOnlyNpuOneTurnConversationContract {
             "removed_prompt_echo=$removedPromptEcho",
             "replacement_char_count=$replacementCharCount",
             "output_contains_control_chars=$outputContainsControlChars",
+            "stop_reason=${stopReason.ifBlank { "unknown" }}",
+            "finish_reason=${finishReason.ifBlank { "unknown" }}",
+            "eos_detected=${eosDetected.ifBlank { "unknown" }}",
+            "output_token_count=${outputTokenCount.ifBlank { "unavailable" }}",
+            "prompt_token_count=${promptTokenCount.ifBlank { "unavailable" }}",
         ).plus(safetyLines(safety))
         return DevOnlyNpuOneTurnConversationDisplay(
             text = lines.joinToString("\n"),
@@ -253,6 +271,12 @@ object DevOnlyNpuOneTurnConversationContract {
             removedPromptEcho = removedPromptEcho,
             replacementCharCount = replacementCharCount,
             outputContainsControlChars = outputContainsControlChars,
+            rawOutput = rawOutput,
+            stopReason = stopReason,
+            finishReason = finishReason,
+            eosDetected = eosDetected,
+            outputTokenCount = outputTokenCount,
+            promptTokenCount = promptTokenCount,
         )
     }
 
@@ -287,6 +311,11 @@ object DevOnlyNpuOneTurnConversationContract {
             "removed_prompt_echo=${display.removedPromptEcho}",
             "replacement_char_count=${display.replacementCharCount}",
             "output_contains_control_chars=${display.outputContainsControlChars}",
+            "stop_reason=${display.stopReason.ifBlank { "unknown" }}",
+            "finish_reason=${display.finishReason.ifBlank { "unknown" }}",
+            "eos_detected=${display.eosDetected.ifBlank { "unknown" }}",
+            "output_token_count=${display.outputTokenCount.ifBlank { "unavailable" }}",
+            "prompt_token_count=${display.promptTokenCount.ifBlank { "unavailable" }}",
         ).plus(safetyLines(safety)).plus(
             listOf(
                 "sanitized_output=${escapeResultValue(display.output)}",
