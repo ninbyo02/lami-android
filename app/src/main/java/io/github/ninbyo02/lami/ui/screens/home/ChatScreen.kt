@@ -237,7 +237,6 @@ private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
 private const val DEV_UI_DEBUG_MODE = false
-private const val ENABLE_NPU_STANDARD_ROUTE_S1 = false
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_ENABLED = true
 private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
 private const val DEV_USE_HELD_PATH_ONLY = false
@@ -2395,7 +2394,7 @@ fun Home(
                                                     if (requestPrompt.isBlank()) return@IconButton
                                                     if (
                                                         shouldEnterNpuStandardRouteS1(
-                                                            enabled = ENABLE_NPU_STANDARD_ROUTE_S1,
+                                                            enabled = NpuStandardRouteS1GateConfig.enabled,
                                                             selectedInferenceTarget = selectedInferenceTarget,
                                                             hasImageInput = selectedImageUriStrings.isNotEmpty(),
                                                             requestPrompt = requestPrompt,
