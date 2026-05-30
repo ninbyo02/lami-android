@@ -16,6 +16,8 @@ import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.data.SpriteSheetConfig
 import io.github.ninbyo02.lami.data.normalize
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteMode
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.resolveEffectiveMarkdownStreamingMode
 import io.github.ninbyo02.lami.tts.AndroidTtsController
@@ -317,6 +319,7 @@ enum class SpriteState {
 
 class SettingsPreferences(private val context: Context) {
 
+    private val npuStandardRoutePreferences = NpuStandardRoutePreferences(context.dataStore)
     private val defaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
     private val dynamicColorKey = booleanPreferencesKey("dynamic_color_enabled")
     private val characterAnimationEnabledKey = booleanPreferencesKey("character_animation_enabled")
@@ -450,6 +453,9 @@ class SettingsPreferences(private val context: Context) {
                 BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
                     (preferences[devEnableNpuChatScreenRouteKey] ?: false),
             devEnableQairt244Sm8750NpuRoute = isQairt244Sm8750NpuRouteEnabled(preferences),
+            npuStandardRouteMode = NpuStandardRoutePreferences.fromDataStoreValue(
+                preferences[NpuStandardRoutePreferences.npuStandardRouteModeKey],
+            ),
             hiddenQairt244PromptTemplateMode = resolveHiddenQairt244PromptTemplateMode(preferences),
         )
     }
@@ -579,6 +585,13 @@ class SettingsPreferences(private val context: Context) {
     val hiddenQairt244PromptTemplateModeFlow: Flow<HiddenQairt244PromptTemplateMode> =
         context.dataStore.data.map { preferences ->
             resolveHiddenQairt244PromptTemplateMode(preferences)
+        }
+
+    val npuStandardRouteModeFlow: Flow<NpuStandardRouteMode> =
+        context.dataStore.data.map { preferences ->
+            NpuStandardRoutePreferences.fromDataStoreValue(
+                preferences[NpuStandardRoutePreferences.npuStandardRouteModeKey],
+            )
         }
 
     val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -838,6 +851,10 @@ class SettingsPreferences(private val context: Context) {
                 preferences[hiddenQairt244PromptTemplateModeKey] = HiddenQairt244PromptTemplateMode.RAW.storageValue
             }
         }
+    }
+
+    suspend fun saveNpuStandardRouteMode(mode: NpuStandardRouteMode) {
+        npuStandardRoutePreferences.setMode(mode)
     }
 
     private fun isQairt244Sm8750NpuRouteEnabled(preferences: Preferences): Boolean =

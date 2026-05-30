@@ -1,6 +1,6 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
-internal enum class NpuStandardRouteMode {
+enum class NpuStandardRouteMode {
     OFF,
     S1_ONLY,
     S2_DB,
