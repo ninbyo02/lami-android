@@ -270,6 +270,112 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `S5 TTS speak gate requires candidate and assistant ownership`() {
+        val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。",
+            ttsEnabled = true,
+        )
+
+        assertTrue(
+            shouldSpeakNpuStandardRouteS5Tts(
+                enabled = true,
+                mapping = mapping,
+                ttsEnabled = true,
+                streamingActive = false,
+                assistantId = 42,
+                suppressedForAssistant = false,
+                inCooldown = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `S5 TTS speak gate stays off when phase gate is off`() {
+        val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。",
+            ttsEnabled = true,
+        )
+
+        assertFalse(
+            shouldSpeakNpuStandardRouteS5Tts(
+                enabled = false,
+                mapping = mapping,
+                ttsEnabled = true,
+                streamingActive = false,
+                assistantId = 42,
+                suppressedForAssistant = false,
+                inCooldown = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `S5 TTS speak gate rejects missing assistant id`() {
+        val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。",
+            ttsEnabled = true,
+        )
+
+        assertFalse(
+            shouldSpeakNpuStandardRouteS5Tts(
+                enabled = true,
+                mapping = mapping,
+                ttsEnabled = true,
+                streamingActive = false,
+                assistantId = null,
+                suppressedForAssistant = false,
+                inCooldown = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `S5 TTS speak gate rejects cooldown suppressed and streaming states`() {
+        val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。",
+            ttsEnabled = true,
+        )
+
+        assertFalse(
+            shouldSpeakNpuStandardRouteS5Tts(
+                enabled = true,
+                mapping = mapping,
+                ttsEnabled = true,
+                streamingActive = true,
+                assistantId = 42,
+                suppressedForAssistant = false,
+                inCooldown = false,
+            ),
+        )
+        assertFalse(
+            shouldSpeakNpuStandardRouteS5Tts(
+                enabled = true,
+                mapping = mapping,
+                ttsEnabled = true,
+                streamingActive = false,
+                assistantId = 42,
+                suppressedForAssistant = true,
+                inCooldown = false,
+            ),
+        )
+        assertFalse(
+            shouldSpeakNpuStandardRouteS5Tts(
+                enabled = true,
+                mapping = mapping,
+                ttsEnabled = true,
+                streamingActive = false,
+                assistantId = 42,
+                suppressedForAssistant = false,
+                inCooldown = true,
+            ),
+        )
+    }
+
+    @Test
     fun `S5 TTS gate on does not prepare candidate for failed S1 result`() {
         val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
             s1Result = NpuStandardRouteS1Mapper.map(

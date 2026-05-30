@@ -2483,7 +2483,7 @@ fun Home(
                                                                         }
                                                                     }
                                                                     val resolvedChatId = currentChatId
-                                                                    withContext(Dispatchers.IO) {
+                                                                    val assistantId = withContext(Dispatchers.IO) {
                                                                         viewModel.insertAssistantMessageAndReturnId(
                                                                             Message(
                                                                                 chatId = resolvedChatId,
@@ -2497,7 +2497,7 @@ fun Home(
                                                                                 response = assistantTextForPersist,
                                                                                 localSourceSummary = saveCandidate.assistantMessage.sourceDisplayText,
                                                                             )
-                                                                        )
+                                                                        ).toInt()
                                                                     }
                                                                     if (ENABLE_NPU_STANDARD_ROUTE_S5_TTS) {
                                                                         val s5TtsMapping = NpuStandardRouteS5TtsBridge()
@@ -2508,10 +2508,22 @@ fun Home(
                                                                                 streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                                 sanitizeForTts = ::sanitizeTextForTts,
                                                                             )
-                                                                        shouldPrepareNpuStandardRouteS5Tts(
+                                                                        if (shouldSpeakNpuStandardRouteS5Tts(
                                                                             enabled = ENABLE_NPU_STANDARD_ROUTE_S5_TTS,
                                                                             mapping = s5TtsMapping,
-                                                                        )
+                                                                            ttsEnabled = ttsEnabled,
+                                                                            streamingActive = npuStandardRouteS4PseudoStreamingActive,
+                                                                            assistantId = assistantId,
+                                                                            suppressedForAssistant = isTtsSuppressedForAssistant(assistantId),
+                                                                            inCooldown = ttsController.isInCooldown(),
+                                                                        )) {
+                                                                            val ttsCandidate = requireNotNull(s5TtsMapping.ttsCandidate)
+                                                                            currentSpeakingAssistantMessageId = assistantId
+                                                                            stopButtonOwnerAssistantMessageId = assistantId
+                                                                            stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
+                                                                            maybeReleaseHeldEngineForTtsPlayback()
+                                                                            ttsController.speak(ttsCandidate.speakText)
+                                                                        }
                                                                     }
                                                                 }
                                                                 return@IconButton
@@ -8080,6 +8092,25 @@ internal fun shouldPrepareNpuStandardRouteS5Tts(
     mapping: NpuStandardRouteS5TtsMapping,
 ): Boolean =
     enabled && mapping.hasTtsCandidate
+
+internal fun shouldSpeakNpuStandardRouteS5Tts(
+    enabled: Boolean,
+    mapping: NpuStandardRouteS5TtsMapping,
+    ttsEnabled: Boolean,
+    streamingActive: Boolean,
+    assistantId: Int?,
+    suppressedForAssistant: Boolean,
+    inCooldown: Boolean,
+): Boolean =
+    shouldPrepareNpuStandardRouteS5Tts(
+        enabled = enabled,
+        mapping = mapping,
+    ) &&
+        ttsEnabled &&
+        !streamingActive &&
+        assistantId != null &&
+        !suppressedForAssistant &&
+        !inCooldown
 
 private fun computeLatestUserAnchor(messages: List<Message>): Int {
     if (messages.isEmpty()) {
