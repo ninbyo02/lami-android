@@ -150,16 +150,23 @@ internal const val LEGACY_QAIRT244_DIAGNOSTIC_DESCRIPTION =
     "旧QAIRT診断経路です。S1〜S5 NPU標準ルートとは別で、通常利用は非推奨です。"
 
 internal fun npuStandardRouteModeDisplayLabel(mode: NpuStandardRouteMode): String =
-    mode.name
+    when (mode) {
+        NpuStandardRouteMode.OFF -> "OFF"
+        NpuStandardRouteMode.S1_ONLY -> "S1 応答表示"
+        NpuStandardRouteMode.S2_DB -> "S2 DB保存"
+        NpuStandardRouteMode.S3_MARKDOWN -> "S3 Markdown"
+        NpuStandardRouteMode.S4A_PSEUDO_STREAMING -> "S4-A 擬似Streaming"
+        NpuStandardRouteMode.FULL -> "FULL TTSまで"
+    }
 
 internal fun npuStandardRouteModeDescription(mode: NpuStandardRouteMode): String =
     when (mode) {
         NpuStandardRouteMode.OFF -> "無効"
-        NpuStandardRouteMode.S1_ONLY -> "NPU応答表示のみ"
-        NpuStandardRouteMode.S2_DB -> "DB保存まで"
-        NpuStandardRouteMode.S3_MARKDOWN -> "Markdown表示まで"
-        NpuStandardRouteMode.S4A_PSEUDO_STREAMING -> "擬似Streamingまで"
-        NpuStandardRouteMode.FULL -> "TTSまで"
+        NpuStandardRouteMode.S1_ONLY -> "NPU応答を画面に表示します"
+        NpuStandardRouteMode.S2_DB -> "応答をDBに保存します"
+        NpuStandardRouteMode.S3_MARKDOWN -> "Markdown表示まで有効にします"
+        NpuStandardRouteMode.S4A_PSEUDO_STREAMING -> "擬似Streaming表示まで有効にします"
+        NpuStandardRouteMode.FULL -> "TTS読み上げまで有効にします"
     }
 
 fun openUrl(context: Context, url: String) {
