@@ -168,6 +168,32 @@ Suggested DB inspection should be read-only. Prefer app UI inspection first.
 If shell DB inspection is needed later, document the exact package path and DB
 filename before running commands.
 
+## Runtime Result
+
+S2 DB gate ON was checked manually after the gated implementation:
+
+- temporarily set `ENABLE_NPU_STANDARD_ROUTE_S2_DB=true`;
+- used `customBuildExperimentDebug` on device;
+- confirmed the normal chat UI showed user `こんにちは`;
+- confirmed the normal chat UI showed assistant `こんにちは。`;
+- confirmed the `NPU STANDARD ROUTE S1` debug block was also visible;
+- confirmed `databases/chat-database-wal` updated at `2026-05-30 14:34`;
+- confirmed `databases/app_database-wal` updated at `2026-05-30 14:34`;
+- direct SQL inspection was not performed because `sqlite3` was not available
+  on the device;
+- rollback restored `ENABLE_NPU_STANDARD_ROUTE_S2_DB=false`;
+- reinstalled after rollback;
+- `git status -sb` was clean after rollback.
+
+Interpretation:
+
+- S2 DB persistence is considered successful for the minimal happy path.
+- The confirmed visible persisted exchange is user `こんにちは` and assistant
+  `こんにちは。`.
+- Failure persistence remains intentionally unverified by this run; the S2
+  design still requires no DB rows when `saveCandidate == null`.
+- Markdown, TTS, streaming, and `Backend.NPU` persistence remain unconnected.
+
 ## Failure Runtime Check
 
 For a later failure-path check, use a controlled failure such as gate-on with an

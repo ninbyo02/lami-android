@@ -218,6 +218,26 @@ Blockers:
 - inability to attach NPU diagnostics to the final assistant row
 - failure path leaves stale or empty assistant messages
 
+S2 DB gate ON runtime check:
+
+- temporarily set `ENABLE_NPU_STANDARD_ROUTE_S2_DB=true`;
+- used `customBuildExperimentDebug`;
+- confirmed the standard ChatScreen displayed the normal chat exchange:
+  user `こんにちは` and assistant `こんにちは。`;
+- confirmed the `NPU STANDARD ROUTE S1` debug block remained visible;
+- confirmed `databases/chat-database-wal` updated at `2026-05-30 14:34`;
+- confirmed `databases/app_database-wal` updated at `2026-05-30 14:34`;
+- direct SQL inspection was not performed because `sqlite3` was not available
+  on the device;
+- rollback restored `ENABLE_NPU_STANDARD_ROUTE_S2_DB=false`;
+- reinstalled after rollback;
+- `git status -sb` was clean after rollback.
+
+This confirms the minimal S2 happy path
+`S1 success -> S2 save candidate -> user row -> assistant row`. Failure-row
+avoidance remains a separate safety check. Markdown, TTS, streaming, and
+`Backend.NPU` persistence remain unconnected.
+
 ## Phase S3: Markdown Connection
 
 Goal: allow the final NPU assistant response to pass through the same final
