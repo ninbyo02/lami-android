@@ -283,6 +283,25 @@ Blockers:
 Goal: connect NPU output to the standard streaming UI only after the stable
 non-streaming path is proven.
 
+S4-A pseudo streaming gate ON smoke check:
+
+- temporarily set `ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING=true`;
+- used `customBuildExperimentDebug`;
+- confirmed install/start succeeded;
+- confirmed ChatScreen displayed `NPU STANDARD ROUTE S1`;
+- confirmed ChatScreen displayed `こんにちは。`;
+- confirmed ChatScreen displayed `NPU STANDARD ROUTE S4-A FINAL`;
+- confirmed final S4-A text `こんにちは。`;
+- the response was short, so the run was one chunk equivalent;
+- captured `/tmp/npu_s4a_gate_on.png`;
+- rollback restored `ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING=false`;
+- reinstalled after rollback;
+- `git status -sb` was clean after rollback.
+
+This confirms the S4-A pseudo streaming display gate can render the final NPU
+answer through the NPU-specific transient state. It does not promote real token
+streaming. TTS and `Backend.NPU` persistence remain unconnected.
+
 Change target files:
 
 - `ChatScreen.kt`

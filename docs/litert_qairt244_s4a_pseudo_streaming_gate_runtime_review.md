@@ -215,6 +215,34 @@ confirm git status -sb is clean
 - No TTS starts.
 - Rollback to gate false restores the prior S3/S2/S1 behavior.
 
+## Gate ON Runtime Result
+
+Temporary runtime check:
+
+- temporarily set `ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING=true`;
+- installed and started `customBuildExperimentDebug`;
+- confirmed the following UI blocks/text:
+  - `NPU STANDARD ROUTE S1`;
+  - `こんにちは。`;
+  - `NPU STANDARD ROUTE S4-A FINAL`;
+  - `こんにちは。`;
+- output was short, so this was effectively a one-chunk pseudo streaming
+  confirmation;
+- captured `/tmp/npu_s4a_gate_on.png`;
+- rolled back by restoring `ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING=false`
+  and reinstalling;
+- `git status -sb` was clean after rollback.
+
+Interpretation:
+
+- S4-A gate ON display path works for the current short natural Japanese NPU
+  response.
+- This is pseudo streaming only; it is not real token streaming.
+- TTS remains disconnected.
+- `Backend.NPU` persistence remains disconnected.
+- A longer fixed response is still needed to visually confirm multi-chunk
+  staged rendering.
+
 ## Stop Conditions
 
 Stop and roll back if:
