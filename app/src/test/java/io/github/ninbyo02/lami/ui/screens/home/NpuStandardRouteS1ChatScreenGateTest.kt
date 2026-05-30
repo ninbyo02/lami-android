@@ -65,4 +65,92 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertFalse(result.selection.sideEffects.backendNpuPersisted)
         assertFalse(result.selection.sideEffects.conversationHistorySaved)
     }
+
+    @Test
+    fun `S2 DB gate off preserves S1 display only route`() {
+        val mapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "こんにちは",
+            s1Result = NpuStandardRouteS1Mapper.map(
+                NpuStandardRouteS1RawResult(
+                    status = "success",
+                    reason = "success",
+                    rawOutput = "こんにちは。",
+                    sanitizedOutput = "こんにちは。",
+                    qualityClassification = "natural_japanese",
+                    runDecodeReached = true,
+                    npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                    fallbackUsed = false,
+                    timeout = false,
+                    freshCrash = false,
+                    requestedMaxOutputTokens = 32,
+                    effectiveMaxOutputTokens = 32,
+                ),
+            ),
+        )
+
+        assertTrue(mapping.hasSaveCandidate)
+        assertFalse(
+            shouldPersistNpuStandardRouteS2Db(
+                enabled = false,
+                mapping = mapping,
+            ),
+        )
+    }
+
+    @Test
+    fun `S2 DB gate on persists only when save candidate is available`() {
+        val successMapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "こんにちは",
+            s1Result = NpuStandardRouteS1Mapper.map(
+                NpuStandardRouteS1RawResult(
+                    status = "success",
+                    reason = "success",
+                    rawOutput = "こんにちは。",
+                    sanitizedOutput = "こんにちは。",
+                    qualityClassification = "natural_japanese",
+                    runDecodeReached = true,
+                    npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                    fallbackUsed = false,
+                    timeout = false,
+                    freshCrash = false,
+                    requestedMaxOutputTokens = 32,
+                    effectiveMaxOutputTokens = 32,
+                ),
+            ),
+        )
+        val failureMapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "こんにちは",
+            s1Result = NpuStandardRouteS1Mapper.map(
+                NpuStandardRouteS1RawResult(
+                    status = "failure",
+                    result = "failure",
+                    success = false,
+                    reason = "test_failure",
+                    rawOutput = "",
+                    sanitizedOutput = "",
+                    qualityClassification = "unknown",
+                    runDecodeReached = false,
+                    npuBackendEvidence = "",
+                    fallbackUsed = false,
+                    timeout = false,
+                    freshCrash = false,
+                    requestedMaxOutputTokens = 32,
+                    effectiveMaxOutputTokens = 32,
+                ),
+            ),
+        )
+
+        assertTrue(
+            shouldPersistNpuStandardRouteS2Db(
+                enabled = true,
+                mapping = successMapping,
+            ),
+        )
+        assertFalse(
+            shouldPersistNpuStandardRouteS2Db(
+                enabled = true,
+                mapping = failureMapping,
+            ),
+        )
+    }
 }

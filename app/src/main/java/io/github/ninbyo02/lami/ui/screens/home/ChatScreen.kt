@@ -218,6 +218,7 @@ private val EmptyNewConversationBaseTopPadding = 12.dp
 // gradient → sprite bottom の視覚差分をここで補正している。
 // UI調整用パラメータなので、位置調整はこの値のみ変更する。
 private val EmptyNewConversationTopAdjust = (-120).dp
+private const val ENABLE_NPU_STANDARD_ROUTE_S2_DB = false
 private val SpriteMessageGap = 16.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
@@ -2402,6 +2403,58 @@ fun Home(
                                                     ) {
                                                         val s1Result = NpuStandardRouteS1Bridge().run()
                                                         npuStandardRouteS1DisplayText = s1Result.displayText
+                                                        if (ENABLE_NPU_STANDARD_ROUTE_S2_DB) {
+                                                            val s2DbMapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+                                                                userPrompt = requestPrompt,
+                                                                s1Result = s1Result,
+                                                            )
+                                                            if (shouldPersistNpuStandardRouteS2Db(
+                                                                    enabled = ENABLE_NPU_STANDARD_ROUTE_S2_DB,
+                                                                    mapping = s2DbMapping,
+                                                                )
+                                                            ) {
+                                                                val saveCandidate = requireNotNull(s2DbMapping.saveCandidate)
+                                                                prompt = ""
+                                                                userPrompt = ""
+                                                                selectedImageUriStrings = emptyList()
+                                                                coroutineScope.launch {
+                                                                    var currentChatId = effectiveChatId
+                                                                    if (currentChatId == null) {
+                                                                        isCreatingChat = true
+                                                                        try {
+                                                                            val newChatId = withContext(Dispatchers.IO) {
+                                                                                viewModel.insertChatAndReturnId(
+                                                                                    Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                                                                                )
+                                                                            }
+                                                                            effectiveChatId = newChatId
+                                                                            pendingNavigateChatId = newChatId
+                                                                            currentChatId = newChatId
+                                                                        } finally {
+                                                                            isCreatingChat = false
+                                                                        }
+                                                                    }
+                                                                    val resolvedChatId = currentChatId
+                                                                    withContext(Dispatchers.IO) {
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            Message(
+                                                                                chatId = resolvedChatId,
+                                                                                message = saveCandidate.userMessage.text,
+                                                                                isSendbyMe = saveCandidate.userMessage.isSendByMe,
+                                                                            )
+                                                                        )
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            createAssistantMessage(
+                                                                                chatId = resolvedChatId,
+                                                                                response = saveCandidate.assistantMessage.text,
+                                                                                localSourceSummary = saveCandidate.assistantMessage.sourceDisplayText,
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                }
+                                                                return@IconButton
+                                                            }
+                                                        }
                                                         prompt = ""
                                                         userPrompt = ""
                                                         selectedImageUriStrings = emptyList()
@@ -7878,6 +7931,12 @@ internal fun shouldEnterNpuStandardRouteS1(
         selectedInferenceTarget == InferenceTarget.LOCAL &&
         !hasImageInput &&
         requestPrompt.isNotBlank()
+
+internal fun shouldPersistNpuStandardRouteS2Db(
+    enabled: Boolean,
+    mapping: NpuStandardRouteS2DbMapping,
+): Boolean =
+    enabled && mapping.hasSaveCandidate
 
 private fun computeLatestUserAnchor(messages: List<Message>): Int {
     if (messages.isEmpty()) {
