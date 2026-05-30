@@ -2427,8 +2427,15 @@ fun Home(
                                                             .run(userPrompt = requestPrompt)
                                                         npuRealPromptTrace(
                                                             buildNpuRealPromptResultTrace(
+                                                                status = s1Result.status,
+                                                                reason = s1Result.reason,
+                                                                rawOutput = s1Result.rawOutput,
                                                                 sanitizedOutput = s1Result.sanitizedOutput,
                                                                 qualityClassification = s1Result.qualityClassification,
+                                                                runDecodeReached = s1Result.runDecodeReached,
+                                                                fallbackUsed = s1Result.fallbackUsed,
+                                                                timeout = s1Result.timeout,
+                                                                freshCrash = s1Result.freshCrash,
                                                             ),
                                                         )
                                                         npuStandardRouteS1DisplayText = s1Result.displayText

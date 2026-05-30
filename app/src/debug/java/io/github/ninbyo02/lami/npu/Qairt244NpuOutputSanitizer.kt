@@ -66,7 +66,16 @@ internal object Qairt244NpuOutputSanitizer {
                 removedTemplateTokenCount += 1
                 continue
             }
-            if (isPromptEcho(line, promptEcho) && !naturalTextStarted) {
+            if (
+                isPromptEcho(line, promptEcho) &&
+                !naturalTextStarted &&
+                !isStandaloneGreetingResponse(
+                    line = line,
+                    prompt = promptEcho,
+                    rawWithoutTemplateTokens = withoutTemplateTokens,
+                    removedTemplateTokenCount = removedTemplateTokenCount,
+                )
+            ) {
                 removedPromptEcho = true
                 continue
             }
@@ -141,6 +150,21 @@ internal object Qairt244NpuOutputSanitizer {
         return normalizedLine == prompt
     }
 
+    private fun isStandaloneGreetingResponse(
+        line: String,
+        prompt: String,
+        rawWithoutTemplateTokens: String,
+        removedTemplateTokenCount: Int,
+    ): Boolean {
+        if (removedTemplateTokenCount > 0) return false
+        if (line != prompt || prompt !in standaloneGreetingResponses) return false
+        if (rawWithoutTemplateTokens.trim().trimStart('>').trim() != prompt) return false
+        val meaningfulLines = rawWithoutTemplateTokens.lines()
+            .map { it.trim().trimStart('>').trim() }
+            .filter { it.isNotEmpty() && !roleLinePattern.matches(it) }
+        return meaningfulLines.size == 1 && meaningfulLines.first() == prompt
+    }
+
     private fun isLeadingNonJapaneseDrift(line: String, prompt: String): Boolean {
         if (!containsJapanese(prompt) || containsJapanese(line)) return false
         return line.any { Character.isLetter(it) }
@@ -154,4 +178,15 @@ internal object Qairt244NpuOutputSanitizer {
                 block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS ||
                 block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A
         }
+
+    private val standaloneGreetingResponses = setOf(
+        "こんにちは",
+        "こんにちは。",
+        "こんばんは",
+        "こんばんは。",
+        "おはよう",
+        "おはよう。",
+        "ありがとう",
+        "ありがとう。",
+    )
 }

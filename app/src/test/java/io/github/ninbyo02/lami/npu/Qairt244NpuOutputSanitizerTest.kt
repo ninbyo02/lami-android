@@ -132,4 +132,38 @@ class Qairt244NpuOutputSanitizerTest {
         assertFalse(result.removedPromptEcho)
         assertEquals(0, result.removedTemplateTokenCount)
     }
+
+    @Test
+    fun `keeps standalone greeting responses even when they match the prompt`() {
+        listOf("こんばんは", "こんにちは", "おはよう", "ありがとう").forEach { greeting ->
+            val result = Qairt244NpuOutputSanitizer.sanitize(greeting, greeting)
+
+            assertEquals(greeting, result.sanitizedOutput)
+            assertFalse(result.removedPromptEcho)
+        }
+    }
+
+    @Test
+    fun `keeps observed short prompt comparison responses non empty`() {
+        val cases = listOf(
+            "q" to "どうしますか？",
+            "え" to "どうしますか？",
+            "明日の天気は" to "明日の天気は晴れです。",
+        )
+
+        cases.forEach { (prompt, rawOutput) ->
+            val result = Qairt244NpuOutputSanitizer.sanitize(rawOutput, prompt)
+
+            assertEquals(rawOutput, result.sanitizedOutput)
+            assertFalse(result.removedPromptEcho)
+        }
+    }
+
+    @Test
+    fun `still removes exact non greeting prompt echo`() {
+        val result = Qairt244NpuOutputSanitizer.sanitize("明日の天気は", "明日の天気は")
+
+        assertEquals("", result.sanitizedOutput)
+        assertTrue(result.removedPromptEcho)
+    }
 }

@@ -32,10 +32,27 @@ internal fun buildNpuRealPromptHandoffTrace(
 }
 
 internal fun buildNpuRealPromptResultTrace(
+    status: String,
+    reason: String,
+    rawOutput: String,
     sanitizedOutput: String,
     qualityClassification: String,
+    runDecodeReached: Boolean,
+    fallbackUsed: Boolean,
+    timeout: Boolean,
+    freshCrash: Boolean,
 ): String = buildString {
-    append("NPU_REAL_PROMPT sanitized_output_hash=")
+    append("NPU_REAL_PROMPT status=")
+    append(status)
+    append(" reason=")
+    append(reason)
+    append(" raw_output_hash=")
+    append(npuRealPromptHash(rawOutput))
+    append(" raw_output_length=")
+    append(rawOutput.length)
+    append(" raw_output_preview=")
+    append(npuRealPromptPreview(rawOutput))
+    append(" sanitized_output_hash=")
     append(npuRealPromptHash(sanitizedOutput))
     append(" sanitized_output_length=")
     append(sanitizedOutput.length)
@@ -43,6 +60,14 @@ internal fun buildNpuRealPromptResultTrace(
     append(npuRealPromptPreview(sanitizedOutput))
     append(" quality_classification=")
     append(qualityClassification)
+    append(" run_decode_reached=")
+    append(runDecodeReached)
+    append(" fallback_used=")
+    append(fallbackUsed)
+    append(" timeout=")
+    append(timeout)
+    append(" fresh_crash=")
+    append(freshCrash)
 }
 
 internal fun npuRealPromptHash(text: String): String {

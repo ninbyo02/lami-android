@@ -162,8 +162,15 @@ class RealNpuStandardRouteS1ProviderTest {
         assertTrue(traces.any { it.contains("prompt_source=dev_only_conversation") })
         assertTrue(traces.any { it.contains("final_input_tokens=unavailable") })
         assertTrue(traces.any { it.contains("final_input_code_points=") })
+        assertTrue(traces.any { it.contains("status=success") })
+        assertTrue(traces.any { it.contains("reason=success") })
+        assertTrue(traces.any { it.contains("raw_output_hash=") })
         assertTrue(traces.any { it.contains("sanitized_output_hash=") })
         assertTrue(traces.any { it.contains("quality_classification=natural_japanese") })
+        assertTrue(traces.any { it.contains("run_decode_reached=true") })
+        assertTrue(traces.any { it.contains("fallback_used=false") })
+        assertTrue(traces.any { it.contains("timeout=false") })
+        assertTrue(traces.any { it.contains("fresh_crash=false") })
         assertFalse(traces.joinToString("\n").contains(userPrompt))
     }
 

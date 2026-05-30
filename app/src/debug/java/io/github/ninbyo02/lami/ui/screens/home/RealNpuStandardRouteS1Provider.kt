@@ -28,8 +28,15 @@ internal class RealNpuStandardRouteS1Provider(
             val rawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(requestRunner(request))
             trace(
                 buildNpuRealPromptResultTrace(
+                    status = rawResult.status,
+                    reason = rawResult.reason,
+                    rawOutput = rawResult.rawOutput,
                     sanitizedOutput = rawResult.sanitizedOutput,
                     qualityClassification = rawResult.qualityClassification,
+                    runDecodeReached = rawResult.runDecodeReached,
+                    fallbackUsed = rawResult.fallbackUsed,
+                    timeout = rawResult.timeout,
+                    freshCrash = rawResult.freshCrash,
                 ),
             )
             rawResult
