@@ -6,7 +6,7 @@ import org.junit.Test
 
 class NpuStandardRouteS1GateConfigTest {
     @Test
-    fun `gate config follows custom build experiment flag`() {
+    fun `gate config follows custom build experiment flag while standard promotion is default off`() {
         assertEquals(BuildConfig.CUSTOM_BUILD_EXPERIMENT, NpuStandardRouteS1GateConfig.enabled)
     }
 }

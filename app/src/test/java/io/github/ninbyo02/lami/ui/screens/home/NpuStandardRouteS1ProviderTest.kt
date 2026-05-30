@@ -79,6 +79,13 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `real provider class is resolvable from debug source set`() {
+        val providerClass = Class.forName(NpuStandardRouteS1ProviderSelector.REAL_PROVIDER_CLASS_NAME)
+
+        assertTrue(NpuStandardRouteS1Provider::class.java.isAssignableFrom(providerClass))
+    }
+
+    @Test
     fun `invoker accepts provider interface without ChatScreen dependency`() {
         val invoker = NpuStandardRouteS1Invoker(
             provider = FailureNpuStandardRouteS1Provider(
