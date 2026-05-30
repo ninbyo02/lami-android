@@ -223,6 +223,7 @@ private const val ENABLE_NPU_STANDARD_ROUTE_S3_MARKDOWN = false
 private const val ENABLE_NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING = false
 private const val NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS = 120L
 private const val ENABLE_NPU_STANDARD_ROUTE_S5_TTS = false
+private const val ENABLE_LEGACY_QAIRT244_CHATSCREEN_ROUTE = false
 private val SpriteMessageGap = 16.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
@@ -2652,15 +2653,15 @@ fun Home(
                                                         }
                                                         return@IconButton
                                                     }
-                                                    val standardHiddenQairt244NpuEnabled =
-                                                        BuildConfig.DEBUG &&
-                                                            !BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
-                                                            developerAccessEnabled &&
-                                                            devEnableQairt244Sm8750NpuRoute
-                                                    val customQairt244NpuEnabled =
-                                                        BuildConfig.CUSTOM_BUILD_EXPERIMENT &&
-                                                            devEnableQairt244Sm8750NpuRoute
-                                                    if (customQairt244NpuEnabled || standardHiddenQairt244NpuEnabled) {
+                                                    val legacyQairt244ChatScreenRouteEnabled =
+                                                        shouldEnterLegacyQairt244ChatScreenRoute(
+                                                            hardGateEnabled = ENABLE_LEGACY_QAIRT244_CHATSCREEN_ROUTE,
+                                                            debugBuild = BuildConfig.DEBUG,
+                                                            customBuildExperiment = BuildConfig.CUSTOM_BUILD_EXPERIMENT,
+                                                            developerAccessEnabled = developerAccessEnabled,
+                                                            legacyToggleEnabled = devEnableQairt244Sm8750NpuRoute,
+                                                        )
+                                                    if (legacyQairt244ChatScreenRouteEnabled) {
                                                         // DEV-only experiment: when the toggle is OFF, execution falls through to the unchanged local route.
                                                         isLocalInferenceRunning = true
                                                         debugLocalUiTrace(
@@ -8146,6 +8147,20 @@ internal fun shouldEnterNpuStandardRouteS1(
         selectedInferenceTarget == InferenceTarget.LOCAL &&
         !hasImageInput &&
         requestPrompt.isNotBlank()
+
+internal fun shouldEnterLegacyQairt244ChatScreenRoute(
+    hardGateEnabled: Boolean,
+    debugBuild: Boolean,
+    customBuildExperiment: Boolean,
+    developerAccessEnabled: Boolean,
+    legacyToggleEnabled: Boolean,
+): Boolean =
+    hardGateEnabled &&
+        legacyToggleEnabled &&
+        (
+            customBuildExperiment ||
+                (debugBuild && developerAccessEnabled)
+            )
 
 internal fun shouldPersistNpuStandardRouteS2Db(
     enabled: Boolean,

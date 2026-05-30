@@ -57,6 +57,68 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `legacy QAIRT ChatScreen route hard gate blocks developer toggle by default`() {
+        assertFalse(
+            shouldEnterLegacyQairt244ChatScreenRoute(
+                hardGateEnabled = false,
+                debugBuild = true,
+                customBuildExperiment = false,
+                developerAccessEnabled = true,
+                legacyToggleEnabled = true,
+            ),
+        )
+        assertFalse(
+            shouldEnterLegacyQairt244ChatScreenRoute(
+                hardGateEnabled = false,
+                debugBuild = true,
+                customBuildExperiment = true,
+                developerAccessEnabled = true,
+                legacyToggleEnabled = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `legacy QAIRT ChatScreen route hard gate restores previous guarded conditions`() {
+        assertTrue(
+            shouldEnterLegacyQairt244ChatScreenRoute(
+                hardGateEnabled = true,
+                debugBuild = true,
+                customBuildExperiment = false,
+                developerAccessEnabled = true,
+                legacyToggleEnabled = true,
+            ),
+        )
+        assertFalse(
+            shouldEnterLegacyQairt244ChatScreenRoute(
+                hardGateEnabled = true,
+                debugBuild = true,
+                customBuildExperiment = false,
+                developerAccessEnabled = false,
+                legacyToggleEnabled = true,
+            ),
+        )
+        assertFalse(
+            shouldEnterLegacyQairt244ChatScreenRoute(
+                hardGateEnabled = true,
+                debugBuild = true,
+                customBuildExperiment = false,
+                developerAccessEnabled = true,
+                legacyToggleEnabled = false,
+            ),
+        )
+        assertTrue(
+            shouldEnterLegacyQairt244ChatScreenRoute(
+                hardGateEnabled = true,
+                debugBuild = true,
+                customBuildExperiment = true,
+                developerAccessEnabled = false,
+                legacyToggleEnabled = true,
+            ),
+        )
+    }
+
+    @Test
     fun `bridge path keeps side effects disconnected`() {
         val result = NpuStandardRouteS1Bridge().run()
 
