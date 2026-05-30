@@ -79,6 +79,42 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `provider selector uses fixed provider when S1 gate is disabled`() {
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = false).invoke()
+        val mapped = NpuStandardRouteS1Mapper.map(raw)
+
+        assertTrue(mapped.successCriteriaMet)
+        assertEquals("success", raw.status)
+        assertEquals("こんにちは。", raw.sanitizedOutput)
+    }
+
+    @Test
+    fun `provider selector uses real provider path when S1 gate is enabled`() {
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = true).invoke()
+        val mapped = NpuStandardRouteS1Mapper.map(raw)
+
+        assertFalse(mapped.successCriteriaMet)
+        assertEquals("failure", raw.status)
+        assertEquals("dev_only_entry_unavailable", raw.reason)
+    }
+
+    @Test
+    fun `provider selector for Settings mode keeps standard OFF fixed and S1 real while preserving custom compatibility`() {
+        val offRaw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.OFF).invoke()
+        val s1Raw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.S1_ONLY).invoke()
+
+        if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
+            assertEquals("failure", offRaw.status)
+            assertEquals("dev_only_entry_unavailable", offRaw.reason)
+        } else {
+            assertEquals("success", offRaw.status)
+            assertEquals("こんにちは。", offRaw.sanitizedOutput)
+        }
+        assertEquals("failure", s1Raw.status)
+        assertEquals("dev_only_entry_unavailable", s1Raw.reason)
+    }
+
+    @Test
     fun `real provider class is resolvable from debug source set`() {
         val providerClass = Class.forName(NpuStandardRouteS1ProviderSelector.REAL_PROVIDER_CLASS_NAME)
 

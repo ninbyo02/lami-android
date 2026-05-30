@@ -8,4 +8,9 @@ class NpuStandardRouteS1GateConfigCustomBuildExperimentTest {
     fun `custom build experiment enables S1 gate`() {
         assertTrue(NpuStandardRouteS1GateConfig.enabled)
     }
+
+    @Test
+    fun `custom build experiment keeps S1 gate compatible even when Settings mode is OFF`() {
+        assertTrue(NpuStandardRouteS1GateConfig.isEnabledForMode(NpuStandardRouteMode.OFF))
+    }
 }

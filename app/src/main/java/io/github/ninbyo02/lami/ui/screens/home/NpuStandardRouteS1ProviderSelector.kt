@@ -7,7 +7,13 @@ internal object NpuStandardRouteS1ProviderSelector {
     const val REASON_REAL_PROVIDER_INVALID_TYPE = "real_provider_invalid_type"
 
     fun defaultProvider(): NpuStandardRouteS1Provider =
-        if (NpuStandardRouteS1GateConfig.enabled) {
+        defaultProvider(s1GateEnabled = NpuStandardRouteS1GateConfig.enabled)
+
+    fun defaultProviderForMode(mode: NpuStandardRouteMode): NpuStandardRouteS1Provider =
+        defaultProvider(s1GateEnabled = NpuStandardRouteS1GateConfig.isEnabledForMode(mode))
+
+    fun defaultProvider(s1GateEnabled: Boolean): NpuStandardRouteS1Provider =
+        if (s1GateEnabled) {
             realProvider()
         } else {
             FixedNpuStandardRouteS1Provider()

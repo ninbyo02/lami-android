@@ -113,6 +113,17 @@ class RealNpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `custom build experiment keeps provider selector real compatible for Settings mode OFF`() {
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.OFF).invoke()
+        val result = NpuStandardRouteS1Mapper.map(raw)
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals("failure", raw.status)
+        assertEquals("dev_only_entry_unavailable", raw.reason)
+        assertTrue(result.selection.sideEffects.allDisconnected)
+    }
+
+    @Test
     fun `custom build experiment invoker default propagates real provider unavailable failure in unit test`() {
         val result = NpuStandardRouteS1Mapper.map(NpuStandardRouteS1Invoker().invoke())
 

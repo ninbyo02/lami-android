@@ -713,6 +713,9 @@ fun Home(
     val devEnableQairt244Sm8750NpuRoute by settingsPreferences.devEnableQairt244Sm8750NpuRouteFlow.collectAsState(
         initial = false,
     )
+    val npuStandardRouteMode by settingsPreferences.npuStandardRouteModeFlow.collectAsState(
+        initial = NpuStandardRouteMode.OFF,
+    )
     val developerAccessEnabled by settingsPreferences.developerAccessEnabledFlow.collectAsState(
         initial = false,
     )
@@ -2402,13 +2405,13 @@ fun Home(
                                                     if (requestPrompt.isBlank()) return@IconButton
                                                     if (
                                                         shouldEnterNpuStandardRouteS1(
-                                                            enabled = NpuStandardRouteS1GateConfig.enabled,
+                                                            enabled = NpuStandardRouteS1GateConfig.isEnabledForMode(npuStandardRouteMode),
                                                             selectedInferenceTarget = selectedInferenceTarget,
                                                             hasImageInput = selectedImageUriStrings.isNotEmpty(),
                                                             requestPrompt = requestPrompt,
                                                         )
                                                     ) {
-                                                        val s1Result = NpuStandardRouteS1Bridge().run()
+                                                        val s1Result = NpuStandardRouteS1Bridge(npuStandardRouteMode).run()
                                                         npuStandardRouteS1DisplayText = s1Result.displayText
                                                         npuStandardRouteS4PseudoStreamingText = null
                                                         npuStandardRouteS4PseudoStreamingActive = false
