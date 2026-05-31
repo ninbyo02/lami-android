@@ -198,6 +198,10 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertEquals(244, DevOnlyNpuOneTurnConversationContract.RECEIVER_RESULT_CODE_RECEIVED)
         assertEquals("auto_run_matrix", DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN_MATRIX)
         assertEquals(
+            "auto_run_prompt_template_matrix",
+            DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN_PROMPT_TEMPLATE_MATRIX,
+        )
+        assertEquals(
             "dev_only_npu_one_turn_conversation_matrix_result.txt",
             DevOnlyNpuOneTurnConversationContract.MATRIX_RESULT_FILE_NAME,
         )
@@ -586,6 +590,11 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertEquals(
             "dev_only_npu_prompt_template_matrix_result.txt",
             DevOnlyNpuPromptTemplateMatrix.RESULT_FILE_NAME,
+        )
+        assertTrue(
+            DevOnlyNpuOneTurnConversationContract.EXTRA_AUTO_RUN_PROMPT_TEMPLATE_MATRIX.contains(
+                "prompt_template_matrix",
+            ),
         )
     }
 

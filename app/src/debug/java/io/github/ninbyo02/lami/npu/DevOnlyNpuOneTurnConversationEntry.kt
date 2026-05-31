@@ -66,6 +66,7 @@ object DevOnlyNpuOneTurnConversationContract {
     const val RECEIVER_ACTION = "io.github.ninbyo02.lami.action.DEV_ONLY_NPU_ONE_TURN_CONVERSATION"
     const val EXTRA_AUTO_RUN = "auto_run"
     const val EXTRA_AUTO_RUN_MATRIX = "auto_run_matrix"
+    const val EXTRA_AUTO_RUN_PROMPT_TEMPLATE_MATRIX = "auto_run_prompt_template_matrix"
     const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
     const val EXTRA_PROMPT_TAIL_VARIANT = "prompt_tail_variant"
     const val EXTRA_USER_PROMPT = "user_prompt"
