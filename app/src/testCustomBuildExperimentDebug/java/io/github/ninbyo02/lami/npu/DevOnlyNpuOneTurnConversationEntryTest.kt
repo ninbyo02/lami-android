@@ -690,6 +690,8 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(text.contains("template_name=gemma_it_like"))
         assertTrue(text.contains("standard_route_template_unchanged=raw_dialog_tail_variant_b"))
         assertTrue(text.contains("prompt_and_output_policy=hash_length_code_points_preview_only"))
+        assertTrue(text.contains("template_failure_threshold=2"))
+        assertTrue(text.contains("matrix_timeout_ms=600000"))
         assertFalse(text.contains("editable prompt rejected before native execution"))
     }
 
@@ -775,5 +777,36 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertFalse(result.runDecodeReached)
         assertTrue(result.timeout)
         assertEquals(60_000L, result.elapsedMs)
+    }
+
+    @Test
+    fun `prompt template matrix skipped case records threshold reason`() {
+        val case = DevOnlyNpuPromptTemplateMatrix.cases().first {
+            it.template.name == "simple_ja_chat"
+        }
+        val skipped = DevOnlyNpuPromptTemplateMatrix.CaseResult.skipped()
+        val skippedLines = DevOnlyNpuPromptTemplateMatrix.buildTemplateSkipped(
+            index = 9,
+            case = case,
+        ).joinToString("\n")
+        val row = DevOnlyNpuPromptTemplateMatrix.buildRow(
+            index = 9,
+            case = case,
+            result = skipped,
+        ).joinToString("\n")
+
+        assertEquals("skipped", skipped.status)
+        assertEquals("template_failure_threshold", skipped.reason)
+        assertFalse(skipped.runDecodeReached)
+        assertFalse(skipped.timeout)
+        assertEquals("skipped", skipped.qualityClassification)
+        assertTrue(skippedLines.contains("template_skipped=true"))
+        assertTrue(skippedLines.contains("template_name=simple_ja_chat"))
+        assertTrue(skippedLines.contains("case_index=9"))
+        assertTrue(skippedLines.contains("reason=template_failure_threshold"))
+        assertTrue(row.contains("status=skipped"))
+        assertTrue(row.contains("reason=template_failure_threshold"))
+        assertTrue(row.contains("run_decode_reached=false"))
+        assertTrue(row.contains("quality_classification=skipped"))
     }
 }

@@ -26,6 +26,7 @@ class DevOnlyNpuPromptTemplateMatrixEntry(
     suspend fun run(
         maxOutputTokens: Int = DevOnlyNpuOneTurnConversationContract.COMPARE_MAX_OUTPUT_TOKENS,
         timeoutMs: Long = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
+        matrixTimeoutMs: Long = DevOnlyNpuPromptTemplateMatrix.DEFAULT_MATRIX_TIMEOUT_MS,
     ): String {
         matrixResultFile.writeText(
             DevOnlyNpuPromptTemplateMatrix.buildHeader(status = "running")
@@ -34,37 +35,67 @@ class DevOnlyNpuPromptTemplateMatrixEntry(
         appendProgress(DevOnlyNpuPromptTemplateMatrix.buildMatrixStart())
         Log.i(TAG, "matrix_start result_file=${DevOnlyNpuPromptTemplateMatrix.RESULT_FILE_NAME}")
         return runCatching {
-            DevOnlyNpuPromptTemplateMatrix.cases().forEachIndexed { index, case ->
-                val caseIndex = index + 1
-                appendProgress(DevOnlyNpuPromptTemplateMatrix.buildCaseStart(caseIndex, case))
-                Log.i(TAG, "case_start index=$caseIndex template=${case.template.name}")
-                val result = runCase(
-                    case = case,
-                    maxOutputTokens = maxOutputTokens,
-                    timeoutMs = timeoutMs,
-                    caseIndex = caseIndex,
-                )
-                appendProgress(DevOnlyNpuPromptTemplateMatrix.buildRow(caseIndex, case, result))
-                appendProgress(DevOnlyNpuPromptTemplateMatrix.buildCaseDone(caseIndex, case, result))
-                Log.i(
-                    TAG,
-                    "case_done index=$caseIndex template=${case.template.name} " +
-                        "status=${result.status} reason=${result.reason}",
-                )
+            withTimeout(matrixTimeoutMs) {
+                val consecutiveFailuresByTemplate = mutableMapOf<String, Int>()
+                DevOnlyNpuPromptTemplateMatrix.cases().forEachIndexed { index, case ->
+                    val caseIndex = index + 1
+                    val templateName = case.template.name
+                    val consecutiveFailures = consecutiveFailuresByTemplate[templateName] ?: 0
+                    val result = if (consecutiveFailures >= DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FAILURE_THRESHOLD) {
+                        DevOnlyNpuPromptTemplateMatrix.CaseResult.skipped(
+                            reason = DevOnlyNpuPromptTemplateMatrix.REASON_TEMPLATE_FAILURE_THRESHOLD,
+                        ).also { skipped ->
+                            appendProgress(
+                                DevOnlyNpuPromptTemplateMatrix.buildTemplateSkipped(
+                                    index = caseIndex,
+                                    case = case,
+                                    reason = skipped.reason,
+                                ),
+                            )
+                            Log.i(TAG, "template_skipped index=$caseIndex template=$templateName reason=${skipped.reason}")
+                        }
+                    } else {
+                        appendProgress(DevOnlyNpuPromptTemplateMatrix.buildCaseStart(caseIndex, case))
+                        Log.i(TAG, "case_start index=$caseIndex template=$templateName")
+                        runCase(
+                            case = case,
+                            maxOutputTokens = maxOutputTokens,
+                            timeoutMs = timeoutMs,
+                            caseIndex = caseIndex,
+                        )
+                    }
+                    appendProgress(DevOnlyNpuPromptTemplateMatrix.buildRow(caseIndex, case, result))
+                    appendProgress(DevOnlyNpuPromptTemplateMatrix.buildCaseDone(caseIndex, case, result))
+                    Log.i(
+                        TAG,
+                        "case_done index=$caseIndex template=$templateName " +
+                            "status=${result.status} reason=${result.reason}",
+                    )
+                    if (result.status == "success") {
+                        consecutiveFailuresByTemplate[templateName] = 0
+                    } else if (result.status == "failure") {
+                        consecutiveFailuresByTemplate[templateName] = consecutiveFailures + 1
+                    }
+                }
             }
             appendProgress(listOf("status=completed"))
             Log.i(TAG, "matrix_completed")
             matrixResultFile.readText()
         }.getOrElse { throwable ->
+            val reason = if (throwable is TimeoutCancellationException) {
+                "matrix_timeout"
+            } else {
+                "matrix_failure:${throwable.javaClass.simpleName}"
+            }
             appendProgress(
                 listOf(
                     "status=failed",
-                    "reason=matrix_failure:${throwable.javaClass.simpleName}",
+                    "reason=$reason",
                     "message_hash=${DevOnlyNpuPromptTemplateMatrix.safeHash(throwable.message.orEmpty())}",
                     "message_preview=${DevOnlyNpuPromptTemplateMatrix.safePreview(throwable.message.orEmpty())}",
                 ),
             )
-            Log.i(TAG, "matrix_failed exception=${throwable.javaClass.simpleName}")
+            Log.i(TAG, "matrix_failed reason=$reason exception=${throwable.javaClass.simpleName}")
             matrixResultFile.readText()
         }
     }
@@ -148,6 +179,9 @@ class DevOnlyNpuPromptTemplateMatrixEntry(
 
 object DevOnlyNpuPromptTemplateMatrix {
     const val RESULT_FILE_NAME = "dev_only_npu_prompt_template_matrix_result.txt"
+    const val TEMPLATE_FAILURE_THRESHOLD = 2
+    const val DEFAULT_MATRIX_TIMEOUT_MS = 10 * 60 * 1000L
+    const val REASON_TEMPLATE_FAILURE_THRESHOLD = "template_failure_threshold"
 
     val templates: List<Template> = listOf(
         Template(
@@ -215,6 +249,8 @@ object DevOnlyNpuPromptTemplateMatrix {
         "template_count=${templates.size}",
         "prompt_count=${prompts.size}",
         "case_count=${templates.size * prompts.size}",
+        "template_failure_threshold=$TEMPLATE_FAILURE_THRESHOLD",
+        "matrix_timeout_ms=$DEFAULT_MATRIX_TIMEOUT_MS",
         "prompt_and_output_policy=hash_length_code_points_preview_only",
         "standard_route_template_unchanged=raw_dialog_tail_variant_b",
     )
@@ -263,6 +299,17 @@ object DevOnlyNpuPromptTemplateMatrix {
         "message_hash=${safeHash(throwable.message.orEmpty())}",
         "message_preview=${safePreview(throwable.message.orEmpty())}",
         "elapsed_ms=$elapsedMs",
+    )
+
+    fun buildTemplateSkipped(
+        index: Int,
+        case: Case,
+        reason: String = REASON_TEMPLATE_FAILURE_THRESHOLD,
+    ): List<String> = listOf(
+        "template_skipped=true",
+        "template_name=${case.template.name}",
+        "case_index=$index",
+        "reason=$reason",
     )
 
     fun buildRow(
@@ -402,6 +449,23 @@ object DevOnlyNpuPromptTemplateMatrix {
                 qualityClassification = "unknown",
                 elapsedMs = elapsedMs,
                 message = message,
+            )
+
+            fun skipped(
+                reason: String = REASON_TEMPLATE_FAILURE_THRESHOLD,
+            ): CaseResult = CaseResult(
+                status = "skipped",
+                reason = reason,
+                runDecodeReached = false,
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                rawOutput = "",
+                rawOutputLength = 0,
+                sanitizedOutput = "",
+                sanitizedOutputLength = 0,
+                qualityClassification = "skipped",
+                elapsedMs = 0,
             )
         }
     }
