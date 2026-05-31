@@ -27,21 +27,47 @@ class DevOnlyNpuPromptTemplateMatrixEntry(
         maxOutputTokens: Int = DevOnlyNpuOneTurnConversationContract.COMPARE_MAX_OUTPUT_TOKENS,
         timeoutMs: Long = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
         matrixTimeoutMs: Long = DevOnlyNpuPromptTemplateMatrix.DEFAULT_MATRIX_TIMEOUT_MS,
+        templateFilter: String = DevOnlyNpuPromptTemplateMatrix.DEFAULT_TEMPLATE_FILTER,
     ): String {
+        val sanitizedTemplateFilter = DevOnlyNpuPromptTemplateMatrix.sanitizeTemplateFilter(templateFilter)
         matrixResultFile.writeText(
-            DevOnlyNpuPromptTemplateMatrix.buildHeader(status = "running")
+            DevOnlyNpuPromptTemplateMatrix.buildHeader(
+                status = "running",
+                templateFilter = sanitizedTemplateFilter,
+            )
                 .joinToString(separator = "\n", postfix = "\n"),
         )
-        appendProgress(DevOnlyNpuPromptTemplateMatrix.buildMatrixStart())
-        Log.i(TAG, "matrix_start result_file=${DevOnlyNpuPromptTemplateMatrix.RESULT_FILE_NAME}")
+        appendProgress(DevOnlyNpuPromptTemplateMatrix.buildMatrixStart(templateFilter = sanitizedTemplateFilter))
+        Log.i(
+            TAG,
+            "matrix_start result_file=${DevOnlyNpuPromptTemplateMatrix.RESULT_FILE_NAME} " +
+                "template_filter=$sanitizedTemplateFilter",
+        )
         return runCatching {
             withTimeout(matrixTimeoutMs) {
                 val consecutiveFailuresByTemplate = mutableMapOf<String, Int>()
-                DevOnlyNpuPromptTemplateMatrix.cases().forEachIndexed { index, case ->
-                    val caseIndex = index + 1
+                val selectedTemplateNames = DevOnlyNpuPromptTemplateMatrix.selectedTemplateNames(sanitizedTemplateFilter)
+                DevOnlyNpuPromptTemplateMatrix.indexedCases().forEach { indexedCase ->
+                    val caseIndex = indexedCase.index
+                    val case = indexedCase.case
                     val templateName = case.template.name
-                    val consecutiveFailures = consecutiveFailuresByTemplate[templateName] ?: 0
-                    val result = if (consecutiveFailures >= DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FAILURE_THRESHOLD) {
+                    val result = if (templateName !in selectedTemplateNames) {
+                        DevOnlyNpuPromptTemplateMatrix.CaseResult.skipped(
+                            reason = DevOnlyNpuPromptTemplateMatrix.REASON_TEMPLATE_FILTER,
+                        ).also { skipped ->
+                            appendProgress(
+                                DevOnlyNpuPromptTemplateMatrix.buildTemplateSkipped(
+                                    index = caseIndex,
+                                    case = case,
+                                    reason = skipped.reason,
+                                ),
+                            )
+                            Log.i(TAG, "template_skipped index=$caseIndex template=$templateName reason=${skipped.reason}")
+                        }
+                    } else if (
+                        (consecutiveFailuresByTemplate[templateName] ?: 0) >=
+                        DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FAILURE_THRESHOLD
+                    ) {
                         DevOnlyNpuPromptTemplateMatrix.CaseResult.skipped(
                             reason = DevOnlyNpuPromptTemplateMatrix.REASON_TEMPLATE_FAILURE_THRESHOLD,
                         ).also { skipped ->
@@ -74,7 +100,7 @@ class DevOnlyNpuPromptTemplateMatrixEntry(
                     if (result.status == "success") {
                         consecutiveFailuresByTemplate[templateName] = 0
                     } else if (result.status == "failure") {
-                        consecutiveFailuresByTemplate[templateName] = consecutiveFailures + 1
+                        consecutiveFailuresByTemplate[templateName] = (consecutiveFailuresByTemplate[templateName] ?: 0) + 1
                     }
                 }
             }
@@ -181,7 +207,12 @@ object DevOnlyNpuPromptTemplateMatrix {
     const val RESULT_FILE_NAME = "dev_only_npu_prompt_template_matrix_result.txt"
     const val TEMPLATE_FAILURE_THRESHOLD = 2
     const val DEFAULT_MATRIX_TIMEOUT_MS = 10 * 60 * 1000L
+    const val TEMPLATE_FILTER_ALL = "all"
+    const val TEMPLATE_FILTER_RAW_ONLY = "raw_only"
+    const val TEMPLATE_FILTER_SAFE_ONLY = "safe_only"
+    const val DEFAULT_TEMPLATE_FILTER = TEMPLATE_FILTER_RAW_ONLY
     const val REASON_TEMPLATE_FAILURE_THRESHOLD = "template_failure_threshold"
+    const val REASON_TEMPLATE_FILTER = "template_filter"
 
     val templates: List<Template> = listOf(
         Template(
@@ -216,23 +247,71 @@ object DevOnlyNpuPromptTemplateMatrix {
     )
 
     suspend fun run(
+        templateFilter: String = DEFAULT_TEMPLATE_FILTER,
         caseRunner: suspend (Case) -> CaseResult,
     ): String {
+        val sanitizedTemplateFilter = sanitizeTemplateFilter(templateFilter)
+        val selectedTemplateNames = selectedTemplateNames(sanitizedTemplateFilter)
         val rows = mutableListOf<String>()
-        cases().forEachIndexed { index, case ->
-            val result = caseRunner(case)
+        indexedCases().forEach { indexedCase ->
+            val case = indexedCase.case
+            val result = if (case.template.name in selectedTemplateNames) {
+                caseRunner(case)
+            } else {
+                CaseResult.skipped(reason = REASON_TEMPLATE_FILTER)
+            }
+            if (result.reason == REASON_TEMPLATE_FILTER) {
+                rows += buildTemplateSkipped(
+                    index = indexedCase.index,
+                    case = case,
+                    reason = result.reason,
+                )
+            }
             rows += buildRow(
-                index = index + 1,
+                index = indexedCase.index,
                 case = case,
                 result = result,
             )
         }
-        return buildHeader(status = "success")
+        return buildHeader(
+            status = "success",
+            templateFilter = sanitizedTemplateFilter,
+        )
             .plus(rows)
             .joinToString(separator = "\n", postfix = "\n")
     }
 
-    fun cases(): List<Case> = templates.flatMap { template ->
+    fun cases(templateFilter: String = DEFAULT_TEMPLATE_FILTER): List<Case> {
+        val selectedTemplateNames = selectedTemplateNames(sanitizeTemplateFilter(templateFilter))
+        return allCases().filter { case -> case.template.name in selectedTemplateNames }
+    }
+
+    fun indexedCases(): List<IndexedCase> = allCases().mapIndexed { index, case ->
+        IndexedCase(
+            index = index + 1,
+            case = case,
+        )
+    }
+
+    fun selectedTemplateNames(templateFilter: String = DEFAULT_TEMPLATE_FILTER): Set<String> =
+        templatesForFilter(templateFilter).map { template -> template.name }.toSet()
+
+    fun templatesForFilter(templateFilter: String = DEFAULT_TEMPLATE_FILTER): List<Template> =
+        when (sanitizeTemplateFilter(templateFilter)) {
+            TEMPLATE_FILTER_RAW_ONLY -> templates.filter { template -> isRawTemplate(template) }
+            TEMPLATE_FILTER_SAFE_ONLY -> templates.filter { template -> template.name !in unsafeTemplateNames }
+            else -> templates
+        }
+
+    fun sanitizeTemplateFilter(templateFilter: String?): String =
+        when (templateFilter) {
+            TEMPLATE_FILTER_ALL -> TEMPLATE_FILTER_ALL
+            TEMPLATE_FILTER_RAW_ONLY -> TEMPLATE_FILTER_RAW_ONLY
+            TEMPLATE_FILTER_SAFE_ONLY -> TEMPLATE_FILTER_SAFE_ONLY
+            else -> DEFAULT_TEMPLATE_FILTER
+        }
+
+    private fun allCases(): List<Case> = templates.flatMap { template ->
         prompts.map { prompt ->
             Case(
                 template = template,
@@ -242,22 +321,34 @@ object DevOnlyNpuPromptTemplateMatrix {
         }
     }
 
-    fun buildHeader(status: String): List<String> = listOf(
-        "DEV ONLY NPU PROMPT TEMPLATE MATRIX",
-        "status=$status",
-        "result_file=$RESULT_FILE_NAME",
-        "template_count=${templates.size}",
-        "prompt_count=${prompts.size}",
-        "case_count=${templates.size * prompts.size}",
-        "template_failure_threshold=$TEMPLATE_FAILURE_THRESHOLD",
-        "matrix_timeout_ms=$DEFAULT_MATRIX_TIMEOUT_MS",
-        "prompt_and_output_policy=hash_length_code_points_preview_only",
-        "standard_route_template_unchanged=raw_dialog_tail_variant_b",
-    )
+    fun buildHeader(
+        status: String,
+        templateFilter: String = DEFAULT_TEMPLATE_FILTER,
+    ): List<String> {
+        val sanitizedTemplateFilter = sanitizeTemplateFilter(templateFilter)
+        val selectedTemplateCount = templatesForFilter(sanitizedTemplateFilter).size
+        val selectedCaseCount = cases(sanitizedTemplateFilter).size
+        return listOf(
+            "DEV ONLY NPU PROMPT TEMPLATE MATRIX",
+            "status=$status",
+            "result_file=$RESULT_FILE_NAME",
+            "template_filter=$sanitizedTemplateFilter",
+            "template_total_count=${templates.size}",
+            "template_count=$selectedTemplateCount",
+            "prompt_count=${prompts.size}",
+            "case_total_count=${templates.size * prompts.size}",
+            "case_count=$selectedCaseCount",
+            "template_failure_threshold=$TEMPLATE_FAILURE_THRESHOLD",
+            "matrix_timeout_ms=$DEFAULT_MATRIX_TIMEOUT_MS",
+            "prompt_and_output_policy=hash_length_code_points_preview_only",
+            "standard_route_template_unchanged=raw_dialog_tail_variant_b",
+        )
+    }
 
-    fun buildMatrixStart(): List<String> = listOf(
+    fun buildMatrixStart(templateFilter: String = DEFAULT_TEMPLATE_FILTER): List<String> = listOf(
         "matrix_start=true",
         "status=running",
+        "template_filter=${sanitizeTemplateFilter(templateFilter)}",
     )
 
     fun buildCaseStart(
@@ -380,6 +471,11 @@ object DevOnlyNpuPromptTemplateMatrix {
         val requestPrompt: String,
     )
 
+    data class IndexedCase(
+        val index: Int,
+        val case: Case,
+    )
+
     data class CaseResult(
         val status: String,
         val reason: String,
@@ -471,4 +567,11 @@ object DevOnlyNpuPromptTemplateMatrix {
     }
 
     private const val PREVIEW_LIMIT = 32
+    private val unsafeTemplateNames = setOf(
+        HiddenQairt244PromptTemplateMode.SIMPLE_JA_CHAT.storageValue,
+        HiddenQairt244PromptTemplateMode.GEMMA_IT_LIKE.storageValue,
+    )
+
+    private fun isRawTemplate(template: Template): Boolean =
+        template.name.startsWith("raw_dialog_tail_variant")
 }

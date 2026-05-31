@@ -586,7 +586,17 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             ),
             DevOnlyNpuPromptTemplateMatrix.prompts,
         )
-        assertEquals(15, DevOnlyNpuPromptTemplateMatrix.cases().size)
+        assertEquals(5, DevOnlyNpuPromptTemplateMatrix.cases().size)
+        assertEquals(
+            15,
+            DevOnlyNpuPromptTemplateMatrix.cases(
+                templateFilter = DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FILTER_ALL,
+            ).size,
+        )
+        assertEquals(
+            DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FILTER_RAW_ONLY,
+            DevOnlyNpuPromptTemplateMatrix.DEFAULT_TEMPLATE_FILTER,
+        )
         assertEquals(
             "dev_only_npu_prompt_template_matrix_result.txt",
             DevOnlyNpuPromptTemplateMatrix.RESULT_FILE_NAME,
@@ -596,6 +606,60 @@ class DevOnlyNpuOneTurnConversationEntryTest {
                 "prompt_template_matrix",
             ),
         )
+    }
+
+    @Test
+    fun `prompt template matrix raw filter excludes unsafe templates`() {
+        val rawCases = DevOnlyNpuPromptTemplateMatrix.cases(
+            templateFilter = DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FILTER_RAW_ONLY,
+        )
+        val safeCases = DevOnlyNpuPromptTemplateMatrix.cases(
+            templateFilter = DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FILTER_SAFE_ONLY,
+        )
+        val header = DevOnlyNpuPromptTemplateMatrix.buildHeader(
+            status = "running",
+            templateFilter = DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FILTER_RAW_ONLY,
+        ).joinToString("\n")
+
+        assertEquals(5, rawCases.size)
+        assertTrue(rawCases.all { it.template.name == DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B })
+        assertEquals(rawCases.map { it.template.name }, safeCases.map { it.template.name })
+        assertFalse(rawCases.any { it.template.name == "simple_ja_chat" })
+        assertFalse(rawCases.any { it.template.name == "gemma_it_like" })
+        assertEquals(
+            DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FILTER_RAW_ONLY,
+            DevOnlyNpuPromptTemplateMatrix.sanitizeTemplateFilter("unknown_filter"),
+        )
+        assertTrue(header.contains("template_filter=raw_only"))
+        assertTrue(header.contains("template_total_count=3"))
+        assertTrue(header.contains("template_count=1"))
+        assertTrue(header.contains("case_total_count=15"))
+        assertTrue(header.contains("case_count=5"))
+    }
+
+    @Test
+    fun `prompt template matrix filtered templates are recorded as skipped`() {
+        val skippedCase = DevOnlyNpuPromptTemplateMatrix.indexedCases().first {
+            it.case.template.name == "simple_ja_chat"
+        }
+        val skipped = DevOnlyNpuPromptTemplateMatrix.CaseResult.skipped(
+            reason = DevOnlyNpuPromptTemplateMatrix.REASON_TEMPLATE_FILTER,
+        )
+        val skippedLines = DevOnlyNpuPromptTemplateMatrix.buildTemplateSkipped(
+            index = skippedCase.index,
+            case = skippedCase.case,
+            reason = skipped.reason,
+        ).joinToString("\n")
+        val start = DevOnlyNpuPromptTemplateMatrix.buildMatrixStart(
+            templateFilter = DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FILTER_SAFE_ONLY,
+        ).joinToString("\n")
+
+        assertEquals("skipped", skipped.status)
+        assertEquals("template_filter", skipped.reason)
+        assertTrue(start.contains("template_filter=safe_only"))
+        assertTrue(skippedLines.contains("template_skipped=true"))
+        assertTrue(skippedLines.contains("template_name=simple_ja_chat"))
+        assertTrue(skippedLines.contains("reason=template_filter"))
     }
 
     @Test
@@ -659,7 +723,9 @@ class DevOnlyNpuOneTurnConversationEntryTest {
 
     @Test
     fun `prompt template matrix records rejected template case without aborting report`() = runBlocking {
-        val text = DevOnlyNpuPromptTemplateMatrix.run { case ->
+        val text = DevOnlyNpuPromptTemplateMatrix.run(
+            templateFilter = DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FILTER_ALL,
+        ) { case ->
             if (case.template.name == "simple_ja_chat") {
                 DevOnlyNpuPromptTemplateMatrix.CaseResult.failure(
                     reason = "invalid_prompt:too_long",
@@ -781,7 +847,9 @@ class DevOnlyNpuOneTurnConversationEntryTest {
 
     @Test
     fun `prompt template matrix skipped case records threshold reason`() {
-        val case = DevOnlyNpuPromptTemplateMatrix.cases().first {
+        val case = DevOnlyNpuPromptTemplateMatrix.cases(
+            templateFilter = DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FILTER_ALL,
+        ).first {
             it.template.name == "simple_ja_chat"
         }
         val skipped = DevOnlyNpuPromptTemplateMatrix.CaseResult.skipped()
