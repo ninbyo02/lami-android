@@ -2431,6 +2431,10 @@ fun Home(
                                                             requestPrompt = requestPrompt,
                                                         )
                                                     ) {
+                                                        val npuModelEligibility = resolveNpuStandardRouteS1ModelEligibility(
+                                                            selectedModelName = localBaseModelDisplayName ?: selectedModel,
+                                                            selectedModelFile = localBaseModelFilePath,
+                                                        )
                                                         val immediateNpuSendUiUpdate = prepareImmediateNpuSendUiStateUpdate(requestPrompt)
                                                         prompt = immediateNpuSendUiUpdate.prompt
                                                         userPrompt = immediateNpuSendUiUpdate.userPrompt
@@ -2492,7 +2496,12 @@ fun Home(
                                                                                 userPrompt = requestPrompt,
                                                                             ),
                                                                         )
-                                                                        withContext(Dispatchers.Default) {
+                                                                        if (!npuModelEligibility.npuModelEligible) {
+                                                                            buildNpuStandardRouteS1ModelNotCompatibleResult(
+                                                                                eligibility = npuModelEligibility,
+                                                                                maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                            )
+                                                                        } else withContext(Dispatchers.Default) {
                                                                             NpuStandardRouteS1Bridge(
                                                                                 mode = npuStandardRouteMode,
                                                                                 trace = npuRealPromptTrace,
@@ -2519,6 +2528,9 @@ fun Home(
                                                                 fallbackUsed = s1Result.fallbackUsed,
                                                                 timeout = s1Result.timeout,
                                                                 freshCrash = s1Result.freshCrash,
+                                                                selectedModelName = s1Result.selectedModelName,
+                                                                selectedModelFile = s1Result.selectedModelFile,
+                                                                npuModelEligible = s1Result.npuModelEligible,
                                                             ),
                                                         )
                                                         npuStandardRouteS1DisplayText = s1Result.displayText
@@ -8385,6 +8397,70 @@ internal fun shouldEnterNpuStandardRouteS1(
         !hasImageInput &&
         requestPrompt.isNotBlank()
 
+internal data class NpuStandardRouteS1ModelEligibility(
+    val selectedModelName: String,
+    val selectedModelFile: String,
+    val npuModelEligible: Boolean,
+)
+
+internal fun resolveNpuStandardRouteS1ModelEligibility(
+    selectedModelName: String?,
+    selectedModelFile: String?,
+): NpuStandardRouteS1ModelEligibility {
+    val modelName = selectedModelName?.trim().orEmpty()
+    val modelFile = selectedModelFile
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.let { path -> File(path).name.ifBlank { path } }
+        .orEmpty()
+    val eligibleText = listOf(modelName, modelFile)
+        .joinToString(separator = " ")
+        .lowercase(Locale.ROOT)
+    val eligible = NPU_STANDARD_ROUTE_S1_MODEL_ELIGIBLE_MARKERS.any { marker ->
+        marker in eligibleText
+    }
+    return NpuStandardRouteS1ModelEligibility(
+        selectedModelName = modelName.ifBlank { "unknown" },
+        selectedModelFile = modelFile.ifBlank { "unknown" },
+        npuModelEligible = eligible,
+    )
+}
+
+internal fun buildNpuStandardRouteS1ModelNotCompatibleResult(
+    eligibility: NpuStandardRouteS1ModelEligibility,
+    maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+): NpuStandardRouteS1Result {
+    val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
+    return NpuStandardRouteS1Result(
+        selection = NpuStandardRouteS1Selection(
+            enabled = true,
+            requestedMaxOutputTokens = sanitizedMaxOutputTokens,
+            effectiveMaxOutputTokens = sanitizedMaxOutputTokens,
+            sideEffects = NpuStandardRouteS1SideEffects(),
+        ),
+        status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
+        reason = NpuStandardRouteS1Contract.REASON_MODEL_NOT_NPU_COMPATIBLE,
+        rawOutput = "",
+        sanitizedOutput = "",
+        qualityClassification = FailureNpuStandardRouteS1Provider.QUALITY_UNKNOWN,
+        runDecodeReached = false,
+        npuBackendEvidence = "",
+        fallbackUsed = false,
+        timeout = false,
+        freshCrash = false,
+        selectedModelName = eligibility.selectedModelName,
+        selectedModelFile = eligibility.selectedModelFile,
+        npuModelEligible = false,
+    )
+}
+
+private val NPU_STANDARD_ROUTE_S1_MODEL_ELIGIBLE_MARKERS = listOf(
+    "qualcomm",
+    "sm8750",
+    "qnn",
+    "npu",
+)
+
 internal fun shouldEnterLegacyQairt244ChatScreenRoute(
     hardGateEnabled: Boolean,
     debugBuild: Boolean,
@@ -8484,6 +8560,9 @@ internal fun resolveNpuStandardRouteFailureAssistantMessage(
     transientFallback: NpuStandardRouteS1TransientFallback?,
 ): String? {
     if (result.successCriteriaMet) return null
+    if (result.reason == NpuStandardRouteS1Contract.REASON_MODEL_NOT_NPU_COMPATIBLE) {
+        return NpuStandardRouteS1Contract.MODEL_NOT_NPU_COMPATIBLE_MESSAGE
+    }
     return transientFallback?.text
         ?: "NPU推論の応答生成に失敗しました: ${result.reason.ifBlank { "unknown" }}"
 }

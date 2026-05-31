@@ -43,11 +43,26 @@ internal fun buildNpuRealPromptResultTrace(
     fallbackUsed: Boolean,
     timeout: Boolean,
     freshCrash: Boolean,
+    selectedModelName: String = "",
+    selectedModelFile: String = "",
+    npuModelEligible: Boolean? = null,
 ): String = buildString {
     append("NPU_REAL_PROMPT status=")
     append(status)
     append(" reason=")
     append(reason)
+    if (selectedModelName.isNotBlank()) {
+        append(" selected_model_name=")
+        append(selectedModelName)
+    }
+    if (selectedModelFile.isNotBlank()) {
+        append(" selected_model_file=")
+        append(selectedModelFile)
+    }
+    if (npuModelEligible != null) {
+        append(" npu_model_eligible=")
+        append(npuModelEligible)
+    }
     append(" max_output_tokens=")
     append(maxOutputTokens)
     append(" raw_output_hash=")
@@ -87,6 +102,9 @@ internal fun buildNpuStandardRouteS1DevTraceText(
         "input_preview=${npuStandardRouteS1DevPreview(input)}",
         "input_length=${input.length}",
         "input_code_points=${input.codePointCount(0, input.length)}",
+        "selected_model_name=${result.selectedModelName.ifBlank { "unknown" }}",
+        "selected_model_file=${result.selectedModelFile.ifBlank { "unknown" }}",
+        "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
         "raw_output_hash=${npuRealPromptHash(result.rawOutput)}",
         "raw_output_preview=${npuStandardRouteS1DevPreview(result.rawOutput)}",
         "raw_output_length=${result.rawOutput.length}",
@@ -121,6 +139,9 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
 ): String = listOf(
     "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
     "max_output_tokens=$maxOutputTokens",
+    "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
+    "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
+    "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
     "raw_output=${npuStandardRouteS1EscapeCopyValue(result.rawOutput)}",
     "sanitized_output=${npuStandardRouteS1EscapeCopyValue(result.sanitizedOutput)}",
     "status=${result.status}",
@@ -144,13 +165,13 @@ internal fun npuRealPromptPreview(text: String): String =
         .joinToString(separator = "")
         .trim()
         .take(12)
-        .ifBlank { "-" }
+        .ifBlank { "n/a" }
 
 internal fun npuStandardRouteS1DevPreview(text: String): String {
     val normalized = text.map { char -> if (char.isWhitespace()) ' ' else char }
         .joinToString(separator = "")
         .trim()
-    if (normalized.isBlank()) return "-"
+    if (normalized.isBlank()) return "n/a"
     return if (normalized.length <= NPU_STANDARD_ROUTE_S1_DEV_PREVIEW_LIMIT) {
         normalized
     } else {

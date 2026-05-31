@@ -46,6 +46,9 @@ internal data class NpuStandardRouteS1Result(
     val fallbackUsed: Boolean,
     val timeout: Boolean,
     val freshCrash: Boolean,
+    val selectedModelName: String = "",
+    val selectedModelFile: String = "",
+    val npuModelEligible: Boolean? = null,
     val displayText: String = NpuStandardRouteS1Contract.displayText(
         selection = selection,
         status = status,
@@ -58,6 +61,9 @@ internal data class NpuStandardRouteS1Result(
         fallbackUsed = fallbackUsed,
         timeout = timeout,
         freshCrash = freshCrash,
+        selectedModelName = selectedModelName,
+        selectedModelFile = selectedModelFile,
+        npuModelEligible = npuModelEligible,
     ),
 ) {
     val successCriteriaMet: Boolean
@@ -89,7 +95,10 @@ internal object NpuStandardRouteS1Contract {
     const val REASON_MIXED_LANGUAGE = "mixed_language"
     const val REASON_QUESTION_ECHO = "question_echo"
     const val REASON_ASSISTANT_STUB = "assistant_stub"
+    const val REASON_MODEL_NOT_NPU_COMPATIBLE = "model_not_npu_compatible"
     const val FALLBACK_SAFE_GREETING = "safe_greeting_fallback"
+    const val MODEL_NOT_NPU_COMPATIBLE_MESSAGE =
+        "このモデルはNPU専用モデルではありません。NPU検証には Qualcomm / sm8750 版のモデルを選択してください。Generic版はCPU/GPU経路で実行してください。"
 
     fun displayText(
         selection: NpuStandardRouteS1Selection,
@@ -103,12 +112,18 @@ internal object NpuStandardRouteS1Contract {
         fallbackUsed: Boolean,
         timeout: Boolean,
         freshCrash: Boolean,
+        selectedModelName: String = "",
+        selectedModelFile: String = "",
+        npuModelEligible: Boolean? = null,
     ): String {
         val sideEffects = selection.sideEffects
-        return listOf(
+        return listOfNotNull(
             "NPU STANDARD ROUTE S1",
             "route_type=${selection.routeType}",
             "standard_route_connected=true",
+            selectedModelName.takeIf { it.isNotBlank() }?.let { "selected_model_name=$it" },
+            selectedModelFile.takeIf { it.isNotBlank() }?.let { "selected_model_file=$it" },
+            npuModelEligible?.let { "npu_model_eligible=$it" },
             "status=$status",
             "reason=$reason",
             "prompt_tail_variant=${selection.promptTailVariant}",

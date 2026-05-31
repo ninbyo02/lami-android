@@ -853,6 +853,122 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `Generic LiteRT-LM model is blocked before NPU S1 decode`() = runTest {
+        val eligibility = resolveNpuStandardRouteS1ModelEligibility(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+        )
+        val events = mutableListOf<String>()
+
+        val run = runNpuInferenceAfterImmediateUserMessage(
+            requestPrompt = "こんにちは",
+            currentChatId = 7,
+            createChat = {
+                events += "create_chat"
+                7
+            },
+            onChatCreated = { chatId ->
+                events += "chat_created:$chatId"
+            },
+            insertUserMessage = { chatId, promptText ->
+                events += "insert_user:$chatId:$promptText"
+            },
+            runInference = {
+                if (eligibility.npuModelEligible) {
+                    events += "run_decode"
+                    s1SuccessResult()
+                } else {
+                    events += "blocked_before_decode"
+                    buildNpuStandardRouteS1ModelNotCompatibleResult(
+                        eligibility = eligibility,
+                        maxOutputTokens = 128,
+                    )
+                }
+            },
+        )
+
+        assertEquals(listOf("insert_user:7:こんにちは", "blocked_before_decode"), events)
+        assertFalse(eligibility.npuModelEligible)
+        assertEquals("gemma-4-E2B-it", run.result.selectedModelName)
+        assertEquals("gemma-4-E2B-it.litertlm", run.result.selectedModelFile)
+        assertEquals(false, run.result.npuModelEligible)
+        assertEquals(NpuStandardRouteS1Contract.REASON_MODEL_NOT_NPU_COMPATIBLE, run.result.reason)
+        assertFalse(run.result.runDecodeReached)
+        assertFalse(run.result.fallbackUsed)
+        assertFalse(run.result.successCriteriaMet)
+    }
+
+    @Test
+    fun `Generic LiteRT-LM model failure uses explicit compatibility diagnostics`() {
+        val result = buildNpuStandardRouteS1ModelNotCompatibleResult(
+            eligibility = resolveNpuStandardRouteS1ModelEligibility(
+                selectedModelName = "gemma-4-E2B-it",
+                selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            ),
+            maxOutputTokens = 512,
+        )
+        val trace = buildNpuStandardRouteS1DevTraceText(
+            input = "こんにちは",
+            result = result,
+            maxOutputTokens = 512,
+        )
+        val resultTrace = buildNpuRealPromptResultTrace(
+            status = result.status,
+            reason = result.reason,
+            maxOutputTokens = result.selection.effectiveMaxOutputTokens,
+            rawOutput = result.rawOutput,
+            sanitizedOutput = result.sanitizedOutput,
+            qualityClassification = result.qualityClassification,
+            runDecodeReached = result.runDecodeReached,
+            fallbackUsed = result.fallbackUsed,
+            timeout = result.timeout,
+            freshCrash = result.freshCrash,
+            selectedModelName = result.selectedModelName,
+            selectedModelFile = result.selectedModelFile,
+            npuModelEligible = result.npuModelEligible,
+        )
+
+        assertEquals("failure", result.status)
+        assertEquals(NpuStandardRouteS1Contract.REASON_MODEL_NOT_NPU_COMPATIBLE, result.reason)
+        assertEquals("", result.rawOutput)
+        assertEquals("", result.sanitizedOutput)
+        assertTrue(result.displayText.contains("selected_model_name=gemma-4-E2B-it"))
+        assertTrue(result.displayText.contains("selected_model_file=gemma-4-E2B-it.litertlm"))
+        assertTrue(result.displayText.contains("npu_model_eligible=false"))
+        assertTrue(result.displayText.contains("run_decode_reached=false"))
+        assertTrue(result.displayText.contains("fallback_used=false"))
+        assertTrue(trace.contains("raw_output_preview=n/a"))
+        assertTrue(trace.contains("sanitized_output_preview=n/a"))
+        assertTrue(trace.contains("fallback=false"))
+        assertTrue(resultTrace.contains("raw_output_preview=n/a"))
+        assertTrue(resultTrace.contains("sanitized_output_preview=n/a"))
+        assertEquals(
+            NpuStandardRouteS1Contract.MODEL_NOT_NPU_COMPATIBLE_MESSAGE,
+            resolveNpuStandardRouteFailureAssistantMessage(
+                result = result,
+                transientFallback = null,
+            ),
+        )
+    }
+
+    @Test
+    fun `Qualcomm sm8750 qnn or npu model names are eligible for NPU S1 decode`() {
+        listOf(
+            "gemma-4-E2B-it-qualcomm.litertlm",
+            "gemma-4-E2B-it-sm8750.litertlm",
+            "gemma-4-E2B-it-qnn.litertlm",
+            "gemma-4-E2B-it-npu.litertlm",
+        ).forEach { modelFile ->
+            val eligibility = resolveNpuStandardRouteS1ModelEligibility(
+                selectedModelName = "gemma-4-E2B-it",
+                selectedModelFile = "/models/$modelFile",
+            )
+
+            assertTrue("$modelFile should be eligible", eligibility.npuModelEligible)
+        }
+    }
+
+    @Test
     fun `NPU inference starts after immediate user message persistence`() = runTest {
         val events = mutableListOf<String>()
 
