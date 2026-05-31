@@ -481,6 +481,8 @@ private fun NpuS2DbStabilityReportRow.isSafeSuccessForNextPrompt(): Boolean =
         judgement != "fail"
 
 internal object NpuS2DbStabilityReportFormatter {
+    private const val SANITIZED_OUTPUT_COLUMN_INDEX = 6
+
     val prompts: List<String> = listOf(
         "こんにちは",
         "ああああ",
@@ -543,7 +545,8 @@ internal object NpuS2DbStabilityReportFormatter {
         appendLine("| ${headers.joinToString(" | ")} |")
         appendLine("| ${headers.joinToString(" | ") { "---" }} |")
         rows.forEach { row ->
-            appendLine("| ${row.toCells().joinToString(" | ") { markdownCell(it) }} |")
+            val cells = reportCells(row)
+            appendLine("| ${cells.joinToString(" | ") { markdownCell(it) }} |")
         }
         appendLine()
         appendLine("## S3 Gate")
@@ -558,18 +561,29 @@ internal object NpuS2DbStabilityReportFormatter {
     fun toCsv(rows: List<NpuS2DbStabilityReportRow>): String = buildString {
         appendLine(headers.joinToString(",") { csvCell(it) })
         rows.forEach { row ->
-            appendLine(row.toCells().joinToString(",") { csvCell(it) })
+            val cells = reportCells(row)
+            appendLine(cells.joinToString(",") { csvCell(it) })
         }
     }
 
-    private fun NpuS2DbStabilityReportRow.toCells(): List<String> = listOf(
+    internal fun reportCells(row: NpuS2DbStabilityReportRow): List<String> =
+        row.toRawCells().toMutableList().also { cells ->
+            cells[SANITIZED_OUTPUT_COLUMN_INDEX] = normalizeCellSanitizedOutput(
+                cells[SANITIZED_OUTPUT_COLUMN_INDEX],
+            )
+        }
+
+    internal fun normalizeCellSanitizedOutput(value: String): String =
+        Qairt244NpuOutputSanitizer.normalizeJapaneseInternalSpaces(value)
+
+    private fun NpuS2DbStabilityReportRow.toRawCells(): List<String> = listOf(
         number.toString(),
         number.toString(),
         prompt,
         status,
         reason,
         qualityClassification,
-        Qairt244NpuOutputSanitizer.normalizeJapaneseInternalSpaces(sanitizedOutput),
+        sanitizedOutput,
         rawRoleContamination.toString(),
         db.toString(),
         conversationHistorySaved.toString(),

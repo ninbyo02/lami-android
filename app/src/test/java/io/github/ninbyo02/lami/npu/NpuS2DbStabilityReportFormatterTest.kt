@@ -129,6 +129,45 @@ class NpuS2DbStabilityReportFormatterTest {
     }
 
     @Test
+    fun `report formatter normalizes literal newline sanitized output cell before markdown and csv rows`() {
+        val spacedOutput = "承 知いたしました。\\n1. 箇条書きの作成\\n3. 短くまとめ る"
+        val normalizedOutput = "承知いたしました。\\n1. 箇条書きの作成\\n3. 短くまとめる"
+        val row = sampleRow(sanitizedOutput = spacedOutput)
+
+        val cells = NpuS2DbStabilityReportFormatter.reportCells(row)
+        val markdown = NpuS2DbStabilityReportFormatter.toMarkdown(
+            timestamp = "20260601_120000",
+            maxOutputTokens = 128,
+            rows = listOf(row),
+            promptIndex = 8,
+            timeoutMs = 180_000L,
+        )
+        val csv = NpuS2DbStabilityReportFormatter.toCsv(rows = listOf(row))
+
+        assertEquals(normalizedOutput, cells[6])
+        assertTrue(
+            markdown.contains(
+                "| 1 | 1 | こんにちは | success | success | natural_japanese | " +
+                    "承知いたしました。\\\\n1. 箇条書きの作成\\\\n3. 短くまとめる | false | true | true | " +
+                    "true | false | false | false | 123 | 20.0 | pass_saved | " +
+                    "automation_scope=s2_decoding_and_save_decision_logic |",
+            ),
+        )
+        assertTrue(
+            csv.contains(
+                "\"1\",\"1\",\"こんにちは\",\"success\",\"success\",\"natural_japanese\"," +
+                    "\"承知いたしました。\\n1. 箇条書きの作成\\n3. 短くまとめる\",\"false\"," +
+                    "\"true\",\"true\",\"true\",\"false\",\"false\",\"false\",\"123\",\"20.0\"," +
+                    "\"pass_saved\",\"automation_scope=s2_decoding_and_save_decision_logic\"",
+            ),
+        )
+        assertFalse(markdown.contains("承 知"))
+        assertFalse(markdown.contains("まとめ る"))
+        assertFalse(csv.contains("承 知"))
+        assertFalse(csv.contains("まとめ る"))
+    }
+
+    @Test
     fun `report row from S2 result normalizes prompt 8 Japanese internal spaces`() {
         val spacedOutput = "承 知いたしました。\n1. 箇条書きの作成\n2. 3つの項目を提示\n3. 短くまとめ る"
         val s2Result = buildNpuStandardRouteS2DbSavedResult(
