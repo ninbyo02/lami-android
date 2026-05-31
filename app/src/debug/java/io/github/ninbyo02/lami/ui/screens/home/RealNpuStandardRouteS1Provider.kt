@@ -25,7 +25,10 @@ internal class RealNpuStandardRouteS1Provider(
             trace(buildNpuRealPromptHandoffTrace(stage = "provider", userPrompt = userPrompt))
             val request = request(userPrompt)
             trace(buildNpuRealPromptRequestTrace(request))
-            val rawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(requestRunner(request))
+            val rawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
+                display = requestRunner(request),
+                userPrompt = userPrompt,
+            )
             trace(
                 buildNpuRealPromptResultTrace(
                     status = rawResult.status,

@@ -159,6 +159,36 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `question echo failure shows fallback without enabling DB S4A or TTS`() {
+        val result = s1QuestionEchoFailureResult()
+        val s2Mapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "明日の天気は",
+            s1Result = result,
+        )
+        val s4Mapping = NpuStandardRouteS4PseudoStreamingBridge().preparePseudoStreamingCandidate(
+            s1Result = result,
+            finalText = NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT,
+        )
+        val s5Mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = result,
+            finalAssistantText = NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT,
+            ttsEnabled = true,
+        )
+
+        assertTrue(shouldShowNpuStandardRouteS1Fallback(result))
+        assertFalse(result.successCriteriaMet)
+        assertEquals("failure", result.status)
+        assertEquals("question_echo", result.reason)
+        assertEquals("question_echo", result.qualityClassification)
+        assertFalse(shouldPersistNpuStandardRouteS2Db(enabled = true, mapping = s2Mapping))
+        assertNull(s2Mapping.saveCandidate)
+        assertFalse(shouldStartNpuStandardRouteS4APseudoStreaming(enabled = true, mapping = s4Mapping))
+        assertNull(s4Mapping.pseudoStreamingCandidate)
+        assertFalse(shouldPrepareNpuStandardRouteS5Tts(enabled = true, mapping = s5Mapping))
+        assertNull(s5Mapping.ttsCandidate)
+    }
+
+    @Test
     fun `bridge path keeps side effects disconnected`() {
         val result = NpuStandardRouteS1Bridge().run(userPrompt = "好きな色を一つだけ答えてください")
 
@@ -739,6 +769,26 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 rawOutput = "૩です|",
                 sanitizedOutput = "",
                 qualityClassification = "mixed_language",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 32,
+                effectiveMaxOutputTokens = 32,
+            ),
+        )
+
+    private fun s1QuestionEchoFailureResult(): NpuStandardRouteS1Result =
+        NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "failure",
+                result = "failure",
+                success = false,
+                reason = "question_echo",
+                rawOutput = "明日の天気は\nユーザー: どんな感じですか",
+                sanitizedOutput = "明日の天気は",
+                qualityClassification = "question_echo",
                 runDecodeReached = true,
                 npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
                 fallbackUsed = false,

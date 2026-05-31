@@ -104,6 +104,30 @@ class RealNpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `real provider classifies sanitized prompt echo as failure`() {
+        val traces = mutableListOf<String>()
+        val raw = RealNpuStandardRouteS1Provider(
+            requestRunner = { successDisplay(output = "明日の天気は") },
+        ).invoke("明日の天気は", trace = traces::add)
+        val result = NpuStandardRouteS1Mapper.map(raw)
+
+        assertEquals("failure", raw.status)
+        assertEquals("failure", raw.result)
+        assertEquals(false, raw.success)
+        assertEquals("question_echo", raw.reason)
+        assertEquals("明日の天気は", raw.sanitizedOutput)
+        assertEquals("question_echo", raw.qualityClassification)
+        assertTrue(raw.runDecodeReached)
+        assertFalse(result.successCriteriaMet)
+        assertEquals("failure", result.status)
+        assertEquals("question_echo", result.reason)
+        assertEquals("question_echo", result.qualityClassification)
+        assertTrue(result.selection.sideEffects.allDisconnected)
+        assertTrue(traces.any { it.contains("reason=question_echo") })
+        assertTrue(traces.any { it.contains("quality_classification=question_echo") })
+    }
+
+    @Test
     fun `custom build experiment default provider selects real provider and reports unavailable in unit test`() {
         val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke(userPrompt, trace = {})
         val result = NpuStandardRouteS1Mapper.map(raw)
@@ -174,10 +198,10 @@ class RealNpuStandardRouteS1ProviderTest {
         assertFalse(traces.joinToString("\n").contains(userPrompt))
     }
 
-    private fun successDisplay(): DevOnlyNpuOneTurnConversationDisplay =
+    private fun successDisplay(output: String = "こんにちは。"): DevOnlyNpuOneTurnConversationDisplay =
         DevOnlyNpuOneTurnConversationDisplay(
             text = "DEV ONLY NPU ONE TURN",
-            output = "こんにちは。",
+            output = output,
             status = "success",
             reason = "success",
             nativeReached = true,
@@ -189,12 +213,12 @@ class RealNpuStandardRouteS1ProviderTest {
             requestedMaxOutputTokens = 32,
             effectiveMaxOutputTokens = 32,
             nativeMaxOutputTokensLimit = "512",
-            rawLen = 6,
-            sanitizedLen = 6,
+            rawLen = output.length,
+            sanitizedLen = output.length,
             quality = "natural_japanese",
             controlCharSummary = "none",
-            rawOutputFirst200Chars = "こんにちは。",
-            rawOutputLast200Chars = "こんにちは。",
+            rawOutputFirst200Chars = output,
+            rawOutputLast200Chars = output,
             rawUnicodeSummary = "control_chars=none",
             sanitizerApplied = "true",
             removedTemplateTokenCount = "0",

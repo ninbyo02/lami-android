@@ -8258,7 +8258,10 @@ internal fun shouldShowNpuStandardRouteS1Fallback(
     result: NpuStandardRouteS1Result,
 ): Boolean =
     result.status == FailureNpuStandardRouteS1Provider.STATUS_FAILURE &&
-        result.reason == "empty_after_sanitize"
+        (
+            result.reason == "empty_after_sanitize" ||
+                result.reason == NpuStandardRouteS1Contract.REASON_QUESTION_ECHO
+            )
 
 internal fun shouldSpeakNpuStandardRouteS5Tts(
     enabled: Boolean,

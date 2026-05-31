@@ -80,8 +80,10 @@ internal object NpuStandardRouteS1Contract {
     const val MAX_OUTPUT_TOKENS = 32
     const val NPU_BACKEND_EVIDENCE = "QNN_HTP_V79_FastRPC_native_diag"
     const val QUALITY_NATURAL_JAPANESE = "natural_japanese"
+    const val QUALITY_QUESTION_ECHO = "question_echo"
     const val STATUS_SUCCESS = "success"
     const val REASON_SUCCESS = "success"
+    const val REASON_QUESTION_ECHO = "question_echo"
 
     fun displayText(
         selection: NpuStandardRouteS1Selection,
