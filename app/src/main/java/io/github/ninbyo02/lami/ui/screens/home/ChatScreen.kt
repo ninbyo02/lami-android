@@ -805,6 +805,7 @@ fun Home(
     var didReceiveRealLocalPartial by remember(effectiveChatId) { mutableStateOf(false) }
     var realLocalPartialChunkCount by remember(effectiveChatId) { mutableStateOf(0) }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var localGpuWatchdogJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
@@ -1168,6 +1169,76 @@ fun Home(
                 "ui_cleanup_reset_ui_state_called=true",
             ).joinToString(separator = "\n", postfix = "\n"),
         )
+    }
+
+    fun launchGpuExperimentalLocalRouteWatchdog(
+        currentChatId: Int,
+        diagnosticContext: LocalRouteDiagnosticContext,
+        runGuardEpoch: Long,
+        runStartedAtMs: Long,
+        timedOut: AtomicBoolean,
+    ): Job? {
+        if (!shouldApplyGpuExperimentalStageTimeout(diagnosticContext)) return null
+        return coroutineScope.launch {
+            delay(GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS)
+            if (timedOut.get()) return@launch
+            if (runGuardEpoch != streamingGuardEpoch) return@launch
+            if (!isLocalInferenceRunning || didReceiveRealLocalPartial || localStopRequested) return@launch
+
+            timedOut.set(true)
+            val elapsedMs = SystemClock.elapsedRealtime() - runStartedAtMs
+            val diagnosticsText = buildGpuExperimentalTimeoutDiagnosticsText(
+                context = diagnosticContext,
+                failureStage = "gpu_watchdog_timeout",
+                elapsedMs = elapsedMs,
+                staleCallbackIgnored = true,
+            )
+            appendLocalReflectionTrace(
+                context = context.applicationContext,
+                message = diagnosticsText,
+            )
+            latestLocalTraceForDev = LocalInferenceTrace(
+                localModelDisplayName = diagnosticContext.selectedModelName,
+                mediaPipeProbeModelPath = diagnosticContext.selectedModelFile,
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "GPU",
+                preferredBackendApplyResult = "timeout",
+                preferredBackendHookReached = false,
+                preferredBackendHookSource = "gpu-experimental-watchdog",
+                localFailureDiagnosticsText = diagnosticsText,
+            )
+
+            localStreamingResponseText = null
+            showDelayedLocalRespondingPlaceholder = false
+            resetStreamingSpeechState()
+            resetStreamingAssistantPlaceholderId(reason = "gpu-watchdog-timeout")
+            localInferenceEngineState = LocalInferenceEngineState.ERROR
+            isLocalInferenceRunning = false
+            localInferenceJob?.cancel()
+            localInferenceJob = null
+            localGpuWatchdogJob = null
+
+            withContext(Dispatchers.IO) {
+                viewModel.insertAssistantMessageAndReturnId(
+                    createAssistantMessage(
+                        chatId = currentChatId,
+                        response = GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
+                        localSourceSummary = diagnosticsText,
+                        generationTimeMs = elapsedMs,
+                    ),
+                )
+                localInferenceEngineHolder.resetConversation(
+                    chatId = currentChatId,
+                    reason = "gpu_watchdog_timeout",
+                )
+                localInferenceEngineHolder.clear { message ->
+                    appendLocalReflectionTrace(
+                        context = context.applicationContext,
+                        message = message,
+                    )
+                }
+            }
+        }
     }
 
     suspend fun resolveLocalPreparingUiState(): LocalInferenceEngineState {
@@ -2300,6 +2371,8 @@ fun Home(
                                                 if (isInferenceRunningUi) {
                                                     if (isLocalRunningRaw) {
                                                         localStopRequested = true
+                                                        localGpuWatchdogJob?.cancel()
+                                                        localGpuWatchdogJob = null
                                                         localInferenceJob?.cancel()
                                                         localInferenceJob = null
                                                         effectiveChatId?.let { currentChatId ->
@@ -3082,6 +3155,11 @@ fun Home(
                                                         localStreamingResponseText = null
                                                         showDelayedLocalRespondingPlaceholder = false
                                                         isLocalInferenceRunning = true
+                                                        val localRunGuardEpoch = streamingGuardEpoch
+                                                        val localRunStartedAtMs = SystemClock.elapsedRealtime()
+                                                        val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
+                                                        val localRouteTimedOut = AtomicBoolean(false)
+                                                        var localGpuWatchdogForRun: Job? = null
                                                         try {
                                                             localInferenceEngineState = resolveLocalPreparingUiState()
                                                             localStreamingResponseText = null
@@ -3095,11 +3173,16 @@ fun Home(
                                                             if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
                                                                 devRunnerWhitespaceTraceText = null
                                                             }
-                                                            val localRunGuardEpoch = streamingGuardEpoch
-                                                            val localRunStartedAtMs = SystemClock.elapsedRealtime()
-                                                            val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
-                                                            val localRouteTimedOut = AtomicBoolean(false)
                                                             var measuredModelLoadDurationNs: Long? = null
+                                                            localGpuWatchdogJob?.cancel()
+                                                            localGpuWatchdogForRun = launchGpuExperimentalLocalRouteWatchdog(
+                                                                currentChatId = currentChatId,
+                                                                diagnosticContext = localRouteDiagnosticContext,
+                                                                runGuardEpoch = localRunGuardEpoch,
+                                                                runStartedAtMs = localRunStartedAtMs,
+                                                                timedOut = localRouteTimedOut,
+                                                            )
+                                                            localGpuWatchdogJob = localGpuWatchdogForRun
                                                             appendLocalReflectionTrace(
                                                                 context = context.applicationContext,
                                                                 message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
@@ -3652,6 +3735,26 @@ fun Home(
                                                                 }
                                                                 }
                                                             }
+                                                            if (localRouteTimedOut.get() || localRunGuardEpoch != streamingGuardEpoch) {
+                                                                appendLocalReflectionTrace(
+                                                                    context = context.applicationContext,
+                                                                    message = buildLocalRouteDiagnosticTrace(
+                                                                        stage = "stale_callback_ignored",
+                                                                        context = localRouteDiagnosticContext,
+                                                                        flags = LocalRouteDiagnosticFlags(
+                                                                            failureStage = if (localRouteTimedOut.get()) {
+                                                                                "gpu_watchdog_timeout"
+                                                                            } else {
+                                                                                "stale_callback"
+                                                                            },
+                                                                            fallbackUsed = false,
+                                                                            staleCallbackIgnored = true,
+                                                                        ),
+                                                                        elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
+                                                                    ),
+                                                                )
+                                                                return@launch
+                                                            }
                                                             localInferenceEngineState = runResult?.state
                                                                 ?: LocalInferenceEngineState.ERROR
                                                             val localGenerationTimeMs =
@@ -3985,6 +4088,12 @@ fun Home(
                                                                 duration = SnackbarDuration.Short,
                                                             )
                                                         } finally {
+                                                            if (!localRouteTimedOut.get()) {
+                                                                localGpuWatchdogForRun?.cancel()
+                                                            }
+                                                            if (localGpuWatchdogJob == localGpuWatchdogForRun) {
+                                                                localGpuWatchdogJob = null
+                                                            }
                                                             localStreamingResponseText = null
                                                             showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingSpeechState()
@@ -5533,12 +5642,15 @@ private fun buildGpuExperimentalTimeoutDiagnosticsText(
     context: LocalRouteDiagnosticContext,
     failureStage: String,
     elapsedMs: Long,
+    staleCallbackIgnored: Boolean = false,
 ): String {
-    val engineCreateFinished = failureStage != "engine_create_timeout"
-    val conversationCreateStarted = failureStage != "engine_create_timeout"
+    val watchdogTimeout = failureStage == "gpu_watchdog_timeout"
+    val engineCreateFinished = !watchdogTimeout && failureStage != "engine_create_timeout"
+    val conversationCreateStarted = !watchdogTimeout && failureStage != "engine_create_timeout"
     val conversationCreateFinished =
-        failureStage == "generate_start_timeout" || failureStage == "first_token_timeout"
-    val generateStarted = failureStage == "first_token_timeout"
+        !watchdogTimeout &&
+            (failureStage == "generate_start_timeout" || failureStage == "first_token_timeout")
+    val generateStarted = !watchdogTimeout && failureStage == "first_token_timeout"
     return buildLocalRouteDiagnosticTrace(
         stage = "timeout_failure",
         context = context,
@@ -5552,6 +5664,7 @@ private fun buildGpuExperimentalTimeoutDiagnosticsText(
             firstTokenReceived = false,
             failureStage = failureStage,
             fallbackUsed = false,
+            staleCallbackIgnored = staleCallbackIgnored,
         ),
         elapsedMs = elapsedMs,
     )

@@ -931,6 +931,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 firstTokenReceived = false,
                 failureStage = "engine_create_timeout",
                 fallbackUsed = false,
+                staleCallbackIgnored = false,
             ),
             elapsedMs = GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS,
         )
@@ -942,11 +943,41 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertTrue(trace.contains("local_route_entered=true"))
         assertTrue(trace.contains("failure_stage=engine_create_timeout"))
         assertTrue(trace.contains("fallback_used=false"))
+        assertTrue(trace.contains("stale_callback_ignored=false"))
         assertTrue(trace.contains("elapsed_ms=20000"))
         assertEquals(
             "GPU backend の初期化または生成開始がタイムアウトしました。Generic LiteRT-LMモデルではCPU backendを選択してください。",
             GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
         )
+    }
+
+    @Test
+    fun `Generic GPU watchdog timeout diagnostics mark stale callback ignored`() {
+        val diagnosticContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val trace = buildLocalRouteDiagnosticTrace(
+            stage = "timeout_failure",
+            context = diagnosticContext,
+            flags = LocalRouteDiagnosticFlags(
+                failureStage = "gpu_watchdog_timeout",
+                fallbackUsed = false,
+                staleCallbackIgnored = true,
+            ),
+            elapsedMs = GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS,
+        )
+
+        assertTrue(trace.contains("preferred_backend=GPU"))
+        assertTrue(trace.contains("baseline_role=gpu_experimental"))
+        assertTrue(trace.contains("failure_stage=gpu_watchdog_timeout"))
+        assertTrue(trace.contains("fallback_used=false"))
+        assertTrue(trace.contains("stale_callback_ignored=true"))
+        assertTrue(trace.contains("elapsed_ms=20000"))
     }
 
     @Test

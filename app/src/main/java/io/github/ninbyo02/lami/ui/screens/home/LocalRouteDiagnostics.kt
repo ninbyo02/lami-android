@@ -25,6 +25,7 @@ internal data class LocalRouteDiagnosticFlags(
     val firstTokenReceived: Boolean? = null,
     val failureStage: String? = null,
     val fallbackUsed: Boolean? = null,
+    val staleCallbackIgnored: Boolean? = null,
 )
 
 internal fun buildLocalRouteDiagnosticContext(
@@ -91,6 +92,7 @@ internal fun buildLocalRouteDiagnosticTrace(
     "first_token_received=${flags.firstTokenReceived.toDiagnosticValue()}",
     "failure_stage=${flags.failureStage?.takeIf { it.isNotBlank() } ?: "none"}",
     "fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
+    "stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
     "elapsed_ms=${elapsedMs.coerceAtLeast(0L)}",
 ).joinToString(" ")
 
