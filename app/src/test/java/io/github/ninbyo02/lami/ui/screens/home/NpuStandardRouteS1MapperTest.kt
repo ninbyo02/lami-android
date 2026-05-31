@@ -66,6 +66,23 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
+    fun `raw role contamination is classified as failure even with natural sanitized output`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "どうしましたか。\nユーザー: ああああ\nアシスタント: 何か困っていますか。",
+                sanitizedOutput = "どうしましたか。",
+                qualityClassification = "natural_japanese",
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals("failure", result.status)
+        assertEquals("raw_role_contamination", result.reason)
+        assertEquals("role_contamination", result.qualityClassification)
+        assertEquals("どうしましたか。", result.sanitizedOutput)
+    }
+
+    @Test
     fun `mapper keeps S1 side effects disconnected and max output fixed`() {
         val result = NpuStandardRouteS1Mapper.map(successRaw())
         val text = result.displayText
@@ -84,6 +101,7 @@ class NpuStandardRouteS1MapperTest {
         status: String = "success",
         result: String = "",
         success: Boolean? = null,
+        rawOutput: String = "こんにちは。",
         sanitizedOutput: String = "こんにちは。",
         qualityClassification: String = "natural_japanese",
         runDecodeReached: Boolean = true,
@@ -96,7 +114,7 @@ class NpuStandardRouteS1MapperTest {
         result = result,
         success = success,
         reason = "success",
-        rawOutput = "こんにちは。",
+        rawOutput = rawOutput,
         sanitizedOutput = sanitizedOutput,
         qualityClassification = qualityClassification,
         runDecodeReached = runDecodeReached,

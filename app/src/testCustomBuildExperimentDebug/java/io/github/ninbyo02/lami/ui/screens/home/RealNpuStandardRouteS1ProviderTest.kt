@@ -184,6 +184,31 @@ class RealNpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `real provider classifies raw role contamination as failure`() {
+        val raw = RealNpuStandardRouteS1Provider(
+            requestRunner = {
+                successDisplay(
+                    output = "どうしましたか。",
+                    rawOutput = "どうしましたか。\nユーザー: ああああ\nアシスタント: 何か困っていますか。",
+                )
+            },
+        ).invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
+
+        assertEquals("failure", raw.status)
+        assertEquals("failure", raw.result)
+        assertEquals(false, raw.success)
+        assertEquals("raw_role_contamination", raw.reason)
+        assertEquals("どうしましたか。", raw.sanitizedOutput)
+        assertEquals("role_contamination", raw.qualityClassification)
+        assertTrue(raw.rawOutput.contains("ユーザー:"))
+        assertTrue(raw.rawOutput.contains("アシスタント:"))
+    }
+
+    @Test
     fun `custom build experiment default provider selects real provider and reports unavailable in unit test`() {
         val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke(
             userPrompt = userPrompt,
@@ -291,6 +316,7 @@ class RealNpuStandardRouteS1ProviderTest {
 
     private fun successDisplay(
         output: String = "こんにちは。",
+        rawOutput: String = output,
         maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
     ): DevOnlyNpuOneTurnConversationDisplay =
         DevOnlyNpuOneTurnConversationDisplay(
@@ -307,18 +333,19 @@ class RealNpuStandardRouteS1ProviderTest {
             requestedMaxOutputTokens = maxOutputTokens,
             effectiveMaxOutputTokens = maxOutputTokens,
             nativeMaxOutputTokensLimit = "512",
-            rawLen = output.length,
+            rawLen = rawOutput.length,
             sanitizedLen = output.length,
             quality = "natural_japanese",
             controlCharSummary = "none",
-            rawOutputFirst200Chars = output,
-            rawOutputLast200Chars = output,
+            rawOutputFirst200Chars = rawOutput.take(200),
+            rawOutputLast200Chars = rawOutput.takeLast(200),
             rawUnicodeSummary = "control_chars=none",
             sanitizerApplied = "true",
             removedTemplateTokenCount = "0",
             removedPromptEcho = "false",
             replacementCharCount = "0",
             outputContainsControlChars = "false",
+            rawOutput = rawOutput,
         )
 
     private fun failureDisplay(

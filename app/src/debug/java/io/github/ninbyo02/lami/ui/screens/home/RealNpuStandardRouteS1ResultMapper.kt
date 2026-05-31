@@ -8,39 +8,42 @@ internal object RealNpuStandardRouteS1ResultMapper {
         userPrompt: String = "",
     ): NpuStandardRouteS1RawResult {
         val sanitizedOutput = display.output.trim()
-        val questionEcho = sanitizedOutput.isNotBlank() &&
+        val rawOutput = display.rawOutput.ifBlank { display.rawOutputFirst200Chars }
+        val standaloneAssistantStub = isAssistantStub(sanitizedOutput)
+        val rawRoleContamination =
+            hasNpuStandardRouteRawRoleContamination(rawOutput) && !standaloneAssistantStub
+        val questionEcho = !rawRoleContamination &&
+            sanitizedOutput.isNotBlank() &&
             isQuestionEcho(
                 input = userPrompt,
                 output = sanitizedOutput,
             )
-        val assistantStub = !questionEcho && isAssistantStub(sanitizedOutput)
-        val status = if (questionEcho || assistantStub) {
+        val assistantStub = !rawRoleContamination && !questionEcho && standaloneAssistantStub
+        val status = if (rawRoleContamination || questionEcho || assistantStub) {
             FailureNpuStandardRouteS1Provider.STATUS_FAILURE
         } else if (display.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) {
             NpuStandardRouteS1Contract.STATUS_SUCCESS
         } else {
             FailureNpuStandardRouteS1Provider.STATUS_FAILURE
         }
-        val reason = if (questionEcho) {
-            NpuStandardRouteS1Contract.REASON_QUESTION_ECHO
-        } else if (assistantStub) {
-            NpuStandardRouteS1Contract.REASON_ASSISTANT_STUB
-        } else {
-            display.reason
+        val reason = when {
+            rawRoleContamination -> NpuStandardRouteS1Contract.REASON_RAW_ROLE_CONTAMINATION
+            questionEcho -> NpuStandardRouteS1Contract.REASON_QUESTION_ECHO
+            assistantStub -> NpuStandardRouteS1Contract.REASON_ASSISTANT_STUB
+            else -> display.reason
         }
-        val qualityClassification = if (questionEcho) {
-            NpuStandardRouteS1Contract.QUALITY_QUESTION_ECHO
-        } else if (assistantStub) {
-            NpuStandardRouteS1Contract.QUALITY_ASSISTANT_STUB
-        } else {
-            display.quality
+        val qualityClassification = when {
+            rawRoleContamination -> NpuStandardRouteS1Contract.QUALITY_ROLE_CONTAMINATION
+            questionEcho -> NpuStandardRouteS1Contract.QUALITY_QUESTION_ECHO
+            assistantStub -> NpuStandardRouteS1Contract.QUALITY_ASSISTANT_STUB
+            else -> display.quality
         }
         return NpuStandardRouteS1RawResult(
             status = status,
             result = status,
             success = status == NpuStandardRouteS1Contract.STATUS_SUCCESS,
             reason = reason,
-            rawOutput = display.rawOutputFirst200Chars,
+            rawOutput = rawOutput,
             sanitizedOutput = sanitizedOutput,
             qualityClassification = qualityClassification,
             runDecodeReached = display.decodeReached,

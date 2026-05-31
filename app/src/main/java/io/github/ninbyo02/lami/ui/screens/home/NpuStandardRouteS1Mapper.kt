@@ -22,9 +22,18 @@ internal data class NpuStandardRouteS1RawResult(
 
 internal object NpuStandardRouteS1Mapper {
     fun map(raw: NpuStandardRouteS1RawResult): NpuStandardRouteS1Result {
-        val successEquivalent = raw.success == true ||
+        val rawRoleContamination = hasNpuStandardRouteRawRoleContamination(raw.rawOutput)
+        val successLikeRaw = raw.success == true ||
             raw.status == NpuStandardRouteS1Contract.STATUS_SUCCESS ||
             raw.result == NpuStandardRouteS1Contract.STATUS_SUCCESS
+        val rawRoleContaminationOverridesQuality =
+            rawRoleContamination &&
+                successLikeRaw &&
+                raw.qualityClassification == NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE
+        val successEquivalent = !rawRoleContaminationOverridesQuality &&
+            (
+                successLikeRaw
+                )
         val sanitizedOutput = raw.sanitizedOutput.trim()
         val displayText = sanitizedOutput
         val selection = NpuStandardRouteS1Selection(
@@ -33,15 +42,20 @@ internal object NpuStandardRouteS1Mapper {
             effectiveMaxOutputTokens = raw.effectiveMaxOutputTokens,
             sideEffects = NpuStandardRouteS1SideEffects(),
         )
-        val status = if (successEquivalent) {
-            NpuStandardRouteS1Contract.STATUS_SUCCESS
-        } else {
-            raw.status.ifBlank { raw.result }.ifBlank { "failure" }
+        val status = when {
+            rawRoleContaminationOverridesQuality -> FailureNpuStandardRouteS1Provider.STATUS_FAILURE
+            successEquivalent -> NpuStandardRouteS1Contract.STATUS_SUCCESS
+            else -> raw.status.ifBlank { raw.result }.ifBlank { "failure" }
         }
-        val reason = if (successEquivalent) {
-            NpuStandardRouteS1Contract.REASON_SUCCESS
+        val reason = when {
+            rawRoleContaminationOverridesQuality -> NpuStandardRouteS1Contract.REASON_RAW_ROLE_CONTAMINATION
+            successEquivalent -> NpuStandardRouteS1Contract.REASON_SUCCESS
+            else -> raw.reason.ifBlank { status }
+        }
+        val qualityClassification = if (rawRoleContaminationOverridesQuality) {
+            NpuStandardRouteS1Contract.QUALITY_ROLE_CONTAMINATION
         } else {
-            raw.reason.ifBlank { status }
+            raw.qualityClassification
         }
         val outputTokens = raw.npuS1OutputTokens
             ?: NpuStandardRouteS1Contract.estimateOutputTokensFromText(sanitizedOutput)
@@ -67,7 +81,7 @@ internal object NpuStandardRouteS1Mapper {
             reason = reason,
             rawOutput = raw.rawOutput,
             sanitizedOutput = sanitizedOutput,
-            qualityClassification = raw.qualityClassification,
+            qualityClassification = qualityClassification,
             runDecodeReached = raw.runDecodeReached,
             npuBackendEvidence = normalizeEvidence(raw.npuBackendEvidence),
             fallbackUsed = raw.fallbackUsed,
@@ -90,3 +104,21 @@ internal object NpuStandardRouteS1Mapper {
         return "QNN_HTP" in normalized || "FASTRPC" in normalized
     }
 }
+
+internal fun hasNpuStandardRouteRawRoleContamination(rawOutput: String): Boolean {
+    if (rawOutput.isBlank()) return false
+    return NPU_STANDARD_ROUTE_RAW_ROLE_MARKERS.any { marker ->
+        rawOutput.contains(marker, ignoreCase = marker.first().code < 128)
+    }
+}
+
+private val NPU_STANDARD_ROUTE_RAW_ROLE_MARKERS = listOf(
+    "ユーザー:",
+    "ユーザー：",
+    "アシスタント:",
+    "アシスタント：",
+    "User:",
+    "User：",
+    "Assistant:",
+    "Assistant：",
+)

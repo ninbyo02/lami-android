@@ -12,6 +12,12 @@ internal object NpuStandardRouteS2DbMapper {
                 failureReason = NpuStandardRouteS2DbContract.FAILURE_BLANK_USER_MESSAGE,
             )
         }
+        if (hasNpuStandardRouteRawRoleContamination(s1Result.rawOutput)) {
+            return NpuStandardRouteS2DbMapping(
+                saveCandidate = null,
+                failureReason = NpuStandardRouteS2DbContract.FAILURE_RAW_ROLE_CONTAMINATION,
+            )
+        }
         if (!s1Result.successCriteriaMet) {
             return NpuStandardRouteS2DbMapping(
                 saveCandidate = null,

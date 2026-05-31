@@ -878,6 +878,41 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `S2 skipped result reports raw role contamination reason`() {
+        val contaminated = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                result = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                success = true,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = "どうしましたか。\nユーザー: ああああ\nアシスタント: 何か困っていますか。",
+                sanitizedOutput = "どうしましたか。",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+        val mapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "こんにちは",
+            s1Result = contaminated,
+        )
+        val s2Result = buildNpuStandardRouteS2DbSkippedResult(
+            s1Result = contaminated,
+            failureReason = mapping.failureReason,
+        )
+
+        assertFalse(mapping.hasSaveCandidate)
+        assertTrue(s2Result.displayText.contains("db=false"))
+        assertTrue(s2Result.displayText.contains("conversation_history_saved=false"))
+        assertTrue(s2Result.displayText.contains("reason=raw_role_contamination"))
+        assertTrue(s2Result.displayText.contains("quality_classification=role_contamination"))
+        assertTrue(s2Result.displayText.contains("s2_db_reason=raw_role_contamination"))
+    }
+
+    @Test
     fun `S2 successful flow saves one user message and one assistant message`() = runTest {
         val events = mutableListOf<String>()
         val run = runNpuInferenceAfterImmediateUserMessage(
