@@ -1034,6 +1034,128 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `S4A successful flow streams chunks and saves one finalized assistant message`() = runTest {
+        val events = mutableListOf<String>()
+        val displayedChunks = mutableListOf<String>()
+        val run = runNpuInferenceAfterImmediateUserMessage(
+            requestPrompt = "箇条書きで教えて",
+            currentChatId = 42,
+            createChat = {
+                events += "create_chat"
+                42
+            },
+            onChatCreated = { chatId ->
+                events += "chat_created:$chatId"
+            },
+            insertUserMessage = { chatId, promptText ->
+                events += "insert_user:$chatId:$promptText"
+            },
+            runInference = {
+                s1SuccessResult(sanitizedOutput = "- 箇条書きの項目1\\n- 箇条書きの項目2\\n- 箇条書きの項目3")
+            },
+        )
+        val s2Mapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "箇条書きで教えて",
+            s1Result = run.result,
+        )
+        val s3Mapping = NpuStandardRouteS3MarkdownBridge().prepareMarkdownCandidate(
+            s1Result = run.result,
+            finalizeMarkdown = { it.replace("\\n", "\n") },
+        )
+        if (shouldPersistNpuStandardRouteS2Db(enabled = true, mapping = s2Mapping)) {
+            val saveCandidate = requireNotNull(s2Mapping.saveCandidate)
+            val s3Candidate = s3Mapping
+                .takeIf { shouldRenderNpuStandardRouteS3Markdown(enabled = true, mapping = it) }
+                ?.markdownCandidate
+            val s3Result = if (s3Candidate != null) {
+                buildNpuStandardRouteS3MarkdownSavedResult(
+                    s1Result = run.result,
+                    finalizedText = s3Candidate.finalizedText,
+                )
+            } else {
+                buildNpuStandardRouteS2DbSavedResult(run.result)
+            }
+            val s4Mapping = s3Candidate?.let {
+                NpuStandardRouteS4PseudoStreamingBridge().preparePseudoStreamingCandidate(
+                    s1Result = run.result,
+                    finalText = it.finalizedText,
+                    sourceDisplayText = s3Result.displayText,
+                )
+            }
+            val s4Candidate = s4Mapping
+                ?.takeIf { shouldStartNpuStandardRouteS4APseudoStreaming(enabled = true, mapping = it) }
+                ?.pseudoStreamingCandidate
+            val assistantText = s4Candidate?.finalText ?: s3Candidate?.finalizedText ?: saveCandidate.assistantMessage.text
+            val routeResult = if (s4Candidate != null) {
+                displayedChunks += s4Candidate.chunks
+                buildNpuStandardRouteS4APseudoStreamingSavedResult(
+                    s1Result = run.result,
+                    finalText = s4Candidate.finalText,
+                )
+            } else {
+                s3Result
+            }
+            events += "insert_assistant:${run.chatId}:$assistantText"
+            events += "source:${routeResult.displayText}"
+        }
+
+        val expectedFinalText = "- 箇条書きの項目1\n- 箇条書きの項目2\n- 箇条書きの項目3"
+        assertEquals(1, events.count { it.startsWith("insert_user:") })
+        assertEquals(1, events.count { it.startsWith("insert_assistant:") })
+        assertTrue(events.contains("insert_assistant:42:$expectedFinalText"))
+        assertEquals(expectedFinalText, displayedChunks.last())
+        assertTrue(displayedChunks.zipWithNext().all { (previous, next) -> next.startsWith(previous) })
+        assertTrue(displayedChunks.last().contains("\n- 箇条書きの項目2\n- 箇条書きの項目3"))
+        val source = requireNotNull(events.firstOrNull { it.startsWith("source:") })
+        assertTrue(source.contains("route_type=standard_chat_screen_s4a_npu_pseudo_streaming"))
+        assertTrue(source.contains("db=true"))
+        assertTrue(source.contains("conversation_history_saved=true"))
+        assertTrue(source.contains("markdown=true"))
+        assertTrue(source.contains("streaming=true"))
+        assertTrue(source.contains("tts=false"))
+    }
+
+    @Test
+    fun `S4A stop guard blocks old chunk appends`() {
+        assertTrue(
+            shouldContinueNpuStandardRouteS4APseudoStreaming(
+                localStopRequested = false,
+                runGuardEpoch = 7L,
+                currentGuardEpoch = 7L,
+                expectedChatId = 42,
+                currentChatId = 42,
+            ),
+        )
+        assertFalse(
+            shouldContinueNpuStandardRouteS4APseudoStreaming(
+                localStopRequested = true,
+                runGuardEpoch = 7L,
+                currentGuardEpoch = 7L,
+                expectedChatId = 42,
+                currentChatId = 42,
+            ),
+        )
+        assertFalse(
+            shouldContinueNpuStandardRouteS4APseudoStreaming(
+                localStopRequested = false,
+                runGuardEpoch = 7L,
+                currentGuardEpoch = 8L,
+                expectedChatId = 42,
+                currentChatId = 42,
+            ),
+        )
+        assertFalse(
+            shouldContinueNpuStandardRouteS4APseudoStreaming(
+                localStopRequested = false,
+                runGuardEpoch = 7L,
+                currentGuardEpoch = 7L,
+                expectedChatId = 42,
+                currentChatId = 43,
+            ),
+        )
+    }
+
+    @Test
     fun `S2 failure flow keeps user message and saves no assistant success message`() = runTest {
         val events = mutableListOf<String>()
         val run = runNpuInferenceAfterImmediateUserMessage(

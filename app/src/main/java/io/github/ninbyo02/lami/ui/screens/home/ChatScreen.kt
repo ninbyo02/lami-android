@@ -182,6 +182,7 @@ import io.github.ninbyo02.lami.util.RuntimeFlags
 import io.github.ninbyo02.lami.viewmodels.LamiState
 import io.github.ninbyo02.lami.viewmodels.LamiStatus
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -2746,7 +2747,7 @@ fun Home(
                                                                 val assistantTextForPersist =
                                                                     s3MarkdownCandidate?.finalizedText
                                                                         ?: saveCandidate.assistantMessage.text
-                                                                val npuStandardRoutePersistedResult =
+                                                                val npuStandardRouteMarkdownResult =
                                                                     if (s3MarkdownCandidate != null) {
                                                                         buildNpuStandardRouteS3MarkdownSavedResult(
                                                                             s1Result = s1Result,
@@ -2755,14 +2756,16 @@ fun Home(
                                                                     } else {
                                                                         s2SavedResult
                                                                     }
-                                                                npuStandardRouteS1DisplayText = npuStandardRoutePersistedResult.displayText
                                                                 val s4PseudoStreamingCandidate =
-                                                                    if (npuStandardRouteS4aPseudoStreamingEnabled) {
+                                                                    if (
+                                                                        npuStandardRouteS4aPseudoStreamingEnabled &&
+                                                                        s3MarkdownCandidate != null
+                                                                    ) {
                                                                         val s4PseudoStreamingMapping = NpuStandardRouteS4PseudoStreamingBridge()
                                                                             .preparePseudoStreamingCandidate(
                                                                                 s1Result = s1Result,
-                                                                                finalText = assistantTextForPersist,
-                                                                                sourceDisplayText = npuStandardRoutePersistedResult.displayText,
+                                                                                finalText = s3MarkdownCandidate.finalizedText,
+                                                                                sourceDisplayText = npuStandardRouteMarkdownResult.displayText,
                                                                             )
                                                                         s4PseudoStreamingMapping
                                                                             .takeIf {
@@ -2775,26 +2778,68 @@ fun Home(
                                                                     } else {
                                                                         null
                                                                     }
-                                                                coroutineScope.launch {
+                                                                val npuStandardRoutePersistedResult =
                                                                     if (s4PseudoStreamingCandidate != null) {
-                                                                        npuStandardRouteS4PseudoStreamingActive = true
+                                                                        buildNpuStandardRouteS4APseudoStreamingSavedResult(
+                                                                            s1Result = s1Result,
+                                                                            finalText = s4PseudoStreamingCandidate.finalText,
+                                                                        )
+                                                                    } else {
+                                                                        npuStandardRouteMarkdownResult
+                                                                    }
+                                                                npuStandardRouteS1DisplayText = npuStandardRoutePersistedResult.displayText
+                                                                if (s4PseudoStreamingCandidate != null) {
+                                                                    val s4GuardEpoch = streamingGuardEpoch
+                                                                    npuStandardRouteS4PseudoStreamingActive = true
+                                                                    try {
                                                                         s4PseudoStreamingCandidate.chunks.forEach { chunk ->
+                                                                            if (
+                                                                                !shouldContinueNpuStandardRouteS4APseudoStreaming(
+                                                                                    localStopRequested = localStopRequested,
+                                                                                    runGuardEpoch = s4GuardEpoch,
+                                                                                    currentGuardEpoch = streamingGuardEpoch,
+                                                                                    expectedChatId = currentChatId,
+                                                                                    currentChatId = effectiveChatId,
+                                                                                )
+                                                                            ) {
+                                                                                return@launch
+                                                                            }
+                                                                            localStreamingResponseText = chunk
+                                                                            streamingResponseTextForRender = chunk
                                                                             npuStandardRouteS4PseudoStreamingText = chunk
                                                                             delay(NPU_STANDARD_ROUTE_S4A_PSEUDO_STREAMING_CHUNK_DELAY_MS)
                                                                         }
+                                                                        localStreamingResponseText = s4PseudoStreamingCandidate.finalText
+                                                                        streamingResponseTextForRender = s4PseudoStreamingCandidate.finalText
                                                                         npuStandardRouteS4PseudoStreamingText = s4PseudoStreamingCandidate.finalText
+                                                                    } finally {
                                                                         npuStandardRouteS4PseudoStreamingActive = false
                                                                     }
-                                                                    val resolvedChatId = currentChatId
-                                                                    val assistantId = withContext(Dispatchers.IO) {
-                                                                        viewModel.insertAssistantMessageAndReturnId(
-                                                                            createAssistantMessage(
-                                                                                chatId = resolvedChatId,
-                                                                                response = assistantTextForPersist,
-                                                                                localSourceSummary = npuStandardRoutePersistedResult.displayText,
-                                                                            )
-                                                                        ).toInt()
+                                                                    if (
+                                                                        !shouldContinueNpuStandardRouteS4APseudoStreaming(
+                                                                            localStopRequested = localStopRequested,
+                                                                            runGuardEpoch = s4GuardEpoch,
+                                                                            currentGuardEpoch = streamingGuardEpoch,
+                                                                            expectedChatId = currentChatId,
+                                                                            currentChatId = effectiveChatId,
+                                                                        )
+                                                                    ) {
+                                                                        return@launch
                                                                     }
+                                                                }
+                                                                val resolvedChatId = currentChatId
+                                                                val assistantId = withContext(Dispatchers.IO) {
+                                                                    viewModel.insertAssistantMessageAndReturnId(
+                                                                        createAssistantMessage(
+                                                                            chatId = resolvedChatId,
+                                                                            response = assistantTextForPersist,
+                                                                            localSourceSummary = npuStandardRoutePersistedResult.displayText,
+                                                                        )
+                                                                    ).toInt()
+                                                                }
+                                                                lastPersistedStreamingAssistantText = assistantTextForPersist
+                                                                localStreamingResponseText = null
+                                                                streamingResponseTextForRender = null
                                                                     if (npuStandardRouteS5TtsEnabled) {
                                                                         val s5TtsMapping = NpuStandardRouteS5TtsBridge()
                                                                             .prepareTtsCandidate(
@@ -2859,7 +2904,6 @@ fun Home(
                                                                             ),
                                                                         )
                                                                     }
-                                                                }
                                                                 return@launch
                                                             } else {
                                                                 npuStandardRouteS1DisplayText = buildNpuStandardRouteS2DbSkippedResult(
@@ -2948,6 +2992,8 @@ fun Home(
                                                                 }
                                                             }
                                                         }
+                                                            } catch (exception: CancellationException) {
+                                                                if (!localStopRequested) throw exception
                                                             } catch (exception: Exception) {
                                                                 Log.e("ChatScreen", "NPU standard route execution failed", exception)
                                                                 val failureChatId = resolvedNpuChatId
@@ -8977,6 +9023,17 @@ internal fun shouldStartNpuStandardRouteS4APseudoStreaming(
     mapping: NpuStandardRouteS4PseudoStreamingMapping,
 ): Boolean =
     enabled && mapping.hasPseudoStreamingCandidate
+
+internal fun shouldContinueNpuStandardRouteS4APseudoStreaming(
+    localStopRequested: Boolean,
+    runGuardEpoch: Long,
+    currentGuardEpoch: Long,
+    expectedChatId: Int,
+    currentChatId: Int?,
+): Boolean =
+    !localStopRequested &&
+        runGuardEpoch == currentGuardEpoch &&
+        currentChatId == expectedChatId
 
 internal fun shouldPrepareNpuStandardRouteS5Tts(
     enabled: Boolean,
