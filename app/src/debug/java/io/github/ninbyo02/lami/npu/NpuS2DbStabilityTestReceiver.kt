@@ -30,6 +30,7 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
             ?.takeIf { it.isNotBlank() }
             ?: timestamp()
         if (!running.compareAndSet(false, true)) {
+            val promptNo = promptNo(intent)
             writeState(
                 stateFile = File(appContext.filesDir, STATE_FILE_NAME),
                 timestamp = timestamp,
@@ -37,9 +38,12 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
                 reason = "already_running",
                 markdownFileName = "",
                 csvFileName = "",
-                promptIndex = intent.getIntExtra(EXTRA_PROMPT_INDEX, 0),
+                promptNo = promptNo,
                 promptCount = NpuS2DbStabilityReportFormatter.prompts.size,
                 timeoutMs = timeoutMs(intent),
+                promptText = promptTextOrBlank(promptNo),
+                judgement = "fail",
+                notes = "automation_scope=s2_decoding_and_save_decision_logic; ui_db_integration=false",
             )
             return
         }
@@ -49,6 +53,7 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
             try {
                 releaseRunning = handle(appContext, intent, timestamp)
             } catch (throwable: Throwable) {
+                val promptNo = promptNo(intent)
                 writeState(
                     stateFile = File(appContext.filesDir, STATE_FILE_NAME),
                     timestamp = timestamp,
@@ -57,9 +62,12 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
                         ?: "receiver_exception:${throwable.javaClass.simpleName}",
                     markdownFileName = "",
                     csvFileName = "",
-                    promptIndex = intent.getIntExtra(EXTRA_PROMPT_INDEX, 0),
+                    promptNo = promptNo,
                     promptCount = NpuS2DbStabilityReportFormatter.prompts.size,
                     timeoutMs = timeoutMs(intent),
+                    promptText = promptTextOrBlank(promptNo),
+                    judgement = "fail",
+                    notes = "automation_scope=s2_decoding_and_save_decision_logic; ui_db_integration=false",
                 )
             } finally {
                 if (releaseRunning) {
@@ -78,7 +86,7 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
             ),
         )
         val timeoutMs = timeoutMs(intent)
-        val promptIndex = intent.getIntExtra(EXTRA_PROMPT_INDEX, 0)
+        val promptNo = promptNo(intent)
         val stateFile = File(appContext.filesDir, STATE_FILE_NAME)
         if (!BuildConfig.DEBUG || BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             writeState(
@@ -88,13 +96,16 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
                 reason = "wrong_variant",
                 markdownFileName = "",
                 csvFileName = "",
-                promptIndex = promptIndex,
+                promptNo = promptNo,
                 promptCount = NpuS2DbStabilityReportFormatter.prompts.size,
                 timeoutMs = timeoutMs,
+                promptText = promptTextOrBlank(promptNo),
+                judgement = "fail",
+                notes = "automation_scope=s2_decoding_and_save_decision_logic; ui_db_integration=false",
             )
             return true
         }
-        if (promptIndex !in NpuS2DbStabilityReportFormatter.prompts.indices) {
+        if (promptNo !in 1..NpuS2DbStabilityReportFormatter.prompts.size) {
             writeState(
                 stateFile = stateFile,
                 timestamp = timestamp,
@@ -102,17 +113,22 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
                 reason = "invalid_prompt_index",
                 markdownFileName = "",
                 csvFileName = "",
-                promptIndex = promptIndex,
+                promptNo = promptNo,
                 promptCount = NpuS2DbStabilityReportFormatter.prompts.size,
                 timeoutMs = timeoutMs,
+                promptText = "",
+                judgement = "fail",
+                notes = "automation_scope=s2_decoding_and_save_decision_logic; ui_db_integration=false",
             )
             return true
         }
+        val promptIndex = promptNo - 1
+        val promptText = NpuS2DbStabilityReportFormatter.prompts[promptIndex]
 
         val request = NpuS2DbStabilityRunRequest(
             maxOutputTokens = maxOutputTokens,
-            promptIndex = promptIndex,
-            prompt = NpuS2DbStabilityReportFormatter.prompts[promptIndex],
+            promptNo = promptNo,
+            prompt = promptText,
             timeoutMs = timeoutMs,
         )
         writeState(
@@ -122,22 +138,24 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
             reason = "prompt_running",
             markdownFileName = "",
             csvFileName = "",
-            promptIndex = promptIndex,
+            promptNo = promptNo,
             promptCount = NpuS2DbStabilityReportFormatter.prompts.size,
             timeoutMs = timeoutMs,
+            promptText = promptText,
+            judgement = "running",
+            notes = "automation_scope=s2_decoding_and_save_decision_logic; ui_db_integration=false",
         )
         val promptRun = runPromptWithTimeout(request)
         val rows = listOf(promptRun.row)
 
-        val promptNumber = promptIndex + 1
-        val markdownFileName = "npu_s2_db_stability_${timestamp}_prompt_$promptNumber.md"
-        val csvFileName = "npu_s2_db_stability_${timestamp}_prompt_$promptNumber.csv"
+        val markdownFileName = "npu_s2_db_stability_${timestamp}_prompt_$promptNo.md"
+        val csvFileName = "npu_s2_db_stability_${timestamp}_prompt_$promptNo.csv"
         File(appContext.filesDir, markdownFileName).writeText(
             NpuS2DbStabilityReportFormatter.toMarkdown(
                 timestamp = timestamp,
                 maxOutputTokens = maxOutputTokens,
                 rows = rows,
-                promptIndex = promptIndex,
+                promptIndex = promptNo,
                 timeoutMs = timeoutMs,
             ),
         )
@@ -158,9 +176,12 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
             reason = reason,
             markdownFileName = markdownFileName,
             csvFileName = csvFileName,
-            promptIndex = promptIndex,
+            promptNo = promptNo,
             promptCount = NpuS2DbStabilityReportFormatter.prompts.size,
             timeoutMs = timeoutMs,
+            promptText = promptRun.row.prompt,
+            judgement = promptRun.row.judgement,
+            notes = promptRun.row.notes,
         )
         return !promptRun.timedOut
     }
@@ -169,7 +190,7 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
         request: NpuS2DbStabilityRunRequest,
     ): NpuS2DbStabilityPromptRun {
         val decodeExecutor = Executors.newSingleThreadExecutor { runnable ->
-            Thread(runnable, "NpuS2DbStabilityDecode-${request.promptIndex + 1}")
+            Thread(runnable, "NpuS2DbStabilityDecode-${request.promptNo}")
         }
         val future = decodeExecutor.submit(
             Callable {
@@ -185,7 +206,7 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
             future.cancel(true)
             NpuS2DbStabilityPromptRun(
                 row = NpuS2DbStabilityReportRow.failure(
-                    number = request.promptIndex + 1,
+                    number = request.promptNo,
                     prompt = request.prompt,
                     reason = "prompt_timeout_${request.timeoutMs}ms",
                     timeout = true,
@@ -196,7 +217,7 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
         } catch (throwable: Throwable) {
             NpuS2DbStabilityPromptRun(
                 row = NpuS2DbStabilityReportRow.failure(
-                    number = request.promptIndex + 1,
+                    number = request.promptNo,
                     prompt = request.prompt,
                     reason = throwable.message?.takeIf { it.isNotBlank() }
                         ?: "runner_exception:${throwable.javaClass.simpleName}",
@@ -228,7 +249,7 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
             )
         }
         return NpuS2DbStabilityReportRow.fromResult(
-            number = request.promptIndex + 1,
+            number = request.promptNo,
             prompt = request.prompt,
             result = s2Result,
             saveCandidateReady = mapping.hasSaveCandidate,
@@ -243,9 +264,12 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
         reason: String,
         markdownFileName: String,
         csvFileName: String,
-        promptIndex: Int,
+        promptNo: Int,
         promptCount: Int,
         timeoutMs: Long,
+        promptText: String,
+        judgement: String,
+        notes: String,
     ) {
         stateFile.writeText(
             listOf(
@@ -256,10 +280,14 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
                 "ui_db_integration=false",
                 "route_mode=S2_DB",
                 "timestamp=$timestamp",
-                "prompt_index=$promptIndex",
-                "prompt_number=${promptIndex + 1}",
+                "prompt_index=$promptNo",
+                "prompt_no=$promptNo",
+                "prompt_number=$promptNo",
                 "prompt_count=$promptCount",
+                "prompt_text=${escapeStateValue(promptText)}",
                 "prompt_timeout_ms=$timeoutMs",
+                "judgement=${escapeStateValue(judgement)}",
+                "notes=${escapeStateValue(notes)}",
                 "markdown_file=$markdownFileName",
                 "csv_file=$csvFileName",
             ).joinToString(separator = "\n", postfix = "\n"),
@@ -268,6 +296,9 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
 
     private fun timestamp(): String =
         SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+
+    private fun escapeStateValue(value: String): String =
+        value.replace("\\", "\\\\").replace("\n", "\\n")
 
     companion object {
         const val ACTION = "io.github.ninbyo02.lami.action.NPU_S2_DB_STABILITY_TEST"
@@ -290,12 +321,20 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
             ).toLong()
             return requested.coerceIn(1_000L, MAX_PROMPT_TIMEOUT_MS)
         }
+
+        private fun promptNo(intent: Intent): Int =
+            intent.getIntExtra(EXTRA_PROMPT_INDEX, 1)
+
+        private fun promptTextOrBlank(promptNo: Int): String {
+            val index = promptNo - 1
+            return NpuS2DbStabilityReportFormatter.prompts.getOrNull(index).orEmpty()
+        }
     }
 }
 
 private data class NpuS2DbStabilityRunRequest(
     val maxOutputTokens: Int,
-    val promptIndex: Int,
+    val promptNo: Int,
     val prompt: String,
     val timeoutMs: Long,
 )
@@ -424,8 +463,9 @@ internal object NpuS2DbStabilityReportFormatter {
     )
 
     private val headers = listOf(
-        "No",
-        "prompt",
+        "prompt_index",
+        "prompt_no",
+        "prompt_text",
         "status",
         "reason",
         "quality_classification",
@@ -459,7 +499,7 @@ internal object NpuS2DbStabilityReportFormatter {
         if (promptIndex != null) {
             appendLine("- execution_mode: `single_prompt`")
             appendLine("- prompt_index: `$promptIndex`")
-            appendLine("- prompt_number: `${promptIndex + 1}`")
+            appendLine("- prompt_no: `$promptIndex`")
         }
         if (timeoutMs != null) {
             appendLine("- prompt_timeout_ms: `$timeoutMs`")
@@ -492,6 +532,7 @@ internal object NpuS2DbStabilityReportFormatter {
 
     private fun NpuS2DbStabilityReportRow.toCells(): List<String> = listOf(
         number.toString(),
+        number.toString(),
         prompt,
         status,
         reason,
@@ -519,4 +560,42 @@ internal object NpuS2DbStabilityReportFormatter {
 
     private fun csvCell(value: String): String =
         "\"${value.replace("\"", "\"\"")}\""
+}
+
+internal object NpuS2DbStabilityFallbackReport {
+    fun rowFromStateText(stateText: String): NpuS2DbStabilityReportRow {
+        val state = parseState(stateText)
+        val promptNo = state["prompt_no"]
+            ?.toIntOrNull()
+            ?: state["prompt_index"]?.toIntOrNull()
+            ?: state["prompt_number"]?.toIntOrNull()
+            ?: 1
+        return NpuS2DbStabilityReportRow.failure(
+            number = promptNo,
+            prompt = unescapeStateValue(state["prompt_text"].orEmpty()),
+            reason = state["reason"].orEmpty().ifBlank { "fallback_state_report" },
+            timeout = state["reason"] == "prompt_timeout" || state["status"] == "timeout",
+            notes = unescapeStateValue(state["notes"].orEmpty()).ifBlank {
+                "automation_scope=s2_decoding_and_save_decision_logic; ui_db_integration=false; source=state_fallback"
+            },
+        ).copy(
+            status = state["status"].orEmpty().ifBlank { "failure" },
+            judgement = unescapeStateValue(state["judgement"].orEmpty()).ifBlank { "fail" },
+        )
+    }
+
+    private fun parseState(stateText: String): Map<String, String> =
+        stateText.lineSequence()
+            .mapNotNull { line ->
+                val separator = line.indexOf('=')
+                if (separator <= 0) {
+                    null
+                } else {
+                    line.substring(0, separator) to line.substring(separator + 1)
+                }
+            }
+            .toMap()
+
+    private fun unescapeStateValue(value: String): String =
+        value.replace("\\n", "\n").replace("\\\\", "\\")
 }

@@ -12,10 +12,22 @@ DEVICE_SERIAL=""
 TIMEOUT_SECONDS=240
 MAX_OUTPUT_TOKENS=128
 PROMPT_TIMEOUT_MS=180000
-PROMPT_INDEX=0
+PROMPT_INDEX=1
 MODE="single"
 PROMPT_COUNT=10
 PROMPT_SLEEP_SECONDS=4
+PROMPTS=(
+  "こんにちは"
+  "ああああ"
+  "明日の天気は"
+  "Pythonについて一言で教えて"
+  "1+1は？"
+  "自己紹介して"
+  "日本語で短く返答してください"
+  "箇条書きで3つ教えて"
+  "今日の予定を確認したい"
+  "ありがとう"
+)
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -31,7 +43,7 @@ while [ $# -gt 0 ]; do
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_npu_s2_db_stability_test.sh [--single] [--prompt-index <0-9>] [--device <serial>]
+  scripts/run_npu_s2_db_stability_test.sh [--single] [--prompt-index <1-10>] [--device <serial>]
   scripts/run_npu_s2_db_stability_test.sh --batch [--device <serial>]
       [--timeout <seconds>] [--prompt-timeout-ms <ms>] [--max-output-tokens <tokens>]
       [--prompt-sleep <seconds>]
@@ -40,7 +52,7 @@ Runs the standardDebug dev-only NPU S2_DB stability receiver on a connected
 Qualcomm/sm8750 device.
 
 Default mode is safe single-step: one broadcast executes one prompt only
-(prompt index 0 unless --prompt-index is supplied). Batch mode must be requested
+(prompt index 1 unless --prompt-index is supplied). Batch mode must be requested
 explicitly with --batch. Batch still dispatches one prompt per receiver call,
 sleeps between prompts, checks device responsiveness, and stops immediately on
 failure, timeout, or suspected ANR.
@@ -62,6 +74,13 @@ cd "$ROOT_DIR" || exit 1
 mkdir -p "$ARTIFACT_DIR" "$LOG_DIR"
 
 log() { printf '[npu-s2-db-stability] %s\n' "$*"; }
+
+print_generated_artifacts() {
+  if [ -s "$LOG_DIR/generated_artifacts.txt" ]; then
+    log "generated artifacts:"
+    sed 's/^/[npu-s2-db-stability]   /' "$LOG_DIR/generated_artifacts.txt"
+  fi
+}
 
 adb_cmd() {
   if [ -n "$DEVICE_SERIAL" ]; then
@@ -96,24 +115,176 @@ state_value() {
   awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$state_file" 2>/dev/null
 }
 
+state_value_or_default() {
+  local key="$1"
+  local state_file="$2"
+  local default_value="$3"
+  local value
+  value="$(state_value "$key" "$state_file")"
+  if [ -n "$value" ]; then
+    printf '%s' "$value"
+  else
+    printf '%s' "$default_value"
+  fi
+}
+
+csv_cell() {
+  local value="$1"
+  local escaped
+  escaped="$(printf '%s' "$value" | sed 's/"/""/g')"
+  printf '"%s"' "$escaped"
+}
+
+markdown_cell() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/|/\\|/g'
+}
+
 wait_for_state() {
-  local prompt_index="$1"
+  local prompt_no="$1"
   local state_dest="$2"
   local deadline=$((SECONDS + TIMEOUT_SECONDS))
   while [ "$SECONDS" -lt "$deadline" ]; do
     if adb_cmd shell run-as "$APP_ID" test -s "files/npu_s2_db_stability_state.txt" >/dev/null 2>&1; then
       pull_app_file "files/npu_s2_db_stability_state.txt" "$state_dest"
       local status
-      local seen_prompt_index
+      local seen_prompt_no
       status="$(state_value status "$state_dest")"
-      seen_prompt_index="$(state_value prompt_index "$state_dest")"
-      if [ "$seen_prompt_index" = "$prompt_index" ] && [ "$status" != "running" ]; then
+      seen_prompt_no="$(state_value prompt_no "$state_dest")"
+      if [ -z "$seen_prompt_no" ]; then
+        seen_prompt_no="$(state_value prompt_index "$state_dest")"
+      fi
+      if [ "$seen_prompt_no" = "$prompt_no" ] && [ "$status" != "running" ]; then
         return 0
       fi
     fi
     sleep 2
   done
   return 124
+}
+
+write_fallback_state() {
+  local state_dest="$1"
+  local prompt_no="$2"
+  local status="$3"
+  local reason="$4"
+  local prompt_text="${PROMPTS[$((prompt_no - 1))]:-}"
+  {
+    printf 'receiver=npu_s2_db_stability_test\n'
+    printf 'status=%s\n' "$status"
+    printf 'reason=%s\n' "$reason"
+    printf 'automation_scope=s2_decoding_and_save_decision_logic\n'
+    printf 'ui_db_integration=false\n'
+    printf 'route_mode=S2_DB\n'
+    printf 'timestamp=%s\n' "$TIMESTAMP"
+    printf 'prompt_index=%s\n' "$prompt_no"
+    printf 'prompt_no=%s\n' "$prompt_no"
+    printf 'prompt_number=%s\n' "$prompt_no"
+    printf 'prompt_count=%s\n' "$PROMPT_COUNT"
+    printf 'prompt_text=%s\n' "$prompt_text"
+    printf 'prompt_timeout_ms=%s\n' "$PROMPT_TIMEOUT_MS"
+    printf 'judgement=fail\n'
+    printf 'notes=automation_scope=s2_decoding_and_save_decision_logic; ui_db_integration=false; source=script_fallback\n'
+    printf 'markdown_file=npu_s2_db_stability_%s_prompt_%s.md\n' "$TIMESTAMP" "$prompt_no"
+    printf 'csv_file=npu_s2_db_stability_%s_prompt_%s.csv\n' "$TIMESTAMP" "$prompt_no"
+  } >"$state_dest"
+}
+
+generate_fallback_reports() {
+  local state_file="$1"
+  local prompt_no="$2"
+  local markdown_dest="$3"
+  local csv_dest="$4"
+  local prompt_index
+  local prompt_text
+  local status
+  local reason
+  local judgement
+  local notes
+  prompt_index="$(state_value_or_default prompt_index "$state_file" "$prompt_no")"
+  prompt_no="$(state_value_or_default prompt_no "$state_file" "$prompt_no")"
+  prompt_text="$(state_value_or_default prompt_text "$state_file" "${PROMPTS[$((prompt_no - 1))]:-}")"
+  status="$(state_value_or_default status "$state_file" "failure")"
+  reason="$(state_value_or_default reason "$state_file" "fallback_state_report")"
+  judgement="$(state_value_or_default judgement "$state_file" "fail")"
+  notes="$(state_value_or_default notes "$state_file" "automation_scope=s2_decoding_and_save_decision_logic; ui_db_integration=false; source=state_fallback")"
+
+  {
+    printf '# NPU S2_DB Stability Test\n\n'
+    printf -- '- timestamp: `%s`\n' "$TIMESTAMP"
+    printf -- '- execution_mode: `single_prompt`\n'
+    printf -- '- prompt_index: `%s`\n' "$prompt_index"
+    printf -- '- prompt_no: `%s`\n' "$prompt_no"
+    printf -- '- prompt_text: `%s`\n' "$prompt_text"
+    printf -- '- status: `%s`\n' "$status"
+    printf -- '- reason: `%s`\n' "$reason"
+    printf -- '- fallback_report: `true`\n\n'
+    printf '| prompt_index | prompt_no | prompt_text | status | reason | judgement | notes |\n'
+    printf '| --- | --- | --- | --- | --- | --- | --- |\n'
+    printf '| %s | %s | %s | %s | %s | %s | %s |\n' \
+      "$(markdown_cell "$prompt_index")" \
+      "$(markdown_cell "$prompt_no")" \
+      "$(markdown_cell "$prompt_text")" \
+      "$(markdown_cell "$status")" \
+      "$(markdown_cell "$reason")" \
+      "$(markdown_cell "$judgement")" \
+      "$(markdown_cell "$notes")"
+  } >"$markdown_dest"
+
+  {
+    csv_cell "prompt_index"; printf ','
+    csv_cell "prompt_no"; printf ','
+    csv_cell "prompt_text"; printf ','
+    csv_cell "status"; printf ','
+    csv_cell "reason"; printf ','
+    csv_cell "judgement"; printf ','
+    csv_cell "notes"; printf '\n'
+    csv_cell "$prompt_index"; printf ','
+    csv_cell "$prompt_no"; printf ','
+    csv_cell "$prompt_text"; printf ','
+    csv_cell "$status"; printf ','
+    csv_cell "$reason"; printf ','
+    csv_cell "$judgement"; printf ','
+    csv_cell "$notes"; printf '\n'
+  } >"$csv_dest"
+}
+
+ensure_reports() {
+  local prompt_no="$1"
+  local state_dest="$2"
+  local markdown_file
+  local csv_file
+  markdown_file="$(state_value markdown_file "$state_dest")"
+  csv_file="$(state_value csv_file "$state_dest")"
+  if [ -z "$markdown_file" ]; then
+    markdown_file="npu_s2_db_stability_${TIMESTAMP}_prompt_${prompt_no}.md"
+  fi
+  if [ -z "$csv_file" ]; then
+    csv_file="npu_s2_db_stability_${TIMESTAMP}_prompt_${prompt_no}.csv"
+  fi
+
+  local markdown_dest="$ARTIFACT_DIR/$markdown_file"
+  local csv_dest="$ARTIFACT_DIR/$csv_file"
+  if [ -n "$(state_value markdown_file "$state_dest")" ]; then
+    pull_app_file "files/$markdown_file" "$markdown_dest"
+  fi
+  if [ -n "$(state_value csv_file "$state_dest")" ]; then
+    pull_app_file "files/$csv_file" "$csv_dest"
+  fi
+
+  if [ ! -s "$markdown_dest" ] || [ ! -s "$csv_dest" ]; then
+    log "generating fallback reports for prompt $prompt_no from state"
+    generate_fallback_reports "$state_dest" "$prompt_no" "$markdown_dest" "$csv_dest"
+  fi
+
+  if [ -s "$markdown_dest" ] && [ -s "$csv_dest" ]; then
+    log "prompt $prompt_no markdown: ${markdown_dest#$ROOT_DIR/}"
+    log "prompt $prompt_no csv: ${csv_dest#$ROOT_DIR/}"
+    printf '%s\n' "$markdown_dest" >>"$LOG_DIR/generated_artifacts.txt"
+    printf '%s\n' "$csv_dest" >>"$LOG_DIR/generated_artifacts.txt"
+    return 0
+  fi
+  log "failed to produce reports for prompt $prompt_no"
+  return 1
 }
 
 check_device_responsive() {
@@ -160,58 +331,49 @@ cleanup_prompt_files() {
 }
 
 run_prompt() {
-  local prompt_index="$1"
-  local prompt_number=$((prompt_index + 1))
-  local state_dest="$LOG_DIR/state_prompt_${prompt_number}.txt"
-  local prefix="$LOG_DIR/prompt_${prompt_number}"
+  local prompt_no="$1"
+  local state_dest="$LOG_DIR/state_prompt_${prompt_no}.txt"
+  local prefix="$LOG_DIR/prompt_${prompt_no}"
 
-  log "prompt $prompt_number/$PROMPT_COUNT: dispatch"
+  log "prompt $prompt_no/$PROMPT_COUNT: dispatch"
   adb_cmd shell run-as "$APP_ID" rm -f files/npu_s2_db_stability_state.txt >"$prefix.cleanup_state.txt" 2>&1 || true
-  check_device_responsive "before prompt $prompt_number" "$prefix.before" || return 1
+  check_device_responsive "before prompt $prompt_no" "$prefix.before" || return 1
 
   adb_cmd shell am broadcast --receiver-foreground --user 0 \
     -a "$ACTION" \
     -n "$APP_ID/$RECEIVER" \
     --es timestamp "$TIMESTAMP" \
     --ei max_output_tokens "$MAX_OUTPUT_TOKENS" \
-    --ei prompt_index "$prompt_index" \
+    --ei prompt_index "$prompt_no" \
     --ei prompt_timeout_ms "$PROMPT_TIMEOUT_MS" >"$prefix.broadcast.txt" 2>&1 || true
 
-  if ! wait_for_state "$prompt_index" "$state_dest"; then
-    log "timeout waiting for receiver state at prompt $prompt_number"
+  if ! wait_for_state "$prompt_no" "$state_dest"; then
+    log "timeout waiting for receiver state at prompt $prompt_no"
     adb_cmd logcat -d -t 1000 >"$prefix.logcat_tail.txt" 2>&1 || true
+    write_fallback_state "$state_dest" "$prompt_no" "failure" "script_wait_timeout"
+    ensure_reports "$prompt_no" "$state_dest" || true
     return 1
   fi
 
-  local markdown_file
-  local csv_file
   local status
   local reason
-  markdown_file="$(state_value markdown_file "$state_dest")"
-  csv_file="$(state_value csv_file "$state_dest")"
   status="$(state_value status "$state_dest")"
   reason="$(state_value reason "$state_dest")"
 
   adb_cmd logcat -d -t 1000 >"$prefix.logcat_tail.txt" 2>&1 || true
-  check_device_responsive "after prompt $prompt_number" "$prefix.after" || return 1
+  local responsive_status=0
+  check_device_responsive "after prompt $prompt_no" "$prefix.after" || responsive_status=1
 
-  if [ "$status" != "success" ] || [ -z "$markdown_file" ] || [ -z "$csv_file" ]; then
-    log "receiver failed at prompt $prompt_number: status=${status:-unknown} reason=${reason:-unknown}"
+  ensure_reports "$prompt_no" "$state_dest" || return 1
+
+  if [ "$status" != "success" ]; then
+    log "receiver failed at prompt $prompt_no: status=${status:-unknown} reason=${reason:-unknown}"
     return 1
   fi
-
-  local markdown_dest="$ARTIFACT_DIR/$markdown_file"
-  local csv_dest="$ARTIFACT_DIR/$csv_file"
-  pull_app_file "files/$markdown_file" "$markdown_dest"
-  pull_app_file "files/$csv_file" "$csv_dest"
-
-  if [ ! -s "$markdown_dest" ] || [ ! -s "$csv_dest" ]; then
-    log "failed to pull generated reports for prompt $prompt_number"
+  if [ "$responsive_status" -ne 0 ]; then
+    log "stopping after prompt $prompt_no because device responsiveness check failed"
     return 1
   fi
-
-  log "prompt $prompt_number markdown: ${markdown_dest#$ROOT_DIR/}"
-  log "prompt $prompt_number csv: ${csv_dest#$ROOT_DIR/}"
   return 0
 }
 
@@ -232,8 +394,8 @@ main() {
     log "prompt sleep must be 3..5 seconds"
     exit 2
   fi
-  if [ "$PROMPT_INDEX" -lt 0 ] || [ "$PROMPT_INDEX" -ge "$PROMPT_COUNT" ]; then
-    log "prompt index must be 0..$((PROMPT_COUNT - 1))"
+  if [ "$PROMPT_INDEX" -lt 1 ] || [ "$PROMPT_INDEX" -gt "$PROMPT_COUNT" ]; then
+    log "prompt index must be 1..$PROMPT_COUNT"
     exit 2
   fi
 
@@ -243,14 +405,20 @@ main() {
   check_device_responsive "after app start" "$LOG_DIR/app_start" || exit 1
 
   if [ "$MODE" = "single" ]; then
-    run_prompt "$PROMPT_INDEX" || exit 1
+    if ! run_prompt "$PROMPT_INDEX"; then
+      print_generated_artifacts
+      exit 1
+    fi
   elif [ "$MODE" = "batch" ]; then
     local index
-    index=0
-    while [ "$index" -lt "$PROMPT_COUNT" ]; do
-      run_prompt "$index" || exit 1
+    index=1
+    while [ "$index" -le "$PROMPT_COUNT" ]; do
+      if ! run_prompt "$index"; then
+        print_generated_artifacts
+        exit 1
+      fi
       index=$((index + 1))
-      if [ "$index" -lt "$PROMPT_COUNT" ]; then
+      if [ "$index" -le "$PROMPT_COUNT" ]; then
         log "sleep ${PROMPT_SLEEP_SECONDS}s before next prompt"
         sleep "$PROMPT_SLEEP_SECONDS"
       fi
@@ -260,6 +428,7 @@ main() {
     exit 2
   fi
 
+  print_generated_artifacts
   log "logs: ${LOG_DIR#$ROOT_DIR/}"
 }
 
