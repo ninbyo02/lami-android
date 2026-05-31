@@ -269,12 +269,7 @@ fun Settings(
                 )
             }
         } else {
-            listOf(
-                ServerInput(
-                    url = "http://localhost:13511/",
-                    isActive = true
-                )
-            )
+            emptyList()
         }
         serverInputs.clear()
         serverInputs.addAll(initialList)
@@ -1059,7 +1054,7 @@ fun Settings(
                                             )
                                             return@launch
                                         }
-                                        if (serverInputs.none { it.isActive }) {
+                                        if (serverInputs.isNotEmpty() && serverInputs.none { it.isActive }) {
                                             serverInputs[0] = serverInputs[0].copy(isActive = true)
                                         }
                                         val inputsForValidation = normalizedInputs
@@ -1107,7 +1102,7 @@ fun Settings(
                                         )
                                         if (initializationState.usedFallback) {
                                             val fallbackMessage = initializationState.errorMessage
-                                                ?: "有効なURLがないためデフォルトにフォールバックしました"
+                                                ?: "サーバー設定を更新しました"
                                             snackbarHostState.showSnackbar(
                                                 message = fallbackMessage,
                                                 duration = SnackbarDuration.Short
@@ -1149,6 +1144,25 @@ fun Settings(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                        }
+                    }
+                }
+            }
+            if (serverInputs.isEmpty()) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                        ) {
+                            Text(
+                                text = "サーバーは登録されていません",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Text(
+                                text = "+ でサーバーを追加できます",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
@@ -1274,17 +1288,8 @@ fun Settings(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
                                 .padding(end = 0.dp),
-                            enabled = serverInputs.size > 1,
+                            enabled = true,
                             onClick = {
-                                if (serverInputs.size <= 1) {
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = "最低1件のサーバーを残してください",
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
-                                    return@IconButton
-                                }
                                 val wasActive = serverInputs[index].isActive
                                 val updatedInvalidConnections =
                                     connectionStatuses.toMutableMap().apply {
@@ -1323,8 +1328,8 @@ fun Settings(
                             } else {
                                 serverInputs.add(
                                     ServerInput(
-                                        url = "http://localhost:13511/",
-                                        isActive = false
+                                        url = "",
+                                        isActive = serverInputs.isEmpty()
                                     )
                                 )
                                 val normalizedInputs = getNormalizedInputs()

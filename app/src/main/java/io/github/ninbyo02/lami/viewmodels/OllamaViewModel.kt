@@ -17,6 +17,7 @@ import io.github.ninbyo02.lami.db.entity.Message
 import io.github.ninbyo02.lami.db.entity.TitleSource
 import io.github.ninbyo02.lami.db.repository.ChatRepository
 import io.github.ninbyo02.lami.db.repository.ModelPreferenceRepository
+import io.github.ninbyo02.lami.ui.components.InferenceTarget
 import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import io.github.ninbyo02.lami.ui.screens.settings.ErrorCause
@@ -47,6 +48,38 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
 data class ModelInfo(val name: String)
+
+internal fun fetchAvailableModelsFromServer(baseUrl: String): List<ModelInfo> {
+    val url = URL("${baseUrl.trimEnd('/')}/api/tags")
+    val connection = url.openConnection() as HttpURLConnection
+    try {
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 5000
+        connection.readTimeout = 10000
+        val responseCode = connection.responseCode
+        val responseStream =
+            if (responseCode in 200..299) {
+                connection.inputStream
+            } else {
+                connection.errorStream
+            } ?: throw IOException("Failed to read response stream (HTTP $responseCode)")
+        val response = responseStream.bufferedReader().use { it.readText() }
+        if (responseCode !in 200..299) {
+            throw IOException("Failed to load models (HTTP $responseCode): $response")
+        }
+        val jsonArray = JSONObject(response).getJSONArray("models")
+        val availableModels = mutableListOf<ModelInfo>()
+        for (i in 0 until jsonArray.length()) {
+            val jsonObject = jsonArray.getJSONObject(i)
+            val name = jsonObject.getString("name")
+            availableModels.add(ModelInfo(name))
+        }
+        return availableModels
+    } finally {
+        connection.disconnect()
+    }
+}
+
 class OllamaViewModel(
     private val chatRepository: ChatRepository,
     private val modelPreferenceRepository: ModelPreferenceRepository,
@@ -54,6 +87,9 @@ class OllamaViewModel(
     private val initialSelectedModel: String?,
     baseUrlFlow: StateFlow<String>,
     private val shouldAutoLoadModels: Boolean = true,
+    private val availableModelsFetcher: suspend (String) -> List<ModelInfo> = { baseUrl ->
+        withContext(Dispatchers.IO) { fetchAvailableModelsFromServer(baseUrl) }
+    },
 ) : ViewModel() {
     private val _uiState: MutableStateFlow<UiState> =
         MutableStateFlow(UiState.Initial)
@@ -142,9 +178,17 @@ class OllamaViewModel(
         }
         if (shouldAutoLoadModels) {
             viewModelScope.launch {
-                baseUrl.collectLatest {
-                    loadAvailableModels()
+                combine(baseUrl, settingsPreferences.inferenceTargetFlow) { url, target ->
+                    url to target
                 }
+                    .distinctUntilChanged()
+                    .collectLatest { (url, target) ->
+                        if (target == InferenceTarget.SERVER && url.isNotBlank()) {
+                            loadAvailableModels()
+                        } else {
+                            _isLoadingModels.value = false
+                        }
+                    }
             }
         }
     }
@@ -1038,36 +1082,14 @@ class OllamaViewModel(
 
         viewModelScope.launch {
             _isLoadingModels.value = true
-            val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
+            val baseUrl = this@OllamaViewModel.baseUrl.value.trimEnd('/')
+            if (baseUrl.isBlank()) {
+                _availableModels.value = emptyList()
+                _isLoadingModels.value = false
+                return@launch
+            }
             try {
-                val models = withContext(Dispatchers.IO) {
-                    val url =
-                        URL("${baseUrl}/api/tags")
-                    val connection = url.openConnection() as HttpURLConnection
-                    connection.requestMethod = "GET"
-                    connection.connectTimeout = 5000
-                    connection.readTimeout = 10000
-                    val responseCode = connection.responseCode
-                    val responseStream =
-                        if (responseCode in 200..299) {
-                            connection.inputStream
-                        } else {
-                            connection.errorStream
-                        } ?: throw java.io.IOException("Failed to read response stream (HTTP $responseCode)")
-                    val response =
-                        responseStream.bufferedReader().use { it.readText() }
-                    if (responseCode !in 200..299) {
-                        throw java.io.IOException("Failed to load models (HTTP $responseCode): $response")
-                    }
-                    val jsonArray = JSONObject(response).getJSONArray("models")
-                    val availableModels = mutableListOf<ModelInfo>()
-                    for (i in 0 until jsonArray.length()) {
-                        val jsonObject = jsonArray.getJSONObject(i)
-                        val name = jsonObject.getString("name")
-                        availableModels.add(ModelInfo(name))
-                    }
-                    availableModels
-                }
+                val models = availableModelsFetcher(baseUrl)
                 _availableModels.value = models
                 refreshSelectedModel(models)
                 _uiState.value = UiState.Initial
@@ -1076,7 +1098,6 @@ class OllamaViewModel(
                 _availableModels.value = emptyList()
                 val message = e.message ?: "Unknown error"
                 updateErrorState("Failed to load models: $message")
-                clearSelectedModelForBaseUrl(baseUrl)
             } finally {
                 _isLoadingModels.value = false
             }

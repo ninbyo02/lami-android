@@ -22,8 +22,7 @@ data class BaseUrlInitializationState(
 )
 
 object RetrofitClient {
-    private const val DEFAULT_BASE_URL = "http://localhost:13511/" // Default URL
-    private var baseUrl: String = DEFAULT_BASE_URL
+    private var baseUrl: String = ""
     private var lastInitializationState: BaseUrlInitializationState? = null
 
     private val client = OkHttpClient.Builder()
@@ -40,11 +39,15 @@ object RetrofitClient {
             val state = resolveBaseUrl(baseUrlProvider)
             if (retrofit == null || baseUrl != state.baseUrl) {
                 baseUrl = state.baseUrl
-                retrofit = Retrofit.Builder()
-                    .baseUrl(baseUrl)
-                    .client(client)
-                    .addConverterFactory(GsonConverterFactory.create())
-                    .build()
+                retrofit = if (baseUrl.isBlank()) {
+                    null
+                } else {
+                    Retrofit.Builder()
+                        .baseUrl(baseUrl)
+                        .client(client)
+                        .addConverterFactory(GsonConverterFactory.create())
+                        .build()
+                }
             }
             lastInitializationState = state
             modelPreferenceRepository?.pruneMissingBaseUrls(getAllBaseUrls(baseUrlProvider))
@@ -61,12 +64,11 @@ object RetrofitClient {
 
     val instance: OllamaApiService
         get() = retrofit?.create(OllamaApiService::class.java)
-            ?: error("RetrofitClient must be initialized!")
+            ?: error("Server is not configured")
 
     private fun normalizeBaseUrl(activeUrl: String?): String {
         val normalizedInput = normalizeUrlInput(activeUrl ?: "")
-        val cleanedUrl = normalizedInput.trimEnd('/').takeIf { it.isNotBlank() }
-            ?: DEFAULT_BASE_URL.trimEnd('/')
+        val cleanedUrl = normalizedInput.trimEnd('/').takeIf { it.isNotBlank() } ?: return ""
         val withScheme = if (cleanedUrl.startsWith("http://") || cleanedUrl.startsWith("https://")) {
             cleanedUrl
         } else {
@@ -87,12 +89,10 @@ object RetrofitClient {
     private suspend fun resolveBaseUrl(baseUrlProvider: BaseUrlProvider): BaseUrlInitializationState {
         val storedBaseUrls = runCatching { baseUrlProvider.getAll() }.getOrDefault(emptyList())
         if (storedBaseUrls.isEmpty()) {
-            val defaultEntry = listOf(BaseUrl(url = DEFAULT_BASE_URL, isActive = true))
-            baseUrlProvider.replaceAll(defaultEntry)
             return BaseUrlInitializationState(
-                baseUrl = DEFAULT_BASE_URL,
-                usedFallback = true,
-                errorMessage = "ベースURLが未設定のためデフォルトにフォールバックしました"
+                baseUrl = "",
+                usedFallback = false,
+                errorMessage = null
             )
         }
 
@@ -103,9 +103,9 @@ object RetrofitClient {
         val selectedEntry = activeValidEntry ?: validEntries.firstOrNull()
 
         val usedFallback = selectedEntry == null || validEntries.size != normalizedEntries.size || activeValidEntry == null
-        val finalBaseUrl = selectedEntry?.url ?: DEFAULT_BASE_URL
+        val finalBaseUrl = selectedEntry?.url.orEmpty()
         val errorMessage = when {
-            selectedEntry == null -> "保存されたベースURLが無効のためデフォルトにフォールバックしました"
+            selectedEntry == null -> "保存されたベースURLが無効なためサーバー未設定にしました"
             invalidEntries.isNotEmpty() -> "無効なベースURLを除去し有効なURLに切り替えました"
             activeValidEntry == null -> "有効なアクティブURLがないため利用可能なURLに切り替えました"
             else -> null
@@ -117,14 +117,16 @@ object RetrofitClient {
                     entry.copy(isActive = entry.id == selectedEntry.id)
                 }.ifEmpty { listOf(selectedEntry.copy(isActive = true)) }
             } else {
-                listOf(BaseUrl(url = DEFAULT_BASE_URL, isActive = true))
+                emptyList()
             }
             baseUrlProvider.replaceAll(sanitizedList)
             val logMessage = errorMessage ?: "ベースURLの状態を更新しました"
-            Log.e(
-                "RetrofitClient",
-                "$logMessage: 使用中=${finalBaseUrl}, 無効=${invalidEntries.joinToString { it.url }}"
-            )
+            runCatching {
+                Log.e(
+                    "RetrofitClient",
+                    "$logMessage: 使用中=${finalBaseUrl.ifBlank { "未設定" }}, 無効=${invalidEntries.joinToString { it.url }}"
+                )
+            }
         }
 
         return BaseUrlInitializationState(

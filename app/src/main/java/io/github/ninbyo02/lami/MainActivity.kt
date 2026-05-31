@@ -86,7 +86,9 @@ class MainActivity : ComponentActivity() {
         val resolvedBaseUrl = initializationState.baseUrl.trimEnd('/')
         baseUrlRepository.updateActiveBaseUrl(resolvedBaseUrl)
         val initialSelectedModel = runBlocking {
-            modelPreferenceRepository.getSelectedModel(resolvedBaseUrl)
+            resolvedBaseUrl.takeIf { it.isNotBlank() }?.let { baseUrl ->
+                modelPreferenceRepository.getSelectedModel(baseUrl)
+            }
         }
 
         val settingsPreferences = SettingsPreferences(applicationContext)

@@ -2277,12 +2277,15 @@ fun Home(
                                     )
 
                                     IconButton(
-                                        enabled = if (isInferenceRunningUi) {
-                                            true
-                                        } else {
-                                            !selectedModel.isNullOrBlank() &&
-                                                (userPrompt.isNotEmpty() || selectedImageUriStrings.isNotEmpty())
-                                        },
+                                        enabled = resolveChatSendAvailability(
+                                            selectedInferenceTarget = selectedInferenceTarget,
+                                            selectedServerModel = selectedModel,
+                                            selectedLocalModelPath = localBaseModelFilePath,
+                                            serverUrl = baseUrl,
+                                            hasPromptText = userPrompt.isNotEmpty(),
+                                            hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                            isInferenceRunning = isInferenceRunningUi,
+                                        ).enabled,
                                         onClick = {
                                             viewModel.onUserInteraction()
                                                 if (isInferenceRunningUi) {
@@ -2330,11 +2333,20 @@ fun Home(
                                                     return@IconButton
                                                 }
                                             }
-                                            if (selectedModel.isNullOrBlank()) {
+                                            val sendAvailability = resolveChatSendAvailability(
+                                                selectedInferenceTarget = selectedInferenceTarget,
+                                                selectedServerModel = selectedModel,
+                                                selectedLocalModelPath = localBaseModelFilePath,
+                                                serverUrl = baseUrl,
+                                                hasPromptText = userPrompt.isNotEmpty(),
+                                                hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                                isInferenceRunning = false,
+                                            )
+                                            if (!sendAvailability.enabled) {
                                                 coroutineScope.launch {
                                                     snackbarHostState.currentSnackbarData?.dismiss()
                                                     snackbarHostState.showSnackbar(
-                                                        message = "モデルを選択してください",
+                                                        message = chatSendBlockedSnackbarMessage(sendAvailability.blockedReason),
                                                         duration = SnackbarDuration.Short
                                                     )
                                                 }
