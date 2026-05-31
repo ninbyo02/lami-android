@@ -394,6 +394,10 @@ internal class LocalInferenceEngineHolder(
         )
     }
 
+    suspend fun hasReusableHeldEngineForKey(engineKey: HeldEngineKey): Boolean = mutex.withLock {
+        held?.engineKey == engineKey
+    }
+
     private fun recordHeldEngineCreateLocked(
         reason: String,
         source: String,

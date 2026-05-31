@@ -166,6 +166,9 @@ internal suspend fun runWithHeldEngine(
     mediaPipeProbeModelPath: String? = null,
     mediaPipeProbeContext: Context? = null,
     markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
+    routeDiagnosticContext: LocalRouteDiagnosticContext? = null,
+    routeRunStartedAtMs: Long = SystemClock.elapsedRealtime(),
+    heldEngineReused: Boolean? = null,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
     onFailureDiagnostics: ((String) -> Unit)? = null,
@@ -184,6 +187,58 @@ internal suspend fun runWithHeldEngine(
     val officialChunkMetricsCollector = LocalOfficialChunkMetricsCollector()
     val runnerWhitespaceTraceEntries = mutableListOf<Pair<String, String?>>()
     var failureDiagnosticsText: String? = null
+    var generateStarted = false
+    var firstTokenReceived = false
+
+    fun appendRouteStage(
+        stage: String,
+        flags: LocalRouteDiagnosticFlags,
+    ) {
+        val diagnosticContext = routeDiagnosticContext ?: return
+        safeAppendTrace(
+            appendTrace,
+            buildLocalRouteDiagnosticTrace(
+                stage = stage,
+                context = diagnosticContext,
+                flags = flags,
+                elapsedMs = SystemClock.elapsedRealtime() - routeRunStartedAtMs,
+            ),
+        )
+    }
+
+    fun appendGenerateStarted() {
+        if (generateStarted) return
+        generateStarted = true
+        appendRouteStage(
+            stage = "generate_started",
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = heldEngineReused,
+                engineCreateFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = false,
+            ),
+        )
+    }
+
+    fun appendFirstTokenReceived() {
+        if (firstTokenReceived) return
+        firstTokenReceived = true
+        appendRouteStage(
+            stage = "first_token_received",
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = heldEngineReused,
+                engineCreateFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = generateStarted,
+                firstTokenReceived = true,
+            ),
+        )
+    }
 
     fun appendRunnerWhitespaceStage(
         stage: String,
@@ -198,6 +253,9 @@ internal suspend fun runWithHeldEngine(
             engine = heldEngine.engineInstance,
             namespace = namespace,
             appendTrace = appendTrace,
+            routeDiagnosticContext = routeDiagnosticContext,
+            routeRunStartedAtMs = routeRunStartedAtMs,
+            heldEngineReused = heldEngineReused,
             onConversationClosed = { outcome -> conversationOutcome = outcome },
         ) { conversation ->
             val flowResponse = runCatching {
@@ -205,6 +263,7 @@ internal suspend fun runWithHeldEngine(
                     conversationClass = conversation.javaClass,
                     namespace = namespace,
                 ) ?: return@runCatching null
+                appendGenerateStarted()
                 val flowValue = invokeSendMessageAsync(
                     conversation = conversation,
                     method = sendMessageAsyncMethod,
@@ -242,6 +301,7 @@ internal suspend fun runWithHeldEngine(
                     heldFlowPartialCount += 1
                     if (heldFlowFirstPartialElapsedRealtimeMs == null) {
                         heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                        appendFirstTokenReceived()
                     }
                     heldFlowLastChunkElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     appendRunnerWhitespaceStage("append.boundary.before", builder.toString().takeLast(64))
@@ -329,6 +389,7 @@ internal suspend fun runWithHeldEngine(
                     conversationClass = conversation.javaClass,
                     namespace = namespace,
                 ) ?: return@runCatching null
+                appendGenerateStarted()
                 val value = invokeBlockingSend(
                     conversation = conversation,
                     method = sendMethod,
@@ -365,6 +426,7 @@ internal suspend fun runWithHeldEngine(
                 null
             }
             if (blockingResponse != null) {
+                appendFirstTokenReceived()
                 officialFlowUsed = false
                 closeSummaryPath = "held-official-blocking"
                 val measuredCollector = MeasuredTokenTimingCollector(
@@ -3196,17 +3258,74 @@ private suspend fun <T> runWithConversation(
     namespace: String?,
     appendTrace: (String) -> Unit,
     closeSummaryPath: String? = null,
+    routeDiagnosticContext: LocalRouteDiagnosticContext? = null,
+    routeRunStartedAtMs: Long = SystemClock.elapsedRealtime(),
+    heldEngineReused: Boolean? = null,
     onConversationClosed: ((RunCloseTargetOutcome) -> Unit)? = null,
     block: suspend (conversation: Any) -> T?,
 ): T? {
     var conversation: Any? = null
     return try {
+        routeDiagnosticContext?.let { diagnosticContext ->
+            safeAppendTrace(
+                appendTrace,
+                buildLocalRouteDiagnosticTrace(
+                    stage = "conversation_create_started",
+                    context = diagnosticContext,
+                    flags = LocalRouteDiagnosticFlags(
+                        heldEngineExists = true,
+                        heldEngineReused = heldEngineReused,
+                        engineCreateFinished = true,
+                        conversationCreateStarted = true,
+                        conversationCreateFinished = false,
+                    ),
+                    elapsedMs = SystemClock.elapsedRealtime() - routeRunStartedAtMs,
+                ),
+            )
+        }
         conversation = createConversationForHeldEngine(engine = engine, namespace = namespace, appendTrace = appendTrace)
-        if (conversation == null) return null
+        if (conversation == null) {
+            routeDiagnosticContext?.let { diagnosticContext ->
+                safeAppendTrace(
+                    appendTrace,
+                    buildLocalRouteDiagnosticTrace(
+                        stage = "conversation_create_finished",
+                        context = diagnosticContext,
+                        flags = LocalRouteDiagnosticFlags(
+                            heldEngineExists = true,
+                            heldEngineReused = heldEngineReused,
+                            engineCreateFinished = true,
+                            conversationCreateStarted = true,
+                            conversationCreateFinished = false,
+                            failureStage = "conversation-create",
+                        ),
+                        elapsedMs = SystemClock.elapsedRealtime() - routeRunStartedAtMs,
+                    ),
+                )
+            }
+            return null
+        }
         safeAppendTrace(
             appendTrace,
             "UPSTREAM held-conversation acquired class=${conversation.javaClass.name}",
         )
+        routeDiagnosticContext?.let { diagnosticContext ->
+            safeAppendTrace(
+                appendTrace,
+                buildLocalRouteDiagnosticTrace(
+                    stage = "conversation_create_finished",
+                    context = diagnosticContext,
+                    flags = LocalRouteDiagnosticFlags(
+                        heldEngineExists = true,
+                        heldEngineReused = heldEngineReused,
+                        engineCreateFinished = true,
+                        conversationCreateStarted = true,
+                        conversationCreateFinished = true,
+                    ),
+                    elapsedMs = SystemClock.elapsedRealtime() - routeRunStartedAtMs,
+                ),
+            )
+        }
         block(conversation)
     } finally {
         safeAppendTrace(

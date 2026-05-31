@@ -853,6 +853,58 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `NPU off Generic GPU enters normal local LiteRT route diagnostics`() {
+        val shouldEnterNpuS1 = shouldEnterNpuStandardRouteS1(
+            enabled = false,
+            selectedInferenceTarget = InferenceTarget.LOCAL,
+            hasImageInput = false,
+            requestPrompt = "こんにちは",
+        )
+        val shouldEnterLocalRoute = shouldEnterLocalLiteRtRouteAfterNpuS1Decision(
+            shouldEnterNpuS1 = shouldEnterNpuS1,
+            selectedInferenceTarget = InferenceTarget.LOCAL,
+            hasImageInput = false,
+            requestPrompt = "こんにちは",
+        )
+        val diagnosticContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = shouldEnterNpuS1,
+            localRouteEntered = shouldEnterLocalRoute,
+        )
+        val trace = buildLocalRouteDiagnosticTrace(
+            stage = "local_route_entered",
+            context = diagnosticContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = false,
+                heldEngineReused = false,
+                engineCreateStarted = true,
+                engineCreateFinished = false,
+                failureStage = "none",
+            ),
+            elapsedMs = 12,
+        )
+
+        assertFalse(shouldEnterNpuS1)
+        assertTrue(shouldEnterLocalRoute)
+        assertTrue(trace.contains("selected_model_name=gemma-4-E2B-it"))
+        assertTrue(trace.contains("selected_model_file=gemma-4-E2B-it.litertlm"))
+        assertTrue(trace.contains("preferred_backend=GPU"))
+        assertTrue(trace.contains("npu_standard_route_mode=OFF"))
+        assertTrue(trace.contains("should_enter_npu_s1=false"))
+        assertTrue(trace.contains("local_route_entered=true"))
+        assertTrue(trace.contains("held_engine_exists=false"))
+        assertTrue(trace.contains("held_engine_reused=false"))
+        assertTrue(trace.contains("engine_create_started=true"))
+        assertTrue(trace.contains("engine_create_finished=false"))
+        assertTrue(trace.contains("conversation_create_started=unknown"))
+        assertTrue(trace.contains("failure_stage=none"))
+        assertTrue(trace.contains("elapsed_ms=12"))
+    }
+
+    @Test
     fun `Generic LiteRT-LM model is blocked before NPU S1 decode`() = runTest {
         val eligibility = resolveNpuStandardRouteS1ModelEligibility(
             selectedModelName = "gemma-4-E2B-it",
@@ -966,6 +1018,31 @@ class NpuStandardRouteS1ChatScreenGateTest {
 
             assertTrue("$modelFile should be eligible", eligibility.npuModelEligible)
         }
+    }
+
+    @Test
+    fun `NPU on Qualcomm sm8750 model enters S1 route`() {
+        val shouldEnterNpuS1 = shouldEnterNpuStandardRouteS1(
+            enabled = true,
+            selectedInferenceTarget = InferenceTarget.LOCAL,
+            hasImageInput = false,
+            requestPrompt = "こんにちは",
+        )
+        val eligibility = resolveNpuStandardRouteS1ModelEligibility(
+            selectedModelName = "gemma-4-E2B-it-sm8750",
+            selectedModelFile = "/models/gemma-4-E2B-it-sm8750-qualcomm.litertlm",
+        )
+
+        assertTrue(shouldEnterNpuS1)
+        assertTrue(eligibility.npuModelEligible)
+        assertFalse(
+            shouldEnterLocalLiteRtRouteAfterNpuS1Decision(
+                shouldEnterNpuS1 = shouldEnterNpuS1,
+                selectedInferenceTarget = InferenceTarget.LOCAL,
+                hasImageInput = false,
+                requestPrompt = "こんにちは",
+            ),
+        )
     }
 
     @Test

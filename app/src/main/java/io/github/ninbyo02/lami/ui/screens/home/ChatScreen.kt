@@ -2423,14 +2423,34 @@ fun Home(
                                                     }
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
-                                                    if (
-                                                        shouldEnterNpuStandardRouteS1(
-                                                            enabled = NpuStandardRouteS1GateConfig.isEnabledForMode(npuStandardRouteMode),
-                                                            selectedInferenceTarget = selectedInferenceTarget,
-                                                            hasImageInput = selectedImageUriStrings.isNotEmpty(),
-                                                            requestPrompt = requestPrompt,
-                                                        )
-                                                    ) {
+                                                    val shouldEnterNpuS1ForRequest = shouldEnterNpuStandardRouteS1(
+                                                        enabled = NpuStandardRouteS1GateConfig.isEnabledForMode(npuStandardRouteMode),
+                                                        selectedInferenceTarget = selectedInferenceTarget,
+                                                        hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                                        requestPrompt = requestPrompt,
+                                                    )
+                                                    val localRouteEnteredAfterNpuDecision = shouldEnterLocalLiteRtRouteAfterNpuS1Decision(
+                                                        shouldEnterNpuS1 = shouldEnterNpuS1ForRequest,
+                                                        selectedInferenceTarget = selectedInferenceTarget,
+                                                        hasImageInput = selectedImageUriStrings.isNotEmpty(),
+                                                        requestPrompt = requestPrompt,
+                                                    )
+                                                    val localRouteDiagnosticContext = buildLocalRouteDiagnosticContext(
+                                                        selectedModelName = localBaseModelDisplayName ?: selectedModel,
+                                                        selectedModelFile = localBaseModelFilePath,
+                                                        preferredBackend = preferredBackendDryRunSetting.name,
+                                                        npuStandardRouteMode = npuStandardRouteMode.name,
+                                                        shouldEnterNpuS1 = shouldEnterNpuS1ForRequest,
+                                                        localRouteEntered = localRouteEnteredAfterNpuDecision,
+                                                    )
+                                                    appendLocalReflectionTrace(
+                                                        context = context.applicationContext,
+                                                        message = buildLocalRouteDiagnosticTrace(
+                                                            stage = "route_decision",
+                                                            context = localRouteDiagnosticContext,
+                                                        ),
+                                                    )
+                                                    if (shouldEnterNpuS1ForRequest) {
                                                         val npuModelEligibility = resolveNpuStandardRouteS1ModelEligibility(
                                                             selectedModelName = localBaseModelDisplayName ?: selectedModel,
                                                             selectedModelFile = localBaseModelFilePath,
@@ -3039,6 +3059,13 @@ fun Home(
                                                             context = context.applicationContext,
                                                             message = "UPSTREAM local-branch-enter selectedTarget=LOCAL",
                                                         )
+                                                        appendLocalReflectionTrace(
+                                                            context = context.applicationContext,
+                                                            message = buildLocalRouteDiagnosticTrace(
+                                                                stage = "local_route_entered",
+                                                                context = localRouteDiagnosticContext,
+                                                            ),
+                                                        )
                                                         if (isLocalInferenceRunning) return@launch
                                                         localStopRequested = false
                                                         didReceiveRealLocalPartial = false
@@ -3101,6 +3128,24 @@ fun Home(
                                                                     val resolvedModelPath = modelResolution.modelPath
                                                                 mediaPipeProbeModelPathForRun = resolvedModelPath
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
+                                                                val heldSnapshotBeforeAcquire = localInferenceEngineHolder.getDevDiagnosticSnapshot()
+                                                                val reusableHeldEngineBeforeAcquire =
+                                                                    localInferenceEngineHolder.hasReusableHeldEngineForKey(modelResolution.engineKey)
+                                                                val engineCreateStarted = !reusableHeldEngineBeforeAcquire
+                                                                appendLocalReflectionTrace(
+                                                                    context = context.applicationContext,
+                                                                    message = buildLocalRouteDiagnosticTrace(
+                                                                        stage = "engine_create_started",
+                                                                        context = localRouteDiagnosticContext,
+                                                                        flags = LocalRouteDiagnosticFlags(
+                                                                            heldEngineExists = heldSnapshotBeforeAcquire.heldEngineHash != null,
+                                                                            heldEngineReused = false,
+                                                                            engineCreateStarted = engineCreateStarted,
+                                                                            engineCreateFinished = false,
+                                                                        ),
+                                                                        elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
+                                                                    ),
+                                                                )
                                                                 var legacyFallbackReason: String? = null
                                                                 var heldAcquireFailureStage: String? = null
                                                                 var heldAcquireFailureClassName: String? = null
@@ -3172,6 +3217,23 @@ fun Home(
                                                                         null
                                                                     }
                                                                 }
+                                                                val heldSnapshotAfterAcquire = localInferenceEngineHolder.getDevDiagnosticSnapshot()
+                                                                val heldEngineReused = heldSnapshotAfterAcquire.lastAcquireAction == "reused"
+                                                                appendLocalReflectionTrace(
+                                                                    context = context.applicationContext,
+                                                                    message = buildLocalRouteDiagnosticTrace(
+                                                                        stage = "engine_create_finished",
+                                                                        context = localRouteDiagnosticContext,
+                                                                        flags = LocalRouteDiagnosticFlags(
+                                                                            heldEngineExists = heldEngine != null,
+                                                                            heldEngineReused = heldEngineReused,
+                                                                            engineCreateStarted = engineCreateStarted,
+                                                                            engineCreateFinished = if (engineCreateStarted) heldEngine != null else false,
+                                                                            failureStage = if (heldEngine == null) heldAcquireFailureStage ?: "holder-acquire" else null,
+                                                                        ),
+                                                                        elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
+                                                                    ),
+                                                                )
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine == null) {
                                                                     coroutineScope.launch {
                                                                         devDebugText = buildString {
@@ -3225,6 +3287,9 @@ fun Home(
                                                                         mediaPipeProbeModelPath = mediaPipeProbeModelPathForRun,
                                                                         mediaPipeProbeContext = mediaPipeProbeContext,
                                                                         markdownStreamingMode = markdownStreamingMode,
+                                                                        routeDiagnosticContext = localRouteDiagnosticContext,
+                                                                        routeRunStartedAtMs = localRunStartedAtMs,
+                                                                        heldEngineReused = heldEngineReused,
                                                                         onPartial = { partial ->
                                                                             if (localStopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = normalizeStreamingPartialForRender(
@@ -8393,6 +8458,17 @@ internal fun shouldEnterNpuStandardRouteS1(
     requestPrompt: String,
 ): Boolean =
     enabled &&
+        selectedInferenceTarget == InferenceTarget.LOCAL &&
+        !hasImageInput &&
+        requestPrompt.isNotBlank()
+
+internal fun shouldEnterLocalLiteRtRouteAfterNpuS1Decision(
+    shouldEnterNpuS1: Boolean,
+    selectedInferenceTarget: InferenceTarget,
+    hasImageInput: Boolean,
+    requestPrompt: String,
+): Boolean =
+    !shouldEnterNpuS1 &&
         selectedInferenceTarget == InferenceTarget.LOCAL &&
         !hasImageInput &&
         requestPrompt.isNotBlank()
