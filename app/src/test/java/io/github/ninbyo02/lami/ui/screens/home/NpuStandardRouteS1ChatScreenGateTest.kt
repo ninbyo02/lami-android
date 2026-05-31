@@ -913,6 +913,36 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `S3 saved result marks DB markdown and conversation history connected`() {
+        val s3Result = buildNpuStandardRouteS3MarkdownSavedResult(
+            s1Result = s1SuccessResult().withTiming(
+                NpuStandardRouteS1Timing(
+                    totalMs = 1200,
+                    decodeMs = 1000,
+                    outputTokens = 20,
+                    tokenCountMode = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS,
+                    tokensPerSecond = 20.0,
+                ),
+            ),
+            finalizedText = "こんにちは。\n- Markdown",
+        )
+
+        assertEquals(NpuStandardRouteS1Contract.ROUTE_TYPE_S3_MARKDOWN, s3Result.selection.routeType)
+        assertTrue(s3Result.displayText.contains("route_type=standard_chat_screen_s3_markdown"))
+        assertTrue(s3Result.displayText.contains("db=true"))
+        assertTrue(s3Result.displayText.contains("conversation_history_saved=true"))
+        assertTrue(s3Result.displayText.contains("markdown=true"))
+        assertTrue(s3Result.displayText.contains("streaming=false"))
+        assertTrue(s3Result.displayText.contains("tts=false"))
+        assertTrue(s3Result.displayText.contains("npu_s1_total_ms=1200"))
+        assertTrue(s3Result.displayText.contains("npu_s1_decode_ms=1000"))
+        assertTrue(s3Result.displayText.contains("npu_s1_tokens_per_second=20.0"))
+        assertTrue(s3Result.displayText.contains("fallback_used=false"))
+        assertTrue(s3Result.displayText.contains("fresh_crash=false"))
+        assertTrue(s3Result.displayText.contains("timeout=false"))
+    }
+
+    @Test
     fun `S2 successful flow saves one user message and one assistant message`() = runTest {
         val events = mutableListOf<String>()
         val run = runNpuInferenceAfterImmediateUserMessage(
@@ -943,6 +973,64 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertEquals(1, events.count { it.startsWith("insert_user:") })
         assertEquals(1, events.count { it.startsWith("insert_assistant:") })
         assertFalse(events.contains("create_chat"))
+    }
+
+    @Test
+    fun `S3 successful flow saves finalized markdown text with S3 diagnostics`() = runTest {
+        val events = mutableListOf<String>()
+        val run = runNpuInferenceAfterImmediateUserMessage(
+            requestPrompt = "Markdownで答えて",
+            currentChatId = 42,
+            createChat = {
+                events += "create_chat"
+                42
+            },
+            onChatCreated = { chatId ->
+                events += "chat_created:$chatId"
+            },
+            insertUserMessage = { chatId, promptText ->
+                events += "insert_user:$chatId:$promptText"
+            },
+            runInference = {
+                s1SuccessResult(sanitizedOutput = "見出し\\n- 項目")
+            },
+        )
+        val s2Mapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "Markdownで答えて",
+            s1Result = run.result,
+        )
+        val s3Mapping = NpuStandardRouteS3MarkdownBridge().prepareMarkdownCandidate(
+            s1Result = run.result,
+            finalizeMarkdown = { it.replace("\\n", "\n") },
+        )
+        if (shouldPersistNpuStandardRouteS2Db(enabled = true, mapping = s2Mapping)) {
+            val saveCandidate = requireNotNull(s2Mapping.saveCandidate)
+            val s2Result = buildNpuStandardRouteS2DbSavedResult(run.result)
+            val s3Candidate = s3Mapping
+                .takeIf { shouldRenderNpuStandardRouteS3Markdown(enabled = true, mapping = it) }
+                ?.markdownCandidate
+            val assistantText = s3Candidate?.finalizedText ?: saveCandidate.assistantMessage.text
+            val routeResult = if (s3Candidate != null) {
+                buildNpuStandardRouteS3MarkdownSavedResult(
+                    s1Result = run.result,
+                    finalizedText = s3Candidate.finalizedText,
+                )
+            } else {
+                s2Result
+            }
+            events += "insert_assistant:${run.chatId}:$assistantText"
+            events += "source:${routeResult.displayText}"
+        }
+
+        assertEquals(1, events.count { it.startsWith("insert_user:") })
+        assertTrue(events.contains("insert_assistant:42:見出し\n- 項目"))
+        val source = requireNotNull(events.firstOrNull { it.startsWith("source:") })
+        assertTrue(source.contains("route_type=standard_chat_screen_s3_markdown"))
+        assertTrue(source.contains("db=true"))
+        assertTrue(source.contains("conversation_history_saved=true"))
+        assertTrue(source.contains("markdown=true"))
+        assertTrue(source.contains("streaming=false"))
+        assertTrue(source.contains("tts=false"))
     }
 
     @Test
@@ -984,6 +1072,9 @@ class NpuStandardRouteS1ChatScreenGateTest {
             userPrompt = "こんにちは",
             s1Result = s1SuccessResult(),
         )
+        val s3Mapping = NpuStandardRouteS3MarkdownBridge().prepareMarkdownCandidate(
+            s1Result = s1SuccessResult(),
+        )
         val s4Mapping = NpuStandardRouteS4PseudoStreamingBridge().preparePseudoStreamingCandidate(
             s1Result = s1SuccessResult(),
             finalText = "こんにちは。今日はNPU応答を段階表示します。",
@@ -996,6 +1087,8 @@ class NpuStandardRouteS1ChatScreenGateTest {
 
         assertFalse(shouldPersistNpuStandardRouteS2Db(NpuStandardRouteMode.S1_ONLY.isS2Enabled(), s2Mapping))
         assertTrue(shouldPersistNpuStandardRouteS2Db(NpuStandardRouteMode.S2_DB.isS2Enabled(), s2Mapping))
+        assertFalse(shouldRenderNpuStandardRouteS3Markdown(NpuStandardRouteMode.S2_DB.isS3Enabled(), s3Mapping))
+        assertTrue(shouldRenderNpuStandardRouteS3Markdown(NpuStandardRouteMode.S3_MARKDOWN.isS3Enabled(), s3Mapping))
         assertFalse(shouldStartNpuStandardRouteS4APseudoStreaming(NpuStandardRouteMode.S3_MARKDOWN.isS4AEnabled(), s4Mapping))
         assertTrue(shouldStartNpuStandardRouteS4APseudoStreaming(NpuStandardRouteMode.S4A_PSEUDO_STREAMING.isS4AEnabled(), s4Mapping))
         assertFalse(shouldPrepareNpuStandardRouteS5Tts(NpuStandardRouteMode.S4A_PSEUDO_STREAMING.isS5Enabled(), s5Mapping))
@@ -1433,13 +1526,15 @@ class NpuStandardRouteS1ChatScreenGateTest {
         )
     }
 
-    private fun s1SuccessResult(): NpuStandardRouteS1Result =
+    private fun s1SuccessResult(
+        sanitizedOutput: String = "こんにちは。",
+    ): NpuStandardRouteS1Result =
         NpuStandardRouteS1Mapper.map(
             NpuStandardRouteS1RawResult(
                 status = "success",
                 reason = "success",
-                rawOutput = "こんにちは。",
-                sanitizedOutput = "こんにちは。",
+                rawOutput = sanitizedOutput,
+                sanitizedOutput = sanitizedOutput,
                 qualityClassification = "natural_japanese",
                 runDecodeReached = true,
                 npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",

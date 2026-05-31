@@ -34,6 +34,7 @@ internal data class NpuStandardRouteS3MarkdownMapping(
 }
 
 internal object NpuStandardRouteS3MarkdownContract {
+    const val ROUTE_TYPE = NpuStandardRouteS1Contract.ROUTE_TYPE_S3_MARKDOWN
     const val FAILURE_S1_NOT_SUCCESS = "s1_success_criteria_not_met"
     const val FAILURE_EMPTY_TEXT = "empty_text"
 }

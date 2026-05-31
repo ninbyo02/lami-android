@@ -58,4 +58,13 @@ class NpuStandardRouteS3MarkdownContractTest {
         assertNull(mapping.markdownCandidate)
         assertEquals("s1_success_criteria_not_met", mapping.failureReason)
     }
+
+    @Test
+    fun `S3 route type is standard chat screen markdown`() {
+        assertEquals("standard_chat_screen_s3_markdown", NpuStandardRouteS3MarkdownContract.ROUTE_TYPE)
+        assertEquals(
+            NpuStandardRouteS1Contract.ROUTE_TYPE_S3_MARKDOWN,
+            NpuStandardRouteS3MarkdownContract.ROUTE_TYPE,
+        )
+    }
 }

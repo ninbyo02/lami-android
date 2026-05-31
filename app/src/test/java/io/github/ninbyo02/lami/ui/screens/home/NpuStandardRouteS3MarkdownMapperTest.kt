@@ -70,6 +70,26 @@ class NpuStandardRouteS3MarkdownMapperTest {
         assertFalse(candidate.sideEffects.backendNpuPersisted)
     }
 
+    @Test
+    fun `S3 saved result marks DB and markdown connected only`() {
+        val result = buildNpuStandardRouteS3MarkdownSavedResult(
+            s1Result = successResult(sanitizedOutput = "line\\nnext"),
+            finalizedText = "line\nnext",
+        )
+
+        assertEquals(NpuStandardRouteS1Contract.ROUTE_TYPE_S3_MARKDOWN, result.selection.routeType)
+        assertEquals("line\nnext", result.sanitizedOutput)
+        assertTrue(result.displayText.contains("route_type=standard_chat_screen_s3_markdown"))
+        assertTrue(result.displayText.contains("db=true"))
+        assertTrue(result.displayText.contains("conversation_history_saved=true"))
+        assertTrue(result.displayText.contains("markdown=true"))
+        assertTrue(result.displayText.contains("streaming=false"))
+        assertTrue(result.displayText.contains("tts=false"))
+        assertTrue(result.displayText.contains("fallback_used=false"))
+        assertTrue(result.displayText.contains("fresh_crash=false"))
+        assertTrue(result.displayText.contains("timeout=false"))
+    }
+
     private fun successResult(
         sanitizedOutput: String = "こんにちは。",
         displayText: String = sanitizedOutput,

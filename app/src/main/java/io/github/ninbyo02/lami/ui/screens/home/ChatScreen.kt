@@ -2721,26 +2721,48 @@ fun Home(
                                                             ) {
                                                                 val saveCandidate = requireNotNull(s2DbMapping.saveCandidate)
                                                                 val s2SavedResult = buildNpuStandardRouteS2DbSavedResult(s1Result)
-                                                                npuStandardRouteS1DisplayText = s2SavedResult.displayText
-                                                                val assistantTextForPersist = NpuStandardRouteS3MarkdownBridge()
-                                                                    .resolveFinalizedText(
-                                                                        enabled = npuStandardRouteS3MarkdownEnabled,
-                                                                        s1Result = s1Result,
-                                                                        fallbackText = saveCandidate.assistantMessage.text,
-                                                                        finalizeMarkdown = { text ->
-                                                                            buildFinalizedStreamingResponseForPersist(
-                                                                                response = text,
-                                                                                markdownStreamingMode = markdownStreamingMode,
-                                                                            )
-                                                                        },
-                                                                )
+                                                                val s3MarkdownMapping =
+                                                                    if (npuStandardRouteS3MarkdownEnabled) {
+                                                                        NpuStandardRouteS3MarkdownBridge().prepareMarkdownCandidate(
+                                                                            s1Result = s1Result,
+                                                                            finalizeMarkdown = { text ->
+                                                                                buildFinalizedStreamingResponseForPersist(
+                                                                                    response = text,
+                                                                                    markdownStreamingMode = markdownStreamingMode,
+                                                                                )
+                                                                            },
+                                                                        )
+                                                                    } else {
+                                                                        null
+                                                                    }
+                                                                val s3MarkdownCandidate = s3MarkdownMapping
+                                                                    ?.takeIf {
+                                                                        shouldRenderNpuStandardRouteS3Markdown(
+                                                                            enabled = npuStandardRouteS3MarkdownEnabled,
+                                                                            mapping = it,
+                                                                        )
+                                                                    }
+                                                                    ?.markdownCandidate
+                                                                val assistantTextForPersist =
+                                                                    s3MarkdownCandidate?.finalizedText
+                                                                        ?: saveCandidate.assistantMessage.text
+                                                                val npuStandardRoutePersistedResult =
+                                                                    if (s3MarkdownCandidate != null) {
+                                                                        buildNpuStandardRouteS3MarkdownSavedResult(
+                                                                            s1Result = s1Result,
+                                                                            finalizedText = s3MarkdownCandidate.finalizedText,
+                                                                        )
+                                                                    } else {
+                                                                        s2SavedResult
+                                                                    }
+                                                                npuStandardRouteS1DisplayText = npuStandardRoutePersistedResult.displayText
                                                                 val s4PseudoStreamingCandidate =
                                                                     if (npuStandardRouteS4aPseudoStreamingEnabled) {
                                                                         val s4PseudoStreamingMapping = NpuStandardRouteS4PseudoStreamingBridge()
                                                                             .preparePseudoStreamingCandidate(
                                                                                 s1Result = s1Result,
                                                                                 finalText = assistantTextForPersist,
-                                                                                sourceDisplayText = saveCandidate.assistantMessage.sourceDisplayText,
+                                                                                sourceDisplayText = npuStandardRoutePersistedResult.displayText,
                                                                             )
                                                                         s4PseudoStreamingMapping
                                                                             .takeIf {
@@ -2769,7 +2791,7 @@ fun Home(
                                                                             createAssistantMessage(
                                                                                 chatId = resolvedChatId,
                                                                                 response = assistantTextForPersist,
-                                                                                localSourceSummary = s2SavedResult.displayText,
+                                                                                localSourceSummary = npuStandardRoutePersistedResult.displayText,
                                                                             )
                                                                         ).toInt()
                                                                     }
@@ -8908,6 +8930,12 @@ internal fun shouldPersistNpuStandardRouteS2Db(
     mapping: NpuStandardRouteS2DbMapping,
 ): Boolean =
     enabled && mapping.hasSaveCandidate
+
+internal fun shouldRenderNpuStandardRouteS3Markdown(
+    enabled: Boolean,
+    mapping: NpuStandardRouteS3MarkdownMapping,
+): Boolean =
+    enabled && mapping.hasMarkdownCandidate
 
 internal data class ImmediateNpuSendUiStateUpdate(
     val prompt: String = "",
