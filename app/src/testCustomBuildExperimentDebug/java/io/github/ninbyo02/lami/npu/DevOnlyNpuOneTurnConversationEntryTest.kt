@@ -692,4 +692,88 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(text.contains("prompt_and_output_policy=hash_length_code_points_preview_only"))
         assertFalse(text.contains("editable prompt rejected before native execution"))
     }
+
+    @Test
+    fun `prompt template matrix progress lines expose case lifecycle without full values`() {
+        val case = DevOnlyNpuPromptTemplateMatrix.cases().first {
+            it.template.name == DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B
+        }
+        val result = DevOnlyNpuPromptTemplateMatrix.CaseResult(
+            status = "failure",
+            reason = "empty_after_sanitize",
+            runDecodeReached = true,
+            fallbackUsed = false,
+            timeout = false,
+            freshCrash = false,
+            rawOutput = "",
+            rawOutputLength = 0,
+            sanitizedOutput = "",
+            sanitizedOutputLength = 0,
+            qualityClassification = "mixed_language",
+            elapsedMs = 456,
+        )
+
+        val start = DevOnlyNpuPromptTemplateMatrix.buildMatrixStart().joinToString("\n")
+        val caseStart = DevOnlyNpuPromptTemplateMatrix.buildCaseStart(
+            index = 1,
+            case = case,
+        ).joinToString("\n")
+        val caseDone = DevOnlyNpuPromptTemplateMatrix.buildCaseDone(
+            index = 1,
+            case = case,
+            result = result,
+        ).joinToString("\n")
+
+        assertTrue(start.contains("matrix_start=true"))
+        assertTrue(start.contains("status=running"))
+        assertTrue(caseStart.contains("case_start=true"))
+        assertTrue(caseStart.contains("case_index=1"))
+        assertTrue(caseStart.contains("template_name=${case.template.name}"))
+        assertTrue(caseStart.contains("prompt_hash="))
+        assertTrue(caseStart.contains("prompt_length=${case.inputPrompt.length}"))
+        assertTrue(caseStart.contains("prompt_code_points=${case.inputPrompt.codePointCount(0, case.inputPrompt.length)}"))
+        assertTrue(caseStart.contains("prompt_preview=${case.inputPrompt}"))
+        assertTrue(caseDone.contains("case_done=true"))
+        assertTrue(caseDone.contains("status=failure"))
+        assertTrue(caseDone.contains("reason=empty_after_sanitize"))
+        assertTrue(caseDone.contains("elapsed_ms=456"))
+    }
+
+    @Test
+    fun `prompt template matrix failure progress records exception safely`() {
+        val case = DevOnlyNpuPromptTemplateMatrix.cases().first()
+        val message = "editable prompt rejected before native execution because the prompt is too long"
+
+        val failure = DevOnlyNpuPromptTemplateMatrix.buildCaseFailed(
+            index = 2,
+            case = case,
+            throwable = IllegalStateException(message),
+            elapsedMs = 789,
+        ).joinToString("\n")
+
+        assertTrue(failure.contains("case_failed=true"))
+        assertTrue(failure.contains("case_index=2"))
+        assertTrue(failure.contains("template_name=${case.template.name}"))
+        assertTrue(failure.contains("exception_class=IllegalStateException"))
+        assertTrue(failure.contains("message_hash="))
+        assertTrue(failure.contains("message_preview=editable prompt rejected"))
+        assertTrue(failure.contains("elapsed_ms=789"))
+        assertFalse(failure.contains(message))
+    }
+
+    @Test
+    fun `prompt template matrix timeout failure remains a case result`() {
+        val result = DevOnlyNpuPromptTemplateMatrix.CaseResult.failure(
+            reason = "case_timeout",
+            message = "Timed out waiting for template matrix case",
+            elapsedMs = 60_000,
+            timeout = true,
+        )
+
+        assertEquals("failure", result.status)
+        assertEquals("case_timeout", result.reason)
+        assertFalse(result.runDecodeReached)
+        assertTrue(result.timeout)
+        assertEquals(60_000L, result.elapsedMs)
+    }
 }

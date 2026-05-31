@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 import android.app.Activity
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -193,6 +194,7 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
     ) {
         if (runStarted) return
         runStarted = true
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         outputView.text = "DEV ONLY NPU PROMPT TEMPLATE MATRIX\nstatus=starting"
         Log.i(TAG, "prompt_template_matrix status=starting")
         Thread({
@@ -200,15 +202,20 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
                 outputView.text = "DEV ONLY NPU PROMPT TEMPLATE MATRIX\nstatus=running"
             }
             Log.i(TAG, "prompt_template_matrix status=running")
+            val appContext = applicationContext
             val resultFile = File(
-                applicationContext.filesDir,
+                appContext.filesDir,
                 DevOnlyNpuPromptTemplateMatrix.RESULT_FILE_NAME,
             )
             val text = try {
                 runBlocking {
-                    DevOnlyNpuPromptTemplateMatrixEntry(this@Qairt244DevOnlyNpuConversationActivity).run()
+                    DevOnlyNpuPromptTemplateMatrixEntry(appContext).run()
                 }
             } catch (throwable: Throwable) {
+                Log.i(
+                    TAG,
+                    "prompt_template_matrix status=failed exception=${throwable.javaClass.simpleName}",
+                )
                 DevOnlyNpuPromptTemplateMatrix.buildHeader(status = "failure")
                     .plus(
                         listOf(
@@ -222,6 +229,7 @@ class Qairt244DevOnlyNpuConversationActivity : Activity() {
             Log.i(TAG, "prompt_template_matrix status=finished result_file=${resultFile.name}")
             runOnUiThread {
                 outputView.text = text
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
         }, "Qairt244DevOnlyNpuPromptTemplateMatrix").start()
     }

@@ -1,9 +1,13 @@
 package io.github.ninbyo02.lami.npu
 
 import android.content.Context
+import android.os.SystemClock
+import android.util.Log
 import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import java.io.File
 import java.security.MessageDigest
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 
 class DevOnlyNpuPromptTemplateMatrixEntry(
     context: Context,
@@ -27,30 +31,63 @@ class DevOnlyNpuPromptTemplateMatrixEntry(
             DevOnlyNpuPromptTemplateMatrix.buildHeader(status = "running")
                 .joinToString(separator = "\n", postfix = "\n"),
         )
-        val text = DevOnlyNpuPromptTemplateMatrix.run { case ->
-            runCase(
-                case = case,
-                maxOutputTokens = maxOutputTokens,
-                timeoutMs = timeoutMs,
+        appendProgress(DevOnlyNpuPromptTemplateMatrix.buildMatrixStart())
+        Log.i(TAG, "matrix_start result_file=${DevOnlyNpuPromptTemplateMatrix.RESULT_FILE_NAME}")
+        return runCatching {
+            DevOnlyNpuPromptTemplateMatrix.cases().forEachIndexed { index, case ->
+                val caseIndex = index + 1
+                appendProgress(DevOnlyNpuPromptTemplateMatrix.buildCaseStart(caseIndex, case))
+                Log.i(TAG, "case_start index=$caseIndex template=${case.template.name}")
+                val result = runCase(
+                    case = case,
+                    maxOutputTokens = maxOutputTokens,
+                    timeoutMs = timeoutMs,
+                    caseIndex = caseIndex,
+                )
+                appendProgress(DevOnlyNpuPromptTemplateMatrix.buildRow(caseIndex, case, result))
+                appendProgress(DevOnlyNpuPromptTemplateMatrix.buildCaseDone(caseIndex, case, result))
+                Log.i(
+                    TAG,
+                    "case_done index=$caseIndex template=${case.template.name} " +
+                        "status=${result.status} reason=${result.reason}",
+                )
+            }
+            appendProgress(listOf("status=completed"))
+            Log.i(TAG, "matrix_completed")
+            matrixResultFile.readText()
+        }.getOrElse { throwable ->
+            appendProgress(
+                listOf(
+                    "status=failed",
+                    "reason=matrix_failure:${throwable.javaClass.simpleName}",
+                    "message_hash=${DevOnlyNpuPromptTemplateMatrix.safeHash(throwable.message.orEmpty())}",
+                    "message_preview=${DevOnlyNpuPromptTemplateMatrix.safePreview(throwable.message.orEmpty())}",
+                ),
             )
+            Log.i(TAG, "matrix_failed exception=${throwable.javaClass.simpleName}")
+            matrixResultFile.readText()
         }
-        matrixResultFile.writeText(text)
-        return text
     }
 
     private suspend fun runCase(
         case: DevOnlyNpuPromptTemplateMatrix.Case,
         maxOutputTokens: Int,
         timeoutMs: Long,
+        caseIndex: Int,
     ): DevOnlyNpuPromptTemplateMatrix.CaseResult =
-        runCatching {
-            val result = adapterFactory(appContext, true)
-                .runDevOnlyPromptTemplateExperimentOnce(
-                    prompt = case.requestPrompt,
-                    templateMode = case.template.mode,
-                    maxOutputTokens = maxOutputTokens,
-                    timeoutMs = timeoutMs,
-                )
+        runCaseCatching(
+            case = case,
+            caseIndex = caseIndex,
+        ) {
+            val result = withTimeout(timeoutMs) {
+                adapterFactory(appContext, true)
+                    .runDevOnlyPromptTemplateExperimentOnce(
+                        prompt = case.requestPrompt,
+                        templateMode = case.template.mode,
+                        maxOutputTokens = maxOutputTokens,
+                        timeoutMs = timeoutMs,
+                    )
+            }
             val values = if (nativeResultFile.isFile) {
                 Qairt244NativeResultParser.parse(nativeResultFile.readText()).values
             } else {
@@ -60,14 +97,51 @@ class DevOnlyNpuPromptTemplateMatrixEntry(
                 routeResult = result,
                 values = values,
             )
-        }.getOrElse { throwable ->
-            DevOnlyNpuPromptTemplateMatrix.CaseResult.failure(
-                reason = "case_failure:${throwable.javaClass.simpleName}",
-                message = throwable.message.orEmpty(),
-            )
         }
 
+    private suspend fun runCaseCatching(
+        case: DevOnlyNpuPromptTemplateMatrix.Case,
+        caseIndex: Int,
+        block: suspend () -> DevOnlyNpuPromptTemplateMatrix.CaseResult,
+    ): DevOnlyNpuPromptTemplateMatrix.CaseResult {
+        val startMs = SystemClock.elapsedRealtime()
+        return runCatching {
+            block()
+        }.getOrElse { throwable ->
+            val elapsedMs = SystemClock.elapsedRealtime() - startMs
+            appendProgress(
+                DevOnlyNpuPromptTemplateMatrix.buildCaseFailed(
+                    index = caseIndex,
+                    case = case,
+                    throwable = throwable,
+                    elapsedMs = elapsedMs,
+                ),
+            )
+            Log.i(
+                TAG,
+                "case_failed index=$caseIndex template=${case.template.name} " +
+                    "exception=${throwable.javaClass.simpleName}",
+            )
+            val reason = if (throwable is TimeoutCancellationException) {
+                "case_timeout"
+            } else {
+                "case_failure:${throwable.javaClass.simpleName}"
+            }
+            DevOnlyNpuPromptTemplateMatrix.CaseResult.failure(
+                reason = reason,
+                message = throwable.message.orEmpty(),
+                elapsedMs = elapsedMs,
+                timeout = throwable is TimeoutCancellationException,
+            )
+        }
+    }
+
+    private fun appendProgress(lines: List<String>) {
+        matrixResultFile.appendText(lines.joinToString(separator = "\n", postfix = "\n"))
+    }
+
     private companion object {
+        private const val TAG = "NpuPromptTemplateMatrix"
         private const val NATIVE_RESULT_FILE_NAME = "qairt244_short_multitoken_smoke_result.txt"
     }
 }
@@ -145,6 +219,52 @@ object DevOnlyNpuPromptTemplateMatrix {
         "standard_route_template_unchanged=raw_dialog_tail_variant_b",
     )
 
+    fun buildMatrixStart(): List<String> = listOf(
+        "matrix_start=true",
+        "status=running",
+    )
+
+    fun buildCaseStart(
+        index: Int,
+        case: Case,
+    ): List<String> = listOf(
+        "case_start=true",
+        "case_index=$index",
+        "template_name=${case.template.name}",
+        "prompt_hash=${safeHash(case.inputPrompt)}",
+        "prompt_length=${case.inputPrompt.length}",
+        "prompt_code_points=${codePoints(case.inputPrompt)}",
+        "prompt_preview=${safePreview(case.inputPrompt)}",
+    )
+
+    fun buildCaseDone(
+        index: Int,
+        case: Case,
+        result: CaseResult,
+    ): List<String> = listOf(
+        "case_done=true",
+        "case_index=$index",
+        "template_name=${case.template.name}",
+        "status=${result.status}",
+        "reason=${result.reason}",
+        "elapsed_ms=${result.elapsedMs ?: "unknown"}",
+    )
+
+    fun buildCaseFailed(
+        index: Int,
+        case: Case,
+        throwable: Throwable,
+        elapsedMs: Long,
+    ): List<String> = listOf(
+        "case_failed=true",
+        "case_index=$index",
+        "template_name=${case.template.name}",
+        "exception_class=${throwable.javaClass.simpleName}",
+        "message_hash=${safeHash(throwable.message.orEmpty())}",
+        "message_preview=${safePreview(throwable.message.orEmpty())}",
+        "elapsed_ms=$elapsedMs",
+    )
+
     fun buildRow(
         index: Int,
         case: Case,
@@ -152,37 +272,37 @@ object DevOnlyNpuPromptTemplateMatrix {
     ): List<String> = listOf(
         "case_index=$index",
         "template_name=${case.template.name}",
-        "input_prompt_hash=${hash(case.inputPrompt)}",
+        "input_prompt_hash=${safeHash(case.inputPrompt)}",
         "input_prompt_length=${case.inputPrompt.length}",
         "input_prompt_code_points=${codePoints(case.inputPrompt)}",
-        "input_prompt_preview=${preview(case.inputPrompt)}",
-        "request_prompt_hash=${hash(case.requestPrompt)}",
+        "input_prompt_preview=${safePreview(case.inputPrompt)}",
+        "request_prompt_hash=${safeHash(case.requestPrompt)}",
         "request_prompt_length=${case.requestPrompt.length}",
         "request_prompt_code_points=${codePoints(case.requestPrompt)}",
-        "request_prompt_preview=${preview(case.requestPrompt)}",
+        "request_prompt_preview=${safePreview(case.requestPrompt)}",
         "status=${result.status}",
         "reason=${result.reason}",
         "run_decode_reached=${result.runDecodeReached}",
         "fallback_used=${result.fallbackUsed}",
         "timeout=${result.timeout}",
         "fresh_crash=${result.freshCrash}",
-        "raw_output_hash=${hash(result.rawOutput)}",
+        "raw_output_hash=${safeHash(result.rawOutput)}",
         "raw_output_length=${result.rawOutputLength}",
         "raw_output_code_points=${codePoints(result.rawOutput)}",
-        "raw_output_preview=${preview(result.rawOutput)}",
-        "sanitized_output_hash=${hash(result.sanitizedOutput)}",
+        "raw_output_preview=${safePreview(result.rawOutput)}",
+        "sanitized_output_hash=${safeHash(result.sanitizedOutput)}",
         "sanitized_output_length=${result.sanitizedOutputLength}",
         "sanitized_output_code_points=${codePoints(result.sanitizedOutput)}",
-        "sanitized_output_preview=${preview(result.sanitizedOutput)}",
+        "sanitized_output_preview=${safePreview(result.sanitizedOutput)}",
         "quality_classification=${result.qualityClassification}",
         "elapsed_ms=${result.elapsedMs ?: "unknown"}",
-        "message_preview=${preview(result.message)}",
+        "message_preview=${safePreview(result.message)}",
         "case_end=true",
     )
 
     private fun codePoints(value: String): Int = value.codePointCount(0, value.length)
 
-    private fun preview(value: String): String {
+    fun safePreview(value: String): String {
         val normalized = value.map { char -> if (char.isWhitespace()) ' ' else char }
             .joinToString(separator = "")
             .trim()
@@ -194,7 +314,7 @@ object DevOnlyNpuPromptTemplateMatrix {
         }
     }
 
-    private fun hash(value: String): String {
+    fun safeHash(value: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
         return digest.joinToString(separator = "") { byte ->
             "%02x".format(byte.toInt() and 0xff)
@@ -266,19 +386,21 @@ object DevOnlyNpuPromptTemplateMatrix {
             fun failure(
                 reason: String,
                 message: String,
+                elapsedMs: Long? = null,
+                timeout: Boolean = false,
             ): CaseResult = CaseResult(
                 status = "failure",
                 reason = reason,
                 runDecodeReached = false,
                 fallbackUsed = false,
-                timeout = false,
+                timeout = timeout,
                 freshCrash = false,
                 rawOutput = "",
                 rawOutputLength = 0,
                 sanitizedOutput = "",
                 sanitizedOutputLength = 0,
                 qualityClassification = "unknown",
-                elapsedMs = null,
+                elapsedMs = elapsedMs,
                 message = message,
             )
         }
