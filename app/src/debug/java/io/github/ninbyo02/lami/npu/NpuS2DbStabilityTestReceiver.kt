@@ -232,10 +232,11 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
     private fun runPrompt(request: NpuS2DbStabilityRunRequest): NpuS2DbStabilityReportRow {
         val bridge = NpuStandardRouteS1Bridge(mode = NpuStandardRouteMode.S2_DB)
         val s2Bridge = NpuStandardRouteS2DbBridge()
-        val s1Result = bridge.run(
+        val rawS1Result = bridge.run(
             userPrompt = request.prompt,
             maxOutputTokens = request.maxOutputTokens,
         )
+        val s1Result = normalizeNpuS2DbStabilityResult(rawS1Result)
         val mapping = s2Bridge.prepareSaveCandidate(
             userPrompt = request.prompt,
             s1Result = s1Result,
@@ -344,6 +345,35 @@ private data class NpuS2DbStabilityPromptRun(
     val timedOut: Boolean,
 )
 
+internal fun normalizeNpuS2DbStabilityResult(
+    result: NpuStandardRouteS1Result,
+): NpuStandardRouteS1Result {
+    val normalizedSanitizedOutput =
+        Qairt244NpuOutputSanitizer.normalizeJapaneseInternalSpaces(result.sanitizedOutput)
+    if (normalizedSanitizedOutput == result.sanitizedOutput) return result
+    return result.copy(
+        sanitizedOutput = normalizedSanitizedOutput,
+        displayText = NpuStandardRouteS1Contract.displayText(
+            selection = result.selection,
+            status = result.status,
+            reason = result.reason,
+            rawOutput = result.rawOutput,
+            sanitizedOutput = normalizedSanitizedOutput,
+            qualityClassification = result.qualityClassification,
+            runDecodeReached = result.runDecodeReached,
+            npuBackendEvidence = result.npuBackendEvidence,
+            fallbackUsed = result.fallbackUsed,
+            timeout = result.timeout,
+            freshCrash = result.freshCrash,
+            selectedModelName = result.selectedModelName,
+            selectedModelFile = result.selectedModelFile,
+            npuModelEligible = result.npuModelEligible,
+            timing = result.timing,
+            s2DbReason = result.s2DbReason,
+        ),
+    )
+}
+
 internal data class NpuS2DbStabilityReportRow(
     val number: Int,
     val prompt: String,
@@ -374,6 +404,8 @@ internal data class NpuS2DbStabilityReportRow(
             val db = result.selection.sideEffects.db
             val conversationHistorySaved = result.selection.sideEffects.conversationHistorySaved
             val rawRoleContamination = hasNpuStandardRouteRawRoleContamination(result.rawOutput)
+            val normalizedSanitizedOutput =
+                Qairt244NpuOutputSanitizer.normalizeJapaneseInternalSpaces(result.sanitizedOutput)
             val judgement = when {
                 db && conversationHistorySaved && saveCandidateReady -> "pass_saved"
                 rawRoleContamination && !db && !conversationHistorySaved -> "pass_blocked_raw_role_contamination"
@@ -393,7 +425,7 @@ internal data class NpuS2DbStabilityReportRow(
                 status = result.status,
                 reason = result.reason,
                 qualityClassification = result.qualityClassification,
-                sanitizedOutput = result.sanitizedOutput,
+                sanitizedOutput = normalizedSanitizedOutput,
                 rawRoleContamination = rawRoleContamination,
                 db = db,
                 conversationHistorySaved = conversationHistorySaved,
@@ -537,7 +569,7 @@ internal object NpuS2DbStabilityReportFormatter {
         status,
         reason,
         qualityClassification,
-        sanitizedOutput,
+        Qairt244NpuOutputSanitizer.normalizeJapaneseInternalSpaces(sanitizedOutput),
         rawRoleContamination.toString(),
         db.toString(),
         conversationHistorySaved.toString(),

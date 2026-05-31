@@ -362,7 +362,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             ),
             values = mapOf(
                 "sanitized_output" to "こんにちは。短い応答です。",
-                "sanitized_output_length" to "12",
+                "sanitized_output_length" to "13",
                 "raw_native_output" to "こんにちは。短い応答です。",
                 "raw_native_output_length" to "12",
                 "max_output_tokens" to "32",
@@ -427,7 +427,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             ),
             values = mapOf(
                 "sanitized_output" to "こんにちは。\n短い応答です。",
-                "sanitized_output_length" to "12",
+                "sanitized_output_length" to "14",
                 "raw_native_output" to "こんにちは。\n短い応答です。",
                 "raw_native_output_length" to "12",
                 "max_output_tokens" to "16",
@@ -463,7 +463,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(text.contains("timeout=false"))
         assertTrue(text.contains("fresh_crash=false"))
         assertTrue(text.contains("raw_len=12"))
-        assertTrue(text.contains("sanitized_len=12"))
+        assertTrue(text.contains("sanitized_len=14"))
         assertTrue(text.contains("raw_output_first_200_chars=こんにちは。\\n短い応答です。"))
         assertTrue(text.contains("raw_output_last_200_chars=こんにちは。\\n短い応答です。"))
         assertTrue(text.contains("raw_unicode_summary=control_chars=U+000A x1;replacement_char_count=0"))

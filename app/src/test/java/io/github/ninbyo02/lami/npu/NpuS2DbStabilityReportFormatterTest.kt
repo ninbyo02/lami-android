@@ -1,6 +1,12 @@
 package io.github.ninbyo02.lami.npu
 
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Contract
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Result
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Selection
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS2DbMapper
+import io.github.ninbyo02.lami.ui.screens.home.buildNpuStandardRouteS2DbSavedResult
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -98,6 +104,75 @@ class NpuS2DbStabilityReportFormatterTest {
         assertTrue(csv.contains("\"2\",\"2\",\"ああああ\",\"failure\",\"unsafe_prompt_result\""))
     }
 
+    @Test
+    fun `report formatter normalizes Japanese internal spaces in markdown and csv`() {
+        val spacedOutput = "承 知いたしました。\n1. 箇条書きの作成\n2. 3つの項目を提示\n3. 短くまとめ る"
+        val markdown = NpuS2DbStabilityReportFormatter.toMarkdown(
+            timestamp = "20260601_120000",
+            maxOutputTokens = 128,
+            rows = listOf(sampleRow(sanitizedOutput = spacedOutput)),
+            promptIndex = 8,
+            timeoutMs = 180_000L,
+        )
+        val csv = NpuS2DbStabilityReportFormatter.toCsv(
+            rows = listOf(sampleRow(sanitizedOutput = spacedOutput)),
+        )
+
+        assertTrue(markdown.contains("承知いたしました。"))
+        assertTrue(markdown.contains("短くまとめる"))
+        assertFalse(markdown.contains("承 知いたしました。"))
+        assertFalse(markdown.contains("短くまとめ る"))
+        assertTrue(csv.contains("承知いたしました。"))
+        assertTrue(csv.contains("短くまとめる"))
+        assertFalse(csv.contains("承 知いたしました。"))
+        assertFalse(csv.contains("短くまとめ る"))
+    }
+
+    @Test
+    fun `report row from S2 result normalizes prompt 8 Japanese internal spaces`() {
+        val spacedOutput = "承 知いたしました。\n1. 箇条書きの作成\n2. 3つの項目を提示\n3. 短くまとめ る"
+        val s2Result = buildNpuStandardRouteS2DbSavedResult(
+            successResult(sanitizedOutput = spacedOutput),
+        )
+
+        val row = NpuS2DbStabilityReportRow.fromResult(
+            number = 8,
+            prompt = "箇条書きで3つ教えて",
+            result = s2Result,
+            saveCandidateReady = true,
+            s2DbReason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+        )
+
+        assertTrue(row.sanitizedOutput.contains("承知いたしました。"))
+        assertTrue(row.sanitizedOutput.contains("短くまとめる"))
+        assertFalse(row.sanitizedOutput.contains("承 知いたしました。"))
+        assertFalse(row.sanitizedOutput.contains("短くまとめ る"))
+    }
+
+    @Test
+    fun `receiver normalization feeds S2 DB candidate without changing raw output`() {
+        val spacedOutput = "承 知いたしました。\n1. 箇条書きの作成\n2. 3つの項目を提示\n3. 短くまとめ る"
+        val normalizedOutput = "承知いたしました。\n1. 箇条書きの作成\n2. 3つの項目を提示\n3. 短くまとめる"
+
+        val normalizedResult = normalizeNpuS2DbStabilityResult(
+            successResult(
+                rawOutput = spacedOutput,
+                sanitizedOutput = spacedOutput,
+            ),
+        )
+        val mapping = NpuStandardRouteS2DbMapper.map(
+            userPrompt = "箇条書きで3つ教えて",
+            s1Result = normalizedResult,
+        )
+        val candidate = requireNotNull(mapping.saveCandidate)
+
+        assertEquals(spacedOutput, normalizedResult.rawOutput)
+        assertEquals(normalizedOutput, normalizedResult.sanitizedOutput)
+        assertEquals(normalizedOutput, candidate.assistantMessage.text)
+        assertTrue(candidate.assistantMessage.sourceDisplayText.contains("raw_output=$spacedOutput"))
+        assertTrue(candidate.assistantMessage.sourceDisplayText.contains("sanitized_output=$normalizedOutput"))
+    }
+
     private fun sampleRow(
         sanitizedOutput: String = "こんにちは。",
         notes: String = "automation_scope=s2_decoding_and_save_decision_logic",
@@ -121,4 +196,21 @@ class NpuS2DbStabilityReportFormatterTest {
             judgement = "pass_saved",
             notes = notes,
         )
+
+    private fun successResult(
+        rawOutput: String = "こんにちは。",
+        sanitizedOutput: String = "こんにちは。",
+    ): NpuStandardRouteS1Result = NpuStandardRouteS1Result(
+        selection = NpuStandardRouteS1Selection(enabled = true),
+        status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+        reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+        rawOutput = rawOutput,
+        sanitizedOutput = sanitizedOutput,
+        qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+        runDecodeReached = true,
+        npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+        fallbackUsed = false,
+        timeout = false,
+        freshCrash = false,
+    )
 }
