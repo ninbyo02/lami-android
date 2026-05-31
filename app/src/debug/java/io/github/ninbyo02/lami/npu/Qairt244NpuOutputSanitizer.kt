@@ -119,9 +119,10 @@ internal object Qairt244NpuOutputSanitizer {
             codeFenceCompleted = true
         }
 
-        val sanitized = keptLines
+        val sanitizedBeforeJapaneseSpaceNormalization = keptLines
             .joinToString("\n")
             .trim()
+        val sanitized = normalizeJapaneseInternalSpaces(sanitizedBeforeJapaneseSpaceNormalization)
         val sanitizerApplied = sanitized != rawOutput ||
             removedTemplateTokenCount > 0 ||
             removedPromptEcho ||
@@ -139,6 +140,26 @@ internal object Qairt244NpuOutputSanitizer {
 
     private fun isCodeFence(line: String): Boolean =
         codeFencePattern.matches(line.trim())
+
+    fun normalizeJapaneseInternalSpaces(value: String): String {
+        if (' ' !in value) return value
+        val normalized = StringBuilder(value.length)
+        var index = 0
+        while (index < value.length) {
+            val codePoint = value.codePointAt(index)
+            if (
+                codePoint == HALF_WIDTH_SPACE_CODE_POINT &&
+                normalized.lastCodePointOrNull()?.isJapaneseTextCodePoint() == true &&
+                value.nextCodePointOrNull(index + Character.charCount(codePoint))?.isJapaneseTextCodePoint() == true
+            ) {
+                index += Character.charCount(codePoint)
+                continue
+            }
+            normalized.appendCodePoint(codePoint)
+            index += Character.charCount(codePoint)
+        }
+        return normalized.toString()
+    }
 
     private fun isPromptEcho(line: String, prompt: String): Boolean {
         if (prompt.isEmpty()) return false
@@ -167,7 +188,9 @@ internal object Qairt244NpuOutputSanitizer {
 
     private fun isLeadingNonJapaneseDrift(line: String, prompt: String): Boolean {
         if (!containsJapanese(prompt) || containsJapanese(line)) return false
-        return line.any { Character.isLetter(it) }
+        return line.any { char ->
+            Character.isLetter(char) && !char.isLatinLetter()
+        }
     }
 
     private fun containsJapanese(value: String): Boolean =
@@ -179,6 +202,24 @@ internal object Qairt244NpuOutputSanitizer {
                 block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A
         }
 
+    private fun Char.isLatinLetter(): Boolean =
+        this in 'A'..'Z' || this in 'a'..'z'
+
+    private fun StringBuilder.lastCodePointOrNull(): Int? {
+        if (isEmpty()) return null
+        return codePointBefore(length)
+    }
+
+    private fun String.nextCodePointOrNull(index: Int): Int? =
+        if (index in indices) codePointAt(index) else null
+
+    private fun Int.isJapaneseTextCodePoint(): Boolean =
+        this in 0x3040..0x309F ||
+            this in 0x30A0..0x30FF ||
+            this in 0x3400..0x4DBF ||
+            this in 0x4E00..0x9FFF ||
+            this in 0xF900..0xFAFF
+
     private val standaloneGreetingResponses = setOf(
         "こんにちは",
         "こんにちは。",
@@ -189,4 +230,6 @@ internal object Qairt244NpuOutputSanitizer {
         "ありがとう",
         "ありがとう。",
     )
+
+    private const val HALF_WIDTH_SPACE_CODE_POINT = 0x0020
 }
