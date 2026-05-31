@@ -1365,9 +1365,30 @@ private fun buildDevDiagnosticSummarySection(
         PreferredBackendDryRunSetting.DEFAULT -> "skipped-default"
         else -> "not-supported-or-not-reached"
     }
+    val baselineModelName = resolveLiteRtLmReadinessSelectedModelName(stats, trace)
+    val baselineModelKind = classifyLiteRtLmModelKindForBaseline(baselineModelName)
+    val baselinePreferredBackend = appliedPreferredBackend
+        .takeIf { it.isNotBlank() && it != "not-applied" }
+        ?: requestedPreferredBackend
+    val baselineRole = resolveLiteRtLmBaselineRole(
+        modelKind = baselineModelKind,
+        preferredBackend = baselinePreferredBackend,
+    )
+    val genericModelCpuBaseline = isGenericLiteRtLmCpuStableBaseline(
+        modelKind = baselineModelKind,
+        baselineRole = baselineRole,
+    )
     val items = buildList {
         add(InferenceStatItemUi(label = "実行経路", value = resolveDevSummaryExecutionPath(stats, trace)))
         add(InferenceStatItemUi(label = "使用モデル", value = resolveDevSummaryModelName(stats, trace)))
+        add(InferenceStatItemUi(label = "実行基準", value = formatLiteRtLmBaselineRoleForUi(baselineRole)))
+        add(InferenceStatItemUi(label = "model_kind", value = baselineModelKind))
+        add(InferenceStatItemUi(label = "preferred_backend", value = baselinePreferredBackend))
+        add(InferenceStatItemUi(label = "baseline_role", value = baselineRole))
+        add(InferenceStatItemUi(label = "generic_model_cpu_baseline", value = genericModelCpuBaseline.toString()))
+        if (baselineRole == LITERT_LM_BASELINE_GPU_EXPERIMENTAL) {
+            add(InferenceStatItemUi(label = "注意", value = "GPU初期化で停止する場合はCPUを選択してください"))
+        }
         add(InferenceStatItemUi(label = "モデル解決", value = resolveDevSummaryModelResolution(stats, trace)))
         add(InferenceStatItemUi(label = "held engine再利用", value = devDiagnosticsUiModel.heldEngineReuseSummary))
         add(InferenceStatItemUi(label = "held engine状態", value = devDiagnosticsUiModel.heldEngineStateSummary))
@@ -1853,13 +1874,7 @@ private fun buildEngineInitializeDryRunProbeItems(
 }
 
 private fun classifyLiteRtLmModelKind(selectedModel: String): String {
-    val lower = selectedModel.substringAfterLast('/').lowercase(Locale.ROOT)
-    return when {
-        "qualcomm" in lower && "sm8750" in lower -> "qualcomm-sm8750-litertlm"
-        listOf("qualcomm", "qcs", "qnn", "htp").any { it in lower } -> "qualcomm-litertlm"
-        "litertlm" in lower -> "generic-litertlm"
-        else -> "unknown"
-    }
+    return classifyLiteRtLmModelKindForBaseline(selectedModel)
 }
 
 private fun classifyLiteRtLmModelNpuCompatibilityHint(selectedModel: String): String {

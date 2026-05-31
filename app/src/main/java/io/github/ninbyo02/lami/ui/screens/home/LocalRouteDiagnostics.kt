@@ -9,6 +9,9 @@ internal data class LocalRouteDiagnosticContext(
     val npuStandardRouteMode: String,
     val shouldEnterNpuS1: Boolean,
     val localRouteEntered: Boolean,
+    val modelKind: String,
+    val baselineRole: String,
+    val genericModelCpuBaseline: Boolean,
 )
 
 internal data class LocalRouteDiagnosticFlags(
@@ -30,19 +33,35 @@ internal fun buildLocalRouteDiagnosticContext(
     npuStandardRouteMode: String,
     shouldEnterNpuS1: Boolean,
     localRouteEntered: Boolean,
-): LocalRouteDiagnosticContext =
-    LocalRouteDiagnosticContext(
-        selectedModelName = selectedModelName?.trim()?.takeIf { it.isNotBlank() } ?: "unknown",
-        selectedModelFile = selectedModelFile
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
-            ?.let { path -> File(path).name.ifBlank { path } }
-            ?: "unknown",
+): LocalRouteDiagnosticContext {
+    val modelName = selectedModelName?.trim()?.takeIf { it.isNotBlank() } ?: "unknown"
+    val modelFile = selectedModelFile
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.let { path -> File(path).name.ifBlank { path } }
+        ?: "unknown"
+    val modelKind = classifyLiteRtLmModelKindForBaseline(
+        selectedModelFile?.trim()?.takeIf { it.isNotBlank() } ?: modelName,
+    )
+    val baselineRole = resolveLiteRtLmBaselineRole(
+        modelKind = modelKind,
+        preferredBackend = preferredBackend,
+    )
+    return LocalRouteDiagnosticContext(
+        selectedModelName = modelName,
+        selectedModelFile = modelFile,
         preferredBackend = preferredBackend,
         npuStandardRouteMode = npuStandardRouteMode,
         shouldEnterNpuS1 = shouldEnterNpuS1,
         localRouteEntered = localRouteEntered,
+        modelKind = modelKind,
+        baselineRole = baselineRole,
+        genericModelCpuBaseline = isGenericLiteRtLmCpuStableBaseline(
+            modelKind = modelKind,
+            baselineRole = baselineRole,
+        ),
     )
+}
 
 internal fun buildLocalRouteDiagnosticTrace(
     stage: String,
@@ -54,7 +73,10 @@ internal fun buildLocalRouteDiagnosticTrace(
     "stage=$stage",
     "selected_model_name=${context.selectedModelName}",
     "selected_model_file=${context.selectedModelFile}",
+    "model_kind=${context.modelKind}",
     "preferred_backend=${context.preferredBackend}",
+    "baseline_role=${context.baselineRole}",
+    "generic_model_cpu_baseline=${context.genericModelCpuBaseline}",
     "npu_standard_route_mode=${context.npuStandardRouteMode}",
     "should_enter_npu_s1=${context.shouldEnterNpuS1}",
     "local_route_entered=${context.localRouteEntered}",

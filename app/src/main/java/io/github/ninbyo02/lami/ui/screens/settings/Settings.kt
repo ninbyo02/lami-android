@@ -626,7 +626,7 @@ fun Settings(
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "DEBUGビルド限定の実験機能です。LiteRT-LM EngineConfig に DEFAULT / CPU / GPU を指定します。NPUはvendor FastRPC namespace制約のため本線では無効化し、GPUを推奨します。変更後はローカルエンジン再作成が必要です。",
+                                text = "DEBUGビルド限定の実験機能です。LiteRT-LM EngineConfig に DEFAULT / CPU / GPU を指定します。Generic LiteRT-LMモデルではCPUが安定推奨です。GPUは端末・モデル相性により読み込みで停止する場合があるため実験扱いです。NPUはvendor FastRPC namespace制約のため本線では無効化しています。変更後はローカルエンジン再作成が必要です。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

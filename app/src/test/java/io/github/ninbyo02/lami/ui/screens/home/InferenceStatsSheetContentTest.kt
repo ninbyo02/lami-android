@@ -901,6 +901,56 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceDetailSections marks Generic LiteRT-LM CPU as stable baseline`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                mediaPipeProbeModelPath = "/models/gemma-4-E2B-it.litertlm",
+                requestedPreferredBackend = "CPU",
+                appliedPreferredBackend = "CPU",
+                preferredBackendApplyResult = "applied-engine-config",
+                preferredBackendHookReached = true,
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.CPU,
+        )
+
+        val summarySection = sections.first { it.title == "DEV診断サマリー" }
+        assertEquals("CPU stable baseline", summarySection.items.first { it.label == "実行基準" }.value)
+        assertEquals("generic-litertlm", summarySection.items.first { it.label == "model_kind" }.value)
+        assertEquals("CPU", summarySection.items.first { it.label == "preferred_backend" }.value)
+        assertEquals("cpu_stable_baseline", summarySection.items.first { it.label == "baseline_role" }.value)
+        assertEquals("true", summarySection.items.first { it.label == "generic_model_cpu_baseline" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections marks Generic LiteRT-LM GPU as experimental baseline`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(modelName = "gemma-4-E2B-it.litertlm"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            localTraceForDev = LocalInferenceTrace(
+                mediaPipeProbeModelPath = "/models/gemma-4-E2B-it.litertlm",
+                requestedPreferredBackend = "GPU",
+                appliedPreferredBackend = "GPU",
+                preferredBackendApplyResult = "applied-engine-config",
+                preferredBackendHookReached = true,
+            ),
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
+        )
+
+        val summarySection = sections.first { it.title == "DEV診断サマリー" }
+        assertEquals("GPU experimental", summarySection.items.first { it.label == "実行基準" }.value)
+        assertEquals("generic-litertlm", summarySection.items.first { it.label == "model_kind" }.value)
+        assertEquals("GPU", summarySection.items.first { it.label == "preferred_backend" }.value)
+        assertEquals("gpu_experimental", summarySection.items.first { it.label == "baseline_role" }.value)
+        assertEquals("false", summarySection.items.first { it.label == "generic_model_cpu_baseline" }.value)
+        assertEquals(
+            "GPU初期化で停止する場合はCPUを選択してください",
+            summarySection.items.first { it.label == "注意" }.value,
+        )
+    }
+
+    @Test
     fun `buildInferenceDetailSections shows preferred backend dry-run rows for DEFAULT`() {
         val sections = buildInferenceDetailSections(
             stats = InferenceStats(),
