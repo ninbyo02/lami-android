@@ -69,6 +69,7 @@ internal data class NpuStandardRouteS1Result(
     val selectedModelFile: String = "",
     val npuModelEligible: Boolean? = null,
     val timing: NpuStandardRouteS1Timing = NpuStandardRouteS1Timing(),
+    val s2DbReason: String = "",
     val displayText: String = NpuStandardRouteS1Contract.displayText(
         selection = selection,
         status = status,
@@ -85,6 +86,7 @@ internal data class NpuStandardRouteS1Result(
         selectedModelFile = selectedModelFile,
         npuModelEligible = npuModelEligible,
         timing = timing,
+        s2DbReason = s2DbReason,
     ),
 ) {
     val successCriteriaMet: Boolean
@@ -119,12 +121,14 @@ internal data class NpuStandardRouteS1Result(
                 selectedModelFile = selectedModelFile,
                 npuModelEligible = npuModelEligible,
                 timing = timing,
+                s2DbReason = s2DbReason,
             ),
         )
 }
 
 internal object NpuStandardRouteS1Contract {
     const val ROUTE_TYPE = "standard_chat_screen_s1_npu_display_only"
+    const val ROUTE_TYPE_S2_DB_SAVE = "standard_chat_screen_s2_npu_db_save"
     const val PROMPT_TAIL_VARIANT = "raw_dialog_tail_variant_b"
     const val MAX_OUTPUT_TOKENS = 32
     const val NPU_BACKEND_EVIDENCE = "QNN_HTP_V79_FastRPC_native_diag"
@@ -162,6 +166,7 @@ internal object NpuStandardRouteS1Contract {
         selectedModelFile: String = "",
         npuModelEligible: Boolean? = null,
         timing: NpuStandardRouteS1Timing = NpuStandardRouteS1Timing(),
+        s2DbReason: String = "",
     ): String {
         val sideEffects = selection.sideEffects
         return listOfNotNull(
@@ -175,6 +180,7 @@ internal object NpuStandardRouteS1Contract {
             "npu_s1_tokens_per_second=${formatTokensPerSecond(timing.tokensPerSecond)}".takeIf { timing.hasAnyValue },
             "route_type=${selection.routeType}",
             "standard_route_connected=true",
+            s2DbReason.takeIf { it.isNotBlank() }?.let { "s2_db_reason=$it" },
             selectedModelName.takeIf { it.isNotBlank() }?.let { "selected_model_name=$it" },
             selectedModelFile.takeIf { it.isNotBlank() }?.let { "selected_model_file=$it" },
             npuModelEligible?.let { "npu_model_eligible=$it" },

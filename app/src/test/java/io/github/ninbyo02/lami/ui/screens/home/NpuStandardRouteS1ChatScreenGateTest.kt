@@ -820,6 +820,130 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `S1 mode remains display only with DB disconnected`() {
+        val result = s1SuccessResult().withTiming(NpuStandardRouteS1Timing(totalMs = 1))
+
+        assertEquals(NpuStandardRouteS1Contract.ROUTE_TYPE, result.selection.routeType)
+        assertTrue(result.displayText.contains("route_type=standard_chat_screen_s1_npu_display_only"))
+        assertTrue(result.displayText.contains("db=false"))
+        assertTrue(result.displayText.contains("conversation_history_saved=false"))
+    }
+
+    @Test
+    fun `S2 saved result marks DB and conversation history connected`() {
+        val s2Result = buildNpuStandardRouteS2DbSavedResult(
+            s1SuccessResult().withTiming(
+                NpuStandardRouteS1Timing(
+                    totalMs = 1200,
+                    decodeMs = 1000,
+                    outputTokens = 20,
+                    tokenCountMode = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS,
+                    tokensPerSecond = 20.0,
+                ),
+            ),
+        )
+
+        assertEquals(NpuStandardRouteS1Contract.ROUTE_TYPE_S2_DB_SAVE, s2Result.selection.routeType)
+        assertTrue(s2Result.displayText.contains("route_type=standard_chat_screen_s2_npu_db_save"))
+        assertTrue(s2Result.displayText.contains("db=true"))
+        assertTrue(s2Result.displayText.contains("conversation_history_saved=true"))
+        assertTrue(s2Result.displayText.contains("tts=false"))
+        assertTrue(s2Result.displayText.contains("markdown=false"))
+        assertTrue(s2Result.displayText.contains("streaming=false"))
+        assertTrue(s2Result.displayText.contains("npu_s1_total_ms=1200"))
+        assertTrue(s2Result.displayText.contains("npu_s1_decode_ms=1000"))
+        assertTrue(s2Result.displayText.contains("npu_s1_tokens_per_second=20.0"))
+        assertTrue(s2Result.displayText.contains("fallback_used=false"))
+        assertTrue(s2Result.displayText.contains("fresh_crash=false"))
+        assertTrue(s2Result.displayText.contains("timeout=false"))
+    }
+
+    @Test
+    fun `S2 skipped result keeps DB disconnected and explains reason`() {
+        val failureResult = s1EmptyAfterSanitizeFailureResult()
+        val mapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "こんにちは",
+            s1Result = failureResult,
+        )
+        val s2Result = buildNpuStandardRouteS2DbSkippedResult(
+            s1Result = failureResult,
+            failureReason = mapping.failureReason,
+        )
+
+        assertFalse(mapping.hasSaveCandidate)
+        assertTrue(s2Result.displayText.contains("route_type=standard_chat_screen_s2_npu_db_save"))
+        assertTrue(s2Result.displayText.contains("db=false"))
+        assertTrue(s2Result.displayText.contains("conversation_history_saved=false"))
+        assertTrue(s2Result.displayText.contains("s2_db_reason=s1_success_criteria_not_met"))
+    }
+
+    @Test
+    fun `S2 successful flow saves one user message and one assistant message`() = runTest {
+        val events = mutableListOf<String>()
+        val run = runNpuInferenceAfterImmediateUserMessage(
+            requestPrompt = "こんにちは",
+            currentChatId = 42,
+            createChat = {
+                events += "create_chat"
+                42
+            },
+            onChatCreated = { chatId ->
+                events += "chat_created:$chatId"
+            },
+            insertUserMessage = { chatId, promptText ->
+                events += "insert_user:$chatId:$promptText"
+            },
+            runInference = {
+                s1SuccessResult()
+            },
+        )
+        val mapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "こんにちは",
+            s1Result = run.result,
+        )
+        if (shouldPersistNpuStandardRouteS2Db(enabled = true, mapping = mapping)) {
+            events += "insert_assistant:${run.chatId}:${requireNotNull(mapping.saveCandidate).assistantMessage.text}"
+        }
+
+        assertEquals(1, events.count { it.startsWith("insert_user:") })
+        assertEquals(1, events.count { it.startsWith("insert_assistant:") })
+        assertFalse(events.contains("create_chat"))
+    }
+
+    @Test
+    fun `S2 failure flow keeps user message and saves no assistant success message`() = runTest {
+        val events = mutableListOf<String>()
+        val run = runNpuInferenceAfterImmediateUserMessage(
+            requestPrompt = "こんにちは",
+            currentChatId = 42,
+            createChat = {
+                events += "create_chat"
+                42
+            },
+            onChatCreated = { chatId ->
+                events += "chat_created:$chatId"
+            },
+            insertUserMessage = { chatId, promptText ->
+                events += "insert_user:$chatId:$promptText"
+            },
+            runInference = {
+                s1EmptyAfterSanitizeFailureResult()
+            },
+        )
+        val mapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "こんにちは",
+            s1Result = run.result,
+        )
+        if (shouldPersistNpuStandardRouteS2Db(enabled = true, mapping = mapping)) {
+            events += "insert_assistant:${run.chatId}:${requireNotNull(mapping.saveCandidate).assistantMessage.text}"
+        }
+
+        assertEquals(1, events.count { it.startsWith("insert_user:") })
+        assertEquals(0, events.count { it.startsWith("insert_assistant:") })
+        assertFalse(mapping.hasSaveCandidate)
+    }
+
+    @Test
     fun `S2 through S5 phase gates follow NPU standard route mode`() {
         val s2Mapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
             userPrompt = "こんにちは",

@@ -12,6 +12,7 @@ class NpuStandardRouteS2DbContractTest {
         val sideEffects = NpuStandardRouteS2DbSideEffects()
 
         assertTrue(sideEffects.dbConnected)
+        assertTrue(sideEffects.conversationHistorySaved)
         assertFalse(sideEffects.tts)
         assertFalse(sideEffects.markdown)
         assertFalse(sideEffects.streaming)
@@ -36,6 +37,7 @@ class NpuStandardRouteS2DbContractTest {
         assertEquals("こんにちは。", candidate.assistantMessage.sourceDisplayText)
         assertFalse(candidate.assistantMessage.isSendByMe)
         assertTrue(candidate.sideEffects.dbConnected)
+        assertTrue(candidate.sideEffects.conversationHistorySaved)
         assertFalse(candidate.sideEffects.tts)
         assertFalse(candidate.sideEffects.markdown)
         assertFalse(candidate.sideEffects.streaming)

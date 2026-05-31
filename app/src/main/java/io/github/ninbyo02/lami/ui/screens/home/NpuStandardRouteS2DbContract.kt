@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 internal data class NpuStandardRouteS2DbSideEffects(
     val dbConnected: Boolean = true,
+    val conversationHistorySaved: Boolean = true,
     val tts: Boolean = false,
     val markdown: Boolean = false,
     val streaming: Boolean = false,
@@ -9,6 +10,7 @@ internal data class NpuStandardRouteS2DbSideEffects(
 ) {
     val onlyDbConnected: Boolean
         get() = dbConnected &&
+            conversationHistorySaved &&
             !tts &&
             !markdown &&
             !streaming &&

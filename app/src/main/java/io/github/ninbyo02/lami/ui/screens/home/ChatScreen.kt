@@ -2720,6 +2720,8 @@ fun Home(
                                                                 )
                                                             ) {
                                                                 val saveCandidate = requireNotNull(s2DbMapping.saveCandidate)
+                                                                val s2SavedResult = buildNpuStandardRouteS2DbSavedResult(s1Result)
+                                                                npuStandardRouteS1DisplayText = s2SavedResult.displayText
                                                                 val assistantTextForPersist = NpuStandardRouteS3MarkdownBridge()
                                                                     .resolveFinalizedText(
                                                                         enabled = npuStandardRouteS3MarkdownEnabled,
@@ -2767,7 +2769,7 @@ fun Home(
                                                                             createAssistantMessage(
                                                                                 chatId = resolvedChatId,
                                                                                 response = assistantTextForPersist,
-                                                                                localSourceSummary = saveCandidate.assistantMessage.sourceDisplayText,
+                                                                                localSourceSummary = s2SavedResult.displayText,
                                                                             )
                                                                         ).toInt()
                                                                     }
@@ -2837,6 +2839,11 @@ fun Home(
                                                                     }
                                                                 }
                                                                 return@launch
+                                                            } else {
+                                                                npuStandardRouteS1DisplayText = buildNpuStandardRouteS2DbSkippedResult(
+                                                                    s1Result = s1Result,
+                                                                    failureReason = s2DbMapping.failureReason,
+                                                                ).displayText
                                                             }
                                                         }
                                                         val s4DisplayOnlyCandidate =
