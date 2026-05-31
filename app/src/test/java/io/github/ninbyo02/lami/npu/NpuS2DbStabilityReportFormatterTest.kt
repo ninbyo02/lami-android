@@ -30,10 +30,15 @@ class NpuS2DbStabilityReportFormatterTest {
             timestamp = "20260601_120000",
             maxOutputTokens = 128,
             rows = listOf(sampleRow()),
+            promptIndex = 0,
+            timeoutMs = 180_000L,
         )
 
         assertTrue(markdown.contains("automation_scope: `s2_decoding_and_save_decision_logic`"))
         assertTrue(markdown.contains("ui_db_integration: `false`"))
+        assertTrue(markdown.contains("execution_mode: `single_prompt`"))
+        assertTrue(markdown.contains("prompt_index: `0`"))
+        assertTrue(markdown.contains("prompt_timeout_ms: `180000`"))
         assertTrue(
             markdown.contains(
                 "| No | prompt | status | reason | quality_classification | sanitized_output | " +

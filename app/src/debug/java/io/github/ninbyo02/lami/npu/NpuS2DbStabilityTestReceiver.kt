@@ -17,30 +17,68 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 
 class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val appContext = context.applicationContext
-        val pendingResult = goAsync()
-        Thread {
-            try {
-                handle(appContext, intent)
-            } finally {
-                pendingResult.finish()
-            }
-        }.start()
-    }
-
-    private fun handle(appContext: Context, intent: Intent) {
         val timestamp = intent.getStringExtra(EXTRA_TIMESTAMP)
             ?.takeIf { it.isNotBlank() }
             ?: timestamp()
+        if (!running.compareAndSet(false, true)) {
+            writeState(
+                stateFile = File(appContext.filesDir, STATE_FILE_NAME),
+                timestamp = timestamp,
+                status = "failure",
+                reason = "already_running",
+                markdownFileName = "",
+                csvFileName = "",
+                promptIndex = intent.getIntExtra(EXTRA_PROMPT_INDEX, 0),
+                promptCount = NpuS2DbStabilityReportFormatter.prompts.size,
+                timeoutMs = timeoutMs(intent),
+            )
+            return
+        }
+        val pendingResult = goAsync()
+        receiverDispatcher.execute {
+            var releaseRunning = true
+            try {
+                releaseRunning = handle(appContext, intent, timestamp)
+            } catch (throwable: Throwable) {
+                writeState(
+                    stateFile = File(appContext.filesDir, STATE_FILE_NAME),
+                    timestamp = timestamp,
+                    status = "failure",
+                    reason = throwable.message?.takeIf { it.isNotBlank() }
+                        ?: "receiver_exception:${throwable.javaClass.simpleName}",
+                    markdownFileName = "",
+                    csvFileName = "",
+                    promptIndex = intent.getIntExtra(EXTRA_PROMPT_INDEX, 0),
+                    promptCount = NpuS2DbStabilityReportFormatter.prompts.size,
+                    timeoutMs = timeoutMs(intent),
+                )
+            } finally {
+                if (releaseRunning) {
+                    running.set(false)
+                }
+                pendingResult.finish()
+            }
+        }
+    }
+
+    private fun handle(appContext: Context, intent: Intent, timestamp: String): Boolean {
         val maxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(
             intent.getIntExtra(
                 EXTRA_MAX_OUTPUT_TOKENS,
                 NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
             ),
         )
+        val timeoutMs = timeoutMs(intent)
+        val promptIndex = intent.getIntExtra(EXTRA_PROMPT_INDEX, 0)
         val stateFile = File(appContext.filesDir, STATE_FILE_NAME)
         if (!BuildConfig.DEBUG || BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             writeState(
@@ -50,67 +88,151 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
                 reason = "wrong_variant",
                 markdownFileName = "",
                 csvFileName = "",
+                promptIndex = promptIndex,
+                promptCount = NpuS2DbStabilityReportFormatter.prompts.size,
+                timeoutMs = timeoutMs,
             )
-            return
+            return true
+        }
+        if (promptIndex !in NpuS2DbStabilityReportFormatter.prompts.indices) {
+            writeState(
+                stateFile = stateFile,
+                timestamp = timestamp,
+                status = "blocked",
+                reason = "invalid_prompt_index",
+                markdownFileName = "",
+                csvFileName = "",
+                promptIndex = promptIndex,
+                promptCount = NpuS2DbStabilityReportFormatter.prompts.size,
+                timeoutMs = timeoutMs,
+            )
+            return true
         }
 
-        val rows = mutableListOf<NpuS2DbStabilityReportRow>()
-        val bridge = NpuStandardRouteS1Bridge(mode = NpuStandardRouteMode.S2_DB)
-        val s2Bridge = NpuStandardRouteS2DbBridge()
-        NpuS2DbStabilityReportFormatter.prompts.forEachIndexed { index, prompt ->
-            val row = runCatching {
-                val s1Result = bridge.run(
-                    userPrompt = prompt,
-                    maxOutputTokens = maxOutputTokens,
-                )
-                val mapping = s2Bridge.prepareSaveCandidate(
-                    userPrompt = prompt,
-                    s1Result = s1Result,
-                )
-                val s2Result = if (mapping.hasSaveCandidate) {
-                    buildNpuStandardRouteS2DbSavedResult(s1Result)
-                } else {
-                    buildNpuStandardRouteS2DbSkippedResult(
-                        s1Result = s1Result,
-                        failureReason = mapping.failureReason,
-                    )
-                }
-                NpuS2DbStabilityReportRow.fromResult(
-                    number = index + 1,
-                    prompt = prompt,
-                    result = s2Result,
-                    saveCandidateReady = mapping.hasSaveCandidate,
-                    s2DbReason = mapping.failureReason ?: s2Result.s2DbReason,
-                )
-            }.getOrElse { throwable ->
-                NpuS2DbStabilityReportRow.failure(
-                    number = index + 1,
-                    prompt = prompt,
-                    reason = throwable.message?.takeIf { it.isNotBlank() } ?: "runner_exception",
-                )
-            }
-            rows += row
-        }
+        val request = NpuS2DbStabilityRunRequest(
+            maxOutputTokens = maxOutputTokens,
+            promptIndex = promptIndex,
+            prompt = NpuS2DbStabilityReportFormatter.prompts[promptIndex],
+            timeoutMs = timeoutMs,
+        )
+        writeState(
+            stateFile = stateFile,
+            timestamp = timestamp,
+            status = "running",
+            reason = "prompt_running",
+            markdownFileName = "",
+            csvFileName = "",
+            promptIndex = promptIndex,
+            promptCount = NpuS2DbStabilityReportFormatter.prompts.size,
+            timeoutMs = timeoutMs,
+        )
+        val promptRun = runPromptWithTimeout(request)
+        val rows = listOf(promptRun.row)
 
-        val markdownFileName = "npu_s2_db_stability_$timestamp.md"
-        val csvFileName = "npu_s2_db_stability_$timestamp.csv"
+        val promptNumber = promptIndex + 1
+        val markdownFileName = "npu_s2_db_stability_${timestamp}_prompt_$promptNumber.md"
+        val csvFileName = "npu_s2_db_stability_${timestamp}_prompt_$promptNumber.csv"
         File(appContext.filesDir, markdownFileName).writeText(
             NpuS2DbStabilityReportFormatter.toMarkdown(
                 timestamp = timestamp,
                 maxOutputTokens = maxOutputTokens,
                 rows = rows,
+                promptIndex = promptIndex,
+                timeoutMs = timeoutMs,
             ),
         )
         File(appContext.filesDir, csvFileName).writeText(
             NpuS2DbStabilityReportFormatter.toCsv(rows),
         )
+        val safeSuccess = promptRun.row.isSafeSuccessForNextPrompt()
+        val status = if (safeSuccess) "success" else "failure"
+        val reason = when {
+            promptRun.timedOut -> "prompt_timeout"
+            safeSuccess -> "completed"
+            else -> "unsafe_prompt_result"
+        }
         writeState(
             stateFile = stateFile,
             timestamp = timestamp,
-            status = "success",
-            reason = "completed",
+            status = status,
+            reason = reason,
             markdownFileName = markdownFileName,
             csvFileName = csvFileName,
+            promptIndex = promptIndex,
+            promptCount = NpuS2DbStabilityReportFormatter.prompts.size,
+            timeoutMs = timeoutMs,
+        )
+        return !promptRun.timedOut
+    }
+
+    private fun runPromptWithTimeout(
+        request: NpuS2DbStabilityRunRequest,
+    ): NpuS2DbStabilityPromptRun {
+        val decodeExecutor = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "NpuS2DbStabilityDecode-${request.promptIndex + 1}")
+        }
+        val future = decodeExecutor.submit(
+            Callable {
+                runPrompt(request)
+            },
+        )
+        return try {
+            NpuS2DbStabilityPromptRun(
+                row = future.get(request.timeoutMs, TimeUnit.MILLISECONDS),
+                timedOut = false,
+            )
+        } catch (_: TimeoutException) {
+            future.cancel(true)
+            NpuS2DbStabilityPromptRun(
+                row = NpuS2DbStabilityReportRow.failure(
+                    number = request.promptIndex + 1,
+                    prompt = request.prompt,
+                    reason = "prompt_timeout_${request.timeoutMs}ms",
+                    timeout = true,
+                    notes = "automation_scope=s2_decoding_and_save_decision_logic; ui_db_integration=false; timeout_ms=${request.timeoutMs}",
+                ),
+                timedOut = true,
+            )
+        } catch (throwable: Throwable) {
+            NpuS2DbStabilityPromptRun(
+                row = NpuS2DbStabilityReportRow.failure(
+                    number = request.promptIndex + 1,
+                    prompt = request.prompt,
+                    reason = throwable.message?.takeIf { it.isNotBlank() }
+                        ?: "runner_exception:${throwable.javaClass.simpleName}",
+                ),
+                timedOut = false,
+            )
+        } finally {
+            decodeExecutor.shutdownNow()
+        }
+    }
+
+    private fun runPrompt(request: NpuS2DbStabilityRunRequest): NpuS2DbStabilityReportRow {
+        val bridge = NpuStandardRouteS1Bridge(mode = NpuStandardRouteMode.S2_DB)
+        val s2Bridge = NpuStandardRouteS2DbBridge()
+        val s1Result = bridge.run(
+            userPrompt = request.prompt,
+            maxOutputTokens = request.maxOutputTokens,
+        )
+        val mapping = s2Bridge.prepareSaveCandidate(
+            userPrompt = request.prompt,
+            s1Result = s1Result,
+        )
+        val s2Result = if (mapping.hasSaveCandidate) {
+            buildNpuStandardRouteS2DbSavedResult(s1Result)
+        } else {
+            buildNpuStandardRouteS2DbSkippedResult(
+                s1Result = s1Result,
+                failureReason = mapping.failureReason,
+            )
+        }
+        return NpuS2DbStabilityReportRow.fromResult(
+            number = request.promptIndex + 1,
+            prompt = request.prompt,
+            result = s2Result,
+            saveCandidateReady = mapping.hasSaveCandidate,
+            s2DbReason = mapping.failureReason ?: s2Result.s2DbReason,
         )
     }
 
@@ -121,6 +243,9 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
         reason: String,
         markdownFileName: String,
         csvFileName: String,
+        promptIndex: Int,
+        promptCount: Int,
+        timeoutMs: Long,
     ) {
         stateFile.writeText(
             listOf(
@@ -131,6 +256,10 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
                 "ui_db_integration=false",
                 "route_mode=S2_DB",
                 "timestamp=$timestamp",
+                "prompt_index=$promptIndex",
+                "prompt_number=${promptIndex + 1}",
+                "prompt_count=$promptCount",
+                "prompt_timeout_ms=$timeoutMs",
                 "markdown_file=$markdownFileName",
                 "csv_file=$csvFileName",
             ).joinToString(separator = "\n", postfix = "\n"),
@@ -144,9 +273,37 @@ class NpuS2DbStabilityTestReceiver : BroadcastReceiver() {
         const val ACTION = "io.github.ninbyo02.lami.action.NPU_S2_DB_STABILITY_TEST"
         const val EXTRA_TIMESTAMP = "timestamp"
         const val EXTRA_MAX_OUTPUT_TOKENS = "max_output_tokens"
+        const val EXTRA_PROMPT_INDEX = "prompt_index"
+        const val EXTRA_PROMPT_TIMEOUT_MS = "prompt_timeout_ms"
         const val STATE_FILE_NAME = "npu_s2_db_stability_state.txt"
+        private const val DEFAULT_PROMPT_TIMEOUT_MS = 180_000L
+        private const val MAX_PROMPT_TIMEOUT_MS = 900_000L
+        private val running = AtomicBoolean(false)
+        private val receiverDispatcher = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "NpuS2DbStabilityReceiver")
+        }
+
+        private fun timeoutMs(intent: Intent): Long {
+            val requested = intent.getIntExtra(
+                EXTRA_PROMPT_TIMEOUT_MS,
+                DEFAULT_PROMPT_TIMEOUT_MS.toInt(),
+            ).toLong()
+            return requested.coerceIn(1_000L, MAX_PROMPT_TIMEOUT_MS)
+        }
     }
 }
+
+private data class NpuS2DbStabilityRunRequest(
+    val maxOutputTokens: Int,
+    val promptIndex: Int,
+    val prompt: String,
+    val timeoutMs: Long,
+)
+
+private data class NpuS2DbStabilityPromptRun(
+    val row: NpuS2DbStabilityReportRow,
+    val timedOut: Boolean,
+)
 
 internal data class NpuS2DbStabilityReportRow(
     val number: Int,
@@ -218,6 +375,9 @@ internal data class NpuS2DbStabilityReportRow(
             number: Int,
             prompt: String,
             reason: String,
+            timeout: Boolean = false,
+            freshCrash: Boolean = false,
+            notes: String = "automation_scope=s2_decoding_and_save_decision_logic; ui_db_integration=false",
         ): NpuS2DbStabilityReportRow =
             NpuS2DbStabilityReportRow(
                 number = number,
@@ -231,15 +391,23 @@ internal data class NpuS2DbStabilityReportRow(
                 conversationHistorySaved = false,
                 runDecodeReached = false,
                 fallbackUsed = false,
-                timeout = false,
-                freshCrash = false,
+                timeout = timeout,
+                freshCrash = freshCrash,
                 npuS1DecodeMs = "n/a",
                 npuS1TokensPerSecond = "n/a",
                 judgement = "fail",
-                notes = "automation_scope=s2_decoding_and_save_decision_logic; ui_db_integration=false",
+                notes = notes,
             )
     }
 }
+
+private fun NpuS2DbStabilityReportRow.isSafeSuccessForNextPrompt(): Boolean =
+    status == "success" &&
+        runDecodeReached &&
+        !fallbackUsed &&
+        !timeout &&
+        !freshCrash &&
+        judgement != "fail"
 
 internal object NpuS2DbStabilityReportFormatter {
     val prompts: List<String> = listOf(
@@ -279,6 +447,8 @@ internal object NpuS2DbStabilityReportFormatter {
         timestamp: String,
         maxOutputTokens: Int,
         rows: List<NpuS2DbStabilityReportRow>,
+        promptIndex: Int? = null,
+        timeoutMs: Long? = null,
     ): String = buildString {
         appendLine("# NPU S2_DB Stability Test")
         appendLine()
@@ -286,6 +456,14 @@ internal object NpuS2DbStabilityReportFormatter {
         appendLine("- model_condition: `Qualcomm/sm8750 LiteRT-LM`")
         appendLine("- route_mode: `S2_DB`")
         appendLine("- max_output_tokens: `$maxOutputTokens`")
+        if (promptIndex != null) {
+            appendLine("- execution_mode: `single_prompt`")
+            appendLine("- prompt_index: `$promptIndex`")
+            appendLine("- prompt_number: `${promptIndex + 1}`")
+        }
+        if (timeoutMs != null) {
+            appendLine("- prompt_timeout_ms: `$timeoutMs`")
+        }
         appendLine("- fallback_required: `false`")
         appendLine("- automation_scope: `s2_decoding_and_save_decision_logic`")
         appendLine("- ui_db_integration: `false`")
