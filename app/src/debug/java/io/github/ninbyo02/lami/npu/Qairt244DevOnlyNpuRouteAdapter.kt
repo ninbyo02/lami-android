@@ -84,6 +84,24 @@ class Qairt244DevOnlyNpuRouteAdapter(
         templateMode = HiddenQairt244PromptTemplateMode.RAW,
     )
 
+    suspend fun runDevOnlyPromptTemplateExperimentOnce(
+        prompt: String,
+        templateMode: HiddenQairt244PromptTemplateMode,
+        maxOutputTokens: Int,
+        timeoutMs: Long,
+    ): DevOnlyNpuRouteResult = runRoute(
+        requestedPrompt = prompt,
+        maxOutputTokens = maxOutputTokens,
+        timeoutMs = timeoutMs,
+        promptSource = PROMPT_SOURCE_DEV_ONLY_PROMPT_TEMPLATE_MATRIX,
+        validation = promptLengthGateBypassedValidation(
+            validation = NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt),
+        ),
+        allowMaxOutputTokenRange = true,
+        expectedModelBasename = REQUIRED_MODEL_BASENAME,
+        templateMode = templateMode,
+    )
+
     private suspend fun runRoute(
         requestedPrompt: String,
         maxOutputTokens: Int,
@@ -143,10 +161,11 @@ class Qairt244DevOnlyNpuRouteAdapter(
             requestedMode = templateMode,
             promptSource = promptSource,
         )
-        val finalInputValidation = if (
+        val shouldValidateFinalInput = (
             promptSource == PROMPT_SOURCE_CHAT_SCREEN &&
-            !BuildConfig.CUSTOM_BUILD_EXPERIMENT
-        ) {
+                !BuildConfig.CUSTOM_BUILD_EXPERIMENT
+            ) || promptSource == PROMPT_SOURCE_DEV_ONLY_PROMPT_TEMPLATE_MATRIX
+        val finalInputValidation = if (shouldValidateFinalInput) {
             promptLengthGateBypassedValidation(
                 NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(promptTemplate.finalModelInput),
             )
@@ -821,7 +840,10 @@ class Qairt244DevOnlyNpuRouteAdapter(
             requestedMode: HiddenQairt244PromptTemplateMode,
             promptSource: String,
         ): Result {
-            val effectiveMode = if (promptSource == PROMPT_SOURCE_CHAT_SCREEN) {
+            val effectiveMode = if (
+                promptSource == PROMPT_SOURCE_CHAT_SCREEN ||
+                promptSource == PROMPT_SOURCE_DEV_ONLY_PROMPT_TEMPLATE_MATRIX
+            ) {
                 requestedMode
             } else {
                 HiddenQairt244PromptTemplateMode.RAW
@@ -853,6 +875,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         const val PROMPT_SOURCE_CHAT_SCREEN = "chat_screen"
         const val PROMPT_SOURCE_INTERNAL_INTENT = "internal_intent"
         const val PROMPT_SOURCE_DEV_ONLY_CONVERSATION = "dev_only_conversation"
+        const val PROMPT_SOURCE_DEV_ONLY_PROMPT_TEMPLATE_MATRIX = "dev_only_prompt_template_matrix"
         const val REQUIRED_MODEL_BASENAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
         private const val RESULT_FILE_NAME = "qairt244_short_multitoken_smoke_result.txt"
         private const val NATIVE_DIAG_FILE_NAME = "qairt244_native_diag.txt"
@@ -872,11 +895,14 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "standard_hidden_chat_screen"
             } else if (promptSource == PROMPT_SOURCE_DEV_ONLY_CONVERSATION) {
                 "dev_only_one_turn_conversation"
+            } else if (promptSource == PROMPT_SOURCE_DEV_ONLY_PROMPT_TEMPLATE_MATRIX) {
+                "dev_only_prompt_template_matrix"
             } else {
                 "internal_intent"
             }
 
         fun usesSharedOnceGuard(promptSource: String): Boolean =
-            promptSource != PROMPT_SOURCE_DEV_ONLY_CONVERSATION
+            promptSource != PROMPT_SOURCE_DEV_ONLY_CONVERSATION &&
+                promptSource != PROMPT_SOURCE_DEV_ONLY_PROMPT_TEMPLATE_MATRIX
     }
 }

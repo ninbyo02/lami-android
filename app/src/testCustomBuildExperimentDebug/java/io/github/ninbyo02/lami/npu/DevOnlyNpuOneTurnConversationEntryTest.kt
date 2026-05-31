@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.npu
 
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -559,5 +560,127 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertFalse(row.contains(longPrompt))
         assertFalse(row.contains(longRawOutput))
         assertFalse(row.contains(longSanitizedOutput))
+    }
+
+    @Test
+    fun `prompt template matrix covers template and prompt comparison cases`() {
+        assertEquals(
+            listOf(
+                DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+                "simple_ja_chat",
+                "gemma_it_like",
+            ),
+            DevOnlyNpuPromptTemplateMatrix.templates.map { it.name },
+        )
+        assertEquals(
+            listOf(
+                "こんにちは",
+                "おはよう",
+                "こんばんは",
+                "明日の天気は",
+                "あなたは誰ですか",
+            ),
+            DevOnlyNpuPromptTemplateMatrix.prompts,
+        )
+        assertEquals(15, DevOnlyNpuPromptTemplateMatrix.cases().size)
+        assertEquals(
+            "dev_only_npu_prompt_template_matrix_result.txt",
+            DevOnlyNpuPromptTemplateMatrix.RESULT_FILE_NAME,
+        )
+    }
+
+    @Test
+    fun `prompt template matrix raw case keeps standard route template unchanged`() {
+        val rawCase = DevOnlyNpuPromptTemplateMatrix.cases().first {
+            it.template.name == DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B &&
+                it.inputPrompt == "こんにちは"
+        }
+
+        assertTrue(rawCase.requestPrompt.contains("必ず日本語だけで短く返答してください。"))
+        assertTrue(rawCase.requestPrompt.contains("ユーザー: こんにちは"))
+        assertTrue(rawCase.requestPrompt.endsWith("アシスタント: はい、"))
+    }
+
+    @Test
+    fun `prompt template matrix row exposes safe summaries and elapsed time`() {
+        val case = DevOnlyNpuPromptTemplateMatrix.cases().first()
+        val longRawOutput = "こんにちは。raw outputの全文を出さずにhashとpreviewだけを記録するための長い出力です。"
+        val longSanitizedOutput = "こんにちは。sanitized outputの全文を出さずにhashとpreviewだけを記録するための長い出力です。"
+        val result = DevOnlyNpuPromptTemplateMatrix.CaseResult(
+            status = "success",
+            reason = "success",
+            runDecodeReached = true,
+            fallbackUsed = false,
+            timeout = false,
+            freshCrash = false,
+            rawOutput = longRawOutput,
+            rawOutputLength = longRawOutput.length,
+            sanitizedOutput = longSanitizedOutput,
+            sanitizedOutputLength = longSanitizedOutput.length,
+            qualityClassification = "natural_japanese",
+            elapsedMs = 123,
+        )
+
+        val row = DevOnlyNpuPromptTemplateMatrix.buildRow(
+            index = 1,
+            case = case,
+            result = result,
+        ).joinToString("\n")
+
+        assertTrue(row.contains("case_index=1"))
+        assertTrue(row.contains("template_name=${case.template.name}"))
+        assertTrue(row.contains("input_prompt_hash="))
+        assertTrue(row.contains("input_prompt_length=${case.inputPrompt.length}"))
+        assertTrue(row.contains("request_prompt_hash="))
+        assertTrue(row.contains("status=success"))
+        assertTrue(row.contains("reason=success"))
+        assertTrue(row.contains("run_decode_reached=true"))
+        assertTrue(row.contains("fallback_used=false"))
+        assertTrue(row.contains("timeout=false"))
+        assertTrue(row.contains("fresh_crash=false"))
+        assertTrue(row.contains("raw_output_hash="))
+        assertTrue(row.contains("raw_output_length=${longRawOutput.length}"))
+        assertTrue(row.contains("sanitized_output_hash="))
+        assertTrue(row.contains("sanitized_output_length=${longSanitizedOutput.length}"))
+        assertTrue(row.contains("quality_classification=natural_japanese"))
+        assertTrue(row.contains("elapsed_ms=123"))
+        assertFalse(row.contains(longRawOutput))
+        assertFalse(row.contains(longSanitizedOutput))
+    }
+
+    @Test
+    fun `prompt template matrix records rejected template case without aborting report`() = runBlocking {
+        val text = DevOnlyNpuPromptTemplateMatrix.run { case ->
+            if (case.template.name == "simple_ja_chat") {
+                DevOnlyNpuPromptTemplateMatrix.CaseResult.failure(
+                    reason = "invalid_prompt:too_long",
+                    message = "editable prompt rejected before native execution",
+                )
+            } else {
+                DevOnlyNpuPromptTemplateMatrix.CaseResult(
+                    status = "success",
+                    reason = "success",
+                    runDecodeReached = true,
+                    fallbackUsed = false,
+                    timeout = false,
+                    freshCrash = false,
+                    rawOutput = "こんにちは。",
+                    rawOutputLength = 6,
+                    sanitizedOutput = "こんにちは。",
+                    sanitizedOutputLength = 6,
+                    qualityClassification = "natural_japanese",
+                    elapsedMs = 10,
+                )
+            }
+        }
+
+        assertTrue(text.contains("DEV ONLY NPU PROMPT TEMPLATE MATRIX"))
+        assertTrue(text.contains("case_count=15"))
+        assertTrue(text.contains("template_name=simple_ja_chat"))
+        assertTrue(text.contains("reason=invalid_prompt:too_long"))
+        assertTrue(text.contains("template_name=gemma_it_like"))
+        assertTrue(text.contains("standard_route_template_unchanged=raw_dialog_tail_variant_b"))
+        assertTrue(text.contains("prompt_and_output_policy=hash_length_code_points_preview_only"))
+        assertFalse(text.contains("editable prompt rejected before native execution"))
     }
 }
