@@ -34,6 +34,10 @@ class BackendNpuAttachProbeReportFormatterTest {
         assertTrue(text.contains("engineconfig_backend_getter_result=com.google.ai.edge.litertlm.Backend\$NPU"))
         assertTrue(text.contains("engine_initialize_invoked=no"))
         assertTrue(text.contains("engine_initialize_skip_reason=explicit-opt-in-required"))
+        assertTrue(text.contains("native_crash_suspected=unknown-script-checks-logcat"))
+        assertTrue(text.contains("signal=-"))
+        assertTrue(text.contains("abort_message=-"))
+        assertTrue(text.contains("backtrace_head=-"))
         assertTrue(text.contains("conversation_create_result=not-attempted-minimal-dry-run"))
         assertTrue(text.contains("one_token_decode_result=not-attempted-minimal-dry-run"))
         assertTrue(markdown.contains("| backend_npu_attach_status | engineconfig-holds-backend-npu |"))
@@ -61,6 +65,10 @@ class BackendNpuAttachProbeReportFormatterTest {
             phase = BackendNpuAttachProbeReportFormatter.PHASE_ENGINE_INITIALIZE,
             engineInitializeOptIn = true,
             processAliveAfterProbe = "alive",
+            nativeCrashSuspected = "true",
+            signal = "Fatal signal 6",
+            abortMessage = "No usable Dispatch runtime found",
+            backtraceHead = "#00 pc 00000000 libLiteRt.so",
         )
 
         val text = BackendNpuAttachProbeReportFormatter.formatText(snapshot, request)
@@ -72,6 +80,10 @@ class BackendNpuAttachProbeReportFormatterTest {
         assertTrue(text.contains("symbol_mismatch_suspected=true"))
         assertTrue(text.contains("elapsed_ms=1234"))
         assertTrue(text.contains("process_alive_after_probe=alive"))
+        assertTrue(text.contains("native_crash_suspected=true"))
+        assertTrue(text.contains("signal=Fatal signal 6"))
+        assertTrue(text.contains("abort_message=No usable Dispatch runtime found"))
+        assertTrue(text.contains("backtrace_head=#00 pc 00000000 libLiteRt.so"))
     }
 
     @Test

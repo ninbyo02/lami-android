@@ -5,6 +5,10 @@ internal data class BackendNpuAttachProbeReportRequest(
     val phase: String = BackendNpuAttachProbeReportFormatter.PHASE_INVENTORY,
     val engineInitializeOptIn: Boolean = false,
     val processAliveAfterProbe: String = "unknown-script-checks-pidof",
+    val nativeCrashSuspected: String = "unknown-script-checks-logcat",
+    val signal: String = "-",
+    val abortMessage: String = "-",
+    val backtraceHead: String = "-",
 )
 
 internal object BackendNpuAttachProbeReportFormatter {
@@ -176,6 +180,10 @@ internal object BackendNpuAttachProbeReportFormatter {
             "abi_build_id_mismatch_suspected" to abiOrBuildIdMismatch.toString(),
             "elapsed_ms" to snapshot.engineInitializeDryRunElapsedMs.asUnknown(),
             "process_alive_after_probe" to request.processAliveAfterProbe,
+            "native_crash_suspected" to request.nativeCrashSuspected,
+            "signal" to request.signal,
+            "abort_message" to request.abortMessage,
+            "backtrace_head" to request.backtraceHead,
             "last_stage" to snapshot.engineInitializeDryRunLastStage.orDash(),
             "diagnostic_file" to snapshot.engineInitializeDryRunDiagnosticFilePath.orDash(),
             "safety_policy" to "dev-only explicit opt-in; no production ChatScreen wiring; no fallback change; no QAIRT/QNN setting change; no always-on System.loadLibrary",
