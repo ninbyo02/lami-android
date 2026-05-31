@@ -227,6 +227,17 @@ object DevOnlyNpuPromptTemplateMatrix {
             },
         ),
         Template(
+            name = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_C,
+            mode = HiddenQairt244PromptTemplateMode.RAW,
+            promptBuilder = { prompt ->
+                DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+                    contextText = "",
+                    userPrompt = prompt,
+                    promptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_C,
+                )
+            },
+        ),
+        Template(
             name = HiddenQairt244PromptTemplateMode.SIMPLE_JA_CHAT.storageValue,
             mode = HiddenQairt244PromptTemplateMode.SIMPLE_JA_CHAT,
             promptBuilder = { prompt -> prompt.trim() },
@@ -342,6 +353,7 @@ object DevOnlyNpuPromptTemplateMatrix {
             "matrix_timeout_ms=$DEFAULT_MATRIX_TIMEOUT_MS",
             "prompt_and_output_policy=hash_length_code_points_preview_only",
             "standard_route_template_unchanged=raw_dialog_tail_variant_b",
+            "evaluation_metrics=natural_japanese,mixed_language,question_echo,empty_after_sanitize",
         )
     }
 

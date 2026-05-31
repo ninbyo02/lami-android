@@ -80,6 +80,7 @@ object DevOnlyNpuOneTurnConversationContract {
     const val PROMPT_TAIL_MODE = "raw_dialog_tail"
     const val RAW_DIALOG_TAIL_VARIANT_A = "raw_dialog_tail_variant_a"
     const val RAW_DIALOG_TAIL_VARIANT_B = "raw_dialog_tail_variant_b"
+    const val RAW_DIALOG_TAIL_VARIANT_C = "raw_dialog_tail_variant_c"
     const val DEFAULT_PROMPT_TAIL_VARIANT = RAW_DIALOG_TAIL_VARIANT_B
     const val PROMPT_TRANSPORT = "base64"
     const val ROUTE_TYPE = "dev_only_one_turn_conversation"
@@ -90,6 +91,8 @@ object DevOnlyNpuOneTurnConversationContract {
     const val INITIAL_DISPLAY_TEXT = "DEV ONLY NPU ONE TURN\nstatus=idle\nadapter_execution=manual_trigger_only"
     const val JAPANESE_ONLY_TAIL_INSTRUCTION = "必ず日本語だけで短く返答してください。"
     const val JAPANESE_ASSISTANT_PREFIX_VARIANT_B = "はい、"
+    const val RAW_DIALOG_TAIL_VARIANT_C_ROLE_INSTRUCTION = "あなたは日本語だけで短く答えるアシスタントです。"
+    const val RAW_DIALOG_TAIL_VARIANT_C_NO_ECHO_INSTRUCTION = "ユーザーの文を繰り返さず、答えだけを1文で書いてください。"
 
     fun safety(
         promptTailVariant: String = DEFAULT_PROMPT_TAIL_VARIANT,
@@ -123,6 +126,7 @@ object DevOnlyNpuOneTurnConversationContract {
         when (requestedPromptTailVariant) {
             RAW_DIALOG_TAIL_VARIANT_A -> RAW_DIALOG_TAIL_VARIANT_A
             RAW_DIALOG_TAIL_VARIANT_B -> RAW_DIALOG_TAIL_VARIANT_B
+            RAW_DIALOG_TAIL_VARIANT_C -> RAW_DIALOG_TAIL_VARIANT_C
             else -> DEFAULT_PROMPT_TAIL_VARIANT
         }
 
@@ -138,11 +142,20 @@ object DevOnlyNpuOneTurnConversationContract {
         } else {
             "$normalizedContext\n\n"
         }
-        val assistantLine = when (sanitizePromptTailVariant(promptTailVariant)) {
+        val sanitizedPromptTailVariant = sanitizePromptTailVariant(promptTailVariant)
+        val instructionLines = when (sanitizedPromptTailVariant) {
+            RAW_DIALOG_TAIL_VARIANT_C -> listOf(
+                RAW_DIALOG_TAIL_VARIANT_C_ROLE_INSTRUCTION,
+                RAW_DIALOG_TAIL_VARIANT_C_NO_ECHO_INSTRUCTION,
+            )
+            else -> listOf(JAPANESE_ONLY_TAIL_INSTRUCTION)
+        }
+        val assistantLine = when (sanitizedPromptTailVariant) {
             RAW_DIALOG_TAIL_VARIANT_A -> "アシスタント:"
+            RAW_DIALOG_TAIL_VARIANT_C -> "アシスタント:"
             else -> "アシスタント: $JAPANESE_ASSISTANT_PREFIX_VARIANT_B"
         }
-        return "$head$JAPANESE_ONLY_TAIL_INSTRUCTION\n" +
+        return "$head${instructionLines.joinToString(separator = "\n")}\n" +
             "ユーザー: $normalizedUserPrompt\n" +
             assistantLine
     }

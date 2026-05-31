@@ -19,6 +19,11 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             userPrompt = "こんにちは。",
             promptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
         )
+        val variantC = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+            contextText = "これは中立文脈です。",
+            userPrompt = "明日の天気は",
+            promptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_C,
+        )
 
         assertTrue(variantA.contains("必ず日本語だけで短く返答してください。"))
         assertTrue(variantA.contains("ユーザー: こんにちは。"))
@@ -27,6 +32,11 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(variantB.contains("ユーザー: こんにちは。"))
         assertTrue(variantB.endsWith("アシスタント: はい、"))
         assertTrue(variantB.contains("\n\n必ず日本語だけで短く返答してください。\nユーザー:"))
+        assertTrue(variantC.contains("あなたは日本語だけで短く答えるアシスタントです。"))
+        assertTrue(variantC.contains("ユーザーの文を繰り返さず、答えだけを1文で書いてください。"))
+        assertTrue(variantC.contains("ユーザー: 明日の天気は"))
+        assertTrue(variantC.endsWith("アシスタント:"))
+        assertFalse(variantC.endsWith("アシスタント: はい、"))
     }
 
     @Test
@@ -130,7 +140,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     }
 
     @Test
-    fun `activity prompt tail variant option allows only variant a or b`() {
+    fun `activity prompt tail variant option allows only raw dialog tail variants`() {
         val requestA = DevOnlyNpuOneTurnConversationContract.activityRequest(
             userPrompt = "こんにちは",
             contextText = "",
@@ -143,11 +153,17 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             unsafeDevBypassPromptLengthGate = true,
             requestedPromptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
         )
+        val requestC = DevOnlyNpuOneTurnConversationContract.activityRequest(
+            userPrompt = "こんにちは",
+            contextText = "",
+            unsafeDevBypassPromptLengthGate = true,
+            requestedPromptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_C,
+        )
         val requestInvalid = DevOnlyNpuOneTurnConversationContract.activityRequest(
             userPrompt = "こんにちは",
             contextText = "",
             unsafeDevBypassPromptLengthGate = true,
-            requestedPromptTailVariant = "raw_dialog_tail_variant_c",
+            requestedPromptTailVariant = "raw_dialog_tail_variant_d",
         )
 
         assertEquals("prompt_tail_variant", DevOnlyNpuOneTurnConversationContract.EXTRA_PROMPT_TAIL_VARIANT)
@@ -164,15 +180,22 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             ),
         )
         assertEquals(
+            DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_C,
+            DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant(
+                DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_C,
+            ),
+        )
+        assertEquals(
             DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
             DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant(null),
         )
         assertEquals(
             DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
-            DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant("raw_dialog_tail_variant_c"),
+            DevOnlyNpuOneTurnConversationContract.sanitizePromptTailVariant("raw_dialog_tail_variant_d"),
         )
         assertEquals(DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_A, requestA.promptTailVariant)
         assertEquals(DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B, requestB.promptTailVariant)
+        assertEquals(DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_C, requestC.promptTailVariant)
         assertEquals(DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B, requestInvalid.promptTailVariant)
     }
 
@@ -571,6 +594,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertEquals(
             listOf(
                 DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+                DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_C,
                 "simple_ja_chat",
                 "gemma_it_like",
             ),
@@ -586,9 +610,9 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             ),
             DevOnlyNpuPromptTemplateMatrix.prompts,
         )
-        assertEquals(5, DevOnlyNpuPromptTemplateMatrix.cases().size)
+        assertEquals(10, DevOnlyNpuPromptTemplateMatrix.cases().size)
         assertEquals(
-            15,
+            20,
             DevOnlyNpuPromptTemplateMatrix.cases(
                 templateFilter = DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FILTER_ALL,
             ).size,
@@ -621,8 +645,14 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             templateFilter = DevOnlyNpuPromptTemplateMatrix.TEMPLATE_FILTER_RAW_ONLY,
         ).joinToString("\n")
 
-        assertEquals(5, rawCases.size)
-        assertTrue(rawCases.all { it.template.name == DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B })
+        assertEquals(10, rawCases.size)
+        assertEquals(
+            setOf(
+                DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+                DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_C,
+            ),
+            rawCases.map { it.template.name }.toSet(),
+        )
         assertEquals(rawCases.map { it.template.name }, safeCases.map { it.template.name })
         assertFalse(rawCases.any { it.template.name == "simple_ja_chat" })
         assertFalse(rawCases.any { it.template.name == "gemma_it_like" })
@@ -631,10 +661,11 @@ class DevOnlyNpuOneTurnConversationEntryTest {
             DevOnlyNpuPromptTemplateMatrix.sanitizeTemplateFilter("unknown_filter"),
         )
         assertTrue(header.contains("template_filter=raw_only"))
-        assertTrue(header.contains("template_total_count=3"))
-        assertTrue(header.contains("template_count=1"))
-        assertTrue(header.contains("case_total_count=15"))
-        assertTrue(header.contains("case_count=5"))
+        assertTrue(header.contains("template_total_count=4"))
+        assertTrue(header.contains("template_count=2"))
+        assertTrue(header.contains("case_total_count=20"))
+        assertTrue(header.contains("case_count=10"))
+        assertTrue(header.contains("evaluation_metrics=natural_japanese,mixed_language,question_echo,empty_after_sanitize"))
     }
 
     @Test
@@ -750,7 +781,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         }
 
         assertTrue(text.contains("DEV ONLY NPU PROMPT TEMPLATE MATRIX"))
-        assertTrue(text.contains("case_count=15"))
+        assertTrue(text.contains("case_count=20"))
         assertTrue(text.contains("template_name=simple_ja_chat"))
         assertTrue(text.contains("reason=invalid_prompt:too_long"))
         assertTrue(text.contains("template_name=gemma_it_like"))
