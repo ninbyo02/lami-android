@@ -1116,6 +1116,58 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `S1 success result displays timing fields for NPU speed diagnostics`() {
+        val result = s1SuccessResult().withTiming(
+            NpuStandardRouteS1Timing(
+                totalMs = 1200,
+                decodeMs = 1000,
+                ttftMs = null,
+                outputTokens = 20,
+                tokenCountMode = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS,
+                tokensPerSecond = 20.0,
+            ),
+        )
+
+        assertTrue(result.displayText.contains("[DEV診断: NPU Standard Route S1 Timing]"))
+        assertTrue(result.displayText.contains("npu_s1_total_ms=1200"))
+        assertTrue(result.displayText.contains("npu_s1_decode_ms=1000"))
+        assertTrue(result.displayText.contains("npu_s1_ttft_ms=n/a"))
+        assertTrue(result.displayText.contains("npu_s1_output_tokens=20"))
+        assertTrue(result.displayText.contains("npu_s1_token_count_mode=estimated_code_points"))
+        assertTrue(result.displayText.contains("npu_s1_tokens_per_second=20.0"))
+        assertTrue(result.displayText.contains("run_decode_reached=true"))
+        assertTrue(result.displayText.contains("fallback_used=false"))
+        assertTrue(result.displayText.contains("fresh_crash=false"))
+        assertTrue(result.displayText.contains("timeout=false"))
+        assertTrue(result.displayText.contains("quality_classification=natural_japanese"))
+    }
+
+    @Test
+    fun `S1 failure result displays timing fields without success criteria`() {
+        val result = s1EmptyAfterSanitizeFailureResult().withTiming(
+            NpuStandardRouteS1Timing(
+                totalMs = 850,
+                decodeMs = 800,
+                ttftMs = null,
+                outputTokens = null,
+                tokenCountMode = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE,
+                tokensPerSecond = null,
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertTrue(result.displayText.contains("status=failure"))
+        assertTrue(result.displayText.contains("reason=empty_after_sanitize"))
+        assertTrue(result.displayText.contains("npu_s1_total_ms=850"))
+        assertTrue(result.displayText.contains("npu_s1_decode_ms=800"))
+        assertTrue(result.displayText.contains("npu_s1_ttft_ms=n/a"))
+        assertTrue(result.displayText.contains("npu_s1_output_tokens=n/a"))
+        assertTrue(result.displayText.contains("npu_s1_tokens_per_second=n/a"))
+        assertTrue(result.displayText.contains("run_decode_reached=true"))
+        assertTrue(result.displayText.contains("fallback_used=false"))
+    }
+
+    @Test
     fun `Qualcomm sm8750 qnn or npu model names are eligible for NPU S1 decode`() {
         listOf(
             "gemma-4-E2B-it-qualcomm.litertlm",

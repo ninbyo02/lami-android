@@ -46,6 +46,7 @@ internal fun buildNpuRealPromptResultTrace(
     selectedModelName: String = "",
     selectedModelFile: String = "",
     npuModelEligible: Boolean? = null,
+    timing: NpuStandardRouteS1Timing = NpuStandardRouteS1Timing(),
 ): String = buildString {
     append("NPU_REAL_PROMPT status=")
     append(status)
@@ -87,6 +88,20 @@ internal fun buildNpuRealPromptResultTrace(
     append(timeout)
     append(" fresh_crash=")
     append(freshCrash)
+    if (timing.hasAnyValue) {
+        append(" npu_s1_total_ms=")
+        append(NpuStandardRouteS1Contract.formatTimingMs(timing.totalMs))
+        append(" npu_s1_decode_ms=")
+        append(NpuStandardRouteS1Contract.formatTimingMs(timing.decodeMs))
+        append(" npu_s1_ttft_ms=")
+        append(NpuStandardRouteS1Contract.formatTimingMs(timing.ttftMs))
+        append(" npu_s1_output_tokens=")
+        append(timing.outputTokens?.toString() ?: "n/a")
+        append(" npu_s1_token_count_mode=")
+        append(timing.tokenCountMode)
+        append(" npu_s1_tokens_per_second=")
+        append(NpuStandardRouteS1Contract.formatTokensPerSecond(timing.tokensPerSecond))
+    }
 }
 
 internal fun buildNpuStandardRouteS1DevTraceText(
@@ -116,6 +131,12 @@ internal fun buildNpuStandardRouteS1DevTraceText(
         "status=${result.status}",
         "reason=${result.reason}",
         "quality_classification=${result.qualityClassification}",
+        "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
+        "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
+        "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
+        "npu_s1_output_tokens=${result.timing.outputTokens?.toString() ?: "n/a"}",
+        "npu_s1_token_count_mode=${result.timing.tokenCountMode}",
+        "npu_s1_tokens_per_second=${NpuStandardRouteS1Contract.formatTokensPerSecond(result.timing.tokensPerSecond)}",
         "run_decode_reached=${result.runDecodeReached}",
         "timeout=${result.timeout}",
     )
@@ -147,6 +168,12 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     "status=${result.status}",
     "reason=${result.reason}",
     "quality_classification=${result.qualityClassification}",
+    "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
+    "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
+    "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
+    "npu_s1_output_tokens=${result.timing.outputTokens?.toString() ?: "n/a"}",
+    "npu_s1_token_count_mode=${result.timing.tokenCountMode}",
+    "npu_s1_tokens_per_second=${NpuStandardRouteS1Contract.formatTokensPerSecond(result.timing.tokensPerSecond)}",
     "run_decode_reached=${result.runDecodeReached}",
     "timeout=${result.timeout}",
     "fallback=${transientFallback ?: result.fallbackUsed}",

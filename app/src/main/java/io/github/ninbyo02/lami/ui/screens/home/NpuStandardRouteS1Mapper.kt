@@ -15,6 +15,9 @@ internal data class NpuStandardRouteS1RawResult(
     val freshCrash: Boolean = false,
     val requestedMaxOutputTokens: Int = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
     val effectiveMaxOutputTokens: Int = requestedMaxOutputTokens,
+    val npuS1DecodeMs: Long? = null,
+    val npuS1OutputTokens: Int? = null,
+    val npuS1TokenCountMode: String = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE,
 )
 
 internal object NpuStandardRouteS1Mapper {
@@ -40,6 +43,23 @@ internal object NpuStandardRouteS1Mapper {
         } else {
             raw.reason.ifBlank { status }
         }
+        val outputTokens = raw.npuS1OutputTokens
+            ?: NpuStandardRouteS1Contract.estimateOutputTokensFromText(sanitizedOutput)
+        val tokenCountMode = when {
+            raw.npuS1OutputTokens != null && raw.npuS1TokenCountMode.isNotBlank() -> raw.npuS1TokenCountMode
+            outputTokens != null -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS
+            else -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE
+        }
+        val timing = NpuStandardRouteS1Timing(
+            decodeMs = raw.npuS1DecodeMs,
+            ttftMs = null,
+            outputTokens = outputTokens,
+            tokenCountMode = tokenCountMode,
+            tokensPerSecond = NpuStandardRouteS1Contract.tokensPerSecond(
+                outputTokens = outputTokens,
+                decodeMs = raw.npuS1DecodeMs,
+            ),
+        )
 
         return NpuStandardRouteS1Result(
             selection = selection,
@@ -53,6 +73,7 @@ internal object NpuStandardRouteS1Mapper {
             fallbackUsed = raw.fallbackUsed,
             timeout = raw.timeout,
             freshCrash = raw.freshCrash,
+            timing = timing,
             displayText = displayText,
         )
     }

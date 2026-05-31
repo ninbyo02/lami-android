@@ -50,6 +50,12 @@ internal object RealNpuStandardRouteS1ResultMapper {
             freshCrash = display.freshCrash,
             requestedMaxOutputTokens = display.requestedMaxOutputTokens,
             effectiveMaxOutputTokens = display.effectiveMaxOutputTokens,
+            npuS1OutputTokens = display.outputTokenCount.toIntOrNull(),
+            npuS1TokenCountMode = if (display.outputTokenCount.toIntOrNull() != null) {
+                NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_NATIVE_REPORTED
+            } else {
+                NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE
+            },
         )
     }
 

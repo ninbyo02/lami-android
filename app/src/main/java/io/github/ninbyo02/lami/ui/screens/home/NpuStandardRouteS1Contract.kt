@@ -1,5 +1,24 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import java.util.Locale
+
+internal data class NpuStandardRouteS1Timing(
+    val totalMs: Long? = null,
+    val decodeMs: Long? = null,
+    val ttftMs: Long? = null,
+    val outputTokens: Int? = null,
+    val tokenCountMode: String = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE,
+    val tokensPerSecond: Double? = null,
+) {
+    val hasAnyValue: Boolean
+        get() = totalMs != null ||
+            decodeMs != null ||
+            ttftMs != null ||
+            outputTokens != null ||
+            tokensPerSecond != null ||
+            tokenCountMode != NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE
+}
+
 internal data class NpuStandardRouteS1SideEffects(
     val db: Boolean = false,
     val tts: Boolean = false,
@@ -49,6 +68,7 @@ internal data class NpuStandardRouteS1Result(
     val selectedModelName: String = "",
     val selectedModelFile: String = "",
     val npuModelEligible: Boolean? = null,
+    val timing: NpuStandardRouteS1Timing = NpuStandardRouteS1Timing(),
     val displayText: String = NpuStandardRouteS1Contract.displayText(
         selection = selection,
         status = status,
@@ -64,6 +84,7 @@ internal data class NpuStandardRouteS1Result(
         selectedModelName = selectedModelName,
         selectedModelFile = selectedModelFile,
         npuModelEligible = npuModelEligible,
+        timing = timing,
     ),
 ) {
     val successCriteriaMet: Boolean
@@ -78,6 +99,28 @@ internal data class NpuStandardRouteS1Result(
             displayText.isNotBlank() &&
             sanitizedOutput.isNotBlank() &&
             qualityClassification == NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE
+
+    fun withTiming(timing: NpuStandardRouteS1Timing): NpuStandardRouteS1Result =
+        copy(
+            timing = timing,
+            displayText = NpuStandardRouteS1Contract.displayText(
+                selection = selection,
+                status = status,
+                reason = reason,
+                rawOutput = rawOutput,
+                sanitizedOutput = sanitizedOutput,
+                qualityClassification = qualityClassification,
+                runDecodeReached = runDecodeReached,
+                npuBackendEvidence = npuBackendEvidence,
+                fallbackUsed = fallbackUsed,
+                timeout = timeout,
+                freshCrash = freshCrash,
+                selectedModelName = selectedModelName,
+                selectedModelFile = selectedModelFile,
+                npuModelEligible = npuModelEligible,
+                timing = timing,
+            ),
+        )
 }
 
 internal object NpuStandardRouteS1Contract {
@@ -97,6 +140,9 @@ internal object NpuStandardRouteS1Contract {
     const val REASON_ASSISTANT_STUB = "assistant_stub"
     const val REASON_MODEL_NOT_NPU_COMPATIBLE = "model_not_npu_compatible"
     const val FALLBACK_SAFE_GREETING = "safe_greeting_fallback"
+    const val TOKEN_COUNT_MODE_UNAVAILABLE = "unavailable"
+    const val TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS = "estimated_code_points"
+    const val TOKEN_COUNT_MODE_NATIVE_REPORTED = "native_reported"
     const val MODEL_NOT_NPU_COMPATIBLE_MESSAGE =
         "このモデルはNPU専用モデルではありません。NPU検証には Qualcomm / sm8750 版のモデルを選択してください。Generic版はCPU/GPU経路で実行してください。"
 
@@ -115,10 +161,18 @@ internal object NpuStandardRouteS1Contract {
         selectedModelName: String = "",
         selectedModelFile: String = "",
         npuModelEligible: Boolean? = null,
+        timing: NpuStandardRouteS1Timing = NpuStandardRouteS1Timing(),
     ): String {
         val sideEffects = selection.sideEffects
         return listOfNotNull(
             "NPU STANDARD ROUTE S1",
+            "[DEV診断: NPU Standard Route S1 Timing]".takeIf { timing.hasAnyValue },
+            "npu_s1_total_ms=${formatTimingMs(timing.totalMs)}".takeIf { timing.hasAnyValue },
+            "npu_s1_decode_ms=${formatTimingMs(timing.decodeMs)}".takeIf { timing.hasAnyValue },
+            "npu_s1_ttft_ms=${formatTimingMs(timing.ttftMs)}".takeIf { timing.hasAnyValue },
+            "npu_s1_output_tokens=${timing.outputTokens?.toString() ?: "n/a"}".takeIf { timing.hasAnyValue },
+            "npu_s1_token_count_mode=${timing.tokenCountMode}".takeIf { timing.hasAnyValue },
+            "npu_s1_tokens_per_second=${formatTokensPerSecond(timing.tokensPerSecond)}".takeIf { timing.hasAnyValue },
             "route_type=${selection.routeType}",
             "standard_route_connected=true",
             selectedModelName.takeIf { it.isNotBlank() }?.let { "selected_model_name=$it" },
@@ -146,4 +200,25 @@ internal object NpuStandardRouteS1Contract {
             "conversation_history_saved=${sideEffects.conversationHistorySaved}",
         ).joinToString("\n")
     }
+
+    fun estimateOutputTokensFromText(text: String): Int? {
+        val normalized = text.trim()
+        if (normalized.isBlank()) return null
+        return normalized.codePointCount(0, normalized.length).coerceAtLeast(1)
+    }
+
+    fun tokensPerSecond(
+        outputTokens: Int?,
+        decodeMs: Long?,
+    ): Double? {
+        if (outputTokens == null || outputTokens <= 0 || decodeMs == null || decodeMs <= 0L) return null
+        return outputTokens / (decodeMs / 1000.0)
+    }
+
+    fun formatTimingMs(value: Long?): String = value?.coerceAtLeast(0L)?.toString() ?: "n/a"
+
+    fun formatTokensPerSecond(value: Double?): String =
+        value?.takeIf { it.isFinite() && it >= 0.0 }?.let {
+            String.format(Locale.US, "%.1f", it)
+        } ?: "n/a"
 }

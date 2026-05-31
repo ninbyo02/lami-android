@@ -2557,6 +2557,7 @@ fun Home(
                                                         )
                                                         localInferenceJob = coroutineScope.launch {
                                                             var resolvedNpuChatId: Int? = null
+                                                            var npuS1DecodeStartedAtMs: Long? = null
                                                             try {
                                                                 val npuRealPromptTrace: (String) -> Unit = { message ->
                                                                     logStreamTrace(message)
@@ -2592,6 +2593,7 @@ fun Home(
                                                                         }
                                                                     },
                                                                     runInference = {
+                                                                        npuS1DecodeStartedAtMs = SystemClock.elapsedRealtime()
                                                                         npuRealPromptTrace(
                                                                             buildNpuRealPromptHandoffTrace(
                                                                                 stage = "chat",
@@ -2617,7 +2619,12 @@ fun Home(
                                                                 )
                                                                 val currentChatId = immediateNpuRun.chatId
                                                                 resolvedNpuChatId = currentChatId
-                                                                val s1Result = immediateNpuRun.result
+                                                                val s1Result = immediateNpuRun.result.withTiming(
+                                                                    buildNpuStandardRouteS1UiTiming(
+                                                                        result = immediateNpuRun.result,
+                                                                        decodeStartedAtMs = npuS1DecodeStartedAtMs,
+                                                                    ),
+                                                                )
                                                         npuRealPromptTrace(
                                                             buildNpuRealPromptResultTrace(
                                                                 status = s1Result.status,
@@ -2633,6 +2640,7 @@ fun Home(
                                                                 selectedModelName = s1Result.selectedModelName,
                                                                 selectedModelFile = s1Result.selectedModelFile,
                                                                 npuModelEligible = s1Result.npuModelEligible,
+                                                                timing = s1Result.timing,
                                                             ),
                                                         )
                                                         npuStandardRouteS1DisplayText = s1Result.displayText
@@ -8836,6 +8844,34 @@ internal fun buildNpuStandardRouteS1ModelNotCompatibleResult(
         selectedModelName = eligibility.selectedModelName,
         selectedModelFile = eligibility.selectedModelFile,
         npuModelEligible = false,
+    )
+}
+
+internal fun buildNpuStandardRouteS1UiTiming(
+    result: NpuStandardRouteS1Result,
+    decodeStartedAtMs: Long?,
+    uiDisplayedAtMs: Long = SystemClock.elapsedRealtime(),
+): NpuStandardRouteS1Timing {
+    val totalMs = decodeStartedAtMs?.let { startedAt ->
+        (uiDisplayedAtMs - startedAt).coerceAtLeast(0L)
+    }
+    val outputTokens = result.timing.outputTokens
+        ?: NpuStandardRouteS1Contract.estimateOutputTokensFromText(result.sanitizedOutput)
+    val tokenCountMode = when {
+        result.timing.outputTokens != null -> result.timing.tokenCountMode
+        outputTokens != null -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS
+        else -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE
+    }
+    return NpuStandardRouteS1Timing(
+        totalMs = totalMs,
+        decodeMs = result.timing.decodeMs,
+        ttftMs = null,
+        outputTokens = outputTokens,
+        tokenCountMode = tokenCountMode,
+        tokensPerSecond = NpuStandardRouteS1Contract.tokensPerSecond(
+            outputTokens = outputTokens,
+            decodeMs = result.timing.decodeMs,
+        ),
     )
 }
 
