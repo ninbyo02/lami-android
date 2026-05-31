@@ -27,6 +27,35 @@ class Qairt244OutputUnicodeDiagnosticsStandardTest {
     }
 
     @Test
+    fun `self introduction with repeated Google proper noun is classified as natural Japanese`() {
+        val fields = Qairt244OutputUnicodeDiagnostics.buildFields(
+            "自己紹介します。私はGoogleによってトレーニングされた大規模言語モデルです。" +
+                "Googleによってトレーニングされ、多様なトピックに関する情報を提供し、" +
+                "文章を作成する能力を持っています。何かお手伝いできることはありますか。",
+        ).toMap()
+
+        assertEquals("natural_japanese", fields["quality_classification"])
+    }
+
+    @Test
+    fun `natural Japanese with OpenAI and ChatGPT service names is classified as natural Japanese`() {
+        val fields = Qairt244OutputUnicodeDiagnostics.buildFields(
+            "OpenAIのChatGPTは日本語の文章作成にも使えます。",
+        ).toMap()
+
+        assertEquals("natural_japanese", fields["quality_classification"])
+    }
+
+    @Test
+    fun `mostly English output remains mixed language`() {
+        val fields = Qairt244OutputUnicodeDiagnostics.buildFields(
+            "Google is a company. これは説明です。",
+        ).toMap()
+
+        assertEquals("mixed_language", fields["quality_classification"])
+    }
+
+    @Test
     fun `non Japanese script output remains mixed language`() {
         val fields = Qairt244OutputUnicodeDiagnostics.buildFields("अच्छे。").toMap()
 
