@@ -182,13 +182,14 @@ object DevOnlyNpuOneTurnConversationContract {
         values: Map<String, String>,
         safety: DevOnlyNpuOneTurnConversationSafety = safety(),
     ): DevOnlyNpuOneTurnConversationDisplay {
-        val sanitizedOutput = values["sanitized_output"].orEmpty().ifBlank {
+        val rawSanitizedOutput = values["sanitized_output"].orEmpty().ifBlank {
             result.output.orEmpty()
         }
+        val sanitizedOutput = Qairt244NpuOutputSanitizer.normalizeJapaneseInternalSpaces(rawSanitizedOutput)
         val rawOutput = values["raw_native_output"].orEmpty().ifBlank {
             values["raw_output"].orEmpty()
         }
-        val sanitizedLen = values["sanitized_output_length"]?.toIntOrNull() ?: sanitizedOutput.length
+        val sanitizedLen = sanitizedOutput.length
         val rawLen = values["raw_native_output_length"]?.toIntOrNull() ?: rawOutput.length
         val rawOutputFirst200Chars = values["output_first_200_chars"].orEmpty().ifBlank {
             rawOutput.take(200)

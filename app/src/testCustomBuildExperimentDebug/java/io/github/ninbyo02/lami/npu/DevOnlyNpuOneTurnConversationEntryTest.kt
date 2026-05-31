@@ -311,6 +311,40 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     }
 
     @Test
+    fun `display normalizes Japanese internal spaces from result file sanitized output`() {
+        val display = DevOnlyNpuOneTurnConversationContract.display(
+            result = DevOnlyNpuRouteResult(
+                success = true,
+                output = "fallback should not be used",
+                reasonCode = "success",
+                elapsedMs = 10,
+                decodeElapsedMs = 5,
+                prompt = "ユーザー: 箇条書きで3つ教えて\nアシスタント:",
+                maxOutputTokens = DevOnlyNpuOneTurnConversationContract.MAX_OUTPUT_TOKENS,
+                backendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                artifactPath = null,
+                freshCrash = false,
+                timeout = false,
+            ),
+            values = mapOf(
+                "sanitized_output" to "承 知いたしました。\n1. 箇条書きの作成\n2. 3つの項目を提示\n3. 短くまとめ る",
+                "raw_native_output" to "承 知いたしました。\n1. 箇条書きの作成\n2. 3つの項目を提示\n3. 短くまとめ る",
+                "quality_classification" to "natural_japanese",
+                "npu_backend_evidence" to "QNN_HTP_V79_FastRPC_native_diag",
+            ),
+        )
+
+        val expected = "承知いたしました。\n1. 箇条書きの作成\n2. 3つの項目を提示\n3. 短くまとめる"
+        assertEquals(expected, display.output)
+        assertEquals(expected.length, display.sanitizedLen)
+        assertTrue(display.text.contains("sanitized_output=$expected"))
+        assertEquals(
+            "承 知いたしました。\n1. 箇条書きの作成\n2. 3つの項目を提示\n3. 短くまとめ る",
+            display.rawOutput,
+        )
+    }
+
+    @Test
     fun `display and result contract preserve 32 token compare request`() {
         val display = DevOnlyNpuOneTurnConversationContract.display(
             result = DevOnlyNpuRouteResult(

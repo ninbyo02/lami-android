@@ -79,6 +79,36 @@ class RealNpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `real provider normalizes prompt 8 Japanese internal spaces in final sanitized output`() {
+        val raw = RealNpuStandardRouteS1Provider(
+            requestRunner = {
+                successDisplay(
+                    output = "承 知いたしました。\n1. 箇条書きの作成\n2. 3つの項目を提示\n3. 短くまとめ る",
+                )
+            },
+        ).invoke(
+            userPrompt = "箇条書きで3つ教えて",
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
+        val result = NpuStandardRouteS1Mapper.map(raw)
+        val s2Mapping = NpuStandardRouteS2DbMapper.map(
+            userPrompt = "箇条書きで3つ教えて",
+            s1Result = result,
+        )
+
+        val expected = "承知いたしました。\n1. 箇条書きの作成\n2. 3つの項目を提示\n3. 短くまとめる"
+        assertEquals(expected, raw.sanitizedOutput)
+        assertEquals(expected, result.sanitizedOutput)
+        assertEquals(expected, result.displayText)
+        assertEquals(expected, requireNotNull(s2Mapping.saveCandidate).assistantMessage.text)
+        assertEquals(
+            "承 知いたしました。\n1. 箇条書きの作成\n2. 3つの項目を提示\n3. 短くまとめ る",
+            raw.rawOutput,
+        )
+    }
+
+    @Test
     fun `real provider returns explicit failure when dev only entry is unavailable in unit test`() {
         val raw = RealNpuStandardRouteS1Provider().invoke(
             userPrompt = userPrompt,

@@ -1,13 +1,16 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationDisplay
+import io.github.ninbyo02.lami.npu.Qairt244NpuOutputSanitizer
 
 internal object RealNpuStandardRouteS1ResultMapper {
     fun fromDisplay(
         display: DevOnlyNpuOneTurnConversationDisplay,
         userPrompt: String = "",
     ): NpuStandardRouteS1RawResult {
-        val sanitizedOutput = display.output.trim()
+        val sanitizedOutput = Qairt244NpuOutputSanitizer
+            .normalizeJapaneseInternalSpaces(display.output)
+            .trim()
         val rawOutput = display.rawOutput.ifBlank { display.rawOutputFirst200Chars }
         val standaloneAssistantStub = isAssistantStub(sanitizedOutput)
         val rawRoleContamination =
