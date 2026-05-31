@@ -822,6 +822,7 @@ fun Home(
     var npuStandardRouteS4PseudoStreamingText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingActive by remember(effectiveChatId) { mutableStateOf(false) }
     var npuStandardRouteStreamingSentenceTtsBlocked by remember(effectiveChatId) { mutableStateOf(false) }
+    var npuStandardRouteDevDiagnosticsExpanded by rememberSaveable(effectiveChatId) { mutableStateOf(false) }
     var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devRunnerWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
@@ -2552,6 +2553,7 @@ fun Home(
                                                         npuStandardRouteS4PseudoStreamingText = null
                                                         npuStandardRouteS4PseudoStreamingActive = false
                                                         npuStandardRouteStreamingSentenceTtsBlocked = false
+                                                        npuStandardRouteDevDiagnosticsExpanded = false
                                                         showDelayedLocalRespondingPlaceholder = false
                                                         localInferenceEngineState = LocalInferenceEngineState.READY
                                                         localStopRequested = false
@@ -4798,6 +4800,7 @@ fun Home(
                                         val s1Text = npuStandardRouteS1DisplayText!!
                                         val s1DevTraceText = npuStandardRouteS1DevTraceText
                                         val s1FallbackText = npuStandardRouteS1FallbackText
+                                        val s4Text = npuStandardRouteS4PseudoStreamingText
                                         if (!s1FallbackText.isNullOrBlank()) {
                                             PlainAssistantMessage(
                                                 message = s1FallbackText,
@@ -4805,10 +4808,15 @@ fun Home(
                                                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp),
                                             )
                                         }
-                                        CopyableDebugBlock(
-                                            text = s1Text,
-                                            title = "NPU STANDARD ROUTE S1",
-                                            onCopy = {
+                                        NpuStandardRouteDevDiagnosticsBlock(
+                                            expanded = npuStandardRouteDevDiagnosticsExpanded,
+                                            onToggleExpanded = {
+                                                npuStandardRouteDevDiagnosticsExpanded =
+                                                    !npuStandardRouteDevDiagnosticsExpanded
+                                            },
+                                            routeText = s1Text,
+                                            routeTitle = "NPU STANDARD ROUTE S1",
+                                            onCopyRoute = {
                                                 clipboardManager.setText(AnnotatedString(s1Text))
                                                 coroutineScope.launch {
                                                     snackbarHostState.currentSnackbarData?.dismiss()
@@ -4818,42 +4826,69 @@ fun Home(
                                                     )
                                                 }
                                             },
-                                        )
-                                        if (
-                                            BuildConfig.DEBUG &&
-                                            developerAccessEnabled &&
-                                            !s1DevTraceText.isNullOrBlank()
-                                        ) {
-                                            val s1InputText = npuStandardRouteS1DevInputText.orEmpty()
-                                            val s1OutputText = npuStandardRouteS1DevOutputText.orEmpty()
-                                            val s1DiagnosticText = npuStandardRouteS1DevDiagnosticCopyText
-                                                ?: s1DevTraceText
-                                            NpuStandardRouteS1DevTraceBlock(
-                                                text = s1DevTraceText,
-                                                onCopyInput = {
-                                                    clipboardManager.setText(AnnotatedString(s1InputText))
-                                                },
-                                                onCopyOutput = {
-                                                    clipboardManager.setText(AnnotatedString(s1OutputText))
-                                                },
-                                                onCopyDiagnostic = {
-                                                    clipboardManager.setText(AnnotatedString(s1DiagnosticText))
-                                                },
-                                            )
-                                        }
-                                    }
-                                }
-                                if (npuStandardRouteS4PseudoStreamingText != null) {
-                                    item(key = "npu_standard_route_s4a_pseudo_streaming_display") {
-                                        val s4Text = npuStandardRouteS4PseudoStreamingText!!
-                                        CopyableDebugBlock(
-                                            text = s4Text,
-                                            title = if (npuStandardRouteS4PseudoStreamingActive) {
+                                            devTraceText = if (
+                                                BuildConfig.DEBUG &&
+                                                developerAccessEnabled
+                                            ) {
+                                                s1DevTraceText
+                                            } else {
+                                                null
+                                            },
+                                            onCopyInput = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(npuStandardRouteS1DevInputText.orEmpty()),
+                                                )
+                                            },
+                                            onCopyOutput = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(npuStandardRouteS1DevOutputText.orEmpty()),
+                                                )
+                                            },
+                                            onCopyDiagnostic = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        npuStandardRouteS1DevDiagnosticCopyText
+                                                            ?: s1DevTraceText.orEmpty(),
+                                                    ),
+                                                )
+                                            },
+                                            s4Text = s4Text,
+                                            s4Title = if (npuStandardRouteS4PseudoStreamingActive) {
                                                 "NPU STANDARD ROUTE S4-A PSEUDO STREAMING"
                                             } else {
                                                 "NPU STANDARD ROUTE S4-A FINAL"
                                             },
-                                            onCopy = {
+                                            onCopyS4 = s4Text?.let {
+                                                {
+                                                    clipboardManager.setText(AnnotatedString(it))
+                                                    coroutineScope.launch {
+                                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                                        snackbarHostState.showSnackbar(
+                                                            message = "NPU S4-A result をコピーしました",
+                                                            duration = SnackbarDuration.Short,
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                                if (npuStandardRouteS4PseudoStreamingText != null && npuStandardRouteS1DisplayText == null) {
+                                    item(key = "npu_standard_route_s4a_pseudo_streaming_display") {
+                                        val s4Text = npuStandardRouteS4PseudoStreamingText!!
+                                        NpuStandardRouteDevDiagnosticsBlock(
+                                            expanded = npuStandardRouteDevDiagnosticsExpanded,
+                                            onToggleExpanded = {
+                                                npuStandardRouteDevDiagnosticsExpanded =
+                                                    !npuStandardRouteDevDiagnosticsExpanded
+                                            },
+                                            s4Text = s4Text,
+                                            s4Title = if (npuStandardRouteS4PseudoStreamingActive) {
+                                                "NPU STANDARD ROUTE S4-A PSEUDO STREAMING"
+                                            } else {
+                                                "NPU STANDARD ROUTE S4-A FINAL"
+                                            },
+                                            onCopyS4 = {
                                                 clipboardManager.setText(AnnotatedString(s4Text))
                                                 coroutineScope.launch {
                                                     snackbarHostState.currentSnackbarData?.dismiss()
@@ -8187,6 +8222,79 @@ private fun CopyableDebugBlock(
                 contentDescription = "デバッグテキストをコピー",
                 tint = Color.Red,
             )
+        }
+    }
+}
+
+internal fun hasNpuStandardRouteDevDiagnostics(vararg textBlocks: String?): Boolean =
+    textBlocks.any { !it.isNullOrBlank() }
+
+internal fun shouldShowNpuStandardRouteDevDiagnosticsContent(expanded: Boolean): Boolean = expanded
+
+internal fun npuStandardRouteDevDiagnosticsToggleLabel(expanded: Boolean): String =
+    if (expanded) {
+        "▼ DEV診断を隠す"
+    } else {
+        "▶ DEV診断を表示"
+    }
+
+@Composable
+private fun NpuStandardRouteDevDiagnosticsBlock(
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    routeText: String? = null,
+    routeTitle: String? = null,
+    onCopyRoute: (() -> Unit)? = null,
+    devTraceText: String? = null,
+    onCopyInput: (() -> Unit)? = null,
+    onCopyOutput: (() -> Unit)? = null,
+    onCopyDiagnostic: (() -> Unit)? = null,
+    s4Text: String? = null,
+    s4Title: String? = null,
+    onCopyS4: (() -> Unit)? = null,
+) {
+    if (!hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
+    ) {
+        TextButton(onClick = onToggleExpanded) {
+            Text(
+                text = npuStandardRouteDevDiagnosticsToggleLabel(expanded),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (shouldShowNpuStandardRouteDevDiagnosticsContent(expanded)) {
+            if (!routeText.isNullOrBlank() && onCopyRoute != null) {
+                CopyableDebugBlock(
+                    text = routeText,
+                    title = routeTitle,
+                    onCopy = onCopyRoute,
+                )
+            }
+            if (
+                !devTraceText.isNullOrBlank() &&
+                onCopyInput != null &&
+                onCopyOutput != null &&
+                onCopyDiagnostic != null
+            ) {
+                NpuStandardRouteS1DevTraceBlock(
+                    text = devTraceText,
+                    onCopyInput = onCopyInput,
+                    onCopyOutput = onCopyOutput,
+                    onCopyDiagnostic = onCopyDiagnostic,
+                )
+            }
+            if (!s4Text.isNullOrBlank() && onCopyS4 != null) {
+                CopyableDebugBlock(
+                    text = s4Text,
+                    title = s4Title,
+                    onCopy = onCopyS4,
+                )
+            }
         }
     }
 }

@@ -636,6 +636,40 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `NPU standard route dev diagnostics are collapsed by default`() {
+        val s5Result = buildNpuStandardRouteS5TtsSavedResult(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。読み上げます。",
+        )
+
+        assertTrue(hasNpuStandardRouteDevDiagnostics(s5Result.displayText))
+        assertEquals("▶ DEV診断を表示", npuStandardRouteDevDiagnosticsToggleLabel(expanded = false))
+        assertFalse(shouldShowNpuStandardRouteDevDiagnosticsContent(expanded = false))
+        assertTrue(s5Result.displayText.contains("route_type=standard_chat_screen_s5_npu_tts"))
+        assertTrue(s5Result.displayText.contains("tts=true"))
+    }
+
+    @Test
+    fun `NPU standard route dev diagnostics show existing text when expanded`() {
+        val s5Result = buildNpuStandardRouteS5TtsSavedResult(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。読み上げます。",
+        )
+
+        assertEquals("▼ DEV診断を隠す", npuStandardRouteDevDiagnosticsToggleLabel(expanded = true))
+        assertTrue(shouldShowNpuStandardRouteDevDiagnosticsContent(expanded = true))
+        assertTrue(hasNpuStandardRouteDevDiagnostics(s5Result.displayText, "input=こんにちは"))
+        assertTrue(s5Result.displayText.contains("db=true"))
+        assertTrue(s5Result.displayText.contains("markdown=true"))
+        assertTrue(s5Result.displayText.contains("streaming=true"))
+    }
+
+    @Test
+    fun `NPU standard route dev diagnostics are absent for normal route without diagnostics`() {
+        assertFalse(hasNpuStandardRouteDevDiagnostics(null, "", "   "))
+    }
+
+    @Test
     fun `S5 TTS speak gate rejects missing assistant id`() {
         val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
             s1Result = s1SuccessResult(),
