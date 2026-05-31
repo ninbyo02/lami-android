@@ -169,6 +169,7 @@ internal suspend fun runWithHeldEngine(
     routeDiagnosticContext: LocalRouteDiagnosticContext? = null,
     routeRunStartedAtMs: Long = SystemClock.elapsedRealtime(),
     heldEngineReused: Boolean? = null,
+    onRouteDiagnosticStage: (String) -> Unit = {},
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
     onFailureDiagnostics: ((String) -> Unit)? = null,
@@ -194,6 +195,7 @@ internal suspend fun runWithHeldEngine(
         stage: String,
         flags: LocalRouteDiagnosticFlags,
     ) {
+        onRouteDiagnosticStage(stage)
         val diagnosticContext = routeDiagnosticContext ?: return
         safeAppendTrace(
             appendTrace,
@@ -256,6 +258,7 @@ internal suspend fun runWithHeldEngine(
             routeDiagnosticContext = routeDiagnosticContext,
             routeRunStartedAtMs = routeRunStartedAtMs,
             heldEngineReused = heldEngineReused,
+            onRouteDiagnosticStage = onRouteDiagnosticStage,
             onConversationClosed = { outcome -> conversationOutcome = outcome },
         ) { conversation ->
             val flowResponse = runCatching {
@@ -3261,11 +3264,13 @@ private suspend fun <T> runWithConversation(
     routeDiagnosticContext: LocalRouteDiagnosticContext? = null,
     routeRunStartedAtMs: Long = SystemClock.elapsedRealtime(),
     heldEngineReused: Boolean? = null,
+    onRouteDiagnosticStage: (String) -> Unit = {},
     onConversationClosed: ((RunCloseTargetOutcome) -> Unit)? = null,
     block: suspend (conversation: Any) -> T?,
 ): T? {
     var conversation: Any? = null
     return try {
+        onRouteDiagnosticStage("conversation_create_started")
         routeDiagnosticContext?.let { diagnosticContext ->
             safeAppendTrace(
                 appendTrace,
@@ -3285,6 +3290,7 @@ private suspend fun <T> runWithConversation(
         }
         conversation = createConversationForHeldEngine(engine = engine, namespace = namespace, appendTrace = appendTrace)
         if (conversation == null) {
+            onRouteDiagnosticStage("conversation_create_started")
             routeDiagnosticContext?.let { diagnosticContext ->
                 safeAppendTrace(
                     appendTrace,
@@ -3309,6 +3315,7 @@ private suspend fun <T> runWithConversation(
             appendTrace,
             "UPSTREAM held-conversation acquired class=${conversation.javaClass.name}",
         )
+        onRouteDiagnosticStage("conversation_create_finished")
         routeDiagnosticContext?.let { diagnosticContext ->
             safeAppendTrace(
                 appendTrace,

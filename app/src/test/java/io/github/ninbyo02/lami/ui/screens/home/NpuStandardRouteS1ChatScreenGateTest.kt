@@ -908,6 +908,84 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `Generic GPU local route enables experimental stage timeout diagnostics`() {
+        val diagnosticContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val trace = buildLocalRouteDiagnosticTrace(
+            stage = "timeout_failure",
+            context = diagnosticContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = false,
+                heldEngineReused = false,
+                engineCreateStarted = true,
+                engineCreateFinished = false,
+                conversationCreateStarted = false,
+                conversationCreateFinished = false,
+                generateStarted = false,
+                firstTokenReceived = false,
+                failureStage = "engine_create_timeout",
+                fallbackUsed = false,
+            ),
+            elapsedMs = GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS,
+        )
+
+        assertTrue(shouldApplyGpuExperimentalStageTimeout(diagnosticContext))
+        assertTrue(trace.contains("preferred_backend=GPU"))
+        assertTrue(trace.contains("baseline_role=gpu_experimental"))
+        assertTrue(trace.contains("generic_model_cpu_baseline=false"))
+        assertTrue(trace.contains("local_route_entered=true"))
+        assertTrue(trace.contains("failure_stage=engine_create_timeout"))
+        assertTrue(trace.contains("fallback_used=false"))
+        assertTrue(trace.contains("elapsed_ms=20000"))
+        assertEquals(
+            "GPU backend の初期化または生成開始がタイムアウトしました。Generic LiteRT-LMモデルではCPU backendを選択してください。",
+            GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
+        )
+    }
+
+    @Test
+    fun `Generic CPU local route does not enable GPU experimental timeout`() {
+        val diagnosticContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "CPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+
+        assertFalse(shouldApplyGpuExperimentalStageTimeout(diagnosticContext))
+        assertEquals("cpu_stable_baseline", diagnosticContext.baselineRole)
+        assertTrue(diagnosticContext.genericModelCpuBaseline)
+    }
+
+    @Test
+    fun `GPU experimental timeout failure stage follows last reached stage`() {
+        assertEquals(
+            "engine_create_timeout",
+            resolveGpuExperimentalTimeoutFailureStage("engine_create_started"),
+        )
+        assertEquals(
+            "conversation_create_timeout",
+            resolveGpuExperimentalTimeoutFailureStage("conversation_create_started"),
+        )
+        assertEquals(
+            "generate_start_timeout",
+            resolveGpuExperimentalTimeoutFailureStage("conversation_create_finished"),
+        )
+        assertEquals(
+            "first_token_timeout",
+            resolveGpuExperimentalTimeoutFailureStage("generate_started"),
+        )
+    }
+
+    @Test
     fun `Generic LiteRT-LM model is blocked before NPU S1 decode`() = runTest {
         val eligibility = resolveNpuStandardRouteS1ModelEligibility(
             selectedModelName = "gemma-4-E2B-it",

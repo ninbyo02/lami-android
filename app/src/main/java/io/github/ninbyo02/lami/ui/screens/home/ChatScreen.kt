@@ -182,22 +182,26 @@ import io.github.ninbyo02.lami.util.RuntimeFlags
 import io.github.ninbyo02.lami.viewmodels.LamiState
 import io.github.ninbyo02.lami.viewmodels.LamiStatus
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import org.json.JSONArray
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
-import kotlinx.coroutines.yield
 import kotlin.math.roundToInt
 
 private val ComposerMinHeight = 44.dp
@@ -328,6 +332,11 @@ private data class LocalInferenceRunResult(
     val trace: LocalInferenceTrace = LocalInferenceTrace(),
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
     val runnerWhitespaceTraceText: String? = null,
+)
+
+private data class GpuExperimentalTimeoutOperationResult<T>(
+    val value: T?,
+    val timedOut: Boolean,
 )
 
 private data class LocalModelResolution(
@@ -3089,6 +3098,7 @@ fun Home(
                                                             val localRunGuardEpoch = streamingGuardEpoch
                                                             val localRunStartedAtMs = SystemClock.elapsedRealtime()
                                                             val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
+                                                            val localRouteTimedOut = AtomicBoolean(false)
                                                             var measuredModelLoadDurationNs: Long? = null
                                                             appendLocalReflectionTrace(
                                                                 context = context.applicationContext,
@@ -3128,10 +3138,15 @@ fun Home(
                                                                     val resolvedModelPath = modelResolution.modelPath
                                                                 mediaPipeProbeModelPathForRun = resolvedModelPath
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
+                                                                val applyGpuExperimentalTimeout =
+                                                                    shouldApplyGpuExperimentalStageTimeout(localRouteDiagnosticContext)
+                                                                val lastRouteDiagnosticStage =
+                                                                    AtomicReference<String?>("engine_create_started")
                                                                 val heldSnapshotBeforeAcquire = localInferenceEngineHolder.getDevDiagnosticSnapshot()
                                                                 val reusableHeldEngineBeforeAcquire =
                                                                     localInferenceEngineHolder.hasReusableHeldEngineForKey(modelResolution.engineKey)
                                                                 val engineCreateStarted = !reusableHeldEngineBeforeAcquire
+                                                                lastRouteDiagnosticStage.set("engine_create_started")
                                                                 appendLocalReflectionTrace(
                                                                     context = context.applicationContext,
                                                                     message = buildLocalRouteDiagnosticTrace(
@@ -3156,66 +3171,103 @@ fun Home(
                                                                     context = context.applicationContext,
                                                                     message = "UPSTREAM held-acquire start modelPathTail=$modelPathTail",
                                                                 )
-                                                                val heldEngine = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
-                                                                    val diagnosticResult = localInferenceEngineHolder.acquireWithDiagnostic(
-                                                                        engineKey = modelResolution.engineKey,
-                                                                        preferredBackendDryRunSetting = preferredBackendDryRunSetting,
-                                                                        appendTrace = { message ->
-                                                                            if (message.startsWith("UPSTREAM official-helper") || message.startsWith("UPSTREAM held-create")) {
-                                                                                heldOfficialHelperProgress = message
-                                                                            }
-                                                                            appendLocalReflectionTrace(
-                                                                                context = context.applicationContext,
-                                                                                message = message,
-                                                                            )
-                                                                        },
-                                                                    )
-                                                                    heldAcquireFailureStage = diagnosticResult.failureStage
-                                                                    heldAcquireFailureClassName = diagnosticResult.failureClassName
-                                                                    heldAcquireFailureMessage = diagnosticResult.failureMessage
-                                                                    heldFailureDiagnosticsText = diagnosticResult.failureDiagnosticsText
-                                                                    if (!useHeldPathOnlyForDev && diagnosticResult.engine == null) {
-                                                                        legacyFallbackReason = "held-acquire-failed"
-                                                                        appendLocalReflectionTrace(
-                                                                            context = context.applicationContext,
-                                                                            message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
-                                                                        )
-                                                                    }
-                                                                    diagnosticResult.engine
-                                                                } else {
-                                                                    runCatching {
-                                                                        localInferenceEngineHolder.acquireOrCreate(
+                                                                suspend fun acquireHeldEngineForRun(): HeldLocalEngine? =
+                                                                    if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                        val diagnosticResult = localInferenceEngineHolder.acquireWithDiagnostic(
                                                                             engineKey = modelResolution.engineKey,
-                                                                            context = context.applicationContext,
                                                                             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                                                                             appendTrace = { message ->
+                                                                                if (message.startsWith("UPSTREAM official-helper") || message.startsWith("UPSTREAM held-create")) {
+                                                                                    heldOfficialHelperProgress = message
+                                                                                }
                                                                                 appendLocalReflectionTrace(
                                                                                     context = context.applicationContext,
                                                                                     message = message,
                                                                                 )
                                                                             },
                                                                         )
-                                                                    }.getOrElse {
-                                                                        heldFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
-                                                                            context = context.applicationContext,
-                                                                            stage = "holder-acquire",
-                                                                            throwable = it,
-                                                                            selectedModelName = modelResolution.modelPath,
-                                                                            selectedFallbackPath = "gpu",
-                                                                        )
-                                                                        appendLocalReflectionTrace(
-                                                                            context = context.applicationContext,
-                                                                            message = "HELD ACQUIRE ERROR: ${it.message}",
-                                                                        )
-                                                                        if (!useHeldPathOnlyForDev) {
+                                                                        heldAcquireFailureStage = diagnosticResult.failureStage
+                                                                        heldAcquireFailureClassName = diagnosticResult.failureClassName
+                                                                        heldAcquireFailureMessage = diagnosticResult.failureMessage
+                                                                        heldFailureDiagnosticsText = diagnosticResult.failureDiagnosticsText
+                                                                        if (!useHeldPathOnlyForDev && diagnosticResult.engine == null) {
                                                                             legacyFallbackReason = "held-acquire-failed"
                                                                             appendLocalReflectionTrace(
                                                                                 context = context.applicationContext,
                                                                                 message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
                                                                             )
                                                                         }
-                                                                        null
+                                                                        diagnosticResult.engine
+                                                                    } else {
+                                                                        runCatching {
+                                                                            localInferenceEngineHolder.acquireOrCreate(
+                                                                                engineKey = modelResolution.engineKey,
+                                                                                context = context.applicationContext,
+                                                                                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                                                                                appendTrace = { message ->
+                                                                                    appendLocalReflectionTrace(
+                                                                                        context = context.applicationContext,
+                                                                                        message = message,
+                                                                                    )
+                                                                                },
+                                                                            )
+                                                                        }.getOrElse {
+                                                                            heldFailureDiagnosticsText = buildLocalInferenceFailureDiagnosticsText(
+                                                                                context = context.applicationContext,
+                                                                                stage = "holder-acquire",
+                                                                                throwable = it,
+                                                                                selectedModelName = modelResolution.modelPath,
+                                                                                selectedFallbackPath = "gpu",
+                                                                            )
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = "HELD ACQUIRE ERROR: ${it.message}",
+                                                                            )
+                                                                            if (!useHeldPathOnlyForDev) {
+                                                                                legacyFallbackReason = "held-acquire-failed"
+                                                                                appendLocalReflectionTrace(
+                                                                                    context = context.applicationContext,
+                                                                                    message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
+                                                                                )
+                                                                            }
+                                                                            null
+                                                                        }
                                                                     }
+
+                                                                val heldEngine = if (applyGpuExperimentalTimeout) {
+                                                                    val acquireResult = runGpuExperimentalOperationWithTimeout {
+                                                                        acquireHeldEngineForRun()
+                                                                    }
+                                                                    if (acquireResult.timedOut) {
+                                                                        localRouteTimedOut.set(true)
+                                                                        val failureStage = "engine_create_timeout"
+                                                                        val elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = buildGpuExperimentalTimeoutDiagnosticsText(
+                                                                                context = localRouteDiagnosticContext,
+                                                                                failureStage = failureStage,
+                                                                                elapsedMs = elapsedMs,
+                                                                            ),
+                                                                        )
+                                                                        coroutineScope.launch(Dispatchers.IO) {
+                                                                            localInferenceEngineHolder.clear { message ->
+                                                                                appendLocalReflectionTrace(
+                                                                                    context = context.applicationContext,
+                                                                                    message = message,
+                                                                                )
+                                                                            }
+                                                                        }
+                                                                        return@withContext buildGpuExperimentalTimeoutRunResult(
+                                                                            context = localRouteDiagnosticContext,
+                                                                            modelResolution = modelResolution,
+                                                                            failureStage = failureStage,
+                                                                            elapsedMs = elapsedMs,
+                                                                        )
+                                                                    }
+                                                                    acquireResult.value
+                                                                } else {
+                                                                    acquireHeldEngineForRun()
                                                                 }
                                                                 val heldSnapshotAfterAcquire = localInferenceEngineHolder.getDevDiagnosticSnapshot()
                                                                 val heldEngineReused = heldSnapshotAfterAcquire.lastAcquireAction == "reused"
@@ -3278,7 +3330,9 @@ fun Home(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-run start modelPathTail=$modelPathTail",
                                                                     )
-                                                                    val heldRunResult = runWithHeldEngine(
+                                                                    suspend fun runHeldEngineForRun(): HeldEngineRunResult? {
+                                                                        lastRouteDiagnosticStage.set("conversation_create_started")
+                                                                        return runWithHeldEngine(
                                                                         heldEngine = held,
                                                                         engineHolder = localInferenceEngineHolder,
                                                                         chatId = currentChatId,
@@ -3290,8 +3344,11 @@ fun Home(
                                                                         routeDiagnosticContext = localRouteDiagnosticContext,
                                                                         routeRunStartedAtMs = localRunStartedAtMs,
                                                                         heldEngineReused = heldEngineReused,
+                                                                        onRouteDiagnosticStage = { stage ->
+                                                                            lastRouteDiagnosticStage.set(stage)
+                                                                        },
                                                                         onPartial = { partial ->
-                                                                            if (localStopRequested) return@runWithHeldEngine
+                                                                            if (localRouteTimedOut.get() || localStopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = normalizeStreamingPartialForRender(
                                                                                 partial = partial,
                                                                                 markdownStreamingMode = markdownStreamingMode,
@@ -3320,6 +3377,7 @@ fun Home(
                                                                             )
                                                                             if (normalizedPartial.isBlank()) return@runWithHeldEngine
                                                                             coroutineScope.launch {
+                                                                                if (localRouteTimedOut.get()) return@launch
                                                                                 if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                 if (localStopRequested) return@launch
                                                                                 didReceiveRealLocalPartial = true
@@ -3346,7 +3404,49 @@ fun Home(
                                                                         onFailureDiagnostics = { diagnostics ->
                                                                             heldFailureDiagnosticsText = diagnostics
                                                                         },
-                                                                    )
+                                                                        )
+                                                                    }
+                                                                    val heldRunResult = if (applyGpuExperimentalTimeout) {
+                                                                        val runOperation = runGpuExperimentalOperationWithTimeout {
+                                                                            runHeldEngineForRun()
+                                                                        }
+                                                                        if (runOperation.timedOut) {
+                                                                            localRouteTimedOut.set(true)
+                                                                            val failureStage = resolveGpuExperimentalTimeoutFailureStage(
+                                                                                lastRouteDiagnosticStage.get(),
+                                                                            )
+                                                                            val elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = buildGpuExperimentalTimeoutDiagnosticsText(
+                                                                                    context = localRouteDiagnosticContext,
+                                                                                    failureStage = failureStage,
+                                                                                    elapsedMs = elapsedMs,
+                                                                                ),
+                                                                            )
+                                                                            coroutineScope.launch(Dispatchers.IO) {
+                                                                                localInferenceEngineHolder.resetConversation(
+                                                                                    chatId = currentChatId,
+                                                                                    reason = failureStage,
+                                                                                )
+                                                                                localInferenceEngineHolder.clear { message ->
+                                                                                    appendLocalReflectionTrace(
+                                                                                        context = context.applicationContext,
+                                                                                        message = message,
+                                                                                    )
+                                                                                }
+                                                                            }
+                                                                            return@withContext buildGpuExperimentalTimeoutRunResult(
+                                                                                context = localRouteDiagnosticContext,
+                                                                                modelResolution = modelResolution,
+                                                                                failureStage = failureStage,
+                                                                                elapsedMs = elapsedMs,
+                                                                            )
+                                                                        }
+                                                                        runOperation.value
+                                                                    } else {
+                                                                        runHeldEngineForRun()
+                                                                    }
                                                                     if (heldRunResult != null) {
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
@@ -3826,6 +3926,20 @@ fun Home(
                                                                 chatId = currentChatId,
                                                                 reason = "error",
                                                             )
+                                                            val timeoutFailureRunResult = runResultWithUiTrace
+                                                                ?.takeIf { shouldInsertLocalFailureAssistantMessage(it) }
+                                                            if (timeoutFailureRunResult != null && !localStopRequested) {
+                                                                withContext(Dispatchers.IO) {
+                                                                    viewModel.insertAssistantMessageAndReturnId(
+                                                                        createAssistantMessage(
+                                                                            chatId = currentChatId,
+                                                                            response = timeoutFailureRunResult.response.orEmpty(),
+                                                                            localSourceSummary = timeoutFailureRunResult.trace.localFailureDiagnosticsText,
+                                                                            generationTimeMs = localGenerationTimeMs,
+                                                                        ),
+                                                                    )
+                                                                }
+                                                            }
                                                             Log.e(
                                                                 "ChatScreen",
                                                                 "LOCAL compare failure: failureState=$resolvedState, failureTimedOut=$recheckedTimedOut, failureResponseBlank=$resolvedAssistantBlank, failureResponseLength=${resolvedAssistantResponse.length}, failureTracePresent=$recheckedTracePresent, effectiveChatId=$effectiveChatId, isLocalInferenceRunning=$isLocalInferenceRunning",
@@ -5393,6 +5507,88 @@ private fun normalizeStatsProbeAvailability(
         else -> probe
     }
 }
+
+private suspend fun <T> runGpuExperimentalOperationWithTimeout(
+    timeoutMs: Long = GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS,
+    block: suspend () -> T?,
+): GpuExperimentalTimeoutOperationResult<T> {
+    val deferred = CoroutineScope(Dispatchers.IO).async {
+        block()
+    }
+    val startedAtMs = SystemClock.elapsedRealtime()
+    while (!deferred.isCompleted) {
+        if (SystemClock.elapsedRealtime() - startedAtMs >= timeoutMs) {
+            deferred.cancel()
+            return GpuExperimentalTimeoutOperationResult(value = null, timedOut = true)
+        }
+        delay(100L)
+    }
+    return GpuExperimentalTimeoutOperationResult(
+        value = deferred.await(),
+        timedOut = false,
+    )
+}
+
+private fun buildGpuExperimentalTimeoutDiagnosticsText(
+    context: LocalRouteDiagnosticContext,
+    failureStage: String,
+    elapsedMs: Long,
+): String {
+    val engineCreateFinished = failureStage != "engine_create_timeout"
+    val conversationCreateStarted = failureStage != "engine_create_timeout"
+    val conversationCreateFinished =
+        failureStage == "generate_start_timeout" || failureStage == "first_token_timeout"
+    val generateStarted = failureStage == "first_token_timeout"
+    return buildLocalRouteDiagnosticTrace(
+        stage = "timeout_failure",
+        context = context,
+        flags = LocalRouteDiagnosticFlags(
+            heldEngineExists = engineCreateFinished,
+            heldEngineReused = false,
+            engineCreateFinished = engineCreateFinished,
+            conversationCreateStarted = conversationCreateStarted,
+            conversationCreateFinished = conversationCreateFinished,
+            generateStarted = generateStarted,
+            firstTokenReceived = false,
+            failureStage = failureStage,
+            fallbackUsed = false,
+        ),
+        elapsedMs = elapsedMs,
+    )
+}
+
+private fun buildGpuExperimentalTimeoutRunResult(
+    context: LocalRouteDiagnosticContext,
+    modelResolution: LocalModelResolution,
+    failureStage: String,
+    elapsedMs: Long,
+): LocalInferenceRunResult {
+    val diagnosticsText = buildGpuExperimentalTimeoutDiagnosticsText(
+        context = context,
+        failureStage = failureStage,
+        elapsedMs = elapsedMs,
+    )
+    return LocalInferenceRunResult(
+        state = LocalInferenceEngineState.ERROR,
+        response = GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
+        trace = LocalInferenceTrace(
+            localModelDisplayName = modelResolution.displayName,
+            mediaPipeProbeModelPath = modelResolution.modelPath,
+            requestedPreferredBackend = "GPU",
+            appliedPreferredBackend = "GPU",
+            preferredBackendApplyResult = "timeout",
+            preferredBackendHookReached = false,
+            preferredBackendHookSource = "gpu-experimental-timeout",
+            localFailureDiagnosticsText = diagnosticsText,
+        ),
+    )
+}
+
+private fun shouldInsertLocalFailureAssistantMessage(
+    runResult: LocalInferenceRunResult?,
+): Boolean =
+    runResult?.state == LocalInferenceEngineState.ERROR &&
+        runResult.response == GPU_EXPERIMENTAL_TIMEOUT_MESSAGE
 
 private fun ensureSuccessCloseLifecycleSummary(
     summary: RunCloseLifecycleSummary?,

@@ -24,6 +24,7 @@ internal data class LocalRouteDiagnosticFlags(
     val generateStarted: Boolean? = null,
     val firstTokenReceived: Boolean? = null,
     val failureStage: String? = null,
+    val fallbackUsed: Boolean? = null,
 )
 
 internal fun buildLocalRouteDiagnosticContext(
@@ -89,7 +90,29 @@ internal fun buildLocalRouteDiagnosticTrace(
     "generate_started=${flags.generateStarted.toDiagnosticValue()}",
     "first_token_received=${flags.firstTokenReceived.toDiagnosticValue()}",
     "failure_stage=${flags.failureStage?.takeIf { it.isNotBlank() } ?: "none"}",
+    "fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
     "elapsed_ms=${elapsedMs.coerceAtLeast(0L)}",
 ).joinToString(" ")
 
 private fun Boolean?.toDiagnosticValue(): String = this?.toString() ?: "unknown"
+
+internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS = 20_000L
+internal const val GPU_EXPERIMENTAL_TIMEOUT_MESSAGE =
+    "GPU backend の初期化または生成開始がタイムアウトしました。Generic LiteRT-LMモデルではCPU backendを選択してください。"
+
+internal fun shouldApplyGpuExperimentalStageTimeout(
+    context: LocalRouteDiagnosticContext,
+): Boolean =
+    context.localRouteEntered &&
+        context.baselineRole == LITERT_LM_BASELINE_GPU_EXPERIMENTAL
+
+internal fun resolveGpuExperimentalTimeoutFailureStage(
+    lastStage: String?,
+): String =
+    when (lastStage) {
+        "engine_create_started" -> "engine_create_timeout"
+        "conversation_create_started" -> "conversation_create_timeout"
+        "conversation_create_finished" -> "generate_start_timeout"
+        "generate_started" -> "first_token_timeout"
+        else -> "engine_create_timeout"
+    }
