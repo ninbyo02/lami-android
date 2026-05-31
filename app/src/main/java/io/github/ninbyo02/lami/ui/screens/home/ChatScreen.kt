@@ -821,6 +821,7 @@ fun Home(
     var npuStandardRouteS1FallbackText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingActive by remember(effectiveChatId) { mutableStateOf(false) }
+    var npuStandardRouteStreamingSentenceTtsBlocked by remember(effectiveChatId) { mutableStateOf(false) }
     var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devRunnerWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
@@ -1526,7 +1527,11 @@ fun Home(
         }
     }
 
-    val effectiveStreamingSentenceTtsEnabled = ttsEnabled && devEnableStreamingSentenceTts
+    val effectiveStreamingSentenceTtsEnabled = shouldEnableStreamingSentenceTts(
+        ttsEnabled = ttsEnabled,
+        devEnableStreamingSentenceTts = devEnableStreamingSentenceTts,
+        blockedByNpuStandardRoute = npuStandardRouteStreamingSentenceTtsBlocked,
+    )
 
     LaunchedEffect(
         effectiveStreamingSentenceTtsEnabled,
@@ -2546,6 +2551,7 @@ fun Home(
                                                         npuStandardRouteS1FallbackText = null
                                                         npuStandardRouteS4PseudoStreamingText = null
                                                         npuStandardRouteS4PseudoStreamingActive = false
+                                                        npuStandardRouteStreamingSentenceTtsBlocked = false
                                                         showDelayedLocalRespondingPlaceholder = false
                                                         localInferenceEngineState = LocalInferenceEngineState.READY
                                                         localStopRequested = false
@@ -2791,6 +2797,7 @@ fun Home(
                                                                 if (s4PseudoStreamingCandidate != null) {
                                                                     val s4GuardEpoch = streamingGuardEpoch
                                                                     npuStandardRouteS4PseudoStreamingActive = true
+                                                                    npuStandardRouteStreamingSentenceTtsBlocked = true
                                                                     try {
                                                                         s4PseudoStreamingCandidate.chunks.forEach { chunk ->
                                                                             if (
@@ -2840,7 +2847,8 @@ fun Home(
                                                                 lastPersistedStreamingAssistantText = assistantTextForPersist
                                                                 localStreamingResponseText = null
                                                                 streamingResponseTextForRender = null
-                                                                    if (npuStandardRouteS5TtsEnabled) {
+                                                                npuStandardRouteStreamingSentenceTtsBlocked = false
+                                                                if (npuStandardRouteS5TtsEnabled) {
                                                                         val s5TtsMapping = NpuStandardRouteS5TtsBridge()
                                                                             .prepareTtsCandidate(
                                                                                 s1Result = s1Result,
@@ -2869,6 +2877,11 @@ fun Home(
                                                                         )
                                                                         if (s5TtsSkipReason == NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE) {
                                                                             val ttsCandidate = requireNotNull(s5TtsMapping.ttsCandidate)
+                                                                            val s5SavedResult = buildNpuStandardRouteS5TtsSavedResult(
+                                                                                s1Result = s1Result,
+                                                                                finalAssistantText = assistantTextForPersist,
+                                                                            )
+                                                                            npuStandardRouteS1DisplayText = s5SavedResult.displayText
                                                                             currentSpeakingAssistantMessageId = assistantId
                                                                             stopButtonOwnerAssistantMessageId = assistantId
                                                                             stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
@@ -2881,6 +2894,17 @@ fun Home(
                                                                                 ),
                                                                             )
                                                                             ttsController.speak(ttsCandidate.speakText)
+                                                                            try {
+                                                                                withContext(Dispatchers.IO) {
+                                                                                    viewModel.getMessageById(assistantId)?.let { message ->
+                                                                                        viewModel.updateMessage(
+                                                                                            message.copy(localSourceSummary = s5SavedResult.displayText),
+                                                                                        )
+                                                                                    }
+                                                                                }
+                                                                            } catch (exception: Exception) {
+                                                                                Log.w("ChatScreen", "Failed to update NPU S5 TTS diagnostics", exception)
+                                                                            }
                                                                             logStreamTrace(
                                                                                 buildNpuStandardRouteS5TtsSpeakTrace(
                                                                                     stage = "after",
@@ -3015,6 +3039,7 @@ fun Home(
                                                                 )
                                                             } finally {
                                                                 npuStandardRouteS4PseudoStreamingActive = false
+                                                                npuStandardRouteStreamingSentenceTtsBlocked = false
                                                                 showDelayedLocalRespondingPlaceholder = false
                                                                 isLocalInferenceRunning = false
                                                                 localInferenceJob = null
@@ -9023,6 +9048,15 @@ internal fun shouldStartNpuStandardRouteS4APseudoStreaming(
     mapping: NpuStandardRouteS4PseudoStreamingMapping,
 ): Boolean =
     enabled && mapping.hasPseudoStreamingCandidate
+
+internal fun shouldEnableStreamingSentenceTts(
+    ttsEnabled: Boolean,
+    devEnableStreamingSentenceTts: Boolean,
+    blockedByNpuStandardRoute: Boolean,
+): Boolean =
+    ttsEnabled &&
+        devEnableStreamingSentenceTts &&
+        !blockedByNpuStandardRoute
 
 internal fun shouldContinueNpuStandardRouteS4APseudoStreaming(
     localStopRequested: Boolean,

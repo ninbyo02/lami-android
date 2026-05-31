@@ -546,6 +546,96 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `S4A tts false blocks streaming sentence TTS and explicit S5 speak`() {
+        val s4Result = buildNpuStandardRouteS4APseudoStreamingSavedResult(
+            s1Result = s1SuccessResult(),
+            finalText = "こんにちは。今日は段階表示します。",
+        )
+        val s5Mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。今日は段階表示します。",
+            ttsEnabled = true,
+        )
+
+        assertTrue(s4Result.displayText.contains("route_type=standard_chat_screen_s4a_npu_pseudo_streaming"))
+        assertTrue(s4Result.displayText.contains("tts=false"))
+        assertFalse(
+            shouldEnableStreamingSentenceTts(
+                ttsEnabled = true,
+                devEnableStreamingSentenceTts = true,
+                blockedByNpuStandardRoute = true,
+            ),
+        )
+        assertFalse(
+            shouldSpeakNpuStandardRouteS5Tts(
+                enabled = NpuStandardRouteMode.S4A_PSEUDO_STREAMING.isS5Enabled(),
+                mapping = s5Mapping,
+                ttsEnabled = true,
+                streamingActive = false,
+                assistantId = 42,
+                suppressedForAssistant = false,
+                inCooldown = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `streaming sentence TTS remains enabled for non NPU standard routes`() {
+        assertTrue(
+            shouldEnableStreamingSentenceTts(
+                ttsEnabled = true,
+                devEnableStreamingSentenceTts = true,
+                blockedByNpuStandardRoute = false,
+            ),
+        )
+        assertFalse(
+            shouldEnableStreamingSentenceTts(
+                ttsEnabled = false,
+                devEnableStreamingSentenceTts = true,
+                blockedByNpuStandardRoute = false,
+            ),
+        )
+        assertFalse(
+            shouldEnableStreamingSentenceTts(
+                ttsEnabled = true,
+                devEnableStreamingSentenceTts = false,
+                blockedByNpuStandardRoute = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `FULL mode tts true matches explicit S5 speak gate`() {
+        val s5Result = buildNpuStandardRouteS5TtsSavedResult(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。読み上げます。",
+        )
+        val s5Mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = s1SuccessResult(),
+            finalAssistantText = "こんにちは。読み上げます。",
+            ttsEnabled = true,
+        )
+
+        assertTrue(s5Result.displayText.contains("route_type=standard_chat_screen_s5_npu_tts"))
+        assertTrue(s5Result.displayText.contains("db=true"))
+        assertTrue(s5Result.displayText.contains("conversation_history_saved=true"))
+        assertTrue(s5Result.displayText.contains("markdown=true"))
+        assertTrue(s5Result.displayText.contains("streaming=true"))
+        assertTrue(s5Result.displayText.contains("tts=true"))
+        assertTrue(
+            shouldSpeakNpuStandardRouteS5Tts(
+                enabled = NpuStandardRouteMode.FULL.isS5Enabled(),
+                mapping = s5Mapping,
+                ttsEnabled = true,
+                streamingActive = false,
+                assistantId = 42,
+                suppressedForAssistant = false,
+                inCooldown = false,
+            ),
+        )
+    }
+
+    @Test
     fun `S5 TTS speak gate rejects missing assistant id`() {
         val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
             s1Result = s1SuccessResult(),
