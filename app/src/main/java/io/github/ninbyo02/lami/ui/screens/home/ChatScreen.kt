@@ -2431,23 +2431,82 @@ fun Home(
                                                             requestPrompt = requestPrompt,
                                                         )
                                                     ) {
-                                                        val npuRealPromptTrace: (String) -> Unit = { message ->
-                                                            logStreamTrace(message)
-                                                        }
-                                                        npuRealPromptTrace(
-                                                            buildNpuRealPromptHandoffTrace(
-                                                                stage = "chat",
-                                                                userPrompt = requestPrompt,
-                                                            ),
+                                                        val immediateNpuSendUiUpdate = prepareImmediateNpuSendUiStateUpdate(requestPrompt)
+                                                        prompt = immediateNpuSendUiUpdate.prompt
+                                                        userPrompt = immediateNpuSendUiUpdate.userPrompt
+                                                        selectedImageUriStrings = immediateNpuSendUiUpdate.selectedImageUriStrings
+                                                        npuStandardRouteS1DisplayText = null
+                                                        npuStandardRouteS1FallbackText = null
+                                                        npuStandardRouteS4PseudoStreamingText = null
+                                                        npuStandardRouteS4PseudoStreamingActive = false
+                                                        showDelayedLocalRespondingPlaceholder = false
+                                                        localInferenceEngineState = LocalInferenceEngineState.READY
+                                                        localStopRequested = false
+                                                        isLocalInferenceRunning = true
+                                                        stopTtsWithCleanup(
+                                                            suppressedMessageId = stopButtonOwnerAssistantMessageId
+                                                                ?: currentSpeakingAssistantMessageId
+                                                                ?: streamingSpeechStartedForMessageId,
+                                                            armTapGuards = false,
                                                         )
-                                                        val s1Result = NpuStandardRouteS1Bridge(
-                                                            mode = npuStandardRouteMode,
-                                                            trace = npuRealPromptTrace,
-                                                        )
-                                                            .run(
-                                                                userPrompt = requestPrompt,
-                                                                maxOutputTokens = npuStandardRouteMaxOutputTokens,
-                                                            )
+                                                        localInferenceJob = coroutineScope.launch {
+                                                            var resolvedNpuChatId: Int? = null
+                                                            try {
+                                                                val npuRealPromptTrace: (String) -> Unit = { message ->
+                                                                    logStreamTrace(message)
+                                                                }
+                                                                val immediateNpuRun = runNpuInferenceAfterImmediateUserMessage(
+                                                                    requestPrompt = requestPrompt,
+                                                                    currentChatId = effectiveChatId,
+                                                                    createChat = {
+                                                                        isCreatingChat = true
+                                                                        try {
+                                                                            withContext(Dispatchers.IO) {
+                                                                                viewModel.insertChatAndReturnId(
+                                                                                    Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                                                                                )
+                                                                            }
+                                                                        } finally {
+                                                                            isCreatingChat = false
+                                                                        }
+                                                                    },
+                                                                    onChatCreated = { newChatId ->
+                                                                        effectiveChatId = newChatId
+                                                                        pendingNavigateChatId = newChatId
+                                                                    },
+                                                                    insertUserMessage = { chatId, promptText ->
+                                                                        withContext(Dispatchers.IO) {
+                                                                            viewModel.insertAssistantMessageAndReturnId(
+                                                                                Message(
+                                                                                    chatId = chatId,
+                                                                                    message = promptText,
+                                                                                    isSendbyMe = true,
+                                                                                )
+                                                                            )
+                                                                        }
+                                                                    },
+                                                                    runInference = {
+                                                                        npuRealPromptTrace(
+                                                                            buildNpuRealPromptHandoffTrace(
+                                                                                stage = "chat",
+                                                                                userPrompt = requestPrompt,
+                                                                            ),
+                                                                        )
+                                                                        withContext(Dispatchers.Default) {
+                                                                            NpuStandardRouteS1Bridge(
+                                                                                mode = npuStandardRouteMode,
+                                                                                trace = npuRealPromptTrace,
+                                                                            )
+                                                                                .run(
+                                                                                    userPrompt = requestPrompt,
+                                                                                    maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                                )
+                                                                        }
+                                                                    },
+                                                                )
+                                                                val currentChatId = immediateNpuRun.chatId
+                                                                resolvedNpuChatId = currentChatId
+                                                                val s1Result = immediateNpuRun.result
                                                         npuRealPromptTrace(
                                                             buildNpuRealPromptResultTrace(
                                                                 status = s1Result.status,
@@ -2468,6 +2527,22 @@ fun Home(
                                                             result = s1Result,
                                                         )
                                                         npuStandardRouteS1FallbackText = s1Fallback?.text
+                                                        val npuFailureAssistantText = resolveNpuStandardRouteFailureAssistantMessage(
+                                                            result = s1Result,
+                                                            transientFallback = s1Fallback,
+                                                        )
+                                                        if (npuFailureAssistantText != null && !localStopRequested) {
+                                                            npuStandardRouteS1FallbackText = null
+                                                            withContext(Dispatchers.IO) {
+                                                                viewModel.insertAssistantMessageAndReturnId(
+                                                                    createAssistantMessage(
+                                                                        chatId = currentChatId,
+                                                                        response = npuFailureAssistantText,
+                                                                        localSourceSummary = s1Result.displayText,
+                                                                    )
+                                                                )
+                                                            }
+                                                        }
                                                         npuStandardRouteS1DevTraceText = if (
                                                             BuildConfig.DEBUG &&
                                                             developerAccessEnabled
@@ -2554,9 +2629,6 @@ fun Home(
                                                                     } else {
                                                                         null
                                                                     }
-                                                                prompt = ""
-                                                                userPrompt = ""
-                                                                selectedImageUriStrings = emptyList()
                                                                 coroutineScope.launch {
                                                                     if (s4PseudoStreamingCandidate != null) {
                                                                         npuStandardRouteS4PseudoStreamingActive = true
@@ -2567,31 +2639,8 @@ fun Home(
                                                                         npuStandardRouteS4PseudoStreamingText = s4PseudoStreamingCandidate.finalText
                                                                         npuStandardRouteS4PseudoStreamingActive = false
                                                                     }
-                                                                    var currentChatId = effectiveChatId
-                                                                    if (currentChatId == null) {
-                                                                        isCreatingChat = true
-                                                                        try {
-                                                                            val newChatId = withContext(Dispatchers.IO) {
-                                                                                viewModel.insertChatAndReturnId(
-                                                                                    Chat(title = "New chat", titleSource = TitleSource.TEMP)
-                                                                                )
-                                                                            }
-                                                                            effectiveChatId = newChatId
-                                                                            pendingNavigateChatId = newChatId
-                                                                            currentChatId = newChatId
-                                                                        } finally {
-                                                                            isCreatingChat = false
-                                                                        }
-                                                                    }
                                                                     val resolvedChatId = currentChatId
                                                                     val assistantId = withContext(Dispatchers.IO) {
-                                                                        viewModel.insertAssistantMessageAndReturnId(
-                                                                            Message(
-                                                                                chatId = resolvedChatId,
-                                                                                message = saveCandidate.userMessage.text,
-                                                                                isSendbyMe = saveCandidate.userMessage.isSendByMe,
-                                                                            )
-                                                                        )
                                                                         viewModel.insertAssistantMessageAndReturnId(
                                                                             createAssistantMessage(
                                                                                 chatId = resolvedChatId,
@@ -2665,7 +2714,7 @@ fun Home(
                                                                         )
                                                                     }
                                                                 }
-                                                                return@IconButton
+                                                                return@launch
                                                             }
                                                         }
                                                         val s4DisplayOnlyCandidate =
@@ -2687,9 +2736,6 @@ fun Home(
                                                             } else {
                                                                 null
                                                         }
-                                                        prompt = ""
-                                                        userPrompt = ""
-                                                        selectedImageUriStrings = emptyList()
                                                         if (!npuStandardRouteS5TtsEnabled) {
                                                             logStreamTrace(
                                                                 buildNpuStandardRouteS5TtsSkipTrace(
@@ -2749,6 +2795,32 @@ fun Home(
                                                                         ),
                                                                     )
                                                                 }
+                                                            }
+                                                        }
+                                                            } catch (exception: Exception) {
+                                                                Log.e("ChatScreen", "NPU standard route execution failed", exception)
+                                                                val failureChatId = resolvedNpuChatId
+                                                                if (!localStopRequested && failureChatId != null) {
+                                                                    withContext(Dispatchers.IO) {
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            createAssistantMessage(
+                                                                                chatId = failureChatId,
+                                                                                response = "NPU推論の応答取得に失敗しました: ${exception.javaClass.simpleName}",
+                                                                                localSourceSummary = exception.message.orEmpty(),
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                }
+                                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                                snackbarHostState.showSnackbar(
+                                                                    message = "NPU推論の応答取得に失敗しました",
+                                                                    duration = SnackbarDuration.Short,
+                                                                )
+                                                            } finally {
+                                                                npuStandardRouteS4PseudoStreamingActive = false
+                                                                showDelayedLocalRespondingPlaceholder = false
+                                                                isLocalInferenceRunning = false
+                                                                localInferenceJob = null
                                                             }
                                                         }
                                                         return@IconButton
@@ -8333,6 +8405,41 @@ internal fun shouldPersistNpuStandardRouteS2Db(
 ): Boolean =
     enabled && mapping.hasSaveCandidate
 
+internal data class ImmediateNpuSendUiStateUpdate(
+    val prompt: String = "",
+    val userPrompt: String = "",
+    val selectedImageUriStrings: List<String> = emptyList(),
+)
+
+internal fun prepareImmediateNpuSendUiStateUpdate(
+    requestPrompt: String,
+): ImmediateNpuSendUiStateUpdate {
+    require(requestPrompt.isNotBlank()) { "requestPrompt must not be blank" }
+    return ImmediateNpuSendUiStateUpdate()
+}
+
+internal data class ImmediateNpuInferenceRun<T>(
+    val chatId: Int,
+    val result: T,
+)
+
+internal suspend fun <T> runNpuInferenceAfterImmediateUserMessage(
+    requestPrompt: String,
+    currentChatId: Int?,
+    createChat: suspend () -> Int,
+    onChatCreated: (Int) -> Unit,
+    insertUserMessage: suspend (chatId: Int, promptText: String) -> Unit,
+    runInference: suspend (chatId: Int) -> T,
+): ImmediateNpuInferenceRun<T> {
+    require(requestPrompt.isNotBlank()) { "requestPrompt must not be blank" }
+    val resolvedChatId = currentChatId ?: createChat().also(onChatCreated)
+    insertUserMessage(resolvedChatId, requestPrompt)
+    return ImmediateNpuInferenceRun(
+        chatId = resolvedChatId,
+        result = runInference(resolvedChatId),
+    )
+}
+
 internal fun shouldStartNpuStandardRouteS4APseudoStreaming(
     enabled: Boolean,
     mapping: NpuStandardRouteS4PseudoStreamingMapping,
@@ -8370,6 +8477,15 @@ internal fun resolveNpuStandardRouteS1Fallback(
     } else {
         null
     }
+}
+
+internal fun resolveNpuStandardRouteFailureAssistantMessage(
+    result: NpuStandardRouteS1Result,
+    transientFallback: NpuStandardRouteS1TransientFallback?,
+): String? {
+    if (result.successCriteriaMet) return null
+    return transientFallback?.text
+        ?: "NPU推論の応答生成に失敗しました: ${result.reason.ifBlank { "unknown" }}"
 }
 
 internal fun resolveNpuStandardRouteS1SafeGreetingFallback(

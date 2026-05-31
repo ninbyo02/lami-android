@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -840,6 +841,80 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertTrue(shouldStartNpuStandardRouteS4APseudoStreaming(NpuStandardRouteMode.S4A_PSEUDO_STREAMING.isS4AEnabled(), s4Mapping))
         assertFalse(shouldPrepareNpuStandardRouteS5Tts(NpuStandardRouteMode.S4A_PSEUDO_STREAMING.isS5Enabled(), s5Mapping))
         assertTrue(shouldPrepareNpuStandardRouteS5Tts(NpuStandardRouteMode.FULL.isS5Enabled(), s5Mapping))
+    }
+
+    @Test
+    fun `NPU immediate send update clears composer state`() {
+        val update = prepareImmediateNpuSendUiStateUpdate("こんにちは")
+
+        assertEquals("", update.prompt)
+        assertEquals("", update.userPrompt)
+        assertTrue(update.selectedImageUriStrings.isEmpty())
+    }
+
+    @Test
+    fun `NPU inference starts after immediate user message persistence`() = runTest {
+        val events = mutableListOf<String>()
+
+        val run = runNpuInferenceAfterImmediateUserMessage(
+            requestPrompt = "こんにちは",
+            currentChatId = null,
+            createChat = {
+                events += "create_chat"
+                7
+            },
+            onChatCreated = { chatId ->
+                events += "chat_created:$chatId"
+            },
+            insertUserMessage = { chatId, promptText ->
+                events += "insert_user:$chatId:$promptText"
+            },
+            runInference = { chatId ->
+                events += "run_npu:$chatId"
+                "assistant"
+            },
+        )
+
+        assertEquals(7, run.chatId)
+        assertEquals("assistant", run.result)
+        assertEquals(
+            listOf(
+                "create_chat",
+                "chat_created:7",
+                "insert_user:7:こんにちは",
+                "run_npu:7",
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `NPU failure assistant message uses fallback or explicit error`() {
+        val fallback = NpuStandardRouteS1TransientFallback(
+            text = "すみません、応答を生成できませんでした。",
+            kind = "generic_failure_fallback",
+        )
+
+        assertEquals(
+            "すみません、応答を生成できませんでした。",
+            resolveNpuStandardRouteFailureAssistantMessage(
+                result = s1QuestionEchoFailureResult(),
+                transientFallback = fallback,
+            ),
+        )
+        assertEquals(
+            "NPU推論の応答生成に失敗しました: assistant_stub",
+            resolveNpuStandardRouteFailureAssistantMessage(
+                result = s1AssistantStubFailureResult(),
+                transientFallback = null,
+            ),
+        )
+        assertNull(
+            resolveNpuStandardRouteFailureAssistantMessage(
+                result = s1SuccessResult(),
+                transientFallback = null,
+            ),
+        )
     }
 
     private fun s1SuccessResult(): NpuStandardRouteS1Result =
