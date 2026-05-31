@@ -80,12 +80,16 @@ internal object NpuStandardRouteS1Contract {
     const val MAX_OUTPUT_TOKENS = 32
     const val NPU_BACKEND_EVIDENCE = "QNN_HTP_V79_FastRPC_native_diag"
     const val QUALITY_NATURAL_JAPANESE = "natural_japanese"
+    const val QUALITY_MIXED_LANGUAGE = "mixed_language"
     const val QUALITY_QUESTION_ECHO = "question_echo"
     const val QUALITY_ASSISTANT_STUB = "assistant_stub"
     const val STATUS_SUCCESS = "success"
     const val REASON_SUCCESS = "success"
+    const val REASON_EMPTY_AFTER_SANITIZE = "empty_after_sanitize"
+    const val REASON_MIXED_LANGUAGE = "mixed_language"
     const val REASON_QUESTION_ECHO = "question_echo"
     const val REASON_ASSISTANT_STUB = "assistant_stub"
+    const val FALLBACK_SAFE_GREETING = "safe_greeting_fallback"
 
     fun displayText(
         selection: NpuStandardRouteS1Selection,

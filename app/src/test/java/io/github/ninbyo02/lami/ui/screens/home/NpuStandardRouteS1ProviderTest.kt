@@ -285,4 +285,41 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("fallback=false"))
         assertTrue(copyText.contains("fresh_crash=false"))
     }
+
+    @Test
+    fun `S1 dev trace records original failure when safe greeting fallback is applied`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "failure",
+                result = "failure",
+                success = false,
+                reason = NpuStandardRouteS1Contract.REASON_EMPTY_AFTER_SANITIZE,
+                rawOutput = "૩です|",
+                sanitizedOutput = "",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_MIXED_LANGUAGE,
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val trace = buildNpuStandardRouteS1DevTraceText(
+            input = "こんばんは",
+            result = result,
+            transientFallback = NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING,
+        )
+        val copyText = buildNpuStandardRouteS1DiagnosticCopyText(
+            input = "こんばんは",
+            result = result,
+            transientFallback = NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING,
+        )
+
+        assertTrue(trace.contains("original_status=failure"))
+        assertTrue(trace.contains("original_reason=empty_after_sanitize"))
+        assertTrue(trace.contains("original_quality_classification=mixed_language"))
+        assertTrue(trace.contains("fallback=safe_greeting_fallback"))
+        assertTrue(copyText.contains("fallback=safe_greeting_fallback"))
+    }
 }

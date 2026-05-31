@@ -124,12 +124,83 @@ class NpuStandardRouteS1ChatScreenGateTest {
 
         assertTrue(shouldShowNpuStandardRouteS1Fallback(result))
         assertEquals(
+            "こんばんは。",
+            resolveNpuStandardRouteS1Fallback(
+                userPrompt = "こんばんは",
+                result = result,
+            )?.text,
+        )
+        assertEquals(
+            NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING,
+            resolveNpuStandardRouteS1Fallback(
+                userPrompt = "こんばんは",
+                result = result,
+            )?.kind,
+        )
+        assertEquals(
             "すみません、応答を生成できませんでした。",
             NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT,
         )
         assertFalse(result.successCriteriaMet)
         assertEquals("failure", result.status)
         assertEquals("empty_after_sanitize", result.reason)
+    }
+
+    @Test
+    fun `safe greeting fallback handles only short greeting failures`() {
+        val result = s1EmptyAfterSanitizeFailureResult()
+
+        val expectedFallbacks = mapOf(
+            "こんにちは" to "こんにちは。",
+            "おはよう" to "おはようございます。",
+            "こんばんは" to "こんばんは。",
+            "ハロー" to "こんにちは。",
+            "hello" to "こんにちは。",
+            "hi" to "こんにちは。",
+        )
+
+        expectedFallbacks.forEach { (prompt, expectedText) ->
+            val fallback = resolveNpuStandardRouteS1SafeGreetingFallback(
+                userPrompt = prompt,
+                result = result,
+            )
+
+            assertEquals(expectedText, fallback?.text)
+            assertEquals(NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING, fallback?.kind)
+        }
+    }
+
+    @Test
+    fun `safe greeting fallback also handles mixed language failure reason`() {
+        val fallback = resolveNpuStandardRouteS1SafeGreetingFallback(
+            userPrompt = "こんばんは",
+            result = s1MixedLanguageFailureResult(),
+        )
+
+        assertEquals("こんばんは。", fallback?.text)
+        assertEquals(NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING, fallback?.kind)
+    }
+
+    @Test
+    fun `safe greeting fallback does not apply to long prompt question echo or assistant stub`() {
+        assertNull(
+            resolveNpuStandardRouteS1SafeGreetingFallback(
+                userPrompt = "こんばんは、今日の予定について相談したいです",
+                result = s1EmptyAfterSanitizeFailureResult(),
+            ),
+        )
+        assertNull(
+            resolveNpuStandardRouteS1SafeGreetingFallback(
+                userPrompt = "明日の天気は",
+                result = s1QuestionEchoFailureResult(),
+            ),
+        )
+        assertNull(
+            resolveNpuStandardRouteS1SafeGreetingFallback(
+                userPrompt = "こんにちは",
+                result = s1AssistantStubFailureResult(),
+            ),
+        )
     }
 
     @Test
@@ -796,6 +867,26 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 result = "failure",
                 success = false,
                 reason = "empty_after_sanitize",
+                rawOutput = "૩です|",
+                sanitizedOutput = "",
+                qualityClassification = "mixed_language",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 32,
+                effectiveMaxOutputTokens = 32,
+            ),
+        )
+
+    private fun s1MixedLanguageFailureResult(): NpuStandardRouteS1Result =
+        NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "failure",
+                result = "failure",
+                success = false,
+                reason = "mixed_language",
                 rawOutput = "૩です|",
                 sanitizedOutput = "",
                 qualityClassification = "mixed_language",

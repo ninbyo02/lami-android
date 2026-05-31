@@ -78,34 +78,46 @@ internal fun buildNpuStandardRouteS1DevTraceText(
     input: String,
     result: NpuStandardRouteS1Result,
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
-): String = listOf(
-    "max_output_tokens=$maxOutputTokens",
-    "input_hash=${npuRealPromptHash(input)}",
-    "input_prompt=${npuStandardRouteS1DevPreview(input)}",
-    "input_preview=${npuStandardRouteS1DevPreview(input)}",
-    "input_length=${input.length}",
-    "input_code_points=${input.codePointCount(0, input.length)}",
-    "raw_output_hash=${npuRealPromptHash(result.rawOutput)}",
-    "raw_output_preview=${npuStandardRouteS1DevPreview(result.rawOutput)}",
-    "raw_output_length=${result.rawOutput.length}",
-    "raw_output_code_points=${result.rawOutput.codePointCount(0, result.rawOutput.length)}",
-    "sanitized_output_hash=${npuRealPromptHash(result.sanitizedOutput)}",
-    "sanitized_output_preview=${npuStandardRouteS1DevPreview(result.sanitizedOutput)}",
-    "sanitized_output_length=${result.sanitizedOutput.length}",
-    "sanitized_output_code_points=${result.sanitizedOutput.codePointCount(0, result.sanitizedOutput.length)}",
-    "status=${result.status}",
-    "reason=${result.reason}",
-    "quality_classification=${result.qualityClassification}",
-    "run_decode_reached=${result.runDecodeReached}",
-    "timeout=${result.timeout}",
-    "fallback=${result.fallbackUsed}",
-    "fresh_crash=${result.freshCrash}",
-).joinToString("\n")
+    transientFallback: String? = null,
+): String {
+    val lines = mutableListOf(
+        "max_output_tokens=$maxOutputTokens",
+        "input_hash=${npuRealPromptHash(input)}",
+        "input_prompt=${npuStandardRouteS1DevPreview(input)}",
+        "input_preview=${npuStandardRouteS1DevPreview(input)}",
+        "input_length=${input.length}",
+        "input_code_points=${input.codePointCount(0, input.length)}",
+        "raw_output_hash=${npuRealPromptHash(result.rawOutput)}",
+        "raw_output_preview=${npuStandardRouteS1DevPreview(result.rawOutput)}",
+        "raw_output_length=${result.rawOutput.length}",
+        "raw_output_code_points=${result.rawOutput.codePointCount(0, result.rawOutput.length)}",
+        "sanitized_output_hash=${npuRealPromptHash(result.sanitizedOutput)}",
+        "sanitized_output_preview=${npuStandardRouteS1DevPreview(result.sanitizedOutput)}",
+        "sanitized_output_length=${result.sanitizedOutput.length}",
+        "sanitized_output_code_points=${result.sanitizedOutput.codePointCount(0, result.sanitizedOutput.length)}",
+        "status=${result.status}",
+        "reason=${result.reason}",
+        "quality_classification=${result.qualityClassification}",
+        "run_decode_reached=${result.runDecodeReached}",
+        "timeout=${result.timeout}",
+    )
+    if (transientFallback == NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING) {
+        lines += "original_status=${result.status}"
+        lines += "original_reason=${result.reason}"
+        lines += "original_quality_classification=${result.qualityClassification}"
+        lines += "fallback=${NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING}"
+    } else {
+        lines += "fallback=${result.fallbackUsed}"
+    }
+    lines += "fresh_crash=${result.freshCrash}"
+    return lines.joinToString("\n")
+}
 
 internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     input: String,
     result: NpuStandardRouteS1Result,
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
+    transientFallback: String? = null,
 ): String = listOf(
     "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
     "max_output_tokens=$maxOutputTokens",
@@ -116,7 +128,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     "quality_classification=${result.qualityClassification}",
     "run_decode_reached=${result.runDecodeReached}",
     "timeout=${result.timeout}",
-    "fallback=${result.fallbackUsed}",
+    "fallback=${transientFallback ?: result.fallbackUsed}",
     "fresh_crash=${result.freshCrash}",
 ).joinToString("\n")
 

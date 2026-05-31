@@ -2451,12 +2451,11 @@ fun Home(
                                                             ),
                                                         )
                                                         npuStandardRouteS1DisplayText = s1Result.displayText
-                                                        npuStandardRouteS1FallbackText =
-                                                            if (shouldShowNpuStandardRouteS1Fallback(s1Result)) {
-                                                                NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT
-                                                            } else {
-                                                                null
-                                                            }
+                                                        val s1Fallback = resolveNpuStandardRouteS1Fallback(
+                                                            userPrompt = requestPrompt,
+                                                            result = s1Result,
+                                                        )
+                                                        npuStandardRouteS1FallbackText = s1Fallback?.text
                                                         npuStandardRouteS1DevTraceText = if (
                                                             BuildConfig.DEBUG &&
                                                             developerAccessEnabled
@@ -2465,6 +2464,7 @@ fun Home(
                                                                 input = requestPrompt,
                                                                 result = s1Result,
                                                                 maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                transientFallback = s1Fallback?.kind,
                                                             )
                                                         } else {
                                                             null
@@ -2493,6 +2493,7 @@ fun Home(
                                                                 input = requestPrompt,
                                                                 result = s1Result,
                                                                 maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                transientFallback = s1Fallback?.kind,
                                                             )
                                                         } else {
                                                             null
@@ -8335,12 +8336,64 @@ internal fun shouldPrepareNpuStandardRouteS5Tts(
 internal const val NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT =
     "すみません、応答を生成できませんでした。"
 
+internal data class NpuStandardRouteS1TransientFallback(
+    val text: String,
+    val kind: String,
+)
+
+internal fun resolveNpuStandardRouteS1Fallback(
+    userPrompt: String,
+    result: NpuStandardRouteS1Result,
+): NpuStandardRouteS1TransientFallback? {
+    val safeGreetingFallback = resolveNpuStandardRouteS1SafeGreetingFallback(
+        userPrompt = userPrompt,
+        result = result,
+    )
+    if (safeGreetingFallback != null) return safeGreetingFallback
+    return if (shouldShowNpuStandardRouteS1Fallback(result)) {
+        NpuStandardRouteS1TransientFallback(
+            text = NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT,
+            kind = "generic_failure_fallback",
+        )
+    } else {
+        null
+    }
+}
+
+internal fun resolveNpuStandardRouteS1SafeGreetingFallback(
+    userPrompt: String,
+    result: NpuStandardRouteS1Result,
+): NpuStandardRouteS1TransientFallback? {
+    if (!isNpuStandardRouteS1SafeGreetingFallbackFailure(result)) return null
+    val fallbackText = when (userPrompt.trim().lowercase()) {
+        "こんにちは" -> "こんにちは。"
+        "おはよう" -> "おはようございます。"
+        "こんばんは" -> "こんばんは。"
+        "ハロー", "hello", "hi" -> "こんにちは。"
+        else -> return null
+    }
+    return NpuStandardRouteS1TransientFallback(
+        text = fallbackText,
+        kind = NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING,
+    )
+}
+
+private fun isNpuStandardRouteS1SafeGreetingFallbackFailure(
+    result: NpuStandardRouteS1Result,
+): Boolean =
+    result.status == FailureNpuStandardRouteS1Provider.STATUS_FAILURE &&
+        (
+            result.reason == NpuStandardRouteS1Contract.REASON_EMPTY_AFTER_SANITIZE ||
+                result.reason == NpuStandardRouteS1Contract.REASON_MIXED_LANGUAGE
+            )
+
 internal fun shouldShowNpuStandardRouteS1Fallback(
     result: NpuStandardRouteS1Result,
 ): Boolean =
     result.status == FailureNpuStandardRouteS1Provider.STATUS_FAILURE &&
         (
-            result.reason == "empty_after_sanitize" ||
+            result.reason == NpuStandardRouteS1Contract.REASON_EMPTY_AFTER_SANITIZE ||
+                result.reason == NpuStandardRouteS1Contract.REASON_MIXED_LANGUAGE ||
                 result.reason == NpuStandardRouteS1Contract.REASON_QUESTION_ECHO ||
                 result.reason == NpuStandardRouteS1Contract.REASON_ASSISTANT_STUB
             )
