@@ -119,6 +119,46 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `empty after sanitize failure shows fallback without marking S1 success`() {
+        val result = s1EmptyAfterSanitizeFailureResult()
+
+        assertTrue(shouldShowNpuStandardRouteS1Fallback(result))
+        assertEquals(
+            "すみません、応答を生成できませんでした。",
+            NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT,
+        )
+        assertFalse(result.successCriteriaMet)
+        assertEquals("failure", result.status)
+        assertEquals("empty_after_sanitize", result.reason)
+    }
+
+    @Test
+    fun `empty after sanitize fallback does not enable DB S4A or TTS`() {
+        val result = s1EmptyAfterSanitizeFailureResult()
+        val s2Mapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "こんばんは",
+            s1Result = result,
+        )
+        val s4Mapping = NpuStandardRouteS4PseudoStreamingBridge().preparePseudoStreamingCandidate(
+            s1Result = result,
+            finalText = NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT,
+        )
+        val s5Mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = result,
+            finalAssistantText = NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT,
+            ttsEnabled = true,
+        )
+
+        assertFalse(shouldPersistNpuStandardRouteS2Db(enabled = true, mapping = s2Mapping))
+        assertNull(s2Mapping.saveCandidate)
+        assertFalse(shouldStartNpuStandardRouteS4APseudoStreaming(enabled = true, mapping = s4Mapping))
+        assertNull(s4Mapping.pseudoStreamingCandidate)
+        assertFalse(shouldPrepareNpuStandardRouteS5Tts(enabled = true, mapping = s5Mapping))
+        assertNull(s5Mapping.ttsCandidate)
+        assertEquals(NpuStandardRouteS5TtsContract.FAILURE_S1_NOT_SUCCESS, s5Mapping.failureReason)
+    }
+
+    @Test
     fun `bridge path keeps side effects disconnected`() {
         val result = NpuStandardRouteS1Bridge().run(userPrompt = "好きな色を一つだけ答えてください")
 
@@ -679,6 +719,26 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 rawOutput = "こんにちは。",
                 sanitizedOutput = "こんにちは。",
                 qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 32,
+                effectiveMaxOutputTokens = 32,
+            ),
+        )
+
+    private fun s1EmptyAfterSanitizeFailureResult(): NpuStandardRouteS1Result =
+        NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "failure",
+                result = "failure",
+                success = false,
+                reason = "empty_after_sanitize",
+                rawOutput = "૩です|",
+                sanitizedOutput = "",
+                qualityClassification = "mixed_language",
                 runDecodeReached = true,
                 npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
                 fallbackUsed = false,

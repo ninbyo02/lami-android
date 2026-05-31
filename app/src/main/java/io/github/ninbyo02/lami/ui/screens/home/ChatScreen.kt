@@ -801,6 +801,7 @@ fun Home(
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DisplayText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DevTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1FallbackText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingActive by remember(effectiveChatId) { mutableStateOf(false) }
     var devWhitespaceTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
@@ -2440,6 +2441,12 @@ fun Home(
                                                             ),
                                                         )
                                                         npuStandardRouteS1DisplayText = s1Result.displayText
+                                                        npuStandardRouteS1FallbackText =
+                                                            if (shouldShowNpuStandardRouteS1Fallback(s1Result)) {
+                                                                NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT
+                                                            } else {
+                                                                null
+                                                            }
                                                         npuStandardRouteS1DevTraceText = if (BuildConfig.DEBUG) {
                                                             buildNpuStandardRouteS1DevTraceText(
                                                                 input = requestPrompt,
@@ -4255,6 +4262,14 @@ fun Home(
                                     item(key = "npu_standard_route_s1_display") {
                                         val s1Text = npuStandardRouteS1DisplayText!!
                                         val s1DevTraceText = npuStandardRouteS1DevTraceText
+                                        val s1FallbackText = npuStandardRouteS1FallbackText
+                                        if (!s1FallbackText.isNullOrBlank()) {
+                                            PlainAssistantMessage(
+                                                message = s1FallbackText,
+                                                isStreaming = false,
+                                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp),
+                                            )
+                                        }
                                         CopyableDebugBlock(
                                             text = s1Text,
                                             title = "NPU STANDARD ROUTE S1",
@@ -8235,6 +8250,15 @@ internal fun shouldPrepareNpuStandardRouteS5Tts(
     mapping: NpuStandardRouteS5TtsMapping,
 ): Boolean =
     enabled && mapping.hasTtsCandidate
+
+internal const val NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT =
+    "すみません、応答を生成できませんでした。"
+
+internal fun shouldShowNpuStandardRouteS1Fallback(
+    result: NpuStandardRouteS1Result,
+): Boolean =
+    result.status == FailureNpuStandardRouteS1Provider.STATUS_FAILURE &&
+        result.reason == "empty_after_sanitize"
 
 internal fun shouldSpeakNpuStandardRouteS5Tts(
     enabled: Boolean,
