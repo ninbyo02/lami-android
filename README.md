@@ -257,8 +257,13 @@ The repository also includes `update.sh`, a single-developer helper script for l
 ./update.sh publish -m "docs: update README"
 ```
 
+For local update behavior, see `docs/update_sh_local_workflow.md`. By default,
+`./update.sh update` stops on a dirty worktree instead of creating an automatic
+WIP commit.
+
 ## Documentation
 
+- `docs/update_sh_local_workflow.md`: local `update.sh` dirty-worktree policy.
 - `docs/ui/LAMI_STANDARD_LAYOUT.md`: LAMI UI density, spacing, and inset guidance.
 - `docs/qualcomm-qnn-npu-setup.md`: current QNN / NPU setup notes and limitations.
 

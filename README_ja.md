@@ -257,8 +257,12 @@ debug APKをビルド:
 ./update.sh publish -m "docs: update README"
 ```
 
+ローカル更新時の挙動は `docs/update_sh_local_workflow.md` を参照してください。
+デフォルトの `./update.sh update` は、dirty worktree で自動 WIP commit を作らず停止します。
+
 ## ドキュメント
 
+- `docs/update_sh_local_workflow.md`: ローカル `update.sh` の dirty worktree 方針。
 - `docs/ui/LAMI_STANDARD_LAYOUT.md`: LAMI UIの密度、余白、inset設計ガイド。
 - `docs/qualcomm-qnn-npu-setup.md`: 現在のQNN / NPUセットアップメモと制限事項。
 
