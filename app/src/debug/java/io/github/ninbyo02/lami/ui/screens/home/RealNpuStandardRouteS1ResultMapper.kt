@@ -13,7 +13,8 @@ internal object RealNpuStandardRouteS1ResultMapper {
                 input = userPrompt,
                 output = sanitizedOutput,
             )
-        val status = if (questionEcho) {
+        val assistantStub = !questionEcho && isAssistantStub(sanitizedOutput)
+        val status = if (questionEcho || assistantStub) {
             FailureNpuStandardRouteS1Provider.STATUS_FAILURE
         } else if (display.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) {
             NpuStandardRouteS1Contract.STATUS_SUCCESS
@@ -22,11 +23,15 @@ internal object RealNpuStandardRouteS1ResultMapper {
         }
         val reason = if (questionEcho) {
             NpuStandardRouteS1Contract.REASON_QUESTION_ECHO
+        } else if (assistantStub) {
+            NpuStandardRouteS1Contract.REASON_ASSISTANT_STUB
         } else {
             display.reason
         }
         val qualityClassification = if (questionEcho) {
             NpuStandardRouteS1Contract.QUALITY_QUESTION_ECHO
+        } else if (assistantStub) {
+            NpuStandardRouteS1Contract.QUALITY_ASSISTANT_STUB
         } else {
             display.quality
         }
@@ -59,4 +64,14 @@ internal object RealNpuStandardRouteS1ResultMapper {
         val normalizedOutput = output.filterNot { char -> char.isWhitespace() }
         return normalizedInput.isNotBlank() && normalizedInput == normalizedOutput
     }
+
+    private fun isAssistantStub(output: String): Boolean =
+        output.trim() in assistantStubOutputs
+
+    private val assistantStubOutputs = setOf(
+        "アシスタント。",
+        "アシスタント:",
+        "Assistant.",
+        "Assistant:",
+    )
 }

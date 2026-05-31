@@ -128,6 +128,31 @@ class RealNpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `real provider classifies standalone assistant marker as failure`() {
+        listOf(
+            "アシスタント。",
+            "アシスタント:",
+            "Assistant.",
+            "Assistant:",
+        ).forEach { output ->
+            val raw = RealNpuStandardRouteS1Provider(
+                requestRunner = { successDisplay(output = output) },
+            ).invoke(userPrompt, trace = {})
+            val result = NpuStandardRouteS1Mapper.map(raw)
+
+            assertEquals("failure", raw.status)
+            assertEquals("failure", raw.result)
+            assertEquals(false, raw.success)
+            assertEquals("assistant_stub", raw.reason)
+            assertEquals(output, raw.sanitizedOutput)
+            assertEquals("assistant_stub", raw.qualityClassification)
+            assertFalse(result.successCriteriaMet)
+            assertEquals("assistant_stub", result.reason)
+            assertEquals("assistant_stub", result.qualityClassification)
+        }
+    }
+
+    @Test
     fun `custom build experiment default provider selects real provider and reports unavailable in unit test`() {
         val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke(userPrompt, trace = {})
         val result = NpuStandardRouteS1Mapper.map(raw)
