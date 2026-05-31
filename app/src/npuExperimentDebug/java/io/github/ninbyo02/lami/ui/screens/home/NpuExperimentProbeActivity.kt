@@ -8,6 +8,18 @@ import io.github.ninbyo02.lami.BuildConfig
 class NpuExperimentProbeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent?.getBooleanExtra("run_backend_npu_attach_probe", false) == true) {
+            NpuExperimentProbeLogger.runBackendNpuAttachProbe(
+                context = applicationContext,
+                runId = intent?.getStringExtra("run_id").orEmpty(),
+                phase = intent?.getStringExtra("phase").orEmpty(),
+                modelPath = intent?.getStringExtra("model_path"),
+                engineInitializeOptIn = intent?.getBooleanExtra("run_engine_initialize_dry_run", false) == true,
+                engineInitializeDiagnosticFilesClearedBeforeRun = intent?.getBooleanExtra("diagnostic_files_cleared_before_run", false) == true,
+            )
+            finish()
+            return
+        }
         if (intent?.getBooleanExtra("run_app_jni_smoke", false) == true) {
             NpuExperimentProbeLogger.runAppJniSmokeOnly(
                 context = applicationContext,
@@ -39,6 +51,50 @@ class NpuExperimentProbeActivity : Activity() {
 internal object NpuExperimentProbeLogger {
     private const val APP_JNI_SMOKE_FILE_NAME = "qairt244_app_jni_smoke.txt"
     private const val SINGLE_TOKEN_SMOKE_FILE_NAME = "qairt244_single_token_smoke_result.txt"
+    private const val BACKEND_NPU_ATTACH_PROBE_LATEST_TXT = "backend_npu_attach_probe_latest.txt"
+    private const val BACKEND_NPU_ATTACH_PROBE_LATEST_MD = "backend_npu_attach_probe_latest.md"
+
+    fun runBackendNpuAttachProbe(
+        context: android.content.Context,
+        runId: String,
+        phase: String,
+        modelPath: String?,
+        engineInitializeOptIn: Boolean,
+        engineInitializeDiagnosticFilesClearedBeforeRun: Boolean,
+    ) {
+        val normalizedRunId = sanitizeProbeRunId(runId.ifBlank { System.currentTimeMillis().toString() })
+        val normalizedPhase = normalizeBackendNpuAttachProbePhase(phase)
+        val runEngineInitializeDryRun = BackendNpuAttachProbeReportFormatter.shouldRunEngineInitializeDryRun(
+            phase = normalizedPhase,
+            explicitOptIn = engineInitializeOptIn,
+        )
+        val snapshot = AcceleratorProbe.captureSnapshot(
+            context = context.applicationContext,
+            forceRefresh = true,
+            engineInitializeDryRunOptIn = runEngineInitializeDryRun,
+            engineInitializeDryRunModelPath = modelPath,
+            engineInitializeDryRunRunId = normalizedRunId,
+            engineInitializeDiagnosticFilesClearedBeforeRun = engineInitializeDiagnosticFilesClearedBeforeRun,
+        )
+        val request = BackendNpuAttachProbeReportRequest(
+            runId = normalizedRunId,
+            phase = normalizedPhase,
+            engineInitializeOptIn = runEngineInitializeDryRun,
+            processAliveAfterProbe = "alive-inside-app-before-script-pidof",
+        )
+        val txt = BackendNpuAttachProbeReportFormatter.formatText(snapshot, request)
+        val md = BackendNpuAttachProbeReportFormatter.formatMarkdown(snapshot, request)
+        val txtFile = context.filesDir.resolve("backend_npu_attach_probe_${normalizedRunId}.txt")
+        val mdFile = context.filesDir.resolve("backend_npu_attach_probe_${normalizedRunId}.md")
+        txtFile.writeText(txt)
+        mdFile.writeText(md)
+        context.filesDir.resolve(BACKEND_NPU_ATTACH_PROBE_LATEST_TXT).writeText(txt)
+        context.filesDir.resolve(BACKEND_NPU_ATTACH_PROBE_LATEST_MD).writeText(md)
+        Log.i(
+            LOG_TAG,
+            "Backend.NPU attach probe written runId=$normalizedRunId phase=$normalizedPhase txt=${txtFile.absolutePath} md=${mdFile.absolutePath}",
+        )
+    }
 
     fun runAppJniSmokeOnly(
         context: android.content.Context,
@@ -314,6 +370,30 @@ internal object NpuExperimentProbeLogger {
             Log.e(LOG_TAG, "Failed to write probe result: ${throwable.javaClass.simpleName}: ${throwable.message}")
         }
     }
+
+    private fun normalizeBackendNpuAttachProbePhase(phase: String): String =
+        when (phase.trim().lowercase()) {
+            BackendNpuAttachProbeReportFormatter.PHASE_ENGINE_INITIALIZE,
+            "initialize",
+            "engine-init",
+            "engine_init",
+            -> BackendNpuAttachProbeReportFormatter.PHASE_ENGINE_INITIALIZE
+            BackendNpuAttachProbeReportFormatter.PHASE_CONVERSATION,
+            "conversation-create",
+            "conversation_create",
+            -> BackendNpuAttachProbeReportFormatter.PHASE_CONVERSATION
+            BackendNpuAttachProbeReportFormatter.PHASE_ONE_TOKEN_DECODE,
+            "decode",
+            "one-token",
+            "one_token",
+            -> BackendNpuAttachProbeReportFormatter.PHASE_ONE_TOKEN_DECODE
+            else -> BackendNpuAttachProbeReportFormatter.PHASE_INVENTORY
+        }
+
+    private fun sanitizeProbeRunId(value: String): String =
+        value.filter { it.isLetterOrDigit() || it == '_' || it == '-' }.ifBlank {
+            System.currentTimeMillis().toString()
+        }
 
     private const val LOG_TAG = "NpuExperimentProbe"
 }

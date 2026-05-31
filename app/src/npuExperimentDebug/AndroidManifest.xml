@@ -10,6 +10,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="io.github.ninbyo02.lami.npu.PROBE_DISPATCH" />
+                <action android:name="io.github.ninbyo02.lami.npu.BACKEND_NPU_ATTACH_PROBE" />
             </intent-filter>
         </receiver>
         <activity
