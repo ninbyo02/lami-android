@@ -712,6 +712,9 @@ fun Home(
     val npuStandardRouteMode by settingsPreferences.npuStandardRouteModeFlow.collectAsState(
         initial = NpuStandardRouteMode.OFF,
     )
+    val npuStandardRouteMaxOutputTokens by settingsPreferences.npuStandardRouteMaxOutputTokensFlow.collectAsState(
+        initial = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+    )
     val npuStandardRouteS2DbEnabled = npuStandardRouteMode.isS2Enabled()
     val npuStandardRouteS3MarkdownEnabled = npuStandardRouteMode.isS3Enabled()
     val npuStandardRouteS4aPseudoStreamingEnabled = npuStandardRouteMode.isS4AEnabled()
@@ -801,6 +804,9 @@ fun Home(
     var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DisplayText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DevTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DevInputText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DevOutputText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DevDiagnosticCopyText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1FallbackText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingActive by remember(effectiveChatId) { mutableStateOf(false) }
@@ -2426,11 +2432,15 @@ fun Home(
                                                             mode = npuStandardRouteMode,
                                                             trace = npuRealPromptTrace,
                                                         )
-                                                            .run(userPrompt = requestPrompt)
+                                                            .run(
+                                                                userPrompt = requestPrompt,
+                                                                maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                            )
                                                         npuRealPromptTrace(
                                                             buildNpuRealPromptResultTrace(
                                                                 status = s1Result.status,
                                                                 reason = s1Result.reason,
+                                                                maxOutputTokens = s1Result.selection.effectiveMaxOutputTokens,
                                                                 rawOutput = s1Result.rawOutput,
                                                                 sanitizedOutput = s1Result.sanitizedOutput,
                                                                 qualityClassification = s1Result.qualityClassification,
@@ -2447,10 +2457,42 @@ fun Home(
                                                             } else {
                                                                 null
                                                             }
-                                                        npuStandardRouteS1DevTraceText = if (BuildConfig.DEBUG) {
+                                                        npuStandardRouteS1DevTraceText = if (
+                                                            BuildConfig.DEBUG &&
+                                                            developerAccessEnabled
+                                                        ) {
                                                             buildNpuStandardRouteS1DevTraceText(
                                                                 input = requestPrompt,
                                                                 result = s1Result,
+                                                                maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                            )
+                                                        } else {
+                                                            null
+                                                        }
+                                                        npuStandardRouteS1DevInputText = if (
+                                                            BuildConfig.DEBUG &&
+                                                            developerAccessEnabled
+                                                        ) {
+                                                            requestPrompt
+                                                        } else {
+                                                            null
+                                                        }
+                                                        npuStandardRouteS1DevOutputText = if (
+                                                            BuildConfig.DEBUG &&
+                                                            developerAccessEnabled
+                                                        ) {
+                                                            s1Result.sanitizedOutput.ifBlank { s1Result.rawOutput }
+                                                        } else {
+                                                            null
+                                                        }
+                                                        npuStandardRouteS1DevDiagnosticCopyText = if (
+                                                            BuildConfig.DEBUG &&
+                                                            developerAccessEnabled
+                                                        ) {
+                                                            buildNpuStandardRouteS1DiagnosticCopyText(
+                                                                input = requestPrompt,
+                                                                result = s1Result,
+                                                                maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                             )
                                                         } else {
                                                             null
@@ -4284,8 +4326,27 @@ fun Home(
                                                 }
                                             },
                                         )
-                                        if (BuildConfig.DEBUG && !s1DevTraceText.isNullOrBlank()) {
-                                            NpuStandardRouteS1DevTraceBlock(text = s1DevTraceText)
+                                        if (
+                                            BuildConfig.DEBUG &&
+                                            developerAccessEnabled &&
+                                            !s1DevTraceText.isNullOrBlank()
+                                        ) {
+                                            val s1InputText = npuStandardRouteS1DevInputText.orEmpty()
+                                            val s1OutputText = npuStandardRouteS1DevOutputText.orEmpty()
+                                            val s1DiagnosticText = npuStandardRouteS1DevDiagnosticCopyText
+                                                ?: s1DevTraceText
+                                            NpuStandardRouteS1DevTraceBlock(
+                                                text = s1DevTraceText,
+                                                onCopyInput = {
+                                                    clipboardManager.setText(AnnotatedString(s1InputText))
+                                                },
+                                                onCopyOutput = {
+                                                    clipboardManager.setText(AnnotatedString(s1OutputText))
+                                                },
+                                                onCopyDiagnostic = {
+                                                    clipboardManager.setText(AnnotatedString(s1DiagnosticText))
+                                                },
+                                            )
                                         }
                                     }
                                 }
@@ -7554,15 +7615,35 @@ private fun CopyableDebugBlock(
 @Composable
 private fun NpuStandardRouteS1DevTraceBlock(
     text: String,
+    onCopyInput: () -> Unit,
+    onCopyOutput: () -> Unit,
+    onCopyDiagnostic: () -> Unit,
 ) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        color = Color.Red,
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
-    )
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.Red,
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onCopyInput) {
+                Text(text = "入力コピー", color = Color.Red)
+            }
+            TextButton(onClick = onCopyOutput) {
+                Text(text = "出力コピー", color = Color.Red)
+            }
+            TextButton(onClick = onCopyDiagnostic) {
+                Text(text = "診断コピー", color = Color.Red)
+            }
+        }
+    }
 }
 
 private fun resolveInferenceTargetForStats(

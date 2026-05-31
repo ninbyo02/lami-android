@@ -29,8 +29,8 @@ internal data class NpuStandardRouteS1Selection(
         get() = enabled &&
             routeType == NpuStandardRouteS1Contract.ROUTE_TYPE &&
             promptTailVariant == NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT &&
-            requestedMaxOutputTokens == NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS &&
-            effectiveMaxOutputTokens == NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS &&
+            requestedMaxOutputTokens == NpuStandardRoutePreferences.sanitizeMaxOutputTokens(requestedMaxOutputTokens) &&
+            effectiveMaxOutputTokens == NpuStandardRoutePreferences.sanitizeMaxOutputTokens(effectiveMaxOutputTokens) &&
             sideEffects.allDisconnected
 }
 

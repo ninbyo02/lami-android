@@ -53,8 +53,15 @@ internal object RealNpuStandardRouteS1ResultMapper {
         )
     }
 
-    fun failure(reason: String): NpuStandardRouteS1RawResult =
-        FailureNpuStandardRouteS1Provider(reason = reason).invoke(userPrompt = "", trace = {})
+    fun failure(
+        reason: String,
+        maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+    ): NpuStandardRouteS1RawResult =
+        FailureNpuStandardRouteS1Provider(reason = reason).invoke(
+            userPrompt = "",
+            maxOutputTokens = maxOutputTokens,
+            trace = {},
+        )
 
     private fun isQuestionEcho(
         input: String,

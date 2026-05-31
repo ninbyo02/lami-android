@@ -16,14 +16,25 @@ class RealNpuStandardRouteS1ProviderTest {
             requestRunner = { successDisplay() },
         )
 
-        assertEquals("success", provider.invoke(userPrompt, trace = {}).reason)
+        assertEquals(
+            "success",
+            provider.invoke(
+                userPrompt = userPrompt,
+                maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+                trace = {},
+            ).reason,
+        )
     }
 
     @Test
     fun `real provider maps dev only success display to S1 raw result`() {
         val raw = RealNpuStandardRouteS1Provider(
             requestRunner = { successDisplay() },
-        ).invoke(userPrompt, trace = {})
+        ).invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
 
         assertEquals("success", raw.status)
         assertEquals("success", raw.result)
@@ -37,15 +48,19 @@ class RealNpuStandardRouteS1ProviderTest {
         assertFalse(raw.fallbackUsed)
         assertFalse(raw.timeout)
         assertFalse(raw.freshCrash)
-        assertEquals(32, raw.requestedMaxOutputTokens)
-        assertEquals(32, raw.effectiveMaxOutputTokens)
+        assertEquals(128, raw.requestedMaxOutputTokens)
+        assertEquals(128, raw.effectiveMaxOutputTokens)
     }
 
     @Test
     fun `real provider maps dev only failure reason to S1 raw result`() {
         val raw = RealNpuStandardRouteS1Provider(
             requestRunner = { failureDisplay(reason = "npu_evidence_missing") },
-        ).invoke(userPrompt, trace = {})
+        ).invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
 
         assertEquals("failure", raw.status)
         assertEquals("failure", raw.result)
@@ -59,13 +74,17 @@ class RealNpuStandardRouteS1ProviderTest {
         assertFalse(raw.fallbackUsed)
         assertFalse(raw.timeout)
         assertFalse(raw.freshCrash)
-        assertEquals(32, raw.requestedMaxOutputTokens)
-        assertEquals(32, raw.effectiveMaxOutputTokens)
+        assertEquals(128, raw.requestedMaxOutputTokens)
+        assertEquals(128, raw.effectiveMaxOutputTokens)
     }
 
     @Test
     fun `real provider returns explicit failure when dev only entry is unavailable in unit test`() {
-        val raw = RealNpuStandardRouteS1Provider().invoke(userPrompt, trace = {})
+        val raw = RealNpuStandardRouteS1Provider().invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
 
         assertEquals("failure", raw.status)
         assertEquals("failure", raw.result)
@@ -79,8 +98,8 @@ class RealNpuStandardRouteS1ProviderTest {
         assertFalse(raw.fallbackUsed)
         assertFalse(raw.timeout)
         assertFalse(raw.freshCrash)
-        assertEquals(32, raw.requestedMaxOutputTokens)
-        assertEquals(32, raw.effectiveMaxOutputTokens)
+        assertEquals(128, raw.requestedMaxOutputTokens)
+        assertEquals(128, raw.effectiveMaxOutputTokens)
     }
 
     @Test
@@ -88,7 +107,11 @@ class RealNpuStandardRouteS1ProviderTest {
         val result = NpuStandardRouteS1Mapper.map(
             RealNpuStandardRouteS1Provider(
                 requestRunner = { failureDisplay(reason = "timeout") },
-            ).invoke(userPrompt, trace = {}),
+            ).invoke(
+                userPrompt = userPrompt,
+                maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+                trace = {},
+            ),
         )
 
         assertFalse(result.successCriteriaMet)
@@ -108,7 +131,11 @@ class RealNpuStandardRouteS1ProviderTest {
         val traces = mutableListOf<String>()
         val raw = RealNpuStandardRouteS1Provider(
             requestRunner = { successDisplay(output = "明日の天気は") },
-        ).invoke("明日の天気は", trace = traces::add)
+        ).invoke(
+            userPrompt = "明日の天気は",
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = traces::add,
+        )
         val result = NpuStandardRouteS1Mapper.map(raw)
 
         assertEquals("failure", raw.status)
@@ -137,7 +164,11 @@ class RealNpuStandardRouteS1ProviderTest {
         ).forEach { output ->
             val raw = RealNpuStandardRouteS1Provider(
                 requestRunner = { successDisplay(output = output) },
-            ).invoke(userPrompt, trace = {})
+            ).invoke(
+                userPrompt = userPrompt,
+                maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+                trace = {},
+            )
             val result = NpuStandardRouteS1Mapper.map(raw)
 
             assertEquals("failure", raw.status)
@@ -154,7 +185,11 @@ class RealNpuStandardRouteS1ProviderTest {
 
     @Test
     fun `custom build experiment default provider selects real provider and reports unavailable in unit test`() {
-        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke(userPrompt, trace = {})
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
         val result = NpuStandardRouteS1Mapper.map(raw)
 
         assertFalse(result.successCriteriaMet)
@@ -167,7 +202,11 @@ class RealNpuStandardRouteS1ProviderTest {
     @Test
     fun `custom build experiment keeps provider selector real compatible for Settings mode OFF`() {
         val raw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.OFF)
-            .invoke(userPrompt, trace = {})
+            .invoke(
+                userPrompt = userPrompt,
+                maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+                trace = {},
+            )
         val result = NpuStandardRouteS1Mapper.map(raw)
 
         assertFalse(result.successCriteriaMet)
@@ -194,16 +233,22 @@ class RealNpuStandardRouteS1ProviderTest {
         val raw = RealNpuStandardRouteS1Provider(
             requestRunner = { request ->
                 capturedRequest = request
-                successDisplay()
+                successDisplay(maxOutputTokens = request.maxOutputTokens)
             },
-        ).invoke(userPrompt, trace = traces::add)
+        ).invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = traces::add,
+        )
 
         val request = requireNotNull(capturedRequest)
         assertEquals("success", raw.status)
         assertEquals(userPrompt, request.userPrompt)
         assertEquals("", request.contextText)
         assertTrue(request.unsafeDevBypassPromptLengthGate)
-        assertEquals(32, request.maxOutputTokens)
+        assertEquals(128, request.maxOutputTokens)
+        assertEquals(128, raw.requestedMaxOutputTokens)
+        assertEquals(128, raw.effectiveMaxOutputTokens)
         assertEquals("raw_dialog_tail_variant_b", request.promptTailVariant)
         assertEquals(60_000L, request.timeoutMs)
         assertTrue(traces.any { it.contains("NPU_REAL_PROMPT provider_prompt_hash=") })
@@ -223,7 +268,31 @@ class RealNpuStandardRouteS1ProviderTest {
         assertFalse(traces.joinToString("\n").contains(userPrompt))
     }
 
-    private fun successDisplay(output: String = "こんにちは。"): DevOnlyNpuOneTurnConversationDisplay =
+    @Test
+    fun `real provider passes explicit max output tokens into dev only request`() {
+        var capturedRequest: DevOnlyNpuOneTurnConversationRequest? = null
+
+        val raw = RealNpuStandardRouteS1Provider(
+            requestRunner = { request ->
+                capturedRequest = request
+                successDisplay(maxOutputTokens = request.maxOutputTokens)
+            },
+        ).invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = 512,
+            trace = {},
+        )
+
+        val request = requireNotNull(capturedRequest)
+        assertEquals(512, request.maxOutputTokens)
+        assertEquals(512, raw.requestedMaxOutputTokens)
+        assertEquals(512, raw.effectiveMaxOutputTokens)
+    }
+
+    private fun successDisplay(
+        output: String = "こんにちは。",
+        maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+    ): DevOnlyNpuOneTurnConversationDisplay =
         DevOnlyNpuOneTurnConversationDisplay(
             text = "DEV ONLY NPU ONE TURN",
             output = output,
@@ -235,8 +304,8 @@ class RealNpuStandardRouteS1ProviderTest {
             fallback = false,
             freshCrash = false,
             timeout = false,
-            requestedMaxOutputTokens = 32,
-            effectiveMaxOutputTokens = 32,
+            requestedMaxOutputTokens = maxOutputTokens,
+            effectiveMaxOutputTokens = maxOutputTokens,
             nativeMaxOutputTokensLimit = "512",
             rawLen = output.length,
             sanitizedLen = output.length,
@@ -252,7 +321,10 @@ class RealNpuStandardRouteS1ProviderTest {
             outputContainsControlChars = "false",
         )
 
-    private fun failureDisplay(reason: String): DevOnlyNpuOneTurnConversationDisplay =
+    private fun failureDisplay(
+        reason: String,
+        maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+    ): DevOnlyNpuOneTurnConversationDisplay =
         DevOnlyNpuOneTurnConversationDisplay(
             text = "DEV ONLY NPU ONE TURN",
             output = "",
@@ -264,8 +336,8 @@ class RealNpuStandardRouteS1ProviderTest {
             fallback = false,
             freshCrash = false,
             timeout = reason == "timeout",
-            requestedMaxOutputTokens = 32,
-            effectiveMaxOutputTokens = 32,
+            requestedMaxOutputTokens = maxOutputTokens,
+            effectiveMaxOutputTokens = maxOutputTokens,
             nativeMaxOutputTokensLimit = "-",
             rawLen = 0,
             sanitizedLen = 0,

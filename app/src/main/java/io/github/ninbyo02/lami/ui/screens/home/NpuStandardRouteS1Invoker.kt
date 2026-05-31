@@ -12,8 +12,15 @@ internal class NpuStandardRouteS1Invoker(
         trace = trace,
     )
 
-    fun invoke(userPrompt: String): NpuStandardRouteS1RawResult {
+    fun invoke(
+        userPrompt: String,
+        maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+    ): NpuStandardRouteS1RawResult {
         trace(buildNpuRealPromptHandoffTrace(stage = "invoker", userPrompt = userPrompt))
-        return provider.invoke(userPrompt, trace)
+        return provider.invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = maxOutputTokens,
+            trace = trace,
+        )
     }
 }

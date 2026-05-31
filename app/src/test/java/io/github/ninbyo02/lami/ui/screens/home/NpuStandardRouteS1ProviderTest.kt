@@ -11,7 +11,11 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `fixed provider returns default S1 success raw result`() {
-        val raw = FixedNpuStandardRouteS1Provider().invoke(userPrompt, trace = {})
+        val raw = FixedNpuStandardRouteS1Provider().invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
 
         assertEquals("success", raw.status)
         assertEquals("success", raw.result)
@@ -25,13 +29,17 @@ class NpuStandardRouteS1ProviderTest {
         assertFalse(raw.fallbackUsed)
         assertFalse(raw.timeout)
         assertFalse(raw.freshCrash)
-        assertEquals(32, raw.requestedMaxOutputTokens)
-        assertEquals(32, raw.effectiveMaxOutputTokens)
+        assertEquals(128, raw.requestedMaxOutputTokens)
+        assertEquals(128, raw.effectiveMaxOutputTokens)
     }
 
     @Test
     fun `failure provider returns mapper compatible failure raw result`() {
-        val raw = FailureNpuStandardRouteS1Provider(reason = "test_failure").invoke(userPrompt, trace = {})
+        val raw = FailureNpuStandardRouteS1Provider(reason = "test_failure").invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         assertEquals("failure", raw.status)
@@ -41,8 +49,8 @@ class NpuStandardRouteS1ProviderTest {
         assertEquals("", raw.sanitizedOutput)
         assertFalse(raw.runDecodeReached)
         assertEquals("", raw.npuBackendEvidence)
-        assertEquals(32, raw.requestedMaxOutputTokens)
-        assertEquals(32, raw.effectiveMaxOutputTokens)
+        assertEquals(128, raw.requestedMaxOutputTokens)
+        assertEquals(128, raw.effectiveMaxOutputTokens)
         assertFalse(mapped.successCriteriaMet)
         assertEquals("failure", mapped.status)
         assertEquals("test_failure", mapped.reason)
@@ -65,7 +73,11 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `default provider follows build variant provider selection`() {
-        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke(userPrompt, trace = {})
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider().invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
@@ -82,7 +94,11 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `provider selector uses fixed provider when S1 gate is disabled`() {
-        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = false).invoke(userPrompt, trace = {})
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = false).invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         assertTrue(mapped.successCriteriaMet)
@@ -92,7 +108,11 @@ class NpuStandardRouteS1ProviderTest {
 
     @Test
     fun `provider selector uses real provider path when S1 gate is enabled`() {
-        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = true).invoke(userPrompt, trace = {})
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = true).invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         assertFalse(mapped.successCriteriaMet)
@@ -101,11 +121,31 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `fixed provider uses explicit max output token setting`() {
+        val raw = FixedNpuStandardRouteS1Provider().invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = 512,
+            trace = {},
+        )
+
+        assertEquals(512, raw.requestedMaxOutputTokens)
+        assertEquals(512, raw.effectiveMaxOutputTokens)
+    }
+
+    @Test
     fun `provider selector for Settings mode keeps standard OFF fixed and S1 real while preserving custom compatibility`() {
         val offRaw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.OFF)
-            .invoke(userPrompt, trace = {})
+            .invoke(
+                userPrompt = userPrompt,
+                maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+                trace = {},
+            )
         val s1Raw = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(NpuStandardRouteMode.S1_ONLY)
-            .invoke(userPrompt, trace = {})
+            .invoke(
+                userPrompt = userPrompt,
+                maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+                trace = {},
+            )
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertEquals("failure", offRaw.status)
@@ -174,9 +214,15 @@ class NpuStandardRouteS1ProviderTest {
             ),
         )
 
-        val trace = buildNpuStandardRouteS1DevTraceText(input = longPrompt, result = result)
+        val trace = buildNpuStandardRouteS1DevTraceText(
+            input = longPrompt,
+            result = result,
+            maxOutputTokens = 512,
+        )
 
+        assertTrue(trace.contains("max_output_tokens=512"))
         assertTrue(trace.contains("input_hash="))
+        assertTrue(trace.contains("input_prompt="))
         assertTrue(trace.contains("input_preview="))
         assertTrue(trace.contains("..."))
         assertTrue(trace.contains("input_length=${longPrompt.length}"))
@@ -195,5 +241,48 @@ class NpuStandardRouteS1ProviderTest {
         assertFalse(trace.contains(longPrompt))
         assertFalse(trace.contains(longRawOutput))
         assertFalse(trace.contains(longSanitizedOutput))
+    }
+
+    @Test
+    fun `S1 diagnostic copy keeps full input and output values`() {
+        val input = "こんばんは"
+        val rawOutput = "raw\noutput"
+        val sanitizedOutput = "こんばんは。"
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = rawOutput,
+                sanitizedOutput = sanitizedOutput,
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 256,
+                effectiveMaxOutputTokens = 256,
+            ),
+        )
+
+        val copyText = buildNpuStandardRouteS1DiagnosticCopyText(
+            input = input,
+            result = result,
+            maxOutputTokens = 256,
+        )
+
+        assertTrue(copyText.contains("input_prompt=こんばんは"))
+        assertTrue(copyText.contains("max_output_tokens=256"))
+        assertTrue(copyText.contains("raw_output=raw\\noutput"))
+        assertTrue(copyText.contains("sanitized_output=こんばんは。"))
+        assertTrue(copyText.contains("status=success"))
+        assertTrue(copyText.contains("reason=success"))
+        assertTrue(copyText.contains("quality_classification=natural_japanese"))
+        assertTrue(copyText.contains("run_decode_reached=true"))
+        assertTrue(copyText.contains("timeout=false"))
+        assertTrue(copyText.contains("fallback=false"))
+        assertTrue(copyText.contains("fresh_crash=false"))
     }
 }

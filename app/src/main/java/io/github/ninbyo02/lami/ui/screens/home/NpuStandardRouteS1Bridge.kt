@@ -12,8 +12,16 @@ internal class NpuStandardRouteS1Bridge(
         trace = trace,
     )
 
-    fun run(userPrompt: String): NpuStandardRouteS1Result {
+    fun run(
+        userPrompt: String,
+        maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+    ): NpuStandardRouteS1Result {
         trace(buildNpuRealPromptHandoffTrace(stage = "bridge", userPrompt = userPrompt))
-        return NpuStandardRouteS1Mapper.map(invoker.invoke(userPrompt))
+        return NpuStandardRouteS1Mapper.map(
+            invoker.invoke(
+                userPrompt = userPrompt,
+                maxOutputTokens = maxOutputTokens,
+            ),
+        )
     }
 }

@@ -46,8 +46,9 @@ class NpuStandardRouteS1BridgeTest {
         val traces = mutableListOf<String>()
         val bridge = NpuStandardRouteS1Bridge(
             invoker = NpuStandardRouteS1Invoker(
-                provider = NpuStandardRouteS1Provider { receivedPrompt, _ ->
+                provider = NpuStandardRouteS1Provider { receivedPrompt, receivedMaxOutputTokens, _ ->
                     assertEquals(userPrompt, receivedPrompt)
+                    assertEquals(128, receivedMaxOutputTokens)
                     NpuStandardRouteS1RawResult(
                         status = "failure",
                         result = "failure",
@@ -61,8 +62,8 @@ class NpuStandardRouteS1BridgeTest {
                         fallbackUsed = false,
                         timeout = false,
                         freshCrash = false,
-                        requestedMaxOutputTokens = 32,
-                        effectiveMaxOutputTokens = 32,
+                        requestedMaxOutputTokens = receivedMaxOutputTokens,
+                        effectiveMaxOutputTokens = receivedMaxOutputTokens,
                     )
                 },
                 trace = traces::add,
@@ -79,5 +80,36 @@ class NpuStandardRouteS1BridgeTest {
         assertTrue(traces.any { it.contains("NPU_REAL_PROMPT bridge_prompt_hash=") })
         assertTrue(traces.any { it.contains("NPU_REAL_PROMPT invoker_prompt_hash=") })
         assertFalse(traces.joinToString("\n").contains(userPrompt))
+    }
+
+    @Test
+    fun `bridge passes explicit max output token setting to invoker`() {
+        val bridge = NpuStandardRouteS1Bridge(
+            invoker = NpuStandardRouteS1Invoker(
+                provider = NpuStandardRouteS1Provider { _, receivedMaxOutputTokens, _ ->
+                    NpuStandardRouteS1RawResult(
+                        status = "success",
+                        result = "success",
+                        success = true,
+                        reason = "success",
+                        rawOutput = "こんにちは。",
+                        sanitizedOutput = "こんにちは。",
+                        qualityClassification = "natural_japanese",
+                        runDecodeReached = true,
+                        npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                        fallbackUsed = false,
+                        timeout = false,
+                        freshCrash = false,
+                        requestedMaxOutputTokens = receivedMaxOutputTokens,
+                        effectiveMaxOutputTokens = receivedMaxOutputTokens,
+                    )
+                },
+            ),
+        )
+
+        val result = bridge.run(userPrompt = userPrompt, maxOutputTokens = 512)
+
+        assertEquals(512, result.selection.requestedMaxOutputTokens)
+        assertEquals(512, result.selection.effectiveMaxOutputTokens)
     }
 }

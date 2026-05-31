@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.settings
 
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteMode
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
+import io.github.ninbyo02.lami.ui.screens.home.NPU_STANDARD_ROUTE_MAX_OUTPUT_TOKENS_DATASTORE_KEY
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -63,6 +64,28 @@ class SettingsNpuRouteUiTest {
         assertEquals(
             NpuStandardRouteMode.FULL,
             NpuStandardRoutePreferences.fromDataStoreValue("FULL"),
+        )
+    }
+
+    @Test
+    fun `NPU max output tokens developer options use fixed choices and default`() {
+        assertEquals(
+            listOf(32, 64, 128, 256, 512, 1024, 2048, 4096),
+            NpuStandardRoutePreferences.selectableMaxOutputTokens,
+        )
+        assertEquals(128, NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS)
+        assertEquals(
+            "npu_standard_route_max_output_tokens",
+            NPU_STANDARD_ROUTE_MAX_OUTPUT_TOKENS_DATASTORE_KEY,
+        )
+    }
+
+    @Test
+    fun `NPU max output tokens developer labels describe selected limit`() {
+        assertEquals("128", npuStandardRouteMaxOutputTokensDisplayLabel(128))
+        assertEquals(
+            "NPU標準ルートのmax_output_tokens=128",
+            npuStandardRouteMaxOutputTokensDescription(128),
         )
     }
 

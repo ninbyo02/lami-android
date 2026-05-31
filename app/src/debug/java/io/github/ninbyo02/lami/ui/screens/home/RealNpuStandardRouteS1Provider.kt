@@ -19,11 +19,16 @@ internal class RealNpuStandardRouteS1Provider(
 ) : NpuStandardRouteS1Provider {
     override fun invoke(
         userPrompt: String,
+        maxOutputTokens: Int,
         trace: (String) -> Unit,
-    ): NpuStandardRouteS1RawResult =
-        runCatching {
+    ): NpuStandardRouteS1RawResult {
+        val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
+        return runCatching {
             trace(buildNpuRealPromptHandoffTrace(stage = "provider", userPrompt = userPrompt))
-            val request = request(userPrompt)
+            val request = request(
+                userPrompt = userPrompt,
+                maxOutputTokens = sanitizedMaxOutputTokens,
+            )
             trace(buildNpuRealPromptRequestTrace(request))
             val rawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
                 display = requestRunner(request),
@@ -33,6 +38,7 @@ internal class RealNpuStandardRouteS1Provider(
                 buildNpuRealPromptResultTrace(
                     status = rawResult.status,
                     reason = rawResult.reason,
+                    maxOutputTokens = rawResult.effectiveMaxOutputTokens,
                     rawOutput = rawResult.rawOutput,
                     sanitizedOutput = rawResult.sanitizedOutput,
                     qualityClassification = rawResult.qualityClassification,
@@ -48,19 +54,24 @@ internal class RealNpuStandardRouteS1Provider(
                 reason = throwable.message
                     ?.takeIf { it.isNotBlank() }
                     ?: REASON_DEV_ONLY_REQUEST_FAILED,
+                maxOutputTokens = sanitizedMaxOutputTokens,
             )
         }
+    }
 
     companion object {
         const val REASON_DEV_ONLY_ENTRY_UNAVAILABLE = "dev_only_entry_unavailable"
         const val REASON_DEV_ONLY_REQUEST_FAILED = "dev_only_request_failed"
 
-        fun request(userPrompt: String): DevOnlyNpuOneTurnConversationRequest =
+        fun request(
+            userPrompt: String,
+            maxOutputTokens: Int = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+        ): DevOnlyNpuOneTurnConversationRequest =
             DevOnlyNpuOneTurnConversationRequest(
                 userPrompt = userPrompt,
                 contextText = "",
                 unsafeDevBypassPromptLengthGate = true,
-                maxOutputTokens = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
+                maxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens),
                 promptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
                 timeoutMs = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
             )

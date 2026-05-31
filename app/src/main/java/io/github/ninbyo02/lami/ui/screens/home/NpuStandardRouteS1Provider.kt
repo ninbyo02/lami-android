@@ -5,6 +5,7 @@ import java.security.MessageDigest
 internal fun interface NpuStandardRouteS1Provider {
     fun invoke(
         userPrompt: String,
+        maxOutputTokens: Int,
         trace: (String) -> Unit,
     ): NpuStandardRouteS1RawResult
 }
@@ -34,6 +35,7 @@ internal fun buildNpuRealPromptHandoffTrace(
 internal fun buildNpuRealPromptResultTrace(
     status: String,
     reason: String,
+    maxOutputTokens: Int,
     rawOutput: String,
     sanitizedOutput: String,
     qualityClassification: String,
@@ -46,6 +48,8 @@ internal fun buildNpuRealPromptResultTrace(
     append(status)
     append(" reason=")
     append(reason)
+    append(" max_output_tokens=")
+    append(maxOutputTokens)
     append(" raw_output_hash=")
     append(npuRealPromptHash(rawOutput))
     append(" raw_output_length=")
@@ -73,8 +77,11 @@ internal fun buildNpuRealPromptResultTrace(
 internal fun buildNpuStandardRouteS1DevTraceText(
     input: String,
     result: NpuStandardRouteS1Result,
+    maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
 ): String = listOf(
+    "max_output_tokens=$maxOutputTokens",
     "input_hash=${npuRealPromptHash(input)}",
+    "input_prompt=${npuStandardRouteS1DevPreview(input)}",
     "input_preview=${npuStandardRouteS1DevPreview(input)}",
     "input_length=${input.length}",
     "input_code_points=${input.codePointCount(0, input.length)}",
@@ -86,6 +93,24 @@ internal fun buildNpuStandardRouteS1DevTraceText(
     "sanitized_output_preview=${npuStandardRouteS1DevPreview(result.sanitizedOutput)}",
     "sanitized_output_length=${result.sanitizedOutput.length}",
     "sanitized_output_code_points=${result.sanitizedOutput.codePointCount(0, result.sanitizedOutput.length)}",
+    "status=${result.status}",
+    "reason=${result.reason}",
+    "quality_classification=${result.qualityClassification}",
+    "run_decode_reached=${result.runDecodeReached}",
+    "timeout=${result.timeout}",
+    "fallback=${result.fallbackUsed}",
+    "fresh_crash=${result.freshCrash}",
+).joinToString("\n")
+
+internal fun buildNpuStandardRouteS1DiagnosticCopyText(
+    input: String,
+    result: NpuStandardRouteS1Result,
+    maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
+): String = listOf(
+    "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
+    "max_output_tokens=$maxOutputTokens",
+    "raw_output=${npuStandardRouteS1EscapeCopyValue(result.rawOutput)}",
+    "sanitized_output=${npuStandardRouteS1EscapeCopyValue(result.sanitizedOutput)}",
     "status=${result.status}",
     "reason=${result.reason}",
     "quality_classification=${result.qualityClassification}",
@@ -120,5 +145,8 @@ internal fun npuStandardRouteS1DevPreview(text: String): String {
         normalized.take(NPU_STANDARD_ROUTE_S1_DEV_PREVIEW_LIMIT) + "..."
     }
 }
+
+internal fun npuStandardRouteS1EscapeCopyValue(text: String): String =
+    text.replace("\\", "\\\\").replace("\n", "\\n")
 
 private const val NPU_STANDARD_ROUTE_S1_DEV_PREVIEW_LIMIT = 32

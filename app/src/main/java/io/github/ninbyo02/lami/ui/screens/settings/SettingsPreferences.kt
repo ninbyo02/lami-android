@@ -456,6 +456,9 @@ class SettingsPreferences(private val context: Context) {
             npuStandardRouteMode = NpuStandardRoutePreferences.fromDataStoreValue(
                 preferences[NpuStandardRoutePreferences.npuStandardRouteModeKey],
             ),
+            npuStandardRouteMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(
+                preferences[NpuStandardRoutePreferences.npuStandardRouteMaxOutputTokensKey],
+            ),
             hiddenQairt244PromptTemplateMode = resolveHiddenQairt244PromptTemplateMode(preferences),
         )
     }
@@ -591,6 +594,13 @@ class SettingsPreferences(private val context: Context) {
         context.dataStore.data.map { preferences ->
             NpuStandardRoutePreferences.fromDataStoreValue(
                 preferences[NpuStandardRoutePreferences.npuStandardRouteModeKey],
+            )
+        }
+
+    val npuStandardRouteMaxOutputTokensFlow: Flow<Int> =
+        context.dataStore.data.map { preferences ->
+            NpuStandardRoutePreferences.sanitizeMaxOutputTokens(
+                preferences[NpuStandardRoutePreferences.npuStandardRouteMaxOutputTokensKey],
             )
         }
 
@@ -855,6 +865,10 @@ class SettingsPreferences(private val context: Context) {
 
     suspend fun saveNpuStandardRouteMode(mode: NpuStandardRouteMode) {
         npuStandardRoutePreferences.setMode(mode)
+    }
+
+    suspend fun saveNpuStandardRouteMaxOutputTokens(maxOutputTokens: Int) {
+        npuStandardRoutePreferences.setMaxOutputTokens(maxOutputTokens)
     }
 
     private fun isQairt244Sm8750NpuRouteEnabled(preferences: Preferences): Boolean =

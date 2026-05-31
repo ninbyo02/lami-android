@@ -28,8 +28,8 @@ class NpuStandardRouteS1InvokerTest {
 
         assertTrue(raw.runDecodeReached)
         assertEquals("QNN_HTP_V79_FastRPC_native_diag", raw.npuBackendEvidence)
-        assertEquals(32, raw.requestedMaxOutputTokens)
-        assertEquals(32, raw.effectiveMaxOutputTokens)
+        assertEquals(128, raw.requestedMaxOutputTokens)
+        assertEquals(128, raw.effectiveMaxOutputTokens)
     }
 
     @Test
@@ -51,8 +51,9 @@ class NpuStandardRouteS1InvokerTest {
     fun `invoker can be supplied a test raw result without ChatScreen dependency`() {
         val traces = mutableListOf<String>()
         val invoker = NpuStandardRouteS1Invoker(
-            provider = NpuStandardRouteS1Provider { receivedPrompt, _ ->
+            provider = NpuStandardRouteS1Provider { receivedPrompt, receivedMaxOutputTokens, _ ->
                 assertEquals(userPrompt, receivedPrompt)
+                assertEquals(128, receivedMaxOutputTokens)
                 NpuStandardRouteS1RawResult(
                     status = "failure",
                     result = "failure",
@@ -66,8 +67,8 @@ class NpuStandardRouteS1InvokerTest {
                     fallbackUsed = false,
                     timeout = false,
                     freshCrash = false,
-                    requestedMaxOutputTokens = 32,
-                    effectiveMaxOutputTokens = 32,
+                    requestedMaxOutputTokens = receivedMaxOutputTokens,
+                    effectiveMaxOutputTokens = receivedMaxOutputTokens,
                 )
             },
             trace = traces::add,
@@ -80,5 +81,34 @@ class NpuStandardRouteS1InvokerTest {
         assertEquals("test_failure", mapped.reason)
         assertTrue(traces.any { it.contains("NPU_REAL_PROMPT invoker_prompt_hash=") })
         assertFalse(traces.joinToString("\n").contains(userPrompt))
+    }
+
+    @Test
+    fun `invoker passes explicit max output token setting to provider`() {
+        val invoker = NpuStandardRouteS1Invoker(
+            provider = NpuStandardRouteS1Provider { _, receivedMaxOutputTokens, _ ->
+                NpuStandardRouteS1RawResult(
+                    status = "success",
+                    result = "success",
+                    success = true,
+                    reason = "success",
+                    rawOutput = "こんにちは。",
+                    sanitizedOutput = "こんにちは。",
+                    qualityClassification = "natural_japanese",
+                    runDecodeReached = true,
+                    npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                    fallbackUsed = false,
+                    timeout = false,
+                    freshCrash = false,
+                    requestedMaxOutputTokens = receivedMaxOutputTokens,
+                    effectiveMaxOutputTokens = receivedMaxOutputTokens,
+                )
+            },
+        )
+
+        val raw = invoker.invoke(userPrompt = userPrompt, maxOutputTokens = 512)
+
+        assertEquals(512, raw.requestedMaxOutputTokens)
+        assertEquals(512, raw.effectiveMaxOutputTokens)
     }
 }

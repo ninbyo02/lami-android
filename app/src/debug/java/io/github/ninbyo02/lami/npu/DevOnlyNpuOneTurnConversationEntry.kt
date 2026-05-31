@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.npu
 
 import android.content.Context
 import android.util.Base64
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import java.io.File
 
@@ -425,7 +426,7 @@ class DevOnlyNpuOneTurnConversationEntry(
         Qairt244DevOnlyNpuRouteAdapter(
             context = appContext,
             promptTemplateMode = HiddenQairt244PromptTemplateMode.RAW,
-            maxOutputTokenRangeLimit = DevOnlyNpuRouteAdapter.QAIRT244_MAX_OUTPUT_TOKENS_COMPARE_LIMIT,
+            maxOutputTokenRangeLimit = NpuStandardRoutePreferences.MAX_MAX_OUTPUT_TOKENS,
             unsafeDevBypassPromptLengthGate = unsafeBypass,
         )
     },

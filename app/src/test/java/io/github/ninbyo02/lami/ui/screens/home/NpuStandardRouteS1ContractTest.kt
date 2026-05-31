@@ -30,8 +30,15 @@ class NpuStandardRouteS1ContractTest {
         val selection = NpuStandardRouteS1Selection(enabled = true)
 
         assertTrue(selection.selectable)
+        assertTrue(
+            selection.copy(
+                requestedMaxOutputTokens = 128,
+                effectiveMaxOutputTokens = 128,
+            ).selectable,
+        )
         assertFalse(selection.copy(requestedMaxOutputTokens = 16).selectable)
         assertFalse(selection.copy(effectiveMaxOutputTokens = 16).selectable)
+        assertFalse(selection.copy(requestedMaxOutputTokens = 17).selectable)
         assertFalse(selection.copy(promptTailVariant = "raw_dialog_tail_variant_a").selectable)
         assertFalse(selection.copy(sideEffects = NpuStandardRouteS1SideEffects(db = true)).selectable)
         assertFalse(selection.copy(sideEffects = NpuStandardRouteS1SideEffects(tts = true)).selectable)

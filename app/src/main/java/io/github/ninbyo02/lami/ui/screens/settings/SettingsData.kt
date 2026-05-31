@@ -43,5 +43,6 @@ data class SettingsData(
     val devEnableNpuChatScreenRoute: Boolean = false,
     val devEnableQairt244Sm8750NpuRoute: Boolean = false,
     val npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+    val npuStandardRouteMaxOutputTokens: Int = 128,
     val hiddenQairt244PromptTemplateMode: HiddenQairt244PromptTemplateMode = HiddenQairt244PromptTemplateMode.RAW,
 )

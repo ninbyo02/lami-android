@@ -48,6 +48,32 @@ class NpuStandardRoutePreferencesTest {
         assertEquals(NpuStandardRouteMode.OFF, preferences.getMode())
     }
 
+    @Test
+    fun `default max output tokens is 128`() = runTest {
+        val preferences = NpuStandardRoutePreferences(createDataStore())
+
+        assertEquals(128, preferences.getMaxOutputTokens())
+    }
+
+    @Test
+    fun `max output tokens is saved and restored`() = runTest {
+        val preferences = NpuStandardRoutePreferences(createDataStore())
+
+        preferences.setMaxOutputTokens(512)
+
+        assertEquals(512, preferences.getMaxOutputTokens())
+    }
+
+    @Test
+    fun `invalid max output tokens falls back to 128`() = runTest {
+        val dataStore = createDataStore()
+        val preferences = NpuStandardRoutePreferences(dataStore)
+
+        preferences.setMaxOutputTokens(17)
+
+        assertEquals(128, preferences.getMaxOutputTokens())
+    }
+
     private fun createDataStore(): DataStore<Preferences> {
         val dataStoreFile = File(
             temporaryFolder.root,

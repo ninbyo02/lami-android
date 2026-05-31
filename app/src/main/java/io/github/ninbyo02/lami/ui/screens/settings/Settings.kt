@@ -101,6 +101,7 @@ import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
 import io.github.ninbyo02.lami.ui.common.BottomFadeOverlay
 import io.github.ninbyo02.lami.ui.common.TopFadeOverlay
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteMode
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.util.PORT_ERROR_MESSAGE
 import io.github.ninbyo02.lami.util.normalizeUrlInput
@@ -168,6 +169,12 @@ internal fun npuStandardRouteModeDescription(mode: NpuStandardRouteMode): String
         NpuStandardRouteMode.S4A_PSEUDO_STREAMING -> "擬似Streaming表示まで有効にします"
         NpuStandardRouteMode.FULL -> "TTS読み上げまで有効にします"
     }
+
+internal fun npuStandardRouteMaxOutputTokensDisplayLabel(maxOutputTokens: Int): String =
+    maxOutputTokens.toString()
+
+internal fun npuStandardRouteMaxOutputTokensDescription(maxOutputTokens: Int): String =
+    "NPU標準ルートのmax_output_tokens=$maxOutputTokens"
 
 fun openUrl(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -702,6 +709,60 @@ fun Settings(
                                             )
                                             Text(
                                                 text = npuStandardRouteModeDescription(mode),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Card {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = "NPU max output tokens（開発用）",
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Text(
+                                    text = "developer向け設定です。NPU標準ルートの出力token上限を比較します。既定は128です。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                val currentNpuMaxOutputTokens = settingsData.npuStandardRouteMaxOutputTokens
+                                NpuStandardRoutePreferences.selectableMaxOutputTokens.forEach { maxOutputTokens ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                scope.launch {
+                                                    settingsPreferences.saveNpuStandardRouteMaxOutputTokens(maxOutputTokens)
+                                                }
+                                            }
+                                            .padding(vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        RadioButton(
+                                            selected = currentNpuMaxOutputTokens == maxOutputTokens,
+                                            onClick = {
+                                                scope.launch {
+                                                    settingsPreferences.saveNpuStandardRouteMaxOutputTokens(maxOutputTokens)
+                                                }
+                                            },
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text(
+                                                text = npuStandardRouteMaxOutputTokensDisplayLabel(maxOutputTokens),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                            Text(
+                                                text = npuStandardRouteMaxOutputTokensDescription(maxOutputTokens),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
