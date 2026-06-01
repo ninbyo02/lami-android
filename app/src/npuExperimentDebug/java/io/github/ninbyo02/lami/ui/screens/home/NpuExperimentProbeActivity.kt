@@ -14,6 +14,7 @@ class NpuExperimentProbeActivity : Activity() {
                 runId = intent?.getStringExtra("run_id").orEmpty(),
                 phase = intent?.getStringExtra("phase").orEmpty(),
                 modelPath = intent?.getStringExtra("model_path"),
+                engineConfigVariant = intent?.getStringExtra("engine_config_variant"),
                 engineInitializeOptIn = intent?.getBooleanExtra("run_engine_initialize_dry_run", false) == true,
                 engineInitializeDiagnosticFilesClearedBeforeRun = intent?.getBooleanExtra("diagnostic_files_cleared_before_run", false) == true,
             )
@@ -59,11 +60,13 @@ internal object NpuExperimentProbeLogger {
         runId: String,
         phase: String,
         modelPath: String?,
+        engineConfigVariant: String?,
         engineInitializeOptIn: Boolean,
         engineInitializeDiagnosticFilesClearedBeforeRun: Boolean,
     ) {
         val normalizedRunId = sanitizeProbeRunId(runId.ifBlank { System.currentTimeMillis().toString() })
         val normalizedPhase = normalizeBackendNpuAttachProbePhase(phase)
+        val normalizedVariant = normalizeEngineConfigVariant(engineConfigVariant)
         val runEngineInitializeDryRun = BackendNpuAttachProbeReportFormatter.shouldRunEngineInitializeDryRun(
             phase = normalizedPhase,
             explicitOptIn = engineInitializeOptIn,
@@ -74,13 +77,31 @@ internal object NpuExperimentProbeLogger {
             engineInitializeDryRunOptIn = runEngineInitializeDryRun,
             engineInitializeDryRunModelPath = modelPath,
             engineInitializeDryRunRunId = normalizedRunId,
+            engineConfigVariant = normalizedVariant,
             engineInitializeDiagnosticFilesClearedBeforeRun = engineInitializeDiagnosticFilesClearedBeforeRun,
         )
+        val applicationInfoNativeLibraryDir = context.applicationInfo?.nativeLibraryDir?.takeIf { it.isNotBlank() }
+        val hardResolvedNativeLibraryDir = snapshot.dispatchNativeLibraryDir?.takeIf { it.isNotBlank() }
+        val selectedNativeLibraryDir = applicationInfoNativeLibraryDir ?: hardResolvedNativeLibraryDir
+        val trimmedModelPath = modelPath?.trim()?.takeIf { it.isNotBlank() }
         val request = BackendNpuAttachProbeReportRequest(
             runId = normalizedRunId,
             phase = normalizedPhase,
             engineInitializeOptIn = runEngineInitializeDryRun,
             processAliveAfterProbe = "alive-inside-app-before-script-pidof",
+            engineConfigVariant = normalizedVariant,
+            engineConfigCacheDir = engineConfigCacheDirForVariant(normalizedVariant, context),
+            engineConfigMaxNumTokens = engineConfigMaxNumTokensForVariant(normalizedVariant),
+            modelCanonicalPath = trimmedModelPath?.let { runCatching { java.io.File(it).canonicalPath }.getOrNull() }.orDashForProbe(),
+            modelPathVariant = modelPathVariantForProbe(trimmedModelPath),
+            nativeLibraryDirVariant = when {
+                selectedNativeLibraryDir == applicationInfoNativeLibraryDir -> "applicationInfo.nativeLibraryDir"
+                selectedNativeLibraryDir == hardResolvedNativeLibraryDir -> "hard-resolved-nativeLibraryDir"
+                else -> "-"
+            },
+            applicationInfoNativeLibraryDir = applicationInfoNativeLibraryDir.orDashForProbe(),
+            contextApplicationInfoNativeLibraryDir = applicationInfoNativeLibraryDir.orDashForProbe(),
+            hardResolvedNativeLibraryDir = hardResolvedNativeLibraryDir.orDashForProbe(),
         )
         val txt = BackendNpuAttachProbeReportFormatter.formatText(snapshot, request)
         val md = BackendNpuAttachProbeReportFormatter.formatMarkdown(snapshot, request)
@@ -389,6 +410,44 @@ internal object NpuExperimentProbeLogger {
             -> BackendNpuAttachProbeReportFormatter.PHASE_ONE_TOKEN_DECODE
             else -> BackendNpuAttachProbeReportFormatter.PHASE_INVENTORY
         }
+
+    private fun normalizeEngineConfigVariant(value: String?): String =
+        when (value?.trim()?.lowercase(java.util.Locale.US)) {
+            "cache-files" -> "cache-files"
+            "cache-cache" -> "cache-cache"
+            "max128" -> "max128"
+            "max32" -> "max32"
+            "backend-only" -> "backend-only"
+            "backend-null-modalities" -> "backend-null-modalities"
+            else -> "default"
+        }
+
+    private fun engineConfigCacheDirForVariant(
+        variant: String,
+        context: android.content.Context,
+    ): String =
+        when (variant) {
+            "cache-files" -> context.filesDir.resolve("backend_npu_attach_probe_cache").absolutePath
+            "cache-cache" -> context.cacheDir.absolutePath
+            else -> "null"
+        }
+
+    private fun engineConfigMaxNumTokensForVariant(variant: String): String =
+        when (variant) {
+            "max128" -> "128"
+            "max32" -> "32"
+            else -> "null"
+        }
+
+    private fun modelPathVariantForProbe(modelPath: String?): String =
+        when {
+            modelPath == null -> "-"
+            modelPath.startsWith("/data/user/0/") -> "/data/user/0"
+            modelPath.startsWith("/data/data/") -> "/data/data"
+            else -> "as-requested"
+        }
+
+    private fun String?.orDashForProbe(): String = this?.takeIf { it.isNotBlank() } ?: "-"
 
     private fun sanitizeProbeRunId(value: String): String =
         value.filter { it.isLetterOrDigit() || it == '_' || it == '-' }.ifBlank {

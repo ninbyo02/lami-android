@@ -11,6 +11,7 @@ MODEL_PATH=""
 PHASE="inventory"
 INSTALL=true
 ENGINE_INITIALIZE=false
+ENGINE_CONFIG_VARIANT="default"
 WAIT_SECONDS=8
 
 LOGCAT_PATTERN="AndroidRuntime|DEBUG|DEBUGGERD|libc|crash_dump64|tombstoned|LiteRT|litert|QNN|Qnn|FastRPC|Backend.NPU|NpuExperimentProbe|AcceleratorProbe|Engine.initialize|FATAL|SIGABRT|abort|tombstone|mismatch|UnsatisfiedLinkError"
@@ -24,6 +25,7 @@ Options:
   --flavor npuExperiment|customBuildExperiment|galleryStackExperiment
   --model-path PATH
   --phase inventory|engine_initialize|conversation|one_token_decode
+  --engine-config-variant default|cache-files|cache-cache|max128|max32|backend-only|backend-null-modalities
   --engine-initialize   Explicitly opt in to Engine.initialize dry-run.
   --no-install          Do not run ./update.sh before probing.
   --wait SECONDS        Seconds to wait before pulling reports. Default: 8.
@@ -74,10 +76,20 @@ write_fallback_report() {
     printf 'run_id=%s\n' "$RUN_ID"
     printf 'phase_requested=%s\n' "$PHASE"
     printf 'explicit_engine_initialize_opt_in=%s\n' "$ENGINE_INITIALIZE"
+    printf 'engine_config_variant=%s\n' "$ENGINE_CONFIG_VARIANT"
     printf 'backend_npu_attach_status=report-missing-after-probe\n'
     printf 'application_id=%s\n' "$APP_ID"
     printf 'current_flavor=%s\n' "$FLAVOR"
     printf 'model_path=%s\n' "${MODEL_PATH:--}"
+    printf 'model_canonical_path=unknown-report-missing\n'
+    printf 'model_path_variant=unknown-report-missing\n'
+    printf 'native_library_dir_variant=unknown-report-missing\n'
+    printf 'application_info_native_library_dir=unknown-report-missing\n'
+    printf 'context_application_info_native_library_dir=unknown-report-missing\n'
+    printf 'hard_resolved_native_library_dir=unknown-report-missing\n'
+    printf 'engineconfig_constructor_args_summary=unknown-report-missing\n'
+    printf 'engineconfig_cache_dir=unknown-report-missing\n'
+    printf 'engineconfig_max_num_tokens=unknown-report-missing\n'
     printf 'engine_initialize_invoked=unknown-report-missing\n'
     printf 'engine_initialize_returned=unknown-report-missing\n'
     printf 'engine_initialize_result=unknown-report-missing\n'
@@ -119,6 +131,10 @@ while [ "$#" -gt 0 ]; do
       PHASE="${2:-}"
       shift 2
       ;;
+    --engine-config-variant)
+      ENGINE_CONFIG_VARIANT="${2:-default}"
+      shift 2
+      ;;
     --engine-initialize)
       ENGINE_INITIALIZE=true
       shift
@@ -155,6 +171,15 @@ case "$FLAVOR" in
     ;;
   *)
     echo "[backend-npu-attach-probe] unsupported flavor: $FLAVOR"
+    exit 2
+    ;;
+esac
+
+case "$ENGINE_CONFIG_VARIANT" in
+  default|cache-files|cache-cache|max128|max32|backend-only|backend-null-modalities)
+    ;;
+  *)
+    echo "[backend-npu-attach-probe] unsupported engine config variant: $ENGINE_CONFIG_VARIANT"
     exit 2
     ;;
 esac
@@ -223,7 +248,7 @@ echo "[backend-npu-attach-probe] Starting background logcat capture: $LOCAL_LOGC
 adb logcat -b all -v threadtime > "$LOCAL_LOGCAT" 2>&1 &
 LOGCAT_PID=$!
 
-echo "[backend-npu-attach-probe] Starting probe. runId=$RUN_ID flavor=$FLAVOR phase=$PHASE engineInitialize=$ENGINE_INITIALIZE"
+echo "[backend-npu-attach-probe] Starting probe. runId=$RUN_ID flavor=$FLAVOR phase=$PHASE engineInitialize=$ENGINE_INITIALIZE engineConfigVariant=$ENGINE_CONFIG_VARIANT"
 if [ -n "$MODEL_PATH" ]; then
   adb shell am start -W \
     -n "$APP_ID/$ACTIVITY" \
@@ -232,6 +257,7 @@ if [ -n "$MODEL_PATH" ]; then
     --ez diagnostic_files_cleared_before_run true \
     --es run_id "$RUN_ID" \
     --es phase "$PHASE" \
+    --es engine_config_variant "$ENGINE_CONFIG_VARIANT" \
     --es model_path "$MODEL_PATH"
 else
   adb shell am start -W \
@@ -240,7 +266,8 @@ else
     --ez run_engine_initialize_dry_run "$ENGINE_INITIALIZE" \
     --ez diagnostic_files_cleared_before_run true \
     --es run_id "$RUN_ID" \
-    --es phase "$PHASE"
+    --es phase "$PHASE" \
+    --es engine_config_variant "$ENGINE_CONFIG_VARIANT"
 fi
 
 echo "[backend-npu-attach-probe] Waiting up to ${WAIT_SECONDS}s for report files..."

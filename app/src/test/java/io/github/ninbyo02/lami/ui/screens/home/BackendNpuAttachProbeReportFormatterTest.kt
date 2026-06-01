@@ -20,6 +20,14 @@ class BackendNpuAttachProbeReportFormatterTest {
             phase = BackendNpuAttachProbeReportFormatter.PHASE_INVENTORY,
             engineInitializeOptIn = false,
             processAliveAfterProbe = "alive",
+            engineConfigVariant = "cache-files",
+            engineConfigCacheDir = "/data/user/0/io.github.ninbyo02.lami.npu/files/backend_npu_attach_probe_cache",
+            modelCanonicalPath = "/data/data/io.github.ninbyo02.lami.npu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+            modelPathVariant = "/data/user/0",
+            nativeLibraryDirVariant = "applicationInfo.nativeLibraryDir",
+            applicationInfoNativeLibraryDir = "/data/app/lib/arm64",
+            contextApplicationInfoNativeLibraryDir = "/data/app/lib/arm64",
+            hardResolvedNativeLibraryDir = "/data/app/lib/arm64",
         )
 
         val text = BackendNpuAttachProbeReportFormatter.formatText(snapshot, request)
@@ -27,10 +35,19 @@ class BackendNpuAttachProbeReportFormatterTest {
 
         assertTrue(text.contains("backend_npu_attach_probe_v1"))
         assertTrue(text.contains("model_path=/sdcard/Download/gemma-4-E2B-it_qualcomm_sm8750.litertlm"))
+        assertTrue(text.contains("model_canonical_path=/data/data/io.github.ninbyo02.lami.npu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm"))
+        assertTrue(text.contains("model_path_variant=/data/user/0"))
         assertTrue(text.contains("native_library_dir=/data/app/lib/arm64"))
+        assertTrue(text.contains("native_library_dir_variant=applicationInfo.nativeLibraryDir"))
+        assertTrue(text.contains("application_info_native_library_dir=/data/app/lib/arm64"))
+        assertTrue(text.contains("context_application_info_native_library_dir=/data/app/lib/arm64"))
+        assertTrue(text.contains("hard_resolved_native_library_dir=/data/app/lib/arm64"))
         assertTrue(text.contains("backend_npu_constructor_used=Backend.NPU(String)"))
         assertTrue(text.contains("backend_npu_object_class=com.google.ai.edge.litertlm.Backend\$NPU"))
         assertTrue(text.contains("engineconfig_constructor_factory_used=EngineConfig(String, Backend, Backend, Backend, Integer, Integer, String)"))
+        assertTrue(text.contains("engine_config_variant=cache-files"))
+        assertTrue(text.contains("engineconfig_cache_dir=/data/user/0/io.github.ninbyo02.lami.npu/files/backend_npu_attach_probe_cache"))
+        assertTrue(text.contains("engineconfig_max_num_tokens=null"))
         assertTrue(text.contains("engineconfig_backend_getter_result=com.google.ai.edge.litertlm.Backend\$NPU"))
         assertTrue(text.contains("engine_initialize_invoked=no"))
         assertTrue(text.contains("engine_initialize_skip_reason=explicit-opt-in-required"))
@@ -69,11 +86,15 @@ class BackendNpuAttachProbeReportFormatterTest {
             signal = "Fatal signal 6",
             abortMessage = "No usable Dispatch runtime found",
             backtraceHead = "#00 pc 00000000 libLiteRt.so",
+            engineConfigVariant = "max128",
+            engineConfigMaxNumTokens = "128",
         )
 
         val text = BackendNpuAttachProbeReportFormatter.formatText(snapshot, request)
 
         assertTrue(text.contains("engine_initialize_invoked=yes"))
+        assertTrue(text.contains("engine_config_variant=max128"))
+        assertTrue(text.contains("engineconfig_max_num_tokens=128"))
         assertTrue(text.contains("exception_class=java.lang.UnsatisfiedLinkError"))
         assertTrue(text.contains("unsatisfied_link_error_detected=true"))
         assertTrue(text.contains("dispatch_api_load_error_detected=true"))
@@ -160,7 +181,7 @@ class BackendNpuAttachProbeReportFormatterTest {
             engineConfigNpuDryBuildSelectedConstructor =
                 "EngineConfig(String, Backend, Backend, Backend, Integer, Integer, String)",
             engineConfigNpuDryBuildConstructorArgsSummary =
-                "String=modelPath, Backend=Backend.NPU, Backend=Backend.GPU, Backend=Backend.CPU",
+                "arg0:String:modelPath=model-path, arg1:NPU:backend=Backend.NPU, arg2:Backend:visionBackend=null, arg3:Backend:audioBackend=null, arg4:Integer:maxNumTokens=null, arg6:String:cacheDir-or-extraString=cacheDir=/data/user/0/io.github.ninbyo02.lami.npu/files/backend_npu_attach_probe_cache",
             engineConfigNpuDryBuildResult = engineConfigNpuDryBuildResult,
             engineConfigNpuDryBuildCreatedObjectClass = "com.google.ai.edge.litertlm.EngineConfig",
             engineConfigNpuDryBuildBackendGetterResultClass = "com.google.ai.edge.litertlm.Backend\$NPU",

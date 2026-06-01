@@ -18,6 +18,7 @@ class NpuExperimentProbeReceiver : BroadcastReceiver() {
                         runId = runId,
                         phase = intent.getStringExtra("phase").orEmpty(),
                         modelPath = intent.getStringExtra("model_path"),
+                        engineConfigVariant = intent.getStringExtra("engine_config_variant"),
                         engineInitializeOptIn = intent.getBooleanExtra("run_engine_initialize_dry_run", false),
                         engineInitializeDiagnosticFilesClearedBeforeRun =
                             intent.getBooleanExtra("diagnostic_files_cleared_before_run", false),
