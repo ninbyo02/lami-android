@@ -595,6 +595,8 @@ internal object AcceleratorProbe {
         return when {
             BuildConfig.CURRENT_FLAVOR == "galleryStackExperiment" && BuildConfig.DEBUG ->
                 "galleryStackExperimentDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; Gallery SM8750 native stack staged only for diagnostics; libLiteRt.so present=$liteRtSoPresent"
+            BuildConfig.CURRENT_FLAVOR == "galleryAlignedNpuProbe" && BuildConfig.DEBUG ->
+                "galleryAlignedNpuProbeDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; isolated Gallery-aligned SM8750 native stack staged only for Backend.NPU attach probe; libLiteRt.so present=$liteRtSoPresent"
             BuildConfig.CURRENT_FLAVOR == "customBuildExperiment" && BuildConfig.DEBUG ->
                 "customBuildExperimentDebug expected ${BuildConfig.LITERTLM_ANDROID_VERSION}; pinned-source custom native stack staged only for explicit probe dry-runs; libLiteRt.so present=$liteRtSoPresent"
             BuildConfig.CURRENT_FLAVOR == "npuExperiment" && BuildConfig.DEBUG ->
@@ -608,10 +610,10 @@ internal object AcceleratorProbe {
         dispatchRuntimeCompatibility: DispatchRuntimeCompatibilityProbeResult,
         engineConfigDryBuild: EngineConfigNpuDryBuildProbeResult,
     ): GalleryStackJavaNativeApiCompatibilityProbeResult {
-        if ((BuildConfig.CURRENT_FLAVOR != "galleryStackExperiment" && BuildConfig.CURRENT_FLAVOR != "customBuildExperiment") || !BuildConfig.DEBUG) {
+        if ((BuildConfig.CURRENT_FLAVOR != "galleryStackExperiment" && BuildConfig.CURRENT_FLAVOR != "galleryAlignedNpuProbe" && BuildConfig.CURRENT_FLAVOR != "customBuildExperiment") || !BuildConfig.DEBUG) {
             return GalleryStackJavaNativeApiCompatibilityProbeResult(
                 expectedJavaApiVersion = BuildConfig.LITERTLM_ANDROID_VERSION,
-                skipReason = "not-galleryStackExperiment-or-customBuildExperiment-debug",
+                skipReason = "not-galleryStackExperiment-galleryAlignedNpuProbe-or-customBuildExperiment-debug",
             )
         }
         return runCatching {
@@ -634,6 +636,8 @@ internal object AcceleratorProbe {
                 dispatchRuntimeBuildId = dispatchRuntimeCompatibility.dispatchRuntimeBuildId,
                 note = if (BuildConfig.CURRENT_FLAVOR == "customBuildExperiment") {
                     "custom-build diagnostic-only; descriptor match does not imply NPU inference readiness"
+                } else if (BuildConfig.CURRENT_FLAVOR == "galleryAlignedNpuProbe") {
+                    "gallery-aligned isolated diagnostic-only; descriptor match does not imply NPU inference readiness"
                 } else {
                     "diagnostic-only; descriptor match does not imply NPU inference readiness"
                 },
@@ -679,11 +683,12 @@ internal object AcceleratorProbe {
     private fun isNpuProbeFlavor(): Boolean {
         return BuildConfig.CURRENT_FLAVOR == "npuExperiment" ||
             BuildConfig.CURRENT_FLAVOR == "galleryStackExperiment" ||
+            BuildConfig.CURRENT_FLAVOR == "galleryAlignedNpuProbe" ||
             BuildConfig.CURRENT_FLAVOR == "customBuildExperiment"
     }
 
     private fun npuProbeFlavorSkipReason(): String {
-        return "not-npuExperiment-galleryStackExperiment-or-customBuildExperiment-flavor"
+        return "not-npuExperiment-galleryStackExperiment-galleryAlignedNpuProbe-or-customBuildExperiment-flavor"
     }
 
     private fun galleryStackExpectedBuildIdsMatch(

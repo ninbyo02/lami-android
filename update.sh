@@ -58,7 +58,7 @@ Subcommands:
 
 update options:
   --port|-p PORT        ADB connect port (default: 40215)
-  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, or customBuildExperiment (default: standard)
+  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment (default: standard)
   --clean-install|-c    uninstall selected flavor before its install task
   --stash               stash dirty worktree before update, then stash pop after update
   --wip                 legacy explicit mode: create local WIP commit before update
@@ -78,7 +78,7 @@ test options:
   --pr N | --commit SHA
   --build               run selected flavor Kotlin compile task (default if neither --build nor --install)
   --install             run selected flavor install task (device required)
-  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, or customBuildExperiment (default: standard)
+  --flavor NAME         Android flavor to install: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment (default: standard)
   --clean-install|-c    uninstall selected flavor before install task (requires --install)
   --port|-p PORT        ADB connect port (default: 40215)
   --keep-temp           keep temp branch after test (default: delete)
@@ -94,6 +94,7 @@ Examples:
   ./update.sh update --wip
   ./update.sh update --flavor npuExperiment
   ./update.sh update --flavor galleryStackExperiment
+  ./update.sh update --flavor galleryAlignedNpuProbe
   ./update.sh update --flavor customBuildExperiment
   ./update.sh wip
   ./update.sh stash
@@ -150,8 +151,9 @@ normalize_android_flavor() {
     standard|Standard) echo "standard" ;;
     npuExperiment|NpuExperiment|npu|npu-experiment) echo "npuExperiment" ;;
     galleryStackExperiment|GalleryStackExperiment|gallery|gallery-stack|gallery-stack-experiment|gallerynpu) echo "galleryStackExperiment" ;;
+    galleryAlignedNpuProbe|GalleryAlignedNpuProbe|gallery-aligned|gallery-aligned-npu-probe|galleryprobe) echo "galleryAlignedNpuProbe" ;;
     customBuildExperiment|CustomBuildExperiment|custom|custom-build|custom-build-experiment|customnpu) echo "customBuildExperiment" ;;
-    *) die "Unknown Android flavor: $flavor (expected: standard, npuExperiment, galleryStackExperiment, or customBuildExperiment)" ;;
+    *) die "Unknown Android flavor: $flavor (expected: standard, npuExperiment, galleryStackExperiment, galleryAlignedNpuProbe, or customBuildExperiment)" ;;
   esac
 }
 
@@ -162,6 +164,7 @@ install_task_for_flavor() {
     standard) echo "installStandardDebug" ;;
     npuExperiment) echo "installNpuExperimentDebug" ;;
     galleryStackExperiment) echo "installGalleryStackExperimentDebug" ;;
+    galleryAlignedNpuProbe) echo "installGalleryAlignedNpuProbeDebug" ;;
     customBuildExperiment) echo "installCustomBuildExperimentDebug" ;;
   esac
 }
@@ -173,6 +176,7 @@ compile_task_for_flavor() {
     standard) echo "compileDebugKotlin" ;;
     npuExperiment) echo "compileNpuExperimentDebugKotlin" ;;
     galleryStackExperiment) echo "compileGalleryStackExperimentDebugKotlin" ;;
+    galleryAlignedNpuProbe) echo "compileGalleryAlignedNpuProbeDebugKotlin" ;;
     customBuildExperiment) echo "compileCustomBuildExperimentDebugKotlin" ;;
   esac
 }
@@ -186,6 +190,7 @@ resolve_app_id_for_flavor() {
     standard) echo "io.github.ninbyo02.lami" ;;
     npuExperiment) echo "io.github.ninbyo02.lami.npu" ;;
     galleryStackExperiment) echo "io.github.ninbyo02.lami.gallerynpu" ;;
+    galleryAlignedNpuProbe) echo "io.github.ninbyo02.lami.galleryprobe" ;;
     customBuildExperiment) echo "io.github.ninbyo02.lami.customnpu" ;;
   esac
 }

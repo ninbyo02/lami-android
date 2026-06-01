@@ -34,6 +34,8 @@ class BackendNpuAttachProbeReportFormatterTest {
         val markdown = BackendNpuAttachProbeReportFormatter.formatMarkdown(snapshot, request)
 
         assertTrue(text.contains("backend_npu_attach_probe_v1"))
+        assertTrue(text.contains("isolated_flavor=false"))
+        assertTrue(text.contains("gallery_aligned_stack=false"))
         assertTrue(text.contains("model_path=/sdcard/Download/gemma-4-E2B-it_qualcomm_sm8750.litertlm"))
         assertTrue(text.contains("model_canonical_path=/data/data/io.github.ninbyo02.lami.npu/files/local_models/gemma-4-E2B-it_qualcomm_sm8750.litertlm"))
         assertTrue(text.contains("model_path_variant=/data/user/0"))
@@ -114,6 +116,27 @@ class BackendNpuAttachProbeReportFormatterTest {
     }
 
     @Test
+    fun `gallery aligned isolated flavor is reported explicitly`() {
+        val snapshot = snapshot(
+            currentFlavor = "galleryAlignedNpuProbe",
+            applicationId = "io.github.ninbyo02.lami.galleryprobe",
+            galleryStackExpectedBuildIdMatch = true,
+        )
+        val request = BackendNpuAttachProbeReportRequest(
+            runId = "20260602_120000",
+            phase = BackendNpuAttachProbeReportFormatter.PHASE_INVENTORY,
+            engineInitializeOptIn = false,
+        )
+
+        val text = BackendNpuAttachProbeReportFormatter.formatText(snapshot, request)
+
+        assertTrue(text.contains("current_flavor=galleryAlignedNpuProbe"))
+        assertTrue(text.contains("application_id=io.github.ninbyo02.lami.galleryprobe"))
+        assertTrue(text.contains("isolated_flavor=true"))
+        assertTrue(text.contains("gallery_aligned_stack=true"))
+    }
+
+    @Test
     fun `engine initialize dry-run stays off without explicit opt-in`() {
         assertFalse(
             BackendNpuAttachProbeReportFormatter.shouldRunEngineInitializeDryRun(
@@ -152,6 +175,8 @@ class BackendNpuAttachProbeReportFormatterTest {
         engineInitializeDryRunSymbolMismatchDetected: Boolean? = null,
         engineInitializeDryRunElapsedMs: Long? = null,
         galleryStackExpectedBuildIdMatch: Boolean? = true,
+        currentFlavor: String = "npuExperiment",
+        applicationId: String = "io.github.ninbyo02.lami.npu",
     ): AcceleratorProbeSnapshot =
         AcceleratorProbeSnapshot(
             deviceManufacturer = "nubia",
@@ -168,8 +193,8 @@ class BackendNpuAttachProbeReportFormatterTest {
             nnapiDeprecatedWarning = true,
             nnapiDevices = emptyList(),
             probeSource = "test",
-            currentFlavor = "npuExperiment",
-            applicationId = "io.github.ninbyo02.lami.npu",
+            currentFlavor = currentFlavor,
+            applicationId = applicationId,
             dispatchNativeLibraryDir = "/data/app/lib/arm64",
             dispatchNativeLibraryDirExists = true,
             dispatchRuntimePresentInFlavor = true,

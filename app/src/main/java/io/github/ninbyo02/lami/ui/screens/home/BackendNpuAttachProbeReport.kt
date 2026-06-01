@@ -120,6 +120,8 @@ internal object BackendNpuAttachProbeReportFormatter {
         return listOf(
             "run_id" to request.runId,
             "phase_requested" to request.phase,
+            "isolated_flavor" to isIsolatedGalleryAlignedFlavor(snapshot).toString(),
+            "gallery_aligned_stack" to isGalleryAlignedStack(snapshot).toString(),
             "explicit_engine_initialize_opt_in" to request.engineInitializeOptIn.toString(),
             "backend_npu_attach_status" to backendNpuAttachStatus(snapshot),
             "application_id" to snapshot.applicationId.orUnknown(),
@@ -242,6 +244,13 @@ internal object BackendNpuAttachProbeReportFormatter {
             false -> "differs-from-gallery-sm8750-build-ids"
             null -> "incomplete-gallery-sm8750-build-id-evidence"
         }
+
+    private fun isIsolatedGalleryAlignedFlavor(snapshot: AcceleratorProbeSnapshot): Boolean =
+        snapshot.currentFlavor == "galleryAlignedNpuProbe"
+
+    private fun isGalleryAlignedStack(snapshot: AcceleratorProbeSnapshot): Boolean =
+        snapshot.currentFlavor == "galleryAlignedNpuProbe" &&
+            snapshot.galleryStackExpectedBuildIdMatch == true
 
     private fun String?.orUnknown(): String = this?.takeIf { it.isNotBlank() } ?: "unknown"
 

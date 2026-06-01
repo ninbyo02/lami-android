@@ -22,7 +22,7 @@ Usage:
   scripts/run_backend_npu_attach_probe.sh [options]
 
 Options:
-  --flavor npuExperiment|customBuildExperiment|galleryStackExperiment
+  --flavor npuExperiment|customBuildExperiment|galleryStackExperiment|galleryAlignedNpuProbe
   --model-path PATH
   --phase inventory|engine_initialize|conversation|one_token_decode
   --engine-config-variant default|cache-files|cache-cache|max128|max32|backend-only|backend-null-modalities
@@ -70,6 +70,13 @@ write_fallback_report() {
   local abort_line="$5"
   local backtrace_head="$6"
   local pid_state="$7"
+  local isolated_flavor="false"
+  local gallery_aligned_stack="false"
+
+  if [ "$FLAVOR" = "galleryAlignedNpuProbe" ]; then
+    isolated_flavor="true"
+    gallery_aligned_stack="true"
+  fi
 
   {
     printf 'backend_npu_attach_probe_v1\n'
@@ -80,6 +87,9 @@ write_fallback_report() {
     printf 'backend_npu_attach_status=report-missing-after-probe\n'
     printf 'application_id=%s\n' "$APP_ID"
     printf 'current_flavor=%s\n' "$FLAVOR"
+    printf 'isolated_flavor=%s\n' "$isolated_flavor"
+    printf 'gallery_aligned_stack=%s\n' "$gallery_aligned_stack"
+    printf 'lib_inventory_summary=unknown-report-missing\n'
     printf 'model_path=%s\n' "${MODEL_PATH:--}"
     printf 'model_canonical_path=unknown-report-missing\n'
     printf 'model_path_variant=unknown-report-missing\n'
@@ -168,6 +178,9 @@ case "$FLAVOR" in
     ;;
   galleryStackExperiment)
     APP_ID="io.github.ninbyo02.lami.gallerynpu"
+    ;;
+  galleryAlignedNpuProbe)
+    APP_ID="io.github.ninbyo02.lami.galleryprobe"
     ;;
   *)
     echo "[backend-npu-attach-probe] unsupported flavor: $FLAVOR"

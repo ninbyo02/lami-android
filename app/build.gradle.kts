@@ -41,6 +41,7 @@ val liteRtLmAndroidReleaseVersion = "0.10.0"
 val liteRtLmAndroidDebugVersion = "0.11.0"
 val liteRtLmAndroidNpuExperimentDebugVersion = "0.10.0"
 val liteRtLmAndroidGalleryStackExperimentDebugVersion = "0.11.0"
+val liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 
 android {
@@ -103,6 +104,17 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "true")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
+        create("galleryAlignedNpuProbe") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".galleryprobe"
+            versionNameSuffix = "-galleryAlignedNpuProbe"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"galleryAlignedNpuProbe\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "true")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"debug-only Gallery-aligned SM8750 native stack staged in app/src/galleryAlignedNpuProbeDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "true")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
         create("customBuildExperiment") {
             dimension = "dispatchExperiment"
             applicationIdSuffix = ".customnpu"
@@ -155,6 +167,11 @@ android {
             manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
             jniLibs.srcDir("src/galleryStackExperimentDebug/jniLibs")
         }
+        create("galleryAlignedNpuProbeDebug") {
+            java.srcDir("src/npuExperimentDebug/java")
+            manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
+            jniLibs.srcDir("src/galleryAlignedNpuProbeDebug/jniLibs")
+        }
         create("customBuildExperimentDebug") {
             java.srcDir("src/npuExperimentDebug/java")
             java.srcDir("src/customBuildExperimentDebug/java")
@@ -166,7 +183,7 @@ android {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) { variantBuilder ->
-        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "customBuildExperiment") }) {
+        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "galleryAlignedNpuProbe" || it.second == "customBuildExperiment") }) {
             variantBuilder.enable = false
         }
     }
@@ -174,6 +191,7 @@ androidComponents {
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
         val liteRtLmVersion = when {
             variant.buildType == "debug" && flavor == "customBuildExperiment" -> liteRtLmAndroidCustomBuildExperimentDebugVersion
+            variant.buildType == "debug" && flavor == "galleryAlignedNpuProbe" -> liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion
             variant.buildType == "debug" && flavor == "galleryStackExperiment" -> liteRtLmAndroidGalleryStackExperimentDebugVersion
             variant.buildType == "debug" && flavor == "npuExperiment" -> liteRtLmAndroidNpuExperimentDebugVersion
             variant.buildType == "debug" -> liteRtLmAndroidDebugVersion
@@ -573,9 +591,10 @@ tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
 }
 
 tasks.matching {
-    it.name == "mergeStandardDebugJniLibFolders" ||
+        it.name == "mergeStandardDebugJniLibFolders" ||
         it.name == "mergeNpuExperimentDebugJniLibFolders" ||
         it.name == "mergeGalleryStackExperimentDebugJniLibFolders" ||
+        it.name == "mergeGalleryAlignedNpuProbeDebugJniLibFolders" ||
         it.name == "mergeCustomBuildExperimentDebugJniLibFolders"
 }.configureEach {
     dependsOn("buildQnnDirectProbeDebugJni")
@@ -707,6 +726,7 @@ dependencies {
     add("standardImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
     add("npuExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidNpuExperimentDebugVersion")
     add("galleryStackExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryStackExperimentDebugVersion")
+    add("galleryAlignedNpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion")
     add("customBuildExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidCustomBuildExperimentDebugVersion")
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")
     implementation("com.qualcomm.qti:qnn-runtime:2.34.0")
