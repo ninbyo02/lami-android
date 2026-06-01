@@ -113,6 +113,8 @@ internal object BackendNpuAttachProbeReportFormatter {
             ?.contains("mismatch", ignoreCase = true) == true ||
             snapshot.galleryStackExpectedBuildIdMatch == false ||
             snapshot.customStackExpectedBuildIdMatch == false
+        val runtimeStackMismatchCandidate = abiOrBuildIdMismatch ||
+            snapshot.galleryStackExpectedBuildIdMatch != true
         val engineInitializeReturned = snapshot.engineInitializeDryRunInitializeReturned == "yes"
 
         return listOf(
@@ -143,7 +145,9 @@ internal object BackendNpuAttachProbeReportFormatter {
             "dispatch_runtime_abi_compatibility" to snapshot.dispatchRuntimeAbiCompatibility.orUnknown(),
             "litert_build_id" to snapshot.liteRtBuildId.orUnknown(),
             "litertlm_jni_build_id" to snapshot.liteRtLmJniBuildId.orUnknown(),
+            "lib_inventory_summary" to buildLibInventorySummary(snapshot),
             "gallery_stack_expected_build_id_match" to snapshot.galleryStackExpectedBuildIdMatch.asUnknown(),
+            "gallery_stack_comparison_result" to galleryStackComparisonResult(snapshot),
             "custom_stack_expected_build_id_match" to snapshot.customStackExpectedBuildIdMatch.asUnknown(),
             "backend_npu_constructor_used" to snapshot.backendNpuInstantiateConstructor.orDash(),
             "backend_npu_object_class" to (snapshot.engineInitializeDryRunBackendNpuObjectClass ?: snapshot.backendNpuInstantiateObjectClass).orDash(),
@@ -196,6 +200,11 @@ internal object BackendNpuAttachProbeReportFormatter {
             "dispatch_api_load_error_detected" to dispatchApiLoadError.toString(),
             "symbol_mismatch_suspected" to snapshot.engineInitializeDryRunSymbolMismatchDetected.asFalse(),
             "abi_build_id_mismatch_suspected" to abiOrBuildIdMismatch.toString(),
+            "suspected_root_cause" to if (runtimeStackMismatchCandidate) {
+                "runtime_stack_mismatch_candidate"
+            } else {
+                "unknown"
+            },
             "elapsed_ms" to snapshot.engineInitializeDryRunElapsedMs.asUnknown(),
             "process_alive_after_probe" to request.processAliveAfterProbe,
             "native_crash_suspected" to request.nativeCrashSuspected,
@@ -216,6 +225,23 @@ internal object BackendNpuAttachProbeReportFormatter {
 
     private fun firstNonBlank(vararg values: String?): String? =
         values.firstOrNull { !it.isNullOrBlank() }
+
+    private fun buildLibInventorySummary(snapshot: AcceleratorProbeSnapshot): String =
+        listOf(
+            "liblitertlm_jni=${snapshot.liteRtLmJniBuildId.orUnknown()}",
+            "libLiteRt=${snapshot.liteRtBuildId.orUnknown()}",
+            "libLiteRtDispatch_Qualcomm=${snapshot.dispatchRuntimeBuildId.orUnknown()}",
+            "libQnnSystem=${snapshot.galleryStackQnnSystemBuildId.orUnknown()}",
+            "libQnnHtp=${snapshot.galleryStackQnnHtpBuildId.orUnknown()}",
+            "libQnnHtpV79Stub=${snapshot.galleryStackQnnHtpV79StubBuildId.orUnknown()}",
+        ).joinToString(";")
+
+    private fun galleryStackComparisonResult(snapshot: AcceleratorProbeSnapshot): String =
+        when (snapshot.galleryStackExpectedBuildIdMatch) {
+            true -> "matches-gallery-sm8750-build-ids"
+            false -> "differs-from-gallery-sm8750-build-ids"
+            null -> "incomplete-gallery-sm8750-build-id-evidence"
+        }
 
     private fun String?.orUnknown(): String = this?.takeIf { it.isNotBlank() } ?: "unknown"
 

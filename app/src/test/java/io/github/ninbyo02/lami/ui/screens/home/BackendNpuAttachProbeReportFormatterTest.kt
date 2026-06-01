@@ -49,6 +49,9 @@ class BackendNpuAttachProbeReportFormatterTest {
         assertTrue(text.contains("engineconfig_cache_dir=/data/user/0/io.github.ninbyo02.lami.npu/files/backend_npu_attach_probe_cache"))
         assertTrue(text.contains("engineconfig_max_num_tokens=null"))
         assertTrue(text.contains("engineconfig_backend_getter_result=com.google.ai.edge.litertlm.Backend\$NPU"))
+        assertTrue(text.contains("lib_inventory_summary=liblitertlm_jni=litertlm-jni-build-id;libLiteRt=litert-build-id;libLiteRtDispatch_Qualcomm=dispatch-build-id"))
+        assertTrue(text.contains("gallery_stack_comparison_result=matches-gallery-sm8750-build-ids"))
+        assertTrue(text.contains("suspected_root_cause=unknown"))
         assertTrue(text.contains("engine_initialize_invoked=no"))
         assertTrue(text.contains("engine_initialize_skip_reason=explicit-opt-in-required"))
         assertTrue(text.contains("native_crash_suspected=unknown-script-checks-logcat"))
@@ -76,6 +79,7 @@ class BackendNpuAttachProbeReportFormatterTest {
             engineInitializeDryRunNoUsableDispatchRuntimeDetected = true,
             engineInitializeDryRunSymbolMismatchDetected = true,
             engineInitializeDryRunElapsedMs = 1234L,
+            galleryStackExpectedBuildIdMatch = false,
         )
         val request = BackendNpuAttachProbeReportRequest(
             runId = "20260601_120001",
@@ -99,6 +103,8 @@ class BackendNpuAttachProbeReportFormatterTest {
         assertTrue(text.contains("unsatisfied_link_error_detected=true"))
         assertTrue(text.contains("dispatch_api_load_error_detected=true"))
         assertTrue(text.contains("symbol_mismatch_suspected=true"))
+        assertTrue(text.contains("gallery_stack_comparison_result=differs-from-gallery-sm8750-build-ids"))
+        assertTrue(text.contains("suspected_root_cause=runtime_stack_mismatch_candidate"))
         assertTrue(text.contains("elapsed_ms=1234"))
         assertTrue(text.contains("process_alive_after_probe=alive"))
         assertTrue(text.contains("native_crash_suspected=true"))
@@ -145,6 +151,7 @@ class BackendNpuAttachProbeReportFormatterTest {
         engineInitializeDryRunNoUsableDispatchRuntimeDetected: Boolean? = null,
         engineInitializeDryRunSymbolMismatchDetected: Boolean? = null,
         engineInitializeDryRunElapsedMs: Long? = null,
+        galleryStackExpectedBuildIdMatch: Boolean? = true,
     ): AcceleratorProbeSnapshot =
         AcceleratorProbeSnapshot(
             deviceManufacturer = "nubia",
@@ -173,7 +180,7 @@ class BackendNpuAttachProbeReportFormatterTest {
             dispatchRuntimeAbiCompatibility = "compatible",
             liteRtBuildId = "litert-build-id",
             liteRtLmJniBuildId = "litertlm-jni-build-id",
-            galleryStackExpectedBuildIdMatch = true,
+            galleryStackExpectedBuildIdMatch = galleryStackExpectedBuildIdMatch,
             customStackExpectedBuildIdMatch = true,
             backendNpuInstantiateConstructor = "Backend.NPU(String)",
             backendNpuInstantiateResult = backendNpuInstantiateResult,
