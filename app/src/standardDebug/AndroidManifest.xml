@@ -19,5 +19,13 @@
                 <action android:name="io.github.ninbyo02.lami.action.NPU_S2_DB_STABILITY_TEST" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name="io.github.ninbyo02.lami.gpu.LiteRtLmGpuBenchmarkReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
