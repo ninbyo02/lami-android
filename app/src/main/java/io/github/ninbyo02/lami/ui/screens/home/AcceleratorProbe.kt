@@ -1082,6 +1082,7 @@ internal object AcceleratorProbe {
                 variant = variant.name,
                 cacheDir = variant.cacheDir,
                 maxNumTokens = variant.maxNumTokens,
+                maxNumImages = variant.maxNumImages,
                 result = "skipped",
                 warning = warning,
             )
@@ -1097,6 +1098,7 @@ internal object AcceleratorProbe {
                     variant = variant.name,
                     cacheDir = variant.cacheDir,
                     maxNumTokens = variant.maxNumTokens,
+                    maxNumImages = variant.maxNumImages,
                     result = "skipped",
                     skipReason = "engineconfig-backend-constructor-not-found",
                     warning = warning,
@@ -1118,6 +1120,7 @@ internal object AcceleratorProbe {
                 variant = variant.name,
                 cacheDir = args.cacheDir,
                 maxNumTokens = args.maxNumTokens,
+                maxNumImages = args.maxNumImages,
                 npuBackendObjectClass = npuHandle.instance.javaClass.name,
                 result = "success",
                 createdObjectClass = config.javaClass.name,
@@ -1133,6 +1136,7 @@ internal object AcceleratorProbe {
                 variant = variant.name,
                 cacheDir = variant.cacheDir,
                 maxNumTokens = variant.maxNumTokens,
+                maxNumImages = variant.maxNumImages,
                 result = "failed",
                 exceptionClass = throwable.javaClass.name,
                 exceptionMessage = throwable.message?.take(240),
@@ -1253,17 +1257,24 @@ internal object AcceleratorProbe {
         val lastStageFile = context?.filesDir?.resolve(ENGINE_INITIALIZE_LAST_STAGE_FILE_NAME)
         val crashMarkerFile = context?.filesDir?.resolve(ENGINE_INITIALIZE_CRASH_MARKER_FILE_NAME)
         val warning = "initialize-only; no Conversation; no generateResponse; not wired to app inference"
-        val modelPath = requestedModelPath?.trim()?.takeIf { it.isNotBlank() }
+        val requestedModelPathTrimmed = requestedModelPath?.trim()?.takeIf { it.isNotBlank() }
+        val engineConfigVariant = resolveEngineConfigProbeVariant(requestedEngineConfigVariant, context)
+        val modelPath = resolveEngineInitializeModelPathForVariant(
+            requestedModelPath = requestedModelPathTrimmed,
+            variant = engineConfigVariant,
+            context = context,
+        )
         val modelKind = modelPath?.let(::classifyEngineInitializeDryRunModelKind)
         val modelCanonicalPath = modelPath?.let { path -> runCatching { File(path).canonicalPath }.getOrNull() }
         val modelPathVariant = when {
             modelPath == null -> null
+            engineConfigVariant.useDataDataModelPath -> "gallery-like-data-data-path"
+            engineConfigVariant.useCanonicalModelPath -> "gallery-like-canonical-path"
             modelPath.startsWith("/data/user/0/") -> "/data/user/0"
             modelPath.startsWith("/data/data/") -> "/data/data"
             modelCanonicalPath != null && modelCanonicalPath != modelPath -> "canonical-differs"
             else -> "as-requested"
         }
-        val engineConfigVariant = resolveEngineConfigProbeVariant(requestedEngineConfigVariant, context)
         val runId = requestedRunId?.trim()?.takeIf { it.isNotBlank() }
             ?: "${System.currentTimeMillis()}-${modelPath?.hashCode() ?: 0}"
         val modelFileProbe = modelPath?.let(::probeEngineInitializeModelFile)
@@ -1296,10 +1307,11 @@ internal object AcceleratorProbe {
 
         if (explicitOptIn) {
             stage("started explicitOptIn=true modelPath=${modelPath ?: "-"}", reset = true)
-            stage("modelPath received value=${modelPath ?: "-"}")
+            stage("modelPath requested value=${requestedModelPathTrimmed ?: "-"}")
+            stage("modelPath effective value=${modelPath ?: "-"}")
             stage("modelPath variant=${modelPathVariant ?: "-"} canonical=${modelCanonicalPath ?: "-"}")
             stage("nativeLibraryDir variant=${nativeLibraryDirVariant ?: "-"} applicationInfo=${applicationInfoNativeLibraryDir ?: "-"} contextApplicationInfo=${contextApplicationInfoNativeLibraryDir ?: "-"} hardResolved=${hardResolvedNativeLibraryDir ?: "-"}")
-            stage("engineConfig variant=${engineConfigVariant.name} cacheDir=${engineConfigVariant.cacheDir ?: "null"} maxNumTokens=${engineConfigVariant.maxNumTokens?.toString() ?: "null"}")
+            stage("engineConfig variant=${engineConfigVariant.name} cacheDir=${engineConfigVariant.cacheDir ?: "null"} maxNumTokens=${engineConfigVariant.maxNumTokens?.toString() ?: "null"} maxNumImages=${engineConfigVariant.maxNumImages?.toString() ?: "null"}")
             if (modelPath != null) {
                 stage("model file exists check start")
                 stage("model file exists ${modelFileProbe?.exists ?: false}")
@@ -1353,6 +1365,7 @@ internal object AcceleratorProbe {
                 engineConfigVariant = engineConfigVariant.name,
                 engineConfigCacheDir = engineConfigVariant.cacheDir,
                 engineConfigMaxNumTokens = engineConfigVariant.maxNumTokens,
+                engineConfigMaxNumImages = engineConfigVariant.maxNumImages,
                 lastStage = lastStage,
                 constructorInvoked = constructorInvoked,
                 constructorReturned = constructorReturned,
@@ -1403,6 +1416,7 @@ internal object AcceleratorProbe {
                     engineConfigVariant = engineConfigVariant.name,
                     engineConfigCacheDir = engineConfigVariant.cacheDir,
                     engineConfigMaxNumTokens = engineConfigVariant.maxNumTokens,
+                    engineConfigMaxNumImages = engineConfigVariant.maxNumImages,
                     backendNpuObjectClass = npuHandle.instance.javaClass.name,
                     lastStage = lastStage,
                     constructorInvoked = constructorInvoked,
@@ -1457,6 +1471,7 @@ internal object AcceleratorProbe {
                     engineConfigVariant = engineConfigVariant.name,
                     engineConfigCacheDir = args.cacheDir,
                     engineConfigMaxNumTokens = args.maxNumTokens,
+                    engineConfigMaxNumImages = args.maxNumImages,
                     backendNpuObjectClass = npuHandle.instance.javaClass.name,
                     engineConfigObjectClass = engineConfig.javaClass.name,
                     lastStage = lastStage,
@@ -1532,6 +1547,7 @@ internal object AcceleratorProbe {
                 engineConfigVariant = engineConfigVariant.name,
                 engineConfigCacheDir = args.cacheDir,
                 engineConfigMaxNumTokens = args.maxNumTokens,
+                engineConfigMaxNumImages = args.maxNumImages,
                 backendNpuObjectClass = npuHandle.instance.javaClass.name,
                 engineConfigObjectClass = engineConfig.javaClass.name,
                 selectedEngineConstructorOrFactory = operation.constructorOrFactoryLabel,
@@ -1581,6 +1597,7 @@ internal object AcceleratorProbe {
                 engineConfigVariant = engineConfigVariant.name,
                 engineConfigCacheDir = engineConfigVariant.cacheDir,
                 engineConfigMaxNumTokens = engineConfigVariant.maxNumTokens,
+                engineConfigMaxNumImages = engineConfigVariant.maxNumImages,
                 backendNpuObjectClass = instantiateProbeResult.objectClass,
                 lastStage = lastStage,
                 constructorInvoked = constructorInvoked,
@@ -1622,6 +1639,27 @@ internal object AcceleratorProbe {
             lower.endsWith(".litertlm") -> "generic-litertlm"
             else -> "unknown"
         }
+    }
+
+    private fun resolveEngineInitializeModelPathForVariant(
+        requestedModelPath: String?,
+        variant: EngineConfigProbeVariant,
+        context: Context?,
+    ): String? {
+        if (requestedModelPath.isNullOrBlank()) return null
+        if (variant.useCanonicalModelPath) {
+            return runCatching { File(requestedModelPath).canonicalPath }.getOrDefault(requestedModelPath)
+        }
+        if (variant.useDataDataModelPath) {
+            val packageName = context?.packageName?.takeIf { it.isNotBlank() } ?: BuildConfig.APPLICATION_ID
+            val dataUserPrefix = "/data/user/0/$packageName/"
+            return if (requestedModelPath.startsWith(dataUserPrefix)) {
+                "/data/data/$packageName/" + requestedModelPath.removePrefix(dataUserPrefix)
+            } else {
+                requestedModelPath
+            }
+        }
+        return requestedModelPath
     }
 
     private fun selectEngineInitializeOperation(
@@ -1972,8 +2010,8 @@ internal object AcceleratorProbe {
                 role == "cacheDir-or-extraString" -> variant.cacheDir
                 role == "maxNumTokens" && type == java.lang.Integer.TYPE -> variant.maxNumTokens ?: 0
                 role == "maxNumTokens" -> variant.maxNumTokens
-                role == "maxNumImages" && type == java.lang.Integer.TYPE -> 0
-                role == "maxNumImages" -> null
+                role == "maxNumImages" && type == java.lang.Integer.TYPE -> variant.maxNumImages ?: 0
+                role == "maxNumImages" -> variant.maxNumImages
                 type == String::class.java -> null
                 type == java.lang.Boolean.TYPE -> false
                 type == java.lang.Integer.TYPE -> 0
@@ -1998,6 +2036,11 @@ internal object AcceleratorProbe {
                     role == "cacheDir-or-extraString" -> "cacheDir=$value"
                     else -> "string"
                 }
+                is Int -> when (role) {
+                    "maxNumTokens" -> "maxNumTokens=$value"
+                    "maxNumImages" -> "maxNumImages=$value"
+                    else -> "Int=$value"
+                }
                 else -> value.javaClass.simpleName
             }
             "arg$index:${type.simpleName}:$role=$valueSummary"
@@ -2007,6 +2050,7 @@ internal object AcceleratorProbe {
             summary = summary,
             cacheDir = variant.cacheDir,
             maxNumTokens = variant.maxNumTokens,
+            maxNumImages = variant.maxNumImages,
         )
     }
 
@@ -2026,23 +2070,42 @@ internal object AcceleratorProbe {
             "max128",
             "max32",
             "backend-only",
-            "backend-null-modalities" -> normalizedName
+            "backend-null-modalities",
+            "gallery-like-cache",
+            "gallery-like-max128",
+            "gallery-like-all",
+            "gallery-like-data-data-path",
+            "gallery-like-canonical-path"
+            -> normalizedName
             else -> "default"
         }
         val cacheDir = when (name) {
             "cache-files" -> context?.filesDir?.resolve("backend_npu_attach_probe_cache")?.absolutePath
             "cache-cache" -> context?.cacheDir?.absolutePath
+            "gallery-like-cache",
+            "gallery-like-all"
+            -> context?.cacheDir?.absolutePath
             else -> null
         }
         val maxNumTokens = when (name) {
             "max128" -> 128
             "max32" -> 32
+            "gallery-like-max128",
+            "gallery-like-all"
+            -> 128
+            else -> null
+        }
+        val maxNumImages = when (name) {
+            "gallery-like-all" -> 1
             else -> null
         }
         return EngineConfigProbeVariant(
             name = name,
             cacheDir = cacheDir,
             maxNumTokens = maxNumTokens,
+            maxNumImages = maxNumImages,
+            useDataDataModelPath = name == "gallery-like-data-data-path",
+            useCanonicalModelPath = name == "gallery-like-canonical-path",
         )
     }
 
@@ -3294,6 +3357,7 @@ internal object AcceleratorProbe {
         val variant: String? = null,
         val cacheDir: String? = null,
         val maxNumTokens: Int? = null,
+        val maxNumImages: Int? = null,
         val npuBackendObjectClass: String? = null,
         val result: String = "skipped",
         val createdObjectClass: String? = null,
@@ -3339,6 +3403,7 @@ internal object AcceleratorProbe {
         val engineConfigVariant: String? = null,
         val engineConfigCacheDir: String? = null,
         val engineConfigMaxNumTokens: Int? = null,
+        val engineConfigMaxNumImages: Int? = null,
         val backendNpuObjectClass: String? = null,
         val engineConfigObjectClass: String? = null,
         val selectedEngineConstructorOrFactory: String? = null,
@@ -3412,12 +3477,16 @@ internal object AcceleratorProbe {
         val summary: List<String>,
         val cacheDir: String?,
         val maxNumTokens: Int?,
+        val maxNumImages: Int?,
     )
 
     private data class EngineConfigProbeVariant(
         val name: String,
         val cacheDir: String?,
         val maxNumTokens: Int?,
+        val maxNumImages: Int?,
+        val useDataDataModelPath: Boolean,
+        val useCanonicalModelPath: Boolean,
     )
 
     private data class BackendNpuProbeObject(

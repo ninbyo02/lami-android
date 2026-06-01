@@ -50,6 +50,7 @@ class BackendNpuAttachProbeReportFormatterTest {
         assertTrue(text.contains("engine_config_variant=cache-files"))
         assertTrue(text.contains("engineconfig_cache_dir=/data/user/0/io.github.ninbyo02.lami.npu/files/backend_npu_attach_probe_cache"))
         assertTrue(text.contains("engineconfig_max_num_tokens=null"))
+        assertTrue(text.contains("engineconfig_max_num_images=null"))
         assertTrue(text.contains("engineconfig_backend_getter_result=com.google.ai.edge.litertlm.Backend\$NPU"))
         assertTrue(text.contains("lib_inventory_summary=liblitertlm_jni=litertlm-jni-build-id;libLiteRt=litert-build-id;libLiteRtDispatch_Qualcomm=dispatch-build-id"))
         assertTrue(text.contains("gallery_stack_comparison_result=matches-gallery-sm8750-build-ids"))
@@ -101,6 +102,7 @@ class BackendNpuAttachProbeReportFormatterTest {
         assertTrue(text.contains("engine_initialize_invoked=yes"))
         assertTrue(text.contains("engine_config_variant=max128"))
         assertTrue(text.contains("engineconfig_max_num_tokens=128"))
+        assertTrue(text.contains("engineconfig_max_num_images=null"))
         assertTrue(text.contains("exception_class=java.lang.UnsatisfiedLinkError"))
         assertTrue(text.contains("unsatisfied_link_error_detected=true"))
         assertTrue(text.contains("dispatch_api_load_error_detected=true"))
@@ -134,6 +136,33 @@ class BackendNpuAttachProbeReportFormatterTest {
         assertTrue(text.contains("application_id=io.github.ninbyo02.lami.galleryprobe"))
         assertTrue(text.contains("isolated_flavor=true"))
         assertTrue(text.contains("gallery_aligned_stack=true"))
+    }
+
+    @Test
+    fun `gallery like variant report includes max images`() {
+        val snapshot = snapshot(
+            currentFlavor = "galleryAlignedNpuProbe",
+            applicationId = "io.github.ninbyo02.lami.galleryprobe",
+            galleryStackExpectedBuildIdMatch = true,
+        )
+        val request = BackendNpuAttachProbeReportRequest(
+            runId = "20260602_120001",
+            phase = BackendNpuAttachProbeReportFormatter.PHASE_ENGINE_INITIALIZE,
+            engineInitializeOptIn = true,
+            engineConfigVariant = "gallery-like-all",
+            engineConfigCacheDir = "/data/user/0/io.github.ninbyo02.lami.galleryprobe/cache",
+            engineConfigMaxNumTokens = "128",
+            engineConfigMaxNumImages = "1",
+            modelPathVariant = "gallery-like-canonical-path",
+        )
+
+        val text = BackendNpuAttachProbeReportFormatter.formatText(snapshot, request)
+
+        assertTrue(text.contains("engine_config_variant=gallery-like-all"))
+        assertTrue(text.contains("engineconfig_cache_dir=/data/user/0/io.github.ninbyo02.lami.galleryprobe/cache"))
+        assertTrue(text.contains("engineconfig_max_num_tokens=128"))
+        assertTrue(text.contains("engineconfig_max_num_images=1"))
+        assertTrue(text.contains("model_path_variant=gallery-like-canonical-path"))
     }
 
     @Test

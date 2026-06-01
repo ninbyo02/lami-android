@@ -25,7 +25,7 @@ Options:
   --flavor npuExperiment|customBuildExperiment|galleryStackExperiment|galleryAlignedNpuProbe
   --model-path PATH
   --phase inventory|engine_initialize|conversation|one_token_decode
-  --engine-config-variant default|cache-files|cache-cache|max128|max32|backend-only|backend-null-modalities
+  --engine-config-variant default|cache-files|cache-cache|max128|max32|backend-only|backend-null-modalities|gallery-like-cache|gallery-like-max128|gallery-like-all|gallery-like-data-data-path|gallery-like-canonical-path
   --engine-initialize   Explicitly opt in to Engine.initialize dry-run.
   --no-install          Do not run ./update.sh before probing.
   --wait SECONDS        Seconds to wait before pulling reports. Default: 8.
@@ -62,6 +62,33 @@ extract_backtrace_head() {
   ' "$file" 2>/dev/null | tr '\n' '|' | sed 's/|$//' || true
 }
 
+extract_latest_dropbox_block_for_app() {
+  local file="$1"
+  local app_id="$2"
+  awk -v app_id="$app_id" '
+    function flush_block() {
+      if (block != "" && index(block, app_id) > 0) {
+        latest = block
+      }
+      block = ""
+    }
+    /^=+ / {
+      flush_block()
+    }
+    {
+      block = block $0 "\n"
+    }
+    END {
+      flush_block()
+      if (latest != "") {
+        printf "%s", latest
+      } else {
+        print "<no current package crash block found>"
+      }
+    }
+  ' "$file" 2>/dev/null || true
+}
+
 write_fallback_report() {
   local txt_path="$1"
   local md_path="$2"
@@ -72,10 +99,14 @@ write_fallback_report() {
   local pid_state="$7"
   local isolated_flavor="false"
   local gallery_aligned_stack="false"
+  local engine_config_max_num_images="null"
 
   if [ "$FLAVOR" = "galleryAlignedNpuProbe" ]; then
     isolated_flavor="true"
     gallery_aligned_stack="true"
+  fi
+  if [ "$ENGINE_CONFIG_VARIANT" = "gallery-like-all" ]; then
+    engine_config_max_num_images="1"
   fi
 
   {
@@ -100,6 +131,7 @@ write_fallback_report() {
     printf 'engineconfig_constructor_args_summary=unknown-report-missing\n'
     printf 'engineconfig_cache_dir=unknown-report-missing\n'
     printf 'engineconfig_max_num_tokens=unknown-report-missing\n'
+    printf 'engineconfig_max_num_images=%s\n' "$engine_config_max_num_images"
     printf 'engine_initialize_invoked=unknown-report-missing\n'
     printf 'engine_initialize_returned=unknown-report-missing\n'
     printf 'engine_initialize_result=unknown-report-missing\n'
@@ -110,6 +142,7 @@ write_fallback_report() {
     printf 'backtrace_head=%s\n' "${backtrace_head:--}"
     printf 'logcat_file=%s\n' "$LOCAL_LOGCAT"
     printf 'tombstone_summary_file=%s\n' "$LOCAL_TOMBSTONE"
+    printf 'dropbox_full_file=%s\n' "$LOCAL_DROPBOX"
     printf 'safety_policy=dev-only explicit opt-in; no production ChatScreen wiring; no fallback change; no QAIRT/QNN setting change; no always-on System.loadLibrary\n'
   } > "$txt_path"
 
@@ -189,7 +222,7 @@ case "$FLAVOR" in
 esac
 
 case "$ENGINE_CONFIG_VARIANT" in
-  default|cache-files|cache-cache|max128|max32|backend-only|backend-null-modalities)
+  default|cache-files|cache-cache|max128|max32|backend-only|backend-null-modalities|gallery-like-cache|gallery-like-max128|gallery-like-all|gallery-like-data-data-path|gallery-like-canonical-path)
     ;;
   *)
     echo "[backend-npu-attach-probe] unsupported engine config variant: $ENGINE_CONFIG_VARIANT"
@@ -243,6 +276,7 @@ LOCAL_TXT="$ARTIFACTS_DIR/backend_npu_attach_probe_${RUN_ID}.txt"
 LOCAL_MD="$ARTIFACTS_DIR/backend_npu_attach_probe_${RUN_ID}.md"
 LOCAL_LOGCAT="$ARTIFACTS_DIR/backend_npu_attach_probe_${RUN_ID}.logcat.txt"
 LOCAL_TOMBSTONE="$ARTIFACTS_DIR/backend_npu_attach_probe_${RUN_ID}.tombstone.txt"
+LOCAL_DROPBOX="$ARTIFACTS_DIR/backend_npu_attach_probe_${RUN_ID}.dropbox.txt"
 
 echo "[backend-npu-attach-probe] Clearing stale reports for $APP_ID..."
 adb shell run-as "$APP_ID" rm -f \
@@ -318,6 +352,7 @@ else
 fi
 
 echo "[backend-npu-attach-probe] Collecting tombstone summary: $LOCAL_TOMBSTONE"
+adb shell dumpsys dropbox --print > "$LOCAL_DROPBOX" 2>/dev/null || true
 {
   echo "===== tombstoned command ====="
   adb shell timeout 2 tombstoned 2>&1 || true
@@ -325,8 +360,11 @@ echo "[backend-npu-attach-probe] Collecting tombstone summary: $LOCAL_TOMBSTONE"
   echo "===== /data/tombstones listing ====="
   adb shell ls -lt /data/tombstones 2>&1 || true
   echo
-  echo "===== dropbox crash snippets ====="
-  adb shell dumpsys dropbox --print 2>/dev/null | grep -Ei "system_app_crash|data_app_crash|$APP_ID|FATAL|SIGABRT|LiteRt|litert|Dispatch|QNN|Qnn|FastRPC|NPU|tombstone" | tail -n 200 || true
+  echo "===== latest dropbox crash block for $APP_ID ====="
+  extract_latest_dropbox_block_for_app "$LOCAL_DROPBOX" "$APP_ID"
+  echo
+  echo "===== current package logcat crash snippets ====="
+  grep -Ei "$APP_ID|AndroidRuntime|DEBUG|DEBUGGERD|libc|crash_dump64|tombstoned|LiteRT|litert|QNN|Qnn|FastRPC|Backend.NPU|Engine.initialize|FATAL|SIGABRT|abort|tombstone" "$LOCAL_LOGCAT" | tail -n 200 || true
 } > "$LOCAL_TOMBSTONE"
 
 if adb shell run-as "$APP_ID" cat "$REMOTE_TXT" > "$LOCAL_TXT"; then
@@ -359,6 +397,7 @@ if [ -s "$LOCAL_TXT" ]; then
     printf 'backtrace_head=%s\n' "${BACKTRACE_HEAD:--}"
     printf 'logcat_file=%s\n' "$LOCAL_LOGCAT"
     printf 'tombstone_summary_file=%s\n' "$LOCAL_TOMBSTONE"
+    printf 'dropbox_full_file=%s\n' "$LOCAL_DROPBOX"
   } >> "$LOCAL_TXT"
 fi
 
@@ -373,6 +412,7 @@ if [ -s "$LOCAL_MD" ]; then
     printf '| backtrace_head | %s |\n' "${BACKTRACE_HEAD:--}"
     printf '| logcat_file | %s |\n' "$LOCAL_LOGCAT"
     printf '| tombstone_summary_file | %s |\n' "$LOCAL_TOMBSTONE"
+    printf '| dropbox_full_file | %s |\n' "$LOCAL_DROPBOX"
   } >> "$LOCAL_MD"
 fi
 
@@ -387,6 +427,7 @@ echo "$LOCAL_TXT"
 echo "$LOCAL_MD"
 echo "$LOCAL_LOGCAT"
 echo "$LOCAL_TOMBSTONE"
+echo "$LOCAL_DROPBOX"
 
 echo
 echo "[backend-npu-attach-probe] Related logcat lines:"
