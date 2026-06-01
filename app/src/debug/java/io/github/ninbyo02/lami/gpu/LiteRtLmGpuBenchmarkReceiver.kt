@@ -32,8 +32,20 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             ?.takeIf { it.isNotBlank() }
             ?: timestamp()
         val timeoutMs = timeoutMs(intent)
+        writeMarker(
+            appContext = appContext,
+            timestamp = timestamp,
+            stage = "receiver_started",
+            detail = "onReceive_enter",
+        )
         val stateFile = File(appContext.filesDir, STATE_FILE_NAME)
         if (!running.compareAndSet(false, true)) {
+            writeMarker(
+                appContext = appContext,
+                timestamp = timestamp,
+                stage = "receiver_started",
+                detail = "already_running",
+            )
             writeState(
                 stateFile = stateFile,
                 timestamp = timestamp,
@@ -51,6 +63,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             try {
                 handle(appContext, intent, timestamp, timeoutMs)
             } catch (throwable: Throwable) {
+                writeMarker(
+                    appContext = appContext,
+                    timestamp = timestamp,
+                    stage = "receiver_exception",
+                    detail = "${throwable.javaClass.simpleName}:${throwable.message.orEmpty().take(120)}",
+                )
                 val row = LiteRtLmGpuBenchmarkRow.failure(
                     timestamp = timestamp,
                     prompt = "",
@@ -117,6 +135,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         val maxOutputTokensValues = maxOutputTokensValues(intent)
         val modelPath = resolveModelPath(appContext, intent)
         val modelFile = modelPath?.let(::File)
+        writeMarker(
+            appContext = appContext,
+            timestamp = timestamp,
+            stage = "model_resolved",
+            detail = "model_path=${modelPath.orEmpty()} model_exists=${modelFile?.exists() ?: false} model_length=${modelFile?.length() ?: 0L}",
+        )
         writeState(
             stateFile = stateFile,
             timestamp = timestamp,
@@ -194,6 +218,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         }
 
         writeReports(appContext, timestamp, timeoutMs, rows)
+        writeMarker(
+            appContext = appContext,
+            timestamp = timestamp,
+            stage = "report_written",
+            detail = "rows=${rows.size} markdown=${markdownFileName(timestamp)} csv=${csvFileName(timestamp)}",
+        )
         val successCount = rows.count { it.status == "success" }
         val timeoutCount = rows.count { it.timeout }
         val finalStatus = when {
@@ -303,15 +333,39 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 cacheDir = appContext.cacheDir.absolutePath,
             )
             val engineStartMs = SystemClock.elapsedRealtime()
+            writeMarker(
+                appContext = appContext,
+                timestamp = timestamp,
+                stage = "engine_create_started",
+                detail = "max_output_tokens=$maxOutputTokens prompt_length=${prompt.length}",
+            )
             engine = Engine(config)
             engine.initialize()
             engineCreateMs = SystemClock.elapsedRealtime() - engineStartMs
+            writeMarker(
+                appContext = appContext,
+                timestamp = timestamp,
+                stage = "engine_create_finished",
+                detail = "max_output_tokens=$maxOutputTokens engine_create_ms=$engineCreateMs",
+            )
 
             val conversationStartMs = SystemClock.elapsedRealtime()
+            writeMarker(
+                appContext = appContext,
+                timestamp = timestamp,
+                stage = "conversation_create_started",
+                detail = "max_output_tokens=$maxOutputTokens",
+            )
             conversation = engine.createConversation()
             conversationCreateMs = SystemClock.elapsedRealtime() - conversationStartMs
 
             val decodeStartMs = SystemClock.elapsedRealtime()
+            writeMarker(
+                appContext = appContext,
+                timestamp = timestamp,
+                stage = "prompt_started",
+                detail = "max_output_tokens=$maxOutputTokens prompt_length=${prompt.length}",
+            )
             val rawOutput = runCatching {
                 collectStreamingResponse(conversation, prompt, decodeStartMs) { first ->
                     firstTokenMs = first
@@ -324,6 +378,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             }
             val decodeDurationMs = SystemClock.elapsedRealtime() - decodeStartMs
             decodeMs = decodeDurationMs
+            writeMarker(
+                appContext = appContext,
+                timestamp = timestamp,
+                stage = "prompt_finished",
+                detail = "max_output_tokens=$maxOutputTokens decode_ms=$decodeDurationMs raw_length=${rawOutput.length}",
+            )
             benchmarkSnapshot = probeBenchmarkSnapshot(conversation)
             val sanitizedOutput = sanitizeOutput(rawOutput)
             val outputTokens = benchmarkSnapshot?.decodeTokenCount?.takeIf { it >= 0 }
@@ -364,6 +424,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 freshCrash = false,
             )
         } catch (throwable: Throwable) {
+            writeMarker(
+                appContext = appContext,
+                timestamp = timestamp,
+                stage = "case_exception",
+                detail = "max_output_tokens=$maxOutputTokens class=${throwable.javaClass.simpleName} message=${throwable.message.orEmpty().take(120)}",
+            )
             LiteRtLmGpuBenchmarkRow.failure(
                 timestamp = timestamp,
                 prompt = prompt,
@@ -484,6 +550,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         const val EXTRA_MAX_OUTPUT_TOKENS_LIST = "max_output_tokens_list"
         const val EXTRA_TIMEOUT_MS = "timeout_ms"
         const val STATE_FILE_NAME = "litert_lm_gpu_benchmark_state.txt"
+        const val MARKER_FILE_NAME = "litert_lm_gpu_benchmark_marker.txt"
         private const val DEFAULT_TIMEOUT_MS = 60_000L
         private const val ROUTE_TYPE = "litert_lm_gpu_benchmark"
         private val DEFAULT_PROMPTS = listOf(
@@ -755,6 +822,28 @@ private fun writeState(
         ).joinToString("\n") + "\n",
         Charsets.UTF_8,
     )
+}
+
+private fun writeMarker(
+    appContext: Context,
+    timestamp: String,
+    stage: String,
+    detail: String,
+) {
+    runCatching {
+        File(appContext.filesDir, LiteRtLmGpuBenchmarkReceiver.MARKER_FILE_NAME).writeText(
+            listOf(
+                "timestamp=$timestamp",
+                "route_type=litert_lm_gpu_benchmark",
+                "backend=GPU",
+                "stage=$stage",
+                "detail=${detail.replace('\n', ' ').take(500)}",
+                "elapsed_realtime_ms=${SystemClock.elapsedRealtime()}",
+                "wall_time_ms=${System.currentTimeMillis()}",
+            ).joinToString("\n") + "\n",
+            Charsets.UTF_8,
+        )
+    }
 }
 
 private fun sanitizeOutput(raw: String): String =
