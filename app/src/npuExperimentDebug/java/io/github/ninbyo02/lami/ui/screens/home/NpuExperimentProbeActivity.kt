@@ -92,8 +92,9 @@ internal object NpuExperimentProbeLogger {
             engineConfigVariant = normalizedVariant,
             engineConfigCacheDir = engineConfigCacheDirForVariant(normalizedVariant, context),
             engineConfigMaxNumTokens = engineConfigMaxNumTokensForVariant(normalizedVariant),
+            engineConfigMaxNumImages = engineConfigMaxNumImagesForVariant(normalizedVariant),
             modelCanonicalPath = trimmedModelPath?.let { runCatching { java.io.File(it).canonicalPath }.getOrNull() }.orDashForProbe(),
-            modelPathVariant = modelPathVariantForProbe(trimmedModelPath),
+            modelPathVariant = modelPathVariantForProbe(trimmedModelPath, normalizedVariant),
             nativeLibraryDirVariant = when {
                 selectedNativeLibraryDir == applicationInfoNativeLibraryDir -> "applicationInfo.nativeLibraryDir"
                 selectedNativeLibraryDir == hardResolvedNativeLibraryDir -> "hard-resolved-nativeLibraryDir"
@@ -419,6 +420,11 @@ internal object NpuExperimentProbeLogger {
             "max32" -> "max32"
             "backend-only" -> "backend-only"
             "backend-null-modalities" -> "backend-null-modalities"
+            "gallery-like-cache" -> "gallery-like-cache"
+            "gallery-like-max128" -> "gallery-like-max128"
+            "gallery-like-all" -> "gallery-like-all"
+            "gallery-like-data-data-path" -> "gallery-like-data-data-path"
+            "gallery-like-canonical-path" -> "gallery-like-canonical-path"
             else -> "default"
         }
 
@@ -429,6 +435,7 @@ internal object NpuExperimentProbeLogger {
         when (variant) {
             "cache-files" -> context.filesDir.resolve("backend_npu_attach_probe_cache").absolutePath
             "cache-cache" -> context.cacheDir.absolutePath
+            "gallery-like-cache", "gallery-like-all" -> context.cacheDir.absolutePath
             else -> "null"
         }
 
@@ -436,12 +443,21 @@ internal object NpuExperimentProbeLogger {
         when (variant) {
             "max128" -> "128"
             "max32" -> "32"
+            "gallery-like-max128", "gallery-like-all" -> "128"
             else -> "null"
         }
 
-    private fun modelPathVariantForProbe(modelPath: String?): String =
+    private fun engineConfigMaxNumImagesForVariant(variant: String): String =
+        when (variant) {
+            "gallery-like-all" -> "1"
+            else -> "null"
+        }
+
+    private fun modelPathVariantForProbe(modelPath: String?, engineConfigVariant: String): String =
         when {
             modelPath == null -> "-"
+            engineConfigVariant == "gallery-like-data-data-path" -> "gallery-like-data-data-path"
+            engineConfigVariant == "gallery-like-canonical-path" -> "gallery-like-canonical-path"
             modelPath.startsWith("/data/user/0/") -> "/data/user/0"
             modelPath.startsWith("/data/data/") -> "/data/data"
             else -> "as-requested"
