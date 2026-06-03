@@ -18,6 +18,7 @@ CASE_TIMEOUT_MS=60000
 MODEL_PATH=""
 PROMPTS=$'こんにちは\nカレーの材料を箇条書きで教えて'
 MAX_OUTPUT_TOKENS_LIST="32,64,128,256"
+BACKEND_VARIANT="gpu"
 BUILD_AND_INSTALL=true
 LOGCAT_PID=""
 BROADCAST_EXIT_CODE="not-run"
@@ -48,6 +49,10 @@ while [ $# -gt 0 ]; do
       MAX_OUTPUT_TOKENS_LIST="${2:-}"
       shift 2
       ;;
+    --backend)
+      BACKEND_VARIANT="${2:-gpu}"
+      shift 2
+      ;;
     --skip-build-install)
       BUILD_AND_INSTALL=false
       shift
@@ -55,7 +60,7 @@ while [ $# -gt 0 ]; do
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_litert_lm_gpu_benchmark.sh [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>]
+  scripts/run_litert_lm_gpu_benchmark.sh [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <gpu|cpu|default>]
 
 Runs the debug-only standard app LiteRT-LM GPU benchmark receiver and pulls:
   artifacts/litert_lm_gpu_benchmark_<timestamp>.md
@@ -64,7 +69,7 @@ Runs the debug-only standard app LiteRT-LM GPU benchmark receiver and pulls:
 Defaults:
   prompts: こんにちは / カレーの材料を箇条書きで教えて
   max_output_tokens: 32,64,128,256
-  backend: Backend.GPU fixed by the receiver's EngineConfig
+  backend: gpu
 
 Transport:
   prompts, model_path, and max_output_tokens are sent as base64 extras so
@@ -95,6 +100,18 @@ fi
 if ! [[ "$CASE_TIMEOUT_MS" =~ ^[0-9]+$ ]] || [ "$CASE_TIMEOUT_MS" -le 0 ]; then
   printf 'ERROR: --case-timeout-ms must be a positive integer\n' >&2
   exit 2
+fi
+case "$BACKEND_VARIANT" in
+  gpu|cpu|default)
+    ;;
+  *)
+    printf 'ERROR: --backend must be one of: gpu, cpu, default\n' >&2
+    exit 2
+    ;;
+esac
+BACKEND_LABEL="GPU"
+if [ "$BACKEND_VARIANT" = "cpu" ]; then
+  BACKEND_LABEL="CPU"
 fi
 
 cd "$ROOT_DIR" || exit 1
@@ -257,7 +274,8 @@ write_timeout_artifacts() {
     printf '# LiteRT-LM GPU Benchmark\n\n'
     printf -- '- timestamp: `%s`\n' "$TIMESTAMP"
     printf -- '- route_type: `litert_lm_gpu_benchmark`\n'
-    printf -- '- backend: `GPU`\n'
+    printf -- '- backend: `%s`\n' "$BACKEND_LABEL"
+    printf -- '- backend_variant: `%s`\n' "$BACKEND_VARIANT"
     printf -- '- status: `failure`\n'
     printf -- '- reason: `host_timeout_waiting_for_receiver`\n'
     printf -- '- timeout: `true`\n'
@@ -280,8 +298,8 @@ write_timeout_artifacts() {
     fi
   } >"$ARTIFACT_MD"
   {
-    printf '"timestamp","route_type","backend","prompt","max_output_tokens","model_path","model_exists","model_length","engine_create_ms","conversation_create_ms","first_token_ms","ttft_ms","decode_ms","total_ms","output_tokens","tokens_per_second","finish_reason","stop_reason","raw_output","sanitized_output","status","reason","fallback_used","timeout","fresh_crash","process_alive","latest_stage","latest_detail","am_broadcast_exit_code"\n'
-    printf '"%s","litert_lm_gpu_benchmark","GPU","","","","false","0","","","","","","","","","","","","","failure","host_timeout_waiting_for_receiver","false","true","%s","%s","%s","%s","%s"\n' "$TIMESTAMP" "$fresh_crash" "$process_alive" "$latest_stage" "$latest_detail" "$BROADCAST_EXIT_CODE"
+    printf '"timestamp","route_type","backend","backend_variant","prompt","max_output_tokens","model_path","model_exists","model_length","engine_create_ms","conversation_create_ms","first_token_ms","ttft_ms","decode_ms","total_ms","output_tokens","tokens_per_second","finish_reason","stop_reason","raw_output","sanitized_output","status","reason","fallback_used","timeout","fresh_crash","process_alive","latest_stage","latest_detail","am_broadcast_exit_code"\n'
+    printf '"%s","litert_lm_gpu_benchmark","%s","%s","","","","false","0","","","","","","","","","","","","","failure","host_timeout_waiting_for_receiver","false","true","%s","%s","%s","%s","%s"\n' "$TIMESTAMP" "$BACKEND_LABEL" "$BACKEND_VARIANT" "$fresh_crash" "$process_alive" "$latest_stage" "$latest_detail" "$BROADCAST_EXIT_CODE"
   } >"$ARTIFACT_CSV"
 }
 
@@ -335,7 +353,7 @@ if [ -n "$MODEL_PATH" ]; then
   MODEL_PATH_BASE64="$(base64_no_wrap "$MODEL_PATH")"
 fi
 
-log "broadcasting GPU benchmark receiver"
+log "broadcasting GPU benchmark receiver backend=$BACKEND_VARIANT"
 if [ -n "$MODEL_PATH" ]; then
   adb_cmd shell am broadcast --receiver-foreground --user 0 \
     -n "$APP_ID/$RECEIVER" \
@@ -344,6 +362,7 @@ if [ -n "$MODEL_PATH" ]; then
     --es model_path_base64 "$MODEL_PATH_BASE64" \
     --es prompts_base64 "$PROMPTS_BASE64" \
     --es max_output_tokens_list_base64 "$MAX_OUTPUT_TOKENS_LIST_BASE64" \
+    --es backend_variant "$BACKEND_VARIANT" \
     --el timeout_ms "$CASE_TIMEOUT_MS" \
     >"$OUT_DIR/am_broadcast_raw.txt" 2>&1
   BROADCAST_EXIT_CODE="$?"
@@ -354,6 +373,7 @@ else
     --es timestamp "$TIMESTAMP" \
     --es prompts_base64 "$PROMPTS_BASE64" \
     --es max_output_tokens_list_base64 "$MAX_OUTPUT_TOKENS_LIST_BASE64" \
+    --es backend_variant "$BACKEND_VARIANT" \
     --el timeout_ms "$CASE_TIMEOUT_MS" \
     >"$OUT_DIR/am_broadcast_raw.txt" 2>&1
   BROADCAST_EXIT_CODE="$?"
@@ -364,6 +384,7 @@ fi
   printf 'receiver=%s\n' "$RECEIVER"
   printf 'broadcast_exit_code=%s\n' "$BROADCAST_EXIT_CODE"
   printf 'transport=base64_safe_extras\n'
+  printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
   printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
   printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
@@ -379,6 +400,7 @@ fi
   printf 'action=%s\n' "$ACTION"
   printf 'receiver=%s\n' "$RECEIVER"
   printf 'transport=base64_safe_extras\n'
+  printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
   printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
   printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
@@ -415,7 +437,8 @@ if [ "$wait_status" = timeout ] || [ ! -s "$ARTIFACT_MD" ] || [ ! -s "$ARTIFACT_
     {
       printf 'timestamp=%s\n' "$TIMESTAMP"
       printf 'route_type=litert_lm_gpu_benchmark\n'
-      printf 'backend=GPU\n'
+      printf 'backend=%s\n' "$BACKEND_LABEL"
+      printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
       printf 'status=failure\n'
       printf 'reason=host_timeout_waiting_for_receiver\n'
       printf 'app_state_present=false\n'
@@ -443,6 +466,7 @@ fi
   printf 'action=%s\n' "$ACTION"
   printf 'receiver=%s\n' "$RECEIVER"
   printf 'broadcast_exit_code=%s\n' "$BROADCAST_EXIT_CODE"
+  printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'wait_status=%s\n' "$wait_status"
   printf 'receiver_started_marker_seen=%s\n' "$receiver_started_marker_seen"
   printf 'process_alive=%s\n' "$(if grep -Eq '^[0-9]+' "$OUT_DIR/pid_after.txt" 2>/dev/null; then printf true; else printf false; fi)"

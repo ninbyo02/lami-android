@@ -25,6 +25,21 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 
+internal enum class BenchmarkBackendVariant(
+    val wireValue: String,
+    val backendLabel: String,
+    val configStyle: String,
+) {
+    GPU("gpu", "GPU", "explicit_gpu"),
+    CPU("cpu", "CPU", "explicit_cpu"),
+    DEFAULT("default", "GPU", "default_like_gpu_backend_null_max_tokens");
+
+    companion object {
+        fun parse(raw: String?): BenchmarkBackendVariant =
+            entries.firstOrNull { it.wireValue == raw?.trim()?.lowercase(Locale.US) } ?: GPU
+    }
+}
+
 @OptIn(ExperimentalApi::class)
 class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -33,23 +48,27 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             ?.takeIf { it.isNotBlank() }
             ?: timestamp()
         val timeoutMs = timeoutMs(intent)
+        val backendVariant = backendVariant(intent)
         writeMarker(
             appContext = appContext,
             timestamp = timestamp,
+            backendVariant = backendVariant,
             stage = "receiver_started",
-            detail = "onReceive_enter",
+            detail = "backend_variant=${backendVariant.wireValue} onReceive_enter",
         )
         val stateFile = File(appContext.filesDir, STATE_FILE_NAME)
         if (!running.compareAndSet(false, true)) {
             writeMarker(
                 appContext = appContext,
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 stage = "receiver_started",
-                detail = "already_running",
+                detail = "backend_variant=${backendVariant.wireValue} already_running",
             )
             writeState(
                 stateFile = stateFile,
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 status = "blocked",
                 reason = "already_running",
                 markdownFileName = "",
@@ -62,16 +81,18 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         receiverDispatcher.execute {
             try {
-                handle(appContext, intent, timestamp, timeoutMs)
+                handle(appContext, intent, timestamp, timeoutMs, backendVariant)
             } catch (throwable: Throwable) {
                 writeMarker(
                     appContext = appContext,
                     timestamp = timestamp,
+                    backendVariant = backendVariant,
                     stage = "receiver_exception",
-                    detail = "${throwable.javaClass.simpleName}:${throwable.message.orEmpty().take(120)}",
+                    detail = "backend_variant=${backendVariant.wireValue} ${throwable.javaClass.simpleName}:${throwable.message.orEmpty().take(120)}",
                 )
                 val row = LiteRtLmGpuBenchmarkRow.failure(
                     timestamp = timestamp,
+                    backendVariant = backendVariant,
                     prompt = "",
                     maxOutputTokens = 0,
                     modelPath = "",
@@ -89,6 +110,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 writeState(
                     stateFile = stateFile,
                     timestamp = timestamp,
+                    backendVariant = backendVariant,
                     status = "failure",
                     reason = row.reason,
                     markdownFileName = markdownFileName(timestamp),
@@ -107,11 +129,13 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         intent: Intent,
         timestamp: String,
         timeoutMs: Long,
+        backendVariant: BenchmarkBackendVariant,
     ) {
         val stateFile = File(appContext.filesDir, STATE_FILE_NAME)
         if (!BuildConfig.DEBUG || BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             val row = LiteRtLmGpuBenchmarkRow.failure(
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 prompt = "",
                 maxOutputTokens = 0,
                 modelPath = "",
@@ -123,6 +147,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             writeState(
                 stateFile = stateFile,
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 status = "blocked",
                 reason = "wrong_variant",
                 markdownFileName = markdownFileName(timestamp),
@@ -139,12 +164,14 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         writeMarker(
             appContext = appContext,
             timestamp = timestamp,
+            backendVariant = backendVariant,
             stage = "model_resolved",
-            detail = "model_path=${modelPath.orEmpty()} model_exists=${modelFile?.exists() ?: false} model_length=${modelFile?.length() ?: 0L}",
+            detail = "backend_variant=${backendVariant.wireValue} model_path=${modelPath.orEmpty()} model_exists=${modelFile?.exists() ?: false} model_length=${modelFile?.length() ?: 0L}",
         )
         writeState(
             stateFile = stateFile,
             timestamp = timestamp,
+            backendVariant = backendVariant,
             status = "running",
             reason = "benchmark_running",
             markdownFileName = "",
@@ -158,6 +185,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 maxOutputTokensValues.forEach { maxOutputTokens ->
                     rows += LiteRtLmGpuBenchmarkRow.failure(
                         timestamp = timestamp,
+                        backendVariant = backendVariant,
                         prompt = prompt,
                         maxOutputTokens = maxOutputTokens,
                         modelPath = "",
@@ -172,6 +200,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 maxOutputTokensValues.forEach { maxOutputTokens ->
                     rows += LiteRtLmGpuBenchmarkRow.failure(
                         timestamp = timestamp,
+                        backendVariant = backendVariant,
                         prompt = prompt,
                         maxOutputTokens = maxOutputTokens,
                         modelPath = modelPath,
@@ -190,6 +219,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     if (stopAfterTimeout) {
                         rows += LiteRtLmGpuBenchmarkRow.failure(
                             timestamp = timestamp,
+                            backendVariant = backendVariant,
                             prompt = prompt,
                             maxOutputTokens = maxOutputTokens,
                             modelPath = modelPath,
@@ -203,6 +233,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                         val result = runCaseWithTimeout(
                             appContext = appContext,
                             timestamp = timestamp,
+                            backendVariant = backendVariant,
                             prompt = prompt,
                             maxOutputTokens = maxOutputTokens,
                             modelPath = modelPath,
@@ -222,8 +253,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         writeMarker(
             appContext = appContext,
             timestamp = timestamp,
+            backendVariant = backendVariant,
             stage = "report_written",
-            detail = "rows=${rows.size} markdown=${markdownFileName(timestamp)} csv=${csvFileName(timestamp)}",
+            detail = "backend_variant=${backendVariant.wireValue} rows=${rows.size} markdown=${markdownFileName(timestamp)} csv=${csvFileName(timestamp)}",
         )
         val successCount = rows.count { it.status == "success" }
         val timeoutCount = rows.count { it.timeout }
@@ -242,6 +274,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         writeState(
             stateFile = stateFile,
             timestamp = timestamp,
+            backendVariant = backendVariant,
             status = finalStatus,
             reason = reason,
             markdownFileName = markdownFileName(timestamp),
@@ -253,6 +286,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
     private fun runCaseWithTimeout(
         appContext: Context,
         timestamp: String,
+        backendVariant: BenchmarkBackendVariant,
         prompt: String,
         maxOutputTokens: Int,
         modelPath: String,
@@ -267,6 +301,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 runCase(
                     appContext = appContext,
                     timestamp = timestamp,
+                    backendVariant = backendVariant,
                     prompt = prompt,
                     maxOutputTokens = maxOutputTokens,
                     modelPath = modelPath,
@@ -280,6 +315,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             future.cancel(true)
             LiteRtLmGpuBenchmarkRow.failure(
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 prompt = prompt,
                 maxOutputTokens = maxOutputTokens,
                 modelPath = modelPath,
@@ -292,6 +328,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         } catch (throwable: Throwable) {
             LiteRtLmGpuBenchmarkRow.failure(
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 prompt = prompt,
                 maxOutputTokens = maxOutputTokens,
                 modelPath = modelPath,
@@ -310,6 +347,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
     private fun runCase(
         appContext: Context,
         timestamp: String,
+        backendVariant: BenchmarkBackendVariant,
         prompt: String,
         maxOutputTokens: Int,
         modelPath: String,
@@ -325,20 +363,39 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         var decodeMs: Long? = null
         var benchmarkSnapshot: BenchmarkSnapshot? = null
         return try {
+            val configMaxTokens = if (backendVariant == BenchmarkBackendVariant.DEFAULT) null else maxOutputTokens
+            writeMarker(
+                appContext = appContext,
+                timestamp = timestamp,
+                backendVariant = backendVariant,
+                stage = "backend_selected",
+                detail = "backend_variant=${backendVariant.wireValue} engine_backend=${backendVariant.backendLabel} vision_backend=${backendVariant.backendLabel} config_style=${backendVariant.configStyle} max_output_tokens=$maxOutputTokens config_max_num_tokens=${configMaxTokens?.toString() ?: "null"}",
+            )
+            val backend = when (backendVariant) {
+                BenchmarkBackendVariant.GPU -> Backend.GPU()
+                BenchmarkBackendVariant.CPU -> Backend.CPU()
+                BenchmarkBackendVariant.DEFAULT -> Backend.GPU()
+            }
+            val visionBackend = when (backendVariant) {
+                BenchmarkBackendVariant.CPU -> Backend.CPU()
+                BenchmarkBackendVariant.GPU,
+                BenchmarkBackendVariant.DEFAULT -> Backend.GPU()
+            }
             val config = EngineConfig(
                 modelPath = modelPath,
-                backend = Backend.GPU(),
-                visionBackend = Backend.GPU(),
+                backend = backend,
+                visionBackend = visionBackend,
                 audioBackend = Backend.CPU(),
-                maxNumTokens = maxOutputTokens,
+                maxNumTokens = configMaxTokens,
                 cacheDir = appContext.cacheDir.absolutePath,
             )
             val engineStartMs = SystemClock.elapsedRealtime()
             writeMarker(
                 appContext = appContext,
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 stage = "engine_create_started",
-                detail = "max_output_tokens=$maxOutputTokens prompt_length=${prompt.length}",
+                detail = "backend_variant=${backendVariant.wireValue} engine_backend=${backendVariant.backendLabel} max_output_tokens=$maxOutputTokens config_max_num_tokens=${configMaxTokens?.toString() ?: "null"} prompt_length=${prompt.length}",
             )
             engine = Engine(config)
             engine.initialize()
@@ -346,16 +403,18 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             writeMarker(
                 appContext = appContext,
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 stage = "engine_create_finished",
-                detail = "max_output_tokens=$maxOutputTokens engine_create_ms=$engineCreateMs",
+                detail = "backend_variant=${backendVariant.wireValue} max_output_tokens=$maxOutputTokens engine_create_ms=$engineCreateMs",
             )
 
             val conversationStartMs = SystemClock.elapsedRealtime()
             writeMarker(
                 appContext = appContext,
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 stage = "conversation_create_started",
-                detail = "max_output_tokens=$maxOutputTokens",
+                detail = "backend_variant=${backendVariant.wireValue} max_output_tokens=$maxOutputTokens",
             )
             conversation = engine.createConversation()
             conversationCreateMs = SystemClock.elapsedRealtime() - conversationStartMs
@@ -364,8 +423,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             writeMarker(
                 appContext = appContext,
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 stage = "prompt_started",
-                detail = "max_output_tokens=$maxOutputTokens prompt_length=${prompt.length}",
+                detail = "backend_variant=${backendVariant.wireValue} max_output_tokens=$maxOutputTokens prompt_length=${prompt.length}",
             )
             val rawOutput = runCatching {
                 collectStreamingResponse(conversation, prompt, decodeStartMs) { first ->
@@ -382,8 +442,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             writeMarker(
                 appContext = appContext,
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 stage = "prompt_finished",
-                detail = "max_output_tokens=$maxOutputTokens decode_ms=$decodeDurationMs raw_length=${rawOutput.length}",
+                detail = "backend_variant=${backendVariant.wireValue} max_output_tokens=$maxOutputTokens decode_ms=$decodeDurationMs raw_length=${rawOutput.length}",
             )
             benchmarkSnapshot = probeBenchmarkSnapshot(conversation)
             val sanitizedOutput = sanitizeOutput(rawOutput)
@@ -398,7 +459,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             LiteRtLmGpuBenchmarkRow(
                 timestamp = timestamp,
                 routeType = ROUTE_TYPE,
-                backend = "GPU",
+                backend = backendVariant.backendLabel,
+                backendVariant = backendVariant.wireValue,
                 prompt = prompt,
                 maxOutputTokens = maxOutputTokens,
                 modelPath = modelPath,
@@ -428,11 +490,13 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             writeMarker(
                 appContext = appContext,
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 stage = "case_exception",
-                detail = "max_output_tokens=$maxOutputTokens class=${throwable.javaClass.simpleName} message=${throwable.message.orEmpty().take(120)}",
+                detail = "backend_variant=${backendVariant.wireValue} max_output_tokens=$maxOutputTokens class=${throwable.javaClass.simpleName} message=${throwable.message.orEmpty().take(120)}",
             )
             LiteRtLmGpuBenchmarkRow.failure(
                 timestamp = timestamp,
+                backendVariant = backendVariant,
                 prompt = prompt,
                 maxOutputTokens = maxOutputTokens,
                 modelPath = modelPath,
@@ -540,6 +604,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             ?: DEFAULT_MAX_OUTPUT_TOKENS
     }
 
+    private fun backendVariant(intent: Intent): BenchmarkBackendVariant =
+        BenchmarkBackendVariant.parse(intent.getStringExtra(EXTRA_BACKEND_VARIANT))
+
     private fun timeoutMs(intent: Intent): Long =
         intent.getLongExtra(EXTRA_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
             .coerceIn(1_000L, 300_000L)
@@ -566,6 +633,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         const val EXTRA_PROMPTS_BASE64 = "prompts_base64"
         const val EXTRA_MAX_OUTPUT_TOKENS_LIST = "max_output_tokens_list"
         const val EXTRA_MAX_OUTPUT_TOKENS_LIST_BASE64 = "max_output_tokens_list_base64"
+        const val EXTRA_BACKEND_VARIANT = "backend_variant"
         const val EXTRA_TIMEOUT_MS = "timeout_ms"
         const val STATE_FILE_NAME = "litert_lm_gpu_benchmark_state.txt"
         const val MARKER_FILE_NAME = "litert_lm_gpu_benchmark_marker.txt"
@@ -590,6 +658,7 @@ internal data class LiteRtLmGpuBenchmarkRow(
     val timestamp: String,
     val routeType: String,
     val backend: String,
+    val backendVariant: String,
     val prompt: String,
     val maxOutputTokens: Int,
     val modelPath: String,
@@ -616,6 +685,7 @@ internal data class LiteRtLmGpuBenchmarkRow(
     companion object {
         fun failure(
             timestamp: String,
+            backendVariant: BenchmarkBackendVariant,
             prompt: String,
             maxOutputTokens: Int,
             modelPath: String,
@@ -637,7 +707,8 @@ internal data class LiteRtLmGpuBenchmarkRow(
             LiteRtLmGpuBenchmarkRow(
                 timestamp = timestamp,
                 routeType = "litert_lm_gpu_benchmark",
-                backend = "GPU",
+                backend = backendVariant.backendLabel,
+                backendVariant = backendVariant.wireValue,
                 prompt = prompt,
                 maxOutputTokens = maxOutputTokens,
                 modelPath = modelPath,
@@ -689,17 +760,20 @@ internal fun buildGpuBenchmarkMarkdown(
     appendLine()
     appendLine("- timestamp: `$timestamp`")
     appendLine("- route_type: `litert_lm_gpu_benchmark`")
-    appendLine("- backend: `GPU`")
+    appendLine("- backend_variants: `${rows.map { it.backendVariant }.distinct().joinToString(",").ifBlank { "unknown" }}`")
+    appendLine("- backends: `${rows.map { it.backend }.distinct().joinToString(",").ifBlank { "unknown" }}`")
     appendLine("- timeout_ms: `$timeoutMs`")
     appendLine("- fallback_setting_changed: `false`")
     appendLine("- backend_npu_touched: `false`")
     appendLine("- qairt_qnn_touched: `false`")
     appendLine()
-    appendLine("| prompt | max_output_tokens | status | reason | engine_create_ms | conversation_create_ms | first_token_ms | ttft_ms | decode_ms | total_ms | output_tokens | tokens_per_second | timeout | fallback_used | fresh_crash |")
-    appendLine("| --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |")
+    appendLine("| backend_variant | backend | prompt | max_output_tokens | status | reason | engine_create_ms | conversation_create_ms | first_token_ms | ttft_ms | decode_ms | total_ms | output_tokens | tokens_per_second | timeout | fallback_used | fresh_crash |")
+    appendLine("| --- | --- | --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |")
     rows.forEach { row ->
         appendLine(
             listOf(
+                row.backendVariant.mdCell(),
+                row.backend.mdCell(),
                 row.prompt.mdCell(),
                 row.maxOutputTokens.toString(),
                 row.status.mdCell(),
@@ -724,6 +798,7 @@ internal fun buildGpuBenchmarkMarkdown(
         appendLine()
         appendLine("- route_type: `${row.routeType}`")
         appendLine("- backend: `${row.backend}`")
+        appendLine("- backend_variant: `${row.backendVariant}`")
         appendLine("- prompt: `${row.prompt}`")
         appendLine("- max_output_tokens: `${row.maxOutputTokens}`")
         appendLine("- model_path: `${row.modelPath}`")
@@ -757,6 +832,7 @@ internal fun buildGpuBenchmarkCsv(rows: List<LiteRtLmGpuBenchmarkRow>): String {
         "timestamp",
         "route_type",
         "backend",
+        "backend_variant",
         "prompt",
         "max_output_tokens",
         "model_path",
@@ -788,6 +864,7 @@ internal fun buildGpuBenchmarkCsv(rows: List<LiteRtLmGpuBenchmarkRow>): String {
                     row.timestamp,
                     row.routeType,
                     row.backend,
+                    row.backendVariant,
                     row.prompt,
                     row.maxOutputTokens.toString(),
                     row.modelPath,
@@ -819,6 +896,7 @@ internal fun buildGpuBenchmarkCsv(rows: List<LiteRtLmGpuBenchmarkRow>): String {
 private fun writeState(
     stateFile: File,
     timestamp: String,
+    backendVariant: BenchmarkBackendVariant,
     status: String,
     reason: String,
     markdownFileName: String,
@@ -829,7 +907,8 @@ private fun writeState(
         listOf(
             "timestamp=$timestamp",
             "route_type=litert_lm_gpu_benchmark",
-            "backend=GPU",
+            "backend=${backendVariant.backendLabel}",
+            "backend_variant=${backendVariant.wireValue}",
             "status=$status",
             "reason=$reason",
             "markdown_file=$markdownFileName",
@@ -846,6 +925,7 @@ private fun writeState(
 private fun writeMarker(
     appContext: Context,
     timestamp: String,
+    backendVariant: BenchmarkBackendVariant,
     stage: String,
     detail: String,
 ) {
@@ -856,7 +936,8 @@ private fun writeMarker(
         val markerText = listOf(
             "timestamp=$timestamp",
             "route_type=litert_lm_gpu_benchmark",
-            "backend=GPU",
+            "backend=${backendVariant.backendLabel}",
+            "backend_variant=${backendVariant.wireValue}",
             "stage=$stage",
             "detail=$sanitizedDetail",
             "elapsed_realtime_ms=$elapsedRealtimeMs",
