@@ -61,6 +61,19 @@ internal enum class BenchmarkClosePolicy(
     }
 }
 
+internal enum class BenchmarkPhase(
+    val wireValue: String,
+) {
+    ENGINE_ONLY("engine-only"),
+    CONVERSATION_ONLY("conversation-only"),
+    SEND_MESSAGE("send-message");
+
+    companion object {
+        fun parse(raw: String?): BenchmarkPhase =
+            entries.firstOrNull { it.wireValue == raw?.trim()?.lowercase(Locale.US) } ?: SEND_MESSAGE
+    }
+}
+
 @OptIn(ExperimentalApi::class)
 class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -71,13 +84,15 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         val timeoutMs = timeoutMs(intent)
         val backendVariant = backendVariant(intent)
         val closePolicy = closePolicy(intent)
+        val phase = phase(intent)
         writeMarker(
             appContext = appContext,
             timestamp = timestamp,
             backendVariant = backendVariant,
             closePolicy = closePolicy,
+            phase = phase,
             stage = "receiver_started",
-            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} onReceive_enter",
+            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} onReceive_enter",
         )
         val stateFile = File(appContext.filesDir, STATE_FILE_NAME)
         if (!running.compareAndSet(false, true)) {
@@ -86,14 +101,16 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 stage = "receiver_started",
-                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} already_running",
+                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} already_running",
             )
             writeState(
                 stateFile = stateFile,
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 status = "blocked",
                 reason = "already_running",
                 markdownFileName = "",
@@ -106,20 +123,22 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         receiverDispatcher.execute {
             try {
-                handle(appContext, intent, timestamp, timeoutMs, backendVariant, closePolicy)
+                handle(appContext, intent, timestamp, timeoutMs, backendVariant, closePolicy, phase)
             } catch (throwable: Throwable) {
                 writeMarker(
                     appContext = appContext,
                     timestamp = timestamp,
                     backendVariant = backendVariant,
                     closePolicy = closePolicy,
+                    phase = phase,
                     stage = "receiver_exception",
-                    detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} ${throwable.javaClass.simpleName}:${throwable.message.orEmpty().take(120)}",
+                    detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} ${throwable.javaClass.simpleName}:${throwable.message.orEmpty().take(120)}",
                 )
                 val row = LiteRtLmGpuBenchmarkRow.failure(
                     timestamp = timestamp,
                     backendVariant = backendVariant,
                     closePolicy = closePolicy,
+                    phase = phase,
                     prompt = "",
                     maxOutputTokens = 0,
                     modelPath = "",
@@ -139,6 +158,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     timestamp = timestamp,
                     backendVariant = backendVariant,
                     closePolicy = closePolicy,
+                    phase = phase,
                     status = "failure",
                     reason = row.reason,
                     markdownFileName = markdownFileName(timestamp),
@@ -159,6 +179,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         timeoutMs: Long,
         backendVariant: BenchmarkBackendVariant,
         closePolicy: BenchmarkClosePolicy,
+        phase: BenchmarkPhase,
     ) {
         val stateFile = File(appContext.filesDir, STATE_FILE_NAME)
         if (!BuildConfig.DEBUG || BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
@@ -166,6 +187,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 prompt = "",
                 maxOutputTokens = 0,
                 modelPath = "",
@@ -179,6 +201,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 status = "blocked",
                 reason = "wrong_variant",
                 markdownFileName = markdownFileName(timestamp),
@@ -197,14 +220,16 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             timestamp = timestamp,
             backendVariant = backendVariant,
             closePolicy = closePolicy,
+            phase = phase,
             stage = "model_resolved",
-            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} model_path=${modelPath.orEmpty()} model_exists=${modelFile?.exists() ?: false} model_length=${modelFile?.length() ?: 0L}",
+            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} model_path=${modelPath.orEmpty()} model_exists=${modelFile?.exists() ?: false} model_length=${modelFile?.length() ?: 0L}",
         )
         writeState(
             stateFile = stateFile,
             timestamp = timestamp,
             backendVariant = backendVariant,
             closePolicy = closePolicy,
+            phase = phase,
             status = "running",
             reason = "benchmark_running",
             markdownFileName = "",
@@ -220,6 +245,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                         timestamp = timestamp,
                         backendVariant = backendVariant,
                         closePolicy = closePolicy,
+                        phase = phase,
                         prompt = prompt,
                         maxOutputTokens = maxOutputTokens,
                         modelPath = "",
@@ -236,6 +262,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                         timestamp = timestamp,
                         backendVariant = backendVariant,
                         closePolicy = closePolicy,
+                        phase = phase,
                         prompt = prompt,
                         maxOutputTokens = maxOutputTokens,
                         modelPath = modelPath,
@@ -256,6 +283,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                             timestamp = timestamp,
                             backendVariant = backendVariant,
                             closePolicy = closePolicy,
+                            phase = phase,
                             prompt = prompt,
                             maxOutputTokens = maxOutputTokens,
                             modelPath = modelPath,
@@ -271,6 +299,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                             timestamp = timestamp,
                             backendVariant = backendVariant,
                             closePolicy = closePolicy,
+                            phase = phase,
                             prompt = prompt,
                             maxOutputTokens = maxOutputTokens,
                             modelPath = modelPath,
@@ -292,8 +321,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             timestamp = timestamp,
             backendVariant = backendVariant,
             closePolicy = closePolicy,
+            phase = phase,
             stage = "report_written",
-            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} rows=${rows.size} markdown=${markdownFileName(timestamp)} csv=${csvFileName(timestamp)}",
+            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} rows=${rows.size} markdown=${markdownFileName(timestamp)} csv=${csvFileName(timestamp)}",
         )
         val successCount = rows.count { it.status == "success" }
         val timeoutCount = rows.count { it.timeout }
@@ -314,6 +344,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             timestamp = timestamp,
             backendVariant = backendVariant,
             closePolicy = closePolicy,
+            phase = phase,
             status = finalStatus,
             reason = reason,
             markdownFileName = markdownFileName(timestamp),
@@ -327,6 +358,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         timestamp: String,
         backendVariant: BenchmarkBackendVariant,
         closePolicy: BenchmarkClosePolicy,
+        phase: BenchmarkPhase,
         prompt: String,
         maxOutputTokens: Int,
         modelPath: String,
@@ -343,6 +375,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     timestamp = timestamp,
                     backendVariant = backendVariant,
                     closePolicy = closePolicy,
+                    phase = phase,
                     prompt = prompt,
                     maxOutputTokens = maxOutputTokens,
                     modelPath = modelPath,
@@ -358,6 +391,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 prompt = prompt,
                 maxOutputTokens = maxOutputTokens,
                 modelPath = modelPath,
@@ -372,6 +406,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 prompt = prompt,
                 maxOutputTokens = maxOutputTokens,
                 modelPath = modelPath,
@@ -392,6 +427,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         timestamp: String,
         backendVariant: BenchmarkBackendVariant,
         closePolicy: BenchmarkClosePolicy,
+        phase: BenchmarkPhase,
         prompt: String,
         maxOutputTokens: Int,
         modelPath: String,
@@ -418,8 +454,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 stage = "backend_selected",
-                detail = configParts.markerDetail(backendVariant, maxOutputTokens),
+                detail = "close_policy=${closePolicy.wireValue} phase=${phase.wireValue} ${configParts.markerDetail(backendVariant, maxOutputTokens)}",
             )
             val config = EngineConfig(
                 modelPath = modelPath,
@@ -435,8 +472,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 stage = "engine_create_started",
-                detail = "${configParts.markerDetail(backendVariant, maxOutputTokens)} prompt_length=${prompt.length}",
+                detail = "close_policy=${closePolicy.wireValue} phase=${phase.wireValue} ${configParts.markerDetail(backendVariant, maxOutputTokens)} prompt_length=${prompt.length}",
             )
             engine = Engine(config)
             engine.initialize()
@@ -446,9 +484,47 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 stage = "engine_create_finished",
-                detail = "backend_variant=${backendVariant.wireValue} max_output_tokens=$maxOutputTokens engine_create_ms=$engineCreateMs",
+                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens=$maxOutputTokens engine_create_ms=$engineCreateMs",
             )
+            if (phase == BenchmarkPhase.ENGINE_ONLY) {
+                val totalMs = SystemClock.elapsedRealtime() - totalStartMs
+                return LiteRtLmGpuBenchmarkRow(
+                    timestamp = timestamp,
+                    routeType = ROUTE_TYPE,
+                    backend = backendVariant.backendLabel,
+                    backendVariant = backendVariant.wireValue,
+                    closePolicy = closePolicy.wireValue,
+                    phase = phase.wireValue,
+                    prompt = prompt,
+                    maxOutputTokens = maxOutputTokens,
+                    modelPath = modelPath,
+                    modelExists = true,
+                    modelLength = modelLength,
+                    engineCreateMs = engineCreateMs,
+                    conversationCreateMs = null,
+                    firstTokenMs = null,
+                    ttftMs = null,
+                    decodeMs = null,
+                    totalMs = totalMs,
+                    outputTokens = null,
+                    tokensPerSecond = null,
+                    finishReason = null,
+                    stopReason = null,
+                    rawOutput = "",
+                    sanitizedOutput = "",
+                    status = "success",
+                    reason = "engine_created",
+                    sendExceptionClass = null,
+                    sendExceptionMessage = null,
+                    sendExceptionCauseChain = null,
+                    intentionallyLeakedForDiagnostic = closePolicy.intentionallyLeakedForDiagnostic,
+                    fallbackUsed = fallbackUsed,
+                    timeout = false,
+                    freshCrash = false,
+                )
+            }
 
             val conversationStartMs = SystemClock.elapsedRealtime()
             writeMarker(
@@ -456,11 +532,58 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 stage = "conversation_create_started",
-                detail = "backend_variant=${backendVariant.wireValue} max_output_tokens=$maxOutputTokens",
+                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens=$maxOutputTokens",
             )
             conversation = engine.createConversation()
             conversationCreateMs = SystemClock.elapsedRealtime() - conversationStartMs
+            writeMarker(
+                appContext = appContext,
+                timestamp = timestamp,
+                backendVariant = backendVariant,
+                closePolicy = closePolicy,
+                phase = phase,
+                stage = "conversation_create_finished",
+                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens=$maxOutputTokens conversation_create_ms=$conversationCreateMs",
+            )
+            if (phase == BenchmarkPhase.CONVERSATION_ONLY) {
+                val totalMs = SystemClock.elapsedRealtime() - totalStartMs
+                return LiteRtLmGpuBenchmarkRow(
+                    timestamp = timestamp,
+                    routeType = ROUTE_TYPE,
+                    backend = backendVariant.backendLabel,
+                    backendVariant = backendVariant.wireValue,
+                    closePolicy = closePolicy.wireValue,
+                    phase = phase.wireValue,
+                    prompt = prompt,
+                    maxOutputTokens = maxOutputTokens,
+                    modelPath = modelPath,
+                    modelExists = true,
+                    modelLength = modelLength,
+                    engineCreateMs = engineCreateMs,
+                    conversationCreateMs = conversationCreateMs,
+                    firstTokenMs = null,
+                    ttftMs = null,
+                    decodeMs = null,
+                    totalMs = totalMs,
+                    outputTokens = null,
+                    tokensPerSecond = null,
+                    finishReason = null,
+                    stopReason = null,
+                    rawOutput = "",
+                    sanitizedOutput = "",
+                    status = "success",
+                    reason = "conversation_created",
+                    sendExceptionClass = null,
+                    sendExceptionMessage = null,
+                    sendExceptionCauseChain = null,
+                    intentionallyLeakedForDiagnostic = closePolicy.intentionallyLeakedForDiagnostic,
+                    fallbackUsed = fallbackUsed,
+                    timeout = false,
+                    freshCrash = false,
+                )
+            }
 
             val decodeStartMs = SystemClock.elapsedRealtime()
             writeMarker(
@@ -468,8 +591,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 stage = "prompt_started",
-                detail = "backend_variant=${backendVariant.wireValue} max_output_tokens=$maxOutputTokens prompt_length=${prompt.length}",
+                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens=$maxOutputTokens prompt_length=${prompt.length}",
             )
             val rawOutput = try {
                 collectStreamingResponse(conversation, prompt, decodeStartMs) { first ->
@@ -494,8 +618,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 stage = "prompt_finished",
-                detail = "backend_variant=${backendVariant.wireValue} max_output_tokens=$maxOutputTokens decode_ms=$decodeDurationMs raw_length=${rawOutput.length}",
+                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens=$maxOutputTokens decode_ms=$decodeDurationMs raw_length=${rawOutput.length}",
             )
             benchmarkSnapshot = probeBenchmarkSnapshot(conversation)
             val sanitizedOutput = sanitizeOutput(rawOutput)
@@ -513,6 +638,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 backend = backendVariant.backendLabel,
                 backendVariant = backendVariant.wireValue,
                 closePolicy = closePolicy.wireValue,
+                phase = phase.wireValue,
                 prompt = prompt,
                 maxOutputTokens = maxOutputTokens,
                 modelPath = modelPath,
@@ -548,14 +674,16 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 stage = "case_exception",
-                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} max_output_tokens=$maxOutputTokens class=${throwable.javaClass.simpleName} message=${throwable.message.orEmpty().take(120)}",
+                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens=$maxOutputTokens class=${throwable.javaClass.simpleName} message=${throwable.message.orEmpty().take(120)}",
             )
             val reportedThrowable = sendException ?: throwable
             LiteRtLmGpuBenchmarkRow.failure(
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 prompt = prompt,
                 maxOutputTokens = maxOutputTokens,
                 modelPath = modelPath,
@@ -583,6 +711,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 conversation = conversation,
                 engine = engine,
             )
@@ -677,6 +806,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
     private fun closePolicy(intent: Intent): BenchmarkClosePolicy =
         BenchmarkClosePolicy.parse(intent.getStringExtra(EXTRA_CLOSE_POLICY))
 
+    private fun phase(intent: Intent): BenchmarkPhase =
+        BenchmarkPhase.parse(intent.getStringExtra(EXTRA_PHASE))
+
     private fun timeoutMs(intent: Intent): Long =
         intent.getLongExtra(EXTRA_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
             .coerceIn(1_000L, 300_000L)
@@ -769,6 +901,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         timestamp: String,
         backendVariant: BenchmarkBackendVariant,
         closePolicy: BenchmarkClosePolicy,
+        phase: BenchmarkPhase,
         conversation: Conversation?,
         engine: Engine?,
     ) {
@@ -778,6 +911,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 target = "conversation",
             ) {
                 conversation.close()
@@ -788,8 +922,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 stage = "close_skipped",
-                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} target=conversation intentionally_leaked_for_diagnostic=true",
+                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} target=conversation intentionally_leaked_for_diagnostic=true",
             )
         }
 
@@ -799,6 +934,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 target = "engine",
             ) {
                 engine.close()
@@ -809,8 +945,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 stage = "close_skipped",
-                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} target=engine intentionally_leaked_for_diagnostic=true",
+                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} target=engine intentionally_leaked_for_diagnostic=true",
             )
         }
     }
@@ -820,6 +957,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         timestamp: String,
         backendVariant: BenchmarkBackendVariant,
         closePolicy: BenchmarkClosePolicy,
+        phase: BenchmarkPhase,
         target: String,
         block: () -> Unit,
     ) {
@@ -828,8 +966,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             timestamp = timestamp,
             backendVariant = backendVariant,
             closePolicy = closePolicy,
+            phase = phase,
             stage = "close_started",
-            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} target=$target intentionally_leaked_for_diagnostic=false",
+            detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} target=$target intentionally_leaked_for_diagnostic=false",
         )
         try {
             block()
@@ -838,8 +977,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 stage = "close_finished",
-                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} target=$target",
+                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} target=$target",
             )
         } catch (throwable: Throwable) {
             writeMarker(
@@ -847,8 +987,9 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 timestamp = timestamp,
                 backendVariant = backendVariant,
                 closePolicy = closePolicy,
+                phase = phase,
                 stage = "close_exception",
-                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} target=$target class=${throwable.javaClass.name} message=${throwable.message.orEmpty()} cause_chain=${causeChainText(throwable)}",
+                detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} target=$target class=${throwable.javaClass.name} message=${throwable.message.orEmpty()} cause_chain=${causeChainText(throwable)}",
             )
         }
     }
@@ -888,6 +1029,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         const val EXTRA_MAX_OUTPUT_TOKENS_LIST_BASE64 = "max_output_tokens_list_base64"
         const val EXTRA_BACKEND_VARIANT = "backend_variant"
         const val EXTRA_CLOSE_POLICY = "close_policy"
+        const val EXTRA_PHASE = "phase"
         const val EXTRA_TIMEOUT_MS = "timeout_ms"
         const val STATE_FILE_NAME = "litert_lm_gpu_benchmark_state.txt"
         const val MARKER_FILE_NAME = "litert_lm_gpu_benchmark_marker.txt"
@@ -914,6 +1056,7 @@ internal data class LiteRtLmGpuBenchmarkRow(
     val backend: String,
     val backendVariant: String,
     val closePolicy: String,
+    val phase: String,
     val prompt: String,
     val maxOutputTokens: Int,
     val modelPath: String,
@@ -946,6 +1089,7 @@ internal data class LiteRtLmGpuBenchmarkRow(
             timestamp: String,
             backendVariant: BenchmarkBackendVariant,
             closePolicy: BenchmarkClosePolicy,
+            phase: BenchmarkPhase,
             prompt: String,
             maxOutputTokens: Int,
             modelPath: String,
@@ -973,6 +1117,7 @@ internal data class LiteRtLmGpuBenchmarkRow(
                 backend = backendVariant.backendLabel,
                 backendVariant = backendVariant.wireValue,
                 closePolicy = closePolicy.wireValue,
+                phase = phase.wireValue,
                 prompt = prompt,
                 maxOutputTokens = maxOutputTokens,
                 modelPath = modelPath,
@@ -1031,19 +1176,21 @@ internal fun buildGpuBenchmarkMarkdown(
     appendLine("- backend_variants: `${rows.map { it.backendVariant }.distinct().joinToString(",").ifBlank { "unknown" }}`")
     appendLine("- backends: `${rows.map { it.backend }.distinct().joinToString(",").ifBlank { "unknown" }}`")
     appendLine("- close_policies: `${rows.map { it.closePolicy }.distinct().joinToString(",").ifBlank { "unknown" }}`")
+    appendLine("- phases: `${rows.map { it.phase }.distinct().joinToString(",").ifBlank { "unknown" }}`")
     appendLine("- timeout_ms: `$timeoutMs`")
     appendLine("- fallback_setting_changed: `false`")
     appendLine("- backend_npu_touched: `false`")
     appendLine("- qairt_qnn_touched: `false`")
     appendLine()
-    appendLine("| backend_variant | backend | close_policy | prompt | max_output_tokens | status | reason | engine_create_ms | conversation_create_ms | first_token_ms | ttft_ms | decode_ms | total_ms | output_tokens | tokens_per_second | timeout | fallback_used | intentionally_leaked_for_diagnostic | fresh_crash |")
-    appendLine("| --- | --- | --- | --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- |")
+    appendLine("| backend_variant | backend | close_policy | phase | prompt | max_output_tokens | status | reason | engine_create_ms | conversation_create_ms | first_token_ms | ttft_ms | decode_ms | total_ms | output_tokens | tokens_per_second | timeout | fallback_used | intentionally_leaked_for_diagnostic | fresh_crash |")
+    appendLine("| --- | --- | --- | --- | --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- |")
     rows.forEach { row ->
         appendLine(
             listOf(
                 row.backendVariant.mdCell(),
                 row.backend.mdCell(),
                 row.closePolicy.mdCell(),
+                row.phase.mdCell(),
                 row.prompt.mdCell(),
                 row.maxOutputTokens.toString(),
                 row.status.mdCell(),
@@ -1071,6 +1218,7 @@ internal fun buildGpuBenchmarkMarkdown(
         appendLine("- backend: `${row.backend}`")
         appendLine("- backend_variant: `${row.backendVariant}`")
         appendLine("- close_policy: `${row.closePolicy}`")
+        appendLine("- phase: `${row.phase}`")
         appendLine("- prompt: `${row.prompt}`")
         appendLine("- max_output_tokens: `${row.maxOutputTokens}`")
         appendLine("- model_path: `${row.modelPath}`")
@@ -1110,6 +1258,7 @@ internal fun buildGpuBenchmarkCsv(rows: List<LiteRtLmGpuBenchmarkRow>): String {
         "backend",
         "backend_variant",
         "close_policy",
+        "phase",
         "prompt",
         "max_output_tokens",
         "model_path",
@@ -1147,6 +1296,7 @@ internal fun buildGpuBenchmarkCsv(rows: List<LiteRtLmGpuBenchmarkRow>): String {
                     row.backend,
                     row.backendVariant,
                     row.closePolicy,
+                    row.phase,
                     row.prompt,
                     row.maxOutputTokens.toString(),
                     row.modelPath,
@@ -1184,6 +1334,7 @@ private fun writeState(
     timestamp: String,
     backendVariant: BenchmarkBackendVariant,
     closePolicy: BenchmarkClosePolicy,
+    phase: BenchmarkPhase,
     status: String,
     reason: String,
     markdownFileName: String,
@@ -1197,6 +1348,7 @@ private fun writeState(
             "backend=${backendVariant.backendLabel}",
             "backend_variant=${backendVariant.wireValue}",
             "close_policy=${closePolicy.wireValue}",
+            "phase=${phase.wireValue}",
             "intentionally_leaked_for_diagnostic=${closePolicy.intentionallyLeakedForDiagnostic}",
             "status=$status",
             "reason=$reason",
@@ -1216,6 +1368,7 @@ private fun writeMarker(
     timestamp: String,
     backendVariant: BenchmarkBackendVariant,
     closePolicy: BenchmarkClosePolicy,
+    phase: BenchmarkPhase,
     stage: String,
     detail: String,
 ) {
@@ -1229,6 +1382,7 @@ private fun writeMarker(
             "backend=${backendVariant.backendLabel}",
             "backend_variant=${backendVariant.wireValue}",
             "close_policy=${closePolicy.wireValue}",
+            "phase=${phase.wireValue}",
             "stage=$stage",
             "detail=$sanitizedDetail",
             "elapsed_realtime_ms=$elapsedRealtimeMs",

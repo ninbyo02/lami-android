@@ -20,6 +20,7 @@ PROMPTS=$'こんにちは\nカレーの材料を箇条書きで教えて'
 MAX_OUTPUT_TOKENS_LIST="32,64,128,256"
 BACKEND_VARIANT="gpu"
 CLOSE_POLICY="normal"
+PHASE="send-message"
 BUILD_AND_INSTALL=true
 LOGCAT_PID=""
 BROADCAST_EXIT_CODE="not-run"
@@ -58,6 +59,10 @@ while [ $# -gt 0 ]; do
       CLOSE_POLICY="${2:-normal}"
       shift 2
       ;;
+    --phase)
+      PHASE="${2:-send-message}"
+      shift 2
+      ;;
     --skip-build-install)
       BUILD_AND_INSTALL=false
       shift
@@ -65,7 +70,7 @@ while [ $# -gt 0 ]; do
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_litert_lm_gpu_benchmark.sh [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <variant>] [--close-policy <normal|skip-conversation|skip-all>]
+  scripts/run_litert_lm_gpu_benchmark.sh [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <variant>] [--close-policy <normal|skip-conversation|skip-all>] [--phase <engine-only|conversation-only|send-message>]
 
 Runs the debug-only standard app LiteRT-LM GPU benchmark receiver and pulls:
   artifacts/litert_lm_gpu_benchmark_<timestamp>.md
@@ -76,6 +81,7 @@ Defaults:
   max_output_tokens: 32,64,128,256
   backend: gpu
   close_policy: normal
+  phase: send-message
 
 Backend variants:
   gpu
@@ -91,6 +97,11 @@ Close policies:
   normal             close Conversation and Engine
   skip-conversation  skip Conversation.close(), still close Engine
   skip-all           skip Conversation.close() and Engine.close()
+
+Phases:
+  engine-only        create and initialize Engine only
+  conversation-only  create and initialize Engine, then create Conversation
+  send-message       full benchmark path, including sendMessage
 
 Transport:
   prompts, model_path, and max_output_tokens are sent as base64 extras so
@@ -135,6 +146,14 @@ case "$CLOSE_POLICY" in
     ;;
   *)
     printf 'ERROR: --close-policy must be one of: normal, skip-conversation, skip-all\n' >&2
+    exit 2
+    ;;
+esac
+case "$PHASE" in
+  engine-only|conversation-only|send-message)
+    ;;
+  *)
+    printf 'ERROR: --phase must be one of: engine-only, conversation-only, send-message\n' >&2
     exit 2
     ;;
 esac
@@ -372,6 +391,7 @@ collect_crash_artifacts() {
     printf -- '- app_id: `%s`\n' "$APP_ID"
     printf -- '- backend_variant: `%s`\n' "$BACKEND_VARIANT"
     printf -- '- close_policy: `%s`\n' "$CLOSE_POLICY"
+    printf -- '- phase: `%s`\n' "$PHASE"
     printf -- '- intentionally_leaked_for_diagnostic: `%s`\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
     printf -- '- native_crash_suspected: `%s`\n' "$(crash_field_value native_crash_suspected)"
     printf -- '- crash_process: `%s`\n' "$(crash_field_value crash_process)"
@@ -416,6 +436,7 @@ append_host_timeout_state() {
     printf 'host_latest_detail=%s\n' "${latest_detail:-unknown}"
     printf 'host_am_broadcast_exit_code=%s\n' "$BROADCAST_EXIT_CODE"
     printf 'close_policy=%s\n' "$CLOSE_POLICY"
+    printf 'phase=%s\n' "$PHASE"
     printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
     printf 'native_crash_suspected=%s\n' "$(crash_field_value native_crash_suspected)"
     printf 'crash_process=%s\n' "$(crash_field_value crash_process)"
@@ -441,6 +462,7 @@ write_timeout_artifacts() {
     printf -- '- backend: `%s`\n' "$BACKEND_LABEL"
     printf -- '- backend_variant: `%s`\n' "$BACKEND_VARIANT"
     printf -- '- close_policy: `%s`\n' "$CLOSE_POLICY"
+    printf -- '- phase: `%s`\n' "$PHASE"
     printf -- '- intentionally_leaked_for_diagnostic: `%s`\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
     printf -- '- status: `failure`\n'
     printf -- '- reason: `host_timeout_waiting_for_receiver`\n'
@@ -470,8 +492,8 @@ write_timeout_artifacts() {
     fi
   } >"$ARTIFACT_MD"
   {
-    printf '"timestamp","route_type","backend","backend_variant","close_policy","prompt","max_output_tokens","model_path","model_exists","model_length","engine_create_ms","conversation_create_ms","first_token_ms","ttft_ms","decode_ms","total_ms","output_tokens","tokens_per_second","finish_reason","stop_reason","raw_output","sanitized_output","status","reason","send_exception_class","send_exception_message","send_exception_cause_chain","intentionally_leaked_for_diagnostic","fallback_used","timeout","fresh_crash","process_alive","latest_stage","latest_detail","am_broadcast_exit_code"\n'
-    printf '"%s","litert_lm_gpu_benchmark","%s","%s","%s","","","","false","0","","","","","","","","","","","","","failure","host_timeout_waiting_for_receiver","","","","%s","false","true","%s","%s","%s","%s","%s"\n' "$TIMESTAMP" "$BACKEND_LABEL" "$BACKEND_VARIANT" "$CLOSE_POLICY" "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC" "$fresh_crash" "$process_alive" "$latest_stage" "$latest_detail" "$BROADCAST_EXIT_CODE"
+    printf '"timestamp","route_type","backend","backend_variant","close_policy","phase","prompt","max_output_tokens","model_path","model_exists","model_length","engine_create_ms","conversation_create_ms","first_token_ms","ttft_ms","decode_ms","total_ms","output_tokens","tokens_per_second","finish_reason","stop_reason","raw_output","sanitized_output","status","reason","send_exception_class","send_exception_message","send_exception_cause_chain","intentionally_leaked_for_diagnostic","fallback_used","timeout","fresh_crash","process_alive","latest_stage","latest_detail","am_broadcast_exit_code"\n'
+    printf '"%s","litert_lm_gpu_benchmark","%s","%s","%s","%s","","","","false","0","","","","","","","","","","","","","failure","host_timeout_waiting_for_receiver","","","","%s","false","true","%s","%s","%s","%s","%s"\n' "$TIMESTAMP" "$BACKEND_LABEL" "$BACKEND_VARIANT" "$CLOSE_POLICY" "$PHASE" "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC" "$fresh_crash" "$process_alive" "$latest_stage" "$latest_detail" "$BROADCAST_EXIT_CODE"
   } >"$ARTIFACT_CSV"
 }
 
@@ -525,7 +547,7 @@ if [ -n "$MODEL_PATH" ]; then
   MODEL_PATH_BASE64="$(base64_no_wrap "$MODEL_PATH")"
 fi
 
-log "broadcasting GPU benchmark receiver backend=$BACKEND_VARIANT close_policy=$CLOSE_POLICY"
+log "broadcasting GPU benchmark receiver backend=$BACKEND_VARIANT close_policy=$CLOSE_POLICY phase=$PHASE"
 if [ -n "$MODEL_PATH" ]; then
   adb_cmd shell am broadcast --receiver-foreground --user 0 \
     -n "$APP_ID/$RECEIVER" \
@@ -536,6 +558,7 @@ if [ -n "$MODEL_PATH" ]; then
     --es max_output_tokens_list_base64 "$MAX_OUTPUT_TOKENS_LIST_BASE64" \
     --es backend_variant "$BACKEND_VARIANT" \
     --es close_policy "$CLOSE_POLICY" \
+    --es phase "$PHASE" \
     --el timeout_ms "$CASE_TIMEOUT_MS" \
     >"$OUT_DIR/am_broadcast_raw.txt" 2>&1
   BROADCAST_EXIT_CODE="$?"
@@ -548,6 +571,7 @@ else
     --es max_output_tokens_list_base64 "$MAX_OUTPUT_TOKENS_LIST_BASE64" \
     --es backend_variant "$BACKEND_VARIANT" \
     --es close_policy "$CLOSE_POLICY" \
+    --es phase "$PHASE" \
     --el timeout_ms "$CASE_TIMEOUT_MS" \
     >"$OUT_DIR/am_broadcast_raw.txt" 2>&1
   BROADCAST_EXIT_CODE="$?"
@@ -560,6 +584,7 @@ fi
   printf 'transport=base64_safe_extras\n'
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'close_policy=%s\n' "$CLOSE_POLICY"
+  printf 'phase=%s\n' "$PHASE"
   printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
   printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
@@ -578,6 +603,7 @@ fi
   printf 'transport=base64_safe_extras\n'
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'close_policy=%s\n' "$CLOSE_POLICY"
+  printf 'phase=%s\n' "$PHASE"
   printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
   printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
@@ -619,6 +645,7 @@ if [ "$wait_status" = timeout ] || [ ! -s "$ARTIFACT_MD" ] || [ ! -s "$ARTIFACT_
       printf 'backend=%s\n' "$BACKEND_LABEL"
       printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
       printf 'close_policy=%s\n' "$CLOSE_POLICY"
+      printf 'phase=%s\n' "$PHASE"
       printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
       printf 'status=failure\n'
       printf 'reason=host_timeout_waiting_for_receiver\n'
@@ -649,6 +676,7 @@ fi
   printf 'broadcast_exit_code=%s\n' "$BROADCAST_EXIT_CODE"
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'close_policy=%s\n' "$CLOSE_POLICY"
+  printf 'phase=%s\n' "$PHASE"
   printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'wait_status=%s\n' "$wait_status"
   printf 'receiver_started_marker_seen=%s\n' "$receiver_started_marker_seen"
