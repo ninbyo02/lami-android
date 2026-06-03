@@ -47,7 +47,7 @@ while [ $# -gt 0 ]; do
       PROMPTS="${2:-}"
       shift 2
       ;;
-    --max-output-tokens)
+    --max-output-tokens|--max-output-tokens-list)
       MAX_OUTPUT_TOKENS_LIST="${2:-}"
       shift 2
       ;;
@@ -70,7 +70,7 @@ while [ $# -gt 0 ]; do
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_litert_lm_gpu_benchmark.sh [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <variant>] [--close-policy <normal|skip-conversation|skip-all>] [--phase <engine-only|conversation-only|send-message>]
+  scripts/run_litert_lm_gpu_benchmark.sh [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <variant>] [--close-policy <normal|skip-conversation|skip-all>] [--phase <engine-only|conversation-only|send-message>] [--max-output-tokens-list <csv>]
 
 Runs the debug-only standard app LiteRT-LM GPU benchmark receiver and pulls:
   artifacts/litert_lm_gpu_benchmark_<timestamp>.md
@@ -78,7 +78,7 @@ Runs the debug-only standard app LiteRT-LM GPU benchmark receiver and pulls:
 
 Defaults:
   prompts: こんにちは / カレーの材料を箇条書きで教えて
-  max_output_tokens: 32,64,128,256
+  max_output_tokens_list: 32,64,128,256
   backend: gpu
   close_policy: normal
   phase: send-message
@@ -392,6 +392,7 @@ collect_crash_artifacts() {
     printf -- '- backend_variant: `%s`\n' "$BACKEND_VARIANT"
     printf -- '- close_policy: `%s`\n' "$CLOSE_POLICY"
     printf -- '- phase: `%s`\n' "$PHASE"
+    printf -- '- max_output_tokens_list: `%s`\n' "$MAX_OUTPUT_TOKENS_LIST"
     printf -- '- intentionally_leaked_for_diagnostic: `%s`\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
     printf -- '- native_crash_suspected: `%s`\n' "$(crash_field_value native_crash_suspected)"
     printf -- '- crash_process: `%s`\n' "$(crash_field_value crash_process)"
@@ -492,8 +493,8 @@ write_timeout_artifacts() {
     fi
   } >"$ARTIFACT_MD"
   {
-    printf '"timestamp","route_type","backend","backend_variant","close_policy","phase","prompt","max_output_tokens","model_path","model_exists","model_length","engine_create_ms","conversation_create_ms","first_token_ms","ttft_ms","decode_ms","total_ms","output_tokens","tokens_per_second","finish_reason","stop_reason","raw_output","sanitized_output","status","reason","send_exception_class","send_exception_message","send_exception_cause_chain","intentionally_leaked_for_diagnostic","fallback_used","timeout","fresh_crash","process_alive","latest_stage","latest_detail","am_broadcast_exit_code"\n'
-    printf '"%s","litert_lm_gpu_benchmark","%s","%s","%s","%s","","","","false","0","","","","","","","","","","","","","failure","host_timeout_waiting_for_receiver","","","","%s","false","true","%s","%s","%s","%s","%s"\n' "$TIMESTAMP" "$BACKEND_LABEL" "$BACKEND_VARIANT" "$CLOSE_POLICY" "$PHASE" "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC" "$fresh_crash" "$process_alive" "$latest_stage" "$latest_detail" "$BROADCAST_EXIT_CODE"
+    printf '"timestamp","route_type","backend","backend_variant","close_policy","phase","prompt","max_output_tokens","max_output_tokens_list","model_path","model_exists","model_length","engine_create_ms","conversation_create_ms","first_token_ms","ttft_ms","decode_ms","total_ms","output_tokens","tokens_per_second","finish_reason","stop_reason","raw_output","sanitized_output","status","reason","send_exception_class","send_exception_message","send_exception_cause_chain","intentionally_leaked_for_diagnostic","fallback_used","timeout","fresh_crash","process_alive","latest_stage","latest_detail","am_broadcast_exit_code"\n'
+    printf '"%s","litert_lm_gpu_benchmark","%s","%s","%s","%s","","","%s","","false","0","","","","","","","","","","","","","failure","host_timeout_waiting_for_receiver","","","","%s","false","true","%s","%s","%s","%s","%s"\n' "$TIMESTAMP" "$BACKEND_LABEL" "$BACKEND_VARIANT" "$CLOSE_POLICY" "$PHASE" "$MAX_OUTPUT_TOKENS_LIST" "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC" "$fresh_crash" "$process_alive" "$latest_stage" "$latest_detail" "$BROADCAST_EXIT_CODE"
   } >"$ARTIFACT_CSV"
 }
 
@@ -585,6 +586,7 @@ fi
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
   printf 'close_policy=%s\n' "$CLOSE_POLICY"
   printf 'phase=%s\n' "$PHASE"
+  printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
   printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
   printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
