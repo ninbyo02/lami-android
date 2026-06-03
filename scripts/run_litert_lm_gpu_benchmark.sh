@@ -8,6 +8,7 @@ ACTION="io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK"
 RECEIVER="io.github.ninbyo02.lami.gpu.LiteRtLmGpuBenchmarkReceiver"
 STATE_APP_FILE="files/litert_lm_gpu_benchmark_state.txt"
 MARKER_APP_FILE="files/litert_lm_gpu_benchmark_marker.txt"
+MARKER_HISTORY_APP_FILE="files/litert_lm_gpu_benchmark_marker_history.txt"
 OUT_DIR="$ROOT_DIR/artifacts/litert_lm_gpu_benchmark/$TIMESTAMP"
 ARTIFACT_MD="$ROOT_DIR/artifacts/litert_lm_gpu_benchmark_${TIMESTAMP}.md"
 ARTIFACT_CSV="$ROOT_DIR/artifacts/litert_lm_gpu_benchmark_${TIMESTAMP}.csv"
@@ -15,7 +16,7 @@ DEVICE_SERIAL=""
 TIMEOUT_SECONDS=90
 CASE_TIMEOUT_MS=60000
 MODEL_PATH=""
-PROMPTS="こんにちは|||カレーの材料を箇条書きで教えて"
+PROMPTS=$'こんにちは\nカレーの材料を箇条書きで教えて'
 MAX_OUTPUT_TOKENS_LIST="32,64,128,256"
 BUILD_AND_INSTALL=true
 LOGCAT_PID=""
@@ -61,9 +62,15 @@ Runs the debug-only standard app LiteRT-LM GPU benchmark receiver and pulls:
   artifacts/litert_lm_gpu_benchmark_<timestamp>.csv
 
 Defaults:
-  prompts: こんにちは ||| カレーの材料を箇条書きで教えて
+  prompts: こんにちは / カレーの材料を箇条書きで教えて
   max_output_tokens: 32,64,128,256
   backend: Backend.GPU fixed by the receiver's EngineConfig
+
+Transport:
+  prompts, model_path, and max_output_tokens are sent as base64 extras so
+  spaces, Japanese text, symbols, and pipe characters are not interpreted by
+  the Android shell. --prompts accepts newline-separated prompts; legacy |||
+  input is normalized to newlines before transport.
 
 Safety:
   - does not use the hidden NPU receiver;
@@ -95,6 +102,14 @@ mkdir -p "$OUT_DIR" "$ROOT_DIR/artifacts"
 
 log() {
   printf '[litert-lm-gpu-benchmark] %s\n' "$*"
+}
+
+base64_no_wrap() {
+  printf '%s' "$1" | base64 | tr -d '\n'
+}
+
+normalize_prompts() {
+  printf '%s' "${PROMPTS//|||/$'\n'}"
 }
 
 adb_cmd() {
@@ -255,6 +270,8 @@ write_timeout_artifacts() {
     cat "$OUT_DIR/am_broadcast.txt" 2>/dev/null || true
     printf '\n```\n\n## latest marker\n\n```text\n'
     cat "$OUT_DIR/marker.txt" 2>/dev/null || true
+    printf '\n```\n\n## marker history\n\n```text\n'
+    cat "$OUT_DIR/app_marker_history.txt" 2>/dev/null || cat "$OUT_DIR/marker_history.txt" 2>/dev/null || true
     printf '\n```\n\n## crash summary\n\n'
     if [ -s "$OUT_DIR/crash_summary.md" ]; then
       cat "$OUT_DIR/crash_summary.md"
@@ -272,6 +289,10 @@ trap stop_probe_logcat EXIT
 
 if ! command -v adb >/dev/null 2>&1; then
   log "adb not found"
+  exit 1
+fi
+if ! command -v base64 >/dev/null 2>&1; then
+  log "base64 not found"
   exit 1
 fi
 
@@ -297,6 +318,7 @@ fi
 adb_cmd shell run-as "$APP_ID" rm -f \
   "$STATE_APP_FILE" \
   "$MARKER_APP_FILE" \
+  "$MARKER_HISTORY_APP_FILE" \
   "files/litert_lm_gpu_benchmark_${TIMESTAMP}.md" \
   "files/litert_lm_gpu_benchmark_${TIMESTAMP}.csv" \
   >"$OUT_DIR/cleanup_app_files.txt" 2>&1 || true
@@ -305,40 +327,63 @@ adb_cmd shell run-as "$APP_ID" sh -c 'for f in files/local_models/*.litertlm; do
 adb_cmd logcat -c >"$OUT_DIR/logcat_clear.txt" 2>&1 || true
 start_probe_logcat
 
+PROMPTS_PAYLOAD="$(normalize_prompts)"
+PROMPTS_BASE64="$(base64_no_wrap "$PROMPTS_PAYLOAD")"
+MAX_OUTPUT_TOKENS_LIST_BASE64="$(base64_no_wrap "$MAX_OUTPUT_TOKENS_LIST")"
+MODEL_PATH_BASE64=""
+if [ -n "$MODEL_PATH" ]; then
+  MODEL_PATH_BASE64="$(base64_no_wrap "$MODEL_PATH")"
+fi
+
 log "broadcasting GPU benchmark receiver"
 if [ -n "$MODEL_PATH" ]; then
   adb_cmd shell am broadcast --receiver-foreground --user 0 \
     -n "$APP_ID/$RECEIVER" \
     -a "$ACTION" \
     --es timestamp "$TIMESTAMP" \
-    --es model_path "$MODEL_PATH" \
-    --es prompts "$PROMPTS" \
-    --es max_output_tokens_list "$MAX_OUTPUT_TOKENS_LIST" \
+    --es model_path_base64 "$MODEL_PATH_BASE64" \
+    --es prompts_base64 "$PROMPTS_BASE64" \
+    --es max_output_tokens_list_base64 "$MAX_OUTPUT_TOKENS_LIST_BASE64" \
     --el timeout_ms "$CASE_TIMEOUT_MS" \
-    >"$OUT_DIR/am_broadcast.txt" 2>&1
+    >"$OUT_DIR/am_broadcast_raw.txt" 2>&1
   BROADCAST_EXIT_CODE="$?"
 else
   adb_cmd shell am broadcast --receiver-foreground --user 0 \
     -n "$APP_ID/$RECEIVER" \
     -a "$ACTION" \
     --es timestamp "$TIMESTAMP" \
-    --es prompts "$PROMPTS" \
-    --es max_output_tokens_list "$MAX_OUTPUT_TOKENS_LIST" \
+    --es prompts_base64 "$PROMPTS_BASE64" \
+    --es max_output_tokens_list_base64 "$MAX_OUTPUT_TOKENS_LIST_BASE64" \
     --el timeout_ms "$CASE_TIMEOUT_MS" \
-    >"$OUT_DIR/am_broadcast.txt" 2>&1
+    >"$OUT_DIR/am_broadcast_raw.txt" 2>&1
   BROADCAST_EXIT_CODE="$?"
 fi
 {
   printf 'timestamp=%s\n' "$TIMESTAMP"
+  printf 'action=%s\n' "$ACTION"
+  printf 'receiver=%s\n' "$RECEIVER"
+  printf 'broadcast_exit_code=%s\n' "$BROADCAST_EXIT_CODE"
+  printf 'transport=base64_safe_extras\n'
+  printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
+  printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
+  printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
+  printf 'case_timeout_ms=%s\n' "$CASE_TIMEOUT_MS"
+  printf 'raw_broadcast_result=am_broadcast_raw.txt\n'
+  printf '\n[raw_broadcast_result]\n'
+  cat "$OUT_DIR/am_broadcast_raw.txt" 2>/dev/null || true
+} >"$OUT_DIR/am_broadcast.txt"
+{
+  printf 'timestamp=%s\n' "$TIMESTAMP"
+  printf 'exit_code=%s\n' "$BROADCAST_EXIT_CODE"
   printf 'broadcast_exit_code=%s\n' "$BROADCAST_EXIT_CODE"
   printf 'action=%s\n' "$ACTION"
   printf 'receiver=%s\n' "$RECEIVER"
-  printf 'model_path_arg=%s\n' "${MODEL_PATH:-none}"
-  printf 'prompts=%s\n' "$PROMPTS"
+  printf 'transport=base64_safe_extras\n'
+  printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
+  printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
   printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
   printf 'case_timeout_ms=%s\n' "$CASE_TIMEOUT_MS"
-  printf '\n[am_broadcast]\n'
-  cat "$OUT_DIR/am_broadcast.txt"
+  printf 'raw_broadcast_result=am_broadcast_raw.txt\n'
 } >"$OUT_DIR/am_broadcast_status.txt"
 
 wait_status=success
@@ -349,6 +394,7 @@ stop_probe_logcat
 
 pull_app_file "$STATE_APP_FILE" "$OUT_DIR/state.txt"
 pull_marker
+pull_app_file "$MARKER_HISTORY_APP_FILE" "$OUT_DIR/app_marker_history.txt"
 pull_app_file "files/litert_lm_gpu_benchmark_${TIMESTAMP}.md" "$ARTIFACT_MD"
 pull_app_file "files/litert_lm_gpu_benchmark_${TIMESTAMP}.csv" "$ARTIFACT_CSV"
 adb_cmd logcat -d -t 2000 >"$OUT_DIR/logcat_tail.txt" 2>&1 || true
@@ -386,6 +432,11 @@ if [ "$wait_status" = timeout ] || [ ! -s "$ARTIFACT_MD" ] || [ ! -s "$ARTIFACT_
 fi
 
 {
+  receiver_started_marker_seen=false
+  if grep -q '^stage=receiver_started$' "$OUT_DIR/app_marker_history.txt" 2>/dev/null ||
+    grep -q '^stage=receiver_started$' "$OUT_DIR/marker_history.txt" 2>/dev/null; then
+    receiver_started_marker_seen=true
+  fi
   printf 'timestamp=%s\n' "$TIMESTAMP"
   printf 'device=%s\n' "$DEVICE_SERIAL"
   printf 'app_id=%s\n' "$APP_ID"
@@ -393,6 +444,7 @@ fi
   printf 'receiver=%s\n' "$RECEIVER"
   printf 'broadcast_exit_code=%s\n' "$BROADCAST_EXIT_CODE"
   printf 'wait_status=%s\n' "$wait_status"
+  printf 'receiver_started_marker_seen=%s\n' "$receiver_started_marker_seen"
   printf 'process_alive=%s\n' "$(if grep -Eq '^[0-9]+' "$OUT_DIR/pid_after.txt" 2>/dev/null; then printf true; else printf false; fi)"
   printf 'latest_stage=%s\n' "$(marker_value stage)"
   printf 'latest_detail=%s\n' "$(marker_value detail)"
@@ -402,6 +454,8 @@ fi
   cat "$OUT_DIR/am_broadcast.txt" 2>/dev/null || true
   printf '\n[marker]\n'
   cat "$OUT_DIR/marker.txt" 2>/dev/null || true
+  printf '\n[marker_history]\n'
+  cat "$OUT_DIR/app_marker_history.txt" 2>/dev/null || cat "$OUT_DIR/marker_history.txt" 2>/dev/null || true
   if [ -s "$OUT_DIR/state.txt" ]; then
     printf '\n[state]\n'
     cat "$OUT_DIR/state.txt"

@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
+import android.util.Base64
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.Engine
@@ -493,6 +494,10 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
     }
 
     private fun resolveModelPath(appContext: Context, intent: Intent): String? {
+        decodeBase64Extra(intent, EXTRA_MODEL_PATH_BASE64)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
         intent.getStringExtra(EXTRA_MODEL_PATH)
             ?.trim()
             ?.takeIf { it.isNotBlank() }
@@ -510,10 +515,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
     }
 
     private fun prompts(intent: Intent): List<String> {
-        val raw = intent.getStringExtra(EXTRA_PROMPTS)
+        val raw = decodeBase64Extra(intent, EXTRA_PROMPTS_BASE64)
+            ?: intent.getStringExtra(EXTRA_PROMPTS)
             ?.takeIf { it.isNotBlank() }
             ?: return DEFAULT_PROMPTS
-        return raw.split("|||")
+        val delimiter = if (raw.contains('\n')) "\n" else "|||"
+        return raw.split(delimiter)
             .map { it.trim() }
             .filter { it.isNotBlank() }
             .takeIf { it.isNotEmpty() }
@@ -521,7 +528,8 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
     }
 
     private fun maxOutputTokensValues(intent: Intent): List<Int> {
-        val raw = intent.getStringExtra(EXTRA_MAX_OUTPUT_TOKENS_LIST)
+        val raw = decodeBase64Extra(intent, EXTRA_MAX_OUTPUT_TOKENS_LIST_BASE64)
+            ?: intent.getStringExtra(EXTRA_MAX_OUTPUT_TOKENS_LIST)
             ?.takeIf { it.isNotBlank() }
             ?: return DEFAULT_MAX_OUTPUT_TOKENS
         return raw.split(",")
@@ -536,6 +544,13 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         intent.getLongExtra(EXTRA_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
             .coerceIn(1_000L, 300_000L)
 
+    private fun decodeBase64Extra(intent: Intent, key: String): String? {
+        val encoded = intent.getStringExtra(key)?.takeIf { it.isNotBlank() } ?: return null
+        return runCatching {
+            String(Base64.decode(encoded, Base64.DEFAULT), Charsets.UTF_8)
+        }.getOrNull()
+    }
+
     private data class BenchmarkSnapshot(
         val timeToFirstTokenMs: Long?,
         val decodeTokenCount: Int?,
@@ -546,11 +561,15 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         const val ACTION = "io.github.ninbyo02.lami.action.LITERT_LM_GPU_BENCHMARK"
         const val EXTRA_TIMESTAMP = "timestamp"
         const val EXTRA_MODEL_PATH = "model_path"
+        const val EXTRA_MODEL_PATH_BASE64 = "model_path_base64"
         const val EXTRA_PROMPTS = "prompts"
+        const val EXTRA_PROMPTS_BASE64 = "prompts_base64"
         const val EXTRA_MAX_OUTPUT_TOKENS_LIST = "max_output_tokens_list"
+        const val EXTRA_MAX_OUTPUT_TOKENS_LIST_BASE64 = "max_output_tokens_list_base64"
         const val EXTRA_TIMEOUT_MS = "timeout_ms"
         const val STATE_FILE_NAME = "litert_lm_gpu_benchmark_state.txt"
         const val MARKER_FILE_NAME = "litert_lm_gpu_benchmark_marker.txt"
+        const val MARKER_HISTORY_FILE_NAME = "litert_lm_gpu_benchmark_marker_history.txt"
         private const val DEFAULT_TIMEOUT_MS = 60_000L
         private const val ROUTE_TYPE = "litert_lm_gpu_benchmark"
         private val DEFAULT_PROMPTS = listOf(
@@ -831,16 +850,24 @@ private fun writeMarker(
     detail: String,
 ) {
     runCatching {
+        val sanitizedDetail = detail.replace('\n', ' ').take(500)
+        val elapsedRealtimeMs = SystemClock.elapsedRealtime()
+        val wallTimeMs = System.currentTimeMillis()
+        val markerText = listOf(
+            "timestamp=$timestamp",
+            "route_type=litert_lm_gpu_benchmark",
+            "backend=GPU",
+            "stage=$stage",
+            "detail=$sanitizedDetail",
+            "elapsed_realtime_ms=$elapsedRealtimeMs",
+            "wall_time_ms=$wallTimeMs",
+        ).joinToString("\n") + "\n"
         File(appContext.filesDir, LiteRtLmGpuBenchmarkReceiver.MARKER_FILE_NAME).writeText(
-            listOf(
-                "timestamp=$timestamp",
-                "route_type=litert_lm_gpu_benchmark",
-                "backend=GPU",
-                "stage=$stage",
-                "detail=${detail.replace('\n', ' ').take(500)}",
-                "elapsed_realtime_ms=${SystemClock.elapsedRealtime()}",
-                "wall_time_ms=${System.currentTimeMillis()}",
-            ).joinToString("\n") + "\n",
+            markerText,
+            Charsets.UTF_8,
+        )
+        File(appContext.filesDir, LiteRtLmGpuBenchmarkReceiver.MARKER_HISTORY_FILE_NAME).appendText(
+            markerText + "\n",
             Charsets.UTF_8,
         )
     }
