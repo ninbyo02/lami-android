@@ -19,6 +19,7 @@ MODEL_PATH=""
 PROMPTS=$'こんにちは\nカレーの材料を箇条書きで教えて'
 MAX_OUTPUT_TOKENS_LIST="32,64,128,256"
 BACKEND_VARIANT="gpu"
+CLOSE_POLICY="normal"
 BUILD_AND_INSTALL=true
 LOGCAT_PID=""
 BROADCAST_EXIT_CODE="not-run"
@@ -53,6 +54,10 @@ while [ $# -gt 0 ]; do
       BACKEND_VARIANT="${2:-gpu}"
       shift 2
       ;;
+    --close-policy)
+      CLOSE_POLICY="${2:-normal}"
+      shift 2
+      ;;
     --skip-build-install)
       BUILD_AND_INSTALL=false
       shift
@@ -60,7 +65,7 @@ while [ $# -gt 0 ]; do
     --help|-h)
       cat <<'EOF'
 Usage:
-  scripts/run_litert_lm_gpu_benchmark.sh [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <gpu|cpu|default>]
+  scripts/run_litert_lm_gpu_benchmark.sh [--device <serial>] [--timeout <seconds>] [--case-timeout-ms <ms>] [--backend <variant>] [--close-policy <normal|skip-conversation|skip-all>]
 
 Runs the debug-only standard app LiteRT-LM GPU benchmark receiver and pulls:
   artifacts/litert_lm_gpu_benchmark_<timestamp>.md
@@ -70,6 +75,22 @@ Defaults:
   prompts: こんにちは / カレーの材料を箇条書きで教えて
   max_output_tokens: 32,64,128,256
   backend: gpu
+  close_policy: normal
+
+Backend variants:
+  gpu
+  cpu
+  default
+  gpu-null-modalities
+  gpu-cpu-modalities
+  gpu-cache-dir
+  gpu-null-max
+  gpu-all
+
+Close policies:
+  normal             close Conversation and Engine
+  skip-conversation  skip Conversation.close(), still close Engine
+  skip-all           skip Conversation.close() and Engine.close()
 
 Transport:
   prompts, model_path, and max_output_tokens are sent as base64 extras so
@@ -102,16 +123,28 @@ if ! [[ "$CASE_TIMEOUT_MS" =~ ^[0-9]+$ ]] || [ "$CASE_TIMEOUT_MS" -le 0 ]; then
   exit 2
 fi
 case "$BACKEND_VARIANT" in
-  gpu|cpu|default)
+  gpu|cpu|default|gpu-null-modalities|gpu-cpu-modalities|gpu-cache-dir|gpu-null-max|gpu-all)
     ;;
   *)
-    printf 'ERROR: --backend must be one of: gpu, cpu, default\n' >&2
+    printf 'ERROR: --backend must be one of: gpu, cpu, default, gpu-null-modalities, gpu-cpu-modalities, gpu-cache-dir, gpu-null-max, gpu-all\n' >&2
+    exit 2
+    ;;
+esac
+case "$CLOSE_POLICY" in
+  normal|skip-conversation|skip-all)
+    ;;
+  *)
+    printf 'ERROR: --close-policy must be one of: normal, skip-conversation, skip-all\n' >&2
     exit 2
     ;;
 esac
 BACKEND_LABEL="GPU"
 if [ "$BACKEND_VARIANT" = "cpu" ]; then
   BACKEND_LABEL="CPU"
+fi
+INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC=false
+if [ "$CLOSE_POLICY" != "normal" ]; then
+  INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC=true
 fi
 
 cd "$ROOT_DIR" || exit 1
@@ -171,6 +204,110 @@ marker_value() {
   state_value "$key" "$OUT_DIR/marker.txt" 2>/dev/null || true
 }
 
+first_matching_line() {
+  local pattern="$1"
+  shift
+  local file
+  for file in "$@"; do
+    if [ -s "$file" ]; then
+      local match
+      match="$(grep -Eim 1 "$pattern" "$file" 2>/dev/null | sed 's/^[[:space:]]*//' || true)"
+      if [ -n "$match" ]; then
+        printf '%s\n' "$match"
+        return 0
+      fi
+    fi
+  done
+  return 0
+}
+
+extract_signal() {
+  first_matching_line 'Fatal signal|signal [0-9]+|SIGABRT|SIGSEGV|SIGBUS|SIGILL' \
+    "$OUT_DIR/tombstone_latest.txt" \
+    "$OUT_DIR/logcat_postrun_threadtime.txt" \
+    "$OUT_DIR/logcat_probe_threadtime.txt" \
+    "$OUT_DIR/dropbox_full.txt"
+}
+
+extract_abort_message() {
+  first_matching_line 'Abort message|abort message|abort\(|Check failed|Fatal error|terminating with uncaught exception' \
+    "$OUT_DIR/tombstone_latest.txt" \
+    "$OUT_DIR/logcat_postrun_threadtime.txt" \
+    "$OUT_DIR/logcat_probe_threadtime.txt" \
+    "$OUT_DIR/dropbox_full.txt"
+}
+
+extract_crash_process() {
+  first_matching_line "Cmdline:|pid:|process name|$APP_ID" \
+    "$OUT_DIR/tombstone_latest.txt" \
+    "$OUT_DIR/logcat_postrun_threadtime.txt" \
+    "$OUT_DIR/logcat_probe_threadtime.txt" \
+    "$OUT_DIR/dropbox_full.txt"
+}
+
+extract_build_ids() {
+  grep -Eih 'BuildId:|Build ID|BuildId=' \
+    "$OUT_DIR/tombstone_latest.txt" \
+    "$OUT_DIR/logcat_postrun_threadtime.txt" \
+    "$OUT_DIR/logcat_probe_threadtime.txt" \
+    "$OUT_DIR/dropbox_full.txt" 2>/dev/null |
+    sed 's/^[[:space:]]*//' |
+    awk '!seen[$0]++ { print }' |
+    head -20 |
+    tr '\n' '|' |
+    sed 's/|$//' || true
+}
+
+extract_backtrace_head() {
+  awk '
+    BEGIN { capture = 0; count = 0 }
+    /backtrace:/ { capture = 1; next }
+    capture == 1 && count < 12 {
+      if ($0 ~ /#[0-9]+| pc /) {
+        gsub(/^[[:space:]]+/, "", $0)
+        print
+        count++
+      } else if (count > 0) {
+        exit
+      }
+    }
+  ' "$OUT_DIR/tombstone_latest.txt" 2>/dev/null |
+    tr '\n' '|' |
+    sed 's/|$//' || true
+}
+
+write_crash_fields() {
+  local pid_after signal_line abort_line crash_process build_ids backtrace_head native_crash_suspected
+  pid_after="$(tr -d '\r\n' <"$OUT_DIR/pid_after.txt" 2>/dev/null || true)"
+  signal_line="$(extract_signal)"
+  abort_line="$(extract_abort_message)"
+  crash_process="$(extract_crash_process)"
+  build_ids="$(extract_build_ids)"
+  backtrace_head="$(extract_backtrace_head)"
+  native_crash_suspected=false
+  if [ -z "$pid_after" ] || [ -n "$signal_line" ] || [ -n "$abort_line" ] || [ -n "$backtrace_head" ]; then
+    native_crash_suspected=true
+  fi
+  {
+    printf 'native_crash_suspected=%s\n' "$native_crash_suspected"
+    printf 'crash_process=%s\n' "${crash_process:-missing}"
+    printf 'signal=%s\n' "${signal_line:-missing}"
+    printf 'abort_message=%s\n' "${abort_line:-missing}"
+    printf 'backtrace_head=%s\n' "${backtrace_head:-missing}"
+    printf 'build_ids=%s\n' "${build_ids:-missing}"
+    printf 'background_logcat=%s\n' "$OUT_DIR/logcat_probe_threadtime.txt"
+    printf 'adb_logcat_d=%s\n' "$OUT_DIR/logcat_postrun_threadtime.txt"
+    printf 'dropbox=%s\n' "$OUT_DIR/dropbox_full.txt"
+    printf 'tombstone_listing=%s\n' "$OUT_DIR/tombstone_listing.txt"
+    printf 'latest_tombstone=%s\n' "$OUT_DIR/tombstone_latest.txt"
+  } >"$OUT_DIR/crash_fields.txt"
+}
+
+crash_field_value() {
+  local key="$1"
+  state_value "$key" "$OUT_DIR/crash_fields.txt" 2>/dev/null || true
+}
+
 wait_for_state() {
   local deadline=$((SECONDS + TIMEOUT_SECONDS))
   local last_marker_stage=""
@@ -225,23 +362,41 @@ collect_crash_artifacts() {
   adb_cmd shell ls -lt /data/tombstones >"$OUT_DIR/tombstone_listing.txt" 2>&1 || true
   adb_cmd shell 'ls -t /data/tombstones/tombstone_* 2>/dev/null | head -n 1' >"$OUT_DIR/tombstone_latest_path.txt" 2>&1 || true
   local tombstone_path
-  tombstone_path="$(tr -d '\r' <"$OUT_DIR/tombstone_latest_path.txt" 2>/dev/null || true)"
+  tombstone_path="$(grep -Eom 1 '/data/tombstones/tombstone_[^[:space:]]+' "$OUT_DIR/tombstone_latest_path.txt" 2>/dev/null || true)"
   if [ -n "$tombstone_path" ]; then
     adb_cmd shell cat "$tombstone_path" >"$OUT_DIR/tombstone_latest.txt" 2>&1 || true
   fi
+  write_crash_fields
   {
     printf '# Crash Probe Summary\n\n'
     printf -- '- app_id: `%s`\n' "$APP_ID"
+    printf -- '- backend_variant: `%s`\n' "$BACKEND_VARIANT"
+    printf -- '- close_policy: `%s`\n' "$CLOSE_POLICY"
+    printf -- '- intentionally_leaked_for_diagnostic: `%s`\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
+    printf -- '- native_crash_suspected: `%s`\n' "$(crash_field_value native_crash_suspected)"
+    printf -- '- crash_process: `%s`\n' "$(crash_field_value crash_process)"
+    printf -- '- signal: `%s`\n' "$(crash_field_value signal)"
+    printf -- '- abort_message: `%s`\n' "$(crash_field_value abort_message)"
+    printf -- '- backtrace_head: `%s`\n' "$(crash_field_value backtrace_head)"
+    printf -- '- build_ids: `%s`\n' "$(crash_field_value build_ids)"
     printf -- '- pid_after: `%s`\n' "$(tr -d '\r' <"$OUT_DIR/pid_after.txt" 2>/dev/null || true)"
     printf -- '- latest_marker_stage: `%s`\n' "$(marker_value stage)"
     printf -- '- latest_marker_detail: `%s`\n' "$(marker_value detail)"
     printf -- '- tombstone_latest_path: `%s`\n' "$tombstone_path"
+    printf -- '- background_logcat: `%s`\n' "$OUT_DIR/logcat_probe_threadtime.txt"
+    printf -- '- adb_logcat_d: `%s`\n' "$OUT_DIR/logcat_postrun_threadtime.txt"
+    printf -- '- dropbox: `%s`\n' "$OUT_DIR/dropbox_full.txt"
+    printf -- '- tombstone_listing: `%s`\n' "$OUT_DIR/tombstone_listing.txt"
+    printf -- '- latest_tombstone: `%s`\n' "$OUT_DIR/tombstone_latest.txt"
     printf '\n## activity crashes extract\n\n```text\n'
     grep -Ei "$APP_ID|crash|exception|fatal|native|SIG|ANR" "$OUT_DIR/dumpsys_activity_crashes.txt" 2>/dev/null | tail -120 || true
+    printf '\n```\n\n## logcat crash extract\n\n```text\n'
+    grep -Ei "$APP_ID|AndroidRuntime|DEBUG|DEBUGGERD|libc|crash_dump64|tombstoned|LiteRT|litert|GPU|OpenCL|Vulkan|FATAL|SIGABRT|SIGSEGV|SIGBUS|abort|tombstone|BuildId" \
+      "$OUT_DIR/logcat_probe_threadtime.txt" "$OUT_DIR/logcat_postrun_threadtime.txt" 2>/dev/null | tail -220 || true
     printf '\n```\n\n## dropbox extract\n\n```text\n'
     grep -Ei "$APP_ID|data_app_crash|data_app_native_crash|SYSTEM_TOMBSTONE|FATAL|SIG|Exception" "$OUT_DIR/dropbox_full.txt" 2>/dev/null | tail -160 || true
     printf '\n```\n\n## tombstone extract\n\n```text\n'
-    grep -Ei "$APP_ID|signal|Abort message|backtrace|liblitert|LiteRT|GPU|OpenCL|QNN|HTP" "$OUT_DIR/tombstone_latest.txt" 2>/dev/null | head -180 || true
+    grep -Ei "$APP_ID|Cmdline|pid:|signal|Abort message|backtrace|BuildId|Build ID|liblitert|LiteRT|GPU|OpenCL|Vulkan|QNN|HTP" "$OUT_DIR/tombstone_latest.txt" 2>/dev/null | head -220 || true
     printf '\n```\n'
   } >"$OUT_DIR/crash_summary.md"
 }
@@ -260,7 +415,16 @@ append_host_timeout_state() {
     printf 'host_latest_stage=%s\n' "${latest_stage:-unknown}"
     printf 'host_latest_detail=%s\n' "${latest_detail:-unknown}"
     printf 'host_am_broadcast_exit_code=%s\n' "$BROADCAST_EXIT_CODE"
+    printf 'close_policy=%s\n' "$CLOSE_POLICY"
+    printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
+    printf 'native_crash_suspected=%s\n' "$(crash_field_value native_crash_suspected)"
+    printf 'crash_process=%s\n' "$(crash_field_value crash_process)"
+    printf 'signal=%s\n' "$(crash_field_value signal)"
+    printf 'abort_message=%s\n' "$(crash_field_value abort_message)"
+    printf 'backtrace_head=%s\n' "$(crash_field_value backtrace_head)"
+    printf 'build_ids=%s\n' "$(crash_field_value build_ids)"
     printf 'host_logcat_probe_threadtime=logcat_probe_threadtime.txt\n'
+    printf 'host_logcat_postrun_threadtime=logcat_postrun_threadtime.txt\n'
     printf 'host_crash_summary=crash_summary.md\n'
   } >>"$OUT_DIR/state.txt"
 }
@@ -276,6 +440,8 @@ write_timeout_artifacts() {
     printf -- '- route_type: `litert_lm_gpu_benchmark`\n'
     printf -- '- backend: `%s`\n' "$BACKEND_LABEL"
     printf -- '- backend_variant: `%s`\n' "$BACKEND_VARIANT"
+    printf -- '- close_policy: `%s`\n' "$CLOSE_POLICY"
+    printf -- '- intentionally_leaked_for_diagnostic: `%s`\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
     printf -- '- status: `failure`\n'
     printf -- '- reason: `host_timeout_waiting_for_receiver`\n'
     printf -- '- timeout: `true`\n'
@@ -284,6 +450,12 @@ write_timeout_artifacts() {
     printf -- '- latest_stage: `%s`\n' "${latest_stage:-unknown}"
     printf -- '- latest_detail: `%s`\n' "${latest_detail:-unknown}"
     printf -- '- am_broadcast_exit_code: `%s`\n' "$BROADCAST_EXIT_CODE"
+    printf -- '- native_crash_suspected: `%s`\n' "$(crash_field_value native_crash_suspected)"
+    printf -- '- crash_process: `%s`\n' "$(crash_field_value crash_process)"
+    printf -- '- signal: `%s`\n' "$(crash_field_value signal)"
+    printf -- '- abort_message: `%s`\n' "$(crash_field_value abort_message)"
+    printf -- '- backtrace_head: `%s`\n' "$(crash_field_value backtrace_head)"
+    printf -- '- build_ids: `%s`\n' "$(crash_field_value build_ids)"
     printf '\n## am broadcast\n\n```text\n'
     cat "$OUT_DIR/am_broadcast.txt" 2>/dev/null || true
     printf '\n```\n\n## latest marker\n\n```text\n'
@@ -298,8 +470,8 @@ write_timeout_artifacts() {
     fi
   } >"$ARTIFACT_MD"
   {
-    printf '"timestamp","route_type","backend","backend_variant","prompt","max_output_tokens","model_path","model_exists","model_length","engine_create_ms","conversation_create_ms","first_token_ms","ttft_ms","decode_ms","total_ms","output_tokens","tokens_per_second","finish_reason","stop_reason","raw_output","sanitized_output","status","reason","fallback_used","timeout","fresh_crash","process_alive","latest_stage","latest_detail","am_broadcast_exit_code"\n'
-    printf '"%s","litert_lm_gpu_benchmark","%s","%s","","","","false","0","","","","","","","","","","","","","failure","host_timeout_waiting_for_receiver","false","true","%s","%s","%s","%s","%s"\n' "$TIMESTAMP" "$BACKEND_LABEL" "$BACKEND_VARIANT" "$fresh_crash" "$process_alive" "$latest_stage" "$latest_detail" "$BROADCAST_EXIT_CODE"
+    printf '"timestamp","route_type","backend","backend_variant","close_policy","prompt","max_output_tokens","model_path","model_exists","model_length","engine_create_ms","conversation_create_ms","first_token_ms","ttft_ms","decode_ms","total_ms","output_tokens","tokens_per_second","finish_reason","stop_reason","raw_output","sanitized_output","status","reason","send_exception_class","send_exception_message","send_exception_cause_chain","intentionally_leaked_for_diagnostic","fallback_used","timeout","fresh_crash","process_alive","latest_stage","latest_detail","am_broadcast_exit_code"\n'
+    printf '"%s","litert_lm_gpu_benchmark","%s","%s","%s","","","","false","0","","","","","","","","","","","","","failure","host_timeout_waiting_for_receiver","","","","%s","false","true","%s","%s","%s","%s","%s"\n' "$TIMESTAMP" "$BACKEND_LABEL" "$BACKEND_VARIANT" "$CLOSE_POLICY" "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC" "$fresh_crash" "$process_alive" "$latest_stage" "$latest_detail" "$BROADCAST_EXIT_CODE"
   } >"$ARTIFACT_CSV"
 }
 
@@ -353,7 +525,7 @@ if [ -n "$MODEL_PATH" ]; then
   MODEL_PATH_BASE64="$(base64_no_wrap "$MODEL_PATH")"
 fi
 
-log "broadcasting GPU benchmark receiver backend=$BACKEND_VARIANT"
+log "broadcasting GPU benchmark receiver backend=$BACKEND_VARIANT close_policy=$CLOSE_POLICY"
 if [ -n "$MODEL_PATH" ]; then
   adb_cmd shell am broadcast --receiver-foreground --user 0 \
     -n "$APP_ID/$RECEIVER" \
@@ -363,6 +535,7 @@ if [ -n "$MODEL_PATH" ]; then
     --es prompts_base64 "$PROMPTS_BASE64" \
     --es max_output_tokens_list_base64 "$MAX_OUTPUT_TOKENS_LIST_BASE64" \
     --es backend_variant "$BACKEND_VARIANT" \
+    --es close_policy "$CLOSE_POLICY" \
     --el timeout_ms "$CASE_TIMEOUT_MS" \
     >"$OUT_DIR/am_broadcast_raw.txt" 2>&1
   BROADCAST_EXIT_CODE="$?"
@@ -374,6 +547,7 @@ else
     --es prompts_base64 "$PROMPTS_BASE64" \
     --es max_output_tokens_list_base64 "$MAX_OUTPUT_TOKENS_LIST_BASE64" \
     --es backend_variant "$BACKEND_VARIANT" \
+    --es close_policy "$CLOSE_POLICY" \
     --el timeout_ms "$CASE_TIMEOUT_MS" \
     >"$OUT_DIR/am_broadcast_raw.txt" 2>&1
   BROADCAST_EXIT_CODE="$?"
@@ -385,6 +559,8 @@ fi
   printf 'broadcast_exit_code=%s\n' "$BROADCAST_EXIT_CODE"
   printf 'transport=base64_safe_extras\n'
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
+  printf 'close_policy=%s\n' "$CLOSE_POLICY"
+  printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
   printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
   printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
@@ -401,6 +577,8 @@ fi
   printf 'receiver=%s\n' "$RECEIVER"
   printf 'transport=base64_safe_extras\n'
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
+  printf 'close_policy=%s\n' "$CLOSE_POLICY"
+  printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'model_path_arg_present=%s\n' "$(if [ -n "$MODEL_PATH" ]; then printf true; else printf false; fi)"
   printf 'prompts_count=%s\n' "$(printf '%s\n' "$PROMPTS_PAYLOAD" | awk 'NF { count++ } END { print count + 0 }')"
   printf 'max_output_tokens_list=%s\n' "$MAX_OUTPUT_TOKENS_LIST"
@@ -419,6 +597,7 @@ pull_marker
 pull_app_file "$MARKER_HISTORY_APP_FILE" "$OUT_DIR/app_marker_history.txt"
 pull_app_file "files/litert_lm_gpu_benchmark_${TIMESTAMP}.md" "$ARTIFACT_MD"
 pull_app_file "files/litert_lm_gpu_benchmark_${TIMESTAMP}.csv" "$ARTIFACT_CSV"
+adb_cmd logcat -b all -d -v threadtime >"$OUT_DIR/logcat_postrun_threadtime.txt" 2>&1 || true
 adb_cmd logcat -d -t 2000 >"$OUT_DIR/logcat_tail.txt" 2>&1 || true
 collect_crash_artifacts
 
@@ -439,6 +618,8 @@ if [ "$wait_status" = timeout ] || [ ! -s "$ARTIFACT_MD" ] || [ ! -s "$ARTIFACT_
       printf 'route_type=litert_lm_gpu_benchmark\n'
       printf 'backend=%s\n' "$BACKEND_LABEL"
       printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
+      printf 'close_policy=%s\n' "$CLOSE_POLICY"
+      printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
       printf 'status=failure\n'
       printf 'reason=host_timeout_waiting_for_receiver\n'
       printf 'app_state_present=false\n'
@@ -467,11 +648,25 @@ fi
   printf 'receiver=%s\n' "$RECEIVER"
   printf 'broadcast_exit_code=%s\n' "$BROADCAST_EXIT_CODE"
   printf 'backend_variant=%s\n' "$BACKEND_VARIANT"
+  printf 'close_policy=%s\n' "$CLOSE_POLICY"
+  printf 'intentionally_leaked_for_diagnostic=%s\n' "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC"
   printf 'wait_status=%s\n' "$wait_status"
   printf 'receiver_started_marker_seen=%s\n' "$receiver_started_marker_seen"
   printf 'process_alive=%s\n' "$(if grep -Eq '^[0-9]+' "$OUT_DIR/pid_after.txt" 2>/dev/null; then printf true; else printf false; fi)"
   printf 'latest_stage=%s\n' "$(marker_value stage)"
   printf 'latest_detail=%s\n' "$(marker_value detail)"
+  printf 'native_crash_suspected=%s\n' "$(crash_field_value native_crash_suspected)"
+  printf 'crash_process=%s\n' "$(crash_field_value crash_process)"
+  printf 'signal=%s\n' "$(crash_field_value signal)"
+  printf 'abort_message=%s\n' "$(crash_field_value abort_message)"
+  printf 'backtrace_head=%s\n' "$(crash_field_value backtrace_head)"
+  printf 'build_ids=%s\n' "$(crash_field_value build_ids)"
+  printf 'background_logcat=%s\n' "$OUT_DIR/logcat_probe_threadtime.txt"
+  printf 'adb_logcat_d=%s\n' "$OUT_DIR/logcat_postrun_threadtime.txt"
+  printf 'dropbox=%s\n' "$OUT_DIR/dropbox_full.txt"
+  printf 'tombstone_listing=%s\n' "$OUT_DIR/tombstone_listing.txt"
+  printf 'latest_tombstone=%s\n' "$OUT_DIR/tombstone_latest.txt"
+  printf 'crash_summary=%s\n' "$OUT_DIR/crash_summary.md"
   printf 'markdown=%s\n' "$ARTIFACT_MD"
   printf 'csv=%s\n' "$ARTIFACT_CSV"
   printf '\n[am_broadcast]\n'
