@@ -6,10 +6,16 @@ import android.content.Intent
 import android.os.SystemClock
 import android.util.Base64
 import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
+import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.MessageCallback
+import com.google.ai.edge.litertlm.SamplerConfig
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import java.io.File
@@ -17,11 +23,13 @@ import java.lang.reflect.Method
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 
@@ -37,7 +45,8 @@ internal enum class BenchmarkBackendVariant(
     GPU_CPU_MODALITIES("gpu-cpu-modalities", "GPU", "explicit_gpu_cpu_modalities"),
     GPU_CACHE_DIR("gpu-cache-dir", "GPU", "explicit_gpu_cache_dir"),
     GPU_NULL_MAX("gpu-null-max", "GPU", "explicit_gpu_null_max_tokens"),
-    GPU_ALL("gpu-all", "GPU", "explicit_gpu_cache_null_modalities_null_max");
+    GPU_ALL("gpu-all", "GPU", "explicit_gpu_cache_null_modalities_null_max"),
+    GALLERY_CHAT_PARITY("gallery-chat-parity", "GPU", "gallery_chat_parity_contents_callback");
 
     companion object {
         fun parse(raw: String?): BenchmarkBackendVariant =
@@ -473,6 +482,18 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 detail = "close_policy=${closePolicy.wireValue} phase=${phase.wireValue} ${configParts.markerDetail(backendVariant, maxOutputTokens)}",
                 maxOutputTokensList = maxOutputTokensList,
             )
+            if (backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY) {
+                writeMarker(
+                    appContext = appContext,
+                    timestamp = timestamp,
+                    backendVariant = backendVariant,
+                    closePolicy = closePolicy,
+                    phase = phase,
+                    stage = "gallery_parity_config_selected",
+                    detail = "send_api_variant=gallery_contents_callback sampler_top_k=$GALLERY_CHAT_PARITY_TOP_K sampler_top_p=$GALLERY_CHAT_PARITY_TOP_P sampler_temperature=$GALLERY_CHAT_PARITY_TEMPERATURE conversation_config_used=true contents_api_used=true ${configParts.markerDetail(backendVariant, maxOutputTokens)}",
+                    maxOutputTokensList = maxOutputTokensList,
+                )
+            }
             val config = EngineConfig(
                 modelPath = modelPath,
                 backend = configParts.backend,
@@ -541,6 +562,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     fallbackUsed = fallbackUsed,
                     timeout = false,
                     freshCrash = false,
+                    sendApiVariant = sendApiVariant(backendVariant),
+                    samplerTopK = samplerTopK(backendVariant),
+                    samplerTopP = samplerTopP(backendVariant),
+                    samplerTemperature = samplerTemperature(backendVariant),
+                    conversationConfigUsed = conversationConfigUsed(backendVariant),
+                    contentsApiUsed = contentsApiUsed(backendVariant),
                 )
             }
 
@@ -555,7 +582,33 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 detail = "backend_variant=${backendVariant.wireValue} close_policy=${closePolicy.wireValue} phase=${phase.wireValue} max_output_tokens=$maxOutputTokens max_output_tokens_list=$maxOutputTokensList",
                 maxOutputTokensList = maxOutputTokensList,
             )
-            conversation = engine.createConversation()
+            val conversationConfig = if (backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY) {
+                ConversationConfig(
+                    samplerConfig = SamplerConfig(
+                        topK = GALLERY_CHAT_PARITY_TOP_K,
+                        topP = GALLERY_CHAT_PARITY_TOP_P,
+                        temperature = GALLERY_CHAT_PARITY_TEMPERATURE,
+                    ),
+                ).also {
+                    writeMarker(
+                        appContext = appContext,
+                        timestamp = timestamp,
+                        backendVariant = backendVariant,
+                        closePolicy = closePolicy,
+                        phase = phase,
+                        stage = "conversation_config_created",
+                        detail = "conversation_config_used=true sampler_top_k=$GALLERY_CHAT_PARITY_TOP_K sampler_top_p=$GALLERY_CHAT_PARITY_TOP_P sampler_temperature=$GALLERY_CHAT_PARITY_TEMPERATURE",
+                        maxOutputTokensList = maxOutputTokensList,
+                    )
+                }
+            } else {
+                null
+            }
+            conversation = if (conversationConfig != null) {
+                engine.createConversation(conversationConfig)
+            } else {
+                engine.createConversation()
+            }
             conversationCreateMs = SystemClock.elapsedRealtime() - conversationStartMs
             writeMarker(
                 appContext = appContext,
@@ -603,6 +656,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                     fallbackUsed = fallbackUsed,
                     timeout = false,
                     freshCrash = false,
+                    sendApiVariant = sendApiVariant(backendVariant),
+                    samplerTopK = samplerTopK(backendVariant),
+                    samplerTopP = samplerTopP(backendVariant),
+                    samplerTemperature = samplerTemperature(backendVariant),
+                    conversationConfigUsed = conversationConfigUsed(backendVariant),
+                    contentsApiUsed = contentsApiUsed(backendVariant),
                 )
             }
 
@@ -618,19 +677,40 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 maxOutputTokensList = maxOutputTokensList,
             )
             val rawOutput = try {
-                collectStreamingResponse(conversation, prompt, decodeStartMs) { first ->
-                    firstTokenMs = first
+                if (backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY) {
+                    collectGalleryParityCallbackResponse(
+                        appContext = appContext,
+                        timestamp = timestamp,
+                        backendVariant = backendVariant,
+                        closePolicy = closePolicy,
+                        phase = phase,
+                        maxOutputTokensList = maxOutputTokensList,
+                        conversation = conversation,
+                        prompt = prompt,
+                        decodeStartMs = decodeStartMs,
+                    ) { first ->
+                        firstTokenMs = first
+                    }
+                } else {
+                    collectStreamingResponse(conversation, prompt, decodeStartMs) { first ->
+                        firstTokenMs = first
+                    }
                 }
             } catch (streamingThrowable: Throwable) {
-                fallbackUsed = true
-                try {
-                    val message = conversation.sendMessage(prompt)
-                    firstTokenMs = SystemClock.elapsedRealtime() - decodeStartMs
-                    message.contents.toString()
-                } catch (blockingThrowable: Throwable) {
-                    runCatching { blockingThrowable.addSuppressed(streamingThrowable) }
-                    sendException = blockingThrowable
-                    throw blockingThrowable
+                if (backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY) {
+                    sendException = streamingThrowable
+                    throw streamingThrowable
+                } else {
+                    fallbackUsed = true
+                    try {
+                        val message = conversation.sendMessage(prompt)
+                        firstTokenMs = SystemClock.elapsedRealtime() - decodeStartMs
+                        message.contents.toString()
+                    } catch (blockingThrowable: Throwable) {
+                        runCatching { blockingThrowable.addSuppressed(streamingThrowable) }
+                        sendException = blockingThrowable
+                        throw blockingThrowable
+                    }
                 }
             }
             val decodeDurationMs = SystemClock.elapsedRealtime() - decodeStartMs
@@ -691,6 +771,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 fallbackUsed = fallbackUsed,
                 timeout = false,
                 freshCrash = false,
+                sendApiVariant = sendApiVariant(backendVariant),
+                samplerTopK = samplerTopK(backendVariant),
+                samplerTopP = samplerTopP(backendVariant),
+                samplerTemperature = samplerTemperature(backendVariant),
+                conversationConfigUsed = conversationConfigUsed(backendVariant),
+                contentsApiUsed = contentsApiUsed(backendVariant),
             )
         } catch (throwable: Throwable) {
             writeMarker(
@@ -730,6 +816,12 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 fallbackUsed = fallbackUsed,
                 timeout = false,
                 freshCrash = false,
+                sendApiVariant = sendApiVariant(backendVariant),
+                samplerTopK = samplerTopK(backendVariant),
+                samplerTopP = samplerTopP(backendVariant),
+                samplerTemperature = samplerTemperature(backendVariant),
+                conversationConfigUsed = conversationConfigUsed(backendVariant),
+                contentsApiUsed = contentsApiUsed(backendVariant),
             )
         } finally {
             closeResources(
@@ -768,6 +860,118 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 builder.append(usable)
             }
         }
+        return builder.toString()
+    }
+
+    private fun collectGalleryParityCallbackResponse(
+        appContext: Context,
+        timestamp: String,
+        backendVariant: BenchmarkBackendVariant,
+        closePolicy: BenchmarkClosePolicy,
+        phase: BenchmarkPhase,
+        maxOutputTokensList: String,
+        conversation: Conversation,
+        prompt: String,
+        decodeStartMs: Long,
+        onFirstToken: (Long) -> Unit,
+    ): String {
+        val contents = Contents.of(listOf(Content.Text(prompt)))
+        writeMarker(
+            appContext = appContext,
+            timestamp = timestamp,
+            backendVariant = backendVariant,
+            closePolicy = closePolicy,
+            phase = phase,
+            stage = "contents_created",
+            detail = "send_api_variant=gallery_contents_callback contents_api_used=true content_count=${contents.contents.size} prompt_length=${prompt.length}",
+            maxOutputTokensList = maxOutputTokensList,
+        )
+
+        val doneLatch = CountDownLatch(1)
+        val callbackError = AtomicReference<Throwable?>(null)
+        val builder = StringBuilder()
+        val firstSeen = AtomicBoolean(false)
+        var lastChunk: String? = null
+        val callback = object : MessageCallback {
+            override fun onMessage(message: Message) {
+                val chunk = message.toString()
+                if (chunk.isBlank()) return
+                if (firstSeen.compareAndSet(false, true)) {
+                    val firstTokenMs = SystemClock.elapsedRealtime() - decodeStartMs
+                    onFirstToken(firstTokenMs)
+                    writeMarker(
+                        appContext = appContext,
+                        timestamp = timestamp,
+                        backendVariant = backendVariant,
+                        closePolicy = closePolicy,
+                        phase = phase,
+                        stage = "callback_first_token",
+                        detail = "send_api_variant=gallery_contents_callback first_token_ms=$firstTokenMs raw_length=${chunk.length}",
+                        maxOutputTokensList = maxOutputTokensList,
+                    )
+                }
+                if (chunk == lastChunk) return
+                lastChunk = chunk
+                builder.append(chunk)
+            }
+
+            override fun onDone() {
+                writeMarker(
+                    appContext = appContext,
+                    timestamp = timestamp,
+                    backendVariant = backendVariant,
+                    closePolicy = closePolicy,
+                    phase = phase,
+                    stage = "callback_send_finished",
+                    detail = "send_api_variant=gallery_contents_callback raw_length=${builder.length}",
+                    maxOutputTokensList = maxOutputTokensList,
+                )
+                doneLatch.countDown()
+            }
+
+            override fun onError(throwable: Throwable) {
+                callbackError.set(throwable)
+                writeMarker(
+                    appContext = appContext,
+                    timestamp = timestamp,
+                    backendVariant = backendVariant,
+                    closePolicy = closePolicy,
+                    phase = phase,
+                    stage = "callback_send_exception",
+                    detail = "send_api_variant=gallery_contents_callback class=${throwable.javaClass.name} message=${throwable.message.orEmpty().take(200)} cause_chain=${causeChainText(throwable)}",
+                    maxOutputTokensList = maxOutputTokensList,
+                )
+                doneLatch.countDown()
+            }
+        }
+
+        writeMarker(
+            appContext = appContext,
+            timestamp = timestamp,
+            backendVariant = backendVariant,
+            closePolicy = closePolicy,
+            phase = phase,
+            stage = "callback_send_started",
+            detail = "send_api_variant=gallery_contents_callback conversation_config_used=true contents_api_used=true sampler_top_k=$GALLERY_CHAT_PARITY_TOP_K sampler_top_p=$GALLERY_CHAT_PARITY_TOP_P sampler_temperature=$GALLERY_CHAT_PARITY_TEMPERATURE",
+            maxOutputTokensList = maxOutputTokensList,
+        )
+        try {
+            conversation.sendMessageAsync(contents, callback, emptyMap<String, Any>())
+        } catch (throwable: Throwable) {
+            writeMarker(
+                appContext = appContext,
+                timestamp = timestamp,
+                backendVariant = backendVariant,
+                closePolicy = closePolicy,
+                phase = phase,
+                stage = "callback_send_exception",
+                detail = "send_api_variant=gallery_contents_callback class=${throwable.javaClass.name} message=${throwable.message.orEmpty().take(200)} cause_chain=${causeChainText(throwable)}",
+                maxOutputTokensList = maxOutputTokensList,
+            )
+            throw throwable
+        }
+        doneLatch.await()
+        callbackError.get()?.let { throw it }
         return builder.toString()
     }
 
@@ -861,6 +1065,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
             BenchmarkBackendVariant.GPU_CACHE_DIR,
             BenchmarkBackendVariant.GPU_NULL_MAX,
             BenchmarkBackendVariant.GPU_ALL -> appContext.cacheDir.absolutePath
+            BenchmarkBackendVariant.GALLERY_CHAT_PARITY -> null
         }
         return when (backendVariant) {
             BenchmarkBackendVariant.CPU -> EngineConfigParts(
@@ -920,8 +1125,41 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
                 maxNumTokens = maxOutputTokens,
                 cacheDir = cacheDir,
             )
+
+            BenchmarkBackendVariant.GALLERY_CHAT_PARITY -> EngineConfigParts(
+                backend = Backend.GPU(),
+                engineBackendLabel = "GPU",
+                visionBackend = null,
+                visionBackendLabel = "null",
+                audioBackend = null,
+                audioBackendLabel = "null",
+                maxNumTokens = GALLERY_CHAT_PARITY_MAX_NUM_TOKENS,
+                cacheDir = null,
+            )
         }
     }
+
+    private fun sendApiVariant(backendVariant: BenchmarkBackendVariant): String =
+        if (backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY) {
+            "gallery_contents_callback"
+        } else {
+            "flow_string_with_blocking_fallback"
+        }
+
+    private fun samplerTopK(backendVariant: BenchmarkBackendVariant): Int? =
+        if (backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY) GALLERY_CHAT_PARITY_TOP_K else null
+
+    private fun samplerTopP(backendVariant: BenchmarkBackendVariant): Double? =
+        if (backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY) GALLERY_CHAT_PARITY_TOP_P else null
+
+    private fun samplerTemperature(backendVariant: BenchmarkBackendVariant): Double? =
+        if (backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY) GALLERY_CHAT_PARITY_TEMPERATURE else null
+
+    private fun conversationConfigUsed(backendVariant: BenchmarkBackendVariant): Boolean =
+        backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY
+
+    private fun contentsApiUsed(backendVariant: BenchmarkBackendVariant): Boolean =
+        backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY
 
     private fun closeResources(
         appContext: Context,
@@ -1072,6 +1310,10 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         const val MARKER_HISTORY_FILE_NAME = "litert_lm_gpu_benchmark_marker_history.txt"
         private const val DEFAULT_TIMEOUT_MS = 60_000L
         private const val ROUTE_TYPE = "litert_lm_gpu_benchmark"
+        private const val GALLERY_CHAT_PARITY_MAX_NUM_TOKENS = 4000
+        private const val GALLERY_CHAT_PARITY_TOP_K = 64
+        private const val GALLERY_CHAT_PARITY_TOP_P = 0.95
+        private const val GALLERY_CHAT_PARITY_TEMPERATURE = 1.0
         private val DEFAULT_PROMPTS = listOf(
             "こんにちは",
             "カレーの材料を箇条書きで教えて",
@@ -1120,6 +1362,12 @@ internal data class LiteRtLmGpuBenchmarkRow(
     val fallbackUsed: Boolean,
     val timeout: Boolean,
     val freshCrash: Boolean,
+    val sendApiVariant: String,
+    val samplerTopK: Int?,
+    val samplerTopP: Double?,
+    val samplerTemperature: Double?,
+    val conversationConfigUsed: Boolean,
+    val contentsApiUsed: Boolean,
 ) {
     companion object {
         fun failure(
@@ -1148,8 +1396,15 @@ internal data class LiteRtLmGpuBenchmarkRow(
             fallbackUsed: Boolean = false,
             timeout: Boolean,
             freshCrash: Boolean,
-        ): LiteRtLmGpuBenchmarkRow =
-            LiteRtLmGpuBenchmarkRow(
+            sendApiVariant: String? = null,
+            samplerTopK: Int? = null,
+            samplerTopP: Double? = null,
+            samplerTemperature: Double? = null,
+            conversationConfigUsed: Boolean? = null,
+            contentsApiUsed: Boolean? = null,
+        ): LiteRtLmGpuBenchmarkRow {
+            val isGalleryParity = backendVariant == BenchmarkBackendVariant.GALLERY_CHAT_PARITY
+            return LiteRtLmGpuBenchmarkRow(
                 timestamp = timestamp,
                 routeType = "litert_lm_gpu_benchmark",
                 backend = backendVariant.backendLabel,
@@ -1183,7 +1438,15 @@ internal data class LiteRtLmGpuBenchmarkRow(
                 fallbackUsed = fallbackUsed,
                 timeout = timeout,
                 freshCrash = freshCrash,
+                sendApiVariant = sendApiVariant
+                    ?: if (isGalleryParity) "gallery_contents_callback" else "flow_string_with_blocking_fallback",
+                samplerTopK = samplerTopK ?: if (isGalleryParity) 64 else null,
+                samplerTopP = samplerTopP ?: if (isGalleryParity) 0.95 else null,
+                samplerTemperature = samplerTemperature ?: if (isGalleryParity) 1.0 else null,
+                conversationConfigUsed = conversationConfigUsed ?: isGalleryParity,
+                contentsApiUsed = contentsApiUsed ?: isGalleryParity,
             )
+        }
     }
 }
 
@@ -1221,9 +1484,12 @@ internal fun buildGpuBenchmarkMarkdown(
     appendLine("- fallback_setting_changed: `false`")
     appendLine("- backend_npu_touched: `false`")
     appendLine("- qairt_qnn_touched: `false`")
+    appendLine("- send_api_variants: `${rows.map { it.sendApiVariant }.distinct().joinToString(",").ifBlank { "unknown" }}`")
+    appendLine("- conversation_config_used_values: `${rows.map { it.conversationConfigUsed }.distinct().joinToString(",")}`")
+    appendLine("- contents_api_used_values: `${rows.map { it.contentsApiUsed }.distinct().joinToString(",")}`")
     appendLine()
-    appendLine("| backend_variant | backend | close_policy | phase | prompt | max_output_tokens | max_output_tokens_list | status | reason | engine_create_ms | conversation_create_ms | first_token_ms | ttft_ms | decode_ms | total_ms | output_tokens | tokens_per_second | timeout | fallback_used | intentionally_leaked_for_diagnostic | fresh_crash |")
-    appendLine("| --- | --- | --- | --- | --- | ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- |")
+    appendLine("| backend_variant | backend | close_policy | phase | prompt | max_output_tokens | max_output_tokens_list | status | reason | engine_create_ms | conversation_create_ms | first_token_ms | ttft_ms | decode_ms | total_ms | output_tokens | tokens_per_second | timeout | fallback_used | intentionally_leaked_for_diagnostic | fresh_crash | send_api_variant | sampler_top_k | sampler_top_p | sampler_temperature | conversation_config_used | contents_api_used |")
+    appendLine("| --- | --- | --- | --- | --- | ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |")
     rows.forEach { row ->
         appendLine(
             listOf(
@@ -1248,6 +1514,12 @@ internal fun buildGpuBenchmarkMarkdown(
                 row.fallbackUsed.toString(),
                 row.intentionallyLeakedForDiagnostic.toString(),
                 row.freshCrash.toString(),
+                row.sendApiVariant.mdCell(),
+                row.samplerTopK.valueText(),
+                row.samplerTopP?.let { String.format(Locale.US, "%.2f", it) } ?: "",
+                row.samplerTemperature?.let { String.format(Locale.US, "%.1f", it) } ?: "",
+                row.conversationConfigUsed.toString(),
+                row.contentsApiUsed.toString(),
             ).joinToString(prefix = "| ", separator = " | ", postfix = " |"),
         )
     }
@@ -1273,6 +1545,12 @@ internal fun buildGpuBenchmarkMarkdown(
         appendLine("- send_exception_class: `${row.sendExceptionClass ?: "none"}`")
         appendLine("- send_exception_message: `${row.sendExceptionMessage ?: "none"}`")
         appendLine("- send_exception_cause_chain: `${row.sendExceptionCauseChain ?: "none"}`")
+        appendLine("- send_api_variant: `${row.sendApiVariant}`")
+        appendLine("- sampler_top_k: `${row.samplerTopK?.toString() ?: "none"}`")
+        appendLine("- sampler_top_p: `${row.samplerTopP?.let { String.format(Locale.US, "%.2f", it) } ?: "none"}`")
+        appendLine("- sampler_temperature: `${row.samplerTemperature?.let { String.format(Locale.US, "%.1f", it) } ?: "none"}`")
+        appendLine("- conversation_config_used: `${row.conversationConfigUsed}`")
+        appendLine("- contents_api_used: `${row.contentsApiUsed}`")
         appendLine("- intentionally_leaked_for_diagnostic: `${row.intentionallyLeakedForDiagnostic}`")
         appendLine("- fallback_used: `${row.fallbackUsed}`")
         appendLine("- timeout: `${row.timeout}`")
@@ -1328,6 +1606,12 @@ internal fun buildGpuBenchmarkCsv(rows: List<LiteRtLmGpuBenchmarkRow>): String {
         "fallback_used",
         "timeout",
         "fresh_crash",
+        "send_api_variant",
+        "sampler_top_k",
+        "sampler_top_p",
+        "sampler_temperature",
+        "conversation_config_used",
+        "contents_api_used",
     )
     return buildString {
         appendLine(headers.joinToString(",") { csvCell(it) })
@@ -1367,6 +1651,12 @@ internal fun buildGpuBenchmarkCsv(rows: List<LiteRtLmGpuBenchmarkRow>): String {
                     row.fallbackUsed.toString(),
                     row.timeout.toString(),
                     row.freshCrash.toString(),
+                    row.sendApiVariant,
+                    row.samplerTopK?.toString().orEmpty(),
+                    row.samplerTopP?.let { String.format(Locale.US, "%.2f", it) }.orEmpty(),
+                    row.samplerTemperature?.let { String.format(Locale.US, "%.1f", it) }.orEmpty(),
+                    row.conversationConfigUsed.toString(),
+                    row.contentsApiUsed.toString(),
                 ).joinToString(",") { csvCell(it) },
             )
         }

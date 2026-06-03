@@ -92,6 +92,7 @@ Backend variants:
   gpu-cache-dir
   gpu-null-max
   gpu-all
+  gallery-chat-parity
 
 Close policies:
   normal             close Conversation and Engine
@@ -134,10 +135,10 @@ if ! [[ "$CASE_TIMEOUT_MS" =~ ^[0-9]+$ ]] || [ "$CASE_TIMEOUT_MS" -le 0 ]; then
   exit 2
 fi
 case "$BACKEND_VARIANT" in
-  gpu|cpu|default|gpu-null-modalities|gpu-cpu-modalities|gpu-cache-dir|gpu-null-max|gpu-all)
+  gpu|cpu|default|gpu-null-modalities|gpu-cpu-modalities|gpu-cache-dir|gpu-null-max|gpu-all|gallery-chat-parity)
     ;;
   *)
-    printf 'ERROR: --backend must be one of: gpu, cpu, default, gpu-null-modalities, gpu-cpu-modalities, gpu-cache-dir, gpu-null-max, gpu-all\n' >&2
+    printf 'ERROR: --backend must be one of: gpu, cpu, default, gpu-null-modalities, gpu-cpu-modalities, gpu-cache-dir, gpu-null-max, gpu-all, gallery-chat-parity\n' >&2
     exit 2
     ;;
 esac
@@ -492,9 +493,23 @@ write_timeout_artifacts() {
       printf 'No crash summary collected.\n'
     fi
   } >"$ARTIFACT_MD"
+  send_api_variant="flow_string_with_blocking_fallback"
+  sampler_top_k=""
+  sampler_top_p=""
+  sampler_temperature=""
+  conversation_config_used="false"
+  contents_api_used="false"
+  if [ "$BACKEND_VARIANT" = "gallery-chat-parity" ]; then
+    send_api_variant="gallery_contents_callback"
+    sampler_top_k="64"
+    sampler_top_p="0.95"
+    sampler_temperature="1.0"
+    conversation_config_used="true"
+    contents_api_used="true"
+  fi
   {
-    printf '"timestamp","route_type","backend","backend_variant","close_policy","phase","prompt","max_output_tokens","max_output_tokens_list","model_path","model_exists","model_length","engine_create_ms","conversation_create_ms","first_token_ms","ttft_ms","decode_ms","total_ms","output_tokens","tokens_per_second","finish_reason","stop_reason","raw_output","sanitized_output","status","reason","send_exception_class","send_exception_message","send_exception_cause_chain","intentionally_leaked_for_diagnostic","fallback_used","timeout","fresh_crash","process_alive","latest_stage","latest_detail","am_broadcast_exit_code"\n'
-    printf '"%s","litert_lm_gpu_benchmark","%s","%s","%s","%s","","","%s","","false","0","","","","","","","","","","","","","failure","host_timeout_waiting_for_receiver","","","","%s","false","true","%s","%s","%s","%s","%s"\n' "$TIMESTAMP" "$BACKEND_LABEL" "$BACKEND_VARIANT" "$CLOSE_POLICY" "$PHASE" "$MAX_OUTPUT_TOKENS_LIST" "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC" "$fresh_crash" "$process_alive" "$latest_stage" "$latest_detail" "$BROADCAST_EXIT_CODE"
+    printf '"timestamp","route_type","backend","backend_variant","close_policy","phase","prompt","max_output_tokens","max_output_tokens_list","model_path","model_exists","model_length","engine_create_ms","conversation_create_ms","first_token_ms","ttft_ms","decode_ms","total_ms","output_tokens","tokens_per_second","finish_reason","stop_reason","raw_output","sanitized_output","status","reason","send_exception_class","send_exception_message","send_exception_cause_chain","intentionally_leaked_for_diagnostic","fallback_used","timeout","fresh_crash","send_api_variant","sampler_top_k","sampler_top_p","sampler_temperature","conversation_config_used","contents_api_used","process_alive","latest_stage","latest_detail","am_broadcast_exit_code"\n'
+    printf '"%s","litert_lm_gpu_benchmark","%s","%s","%s","%s","","","%s","","false","0","","","","","","","","","","","","","failure","host_timeout_waiting_for_receiver","","","","%s","false","true","%s","%s","%s","%s","%s","%s","%s","%s","%s"\n' "$TIMESTAMP" "$BACKEND_LABEL" "$BACKEND_VARIANT" "$CLOSE_POLICY" "$PHASE" "$MAX_OUTPUT_TOKENS_LIST" "$INTENTIONALLY_LEAKED_FOR_DIAGNOSTIC" "$fresh_crash" "$send_api_variant" "$sampler_top_k" "$sampler_top_p" "$sampler_temperature" "$conversation_config_used" "$contents_api_used" "$process_alive" "$latest_stage" "$latest_detail" "$BROADCAST_EXIT_CODE"
   } >"$ARTIFACT_CSV"
 }
 
