@@ -894,7 +894,7 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         var lastChunk: String? = null
         val callback = object : MessageCallback {
             override fun onMessage(message: Message) {
-                val chunk = message.toString()
+                val chunk = renderGalleryParityMessageChunk(conversation, message)
                 if (chunk.isBlank()) return
                 if (firstSeen.compareAndSet(false, true)) {
                     val firstTokenMs = SystemClock.elapsedRealtime() - decodeStartMs
@@ -974,6 +974,16 @@ class LiteRtLmGpuBenchmarkReceiver : BroadcastReceiver() {
         callbackError.get()?.let { throw it }
         return builder.toString()
     }
+
+    private fun renderGalleryParityMessageChunk(
+        conversation: Conversation,
+        message: Message,
+    ): String =
+        runCatching { conversation.renderMessageIntoString(message, emptyMap<String, Any>()) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: message.contents.toString().takeIf { it.isNotBlank() }
+            ?: message.toString()
 
     private fun probeBenchmarkSnapshot(conversation: Conversation?): BenchmarkSnapshot? {
         val benchmark = runCatching { conversation?.getBenchmarkInfo() }.getOrNull() ?: return null
