@@ -91,6 +91,8 @@ object DevOnlyNpuOneTurnConversationContract {
     const val TIMEOUT_MS = 60_000L
     const val INITIAL_DISPLAY_TEXT = "DEV ONLY NPU ONE TURN\nstatus=idle\nadapter_execution=manual_trigger_only"
     const val JAPANESE_ONLY_TAIL_INSTRUCTION = "必ず日本語だけで短く返答してください。"
+    const val RAW_DIALOG_TAIL_VARIANT_B_FINAL_ONLY_INSTRUCTION =
+        "日本語で最終回答だけを短く返答してください。「ユーザー:」「アシスタント:」や会話の続きを書かないでください。"
     const val JAPANESE_ASSISTANT_PREFIX_VARIANT_B = "はい、"
     const val RAW_DIALOG_TAIL_VARIANT_C_ROLE_INSTRUCTION = "あなたは日本語だけで短く答えるアシスタントです。"
     const val RAW_DIALOG_TAIL_VARIANT_C_NO_ECHO_INSTRUCTION = "ユーザーの文を繰り返さず、答えだけを1文で書いてください。"
@@ -145,6 +147,7 @@ object DevOnlyNpuOneTurnConversationContract {
         }
         val sanitizedPromptTailVariant = sanitizePromptTailVariant(promptTailVariant)
         val instructionLines = when (sanitizedPromptTailVariant) {
+            RAW_DIALOG_TAIL_VARIANT_B -> listOf(RAW_DIALOG_TAIL_VARIANT_B_FINAL_ONLY_INSTRUCTION)
             RAW_DIALOG_TAIL_VARIANT_C -> listOf(
                 RAW_DIALOG_TAIL_VARIANT_C_ROLE_INSTRUCTION,
                 RAW_DIALOG_TAIL_VARIANT_C_NO_ECHO_INSTRUCTION,
