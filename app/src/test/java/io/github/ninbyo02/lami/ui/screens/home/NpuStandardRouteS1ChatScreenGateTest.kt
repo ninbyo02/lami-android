@@ -227,7 +227,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertNull(s4Mapping.pseudoStreamingCandidate)
         assertFalse(shouldPrepareNpuStandardRouteS5Tts(enabled = true, mapping = s5Mapping))
         assertNull(s5Mapping.ttsCandidate)
-        assertEquals(NpuStandardRouteS5TtsContract.FAILURE_S1_NOT_SUCCESS, s5Mapping.failureReason)
+        assertEquals(NpuStandardRouteS5TtsContract.FAILURE_EMPTY_TEXT, s5Mapping.failureReason)
     }
 
     @Test
@@ -622,6 +622,13 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertTrue(s5Result.displayText.contains("markdown=true"))
         assertTrue(s5Result.displayText.contains("streaming=true"))
         assertTrue(s5Result.displayText.contains("tts=true"))
+        assertTrue(s5Result.displayText.contains("s5_tts_reason=success"))
+        assertTrue(s5Result.displayText.contains("tts_requested=true"))
+        assertTrue(s5Result.displayText.contains("tts_started=true"))
+        assertTrue(s5Result.displayText.contains("tts_completed=true"))
+        assertTrue(s5Result.displayText.contains("tts_skipped=false"))
+        assertTrue(s5Result.displayText.contains("tts_text_length=6"))
+        assertTrue(s5Result.displayText.contains("tts_input_source=sanitized_output"))
         assertTrue(
             shouldSpeakNpuStandardRouteS5Tts(
                 enabled = NpuStandardRouteMode.FULL.isS5Enabled(),
@@ -746,6 +753,10 @@ class NpuStandardRouteS1ChatScreenGateTest {
             ttsEnabled = true,
             sanitizeForTts = { "" },
         )
+        val roleContaminationMapping = NpuStandardRouteS5TtsMapping(
+            ttsCandidate = null,
+            failureReason = NpuStandardRouteS5TtsContract.FAILURE_ROLE_CONTAMINATION,
+        )
 
         assertEquals(
             NPU_STANDARD_ROUTE_S5_TTS_SKIP_GATE_OFF,
@@ -764,6 +775,18 @@ class NpuStandardRouteS1ChatScreenGateTest {
             classifyNpuStandardRouteS5TtsSkipReason(
                 enabled = true,
                 mapping = emptySpeakMapping,
+                ttsEnabled = true,
+                streamingActive = false,
+                assistantId = 42,
+                suppressedForAssistant = false,
+                inCooldown = false,
+            ),
+        )
+        assertEquals(
+            NPU_STANDARD_ROUTE_S5_TTS_SKIP_ROLE_CONTAMINATION,
+            classifyNpuStandardRouteS5TtsSkipReason(
+                enabled = true,
+                mapping = roleContaminationMapping,
                 ttsEnabled = true,
                 streamingActive = false,
                 assistantId = 42,

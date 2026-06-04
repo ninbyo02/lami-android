@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 internal object NpuStandardRouteS5TtsMapper {
+    @Suppress("UNUSED_PARAMETER")
     fun map(
         s1Result: NpuStandardRouteS1Result,
         finalAssistantText: String,
@@ -8,6 +9,23 @@ internal object NpuStandardRouteS5TtsMapper {
         streamingActive: Boolean = false,
         sanitizeForTts: (String) -> String = { it.trim() },
     ): NpuStandardRouteS5TtsMapping {
+        val normalizedFinalText = s1Result.sanitizedOutput.trim()
+        if (
+            hasNpuStandardRouteRawRoleContamination(s1Result.rawOutput) ||
+            s1Result.qualityClassification == NpuStandardRouteS1Contract.QUALITY_ROLE_CONTAMINATION ||
+            s1Result.reason == NpuStandardRouteS1Contract.REASON_RAW_ROLE_CONTAMINATION
+        ) {
+            return NpuStandardRouteS5TtsMapping(
+                ttsCandidate = null,
+                failureReason = NpuStandardRouteS5TtsContract.FAILURE_ROLE_CONTAMINATION,
+            )
+        }
+        if (normalizedFinalText.isBlank()) {
+            return NpuStandardRouteS5TtsMapping(
+                ttsCandidate = null,
+                failureReason = NpuStandardRouteS5TtsContract.FAILURE_EMPTY_TEXT,
+            )
+        }
         if (!s1Result.successCriteriaMet) {
             return NpuStandardRouteS5TtsMapping(
                 ttsCandidate = null,
@@ -24,14 +42,6 @@ internal object NpuStandardRouteS5TtsMapper {
             return NpuStandardRouteS5TtsMapping(
                 ttsCandidate = null,
                 failureReason = NpuStandardRouteS5TtsContract.FAILURE_STREAMING_ACTIVE,
-            )
-        }
-
-        val normalizedFinalText = finalAssistantText.trim()
-        if (normalizedFinalText.isBlank()) {
-            return NpuStandardRouteS5TtsMapping(
-                ttsCandidate = null,
-                failureReason = NpuStandardRouteS5TtsContract.FAILURE_EMPTY_TEXT,
             )
         }
 
@@ -52,9 +62,12 @@ internal object NpuStandardRouteS5TtsMapper {
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 internal fun buildNpuStandardRouteS5TtsSavedResult(
     s1Result: NpuStandardRouteS1Result,
     finalAssistantText: String,
+    ttsDiagnostics: NpuStandardRouteS5TtsDiagnostics =
+        NpuStandardRouteS5TtsContract.successDiagnostics(s1Result.sanitizedOutput.trim()),
 ): NpuStandardRouteS1Result {
     val s5Selection = s1Result.selection.copy(
         routeType = NpuStandardRouteS5TtsContract.ROUTE_TYPE,
@@ -63,14 +76,15 @@ internal fun buildNpuStandardRouteS5TtsSavedResult(
             conversationHistorySaved = true,
             markdown = true,
             streaming = true,
-            tts = true,
+            tts = ttsDiagnostics.completed,
         ),
     )
-    val normalizedFinalText = finalAssistantText.trim()
+    val normalizedFinalText = s1Result.sanitizedOutput.trim()
     return s1Result.copy(
         selection = s5Selection,
         sanitizedOutput = normalizedFinalText.ifBlank { s1Result.sanitizedOutput },
         s2DbReason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+        s5TtsDiagnostics = ttsDiagnostics,
         displayText = NpuStandardRouteS1Contract.displayText(
             selection = s5Selection,
             status = s1Result.status,
@@ -88,6 +102,7 @@ internal fun buildNpuStandardRouteS5TtsSavedResult(
             npuModelEligible = s1Result.npuModelEligible,
             timing = s1Result.timing,
             s2DbReason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+            s5TtsDiagnostics = ttsDiagnostics,
         ),
     )
 }

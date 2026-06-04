@@ -166,6 +166,26 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `raw dialog tail variant B asks for final answer without role continuation`() {
+        val contractClass = Class.forName("io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract")
+        val contract = contractClass.getField("INSTANCE").get(null)
+        val variantB = contractClass.getField("RAW_DIALOG_TAIL_VARIANT_B").get(null) as String
+        val prompt = contractClass
+            .getMethod(
+                "buildRawDialogTailPrompt",
+                String::class.java,
+                String::class.java,
+                String::class.java,
+            )
+            .invoke(contract, "", "こんにちは", variantB) as String
+
+        assertTrue(prompt.contains("最終回答だけ"))
+        assertTrue(prompt.contains("「ユーザー:」「アシスタント:」"))
+        assertTrue(prompt.contains("会話の続きを書かない"))
+        assertTrue(prompt.endsWith("アシスタント: はい、"))
+    }
+
+    @Test
     fun `invoker accepts provider interface without ChatScreen dependency`() {
         val invoker = NpuStandardRouteS1Invoker(
             provider = FailureNpuStandardRouteS1Provider(

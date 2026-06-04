@@ -2854,7 +2854,7 @@ fun Home(
                                                                         val s5TtsMapping = NpuStandardRouteS5TtsBridge()
                                                                             .prepareTtsCandidate(
                                                                                 s1Result = s1Result,
-                                                                                finalAssistantText = assistantTextForPersist,
+                                                                                finalAssistantText = s1Result.sanitizedOutput,
                                                                                 ttsEnabled = ttsEnabled,
                                                                                 streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                                 sanitizeForTts = ::sanitizeTextForTts,
@@ -2862,7 +2862,7 @@ fun Home(
                                                                         logStreamTrace(
                                                                             buildNpuStandardRouteS5TtsCandidateTrace(
                                                                                 mapping = s5TtsMapping,
-                                                                                finalTextLength = assistantTextForPersist.length,
+                                                                                finalTextLength = s1Result.sanitizedOutput.length,
                                                                                 ttsEnabled = ttsEnabled,
                                                                                 streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                                 assistantId = assistantId,
@@ -2879,11 +2879,6 @@ fun Home(
                                                                         )
                                                                         if (s5TtsSkipReason == NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE) {
                                                                             val ttsCandidate = requireNotNull(s5TtsMapping.ttsCandidate)
-                                                                            val s5SavedResult = buildNpuStandardRouteS5TtsSavedResult(
-                                                                                s1Result = s1Result,
-                                                                                finalAssistantText = assistantTextForPersist,
-                                                                            )
-                                                                            npuStandardRouteS1DisplayText = s5SavedResult.displayText
                                                                             currentSpeakingAssistantMessageId = assistantId
                                                                             stopButtonOwnerAssistantMessageId = assistantId
                                                                             stopButtonOwnerSetAtMs = SystemClock.elapsedRealtime()
@@ -2895,7 +2890,34 @@ fun Home(
                                                                                     speakTextLength = ttsCandidate.speakText.length,
                                                                                 ),
                                                                             )
-                                                                            ttsController.speak(ttsCandidate.speakText)
+                                                                            val s5SavedResult = try {
+                                                                                ttsController.speak(ttsCandidate.speakText)
+                                                                                buildNpuStandardRouteS5TtsSavedResult(
+                                                                                    s1Result = s1Result,
+                                                                                    finalAssistantText = s1Result.sanitizedOutput,
+                                                                                    ttsDiagnostics = NpuStandardRouteS5TtsContract.successDiagnostics(
+                                                                                        s1Result.sanitizedOutput,
+                                                                                    ),
+                                                                                )
+                                                                            } catch (exception: Exception) {
+                                                                                Log.w("ChatScreen", "NPU S5 TTS failed after successful inference", exception)
+                                                                                if (currentSpeakingAssistantMessageId == assistantId) {
+                                                                                    currentSpeakingAssistantMessageId = null
+                                                                                }
+                                                                                if (stopButtonOwnerAssistantMessageId == assistantId) {
+                                                                                    stopButtonOwnerAssistantMessageId = null
+                                                                                    stopButtonOwnerSetAtMs = null
+                                                                                }
+                                                                                buildNpuStandardRouteS5TtsSavedResult(
+                                                                                    s1Result = s1Result,
+                                                                                    finalAssistantText = s1Result.sanitizedOutput,
+                                                                                    ttsDiagnostics = NpuStandardRouteS5TtsContract.exceptionDiagnostics(
+                                                                                        sanitizedOutput = s1Result.sanitizedOutput,
+                                                                                        throwable = exception,
+                                                                                    ),
+                                                                                )
+                                                                            }
+                                                                            npuStandardRouteS1DisplayText = s5SavedResult.displayText
                                                                             try {
                                                                                 withContext(Dispatchers.IO) {
                                                                                     viewModel.getMessageById(assistantId)?.let { message ->
@@ -2909,7 +2931,11 @@ fun Home(
                                                                             }
                                                                             logStreamTrace(
                                                                                 buildNpuStandardRouteS5TtsSpeakTrace(
-                                                                                    stage = "after",
+                                                                                    stage = if (s5SavedResult.s5TtsDiagnostics?.completed == true) {
+                                                                                        "after"
+                                                                                    } else {
+                                                                                        NpuStandardRouteS5TtsContract.REASON_TTS_EXCEPTION
+                                                                                    },
                                                                                     assistantId = assistantId,
                                                                                     speakTextLength = ttsCandidate.speakText.length,
                                                                                 ),
@@ -2980,7 +3006,7 @@ fun Home(
                                                                     val s5TtsMapping = NpuStandardRouteS5TtsBridge()
                                                                         .prepareTtsCandidate(
                                                                             s1Result = s1Result,
-                                                                            finalAssistantText = s4DisplayOnlyCandidate?.finalText ?: s1Result.displayText,
+                                                                            finalAssistantText = s1Result.sanitizedOutput,
                                                                             ttsEnabled = ttsEnabled,
                                                                             streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                             sanitizeForTts = ::sanitizeTextForTts,
@@ -2988,7 +3014,7 @@ fun Home(
                                                                     logStreamTrace(
                                                                         buildNpuStandardRouteS5TtsCandidateTrace(
                                                                             mapping = s5TtsMapping,
-                                                                            finalTextLength = (s4DisplayOnlyCandidate?.finalText ?: s1Result.displayText).length,
+                                                                            finalTextLength = s1Result.sanitizedOutput.length,
                                                                             ttsEnabled = ttsEnabled,
                                                                             streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                             assistantId = null,
@@ -9288,6 +9314,7 @@ internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_ASSISTANT_ID_NULL = "assistant
 internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_COOLDOWN = "cooldown"
 internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_STOP_SUPPRESSED = "stop_suppressed"
 internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_EMPTY_AFTER_SANITIZE = "empty_after_sanitize"
+internal const val NPU_STANDARD_ROUTE_S5_TTS_SKIP_ROLE_CONTAMINATION = "role_contamination"
 
 internal fun classifyNpuStandardRouteS5TtsSkipReason(
     enabled: Boolean,
@@ -9306,6 +9333,8 @@ internal fun classifyNpuStandardRouteS5TtsSkipReason(
     suppressedForAssistant -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_STOP_SUPPRESSED
     mapping.failureReason == NpuStandardRouteS5TtsContract.FAILURE_EMPTY_SPEAK_TEXT ->
         NPU_STANDARD_ROUTE_S5_TTS_SKIP_EMPTY_AFTER_SANITIZE
+    mapping.failureReason == NpuStandardRouteS5TtsContract.FAILURE_ROLE_CONTAMINATION ->
+        NPU_STANDARD_ROUTE_S5_TTS_SKIP_ROLE_CONTAMINATION
     !mapping.hasTtsCandidate -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_CANDIDATE_NULL
     else -> NPU_STANDARD_ROUTE_S5_TTS_SKIP_NONE
 }

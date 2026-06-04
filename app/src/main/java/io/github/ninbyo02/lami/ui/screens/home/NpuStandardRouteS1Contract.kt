@@ -70,6 +70,7 @@ internal data class NpuStandardRouteS1Result(
     val npuModelEligible: Boolean? = null,
     val timing: NpuStandardRouteS1Timing = NpuStandardRouteS1Timing(),
     val s2DbReason: String = "",
+    val s5TtsDiagnostics: NpuStandardRouteS5TtsDiagnostics? = null,
     val displayText: String = NpuStandardRouteS1Contract.displayText(
         selection = selection,
         status = status,
@@ -87,6 +88,7 @@ internal data class NpuStandardRouteS1Result(
         npuModelEligible = npuModelEligible,
         timing = timing,
         s2DbReason = s2DbReason,
+        s5TtsDiagnostics = s5TtsDiagnostics,
     ),
 ) {
     val successCriteriaMet: Boolean
@@ -122,6 +124,7 @@ internal data class NpuStandardRouteS1Result(
                 npuModelEligible = npuModelEligible,
                 timing = timing,
                 s2DbReason = s2DbReason,
+                s5TtsDiagnostics = s5TtsDiagnostics,
             ),
         )
 }
@@ -170,6 +173,7 @@ internal object NpuStandardRouteS1Contract {
         npuModelEligible: Boolean? = null,
         timing: NpuStandardRouteS1Timing = NpuStandardRouteS1Timing(),
         s2DbReason: String = "",
+        s5TtsDiagnostics: NpuStandardRouteS5TtsDiagnostics? = null,
     ): String {
         val sideEffects = selection.sideEffects
         return listOfNotNull(
@@ -201,6 +205,15 @@ internal object NpuStandardRouteS1Contract {
             "raw_output=$rawOutput",
             "sanitized_output=$sanitizedOutput",
             "quality_classification=$qualityClassification",
+            s5TtsDiagnostics?.let { "s5_tts_reason=${it.reason}" },
+            s5TtsDiagnostics?.let { "tts_requested=${it.requested}" },
+            s5TtsDiagnostics?.let { "tts_started=${it.started}" },
+            s5TtsDiagnostics?.let { "tts_completed=${it.completed}" },
+            s5TtsDiagnostics?.let { "tts_skipped=${it.skipped}" },
+            s5TtsDiagnostics?.let { "tts_exception_class=${it.exceptionClass}" },
+            s5TtsDiagnostics?.let { "tts_exception_message=${it.exceptionMessage}" },
+            s5TtsDiagnostics?.let { "tts_text_length=${it.textLength}" },
+            s5TtsDiagnostics?.let { "tts_input_source=${it.inputSource}" },
             "db=${sideEffects.db}",
             "tts=${sideEffects.tts}",
             "markdown=${sideEffects.markdown}",
