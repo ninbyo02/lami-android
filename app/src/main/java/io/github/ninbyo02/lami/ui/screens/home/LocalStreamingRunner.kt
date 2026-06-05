@@ -136,6 +136,7 @@ internal data class HeldEngineRunResult(
     val lastHeldEngineCreatePreferredBackendApplyBuilderClass: String? = null,
     val lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates: List<String> = emptyList(),
     val failureDiagnosticsText: String? = null,
+    val memorySnapshots: List<MemorySnapshot> = emptyList(),
 )
 
 internal data class RunCloseTargetOutcome(
@@ -187,9 +188,20 @@ internal suspend fun runWithHeldEngine(
     var measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null
     val officialChunkMetricsCollector = LocalOfficialChunkMetricsCollector()
     val runnerWhitespaceTraceEntries = mutableListOf<Pair<String, String?>>()
+    val memorySnapshots = mutableListOf<MemorySnapshot>()
     var failureDiagnosticsText: String? = null
     var generateStarted = false
     var firstTokenReceived = false
+
+    fun recordMemorySnapshot(stage: String) {
+        memorySnapshots += captureLocalMemorySnapshot(
+            context = mediaPipeProbeContext,
+            stage = stage,
+        )
+    }
+
+    recordMemorySnapshot(MEMORY_STAGE_BEFORE_GENERATE)
+    recordMemorySnapshot(MEMORY_STAGE_AFTER_PROMPT_BUILD)
 
     fun appendRouteStage(
         stage: String,
@@ -211,6 +223,7 @@ internal suspend fun runWithHeldEngine(
     fun appendGenerateStarted() {
         if (generateStarted) return
         generateStarted = true
+        recordMemorySnapshot(MEMORY_STAGE_BEFORE_ENGINE_CALL)
         appendRouteStage(
             stage = "generate_started",
             flags = LocalRouteDiagnosticFlags(
@@ -485,6 +498,8 @@ internal suspend fun runWithHeldEngine(
         )
         null
     } ?: return null.also {
+        recordMemorySnapshot(MEMORY_STAGE_GENERATION_FAILED)
+        recordMemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
         failureDiagnosticsText?.let { text ->
             safeAppendTrace(appendTrace, "UPSTREAM held-run failure-diagnostics\n$text")
             runCatching { onFailureDiagnostics?.invoke(text) }
@@ -523,6 +538,8 @@ internal suspend fun runWithHeldEngine(
         appendTrace,
         "UPSTREAM held-run final source=${if (officialFlowUsed) "held-official-flow" else "held-official-blocking"} closePath=${closeSummary.path}",
     )
+    recordMemorySnapshot(MEMORY_STAGE_GENERATION_FINISHED)
+    recordMemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
     return HeldEngineRunResult(
         responseText = response,
         startElapsedRealtimeMs = startElapsedRealtimeMs,
@@ -566,6 +583,7 @@ internal suspend fun runWithHeldEngine(
         lastHeldEngineCreatePreferredBackendApplyBuilderClass = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyBuilderClass,
         lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
         failureDiagnosticsText = failureDiagnosticsText,
+        memorySnapshots = memorySnapshots,
     )
 }
 internal data class LocalOfficialConversationApiProbeResult(

@@ -171,6 +171,20 @@ internal fun buildInferenceDetailSections(
         devDebugText?.takeIf { it.isNotBlank() }?.let {
             add(InferenceStatItemUi(label = "Failure / Debug", value = it))
         }
+        localTraceForDev
+            ?.memorySnapshots
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { snapshots ->
+                add(
+                    InferenceStatItemUi(
+                        label = "App/System memory diagnostics",
+                        value = formatMemoryDiagnosticsForDev(
+                            snapshots = snapshots,
+                            guardBlock = localTraceForDev.safetyGuardBlock,
+                        ),
+                    ),
+                )
+            }
         acceleratorProbeSnapshot?.let { probe ->
             add(InferenceStatItemUi(label = "アクセラレータ候補 Device", value = listOfNotNull(probe.deviceManufacturer, probe.deviceModel, probe.deviceBoard).joinToString(" / ").ifBlank { "unknown" }))
             add(InferenceStatItemUi(label = "Android SDK", value = probe.androidSdk.toString()))
