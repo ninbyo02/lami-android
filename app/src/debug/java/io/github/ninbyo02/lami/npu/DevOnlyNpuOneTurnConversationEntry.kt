@@ -95,7 +95,12 @@ object DevOnlyNpuOneTurnConversationContract {
         "日本語で最終回答だけを短く返答してください。「ユーザー:」「アシスタント:」や会話の続きを書かないでください。"
     const val JAPANESE_ASSISTANT_PREFIX_VARIANT_B = "はい、"
     const val RAW_DIALOG_TAIL_VARIANT_C_ROLE_INSTRUCTION = "あなたは日本語だけで短く答えるアシスタントです。"
-    const val RAW_DIALOG_TAIL_VARIANT_C_NO_ECHO_INSTRUCTION = "ユーザーの文を繰り返さず、答えだけを1文で書いてください。"
+    const val RAW_DIALOG_TAIL_VARIANT_C_FINAL_ONLY_INSTRUCTION =
+        "ユーザーの文を繰り返さず、回答だけを返してください。"
+    const val RAW_DIALOG_TAIL_VARIANT_C_NO_ROLE_LABEL_INSTRUCTION =
+        "ユーザーやアシスタントを示す役割ラベルと会話の続きを書かないでください。"
+    const val RAW_DIALOG_TAIL_VARIANT_C_LENGTH_INSTRUCTION =
+        "箇条書き要求以外は1〜2文で答えてください。"
 
     fun safety(
         promptTailVariant: String = DEFAULT_PROMPT_TAIL_VARIANT,
@@ -150,17 +155,23 @@ object DevOnlyNpuOneTurnConversationContract {
             RAW_DIALOG_TAIL_VARIANT_B -> listOf(RAW_DIALOG_TAIL_VARIANT_B_FINAL_ONLY_INSTRUCTION)
             RAW_DIALOG_TAIL_VARIANT_C -> listOf(
                 RAW_DIALOG_TAIL_VARIANT_C_ROLE_INSTRUCTION,
-                RAW_DIALOG_TAIL_VARIANT_C_NO_ECHO_INSTRUCTION,
+                RAW_DIALOG_TAIL_VARIANT_C_FINAL_ONLY_INSTRUCTION,
+                RAW_DIALOG_TAIL_VARIANT_C_NO_ROLE_LABEL_INSTRUCTION,
+                RAW_DIALOG_TAIL_VARIANT_C_LENGTH_INSTRUCTION,
             )
             else -> listOf(JAPANESE_ONLY_TAIL_INSTRUCTION)
         }
+        val userLine = when (sanitizedPromptTailVariant) {
+            RAW_DIALOG_TAIL_VARIANT_C -> "入力文: $normalizedUserPrompt"
+            else -> "ユーザー: $normalizedUserPrompt"
+        }
         val assistantLine = when (sanitizedPromptTailVariant) {
             RAW_DIALOG_TAIL_VARIANT_A -> "アシスタント:"
-            RAW_DIALOG_TAIL_VARIANT_C -> "アシスタント:"
+            RAW_DIALOG_TAIL_VARIANT_C -> "回答:"
             else -> "アシスタント: $JAPANESE_ASSISTANT_PREFIX_VARIANT_B"
         }
         return "$head${instructionLines.joinToString(separator = "\n")}\n" +
-            "ユーザー: $normalizedUserPrompt\n" +
+            "$userLine\n" +
             assistantLine
     }
 

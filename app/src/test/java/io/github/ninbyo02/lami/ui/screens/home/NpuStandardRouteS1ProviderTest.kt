@@ -166,7 +166,7 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `raw dialog tail variant B asks for final answer without role continuation`() {
+    fun `raw dialog tail variant B remains available for matrix comparison`() {
         val contractClass = Class.forName("io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract")
         val contract = contractClass.getField("INSTANCE").get(null)
         val variantB = contractClass.getField("RAW_DIALOG_TAIL_VARIANT_B").get(null) as String
@@ -183,6 +183,43 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(prompt.contains("「ユーザー:」「アシスタント:」"))
         assertTrue(prompt.contains("会話の続きを書かない"))
         assertTrue(prompt.endsWith("アシスタント: はい、"))
+    }
+
+    @Test
+    fun `standard route uses safe raw dialog tail variant C without user assistant labels`() {
+        val contractClass = Class.forName("io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract")
+        val contract = contractClass.getField("INSTANCE").get(null)
+        val variantC = contractClass.getField("RAW_DIALOG_TAIL_VARIANT_C").get(null) as String
+        assertEquals("raw_dialog_tail_variant_c", NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT)
+        listOf(
+            "こんにちは",
+            "あなたは誰ですか？",
+            "カレーの材料を箇条書きで教えて",
+        ).forEach { userPrompt ->
+            val prompt = contractClass
+                .getMethod(
+                    "buildRawDialogTailPrompt",
+                    String::class.java,
+                    String::class.java,
+                    String::class.java,
+                )
+                .invoke(contract, "", userPrompt, variantC) as String
+            val request = RealNpuStandardRouteS1Provider.request(
+                userPrompt = userPrompt,
+                maxOutputTokens = 32,
+            )
+
+            assertEquals("raw_dialog_tail_variant_c", request.promptTailVariant)
+            assertTrue(prompt.contains("あなたは日本語だけで短く答えるアシスタントです。"))
+            assertTrue(prompt.contains("ユーザーの文を繰り返さず、回答だけを返してください。"))
+            assertTrue(prompt.contains("役割ラベルと会話の続きを書かない"))
+            assertTrue(prompt.contains("箇条書き要求以外は1〜2文"))
+            assertTrue(prompt.contains("入力文: $userPrompt"))
+            assertTrue(prompt.endsWith("回答:"))
+            assertFalse(prompt.contains("\nユーザー: $userPrompt"))
+            assertFalse(prompt.endsWith("アシスタント:"))
+            assertFalse(prompt.endsWith("アシスタント: はい、"))
+        }
     }
 
     @Test

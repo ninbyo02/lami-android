@@ -352,7 +352,7 @@ object DevOnlyNpuPromptTemplateMatrix {
             "template_failure_threshold=$TEMPLATE_FAILURE_THRESHOLD",
             "matrix_timeout_ms=$DEFAULT_MATRIX_TIMEOUT_MS",
             "prompt_and_output_policy=hash_length_code_points_preview_only",
-            "standard_route_template_unchanged=raw_dialog_tail_variant_b",
+            "standard_route_template=raw_dialog_tail_variant_c",
             "evaluation_metrics=natural_japanese,mixed_language,question_echo,empty_after_sanitize",
         )
     }
