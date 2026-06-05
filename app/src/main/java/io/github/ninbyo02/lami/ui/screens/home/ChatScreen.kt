@@ -976,6 +976,9 @@ fun Home(
     var preferredBackendManualRecreateInProgress by remember { mutableStateOf(false) }
     var preferredBackendManualRecreateResult by remember { mutableStateOf("none") }
     var preferredBackendManualRecreateReason by remember { mutableStateOf("user-requested") }
+    var memoryRecoveryCheckState by remember(effectiveChatId) { mutableStateOf(MemoryRecoveryCheckState()) }
+    var memoryRecoveryCheckJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var memoryRecoveryCheckRunId by remember(effectiveChatId) { mutableStateOf(0L) }
     var devUiAliveSeconds by remember(effectiveChatId) { mutableStateOf(0) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
@@ -983,6 +986,84 @@ fun Home(
     var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val localStreamingUiMetricsForDev = remember(effectiveChatId) { LocalStreamingUiMetrics() }
     val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
+
+    DisposableEffect(effectiveChatId) {
+        onDispose {
+            memoryRecoveryCheckJob?.cancel()
+            memoryRecoveryCheckJob = null
+        }
+    }
+
+    fun startMemoryRecoveryCheck() {
+        if (isInferenceRunningUi) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "生成完了後に実行してください",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        val nextRunId = memoryRecoveryCheckRunId + 1L
+        memoryRecoveryCheckRunId = nextRunId
+        if (resolveMemoryRecoveryCheckStartPolicy(memoryRecoveryCheckJob?.isActive == true) ==
+            MemoryRecoveryCheckStartPolicy.CANCEL_PREVIOUS_AND_START
+        ) {
+            memoryRecoveryCheckJob?.cancel()
+        }
+        val startedAtMs = System.currentTimeMillis()
+        memoryRecoveryCheckState = MemoryRecoveryCheckState(
+            status = MEMORY_RECOVERY_STATUS_RUNNING,
+            startedAtMs = startedAtMs,
+        )
+        memoryRecoveryCheckJob = coroutineScope.launch {
+            val snapshots = mutableListOf<MemorySnapshot>()
+            suspend fun record(stage: String) {
+                val snapshot = withContext(Dispatchers.Default) {
+                    captureLocalMemorySnapshot(
+                        context = context.applicationContext,
+                        stage = stage,
+                    )
+                }
+                if (memoryRecoveryCheckRunId != nextRunId) return
+                snapshots += snapshot
+                memoryRecoveryCheckState = MemoryRecoveryCheckState(
+                    status = MEMORY_RECOVERY_STATUS_RUNNING,
+                    startedAtMs = startedAtMs,
+                    snapshots = snapshots.toList(),
+                )
+            }
+
+            try {
+                record(MEMORY_STAGE_MEMORY_RECOVERY_CURRENT)
+                delay(1_000L)
+                record(MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_1S)
+                delay(2_000L)
+                record(MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_3S)
+                delay(2_000L)
+                record(MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_5S)
+                if (memoryRecoveryCheckRunId == nextRunId) {
+                    memoryRecoveryCheckState = MemoryRecoveryCheckState(
+                        status = MEMORY_RECOVERY_STATUS_COMPLETED,
+                        startedAtMs = startedAtMs,
+                        snapshots = snapshots.toList(),
+                    )
+                }
+            } catch (exception: CancellationException) {
+                if (memoryRecoveryCheckRunId == nextRunId) {
+                    memoryRecoveryCheckState = memoryRecoveryCheckState.copy(
+                        status = MEMORY_RECOVERY_STATUS_CANCELLED,
+                    )
+                }
+                throw exception
+            } finally {
+                if (memoryRecoveryCheckRunId == nextRunId) {
+                    memoryRecoveryCheckJob = null
+                }
+            }
+        }
+    }
 
     LaunchedEffect(isLocalInferenceRunning, streamingResponseText) {
         if (!BuildConfig.DEBUG || !isLocalInferenceRunning) return@LaunchedEffect
@@ -5141,6 +5222,10 @@ fun Home(
                                                     ),
                                                 )
                                             },
+                                            memoryRecoveryCheckState = memoryRecoveryCheckState,
+                                            memoryRecoveryCheckInProgress = memoryRecoveryCheckJob?.isActive == true,
+                                            isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
+                                            onMemoryRecoveryCheck = ::startMemoryRecoveryCheck,
                                             s4Text = s4Text,
                                             s4Title = if (npuStandardRouteS4PseudoStreamingActive) {
                                                 "NPU STANDARD ROUTE S4-A PSEUDO STREAMING"
@@ -5187,6 +5272,10 @@ fun Home(
                                                     )
                                                 }
                                             },
+                                            memoryRecoveryCheckState = memoryRecoveryCheckState,
+                                            memoryRecoveryCheckInProgress = memoryRecoveryCheckJob?.isActive == true,
+                                            isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
+                                            onMemoryRecoveryCheck = ::startMemoryRecoveryCheck,
                                         )
                                     }
                                 }
@@ -5396,6 +5485,10 @@ fun Home(
                     manualEngineRecreateResult = preferredBackendManualRecreateResult,
                     manualEngineRecreateReason = preferredBackendManualRecreateReason,
                     manualEngineRecreateEnabled = !isInferenceRunningUi && !isTtsSpeaking && !isStreamingSentencePlaybackActive && !preferredBackendManualRecreateInProgress,
+                    memoryRecoveryCheckState = memoryRecoveryCheckState,
+                    memoryRecoveryCheckInProgress = memoryRecoveryCheckJob?.isActive == true,
+                    isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
+                    onMemoryRecoveryCheck = ::startMemoryRecoveryCheck,
                     onManualEngineRecreate = {
                         val blocked = isInferenceRunningUi || isTtsSpeaking || isStreamingSentencePlaybackActive || preferredBackendManualRecreateInProgress
                         if (blocked) {
@@ -8269,6 +8362,36 @@ internal fun createAssistantMessage(
 }
 
 @Composable
+private fun MemoryRecoveryCheckDevSection(
+    state: MemoryRecoveryCheckState,
+    buttonEnabled: Boolean,
+    blockedByGeneration: Boolean,
+    onStart: () -> Unit,
+) {
+    InferenceStatsSection(title = "App/System memory recovery check") {
+        Button(
+            onClick = onStart,
+            enabled = buttonEnabled,
+        ) {
+            Text("メモリ回復確認")
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "生成完了後に実行してください"
+            } else {
+                "この確認はアプリ内API由来の近似値です。adb shell dumpsys meminfo と完全一致しない場合があります。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        InferenceStatRow(
+            label = "App/System memory recovery check",
+            value = formatMemoryRecoveryCheckForDev(state),
+        )
+    }
+}
+
+@Composable
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
     initialDisplayMode: InferenceStatsDisplayMode,
@@ -8287,6 +8410,10 @@ private fun InferenceStatsSheetContent(
     manualEngineRecreateResult: String = "none",
     manualEngineRecreateReason: String = "user-requested",
     onManualEngineRecreate: () -> Unit = {},
+    memoryRecoveryCheckState: MemoryRecoveryCheckState = MemoryRecoveryCheckState(),
+    memoryRecoveryCheckInProgress: Boolean = false,
+    isInferenceRunningForMemoryRecovery: Boolean = false,
+    onMemoryRecoveryCheck: () -> Unit = {},
 ) {
     var selectedDisplayMode by rememberSaveable { mutableStateOf(initialDisplayMode) }
     LaunchedEffect(initialDisplayMode) {
@@ -8427,6 +8554,15 @@ private fun InferenceStatsSheetContent(
                 }
             }
             if (selectedDisplayMode == InferenceStatsDisplayMode.DEVELOPER) {
+                MemoryRecoveryCheckDevSection(
+                    state = memoryRecoveryCheckState,
+                    buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
+                        isInferenceRunning = isInferenceRunningForMemoryRecovery,
+                        isRecoveryCheckRunning = memoryRecoveryCheckInProgress,
+                    ),
+                    blockedByGeneration = isInferenceRunningForMemoryRecovery,
+                    onStart = onMemoryRecoveryCheck,
+                )
                 InferenceStatsSection(title = "DEV Markdown") {
                     InferenceStatRow(
                         label = "Markdown mode",
@@ -8587,6 +8723,10 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     s4Text: String? = null,
     s4Title: String? = null,
     onCopyS4: (() -> Unit)? = null,
+    memoryRecoveryCheckState: MemoryRecoveryCheckState = MemoryRecoveryCheckState(),
+    memoryRecoveryCheckInProgress: Boolean = false,
+    isInferenceRunningForMemoryRecovery: Boolean = false,
+    onMemoryRecoveryCheck: (() -> Unit)? = null,
 ) {
     if (!hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)) return
 
@@ -8603,6 +8743,17 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
             )
         }
         if (shouldShowNpuStandardRouteDevDiagnosticsContent(expanded)) {
+            if (onMemoryRecoveryCheck != null) {
+                MemoryRecoveryCheckDevSection(
+                    state = memoryRecoveryCheckState,
+                    buttonEnabled = isMemoryRecoveryCheckButtonEnabled(
+                        isInferenceRunning = isInferenceRunningForMemoryRecovery,
+                        isRecoveryCheckRunning = memoryRecoveryCheckInProgress,
+                    ),
+                    blockedByGeneration = isInferenceRunningForMemoryRecovery,
+                    onStart = onMemoryRecoveryCheck,
+                )
+            }
             if (!routeText.isNullOrBlank() && onCopyRoute != null) {
                 CopyableDebugBlock(
                     text = routeText,

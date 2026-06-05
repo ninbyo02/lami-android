@@ -48,6 +48,17 @@ internal data class MemorySnapshotDelta(
     val availableSystemMemoryDeltaMb: Long?,
 )
 
+internal data class MemoryRecoveryCheckState(
+    val status: String = MEMORY_RECOVERY_STATUS_IDLE,
+    val startedAtMs: Long? = null,
+    val snapshots: List<MemorySnapshot> = emptyList(),
+)
+
+internal enum class MemoryRecoveryCheckStartPolicy {
+    START_NEW,
+    CANCEL_PREVIOUS_AND_START,
+}
+
 internal fun bytesToWholeMbForMemoryDiagnostics(bytes: Long?): Long? =
     bytes?.takeIf { it >= 0L }?.div(BYTES_PER_MB)
 
@@ -182,9 +193,21 @@ internal fun formatMemoryDiagnosticsForDev(
 internal fun buildMemorySnapshotDeltas(
     snapshots: List<MemorySnapshot>,
 ): List<MemorySnapshotDelta> {
+    return buildMemorySnapshotDeltasFrom(
+        snapshots = snapshots,
+        baseStage = MEMORY_STAGE_BEFORE_GENERATE,
+        targetStages = MEMORY_DELTA_TARGET_STAGES,
+    )
+}
+
+internal fun buildMemorySnapshotDeltasFrom(
+    snapshots: List<MemorySnapshot>,
+    baseStage: String,
+    targetStages: List<String>,
+): List<MemorySnapshotDelta> {
     val byStage = snapshots.associateBy { it.stage }
-    val before = byStage[MEMORY_STAGE_BEFORE_GENERATE] ?: return emptyList()
-    return MEMORY_DELTA_TARGET_STAGES.mapNotNull { targetStage ->
+    val before = byStage[baseStage] ?: return emptyList()
+    return targetStages.mapNotNull { targetStage ->
         val target = byStage[targetStage] ?: return@mapNotNull null
         MemorySnapshotDelta(
             fromStage = before.stage,
@@ -199,6 +222,86 @@ internal fun buildMemorySnapshotDeltas(
         )
     }
 }
+
+internal fun formatMemoryRecoveryCheckForDev(
+    state: MemoryRecoveryCheckState,
+): String {
+    if (state.status == MEMORY_RECOVERY_STATUS_IDLE && state.snapshots.isEmpty()) {
+        return buildMemoryRecoveryCheckHeader(state)
+    }
+    val distinctSnapshots = state.snapshots
+        .filter { it.stage.isNotBlank() }
+        .distinctBy { it.stage }
+    return buildString {
+        appendLine(buildMemoryRecoveryCheckHeader(state))
+        appendLine("measurement_note=api_derived_approximate_may_not_match_adb_dumpsys_meminfo")
+        appendLine("adb_compare_hint=compare_with_adb_shell_dumpsys_meminfo_package")
+        appendLine("ui_note=この確認はアプリ内API由来の近似値です。adb shell dumpsys meminfo と完全一致しない場合があります。")
+        distinctSnapshots.forEach { snapshot ->
+            appendLine("memory_stage=${snapshot.stage}")
+            appendLine("timestamp_ms=${snapshot.timestampMs}")
+            appendLine("total_pss_mb=${formatMb(snapshot.totalPssMb)}")
+            appendLine("native_heap_pss_mb=${formatMb(snapshot.nativeHeapPssMb)}")
+            appendLine("native_heap_alloc_mb=${formatMb(snapshot.nativeHeapAllocatedMb)}")
+            appendLine("dalvik_heap_pss_mb=${formatMb(snapshot.dalvikHeapPssMb)}")
+            appendLine("system_available_memory_mb=${formatMb(snapshot.availableSystemMemoryMb)}")
+            appendLine("low_memory=${snapshot.lowMemory?.toString() ?: "unavailable"}")
+        }
+        val deltas = buildMemorySnapshotDeltasFrom(
+            snapshots = distinctSnapshots,
+            baseStage = MEMORY_STAGE_MEMORY_RECOVERY_CURRENT,
+            targetStages = MEMORY_RECOVERY_DELTA_TARGET_STAGES,
+        )
+        if (deltas.isNotEmpty()) {
+            appendLine("[DEV診断: App/System memory recovery delta]")
+            deltas.forEach { delta ->
+                appendLine("delta_from_stage=${delta.fromStage}")
+                appendLine("delta_to_stage=${delta.toStage}")
+                appendLine("total_pss_delta_mb=${formatSignedMb(delta.totalPssDeltaMb)}")
+                appendLine("native_heap_pss_delta_mb=${formatSignedMb(delta.nativeHeapPssDeltaMb)}")
+                appendLine("native_heap_alloc_delta_mb=${formatSignedMb(delta.nativeHeapAllocatedDeltaMb)}")
+                appendLine("dalvik_heap_pss_delta_mb=${formatSignedMb(delta.dalvikHeapPssDeltaMb)}")
+                appendLine("system_available_memory_delta_mb=${formatSignedMb(delta.availableSystemMemoryDeltaMb)}")
+            }
+        }
+    }.trimEnd()
+}
+
+internal fun buildMemoryRecoveryCheckHeader(
+    state: MemoryRecoveryCheckState,
+): String = buildString {
+    appendLine("[DEV診断: App/System memory recovery check]")
+    appendLine("recovery_check_status=${normalizeMemoryRecoveryCheckStatus(state.status)}")
+    append("recovery_check_started_at_ms=${state.startedAtMs?.toString() ?: "unavailable"}")
+}
+
+internal fun normalizeMemoryRecoveryCheckStatus(status: String): String =
+    if (status in MEMORY_RECOVERY_STATUSES) status else MEMORY_RECOVERY_STATUS_IDLE
+
+internal fun resolveMemoryRecoveryCheckStartPolicy(
+    existingJobActive: Boolean,
+): MemoryRecoveryCheckStartPolicy =
+    if (existingJobActive) {
+        MemoryRecoveryCheckStartPolicy.CANCEL_PREVIOUS_AND_START
+    } else {
+        MemoryRecoveryCheckStartPolicy.START_NEW
+    }
+
+internal fun memoryRecoveryCheckDelayScheduleMs(): List<Long> = listOf(
+    0L,
+    1_000L,
+    3_000L,
+    5_000L,
+)
+
+internal fun shouldShowMemoryRecoveryCheckButton(
+    displayMode: String,
+): Boolean = displayMode == "DEVELOPER"
+
+internal fun isMemoryRecoveryCheckButtonEnabled(
+    isInferenceRunning: Boolean,
+    isRecoveryCheckRunning: Boolean,
+): Boolean = !isInferenceRunning && !isRecoveryCheckRunning
 
 internal fun appendMemoryDiagnosticsForDev(
     text: String,
@@ -252,6 +355,14 @@ internal const val MEMORY_STAGE_GENERATION_FAILED = "generation_failed"
 internal const val MEMORY_STAGE_AFTER_CANCEL = "after_cancel"
 internal const val MEMORY_STAGE_AFTER_ENGINE_RECYCLE = "after_engine_recycle"
 internal const val MEMORY_STAGE_AFTER_RUNNER_DISPOSE = "after_runner_dispose"
+internal const val MEMORY_STAGE_MEMORY_RECOVERY_CURRENT = "memory_recovery_current"
+internal const val MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_1S = "memory_recovery_delayed_1s"
+internal const val MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_3S = "memory_recovery_delayed_3s"
+internal const val MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_5S = "memory_recovery_delayed_5s"
+internal const val MEMORY_RECOVERY_STATUS_IDLE = "idle"
+internal const val MEMORY_RECOVERY_STATUS_RUNNING = "running"
+internal const val MEMORY_RECOVERY_STATUS_COMPLETED = "completed"
+internal const val MEMORY_RECOVERY_STATUS_CANCELLED = "cancelled"
 
 private val MEMORY_DELTA_TARGET_STAGES = listOf(
     MEMORY_STAGE_SAFETY_GUARD_TRIGGERED,
@@ -260,6 +371,26 @@ private val MEMORY_DELTA_TARGET_STAGES = listOf(
     MEMORY_STAGE_GENERATION_FINISHED,
     MEMORY_STAGE_GENERATION_FAILED,
     MEMORY_STAGE_AFTER_CANCEL,
+)
+
+internal val MEMORY_RECOVERY_CHECK_STAGES = listOf(
+    MEMORY_STAGE_MEMORY_RECOVERY_CURRENT,
+    MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_1S,
+    MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_3S,
+    MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_5S,
+)
+
+private val MEMORY_RECOVERY_DELTA_TARGET_STAGES = listOf(
+    MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_1S,
+    MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_3S,
+    MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_5S,
+)
+
+private val MEMORY_RECOVERY_STATUSES = setOf(
+    MEMORY_RECOVERY_STATUS_IDLE,
+    MEMORY_RECOVERY_STATUS_RUNNING,
+    MEMORY_RECOVERY_STATUS_COMPLETED,
+    MEMORY_RECOVERY_STATUS_CANCELLED,
 )
 
 private const val BYTES_PER_MB = 1024L * 1024L

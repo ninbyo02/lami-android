@@ -45,6 +45,21 @@ adb_compare_hint=compare_with_adb_shell_dumpsys_meminfo_package
 
 For each later stage, the diagnostics also show deltas from `before_generate` for total PSS, total RSS, Swap PSS, native heap alloc, native heap PSS, Dalvik heap PSS, and system available memory. Unavailable API values are displayed as `unavailable`.
 
+## App/System memory recovery check
+
+The DEV diagnostics include a manual `メモリ回復確認` button. It is shown only in DEV diagnostics and does not run during normal generation. Pressing the button starts an asynchronous App/System memory recovery check that captures snapshots at:
+
+- `memory_recovery_current` immediately after the button press
+- `memory_recovery_delayed_1s`
+- `memory_recovery_delayed_3s`
+- `memory_recovery_delayed_5s`
+
+The 0 / 1 / 3 / 5 second sequence is intended to distinguish an immediate leak-like increase from delayed accounting or asynchronous release in LiteRT / QNN / Android memory accounting. `generation_finished` or `after_runner_dispose` can be too early to treat as the final post-release value.
+
+Starting a new recovery check cancels the previous recovery-check job. If generation is running, the button is disabled or the UI asks the user to run it after generation completes. The normal generation, TTS, DB save, and UI response paths are not delayed by this check.
+
+The recovery check reports deltas from `memory_recovery_current` for total PSS, native heap PSS, native heap alloc, Dalvik heap PSS, and available system memory. These are still app API-derived approximate values and may not match `adb shell dumpsys meminfo io.github.ninbyo02.lami` exactly.
+
 ## What is not collected
 
 The standard Android APIs do not reliably separate QNN / NPU dedicated memory from the app process and system memory totals. These diagnostics must not be interpreted as direct accelerator-dedicated memory readings.
@@ -130,6 +145,15 @@ For NPU Standard Route S1:
 4. Save `after_engine_recycle` or `after_runner_dispose` DEV diagnostics when present.
 5. Save `adb shell dumpsys meminfo io.github.ninbyo02.lami` again.
 6. Compare total PSS, RSS, Swap PSS, Native Heap, Dalvik Heap, and system available memory deltas.
+
+For the manual memory recovery check:
+
+1. Run NPU Standard Route S1.
+2. Confirm `generation_finished` and `after_runner_dispose` in DEV diagnostics.
+3. Press `メモリ回復確認` in DEV diagnostics.
+4. Compare `memory_recovery_current`, `memory_recovery_delayed_1s`, `memory_recovery_delayed_3s`, and `memory_recovery_delayed_5s`.
+5. Check whether `native_heap_pss_mb`, `total_pss_mb`, and `system_available_memory_mb` recover over time.
+6. Compare with `adb shell dumpsys meminfo io.github.ninbyo02.lami` when external confirmation is needed.
 
 ## Future candidates
 
