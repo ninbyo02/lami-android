@@ -28,14 +28,18 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(variantA.contains("必ず日本語だけで短く返答してください。"))
         assertTrue(variantA.contains("ユーザー: こんにちは。"))
         assertTrue(variantA.endsWith("アシスタント:"))
-        assertTrue(variantB.contains("必ず日本語だけで短く返答してください。"))
+        assertTrue(variantB.contains("最終回答だけ"))
         assertTrue(variantB.contains("ユーザー: こんにちは。"))
         assertTrue(variantB.endsWith("アシスタント: はい、"))
-        assertTrue(variantB.contains("\n\n必ず日本語だけで短く返答してください。\nユーザー:"))
+        assertTrue(variantB.contains("\n\n日本語で最終回答だけを短く返答してください。"))
         assertTrue(variantC.contains("あなたは日本語だけで短く答えるアシスタントです。"))
-        assertTrue(variantC.contains("ユーザーの文を繰り返さず、答えだけを1文で書いてください。"))
-        assertTrue(variantC.contains("ユーザー: 明日の天気は"))
-        assertTrue(variantC.endsWith("アシスタント:"))
+        assertTrue(variantC.contains("ユーザーの文を繰り返さず、回答だけを返してください。"))
+        assertTrue(variantC.contains("役割ラベルと会話の続きを書かない"))
+        assertTrue(variantC.contains("箇条書き要求以外は1〜2文"))
+        assertTrue(variantC.contains("入力文: 明日の天気は"))
+        assertTrue(variantC.endsWith("回答:"))
+        assertFalse(variantC.contains("\nユーザー: 明日の天気は"))
+        assertFalse(variantC.endsWith("アシスタント:"))
         assertFalse(variantC.endsWith("アシスタント: はい、"))
     }
 
@@ -728,13 +732,13 @@ class DevOnlyNpuOneTurnConversationEntryTest {
     }
 
     @Test
-    fun `prompt template matrix raw case keeps standard route template unchanged`() {
+    fun `prompt template matrix raw case keeps variant B available for comparison`() {
         val rawCase = DevOnlyNpuPromptTemplateMatrix.cases().first {
             it.template.name == DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B &&
                 it.inputPrompt == "こんにちは"
         }
 
-        assertTrue(rawCase.requestPrompt.contains("必ず日本語だけで短く返答してください。"))
+        assertTrue(rawCase.requestPrompt.contains("最終回答だけ"))
         assertTrue(rawCase.requestPrompt.contains("ユーザー: こんにちは"))
         assertTrue(rawCase.requestPrompt.endsWith("アシスタント: はい、"))
     }
@@ -819,7 +823,7 @@ class DevOnlyNpuOneTurnConversationEntryTest {
         assertTrue(text.contains("template_name=simple_ja_chat"))
         assertTrue(text.contains("reason=invalid_prompt:too_long"))
         assertTrue(text.contains("template_name=gemma_it_like"))
-        assertTrue(text.contains("standard_route_template_unchanged=raw_dialog_tail_variant_b"))
+        assertTrue(text.contains("standard_route_template=raw_dialog_tail_variant_c"))
         assertTrue(text.contains("prompt_and_output_policy=hash_length_code_points_preview_only"))
         assertTrue(text.contains("template_failure_threshold=2"))
         assertTrue(text.contains("matrix_timeout_ms=600000"))

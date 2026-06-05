@@ -72,7 +72,7 @@ internal class RealNpuStandardRouteS1Provider(
                 contextText = "",
                 unsafeDevBypassPromptLengthGate = true,
                 maxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens),
-                promptTailVariant = DevOnlyNpuOneTurnConversationContract.RAW_DIALOG_TAIL_VARIANT_B,
+                promptTailVariant = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,
                 timeoutMs = DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS,
             )
 
