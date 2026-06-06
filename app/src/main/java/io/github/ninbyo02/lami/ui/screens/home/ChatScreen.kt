@@ -672,6 +672,28 @@ fun Home(
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    LaunchedEffect(context.applicationContext) {
+        if (!BuildConfig.DEBUG) return@LaunchedEffect
+        runCatching {
+            android.util.Log.i(
+                NPU_S1_LOGCAT_TAG,
+                listOf(
+                    "event=dev_logcat_probe_started",
+                    "source=ChatScreen",
+                    "debug=${BuildConfig.DEBUG}",
+                    "build_debug=${BuildConfig.DEBUG}",
+                    "build_type=${BuildConfig.BUILD_TYPE}",
+                    "current_flavor=${BuildConfig.CURRENT_FLAVOR}",
+                    "application_id=${BuildConfig.APPLICATION_ID}",
+                    "package_name=${context.packageName}",
+                    "version_name=${BuildConfig.VERSION_NAME}",
+                    "version_code=${BuildConfig.VERSION_CODE}",
+                    "pid=${runCatching { android.os.Process.myPid().toString() }.getOrDefault("unavailable")}",
+                    "thread_name=${Thread.currentThread().name.ifBlank { "unavailable" }}",
+                ).joinToString(" "),
+            )
+        }
+    }
     val mediaPipeProbeContext = context.applicationContext ?: context
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
@@ -1072,6 +1094,23 @@ fun Home(
     }
 
     fun startNpuS1RepeatedRun() {
+        if (BuildConfig.DEBUG) {
+            runCatching {
+                android.util.Log.i(
+                    NPU_S1_LOGCAT_TAG,
+                    listOf(
+                        "event=repeated_run_button_clicked_or_start_invoked",
+                        "source=ChatScreen",
+                        "selected_repeated_run_mode=${npuS1RepeatedRunMode.wireValue}",
+                        "prompt_length=${NPU_S1_REPEATED_RUN_DEFAULT_PROMPT.length}",
+                        "max_output_tokens=${NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS}",
+                        "build_debug=${BuildConfig.DEBUG}",
+                        "pid=${runCatching { android.os.Process.myPid().toString() }.getOrDefault("unavailable")}",
+                        "thread_name=${Thread.currentThread().name.ifBlank { "unavailable" }}",
+                    ).joinToString(" "),
+                )
+            }
+        }
         if (isInferenceRunningUi) {
             coroutineScope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
@@ -1098,6 +1137,12 @@ fun Home(
             repeatedRunMode = runMode,
         )
         npuS1RepeatedRunJob = coroutineScope.launch {
+            logNpuS1RepeatedRunnerEnteredDirectProbe(
+                mode = runMode,
+                requestedRunCount = requestedRunCount,
+                promptLength = promptForRun.length,
+                maxOutputTokens = maxTokensForRun,
+            )
             val records = mutableListOf<NpuS1RepeatedRunRecord>()
             try {
                 for (runIndex in 1..requestedRunCount) {

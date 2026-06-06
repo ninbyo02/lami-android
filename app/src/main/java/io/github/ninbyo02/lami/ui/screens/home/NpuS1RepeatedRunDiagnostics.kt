@@ -4,6 +4,7 @@ import android.os.Process
 import android.util.Log
 import io.github.ninbyo02.lami.BuildConfig
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 internal const val NPU_S1_LOGCAT_TAG = "LamiNpuS1"
@@ -188,19 +189,24 @@ internal data class NpuS1LogcatContext(
 
 internal object NpuS1LogcatDiagnostics {
     private val currentContext = AtomicReference<NpuS1LogcatContext?>(null)
+    private val helperAllowedLogged = AtomicBoolean(false)
+    private val helperNoOpWarned = AtomicBoolean(false)
 
     fun setContext(context: NpuS1LogcatContext) {
-        if (!enabled) return
+        logHelperCalledOnce("set_context")
+        if (!helperEnabledOrWarn("set_context")) return
         currentContext.set(context)
     }
 
     fun clearContext(context: NpuS1LogcatContext) {
-        if (!enabled) return
+        logHelperCalledOnce("clear_context")
+        if (!helperEnabledOrWarn("clear_context")) return
         currentContext.compareAndSet(context, null)
     }
 
     fun clearCurrentContext() {
-        if (!enabled) return
+        logHelperCalledOnce("clear_current_context")
+        if (!helperEnabledOrWarn("clear_current_context")) return
         currentContext.set(null)
     }
 
@@ -212,7 +218,8 @@ internal object NpuS1LogcatDiagnostics {
         requestedMaxOutputTokens: Int,
         effectiveMaxOutputTokens: Int,
     ) {
-        if (!enabled) return
+        logHelperCalledOnce("repeated_run_start")
+        if (!helperEnabledOrWarn("repeated_run_start")) return
         runCatching {
             Log.i(
                 NPU_S1_LOGCAT_TAG,
@@ -229,7 +236,8 @@ internal object NpuS1LogcatDiagnostics {
     }
 
     fun logRunFinished(record: NpuS1RepeatedRunRecord) {
-        if (!enabled) return
+        logHelperCalledOnce("run_finished")
+        if (!helperEnabledOrWarn("run_finished")) return
         runCatching {
             Log.i(
                 NPU_S1_LOGCAT_TAG,
@@ -269,7 +277,8 @@ internal object NpuS1LogcatDiagnostics {
         promptLength: Int? = null,
         effectiveMaxOutputTokens: Int? = null,
     ) {
-        if (!enabled) return
+        logHelperCalledOnce("adapter_failure")
+        if (!helperEnabledOrWarn("adapter_failure")) return
         val context = currentContext.get()
         runCatching {
             Log.e(
@@ -295,7 +304,8 @@ internal object NpuS1LogcatDiagnostics {
     }
 
     fun logStopped(state: NpuS1RepeatedRunState) {
-        if (!enabled) return
+        logHelperCalledOnce("repeated_run_stopped")
+        if (!helperEnabledOrWarn("repeated_run_stopped")) return
         val summary = buildNpuS1RepeatedRunSummary(state)
         runCatching {
             Log.w(
@@ -325,6 +335,42 @@ internal object NpuS1LogcatDiagnostics {
     private val enabled: Boolean
         get() = BuildConfig.DEBUG
 
+    private fun helperEnabledOrWarn(helperEvent: String): Boolean {
+        if (enabled) return true
+        if (BuildConfig.BUILD_TYPE != "release" && helperNoOpWarned.compareAndSet(false, true)) {
+            runCatching {
+                android.util.Log.w(
+                    NPU_S1_LOGCAT_TAG,
+                    listOf(
+                        "event=helper_noop",
+                        "helper_event=$helperEvent",
+                        "helper_allowed_by_debug_flag=${BuildConfig.DEBUG}",
+                        "reason=build_config_debug_false",
+                        "build_type=${BuildConfig.BUILD_TYPE}",
+                        commonFields(mode = currentContext.get()?.repeatedRunMode, runIndex = currentContext.get()?.runIndex),
+                    ).joinToString(" "),
+                )
+            }
+        }
+        return false
+    }
+
+    private fun logHelperCalledOnce(helperEvent: String) {
+        if (!BuildConfig.DEBUG) return
+        if (!helperAllowedLogged.compareAndSet(false, true)) return
+        runCatching {
+            Log.i(
+                NPU_S1_LOGCAT_TAG,
+                listOf(
+                    "event=helper_called",
+                    "helper_event=$helperEvent",
+                    "helper_allowed_by_debug_flag=${BuildConfig.DEBUG}",
+                    commonFields(mode = currentContext.get()?.repeatedRunMode, runIndex = currentContext.get()?.runIndex),
+                ).joinToString(" "),
+            )
+        }
+    }
+
     private fun commonFields(
         mode: NpuS1RepeatedRunMode?,
         runIndex: Int?,
@@ -335,6 +381,31 @@ internal object NpuS1LogcatDiagnostics {
         "repeated_run_mode=${mode?.wireValue ?: "unavailable"}",
         "run_index=${runIndex?.toString() ?: "unavailable"}",
     ).joinToString(" ")
+}
+
+internal fun logNpuS1RepeatedRunnerEnteredDirectProbe(
+    mode: NpuS1RepeatedRunMode,
+    requestedRunCount: Int,
+    promptLength: Int,
+    maxOutputTokens: Int,
+) {
+    if (!BuildConfig.DEBUG) return
+    runCatching {
+        android.util.Log.i(
+            NPU_S1_LOGCAT_TAG,
+            listOf(
+                "event=repeated_runner_entered",
+                "source=NpuS1RepeatedRunDiagnostics",
+                "mode=${mode.wireValue}",
+                "run_count_requested=$requestedRunCount",
+                "prompt_length=$promptLength",
+                "max_output_tokens=$maxOutputTokens",
+                "build_debug=${BuildConfig.DEBUG}",
+                "pid=${runCatching { Process.myPid().toString() }.getOrDefault("unavailable")}",
+                "thread_name=${Thread.currentThread().name.ifBlank { "unavailable" }}",
+            ).joinToString(" "),
+        )
+    }
 }
 
 internal fun buildNpuS1ShortOutputTelemetry(

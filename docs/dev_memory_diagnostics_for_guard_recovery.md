@@ -233,15 +233,20 @@ For the NPU S1 repeated run diagnostic:
 6. Compare `all_outputs_same`, `most_common_output`, output token fields, timing min/max/average, and five-second memory recovery values.
 7. Run `adb shell dumpsys meminfo io.github.ninbyo02.lami` near the same window when external comparison is needed.
 
-For Android Studio Logcat confirmation:
+For Android Studio Logcat confirmation and startup probe triage:
 
 1. Open Android Studio Logcat.
 2. Select the target device, for example `nubia NX733J`.
-3. Set the query to `tag:LamiNpuS1`.
-4. In Lami DEV diagnostics, run `NPU S1 20回連続テスト` with the target repeated-run mode such as `reuse`.
-5. Confirm `event=repeated_run_start` for each run and `event=run_finished` after each run.
-6. If the runner stops around run 7, inspect `event=adapter_failure` / `LiteRtLmJniException` `Log.e` output and its stack trace.
-7. Confirm `event=repeated_run_stopped` includes the stop reason, success/fallback/timeout/crash/safety counts, and five-second memory trend fields.
+3. Set the query to `LamiNpuS1`.
+4. Launch Lami and confirm `event=dev_logcat_probe_started`.
+5. Open DEV diagnostics and start `NPU S1 20回連続テスト` with `reuse`.
+6. Confirm how far the sequence reaches: `event=repeated_run_button_clicked_or_start_invoked`, `event=repeated_runner_entered`, `event=helper_called`, `event=repeated_run_start`, and then `event=adapter_failure` if the adapter fails.
+7. If `event=dev_logcat_probe_started` is missing, check build variant, `BuildConfig.DEBUG`, Logcat capture, and install target.
+8. If startup appears but button/start is missing, check the UI operation path.
+9. If button/start appears but runner-entered is missing, check the ChatScreen to repeated-run connection.
+10. If runner-entered appears but repeated-run-start is missing, check runner internal early return or branching.
+11. If `event=adapter_failure` appears, inspect its throwable and stack trace for LiteRT / QNN / JNI investigation.
+12. Confirm `event=repeated_run_stopped` includes the stop reason, success/fallback/timeout/crash/safety counts, and five-second memory trend fields when the runner stops.
 
 ## Future candidates
 
