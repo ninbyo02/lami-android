@@ -166,6 +166,7 @@ class LocalMemoryDiagnosticsTest {
 
         assertTrue(text.contains("[DEV診断: App/System memory recovery check]"))
         assertTrue(text.contains("recovery_check_status=completed"))
+        assertTrue(text.contains("recovery_check_note=completed"))
         assertTrue(text.contains("recovery_check_started_at_ms=456"))
         assertTrue(text.contains("memory_stage=memory_recovery_current"))
         assertTrue(text.contains("memory_stage=memory_recovery_delayed_1s"))
@@ -188,18 +189,82 @@ class LocalMemoryDiagnosticsTest {
 
     @Test
     fun `memory recovery check displays valid statuses`() {
-        listOf(
-            MEMORY_RECOVERY_STATUS_IDLE,
-            MEMORY_RECOVERY_STATUS_RUNNING,
-            MEMORY_RECOVERY_STATUS_COMPLETED,
-            MEMORY_RECOVERY_STATUS_CANCELLED,
-        ).forEach { status ->
+        mapOf(
+            MEMORY_RECOVERY_STATUS_IDLE to "not_run",
+            MEMORY_RECOVERY_STATUS_RUNNING to "still_running",
+            MEMORY_RECOVERY_STATUS_COMPLETED to "completed",
+            MEMORY_RECOVERY_STATUS_CANCELLED to "cancelled",
+        ).forEach { (status, note) ->
             val text = formatMemoryRecoveryCheckForDev(
                 MemoryRecoveryCheckState(status = status, startedAtMs = 1L),
             )
 
             assertTrue(text.contains("recovery_check_status=$status"))
+            assertTrue(text.contains("recovery_check_note=$note"))
         }
+    }
+
+    @Test
+    fun `memory recovery check copy helper reuses display formatter content`() {
+        val state = MemoryRecoveryCheckState(
+            status = MEMORY_RECOVERY_STATUS_RUNNING,
+            startedAtMs = 999L,
+            snapshots = listOf(
+                snapshot(
+                    stage = MEMORY_STAGE_MEMORY_RECOVERY_CURRENT,
+                    totalPssMb = 300,
+                    nativeHeapPssMb = 100,
+                    nativeHeapAllocatedMb = 24,
+                    dalvikHeapPssMb = 50,
+                    availableSystemMemoryMb = 1000,
+                ),
+                snapshot(
+                    stage = MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_1S,
+                    totalPssMb = 292,
+                    nativeHeapPssMb = 86,
+                    nativeHeapAllocatedMb = 23,
+                    dalvikHeapPssMb = 49,
+                    availableSystemMemoryMb = 1012,
+                ),
+            ),
+        )
+        val displayText = formatMemoryRecoveryCheckForDev(state)
+        val copyText = appendMemoryRecoveryCheckForDev(
+            text = "base_diagnostic=true",
+            state = state,
+        )
+
+        assertTrue(copyText.contains("base_diagnostic=true"))
+        assertTrue(copyText.contains(displayText))
+        assertTrue(copyText.contains("recovery_check_status=running"))
+        assertTrue(copyText.contains("recovery_check_note=still_running"))
+        assertTrue(copyText.contains("memory_stage=memory_recovery_current"))
+        assertTrue(copyText.contains("memory_stage=memory_recovery_delayed_1s"))
+        assertFalse(copyText.contains("memory_stage=memory_recovery_delayed_3s"))
+        assertFalse(copyText.contains("memory_stage=memory_recovery_delayed_5s"))
+        assertTrue(copyText.contains("delta_to_stage=memory_recovery_delayed_1s"))
+    }
+
+    @Test
+    fun `memory recovery check copy helper includes idle and cancelled states`() {
+        val idleText = appendMemoryRecoveryCheckForDev(
+            text = "base=true",
+            state = MemoryRecoveryCheckState(status = MEMORY_RECOVERY_STATUS_IDLE),
+        )
+        val cancelledText = appendMemoryRecoveryCheckForDev(
+            text = "base=true",
+            state = MemoryRecoveryCheckState(
+                status = MEMORY_RECOVERY_STATUS_CANCELLED,
+                startedAtMs = 321L,
+                snapshots = listOf(snapshot(stage = MEMORY_STAGE_MEMORY_RECOVERY_CURRENT)),
+            ),
+        )
+
+        assertTrue(idleText.contains("recovery_check_status=idle"))
+        assertTrue(idleText.contains("recovery_check_note=not_run"))
+        assertTrue(cancelledText.contains("recovery_check_status=cancelled"))
+        assertTrue(cancelledText.contains("recovery_check_note=cancelled"))
+        assertTrue(cancelledText.contains("memory_stage=memory_recovery_current"))
     }
 
     @Test

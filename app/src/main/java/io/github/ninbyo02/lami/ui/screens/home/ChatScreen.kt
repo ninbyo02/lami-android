@@ -5217,8 +5217,11 @@ fun Home(
                                             onCopyDiagnostic = {
                                                 clipboardManager.setText(
                                                     AnnotatedString(
-                                                        npuStandardRouteS1DevDiagnosticCopyText
-                                                            ?: s1DevTraceText.orEmpty(),
+                                                        appendMemoryRecoveryCheckForDev(
+                                                            text = npuStandardRouteS1DevDiagnosticCopyText
+                                                                ?: s1DevTraceText.orEmpty(),
+                                                            state = memoryRecoveryCheckState,
+                                                        ),
                                                     ),
                                                 )
                                             },
@@ -8508,6 +8511,7 @@ private fun InferenceStatsSheetContent(
                                 displayMode = selectedDisplayMode,
                                 sections = sections,
                                 detailSections = detailSections,
+                                memoryRecoveryCheckState = memoryRecoveryCheckState,
                             ),
                         ),
                     )
@@ -8833,6 +8837,7 @@ internal fun buildInferenceStatsFullCopyText(
     displayMode: InferenceStatsDisplayMode,
     sections: List<InferenceStatsSectionUi>,
     detailSections: List<InferenceStatsSectionUi>,
+    memoryRecoveryCheckState: MemoryRecoveryCheckState? = null,
 ): String {
     return buildString {
         appendLine("推論統計")
@@ -8891,6 +8896,10 @@ internal fun buildInferenceStatsFullCopyText(
                     if (index != detailSections.lastIndex) appendLine()
                 }
             }
+        }
+        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && memoryRecoveryCheckState != null) {
+            appendLine()
+            appendLine(formatMemoryRecoveryCheckForDev(memoryRecoveryCheckState))
         }
 
     }.trimEnd()

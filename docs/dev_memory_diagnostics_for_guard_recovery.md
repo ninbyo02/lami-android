@@ -60,6 +60,16 @@ Starting a new recovery check cancels the previous recovery-check job. If genera
 
 The recovery check reports deltas from `memory_recovery_current` for total PSS, native heap PSS, native heap alloc, Dalvik heap PSS, and available system memory. These are still app API-derived approximate values and may not match `adb shell dumpsys meminfo io.github.ninbyo02.lami` exactly.
 
+The DEV diagnostics copy text includes the recovery check section as well as the on-screen diagnostics. This lets repeated conversation runs be pasted into chat, logs, or a spreadsheet without manually transcribing the values. For each run, compare:
+
+- `total_pss_mb`
+- `native_heap_pss_mb`
+- `native_heap_alloc_mb`
+- `system_available_memory_mb`
+- the recovery delta section from `memory_recovery_current` to `memory_recovery_delayed_1s`, `memory_recovery_delayed_3s`, and `memory_recovery_delayed_5s`
+
+If the 0 / 1 / 3 / 5 second values stabilize or move back toward the pre-run baseline, the after-run increase may be delayed release or delayed accounting. If the values keep increasing across repeated runs, collect the copied DEV diagnostics together with `adb shell dumpsys meminfo io.github.ninbyo02.lami`, logcat, and any available tombstones or vendor runtime logs.
+
 ## What is not collected
 
 The standard Android APIs do not reliably separate QNN / NPU dedicated memory from the app process and system memory totals. These diagnostics must not be interpreted as direct accelerator-dedicated memory readings.

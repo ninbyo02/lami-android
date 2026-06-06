@@ -480,6 +480,76 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceStatsFullCopyText includes memory recovery check in developer copy`() {
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(modelName = "local-dev"),
+            displayMode = InferenceStatsDisplayMode.DEVELOPER,
+            sections = emptyList(),
+            detailSections = emptyList(),
+            memoryRecoveryCheckState = MemoryRecoveryCheckState(
+                status = MEMORY_RECOVERY_STATUS_COMPLETED,
+                startedAtMs = 1234L,
+                snapshots = listOf(
+                    memorySnapshot(
+                        stage = MEMORY_STAGE_MEMORY_RECOVERY_CURRENT,
+                        totalPssMb = 300,
+                        nativeHeapPssMb = 100,
+                        nativeHeapAllocatedMb = 24,
+                        dalvikHeapPssMb = 50,
+                        availableSystemMemoryMb = 1000,
+                    ),
+                    memorySnapshot(
+                        stage = MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_1S,
+                        totalPssMb = 292,
+                        nativeHeapPssMb = 86,
+                        nativeHeapAllocatedMb = 23,
+                        dalvikHeapPssMb = 49,
+                        availableSystemMemoryMb = 1012,
+                    ),
+                    memorySnapshot(
+                        stage = MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_3S,
+                        totalPssMb = 280,
+                        nativeHeapPssMb = 70,
+                        nativeHeapAllocatedMb = 22,
+                        dalvikHeapPssMb = 48,
+                        availableSystemMemoryMb = 1024,
+                    ),
+                    memorySnapshot(
+                        stage = MEMORY_STAGE_MEMORY_RECOVERY_DELAYED_5S,
+                        totalPssMb = 276,
+                        nativeHeapPssMb = 66,
+                        nativeHeapAllocatedMb = 22,
+                        dalvikHeapPssMb = 48,
+                        availableSystemMemoryMb = 1030,
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: App/System memory recovery check]"))
+        assertTrue(text.contains("recovery_check_status=completed"))
+        assertTrue(text.contains("recovery_check_started_at_ms=1234"))
+        assertTrue(text.contains("measurement_note=api_derived_approximate_may_not_match_adb_dumpsys_meminfo"))
+        assertTrue(text.contains("adb_compare_hint=compare_with_adb_shell_dumpsys_meminfo_package"))
+        assertTrue(text.contains("ui_note="))
+        assertTrue(text.contains("memory_stage=memory_recovery_current"))
+        assertTrue(text.contains("memory_stage=memory_recovery_delayed_1s"))
+        assertTrue(text.contains("memory_stage=memory_recovery_delayed_3s"))
+        assertTrue(text.contains("memory_stage=memory_recovery_delayed_5s"))
+        assertTrue(text.contains("[DEV診断: App/System memory recovery delta]"))
+        assertTrue(text.contains("delta_from_stage=memory_recovery_current"))
+        assertTrue(text.contains("delta_to_stage=memory_recovery_delayed_1s"))
+        assertTrue(text.contains("delta_to_stage=memory_recovery_delayed_3s"))
+        assertTrue(text.contains("delta_to_stage=memory_recovery_delayed_5s"))
+        assertTrue(text.contains("total_pss_delta_mb=-8"))
+        assertTrue(text.contains("native_heap_pss_delta_mb=-14"))
+        assertTrue(text.contains("native_heap_alloc_delta_mb=-1"))
+        assertTrue(text.contains("dalvik_heap_pss_delta_mb=-1"))
+        assertTrue(text.contains("system_available_memory_delta_mb=+12"))
+        assertTrue(!text.contains("NPU memory"))
+    }
+
+    @Test
     fun `buildInferenceStatsFullCopyText keeps benchmark placeholder when measured tokens are unavailable`() {
         val text = buildInferenceStatsFullCopyText(
             stats = InferenceStats(),
@@ -490,6 +560,42 @@ class InferenceStatsSheetContentTest {
 
         assertTrue(text.contains("—"))
     }
+
+    private fun memorySnapshot(
+        stage: String,
+        totalPssMb: Long?,
+        nativeHeapPssMb: Long?,
+        nativeHeapAllocatedMb: Long?,
+        dalvikHeapPssMb: Long?,
+        availableSystemMemoryMb: Long?,
+    ): MemorySnapshot = MemorySnapshot(
+        timestampMs = 1L,
+        stage = stage,
+        javaHeapUsedMb = 1L,
+        javaHeapMaxMb = 2L,
+        totalRssMb = null,
+        totalSwapPssMb = null,
+        nativeHeapPssMb = nativeHeapPssMb,
+        nativeHeapRssMb = null,
+        nativeHeapAllocatedMb = nativeHeapAllocatedMb,
+        nativeHeapSizeMb = 4L,
+        dalvikHeapPssMb = dalvikHeapPssMb,
+        dalvikHeapRssMb = null,
+        dalvikHeapAllocatedMb = 1L,
+        dalvikHeapSizeMb = 2L,
+        totalPssMb = totalPssMb,
+        privateDirtyMb = 1L,
+        privateCleanMb = 1L,
+        graphicsPssMb = null,
+        stackPssMb = null,
+        codePssMb = null,
+        systemPssMb = null,
+        unknownPssMb = null,
+        availableSystemMemoryMb = availableSystemMemoryMb,
+        systemMemoryThresholdMb = 9L,
+        lowMemory = false,
+        threadName = "test",
+    )
 
 
     @Test

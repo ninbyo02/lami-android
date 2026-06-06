@@ -272,11 +272,20 @@ internal fun buildMemoryRecoveryCheckHeader(
 ): String = buildString {
     appendLine("[DEV診断: App/System memory recovery check]")
     appendLine("recovery_check_status=${normalizeMemoryRecoveryCheckStatus(state.status)}")
-    append("recovery_check_started_at_ms=${state.startedAtMs?.toString() ?: "unavailable"}")
+    appendLine("recovery_check_started_at_ms=${state.startedAtMs?.toString() ?: "unavailable"}")
+    append("recovery_check_note=${memoryRecoveryCheckNote(state.status)}")
 }
 
 internal fun normalizeMemoryRecoveryCheckStatus(status: String): String =
     if (status in MEMORY_RECOVERY_STATUSES) status else MEMORY_RECOVERY_STATUS_IDLE
+
+internal fun memoryRecoveryCheckNote(status: String): String = when (normalizeMemoryRecoveryCheckStatus(status)) {
+    MEMORY_RECOVERY_STATUS_IDLE -> "not_run"
+    MEMORY_RECOVERY_STATUS_RUNNING -> "still_running"
+    MEMORY_RECOVERY_STATUS_CANCELLED -> "cancelled"
+    MEMORY_RECOVERY_STATUS_COMPLETED -> "completed"
+    else -> "not_run"
+}
 
 internal fun resolveMemoryRecoveryCheckStartPolicy(
     existingJobActive: Boolean,
@@ -313,6 +322,14 @@ internal fun appendMemoryDiagnosticsForDev(
         snapshots = snapshots,
         guardBlock = guardBlock,
     ),
+).filter { it.isNotBlank() }.joinToString("\n\n")
+
+internal fun appendMemoryRecoveryCheckForDev(
+    text: String,
+    state: MemoryRecoveryCheckState,
+): String = listOf(
+    text,
+    formatMemoryRecoveryCheckForDev(state),
 ).filter { it.isNotBlank() }.joinToString("\n\n")
 
 internal fun List<MemorySnapshot>.withMemorySnapshot(snapshot: MemorySnapshot?): List<MemorySnapshot> {
