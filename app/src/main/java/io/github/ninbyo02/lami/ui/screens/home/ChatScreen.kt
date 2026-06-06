@@ -979,6 +979,8 @@ fun Home(
     var memoryRecoveryCheckState by remember(effectiveChatId) { mutableStateOf(MemoryRecoveryCheckState()) }
     var memoryRecoveryCheckJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var memoryRecoveryCheckRunId by remember(effectiveChatId) { mutableStateOf(0L) }
+    var npuS1RepeatedRunState by remember(effectiveChatId) { mutableStateOf(NpuS1RepeatedRunState()) }
+    var npuS1RepeatedRunJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var devUiAliveSeconds by remember(effectiveChatId) { mutableStateOf(0) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
@@ -991,6 +993,8 @@ fun Home(
         onDispose {
             memoryRecoveryCheckJob?.cancel()
             memoryRecoveryCheckJob = null
+            npuS1RepeatedRunJob?.cancel()
+            npuS1RepeatedRunJob = null
         }
     }
 
@@ -1063,6 +1067,168 @@ fun Home(
                 }
             }
         }
+    }
+
+    fun startNpuS1RepeatedRun() {
+        if (isInferenceRunningUi) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "生成完了後に実行してください",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuS1RepeatedRunJob?.isActive == true) return
+        val requestedRunCount = NPU_S1_REPEATED_RUN_DEFAULT_COUNT
+        val promptForRun = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT
+        val maxTokensForRun = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS
+        val startedAtMs = System.currentTimeMillis()
+        npuS1RepeatedRunState = NpuS1RepeatedRunState(
+            status = NPU_S1_REPEATED_RUN_STATUS_RUNNING,
+            startedAtMs = startedAtMs,
+            prompt = promptForRun,
+            requestedRunCount = requestedRunCount,
+            maxOutputTokens = maxTokensForRun,
+        )
+        npuS1RepeatedRunJob = coroutineScope.launch {
+            val records = mutableListOf<NpuS1RepeatedRunRecord>()
+            try {
+                for (runIndex in 1..requestedRunCount) {
+                    val memoryBefore = withContext(Dispatchers.Default) {
+                        captureLocalMemorySnapshot(
+                            context = context.applicationContext,
+                            stage = "npu_s1_repeated_run_${runIndex}_before",
+                        )
+                    }
+                    val decodeStartedAtMs = SystemClock.elapsedRealtime()
+                    val rawResult = withContext(Dispatchers.Default) {
+                        NpuStandardRouteS1Bridge(
+                            mode = npuStandardRouteMode,
+                            trace = {},
+                        ).run(
+                            userPrompt = promptForRun,
+                            maxOutputTokens = maxTokensForRun,
+                        )
+                    }
+                    val result = rawResult.withTiming(
+                        buildNpuStandardRouteS1UiTiming(
+                            result = rawResult,
+                            decodeStartedAtMs = decodeStartedAtMs,
+                        ),
+                    )
+                    val memoryAfter = withContext(Dispatchers.Default) {
+                        captureLocalMemorySnapshot(
+                            context = context.applicationContext,
+                            stage = "npu_s1_repeated_run_${runIndex}_after",
+                        )
+                    }
+                    delay(5_000L)
+                    val memoryRecovery5s = withContext(Dispatchers.Default) {
+                        captureLocalMemorySnapshot(
+                            context = context.applicationContext,
+                            stage = "npu_s1_repeated_run_${runIndex}_recovery_5s",
+                        )
+                    }
+                    val telemetry = buildNpuS1ShortOutputTelemetry(promptForRun, result)
+                    val safetyGuardTriggered = isSafetyGuardTriggered(
+                        reasonCode = result.reason,
+                        failureStage = result.status,
+                        stopReason = telemetry.stopReason,
+                    )
+                    val record = NpuS1RepeatedRunRecord(
+                        runIndex = runIndex,
+                        runCount = requestedRunCount,
+                        prompt = promptForRun,
+                        requestedMaxOutputTokens = result.selection.requestedMaxOutputTokens,
+                        effectiveMaxOutputTokens = result.selection.effectiveMaxOutputTokens,
+                        status = result.status,
+                        reason = result.reason,
+                        finishReason = telemetry.finishReason,
+                        stopReason = telemetry.stopReason,
+                        eosDetected = telemetry.eosDetected,
+                        rawOutput = result.rawOutput,
+                        sanitizedOutput = result.sanitizedOutput,
+                        qualityClassification = result.qualityClassification,
+                        totalMs = result.timing.totalMs,
+                        decodeMs = result.timing.decodeMs,
+                        outputTokens = result.timing.outputTokens,
+                        tokenCountMode = result.timing.tokenCountMode,
+                        tokensPerSecond = result.timing.tokensPerSecond,
+                        runDecodeReached = result.runDecodeReached,
+                        fallbackUsed = result.fallbackUsed,
+                        timeout = result.timeout,
+                        freshCrash = result.freshCrash,
+                        safetyGuardTriggered = safetyGuardTriggered,
+                        memoryBeforeTotalPssMb = memoryBefore.totalPssMb,
+                        memoryBeforeNativeHeapPssMb = memoryBefore.nativeHeapPssMb,
+                        memoryBeforeLowMemory = memoryBefore.lowMemory,
+                        memoryAfterTotalPssMb = memoryAfter.totalPssMb,
+                        memoryAfterNativeHeapPssMb = memoryAfter.nativeHeapPssMb,
+                        memoryAfterLowMemory = memoryAfter.lowMemory,
+                        memoryRecovery5sTotalPssMb = memoryRecovery5s.totalPssMb,
+                        memoryRecovery5sNativeHeapPssMb = memoryRecovery5s.nativeHeapPssMb,
+                        memoryRecovery5sNativeHeapAllocMb = memoryRecovery5s.nativeHeapAllocatedMb,
+                        memoryRecovery5sSystemAvailableMemoryMb = memoryRecovery5s.availableSystemMemoryMb,
+                        memoryRecovery5sLowMemory = memoryRecovery5s.lowMemory,
+                        finalInputLengthChars = telemetry.finalInputLengthChars,
+                        finalInputTailPreview = telemetry.finalInputTailPreview,
+                        tokenizerInputTokens = telemetry.tokenizerInputTokens,
+                        tokenizerOutputTokens = telemetry.tokenizerOutputTokens,
+                        outputTokenCountSource = telemetry.outputTokenCountSource,
+                        promptTokenCountSource = telemetry.promptTokenCountSource,
+                        maxOutputTokensReached = telemetry.maxOutputTokensReached,
+                        stopSequenceMatched = telemetry.stopSequenceMatched,
+                    )
+                    records += record
+                    val stopReason = repeatedRunSafetyStopReason(record)
+                        ?: repeatedRunMemoryThresholdStopReason(memoryRecovery5s)
+                    if (stopReason != null) {
+                        npuS1RepeatedRunState = NpuS1RepeatedRunState(
+                            status = NPU_S1_REPEATED_RUN_STATUS_STOPPED,
+                            startedAtMs = startedAtMs,
+                            prompt = promptForRun,
+                            requestedRunCount = requestedRunCount,
+                            maxOutputTokens = maxTokensForRun,
+                            records = records.toList(),
+                            stopped = true,
+                            stopReason = stopReason,
+                        )
+                        return@launch
+                    }
+                    npuS1RepeatedRunState = NpuS1RepeatedRunState(
+                        status = NPU_S1_REPEATED_RUN_STATUS_RUNNING,
+                        startedAtMs = startedAtMs,
+                        prompt = promptForRun,
+                        requestedRunCount = requestedRunCount,
+                        maxOutputTokens = maxTokensForRun,
+                        records = records.toList(),
+                    )
+                }
+                npuS1RepeatedRunState = NpuS1RepeatedRunState(
+                    status = NPU_S1_REPEATED_RUN_STATUS_COMPLETED,
+                    startedAtMs = startedAtMs,
+                    prompt = promptForRun,
+                    requestedRunCount = requestedRunCount,
+                    maxOutputTokens = maxTokensForRun,
+                    records = records.toList(),
+                )
+            } catch (exception: CancellationException) {
+                npuS1RepeatedRunState = npuS1RepeatedRunState.copy(
+                    status = NPU_S1_REPEATED_RUN_STATUS_CANCELLED,
+                    stopped = true,
+                    stopReason = "cancelled",
+                )
+                throw exception
+            } finally {
+                npuS1RepeatedRunJob = null
+            }
+        }
+    }
+
+    fun cancelNpuS1RepeatedRun() {
+        npuS1RepeatedRunJob?.cancel()
     }
 
     LaunchedEffect(isLocalInferenceRunning, streamingResponseText) {
@@ -5218,8 +5384,11 @@ fun Home(
                                                 clipboardManager.setText(
                                                     AnnotatedString(
                                                         appendMemoryRecoveryCheckForDev(
-                                                            text = npuStandardRouteS1DevDiagnosticCopyText
-                                                                ?: s1DevTraceText.orEmpty(),
+                                                            text = appendNpuS1RepeatedRunDiagnosticsForDev(
+                                                                text = npuStandardRouteS1DevDiagnosticCopyText
+                                                                    ?: s1DevTraceText.orEmpty(),
+                                                                state = npuS1RepeatedRunState,
+                                                            ),
                                                             state = memoryRecoveryCheckState,
                                                         ),
                                                     ),
@@ -5229,6 +5398,11 @@ fun Home(
                                             memoryRecoveryCheckInProgress = memoryRecoveryCheckJob?.isActive == true,
                                             isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
                                             onMemoryRecoveryCheck = ::startMemoryRecoveryCheck,
+                                            npuS1RepeatedRunState = npuS1RepeatedRunState,
+                                            npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
+                                            isInferenceRunningForRepeatedRun = isInferenceRunningUi,
+                                            onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
+                                            onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
                                             s4Text = s4Text,
                                             s4Title = if (npuStandardRouteS4PseudoStreamingActive) {
                                                 "NPU STANDARD ROUTE S4-A PSEUDO STREAMING"
@@ -5279,6 +5453,11 @@ fun Home(
                                             memoryRecoveryCheckInProgress = memoryRecoveryCheckJob?.isActive == true,
                                             isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
                                             onMemoryRecoveryCheck = ::startMemoryRecoveryCheck,
+                                            npuS1RepeatedRunState = npuS1RepeatedRunState,
+                                            npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
+                                            isInferenceRunningForRepeatedRun = isInferenceRunningUi,
+                                            onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
+                                            onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
                                         )
                                     }
                                 }
@@ -5492,6 +5671,11 @@ fun Home(
                     memoryRecoveryCheckInProgress = memoryRecoveryCheckJob?.isActive == true,
                     isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
                     onMemoryRecoveryCheck = ::startMemoryRecoveryCheck,
+                    npuS1RepeatedRunState = npuS1RepeatedRunState,
+                    npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
+                    isInferenceRunningForRepeatedRun = isInferenceRunningUi,
+                    onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
+                    onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
                     onManualEngineRecreate = {
                         val blocked = isInferenceRunningUi || isTtsSpeaking || isStreamingSentencePlaybackActive || preferredBackendManualRecreateInProgress
                         if (blocked) {
@@ -8395,6 +8579,48 @@ private fun MemoryRecoveryCheckDevSection(
 }
 
 @Composable
+private fun NpuS1RepeatedRunDevSection(
+    state: NpuS1RepeatedRunState,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onStart: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    InferenceStatsSection(title = "NPU S1 repeated run") {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = onStart,
+                enabled = !running && !blockedByGeneration,
+            ) {
+                Text("NPU S1 20回連続テスト")
+            }
+            TextButton(
+                onClick = onCancel,
+                enabled = running,
+            ) {
+                Text("キャンセル")
+            }
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "生成完了後に実行してください"
+            } else {
+                "DEV専用の直列テストです。通常チャット履歴、TTS、DB保存には使いません。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        InferenceStatRow(
+            label = "NPU S1 repeated run",
+            value = formatNpuS1RepeatedRunDiagnosticsForDev(state),
+        )
+    }
+}
+
+@Composable
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
     initialDisplayMode: InferenceStatsDisplayMode,
@@ -8417,6 +8643,11 @@ private fun InferenceStatsSheetContent(
     memoryRecoveryCheckInProgress: Boolean = false,
     isInferenceRunningForMemoryRecovery: Boolean = false,
     onMemoryRecoveryCheck: () -> Unit = {},
+    npuS1RepeatedRunState: NpuS1RepeatedRunState = NpuS1RepeatedRunState(),
+    npuS1RepeatedRunInProgress: Boolean = false,
+    isInferenceRunningForRepeatedRun: Boolean = false,
+    onNpuS1RepeatedRunStart: () -> Unit = {},
+    onNpuS1RepeatedRunCancel: () -> Unit = {},
 ) {
     var selectedDisplayMode by rememberSaveable { mutableStateOf(initialDisplayMode) }
     LaunchedEffect(initialDisplayMode) {
@@ -8512,6 +8743,7 @@ private fun InferenceStatsSheetContent(
                                 sections = sections,
                                 detailSections = detailSections,
                                 memoryRecoveryCheckState = memoryRecoveryCheckState,
+                                npuS1RepeatedRunState = npuS1RepeatedRunState,
                             ),
                         ),
                     )
@@ -8566,6 +8798,13 @@ private fun InferenceStatsSheetContent(
                     ),
                     blockedByGeneration = isInferenceRunningForMemoryRecovery,
                     onStart = onMemoryRecoveryCheck,
+                )
+                NpuS1RepeatedRunDevSection(
+                    state = npuS1RepeatedRunState,
+                    running = npuS1RepeatedRunInProgress,
+                    blockedByGeneration = isInferenceRunningForRepeatedRun,
+                    onStart = onNpuS1RepeatedRunStart,
+                    onCancel = onNpuS1RepeatedRunCancel,
                 )
                 InferenceStatsSection(title = "DEV Markdown") {
                     InferenceStatRow(
@@ -8731,6 +8970,11 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     memoryRecoveryCheckInProgress: Boolean = false,
     isInferenceRunningForMemoryRecovery: Boolean = false,
     onMemoryRecoveryCheck: (() -> Unit)? = null,
+    npuS1RepeatedRunState: NpuS1RepeatedRunState = NpuS1RepeatedRunState(),
+    npuS1RepeatedRunInProgress: Boolean = false,
+    isInferenceRunningForRepeatedRun: Boolean = false,
+    onNpuS1RepeatedRunStart: (() -> Unit)? = null,
+    onNpuS1RepeatedRunCancel: (() -> Unit)? = null,
 ) {
     if (!hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)) return
 
@@ -8756,6 +9000,15 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     ),
                     blockedByGeneration = isInferenceRunningForMemoryRecovery,
                     onStart = onMemoryRecoveryCheck,
+                )
+            }
+            if (onNpuS1RepeatedRunStart != null && onNpuS1RepeatedRunCancel != null) {
+                NpuS1RepeatedRunDevSection(
+                    state = npuS1RepeatedRunState,
+                    running = npuS1RepeatedRunInProgress,
+                    blockedByGeneration = isInferenceRunningForRepeatedRun,
+                    onStart = onNpuS1RepeatedRunStart,
+                    onCancel = onNpuS1RepeatedRunCancel,
                 )
             }
             if (!routeText.isNullOrBlank() && onCopyRoute != null) {
@@ -8838,6 +9091,7 @@ internal fun buildInferenceStatsFullCopyText(
     sections: List<InferenceStatsSectionUi>,
     detailSections: List<InferenceStatsSectionUi>,
     memoryRecoveryCheckState: MemoryRecoveryCheckState? = null,
+    npuS1RepeatedRunState: NpuS1RepeatedRunState? = null,
 ): String {
     return buildString {
         appendLine("推論統計")
@@ -8900,6 +9154,10 @@ internal fun buildInferenceStatsFullCopyText(
         if (displayMode == InferenceStatsDisplayMode.DEVELOPER && memoryRecoveryCheckState != null) {
             appendLine()
             appendLine(formatMemoryRecoveryCheckForDev(memoryRecoveryCheckState))
+        }
+        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1RepeatedRunState != null) {
+            appendLine()
+            appendLine(formatNpuS1RepeatedRunDiagnosticsForDev(npuS1RepeatedRunState))
         }
 
     }.trimEnd()

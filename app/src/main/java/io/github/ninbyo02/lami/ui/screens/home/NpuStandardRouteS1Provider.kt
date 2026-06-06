@@ -149,7 +149,11 @@ internal fun buildNpuStandardRouteS1DevTraceText(
         lines += "fallback=${result.fallbackUsed}"
     }
     lines += "fresh_crash=${result.freshCrash}"
-    return lines.joinToString("\n")
+    return appendNpuS1ShortOutputTelemetryForDev(
+        text = lines.joinToString("\n"),
+        input = input,
+        result = result,
+    )
 }
 
 internal fun buildNpuStandardRouteS1DiagnosticCopyText(
@@ -157,28 +161,32 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     result: NpuStandardRouteS1Result,
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
-): String = listOf(
-    "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
-    "max_output_tokens=$maxOutputTokens",
-    "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
-    "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
-    "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
-    "raw_output=${npuStandardRouteS1EscapeCopyValue(result.rawOutput)}",
-    "sanitized_output=${npuStandardRouteS1EscapeCopyValue(result.sanitizedOutput)}",
-    "status=${result.status}",
-    "reason=${result.reason}",
-    "quality_classification=${result.qualityClassification}",
-    "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
-    "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
-    "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
-    "npu_s1_output_tokens=${result.timing.outputTokens?.toString() ?: "n/a"}",
-    "npu_s1_token_count_mode=${result.timing.tokenCountMode}",
-    "npu_s1_tokens_per_second=${NpuStandardRouteS1Contract.formatTokensPerSecond(result.timing.tokensPerSecond)}",
-    "run_decode_reached=${result.runDecodeReached}",
-    "timeout=${result.timeout}",
-    "fallback=${transientFallback ?: result.fallbackUsed}",
-    "fresh_crash=${result.freshCrash}",
-).joinToString("\n")
+): String = appendNpuS1ShortOutputTelemetryForDev(
+    text = listOf(
+        "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
+        "max_output_tokens=$maxOutputTokens",
+        "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
+        "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
+        "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
+        "raw_output=${npuStandardRouteS1EscapeCopyValue(result.rawOutput)}",
+        "sanitized_output=${npuStandardRouteS1EscapeCopyValue(result.sanitizedOutput)}",
+        "status=${result.status}",
+        "reason=${result.reason}",
+        "quality_classification=${result.qualityClassification}",
+        "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
+        "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
+        "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
+        "npu_s1_output_tokens=${result.timing.outputTokens?.toString() ?: "n/a"}",
+        "npu_s1_token_count_mode=${result.timing.tokenCountMode}",
+        "npu_s1_tokens_per_second=${NpuStandardRouteS1Contract.formatTokensPerSecond(result.timing.tokensPerSecond)}",
+        "run_decode_reached=${result.runDecodeReached}",
+        "timeout=${result.timeout}",
+        "fallback=${transientFallback ?: result.fallbackUsed}",
+        "fresh_crash=${result.freshCrash}",
+    ).joinToString("\n"),
+    input = input,
+    result = result,
+)
 
 internal fun npuRealPromptHash(text: String): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))

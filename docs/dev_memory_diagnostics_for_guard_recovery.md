@@ -70,6 +70,49 @@ The DEV diagnostics copy text includes the recovery check section as well as the
 
 If the 0 / 1 / 3 / 5 second values stabilize or move back toward the pre-run baseline, the after-run increase may be delayed release or delayed accounting. If the values keep increasing across repeated runs, collect the copied DEV diagnostics together with `adb shell dumpsys meminfo io.github.ninbyo02.lami`, logcat, and any available tombstones or vendor runtime logs.
 
+## NPU S1 repeated run diagnostics
+
+The DEV diagnostics also include an `NPU S1 20回連続テスト` button for NPU Standard Route S1. This is a diagnostic-only sequential runner. It is separate from normal chat send, does not automate normal chat tapping, does not write normal conversation history, and does not run TTS for each diagnostic run.
+
+The default diagnostic run uses:
+
+- prompt: `こんにちは`
+- run count: `20`
+- max output tokens: `32`, matching the current S1 setting
+- one run at a time only
+- five-second App/System memory recovery snapshot after each run
+
+The DEV copy text includes:
+
+- `[DEV診断: NPU S1 repeated run summary]`
+- `[DEV診断: NPU S1 repeated run details]`
+- per-run output, timing, short-output telemetry, and five-second memory recovery values
+- stopped reason when the runner stops early
+- unavailable finish / tokenizer values as explicit `unavailable` or `not_exposed`
+
+Use these fields to compare repeated S1 behavior:
+
+- `all_outputs_same`
+- `most_common_output`
+- `npu_s1_output_tokens`
+- `npu_s1_token_count_mode`
+- `finish_reason`
+- `stop_reason`
+- `memory_recovery_5s_total_pss_mb`
+- `memory_recovery_5s_native_heap_pss_mb`
+- `memory_recovery_5s_native_heap_alloc_mb`
+- `memory_recovery_5s_system_available_memory_mb`
+- `memory_growth_suspected`
+
+The repeated runner stops early if `fallback_used`, `fresh_crash`, `timeout`, `low_memory`, `safety_guard_triggered`, `run_decode_reached=false`, `status != success`, near-threshold system memory, cancellation, or an abnormally long run is observed.
+
+Interpretation examples:
+
+- If all runs return `こんにちは。` with `all_outputs_same=true`, continue short-output finish reason investigation rather than changing prompt or generation settings.
+- If five-second memory values stabilize, the immediate after-run increase may be delayed accounting or delayed release rather than a simple leak.
+- If `system_available_memory_mb` trends down while process PSS does not explain it, compare with `adb shell dumpsys meminfo io.github.ninbyo02.lami` and device-level memory pressure logs.
+- If `memory_growth_suspected=true`, collect DEV copy text, `dumpsys meminfo`, logcat, and any vendor runtime logs from the same run window.
+
 ## What is not collected
 
 The standard Android APIs do not reliably separate QNN / NPU dedicated memory from the app process and system memory totals. These diagnostics must not be interpreted as direct accelerator-dedicated memory readings.
@@ -164,6 +207,16 @@ For the manual memory recovery check:
 4. Compare `memory_recovery_current`, `memory_recovery_delayed_1s`, `memory_recovery_delayed_3s`, and `memory_recovery_delayed_5s`.
 5. Check whether `native_heap_pss_mb`, `total_pss_mb`, and `system_available_memory_mb` recover over time.
 6. Compare with `adb shell dumpsys meminfo io.github.ninbyo02.lami` when external confirmation is needed.
+
+For the NPU S1 repeated run diagnostic:
+
+1. Enable DEV diagnostics.
+2. Run NPU Standard Route S1 once and confirm the route is connected.
+3. Press `NPU S1 20回連続テスト`.
+4. Wait for `repeated_run_status=completed`, `stopped`, or `cancelled`.
+5. Copy DEV diagnostics.
+6. Compare `all_outputs_same`, `most_common_output`, output token fields, timing min/max/average, and five-second memory recovery values.
+7. Run `adb shell dumpsys meminfo io.github.ninbyo02.lami` near the same window when external comparison is needed.
 
 ## Future candidates
 
