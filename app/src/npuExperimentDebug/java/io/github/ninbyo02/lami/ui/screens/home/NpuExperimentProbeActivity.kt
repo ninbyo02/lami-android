@@ -8,6 +8,14 @@ import io.github.ninbyo02.lami.BuildConfig
 class NpuExperimentProbeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        NpuEngineLogcatDiagnostics.i(
+            event = "galleryprobe_activity_on_create",
+            route = "NpuExperimentProbeActivity.onCreate",
+            probeName = "galleryprobe",
+            modelPath = intent?.getStringExtra("model_path"),
+            backendRequested = "NPU",
+            detail = "run_backend_npu_attach_probe=${intent?.getBooleanExtra("run_backend_npu_attach_probe", false) == true} run_engine_initialize_dry_run=${intent?.getBooleanExtra("run_engine_initialize_dry_run", false) == true} run_id=${intent?.getStringExtra("run_id") ?: "unavailable"}",
+        )
         if (intent?.getBooleanExtra("run_backend_npu_attach_probe", false) == true) {
             NpuExperimentProbeLogger.runBackendNpuAttachProbe(
                 context = applicationContext,
@@ -71,6 +79,17 @@ internal object NpuExperimentProbeLogger {
             phase = normalizedPhase,
             explicitOptIn = engineInitializeOptIn,
         )
+        NpuEngineLogcatDiagnostics.i(
+            event = "backend_npu_attach_probe_start",
+            route = "NpuExperimentProbeLogger.runBackendNpuAttachProbe",
+            probeName = "backend_npu_attach_probe",
+            modelPath = modelPath,
+            backendRequested = "NPU",
+            maxOutputTokens = engineConfigMaxNumTokensForVariant(normalizedVariant).toIntOrNull(),
+            memorySnapshot = captureLocalMemorySnapshot(context.applicationContext, "backend_npu_attach_probe_start"),
+            detail = "run_id=$normalizedRunId phase=$normalizedPhase engine_initialize_dry_run=$runEngineInitializeDryRun engine_config_variant=$normalizedVariant",
+        )
+        try {
         val snapshot = AcceleratorProbe.captureSnapshot(
             context = context.applicationContext,
             forceRefresh = true,
@@ -116,6 +135,29 @@ internal object NpuExperimentProbeLogger {
             LOG_TAG,
             "Backend.NPU attach probe written runId=$normalizedRunId phase=$normalizedPhase txt=${txtFile.absolutePath} md=${mdFile.absolutePath}",
         )
+        NpuEngineLogcatDiagnostics.i(
+            event = "backend_npu_attach_probe_end",
+            route = "NpuExperimentProbeLogger.runBackendNpuAttachProbe",
+            probeName = "backend_npu_attach_probe",
+            modelPath = modelPath,
+            backendRequested = "NPU",
+            maxOutputTokens = request.engineConfigMaxNumTokens.toIntOrNull(),
+            detail = "run_id=$normalizedRunId phase=$normalizedPhase txt=${txtFile.absolutePath} md=${mdFile.absolutePath}",
+        )
+        } catch (throwable: Throwable) {
+            NpuEngineLogcatDiagnostics.e(
+                event = "backend_npu_attach_probe_failure",
+                route = "NpuExperimentProbeLogger.runBackendNpuAttachProbe",
+                throwable = throwable,
+                probeName = "backend_npu_attach_probe",
+                modelPath = modelPath,
+                backendRequested = "NPU",
+                maxOutputTokens = engineConfigMaxNumTokensForVariant(normalizedVariant).toIntOrNull(),
+                memorySnapshot = captureLocalMemorySnapshot(context.applicationContext, "backend_npu_attach_probe_failure"),
+                detail = "run_id=$normalizedRunId phase=$normalizedPhase engine_initialize_dry_run=$runEngineInitializeDryRun",
+            )
+            throw throwable
+        }
     }
 
     fun runAppJniSmokeOnly(
