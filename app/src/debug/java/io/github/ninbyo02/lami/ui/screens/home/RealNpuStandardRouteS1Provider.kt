@@ -50,10 +50,23 @@ internal class RealNpuStandardRouteS1Provider(
             )
             rawResult
         }.getOrElse { throwable ->
+            val reason = throwable.message
+                ?.takeIf { it.isNotBlank() }
+                ?: REASON_DEV_ONLY_REQUEST_FAILED
+            NpuS1LogcatDiagnostics.logAdapterFailure(
+                reason = reason,
+                throwable = throwable,
+                memorySnapshot = resolveApplicationContext()?.let { appContext ->
+                    captureLocalMemorySnapshot(
+                        context = appContext,
+                        stage = "npu_s1_provider_failure",
+                    )
+                },
+                promptLength = userPrompt.length,
+                effectiveMaxOutputTokens = sanitizedMaxOutputTokens,
+            )
             RealNpuStandardRouteS1ResultMapper.failure(
-                reason = throwable.message
-                    ?.takeIf { it.isNotBlank() }
-                    ?: REASON_DEV_ONLY_REQUEST_FAILED,
+                reason = reason,
                 maxOutputTokens = sanitizedMaxOutputTokens,
             )
         }

@@ -207,6 +207,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
             prompt = "こんにちは",
         )
 
+        assertEquals("LamiNpuS1", NPU_S1_LOGCAT_TAG)
         assertEquals(32, NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS)
         assertEquals("raw_dialog_tail_variant_c", NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT)
         assertEquals("safe_greeting_fallback", NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING)

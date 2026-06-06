@@ -233,6 +233,16 @@ For the NPU S1 repeated run diagnostic:
 6. Compare `all_outputs_same`, `most_common_output`, output token fields, timing min/max/average, and five-second memory recovery values.
 7. Run `adb shell dumpsys meminfo io.github.ninbyo02.lami` near the same window when external comparison is needed.
 
+For Android Studio Logcat confirmation:
+
+1. Open Android Studio Logcat.
+2. Select the target device, for example `nubia NX733J`.
+3. Set the query to `tag:LamiNpuS1`.
+4. In Lami DEV diagnostics, run `NPU S1 20回連続テスト` with the target repeated-run mode such as `reuse`.
+5. Confirm `event=repeated_run_start` for each run and `event=run_finished` after each run.
+6. If the runner stops around run 7, inspect `event=adapter_failure` / `LiteRtLmJniException` `Log.e` output and its stack trace.
+7. Confirm `event=repeated_run_stopped` includes the stop reason, success/fallback/timeout/crash/safety counts, and five-second memory trend fields.
+
 ## Future candidates
 
 - Persist guard-blocked conversation state if in-memory state is not enough for the investigation.

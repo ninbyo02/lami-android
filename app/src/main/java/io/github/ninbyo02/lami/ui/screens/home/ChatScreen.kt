@@ -1101,6 +1101,23 @@ fun Home(
             val records = mutableListOf<NpuS1RepeatedRunRecord>()
             try {
                 for (runIndex in 1..requestedRunCount) {
+                    val logcatContext = NpuS1LogcatContext(
+                        repeatedRunMode = runMode,
+                        runIndex = runIndex,
+                        runCountRequested = requestedRunCount,
+                        promptLength = promptForRun.length,
+                        requestedMaxOutputTokens = maxTokensForRun,
+                        effectiveMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxTokensForRun),
+                    )
+                    NpuS1LogcatDiagnostics.setContext(logcatContext)
+                    NpuS1LogcatDiagnostics.logRepeatedRunStart(
+                        mode = runMode,
+                        runIndex = runIndex,
+                        runCountRequested = requestedRunCount,
+                        promptLength = promptForRun.length,
+                        requestedMaxOutputTokens = maxTokensForRun,
+                        effectiveMaxOutputTokens = logcatContext.effectiveMaxOutputTokens,
+                    )
                     val memoryBefore = withContext(Dispatchers.Default) {
                         captureLocalMemorySnapshot(
                             context = context.applicationContext,
@@ -1211,10 +1228,20 @@ fun Home(
                         stopSequenceMatched = telemetry.stopSequenceMatched,
                     )
                     records += record
+                    NpuS1LogcatDiagnostics.logRunFinished(record)
+                    if (record.reason.startsWith("adapter_failure") || record.reason.contains("LiteRtLmJniException")) {
+                        NpuS1LogcatDiagnostics.logAdapterFailure(
+                            reason = record.reason,
+                            throwable = IllegalStateException(record.reason),
+                            memorySnapshot = memoryRecovery5s,
+                            promptLength = promptForRun.length,
+                            effectiveMaxOutputTokens = record.effectiveMaxOutputTokens,
+                        )
+                    }
                     val stopReason = repeatedRunSafetyStopReason(record)
                         ?: repeatedRunMemoryThresholdStopReason(memoryRecovery5s)
                     if (stopReason != null) {
-                        npuS1RepeatedRunState = NpuS1RepeatedRunState(
+                        val stoppedState = NpuS1RepeatedRunState(
                             status = NPU_S1_REPEATED_RUN_STATUS_STOPPED,
                             startedAtMs = startedAtMs,
                             prompt = promptForRun,
@@ -1225,6 +1252,9 @@ fun Home(
                             stopped = true,
                             stopReason = stopReason,
                         )
+                        NpuS1LogcatDiagnostics.logStopped(stoppedState)
+                        npuS1RepeatedRunState = stoppedState
+                        NpuS1LogcatDiagnostics.clearContext(logcatContext)
                         return@launch
                     }
                     npuS1RepeatedRunState = NpuS1RepeatedRunState(
@@ -1236,6 +1266,7 @@ fun Home(
                         repeatedRunMode = runMode,
                         records = records.toList(),
                     )
+                    NpuS1LogcatDiagnostics.clearContext(logcatContext)
                 }
                 npuS1RepeatedRunState = NpuS1RepeatedRunState(
                     status = NPU_S1_REPEATED_RUN_STATUS_COMPLETED,
@@ -1254,6 +1285,7 @@ fun Home(
                 )
                 throw exception
             } finally {
+                NpuS1LogcatDiagnostics.clearCurrentContext()
                 npuS1RepeatedRunJob = null
             }
         }

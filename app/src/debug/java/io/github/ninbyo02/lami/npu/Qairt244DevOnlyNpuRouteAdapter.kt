@@ -3,8 +3,10 @@ package io.github.ninbyo02.lami.npu
 import android.content.Context
 import android.os.SystemClock
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.screens.home.NpuS1LogcatDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
 import io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmoke
+import io.github.ninbyo02.lami.ui.screens.home.captureLocalMemorySnapshot
 import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import java.io.File
 import java.util.UUID
@@ -392,9 +394,20 @@ class Qairt244DevOnlyNpuRouteAdapter(
         } catch (throwable: Throwable) {
             traceRunDecodeMarkerIfSeen()
             val elapsed = SystemClock.elapsedRealtime() - start
+            val reasonCode = "adapter_failure:${throwable.javaClass.simpleName}"
             appendRouteMarker(
                 "runId=$runId state=failure elapsed_ms=$elapsed class=${throwable.javaClass.name} " +
                     "message=${throwable.message ?: "-"} db=false tts=false markdown=false stream=false",
+            )
+            NpuS1LogcatDiagnostics.logAdapterFailure(
+                reason = reasonCode,
+                throwable = throwable,
+                memorySnapshot = captureLocalMemorySnapshot(
+                    context = appContext,
+                    stage = "npu_s1_adapter_failure",
+                ),
+                promptLength = requestedPrompt.length,
+                effectiveMaxOutputTokens = maxOutputTokens,
             )
             appendRouteResultMetadata(
                 requestedPrompt = requestedPrompt,
@@ -411,7 +424,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
             DevOnlyNpuRouteResult(
                 success = false,
                 output = null,
-                reasonCode = "adapter_failure:${throwable.javaClass.simpleName}",
+                reasonCode = reasonCode,
                 elapsedMs = elapsed,
                 decodeElapsedMs = null,
                 prompt = normalizedPrompt,

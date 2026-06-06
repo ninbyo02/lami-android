@@ -1,7 +1,12 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import android.os.Process
+import android.util.Log
+import io.github.ninbyo02.lami.BuildConfig
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicReference
 
+internal const val NPU_S1_LOGCAT_TAG = "LamiNpuS1"
 internal const val NPU_S1_REPEATED_RUN_STATUS_IDLE = "idle"
 internal const val NPU_S1_REPEATED_RUN_STATUS_RUNNING = "running"
 internal const val NPU_S1_REPEATED_RUN_STATUS_COMPLETED = "completed"
@@ -171,6 +176,166 @@ internal data class NpuS1RepeatedRunSummary(
     val last5sSystemAvailableMemoryMb: Long?,
     val memoryGrowthSuspected: Boolean,
 )
+
+internal data class NpuS1LogcatContext(
+    val repeatedRunMode: NpuS1RepeatedRunMode,
+    val runIndex: Int,
+    val runCountRequested: Int,
+    val promptLength: Int,
+    val requestedMaxOutputTokens: Int,
+    val effectiveMaxOutputTokens: Int,
+)
+
+internal object NpuS1LogcatDiagnostics {
+    private val currentContext = AtomicReference<NpuS1LogcatContext?>(null)
+
+    fun setContext(context: NpuS1LogcatContext) {
+        if (!enabled) return
+        currentContext.set(context)
+    }
+
+    fun clearContext(context: NpuS1LogcatContext) {
+        if (!enabled) return
+        currentContext.compareAndSet(context, null)
+    }
+
+    fun clearCurrentContext() {
+        if (!enabled) return
+        currentContext.set(null)
+    }
+
+    fun logRepeatedRunStart(
+        mode: NpuS1RepeatedRunMode,
+        runIndex: Int,
+        runCountRequested: Int,
+        promptLength: Int,
+        requestedMaxOutputTokens: Int,
+        effectiveMaxOutputTokens: Int,
+    ) {
+        if (!enabled) return
+        runCatching {
+            Log.i(
+                NPU_S1_LOGCAT_TAG,
+                listOf(
+                    "event=repeated_run_start",
+                    commonFields(mode = mode, runIndex = runIndex),
+                    "run_count_requested=$runCountRequested",
+                    "prompt_length=$promptLength",
+                    "requested_max_output_tokens=$requestedMaxOutputTokens",
+                    "effective_max_output_tokens=$effectiveMaxOutputTokens",
+                ).joinToString(" "),
+            )
+        }
+    }
+
+    fun logRunFinished(record: NpuS1RepeatedRunRecord) {
+        if (!enabled) return
+        runCatching {
+            Log.i(
+                NPU_S1_LOGCAT_TAG,
+                listOf(
+                    "event=run_finished",
+                    commonFields(mode = record.repeatedRunMode, runIndex = record.runIndex),
+                    "status=${record.status}",
+                    "reason=${record.reason}",
+                    "run_decode_reached=${record.runDecodeReached}",
+                    "fallback_used=${record.fallbackUsed}",
+                    "timeout=${record.timeout}",
+                    "fresh_crash=${record.freshCrash}",
+                    "safety_guard_triggered=${record.safetyGuardTriggered}",
+                    "total_ms=${formatNullableLong(record.totalMs)}",
+                    "decode_ms=${formatNullableLong(record.decodeMs)}",
+                    "output_tokens=${record.outputTokens?.toString() ?: "unavailable"}",
+                    "tokens_per_second=${formatNullableDouble(record.tokensPerSecond)}",
+                    "sanitized_output_length=${record.sanitizedOutput.length}",
+                    "quality_classification=${record.qualityClassification}",
+                    "memory_before_total_pss_mb=${formatNullableLong(record.memoryBeforeTotalPssMb)}",
+                    "memory_after_total_pss_mb=${formatNullableLong(record.memoryAfterTotalPssMb)}",
+                    "memory_recovery_5s_total_pss_mb=${formatNullableLong(record.memoryRecovery5sTotalPssMb)}",
+                    "memory_before_native_heap_pss_mb=${formatNullableLong(record.memoryBeforeNativeHeapPssMb)}",
+                    "memory_after_native_heap_pss_mb=${formatNullableLong(record.memoryAfterNativeHeapPssMb)}",
+                    "memory_recovery_5s_native_heap_pss_mb=${formatNullableLong(record.memoryRecovery5sNativeHeapPssMb)}",
+                    "system_available_memory_mb=${formatNullableLong(record.memoryRecovery5sSystemAvailableMemoryMb)}",
+                    "low_memory=${record.memoryRecovery5sLowMemory?.toString() ?: "unavailable"}",
+                ).joinToString(" "),
+            )
+        }
+    }
+
+    fun logAdapterFailure(
+        reason: String,
+        throwable: Throwable,
+        memorySnapshot: MemorySnapshot? = null,
+        promptLength: Int? = null,
+        effectiveMaxOutputTokens: Int? = null,
+    ) {
+        if (!enabled) return
+        val context = currentContext.get()
+        runCatching {
+            Log.e(
+                NPU_S1_LOGCAT_TAG,
+                listOf(
+                    "event=adapter_failure",
+                    commonFields(mode = context?.repeatedRunMode, runIndex = context?.runIndex),
+                    "run_count_requested=${context?.runCountRequested?.toString() ?: "unavailable"}",
+                    "reason=$reason",
+                    "exception_class=${throwable.javaClass.name}",
+                    "message=${throwable.message ?: "unavailable"}",
+                    "prompt_length=${promptLength ?: context?.promptLength ?: "unavailable"}",
+                    "effective_max_output_tokens=${effectiveMaxOutputTokens ?: context?.effectiveMaxOutputTokens ?: "unavailable"}",
+                    "requested_max_output_tokens=${context?.requestedMaxOutputTokens?.toString() ?: "unavailable"}",
+                    "memory_total_pss_mb=${formatNullableLong(memorySnapshot?.totalPssMb)}",
+                    "memory_native_heap_pss_mb=${formatNullableLong(memorySnapshot?.nativeHeapPssMb)}",
+                    "system_available_memory_mb=${formatNullableLong(memorySnapshot?.availableSystemMemoryMb)}",
+                    "low_memory=${memorySnapshot?.lowMemory?.toString() ?: "unavailable"}",
+                ).joinToString(" "),
+                throwable,
+            )
+        }
+    }
+
+    fun logStopped(state: NpuS1RepeatedRunState) {
+        if (!enabled) return
+        val summary = buildNpuS1RepeatedRunSummary(state)
+        runCatching {
+            Log.w(
+                NPU_S1_LOGCAT_TAG,
+                listOf(
+                    "event=repeated_run_stopped",
+                    commonFields(mode = summary.repeatedRunMode, runIndex = state.records.lastOrNull()?.runIndex),
+                    "stop_reason=${summary.stopReason}",
+                    "run_count_completed=${summary.runCountCompleted}",
+                    "success_count=${summary.successCount}",
+                    "fallback_count=${summary.fallbackCount}",
+                    "timeout_count=${summary.timeoutCount}",
+                    "fresh_crash_count=${summary.freshCrashCount}",
+                    "safety_guard_count=${summary.safetyGuardCount}",
+                    "first_5s_total_pss_mb=${formatNullableLong(summary.first5sTotalPssMb)}",
+                    "last_5s_total_pss_mb=${formatNullableLong(summary.last5sTotalPssMb)}",
+                    "peak_5s_total_pss_mb=${formatNullableLong(summary.peak5sTotalPssMb)}",
+                    "first_5s_native_heap_pss_mb=${formatNullableLong(summary.first5sNativeHeapPssMb)}",
+                    "last_5s_native_heap_pss_mb=${formatNullableLong(summary.last5sNativeHeapPssMb)}",
+                    "peak_5s_native_heap_pss_mb=${formatNullableLong(summary.peak5sNativeHeapPssMb)}",
+                    "memory_growth_suspected=${summary.memoryGrowthSuspected}",
+                ).joinToString(" "),
+            )
+        }
+    }
+
+    private val enabled: Boolean
+        get() = BuildConfig.DEBUG
+
+    private fun commonFields(
+        mode: NpuS1RepeatedRunMode?,
+        runIndex: Int?,
+    ): String = listOf(
+        "timestamp_ms=${System.currentTimeMillis()}",
+        "pid=${runCatching { Process.myPid().toString() }.getOrDefault("unavailable")}",
+        "thread=${Thread.currentThread().name.ifBlank { "unavailable" }}",
+        "repeated_run_mode=${mode?.wireValue ?: "unavailable"}",
+        "run_index=${runIndex?.toString() ?: "unavailable"}",
+    ).joinToString(" ")
+}
 
 internal fun buildNpuS1ShortOutputTelemetry(
     input: String,
