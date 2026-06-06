@@ -1170,6 +1170,15 @@ fun Home(
                         )
                     }
                     val decodeStartedAtMs = SystemClock.elapsedRealtime()
+                    NpuEngineLogcatDiagnostics.i(
+                        event = "s1_engine_request_start",
+                        route = "ChatScreen.startNpuS1RepeatedRun",
+                        probeName = "npu_s1_repeated_run",
+                        backendRequested = "NPU",
+                        maxOutputTokens = maxTokensForRun,
+                        memorySnapshot = memoryBefore,
+                        detail = "run_index=$runIndex repeated_run_mode=${runMode.wireValue} prompt_length=${promptForRun.length} requested_max_output_tokens=$maxTokensForRun effective_max_output_tokens=${logcatContext.effectiveMaxOutputTokens}",
+                    )
                     val rawResult = withContext(Dispatchers.Default) {
                         NpuStandardRouteS1Bridge(
                             mode = npuStandardRouteMode,
@@ -1274,6 +1283,15 @@ fun Home(
                     )
                     records += record
                     NpuS1LogcatDiagnostics.logRunFinished(record)
+                    NpuEngineLogcatDiagnostics.i(
+                        event = if (record.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) "s1_decode_success" else "s1_decode_failure",
+                        route = "ChatScreen.startNpuS1RepeatedRun",
+                        probeName = "npu_s1_repeated_run",
+                        backendRequested = "NPU",
+                        maxOutputTokens = record.effectiveMaxOutputTokens,
+                        memorySnapshot = memoryRecovery5s,
+                        detail = "run_index=${record.runIndex} repeated_run_mode=${record.repeatedRunMode.wireValue} status=${record.status} reason=${record.reason} run_decode_reached=${record.runDecodeReached} fallback_used=${record.fallbackUsed} timeout=${record.timeout} fresh_crash=${record.freshCrash} safety_guard_triggered=${record.safetyGuardTriggered} total_ms=${record.totalMs ?: "unavailable"} decode_ms=${record.decodeMs ?: "unavailable"} memory_before_total_pss_mb=${record.memoryBeforeTotalPssMb ?: "unavailable"} memory_after_total_pss_mb=${record.memoryAfterTotalPssMb ?: "unavailable"} memory_recovery_5s_total_pss_mb=${record.memoryRecovery5sTotalPssMb ?: "unavailable"}",
+                    )
                     if (record.reason.startsWith("adapter_failure") || record.reason.contains("LiteRtLmJniException")) {
                         NpuS1LogcatDiagnostics.logAdapterFailure(
                             reason = record.reason,
@@ -1281,6 +1299,16 @@ fun Home(
                             memorySnapshot = memoryRecovery5s,
                             promptLength = promptForRun.length,
                             effectiveMaxOutputTokens = record.effectiveMaxOutputTokens,
+                        )
+                        NpuEngineLogcatDiagnostics.e(
+                            event = "s1_adapter_failure",
+                            route = "ChatScreen.startNpuS1RepeatedRun",
+                            throwable = IllegalStateException(record.reason),
+                            probeName = "npu_s1_repeated_run",
+                            backendRequested = "NPU",
+                            maxOutputTokens = record.effectiveMaxOutputTokens,
+                            memorySnapshot = memoryRecovery5s,
+                            detail = "run_index=${record.runIndex} repeated_run_mode=${record.repeatedRunMode.wireValue} status=${record.status} reason=${record.reason} run_decode_reached=${record.runDecodeReached} fallback_used=${record.fallbackUsed} timeout=${record.timeout} fresh_crash=${record.freshCrash} safety_guard_triggered=${record.safetyGuardTriggered} total_ms=${record.totalMs ?: "unavailable"} decode_ms=${record.decodeMs ?: "unavailable"}",
                         )
                     }
                     val stopReason = repeatedRunSafetyStopReason(record)

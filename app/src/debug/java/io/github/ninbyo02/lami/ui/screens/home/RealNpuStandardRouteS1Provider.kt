@@ -23,6 +23,17 @@ internal class RealNpuStandardRouteS1Provider(
         trace: (String) -> Unit,
     ): NpuStandardRouteS1RawResult {
         val sanitizedMaxOutputTokens = NpuStandardRoutePreferences.sanitizeMaxOutputTokens(maxOutputTokens)
+        NpuEngineLogcatDiagnostics.i(
+            event = "s1_engine_request_start",
+            route = "RealNpuStandardRouteS1Provider.invoke",
+            probeName = "npu_s1_provider",
+            backendRequested = "NPU",
+            maxOutputTokens = sanitizedMaxOutputTokens,
+            memorySnapshot = resolveApplicationContext()?.let { appContext ->
+                captureLocalMemorySnapshot(appContext, "s1_engine_request_start")
+            },
+            detail = "prompt_length=${userPrompt.length}",
+        )
         return runCatching {
             trace(buildNpuRealPromptHandoffTrace(stage = "provider", userPrompt = userPrompt))
             val request = request(
@@ -48,6 +59,14 @@ internal class RealNpuStandardRouteS1Provider(
                     freshCrash = rawResult.freshCrash,
                 ),
             )
+            NpuEngineLogcatDiagnostics.i(
+                event = if (rawResult.reason.startsWith("adapter_failure")) "s1_adapter_failure" else "s1_decode_success",
+                route = "RealNpuStandardRouteS1Provider.invoke",
+                probeName = "npu_s1_provider",
+                backendRequested = "NPU",
+                maxOutputTokens = rawResult.effectiveMaxOutputTokens,
+                detail = "status=${rawResult.status} reason=${rawResult.reason} run_decode_reached=${rawResult.runDecodeReached} fallback_used=${rawResult.fallbackUsed} timeout=${rawResult.timeout} fresh_crash=${rawResult.freshCrash}",
+            )
             rawResult
         }.getOrElse { throwable ->
             val reason = throwable.message
@@ -64,6 +83,18 @@ internal class RealNpuStandardRouteS1Provider(
                 },
                 promptLength = userPrompt.length,
                 effectiveMaxOutputTokens = sanitizedMaxOutputTokens,
+            )
+            NpuEngineLogcatDiagnostics.e(
+                event = "s1_adapter_failure",
+                route = "RealNpuStandardRouteS1Provider.invoke",
+                throwable = throwable,
+                probeName = "npu_s1_provider",
+                backendRequested = "NPU",
+                maxOutputTokens = sanitizedMaxOutputTokens,
+                memorySnapshot = resolveApplicationContext()?.let { appContext ->
+                    captureLocalMemorySnapshot(appContext, "s1_provider_failure")
+                },
+                detail = "prompt_length=${userPrompt.length} reason=$reason",
             )
             RealNpuStandardRouteS1ResultMapper.failure(
                 reason = reason,

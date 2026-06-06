@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.npu
 import android.content.Context
 import android.os.SystemClock
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.screens.home.NpuEngineLogcatDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuS1LogcatDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
 import io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmoke
@@ -285,9 +286,29 @@ class Qairt244DevOnlyNpuRouteAdapter(
         )
 
         val start = SystemClock.elapsedRealtime()
+        NpuEngineLogcatDiagnostics.i(
+            event = "s1_engine_create_start",
+            route = "Qairt244DevOnlyNpuRouteAdapter.runRoute",
+            probeName = "npu_s1_adapter",
+            modelPath = resolvedModelPath,
+            backendRequested = "NPU",
+            maxOutputTokens = maxOutputTokens,
+            memorySnapshot = captureLocalMemorySnapshot(appContext, "s1_engine_create_start"),
+            detail = "run_id=$runId prompt_source=$promptSource prompt_length=${promptTemplate.finalModelInput.length}",
+        )
         return try {
             withTimeout(timeoutMs) {
                 withContext(Dispatchers.IO) {
+                    NpuEngineLogcatDiagnostics.i(
+                        event = "s1_decode_start",
+                        route = "Qairt244DevOnlyNpuRouteAdapter.runRoute",
+                        probeName = "npu_s1_adapter",
+                        modelPath = resolvedModelPath,
+                        backendRequested = "NPU",
+                        maxOutputTokens = maxOutputTokens,
+                        memorySnapshot = captureLocalMemorySnapshot(appContext, "s1_decode_start"),
+                        detail = "run_id=$runId prompt_source=$promptSource prompt_length=${promptTemplate.finalModelInput.length}",
+                    )
                     traceTerminal(DevOnlyNpuTerminalTraceMarker.BEFORE_NATIVE_ADAPTER_RUN)
                     val nativeResult = Qairt244ShortMultitokenSmoke.runEditablePrompt(
                         context = appContext,
@@ -299,6 +320,15 @@ class Qairt244DevOnlyNpuRouteAdapter(
                         unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
                     )
                     traceTerminal(DevOnlyNpuTerminalTraceMarker.AFTER_NATIVE_ADAPTER_RUN)
+                    NpuEngineLogcatDiagnostics.i(
+                        event = "s1_engine_create_success",
+                        route = "Qairt244DevOnlyNpuRouteAdapter.runRoute",
+                        probeName = "npu_s1_adapter",
+                        modelPath = resolvedModelPath,
+                        backendRequested = "NPU",
+                        maxOutputTokens = maxOutputTokens,
+                        detail = "run_id=$runId native_result_returned=true",
+                    )
                     nativeResult
                 }
             }
@@ -332,6 +362,16 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 nativeSuccess -> "empty_after_sanitize"
                 else -> "native_result:${values["result"] ?: "unknown"}"
             }
+            NpuEngineLogcatDiagnostics.i(
+                event = if (success) "s1_decode_success" else "s1_decode_failure",
+                route = "Qairt244DevOnlyNpuRouteAdapter.runRoute",
+                probeName = "npu_s1_adapter",
+                modelPath = resolvedModelPath,
+                backendRequested = "NPU",
+                maxOutputTokens = maxOutputTokens,
+                memorySnapshot = captureLocalMemorySnapshot(appContext, "s1_decode_finished"),
+                detail = "run_id=$runId status=${if (success) "success" else "failure"} reason=$reasonCode run_decode_reached=true fallback_used=false timeout=false fresh_crash=false total_ms=${values["elapsed_ms"] ?: elapsed} decode_ms=${values["decode_elapsed_ms"] ?: "unavailable"}",
+            )
             appendOutputDiagnostics(
                 rawNativeOutput = rawNativeOutput,
                 adapterOutput = sanitizedOutput,
@@ -363,6 +403,16 @@ class Qairt244DevOnlyNpuRouteAdapter(
         } catch (timeout: TimeoutCancellationException) {
             traceRunDecodeMarkerIfSeen()
             val elapsed = SystemClock.elapsedRealtime() - start
+            NpuEngineLogcatDiagnostics.w(
+                event = "s1_decode_failure",
+                route = "Qairt244DevOnlyNpuRouteAdapter.runRoute",
+                probeName = "npu_s1_adapter",
+                modelPath = resolvedModelPath,
+                backendRequested = "NPU",
+                maxOutputTokens = maxOutputTokens,
+                memorySnapshot = captureLocalMemorySnapshot(appContext, "s1_decode_timeout"),
+                detail = "run_id=$runId status=failure reason=timeout run_decode_reached=true fallback_used=false timeout=true fresh_crash=false total_ms=$elapsed decode_ms=unavailable",
+            )
             appendRouteMarker(
                 "runId=$runId state=timeout elapsed_ms=$elapsed timeout_ms=$timeoutMs db=false tts=false markdown=false stream=false",
             )
@@ -395,6 +445,39 @@ class Qairt244DevOnlyNpuRouteAdapter(
             traceRunDecodeMarkerIfSeen()
             val elapsed = SystemClock.elapsedRealtime() - start
             val reasonCode = "adapter_failure:${throwable.javaClass.simpleName}"
+            NpuEngineLogcatDiagnostics.e(
+                event = "s1_engine_create_failure",
+                route = "Qairt244DevOnlyNpuRouteAdapter.runRoute",
+                throwable = throwable,
+                probeName = "npu_s1_adapter",
+                modelPath = resolvedModelPath,
+                backendRequested = "NPU",
+                maxOutputTokens = maxOutputTokens,
+                memorySnapshot = captureLocalMemorySnapshot(appContext, "s1_engine_create_failure"),
+                detail = "run_id=$runId reason=$reasonCode prompt_length=${promptTemplate.finalModelInput.length}",
+            )
+            NpuEngineLogcatDiagnostics.e(
+                event = "s1_decode_failure",
+                route = "Qairt244DevOnlyNpuRouteAdapter.runRoute",
+                throwable = throwable,
+                probeName = "npu_s1_adapter",
+                modelPath = resolvedModelPath,
+                backendRequested = "NPU",
+                maxOutputTokens = maxOutputTokens,
+                memorySnapshot = captureLocalMemorySnapshot(appContext, "s1_decode_failure"),
+                detail = "run_id=$runId status=failure reason=$reasonCode run_decode_reached=false fallback_used=false timeout=false fresh_crash=false total_ms=$elapsed decode_ms=unavailable",
+            )
+            NpuEngineLogcatDiagnostics.e(
+                event = "s1_adapter_failure",
+                route = "Qairt244DevOnlyNpuRouteAdapter.runRoute",
+                throwable = throwable,
+                probeName = "npu_s1_adapter",
+                modelPath = resolvedModelPath,
+                backendRequested = "NPU",
+                maxOutputTokens = maxOutputTokens,
+                memorySnapshot = captureLocalMemorySnapshot(appContext, "s1_adapter_failure"),
+                detail = "run_id=$runId reason=$reasonCode",
+            )
             appendRouteMarker(
                 "runId=$runId state=failure elapsed_ms=$elapsed class=${throwable.javaClass.name} " +
                     "message=${throwable.message ?: "-"} db=false tts=false markdown=false stream=false",

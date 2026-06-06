@@ -248,6 +248,37 @@ For Android Studio Logcat confirmation and startup probe triage:
 11. If `event=adapter_failure` appears, inspect its throwable and stack trace for LiteRT / QNN / JNI investigation.
 12. Confirm `event=repeated_run_stopped` includes the stop reason, success/fallback/timeout/crash/safety counts, and five-second memory trend fields when the runner stops.
 
+For Engine.initialize / nativeCreateEngine crash triage, use `LamiNpuEngine` in Android Studio Logcat. A broader query for a crash window is:
+
+```text
+LamiNpuEngine OR LamiNpuS1 OR AndroidRuntime OR FATAL EXCEPTION OR SIGABRT OR tombstone OR crash_dump
+```
+
+The most important marker is `event=engine_initialize_operation_before_native_create`. If this appears but `event=engine_initialize_operation_after_native_create` does not, and a tombstone follows, treat the failure point as inside LiteRT-LM `nativeCreateEngine` / `Engine.initialize`.
+
+CLI Logcat collection:
+
+```bash
+adb -s 192.168.52.52:42685 logcat -c
+adb -s 192.168.52.52:42685 logcat -v time | tee lami_engine_probe.logcat
+```
+
+After the app stops or crashes:
+
+```bash
+grep -iE "LamiNpuEngine|LamiNpuS1|AndroidRuntime|FATAL EXCEPTION|SIGSEGV|SIGABRT|tombstone|crash_dump|LiteRt|litertlm|QNN|HTP|FastRPC|io.github.ninbyo02.lami" \
+  lami_engine_probe.logcat | tail -400
+```
+
+Dropbox and tombstone checks:
+
+```bash
+adb -s 192.168.52.52:42685 shell dumpsys dropbox --print | grep -iE "io.github.ninbyo02.lami|native_crash|data_app_crash|system_app_crash|tombstone|crash|SIGABRT|litertlm" -A 100 -B 30 | tail -400
+
+adb -s 192.168.52.52:42685 shell ls -lt /data/tombstones 2>/dev/null | head -20
+adb -s 192.168.52.52:42685 shell cat /data/tombstones/tombstone_00 2>/dev/null | head -160
+```
+
 ## Future candidates
 
 - Persist guard-blocked conversation state if in-memory state is not enough for the investigation.
