@@ -10,6 +10,47 @@ internal const val NPU_S1_REPEATED_RUN_STATUS_STOPPED = "stopped"
 internal const val NPU_S1_REPEATED_RUN_DEFAULT_PROMPT = "こんにちは"
 internal const val NPU_S1_REPEATED_RUN_DEFAULT_COUNT = 20
 internal const val NPU_S1_REPEATED_RUN_ABNORMAL_TOTAL_MS = 30_000L
+internal const val NPU_S1_REPEATED_RUN_RECREATE_NOTE =
+    "s1_direct_runner_engine_session_dispose_not_exposed_uses_safe_holder_recreate_api"
+
+internal enum class NpuS1RepeatedRunMode(
+    val wireValue: String,
+    val displayLabel: String,
+    val recreateAfterRun: Boolean,
+    val postRecreateDelayMs: Long,
+) {
+    REUSE(
+        wireValue = "reuse",
+        displayLabel = "Reuse",
+        recreateAfterRun = false,
+        postRecreateDelayMs = 0L,
+    ),
+    RECREATE(
+        wireValue = "recreate",
+        displayLabel = "Recreate",
+        recreateAfterRun = true,
+        postRecreateDelayMs = 0L,
+    ),
+    RECREATE_3S(
+        wireValue = "recreate_3s",
+        displayLabel = "Recreate + 3s",
+        recreateAfterRun = true,
+        postRecreateDelayMs = 3_000L,
+    ),
+}
+
+internal data class NpuS1RepeatedRunLifecyclePlan(
+    val mode: NpuS1RepeatedRunMode,
+    val recreateAfterRun: Boolean,
+    val postRecreateDelayMs: Long,
+)
+
+internal fun npuS1RepeatedRunLifecyclePlan(mode: NpuS1RepeatedRunMode): NpuS1RepeatedRunLifecyclePlan =
+    NpuS1RepeatedRunLifecyclePlan(
+        mode = mode,
+        recreateAfterRun = mode.recreateAfterRun,
+        postRecreateDelayMs = mode.postRecreateDelayMs,
+    )
 
 internal data class NpuS1ShortOutputTelemetry(
     val finishReason: String = "unavailable",
@@ -35,6 +76,7 @@ internal data class NpuS1ShortOutputTelemetry(
 internal data class NpuS1RepeatedRunRecord(
     val runIndex: Int,
     val runCount: Int,
+    val repeatedRunMode: NpuS1RepeatedRunMode,
     val prompt: String,
     val requestedMaxOutputTokens: Int,
     val effectiveMaxOutputTokens: Int,
@@ -71,6 +113,9 @@ internal data class NpuS1RepeatedRunRecord(
     val memoryRecovery5sNativeHeapAllocMb: Long?,
     val memoryRecovery5sSystemAvailableMemoryMb: Long?,
     val memoryRecovery5sLowMemory: Boolean?,
+    val recreateRequestedAfterRun: Boolean = false,
+    val recreateResultAfterRun: String = "not_requested",
+    val recreateDelayAfterRunMs: Long = 0L,
     val finalInputLengthChars: Int,
     val finalInputTailPreview: String,
     val tokenizerInputTokens: String = "unavailable",
@@ -87,6 +132,7 @@ internal data class NpuS1RepeatedRunState(
     val prompt: String = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
     val requestedRunCount: Int = NPU_S1_REPEATED_RUN_DEFAULT_COUNT,
     val maxOutputTokens: Int = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
+    val repeatedRunMode: NpuS1RepeatedRunMode = NpuS1RepeatedRunMode.REUSE,
     val records: List<NpuS1RepeatedRunRecord> = emptyList(),
     val stopped: Boolean = false,
     val stopReason: String = "none",
@@ -98,6 +144,7 @@ internal data class NpuS1RepeatedRunSummary(
     val runCountCompleted: Int,
     val prompt: String,
     val maxOutputTokens: Int,
+    val repeatedRunMode: NpuS1RepeatedRunMode,
     val stopped: Boolean,
     val stopReason: String,
     val successCount: Int,
@@ -116,8 +163,10 @@ internal data class NpuS1RepeatedRunSummary(
     val allOutputsSame: Boolean,
     val first5sTotalPssMb: Long?,
     val last5sTotalPssMb: Long?,
+    val peak5sTotalPssMb: Long?,
     val first5sNativeHeapPssMb: Long?,
     val last5sNativeHeapPssMb: Long?,
+    val peak5sNativeHeapPssMb: Long?,
     val first5sSystemAvailableMemoryMb: Long?,
     val last5sSystemAvailableMemoryMb: Long?,
     val memoryGrowthSuspected: Boolean,
@@ -199,6 +248,7 @@ internal fun buildNpuS1RepeatedRunSummary(
         runCountCompleted = records.size,
         prompt = state.prompt,
         maxOutputTokens = state.maxOutputTokens,
+        repeatedRunMode = state.repeatedRunMode,
         stopped = state.stopped,
         stopReason = state.stopReason,
         successCount = records.count { it.status == NpuStandardRouteS1Contract.STATUS_SUCCESS },
@@ -217,8 +267,10 @@ internal fun buildNpuS1RepeatedRunSummary(
         allOutputsSame = records.isNotEmpty() && outputCounts.size == 1,
         first5sTotalPssMb = first?.memoryRecovery5sTotalPssMb,
         last5sTotalPssMb = last?.memoryRecovery5sTotalPssMb,
+        peak5sTotalPssMb = records.mapNotNull { it.memoryRecovery5sTotalPssMb }.maxOrNull(),
         first5sNativeHeapPssMb = first?.memoryRecovery5sNativeHeapPssMb,
         last5sNativeHeapPssMb = last?.memoryRecovery5sNativeHeapPssMb,
+        peak5sNativeHeapPssMb = records.mapNotNull { it.memoryRecovery5sNativeHeapPssMb }.maxOrNull(),
         first5sSystemAvailableMemoryMb = first?.memoryRecovery5sSystemAvailableMemoryMb,
         last5sSystemAvailableMemoryMb = last?.memoryRecovery5sSystemAvailableMemoryMb,
         memoryGrowthSuspected = memoryGrowthSuspected,
@@ -229,10 +281,13 @@ internal fun repeatedRunSafetyStopReason(record: NpuS1RepeatedRunRecord): String
     record.memoryBeforeLowMemory == true -> "low_memory_before"
     record.memoryAfterLowMemory == true -> "low_memory_after"
     record.memoryRecovery5sLowMemory == true -> "low_memory"
-    record.fallbackUsed -> "fallback_used"
-    record.freshCrash -> "fresh_crash"
+    record.fallbackUsed -> "fallback_detected"
+    record.freshCrash -> "fresh_crash_detected"
     record.timeout -> "timeout"
     record.safetyGuardTriggered -> "safety_guard_triggered"
+    record.recreateResultAfterRun.startsWith("failed") -> "engine_recreate_failure"
+    record.reason.startsWith("adapter_failure") -> "adapter_failure"
+    record.reason.contains("LiteRtLmJniException") -> "adapter_failure"
     !record.runDecodeReached -> "run_decode_reached_false"
     record.status != NpuStandardRouteS1Contract.STATUS_SUCCESS -> "status_${record.status}"
     record.totalMs != null && record.totalMs > NPU_S1_REPEATED_RUN_ABNORMAL_TOTAL_MS -> "run_too_long"
@@ -260,6 +315,8 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("run_count_completed=${summary.runCountCompleted}")
         appendLine("prompt=${summary.prompt}")
         appendLine("max_output_tokens=${summary.maxOutputTokens}")
+        appendLine("repeated_run_mode=${summary.repeatedRunMode.wireValue}")
+        appendLine("recreate_api_note=$NPU_S1_REPEATED_RUN_RECREATE_NOTE")
         appendLine("stopped=${summary.stopped}")
         appendLine("stop_reason=${summary.stopReason}")
         appendLine("success_count=${summary.successCount}")
@@ -278,8 +335,10 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("all_outputs_same=${summary.allOutputsSame}")
         appendLine("first_5s_total_pss_mb=${formatNullableLong(summary.first5sTotalPssMb)}")
         appendLine("last_5s_total_pss_mb=${formatNullableLong(summary.last5sTotalPssMb)}")
+        appendLine("peak_5s_total_pss_mb=${formatNullableLong(summary.peak5sTotalPssMb)}")
         appendLine("first_5s_native_heap_pss_mb=${formatNullableLong(summary.first5sNativeHeapPssMb)}")
         appendLine("last_5s_native_heap_pss_mb=${formatNullableLong(summary.last5sNativeHeapPssMb)}")
+        appendLine("peak_5s_native_heap_pss_mb=${formatNullableLong(summary.peak5sNativeHeapPssMb)}")
         appendLine("first_5s_system_available_memory_mb=${formatNullableLong(summary.first5sSystemAvailableMemoryMb)}")
         appendLine("last_5s_system_available_memory_mb=${formatNullableLong(summary.last5sSystemAvailableMemoryMb)}")
         appendLine("memory_growth_suspected=${summary.memoryGrowthSuspected}")
@@ -288,6 +347,7 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
             state.records.forEach { record ->
                 appendLine("run_index=${record.runIndex}")
                 appendLine("run_count=${record.runCount}")
+                appendLine("repeated_run_mode=${record.repeatedRunMode.wireValue}")
                 appendLine("prompt=${record.prompt}")
                 appendLine("requested_max_output_tokens=${record.requestedMaxOutputTokens}")
                 appendLine("effective_max_output_tokens=${record.effectiveMaxOutputTokens}")
@@ -324,6 +384,9 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
                 appendLine("memory_recovery_5s_native_heap_alloc_mb=${formatNullableLong(record.memoryRecovery5sNativeHeapAllocMb)}")
                 appendLine("memory_recovery_5s_system_available_memory_mb=${formatNullableLong(record.memoryRecovery5sSystemAvailableMemoryMb)}")
                 appendLine("memory_recovery_5s_low_memory=${record.memoryRecovery5sLowMemory?.toString() ?: "unavailable"}")
+                appendLine("recreate_requested_after_run=${record.recreateRequestedAfterRun}")
+                appendLine("recreate_result_after_run=${record.recreateResultAfterRun}")
+                appendLine("recreate_delay_after_run_ms=${record.recreateDelayAfterRunMs}")
                 appendLine("final_input_length_chars=${record.finalInputLengthChars}")
                 appendLine("final_input_tail_preview=${record.finalInputTailPreview}")
                 appendLine("tokenizer_input_tokens=${record.tokenizerInputTokens}")

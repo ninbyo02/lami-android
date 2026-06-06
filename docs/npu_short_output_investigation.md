@@ -99,6 +99,14 @@ The DEV diagnostics include a `NPU S1 20回連続テスト` button. It runs a di
 
 Each run records output, timing, short-output telemetry, and App/System memory before, after, and five seconds after the run. The five-second memory value is intended to avoid over-reading immediate post-dispose accounting, especially for QNN / LiteRT / mmap or shared native resources.
 
+The runner has three modes:
+
+- `repeated_run_mode=reuse`: default. Keeps the current repeated-run behavior and does not request explicit recreate between runs.
+- `repeated_run_mode=recreate`: requests the existing safe engine-holder recreate path after each run. This helps distinguish runner / engine / session reuse from output-shortness or memory accounting.
+- `repeated_run_mode=recreate_3s`: requests recreate, then waits three seconds inside the DEV runner before the next run. This helps test whether LiteRT / QNN release or accounting needs time before another decode attempt.
+
+The current S1 adapter path does not expose a direct close/dispose method for the S1 native runner, LiteRT-LM session, or QNN session at the UI layer. The diagnostic uses safe existing APIs only and does not force-release unknown native objects.
+
 The runner stops early if any safety condition appears:
 
 - `low_memory=true`
@@ -118,10 +126,19 @@ The runner stops early if any safety condition appears:
 - `most_common_output`: if this remains `こんにちは。`, continue short-output finish reason investigation.
 - `npu_s1_output_tokens` and `npu_s1_token_count_mode`: confirm whether the count is still estimated code points.
 - `finish_reason` / `stop_reason`: currently `unavailable` until runtime exposure is added.
+- `repeated_run_mode`: compare `reuse`, `recreate`, and `recreate_3s`.
 - `memory_recovery_5s_total_pss_mb`
 - `memory_recovery_5s_native_heap_pss_mb`
 - `memory_recovery_5s_system_available_memory_mb`
+- `peak_5s_total_pss_mb`
+- `peak_5s_native_heap_pss_mb`
 - `memory_growth_suspected`
+
+Mode interpretation examples:
+
+- `reuse` stops around run 7, but `recreate` completes 20 runs: runner / engine / session reuse is likely involved.
+- `reuse` and `recreate` stop around run 7, but `recreate_3s` completes 20 runs: delayed LiteRT / QNN release or delayed memory accounting is likely involved.
+- all modes stop around run 7 with `adapter_failure:LiteRtLmJniException`, `run_decode_reached=false`, `fallback=false`, `fresh_crash=false`, and `timeout=false`: continue investigation in LiteRT-LM JNI / QNN internals.
 
 If the output is stable and the five-second memory values return near baseline, the current evidence points away from a simple app-side malloc leak. If memory keeps growing, compare the copied DEV diagnostics with:
 

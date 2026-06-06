@@ -82,10 +82,17 @@ The default diagnostic run uses:
 - one run at a time only
 - five-second App/System memory recovery snapshot after each run
 
+The repeated runner has three DEV-only modes:
+
+- `repeated_run_mode=reuse`: default mode. It preserves the current S1 repeated-run behavior and does not request an explicit recreate between runs.
+- `repeated_run_mode=recreate`: after each run, the runner requests the existing safe holder recreate path. This is used to check whether repeated failure is tied to runner / engine / session reuse. Direct S1 native runner, LiteRT-LM session, and QNN session dispose APIs are not exposed through this UI layer, so no unsafe forced release is attempted.
+- `repeated_run_mode=recreate_3s`: same as `recreate`, then waits three seconds inside the DEV repeated runner before the next run. This isolates delayed LiteRT / QNN / Android memory/resource release from normal app flow.
+
 The DEV copy text includes:
 
 - `[DEV診断: NPU S1 repeated run summary]`
 - `[DEV診断: NPU S1 repeated run details]`
+- `repeated_run_mode`
 - per-run output, timing, short-output telemetry, and five-second memory recovery values
 - stopped reason when the runner stops early
 - unavailable finish / tokenizer values as explicit `unavailable` or `not_exposed`
@@ -102,6 +109,8 @@ Use these fields to compare repeated S1 behavior:
 - `memory_recovery_5s_native_heap_pss_mb`
 - `memory_recovery_5s_native_heap_alloc_mb`
 - `memory_recovery_5s_system_available_memory_mb`
+- `peak_5s_total_pss_mb`
+- `peak_5s_native_heap_pss_mb`
 - `memory_growth_suspected`
 
 The repeated runner stops early if `fallback_used`, `fresh_crash`, `timeout`, `low_memory`, `safety_guard_triggered`, `run_decode_reached=false`, `status != success`, near-threshold system memory, cancellation, or an abnormally long run is observed.
@@ -112,6 +121,12 @@ Interpretation examples:
 - If five-second memory values stabilize, the immediate after-run increase may be delayed accounting or delayed release rather than a simple leak.
 - If `system_available_memory_mb` trends down while process PSS does not explain it, compare with `adb shell dumpsys meminfo io.github.ninbyo02.lami` and device-level memory pressure logs.
 - If `memory_growth_suspected=true`, collect DEV copy text, `dumpsys meminfo`, logcat, and any vendor runtime logs from the same run window.
+
+Mode comparison examples:
+
+- `reuse` stops around run 7, but `recreate` completes 20 runs: suspect runner / engine / session reuse.
+- `reuse` stops around run 7, `recreate` also stops around run 7, but `recreate_3s` completes 20 runs: suspect delayed LiteRT / QNN release or delayed memory accounting.
+- all three modes stop around run 7 with `adapter_failure` and `run_decode_reached=false`: suspect LiteRT-LM JNI / QNN internal state rather than app-side chat flow or DB/TTS/markdown behavior.
 
 ## What is not collected
 

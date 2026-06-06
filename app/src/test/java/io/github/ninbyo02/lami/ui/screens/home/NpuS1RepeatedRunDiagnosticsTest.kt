@@ -39,10 +39,12 @@ class NpuS1RepeatedRunDiagnosticsTest {
         val summary = buildNpuS1RepeatedRunSummary(
             NpuS1RepeatedRunState(
                 status = NPU_S1_REPEATED_RUN_STATUS_COMPLETED,
+                repeatedRunMode = NpuS1RepeatedRunMode.RECREATE,
                 records = records,
             ),
         )
 
+        assertEquals(NpuS1RepeatedRunMode.RECREATE, summary.repeatedRunMode)
         assertEquals(20, summary.runCountCompleted)
         assertEquals(20, summary.successCount)
         assertEquals(101L, summary.minTotalMs)
@@ -53,8 +55,10 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertEquals(12.5, summary.avgTokensPerSecond!!, 0.001)
         assertEquals(241L, summary.first5sTotalPssMb)
         assertEquals(260L, summary.last5sTotalPssMb)
+        assertEquals(260L, summary.peak5sTotalPssMb)
         assertEquals(61L, summary.first5sNativeHeapPssMb)
         assertEquals(80L, summary.last5sNativeHeapPssMb)
+        assertEquals(80L, summary.peak5sNativeHeapPssMb)
         assertEquals(999L, summary.first5sSystemAvailableMemoryMb)
         assertEquals(980L, summary.last5sSystemAvailableMemoryMb)
         assertFalse(summary.memoryGrowthSuspected)
@@ -62,13 +66,27 @@ class NpuS1RepeatedRunDiagnosticsTest {
 
     @Test
     fun `fallback low memory and danger conditions produce safety stop reasons`() {
-        assertEquals("fallback_used", repeatedRunSafetyStopReason(record(fallbackUsed = true)))
+        assertEquals("fallback_detected", repeatedRunSafetyStopReason(record(fallbackUsed = true)))
         assertEquals("low_memory", repeatedRunSafetyStopReason(record(memoryRecovery5sLowMemory = true)))
         assertEquals("low_memory_before", repeatedRunSafetyStopReason(record(memoryBeforeLowMemory = true)))
         assertEquals("low_memory_after", repeatedRunSafetyStopReason(record(memoryAfterLowMemory = true)))
-        assertEquals("fresh_crash", repeatedRunSafetyStopReason(record(freshCrash = true)))
+        assertEquals("fresh_crash_detected", repeatedRunSafetyStopReason(record(freshCrash = true)))
         assertEquals("timeout", repeatedRunSafetyStopReason(record(timeout = true)))
         assertEquals("safety_guard_triggered", repeatedRunSafetyStopReason(record(safetyGuardTriggered = true)))
+        assertEquals(
+            "adapter_failure",
+            repeatedRunSafetyStopReason(
+                record(
+                    status = "failure",
+                    reason = "adapter_failure:LiteRtLmJniException",
+                    runDecodeReached = false,
+                ),
+            ),
+        )
+        assertEquals(
+            "engine_recreate_failure",
+            repeatedRunSafetyStopReason(record(recreateResultAfterRun = "failed")),
+        )
         assertEquals("run_decode_reached_false", repeatedRunSafetyStopReason(record(runDecodeReached = false)))
         assertEquals("status_failure", repeatedRunSafetyStopReason(record(status = "failure")))
         assertEquals("run_too_long", repeatedRunSafetyStopReason(record(totalMs = 30_001L)))
@@ -100,6 +118,9 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("[DEV診断: NPU S1 repeated run summary]"))
         assertTrue(text.contains("[DEV診断: NPU S1 repeated run details]"))
         assertTrue(text.contains("repeated_run_status=completed"))
+        assertTrue(text.contains("repeated_run_mode=reuse"))
+        assertTrue(text.indexOf("run_index=1") < text.lastIndexOf("repeated_run_mode=reuse"))
+        assertTrue(text.contains("recreate_api_note=s1_direct_runner_engine_session_dispose_not_exposed_uses_safe_holder_recreate_api"))
         assertTrue(text.contains("run_index=1"))
         assertTrue(text.contains("finish_reason=unavailable"))
         assertTrue(text.contains("stop_reason=unavailable"))
@@ -109,6 +130,11 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("memory_recovery_5s_system_available_memory_mb=1000"))
         assertTrue(text.contains("memory_before_low_memory=false"))
         assertTrue(text.contains("memory_after_low_memory=false"))
+        assertTrue(text.contains("peak_5s_total_pss_mb=250"))
+        assertTrue(text.contains("peak_5s_native_heap_pss_mb=70"))
+        assertTrue(text.contains("recreate_requested_after_run=false"))
+        assertTrue(text.contains("recreate_result_after_run=not_requested"))
+        assertTrue(text.contains("recreate_delay_after_run_ms=0"))
         assertTrue(text.contains("output_token_count_source=estimated_code_points_not_tokenizer"))
         assertTrue(text.contains("prompt_token_count_source=code_points"))
         assertFalse(text.contains("NPU memory"))
@@ -162,6 +188,19 @@ class NpuS1RepeatedRunDiagnosticsTest {
     }
 
     @Test
+    fun `repeated run modes keep lifecycle plans`() {
+        assertEquals("reuse", NpuS1RepeatedRunMode.REUSE.wireValue)
+        assertEquals("recreate", NpuS1RepeatedRunMode.RECREATE.wireValue)
+        assertEquals("recreate_3s", NpuS1RepeatedRunMode.RECREATE_3S.wireValue)
+        assertFalse(npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.REUSE).recreateAfterRun)
+        assertEquals(0L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.REUSE).postRecreateDelayMs)
+        assertTrue(npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.RECREATE).recreateAfterRun)
+        assertEquals(0L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.RECREATE).postRecreateDelayMs)
+        assertTrue(npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.RECREATE_3S).recreateAfterRun)
+        assertEquals(3_000L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.RECREATE_3S).postRecreateDelayMs)
+    }
+
+    @Test
     fun `repeated run changes do not modify npu prompt sanitizer token and fallback contracts`() {
         val sanitized = Qairt244NpuOutputSanitizer.sanitize(
             rawOutput = "こんにちは！<end_of_turn>",
@@ -189,20 +228,24 @@ class NpuS1RepeatedRunDiagnosticsTest {
         freshCrash: Boolean = false,
         safetyGuardTriggered: Boolean = false,
         runDecodeReached: Boolean = true,
+        reason: String = if (status == NpuStandardRouteS1Contract.STATUS_SUCCESS) "success" else status,
         memoryRecovery5sTotalPssMb: Long? = 250L,
         memoryRecovery5sNativeHeapPssMb: Long? = 70L,
         memoryRecovery5sSystemAvailableMemoryMb: Long? = 1000L,
         memoryBeforeLowMemory: Boolean? = false,
         memoryAfterLowMemory: Boolean? = false,
         memoryRecovery5sLowMemory: Boolean? = false,
+        repeatedRunMode: NpuS1RepeatedRunMode = NpuS1RepeatedRunMode.REUSE,
+        recreateResultAfterRun: String = "not_requested",
     ): NpuS1RepeatedRunRecord = NpuS1RepeatedRunRecord(
         runIndex = runIndex,
         runCount = 20,
+        repeatedRunMode = repeatedRunMode,
         prompt = "こんにちは",
         requestedMaxOutputTokens = 32,
         effectiveMaxOutputTokens = 32,
         status = status,
-        reason = if (status == NpuStandardRouteS1Contract.STATUS_SUCCESS) "success" else status,
+        reason = reason,
         finishReason = "unavailable",
         stopReason = "unavailable",
         eosDetected = "unavailable",
@@ -230,6 +273,9 @@ class NpuS1RepeatedRunDiagnosticsTest {
         memoryRecovery5sNativeHeapAllocMb = 24L,
         memoryRecovery5sSystemAvailableMemoryMb = memoryRecovery5sSystemAvailableMemoryMb,
         memoryRecovery5sLowMemory = memoryRecovery5sLowMemory,
+        recreateRequestedAfterRun = repeatedRunMode.recreateAfterRun,
+        recreateResultAfterRun = recreateResultAfterRun,
+        recreateDelayAfterRunMs = repeatedRunMode.postRecreateDelayMs,
         finalInputLengthChars = 5,
         finalInputTailPreview = "こんにちは",
         outputTokenCountSource = "estimated_code_points_not_tokenizer",

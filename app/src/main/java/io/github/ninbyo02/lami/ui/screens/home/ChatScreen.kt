@@ -81,6 +81,7 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarDuration
@@ -981,6 +982,7 @@ fun Home(
     var memoryRecoveryCheckRunId by remember(effectiveChatId) { mutableStateOf(0L) }
     var npuS1RepeatedRunState by remember(effectiveChatId) { mutableStateOf(NpuS1RepeatedRunState()) }
     var npuS1RepeatedRunJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var npuS1RepeatedRunMode by rememberSaveable(effectiveChatId) { mutableStateOf(NpuS1RepeatedRunMode.REUSE) }
     var devUiAliveSeconds by remember(effectiveChatId) { mutableStateOf(0) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
@@ -1084,6 +1086,8 @@ fun Home(
         val requestedRunCount = NPU_S1_REPEATED_RUN_DEFAULT_COUNT
         val promptForRun = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT
         val maxTokensForRun = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS
+        val runMode = npuS1RepeatedRunMode
+        val lifecyclePlan = npuS1RepeatedRunLifecyclePlan(runMode)
         val startedAtMs = System.currentTimeMillis()
         npuS1RepeatedRunState = NpuS1RepeatedRunState(
             status = NPU_S1_REPEATED_RUN_STATUS_RUNNING,
@@ -1091,6 +1095,7 @@ fun Home(
             prompt = promptForRun,
             requestedRunCount = requestedRunCount,
             maxOutputTokens = maxTokensForRun,
+            repeatedRunMode = runMode,
         )
         npuS1RepeatedRunJob = coroutineScope.launch {
             val records = mutableListOf<NpuS1RepeatedRunRecord>()
@@ -1131,6 +1136,26 @@ fun Home(
                             stage = "npu_s1_repeated_run_${runIndex}_recovery_5s",
                         )
                     }
+                    val recreateResult = if (lifecyclePlan.recreateAfterRun) {
+                        val reason = "npu_s1_repeated_run_${runMode.wireValue}_run_$runIndex"
+                        val succeeded = withContext(Dispatchers.IO) {
+                            localInferenceEngineHolder.requestRecreateForDev(
+                                reason = reason,
+                                appendTrace = {
+                                    appendLocalReflectionTrace(
+                                        context = context.applicationContext,
+                                        message = "NPU_S1_REPEATED_RUN recreate mode=${runMode.wireValue} run=$runIndex $it",
+                                    )
+                                },
+                            )
+                        }
+                        if (succeeded) "success" else "failed"
+                    } else {
+                        "not_requested"
+                    }
+                    if (lifecyclePlan.postRecreateDelayMs > 0L) {
+                        delay(lifecyclePlan.postRecreateDelayMs)
+                    }
                     val telemetry = buildNpuS1ShortOutputTelemetry(promptForRun, result)
                     val safetyGuardTriggered = isSafetyGuardTriggered(
                         reasonCode = result.reason,
@@ -1140,6 +1165,7 @@ fun Home(
                     val record = NpuS1RepeatedRunRecord(
                         runIndex = runIndex,
                         runCount = requestedRunCount,
+                        repeatedRunMode = runMode,
                         prompt = promptForRun,
                         requestedMaxOutputTokens = result.selection.requestedMaxOutputTokens,
                         effectiveMaxOutputTokens = result.selection.effectiveMaxOutputTokens,
@@ -1172,6 +1198,9 @@ fun Home(
                         memoryRecovery5sNativeHeapAllocMb = memoryRecovery5s.nativeHeapAllocatedMb,
                         memoryRecovery5sSystemAvailableMemoryMb = memoryRecovery5s.availableSystemMemoryMb,
                         memoryRecovery5sLowMemory = memoryRecovery5s.lowMemory,
+                        recreateRequestedAfterRun = lifecyclePlan.recreateAfterRun,
+                        recreateResultAfterRun = recreateResult,
+                        recreateDelayAfterRunMs = lifecyclePlan.postRecreateDelayMs,
                         finalInputLengthChars = telemetry.finalInputLengthChars,
                         finalInputTailPreview = telemetry.finalInputTailPreview,
                         tokenizerInputTokens = telemetry.tokenizerInputTokens,
@@ -1191,6 +1220,7 @@ fun Home(
                             prompt = promptForRun,
                             requestedRunCount = requestedRunCount,
                             maxOutputTokens = maxTokensForRun,
+                            repeatedRunMode = runMode,
                             records = records.toList(),
                             stopped = true,
                             stopReason = stopReason,
@@ -1203,6 +1233,7 @@ fun Home(
                         prompt = promptForRun,
                         requestedRunCount = requestedRunCount,
                         maxOutputTokens = maxTokensForRun,
+                        repeatedRunMode = runMode,
                         records = records.toList(),
                     )
                 }
@@ -1212,6 +1243,7 @@ fun Home(
                     prompt = promptForRun,
                     requestedRunCount = requestedRunCount,
                     maxOutputTokens = maxTokensForRun,
+                    repeatedRunMode = runMode,
                     records = records.toList(),
                 )
             } catch (exception: CancellationException) {
@@ -5399,8 +5431,10 @@ fun Home(
                                             isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
                                             onMemoryRecoveryCheck = ::startMemoryRecoveryCheck,
                                             npuS1RepeatedRunState = npuS1RepeatedRunState,
+                                            npuS1RepeatedRunMode = npuS1RepeatedRunMode,
                                             npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
                                             isInferenceRunningForRepeatedRun = isInferenceRunningUi,
+                                            onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
                                             onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
                                             onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
                                             s4Text = s4Text,
@@ -5454,8 +5488,10 @@ fun Home(
                                             isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
                                             onMemoryRecoveryCheck = ::startMemoryRecoveryCheck,
                                             npuS1RepeatedRunState = npuS1RepeatedRunState,
+                                            npuS1RepeatedRunMode = npuS1RepeatedRunMode,
                                             npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
                                             isInferenceRunningForRepeatedRun = isInferenceRunningUi,
+                                            onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
                                             onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
                                             onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
                                         )
@@ -5672,8 +5708,10 @@ fun Home(
                     isInferenceRunningForMemoryRecovery = isInferenceRunningUi,
                     onMemoryRecoveryCheck = ::startMemoryRecoveryCheck,
                     npuS1RepeatedRunState = npuS1RepeatedRunState,
+                    npuS1RepeatedRunMode = npuS1RepeatedRunMode,
                     npuS1RepeatedRunInProgress = npuS1RepeatedRunJob?.isActive == true,
                     isInferenceRunningForRepeatedRun = isInferenceRunningUi,
+                    onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
                     onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
                     onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
                     onManualEngineRecreate = {
@@ -8581,12 +8619,35 @@ private fun MemoryRecoveryCheckDevSection(
 @Composable
 private fun NpuS1RepeatedRunDevSection(
     state: NpuS1RepeatedRunState,
+    selectedMode: NpuS1RepeatedRunMode,
     running: Boolean,
     blockedByGeneration: Boolean,
+    onModeChange: (NpuS1RepeatedRunMode) -> Unit,
     onStart: () -> Unit,
     onCancel: () -> Unit,
 ) {
     InferenceStatsSection(title = "NPU S1 repeated run") {
+        Text(
+            text = "実行モード:",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        NpuS1RepeatedRunMode.entries.forEach { mode ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(
+                    selected = selectedMode == mode,
+                    onClick = { onModeChange(mode) },
+                    enabled = !running && !blockedByGeneration,
+                )
+                Text(
+                    text = mode.displayLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -8595,7 +8656,7 @@ private fun NpuS1RepeatedRunDevSection(
                 onClick = onStart,
                 enabled = !running && !blockedByGeneration,
             ) {
-                Text("NPU S1 20回連続テスト")
+                Text("NPU S1 20回連続テスト開始")
             }
             TextButton(
                 onClick = onCancel,
@@ -8644,8 +8705,10 @@ private fun InferenceStatsSheetContent(
     isInferenceRunningForMemoryRecovery: Boolean = false,
     onMemoryRecoveryCheck: () -> Unit = {},
     npuS1RepeatedRunState: NpuS1RepeatedRunState = NpuS1RepeatedRunState(),
+    npuS1RepeatedRunMode: NpuS1RepeatedRunMode = NpuS1RepeatedRunMode.REUSE,
     npuS1RepeatedRunInProgress: Boolean = false,
     isInferenceRunningForRepeatedRun: Boolean = false,
+    onNpuS1RepeatedRunModeChange: (NpuS1RepeatedRunMode) -> Unit = {},
     onNpuS1RepeatedRunStart: () -> Unit = {},
     onNpuS1RepeatedRunCancel: () -> Unit = {},
 ) {
@@ -8801,8 +8864,10 @@ private fun InferenceStatsSheetContent(
                 )
                 NpuS1RepeatedRunDevSection(
                     state = npuS1RepeatedRunState,
+                    selectedMode = npuS1RepeatedRunMode,
                     running = npuS1RepeatedRunInProgress,
                     blockedByGeneration = isInferenceRunningForRepeatedRun,
+                    onModeChange = onNpuS1RepeatedRunModeChange,
                     onStart = onNpuS1RepeatedRunStart,
                     onCancel = onNpuS1RepeatedRunCancel,
                 )
@@ -8971,8 +9036,10 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     isInferenceRunningForMemoryRecovery: Boolean = false,
     onMemoryRecoveryCheck: (() -> Unit)? = null,
     npuS1RepeatedRunState: NpuS1RepeatedRunState = NpuS1RepeatedRunState(),
+    npuS1RepeatedRunMode: NpuS1RepeatedRunMode = NpuS1RepeatedRunMode.REUSE,
     npuS1RepeatedRunInProgress: Boolean = false,
     isInferenceRunningForRepeatedRun: Boolean = false,
+    onNpuS1RepeatedRunModeChange: ((NpuS1RepeatedRunMode) -> Unit)? = null,
     onNpuS1RepeatedRunStart: (() -> Unit)? = null,
     onNpuS1RepeatedRunCancel: (() -> Unit)? = null,
 ) {
@@ -9002,11 +9069,17 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     onStart = onMemoryRecoveryCheck,
                 )
             }
-            if (onNpuS1RepeatedRunStart != null && onNpuS1RepeatedRunCancel != null) {
+            if (
+                onNpuS1RepeatedRunModeChange != null &&
+                onNpuS1RepeatedRunStart != null &&
+                onNpuS1RepeatedRunCancel != null
+            ) {
                 NpuS1RepeatedRunDevSection(
                     state = npuS1RepeatedRunState,
+                    selectedMode = npuS1RepeatedRunMode,
                     running = npuS1RepeatedRunInProgress,
                     blockedByGeneration = isInferenceRunningForRepeatedRun,
+                    onModeChange = onNpuS1RepeatedRunModeChange,
                     onStart = onNpuS1RepeatedRunStart,
                     onCancel = onNpuS1RepeatedRunCancel,
                 )
