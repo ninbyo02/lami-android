@@ -72,6 +72,35 @@ enum class ResizeAnchor {
     Center,
 }
 
+internal enum class CanvasStretchMode {
+    None,
+    StretchWidthToHeight,
+    StretchHeightToWidth,
+}
+
+internal fun calculateCanvasStretchTargetSize(
+    sourceWidth: Int,
+    sourceHeight: Int,
+    requestedWidth: Int,
+    requestedHeight: Int,
+    stretchMode: CanvasStretchMode,
+): androidx.compose.ui.unit.IntSize {
+    val safeRequestedWidth = requestedWidth.coerceAtLeast(1)
+    val safeRequestedHeight = requestedHeight.coerceAtLeast(1)
+    return when (stretchMode) {
+        CanvasStretchMode.None -> androidx.compose.ui.unit.IntSize(safeRequestedWidth, safeRequestedHeight)
+        CanvasStretchMode.StretchWidthToHeight -> {
+            val target = safeRequestedHeight
+            androidx.compose.ui.unit.IntSize(target, target)
+        }
+
+        CanvasStretchMode.StretchHeightToWidth -> {
+            val target = safeRequestedWidth
+            androidx.compose.ui.unit.IntSize(target, target)
+        }
+    }
+}
+
 // Bitmapのキャンバスサイズを変更する（元のBitmapは変更しない）
 fun resizeCanvas(
     src: Bitmap,
@@ -94,6 +123,29 @@ fun resizeCanvas(
     }
     val canvas = Canvas(output)
     canvas.drawBitmap(safeSrc, dstX.toFloat(), dstY.toFloat(), null)
+    return output
+}
+
+internal fun stretchCanvasToSize(
+    src: Bitmap,
+    newW: Int,
+    newH: Int,
+): Bitmap {
+    val safeSrc = ensureArgb8888(src)
+    val safeW = newW.coerceAtLeast(1)
+    val safeH = newH.coerceAtLeast(1)
+    val output = Bitmap.createBitmap(safeW, safeH, Bitmap.Config.ARGB_8888)
+    val srcPixels = IntArray(safeSrc.width * safeSrc.height)
+    safeSrc.getPixels(srcPixels, 0, safeSrc.width, 0, 0, safeSrc.width, safeSrc.height)
+    val outPixels = IntArray(safeW * safeH)
+    for (y in 0 until safeH) {
+        val srcY = (((y + 0.5f) * safeSrc.height) / safeH).toInt().coerceIn(0, safeSrc.height - 1)
+        for (x in 0 until safeW) {
+            val srcX = (((x + 0.5f) * safeSrc.width) / safeW).toInt().coerceIn(0, safeSrc.width - 1)
+            outPixels[y * safeW + x] = srcPixels[srcY * safeSrc.width + srcX]
+        }
+    }
+    output.setPixels(outPixels, 0, safeW, 0, 0, safeW, safeH)
     return output
 }
 

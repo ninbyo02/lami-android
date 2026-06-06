@@ -293,6 +293,7 @@ fun SpriteEditorScreen(navController: NavController) {
         mutableStateOf(TextFieldValue(""))
     }
     var canvasAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
+    var canvasStretchMode by rememberSaveable { mutableStateOf(CanvasStretchMode.None) }
     var lastToolOp by rememberSaveable(stateSaver = LastToolOpSaver) { mutableStateOf<LastToolOp?>(null) }
     val sheetState = rememberModalBottomSheetState()
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
@@ -1915,6 +1916,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     canvasWidthInput = TextFieldValue(current.bitmap.width.toString())
                                     canvasHeightInput = TextFieldValue(current.bitmap.height.toString())
                                     canvasAnchor = ResizeAnchor.TopLeft
+                                    canvasStretchMode = CanvasStretchMode.None
                                     activeSheet = SheetType.None
                                     showCanvasSizeDialog = true
                                 }
@@ -2710,14 +2712,19 @@ fun SpriteEditorScreen(navController: NavController) {
                             OutlinedTextField(
                                 value = canvasWidthInput,
                                 onValueChange = { input ->
-                                    canvasWidthInput = clampPxFieldValue(
+                                    val clamped = clampPxFieldValue(
                                         canvasWidthInput,
                                         input,
                                         4096,
                                     )
+                                    canvasWidthInput = clamped
+                                    if (canvasStretchMode == CanvasStretchMode.StretchHeightToWidth) {
+                                        canvasHeightInput = TextFieldValue(clamped.text)
+                                    }
                                 },
                                 label = { Text("W(px)") },
                                 singleLine = true,
+                                readOnly = canvasStretchMode == CanvasStretchMode.StretchWidthToHeight,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 textStyle = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier
@@ -2729,14 +2736,19 @@ fun SpriteEditorScreen(navController: NavController) {
                             OutlinedTextField(
                                 value = canvasHeightInput,
                                 onValueChange = { input ->
-                                    canvasHeightInput = clampPxFieldValue(
+                                    val clamped = clampPxFieldValue(
                                         canvasHeightInput,
                                         input,
                                         4096,
                                     )
+                                    canvasHeightInput = clamped
+                                    if (canvasStretchMode == CanvasStretchMode.StretchWidthToHeight) {
+                                        canvasWidthInput = TextFieldValue(clamped.text)
+                                    }
                                 },
                                 label = { Text("H(px)") },
                                 singleLine = true,
+                                readOnly = canvasStretchMode == CanvasStretchMode.StretchHeightToWidth,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 textStyle = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier
@@ -2745,6 +2757,69 @@ fun SpriteEditorScreen(navController: NavController) {
                                     // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
                                     .heightIn(min = 54.dp),
                             )
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectableGroup(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text("Stretch mode")
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Row(
+                                    modifier = Modifier.selectable(
+                                        selected = canvasStretchMode == CanvasStretchMode.None,
+                                        onClick = { canvasStretchMode = CanvasStretchMode.None },
+                                        role = Role.RadioButton,
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = canvasStretchMode == CanvasStretchMode.None,
+                                        onClick = null,
+                                    )
+                                    Text("None")
+                                }
+                                Row(
+                                    modifier = Modifier.selectable(
+                                        selected = canvasStretchMode == CanvasStretchMode.StretchWidthToHeight,
+                                        onClick = {
+                                            canvasStretchMode = CanvasStretchMode.StretchWidthToHeight
+                                            canvasWidthInput = TextFieldValue(canvasHeightInput.text)
+                                        },
+                                        role = Role.RadioButton,
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = canvasStretchMode == CanvasStretchMode.StretchWidthToHeight,
+                                        onClick = null,
+                                    )
+                                    Text("Stretch width to height")
+                                }
+                                Row(
+                                    modifier = Modifier.selectable(
+                                        selected = canvasStretchMode == CanvasStretchMode.StretchHeightToWidth,
+                                        onClick = {
+                                            canvasStretchMode = CanvasStretchMode.StretchHeightToWidth
+                                            canvasHeightInput = TextFieldValue(canvasWidthInput.text)
+                                        },
+                                        role = Role.RadioButton,
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = canvasStretchMode == CanvasStretchMode.StretchHeightToWidth,
+                                        onClick = null,
+                                    )
+                                    Text("Stretch height to width")
+                                }
+                            }
                         }
                         Column(
                             modifier = Modifier
@@ -2817,6 +2892,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             onClick = {
                                 canvasWidthInput = TextFieldValue("288")
                                 canvasHeightInput = TextFieldValue("288")
+                                canvasStretchMode = CanvasStretchMode.None
                             },
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -2843,28 +2919,49 @@ fun SpriteEditorScreen(navController: NavController) {
                                 val parsedH = canvasHeightInput.text.toIntOrNull()
                                 val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 4096)
                                 val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 4096)
-                                canvasWidthInput = TextFieldValue(safeW.toString())
-                                canvasHeightInput = TextFieldValue(safeH.toString())
-                                if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
+                                val targetSize = calculateCanvasStretchTargetSize(
+                                    sourceWidth = current.bitmap.width,
+                                    sourceHeight = current.bitmap.height,
+                                    requestedWidth = safeW,
+                                    requestedHeight = safeH,
+                                    stretchMode = canvasStretchMode,
+                                )
+                                canvasWidthInput = TextFieldValue(targetSize.width.toString())
+                                canvasHeightInput = TextFieldValue(targetSize.height.toString())
+                                if (
+                                    targetSize.width == current.bitmap.width &&
+                                    targetSize.height == current.bitmap.height
+                                ) {
                                     scope.launch { showSnackbarMessage("Canvas unchanged") }
                                     return@SpriteEditorCancelApplyRow
                                 }
                                 pushUndoSnapshot(current, undoStack, redoStack)
-                                val resizedBitmap = resizeCanvas(
-                                    current.bitmap,
-                                    safeW,
-                                    safeH,
-                                    canvasAnchor,
-                                )
+                                val resizedBitmap = when (canvasStretchMode) {
+                                    CanvasStretchMode.None -> resizeCanvas(
+                                        current.bitmap,
+                                        targetSize.width,
+                                        targetSize.height,
+                                        canvasAnchor,
+                                    )
+
+                                    CanvasStretchMode.StretchWidthToHeight,
+                                    CanvasStretchMode.StretchHeightToWidth -> stretchCanvasToSize(
+                                        current.bitmap,
+                                        targetSize.width,
+                                        targetSize.height,
+                                    )
+                                }
                                 val nextSelection = rectNormalizeClamp(
                                     current.selection,
-                                    safeW,
-                                    safeH,
+                                    targetSize.width,
+                                    targetSize.height,
                                 )
                                 editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
                                 isDirty = true
                                 activeSheet = SheetType.None
-                                scope.launch { showSnackbarMessage("Canvas resized to ${safeW}x${safeH}") }
+                                scope.launch {
+                                    showSnackbarMessage("Canvas resized to ${targetSize.width}x${targetSize.height}")
+                                }
                             },
                         )
                     }
