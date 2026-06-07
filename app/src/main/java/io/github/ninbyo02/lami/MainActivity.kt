@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        invokeStandardDebugLogcatProbeIfPresent()
 
         // Initialize Database & Repository
         val database = ChatDatabase.Companion.getDatabase(applicationContext)
@@ -251,6 +252,14 @@ class MainActivity : ComponentActivity() {
     override fun onLowMemory() {
         super.onLowMemory()
         heldEngineLifecycleBridge.onLowMemory(scope = lifecycleScope)
+    }
+}
+
+private fun invokeStandardDebugLogcatProbeIfPresent() {
+    runCatching {
+        Class.forName("io.github.ninbyo02.lami.StandardDebugLogcatProbe")
+            .getDeclaredMethod("logStarted")
+            .invoke(null)
     }
 }
 
