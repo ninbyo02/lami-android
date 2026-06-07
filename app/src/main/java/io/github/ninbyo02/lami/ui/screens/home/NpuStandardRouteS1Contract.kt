@@ -71,6 +71,7 @@ internal data class NpuStandardRouteS1Result(
     val timing: NpuStandardRouteS1Timing = NpuStandardRouteS1Timing(),
     val s2DbReason: String = "",
     val s5TtsDiagnostics: NpuStandardRouteS5TtsDiagnostics? = null,
+    val nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
     val displayText: String = NpuStandardRouteS1Contract.displayText(
         selection = selection,
         status = status,

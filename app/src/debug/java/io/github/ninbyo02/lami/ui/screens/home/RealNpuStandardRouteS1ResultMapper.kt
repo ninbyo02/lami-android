@@ -62,6 +62,7 @@ internal object RealNpuStandardRouteS1ResultMapper {
             } else {
                 NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE
             },
+            nativeDiagnostics = display.nativeDiagnostics,
         )
     }
 

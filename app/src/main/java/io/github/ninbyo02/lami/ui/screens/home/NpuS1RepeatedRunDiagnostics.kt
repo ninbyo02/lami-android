@@ -31,6 +31,50 @@ internal const val NPU_S1_COUNTER_NOTE =
     "counters_are_app_layer_attempts_engine_create_may_be_unavailable_if_not_exposed"
 internal const val NPU_S1_ENGINE_CREATE_VISIBILITY = "not_exposed"
 internal const val NPU_S1_ENGINE_CREATE_SOURCE = "not_exposed"
+internal const val NPU_S1_NATIVE_STAGE_ADAPTER_START = "adapter_start"
+internal const val NPU_S1_NATIVE_STAGE_PROVIDER_START = "provider_start"
+internal const val NPU_S1_NATIVE_STAGE_BEFORE_NATIVE_CALL = "before_native_call"
+internal const val NPU_S1_NATIVE_STAGE_NATIVE_CALL = "native_call"
+internal const val NPU_S1_NATIVE_STAGE_AFTER_NATIVE_CALL = "after_native_call"
+internal const val NPU_S1_NATIVE_STAGE_NATIVE_RESULT_PARSE = "native_result_parse"
+internal const val NPU_S1_NATIVE_STAGE_DECODE_STARTED = "decode_started"
+internal const val NPU_S1_NATIVE_STAGE_DECODE_FINISHED = "decode_finished"
+internal const val NPU_S1_NATIVE_STAGE_CLEANUP_STARTED = "cleanup_started"
+internal const val NPU_S1_NATIVE_STAGE_CLEANUP_FINISHED = "cleanup_finished"
+internal const val NPU_S1_NATIVE_STAGE_SESSION_DESTROY_STARTED = "session_destroy_started"
+internal const val NPU_S1_NATIVE_STAGE_SESSION_DESTROY_FINISHED = "session_destroy_finished"
+internal const val NPU_S1_NATIVE_STAGE_ADAPTER_SUCCESS = "adapter_success"
+internal const val NPU_S1_NATIVE_STAGE_ADAPTER_FAILURE = "adapter_failure"
+internal const val NPU_S1_NATIVE_STAGE_PROVIDER_SUCCESS = "provider_success"
+internal const val NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE = "provider_failure"
+internal const val NPU_S1_NATIVE_STAGE_UNKNOWN = "unknown"
+
+data class NpuS1NativeStageDiagnostics(
+    val nativeRunId: String = "unavailable",
+    val nativeStage: String = "unknown",
+    val nativeStageHistory: String = "unavailable",
+    val nativeCallStartedAtElapsedRealtimeMs: String = "unavailable",
+    val nativeCallFinishedAtElapsedRealtimeMs: String = "unavailable",
+    val nativeCallDurationMs: String = "unavailable",
+    val nativeCallReached: String = "unavailable",
+    val nativeCallReturned: String = "unavailable",
+    val nativeDecodeStarted: String = "unavailable",
+    val nativeDecodeFinished: String = "unavailable",
+    val nativeCleanupStarted: String = "unavailable",
+    val nativeCleanupFinished: String = "unavailable",
+    val nativeCleanupReached: String = "unavailable",
+    val nativeSessionDestroyStarted: String = "unavailable",
+    val nativeSessionDestroyFinished: String = "unavailable",
+    val nativeSessionDestroyReached: String = "unavailable",
+    val nativeResultAvailable: String = "unavailable",
+    val nativeResultTail: String = "unavailable",
+    val nativeDiagAvailable: String = "unavailable",
+    val nativeDiagTail: String = "unavailable",
+    val nativeErrorClass: String = "unavailable",
+    val nativeErrorMessage: String = "unavailable",
+    val nativeErrorStage: String = "unavailable",
+    val nativeErrorSource: String = "unavailable",
+)
 
 internal enum class NpuS1RepeatedRunMode(
     val wireValue: String,
@@ -162,6 +206,7 @@ internal data class NpuS1RepeatedRunRecord(
     val failureExceptionMessage: String = "unavailable",
     val failureExceptionSource: String = "unavailable",
     val failureStage: String = NPU_S1_FAILURE_STAGE_UNKNOWN,
+    val nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
 )
 
 internal data class NpuS1RepeatedRunState(
@@ -231,6 +276,12 @@ internal data class NpuS1RepeatedRunSummary(
     val failureAfterNAdapterCalls: Int?,
     val failureAfterNDecodeSuccesses: Int?,
     val failurePatternHint: String,
+    val firstFailureNativeStage: String,
+    val firstFailureNativeErrorStage: String,
+    val firstFailureNativeErrorClass: String,
+    val firstFailureNativeErrorSource: String,
+    val firstFailureNativeStageHistory: String,
+    val firstFailureNativeDiagTail: String,
 )
 
 internal data class NpuS1RepeatedRunCounterSnapshot(
@@ -618,6 +669,12 @@ internal fun buildNpuS1RepeatedRunSummary(
         failureAfterNAdapterCalls = firstFailureSnapshot?.adapterCallCount,
         failureAfterNDecodeSuccesses = firstFailureSnapshot?.decodeSuccessCount,
         failurePatternHint = buildNpuS1FailurePatternHint(firstFailure, firstFailureSnapshot),
+        firstFailureNativeStage = firstFailure?.nativeDiagnostics?.nativeStage ?: "unavailable",
+        firstFailureNativeErrorStage = firstFailure?.nativeDiagnostics?.nativeErrorStage ?: "unavailable",
+        firstFailureNativeErrorClass = firstFailure?.nativeDiagnostics?.nativeErrorClass ?: "unavailable",
+        firstFailureNativeErrorSource = firstFailure?.nativeDiagnostics?.nativeErrorSource ?: "unavailable",
+        firstFailureNativeStageHistory = firstFailure?.nativeDiagnostics?.nativeStageHistory ?: "unavailable",
+        firstFailureNativeDiagTail = firstFailure?.nativeDiagnostics?.nativeDiagTail ?: "unavailable",
     )
 }
 
@@ -719,6 +776,12 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("failure_after_n_adapter_calls=${summary.failureAfterNAdapterCalls?.toString() ?: "unavailable"}")
         appendLine("failure_after_n_decode_successes=${summary.failureAfterNDecodeSuccesses?.toString() ?: "unavailable"}")
         appendLine("failure_pattern_hint=${summary.failurePatternHint}")
+        appendLine("first_failure_native_stage=${summary.firstFailureNativeStage}")
+        appendLine("first_failure_native_error_stage=${summary.firstFailureNativeErrorStage}")
+        appendLine("first_failure_native_error_class=${summary.firstFailureNativeErrorClass}")
+        appendLine("first_failure_native_error_source=${summary.firstFailureNativeErrorSource}")
+        appendLine("first_failure_native_stage_history=${summary.firstFailureNativeStageHistory}")
+        appendLine("first_failure_native_diag_tail=${summary.firstFailureNativeDiagTail}")
         if (state.records.isNotEmpty()) {
             appendLine("[DEV診断: NPU S1 repeated run details]")
             state.records.forEachIndexed { index, record ->
@@ -797,6 +860,30 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
                 appendLine("failure_exception_message=${record.failureExceptionMessage.ifBlank { "unavailable" }}")
                 appendLine("failure_exception_source=${record.failureExceptionSource.ifBlank { "unavailable" }}")
                 appendLine("failure_stage=${record.failureStage.ifBlank { NPU_S1_FAILURE_STAGE_UNKNOWN }}")
+                appendLine("native_run_id=${record.nativeDiagnostics.nativeRunId}")
+                appendLine("native_stage=${record.nativeDiagnostics.nativeStage}")
+                appendLine("native_stage_history=${record.nativeDiagnostics.nativeStageHistory}")
+                appendLine("native_call_started_at_elapsed_realtime_ms=${record.nativeDiagnostics.nativeCallStartedAtElapsedRealtimeMs}")
+                appendLine("native_call_finished_at_elapsed_realtime_ms=${record.nativeDiagnostics.nativeCallFinishedAtElapsedRealtimeMs}")
+                appendLine("native_call_duration_ms=${record.nativeDiagnostics.nativeCallDurationMs}")
+                appendLine("native_call_reached=${record.nativeDiagnostics.nativeCallReached}")
+                appendLine("native_call_returned=${record.nativeDiagnostics.nativeCallReturned}")
+                appendLine("native_decode_started=${record.nativeDiagnostics.nativeDecodeStarted}")
+                appendLine("native_decode_finished=${record.nativeDiagnostics.nativeDecodeFinished}")
+                appendLine("native_cleanup_started=${record.nativeDiagnostics.nativeCleanupStarted}")
+                appendLine("native_cleanup_finished=${record.nativeDiagnostics.nativeCleanupFinished}")
+                appendLine("native_cleanup_reached=${record.nativeDiagnostics.nativeCleanupReached}")
+                appendLine("native_session_destroy_started=${record.nativeDiagnostics.nativeSessionDestroyStarted}")
+                appendLine("native_session_destroy_finished=${record.nativeDiagnostics.nativeSessionDestroyFinished}")
+                appendLine("native_session_destroy_reached=${record.nativeDiagnostics.nativeSessionDestroyReached}")
+                appendLine("native_result_available=${record.nativeDiagnostics.nativeResultAvailable}")
+                appendLine("native_result_tail=${record.nativeDiagnostics.nativeResultTail}")
+                appendLine("native_diag_available=${record.nativeDiagnostics.nativeDiagAvailable}")
+                appendLine("native_diag_tail=${record.nativeDiagnostics.nativeDiagTail}")
+                appendLine("native_error_class=${record.nativeDiagnostics.nativeErrorClass}")
+                appendLine("native_error_message=${record.nativeDiagnostics.nativeErrorMessage}")
+                appendLine("native_error_stage=${record.nativeDiagnostics.nativeErrorStage}")
+                appendLine("native_error_source=${record.nativeDiagnostics.nativeErrorSource}")
                 appendLine("engine_request_count_at_run=${counterSnapshotAtRun.engineRequestCount}")
                 appendLine("engine_request_success_count_at_run=${counterSnapshotAtRun.engineRequestSuccessCount}")
                 appendLine("engine_request_failure_count_at_run=${counterSnapshotAtRun.engineRequestFailureCount}")

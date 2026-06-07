@@ -1242,6 +1242,21 @@ fun Home(
                     )
                     val failed = result.status != NpuStandardRouteS1Contract.STATUS_SUCCESS
                     val failureExceptionClass = if (failed) inferNpuS1FailureExceptionClass(result.reason) else "unavailable"
+                    val nativeDiagnostics = if (failed && result.nativeDiagnostics.nativeErrorClass == "unavailable") {
+                        result.nativeDiagnostics.copy(
+                            nativeErrorClass = failureExceptionClass,
+                            nativeErrorMessage = result.reason,
+                            nativeErrorStage = inferNpuS1FailureStage(
+                                status = result.status,
+                                reason = result.reason,
+                                runDecodeReached = result.runDecodeReached,
+                                timeout = result.timeout,
+                            ),
+                            nativeErrorSource = npuS1FailureExceptionSource(result.reason, failureExceptionClass),
+                        )
+                    } else {
+                        result.nativeDiagnostics
+                    }
                     val runFinishedAtWallTimeMs = System.currentTimeMillis()
                     val runFinishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     val record = NpuS1RepeatedRunRecord(
@@ -1315,6 +1330,7 @@ fun Home(
                             runDecodeReached = result.runDecodeReached,
                             timeout = result.timeout,
                         ),
+                        nativeDiagnostics = nativeDiagnostics,
                     )
                     records += record
                     NpuS1LogcatDiagnostics.logRunFinished(record)

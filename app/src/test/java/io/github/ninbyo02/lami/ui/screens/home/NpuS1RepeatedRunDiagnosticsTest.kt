@@ -163,6 +163,10 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("adapter_call_count_at_run=1"))
         assertTrue(text.contains("decode_success_count_at_run=1"))
         assertTrue(text.contains("failure_counter_snapshot=unavailable"))
+        assertTrue(text.contains("native_stage_history=unavailable"))
+        assertTrue(text.contains("native_error_class=unavailable"))
+        assertTrue(text.contains("native_call_reached=unavailable"))
+        assertTrue(text.contains("native_cleanup_reached=unavailable"))
         assertTrue(text.contains("recreate_requested_after_run=false"))
         assertTrue(text.contains("recreate_result_after_run=not_requested"))
         assertTrue(text.contains("recreate_delay_after_run_ms=0"))
@@ -257,6 +261,61 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("failure_after_engine_request_count=7"))
         assertTrue(text.contains("failure_after_adapter_call_count=7"))
         assertTrue(text.contains("failure_after_decode_attempt_count=6"))
+    }
+
+    @Test
+    fun `copy formatter includes native stage diagnostics and inferred native adapter exception`() {
+        val failureRecord = record(
+            runIndex = 7,
+            status = "failure",
+            reason = "adapter_failure:LiteRtLmJniException",
+            runDecodeReached = false,
+            nativeDiagnostics = NpuS1NativeStageDiagnostics(
+                nativeRunId = "chat-real-123",
+                nativeStage = NPU_S1_NATIVE_STAGE_ADAPTER_FAILURE,
+                nativeStageHistory = "provider_start>adapter_start>before_native_call>native_call>adapter_failure>provider_failure",
+                nativeCallStartedAtElapsedRealtimeMs = "5000",
+                nativeCallFinishedAtElapsedRealtimeMs = "5100",
+                nativeCallDurationMs = "100",
+                nativeCallReached = "true",
+                nativeCallReturned = "false",
+                nativeDecodeStarted = "unavailable",
+                nativeDecodeFinished = "unavailable",
+                nativeCleanupReached = "unavailable",
+                nativeSessionDestroyReached = "unavailable",
+                nativeResultAvailable = "true",
+                nativeResultTail = "result=failure\\nreasonCode=adapter_failure",
+                nativeDiagAvailable = "true",
+                nativeDiagTail = "QNN failure tail",
+                nativeErrorClass = "LiteRtLmJniException",
+                nativeErrorMessage = "native create failed",
+                nativeErrorStage = NPU_S1_NATIVE_STAGE_NATIVE_CALL,
+                nativeErrorSource = "throwable",
+            ),
+        )
+        val text = formatNpuS1RepeatedRunDiagnosticsForDev(
+            NpuS1RepeatedRunState(
+                status = NPU_S1_REPEATED_RUN_STATUS_STOPPED,
+                records = (1..6).map { record(runIndex = it) } + failureRecord,
+                stopped = true,
+                stopReason = "adapter_failure",
+            ),
+        )
+
+        assertTrue(text.contains("first_failure_native_stage=adapter_failure"))
+        assertTrue(text.contains("first_failure_native_error_stage=native_call"))
+        assertTrue(text.contains("first_failure_native_error_class=LiteRtLmJniException"))
+        assertTrue(text.contains("first_failure_native_error_source=throwable"))
+        assertTrue(text.contains("first_failure_native_stage_history=provider_start>adapter_start>before_native_call>native_call>adapter_failure>provider_failure"))
+        assertTrue(text.contains("first_failure_native_diag_tail=QNN failure tail"))
+        assertTrue(text.contains("native_run_id=chat-real-123"))
+        assertTrue(text.contains("native_stage_history=provider_start>adapter_start>before_native_call>native_call>adapter_failure>provider_failure"))
+        assertTrue(text.contains("native_call_reached=true"))
+        assertTrue(text.contains("native_call_returned=false"))
+        assertTrue(text.contains("native_cleanup_reached=unavailable"))
+        assertTrue(text.contains("native_session_destroy_reached=unavailable"))
+        assertTrue(text.contains("native_error_class=LiteRtLmJniException"))
+        assertTrue(text.contains("native_error_stage=native_call"))
     }
 
     @Test
@@ -357,6 +416,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
         memoryRecovery5sLowMemory: Boolean? = false,
         repeatedRunMode: NpuS1RepeatedRunMode = NpuS1RepeatedRunMode.REUSE,
         recreateResultAfterRun: String = "not_requested",
+        nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
     ): NpuS1RepeatedRunRecord = NpuS1RepeatedRunRecord(
         runIndex = runIndex,
         runCount = 20,
@@ -401,6 +461,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
         outputTokenCountSource = "estimated_code_points_not_tokenizer",
         promptTokenCountSource = "code_points",
         maxOutputTokensReached = false,
+        nativeDiagnostics = nativeDiagnostics,
     )
 
     private fun result(outputTokens: Int?): NpuStandardRouteS1Result = NpuStandardRouteS1Result(

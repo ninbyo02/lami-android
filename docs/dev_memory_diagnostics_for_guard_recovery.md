@@ -122,6 +122,17 @@ Interpretation examples:
 - If `system_available_memory_mb` trends down while process PSS does not explain it, compare with `adb shell dumpsys meminfo io.github.ninbyo02.lami` and device-level memory pressure logs.
 - If `memory_growth_suspected=true`, collect DEV copy text, `dumpsys meminfo`, logcat, and any vendor runtime logs from the same run window.
 
+For a run 7 style `adapter_failure`, inspect the copied diagnostics in this order:
+
+1. `failure_pattern_hint`
+2. `first_failure_native_stage`
+3. `first_failure_native_error_stage`
+4. failing run `native_stage_history`
+5. failing run `native_diag_tail`
+6. Dropbox / tombstone presence near `first_failure_wall_time_ms`
+
+If there is no new tombstone or Dropbox native crash near the S1 failure time, treat the S1 failure as a JNI exception returned to the app layer rather than a fresh native `SIGABRT`. If `native_call_reached=true` and `native_call_returned=false`, suspect a failure inside the native call before a normal Kotlin return. If `native_call_returned=true` and `native_stage_history` reaches `native_result_parse`, suspect adapter result parsing or result conversion. If `native_cleanup_reached` or `native_session_destroy_reached` remains `unavailable`, cleanup / session destroy is not observable from the current app layer; use `native_diag_tail` and tombstones before assuming a leak.
+
 Mode comparison examples:
 
 - `reuse` stops around run 7, but `recreate` completes 20 runs: suspect runner / engine / session reuse.
@@ -293,6 +304,8 @@ For NPU S1 repeated run versus native tombstone correlation:
 8. Then inspect `engine_request_count`, `adapter_call_count`, `decode_success_count`, `first_failure_counter_snapshot`, and `failure_pattern_hint`.
 9. If run 7 shows `adapter_call_count=7` and `decode_success_count=6`, the seventh adapter/decode handoff is the likely failure point.
 10. `engine_create_*` is `not_exposed` when the repeated runner cannot directly observe the LiteRT-LM Engine creation API. Do not read `engine_create_attempt_count=unavailable` as zero attempts.
+11. Inspect `first_failure_native_stage`, `first_failure_native_error_stage`, `first_failure_native_error_class`, `first_failure_native_error_source`, `first_failure_native_stage_history`, and `first_failure_native_diag_tail`.
+12. In the failing run details, compare `native_call_reached`, `native_call_returned`, `native_decode_started`, `native_cleanup_reached`, and `native_session_destroy_reached`.
 
 Device collection commands for this fallback path:
 

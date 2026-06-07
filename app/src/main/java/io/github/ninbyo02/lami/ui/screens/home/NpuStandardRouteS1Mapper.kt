@@ -18,6 +18,7 @@ internal data class NpuStandardRouteS1RawResult(
     val npuS1DecodeMs: Long? = null,
     val npuS1OutputTokens: Int? = null,
     val npuS1TokenCountMode: String = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE,
+    val nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
 )
 
 internal object NpuStandardRouteS1Mapper {
@@ -89,6 +90,7 @@ internal object NpuStandardRouteS1Mapper {
             freshCrash = raw.freshCrash,
             timing = timing,
             displayText = displayText,
+            nativeDiagnostics = raw.nativeDiagnostics,
         )
     }
 

@@ -4,6 +4,13 @@ import android.content.Context
 import android.os.SystemClock
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.ui.screens.home.NpuEngineLogcatDiagnostics
+import io.github.ninbyo02.lami.ui.screens.home.NPU_S1_NATIVE_STAGE_ADAPTER_FAILURE
+import io.github.ninbyo02.lami.ui.screens.home.NPU_S1_NATIVE_STAGE_ADAPTER_START
+import io.github.ninbyo02.lami.ui.screens.home.NPU_S1_NATIVE_STAGE_ADAPTER_SUCCESS
+import io.github.ninbyo02.lami.ui.screens.home.NPU_S1_NATIVE_STAGE_AFTER_NATIVE_CALL
+import io.github.ninbyo02.lami.ui.screens.home.NPU_S1_NATIVE_STAGE_BEFORE_NATIVE_CALL
+import io.github.ninbyo02.lami.ui.screens.home.NPU_S1_NATIVE_STAGE_NATIVE_CALL
+import io.github.ninbyo02.lami.ui.screens.home.NPU_S1_NATIVE_STAGE_NATIVE_RESULT_PARSE
 import io.github.ninbyo02.lami.ui.screens.home.NpuS1LogcatDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuDiagnosticPromptValidator
 import io.github.ninbyo02.lami.ui.screens.home.Qairt244ShortMultitokenSmoke
@@ -285,6 +292,10 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 "resolved_model_path=${modelResolution.path}",
         )
 
+        val stageHistory = mutableListOf(NPU_S1_NATIVE_STAGE_ADAPTER_START)
+        var nativeCallStartedAtElapsedRealtimeMs: Long? = null
+        var nativeCallFinishedAtElapsedRealtimeMs: Long? = null
+        var nativeCallReturned = false
         val start = SystemClock.elapsedRealtime()
         NpuEngineLogcatDiagnostics.i(
             event = "s1_engine_create_start",
@@ -310,6 +321,9 @@ class Qairt244DevOnlyNpuRouteAdapter(
                         detail = "run_id=$runId prompt_source=$promptSource prompt_length=${promptTemplate.finalModelInput.length}",
                     )
                     traceTerminal(DevOnlyNpuTerminalTraceMarker.BEFORE_NATIVE_ADAPTER_RUN)
+                    stageHistory += NPU_S1_NATIVE_STAGE_BEFORE_NATIVE_CALL
+                    nativeCallStartedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                    stageHistory += NPU_S1_NATIVE_STAGE_NATIVE_CALL
                     val nativeResult = Qairt244ShortMultitokenSmoke.runEditablePrompt(
                         context = appContext,
                         modelPath = resolvedModelPath,
@@ -319,6 +333,9 @@ class Qairt244DevOnlyNpuRouteAdapter(
                         promptValidationMode = finalInputValidation.promptValidationMode,
                         unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
                     )
+                    nativeCallFinishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                    nativeCallReturned = true
+                    stageHistory += NPU_S1_NATIVE_STAGE_AFTER_NATIVE_CALL
                     traceTerminal(DevOnlyNpuTerminalTraceMarker.AFTER_NATIVE_ADAPTER_RUN)
                     NpuEngineLogcatDiagnostics.i(
                         event = "s1_engine_create_success",
@@ -335,6 +352,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
             traceRunDecodeMarkerIfSeen()
             val elapsed = SystemClock.elapsedRealtime() - start
             val valuesBeforeMetadata = parseResultFile()
+            stageHistory += NPU_S1_NATIVE_STAGE_NATIVE_RESULT_PARSE
             appendRouteResultMetadata(
                 requestedPrompt = requestedPrompt,
                 normalizedPrompt = normalizedPrompt,
@@ -379,6 +397,23 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 values = values,
                 promptSource = promptSource,
             )
+            stageHistory += if (success) {
+                NPU_S1_NATIVE_STAGE_ADAPTER_SUCCESS
+            } else {
+                NPU_S1_NATIVE_STAGE_ADAPTER_FAILURE
+            }
+            appendNativeStageDiagnostics(
+                runId = runId,
+                stage = stageHistory.last(),
+                stageHistory = stageHistory,
+                values = values,
+                nativeCallStartedAtElapsedRealtimeMs = nativeCallStartedAtElapsedRealtimeMs,
+                nativeCallFinishedAtElapsedRealtimeMs = nativeCallFinishedAtElapsedRealtimeMs,
+                nativeCallReturned = nativeCallReturned,
+                throwable = null,
+                errorStage = "unavailable",
+                errorSource = "unavailable",
+            )
             appendRouteMarker(
                 "runId=$runId state=${if (success) "success" else "failure"} elapsed_ms=$elapsed " +
                     "result=${if (success) "success" else reasonCode} output=${sanitizedOutput.ifBlank { "-" }} " +
@@ -403,6 +438,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
         } catch (timeout: TimeoutCancellationException) {
             traceRunDecodeMarkerIfSeen()
             val elapsed = SystemClock.elapsedRealtime() - start
+            nativeCallFinishedAtElapsedRealtimeMs = nativeCallFinishedAtElapsedRealtimeMs ?: SystemClock.elapsedRealtime()
+            stageHistory += NPU_S1_NATIVE_STAGE_ADAPTER_FAILURE
             NpuEngineLogcatDiagnostics.w(
                 event = "s1_decode_failure",
                 route = "Qairt244DevOnlyNpuRouteAdapter.runRoute",
@@ -428,6 +465,22 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 resolution = modelResolution,
                 promptTemplate = promptTemplate,
             )
+            appendNativeStageDiagnostics(
+                runId = runId,
+                stage = NPU_S1_NATIVE_STAGE_ADAPTER_FAILURE,
+                stageHistory = stageHistory,
+                values = parseResultFile(),
+                nativeCallStartedAtElapsedRealtimeMs = nativeCallStartedAtElapsedRealtimeMs,
+                nativeCallFinishedAtElapsedRealtimeMs = nativeCallFinishedAtElapsedRealtimeMs,
+                nativeCallReturned = nativeCallReturned,
+                throwable = timeout,
+                errorStage = if (nativeCallStartedAtElapsedRealtimeMs != null && !nativeCallReturned) {
+                    NPU_S1_NATIVE_STAGE_NATIVE_CALL
+                } else {
+                    NPU_S1_NATIVE_STAGE_ADAPTER_FAILURE
+                },
+                errorSource = "throwable",
+            )
             DevOnlyNpuRouteResult(
                 success = false,
                 output = null,
@@ -445,6 +498,8 @@ class Qairt244DevOnlyNpuRouteAdapter(
             traceRunDecodeMarkerIfSeen()
             val elapsed = SystemClock.elapsedRealtime() - start
             val reasonCode = "adapter_failure:${throwable.javaClass.simpleName}"
+            nativeCallFinishedAtElapsedRealtimeMs = nativeCallFinishedAtElapsedRealtimeMs ?: SystemClock.elapsedRealtime()
+            stageHistory += NPU_S1_NATIVE_STAGE_ADAPTER_FAILURE
             NpuEngineLogcatDiagnostics.e(
                 event = "s1_engine_create_failure",
                 route = "Qairt244DevOnlyNpuRouteAdapter.runRoute",
@@ -503,6 +558,22 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 values = parseResultFile(),
                 resolution = modelResolution,
                 promptTemplate = promptTemplate,
+            )
+            appendNativeStageDiagnostics(
+                runId = runId,
+                stage = NPU_S1_NATIVE_STAGE_ADAPTER_FAILURE,
+                stageHistory = stageHistory,
+                values = parseResultFile(),
+                nativeCallStartedAtElapsedRealtimeMs = nativeCallStartedAtElapsedRealtimeMs,
+                nativeCallFinishedAtElapsedRealtimeMs = nativeCallFinishedAtElapsedRealtimeMs,
+                nativeCallReturned = nativeCallReturned,
+                throwable = throwable,
+                errorStage = if (nativeCallStartedAtElapsedRealtimeMs != null && !nativeCallReturned) {
+                    NPU_S1_NATIVE_STAGE_NATIVE_CALL
+                } else {
+                    NPU_S1_NATIVE_STAGE_ADAPTER_FAILURE
+                },
+                errorSource = "throwable",
             )
             DevOnlyNpuRouteResult(
                 success = false,
@@ -586,6 +657,75 @@ class Qairt244DevOnlyNpuRouteAdapter(
                 ),
             ).joinToString(separator = "\n", postfix = "\n"),
         )
+    }
+
+    private fun appendNativeStageDiagnostics(
+        runId: String,
+        stage: String,
+        stageHistory: List<String>,
+        values: Map<String, String>,
+        nativeCallStartedAtElapsedRealtimeMs: Long?,
+        nativeCallFinishedAtElapsedRealtimeMs: Long?,
+        nativeCallReturned: Boolean,
+        throwable: Throwable?,
+        errorStage: String,
+        errorSource: String,
+    ) {
+        val resultTail = tailFileText(resultFile)
+        val diagTail = tailFileText(nativeDiagFile)
+        val nativeCallDurationMs = if (
+            nativeCallStartedAtElapsedRealtimeMs != null &&
+            nativeCallFinishedAtElapsedRealtimeMs != null
+        ) {
+            (nativeCallFinishedAtElapsedRealtimeMs - nativeCallStartedAtElapsedRealtimeMs).toString()
+        } else {
+            "unavailable"
+        }
+        val decodeReached = values["decode_elapsed_ms"]?.isNotBlank() == true ||
+            values["run_decode"]?.contains("RunDecode") == true ||
+            diagTail.contains("RunDecode", ignoreCase = true)
+        val decodeFinished = values["decode_elapsed_ms"]?.isNotBlank() == true ||
+            (values["result"] == "success" && decodeReached)
+        val cleanupReached = values["cleanup_elapsed_ms"]?.isNotBlank() == true ||
+            diagTail.contains("cleanup", ignoreCase = true)
+        val sessionDestroyReached = diagTail.contains("session_destroy", ignoreCase = true) ||
+            diagTail.contains("destroy", ignoreCase = true) ||
+            diagTail.contains("engine_ptr.reset", ignoreCase = true) ||
+            diagTail.contains("session_ptr.reset", ignoreCase = true)
+        resultFile.appendText(
+            listOf(
+                "native_run_id=$runId",
+                "native_stage=$stage",
+                "native_stage_history=${stageHistory.joinToString(">")}",
+                "native_call_started_at_elapsed_realtime_ms=${nativeCallStartedAtElapsedRealtimeMs?.toString() ?: "unavailable"}",
+                "native_call_finished_at_elapsed_realtime_ms=${nativeCallFinishedAtElapsedRealtimeMs?.toString() ?: "unavailable"}",
+                "native_call_duration_ms=$nativeCallDurationMs",
+                "native_call_reached=${nativeCallStartedAtElapsedRealtimeMs != null}",
+                "native_call_returned=$nativeCallReturned",
+                "native_decode_started=${if (decodeReached) "true" else "unavailable"}",
+                "native_decode_finished=${if (decodeFinished) "true" else "unavailable"}",
+                "native_cleanup_started=${if (cleanupReached) "true" else "unavailable"}",
+                "native_cleanup_finished=${if (values["cleanup_elapsed_ms"]?.isNotBlank() == true) "true" else "unavailable"}",
+                "native_cleanup_reached=${if (cleanupReached) "true" else "unavailable"}",
+                "native_session_destroy_started=${if (sessionDestroyReached) "true" else "unavailable"}",
+                "native_session_destroy_finished=${if (sessionDestroyReached) "true" else "unavailable"}",
+                "native_session_destroy_reached=${if (sessionDestroyReached) "true" else "unavailable"}",
+                "native_result_available=${resultTail.isNotBlank()}",
+                "native_result_tail=${escapeValue(resultTail)}",
+                "native_diag_available=${diagTail.isNotBlank()}",
+                "native_diag_tail=${escapeValue(diagTail)}",
+                "native_error_class=${throwable?.javaClass?.simpleName ?: "unavailable"}",
+                "native_error_message=${escapeValue(throwable?.message ?: "unavailable")}",
+                "native_error_stage=$errorStage",
+                "native_error_source=$errorSource",
+            ).joinToString(separator = "\n", postfix = "\n"),
+        )
+    }
+
+    private fun tailFileText(file: File): String {
+        if (!file.isFile) return ""
+        val text = runCatching { file.readText() }.getOrDefault("")
+        return text.takeLast(NATIVE_STAGE_TAIL_LIMIT_CHARS)
     }
 
     private fun promptFormattingDiagnostics(
@@ -973,6 +1113,7 @@ class Qairt244DevOnlyNpuRouteAdapter(
         const val PROMPT_SOURCE_DEV_ONLY_CONVERSATION = "dev_only_conversation"
         const val PROMPT_SOURCE_DEV_ONLY_PROMPT_TEMPLATE_MATRIX = "dev_only_prompt_template_matrix"
         const val REQUIRED_MODEL_BASENAME = "gemma-4-E2B-it_qualcomm_sm8750.litertlm"
+        private const val NATIVE_STAGE_TAIL_LIMIT_CHARS = 800
         private const val RESULT_FILE_NAME = "qairt244_short_multitoken_smoke_result.txt"
         private const val NATIVE_DIAG_FILE_NAME = "qairt244_native_diag.txt"
         private const val MODEL_RESOLUTION_FILE_NAME = "qairt244_chat_screen_model_path_resolution.txt"

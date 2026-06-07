@@ -41,9 +41,23 @@ internal class RealNpuStandardRouteS1Provider(
                 maxOutputTokens = sanitizedMaxOutputTokens,
             )
             trace(buildNpuRealPromptRequestTrace(request))
-            val rawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
+            val mappedRawResult = RealNpuStandardRouteS1ResultMapper.fromDisplay(
                 display = requestRunner(request),
                 userPrompt = userPrompt,
+            )
+            val providerStage = if (mappedRawResult.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) {
+                NPU_S1_NATIVE_STAGE_PROVIDER_SUCCESS
+            } else {
+                NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE
+            }
+            val rawResult = mappedRawResult.copy(
+                nativeDiagnostics = mappedRawResult.nativeDiagnostics.copy(
+                    nativeStageHistory = listOf(
+                        NPU_S1_NATIVE_STAGE_PROVIDER_START,
+                        mappedRawResult.nativeDiagnostics.nativeStageHistory,
+                        providerStage,
+                    ).filter { it.isNotBlank() && it != "unavailable" }.joinToString(">"),
+                ),
             )
             trace(
                 buildNpuRealPromptResultTrace(
@@ -99,6 +113,15 @@ internal class RealNpuStandardRouteS1Provider(
             RealNpuStandardRouteS1ResultMapper.failure(
                 reason = reason,
                 maxOutputTokens = sanitizedMaxOutputTokens,
+            ).copy(
+                nativeDiagnostics = NpuS1NativeStageDiagnostics(
+                    nativeStage = NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE,
+                    nativeStageHistory = "$NPU_S1_NATIVE_STAGE_PROVIDER_START>$NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE",
+                    nativeErrorClass = throwable.javaClass.simpleName,
+                    nativeErrorMessage = throwable.message ?: reason,
+                    nativeErrorStage = NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE,
+                    nativeErrorSource = "throwable",
+                ),
             )
         }
     }

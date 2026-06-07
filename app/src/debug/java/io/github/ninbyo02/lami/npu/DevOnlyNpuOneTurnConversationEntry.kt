@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.npu
 
 import android.content.Context
 import android.util.Base64
+import io.github.ninbyo02.lami.ui.screens.home.NpuS1NativeStageDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import java.io.File
@@ -61,6 +62,7 @@ data class DevOnlyNpuOneTurnConversationDisplay(
     val eosDetected: String = "",
     val outputTokenCount: String = "",
     val promptTokenCount: String = "",
+    val nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
 )
 
 object DevOnlyNpuOneTurnConversationContract {
@@ -239,6 +241,32 @@ object DevOnlyNpuOneTurnConversationContract {
         val eosDetected = values["eos_detected"].orEmpty()
         val outputTokenCount = values["output_token_count"].orEmpty()
         val promptTokenCount = values["prompt_token_count"].orEmpty()
+        val nativeDiagnostics = NpuS1NativeStageDiagnostics(
+            nativeRunId = values.devValue("native_run_id"),
+            nativeStage = values.devValue("native_stage", default = "unknown"),
+            nativeStageHistory = values.devValue("native_stage_history"),
+            nativeCallStartedAtElapsedRealtimeMs = values.devValue("native_call_started_at_elapsed_realtime_ms"),
+            nativeCallFinishedAtElapsedRealtimeMs = values.devValue("native_call_finished_at_elapsed_realtime_ms"),
+            nativeCallDurationMs = values.devValue("native_call_duration_ms"),
+            nativeCallReached = values.devValue("native_call_reached"),
+            nativeCallReturned = values.devValue("native_call_returned"),
+            nativeDecodeStarted = values.devValue("native_decode_started"),
+            nativeDecodeFinished = values.devValue("native_decode_finished"),
+            nativeCleanupStarted = values.devValue("native_cleanup_started"),
+            nativeCleanupFinished = values.devValue("native_cleanup_finished"),
+            nativeCleanupReached = values.devValue("native_cleanup_reached"),
+            nativeSessionDestroyStarted = values.devValue("native_session_destroy_started"),
+            nativeSessionDestroyFinished = values.devValue("native_session_destroy_finished"),
+            nativeSessionDestroyReached = values.devValue("native_session_destroy_reached"),
+            nativeResultAvailable = values.devValue("native_result_available"),
+            nativeResultTail = values.devValue("native_result_tail"),
+            nativeDiagAvailable = values.devValue("native_diag_available"),
+            nativeDiagTail = values.devValue("native_diag_tail"),
+            nativeErrorClass = values.devValue("native_error_class"),
+            nativeErrorMessage = values.devValue("native_error_message"),
+            nativeErrorStage = values.devValue("native_error_stage"),
+            nativeErrorSource = values.devValue("native_error_source"),
+        )
         val status = if (result.success) "success" else "failure"
         val lines = listOf(
             "DEV ONLY NPU ONE TURN",
@@ -274,6 +302,18 @@ object DevOnlyNpuOneTurnConversationContract {
             "eos_detected=${eosDetected.ifBlank { "unknown" }}",
             "output_token_count=${outputTokenCount.ifBlank { "unavailable" }}",
             "prompt_token_count=${promptTokenCount.ifBlank { "unavailable" }}",
+            "native_run_id=${nativeDiagnostics.nativeRunId}",
+            "native_stage=${nativeDiagnostics.nativeStage}",
+            "native_stage_history=${nativeDiagnostics.nativeStageHistory}",
+            "native_call_reached=${nativeDiagnostics.nativeCallReached}",
+            "native_call_returned=${nativeDiagnostics.nativeCallReturned}",
+            "native_decode_started=${nativeDiagnostics.nativeDecodeStarted}",
+            "native_decode_finished=${nativeDiagnostics.nativeDecodeFinished}",
+            "native_cleanup_reached=${nativeDiagnostics.nativeCleanupReached}",
+            "native_session_destroy_reached=${nativeDiagnostics.nativeSessionDestroyReached}",
+            "native_error_class=${nativeDiagnostics.nativeErrorClass}",
+            "native_error_stage=${nativeDiagnostics.nativeErrorStage}",
+            "native_error_source=${nativeDiagnostics.nativeErrorSource}",
         ).plus(safetyLines(safety))
         return DevOnlyNpuOneTurnConversationDisplay(
             text = lines.joinToString("\n"),
@@ -307,6 +347,7 @@ object DevOnlyNpuOneTurnConversationContract {
             eosDetected = eosDetected,
             outputTokenCount = outputTokenCount,
             promptTokenCount = promptTokenCount,
+            nativeDiagnostics = nativeDiagnostics,
         )
     }
 
@@ -433,6 +474,11 @@ object DevOnlyNpuOneTurnConversationContract {
 
     private fun escapeResultValue(value: String): String =
         value.replace("\\", "\\\\").replace("\n", "\\n")
+
+    private fun Map<String, String>.devValue(
+        key: String,
+        default: String = "unavailable",
+    ): String = this[key].orEmpty().ifBlank { default }
 }
 
 class DevOnlyNpuOneTurnConversationEntry(
