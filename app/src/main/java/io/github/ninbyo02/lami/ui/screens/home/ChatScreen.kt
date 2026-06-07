@@ -1128,9 +1128,11 @@ fun Home(
         val runMode = npuS1RepeatedRunMode
         val lifecyclePlan = npuS1RepeatedRunLifecyclePlan(runMode)
         val startedAtMs = System.currentTimeMillis()
+        val startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
         npuS1RepeatedRunState = NpuS1RepeatedRunState(
             status = NPU_S1_REPEATED_RUN_STATUS_RUNNING,
             startedAtMs = startedAtMs,
+            startedAtElapsedRealtimeMs = startedAtElapsedRealtimeMs,
             prompt = promptForRun,
             requestedRunCount = requestedRunCount,
             maxOutputTokens = maxTokensForRun,
@@ -1146,6 +1148,8 @@ fun Home(
             val records = mutableListOf<NpuS1RepeatedRunRecord>()
             try {
                 for (runIndex in 1..requestedRunCount) {
+                    val runStartedAtWallTimeMs = System.currentTimeMillis()
+                    val runStartedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     val logcatContext = NpuS1LogcatContext(
                         repeatedRunMode = runMode,
                         runIndex = runIndex,
@@ -1169,7 +1173,8 @@ fun Home(
                             stage = "npu_s1_repeated_run_${runIndex}_before",
                         )
                     }
-                    val decodeStartedAtMs = SystemClock.elapsedRealtime()
+                    val engineRequestStartedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                    val decodeStartedAtMs = engineRequestStartedAtElapsedRealtimeMs
                     NpuEngineLogcatDiagnostics.i(
                         event = "s1_engine_request_start",
                         route = "ChatScreen.startNpuS1RepeatedRun",
@@ -1188,6 +1193,8 @@ fun Home(
                             maxOutputTokens = maxTokensForRun,
                         )
                     }
+                    val engineRequestFinishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                    val engineRequestFinishedAtWallTimeMs = System.currentTimeMillis()
                     val result = rawResult.withTiming(
                         buildNpuStandardRouteS1UiTiming(
                             result = rawResult,
@@ -1233,6 +1240,10 @@ fun Home(
                         failureStage = result.status,
                         stopReason = telemetry.stopReason,
                     )
+                    val failed = result.status != NpuStandardRouteS1Contract.STATUS_SUCCESS
+                    val failureExceptionClass = if (failed) inferNpuS1FailureExceptionClass(result.reason) else "unavailable"
+                    val runFinishedAtWallTimeMs = System.currentTimeMillis()
+                    val runFinishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     val record = NpuS1RepeatedRunRecord(
                         runIndex = runIndex,
                         runCount = requestedRunCount,
@@ -1280,6 +1291,30 @@ fun Home(
                         promptTokenCountSource = telemetry.promptTokenCountSource,
                         maxOutputTokensReached = telemetry.maxOutputTokensReached,
                         stopSequenceMatched = telemetry.stopSequenceMatched,
+                        processPid = android.os.Process.myPid(),
+                        processName = currentNpuS1ProcessName(),
+                        threadName = Thread.currentThread().name.ifBlank { "unavailable" },
+                        runStartedAtWallTimeMs = runStartedAtWallTimeMs,
+                        runStartedAtElapsedRealtimeMs = runStartedAtElapsedRealtimeMs,
+                        runFinishedAtWallTimeMs = runFinishedAtWallTimeMs,
+                        runFinishedAtElapsedRealtimeMs = runFinishedAtElapsedRealtimeMs,
+                        runDurationWallMs = runFinishedAtWallTimeMs - runStartedAtWallTimeMs,
+                        engineRequestStartedAtElapsedRealtimeMs = engineRequestStartedAtElapsedRealtimeMs,
+                        engineCreateStartedAtElapsedRealtimeMs = null,
+                        engineCreateFinishedAtElapsedRealtimeMs = null,
+                        decodeStartedAtElapsedRealtimeMs = decodeStartedAtMs.takeIf { result.runDecodeReached },
+                        decodeFinishedAtElapsedRealtimeMs = engineRequestFinishedAtElapsedRealtimeMs.takeIf { result.runDecodeReached },
+                        failureDetectedAtElapsedRealtimeMs = engineRequestFinishedAtElapsedRealtimeMs.takeIf { failed },
+                        failureDetectedAtWallTimeMs = engineRequestFinishedAtWallTimeMs.takeIf { failed },
+                        failureExceptionClass = failureExceptionClass,
+                        failureExceptionMessage = if (failed) result.reason else "unavailable",
+                        failureExceptionSource = npuS1FailureExceptionSource(result.reason, failureExceptionClass),
+                        failureStage = inferNpuS1FailureStage(
+                            status = result.status,
+                            reason = result.reason,
+                            runDecodeReached = result.runDecodeReached,
+                            timeout = result.timeout,
+                        ),
                     )
                     records += record
                     NpuS1LogcatDiagnostics.logRunFinished(record)
@@ -1317,6 +1352,9 @@ fun Home(
                         val stoppedState = NpuS1RepeatedRunState(
                             status = NPU_S1_REPEATED_RUN_STATUS_STOPPED,
                             startedAtMs = startedAtMs,
+                            startedAtElapsedRealtimeMs = startedAtElapsedRealtimeMs,
+                            finishedAtMs = System.currentTimeMillis(),
+                            finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
                             prompt = promptForRun,
                             requestedRunCount = requestedRunCount,
                             maxOutputTokens = maxTokensForRun,
@@ -1333,6 +1371,7 @@ fun Home(
                     npuS1RepeatedRunState = NpuS1RepeatedRunState(
                         status = NPU_S1_REPEATED_RUN_STATUS_RUNNING,
                         startedAtMs = startedAtMs,
+                        startedAtElapsedRealtimeMs = startedAtElapsedRealtimeMs,
                         prompt = promptForRun,
                         requestedRunCount = requestedRunCount,
                         maxOutputTokens = maxTokensForRun,
@@ -1344,6 +1383,9 @@ fun Home(
                 npuS1RepeatedRunState = NpuS1RepeatedRunState(
                     status = NPU_S1_REPEATED_RUN_STATUS_COMPLETED,
                     startedAtMs = startedAtMs,
+                    startedAtElapsedRealtimeMs = startedAtElapsedRealtimeMs,
+                    finishedAtMs = System.currentTimeMillis(),
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
                     prompt = promptForRun,
                     requestedRunCount = requestedRunCount,
                     maxOutputTokens = maxTokensForRun,
@@ -1353,6 +1395,8 @@ fun Home(
             } catch (exception: CancellationException) {
                 npuS1RepeatedRunState = npuS1RepeatedRunState.copy(
                     status = NPU_S1_REPEATED_RUN_STATUS_CANCELLED,
+                    finishedAtMs = System.currentTimeMillis(),
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
                     stopped = true,
                     stopReason = "cancelled",
                 )
