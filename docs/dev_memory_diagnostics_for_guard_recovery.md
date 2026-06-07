@@ -289,6 +289,10 @@ For NPU S1 repeated run versus native tombstone correlation:
 4. In the copied `[DEV診断: NPU S1 repeated run summary]`, find `process_pid`, `first_failure_run_index`, `first_failure_wall_time_ms`, `first_failure_elapsed_realtime_ms`, `first_failure_stage`, `first_failure_reason`, `first_failure_exception_class`, and `tombstone_compare_hint`.
 5. In the copied `[DEV診断: NPU S1 repeated run details]`, inspect the failing `run_index` for `run_started_at_wall_time_ms`, `run_finished_at_wall_time_ms`, `failure_detected_at_wall_time_ms`, `engine_request_started_at_elapsed_realtime_ms`, `decode_started_at_elapsed_realtime_ms`, and `failure_stage`.
 6. Compare `first_failure_wall_time_ms` and `failure_detected_at_wall_time_ms` with Dropbox and tombstone timestamps. If the failure window matches a `SIGABRT` / `liblitertlm_jni.so` / `nativeCreateEngine` tombstone, treat the repeated-run adapter failure and native crash as correlated.
+7. If no new Dropbox entry or tombstone appears near the S1 failure time, treat the S1 failure as a returned app-layer adapter/JNI failure rather than a fresh native process crash.
+8. Then inspect `engine_request_count`, `adapter_call_count`, `decode_success_count`, `first_failure_counter_snapshot`, and `failure_pattern_hint`.
+9. If run 7 shows `adapter_call_count=7` and `decode_success_count=6`, the seventh adapter/decode handoff is the likely failure point.
+10. `engine_create_*` is `not_exposed` when the repeated runner cannot directly observe the LiteRT-LM Engine creation API. Do not read `engine_create_attempt_count=unavailable` as zero attempts.
 
 Device collection commands for this fallback path:
 

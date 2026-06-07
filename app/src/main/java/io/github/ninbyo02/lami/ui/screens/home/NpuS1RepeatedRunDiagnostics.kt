@@ -27,6 +27,10 @@ internal const val NPU_S1_FAILURE_STAGE_ADAPTER = "adapter"
 internal const val NPU_S1_FAILURE_STAGE_UNKNOWN = "unknown"
 internal const val NPU_S1_TOMBSTONE_COMPARE_HINT =
     "compare_first_failure_wall_time_ms_with_adb_shell_ls_lt_data_tombstones_and_dumpsys_dropbox"
+internal const val NPU_S1_COUNTER_NOTE =
+    "counters_are_app_layer_attempts_engine_create_may_be_unavailable_if_not_exposed"
+internal const val NPU_S1_ENGINE_CREATE_VISIBILITY = "not_exposed"
+internal const val NPU_S1_ENGINE_CREATE_SOURCE = "not_exposed"
 
 internal enum class NpuS1RepeatedRunMode(
     val wireValue: String,
@@ -220,6 +224,30 @@ internal data class NpuS1RepeatedRunSummary(
     val firstFailureExceptionClass: String,
     val firstFailureExceptionMessage: String,
     val tombstoneCompareHint: String,
+    val counterSnapshot: NpuS1RepeatedRunCounterSnapshot,
+    val firstFailureCounterSnapshot: String,
+    val counterNote: String,
+    val failureAfterNSuccesses: Int?,
+    val failureAfterNAdapterCalls: Int?,
+    val failureAfterNDecodeSuccesses: Int?,
+    val failurePatternHint: String,
+)
+
+internal data class NpuS1RepeatedRunCounterSnapshot(
+    val engineRequestCount: Int,
+    val engineRequestSuccessCount: Int,
+    val engineRequestFailureCount: Int,
+    val engineCreateAttemptCount: String = "unavailable",
+    val engineCreateSuccessCount: String = "unavailable",
+    val engineCreateFailureCount: String = "unavailable",
+    val engineCreateVisibility: String = NPU_S1_ENGINE_CREATE_VISIBILITY,
+    val engineCreateSource: String = NPU_S1_ENGINE_CREATE_SOURCE,
+    val adapterCallCount: Int,
+    val adapterSuccessCount: Int,
+    val adapterFailureCount: Int,
+    val decodeAttemptCount: Int,
+    val decodeSuccessCount: Int,
+    val decodeFailureCount: Int,
 )
 
 internal data class NpuS1LogcatContext(
@@ -520,6 +548,19 @@ internal fun buildNpuS1RepeatedRunSummary(
     val first = records.firstOrNull()
     val last = records.lastOrNull()
     val firstFailure = records.firstOrNull { it.status != NpuStandardRouteS1Contract.STATUS_SUCCESS }
+    val counterSnapshot = buildNpuS1RepeatedRunCounterSnapshot(records)
+    val firstFailureRecords = firstFailure?.let { failure ->
+        records.takeWhile { it !== failure } + failure
+    }.orEmpty()
+    val firstFailureCounterSnapshot = firstFailure?.let {
+        formatNpuS1CounterSnapshot(buildNpuS1RepeatedRunCounterSnapshot(firstFailureRecords))
+    } ?: "unavailable"
+    val recordsBeforeFirstFailure = firstFailure?.let { failure ->
+        records.takeWhile { it !== failure }
+    }.orEmpty()
+    val firstFailureSnapshot = firstFailure?.let {
+        buildNpuS1RepeatedRunCounterSnapshot(firstFailureRecords)
+    }
     val memoryGrowthSuspected = first?.memoryRecovery5sNativeHeapPssMb != null &&
         last?.memoryRecovery5sNativeHeapPssMb != null &&
         last.memoryRecovery5sNativeHeapPssMb - first.memoryRecovery5sNativeHeapPssMb >= NPU_S1_MEMORY_GROWTH_SUSPECTED_MB
@@ -568,6 +609,15 @@ internal fun buildNpuS1RepeatedRunSummary(
         firstFailureExceptionClass = firstFailure?.failureExceptionClass ?: "unavailable",
         firstFailureExceptionMessage = firstFailure?.failureExceptionMessage ?: "unavailable",
         tombstoneCompareHint = NPU_S1_TOMBSTONE_COMPARE_HINT,
+        counterSnapshot = counterSnapshot,
+        firstFailureCounterSnapshot = firstFailureCounterSnapshot,
+        counterNote = NPU_S1_COUNTER_NOTE,
+        failureAfterNSuccesses = firstFailure?.let {
+            recordsBeforeFirstFailure.count { record -> record.status == NpuStandardRouteS1Contract.STATUS_SUCCESS }
+        },
+        failureAfterNAdapterCalls = firstFailureSnapshot?.adapterCallCount,
+        failureAfterNDecodeSuccesses = firstFailureSnapshot?.decodeSuccessCount,
+        failurePatternHint = buildNpuS1FailurePatternHint(firstFailure, firstFailureSnapshot),
     )
 }
 
@@ -649,9 +699,35 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("first_failure_exception_class=${summary.firstFailureExceptionClass}")
         appendLine("first_failure_exception_message=${summary.firstFailureExceptionMessage}")
         appendLine("tombstone_compare_hint=${summary.tombstoneCompareHint}")
+        appendLine("engine_request_count=${summary.counterSnapshot.engineRequestCount}")
+        appendLine("engine_request_success_count=${summary.counterSnapshot.engineRequestSuccessCount}")
+        appendLine("engine_request_failure_count=${summary.counterSnapshot.engineRequestFailureCount}")
+        appendLine("engine_create_attempt_count=${summary.counterSnapshot.engineCreateAttemptCount}")
+        appendLine("engine_create_success_count=${summary.counterSnapshot.engineCreateSuccessCount}")
+        appendLine("engine_create_failure_count=${summary.counterSnapshot.engineCreateFailureCount}")
+        appendLine("engine_create_visibility=${summary.counterSnapshot.engineCreateVisibility}")
+        appendLine("engine_create_source=${summary.counterSnapshot.engineCreateSource}")
+        appendLine("adapter_call_count=${summary.counterSnapshot.adapterCallCount}")
+        appendLine("adapter_success_count=${summary.counterSnapshot.adapterSuccessCount}")
+        appendLine("adapter_failure_count=${summary.counterSnapshot.adapterFailureCount}")
+        appendLine("decode_attempt_count=${summary.counterSnapshot.decodeAttemptCount}")
+        appendLine("decode_success_count=${summary.counterSnapshot.decodeSuccessCount}")
+        appendLine("decode_failure_count=${summary.counterSnapshot.decodeFailureCount}")
+        appendLine("first_failure_counter_snapshot=${summary.firstFailureCounterSnapshot}")
+        appendLine("counter_note=${summary.counterNote}")
+        appendLine("failure_after_n_successes=${summary.failureAfterNSuccesses?.toString() ?: "unavailable"}")
+        appendLine("failure_after_n_adapter_calls=${summary.failureAfterNAdapterCalls?.toString() ?: "unavailable"}")
+        appendLine("failure_after_n_decode_successes=${summary.failureAfterNDecodeSuccesses?.toString() ?: "unavailable"}")
+        appendLine("failure_pattern_hint=${summary.failurePatternHint}")
         if (state.records.isNotEmpty()) {
             appendLine("[DEV診断: NPU S1 repeated run details]")
-            state.records.forEach { record ->
+            state.records.forEachIndexed { index, record ->
+                val counterSnapshotAtRun = buildNpuS1RepeatedRunCounterSnapshot(state.records.take(index + 1))
+                val failureCounterSnapshot = if (record.status != NpuStandardRouteS1Contract.STATUS_SUCCESS) {
+                    formatNpuS1CounterSnapshot(counterSnapshotAtRun)
+                } else {
+                    "unavailable"
+                }
                 appendLine("run_index=${record.runIndex}")
                 appendLine("run_count=${record.runCount}")
                 appendLine("repeated_run_mode=${record.repeatedRunMode.wireValue}")
@@ -721,6 +797,24 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
                 appendLine("failure_exception_message=${record.failureExceptionMessage.ifBlank { "unavailable" }}")
                 appendLine("failure_exception_source=${record.failureExceptionSource.ifBlank { "unavailable" }}")
                 appendLine("failure_stage=${record.failureStage.ifBlank { NPU_S1_FAILURE_STAGE_UNKNOWN }}")
+                appendLine("engine_request_count_at_run=${counterSnapshotAtRun.engineRequestCount}")
+                appendLine("engine_request_success_count_at_run=${counterSnapshotAtRun.engineRequestSuccessCount}")
+                appendLine("engine_request_failure_count_at_run=${counterSnapshotAtRun.engineRequestFailureCount}")
+                appendLine("engine_create_attempt_count_at_run=${counterSnapshotAtRun.engineCreateAttemptCount}")
+                appendLine("engine_create_success_count_at_run=${counterSnapshotAtRun.engineCreateSuccessCount}")
+                appendLine("engine_create_failure_count_at_run=${counterSnapshotAtRun.engineCreateFailureCount}")
+                appendLine("engine_create_visibility_at_run=${counterSnapshotAtRun.engineCreateVisibility}")
+                appendLine("engine_create_source_at_run=${counterSnapshotAtRun.engineCreateSource}")
+                appendLine("adapter_call_count_at_run=${counterSnapshotAtRun.adapterCallCount}")
+                appendLine("adapter_success_count_at_run=${counterSnapshotAtRun.adapterSuccessCount}")
+                appendLine("adapter_failure_count_at_run=${counterSnapshotAtRun.adapterFailureCount}")
+                appendLine("decode_attempt_count_at_run=${counterSnapshotAtRun.decodeAttemptCount}")
+                appendLine("decode_success_count_at_run=${counterSnapshotAtRun.decodeSuccessCount}")
+                appendLine("decode_failure_count_at_run=${counterSnapshotAtRun.decodeFailureCount}")
+                appendLine("failure_counter_snapshot=$failureCounterSnapshot")
+                appendLine("failure_after_engine_request_count=${if (record.status != NpuStandardRouteS1Contract.STATUS_SUCCESS) counterSnapshotAtRun.engineRequestCount.toString() else "unavailable"}")
+                appendLine("failure_after_adapter_call_count=${if (record.status != NpuStandardRouteS1Contract.STATUS_SUCCESS) counterSnapshotAtRun.adapterCallCount.toString() else "unavailable"}")
+                appendLine("failure_after_decode_attempt_count=${if (record.status != NpuStandardRouteS1Contract.STATUS_SUCCESS) counterSnapshotAtRun.decodeAttemptCount.toString() else "unavailable"}")
             }
         }
     }.trimEnd()
@@ -733,6 +827,56 @@ internal fun appendNpuS1RepeatedRunDiagnosticsForDev(
     text,
     formatNpuS1RepeatedRunDiagnosticsForDev(state),
 ).filter { it.isNotBlank() }.joinToString("\n\n")
+
+internal fun buildNpuS1RepeatedRunCounterSnapshot(
+    records: List<NpuS1RepeatedRunRecord>,
+): NpuS1RepeatedRunCounterSnapshot {
+    val engineRequestCount = records.size
+    val engineRequestSuccessCount = records.count { it.status == NpuStandardRouteS1Contract.STATUS_SUCCESS }
+    val engineRequestFailureCount = engineRequestCount - engineRequestSuccessCount
+    val adapterFailureCount = records.count { it.isAdapterFailure() }
+    val adapterCallCount = records.size
+    val decodeSuccessCount = records.count { it.runDecodeReached }
+    return NpuS1RepeatedRunCounterSnapshot(
+        engineRequestCount = engineRequestCount,
+        engineRequestSuccessCount = engineRequestSuccessCount,
+        engineRequestFailureCount = engineRequestFailureCount,
+        adapterCallCount = adapterCallCount,
+        adapterSuccessCount = adapterCallCount - adapterFailureCount,
+        adapterFailureCount = adapterFailureCount,
+        decodeAttemptCount = decodeSuccessCount,
+        decodeSuccessCount = decodeSuccessCount,
+        decodeFailureCount = records.count {
+            it.runDecodeReached && it.status != NpuStandardRouteS1Contract.STATUS_SUCCESS
+        },
+    )
+}
+
+internal fun formatNpuS1CounterSnapshot(snapshot: NpuS1RepeatedRunCounterSnapshot): String =
+    listOf(
+        "engine_request=${snapshot.engineRequestCount}",
+        "adapter_call=${snapshot.adapterCallCount}",
+        "decode_attempt=${snapshot.decodeAttemptCount}",
+        "adapter_failure=${snapshot.adapterFailureCount}",
+        "decode_success=${snapshot.decodeSuccessCount}",
+    ).joinToString(",")
+
+internal fun buildNpuS1FailurePatternHint(
+    firstFailure: NpuS1RepeatedRunRecord?,
+    firstFailureCounterSnapshot: NpuS1RepeatedRunCounterSnapshot?,
+): String {
+    if (firstFailure == null || firstFailureCounterSnapshot == null) return "unavailable"
+    return when {
+        firstFailure.isAdapterFailure() ->
+            "adapter_failure_after_${firstFailureCounterSnapshot.decodeSuccessCount}_successful_decodes"
+        firstFailure.runDecodeReached ->
+            "decode_failure_after_${firstFailureCounterSnapshot.decodeSuccessCount}_decode_reached_runs"
+        else -> "failure_before_decode_after_${firstFailureCounterSnapshot.adapterCallCount}_adapter_calls"
+    }
+}
+
+private fun NpuS1RepeatedRunRecord.isAdapterFailure(): Boolean =
+    reason.startsWith("adapter_failure") || reason.contains("LiteRtLmJniException")
 
 internal fun inferNpuS1FailureStage(
     status: String,
