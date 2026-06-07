@@ -3,7 +3,7 @@ package io.github.ninbyo02.lami
 import android.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
 
-internal object StandardDebugLogcatProbe {
+object StandardDebugLogcatProbe {
     private val logged = AtomicBoolean(false)
 
     @JvmStatic
