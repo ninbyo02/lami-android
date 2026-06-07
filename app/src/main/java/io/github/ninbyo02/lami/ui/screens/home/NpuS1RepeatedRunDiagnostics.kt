@@ -1,5 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import android.app.Application
+import android.os.Build
 import android.os.Process
 import android.util.Log
 import io.github.ninbyo02.lami.BuildConfig
@@ -18,6 +20,13 @@ internal const val NPU_S1_REPEATED_RUN_DEFAULT_COUNT = 20
 internal const val NPU_S1_REPEATED_RUN_ABNORMAL_TOTAL_MS = 30_000L
 internal const val NPU_S1_REPEATED_RUN_RECREATE_NOTE =
     "s1_direct_runner_engine_session_dispose_not_exposed_uses_safe_holder_recreate_api"
+internal const val NPU_S1_FAILURE_STAGE_ENGINE_REQUEST = "engine_request"
+internal const val NPU_S1_FAILURE_STAGE_ENGINE_CREATE = "engine_create"
+internal const val NPU_S1_FAILURE_STAGE_DECODE = "decode"
+internal const val NPU_S1_FAILURE_STAGE_ADAPTER = "adapter"
+internal const val NPU_S1_FAILURE_STAGE_UNKNOWN = "unknown"
+internal const val NPU_S1_TOMBSTONE_COMPARE_HINT =
+    "compare_first_failure_wall_time_ms_with_adb_shell_ls_lt_data_tombstones_and_dumpsys_dropbox"
 
 internal enum class NpuS1RepeatedRunMode(
     val wireValue: String,
@@ -130,11 +139,33 @@ internal data class NpuS1RepeatedRunRecord(
     val promptTokenCountSource: String = "code_points",
     val maxOutputTokensReached: Boolean,
     val stopSequenceMatched: String = "unavailable",
+    val processPid: Int? = null,
+    val processName: String = "unavailable",
+    val threadName: String = "unavailable",
+    val runStartedAtWallTimeMs: Long? = null,
+    val runStartedAtElapsedRealtimeMs: Long? = null,
+    val runFinishedAtWallTimeMs: Long? = null,
+    val runFinishedAtElapsedRealtimeMs: Long? = null,
+    val runDurationWallMs: Long? = null,
+    val engineRequestStartedAtElapsedRealtimeMs: Long? = null,
+    val engineCreateStartedAtElapsedRealtimeMs: Long? = null,
+    val engineCreateFinishedAtElapsedRealtimeMs: Long? = null,
+    val decodeStartedAtElapsedRealtimeMs: Long? = null,
+    val decodeFinishedAtElapsedRealtimeMs: Long? = null,
+    val failureDetectedAtElapsedRealtimeMs: Long? = null,
+    val failureDetectedAtWallTimeMs: Long? = null,
+    val failureExceptionClass: String = "unavailable",
+    val failureExceptionMessage: String = "unavailable",
+    val failureExceptionSource: String = "unavailable",
+    val failureStage: String = NPU_S1_FAILURE_STAGE_UNKNOWN,
 )
 
 internal data class NpuS1RepeatedRunState(
     val status: String = NPU_S1_REPEATED_RUN_STATUS_IDLE,
     val startedAtMs: Long? = null,
+    val startedAtElapsedRealtimeMs: Long? = null,
+    val finishedAtMs: Long? = null,
+    val finishedAtElapsedRealtimeMs: Long? = null,
     val prompt: String = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
     val requestedRunCount: Int = NPU_S1_REPEATED_RUN_DEFAULT_COUNT,
     val maxOutputTokens: Int = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
@@ -176,6 +207,19 @@ internal data class NpuS1RepeatedRunSummary(
     val first5sSystemAvailableMemoryMb: Long?,
     val last5sSystemAvailableMemoryMb: Long?,
     val memoryGrowthSuspected: Boolean,
+    val processPid: Int?,
+    val repeatedRunStartedAtWallTimeMs: Long?,
+    val repeatedRunStartedAtElapsedRealtimeMs: Long?,
+    val repeatedRunFinishedAtWallTimeMs: Long?,
+    val repeatedRunFinishedAtElapsedRealtimeMs: Long?,
+    val firstFailureRunIndex: Int?,
+    val firstFailureWallTimeMs: Long?,
+    val firstFailureElapsedRealtimeMs: Long?,
+    val firstFailureStage: String,
+    val firstFailureReason: String,
+    val firstFailureExceptionClass: String,
+    val firstFailureExceptionMessage: String,
+    val tombstoneCompareHint: String,
 )
 
 internal data class NpuS1LogcatContext(
@@ -475,6 +519,7 @@ internal fun buildNpuS1RepeatedRunSummary(
     )?.key.orEmpty()
     val first = records.firstOrNull()
     val last = records.lastOrNull()
+    val firstFailure = records.firstOrNull { it.status != NpuStandardRouteS1Contract.STATUS_SUCCESS }
     val memoryGrowthSuspected = first?.memoryRecovery5sNativeHeapPssMb != null &&
         last?.memoryRecovery5sNativeHeapPssMb != null &&
         last.memoryRecovery5sNativeHeapPssMb - first.memoryRecovery5sNativeHeapPssMb >= NPU_S1_MEMORY_GROWTH_SUSPECTED_MB
@@ -510,6 +555,19 @@ internal fun buildNpuS1RepeatedRunSummary(
         first5sSystemAvailableMemoryMb = first?.memoryRecovery5sSystemAvailableMemoryMb,
         last5sSystemAvailableMemoryMb = last?.memoryRecovery5sSystemAvailableMemoryMb,
         memoryGrowthSuspected = memoryGrowthSuspected,
+        processPid = first?.processPid ?: runCatching { Process.myPid() }.getOrNull(),
+        repeatedRunStartedAtWallTimeMs = state.startedAtMs ?: first?.runStartedAtWallTimeMs,
+        repeatedRunStartedAtElapsedRealtimeMs = state.startedAtElapsedRealtimeMs ?: first?.runStartedAtElapsedRealtimeMs,
+        repeatedRunFinishedAtWallTimeMs = state.finishedAtMs ?: last?.runFinishedAtWallTimeMs,
+        repeatedRunFinishedAtElapsedRealtimeMs = state.finishedAtElapsedRealtimeMs ?: last?.runFinishedAtElapsedRealtimeMs,
+        firstFailureRunIndex = firstFailure?.runIndex,
+        firstFailureWallTimeMs = firstFailure?.failureDetectedAtWallTimeMs ?: firstFailure?.runFinishedAtWallTimeMs,
+        firstFailureElapsedRealtimeMs = firstFailure?.failureDetectedAtElapsedRealtimeMs ?: firstFailure?.runFinishedAtElapsedRealtimeMs,
+        firstFailureStage = firstFailure?.failureStage ?: NPU_S1_FAILURE_STAGE_UNKNOWN,
+        firstFailureReason = firstFailure?.reason ?: "unavailable",
+        firstFailureExceptionClass = firstFailure?.failureExceptionClass ?: "unavailable",
+        firstFailureExceptionMessage = firstFailure?.failureExceptionMessage ?: "unavailable",
+        tombstoneCompareHint = NPU_S1_TOMBSTONE_COMPARE_HINT,
     )
 }
 
@@ -578,6 +636,19 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("first_5s_system_available_memory_mb=${formatNullableLong(summary.first5sSystemAvailableMemoryMb)}")
         appendLine("last_5s_system_available_memory_mb=${formatNullableLong(summary.last5sSystemAvailableMemoryMb)}")
         appendLine("memory_growth_suspected=${summary.memoryGrowthSuspected}")
+        appendLine("process_pid=${summary.processPid?.toString() ?: "unavailable"}")
+        appendLine("repeated_run_started_at_wall_time_ms=${formatNullableLong(summary.repeatedRunStartedAtWallTimeMs)}")
+        appendLine("repeated_run_started_at_elapsed_realtime_ms=${formatNullableLong(summary.repeatedRunStartedAtElapsedRealtimeMs)}")
+        appendLine("repeated_run_finished_at_wall_time_ms=${formatNullableLong(summary.repeatedRunFinishedAtWallTimeMs)}")
+        appendLine("repeated_run_finished_at_elapsed_realtime_ms=${formatNullableLong(summary.repeatedRunFinishedAtElapsedRealtimeMs)}")
+        appendLine("first_failure_run_index=${summary.firstFailureRunIndex?.toString() ?: "unavailable"}")
+        appendLine("first_failure_wall_time_ms=${formatNullableLong(summary.firstFailureWallTimeMs)}")
+        appendLine("first_failure_elapsed_realtime_ms=${formatNullableLong(summary.firstFailureElapsedRealtimeMs)}")
+        appendLine("first_failure_stage=${summary.firstFailureStage}")
+        appendLine("first_failure_reason=${summary.firstFailureReason}")
+        appendLine("first_failure_exception_class=${summary.firstFailureExceptionClass}")
+        appendLine("first_failure_exception_message=${summary.firstFailureExceptionMessage}")
+        appendLine("tombstone_compare_hint=${summary.tombstoneCompareHint}")
         if (state.records.isNotEmpty()) {
             appendLine("[DEV診断: NPU S1 repeated run details]")
             state.records.forEach { record ->
@@ -631,6 +702,25 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
                 appendLine("prompt_token_count_source=${record.promptTokenCountSource}")
                 appendLine("max_output_tokens_reached=${record.maxOutputTokensReached}")
                 appendLine("stop_sequence_matched=${record.stopSequenceMatched}")
+                appendLine("process_pid=${record.processPid?.toString() ?: "unavailable"}")
+                appendLine("process_name=${record.processName.ifBlank { "unavailable" }}")
+                appendLine("thread_name=${record.threadName.ifBlank { "unavailable" }}")
+                appendLine("run_started_at_wall_time_ms=${formatNullableLong(record.runStartedAtWallTimeMs)}")
+                appendLine("run_started_at_elapsed_realtime_ms=${formatNullableLong(record.runStartedAtElapsedRealtimeMs)}")
+                appendLine("run_finished_at_wall_time_ms=${formatNullableLong(record.runFinishedAtWallTimeMs)}")
+                appendLine("run_finished_at_elapsed_realtime_ms=${formatNullableLong(record.runFinishedAtElapsedRealtimeMs)}")
+                appendLine("run_duration_wall_ms=${formatNullableLong(record.runDurationWallMs)}")
+                appendLine("engine_request_started_at_elapsed_realtime_ms=${formatNullableLong(record.engineRequestStartedAtElapsedRealtimeMs)}")
+                appendLine("engine_create_started_at_elapsed_realtime_ms=${formatNullableLong(record.engineCreateStartedAtElapsedRealtimeMs)}")
+                appendLine("engine_create_finished_at_elapsed_realtime_ms=${formatNullableLong(record.engineCreateFinishedAtElapsedRealtimeMs)}")
+                appendLine("decode_started_at_elapsed_realtime_ms=${formatNullableLong(record.decodeStartedAtElapsedRealtimeMs)}")
+                appendLine("decode_finished_at_elapsed_realtime_ms=${formatNullableLong(record.decodeFinishedAtElapsedRealtimeMs)}")
+                appendLine("failure_detected_at_elapsed_realtime_ms=${formatNullableLong(record.failureDetectedAtElapsedRealtimeMs)}")
+                appendLine("failure_detected_at_wall_time_ms=${formatNullableLong(record.failureDetectedAtWallTimeMs)}")
+                appendLine("failure_exception_class=${record.failureExceptionClass.ifBlank { "unavailable" }}")
+                appendLine("failure_exception_message=${record.failureExceptionMessage.ifBlank { "unavailable" }}")
+                appendLine("failure_exception_source=${record.failureExceptionSource.ifBlank { "unavailable" }}")
+                appendLine("failure_stage=${record.failureStage.ifBlank { NPU_S1_FAILURE_STAGE_UNKNOWN }}")
             }
         }
     }.trimEnd()
@@ -643,6 +733,51 @@ internal fun appendNpuS1RepeatedRunDiagnosticsForDev(
     text,
     formatNpuS1RepeatedRunDiagnosticsForDev(state),
 ).filter { it.isNotBlank() }.joinToString("\n\n")
+
+internal fun inferNpuS1FailureStage(
+    status: String,
+    reason: String,
+    runDecodeReached: Boolean,
+    timeout: Boolean,
+): String = when {
+    status == NpuStandardRouteS1Contract.STATUS_SUCCESS -> NPU_S1_FAILURE_STAGE_UNKNOWN
+    reason.startsWith("adapter_failure") -> NPU_S1_FAILURE_STAGE_ADAPTER
+    reason.contains("LiteRtLmJniException") -> NPU_S1_FAILURE_STAGE_ADAPTER
+    reason.contains("engine_create", ignoreCase = true) -> NPU_S1_FAILURE_STAGE_ENGINE_CREATE
+    reason.contains("engine_request", ignoreCase = true) -> NPU_S1_FAILURE_STAGE_ENGINE_REQUEST
+    timeout -> NPU_S1_FAILURE_STAGE_DECODE
+    runDecodeReached -> NPU_S1_FAILURE_STAGE_DECODE
+    else -> NPU_S1_FAILURE_STAGE_UNKNOWN
+}
+
+internal fun inferNpuS1FailureExceptionClass(reason: String): String {
+    val marker = "adapter_failure:"
+    val markerIndex = reason.indexOf(marker)
+    if (markerIndex >= 0) {
+        val inferred = reason
+            .substring(markerIndex + marker.length)
+            .takeWhile { it != ':' && !it.isWhitespace() }
+            .trim()
+        if (inferred.isNotBlank()) return inferred
+    }
+    return when {
+        reason.contains("LiteRtLmJniException") -> "LiteRtLmJniException"
+        else -> "unavailable"
+    }
+}
+
+internal fun npuS1FailureExceptionSource(reason: String, exceptionClass: String): String = when {
+    exceptionClass == "unavailable" -> "unavailable"
+    reason.startsWith("adapter_failure") || reason.contains("LiteRtLmJniException") -> "reason_string_inferred"
+    else -> "unavailable"
+}
+
+internal fun currentNpuS1ProcessName(): String =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        runCatching { Application.getProcessName() }.getOrDefault("unavailable")
+    } else {
+        "unavailable"
+    }
 
 private fun formatNullableLong(value: Long?): String = value?.toString() ?: "unavailable"
 

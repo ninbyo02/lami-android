@@ -107,6 +107,10 @@ class NpuS1RepeatedRunDiagnosticsTest {
     fun `copy formatter includes repeated run summary details memory and unavailable finish reasons`() {
         val state = NpuS1RepeatedRunState(
             status = NPU_S1_REPEATED_RUN_STATUS_COMPLETED,
+            startedAtMs = 1_000L,
+            startedAtElapsedRealtimeMs = 10_000L,
+            finishedAtMs = 2_000L,
+            finishedAtElapsedRealtimeMs = 11_000L,
             records = listOf(record(runIndex = 1)),
         )
         val text = appendNpuS1RepeatedRunDiagnosticsForDev(
@@ -132,12 +136,82 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("memory_after_low_memory=false"))
         assertTrue(text.contains("peak_5s_total_pss_mb=250"))
         assertTrue(text.contains("peak_5s_native_heap_pss_mb=70"))
+        assertTrue(text.contains("process_pid="))
+        assertTrue(text.contains("repeated_run_started_at_wall_time_ms=1000"))
+        assertTrue(text.contains("repeated_run_started_at_elapsed_realtime_ms=10000"))
+        assertTrue(text.contains("repeated_run_finished_at_wall_time_ms=2000"))
+        assertTrue(text.contains("repeated_run_finished_at_elapsed_realtime_ms=11000"))
+        assertTrue(text.contains("first_failure_run_index=unavailable"))
+        assertTrue(text.contains("tombstone_compare_hint=compare_first_failure_wall_time_ms_with_adb_shell_ls_lt_data_tombstones_and_dumpsys_dropbox"))
+        assertTrue(text.contains("run_started_at_wall_time_ms=unavailable"))
+        assertTrue(text.contains("run_finished_at_wall_time_ms=unavailable"))
         assertTrue(text.contains("recreate_requested_after_run=false"))
         assertTrue(text.contains("recreate_result_after_run=not_requested"))
         assertTrue(text.contains("recreate_delay_after_run_ms=0"))
         assertTrue(text.contains("output_token_count_source=estimated_code_points_not_tokenizer"))
         assertTrue(text.contains("prompt_token_count_source=code_points"))
         assertFalse(text.contains("NPU memory"))
+    }
+
+    @Test
+    fun `copy formatter includes first failure time stage and inferred adapter exception`() {
+        val failureRecord = record(
+            runIndex = 7,
+            status = "failure",
+            reason = "adapter_failure:LiteRtLmJniException",
+            runDecodeReached = false,
+        ).copy(
+            processPid = 12345,
+            processName = "io.github.ninbyo02.lami",
+            threadName = "main",
+            runStartedAtWallTimeMs = 100_000L,
+            runStartedAtElapsedRealtimeMs = 200_000L,
+            runFinishedAtWallTimeMs = 101_000L,
+            runFinishedAtElapsedRealtimeMs = 201_000L,
+            runDurationWallMs = 1_000L,
+            engineRequestStartedAtElapsedRealtimeMs = 200_010L,
+            failureDetectedAtWallTimeMs = 100_500L,
+            failureDetectedAtElapsedRealtimeMs = 200_500L,
+            failureExceptionClass = inferNpuS1FailureExceptionClass("adapter_failure:LiteRtLmJniException"),
+            failureExceptionMessage = "adapter_failure:LiteRtLmJniException",
+            failureExceptionSource = npuS1FailureExceptionSource(
+                reason = "adapter_failure:LiteRtLmJniException",
+                exceptionClass = "LiteRtLmJniException",
+            ),
+            failureStage = inferNpuS1FailureStage(
+                status = "failure",
+                reason = "adapter_failure:LiteRtLmJniException",
+                runDecodeReached = false,
+                timeout = false,
+            ),
+        )
+        val text = formatNpuS1RepeatedRunDiagnosticsForDev(
+            NpuS1RepeatedRunState(
+                status = NPU_S1_REPEATED_RUN_STATUS_STOPPED,
+                startedAtMs = 90_000L,
+                startedAtElapsedRealtimeMs = 190_000L,
+                finishedAtMs = 102_000L,
+                finishedAtElapsedRealtimeMs = 202_000L,
+                records = listOf(record(runIndex = 1), failureRecord),
+                stopped = true,
+                stopReason = "adapter_failure",
+            ),
+        )
+
+        assertTrue(text.contains("first_failure_run_index=7"))
+        assertTrue(text.contains("first_failure_wall_time_ms=100500"))
+        assertTrue(text.contains("first_failure_elapsed_realtime_ms=200500"))
+        assertTrue(text.contains("first_failure_stage=adapter"))
+        assertTrue(text.contains("first_failure_reason=adapter_failure:LiteRtLmJniException"))
+        assertTrue(text.contains("first_failure_exception_class=LiteRtLmJniException"))
+        assertTrue(text.contains("process_pid=12345"))
+        assertTrue(text.contains("process_name=io.github.ninbyo02.lami"))
+        assertTrue(text.contains("thread_name=main"))
+        assertTrue(text.contains("failure_detected_at_wall_time_ms=100500"))
+        assertTrue(text.contains("failure_detected_at_elapsed_realtime_ms=200500"))
+        assertTrue(text.contains("failure_exception_class=LiteRtLmJniException"))
+        assertTrue(text.contains("failure_exception_source=reason_string_inferred"))
+        assertTrue(text.contains("failure_stage=adapter"))
     }
 
     @Test

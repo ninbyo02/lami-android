@@ -279,6 +279,26 @@ adb -s 192.168.52.52:42685 shell ls -lt /data/tombstones 2>/dev/null | head -20
 adb -s 192.168.52.52:42685 shell cat /data/tombstones/tombstone_00 2>/dev/null | head -160
 ```
 
+If Logcat is not readable on the device, do not rely on Logcat-only diagnosis. Some devices can report `0 B readable` from `adb logcat -g`, and even a direct probe such as `adb shell log -p e -t LamiNpuEngine test` may not appear in `adb logcat -d`. In that state, use the copied DEV diagnostics plus Dropbox/tombstone timestamps instead.
+
+For NPU S1 repeated run versus native tombstone correlation:
+
+1. In Lami, open DEV diagnostics.
+2. Start `NPU S1 20回連続テスト` with `reuse`.
+3. After it stops, copy and save the DEV diagnostics.
+4. In the copied `[DEV診断: NPU S1 repeated run summary]`, find `process_pid`, `first_failure_run_index`, `first_failure_wall_time_ms`, `first_failure_elapsed_realtime_ms`, `first_failure_stage`, `first_failure_reason`, `first_failure_exception_class`, and `tombstone_compare_hint`.
+5. In the copied `[DEV診断: NPU S1 repeated run details]`, inspect the failing `run_index` for `run_started_at_wall_time_ms`, `run_finished_at_wall_time_ms`, `failure_detected_at_wall_time_ms`, `engine_request_started_at_elapsed_realtime_ms`, `decode_started_at_elapsed_realtime_ms`, and `failure_stage`.
+6. Compare `first_failure_wall_time_ms` and `failure_detected_at_wall_time_ms` with Dropbox and tombstone timestamps. If the failure window matches a `SIGABRT` / `liblitertlm_jni.so` / `nativeCreateEngine` tombstone, treat the repeated-run adapter failure and native crash as correlated.
+
+Device collection commands for this fallback path:
+
+```bash
+adb -s 324451613506 shell dumpsys dropbox --print | grep -a -iE "io.github.ninbyo02.lami|native_crash|tombstone|SIGABRT|litertlm|LiteRt|QNN|HTP" -A 120 -B 40 | tail -500
+
+adb -s 324451613506 shell ls -lt /data/tombstones 2>/dev/null | head -20
+adb -s 324451613506 shell cat /data/tombstones/tombstone_00 2>/dev/null | head -180
+```
+
 ## Future candidates
 
 - Persist guard-blocked conversation state if in-memory state is not enough for the investigation.
