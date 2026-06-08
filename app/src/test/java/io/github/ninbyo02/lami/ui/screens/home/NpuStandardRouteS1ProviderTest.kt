@@ -63,7 +63,10 @@ class NpuStandardRouteS1ProviderTest {
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertFalse(mapped.successCriteriaMet)
-            assertEquals("dev_only_entry_unavailable", mapped.reason)
+            assertEquals(
+                NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT,
+                mapped.reason,
+            )
         } else {
             assertTrue(mapped.successCriteriaMet)
             assertEquals("こんにちは。", mapped.displayText)
@@ -83,7 +86,7 @@ class NpuStandardRouteS1ProviderTest {
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertFalse(mapped.successCriteriaMet)
             assertEquals("failure", raw.status)
-            assertEquals("dev_only_entry_unavailable", raw.reason)
+            assertEquals(NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT, raw.reason)
         } else {
             assertTrue(mapped.successCriteriaMet)
             assertEquals("success", raw.status)
@@ -107,7 +110,7 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `provider selector uses real provider path when S1 gate is enabled`() {
+    fun `provider selector blocks native route for normal chat when S1 gate is enabled`() {
         val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = true).invoke(
             userPrompt = userPrompt,
             maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
@@ -116,6 +119,23 @@ class NpuStandardRouteS1ProviderTest {
         val mapped = NpuStandardRouteS1Mapper.map(raw)
 
         assertFalse(mapped.successCriteriaMet)
+        assertEquals("failure", raw.status)
+        assertEquals(NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT, raw.reason)
+        assertTrue(
+            mapped.withTiming(NpuStandardRouteS1Timing(totalMs = 0L))
+                .displayText
+                .contains("normal_chat_native_route_blocked=true"),
+        )
+    }
+
+    @Test
+    fun `dev diagnostic provider keeps real native provider path available`() {
+        val raw = NpuStandardRouteS1ProviderSelector.devDiagnosticProviderForMode(NpuStandardRouteMode.S1_ONLY).invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
+
         assertEquals("failure", raw.status)
         assertEquals("dev_only_entry_unavailable", raw.reason)
     }
@@ -149,13 +169,13 @@ class NpuStandardRouteS1ProviderTest {
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertEquals("failure", offRaw.status)
-            assertEquals("dev_only_entry_unavailable", offRaw.reason)
+            assertEquals(NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT, offRaw.reason)
         } else {
             assertEquals("success", offRaw.status)
             assertEquals("こんにちは。", offRaw.sanitizedOutput)
         }
         assertEquals("failure", s1Raw.status)
-        assertEquals("dev_only_entry_unavailable", s1Raw.reason)
+        assertEquals(NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT, s1Raw.reason)
     }
 
     @Test

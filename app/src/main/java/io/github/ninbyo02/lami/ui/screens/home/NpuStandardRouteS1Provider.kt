@@ -130,6 +130,7 @@ internal fun buildNpuStandardRouteS1DevTraceText(
         "sanitized_output_code_points=${result.sanitizedOutput.codePointCount(0, result.sanitizedOutput.length)}",
         "status=${result.status}",
         "reason=${result.reason}",
+        "normal_chat_native_route_blocked=${result.reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT}",
         "quality_classification=${result.qualityClassification}",
         "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
         "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",

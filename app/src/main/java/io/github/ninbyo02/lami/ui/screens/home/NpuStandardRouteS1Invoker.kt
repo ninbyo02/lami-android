@@ -7,8 +7,13 @@ internal class NpuStandardRouteS1Invoker(
     constructor(
         mode: NpuStandardRouteMode,
         trace: (String) -> Unit = {},
+        allowDevNativeRoute: Boolean = false,
     ) : this(
-        provider = NpuStandardRouteS1ProviderSelector.defaultProviderForMode(mode),
+        provider = if (allowDevNativeRoute) {
+            NpuStandardRouteS1ProviderSelector.devDiagnosticProviderForMode(mode)
+        } else {
+            NpuStandardRouteS1ProviderSelector.defaultProviderForMode(mode)
+        },
         trace = trace,
     )
 

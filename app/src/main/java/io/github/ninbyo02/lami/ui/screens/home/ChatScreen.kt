@@ -1200,6 +1200,7 @@ fun Home(
                         NpuStandardRouteS1Bridge(
                             mode = npuStandardRouteMode,
                             trace = {},
+                            allowDevNativeRoute = true,
                         ).run(
                             userPrompt = promptForRun,
                             maxOutputTokens = maxTokensForRun,

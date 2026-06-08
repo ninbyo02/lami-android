@@ -7,8 +7,13 @@ internal class NpuStandardRouteS1Bridge(
     constructor(
         mode: NpuStandardRouteMode,
         trace: (String) -> Unit = {},
+        allowDevNativeRoute: Boolean = false,
     ) : this(
-        invoker = NpuStandardRouteS1Invoker(mode, trace),
+        invoker = NpuStandardRouteS1Invoker(
+            mode = mode,
+            trace = trace,
+            allowDevNativeRoute = allowDevNativeRoute,
+        ),
         trace = trace,
     )
 

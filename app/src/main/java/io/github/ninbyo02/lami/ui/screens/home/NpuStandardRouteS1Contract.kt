@@ -194,6 +194,7 @@ internal object NpuStandardRouteS1Contract {
             npuModelEligible?.let { "npu_model_eligible=$it" },
             "status=$status",
             "reason=$reason",
+            "normal_chat_native_route_blocked=${reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT}",
             "prompt_tail_variant=${selection.promptTailVariant}",
             "requested_max_output_tokens=${selection.requestedMaxOutputTokens}",
             "effective_max_output_tokens=${selection.effectiveMaxOutputTokens}",
