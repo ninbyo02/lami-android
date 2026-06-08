@@ -36,6 +36,21 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             decodeReached = "false",
             nativeDiagFlushCount = "4",
             nativeResultFlushCount = "5",
+            engineCreateModelPath = "/data/user/0/io.github.ninbyo02.lami/files/local_models/model.litertlm",
+            engineCreateNativeLibraryDir = "/data/app/lib/arm64",
+            engineCreateCacheDir = "/data/user/0/io.github.ninbyo02.lami/cache",
+            engineCreateBackend = "NPU",
+            engineCreatePromptInputLimitMode = "unsafe_dev_bypass_hidden_template_experiment",
+            engineCreateRequestedMaxOutputTokens = "32",
+            engineCreateEffectiveMaxOutputTokens = "32",
+            engineCreateMaxTokenBudget = "32",
+            engineCreateSettingsSource =
+                "EngineSettings::CreateDefault(model_assets,NPU)+SetCacheDir(cache_dir)+SetLitertDispatchLibDir(native_library_dir)",
+            engineCreateAssetsSource = "ModelAssets::Create(model_path)",
+            engineCreateMatchesEditablePromptPath = "true",
+            engineCreateMatchesEditablePromptSettings = "true",
+            editablePromptEngineCreateSignature = "model_path=/model;backend=NPU",
+            persistentEngineCreateSignature = "model_path=/model;backend=NPU",
             persistentCustomJniHypothesisResult = "native_holder_entrypoint_not_available",
         )
 
@@ -66,6 +81,20 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("decode_reached=false"))
         assertTrue(text.contains("native_diag_flush_count=4"))
         assertTrue(text.contains("native_result_flush_count=5"))
+        assertTrue(text.contains("engine_create_model_path=/data/user/0/io.github.ninbyo02.lami/files/local_models/model.litertlm"))
+        assertTrue(text.contains("engine_create_native_library_dir=/data/app/lib/arm64"))
+        assertTrue(text.contains("engine_create_cache_dir=/data/user/0/io.github.ninbyo02.lami/cache"))
+        assertTrue(text.contains("engine_create_backend=NPU"))
+        assertTrue(text.contains("engine_create_prompt_input_limit_mode=unsafe_dev_bypass_hidden_template_experiment"))
+        assertTrue(text.contains("engine_create_requested_max_output_tokens=32"))
+        assertTrue(text.contains("engine_create_effective_max_output_tokens=32"))
+        assertTrue(text.contains("engine_create_max_token_budget=32"))
+        assertTrue(text.contains("engine_create_settings_source=EngineSettings::CreateDefault"))
+        assertTrue(text.contains("engine_create_assets_source=ModelAssets::Create(model_path)"))
+        assertTrue(text.contains("engine_create_matches_editable_prompt_path=true"))
+        assertTrue(text.contains("engine_create_matches_editable_prompt_settings=true"))
+        assertTrue(text.contains("editable_prompt_engine_create_signature=model_path=/model;backend=NPU"))
+        assertTrue(text.contains("persistent_engine_create_signature=model_path=/model;backend=NPU"))
         assertTrue(text.contains("persistent_custom_jni_hypothesis_result=native_holder_entrypoint_not_available"))
     }
 
@@ -131,6 +160,10 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("decode_reached=unavailable"))
         assertTrue(text.contains("native_diag_flush_count=unavailable"))
         assertTrue(text.contains("native_result_flush_count=unavailable"))
+        assertTrue(text.contains("engine_create_model_path=unavailable"))
+        assertTrue(text.contains("engine_create_matches_editable_prompt_settings=unavailable"))
+        assertTrue(text.contains("editable_prompt_engine_create_signature=unavailable"))
+        assertTrue(text.contains("persistent_engine_create_signature=unavailable"))
         assertTrue(text.contains("records=empty"))
     }
 

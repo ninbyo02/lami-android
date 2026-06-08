@@ -23,6 +23,7 @@ internal enum class NpuS1PersistentCustomJniProbeMode(
     ENGINE_SETTINGS_ONLY("engine_settings_only", "EngineSettings only"),
     BEFORE_ENGINE_CREATE("before_engine_create", "Before engine create"),
     ENGINE_CREATE_ONLY("engine_create_only", "Engine create only"),
+    EDITABLE_ENGINE_CREATE_ONLY("editable_engine_create_only", "Editable engine create only"),
     FULL_20("full_20", "Full 20"),
 }
 
@@ -118,6 +119,20 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val decodeReached: String = "unavailable",
     val nativeDiagFlushCount: String = "unavailable",
     val nativeResultFlushCount: String = "unavailable",
+    val engineCreateModelPath: String = "unavailable",
+    val engineCreateNativeLibraryDir: String = "unavailable",
+    val engineCreateCacheDir: String = "unavailable",
+    val engineCreateBackend: String = "unavailable",
+    val engineCreatePromptInputLimitMode: String = "unavailable",
+    val engineCreateRequestedMaxOutputTokens: String = "unavailable",
+    val engineCreateEffectiveMaxOutputTokens: String = "unavailable",
+    val engineCreateMaxTokenBudget: String = "unavailable",
+    val engineCreateSettingsSource: String = "unavailable",
+    val engineCreateAssetsSource: String = "unavailable",
+    val engineCreateMatchesEditablePromptPath: String = "unavailable",
+    val engineCreateMatchesEditablePromptSettings: String = "unavailable",
+    val editablePromptEngineCreateSignature: String = "unavailable",
+    val persistentEngineCreateSignature: String = "unavailable",
     val firstFailureRunIndex: Int? = null,
     val firstFailureStage: String = "unavailable",
     val firstFailureReason: String = "unavailable",
@@ -182,6 +197,20 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("decode_reached=${state.decodeReached}")
     appendLine("native_diag_flush_count=${state.nativeDiagFlushCount}")
     appendLine("native_result_flush_count=${state.nativeResultFlushCount}")
+    appendLine("engine_create_model_path=${escapePersistentCustomJniCopyValue(state.engineCreateModelPath)}")
+    appendLine("engine_create_native_library_dir=${escapePersistentCustomJniCopyValue(state.engineCreateNativeLibraryDir)}")
+    appendLine("engine_create_cache_dir=${escapePersistentCustomJniCopyValue(state.engineCreateCacheDir)}")
+    appendLine("engine_create_backend=${state.engineCreateBackend}")
+    appendLine("engine_create_prompt_input_limit_mode=${state.engineCreatePromptInputLimitMode}")
+    appendLine("engine_create_requested_max_output_tokens=${state.engineCreateRequestedMaxOutputTokens}")
+    appendLine("engine_create_effective_max_output_tokens=${state.engineCreateEffectiveMaxOutputTokens}")
+    appendLine("engine_create_max_token_budget=${state.engineCreateMaxTokenBudget}")
+    appendLine("engine_create_settings_source=${escapePersistentCustomJniCopyValue(state.engineCreateSettingsSource)}")
+    appendLine("engine_create_assets_source=${escapePersistentCustomJniCopyValue(state.engineCreateAssetsSource)}")
+    appendLine("engine_create_matches_editable_prompt_path=${state.engineCreateMatchesEditablePromptPath}")
+    appendLine("engine_create_matches_editable_prompt_settings=${state.engineCreateMatchesEditablePromptSettings}")
+    appendLine("editable_prompt_engine_create_signature=${escapePersistentCustomJniCopyValue(state.editablePromptEngineCreateSignature)}")
+    appendLine("persistent_engine_create_signature=${escapePersistentCustomJniCopyValue(state.persistentEngineCreateSignature)}")
     appendLine("first_failure_run_index=${formatPersistentCustomJniValue(state.firstFailureRunIndex)}")
     appendLine("first_failure_stage=${state.firstFailureStage}")
     appendLine("first_failure_reason=${escapePersistentCustomJniCopyValue(state.firstFailureReason)}")

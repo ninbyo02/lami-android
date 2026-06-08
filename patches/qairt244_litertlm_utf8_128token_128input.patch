@@ -1,5 +1,5 @@
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-index 421c3036..0dc0280b 100644
+index 421c3036..d51a85d2 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 @@ -21,6 +21,7 @@
@@ -19,7 +19,7 @@ index 421c3036..0dc0280b 100644
  constexpr char kQairt244EditablePromptRequestedMaxMarker[] =
      "qairt244_editable_prompt_requested_max_v1";
  constexpr char kQairt244EditablePromptValidationMode[] =
-@@ -574,6 +577,54 @@ void Qairt244SentinelLog(const char* format, ...) {
+@@ -574,6 +577,74 @@ void Qairt244SentinelLog(const char* format, ...) {
    va_end(args);
  }
 
@@ -36,6 +36,26 @@ index 421c3036..0dc0280b 100644
 +    }
 +  }
 +  return flattened;
++}
++
++std::string Qairt244EngineCreateSignature(
++    const std::string& model_path, const std::string& native_library_dir,
++    const std::string& cache_dir, const std::string& backend,
++    const std::string& prompt_input_limit_mode,
++    int requested_max_output_tokens, int effective_max_output_tokens,
++    int max_token_budget, const std::string& assets_source,
++    const std::string& settings_source) {
++  return Qairt244FlattenValue(
++      "model_path=" + model_path + ";native_library_dir=" +
++      native_library_dir + ";cache_dir=" + cache_dir + ";backend=" + backend +
++      ";prompt_input_limit_mode=" + prompt_input_limit_mode +
++      ";requested_max_output_tokens=" +
++      std::to_string(requested_max_output_tokens) +
++      ";effective_max_output_tokens=" +
++      std::to_string(effective_max_output_tokens) +
++      ";max_token_budget=" + std::to_string(max_token_budget) +
++      ";assets_source=" + assets_source + ";settings_source=" +
++      settings_source);
 +}
 +
 +void WriteQairt244PersistentProbeResult(
@@ -74,7 +94,7 @@ index 421c3036..0dc0280b 100644
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
        env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
-@@ -2275,6 +2326,552 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
+@@ -2275,6 +2346,637 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
    return NewStringStandardUTF(env, output);
  }
 
@@ -125,6 +145,20 @@ index 421c3036..0dc0280b 100644
 +  std::string decode_reached = "false";
 +  int native_diag_flush_count = 0;
 +  int native_result_flush_count = 0;
++  std::string engine_create_model_path = "unavailable";
++  std::string engine_create_native_library_dir = "unavailable";
++  std::string engine_create_cache_dir = "unavailable";
++  std::string engine_create_backend = "NPU";
++  std::string engine_create_prompt_input_limit_mode = "unavailable";
++  int engine_create_requested_max_output_tokens = -1;
++  int engine_create_effective_max_output_tokens = -1;
++  int engine_create_max_token_budget = -1;
++  std::string engine_create_settings_source = "unavailable";
++  std::string engine_create_assets_source = "unavailable";
++  std::string engine_create_matches_editable_prompt_path = "unavailable";
++  std::string engine_create_matches_editable_prompt_settings = "unavailable";
++  std::string editable_prompt_engine_create_signature = "unavailable";
++  std::string persistent_engine_create_signature = "unavailable";
 +  std::string holder_invalidated = "false";
 +  std::string holder_key_mismatch_detected = "false";
 +  std::string holder_key_mismatch_reason = "unavailable";
@@ -183,6 +217,39 @@ index 421c3036..0dc0280b 100644
 +                    std::to_string(native_diag_flush_count));
 +    lines.push_back("native_result_flush_count=" +
 +                    std::to_string(next_result_flush_count));
++    lines.push_back("engine_create_model_path=" +
++                    Qairt244FlattenValue(engine_create_model_path));
++    lines.push_back("engine_create_native_library_dir=" +
++                    Qairt244FlattenValue(engine_create_native_library_dir));
++    lines.push_back("engine_create_cache_dir=" +
++                    Qairt244FlattenValue(engine_create_cache_dir));
++    lines.push_back("engine_create_backend=" + engine_create_backend);
++    lines.push_back("engine_create_prompt_input_limit_mode=" +
++                    engine_create_prompt_input_limit_mode);
++    lines.push_back("engine_create_requested_max_output_tokens=" +
++                    (engine_create_requested_max_output_tokens >= 0
++                         ? std::to_string(engine_create_requested_max_output_tokens)
++                         : std::string("unavailable")));
++    lines.push_back("engine_create_effective_max_output_tokens=" +
++                    (engine_create_effective_max_output_tokens >= 0
++                         ? std::to_string(engine_create_effective_max_output_tokens)
++                         : std::string("unavailable")));
++    lines.push_back("engine_create_max_token_budget=" +
++                    (engine_create_max_token_budget >= 0
++                         ? std::to_string(engine_create_max_token_budget)
++                         : std::string("unavailable")));
++    lines.push_back("engine_create_settings_source=" +
++                    Qairt244FlattenValue(engine_create_settings_source));
++    lines.push_back("engine_create_assets_source=" +
++                    Qairt244FlattenValue(engine_create_assets_source));
++    lines.push_back("engine_create_matches_editable_prompt_path=" +
++                    engine_create_matches_editable_prompt_path);
++    lines.push_back("engine_create_matches_editable_prompt_settings=" +
++                    engine_create_matches_editable_prompt_settings);
++    lines.push_back("editable_prompt_engine_create_signature=" +
++                    editable_prompt_engine_create_signature);
++    lines.push_back("persistent_engine_create_signature=" +
++                    persistent_engine_create_signature);
 +    lines.push_back("persistent_custom_jni_status=" + status);
 +    lines.push_back("run_count_requested=" + std::to_string(requested_count));
 +    lines.push_back("run_count_completed=" + std::to_string(completed_count));
@@ -273,11 +340,13 @@ index 421c3036..0dc0280b 100644
 +      native_probe_mode_str != "engine_settings_only" &&
 +      native_probe_mode_str != "before_engine_create" &&
 +      native_probe_mode_str != "engine_create_only" &&
++      native_probe_mode_str != "editable_engine_create_only" &&
 +      native_probe_mode_str != "full_20") {
 +    record_failure(0, "argument", "invalid_native_probe_mode",
 +                   "native_probe_mode must be entrypoint_only, "
 +                   "model_assets_only, engine_settings_only, "
-+                   "before_engine_create, engine_create_only, or full_20");
++                   "before_engine_create, engine_create_only, "
++                   "editable_engine_create_only, or full_20");
 +    write_result();
 +    ThrowLiteRtLmJniException(env,
 +                              "invalid persistent probe native_probe_mode");
@@ -327,6 +396,39 @@ index 421c3036..0dc0280b 100644
 +      "ENTRY run_count=" + std::to_string(requested_count) +
 +      " max_output_tokens=" + std::to_string(max_output_tokens) +
 +      " holder_key=" + holder_key_str);
++
++  engine_create_model_path = model_path_str;
++  engine_create_native_library_dir = native_library_dir_str;
++  engine_create_cache_dir = cache_dir_str;
++  engine_create_backend = "NPU";
++  engine_create_prompt_input_limit_mode = prompt_input_limit_mode_str;
++  engine_create_requested_max_output_tokens = max_output_tokens;
++  engine_create_effective_max_output_tokens = max_output_tokens;
++  engine_create_max_token_budget = max_output_tokens;
++  engine_create_assets_source = "ModelAssets::Create(model_path)";
++  engine_create_settings_source =
++      "EngineSettings::CreateDefault(model_assets,NPU)"
++      "+SetCacheDir(cache_dir)+SetLitertDispatchLibDir(native_library_dir)";
++  editable_prompt_engine_create_signature = Qairt244EngineCreateSignature(
++      model_path_str, native_library_dir_str, cache_dir_str, "NPU",
++      prompt_input_limit_mode_str, max_output_tokens, max_output_tokens,
++      max_output_tokens, engine_create_assets_source,
++      engine_create_settings_source);
++  persistent_engine_create_signature = Qairt244EngineCreateSignature(
++      model_path_str, native_library_dir_str, cache_dir_str, "NPU",
++      prompt_input_limit_mode_str, max_output_tokens, max_output_tokens,
++      max_output_tokens, engine_create_assets_source,
++      engine_create_settings_source);
++  engine_create_matches_editable_prompt_path =
++      model_path_str.empty() ? "false" : "true";
++  engine_create_matches_editable_prompt_settings =
++      editable_prompt_engine_create_signature ==
++              persistent_engine_create_signature
++          ? "true"
++          : "false";
++  append_stage_diag("engine_create_signature=" +
++                    persistent_engine_create_signature);
++  write_result();
 +
 +  if (g_qairt244_persistent_custom_jni_holder.engine &&
 +      g_qairt244_persistent_custom_jni_holder.holder_key != holder_key_str) {
@@ -430,7 +532,9 @@ index 421c3036..0dc0280b 100644
 +        native_library_dir_str);
 +
 +    last_native_stage = "before_engine_create";
-+    append_stage_diag("before EngineFactory::CreateDefault");
++    append_stage_diag("before EngineFactory::CreateDefault mode=" +
++                      native_probe_mode_str + " signature=" +
++                      persistent_engine_create_signature);
 +    if (native_probe_mode_str == "before_engine_create") {
 +      status = "completed";
 +      hypothesis_result = "before_engine_create_success";
@@ -454,15 +558,16 @@ index 421c3036..0dc0280b 100644
 +    last_native_stage = "engine_create_returned";
 +    append_stage_diag("EngineFactory::CreateDefault success");
 +    write_result();
-+    if (native_probe_mode_str == "engine_create_only") {
++    if (native_probe_mode_str == "engine_create_only" ||
++        native_probe_mode_str == "editable_engine_create_only") {
 +      std::unique_ptr<Engine> engine_ptr = std::move(*engine);
 +      engine_close_reached = "true";
 +      engine_ptr.reset();
 +      engine_close_success = "true";
 +      status = "completed";
-+      hypothesis_result = "engine_create_only_success";
++      hypothesis_result = native_probe_mode_str + "_success";
 +      write_result();
-+      append_stage_diag("engine_create_only completed");
++      append_stage_diag(native_probe_mode_str + " completed");
 +      return NewStringStandardUTF(env, status);
 +    }
 +    g_qairt244_persistent_custom_jni_holder.engine = std::move(*engine);
