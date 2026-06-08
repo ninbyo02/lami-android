@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9095,6 +9097,7 @@ private fun NpuS1PersistentEngineDevSection(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NpuS1PersistentCustomJniDevSection(
     state: NpuS1PersistentCustomJniProbeState,
@@ -9106,15 +9109,15 @@ private fun NpuS1PersistentCustomJniDevSection(
     onCancel: () -> Unit,
 ) {
     InferenceStatsSection(title = "NPU S1 persistent custom JNI") {
-        Row(
+        FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             listOf(
                 NpuS1PersistentCustomJniProbeMode.ENTRYPOINT_ONLY,
                 NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
-                NpuS1PersistentCustomJniProbeMode.ENGINE_CREATE_ONLY,
                 NpuS1PersistentCustomJniProbeMode.EDITABLE_ENGINE_CREATE_ONLY,
+                NpuS1PersistentCustomJniProbeMode.ENGINE_CREATE_ONLY,
                 NpuS1PersistentCustomJniProbeMode.FULL_20,
             ).forEach { mode ->
                 FilterChip(
