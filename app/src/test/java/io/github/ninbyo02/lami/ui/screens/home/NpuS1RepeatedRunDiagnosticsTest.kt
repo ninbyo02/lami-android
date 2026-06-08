@@ -123,6 +123,8 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("[DEV診断: NPU S1 repeated run details]"))
         assertTrue(text.contains("repeated_run_status=completed"))
         assertTrue(text.contains("repeated_run_mode=reuse"))
+        assertTrue(text.contains("repeated_run_wait_ms=0"))
+        assertTrue(text.contains("total_wait_time_ms=0"))
         assertTrue(text.indexOf("run_index=1") < text.lastIndexOf("repeated_run_mode=reuse"))
         assertTrue(text.contains("recreate_api_note=s1_direct_runner_engine_session_dispose_not_exposed_uses_safe_holder_recreate_api"))
         assertTrue(text.contains("run_index=1"))
@@ -170,6 +172,9 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("recreate_requested_after_run=false"))
         assertTrue(text.contains("recreate_result_after_run=not_requested"))
         assertTrue(text.contains("recreate_delay_after_run_ms=0"))
+        assertTrue(text.contains("wait_after_run_ms=0"))
+        assertTrue(text.contains("wait_started_at_elapsed_realtime_ms=unavailable"))
+        assertTrue(text.contains("wait_finished_at_elapsed_realtime_ms=unavailable"))
         assertTrue(text.contains("output_token_count_source=estimated_code_points_not_tokenizer"))
         assertTrue(text.contains("prompt_token_count_source=code_points"))
         assertFalse(text.contains("NPU memory"))
@@ -239,6 +244,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("failure_after_n_successes=6"))
         assertTrue(text.contains("failure_after_n_adapter_calls=7"))
         assertTrue(text.contains("failure_after_n_decode_successes=6"))
+        assertTrue(text.contains("failure_after_total_wait_ms=0"))
         assertTrue(text.contains("failure_pattern_hint=adapter_failure_after_6_successful_decodes"))
         assertTrue(text.contains("process_pid=12345"))
         assertTrue(text.contains("process_name=io.github.ninbyo02.lami"))
@@ -261,6 +267,44 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("failure_after_engine_request_count=7"))
         assertTrue(text.contains("failure_after_adapter_call_count=7"))
         assertTrue(text.contains("failure_after_decode_attempt_count=6"))
+    }
+
+    @Test
+    fun `reuse wait mode reports completed wait before first failure`() {
+        val successfulRecords = (1..6).map { index ->
+            record(
+                runIndex = index,
+                repeatedRunMode = NpuS1RepeatedRunMode.REUSE_10S,
+                waitAfterRunMs = 10_000L,
+                waitStartedAtElapsedRealtimeMs = 300_000L + index,
+                waitFinishedAtElapsedRealtimeMs = 310_000L + index,
+            )
+        }
+        val failureRecord = record(
+            runIndex = 7,
+            repeatedRunMode = NpuS1RepeatedRunMode.REUSE_10S,
+            status = "failure",
+            reason = "adapter_failure:LiteRtLmJniException",
+            runDecodeReached = false,
+            waitAfterRunMs = 0L,
+        )
+        val text = formatNpuS1RepeatedRunDiagnosticsForDev(
+            NpuS1RepeatedRunState(
+                status = NPU_S1_REPEATED_RUN_STATUS_STOPPED,
+                repeatedRunMode = NpuS1RepeatedRunMode.REUSE_10S,
+                records = successfulRecords + failureRecord,
+                stopped = true,
+                stopReason = "adapter_failure",
+            ),
+        )
+
+        assertTrue(text.contains("repeated_run_mode=reuse_10s"))
+        assertTrue(text.contains("repeated_run_wait_ms=10000"))
+        assertTrue(text.contains("total_wait_time_ms=60000"))
+        assertTrue(text.contains("failure_after_total_wait_ms=60000"))
+        assertTrue(text.contains("wait_after_run_ms=10000"))
+        assertTrue(text.contains("wait_started_at_elapsed_realtime_ms=300001"))
+        assertTrue(text.contains("wait_finished_at_elapsed_realtime_ms=310001"))
     }
 
     @Test
@@ -368,14 +412,25 @@ class NpuS1RepeatedRunDiagnosticsTest {
     @Test
     fun `repeated run modes keep lifecycle plans`() {
         assertEquals("reuse", NpuS1RepeatedRunMode.REUSE.wireValue)
+        assertEquals("reuse_10s", NpuS1RepeatedRunMode.REUSE_10S.wireValue)
+        assertEquals("reuse_30s", NpuS1RepeatedRunMode.REUSE_30S.wireValue)
         assertEquals("recreate", NpuS1RepeatedRunMode.RECREATE.wireValue)
         assertEquals("recreate_3s", NpuS1RepeatedRunMode.RECREATE_3S.wireValue)
         assertFalse(npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.REUSE).recreateAfterRun)
         assertEquals(0L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.REUSE).postRecreateDelayMs)
+        assertEquals(0L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.REUSE).waitAfterRunMs)
+        assertFalse(npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.REUSE_10S).recreateAfterRun)
+        assertEquals(0L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.REUSE_10S).postRecreateDelayMs)
+        assertEquals(10_000L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.REUSE_10S).waitAfterRunMs)
+        assertFalse(npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.REUSE_30S).recreateAfterRun)
+        assertEquals(0L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.REUSE_30S).postRecreateDelayMs)
+        assertEquals(30_000L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.REUSE_30S).waitAfterRunMs)
         assertTrue(npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.RECREATE).recreateAfterRun)
         assertEquals(0L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.RECREATE).postRecreateDelayMs)
+        assertEquals(0L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.RECREATE).waitAfterRunMs)
         assertTrue(npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.RECREATE_3S).recreateAfterRun)
         assertEquals(3_000L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.RECREATE_3S).postRecreateDelayMs)
+        assertEquals(0L, npuS1RepeatedRunLifecyclePlan(NpuS1RepeatedRunMode.RECREATE_3S).waitAfterRunMs)
     }
 
     @Test
@@ -417,6 +472,9 @@ class NpuS1RepeatedRunDiagnosticsTest {
         repeatedRunMode: NpuS1RepeatedRunMode = NpuS1RepeatedRunMode.REUSE,
         recreateResultAfterRun: String = "not_requested",
         nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
+        waitAfterRunMs: Long = 0L,
+        waitStartedAtElapsedRealtimeMs: Long? = null,
+        waitFinishedAtElapsedRealtimeMs: Long? = null,
     ): NpuS1RepeatedRunRecord = NpuS1RepeatedRunRecord(
         runIndex = runIndex,
         runCount = 20,
@@ -456,6 +514,9 @@ class NpuS1RepeatedRunDiagnosticsTest {
         recreateRequestedAfterRun = repeatedRunMode.recreateAfterRun,
         recreateResultAfterRun = recreateResultAfterRun,
         recreateDelayAfterRunMs = repeatedRunMode.postRecreateDelayMs,
+        waitAfterRunMs = waitAfterRunMs,
+        waitStartedAtElapsedRealtimeMs = waitStartedAtElapsedRealtimeMs,
+        waitFinishedAtElapsedRealtimeMs = waitFinishedAtElapsedRealtimeMs,
         finalInputLengthChars = 5,
         finalInputTailPreview = "こんにちは",
         outputTokenCountSource = "estimated_code_points_not_tokenizer",

@@ -81,24 +81,42 @@ internal enum class NpuS1RepeatedRunMode(
     val displayLabel: String,
     val recreateAfterRun: Boolean,
     val postRecreateDelayMs: Long,
+    val waitAfterRunMs: Long,
 ) {
     REUSE(
         wireValue = "reuse",
         displayLabel = "Reuse",
         recreateAfterRun = false,
         postRecreateDelayMs = 0L,
+        waitAfterRunMs = 0L,
+    ),
+    REUSE_10S(
+        wireValue = "reuse_10s",
+        displayLabel = "Reuse + 10s",
+        recreateAfterRun = false,
+        postRecreateDelayMs = 0L,
+        waitAfterRunMs = 10_000L,
+    ),
+    REUSE_30S(
+        wireValue = "reuse_30s",
+        displayLabel = "Reuse + 30s",
+        recreateAfterRun = false,
+        postRecreateDelayMs = 0L,
+        waitAfterRunMs = 30_000L,
     ),
     RECREATE(
         wireValue = "recreate",
         displayLabel = "Recreate",
         recreateAfterRun = true,
         postRecreateDelayMs = 0L,
+        waitAfterRunMs = 0L,
     ),
     RECREATE_3S(
         wireValue = "recreate_3s",
         displayLabel = "Recreate + 3s",
         recreateAfterRun = true,
         postRecreateDelayMs = 3_000L,
+        waitAfterRunMs = 0L,
     ),
 }
 
@@ -106,6 +124,7 @@ internal data class NpuS1RepeatedRunLifecyclePlan(
     val mode: NpuS1RepeatedRunMode,
     val recreateAfterRun: Boolean,
     val postRecreateDelayMs: Long,
+    val waitAfterRunMs: Long,
 )
 
 internal fun npuS1RepeatedRunLifecyclePlan(mode: NpuS1RepeatedRunMode): NpuS1RepeatedRunLifecyclePlan =
@@ -113,6 +132,7 @@ internal fun npuS1RepeatedRunLifecyclePlan(mode: NpuS1RepeatedRunMode): NpuS1Rep
         mode = mode,
         recreateAfterRun = mode.recreateAfterRun,
         postRecreateDelayMs = mode.postRecreateDelayMs,
+        waitAfterRunMs = mode.waitAfterRunMs,
     )
 
 internal data class NpuS1ShortOutputTelemetry(
@@ -179,6 +199,9 @@ internal data class NpuS1RepeatedRunRecord(
     val recreateRequestedAfterRun: Boolean = false,
     val recreateResultAfterRun: String = "not_requested",
     val recreateDelayAfterRunMs: Long = 0L,
+    val waitAfterRunMs: Long = 0L,
+    val waitStartedAtElapsedRealtimeMs: Long? = null,
+    val waitFinishedAtElapsedRealtimeMs: Long? = null,
     val finalInputLengthChars: Int,
     val finalInputTailPreview: String,
     val tokenizerInputTokens: String = "unavailable",
@@ -275,7 +298,10 @@ internal data class NpuS1RepeatedRunSummary(
     val failureAfterNSuccesses: Int?,
     val failureAfterNAdapterCalls: Int?,
     val failureAfterNDecodeSuccesses: Int?,
+    val failureAfterTotalWaitMs: Long?,
     val failurePatternHint: String,
+    val repeatedRunWaitMs: Long,
+    val totalWaitTimeMs: Long,
     val firstFailureNativeStage: String,
     val firstFailureNativeErrorStage: String,
     val firstFailureNativeErrorClass: String,
@@ -668,7 +694,10 @@ internal fun buildNpuS1RepeatedRunSummary(
         },
         failureAfterNAdapterCalls = firstFailureSnapshot?.adapterCallCount,
         failureAfterNDecodeSuccesses = firstFailureSnapshot?.decodeSuccessCount,
+        failureAfterTotalWaitMs = firstFailure?.let { recordsBeforeFirstFailure.sumOf { record -> record.waitAfterRunMs } },
         failurePatternHint = buildNpuS1FailurePatternHint(firstFailure, firstFailureSnapshot),
+        repeatedRunWaitMs = state.repeatedRunMode.waitAfterRunMs,
+        totalWaitTimeMs = records.sumOf { it.waitAfterRunMs },
         firstFailureNativeStage = firstFailure?.nativeDiagnostics?.nativeStage ?: "unavailable",
         firstFailureNativeErrorStage = firstFailure?.nativeDiagnostics?.nativeErrorStage ?: "unavailable",
         firstFailureNativeErrorClass = firstFailure?.nativeDiagnostics?.nativeErrorClass ?: "unavailable",
@@ -717,6 +746,8 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("prompt=${summary.prompt}")
         appendLine("max_output_tokens=${summary.maxOutputTokens}")
         appendLine("repeated_run_mode=${summary.repeatedRunMode.wireValue}")
+        appendLine("repeated_run_wait_ms=${summary.repeatedRunWaitMs}")
+        appendLine("total_wait_time_ms=${summary.totalWaitTimeMs}")
         appendLine("recreate_api_note=$NPU_S1_REPEATED_RUN_RECREATE_NOTE")
         appendLine("stopped=${summary.stopped}")
         appendLine("stop_reason=${summary.stopReason}")
@@ -775,6 +806,7 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("failure_after_n_successes=${summary.failureAfterNSuccesses?.toString() ?: "unavailable"}")
         appendLine("failure_after_n_adapter_calls=${summary.failureAfterNAdapterCalls?.toString() ?: "unavailable"}")
         appendLine("failure_after_n_decode_successes=${summary.failureAfterNDecodeSuccesses?.toString() ?: "unavailable"}")
+        appendLine("failure_after_total_wait_ms=${summary.failureAfterTotalWaitMs?.toString() ?: "unavailable"}")
         appendLine("failure_pattern_hint=${summary.failurePatternHint}")
         appendLine("first_failure_native_stage=${summary.firstFailureNativeStage}")
         appendLine("first_failure_native_error_stage=${summary.firstFailureNativeErrorStage}")
@@ -833,6 +865,9 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
                 appendLine("recreate_requested_after_run=${record.recreateRequestedAfterRun}")
                 appendLine("recreate_result_after_run=${record.recreateResultAfterRun}")
                 appendLine("recreate_delay_after_run_ms=${record.recreateDelayAfterRunMs}")
+                appendLine("wait_after_run_ms=${record.waitAfterRunMs}")
+                appendLine("wait_started_at_elapsed_realtime_ms=${formatNullableLong(record.waitStartedAtElapsedRealtimeMs)}")
+                appendLine("wait_finished_at_elapsed_realtime_ms=${formatNullableLong(record.waitFinishedAtElapsedRealtimeMs)}")
                 appendLine("final_input_length_chars=${record.finalInputLengthChars}")
                 appendLine("final_input_tail_preview=${record.finalInputTailPreview}")
                 appendLine("tokenizer_input_tokens=${record.tokenizerInputTokens}")

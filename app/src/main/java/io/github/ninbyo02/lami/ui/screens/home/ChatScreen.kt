@@ -1257,6 +1257,22 @@ fun Home(
                     } else {
                         result.nativeDiagnostics
                     }
+                    val shouldWaitAfterRun = lifecyclePlan.waitAfterRunMs > 0L &&
+                        !failed &&
+                        runIndex < requestedRunCount
+                    val waitStartedAtElapsedRealtimeMs = if (shouldWaitAfterRun) {
+                        SystemClock.elapsedRealtime()
+                    } else {
+                        null
+                    }
+                    if (shouldWaitAfterRun) {
+                        delay(lifecyclePlan.waitAfterRunMs)
+                    }
+                    val waitFinishedAtElapsedRealtimeMs = if (shouldWaitAfterRun) {
+                        SystemClock.elapsedRealtime()
+                    } else {
+                        null
+                    }
                     val runFinishedAtWallTimeMs = System.currentTimeMillis()
                     val runFinishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     val record = NpuS1RepeatedRunRecord(
@@ -1298,6 +1314,9 @@ fun Home(
                         recreateRequestedAfterRun = lifecyclePlan.recreateAfterRun,
                         recreateResultAfterRun = recreateResult,
                         recreateDelayAfterRunMs = lifecyclePlan.postRecreateDelayMs,
+                        waitAfterRunMs = if (shouldWaitAfterRun) lifecyclePlan.waitAfterRunMs else 0L,
+                        waitStartedAtElapsedRealtimeMs = waitStartedAtElapsedRealtimeMs,
+                        waitFinishedAtElapsedRealtimeMs = waitFinishedAtElapsedRealtimeMs,
                         finalInputLengthChars = telemetry.finalInputLengthChars,
                         finalInputTailPreview = telemetry.finalInputTailPreview,
                         tokenizerInputTokens = telemetry.tokenizerInputTokens,

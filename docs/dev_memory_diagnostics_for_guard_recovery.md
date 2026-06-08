@@ -82,9 +82,11 @@ The default diagnostic run uses:
 - one run at a time only
 - five-second App/System memory recovery snapshot after each run
 
-The repeated runner has three DEV-only modes:
+The repeated runner has five DEV-only modes:
 
 - `repeated_run_mode=reuse`: default mode. It preserves the current S1 repeated-run behavior and does not request an explicit recreate between runs.
+- `repeated_run_mode=reuse_10s`: does not request engine recreate, but waits 10 seconds after each successful run before starting the next run. Use this to test whether QNN / HTP / FastRPC cleanup is simply delayed.
+- `repeated_run_mode=reuse_30s`: does not request engine recreate, but waits 30 seconds after each successful run before starting the next run. Use this as the stronger cleanup-delay check.
 - `repeated_run_mode=recreate`: after each run, the runner requests the existing safe holder recreate path. This is used to check whether repeated failure is tied to runner / engine / session reuse. Direct S1 native runner, LiteRT-LM session, and QNN session dispose APIs are not exposed through this UI layer, so no unsafe forced release is attempted.
 - `repeated_run_mode=recreate_3s`: same as `recreate`, then waits three seconds inside the DEV repeated runner before the next run. This isolates delayed LiteRT / QNN / Android memory/resource release from normal app flow.
 
@@ -112,6 +114,12 @@ Use these fields to compare repeated S1 behavior:
 - `peak_5s_total_pss_mb`
 - `peak_5s_native_heap_pss_mb`
 - `memory_growth_suspected`
+- `repeated_run_wait_ms`
+- `total_wait_time_ms`
+- `failure_after_total_wait_ms`
+- per-run `wait_after_run_ms`
+- per-run `wait_started_at_elapsed_realtime_ms`
+- per-run `wait_finished_at_elapsed_realtime_ms`
 
 The repeated runner stops early if `fallback_used`, `fresh_crash`, `timeout`, `low_memory`, `safety_guard_triggered`, `run_decode_reached=false`, `status != success`, near-threshold system memory, cancellation, or an abnormally long run is observed.
 
@@ -135,6 +143,9 @@ If there is no new tombstone or Dropbox native crash near the S1 failure time, t
 
 Mode comparison examples:
 
+- `reuse_30s` still stops around run 6-7 with `engine-create-failed:INTERNAL`: suspect an `EngineFactory::CreateDefault` / process-level cumulative create limit rather than short cleanup delay.
+- `reuse_30s` reaches run 20 while `reuse` fails around run 6-7: suspect delayed QNN / HTP / FastRPC cleanup.
+- `reuse_10s` improves the failure point but `reuse_30s` completes: suspect cleanup delay with a recovery window between 10 and 30 seconds.
 - `reuse` stops around run 7, but `recreate` completes 20 runs: suspect runner / engine / session reuse.
 - `reuse` stops around run 7, `recreate` also stops around run 7, but `recreate_3s` completes 20 runs: suspect delayed LiteRT / QNN release or delayed memory accounting.
 - all three modes stop around run 7 with `adapter_failure` and `run_decode_reached=false`: suspect LiteRT-LM JNI / QNN internal state rather than app-side chat flow or DB/TTS/markdown behavior.
