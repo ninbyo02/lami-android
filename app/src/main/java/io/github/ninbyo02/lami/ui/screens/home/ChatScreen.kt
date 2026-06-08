@@ -1009,6 +1009,10 @@ fun Home(
         mutableStateOf(NpuS1PersistentEngineProbeState())
     }
     var npuS1PersistentEngineJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var npuS1PersistentCustomJniState by remember(effectiveChatId) {
+        mutableStateOf(NpuS1PersistentCustomJniProbeState())
+    }
+    var npuS1PersistentCustomJniJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var devUiAliveSeconds by remember(effectiveChatId) { mutableStateOf(0) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
@@ -1025,6 +1029,8 @@ fun Home(
             npuS1RepeatedRunJob = null
             npuS1PersistentEngineJob?.cancel()
             npuS1PersistentEngineJob = null
+            npuS1PersistentCustomJniJob?.cancel()
+            npuS1PersistentCustomJniJob = null
         }
     }
 
@@ -1510,6 +1516,67 @@ fun Home(
 
     fun cancelNpuS1PersistentEngineProbe() {
         npuS1PersistentEngineJob?.cancel()
+    }
+
+    fun startNpuS1PersistentCustomJniProbe() {
+        if (isInferenceRunningUi) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "生成完了後に実行してください",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuS1PersistentCustomJniJob?.isActive == true) return
+        npuS1PersistentCustomJniState = NpuS1PersistentCustomJniProbeState(
+            persistentCustomJniStatus = NPU_S1_PERSISTENT_CUSTOM_JNI_STATUS_RUNNING,
+            runCountRequested = NPU_S1_PERSISTENT_CUSTOM_JNI_DEFAULT_COUNT,
+            startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+            persistentCustomJniHypothesisResult = "starting",
+        )
+        npuS1PersistentCustomJniJob = coroutineScope.launch {
+            val runner = withContext(Dispatchers.Default) {
+                createNpuS1PersistentCustomJniProbeRunner(context.applicationContext)
+            }
+            if (runner == null) {
+                npuS1PersistentCustomJniState = npuS1PersistentCustomJniState.copy(
+                    persistentCustomJniStatus = NPU_S1_PERSISTENT_CUSTOM_JNI_STATUS_STOPPED,
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    nativeHolderEntrypointAvailable = "false",
+                    holderInvalidated = "true",
+                    firstFailureStage = "runner_create",
+                    firstFailureReason = "debug_persistent_custom_jni_probe_unavailable",
+                    persistentCustomJniHypothesisResult = "native_holder_entrypoint_not_available",
+                )
+                npuS1PersistentCustomJniJob = null
+                return@launch
+            }
+            try {
+                runner.run(
+                    onUpdate = { state ->
+                        coroutineScope.launch {
+                            npuS1PersistentCustomJniState = state
+                        }
+                    },
+                    isCancelled = { npuS1PersistentCustomJniJob?.isActive != true },
+                )
+            } catch (exception: CancellationException) {
+                npuS1PersistentCustomJniState = npuS1PersistentCustomJniState.copy(
+                    persistentCustomJniStatus = NPU_S1_PERSISTENT_CUSTOM_JNI_STATUS_CANCELLED,
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    persistentCustomJniHypothesisResult = "cancelled",
+                )
+                throw exception
+            } finally {
+                npuS1PersistentCustomJniJob = null
+            }
+        }
+    }
+
+    fun cancelNpuS1PersistentCustomJniProbe() {
+        npuS1PersistentCustomJniJob?.cancel()
     }
 
     LaunchedEffect(isLocalInferenceRunning, streamingResponseText) {
@@ -5665,13 +5732,16 @@ fun Home(
                                                 clipboardManager.setText(
                                                     AnnotatedString(
                                                         appendMemoryRecoveryCheckForDev(
-                                                            text = appendNpuS1PersistentEngineDiagnosticsForDev(
-                                                                text = appendNpuS1RepeatedRunDiagnosticsForDev(
-                                                                    text = npuStandardRouteS1DevDiagnosticCopyText
-                                                                        ?: s1DevTraceText.orEmpty(),
-                                                                    state = npuS1RepeatedRunState,
+                                                            text = appendNpuS1PersistentCustomJniDiagnosticsForDev(
+                                                                text = appendNpuS1PersistentEngineDiagnosticsForDev(
+                                                                    text = appendNpuS1RepeatedRunDiagnosticsForDev(
+                                                                        text = npuStandardRouteS1DevDiagnosticCopyText
+                                                                            ?: s1DevTraceText.orEmpty(),
+                                                                        state = npuS1RepeatedRunState,
+                                                                    ),
+                                                                    state = npuS1PersistentEngineState,
                                                                 ),
-                                                                state = npuS1PersistentEngineState,
+                                                                state = npuS1PersistentCustomJniState,
                                                             ),
                                                             state = memoryRecoveryCheckState,
                                                         ),
@@ -5694,6 +5764,11 @@ fun Home(
                                             isInferenceRunningForPersistentEngine = isInferenceRunningUi,
                                             onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                                             onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
+                                            npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
+                                            npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
+                                            isInferenceRunningForPersistentCustomJni = isInferenceRunningUi,
+                                            onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
+                                            onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
                                             s4Text = s4Text,
                                             s4Title = if (npuStandardRouteS4PseudoStreamingActive) {
                                                 "NPU STANDARD ROUTE S4-A PSEUDO STREAMING"
@@ -5756,6 +5831,11 @@ fun Home(
                                             isInferenceRunningForPersistentEngine = isInferenceRunningUi,
                                             onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                                             onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
+                                            npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
+                                            npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
+                                            isInferenceRunningForPersistentCustomJni = isInferenceRunningUi,
+                                            onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
+                                            onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
                                         )
                                     }
                                 }
@@ -5981,6 +6061,11 @@ fun Home(
                     isInferenceRunningForPersistentEngine = isInferenceRunningUi,
                     onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                     onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
+                    npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
+                    npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
+                    isInferenceRunningForPersistentCustomJni = isInferenceRunningUi,
+                    onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
+                    onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
                     onManualEngineRecreate = {
                         val blocked = isInferenceRunningUi || isTtsSpeaking || isStreamingSentencePlaybackActive || preferredBackendManualRecreateInProgress
                         if (blocked) {
@@ -8991,6 +9076,48 @@ private fun NpuS1PersistentEngineDevSection(
 }
 
 @Composable
+private fun NpuS1PersistentCustomJniDevSection(
+    state: NpuS1PersistentCustomJniProbeState,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onStart: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    InferenceStatsSection(title = "NPU S1 persistent custom JNI") {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = onStart,
+                enabled = !running && !blockedByGeneration,
+            ) {
+                Text("NPU S1 persistent custom JNI 20回テスト")
+            }
+            TextButton(
+                onClick = onCancel,
+                enabled = running,
+            ) {
+                Text("キャンセル")
+            }
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "生成完了後に実行してください"
+            } else {
+                "DEV専用PoCです。custom JNI Engine holder の到達状況だけを通常チャットと分離して確認します。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        InferenceStatRow(
+            label = "NPU S1 persistent custom JNI",
+            value = formatNpuS1PersistentCustomJniDiagnosticsForDev(state),
+        )
+    }
+}
+
+@Composable
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
     initialDisplayMode: InferenceStatsDisplayMode,
@@ -9025,6 +9152,11 @@ private fun InferenceStatsSheetContent(
     isInferenceRunningForPersistentEngine: Boolean = false,
     onNpuS1PersistentEngineStart: () -> Unit = {},
     onNpuS1PersistentEngineCancel: () -> Unit = {},
+    npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
+    npuS1PersistentCustomJniInProgress: Boolean = false,
+    isInferenceRunningForPersistentCustomJni: Boolean = false,
+    onNpuS1PersistentCustomJniStart: () -> Unit = {},
+    onNpuS1PersistentCustomJniCancel: () -> Unit = {},
 ) {
     var selectedDisplayMode by rememberSaveable { mutableStateOf(initialDisplayMode) }
     LaunchedEffect(initialDisplayMode) {
@@ -9122,6 +9254,7 @@ private fun InferenceStatsSheetContent(
                                 memoryRecoveryCheckState = memoryRecoveryCheckState,
                                 npuS1RepeatedRunState = npuS1RepeatedRunState,
                                 npuS1PersistentEngineState = npuS1PersistentEngineState,
+                                npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                             ),
                         ),
                     )
@@ -9193,6 +9326,13 @@ private fun InferenceStatsSheetContent(
                         blockedByGeneration = isInferenceRunningForPersistentEngine,
                         onStart = onNpuS1PersistentEngineStart,
                         onCancel = onNpuS1PersistentEngineCancel,
+                    )
+                    NpuS1PersistentCustomJniDevSection(
+                        state = npuS1PersistentCustomJniState,
+                        running = npuS1PersistentCustomJniInProgress,
+                        blockedByGeneration = isInferenceRunningForPersistentCustomJni,
+                        onStart = onNpuS1PersistentCustomJniStart,
+                        onCancel = onNpuS1PersistentCustomJniCancel,
                     )
                 }
                 InferenceStatsSection(title = "DEV Markdown") {
@@ -9371,6 +9511,11 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     isInferenceRunningForPersistentEngine: Boolean = false,
     onNpuS1PersistentEngineStart: (() -> Unit)? = null,
     onNpuS1PersistentEngineCancel: (() -> Unit)? = null,
+    npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
+    npuS1PersistentCustomJniInProgress: Boolean = false,
+    isInferenceRunningForPersistentCustomJni: Boolean = false,
+    onNpuS1PersistentCustomJniStart: (() -> Unit)? = null,
+    onNpuS1PersistentCustomJniCancel: (() -> Unit)? = null,
 ) {
     if (!hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)) return
 
@@ -9425,6 +9570,18 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     onStart = onNpuS1PersistentEngineStart,
                     onCancel = onNpuS1PersistentEngineCancel,
                 )
+                if (
+                    onNpuS1PersistentCustomJniStart != null &&
+                    onNpuS1PersistentCustomJniCancel != null
+                ) {
+                    NpuS1PersistentCustomJniDevSection(
+                        state = npuS1PersistentCustomJniState,
+                        running = npuS1PersistentCustomJniInProgress,
+                        blockedByGeneration = isInferenceRunningForPersistentCustomJni,
+                        onStart = onNpuS1PersistentCustomJniStart,
+                        onCancel = onNpuS1PersistentCustomJniCancel,
+                    )
+                }
             }
             if (!routeText.isNullOrBlank() && onCopyRoute != null) {
                 CopyableDebugBlock(
@@ -9508,6 +9665,7 @@ internal fun buildInferenceStatsFullCopyText(
     memoryRecoveryCheckState: MemoryRecoveryCheckState? = null,
     npuS1RepeatedRunState: NpuS1RepeatedRunState? = null,
     npuS1PersistentEngineState: NpuS1PersistentEngineProbeState? = null,
+    npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState? = null,
 ): String {
     return buildString {
         appendLine("推論統計")
@@ -9578,6 +9736,10 @@ internal fun buildInferenceStatsFullCopyText(
         if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentEngineState != null) {
             appendLine()
             appendLine(formatNpuS1PersistentEngineDiagnosticsForDev(npuS1PersistentEngineState))
+        }
+        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentCustomJniState != null) {
+            appendLine()
+            appendLine(formatNpuS1PersistentCustomJniDiagnosticsForDev(npuS1PersistentCustomJniState))
         }
 
     }.trimEnd()

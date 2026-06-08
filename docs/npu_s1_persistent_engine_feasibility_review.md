@@ -610,3 +610,91 @@ release 影響:
 - official LiteRT-LM typed 実装は `app/src/debug` に置く。
 - main 側は `NpuS1PersistentEngineProbeRunner` interface と reflection で debug 実装を探すだけ。
 - release / 他 variant で debug 実装が存在しない場合は runner unavailable として止まる。
+
+## Custom JNI persistent holder PoC
+
+目的:
+
+- custom JNI S1 の one-shot 経路が毎回 `EngineFactory::CreateDefault` を呼ぶ設計を避け、
+  1 つの native Engine で `RunDecode` を 20 回実行できるかを検証する。
+- 既存 S1 repeated run / official persistent Engine PoC とは独立した DEV 専用 PoC とする。
+
+現時点の実装状況:
+
+- アプリ側には `NPU S1 persistent custom JNI 20回テスト` の DEV UI と
+  `[DEV診断: NPU S1 persistent custom JNI summary/details]` を追加した。
+- holder key は以下で構成する:
+  - `model_path`
+  - `model_file_last_modified`
+  - `model_file_size`
+  - `backend`
+  - `cache_dir`
+  - `max_token_budget`
+  - `engine_config_version`
+- これらのいずれかが変わった場合は native holder key mismatch として既存 holder を
+  close / cleanup して再生成する設計にする。
+- ただし、現在 repo にチェックインされているアプリ内 C++ は sentinel / direct probe のみで、
+  `EngineFactory::CreateDefault` / `RunDecode` を実装している実体は
+  `patches/qairt244_litertlm_utf8_128token_128input.patch` から作られる
+  `liblitertlm_jni.so` 側にある。
+- そのため今回の Kotlin 側 PoC は native persistent holder エントリポイントの有無を
+  DEV 診断へ出し、未実装なら
+  `persistent_custom_jni_hypothesis_result=native_holder_entrypoint_not_available`
+  として安全停止する。
+
+native holder で必要な最小設計:
+
+- native 側に holder generation と holder key を持つ。
+- probe start 時に holder key を比較する。
+- key が一致し有効な holder があれば `EngineFactory::CreateDefault` は呼ばず reuse する。
+- key が不一致、未生成、invalidated の場合だけ既存 holder を cleanup し、
+  `EngineFactory::CreateDefault` を 1 回呼ぶ。
+- 各 run は同じ Engine から fresh Session を作り、`RunPrefill` / `RunDecode` を実行する。
+- run 成功後は Session を破棄する。Engine は probe 全体の最後まで保持する。
+- run failure 時は `holder_invalidated=true` とし、それ以降の run は止める。
+- probe end / cancel 時に Engine close / unique_ptr cleanup を 1 回だけ実行する。
+
+DEV 診断で見る key:
+
+- `persistent_custom_jni_status`
+- `engine_create_count`
+- `engine_close_reached`
+- `engine_close_success`
+- `holder_key`
+- `holder_generation`
+- `holder_reused_count`
+- `holder_invalidated`
+- `native_holder_entrypoint_available`
+- `first_failure_stage`
+- `first_failure_reason`
+- `first_failure_diag_tail`
+- `persistent_custom_jni_hypothesis_result`
+
+成功判定:
+
+- native 実装追加後に `engine_create_count=1`
+- `run_count_completed=20`
+- `success_count=20`
+- `holder_reused_count=19` 以上
+- `engine_close_reached=true`
+- `engine_close_success=true`
+- アプリ生存、new tombstone なし、Dropbox なし
+
+失敗判定:
+
+- `native_holder_entrypoint_available=false`
+  - app 側ではなく `liblitertlm_jni.so` patch に persistent holder entrypoint を追加する必要がある。
+- `engine_create_count=1` でも run6-7 failure
+  - `EngineFactory::CreateDefault` 累積ではなく、同一 Engine 内の Session / RunDecode 側の累積問題。
+- `holder_key_mismatch_detected=true`
+  - model 更新 / cache dir / token budget / config version の変更検知は機能している。
+
+次に作るべき native PoC:
+
+1. `patches/qairt244_litertlm_utf8_128token_128input.patch` に
+   `nativeRunEditablePromptPersistentHolder` 相当の DEV 専用 JNI を追加する。
+2. holder key を native に渡し、key mismatch 時のみ Engine を再生成する。
+3. `engine_create_count`, `holder_generation`, `holder_reused_count`,
+   `holder_invalidated`, `Engine.close=unique_ptr_cleanup` を native diag に出す。
+4. Kotlin debug probe からその entrypoint を呼ぶ。
+5. standardDebug APK に staging した native artifact で実機確認する。
