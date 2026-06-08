@@ -124,6 +124,68 @@ class NpuS1PersistentEngineDiagnosticsTest {
     }
 
     @Test
+    fun `logits failure is classified as npu backend unsupported`() {
+        val message = "Status Code: 12. Message: Decode for logits output not implemented for backend: " +
+            "LiteRT NPU Compiled Model"
+        val state = NpuS1PersistentEngineProbeState(
+            persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_STOPPED,
+            persistentEngineApiMode = "auto",
+            attemptedApiModes = "session",
+            selectedApiMode = "session",
+            apiModeSelectionReason = "session_api_available_prefers_generate_content",
+            logitsOutputRequired = "true",
+            logitsOutputBackendSupported = "false",
+            logitsFailureDetected = "true",
+            logitsFailureMessage = message,
+            sessionApiAvailable = "true",
+            sessionApiUsed = "true",
+            conversationApiUsed = "false",
+            streamingApiUsed = "false",
+            firstFailureStage = npuS1PersistentFailureStage(
+                conversationCreated = true,
+                decodeStarted = true,
+                message = message,
+            ),
+            persistentEngineHypothesisResult = npuS1PersistentHypothesisResultForFailureMessage(
+                stage = "decode",
+                message = message,
+            ),
+            records = listOf(
+                NpuS1PersistentEngineRunRecord(
+                    runIndex = 1,
+                    status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
+                    reason = "logits_output_not_supported_on_npu_backend:LiteRtLmJniException",
+                    sessionCreated = "true",
+                    sessionClosed = "true",
+                    decodeStarted = "true",
+                    failureStage = "decode",
+                    failureExceptionClass = "LiteRtLmJniException",
+                    failureExceptionMessage = message,
+                    apiModeUsed = "session",
+                    logitsFailureDetected = "true",
+                    logitsFailureMessage = message,
+                    streamingStarted = "false",
+                    streamingFinished = "false",
+                ),
+            ),
+        )
+        val text = formatNpuS1PersistentEngineDiagnosticsForDev(state)
+
+        assertTrue(isNpuS1PersistentLogitsFailure(message))
+        assertTrue(text.contains("selected_api_mode=session"))
+        assertTrue(text.contains("session_api_available=true"))
+        assertTrue(text.contains("session_api_used=true"))
+        assertTrue(text.contains("conversation_api_used=false"))
+        assertTrue(text.contains("streaming_api_used=false"))
+        assertTrue(text.contains("logits_failure_detected=true"))
+        assertTrue(text.contains("logits_output_backend_supported=false"))
+        assertTrue(text.contains("persistent_engine_hypothesis_result=logits_output_not_supported_on_npu_backend"))
+        assertTrue(text.contains("api_mode_used=session"))
+        assertTrue(text.contains("streaming_started=false"))
+        assertTrue(text.contains("streaming_finished=false"))
+    }
+
+    @Test
     fun `unavailable session counters are not formatted as false or zero`() {
         val text = formatNpuS1PersistentEngineDiagnosticsForDev(
             NpuS1PersistentEngineProbeState(

@@ -14,6 +14,12 @@ internal const val NPU_S1_PERSISTENT_ENGINE_OFFICIAL_OUTPUT_TOKEN_LIMIT = "not_e
 internal const val NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE = "engine_config_max_num_tokens_total_limit"
 internal const val NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_FIX_NOTE =
     "official_api_uses_max_num_tokens_as_total_input_context_limit_not_output_only"
+internal const val NPU_S1_PERSISTENT_ENGINE_API_MODE_AUTO = "auto"
+internal const val NPU_S1_PERSISTENT_ENGINE_API_MODE_SESSION = "session"
+internal const val NPU_S1_PERSISTENT_ENGINE_API_MODE_STREAMING = "streaming"
+internal const val NPU_S1_PERSISTENT_ENGINE_API_MODE_CONVERSATION = "conversation"
+internal const val NPU_S1_PERSISTENT_ENGINE_API_MODE_NOTE =
+    "auto_prefers_session_generate_content_to_probe_non_conversation_decode_path"
 internal const val NPU_S1_PERSISTENT_ENGINE_CLASS_NAME =
     "io.github.ninbyo02.lami.ui.screens.home.NpuS1PersistentEngineDevProbe"
 
@@ -60,6 +66,11 @@ internal data class NpuS1PersistentEngineRunRecord(
     val tokenLimitSource: String = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE,
     val tokenLimitFailureDetected: String = "false",
     val tokenLimitFailureMessage: String = "unavailable",
+    val apiModeUsed: String = "unavailable",
+    val logitsFailureDetected: String = "false",
+    val logitsFailureMessage: String = "unavailable",
+    val streamingStarted: String = "unavailable",
+    val streamingFinished: String = "unavailable",
 )
 
 internal data class NpuS1PersistentEngineProbeState(
@@ -93,6 +104,19 @@ internal data class NpuS1PersistentEngineProbeState(
     val tokenLimitSource: String = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE,
     val firstFailureTokenLimitMessage: String = "unavailable",
     val tokenLimitFixNote: String = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_FIX_NOTE,
+    val persistentEngineApiMode: String = NPU_S1_PERSISTENT_ENGINE_API_MODE_AUTO,
+    val attemptedApiModes: String = NPU_S1_PERSISTENT_ENGINE_API_MODE_SESSION,
+    val selectedApiMode: String = "unavailable",
+    val apiModeSelectionReason: String = "unavailable",
+    val logitsOutputRequired: String = "unavailable",
+    val logitsOutputBackendSupported: String = "unavailable",
+    val logitsFailureDetected: String = "false",
+    val logitsFailureMessage: String = "unavailable",
+    val sessionApiAvailable: String = "unavailable",
+    val sessionApiUsed: String = "false",
+    val conversationApiUsed: String = "false",
+    val streamingApiUsed: String = "false",
+    val apiModeNote: String = NPU_S1_PERSISTENT_ENGINE_API_MODE_NOTE,
     val records: List<NpuS1PersistentEngineRunRecord> = emptyList(),
 ) {
     val runCountCompleted: Int
@@ -140,6 +164,19 @@ internal fun formatNpuS1PersistentEngineDiagnosticsForDev(
     appendLine("token_limit_source=${state.tokenLimitSource}")
     appendLine("first_failure_token_limit_message=${escapePersistentCopyValue(state.firstFailureTokenLimitMessage)}")
     appendLine("token_limit_fix_note=${state.tokenLimitFixNote}")
+    appendLine("persistent_engine_api_mode=${state.persistentEngineApiMode}")
+    appendLine("attempted_api_modes=${state.attemptedApiModes}")
+    appendLine("selected_api_mode=${state.selectedApiMode}")
+    appendLine("api_mode_selection_reason=${state.apiModeSelectionReason}")
+    appendLine("logits_output_required=${state.logitsOutputRequired}")
+    appendLine("logits_output_backend_supported=${state.logitsOutputBackendSupported}")
+    appendLine("logits_failure_detected=${state.logitsFailureDetected}")
+    appendLine("logits_failure_message=${escapePersistentCopyValue(state.logitsFailureMessage)}")
+    appendLine("session_api_available=${state.sessionApiAvailable}")
+    appendLine("session_api_used=${state.sessionApiUsed}")
+    appendLine("conversation_api_used=${state.conversationApiUsed}")
+    appendLine("streaming_api_used=${state.streamingApiUsed}")
+    appendLine("api_mode_note=${state.apiModeNote}")
     appendLine()
     appendLine("[DEV診断: NPU S1 persistent engine details]")
     if (state.records.isEmpty()) {
@@ -172,6 +209,11 @@ internal fun formatNpuS1PersistentEngineDiagnosticsForDev(
             appendLine("token_limit_source=${record.tokenLimitSource}")
             appendLine("token_limit_failure_detected=${record.tokenLimitFailureDetected}")
             appendLine("token_limit_failure_message=${escapePersistentCopyValue(record.tokenLimitFailureMessage)}")
+            appendLine("api_mode_used=${record.apiModeUsed}")
+            appendLine("logits_failure_detected=${record.logitsFailureDetected}")
+            appendLine("logits_failure_message=${escapePersistentCopyValue(record.logitsFailureMessage)}")
+            appendLine("streaming_started=${record.streamingStarted}")
+            appendLine("streaming_finished=${record.streamingFinished}")
         }
     }
 }.trimEnd()
@@ -193,12 +235,17 @@ internal fun isNpuS1PersistentTokenLimitFailure(message: String): Boolean =
     message.contains("Input token ids are too long", ignoreCase = true) ||
         message.contains("Exceeding the maximum number of tokens allowed", ignoreCase = true)
 
+internal fun isNpuS1PersistentLogitsFailure(message: String): Boolean =
+    message.contains("Decode for logits output not implemented", ignoreCase = true) ||
+        message.contains("logits output not implemented", ignoreCase = true)
+
 internal fun npuS1PersistentFailureStage(
     conversationCreated: Boolean,
     decodeStarted: Boolean,
     message: String,
 ): String = when {
     isNpuS1PersistentTokenLimitFailure(message) -> "token_limit"
+    isNpuS1PersistentLogitsFailure(message) -> "decode"
     conversationCreated && decodeStarted -> "decode"
     else -> "conversation_create"
 }
@@ -207,8 +254,19 @@ internal fun npuS1PersistentHypothesisResultForFailureStage(stage: String): Stri
     "engine_initialize" -> "engine_initialize_failed"
     "conversation_create" -> "conversation_create_failed"
     "token_limit" -> "token_limit_failed"
+    "logits_output" -> "logits_output_not_supported_on_npu_backend"
     "decode" -> "decode_failed"
     "conversation_close" -> "conversation_close_failed"
     "engine_close" -> "engine_close_failed"
     else -> "decode_failed"
 }
+
+internal fun npuS1PersistentHypothesisResultForFailureMessage(
+    stage: String,
+    message: String,
+): String =
+    if (stage == "decode" && isNpuS1PersistentLogitsFailure(message)) {
+        "logits_output_not_supported_on_npu_backend"
+    } else {
+        npuS1PersistentHypothesisResultForFailureStage(stage)
+    }

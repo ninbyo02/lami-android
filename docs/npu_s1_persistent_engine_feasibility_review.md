@@ -505,10 +505,14 @@ Conversation / Session の扱い:
 
 - `Conversation` は run ごとに `engine.createConversation(...)` で作成し、
   run 後に `conversation.close()` する。
-- `Session` API は official API 上存在するが、この PoC では direct `Session` を作成しない。
-  既存の Gallery / `LocalStreamingRunner` 実績がある Conversation 経路を優先するため。
-- そのため DEV 診断コピーでは `session_create_count=unavailable` /
-  `session_close_count=unavailable` と明示する。
+- `Session` API は official API 上存在する。
+- Conversation mode では `sendMessageAsync` が
+  `Decode for logits output not implemented for backend: LiteRT NPU Compiled Model`
+  で失敗した。
+- そのため PoC の `auto` mode は direct `Session.generateContent(List<InputData>)` を
+  優先する。`Conversation` 実装は比較用に残す。
+- `Session.generateContentStream(List<InputData>, ResponseCallback)` も surface 上は存在するが、
+  最小修正ではまず blocking `generateContent` を試す。
 
 token limit 修正:
 
@@ -529,6 +533,22 @@ token limit 修正:
 - この run1 failure は token budget 設定の問題であり、persistent Engine 仮説自体は
   まだ否定されていない。
 
+logits failure 調査:
+
+- `maxNumTokens=512` 後、official Engine initialize と Conversation create/close は成功した。
+- ただし `Conversation.sendMessageAsync` の decode は
+  `Decode for logits output not implemented for backend: LiteRT NPU Compiled Model`
+  で失敗した。
+- `SamplerConfig` / `ConversationConfig` / `SessionConfig` に logits output を無効化する
+  public option は repo 内 surface では見つからない。
+- `Session` surface には `generateContent`, `generateContentStream`, `runPrefill`,
+  `runDecode` がある。
+- PoC は `persistent_engine_api_mode=auto` とし、
+  `selected_api_mode=session` で `Session.generateContent` を試す。
+- session / streaming でも同じ logits failure の場合、official persistent Java/Kotlin
+  Engine の NPU decode はこの backend/model では困難と見なし、次は custom JNI
+  persistent Engine holder PoC を検討する。
+
 成功時の判定:
 
 - `engine_initialize_count=1`
@@ -547,8 +567,10 @@ token limit 修正:
   - Engine は作れたが fresh Conversation 作成で失敗。
 - `persistent_engine_hypothesis_result=token_limit_failed`
   - official total/input/context token limit が prompt より小さい。
+- `persistent_engine_hypothesis_result=logits_output_not_supported_on_npu_backend`
+  - selected API mode が NPU backend で logits output を要求している。
 - `persistent_engine_hypothesis_result=decode_failed`
-  - Engine/Conversation 作成後の `sendMessageAsync` で失敗。
+  - Engine/Session or Conversation 作成後の generate/decode でその他失敗。
 - `engine_initialize_count=1` かつ run6-7 で `decode_failed`
   - Conversation 経路でも同一 Engine 内の累積問題がある可能性。
 
@@ -566,6 +588,15 @@ token limit 修正:
    - `conversation_close_count`
    - `session_create_count`
    - `session_close_count`
+   - `persistent_engine_api_mode`
+   - `attempted_api_modes`
+   - `selected_api_mode`
+   - `session_api_available`
+   - `session_api_used`
+   - `conversation_api_used`
+   - `streaming_api_used`
+   - `logits_failure_detected`
+   - `logits_failure_message`
    - `requested_max_output_tokens`
    - `official_total_token_limit`
    - `official_output_token_limit`

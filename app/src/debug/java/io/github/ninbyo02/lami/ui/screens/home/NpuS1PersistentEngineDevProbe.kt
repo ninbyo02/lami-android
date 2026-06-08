@@ -8,7 +8,10 @@ import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
+import com.google.ai.edge.litertlm.InputData
 import com.google.ai.edge.litertlm.SamplerConfig
+import com.google.ai.edge.litertlm.Session
+import com.google.ai.edge.litertlm.SessionConfig
 import io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract
 import io.github.ninbyo02.lami.npu.Qairt244ModelPathResolver
 import io.github.ninbyo02.lami.npu.Qairt244NpuOutputSanitizer
@@ -48,6 +51,14 @@ internal class NpuS1PersistentEngineDevProbe(
             officialTotalTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
             officialOutputTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_OUTPUT_TOKEN_LIMIT,
             tokenLimitSource = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE,
+            persistentEngineApiMode = NPU_S1_PERSISTENT_ENGINE_API_MODE_AUTO,
+            attemptedApiModes = NPU_S1_PERSISTENT_ENGINE_API_MODE_SESSION,
+            selectedApiMode = NPU_S1_PERSISTENT_ENGINE_API_MODE_SESSION,
+            apiModeSelectionReason = "session_api_available_prefers_generate_content",
+            sessionApiAvailable = "true",
+            sessionApiUsed = "true",
+            conversationApiUsed = "false",
+            streamingApiUsed = "false",
         )
         fun update(next: NpuS1PersistentEngineProbeState) {
             state = next
@@ -100,6 +111,8 @@ internal class NpuS1PersistentEngineDevProbe(
             val records = mutableListOf<NpuS1PersistentEngineRunRecord>()
             var conversationCreateCount = 0
             var conversationCloseCount = 0
+            var sessionCreateCount = 0
+            var sessionCloseCount = 0
             for (runIndex in 1..requestedRunCount) {
                 if (isCancelled()) {
                     return@withContext state.copy(
@@ -108,6 +121,8 @@ internal class NpuS1PersistentEngineDevProbe(
                         records = records.toList(),
                         conversationCreateCount = conversationCreateCount,
                         conversationCloseCount = conversationCloseCount,
+                        sessionCreateCount = sessionCreateCount.toString(),
+                        sessionCloseCount = sessionCloseCount.toString(),
                         persistentEngineHypothesisResult = "cancelled",
                     ).also(::update)
                 }
@@ -130,22 +145,32 @@ internal class NpuS1PersistentEngineDevProbe(
                         records = records.toList(),
                         conversationCreateCount = conversationCreateCount,
                         conversationCloseCount = conversationCloseCount,
+                        sessionCreateCount = sessionCreateCount.toString(),
+                        sessionCloseCount = sessionCloseCount.toString(),
                         firstFailureRunIndex = runIndex,
                         firstFailureStage = "low_memory",
                         firstFailureReason = "low_memory_before_run",
                         persistentEngineHypothesisResult = "low_memory_before_run",
                     ).also(::update)
                 }
-                val record = runOneConversation(
+                val record = runOneSessionGenerateContent(
                     engine = engine,
                     runIndex = runIndex,
                     prompt = prompt,
                     backendEvidence = state.backendEvidence,
-                    onConversationCreated = { conversationCreateCount += 1 },
-                    onConversationClosed = { conversationCloseCount += 1 },
+                    onSessionCreated = { sessionCreateCount += 1 },
+                    onSessionClosed = { sessionCloseCount += 1 },
                 )
                 records += record
                 val failed = record.status != NpuStandardRouteS1Contract.STATUS_SUCCESS
+                val hypothesisResult = if (failed) {
+                    npuS1PersistentHypothesisResultForFailureMessage(
+                        stage = record.failureStage,
+                        message = record.failureExceptionMessage,
+                    )
+                } else {
+                    "running"
+                }
                 update(
                     state.copy(
                         persistentProbeStatus = if (failed) {
@@ -156,6 +181,8 @@ internal class NpuS1PersistentEngineDevProbe(
                         records = records.toList(),
                         conversationCreateCount = conversationCreateCount,
                         conversationCloseCount = conversationCloseCount,
+                        sessionCreateCount = sessionCreateCount.toString(),
+                        sessionCloseCount = sessionCloseCount.toString(),
                         firstFailureRunIndex = if (failed) record.runIndex else state.firstFailureRunIndex,
                         firstFailureStage = if (failed) record.failureStage else state.firstFailureStage,
                         firstFailureReason = if (failed) record.reason else state.firstFailureReason,
@@ -166,11 +193,27 @@ internal class NpuS1PersistentEngineDevProbe(
                         } else {
                             state.firstFailureTokenLimitMessage
                         },
-                        persistentEngineHypothesisResult = if (failed) {
-                            npuS1PersistentHypothesisResultForFailureStage(record.failureStage)
+                        logitsOutputRequired = if (failed && record.logitsFailureDetected == "true") {
+                            "true"
                         } else {
-                            "running"
+                            state.logitsOutputRequired
                         },
+                        logitsOutputBackendSupported = if (failed && record.logitsFailureDetected == "true") {
+                            "false"
+                        } else {
+                            state.logitsOutputBackendSupported
+                        },
+                        logitsFailureDetected = if (failed && record.logitsFailureDetected == "true") {
+                            "true"
+                        } else {
+                            state.logitsFailureDetected
+                        },
+                        logitsFailureMessage = if (failed && record.logitsFailureDetected == "true") {
+                            record.logitsFailureMessage
+                        } else {
+                            state.logitsFailureMessage
+                        },
+                        persistentEngineHypothesisResult = hypothesisResult,
                     ),
                 )
                 if (failed) return@withContext state
@@ -181,6 +224,8 @@ internal class NpuS1PersistentEngineDevProbe(
                 records = records.toList(),
                 conversationCreateCount = conversationCreateCount,
                 conversationCloseCount = conversationCloseCount,
+                sessionCreateCount = sessionCreateCount.toString(),
+                sessionCloseCount = sessionCloseCount.toString(),
                 persistentEngineHypothesisResult = "engine_initialize_once_20_runs_success",
             ).also(::update)
         } catch (throwable: Throwable) {
@@ -320,6 +365,9 @@ internal class NpuS1PersistentEngineDevProbe(
                 officialTotalTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
                 officialOutputTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_OUTPUT_TOKEN_LIMIT,
                 tokenLimitSource = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE,
+                apiModeUsed = NPU_S1_PERSISTENT_ENGINE_API_MODE_CONVERSATION,
+                streamingStarted = "false",
+                streamingFinished = "false",
             )
         } catch (throwable: Throwable) {
             if (throwable is CancellationException && throwable !is TimeoutCancellationException) {
@@ -343,6 +391,9 @@ internal class NpuS1PersistentEngineDevProbe(
                 decodeStarted = decodeStarted,
                 decodeFinished = decodeFinished,
                 totalMs = SystemClock.elapsedRealtime() - runStartedAt,
+                apiModeUsed = NPU_S1_PERSISTENT_ENGINE_API_MODE_CONVERSATION,
+                streamingStarted = "false",
+                streamingFinished = "false",
             )
         } finally {
             conversation?.let { closeTarget ->
@@ -355,6 +406,120 @@ internal class NpuS1PersistentEngineDevProbe(
         }.let { record ->
             if (record.conversationClosed == "unavailable" && conversationCreated == "true") {
                 record.copy(conversationClosed = conversationClosed)
+            } else {
+                record
+            }
+        }
+    }
+
+    private suspend fun runOneSessionGenerateContent(
+        engine: Engine,
+        runIndex: Int,
+        prompt: String,
+        backendEvidence: String,
+        onSessionCreated: () -> Unit,
+        onSessionClosed: () -> Unit,
+    ): NpuS1PersistentEngineRunRecord {
+        val runStartedAt = SystemClock.elapsedRealtime()
+        var session: Session? = null
+        var sessionCreated = "false"
+        var sessionClosed = "unavailable"
+        var decodeStarted = "false"
+        var decodeFinished = "false"
+        return try {
+            session = engine.createSession(
+                SessionConfig(
+                    samplerConfig = SamplerConfig(
+                        topK = PERSISTENT_SAMPLER_TOP_K,
+                        topP = PERSISTENT_SAMPLER_TOP_P,
+                        temperature = PERSISTENT_SAMPLER_TEMPERATURE,
+                    ),
+                ),
+            )
+            sessionCreated = "true"
+            val activeSession = session
+            onSessionCreated()
+            val decodeStartedAt = SystemClock.elapsedRealtime()
+            decodeStarted = "true"
+            val rawOutput = withTimeout(DevOnlyNpuOneTurnConversationContract.TIMEOUT_MS) {
+                activeSession.generateContent(listOf(InputData.Text(prompt)))
+            }
+            decodeFinished = "true"
+            val decodeFinishedAt = SystemClock.elapsedRealtime()
+            val sanitized = Qairt244NpuOutputSanitizer.sanitize(
+                rawOutput = rawOutput,
+                prompt = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
+            ).sanitizedOutput.trim()
+            NpuS1PersistentEngineRunRecord(
+                runIndex = runIndex,
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                reason = "success",
+                conversationCreated = "false",
+                conversationClosed = "unavailable",
+                sessionCreated = sessionCreated,
+                sessionClosed = sessionClosed,
+                decodeStarted = decodeStarted,
+                decodeFinished = decodeFinished,
+                rawOutput = rawOutput,
+                sanitizedOutput = sanitized,
+                qualityClassification = if (sanitized.isBlank()) {
+                    NpuStandardRouteS1Contract.REASON_EMPTY_AFTER_SANITIZE
+                } else {
+                    NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE
+                },
+                totalMs = decodeFinishedAt - runStartedAt,
+                decodeMs = decodeFinishedAt - decodeStartedAt,
+                failureStage = "unavailable",
+                failureExceptionClass = "unavailable",
+                failureExceptionMessage = "unavailable",
+                nativeOrEngineDiagTail = "unavailable",
+                backendEvidence = backendEvidence,
+                promptTextLengthChars = prompt.length,
+                requestedMaxOutputTokens = NPU_S1_PERSISTENT_ENGINE_REQUESTED_MAX_OUTPUT_TOKENS,
+                officialTotalTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
+                officialOutputTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_OUTPUT_TOKEN_LIMIT,
+                tokenLimitSource = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE,
+                apiModeUsed = NPU_S1_PERSISTENT_ENGINE_API_MODE_SESSION,
+                streamingStarted = "false",
+                streamingFinished = "false",
+            )
+        } catch (throwable: Throwable) {
+            if (throwable is CancellationException && throwable !is TimeoutCancellationException) {
+                throw throwable
+            }
+            val failureMessage = throwable.message ?: ""
+            val failureStage = npuS1PersistentFailureStage(
+                conversationCreated = true,
+                decodeStarted = decodeStarted == "true",
+                message = failureMessage,
+            )
+            failureRecord(
+                runIndex = runIndex,
+                stage = failureStage,
+                reason = "${npuS1PersistentHypothesisResultForFailureMessage(failureStage, failureMessage)}:${throwable.javaClass.simpleName}",
+                throwable = throwable,
+                backendEvidence = backendEvidence,
+                promptLength = prompt.length,
+                sessionCreated = sessionCreated,
+                sessionClosed = sessionClosed,
+                decodeStarted = decodeStarted,
+                decodeFinished = decodeFinished,
+                totalMs = SystemClock.elapsedRealtime() - runStartedAt,
+                apiModeUsed = NPU_S1_PERSISTENT_ENGINE_API_MODE_SESSION,
+                streamingStarted = "false",
+                streamingFinished = "false",
+            )
+        } finally {
+            session?.let { closeTarget ->
+                sessionClosed = runCatching {
+                    closeTarget.close()
+                    onSessionClosed()
+                    "true"
+                }.getOrElse { "false" }
+            }
+        }.let { record ->
+            if (record.sessionClosed == "unavailable" && sessionCreated == "true") {
+                record.copy(sessionClosed = sessionClosed)
             } else {
                 record
             }
@@ -391,20 +556,26 @@ internal class NpuS1PersistentEngineDevProbe(
         promptLength: Int? = null,
         conversationCreated: String = "unavailable",
         conversationClosed: String = "unavailable",
+        sessionCreated: String = "unavailable",
+        sessionClosed: String = "unavailable",
         decodeStarted: String = "unavailable",
         decodeFinished: String = "unavailable",
         totalMs: Long? = null,
+        apiModeUsed: String = "unavailable",
+        streamingStarted: String = "unavailable",
+        streamingFinished: String = "unavailable",
     ): NpuS1PersistentEngineRunRecord {
         val failureMessage = throwable?.message ?: reason
         val tokenLimitFailureDetected = isNpuS1PersistentTokenLimitFailure(failureMessage)
+        val logitsFailureDetected = isNpuS1PersistentLogitsFailure(failureMessage)
         return NpuS1PersistentEngineRunRecord(
             runIndex = runIndex,
             status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
             reason = reason,
             conversationCreated = conversationCreated,
             conversationClosed = conversationClosed,
-            sessionCreated = "unavailable",
-            sessionClosed = "unavailable",
+            sessionCreated = sessionCreated,
+            sessionClosed = sessionClosed,
             decodeStarted = decodeStarted,
             decodeFinished = decodeFinished,
             totalMs = totalMs,
@@ -420,6 +591,11 @@ internal class NpuS1PersistentEngineDevProbe(
             tokenLimitSource = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE,
             tokenLimitFailureDetected = tokenLimitFailureDetected.toString(),
             tokenLimitFailureMessage = if (tokenLimitFailureDetected) failureMessage else "unavailable",
+            apiModeUsed = apiModeUsed,
+            logitsFailureDetected = logitsFailureDetected.toString(),
+            logitsFailureMessage = if (logitsFailureDetected) failureMessage else "unavailable",
+            streamingStarted = streamingStarted,
+            streamingFinished = streamingFinished,
         )
     }
 
