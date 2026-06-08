@@ -510,6 +510,25 @@ Conversation / Session の扱い:
 - そのため DEV 診断コピーでは `session_create_count=unavailable` /
   `session_close_count=unavailable` と明示する。
 
+token limit 修正:
+
+- 初回 PoC では `Engine.initialize()` は成功した。
+- ただし run1 の `sendMessageAsync` で
+  `Input token ids are too long. Exceeding the maximum number of tokens allowed: 78 >= 32`
+  により失敗した。
+- 原因は、PoC が `EngineConfig.maxNumTokens` に S1 の
+  `MAX_OUTPUT_TOKENS=32` を渡していたこと。
+- repo 内の official Java/Kotlin LiteRT-LM API surface では、`sendMessageAsync` /
+  `ConversationConfig` / `SamplerConfig` に output 専用 token limit は見つからない。
+- `maxNumTokens` は output limit ではなく total/input/context token budget として
+  扱うべきなので、PoC では `official_total_token_limit=512` に上げる。
+- requested output としての S1 期待値は
+  `requested_max_output_tokens=32` として診断に分離する。
+- output 専用 limit は official API では `official_output_token_limit=not_exposed`
+  と扱う。
+- この run1 failure は token budget 設定の問題であり、persistent Engine 仮説自体は
+  まだ否定されていない。
+
 成功時の判定:
 
 - `engine_initialize_count=1`
@@ -526,6 +545,8 @@ Conversation / Session の扱い:
   - official Java/Kotlin Engine の NPU attach / `nativeCreateEngine` で失敗。
 - `persistent_engine_hypothesis_result=conversation_create_failed`
   - Engine は作れたが fresh Conversation 作成で失敗。
+- `persistent_engine_hypothesis_result=token_limit_failed`
+  - official total/input/context token limit が prompt より小さい。
 - `persistent_engine_hypothesis_result=decode_failed`
   - Engine/Conversation 作成後の `sendMessageAsync` で失敗。
 - `engine_initialize_count=1` かつ run6-7 で `decode_failed`
@@ -545,6 +566,10 @@ Conversation / Session の扱い:
    - `conversation_close_count`
    - `session_create_count`
    - `session_close_count`
+   - `requested_max_output_tokens`
+   - `official_total_token_limit`
+   - `official_output_token_limit`
+   - `token_limit_source`
    - `first_failure_stage`
    - `first_failure_reason`
    - `persistent_engine_hypothesis_result`

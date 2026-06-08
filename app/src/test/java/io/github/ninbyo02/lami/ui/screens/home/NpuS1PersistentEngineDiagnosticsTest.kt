@@ -54,6 +54,76 @@ class NpuS1PersistentEngineDiagnosticsTest {
     }
 
     @Test
+    fun `token limit keys are separated from requested output tokens`() {
+        val state = NpuS1PersistentEngineProbeState(
+            promptTextLengthChars = 78,
+            requestedMaxOutputTokens = 32,
+            officialTotalTokenLimit = 512,
+            officialOutputTokenLimit = "not_exposed",
+            tokenLimitSource = "engine_config_max_num_tokens_total_limit",
+            records = listOf(
+                NpuS1PersistentEngineRunRecord(
+                    runIndex = 1,
+                    status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                    reason = "success",
+                    promptTextLengthChars = 78,
+                    requestedMaxOutputTokens = 32,
+                    officialTotalTokenLimit = 512,
+                    officialOutputTokenLimit = "not_exposed",
+                    tokenLimitSource = "engine_config_max_num_tokens_total_limit",
+                ),
+            ),
+        )
+        val text = formatNpuS1PersistentEngineDiagnosticsForDev(state)
+
+        assertTrue(text.contains("prompt_text_length_chars=78"))
+        assertTrue(text.contains("requested_max_output_tokens=32"))
+        assertTrue(text.contains("official_total_token_limit=512"))
+        assertTrue(text.contains("official_output_token_limit=not_exposed"))
+        assertTrue(text.contains("token_limit_source=engine_config_max_num_tokens_total_limit"))
+        assertTrue(text.contains("token_limit_fix_note=official_api_uses_max_num_tokens_as_total_input_context_limit_not_output_only"))
+    }
+
+    @Test
+    fun `input token limit failure is classified as token limit failed`() {
+        val message = "Status Code: 3. Message: Input token ids are too long. " +
+            "Exceeding the maximum number of tokens allowed: 78 >= 32"
+        val state = NpuS1PersistentEngineProbeState(
+            persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_STOPPED,
+            firstFailureRunIndex = 1,
+            firstFailureStage = npuS1PersistentFailureStage(
+                conversationCreated = true,
+                decodeStarted = true,
+                message = message,
+            ),
+            firstFailureReason = "token_limit_failed:LiteRtLmJniException",
+            firstFailureExceptionClass = "LiteRtLmJniException",
+            firstFailureTokenLimitMessage = message,
+            persistentEngineHypothesisResult = npuS1PersistentHypothesisResultForFailureStage("token_limit"),
+            records = listOf(
+                NpuS1PersistentEngineRunRecord(
+                    runIndex = 1,
+                    status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
+                    reason = "token_limit_failed:LiteRtLmJniException",
+                    failureStage = "token_limit",
+                    failureExceptionClass = "LiteRtLmJniException",
+                    failureExceptionMessage = message,
+                    tokenLimitFailureDetected = "true",
+                    tokenLimitFailureMessage = message,
+                ),
+            ),
+        )
+        val text = formatNpuS1PersistentEngineDiagnosticsForDev(state)
+
+        assertTrue(isNpuS1PersistentTokenLimitFailure(message))
+        assertTrue(text.contains("first_failure_stage=token_limit"))
+        assertTrue(text.contains("persistent_engine_hypothesis_result=token_limit_failed"))
+        assertTrue(text.contains("first_failure_token_limit_message=Status Code: 3. Message: Input token ids are too long."))
+        assertTrue(text.contains("token_limit_failure_detected=true"))
+        assertTrue(text.contains("token_limit_failure_message=Status Code: 3. Message: Input token ids are too long."))
+    }
+
+    @Test
     fun `unavailable session counters are not formatted as false or zero`() {
         val text = formatNpuS1PersistentEngineDiagnosticsForDev(
             NpuS1PersistentEngineProbeState(

@@ -8,6 +8,12 @@ internal const val NPU_S1_PERSISTENT_ENGINE_STATUS_COMPLETED = "completed"
 internal const val NPU_S1_PERSISTENT_ENGINE_STATUS_STOPPED = "stopped"
 internal const val NPU_S1_PERSISTENT_ENGINE_STATUS_CANCELLED = "cancelled"
 internal const val NPU_S1_PERSISTENT_ENGINE_DEFAULT_COUNT = 20
+internal const val NPU_S1_PERSISTENT_ENGINE_REQUESTED_MAX_OUTPUT_TOKENS = 32
+internal const val NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT = 512
+internal const val NPU_S1_PERSISTENT_ENGINE_OFFICIAL_OUTPUT_TOKEN_LIMIT = "not_exposed"
+internal const val NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE = "engine_config_max_num_tokens_total_limit"
+internal const val NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_FIX_NOTE =
+    "official_api_uses_max_num_tokens_as_total_input_context_limit_not_output_only"
 internal const val NPU_S1_PERSISTENT_ENGINE_CLASS_NAME =
     "io.github.ninbyo02.lami.ui.screens.home.NpuS1PersistentEngineDevProbe"
 
@@ -47,6 +53,13 @@ internal data class NpuS1PersistentEngineRunRecord(
     val failureExceptionMessage: String = "unavailable",
     val nativeOrEngineDiagTail: String = "unavailable",
     val backendEvidence: String = "unavailable",
+    val promptTextLengthChars: Int? = null,
+    val requestedMaxOutputTokens: Int = NPU_S1_PERSISTENT_ENGINE_REQUESTED_MAX_OUTPUT_TOKENS,
+    val officialTotalTokenLimit: Int = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
+    val officialOutputTokenLimit: String = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_OUTPUT_TOKEN_LIMIT,
+    val tokenLimitSource: String = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE,
+    val tokenLimitFailureDetected: String = "false",
+    val tokenLimitFailureMessage: String = "unavailable",
 )
 
 internal data class NpuS1PersistentEngineProbeState(
@@ -73,6 +86,13 @@ internal data class NpuS1PersistentEngineProbeState(
     val modelPathOrName: String = "unavailable",
     val cacheDir: String = "unavailable",
     val persistentEngineHypothesisResult: String = "unavailable",
+    val promptTextLengthChars: Int? = null,
+    val requestedMaxOutputTokens: Int = NPU_S1_PERSISTENT_ENGINE_REQUESTED_MAX_OUTPUT_TOKENS,
+    val officialTotalTokenLimit: Int = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
+    val officialOutputTokenLimit: String = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_OUTPUT_TOKEN_LIMIT,
+    val tokenLimitSource: String = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE,
+    val firstFailureTokenLimitMessage: String = "unavailable",
+    val tokenLimitFixNote: String = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_FIX_NOTE,
     val records: List<NpuS1PersistentEngineRunRecord> = emptyList(),
 ) {
     val runCountCompleted: Int
@@ -113,6 +133,13 @@ internal fun formatNpuS1PersistentEngineDiagnosticsForDev(
     appendLine("model_path_or_name=${escapePersistentCopyValue(state.modelPathOrName)}")
     appendLine("cache_dir=${escapePersistentCopyValue(state.cacheDir)}")
     appendLine("persistent_engine_hypothesis_result=${state.persistentEngineHypothesisResult}")
+    appendLine("prompt_text_length_chars=${formatPersistentValue(state.promptTextLengthChars)}")
+    appendLine("requested_max_output_tokens=${state.requestedMaxOutputTokens}")
+    appendLine("official_total_token_limit=${state.officialTotalTokenLimit}")
+    appendLine("official_output_token_limit=${state.officialOutputTokenLimit}")
+    appendLine("token_limit_source=${state.tokenLimitSource}")
+    appendLine("first_failure_token_limit_message=${escapePersistentCopyValue(state.firstFailureTokenLimitMessage)}")
+    appendLine("token_limit_fix_note=${state.tokenLimitFixNote}")
     appendLine()
     appendLine("[DEV診断: NPU S1 persistent engine details]")
     if (state.records.isEmpty()) {
@@ -138,6 +165,13 @@ internal fun formatNpuS1PersistentEngineDiagnosticsForDev(
             appendLine("failure_exception_message=${escapePersistentCopyValue(record.failureExceptionMessage)}")
             appendLine("native_or_engine_diag_tail=${escapePersistentCopyValue(record.nativeOrEngineDiagTail)}")
             appendLine("backend_evidence=${escapePersistentCopyValue(record.backendEvidence)}")
+            appendLine("prompt_text_length_chars=${formatPersistentValue(record.promptTextLengthChars)}")
+            appendLine("requested_max_output_tokens=${record.requestedMaxOutputTokens}")
+            appendLine("official_total_token_limit=${record.officialTotalTokenLimit}")
+            appendLine("official_output_token_limit=${record.officialOutputTokenLimit}")
+            appendLine("token_limit_source=${record.tokenLimitSource}")
+            appendLine("token_limit_failure_detected=${record.tokenLimitFailureDetected}")
+            appendLine("token_limit_failure_message=${escapePersistentCopyValue(record.tokenLimitFailureMessage)}")
         }
     }
 }.trimEnd()
@@ -154,3 +188,27 @@ private fun formatPersistentValue(value: Any?): String = value?.toString() ?: "u
 
 private fun escapePersistentCopyValue(text: String): String =
     text.replace("\\", "\\\\").replace("\n", "\\n")
+
+internal fun isNpuS1PersistentTokenLimitFailure(message: String): Boolean =
+    message.contains("Input token ids are too long", ignoreCase = true) ||
+        message.contains("Exceeding the maximum number of tokens allowed", ignoreCase = true)
+
+internal fun npuS1PersistentFailureStage(
+    conversationCreated: Boolean,
+    decodeStarted: Boolean,
+    message: String,
+): String = when {
+    isNpuS1PersistentTokenLimitFailure(message) -> "token_limit"
+    conversationCreated && decodeStarted -> "decode"
+    else -> "conversation_create"
+}
+
+internal fun npuS1PersistentHypothesisResultForFailureStage(stage: String): String = when (stage) {
+    "engine_initialize" -> "engine_initialize_failed"
+    "conversation_create" -> "conversation_create_failed"
+    "token_limit" -> "token_limit_failed"
+    "decode" -> "decode_failed"
+    "conversation_close" -> "conversation_close_failed"
+    "engine_close" -> "engine_close_failed"
+    else -> "decode_failed"
+}

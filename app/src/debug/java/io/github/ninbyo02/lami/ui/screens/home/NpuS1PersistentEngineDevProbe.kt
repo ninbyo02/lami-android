@@ -34,6 +34,7 @@ internal class NpuS1PersistentEngineDevProbe(
         val startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
         val modelResolution = Qairt244ModelPathResolver.resolve(appContext)
         val modelPath = modelResolution.path
+        val prompt = buildPersistentPrompt()
         var state = NpuS1PersistentEngineProbeState(
             persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_RUNNING,
             runCountRequested = requestedRunCount,
@@ -42,6 +43,11 @@ internal class NpuS1PersistentEngineDevProbe(
             cacheDir = cacheDir,
             backendEvidence = "official_litertlm_backend_npu_requested",
             persistentEngineHypothesisResult = "running",
+            promptTextLengthChars = prompt.length,
+            requestedMaxOutputTokens = NPU_S1_PERSISTENT_ENGINE_REQUESTED_MAX_OUTPUT_TOKENS,
+            officialTotalTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
+            officialOutputTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_OUTPUT_TOKEN_LIMIT,
+            tokenLimitSource = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE,
         )
         fun update(next: NpuS1PersistentEngineProbeState) {
             state = next
@@ -77,7 +83,7 @@ internal class NpuS1PersistentEngineDevProbe(
                     backend = Backend.NPU(appContext.applicationInfo.nativeLibraryDir),
                     visionBackend = Backend.GPU(),
                     audioBackend = Backend.CPU(),
-                    maxNumTokens = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
+                    maxNumTokens = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
                     cacheDir = cacheDir,
                 ),
             )
@@ -116,6 +122,7 @@ internal class NpuS1PersistentEngineDevProbe(
                         reason = "low_memory_before_run",
                         throwable = null,
                         backendEvidence = state.backendEvidence,
+                        promptLength = prompt.length,
                     )
                     return@withContext state.copy(
                         persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_STOPPED,
@@ -132,6 +139,7 @@ internal class NpuS1PersistentEngineDevProbe(
                 val record = runOneConversation(
                     engine = engine,
                     runIndex = runIndex,
+                    prompt = prompt,
                     backendEvidence = state.backendEvidence,
                     onConversationCreated = { conversationCreateCount += 1 },
                     onConversationClosed = { conversationCloseCount += 1 },
@@ -153,12 +161,13 @@ internal class NpuS1PersistentEngineDevProbe(
                         firstFailureReason = if (failed) record.reason else state.firstFailureReason,
                         firstFailureExceptionClass = if (failed) record.failureExceptionClass else state.firstFailureExceptionClass,
                         firstFailureExceptionMessage = if (failed) record.failureExceptionMessage else state.firstFailureExceptionMessage,
+                        firstFailureTokenLimitMessage = if (failed && record.tokenLimitFailureDetected == "true") {
+                            record.tokenLimitFailureMessage
+                        } else {
+                            state.firstFailureTokenLimitMessage
+                        },
                         persistentEngineHypothesisResult = if (failed) {
-                            when (record.failureStage) {
-                                "conversation_create" -> "conversation_create_failed"
-                                "decode" -> "decode_failed"
-                                else -> "decode_failed"
-                            }
+                            npuS1PersistentHypothesisResultForFailureStage(record.failureStage)
                         } else {
                             "running"
                         },
@@ -238,6 +247,7 @@ internal class NpuS1PersistentEngineDevProbe(
     private suspend fun runOneConversation(
         engine: Engine,
         runIndex: Int,
+        prompt: String,
         backendEvidence: String,
         onConversationCreated: () -> Unit,
         onConversationClosed: () -> Unit,
@@ -261,11 +271,6 @@ internal class NpuS1PersistentEngineDevProbe(
             conversationCreated = "true"
             val activeConversation = conversation
             onConversationCreated()
-            val prompt = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
-                contextText = "",
-                userPrompt = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
-                promptTailVariant = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,
-            )
             val rawOutputBuilder = StringBuilder()
             val decodeStartedAt = SystemClock.elapsedRealtime()
             decodeStarted = "true"
@@ -310,25 +315,29 @@ internal class NpuS1PersistentEngineDevProbe(
                 failureExceptionMessage = "unavailable",
                 nativeOrEngineDiagTail = "unavailable",
                 backendEvidence = backendEvidence,
+                promptTextLengthChars = prompt.length,
+                requestedMaxOutputTokens = NPU_S1_PERSISTENT_ENGINE_REQUESTED_MAX_OUTPUT_TOKENS,
+                officialTotalTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
+                officialOutputTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_OUTPUT_TOKEN_LIMIT,
+                tokenLimitSource = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE,
             )
         } catch (throwable: Throwable) {
             if (throwable is CancellationException && throwable !is TimeoutCancellationException) {
                 throw throwable
             }
+            val failureMessage = throwable.message ?: ""
+            val failureStage = npuS1PersistentFailureStage(
+                conversationCreated = conversationCreated == "true",
+                decodeStarted = decodeStarted == "true",
+                message = failureMessage,
+            )
             failureRecord(
                 runIndex = runIndex,
-                stage = if (conversationCreated == "true" && decodeStarted == "true") {
-                    "decode"
-                } else {
-                    "conversation_create"
-                },
-                reason = if (decodeStarted == "true") {
-                    "decode_failed:${throwable.javaClass.simpleName}"
-                } else {
-                    "conversation_create_failed:${throwable.javaClass.simpleName}"
-                },
+                stage = failureStage,
+                reason = "${npuS1PersistentHypothesisResultForFailureStage(failureStage)}:${throwable.javaClass.simpleName}",
                 throwable = throwable,
                 backendEvidence = backendEvidence,
+                promptLength = prompt.length,
                 conversationCreated = conversationCreated,
                 conversationClosed = conversationClosed,
                 decodeStarted = decodeStarted,
@@ -367,6 +376,9 @@ internal class NpuS1PersistentEngineDevProbe(
             firstFailureExceptionClass = throwable?.javaClass?.simpleName ?: "unavailable",
             firstFailureExceptionMessage = throwable?.message ?: "unavailable",
             backendEvidence = throwable?.causeChainTail() ?: state.backendEvidence,
+            firstFailureTokenLimitMessage = throwable?.message
+                ?.takeIf(::isNpuS1PersistentTokenLimitFailure)
+                ?: state.firstFailureTokenLimitMessage,
             persistentEngineHypothesisResult = hypothesisResult,
         )
 
@@ -376,13 +388,16 @@ internal class NpuS1PersistentEngineDevProbe(
         reason: String,
         throwable: Throwable?,
         backendEvidence: String,
+        promptLength: Int? = null,
         conversationCreated: String = "unavailable",
         conversationClosed: String = "unavailable",
         decodeStarted: String = "unavailable",
         decodeFinished: String = "unavailable",
         totalMs: Long? = null,
-    ): NpuS1PersistentEngineRunRecord =
-        NpuS1PersistentEngineRunRecord(
+    ): NpuS1PersistentEngineRunRecord {
+        val failureMessage = throwable?.message ?: reason
+        val tokenLimitFailureDetected = isNpuS1PersistentTokenLimitFailure(failureMessage)
+        return NpuS1PersistentEngineRunRecord(
             runIndex = runIndex,
             status = FailureNpuStandardRouteS1Provider.STATUS_FAILURE,
             reason = reason,
@@ -398,6 +413,21 @@ internal class NpuS1PersistentEngineDevProbe(
             failureExceptionMessage = throwable?.message ?: "unavailable",
             nativeOrEngineDiagTail = throwable?.causeChainTail() ?: reason,
             backendEvidence = backendEvidence,
+            promptTextLengthChars = promptLength,
+            requestedMaxOutputTokens = NPU_S1_PERSISTENT_ENGINE_REQUESTED_MAX_OUTPUT_TOKENS,
+            officialTotalTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_TOTAL_TOKEN_LIMIT,
+            officialOutputTokenLimit = NPU_S1_PERSISTENT_ENGINE_OFFICIAL_OUTPUT_TOKEN_LIMIT,
+            tokenLimitSource = NPU_S1_PERSISTENT_ENGINE_TOKEN_LIMIT_SOURCE,
+            tokenLimitFailureDetected = tokenLimitFailureDetected.toString(),
+            tokenLimitFailureMessage = if (tokenLimitFailureDetected) failureMessage else "unavailable",
+        )
+    }
+
+    private fun buildPersistentPrompt(): String =
+        DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
+            contextText = "",
+            userPrompt = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
+            promptTailVariant = NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT,
         )
 
     private fun Throwable.causeChainTail(): String =
