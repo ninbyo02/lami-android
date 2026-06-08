@@ -7,6 +7,10 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
     companion object {
         private const val RESULT_FILE_NAME = "qairt244_short_multitoken_smoke_result.txt"
         private const val NATIVE_DIAG_FILE_NAME = "qairt244_native_diag.txt"
+        private const val PERSISTENT_PROBE_RESULT_FILE_NAME =
+            "qairt244_persistent_custom_jni_probe_result.txt"
+        private const val PERSISTENT_PROBE_DIAG_FILE_NAME =
+            "qairt244_persistent_custom_jni_probe_diag.txt"
         private val allowedDebugFlavors = setOf("standard", "customBuildExperiment")
 
         init {
@@ -15,6 +19,9 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
 
         @JvmStatic
         fun supportsEditablePromptExecution(): Boolean = true
+
+        @JvmStatic
+        fun supportsPersistentCustomJniProbeExecution(): Boolean = true
 
         @JvmStatic
         fun run(
@@ -102,6 +109,79 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             return "qairt244_editable_prompt_smoke_v1 runId=$runId result=success actual_prompt=$normalizedPrompt normalized_prompt=$normalizedPrompt output=$output"
         }
 
+        @JvmStatic
+        fun runPersistentProbe(
+            context: Context,
+            modelPath: String,
+            runId: String,
+            prompt: String,
+            maxOutputTokens: Int,
+            runCount: Int,
+            holderKey: String,
+            promptValidationMode: String = NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE,
+            unsafeDevBypassPromptLengthGate: Boolean = false,
+        ): Qairt244PersistentProbeResult {
+            check(BuildConfig.CURRENT_FLAVOR in allowedDebugFlavors) {
+                "persistent custom JNI probe is debug hidden-experimental only; currentFlavor=${BuildConfig.CURRENT_FLAVOR}"
+            }
+            check(modelPath.isNotBlank()) { "modelPath is required" }
+            check(holderKey.isNotBlank()) { "holderKey is required" }
+            check(runCount in 1..100) { "runCount must be 1..100" }
+            val rawValidation = when (promptValidationMode) {
+                NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE ->
+                    NpuDiagnosticPromptValidator.validateUtf8InternalIntent(prompt)
+                NpuDiagnosticPromptValidator.UTF8_HIDDEN_EXPERIMENTAL_MODE ->
+                    NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(prompt)
+                NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE ->
+                    NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(prompt)
+                else -> NpuDiagnosticPromptValidator.validateAsciiDiagnostic(prompt)
+            }
+            val validation = promptLengthGateBypassedValidation(
+                validation = rawValidation,
+                unsafeDevBypassPromptLengthGate = unsafeDevBypassPromptLengthGate,
+            )
+            val nativePromptInputLimitMode = if (
+                unsafeDevBypassPromptLengthGate &&
+                validation.promptInputLimitMode == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+            ) {
+                UNSAFE_DEV_BYPASS_HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+            } else {
+                validation.promptInputLimitMode
+            }
+            check(validation.isValid) {
+                "persistent custom JNI probe rejected before native execution: reasonCode=${validation.reasonCode}"
+            }
+
+            val appContext = context.applicationContext
+            val resultFile = appContext.filesDir.resolve(PERSISTENT_PROBE_RESULT_FILE_NAME)
+            val diagFile = appContext.filesDir.resolve(PERSISTENT_PROBE_DIAG_FILE_NAME)
+            resultFile.delete()
+            diagFile.delete()
+            val nativeResult = runCatching {
+                nativeRunPersistentProbe(
+                    modelPath = modelPath,
+                    nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir,
+                    cacheDir = appContext.cacheDir.absolutePath,
+                    resultPath = resultFile.absolutePath,
+                    diagPath = diagFile.absolutePath,
+                    prompt = validation.normalizedPrompt,
+                    promptInputLimitMode = nativePromptInputLimitMode,
+                    maxOutputTokens = maxOutputTokens,
+                    runCount = runCount,
+                    holderKey = holderKey,
+                )
+            }
+            val throwable = nativeResult.exceptionOrNull()
+            return Qairt244PersistentProbeResult(
+                runId = runId,
+                nativeReturn = nativeResult.getOrDefault(""),
+                resultText = resultFile.takeIf { it.exists() }?.readText().orEmpty(),
+                diagText = diagFile.takeIf { it.exists() }?.readText().orEmpty(),
+                throwableClass = throwable?.javaClass?.name ?: "unavailable",
+                throwableMessage = throwable?.message ?: "unavailable",
+            )
+        }
+
         private fun promptLengthGateBypassedValidation(
             validation: NpuDiagnosticPromptValidator.Result,
             unsafeDevBypassPromptLengthGate: Boolean,
@@ -138,5 +218,28 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             promptInputLimitMode: String,
             maxOutputTokens: Int,
         ): String
+
+        @JvmStatic
+        private external fun nativeRunPersistentProbe(
+            modelPath: String,
+            nativeLibraryDir: String,
+            cacheDir: String,
+            resultPath: String,
+            diagPath: String,
+            prompt: String,
+            promptInputLimitMode: String,
+            maxOutputTokens: Int,
+            runCount: Int,
+            holderKey: String,
+        ): String
     }
 }
+
+internal data class Qairt244PersistentProbeResult(
+    val runId: String,
+    val nativeReturn: String,
+    val resultText: String,
+    val diagText: String,
+    val throwableClass: String,
+    val throwableMessage: String,
+)

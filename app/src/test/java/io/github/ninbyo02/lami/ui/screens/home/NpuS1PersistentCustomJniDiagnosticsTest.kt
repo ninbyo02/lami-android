@@ -9,6 +9,8 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         val state = NpuS1PersistentCustomJniProbeState(
             persistentCustomJniStatus = NPU_S1_PERSISTENT_CUSTOM_JNI_STATUS_STOPPED,
             engineCreateCount = "0",
+            decodeAttemptCount = "7",
+            decodeSuccessCount = "6",
             holderKey = NpuS1PersistentCustomJniHolderKey(
                 modelPath = "/data/user/0/io.github.ninbyo02.lami/files/local_models/model.litertlm",
                 modelFileLastModified = "1700000000000",
@@ -26,6 +28,8 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         val text = formatNpuS1PersistentCustomJniDiagnosticsForDev(state)
 
         assertTrue(text.contains("[DEV診断: NPU S1 persistent custom JNI summary]"))
+        assertTrue(text.contains("decode_attempt_count=7"))
+        assertTrue(text.contains("decode_success_count=6"))
         assertTrue(text.contains("holder_key_model_path=/data/user/0/io.github.ninbyo02.lami/files/local_models/model.litertlm"))
         assertTrue(text.contains("holder_key_model_file_last_modified=1700000000000"))
         assertTrue(text.contains("holder_key_model_file_size=123456"))
@@ -46,8 +50,14 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
                     runIndex = 7,
                     status = "failure",
                     reason = "adapter_failure:LiteRtLmJniException",
+                    sessionCreated = "true",
+                    sessionClosed = "true",
+                    prefillStarted = "true",
+                    prefillFinished = "true",
                     decodeStarted = "true",
                     decodeFinished = "false",
+                    prefillMs = 42,
+                    cleanupMs = 3,
                     failureStage = "decode",
                     failureExceptionClass = "LiteRtLmJniException",
                     failureExceptionMessage = "engine-create-failed:INTERNAL",
@@ -60,8 +70,14 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
 
         assertTrue(text.contains("[DEV診断: NPU S1 persistent custom JNI details]"))
         assertTrue(text.contains("run_index=7"))
+        assertTrue(text.contains("session_created=true"))
+        assertTrue(text.contains("session_closed=true"))
+        assertTrue(text.contains("prefill_started=true"))
+        assertTrue(text.contains("prefill_finished=true"))
         assertTrue(text.contains("decode_started=true"))
         assertTrue(text.contains("decode_finished=false"))
+        assertTrue(text.contains("prefill_ms=42"))
+        assertTrue(text.contains("cleanup_ms=3"))
         assertTrue(text.contains("failure_stage=decode"))
         assertTrue(text.contains("failure_exception_class=LiteRtLmJniException"))
         assertTrue(text.contains("native_diag_tail=before EngineFactory::CreateDefault"))

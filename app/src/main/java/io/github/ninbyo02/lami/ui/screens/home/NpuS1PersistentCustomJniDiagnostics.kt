@@ -54,13 +54,19 @@ internal data class NpuS1PersistentCustomJniRunRecord(
     val runIndex: Int,
     val status: String,
     val reason: String,
+    val sessionCreated: String = "unavailable",
+    val sessionClosed: String = "unavailable",
+    val prefillStarted: String = "unavailable",
+    val prefillFinished: String = "unavailable",
     val decodeStarted: String = "unavailable",
     val decodeFinished: String = "unavailable",
     val rawOutput: String = "",
     val sanitizedOutput: String = "",
     val qualityClassification: String = "unavailable",
     val totalMs: Long? = null,
+    val prefillMs: Long? = null,
     val decodeMs: Long? = null,
+    val cleanupMs: Long? = null,
     val failureStage: String = "unavailable",
     val failureExceptionClass: String = "unavailable",
     val failureExceptionMessage: String = "unavailable",
@@ -74,6 +80,8 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val startedAtElapsedRealtimeMs: Long? = null,
     val finishedAtElapsedRealtimeMs: Long? = null,
     val engineCreateCount: String = "unavailable",
+    val decodeAttemptCount: String = "unavailable",
+    val decodeSuccessCount: String = "unavailable",
     val engineCloseReached: String = "unavailable",
     val engineCloseSuccess: String = "unavailable",
     val holderKey: NpuS1PersistentCustomJniHolderKey = NpuS1PersistentCustomJniHolderKey(),
@@ -115,6 +123,8 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("success_count=${state.successCount}")
     appendLine("failure_count=${state.failureCount}")
     appendLine("engine_create_count=${state.engineCreateCount}")
+    appendLine("decode_attempt_count=${state.decodeAttemptCount}")
+    appendLine("decode_success_count=${state.decodeSuccessCount}")
     appendLine("engine_close_reached=${state.engineCloseReached}")
     appendLine("engine_close_success=${state.engineCloseSuccess}")
     appendLine("holder_key=${escapePersistentCustomJniCopyValue(state.holderKey.stableText())}")
@@ -150,13 +160,19 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
             appendLine("run_index=${record.runIndex}")
             appendLine("status=${record.status}")
             appendLine("reason=${escapePersistentCustomJniCopyValue(record.reason)}")
+            appendLine("session_created=${record.sessionCreated}")
+            appendLine("session_closed=${record.sessionClosed}")
+            appendLine("prefill_started=${record.prefillStarted}")
+            appendLine("prefill_finished=${record.prefillFinished}")
             appendLine("decode_started=${record.decodeStarted}")
             appendLine("decode_finished=${record.decodeFinished}")
             appendLine("raw_output=${escapePersistentCustomJniCopyValue(record.rawOutput)}")
             appendLine("sanitized_output=${escapePersistentCustomJniCopyValue(record.sanitizedOutput)}")
             appendLine("quality_classification=${record.qualityClassification}")
             appendLine("total_ms=${formatPersistentCustomJniValue(record.totalMs)}")
+            appendLine("prefill_ms=${formatPersistentCustomJniValue(record.prefillMs)}")
             appendLine("decode_ms=${formatPersistentCustomJniValue(record.decodeMs)}")
+            appendLine("cleanup_ms=${formatPersistentCustomJniValue(record.cleanupMs)}")
             appendLine("failure_stage=${record.failureStage}")
             appendLine("failure_exception_class=${record.failureExceptionClass}")
             appendLine("failure_exception_message=${escapePersistentCustomJniCopyValue(record.failureExceptionMessage)}")
