@@ -572,6 +572,175 @@ Phase 4: 製品経路設計
    - `native_holder_entrypoint_available=true` を確認し、
      result file を `[DEV診断: NPU S1 persistent custom JNI ...]` に反映する。
 
+## 実装メモ
+
+`patches/qairt244_litertlm_utf8_128token_128input.patch` に
+`Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe`
+を追加した。
+
+設計:
+
+- native static holder:
+  - `std::unique_ptr<Engine> engine`
+  - `holder_key`
+  - `generation`
+  - `reused_count`
+  - `invalidated`
+- `std::mutex g_qairt244_persistent_custom_jni_mutex` で entrypoint 全体を排他する。
+- holder key mismatch または invalidated の場合は close してから再生成する。
+- probe 中の `EngineFactory::CreateDefault` は holder 未生成時の 1 回だけ。
+- 各 run は fresh `Session` を作り、`RunPrefill` と `RunDecode` を実行する。
+- run ごとに `session_ptr.reset()` する。
+- probe 終了時に holder の Engine を close する。
+- failure 時は `holder_invalidated=true` として loop を止める。
+
+Kotlin 側:
+
+- `Qairt244ShortMultitokenSmoke.runPersistentProbe(...)` から
+  `nativeRunPersistentProbe(...)` を呼ぶ。
+- native が `LiteRtLmJniException` を投げても result/diag file を読み、DEV 診断に反映する。
+- `NpuS1PersistentCustomJniDevProbe` は result file の summary/details を parse する。
+- native entrypoint が未 staging の APK では
+  `native_holder_entrypoint_available=false` として安全停止する。
+
+次回実機確認:
+
+- `native_holder_entrypoint_available=true`
+- `engine_create_count=1`
+- `run_count_completed=20`
+- `success_count=20`
+- `decode_attempt_count=20`
+- `decode_success_count=20`
+- `holder_invalidated=false`
+- `engine_close_reached=true`
+- `engine_close_success=true`
+- new tombstone / Dropbox なし
+
+## patch 適用 / rebuild / stage 手順
+
+今回確認した LiteRT-LM checkout:
+
+- checkout: `/home/sato/project/litert-custom-build/LiteRT-LM`
+- target file: `kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc`
+- HEAD: `1d535d5038c6a951b7f9f7adbed69efca1f62566`
+
+context mismatch の原因:
+
+- checkout 側の `litertlm.cc` には、すでに QAIRT244 one-shot S1 の
+  `nativeRunEditablePrompt` / 512 token guard / native stage diag が入っていた。
+- 旧 `patches/qairt244_litertlm_utf8_128token_128input.patch` は upstream からの
+  full patch に近く、既存適用済み hunk と重複していた。
+- そのため、line drift ではなく「既存 patch 適用済み checkout に stale full patch を
+  もう一度当てようとしていた」ことが主因。
+
+修正内容:
+
+- `patches/qairt244_litertlm_utf8_128token_128input.patch` を、現在の checkout の
+  `litertlm.cc` に対する incremental patch として再生成した。
+- 追加差分は persistent holder PoC に限定した。
+  - `#include <mutex>`
+  - `qairt244_persistent_custom_jni_probe_v1` marker
+  - native result writer helper
+  - static holder / mutex
+  - `nativeRunPersistentProbe(...)`
+- 既存 one-shot entrypoint は変更しない。
+
+適用確認:
+
+```bash
+git -C /home/sato/project/litert-custom-build/LiteRT-LM apply --check \
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
+```
+
+適用:
+
+```bash
+git -C /home/sato/project/litert-custom-build/LiteRT-LM apply \
+  /home/sato/project/lami-android/patches/qairt244_litertlm_utf8_128token_128input.patch
+```
+
+rebuild:
+
+```bash
+scripts/build_litert_custom_artifacts.sh \
+  /home/sato/project/litert-custom-build/LiteRT-LM \
+  --label persistent_holder
+```
+
+今回の build output:
+
+- `/home/sato/project/lami-android/artifacts/litert_custom_build/20260609_001336_persistent_holder`
+- rebuilt library:
+  `/home/sato/project/lami-android/artifacts/litert_custom_build/20260609_001336_persistent_holder/built_libs/liblitertlm_jni.so`
+
+entrypoint 確認:
+
+```bash
+strings artifacts/litert_custom_build/20260609_001336_persistent_holder/built_libs/liblitertlm_jni.so |
+  rg "nativeRunPersistentProbe|qairt244_persistent_custom_jni_probe_v1"
+
+nm -D --defined-only artifacts/litert_custom_build/20260609_001336_persistent_holder/built_libs/liblitertlm_jni.so |
+  rg "nativeRunPersistentProbe"
+```
+
+stage:
+
+```bash
+scripts/stage_litert_custom_build_stack_for_experiment.sh \
+  artifacts/litert_custom_build/20260609_001336_persistent_holder
+```
+
+stage 先:
+
+- `app/src/customBuildExperimentDebug/jniLibs/arm64-v8a/liblitertlm_jni.so`
+
+stage 後の確認:
+
+- `app/src/customBuildExperimentDebug/jniLibs/arm64-v8a/liblitertlm_jni.so` に
+  `nativeRunPersistentProbe` と `qairt244_persistent_custom_jni_probe_v1` が入っていることを確認した。
+
+standardDebug への取り込み:
+
+- `app/build.gradle.kts` の `stageQairt244StandardDebugNativeLibs` が
+  `app/src/customBuildExperimentDebug/jniLibs/arm64-v8a` から
+  `app/build/generated/qairt244StandardDebugJniLibs/arm64-v8a` へコピーする。
+- `standardDebug` source set は generated JNI libs を packaging 対象にする。
+- `./gradlew :app:assembleStandardDebug` 実行時に
+  `stageQairt244StandardDebugNativeLibs`, `mergeStandardDebugNativeLibs`,
+  `overlayQairt244StandardDebugNativeLibs` が実行されることを確認した。
+
+APK 検証:
+
+- APK: `app/build/outputs/apk/standard/debug/app-standard-debug.apk`
+- `unzip -l` で `lib/arm64-v8a/liblitertlm_jni.so` が含まれることを確認した。
+- APK から展開した `lib/arm64-v8a/liblitertlm_jni.so` に
+  `nativeRunPersistentProbe` と `qairt244_persistent_custom_jni_probe_v1` が入っていることを確認した。
+- `nm -D --defined-only` で
+  `Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_nativeRunPersistentProbe`
+  が exported symbol であることを確認した。
+
+次回実機確認手順:
+
+1. `./gradlew :app:assembleStandardDebug` で APK を作る。
+2. APK 内の `liblitertlm_jni.so` に
+   `nativeRunPersistentProbe` または `qairt244_persistent_custom_jni_probe_v1` が
+   入っていることを確認する。
+3. standardDebug APK を実機へ install する。
+4. Lami を起動し、DEV 診断から
+   `NPU S1 persistent custom JNI 20回テスト` を実行する。
+5. DEV 診断コピーで以下を確認する。
+   - `native_holder_entrypoint_available=true`
+   - `engine_create_count=1`
+   - `run_count_completed=20`
+   - `success_count=20`
+   - `decode_success_count=20`
+   - `holder_invalidated=false`
+   - `engine_close_reached=true`
+   - `engine_close_success=true`
+6. 失敗時は `first_failure_stage`, `first_failure_reason`,
+   `first_failure_diag_tail`, `native_diag_tail` を保存し、tombstone / Dropbox が
+   新規発生していないか確認する。
+
 ## 結論
 
 patch の静的構造上、custom JNI persistent holder 化は DEV PoC として実装可能そうである。
