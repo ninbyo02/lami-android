@@ -337,6 +337,54 @@ val qairt244StandardDebugMergedNativeLibDir =
 val qairt244StandardDebugStrippedNativeLibDir =
     layout.buildDirectory.dir("intermediates/stripped_native_libs/standardDebug/stripStandardDebugDebugSymbols/out/lib/arm64-v8a")
 
+fun prepareQairt244StandardDebugBuildOutputForCopy(
+    outputFile: File,
+    allowedOutputRoots: List<File>,
+    taskName: String,
+) {
+    val canonicalOutput = outputFile.canonicalFile
+    val allowed = allowedOutputRoots.any { root ->
+        val canonicalRoot = root.canonicalFile
+        canonicalOutput == canonicalRoot || canonicalOutput.toPath().startsWith(canonicalRoot.toPath())
+    }
+    require(allowed) {
+        "$taskName refused to modify non-build output file: ${canonicalOutput.absolutePath}"
+    }
+    val parent = canonicalOutput.parentFile
+    parent?.mkdirs()
+    if (parent != null && parent.exists() && !parent.canWrite()) {
+        parent.setWritable(true, true)
+    }
+    if (canonicalOutput.exists()) {
+        if (!canonicalOutput.canWrite()) {
+            canonicalOutput.setWritable(true, true)
+        }
+        if (!canonicalOutput.delete()) {
+            throw GradleException(
+                "$taskName failed to delete stale native lib before overlay: ${canonicalOutput.absolutePath}",
+            )
+        }
+        logger.lifecycle("$taskName removed stale native lib before overlay: ${canonicalOutput.absolutePath}")
+    }
+}
+
+fun prepareQairt244StandardDebugBuildOutputsForCopy(
+    sourceDir: File,
+    outputDir: File,
+    allowedOutputRoots: List<File>,
+    taskName: String,
+) {
+    sourceDir
+        .listFiles { file -> file.isFile && file.extension == "so" }
+        ?.forEach { sourceFile ->
+            prepareQairt244StandardDebugBuildOutputForCopy(
+                outputFile = File(outputDir, sourceFile.name),
+                allowedOutputRoots = allowedOutputRoots,
+                taskName = taskName,
+            )
+        }
+}
+
 fun findAndroidNdkClang(): File? {
     val explicitNdk = listOfNotNull(
         System.getenv("ANDROID_NDK_HOME")?.trim()?.takeIf { it.isNotEmpty() },
@@ -527,6 +575,12 @@ tasks.register("overlayQairt244StandardDebugNativeLibs") {
     doLast {
         val sourceDir = qairt244StandardDebugGeneratedJniOutputDir.get().asFile
         val outputDir = qairt244StandardDebugMergedNativeLibDir.get().asFile
+        prepareQairt244StandardDebugBuildOutputsForCopy(
+            sourceDir = sourceDir,
+            outputDir = outputDir,
+            allowedOutputRoots = listOf(qairt244StandardDebugMergedNativeLibDir.get().asFile),
+            taskName = name,
+        )
         outputDir.mkdirs()
         copy {
             from(sourceDir) {
@@ -550,6 +604,12 @@ tasks.register("stageQairt244StandardDebugNativeLibs") {
 
     doLast {
         val outputDir = qairt244StandardDebugGeneratedJniOutputDir.get().asFile
+        prepareQairt244StandardDebugBuildOutputsForCopy(
+            sourceDir = qairt244StandardDebugNativeSourceDir.asFile,
+            outputDir = outputDir,
+            allowedOutputRoots = listOf(qairt244StandardDebugGeneratedJniOutputDir.get().asFile),
+            taskName = name,
+        )
         outputDir.mkdirs()
         copy {
             from(qairt244StandardDebugNativeSourceDir) {
@@ -576,6 +636,12 @@ tasks.register("overlayQairt244StandardDebugStrippedNativeLibs") {
     doLast {
         val sourceDir = qairt244StandardDebugGeneratedJniOutputDir.get().asFile
         val outputDir = qairt244StandardDebugStrippedNativeLibDir.get().asFile
+        prepareQairt244StandardDebugBuildOutputsForCopy(
+            sourceDir = sourceDir,
+            outputDir = outputDir,
+            allowedOutputRoots = listOf(qairt244StandardDebugStrippedNativeLibDir.get().asFile),
+            taskName = name,
+        )
         outputDir.mkdirs()
         copy {
             from(sourceDir) {
