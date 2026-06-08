@@ -14,6 +14,7 @@ internal class NpuS1PersistentCustomJniDevProbe(
     private val appContext = context.applicationContext
 
     override suspend fun run(
+        mode: NpuS1PersistentCustomJniProbeMode,
         onUpdate: (NpuS1PersistentCustomJniProbeState) -> Unit,
         isCancelled: () -> Boolean,
     ): NpuS1PersistentCustomJniProbeState = withContext(Dispatchers.Default) {
@@ -48,6 +49,7 @@ internal class NpuS1PersistentCustomJniDevProbe(
             holderKeyMismatchDetected = "false",
             holderKeyMismatchReason = "unavailable",
             nativeHolderEntrypointAvailable = "false",
+            selectedNativeProbeMode = mode.wireValue,
             modelPath = holderKey.modelPath,
             modelFileSize = modelFileSize,
             modelFileLastModified = modelLastModified,
@@ -91,6 +93,7 @@ internal class NpuS1PersistentCustomJniDevProbe(
             maxOutputTokens = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
             runCount = NPU_S1_PERSISTENT_CUSTOM_JNI_DEFAULT_COUNT,
             holderKey = holderKey.stableText(),
+            nativeProbeMode = mode.wireValue,
             promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
             unsafeDevBypassPromptLengthGate = true,
         )
@@ -186,6 +189,20 @@ private fun parsePersistentCustomJniProbeResult(
         holderKeyMismatchDetected = summary["holder_key_mismatch_detected"].orUnavailable(),
         holderKeyMismatchReason = summary["holder_key_mismatch_reason"].orUnavailable(),
         nativeHolderEntrypointAvailable = summary["native_holder_entrypoint_available"].orUnavailable(),
+        selectedNativeProbeMode = summary["selected_native_probe_mode"].orUnavailable(),
+        lastNativeStage = summary["last_native_stage"].orUnavailable(),
+        nativeEntrypointReached = summary["native_entrypoint_reached"].orUnavailable(),
+        modelAssetsCreateReached = summary["model_assets_create_reached"].orUnavailable(),
+        modelAssetsCreateReturned = summary["model_assets_create_returned"].orUnavailable(),
+        engineSettingsCreateReached = summary["engine_settings_create_reached"].orUnavailable(),
+        engineSettingsCreateReturned = summary["engine_settings_create_returned"].orUnavailable(),
+        engineCreateReached = summary["engine_create_reached"].orUnavailable(),
+        engineCreateReturned = summary["engine_create_returned"].orUnavailable(),
+        sessionCreateReached = summary["session_create_reached"].orUnavailable(),
+        prefillReached = summary["prefill_reached"].orUnavailable(),
+        decodeReached = summary["decode_reached"].orUnavailable(),
+        nativeDiagFlushCount = summary["native_diag_flush_count"].orUnavailable(),
+        nativeResultFlushCount = summary["native_result_flush_count"].orUnavailable(),
         firstFailureRunIndex = summary["first_failure_run_index"]?.toIntOrNull(),
         firstFailureStage = summary["first_failure_stage"].orUnavailable(),
         firstFailureReason = summary["first_failure_reason"].orUnavailable(),

@@ -118,6 +118,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             maxOutputTokens: Int,
             runCount: Int,
             holderKey: String,
+            nativeProbeMode: String,
             promptValidationMode: String = NpuDiagnosticPromptValidator.ASCII_DIAGNOSTIC_MODE,
             unsafeDevBypassPromptLengthGate: Boolean = false,
         ): Qairt244PersistentProbeResult {
@@ -126,6 +127,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             }
             check(modelPath.isNotBlank()) { "modelPath is required" }
             check(holderKey.isNotBlank()) { "holderKey is required" }
+            check(nativeProbeMode.isNotBlank()) { "nativeProbeMode is required" }
             check(runCount in 1..100) { "runCount must be 1..100" }
             val rawValidation = when (promptValidationMode) {
                 NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE ->
@@ -169,6 +171,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
                     maxOutputTokens = maxOutputTokens,
                     runCount = runCount,
                     holderKey = holderKey,
+                    nativeProbeMode = nativeProbeMode,
                 )
             }
             val throwable = nativeResult.exceptionOrNull()
@@ -231,6 +234,7 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             maxOutputTokens: Int,
             runCount: Int,
             holderKey: String,
+            nativeProbeMode: String,
         ): String
     }
 }

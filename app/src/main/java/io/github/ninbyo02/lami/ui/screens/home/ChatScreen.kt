@@ -71,6 +71,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -1013,6 +1014,9 @@ fun Home(
         mutableStateOf(NpuS1PersistentCustomJniProbeState())
     }
     var npuS1PersistentCustomJniJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var npuS1PersistentCustomJniProbeMode by rememberSaveable(effectiveChatId) {
+        mutableStateOf(NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE)
+    }
     var devUiAliveSeconds by remember(effectiveChatId) { mutableStateOf(0) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
@@ -1531,10 +1535,12 @@ fun Home(
             return
         }
         if (npuS1PersistentCustomJniJob?.isActive == true) return
+        val selectedProbeMode = npuS1PersistentCustomJniProbeMode
         npuS1PersistentCustomJniState = NpuS1PersistentCustomJniProbeState(
             persistentCustomJniStatus = NPU_S1_PERSISTENT_CUSTOM_JNI_STATUS_RUNNING,
             runCountRequested = NPU_S1_PERSISTENT_CUSTOM_JNI_DEFAULT_COUNT,
             startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+            selectedNativeProbeMode = selectedProbeMode.wireValue,
             persistentCustomJniHypothesisResult = "starting",
         )
         npuS1PersistentCustomJniJob = coroutineScope.launch {
@@ -1556,6 +1562,7 @@ fun Home(
             }
             try {
                 runner.run(
+                    mode = selectedProbeMode,
                     onUpdate = { state ->
                         coroutineScope.launch {
                             npuS1PersistentCustomJniState = state
@@ -5766,8 +5773,12 @@ fun Home(
                                             onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                                             onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
                                             npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
+                                            npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
                                             npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
                                             isInferenceRunningForPersistentCustomJni = isInferenceRunningUi,
+                                            onNpuS1PersistentCustomJniProbeModeChange = {
+                                                npuS1PersistentCustomJniProbeMode = it
+                                            },
                                             onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
                                             onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
                                             s4Text = s4Text,
@@ -5833,8 +5844,12 @@ fun Home(
                                             onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                                             onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
                                             npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
+                                            npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
                                             npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
                                             isInferenceRunningForPersistentCustomJni = isInferenceRunningUi,
+                                            onNpuS1PersistentCustomJniProbeModeChange = {
+                                                npuS1PersistentCustomJniProbeMode = it
+                                            },
                                             onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
                                             onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
                                         )
@@ -6063,8 +6078,12 @@ fun Home(
                     onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
                     onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
                     npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
+                    npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
                     npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
                     isInferenceRunningForPersistentCustomJni = isInferenceRunningUi,
+                    onNpuS1PersistentCustomJniProbeModeChange = {
+                        npuS1PersistentCustomJniProbeMode = it
+                    },
                     onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
                     onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
                     onManualEngineRecreate = {
@@ -9079,8 +9098,10 @@ private fun NpuS1PersistentEngineDevSection(
 @Composable
 private fun NpuS1PersistentCustomJniDevSection(
     state: NpuS1PersistentCustomJniProbeState,
+    selectedMode: NpuS1PersistentCustomJniProbeMode,
     running: Boolean,
     blockedByGeneration: Boolean,
+    onModeChange: (NpuS1PersistentCustomJniProbeMode) -> Unit,
     onStart: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -9089,11 +9110,29 @@ private fun NpuS1PersistentCustomJniDevSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            listOf(
+                NpuS1PersistentCustomJniProbeMode.ENTRYPOINT_ONLY,
+                NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
+                NpuS1PersistentCustomJniProbeMode.ENGINE_CREATE_ONLY,
+                NpuS1PersistentCustomJniProbeMode.FULL_20,
+            ).forEach { mode ->
+                FilterChip(
+                    selected = selectedMode == mode,
+                    onClick = { onModeChange(mode) },
+                    enabled = !running && !blockedByGeneration,
+                    label = { Text(mode.wireValue) },
+                )
+            }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Button(
                 onClick = onStart,
                 enabled = !running && !blockedByGeneration,
             ) {
-                Text("NPU S1 persistent custom JNI 20回テスト")
+                Text("NPU S1 persistent custom JNI ${selectedMode.wireValue}")
             }
             TextButton(
                 onClick = onCancel,
@@ -9154,8 +9193,11 @@ private fun InferenceStatsSheetContent(
     onNpuS1PersistentEngineStart: () -> Unit = {},
     onNpuS1PersistentEngineCancel: () -> Unit = {},
     npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
+    npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
+        NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
     npuS1PersistentCustomJniInProgress: Boolean = false,
     isInferenceRunningForPersistentCustomJni: Boolean = false,
+    onNpuS1PersistentCustomJniProbeModeChange: (NpuS1PersistentCustomJniProbeMode) -> Unit = {},
     onNpuS1PersistentCustomJniStart: () -> Unit = {},
     onNpuS1PersistentCustomJniCancel: () -> Unit = {},
 ) {
@@ -9330,8 +9372,10 @@ private fun InferenceStatsSheetContent(
                     )
                     NpuS1PersistentCustomJniDevSection(
                         state = npuS1PersistentCustomJniState,
+                        selectedMode = npuS1PersistentCustomJniProbeMode,
                         running = npuS1PersistentCustomJniInProgress,
                         blockedByGeneration = isInferenceRunningForPersistentCustomJni,
+                        onModeChange = onNpuS1PersistentCustomJniProbeModeChange,
                         onStart = onNpuS1PersistentCustomJniStart,
                         onCancel = onNpuS1PersistentCustomJniCancel,
                     )
@@ -9513,8 +9557,11 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     onNpuS1PersistentEngineStart: (() -> Unit)? = null,
     onNpuS1PersistentEngineCancel: (() -> Unit)? = null,
     npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
+    npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
+        NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
     npuS1PersistentCustomJniInProgress: Boolean = false,
     isInferenceRunningForPersistentCustomJni: Boolean = false,
+    onNpuS1PersistentCustomJniProbeModeChange: ((NpuS1PersistentCustomJniProbeMode) -> Unit)? = null,
     onNpuS1PersistentCustomJniStart: (() -> Unit)? = null,
     onNpuS1PersistentCustomJniCancel: (() -> Unit)? = null,
 ) {
@@ -9572,13 +9619,16 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     onCancel = onNpuS1PersistentEngineCancel,
                 )
                 if (
+                    onNpuS1PersistentCustomJniProbeModeChange != null &&
                     onNpuS1PersistentCustomJniStart != null &&
                     onNpuS1PersistentCustomJniCancel != null
                 ) {
                     NpuS1PersistentCustomJniDevSection(
                         state = npuS1PersistentCustomJniState,
+                        selectedMode = npuS1PersistentCustomJniProbeMode,
                         running = npuS1PersistentCustomJniInProgress,
                         blockedByGeneration = isInferenceRunningForPersistentCustomJni,
+                        onModeChange = onNpuS1PersistentCustomJniProbeModeChange,
                         onStart = onNpuS1PersistentCustomJniStart,
                         onCancel = onNpuS1PersistentCustomJniCancel,
                     )

@@ -14,8 +14,21 @@ internal const val NPU_S1_PERSISTENT_CUSTOM_JNI_ENGINE_CONFIG_VERSION =
 internal const val NPU_S1_PERSISTENT_CUSTOM_JNI_CLASS_NAME =
     "io.github.ninbyo02.lami.ui.screens.home.NpuS1PersistentCustomJniDevProbe"
 
+internal enum class NpuS1PersistentCustomJniProbeMode(
+    val wireValue: String,
+    val displayLabel: String,
+) {
+    ENTRYPOINT_ONLY("entrypoint_only", "Entrypoint only"),
+    MODEL_ASSETS_ONLY("model_assets_only", "ModelAssets only"),
+    ENGINE_SETTINGS_ONLY("engine_settings_only", "EngineSettings only"),
+    BEFORE_ENGINE_CREATE("before_engine_create", "Before engine create"),
+    ENGINE_CREATE_ONLY("engine_create_only", "Engine create only"),
+    FULL_20("full_20", "Full 20"),
+}
+
 internal interface NpuS1PersistentCustomJniProbeRunner {
     suspend fun run(
+        mode: NpuS1PersistentCustomJniProbeMode,
         onUpdate: (NpuS1PersistentCustomJniProbeState) -> Unit,
         isCancelled: () -> Boolean,
     ): NpuS1PersistentCustomJniProbeState
@@ -91,6 +104,20 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val holderKeyMismatchDetected: String = "unavailable",
     val holderKeyMismatchReason: String = "unavailable",
     val nativeHolderEntrypointAvailable: String = "unavailable",
+    val selectedNativeProbeMode: String = NpuS1PersistentCustomJniProbeMode.FULL_20.wireValue,
+    val lastNativeStage: String = "unavailable",
+    val nativeEntrypointReached: String = "unavailable",
+    val modelAssetsCreateReached: String = "unavailable",
+    val modelAssetsCreateReturned: String = "unavailable",
+    val engineSettingsCreateReached: String = "unavailable",
+    val engineSettingsCreateReturned: String = "unavailable",
+    val engineCreateReached: String = "unavailable",
+    val engineCreateReturned: String = "unavailable",
+    val sessionCreateReached: String = "unavailable",
+    val prefillReached: String = "unavailable",
+    val decodeReached: String = "unavailable",
+    val nativeDiagFlushCount: String = "unavailable",
+    val nativeResultFlushCount: String = "unavailable",
     val firstFailureRunIndex: Int? = null,
     val firstFailureStage: String = "unavailable",
     val firstFailureReason: String = "unavailable",
@@ -141,6 +168,20 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("holder_key_mismatch_detected=${state.holderKeyMismatchDetected}")
     appendLine("holder_key_mismatch_reason=${escapePersistentCustomJniCopyValue(state.holderKeyMismatchReason)}")
     appendLine("native_holder_entrypoint_available=${state.nativeHolderEntrypointAvailable}")
+    appendLine("selected_native_probe_mode=${state.selectedNativeProbeMode}")
+    appendLine("last_native_stage=${state.lastNativeStage}")
+    appendLine("native_entrypoint_reached=${state.nativeEntrypointReached}")
+    appendLine("model_assets_create_reached=${state.modelAssetsCreateReached}")
+    appendLine("model_assets_create_returned=${state.modelAssetsCreateReturned}")
+    appendLine("engine_settings_create_reached=${state.engineSettingsCreateReached}")
+    appendLine("engine_settings_create_returned=${state.engineSettingsCreateReturned}")
+    appendLine("engine_create_reached=${state.engineCreateReached}")
+    appendLine("engine_create_returned=${state.engineCreateReturned}")
+    appendLine("session_create_reached=${state.sessionCreateReached}")
+    appendLine("prefill_reached=${state.prefillReached}")
+    appendLine("decode_reached=${state.decodeReached}")
+    appendLine("native_diag_flush_count=${state.nativeDiagFlushCount}")
+    appendLine("native_result_flush_count=${state.nativeResultFlushCount}")
     appendLine("first_failure_run_index=${formatPersistentCustomJniValue(state.firstFailureRunIndex)}")
     appendLine("first_failure_stage=${state.firstFailureStage}")
     appendLine("first_failure_reason=${escapePersistentCustomJniCopyValue(state.firstFailureReason)}")

@@ -22,6 +22,20 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             ),
             holderInvalidated = "true",
             nativeHolderEntrypointAvailable = "false",
+            selectedNativeProbeMode = "before_engine_create",
+            lastNativeStage = "before_engine_create",
+            nativeEntrypointReached = "true",
+            modelAssetsCreateReached = "true",
+            modelAssetsCreateReturned = "true",
+            engineSettingsCreateReached = "true",
+            engineSettingsCreateReturned = "true",
+            engineCreateReached = "false",
+            engineCreateReturned = "false",
+            sessionCreateReached = "false",
+            prefillReached = "false",
+            decodeReached = "false",
+            nativeDiagFlushCount = "4",
+            nativeResultFlushCount = "5",
             persistentCustomJniHypothesisResult = "native_holder_entrypoint_not_available",
         )
 
@@ -38,6 +52,20 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("holder_key_max_token_budget=32"))
         assertTrue(text.contains("holder_key_engine_config_version=persistent_custom_jni_holder_poc_v1"))
         assertTrue(text.contains("native_holder_entrypoint_available=false"))
+        assertTrue(text.contains("selected_native_probe_mode=before_engine_create"))
+        assertTrue(text.contains("last_native_stage=before_engine_create"))
+        assertTrue(text.contains("native_entrypoint_reached=true"))
+        assertTrue(text.contains("model_assets_create_reached=true"))
+        assertTrue(text.contains("model_assets_create_returned=true"))
+        assertTrue(text.contains("engine_settings_create_reached=true"))
+        assertTrue(text.contains("engine_settings_create_returned=true"))
+        assertTrue(text.contains("engine_create_reached=false"))
+        assertTrue(text.contains("engine_create_returned=false"))
+        assertTrue(text.contains("session_create_reached=false"))
+        assertTrue(text.contains("prefill_reached=false"))
+        assertTrue(text.contains("decode_reached=false"))
+        assertTrue(text.contains("native_diag_flush_count=4"))
+        assertTrue(text.contains("native_result_flush_count=5"))
         assertTrue(text.contains("persistent_custom_jni_hypothesis_result=native_holder_entrypoint_not_available"))
     }
 
@@ -92,6 +120,17 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("engine_create_count=unavailable"))
         assertTrue(text.contains("engine_close_reached=unavailable"))
         assertTrue(text.contains("holder_generation=unavailable"))
+        assertTrue(text.contains("selected_native_probe_mode=full_20"))
+        assertTrue(text.contains("last_native_stage=unavailable"))
+        assertTrue(text.contains("native_entrypoint_reached=unavailable"))
+        assertTrue(text.contains("model_assets_create_reached=unavailable"))
+        assertTrue(text.contains("engine_settings_create_reached=unavailable"))
+        assertTrue(text.contains("engine_create_reached=unavailable"))
+        assertTrue(text.contains("session_create_reached=unavailable"))
+        assertTrue(text.contains("prefill_reached=unavailable"))
+        assertTrue(text.contains("decode_reached=unavailable"))
+        assertTrue(text.contains("native_diag_flush_count=unavailable"))
+        assertTrue(text.contains("native_result_flush_count=unavailable"))
         assertTrue(text.contains("records=empty"))
     }
 

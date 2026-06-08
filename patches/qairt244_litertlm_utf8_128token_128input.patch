@@ -1,3 +1,5 @@
+diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+index 421c3036..0dc0280b 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 @@ -21,6 +21,7 @@
@@ -8,7 +10,7 @@
  #include <optional>
  #include <string>
  #include <utility>
-@@ -104,6 +105,8 @@
+@@ -104,6 +105,8 @@ constexpr char kQairt244ShortMultitokenMarker[] =
      "qairt244_short_multitoken_smoke_v1";
  constexpr char kQairt244EditablePromptMarker[] =
      "qairt244_editable_prompt_smoke_v1";
@@ -17,7 +19,7 @@
  constexpr char kQairt244EditablePromptRequestedMaxMarker[] =
      "qairt244_editable_prompt_requested_max_v1";
  constexpr char kQairt244EditablePromptValidationMode[] =
-@@ -574,6 +577,54 @@
+@@ -574,6 +577,54 @@ void Qairt244SentinelLog(const char* format, ...) {
    va_end(args);
  }
 
@@ -72,7 +74,7 @@
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
        env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
-@@ -2275,6 +2326,419 @@
+@@ -2275,6 +2326,552 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
    return NewStringStandardUTF(env, output);
  }
 
@@ -81,7 +83,8 @@
 +    JNIEnv* env, jclass thiz, jstring model_path,
 +    jstring native_library_dir, jstring cache_dir, jstring result_path,
 +    jstring diag_path, jstring prompt, jstring prompt_input_limit_mode,
-+    jint max_output_tokens, jint run_count, jstring holder_key) {
++    jint max_output_tokens, jint run_count, jstring holder_key,
++    jstring native_probe_mode) {
 +  const absl::Time probe_start_time = absl::Now();
 +  std::lock_guard<std::mutex> lock(g_qairt244_persistent_custom_jni_mutex);
 +  std::string model_path_str;
@@ -90,6 +93,7 @@
 +  std::string result_path_str;
 +  std::string diag_path_str;
 +  std::string holder_key_str;
++  std::string native_probe_mode_str = "full_20";
 +  std::string actual_prompt;
 +  std::string normalized_prompt;
 +  std::string prompt_input_limit_mode_str =
@@ -108,6 +112,19 @@
 +  int decode_success_count = 0;
 +  std::string engine_close_reached = "false";
 +  std::string engine_close_success = "unavailable";
++  std::string last_native_stage = "entrypoint";
++  std::string native_entrypoint_reached = "true";
++  std::string model_assets_create_reached = "false";
++  std::string model_assets_create_returned = "false";
++  std::string engine_settings_create_reached = "false";
++  std::string engine_settings_create_returned = "false";
++  std::string engine_create_reached = "false";
++  std::string engine_create_returned = "false";
++  std::string session_create_reached = "false";
++  std::string prefill_reached = "false";
++  std::string decode_reached = "false";
++  int native_diag_flush_count = 0;
++  int native_result_flush_count = 0;
 +  std::string holder_invalidated = "false";
 +  std::string holder_key_mismatch_detected = "false";
 +  std::string holder_key_mismatch_reason = "unavailable";
@@ -121,6 +138,12 @@
 +
 +  GetOptionalJString(env, diag_path, &diag_path_str, nullptr, "diag_path",
 +                     kQairt244PersistentProbeMarker);
++
++  auto append_stage_diag = [&](const std::string& message) {
++    AppendQairt244Diag(diag_path_str.c_str(), "%s %s",
++                       kQairt244PersistentProbeMarker, message.c_str());
++    native_diag_flush_count += 1;
++  };
 +
 +  auto record_failure = [&](int run_index, const std::string& stage,
 +                            const std::string& reason,
@@ -140,9 +163,26 @@
 +  };
 +
 +  auto write_result = [&]() {
++    const int next_result_flush_count = native_result_flush_count + 1;
 +    std::vector<std::string> lines;
 +    lines.push_back("marker=" + std::string(kQairt244PersistentProbeMarker));
 +    lines.push_back("native_holder_entrypoint_available=true");
++    lines.push_back("selected_native_probe_mode=" + native_probe_mode_str);
++    lines.push_back("last_native_stage=" + last_native_stage);
++    lines.push_back("native_entrypoint_reached=" + native_entrypoint_reached);
++    lines.push_back("model_assets_create_reached=" + model_assets_create_reached);
++    lines.push_back("model_assets_create_returned=" + model_assets_create_returned);
++    lines.push_back("engine_settings_create_reached=" + engine_settings_create_reached);
++    lines.push_back("engine_settings_create_returned=" + engine_settings_create_returned);
++    lines.push_back("engine_create_reached=" + engine_create_reached);
++    lines.push_back("engine_create_returned=" + engine_create_returned);
++    lines.push_back("session_create_reached=" + session_create_reached);
++    lines.push_back("prefill_reached=" + prefill_reached);
++    lines.push_back("decode_reached=" + decode_reached);
++    lines.push_back("native_diag_flush_count=" +
++                    std::to_string(native_diag_flush_count));
++    lines.push_back("native_result_flush_count=" +
++                    std::to_string(next_result_flush_count));
 +    lines.push_back("persistent_custom_jni_status=" + status);
 +    lines.push_back("run_count_requested=" + std::to_string(requested_count));
 +    lines.push_back("run_count_completed=" + std::to_string(completed_count));
@@ -181,6 +221,7 @@
 +    lines.push_back("details_begin=true");
 +    lines.insert(lines.end(), detail_lines.begin(), detail_lines.end());
 +    WriteQairt244PersistentProbeResult(result_path_str, lines);
++    native_result_flush_count = next_result_flush_count;
 +  };
 +
 +  if (!GetOptionalJString(env, prompt_input_limit_mode,
@@ -211,6 +252,9 @@
 +      !GetOptionalJString(env, holder_key, &holder_key_str,
 +                          diag_path_str.c_str(), "holder_key",
 +                          kQairt244PersistentProbeMarker) ||
++      !GetOptionalJString(env, native_probe_mode, &native_probe_mode_str,
++                          diag_path_str.c_str(), "native_probe_mode",
++                          kQairt244PersistentProbeMarker) ||
 +      !GetOptionalJString(env, prompt, &actual_prompt, diag_path_str.c_str(),
 +                          "prompt", kQairt244PersistentProbeMarker)) {
 +    record_failure(0, "jni_string", "jni-string-conversion-failed",
@@ -219,6 +263,37 @@
 +    ThrowLiteRtLmJniException(
 +        env, "QAIRT persistent custom JNI probe string conversion failed");
 +    return nullptr;
++  }
++
++  if (native_probe_mode_str.empty()) {
++    native_probe_mode_str = "full_20";
++  }
++  if (native_probe_mode_str != "entrypoint_only" &&
++      native_probe_mode_str != "model_assets_only" &&
++      native_probe_mode_str != "engine_settings_only" &&
++      native_probe_mode_str != "before_engine_create" &&
++      native_probe_mode_str != "engine_create_only" &&
++      native_probe_mode_str != "full_20") {
++    record_failure(0, "argument", "invalid_native_probe_mode",
++                   "native_probe_mode must be entrypoint_only, "
++                   "model_assets_only, engine_settings_only, "
++                   "before_engine_create, engine_create_only, or full_20");
++    write_result();
++    ThrowLiteRtLmJniException(env,
++                              "invalid persistent probe native_probe_mode");
++    return nullptr;
++  }
++
++  append_stage_diag("entrypoint reached mode=" + native_probe_mode_str);
++  last_native_stage = "entrypoint";
++  write_result();
++
++  if (native_probe_mode_str == "entrypoint_only") {
++    status = "completed";
++    hypothesis_result = "entrypoint_only_success";
++    write_result();
++    append_stage_diag("entrypoint_only completed");
++    return NewStringStandardUTF(env, status);
 +  }
 +
 +  if (requested_count < 1 || requested_count > 100) {
@@ -248,11 +323,10 @@
 +    return NewStringStandardUTF(env, "");
 +  }
 +
-+  AppendQairt244Diag(
-+      diag_path_str.c_str(),
-+      "%s ENTRY run_count=%d max_output_tokens=%d holder_key=%s",
-+      kQairt244PersistentProbeMarker, requested_count, max_output_tokens,
-+      holder_key_str.c_str());
++  append_stage_diag(
++      "ENTRY run_count=" + std::to_string(requested_count) +
++      " max_output_tokens=" + std::to_string(max_output_tokens) +
++      " holder_key=" + holder_key_str);
 +
 +  if (g_qairt244_persistent_custom_jni_holder.engine &&
 +      g_qairt244_persistent_custom_jni_holder.holder_key != holder_key_str) {
@@ -264,6 +338,11 @@
 +    CloseQairt244PersistentCustomJniHolderLocked(false);
 +  }
 +  if (g_qairt244_persistent_custom_jni_holder.invalidated) {
++    CloseQairt244PersistentCustomJniHolderLocked(false);
++  }
++  if (native_probe_mode_str != "full_20" &&
++      g_qairt244_persistent_custom_jni_holder.engine) {
++    append_stage_diag("stage mode close existing holder before probe");
 +    CloseQairt244PersistentCustomJniHolderLocked(false);
 +  }
 +
@@ -285,8 +364,10 @@
 +      return nullptr;
 +    }
 +
-+    AppendQairt244Diag(diag_path_str.c_str(), "%s before ModelAssets::Create",
-+                       kQairt244PersistentProbeMarker);
++    model_assets_create_reached = "true";
++    last_native_stage = "before_model_assets_create";
++    append_stage_diag("before ModelAssets::Create");
++    write_result();
 +    auto model_assets = ModelAssets::Create(model_path_str);
 +    if (!model_assets.ok()) {
 +      const std::string detail =
@@ -295,6 +376,17 @@
 +      write_result();
 +      ThrowLiteRtLmJniException(env, detail);
 +      return nullptr;
++    }
++    model_assets_create_returned = "true";
++    last_native_stage = "model_assets_create_returned";
++    append_stage_diag("ModelAssets::Create success");
++    write_result();
++    if (native_probe_mode_str == "model_assets_only") {
++      status = "completed";
++      hypothesis_result = "model_assets_only_success";
++      write_result();
++      append_stage_diag("model_assets_only completed");
++      return NewStringStandardUTF(env, status);
 +    }
 +
 +    auto backend_enum = litert::lm::GetBackendFromString("NPU");
@@ -307,9 +399,10 @@
 +      return nullptr;
 +    }
 +
-+    AppendQairt244Diag(
-+        diag_path_str.c_str(), "%s before EngineSettings::CreateDefault",
-+        kQairt244PersistentProbeMarker);
++    engine_settings_create_reached = "true";
++    last_native_stage = "before_engine_settings_create";
++    append_stage_diag("before EngineSettings::CreateDefault");
++    write_result();
 +    auto settings = EngineSettings::CreateDefault(*model_assets, *backend_enum);
 +    if (!settings.ok()) {
 +      const std::string detail =
@@ -319,15 +412,34 @@
 +      ThrowLiteRtLmJniException(env, detail);
 +      return nullptr;
 +    }
++    engine_settings_create_returned = "true";
++    last_native_stage = "engine_settings_create_returned";
++    append_stage_diag("EngineSettings::CreateDefault success");
++    write_result();
++    if (native_probe_mode_str == "engine_settings_only") {
++      status = "completed";
++      hypothesis_result = "engine_settings_only_success";
++      write_result();
++      append_stage_diag("engine_settings_only completed");
++      return NewStringStandardUTF(env, status);
++    }
 +    if (!cache_dir_str.empty()) {
 +      settings->GetMutableMainExecutorSettings().SetCacheDir(cache_dir_str);
 +    }
 +    settings->GetMutableMainExecutorSettings().SetLitertDispatchLibDir(
 +        native_library_dir_str);
 +
-+    AppendQairt244Diag(
-+        diag_path_str.c_str(), "%s before EngineFactory::CreateDefault",
-+        kQairt244PersistentProbeMarker);
++    last_native_stage = "before_engine_create";
++    append_stage_diag("before EngineFactory::CreateDefault");
++    if (native_probe_mode_str == "before_engine_create") {
++      status = "completed";
++      hypothesis_result = "before_engine_create_success";
++      write_result();
++      append_stage_diag("before_engine_create completed");
++      return NewStringStandardUTF(env, status);
++    }
++    engine_create_reached = "true";
++    write_result();
 +    auto engine = EngineFactory::CreateDefault(*settings);
 +    engine_create_count += 1;
 +    if (!engine.ok()) {
@@ -338,15 +450,29 @@
 +      ThrowLiteRtLmJniException(env, detail);
 +      return nullptr;
 +    }
++    engine_create_returned = "true";
++    last_native_stage = "engine_create_returned";
++    append_stage_diag("EngineFactory::CreateDefault success");
++    write_result();
++    if (native_probe_mode_str == "engine_create_only") {
++      std::unique_ptr<Engine> engine_ptr = std::move(*engine);
++      engine_close_reached = "true";
++      engine_ptr.reset();
++      engine_close_success = "true";
++      status = "completed";
++      hypothesis_result = "engine_create_only_success";
++      write_result();
++      append_stage_diag("engine_create_only completed");
++      return NewStringStandardUTF(env, status);
++    }
 +    g_qairt244_persistent_custom_jni_holder.engine = std::move(*engine);
 +    g_qairt244_persistent_custom_jni_holder.holder_key = holder_key_str;
 +    g_qairt244_persistent_custom_jni_holder.generation += 1;
 +    g_qairt244_persistent_custom_jni_holder.reused_count = 0;
 +    g_qairt244_persistent_custom_jni_holder.invalidated = false;
-+    AppendQairt244Diag(diag_path_str.c_str(),
-+                       "%s EngineFactory::CreateDefault success generation=%ld",
-+                       kQairt244PersistentProbeMarker,
-+                       g_qairt244_persistent_custom_jni_holder.generation);
++    append_stage_diag(
++        "EngineFactory::CreateDefault success generation=" +
++        std::to_string(g_qairt244_persistent_custom_jni_holder.generation));
 +  } else {
 +    g_qairt244_persistent_custom_jni_holder.reused_count += 1;
 +  }
@@ -368,9 +494,11 @@
 +    long decode_ms = -1;
 +    long cleanup_ms = -1;
 +
-+    AppendQairt244Diag(diag_path_str.c_str(),
-+                       "%s run=%d before CreateSession",
-+                       kQairt244PersistentProbeMarker, run_index);
++    session_create_reached = "true";
++    last_native_stage = "before_session_create";
++    append_stage_diag("run=" + std::to_string(run_index) +
++                      " before CreateSession");
++    write_result();
 +    auto session_config = SessionConfig::CreateDefault();
 +    auto session = engine_ptr->CreateSession(session_config);
 +    if (!session.ok()) {
@@ -384,10 +512,12 @@
 +      std::vector<InputData> inputs;
 +      inputs.emplace_back(InputText(normalized_prompt.c_str()));
 +      prefill_started = "true";
++      prefill_reached = "true";
++      last_native_stage = "before_prefill";
 +      const absl::Time prefill_start = absl::Now();
-+      AppendQairt244Diag(diag_path_str.c_str(),
-+                         "%s run=%d before RunPrefill",
-+                         kQairt244PersistentProbeMarker, run_index);
++      append_stage_diag("run=" + std::to_string(run_index) +
++                        " before RunPrefill");
++      write_result();
 +      auto prefill_status = session_ptr->RunPrefill(inputs);
 +      prefill_ms = absl::ToInt64Milliseconds(absl::Now() - prefill_start);
 +      if (!prefill_status.ok()) {
@@ -400,12 +530,14 @@
 +        DecodeConfig decode_config = DecodeConfig::CreateDefault();
 +        decode_config.SetMaxOutputTokens(max_output_tokens);
 +        decode_started = "true";
++        decode_reached = "true";
++        last_native_stage = "before_decode";
 +        decode_attempt_count += 1;
 +        const absl::Time decode_start = absl::Now();
-+        AppendQairt244Diag(diag_path_str.c_str(),
-+                           "%s run=%d before RunDecode SetMaxOutputTokens(%d)",
-+                           kQairt244PersistentProbeMarker, run_index,
-+                           max_output_tokens);
++        append_stage_diag("run=" + std::to_string(run_index) +
++                          " before RunDecode SetMaxOutputTokens(" +
++                          std::to_string(max_output_tokens) + ")");
++        write_result();
 +        auto responses = session_ptr->RunDecode(decode_config);
 +        decode_ms = absl::ToInt64Milliseconds(absl::Now() - decode_start);
 +        if (!responses.ok()) {
@@ -480,12 +612,15 @@
 +    holder_invalidated = "true";
 +  }
 +  write_result();
-+  AppendQairt244Diag(diag_path_str.c_str(),
-+                     "%s END status=%s completed=%d success=%d failure=%d "
-+                     "engine_create_count=%d decode_success_count=%d",
-+                     kQairt244PersistentProbeMarker, status.c_str(),
-+                     completed_count, success_count, failure_count,
-+                     engine_create_count, decode_success_count);
++  append_stage_diag("END status=" + status +
++                    " completed=" + std::to_string(completed_count) +
++                    " success=" + std::to_string(success_count) +
++                    " failure=" + std::to_string(failure_count) +
++                    " engine_create_count=" +
++                    std::to_string(engine_create_count) +
++                    " decode_success_count=" +
++                    std::to_string(decode_success_count));
++  write_result();
 +  return NewStringStandardUTF(env, status);
 +}
 +
