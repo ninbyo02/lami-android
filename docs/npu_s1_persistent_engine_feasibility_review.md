@@ -475,3 +475,82 @@ static holder 化できるかは repo-local evidence では未証明である。
 最初に作るべき PoC は、Gallery に近い Java/Kotlin official Engine 常駐設計である。
 その PoC で run20 が通るなら、S1 の将来設計は
 "persistent Engine + per-request Conversation/Session" へ寄せるべきである。
+
+## 16. DEV PoC 実装メモ
+
+`standardDebug` / DEV 診断専用で `NpuS1PersistentEngineDevProbe` を追加した。
+通常チャット送信、既存 S1 custom JNI repeated run、fallback、TTS、DB、streaming には
+接続しない。
+
+PoC の目的:
+
+- custom JNI の run ごと `EngineFactory::CreateDefault` を避ける。
+- official Java/Kotlin LiteRT-LM `Engine` を 1 回だけ `initialize()` する。
+- 同じ `Engine` から run ごとに fresh `Conversation` を作る。
+- run ごとに `Conversation.close()` し、20 run 後に `Engine.close()` する。
+- 結果は DEV 診断コピーの
+  `[DEV診断: NPU S1 persistent engine summary]` /
+  `[DEV診断: NPU S1 persistent engine details]` に出す。
+
+custom JNI repeated run との差分:
+
+- custom JNI は各 run で native one-shot を呼び、native 側で
+  `EngineFactory::CreateDefault` から `RunDecode` までを毎回実行する。
+- persistent Engine PoC は official Java/Kotlin `Engine` を保持し、
+  `Engine.initialize()` を loop 外で 1 回だけ呼ぶ。
+- prompt は既存 S1 と同じ DEV repeated run default prompt と raw dialog tail variant を使う。
+- sanitizer は debug 側の `Qairt244NpuOutputSanitizer` を使う。
+
+Conversation / Session の扱い:
+
+- `Conversation` は run ごとに `engine.createConversation(...)` で作成し、
+  run 後に `conversation.close()` する。
+- `Session` API は official API 上存在するが、この PoC では direct `Session` を作成しない。
+  既存の Gallery / `LocalStreamingRunner` 実績がある Conversation 経路を優先するため。
+- そのため DEV 診断コピーでは `session_create_count=unavailable` /
+  `session_close_count=unavailable` と明示する。
+
+成功時の判定:
+
+- `engine_initialize_count=1`
+- `run_count_completed=20`
+- `success_count=20`
+- `conversation_create_count=20`
+- `conversation_close_count=20`
+- `persistent_engine_hypothesis_result=engine_initialize_once_20_runs_success`
+- アプリ生存、new tombstone なし、Dropbox なし
+
+失敗時の読み方:
+
+- `persistent_engine_hypothesis_result=engine_initialize_once_failed`
+  - official Java/Kotlin Engine の NPU attach / `nativeCreateEngine` で失敗。
+- `persistent_engine_hypothesis_result=conversation_create_failed`
+  - Engine は作れたが fresh Conversation 作成で失敗。
+- `persistent_engine_hypothesis_result=decode_failed`
+  - Engine/Conversation 作成後の `sendMessageAsync` で失敗。
+- `engine_initialize_count=1` かつ run6-7 で `decode_failed`
+  - Conversation 経路でも同一 Engine 内の累積問題がある可能性。
+
+次回実機確認手順:
+
+1. Lami を `standardDebug` で起動する。
+2. DEV 診断を開く。
+3. `NPU S1 persistent Engine 20回テスト` を実行する。
+4. 停止後、DEV 診断コピーを保存する。
+5. 以下を見る:
+   - `engine_initialize_count`
+   - `run_count_completed`
+   - `success_count`
+   - `conversation_create_count`
+   - `conversation_close_count`
+   - `session_create_count`
+   - `session_close_count`
+   - `first_failure_stage`
+   - `first_failure_reason`
+   - `persistent_engine_hypothesis_result`
+
+release 影響:
+
+- official LiteRT-LM typed 実装は `app/src/debug` に置く。
+- main 側は `NpuS1PersistentEngineProbeRunner` interface と reflection で debug 実装を探すだけ。
+- release / 他 variant で debug 実装が存在しない場合は runner unavailable として止まる。

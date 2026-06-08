@@ -1005,6 +1005,10 @@ fun Home(
     var npuS1RepeatedRunState by remember(effectiveChatId) { mutableStateOf(NpuS1RepeatedRunState()) }
     var npuS1RepeatedRunJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var npuS1RepeatedRunMode by rememberSaveable(effectiveChatId) { mutableStateOf(NpuS1RepeatedRunMode.REUSE) }
+    var npuS1PersistentEngineState by remember(effectiveChatId) {
+        mutableStateOf(NpuS1PersistentEngineProbeState())
+    }
+    var npuS1PersistentEngineJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var devUiAliveSeconds by remember(effectiveChatId) { mutableStateOf(0) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
@@ -1019,6 +1023,8 @@ fun Home(
             memoryRecoveryCheckJob = null
             npuS1RepeatedRunJob?.cancel()
             npuS1RepeatedRunJob = null
+            npuS1PersistentEngineJob?.cancel()
+            npuS1PersistentEngineJob = null
         }
     }
 
@@ -1445,6 +1451,65 @@ fun Home(
 
     fun cancelNpuS1RepeatedRun() {
         npuS1RepeatedRunJob?.cancel()
+    }
+
+    fun startNpuS1PersistentEngineProbe() {
+        if (isInferenceRunningUi) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "生成完了後に実行してください",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
+        if (npuS1PersistentEngineJob?.isActive == true) return
+        npuS1PersistentEngineState = NpuS1PersistentEngineProbeState(
+            persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_RUNNING,
+            runCountRequested = NPU_S1_PERSISTENT_ENGINE_DEFAULT_COUNT,
+            startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+            persistentEngineHypothesisResult = "starting",
+        )
+        npuS1PersistentEngineJob = coroutineScope.launch {
+            val runner = withContext(Dispatchers.Default) {
+                createNpuS1PersistentEngineProbeRunner(context.applicationContext)
+            }
+            if (runner == null) {
+                npuS1PersistentEngineState = npuS1PersistentEngineState.copy(
+                    persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_STOPPED,
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    firstFailureStage = "runner_create",
+                    firstFailureReason = "debug_persistent_engine_probe_unavailable",
+                    persistentEngineHypothesisResult = "engine_initialize_once_failed",
+                )
+                npuS1PersistentEngineJob = null
+                return@launch
+            }
+            try {
+                runner.run(
+                    onUpdate = { state ->
+                        coroutineScope.launch {
+                            npuS1PersistentEngineState = state
+                        }
+                    },
+                    isCancelled = { npuS1PersistentEngineJob?.isActive != true },
+                )
+            } catch (exception: CancellationException) {
+                npuS1PersistentEngineState = npuS1PersistentEngineState.copy(
+                    persistentProbeStatus = NPU_S1_PERSISTENT_ENGINE_STATUS_CANCELLED,
+                    finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    persistentEngineHypothesisResult = "cancelled",
+                )
+                throw exception
+            } finally {
+                npuS1PersistentEngineJob = null
+            }
+        }
+    }
+
+    fun cancelNpuS1PersistentEngineProbe() {
+        npuS1PersistentEngineJob?.cancel()
     }
 
     LaunchedEffect(isLocalInferenceRunning, streamingResponseText) {
@@ -5600,10 +5665,13 @@ fun Home(
                                                 clipboardManager.setText(
                                                     AnnotatedString(
                                                         appendMemoryRecoveryCheckForDev(
-                                                            text = appendNpuS1RepeatedRunDiagnosticsForDev(
-                                                                text = npuStandardRouteS1DevDiagnosticCopyText
-                                                                    ?: s1DevTraceText.orEmpty(),
-                                                                state = npuS1RepeatedRunState,
+                                                            text = appendNpuS1PersistentEngineDiagnosticsForDev(
+                                                                text = appendNpuS1RepeatedRunDiagnosticsForDev(
+                                                                    text = npuStandardRouteS1DevDiagnosticCopyText
+                                                                        ?: s1DevTraceText.orEmpty(),
+                                                                    state = npuS1RepeatedRunState,
+                                                                ),
+                                                                state = npuS1PersistentEngineState,
                                                             ),
                                                             state = memoryRecoveryCheckState,
                                                         ),
@@ -5621,6 +5689,11 @@ fun Home(
                                             onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
                                             onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
                                             onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
+                                            npuS1PersistentEngineState = npuS1PersistentEngineState,
+                                            npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
+                                            isInferenceRunningForPersistentEngine = isInferenceRunningUi,
+                                            onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
+                                            onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
                                             s4Text = s4Text,
                                             s4Title = if (npuStandardRouteS4PseudoStreamingActive) {
                                                 "NPU STANDARD ROUTE S4-A PSEUDO STREAMING"
@@ -5678,6 +5751,11 @@ fun Home(
                                             onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
                                             onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
                                             onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
+                                            npuS1PersistentEngineState = npuS1PersistentEngineState,
+                                            npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
+                                            isInferenceRunningForPersistentEngine = isInferenceRunningUi,
+                                            onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
+                                            onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
                                         )
                                     }
                                 }
@@ -5898,6 +5976,11 @@ fun Home(
                     onNpuS1RepeatedRunModeChange = { npuS1RepeatedRunMode = it },
                     onNpuS1RepeatedRunStart = ::startNpuS1RepeatedRun,
                     onNpuS1RepeatedRunCancel = ::cancelNpuS1RepeatedRun,
+                    npuS1PersistentEngineState = npuS1PersistentEngineState,
+                    npuS1PersistentEngineInProgress = npuS1PersistentEngineJob?.isActive == true,
+                    isInferenceRunningForPersistentEngine = isInferenceRunningUi,
+                    onNpuS1PersistentEngineStart = ::startNpuS1PersistentEngineProbe,
+                    onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
                     onManualEngineRecreate = {
                         val blocked = isInferenceRunningUi || isTtsSpeaking || isStreamingSentencePlaybackActive || preferredBackendManualRecreateInProgress
                         if (blocked) {
@@ -8866,6 +8949,48 @@ private fun NpuS1RepeatedRunDevSection(
 }
 
 @Composable
+private fun NpuS1PersistentEngineDevSection(
+    state: NpuS1PersistentEngineProbeState,
+    running: Boolean,
+    blockedByGeneration: Boolean,
+    onStart: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    InferenceStatsSection(title = "NPU S1 persistent Engine") {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = onStart,
+                enabled = !running && !blockedByGeneration,
+            ) {
+                Text("NPU S1 persistent Engine 20回テスト")
+            }
+            TextButton(
+                onClick = onCancel,
+                enabled = running,
+            ) {
+                Text("キャンセル")
+            }
+        }
+        Text(
+            text = if (blockedByGeneration) {
+                "生成完了後に実行してください"
+            } else {
+                "DEV専用PoCです。official Engineを1回だけ初期化し、通常チャット経路には接続しません。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        InferenceStatRow(
+            label = "NPU S1 persistent Engine",
+            value = formatNpuS1PersistentEngineDiagnosticsForDev(state),
+        )
+    }
+}
+
+@Composable
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
     initialDisplayMode: InferenceStatsDisplayMode,
@@ -8895,6 +9020,11 @@ private fun InferenceStatsSheetContent(
     onNpuS1RepeatedRunModeChange: (NpuS1RepeatedRunMode) -> Unit = {},
     onNpuS1RepeatedRunStart: () -> Unit = {},
     onNpuS1RepeatedRunCancel: () -> Unit = {},
+    npuS1PersistentEngineState: NpuS1PersistentEngineProbeState = NpuS1PersistentEngineProbeState(),
+    npuS1PersistentEngineInProgress: Boolean = false,
+    isInferenceRunningForPersistentEngine: Boolean = false,
+    onNpuS1PersistentEngineStart: () -> Unit = {},
+    onNpuS1PersistentEngineCancel: () -> Unit = {},
 ) {
     var selectedDisplayMode by rememberSaveable { mutableStateOf(initialDisplayMode) }
     LaunchedEffect(initialDisplayMode) {
@@ -8991,6 +9121,7 @@ private fun InferenceStatsSheetContent(
                                 detailSections = detailSections,
                                 memoryRecoveryCheckState = memoryRecoveryCheckState,
                                 npuS1RepeatedRunState = npuS1RepeatedRunState,
+                                npuS1PersistentEngineState = npuS1PersistentEngineState,
                             ),
                         ),
                     )
@@ -9055,6 +9186,15 @@ private fun InferenceStatsSheetContent(
                     onStart = onNpuS1RepeatedRunStart,
                     onCancel = onNpuS1RepeatedRunCancel,
                 )
+                if (BuildConfig.DEBUG) {
+                    NpuS1PersistentEngineDevSection(
+                        state = npuS1PersistentEngineState,
+                        running = npuS1PersistentEngineInProgress,
+                        blockedByGeneration = isInferenceRunningForPersistentEngine,
+                        onStart = onNpuS1PersistentEngineStart,
+                        onCancel = onNpuS1PersistentEngineCancel,
+                    )
+                }
                 InferenceStatsSection(title = "DEV Markdown") {
                     InferenceStatRow(
                         label = "Markdown mode",
@@ -9226,6 +9366,11 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     onNpuS1RepeatedRunModeChange: ((NpuS1RepeatedRunMode) -> Unit)? = null,
     onNpuS1RepeatedRunStart: (() -> Unit)? = null,
     onNpuS1RepeatedRunCancel: (() -> Unit)? = null,
+    npuS1PersistentEngineState: NpuS1PersistentEngineProbeState = NpuS1PersistentEngineProbeState(),
+    npuS1PersistentEngineInProgress: Boolean = false,
+    isInferenceRunningForPersistentEngine: Boolean = false,
+    onNpuS1PersistentEngineStart: (() -> Unit)? = null,
+    onNpuS1PersistentEngineCancel: (() -> Unit)? = null,
 ) {
     if (!hasNpuStandardRouteDevDiagnostics(routeText, devTraceText, s4Text)) return
 
@@ -9266,6 +9411,19 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                     onModeChange = onNpuS1RepeatedRunModeChange,
                     onStart = onNpuS1RepeatedRunStart,
                     onCancel = onNpuS1RepeatedRunCancel,
+                )
+            }
+            if (
+                BuildConfig.DEBUG &&
+                onNpuS1PersistentEngineStart != null &&
+                onNpuS1PersistentEngineCancel != null
+            ) {
+                NpuS1PersistentEngineDevSection(
+                    state = npuS1PersistentEngineState,
+                    running = npuS1PersistentEngineInProgress,
+                    blockedByGeneration = isInferenceRunningForPersistentEngine,
+                    onStart = onNpuS1PersistentEngineStart,
+                    onCancel = onNpuS1PersistentEngineCancel,
                 )
             }
             if (!routeText.isNullOrBlank() && onCopyRoute != null) {
@@ -9349,6 +9507,7 @@ internal fun buildInferenceStatsFullCopyText(
     detailSections: List<InferenceStatsSectionUi>,
     memoryRecoveryCheckState: MemoryRecoveryCheckState? = null,
     npuS1RepeatedRunState: NpuS1RepeatedRunState? = null,
+    npuS1PersistentEngineState: NpuS1PersistentEngineProbeState? = null,
 ): String {
     return buildString {
         appendLine("推論統計")
@@ -9415,6 +9574,10 @@ internal fun buildInferenceStatsFullCopyText(
         if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1RepeatedRunState != null) {
             appendLine()
             appendLine(formatNpuS1RepeatedRunDiagnosticsForDev(npuS1RepeatedRunState))
+        }
+        if (displayMode == InferenceStatsDisplayMode.DEVELOPER && npuS1PersistentEngineState != null) {
+            appendLine()
+            appendLine(formatNpuS1PersistentEngineDiagnosticsForDev(npuS1PersistentEngineState))
         }
 
     }.trimEnd()
