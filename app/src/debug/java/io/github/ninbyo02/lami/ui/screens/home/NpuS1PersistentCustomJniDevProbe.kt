@@ -25,6 +25,7 @@ internal class NpuS1PersistentCustomJniDevProbe(
         val modelFile = modelPath.takeIf { it.isNotBlank() }?.let(::File)
         val modelFileSize = modelFile?.takeIf { it.exists() }?.length()?.toString() ?: "unavailable"
         val modelLastModified = modelFile?.takeIf { it.exists() }?.lastModified()?.toString() ?: "unavailable"
+        val promptDiagnostics = buildPersistentCustomJniPromptDiagnostics()
         val holderKey = NpuS1PersistentCustomJniHolderKey(
             modelPath = modelPath.ifBlank { modelResolution.reasonCode },
             modelFileLastModified = modelLastModified,
@@ -55,6 +56,14 @@ internal class NpuS1PersistentCustomJniDevProbe(
             modelFileLastModified = modelLastModified,
             backendEvidence = "custom_jni_persistent_holder_probe_requested",
             persistentCustomJniHypothesisResult = "starting",
+            promptInputLimitMode = promptDiagnostics.promptInputLimitMode,
+            finalPromptText = promptDiagnostics.finalPromptText,
+            finalPromptLengthChars = promptDiagnostics.finalPromptLengthChars,
+            finalPromptTailPreview = promptDiagnostics.finalPromptTailPreview,
+            systemTemplateUsed = promptDiagnostics.systemTemplateUsed,
+            hiddenTemplateUsed = promptDiagnostics.hiddenTemplateUsed,
+            promptWrapperUsed = promptDiagnostics.promptWrapperUsed,
+            prefillTextOrTokenNote = promptDiagnostics.prefillTextOrTokenNote,
         )
         fun update(next: NpuS1PersistentCustomJniProbeState) {
             state = next
@@ -150,6 +159,13 @@ private fun parsePersistentCustomJniProbeResult(
                 rawOutput = rawOutput,
                 prompt = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
             ).sanitizedOutput
+        val quality = classifyNpuS1PersistentCustomJniOutputQuality(rawOutput.ifBlank { sanitized })
+        val nativeQuality = values["quality_classification"].orUnavailable()
+        val qualityClassification = if (quality.qualityClassification != NPU_S1_OUTPUT_QUALITY_NATURAL_JAPANESE) {
+            quality.qualityClassification
+        } else {
+            nativeQuality
+        }
         NpuS1PersistentCustomJniRunRecord(
             runIndex = values["run_index"]?.toIntOrNull() ?: 0,
             status = values["status"].orEmpty().ifBlank { "unavailable" },
@@ -162,7 +178,11 @@ private fun parsePersistentCustomJniProbeResult(
             decodeFinished = values["decode_finished"].orUnavailable(),
             rawOutput = rawOutput,
             sanitizedOutput = sanitized,
-            qualityClassification = values["quality_classification"].orUnavailable(),
+            outputPrefix20Chars = quality.outputPrefix20Chars,
+            startsWithPunctuation = quality.startsWithPunctuation.toString(),
+            containsBusinessPhrase = quality.containsBusinessPhrase.toString(),
+            containsPlaceholder = quality.containsPlaceholder.toString(),
+            qualityClassification = qualityClassification,
             totalMs = values["total_ms"].toNullableNonNegativeLong(),
             prefillMs = values["prefill_ms"].toNullableNonNegativeLong(),
             decodeMs = values["decode_ms"].toNullableNonNegativeLong(),
@@ -174,6 +194,7 @@ private fun parsePersistentCustomJniProbeResult(
                 ?: result.diagText.lineSequence().lastOrNull().orUnavailable(),
         )
     }
+    val qualitySummary = buildPersistentCustomJniQualitySummary(records)
     return fallbackState.copy(
         persistentCustomJniStatus = summary["persistent_custom_jni_status"].orUnavailable(),
         runCountCompletedOverride = summary["run_count_completed"]?.toIntOrNull(),
@@ -229,7 +250,103 @@ private fun parsePersistentCustomJniProbeResult(
             ?: result.diagText.lineSequence().lastOrNull().orUnavailable(),
         backendEvidence = summary["backend_evidence"].orUnavailable(),
         persistentCustomJniHypothesisResult = summary["persistent_custom_jni_hypothesis_result"].orUnavailable(),
+        promptInputLimitMode = summary["prompt_input_limit_mode"] ?: fallbackState.promptInputLimitMode,
+        finalPromptText = summary["final_prompt_text"] ?: fallbackState.finalPromptText,
+        finalPromptLengthChars = summary["final_prompt_length_chars"] ?: fallbackState.finalPromptLengthChars,
+        finalPromptTailPreview = summary["final_prompt_tail_preview"] ?: fallbackState.finalPromptTailPreview,
+        systemTemplateUsed = summary["system_template_used"] ?: fallbackState.systemTemplateUsed,
+        hiddenTemplateUsed = summary["hidden_template_used"] ?: fallbackState.hiddenTemplateUsed,
+        promptWrapperUsed = summary["prompt_wrapper_used"] ?: fallbackState.promptWrapperUsed,
+        prefillTextOrTokenNote = summary["prefill_text_or_token_note"] ?: fallbackState.prefillTextOrTokenNote,
+        firstOutputChars = qualitySummary.firstOutputChars,
+        outputPrefixClassification = qualitySummary.outputPrefixClassification,
+        outputQualityReason = qualitySummary.outputQualityReason,
+        outputRepeatsSameAcrossRuns = qualitySummary.outputRepeatsSameAcrossRuns,
+        outputLooksBusinessTemplate = qualitySummary.outputLooksBusinessTemplate,
+        outputStartsWithPunctuation = qualitySummary.outputStartsWithPunctuation,
+        outputContainsPlaceholder = qualitySummary.outputContainsPlaceholder,
         records = records,
+    )
+}
+
+private data class PersistentCustomJniPromptDiagnostics(
+    val promptInputLimitMode: String,
+    val finalPromptText: String,
+    val finalPromptLengthChars: String,
+    val finalPromptTailPreview: String,
+    val systemTemplateUsed: String,
+    val hiddenTemplateUsed: String,
+    val promptWrapperUsed: String,
+    val prefillTextOrTokenNote: String,
+)
+
+private fun buildPersistentCustomJniPromptDiagnostics(): PersistentCustomJniPromptDiagnostics {
+    val validation = NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(
+        NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
+    )
+    val promptInputLimitMode = if (
+        validation.promptInputLimitMode == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
+    ) {
+        "unsafe_dev_bypass_hidden_template_experiment"
+    } else {
+        validation.promptInputLimitMode
+    }
+    return PersistentCustomJniPromptDiagnostics(
+        promptInputLimitMode = promptInputLimitMode,
+        finalPromptText = validation.normalizedPrompt,
+        finalPromptLengthChars = validation.normalizedPrompt.length.toString(),
+        finalPromptTailPreview = validation.normalizedPrompt.takeLast(PROMPT_TAIL_PREVIEW_CHARS),
+        systemTemplateUsed = "false",
+        hiddenTemplateUsed = "false",
+        promptWrapperUsed = "none",
+        prefillTextOrTokenNote = "native_RunPrefill_receives_final_prompt_text",
+    )
+}
+
+private data class PersistentCustomJniQualitySummary(
+    val firstOutputChars: String,
+    val outputPrefixClassification: String,
+    val outputQualityReason: String,
+    val outputRepeatsSameAcrossRuns: String,
+    val outputLooksBusinessTemplate: String,
+    val outputStartsWithPunctuation: String,
+    val outputContainsPlaceholder: String,
+)
+
+private fun buildPersistentCustomJniQualitySummary(
+    records: List<NpuS1PersistentCustomJniRunRecord>,
+): PersistentCustomJniQualitySummary {
+    if (records.isEmpty()) {
+        return PersistentCustomJniQualitySummary(
+            firstOutputChars = "unavailable",
+            outputPrefixClassification = "unavailable",
+            outputQualityReason = "unavailable",
+            outputRepeatsSameAcrossRuns = "unavailable",
+            outputLooksBusinessTemplate = "unavailable",
+            outputStartsWithPunctuation = "unavailable",
+            outputContainsPlaceholder = "unavailable",
+        )
+    }
+    val outputs = records.map { it.rawOutput.ifBlank { it.sanitizedOutput } }
+    val firstQuality = classifyNpuS1PersistentCustomJniOutputQuality(outputs.firstOrNull().orEmpty())
+    val distinctNonBlankOutputs = outputs.filter { it.isNotBlank() }.distinct()
+    val hasBusinessTemplate = records.any { it.containsBusinessPhrase == "true" }
+    val startsWithPunctuation = records.any { it.startsWithPunctuation == "true" }
+    val containsPlaceholder = records.any { it.containsPlaceholder == "true" }
+    val reasons = buildList {
+        if (startsWithPunctuation) add("starts_with_punctuation")
+        if (hasBusinessTemplate) add("business_template_phrase")
+        if (containsPlaceholder) add("placeholder_leak")
+        if (distinctNonBlankOutputs.size == 1 && records.size > 1) add("same_output_repeated")
+    }.ifEmpty { listOf(firstQuality.reason) }
+    return PersistentCustomJniQualitySummary(
+        firstOutputChars = outputs.firstOrNull().orEmpty().take(40),
+        outputPrefixClassification = firstQuality.qualityClassification,
+        outputQualityReason = reasons.joinToString("+"),
+        outputRepeatsSameAcrossRuns = (distinctNonBlankOutputs.size == 1 && records.size > 1).toString(),
+        outputLooksBusinessTemplate = hasBusinessTemplate.toString(),
+        outputStartsWithPunctuation = startsWithPunctuation.toString(),
+        outputContainsPlaceholder = containsPlaceholder.toString(),
     )
 }
 
@@ -274,3 +391,5 @@ private fun String?.orUnavailable(): String = this?.takeIf { it.isNotBlank() } ?
 
 private fun String?.toNullableNonNegativeLong(): Long? =
     this?.toLongOrNull()?.takeIf { it >= 0L }
+
+private const val PROMPT_TAIL_PREVIEW_CHARS = 160

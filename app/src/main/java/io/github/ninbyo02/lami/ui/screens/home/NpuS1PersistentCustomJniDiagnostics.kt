@@ -13,6 +13,19 @@ internal const val NPU_S1_PERSISTENT_CUSTOM_JNI_ENGINE_CONFIG_VERSION =
     "persistent_custom_jni_holder_poc_v1"
 internal const val NPU_S1_PERSISTENT_CUSTOM_JNI_CLASS_NAME =
     "io.github.ninbyo02.lami.ui.screens.home.NpuS1PersistentCustomJniDevProbe"
+internal const val NPU_S1_PROMOTION_GATE_STATUS_PASS = "pass"
+internal const val NPU_S1_PROMOTION_GATE_STATUS_FAIL = "fail"
+internal const val NPU_S1_PROMOTION_GATE_STATUS_NOT_RUN = "not_run"
+internal const val NPU_S1_PROMOTION_GATE_REASON_FULL_20_NOT_RUN = "full_20_not_run"
+internal const val NPU_S1_PROMOTION_GATE_REASON_READY_BUT_NORMAL_CHAT_BLOCKED =
+    "crash_safety_ready_but_normal_chat_unblock_blocked_by_policy"
+internal const val NPU_S1_PROMOTION_GATE_TOMBSTONE_COMPARE_HINT =
+    "manually_compare_probe_wall_time_with_dumpsys_dropbox_and_data_tombstones"
+internal const val NPU_S1_OUTPUT_QUALITY_NATURAL_JAPANESE = "natural_japanese"
+internal const val NPU_S1_OUTPUT_QUALITY_TEMPLATE_LEAK = "template_leak"
+internal const val NPU_S1_OUTPUT_QUALITY_PUNCTUATION_START = "punctuation_start"
+internal const val NPU_S1_OUTPUT_QUALITY_PLACEHOLDER_LEAK = "placeholder_leak"
+internal const val NPU_S1_OUTPUT_QUALITY_UNKNOWN = "unknown"
 
 internal enum class NpuS1PersistentCustomJniProbeMode(
     val wireValue: String,
@@ -80,6 +93,10 @@ internal data class NpuS1PersistentCustomJniRunRecord(
     val decodeFinished: String = "unavailable",
     val rawOutput: String = "",
     val sanitizedOutput: String = "",
+    val outputPrefix20Chars: String = "unavailable",
+    val startsWithPunctuation: String = "unavailable",
+    val containsBusinessPhrase: String = "unavailable",
+    val containsPlaceholder: String = "unavailable",
     val qualityClassification: String = "unavailable",
     val totalMs: Long? = null,
     val prefillMs: Long? = null,
@@ -149,6 +166,25 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val modelFileLastModified: String = "unavailable",
     val backendEvidence: String = "unavailable",
     val persistentCustomJniHypothesisResult: String = "unavailable",
+    val promptInputLimitMode: String = "unavailable",
+    val finalPromptText: String = "unavailable",
+    val finalPromptLengthChars: String = "unavailable",
+    val finalPromptTailPreview: String = "unavailable",
+    val systemTemplateUsed: String = "unavailable",
+    val hiddenTemplateUsed: String = "unavailable",
+    val promptWrapperUsed: String = "unavailable",
+    val prefillTextOrTokenNote: String = "unavailable",
+    val firstOutputChars: String = "unavailable",
+    val outputPrefixClassification: String = "unavailable",
+    val outputQualityReason: String = "unavailable",
+    val outputRepeatsSameAcrossRuns: String = "unavailable",
+    val outputLooksBusinessTemplate: String = "unavailable",
+    val outputStartsWithPunctuation: String = "unavailable",
+    val outputContainsPlaceholder: String = "unavailable",
+    val promotionGateFreshCrash: String = "false",
+    val promotionGateTimeout: String = "false",
+    val promotionGateFallback: String = "false",
+    val promotionGateTombstoneManualCheck: String = "required",
     val records: List<NpuS1PersistentCustomJniRunRecord> = emptyList(),
 ) {
     val runCountCompleted: Int
@@ -161,9 +197,113 @@ internal data class NpuS1PersistentCustomJniProbeState(
         get() = records.count { it.status != NpuStandardRouteS1Contract.STATUS_SUCCESS }
 }
 
+internal data class NpuS1PromotionGateResult(
+    val status: String,
+    val reason: String,
+    val full20Required: Boolean = true,
+    val qualityRequired: Boolean = false,
+    val normalChatUnblockAllowed: Boolean = false,
+    val tombstoneManualCheckRequired: Boolean = true,
+    val tombstoneCompareHint: String = NPU_S1_PROMOTION_GATE_TOMBSTONE_COMPARE_HINT,
+)
+
+internal data class NpuS1PersistentCustomJniOutputQualityDiagnostics(
+    val outputPrefix20Chars: String,
+    val startsWithPunctuation: Boolean,
+    val containsBusinessPhrase: Boolean,
+    val containsPlaceholder: Boolean,
+    val qualityClassification: String,
+    val reason: String,
+)
+
+internal fun classifyNpuS1PersistentCustomJniOutputQuality(
+    output: String,
+): NpuS1PersistentCustomJniOutputQualityDiagnostics {
+    val visibleOutput = output.trimStart()
+    val startsWithPunctuation = visibleOutput.firstOrNull()?.let(::isSuspiciousJapanesePrefixPunctuation) == true
+    val containsBusinessPhrase = listOf(
+        "いつもお世話になっております",
+        "お世話になっております",
+        "よろしくお願いいたします",
+    ).any(output::contains)
+    val containsPlaceholder = Regex("""\[[^\]]+\]""").containsMatchIn(output)
+    val classification = when {
+        containsPlaceholder -> NPU_S1_OUTPUT_QUALITY_PLACEHOLDER_LEAK
+        containsBusinessPhrase -> NPU_S1_OUTPUT_QUALITY_TEMPLATE_LEAK
+        startsWithPunctuation -> NPU_S1_OUTPUT_QUALITY_PUNCTUATION_START
+        output.isBlank() -> NPU_S1_OUTPUT_QUALITY_UNKNOWN
+        else -> NPU_S1_OUTPUT_QUALITY_NATURAL_JAPANESE
+    }
+    val reasons = buildList {
+        if (startsWithPunctuation) add("starts_with_punctuation")
+        if (containsBusinessPhrase) add("business_template_phrase")
+        if (containsPlaceholder) add("placeholder_leak")
+        if (output.isBlank()) add("empty_output")
+    }
+    return NpuS1PersistentCustomJniOutputQualityDiagnostics(
+        outputPrefix20Chars = output.take(20),
+        startsWithPunctuation = startsWithPunctuation,
+        containsBusinessPhrase = containsBusinessPhrase,
+        containsPlaceholder = containsPlaceholder,
+        qualityClassification = classification,
+        reason = reasons.ifEmpty { listOf("no_quality_issue_detected") }.joinToString("+"),
+    )
+}
+
+private fun isSuspiciousJapanesePrefixPunctuation(char: Char): Boolean =
+    char in setOf('。', '、', '.', ',', '．', '，', '！', '？', '!', '?', ')', '）', ']', '］', '」', '』')
+
+internal fun evaluateNpuS1PromotionGate(
+    state: NpuS1PersistentCustomJniProbeState,
+): NpuS1PromotionGateResult {
+    val full20Selected = state.selectedNativeProbeMode == NpuS1PersistentCustomJniProbeMode.FULL_20.wireValue
+    val hasRunEvidence = state.runCountCompleted > 0 ||
+        state.engineCreateCount != "unavailable" ||
+        state.decodeSuccessCount != "unavailable"
+    if (!full20Selected || !hasRunEvidence) {
+        return NpuS1PromotionGateResult(
+            status = NPU_S1_PROMOTION_GATE_STATUS_NOT_RUN,
+            reason = NPU_S1_PROMOTION_GATE_REASON_FULL_20_NOT_RUN,
+        )
+    }
+
+    val requested = state.runCountRequested
+    val failedReasons = buildList {
+        if (state.persistentCustomJniStatus != NPU_S1_PERSISTENT_CUSTOM_JNI_STATUS_COMPLETED) {
+            add("persistent_custom_jni_status_not_completed")
+        }
+        if (!state.backendEvidence.contains("QNN_HTP_V79")) {
+            add("backend_evidence_missing_QNN_HTP_V79")
+        }
+        if (state.successCount != requested) add("success_count_not_run_count_requested")
+        if (state.failureCount != 0) add("failure_count_not_zero")
+        if (state.decodeSuccessCount != requested.toString()) add("decode_success_count_not_run_count_requested")
+        if (state.decodeAttemptCount != requested.toString()) add("decode_attempt_count_not_run_count_requested")
+        if (state.engineCreateCount != "1") add("engine_create_count_not_one")
+        if (state.engineCloseReached != "true") add("engine_close_reached_not_true")
+        if (state.engineCloseSuccess != "true") add("engine_close_success_not_true")
+        if (state.promotionGateFreshCrash != "false") add("fresh_crash_not_false")
+        if (state.promotionGateTimeout != "false") add("timeout_not_false")
+        if (state.promotionGateFallback != "false") add("fallback_not_false")
+    }
+
+    return if (failedReasons.isEmpty()) {
+        NpuS1PromotionGateResult(
+            status = NPU_S1_PROMOTION_GATE_STATUS_PASS,
+            reason = NPU_S1_PROMOTION_GATE_REASON_READY_BUT_NORMAL_CHAT_BLOCKED,
+        )
+    } else {
+        NpuS1PromotionGateResult(
+            status = NPU_S1_PROMOTION_GATE_STATUS_FAIL,
+            reason = failedReasons.joinToString("+"),
+        )
+    }
+}
+
 internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     state: NpuS1PersistentCustomJniProbeState,
 ): String = buildString {
+    val promotionGate = evaluateNpuS1PromotionGate(state)
     appendLine("[DEV診断: NPU S1 persistent custom JNI summary]")
     appendLine("persistent_custom_jni_status=${state.persistentCustomJniStatus}")
     appendLine("run_count_requested=${state.runCountRequested}")
@@ -229,6 +369,44 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("model_file_last_modified=${state.modelFileLastModified}")
     appendLine("backend_evidence=${escapePersistentCustomJniCopyValue(state.backendEvidence)}")
     appendLine("persistent_custom_jni_hypothesis_result=${state.persistentCustomJniHypothesisResult}")
+    appendLine("prompt_input_limit_mode=${state.promptInputLimitMode}")
+    appendLine("final_prompt_text=${escapePersistentCustomJniCopyValue(state.finalPromptText)}")
+    appendLine("final_prompt_length_chars=${state.finalPromptLengthChars}")
+    appendLine("final_prompt_tail_preview=${escapePersistentCustomJniCopyValue(state.finalPromptTailPreview)}")
+    appendLine("system_template_used=${state.systemTemplateUsed}")
+    appendLine("hidden_template_used=${state.hiddenTemplateUsed}")
+    appendLine("prompt_wrapper_used=${state.promptWrapperUsed}")
+    appendLine("prefill_text_or_token_note=${escapePersistentCustomJniCopyValue(state.prefillTextOrTokenNote)}")
+    appendLine("first_output_chars=${escapePersistentCustomJniCopyValue(state.firstOutputChars)}")
+    appendLine("output_prefix_classification=${state.outputPrefixClassification}")
+    appendLine("output_quality_reason=${state.outputQualityReason}")
+    appendLine("output_repeats_same_across_runs=${state.outputRepeatsSameAcrossRuns}")
+    appendLine("output_looks_business_template=${state.outputLooksBusinessTemplate}")
+    appendLine("output_starts_with_punctuation=${state.outputStartsWithPunctuation}")
+    appendLine("output_contains_placeholder=${state.outputContainsPlaceholder}")
+    appendLine("npu_s1_promotion_gate_status=${promotionGate.status}")
+    appendLine("npu_s1_promotion_gate_reason=${promotionGate.reason}")
+    appendLine("npu_s1_promotion_gate_full_20_required=${promotionGate.full20Required}")
+    appendLine("npu_s1_promotion_gate_quality_required=${promotionGate.qualityRequired}")
+    appendLine("npu_s1_promotion_gate_normal_chat_unblock_allowed=${promotionGate.normalChatUnblockAllowed}")
+    appendLine("npu_s1_promotion_gate_fresh_crash=${state.promotionGateFreshCrash}")
+    appendLine("npu_s1_promotion_gate_timeout=${state.promotionGateTimeout}")
+    appendLine("npu_s1_promotion_gate_fallback=${state.promotionGateFallback}")
+    appendLine("npu_s1_promotion_gate_tombstone_manual_check=${state.promotionGateTombstoneManualCheck}")
+    appendLine("npu_s1_promotion_gate_tombstone_compare_hint=${promotionGate.tombstoneCompareHint}")
+    appendLine("npu_s1_promotion_gate_engine_create=pass".takeIf { state.engineCreateCount == "1" } ?: "npu_s1_promotion_gate_engine_create=fail")
+    appendLine(
+        "npu_s1_promotion_gate_decode_20=pass".takeIf {
+            state.decodeSuccessCount == state.runCountRequested.toString() && state.failureCount == 0
+        } ?: "npu_s1_promotion_gate_decode_20=fail",
+    )
+    appendLine(
+        "npu_s1_promotion_gate_crash_safety=pass".takeIf {
+            promotionGate.status == NPU_S1_PROMOTION_GATE_STATUS_PASS
+        } ?: "npu_s1_promotion_gate_crash_safety=fail",
+    )
+    appendLine("npu_s1_promotion_gate_output_quality=suspect")
+    appendLine("npu_s1_promotion_gate_normal_chat_unblock=blocked_by_policy")
     appendLine()
     appendLine("[DEV診断: NPU S1 persistent custom JNI details]")
     if (state.records.isEmpty()) {
@@ -246,6 +424,10 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
             appendLine("decode_finished=${record.decodeFinished}")
             appendLine("raw_output=${escapePersistentCustomJniCopyValue(record.rawOutput)}")
             appendLine("sanitized_output=${escapePersistentCustomJniCopyValue(record.sanitizedOutput)}")
+            appendLine("output_prefix_20_chars=${escapePersistentCustomJniCopyValue(record.outputPrefix20Chars)}")
+            appendLine("starts_with_punctuation=${record.startsWithPunctuation}")
+            appendLine("contains_business_phrase=${record.containsBusinessPhrase}")
+            appendLine("contains_placeholder=${record.containsPlaceholder}")
             appendLine("quality_classification=${record.qualityClassification}")
             appendLine("total_ms=${formatPersistentCustomJniValue(record.totalMs)}")
             appendLine("prefill_ms=${formatPersistentCustomJniValue(record.prefillMs)}")

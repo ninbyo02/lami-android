@@ -1,9 +1,117 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NpuS1PersistentCustomJniDiagnosticsTest {
+    @Test
+    fun `promotion gate passes for full 20 crash safety success`() {
+        val state = full20SuccessState()
+
+        val gate = evaluateNpuS1PromotionGate(state)
+        val text = formatNpuS1PersistentCustomJniDiagnosticsForDev(state)
+
+        assertEquals(NPU_S1_PROMOTION_GATE_STATUS_PASS, gate.status)
+        assertEquals(
+            NPU_S1_PROMOTION_GATE_REASON_READY_BUT_NORMAL_CHAT_BLOCKED,
+            gate.reason,
+        )
+        assertFalse(gate.normalChatUnblockAllowed)
+        assertTrue(text.contains("npu_s1_promotion_gate_status=pass"))
+        assertTrue(text.contains("npu_s1_promotion_gate_full_20_required=true"))
+        assertTrue(text.contains("npu_s1_promotion_gate_quality_required=false"))
+        assertTrue(text.contains("npu_s1_promotion_gate_normal_chat_unblock_allowed=false"))
+        assertTrue(text.contains("npu_s1_promotion_gate_engine_create=pass"))
+        assertTrue(text.contains("npu_s1_promotion_gate_decode_20=pass"))
+        assertTrue(text.contains("npu_s1_promotion_gate_crash_safety=pass"))
+        assertTrue(text.contains("npu_s1_promotion_gate_output_quality=suspect"))
+        assertTrue(text.contains("npu_s1_promotion_gate_normal_chat_unblock=blocked_by_policy"))
+        assertTrue(text.contains("npu_s1_promotion_gate_tombstone_manual_check=required"))
+    }
+
+    @Test
+    fun `output quality flags punctuation prefix`() {
+        val quality = classifyNpuS1PersistentCustomJniOutputQuality("。お元気ですか。")
+
+        assertTrue(quality.startsWithPunctuation)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_PUNCTUATION_START, quality.qualityClassification)
+        assertTrue(quality.reason.contains("starts_with_punctuation"))
+    }
+
+    @Test
+    fun `output quality flags business template phrase`() {
+        val quality = classifyNpuS1PersistentCustomJniOutputQuality(
+            "いつもお世話になっております。山田です。",
+        )
+
+        assertTrue(quality.containsBusinessPhrase)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_TEMPLATE_LEAK, quality.qualityClassification)
+        assertTrue(quality.reason.contains("business_template_phrase"))
+    }
+
+    @Test
+    fun `output quality flags square bracket placeholder`() {
+        val quality = classifyNpuS1PersistentCustomJniOutputQuality(
+            "いつもお世話になっております。[あなたの名前]です。",
+        )
+
+        assertTrue(quality.containsPlaceholder)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_PLACEHOLDER_LEAK, quality.qualityClassification)
+        assertTrue(quality.reason.contains("placeholder_leak"))
+    }
+
+    @Test
+    fun `full 20 success with suspect quality keeps normal chat blocked`() {
+        val state = full20SuccessState(
+            records = successRecords(
+                rawOutput = "。お元気ですか。いつもお世話になっております。[あなたの名前]です。",
+                qualityClassification = NPU_S1_OUTPUT_QUALITY_PLACEHOLDER_LEAK,
+            ),
+        )
+
+        val gate = evaluateNpuS1PromotionGate(state)
+        val text = formatNpuS1PersistentCustomJniDiagnosticsForDev(state)
+
+        assertEquals(NPU_S1_PROMOTION_GATE_STATUS_PASS, gate.status)
+        assertFalse(gate.normalChatUnblockAllowed)
+        assertTrue(text.contains("npu_s1_promotion_gate_output_quality=suspect"))
+        assertTrue(text.contains("npu_s1_promotion_gate_normal_chat_unblock=blocked_by_policy"))
+    }
+
+    @Test
+    fun `promotion gate is not run before full 20 evidence exists`() {
+        val gate = evaluateNpuS1PromotionGate(NpuS1PersistentCustomJniProbeState())
+
+        assertEquals(NPU_S1_PROMOTION_GATE_STATUS_NOT_RUN, gate.status)
+        assertEquals(NPU_S1_PROMOTION_GATE_REASON_FULL_20_NOT_RUN, gate.reason)
+    }
+
+    @Test
+    fun `promotion gate fails when success count is short`() {
+        val state = full20SuccessState(
+            records = successRecords(count = 19),
+            decodeSuccessCount = "19",
+        )
+
+        val gate = evaluateNpuS1PromotionGate(state)
+
+        assertEquals(NPU_S1_PROMOTION_GATE_STATUS_FAIL, gate.status)
+        assertTrue(gate.reason.contains("success_count_not_run_count_requested"))
+        assertTrue(gate.reason.contains("decode_success_count_not_run_count_requested"))
+    }
+
+    @Test
+    fun `promotion gate fails without QNN HTP V79 backend evidence`() {
+        val state = full20SuccessState(backendEvidence = "QNN_HTP_unknown")
+
+        val gate = evaluateNpuS1PromotionGate(state)
+
+        assertEquals(NPU_S1_PROMOTION_GATE_STATUS_FAIL, gate.status)
+        assertTrue(gate.reason.contains("backend_evidence_missing_QNN_HTP_V79"))
+    }
+
     @Test
     fun `summary includes holder key and model update fields`() {
         val state = NpuS1PersistentCustomJniProbeState(
@@ -54,6 +162,21 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             engineCreateMinimalPath = "true",
             persistentHolderUsed = "false",
             persistentCustomJniHypothesisResult = "native_holder_entrypoint_not_available",
+            promptInputLimitMode = "unsafe_dev_bypass_hidden_template_experiment",
+            finalPromptText = "こんにちは",
+            finalPromptLengthChars = "5",
+            finalPromptTailPreview = "こんにちは",
+            systemTemplateUsed = "false",
+            hiddenTemplateUsed = "false",
+            promptWrapperUsed = "none",
+            prefillTextOrTokenNote = "native_RunPrefill_receives_final_prompt_text",
+            firstOutputChars = "。お元気ですか。",
+            outputPrefixClassification = NPU_S1_OUTPUT_QUALITY_PUNCTUATION_START,
+            outputQualityReason = "starts_with_punctuation",
+            outputRepeatsSameAcrossRuns = "false",
+            outputLooksBusinessTemplate = "false",
+            outputStartsWithPunctuation = "true",
+            outputContainsPlaceholder = "false",
         )
 
         val text = formatNpuS1PersistentCustomJniDiagnosticsForDev(state)
@@ -100,6 +223,21 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("engine_create_minimal_path=true"))
         assertTrue(text.contains("persistent_holder_used=false"))
         assertTrue(text.contains("persistent_custom_jni_hypothesis_result=native_holder_entrypoint_not_available"))
+        assertTrue(text.contains("prompt_input_limit_mode=unsafe_dev_bypass_hidden_template_experiment"))
+        assertTrue(text.contains("final_prompt_text=こんにちは"))
+        assertTrue(text.contains("final_prompt_length_chars=5"))
+        assertTrue(text.contains("final_prompt_tail_preview=こんにちは"))
+        assertTrue(text.contains("system_template_used=false"))
+        assertTrue(text.contains("hidden_template_used=false"))
+        assertTrue(text.contains("prompt_wrapper_used=none"))
+        assertTrue(text.contains("prefill_text_or_token_note=native_RunPrefill_receives_final_prompt_text"))
+        assertTrue(text.contains("first_output_chars=。お元気ですか。"))
+        assertTrue(text.contains("output_prefix_classification=punctuation_start"))
+        assertTrue(text.contains("output_quality_reason=starts_with_punctuation"))
+        assertTrue(text.contains("output_repeats_same_across_runs=false"))
+        assertTrue(text.contains("output_looks_business_template=false"))
+        assertTrue(text.contains("output_starts_with_punctuation=true"))
+        assertTrue(text.contains("output_contains_placeholder=false"))
     }
 
     @Test
@@ -117,6 +255,13 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
                     prefillFinished = "true",
                     decodeStarted = "true",
                     decodeFinished = "false",
+                    rawOutput = "。お元気ですか。いつもお世話になっております。[あなたの名前]です。",
+                    sanitizedOutput = "。お元気ですか。いつもお世話になっております。[あなたの名前]です。",
+                    outputPrefix20Chars = "。お元気ですか。いつもお世話に",
+                    startsWithPunctuation = "true",
+                    containsBusinessPhrase = "true",
+                    containsPlaceholder = "true",
+                    qualityClassification = NPU_S1_OUTPUT_QUALITY_PLACEHOLDER_LEAK,
                     prefillMs = 42,
                     cleanupMs = 3,
                     failureStage = "decode",
@@ -137,6 +282,11 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("prefill_finished=true"))
         assertTrue(text.contains("decode_started=true"))
         assertTrue(text.contains("decode_finished=false"))
+        assertTrue(text.contains("output_prefix_20_chars=。お元気ですか。いつもお世話に"))
+        assertTrue(text.contains("starts_with_punctuation=true"))
+        assertTrue(text.contains("contains_business_phrase=true"))
+        assertTrue(text.contains("contains_placeholder=true"))
+        assertTrue(text.contains("quality_classification=placeholder_leak"))
         assertTrue(text.contains("prefill_ms=42"))
         assertTrue(text.contains("cleanup_ms=3"))
         assertTrue(text.contains("failure_stage=decode"))
@@ -170,6 +320,11 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("persistent_engine_create_signature=unavailable"))
         assertTrue(text.contains("engine_create_minimal_path=unavailable"))
         assertTrue(text.contains("persistent_holder_used=unavailable"))
+        assertTrue(text.contains("prompt_input_limit_mode=unavailable"))
+        assertTrue(text.contains("final_prompt_text=unavailable"))
+        assertTrue(text.contains("output_prefix_classification=unavailable"))
+        assertTrue(text.contains("output_repeats_same_across_runs=unavailable"))
+        assertTrue(text.contains("output_contains_placeholder=unavailable"))
         assertTrue(text.contains("records=empty"))
     }
 
@@ -183,5 +338,56 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.startsWith("base"))
         assertTrue(text.contains("[DEV診断: NPU S1 persistent custom JNI summary]"))
         assertTrue(text.contains("engine_create_count=1"))
+    }
+
+    private fun full20SuccessState(
+        backendEvidence: String = "QNN_HTP_V79_FastRPC_native_diag_persistent_holder",
+        records: List<NpuS1PersistentCustomJniRunRecord> = successRecords(),
+        decodeSuccessCount: String = "20",
+    ): NpuS1PersistentCustomJniProbeState =
+        NpuS1PersistentCustomJniProbeState(
+            persistentCustomJniStatus = NPU_S1_PERSISTENT_CUSTOM_JNI_STATUS_COMPLETED,
+            runCountRequested = 20,
+            engineCreateCount = "1",
+            decodeAttemptCount = "20",
+            decodeSuccessCount = decodeSuccessCount,
+            engineCloseReached = "true",
+            engineCloseSuccess = "true",
+            selectedNativeProbeMode = NpuS1PersistentCustomJniProbeMode.FULL_20.wireValue,
+            backendEvidence = backendEvidence,
+            persistentCustomJniHypothesisResult = "engine_create_once_20_runs_success",
+            promotionGateFreshCrash = "false",
+            promotionGateTimeout = "false",
+            promotionGateFallback = "false",
+            records = records,
+        )
+
+    private companion object {
+        fun successRecords(
+            count: Int = 20,
+            rawOutput: String = "",
+            qualityClassification: String = "unavailable",
+        ): List<NpuS1PersistentCustomJniRunRecord> =
+            (1..count).map { index ->
+                val quality = classifyNpuS1PersistentCustomJniOutputQuality(rawOutput)
+                NpuS1PersistentCustomJniRunRecord(
+                    runIndex = index,
+                    status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                    reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                    sessionCreated = "true",
+                    sessionClosed = "true",
+                    prefillStarted = "true",
+                    prefillFinished = "true",
+                    decodeStarted = "true",
+                    decodeFinished = "true",
+                    rawOutput = rawOutput,
+                    sanitizedOutput = rawOutput,
+                    outputPrefix20Chars = quality.outputPrefix20Chars,
+                    startsWithPunctuation = quality.startsWithPunctuation.toString(),
+                    containsBusinessPhrase = quality.containsBusinessPhrase.toString(),
+                    containsPlaceholder = quality.containsPlaceholder.toString(),
+                    qualityClassification = qualityClassification,
+                )
+            }
     }
 }
