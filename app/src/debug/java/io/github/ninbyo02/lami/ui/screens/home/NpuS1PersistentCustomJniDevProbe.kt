@@ -15,6 +15,7 @@ internal class NpuS1PersistentCustomJniDevProbe(
 
     override suspend fun run(
         mode: NpuS1PersistentCustomJniProbeMode,
+        qualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile,
         onUpdate: (NpuS1PersistentCustomJniProbeState) -> Unit,
         isCancelled: () -> Boolean,
     ): NpuS1PersistentCustomJniProbeState = withContext(Dispatchers.Default) {
@@ -25,7 +26,7 @@ internal class NpuS1PersistentCustomJniDevProbe(
         val modelFile = modelPath.takeIf { it.isNotBlank() }?.let(::File)
         val modelFileSize = modelFile?.takeIf { it.exists() }?.length()?.toString() ?: "unavailable"
         val modelLastModified = modelFile?.takeIf { it.exists() }?.lastModified()?.toString() ?: "unavailable"
-        val promptDiagnostics = buildPersistentCustomJniPromptDiagnostics()
+        val promptDiagnostics = buildPersistentCustomJniPromptDiagnostics(qualityPromptProfile)
         val holderKey = NpuS1PersistentCustomJniHolderKey(
             modelPath = modelPath.ifBlank { modelResolution.reasonCode },
             modelFileLastModified = modelLastModified,
@@ -37,7 +38,7 @@ internal class NpuS1PersistentCustomJniDevProbe(
         )
         var state = NpuS1PersistentCustomJniProbeState(
             persistentCustomJniStatus = NPU_S1_PERSISTENT_CUSTOM_JNI_STATUS_RUNNING,
-            runCountRequested = NPU_S1_PERSISTENT_CUSTOM_JNI_DEFAULT_COUNT,
+            runCountRequested = qualityPromptProfile.runCount,
             runCountCompletedOverride = 0,
             startedAtElapsedRealtimeMs = startedAt,
             engineCreateCount = "0",
@@ -51,6 +52,7 @@ internal class NpuS1PersistentCustomJniDevProbe(
             holderKeyMismatchReason = "unavailable",
             nativeHolderEntrypointAvailable = "false",
             selectedNativeProbeMode = mode.wireValue,
+            selectedQualityPromptProfile = qualityPromptProfile.wireValue,
             modelPath = holderKey.modelPath,
             modelFileSize = modelFileSize,
             modelFileLastModified = modelLastModified,
@@ -98,13 +100,13 @@ internal class NpuS1PersistentCustomJniDevProbe(
             context = appContext,
             modelPath = modelPath,
             runId = runId,
-            prompt = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
+            prompt = qualityPromptProfile.prompt,
             maxOutputTokens = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
-            runCount = NPU_S1_PERSISTENT_CUSTOM_JNI_DEFAULT_COUNT,
+            runCount = qualityPromptProfile.runCount,
             holderKey = holderKey.stableText(),
             nativeProbeMode = mode.wireValue,
-            promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
-            unsafeDevBypassPromptLengthGate = true,
+            promptValidationMode = qualityPromptProfile.promptValidationMode,
+            unsafeDevBypassPromptLengthGate = qualityPromptProfile.unsafeDevBypassPromptLengthGate,
         )
         val parsedState = parsePersistentCustomJniProbeResult(
             result = nativeResult,
@@ -151,15 +153,32 @@ private fun parsePersistentCustomJniProbeResult(
 
     val parsed = parsePersistentCustomJniKeyValueLines(result.resultText)
     val summary = parsed.summary
+    val recordOutputs = parsed.records.map { values ->
+        val rawOutput = values["raw_output"].orEmpty()
+        val sanitized = values["sanitized_output"]
+            ?.takeIf { it.isNotBlank() }
+            ?: Qairt244NpuOutputSanitizer.sanitize(
+                rawOutput = rawOutput,
+                prompt = fallbackState.finalPromptText.takeIf { it != "unavailable" } ?: qualityPromptDefault(),
+            ).sanitizedOutput
+        rawOutput.ifBlank { sanitized }
+    }
+    val repeatedOutput = recordOutputs.filter { it.isNotBlank() }.distinct().size == 1 && recordOutputs.size > 1
     val records = parsed.records.map { values ->
         val rawOutput = values["raw_output"].orEmpty()
         val sanitized = values["sanitized_output"]
             ?.takeIf { it.isNotBlank() }
             ?: Qairt244NpuOutputSanitizer.sanitize(
                 rawOutput = rawOutput,
-                prompt = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
+                prompt = fallbackState.finalPromptText.takeIf { it != "unavailable" } ?: qualityPromptDefault(),
             ).sanitizedOutput
-        val quality = classifyNpuS1PersistentCustomJniOutputQuality(rawOutput.ifBlank { sanitized })
+        val outputForDiagnostics = rawOutput.ifBlank { sanitized }
+        val quality = classifyNpuS1PersistentCustomJniOutputQuality(
+            output = outputForDiagnostics,
+            prompt = fallbackState.finalPromptText.takeIf { it != "unavailable" }.orEmpty(),
+            outputEqualsAcrossRuns = repeatedOutput,
+        )
+        val boundary = buildNpuS1PersistentCustomJniTokenBoundaryDiagnostics(outputForDiagnostics)
         val nativeQuality = values["quality_classification"].orUnavailable()
         val qualityClassification = if (quality.qualityClassification != NPU_S1_OUTPUT_QUALITY_NATURAL_JAPANESE) {
             quality.qualityClassification
@@ -182,6 +201,33 @@ private fun parsePersistentCustomJniProbeResult(
             startsWithPunctuation = quality.startsWithPunctuation.toString(),
             containsBusinessPhrase = quality.containsBusinessPhrase.toString(),
             containsPlaceholder = quality.containsPlaceholder.toString(),
+            prefillInputText = fallbackState.finalPromptText,
+            prefillInputChars = fallbackState.finalPromptLengthChars,
+            decodeFirstChunkText = boundary.decodeFirstChunkText,
+            decodeFirstChunkChars = boundary.decodeFirstChunkChars,
+            decodeFirstNonEmptyChunkText = boundary.decodeFirstNonEmptyChunkText,
+            decodeFirstNonEmptyChunkChars = boundary.decodeFirstNonEmptyChunkChars,
+            outputFirst1Char = boundary.outputFirst1Char,
+            outputFirst5Chars = boundary.outputFirst5Chars,
+            outputFirst20Chars = boundary.outputFirst20Chars,
+            outputLast20Chars = boundary.outputLast20Chars,
+            outputLengthChars = boundary.outputLengthChars,
+            outputNewlineCount = boundary.outputNewlineCount,
+            outputLeadingPunctuationCount = boundary.outputLeadingPunctuationCount,
+            outputTrimmedFirstChars = boundary.outputTrimmedFirstChars,
+            outputAfterLstripFirstChars = boundary.outputAfterLstripFirstChars,
+            outputEqualsAcrossRuns = repeatedOutput.toString(),
+            prefillTokenCount = values["prefill_token_count"].orUnavailable(),
+            decodeTokenCount = values["decode_token_count"].orUnavailable(),
+            firstOutputTokenId = values["first_output_token_id"].orUnavailable(),
+            firstOutputTokenText = values["first_output_token_text"].orUnavailable(),
+            first5OutputTokenIds = values["first_5_output_token_ids"].orUnavailable(),
+            first5OutputTokenTexts = values["first_5_output_token_texts"].orUnavailable(),
+            eosSeen = values["eos_seen"].orUnavailable(),
+            bosSeenInOutput = values["bos_seen_in_output"].orUnavailable(),
+            specialTokenSeenInOutput = values["special_token_seen_in_output"].orUnavailable(),
+            tokenDiagnosticsNote = values["token_diagnostics_note"]
+                ?: NPU_S1_TOKEN_DIAGNOSTICS_UNAVAILABLE_NOTE,
             qualityClassification = qualityClassification,
             totalMs = values["total_ms"].toNullableNonNegativeLong(),
             prefillMs = values["prefill_ms"].toNullableNonNegativeLong(),
@@ -211,6 +257,8 @@ private fun parsePersistentCustomJniProbeResult(
         holderKeyMismatchReason = summary["holder_key_mismatch_reason"].orUnavailable(),
         nativeHolderEntrypointAvailable = summary["native_holder_entrypoint_available"].orUnavailable(),
         selectedNativeProbeMode = summary["selected_native_probe_mode"].orUnavailable(),
+        selectedQualityPromptProfile = summary["selected_quality_prompt_profile"]
+            ?: fallbackState.selectedQualityPromptProfile,
         lastNativeStage = summary["last_native_stage"].orUnavailable(),
         nativeEntrypointReached = summary["native_entrypoint_reached"].orUnavailable(),
         modelAssetsCreateReached = summary["model_assets_create_reached"].orUnavailable(),
@@ -265,6 +313,8 @@ private fun parsePersistentCustomJniProbeResult(
         outputLooksBusinessTemplate = qualitySummary.outputLooksBusinessTemplate,
         outputStartsWithPunctuation = qualitySummary.outputStartsWithPunctuation,
         outputContainsPlaceholder = qualitySummary.outputContainsPlaceholder,
+        outputEqualsAcrossRuns = qualitySummary.outputRepeatsSameAcrossRuns,
+        tokenDiagnosticsNote = NPU_S1_TOKEN_DIAGNOSTICS_UNAVAILABLE_NOTE,
         records = records,
     )
 }
@@ -280,11 +330,20 @@ private data class PersistentCustomJniPromptDiagnostics(
     val prefillTextOrTokenNote: String,
 )
 
-private fun buildPersistentCustomJniPromptDiagnostics(): PersistentCustomJniPromptDiagnostics {
-    val validation = NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(
-        NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
-    )
+private fun buildPersistentCustomJniPromptDiagnostics(
+    qualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile,
+): PersistentCustomJniPromptDiagnostics {
+    val validation = when (qualityPromptProfile.promptValidationMode) {
+        NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE ->
+            NpuDiagnosticPromptValidator.validateUtf8InternalIntent(qualityPromptProfile.prompt)
+        NpuDiagnosticPromptValidator.UTF8_HIDDEN_EXPERIMENTAL_MODE ->
+            NpuDiagnosticPromptValidator.validateUtf8HiddenExperimental(qualityPromptProfile.prompt)
+        NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE ->
+            NpuDiagnosticPromptValidator.validateUtf8HiddenTemplateExperiment(qualityPromptProfile.prompt)
+        else -> NpuDiagnosticPromptValidator.validateAsciiDiagnostic(qualityPromptProfile.prompt)
+    }
     val promptInputLimitMode = if (
+        qualityPromptProfile.unsafeDevBypassPromptLengthGate &&
         validation.promptInputLimitMode == NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_INPUT_LIMIT_MODE
     ) {
         "unsafe_dev_bypass_hidden_template_experiment"
@@ -328,22 +387,29 @@ private fun buildPersistentCustomJniQualitySummary(
         )
     }
     val outputs = records.map { it.rawOutput.ifBlank { it.sanitizedOutput } }
-    val firstQuality = classifyNpuS1PersistentCustomJniOutputQuality(outputs.firstOrNull().orEmpty())
     val distinctNonBlankOutputs = outputs.filter { it.isNotBlank() }.distinct()
+    val repeatedOutput = distinctNonBlankOutputs.size == 1 && records.size > 1
+    val firstQuality = classifyNpuS1PersistentCustomJniOutputQuality(
+        output = outputs.firstOrNull().orEmpty(),
+        outputEqualsAcrossRuns = repeatedOutput,
+    )
     val hasBusinessTemplate = records.any { it.containsBusinessPhrase == "true" }
     val startsWithPunctuation = records.any { it.startsWithPunctuation == "true" }
     val containsPlaceholder = records.any { it.containsPlaceholder == "true" }
     val reasons = buildList {
         if (startsWithPunctuation) add("starts_with_punctuation")
+        if (startsWithPunctuation) add("first_token_boundary_suspect")
         if (hasBusinessTemplate) add("business_template_phrase")
         if (containsPlaceholder) add("placeholder_leak")
-        if (distinctNonBlankOutputs.size == 1 && records.size > 1) add("same_output_repeated")
+        if (containsPlaceholder) add("prompt_ignored_suspect")
+        if (repeatedOutput) add("repeated_template_output")
+        if (startsWithPunctuation && containsPlaceholder) add("decode_offset_suspect")
     }.ifEmpty { listOf(firstQuality.reason) }
     return PersistentCustomJniQualitySummary(
         firstOutputChars = outputs.firstOrNull().orEmpty().take(40),
         outputPrefixClassification = firstQuality.qualityClassification,
         outputQualityReason = reasons.joinToString("+"),
-        outputRepeatsSameAcrossRuns = (distinctNonBlankOutputs.size == 1 && records.size > 1).toString(),
+        outputRepeatsSameAcrossRuns = repeatedOutput.toString(),
         outputLooksBusinessTemplate = hasBusinessTemplate.toString(),
         outputStartsWithPunctuation = startsWithPunctuation.toString(),
         outputContainsPlaceholder = containsPlaceholder.toString(),
@@ -391,5 +457,8 @@ private fun String?.orUnavailable(): String = this?.takeIf { it.isNotBlank() } ?
 
 private fun String?.toNullableNonNegativeLong(): Long? =
     this?.toLongOrNull()?.takeIf { it >= 0L }
+
+private fun qualityPromptDefault(): String =
+    NpuS1PersistentCustomJniQualityPromptProfile.CURRENT_PROBE_QUALITY.prompt
 
 private const val PROMPT_TAIL_PREVIEW_CHARS = 160

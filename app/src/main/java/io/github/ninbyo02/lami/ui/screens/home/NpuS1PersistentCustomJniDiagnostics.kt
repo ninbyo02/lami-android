@@ -25,7 +25,14 @@ internal const val NPU_S1_OUTPUT_QUALITY_NATURAL_JAPANESE = "natural_japanese"
 internal const val NPU_S1_OUTPUT_QUALITY_TEMPLATE_LEAK = "template_leak"
 internal const val NPU_S1_OUTPUT_QUALITY_PUNCTUATION_START = "punctuation_start"
 internal const val NPU_S1_OUTPUT_QUALITY_PLACEHOLDER_LEAK = "placeholder_leak"
+internal const val NPU_S1_OUTPUT_QUALITY_REPEATED_TEMPLATE_OUTPUT = "repeated_template_output"
+internal const val NPU_S1_OUTPUT_QUALITY_DECODE_OFFSET_SUSPECT = "decode_offset_suspect"
+internal const val NPU_S1_OUTPUT_QUALITY_FIRST_TOKEN_BOUNDARY_SUSPECT = "first_token_boundary_suspect"
+internal const val NPU_S1_OUTPUT_QUALITY_SPECIAL_TOKEN_SUSPECT = "special_token_suspect"
+internal const val NPU_S1_OUTPUT_QUALITY_PROMPT_IGNORED_SUSPECT = "prompt_ignored_suspect"
 internal const val NPU_S1_OUTPUT_QUALITY_UNKNOWN = "unknown"
+internal const val NPU_S1_TOKEN_DIAGNOSTICS_UNAVAILABLE_NOTE =
+    "token_ids_not_exposed_by_current_custom_jni_probe_without_native_rebuild"
 
 internal enum class NpuS1PersistentCustomJniProbeMode(
     val wireValue: String,
@@ -44,9 +51,68 @@ internal enum class NpuS1PersistentCustomJniProbeMode(
     FULL_20("full_20", "Full 20"),
 }
 
+internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
+    val wireValue: String,
+    val displayLabel: String,
+    val prompt: String,
+    val runCount: Int,
+    val promptValidationMode: String,
+    val unsafeDevBypassPromptLengthGate: Boolean,
+) {
+    CURRENT_PROBE_QUALITY(
+        wireValue = "current_probe_quality",
+        displayLabel = "Current",
+        prompt = "こんにちは",
+        runCount = NPU_S1_PERSISTENT_CUSTOM_JNI_DEFAULT_COUNT,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
+        unsafeDevBypassPromptLengthGate = true,
+    ),
+    RAW_PROMPT_QUALITY(
+        wireValue = "raw_prompt_quality",
+        displayLabel = "Raw",
+        prompt = "こんにちは",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
+        unsafeDevBypassPromptLengthGate = false,
+    ),
+    SIMPLE_JA_CHAT_QUALITY(
+        wireValue = "simple_ja_chat_quality",
+        displayLabel = "Who?",
+        prompt = "こんにちは。あなたは誰ですか？",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
+        unsafeDevBypassPromptLengthGate = true,
+    ),
+    SIMPLE_JA_ARITHMETIC_QUALITY(
+        wireValue = "simple_ja_arithmetic_quality",
+        displayLabel = "1+1",
+        prompt = "1+1は？",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
+        unsafeDevBypassPromptLengthGate = false,
+    ),
+    SHORT_JA_SELF_INTRO_QUALITY(
+        wireValue = "short_ja_self_intro_quality",
+        displayLabel = "Self intro",
+        prompt = "日本語で短く自己紹介してください。",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
+        unsafeDevBypassPromptLengthGate = true,
+    ),
+    NO_HIDDEN_TEMPLATE_QUALITY(
+        wireValue = "no_hidden_template_quality",
+        displayLabel = "No wrapper",
+        prompt = "こんにちは",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
+        unsafeDevBypassPromptLengthGate = false,
+    ),
+}
+
 internal interface NpuS1PersistentCustomJniProbeRunner {
     suspend fun run(
         mode: NpuS1PersistentCustomJniProbeMode,
+        qualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile,
         onUpdate: (NpuS1PersistentCustomJniProbeState) -> Unit,
         isCancelled: () -> Boolean,
     ): NpuS1PersistentCustomJniProbeState
@@ -97,6 +163,32 @@ internal data class NpuS1PersistentCustomJniRunRecord(
     val startsWithPunctuation: String = "unavailable",
     val containsBusinessPhrase: String = "unavailable",
     val containsPlaceholder: String = "unavailable",
+    val prefillInputText: String = "unavailable",
+    val prefillInputChars: String = "unavailable",
+    val decodeFirstChunkText: String = "unavailable",
+    val decodeFirstChunkChars: String = "unavailable",
+    val decodeFirstNonEmptyChunkText: String = "unavailable",
+    val decodeFirstNonEmptyChunkChars: String = "unavailable",
+    val outputFirst1Char: String = "unavailable",
+    val outputFirst5Chars: String = "unavailable",
+    val outputFirst20Chars: String = "unavailable",
+    val outputLast20Chars: String = "unavailable",
+    val outputLengthChars: String = "unavailable",
+    val outputNewlineCount: String = "unavailable",
+    val outputLeadingPunctuationCount: String = "unavailable",
+    val outputTrimmedFirstChars: String = "unavailable",
+    val outputAfterLstripFirstChars: String = "unavailable",
+    val outputEqualsAcrossRuns: String = "unavailable",
+    val prefillTokenCount: String = "unavailable",
+    val decodeTokenCount: String = "unavailable",
+    val firstOutputTokenId: String = "unavailable",
+    val firstOutputTokenText: String = "unavailable",
+    val first5OutputTokenIds: String = "unavailable",
+    val first5OutputTokenTexts: String = "unavailable",
+    val eosSeen: String = "unavailable",
+    val bosSeenInOutput: String = "unavailable",
+    val specialTokenSeenInOutput: String = "unavailable",
+    val tokenDiagnosticsNote: String = NPU_S1_TOKEN_DIAGNOSTICS_UNAVAILABLE_NOTE,
     val qualityClassification: String = "unavailable",
     val totalMs: Long? = null,
     val prefillMs: Long? = null,
@@ -127,6 +219,8 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val holderKeyMismatchReason: String = "unavailable",
     val nativeHolderEntrypointAvailable: String = "unavailable",
     val selectedNativeProbeMode: String = NpuS1PersistentCustomJniProbeMode.FULL_20.wireValue,
+    val selectedQualityPromptProfile: String =
+        NpuS1PersistentCustomJniQualityPromptProfile.CURRENT_PROBE_QUALITY.wireValue,
     val lastNativeStage: String = "unavailable",
     val nativeEntrypointReached: String = "unavailable",
     val modelAssetsCreateReached: String = "unavailable",
@@ -181,6 +275,19 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val outputLooksBusinessTemplate: String = "unavailable",
     val outputStartsWithPunctuation: String = "unavailable",
     val outputContainsPlaceholder: String = "unavailable",
+    val outputEqualsAcrossRuns: String = "unavailable",
+    val tokenDiagnosticsNote: String = NPU_S1_TOKEN_DIAGNOSTICS_UNAVAILABLE_NOTE,
+    val prefillTokenCount: String = "unavailable",
+    val decodeTokenCount: String = "unavailable",
+    val firstOutputTokenId: String = "unavailable",
+    val firstOutputTokenText: String = "unavailable",
+    val first5OutputTokenIds: String = "unavailable",
+    val first5OutputTokenTexts: String = "unavailable",
+    val eosSeen: String = "unavailable",
+    val bosSeenInOutput: String = "unavailable",
+    val specialTokenSeenInOutput: String = "unavailable",
+    val qualityComparisonPromptSet: String = "current_probe_quality,raw_prompt_quality,simple_ja_chat_quality," +
+        "simple_ja_arithmetic_quality,short_ja_self_intro_quality,no_hidden_template_quality",
     val promotionGateFreshCrash: String = "false",
     val promotionGateTimeout: String = "false",
     val promotionGateFallback: String = "false",
@@ -216,8 +323,26 @@ internal data class NpuS1PersistentCustomJniOutputQualityDiagnostics(
     val reason: String,
 )
 
+internal data class NpuS1PersistentCustomJniTokenBoundaryDiagnostics(
+    val decodeFirstChunkText: String,
+    val decodeFirstChunkChars: String,
+    val decodeFirstNonEmptyChunkText: String,
+    val decodeFirstNonEmptyChunkChars: String,
+    val outputFirst1Char: String,
+    val outputFirst5Chars: String,
+    val outputFirst20Chars: String,
+    val outputLast20Chars: String,
+    val outputLengthChars: String,
+    val outputNewlineCount: String,
+    val outputLeadingPunctuationCount: String,
+    val outputTrimmedFirstChars: String,
+    val outputAfterLstripFirstChars: String,
+)
+
 internal fun classifyNpuS1PersistentCustomJniOutputQuality(
     output: String,
+    prompt: String = "",
+    outputEqualsAcrossRuns: Boolean = false,
 ): NpuS1PersistentCustomJniOutputQualityDiagnostics {
     val visibleOutput = output.trimStart()
     val startsWithPunctuation = visibleOutput.firstOrNull()?.let(::isSuspiciousJapanesePrefixPunctuation) == true
@@ -227,7 +352,13 @@ internal fun classifyNpuS1PersistentCustomJniOutputQuality(
         "よろしくお願いいたします",
     ).any(output::contains)
     val containsPlaceholder = Regex("""\[[^\]]+\]""").containsMatchIn(output)
+    val promptIgnoredSuspect = prompt.isNotBlank() &&
+        prompt.length <= 16 &&
+        containsPlaceholder
     val classification = when {
+        outputEqualsAcrossRuns && (containsPlaceholder || containsBusinessPhrase) ->
+            NPU_S1_OUTPUT_QUALITY_REPEATED_TEMPLATE_OUTPUT
+        promptIgnoredSuspect -> NPU_S1_OUTPUT_QUALITY_PROMPT_IGNORED_SUSPECT
         containsPlaceholder -> NPU_S1_OUTPUT_QUALITY_PLACEHOLDER_LEAK
         containsBusinessPhrase -> NPU_S1_OUTPUT_QUALITY_TEMPLATE_LEAK
         startsWithPunctuation -> NPU_S1_OUTPUT_QUALITY_PUNCTUATION_START
@@ -236,8 +367,12 @@ internal fun classifyNpuS1PersistentCustomJniOutputQuality(
     }
     val reasons = buildList {
         if (startsWithPunctuation) add("starts_with_punctuation")
+        if (startsWithPunctuation) add("first_token_boundary_suspect")
         if (containsBusinessPhrase) add("business_template_phrase")
         if (containsPlaceholder) add("placeholder_leak")
+        if (promptIgnoredSuspect) add("prompt_ignored_suspect")
+        if (outputEqualsAcrossRuns) add("repeated_template_output")
+        if (startsWithPunctuation && containsPlaceholder) add("decode_offset_suspect")
         if (output.isBlank()) add("empty_output")
     }
     return NpuS1PersistentCustomJniOutputQualityDiagnostics(
@@ -247,6 +382,31 @@ internal fun classifyNpuS1PersistentCustomJniOutputQuality(
         containsPlaceholder = containsPlaceholder,
         qualityClassification = classification,
         reason = reasons.ifEmpty { listOf("no_quality_issue_detected") }.joinToString("+"),
+    )
+}
+
+internal fun buildNpuS1PersistentCustomJniTokenBoundaryDiagnostics(
+    output: String,
+): NpuS1PersistentCustomJniTokenBoundaryDiagnostics {
+    val firstNonEmptyLine = output.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
+    val trimmed = output.trimStart()
+    return NpuS1PersistentCustomJniTokenBoundaryDiagnostics(
+        decodeFirstChunkText = output.take(40),
+        decodeFirstChunkChars = output.take(40).length.toString(),
+        decodeFirstNonEmptyChunkText = firstNonEmptyLine.take(40),
+        decodeFirstNonEmptyChunkChars = firstNonEmptyLine.take(40).length.toString(),
+        outputFirst1Char = output.take(1),
+        outputFirst5Chars = output.take(5),
+        outputFirst20Chars = output.take(20),
+        outputLast20Chars = output.takeLast(20),
+        outputLengthChars = output.length.toString(),
+        outputNewlineCount = output.count { it == '\n' }.toString(),
+        outputLeadingPunctuationCount = trimmed
+            .takeWhile(::isSuspiciousJapanesePrefixPunctuation)
+            .length
+            .toString(),
+        outputTrimmedFirstChars = output.trim().take(20),
+        outputAfterLstripFirstChars = trimmed.take(20),
     )
 }
 
@@ -330,6 +490,8 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("holder_key_mismatch_reason=${escapePersistentCustomJniCopyValue(state.holderKeyMismatchReason)}")
     appendLine("native_holder_entrypoint_available=${state.nativeHolderEntrypointAvailable}")
     appendLine("selected_native_probe_mode=${state.selectedNativeProbeMode}")
+    appendLine("selected_quality_prompt_profile=${state.selectedQualityPromptProfile}")
+    appendLine("quality_comparison_prompt_set=${state.qualityComparisonPromptSet}")
     appendLine("last_native_stage=${state.lastNativeStage}")
     appendLine("native_entrypoint_reached=${state.nativeEntrypointReached}")
     appendLine("model_assets_create_reached=${state.modelAssetsCreateReached}")
@@ -381,9 +543,20 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("output_prefix_classification=${state.outputPrefixClassification}")
     appendLine("output_quality_reason=${state.outputQualityReason}")
     appendLine("output_repeats_same_across_runs=${state.outputRepeatsSameAcrossRuns}")
+    appendLine("output_equals_across_runs=${state.outputEqualsAcrossRuns}")
     appendLine("output_looks_business_template=${state.outputLooksBusinessTemplate}")
     appendLine("output_starts_with_punctuation=${state.outputStartsWithPunctuation}")
     appendLine("output_contains_placeholder=${state.outputContainsPlaceholder}")
+    appendLine("prefill_token_count=${state.prefillTokenCount}")
+    appendLine("decode_token_count=${state.decodeTokenCount}")
+    appendLine("first_output_token_id=${state.firstOutputTokenId}")
+    appendLine("first_output_token_text=${state.firstOutputTokenText}")
+    appendLine("first_5_output_token_ids=${state.first5OutputTokenIds}")
+    appendLine("first_5_output_token_texts=${state.first5OutputTokenTexts}")
+    appendLine("eos_seen=${state.eosSeen}")
+    appendLine("bos_seen_in_output=${state.bosSeenInOutput}")
+    appendLine("special_token_seen_in_output=${state.specialTokenSeenInOutput}")
+    appendLine("token_diagnostics_note=${state.tokenDiagnosticsNote}")
     appendLine("npu_s1_promotion_gate_status=${promotionGate.status}")
     appendLine("npu_s1_promotion_gate_reason=${promotionGate.reason}")
     appendLine("npu_s1_promotion_gate_full_20_required=${promotionGate.full20Required}")
@@ -422,12 +595,44 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
             appendLine("prefill_finished=${record.prefillFinished}")
             appendLine("decode_started=${record.decodeStarted}")
             appendLine("decode_finished=${record.decodeFinished}")
+            appendLine("prefill_input_text=${escapePersistentCustomJniCopyValue(record.prefillInputText)}")
+            appendLine("prefill_input_chars=${record.prefillInputChars}")
+            appendLine("decode_first_chunk_text=${escapePersistentCustomJniCopyValue(record.decodeFirstChunkText)}")
+            appendLine("decode_first_chunk_chars=${record.decodeFirstChunkChars}")
+            appendLine(
+                "decode_first_non_empty_chunk_text=" +
+                    escapePersistentCustomJniCopyValue(record.decodeFirstNonEmptyChunkText),
+            )
+            appendLine("decode_first_non_empty_chunk_chars=${record.decodeFirstNonEmptyChunkChars}")
             appendLine("raw_output=${escapePersistentCustomJniCopyValue(record.rawOutput)}")
             appendLine("sanitized_output=${escapePersistentCustomJniCopyValue(record.sanitizedOutput)}")
             appendLine("output_prefix_20_chars=${escapePersistentCustomJniCopyValue(record.outputPrefix20Chars)}")
+            appendLine("output_first_1_char=${escapePersistentCustomJniCopyValue(record.outputFirst1Char)}")
+            appendLine("output_first_5_chars=${escapePersistentCustomJniCopyValue(record.outputFirst5Chars)}")
+            appendLine("output_first_20_chars=${escapePersistentCustomJniCopyValue(record.outputFirst20Chars)}")
+            appendLine("output_last_20_chars=${escapePersistentCustomJniCopyValue(record.outputLast20Chars)}")
+            appendLine("output_length_chars=${record.outputLengthChars}")
+            appendLine("output_newline_count=${record.outputNewlineCount}")
+            appendLine("output_leading_punctuation_count=${record.outputLeadingPunctuationCount}")
+            appendLine("output_trimmed_first_chars=${escapePersistentCustomJniCopyValue(record.outputTrimmedFirstChars)}")
+            appendLine(
+                "output_after_lstrip_first_chars=" +
+                    escapePersistentCustomJniCopyValue(record.outputAfterLstripFirstChars),
+            )
+            appendLine("output_equals_across_runs=${record.outputEqualsAcrossRuns}")
             appendLine("starts_with_punctuation=${record.startsWithPunctuation}")
             appendLine("contains_business_phrase=${record.containsBusinessPhrase}")
             appendLine("contains_placeholder=${record.containsPlaceholder}")
+            appendLine("prefill_token_count=${record.prefillTokenCount}")
+            appendLine("decode_token_count=${record.decodeTokenCount}")
+            appendLine("first_output_token_id=${record.firstOutputTokenId}")
+            appendLine("first_output_token_text=${record.firstOutputTokenText}")
+            appendLine("first_5_output_token_ids=${record.first5OutputTokenIds}")
+            appendLine("first_5_output_token_texts=${record.first5OutputTokenTexts}")
+            appendLine("eos_seen=${record.eosSeen}")
+            appendLine("bos_seen_in_output=${record.bosSeenInOutput}")
+            appendLine("special_token_seen_in_output=${record.specialTokenSeenInOutput}")
+            appendLine("token_diagnostics_note=${record.tokenDiagnosticsNote}")
             appendLine("quality_classification=${record.qualityClassification}")
             appendLine("total_ms=${formatPersistentCustomJniValue(record.totalMs)}")
             appendLine("prefill_ms=${formatPersistentCustomJniValue(record.prefillMs)}")

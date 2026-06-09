@@ -24,6 +24,21 @@ For `prompt=こんにちは`, persistent custom JNI output has looked like:
 
 This is suspicious because it starts with punctuation and looks like a business template or placeholder leak rather than a natural greeting response.
 
+The latest diagnostics make prompt/template contamination unlikely:
+
+- `final_prompt_text=こんにちは`
+- `final_prompt_length_chars=5`
+- `system_template_used=false`
+- `hidden_template_used=false`
+- `prompt_wrapper_used=none`
+
+Despite that, the output can still repeat the same template-like text across all runs:
+
+- `output_repeats_same_across_runs=true`
+- `output_quality_reason=starts_with_punctuation+business_template_phrase+placeholder_leak+same_output_repeated`
+
+The primary suspect is now decode/tokenizer/token-boundary behavior rather than prompt wrapping.
+
 ## Prompt Path
 
 The current DEV persistent custom JNI probe uses:
@@ -62,19 +77,61 @@ The DEV copy now records summary quality keys:
 Each `full_20` run detail also records:
 
 - `output_prefix_20_chars`
+- `prefill_input_text`
+- `prefill_input_chars`
+- `decode_first_chunk_text`
+- `decode_first_non_empty_chunk_text`
+- `output_first_1_char`
+- `output_first_5_chars`
+- `output_first_20_chars`
+- `output_last_20_chars`
+- `output_length_chars`
+- `output_newline_count`
+- `output_leading_punctuation_count`
+- `output_trimmed_first_chars`
+- `output_after_lstrip_first_chars`
+- `output_equals_across_runs`
 - `starts_with_punctuation`
 - `contains_business_phrase`
 - `contains_placeholder`
 - `quality_classification`
 
+Token ids and token text are reported as `unavailable` for now:
+
+- `prefill_token_count`
+- `decode_token_count`
+- `first_output_token_id`
+- `first_output_token_text`
+- `first_5_output_token_ids`
+- `first_5_output_token_texts`
+- `eos_seen`
+- `bos_seen_in_output`
+- `special_token_seen_in_output`
+
+Reason:
+
+```text
+token_ids_not_exposed_by_current_custom_jni_probe_without_native_rebuild
+```
+
+The DEV UI can also run shorter prompt comparison profiles without a native rebuild:
+
+- `current_probe_quality`: `こんにちは`, 20 runs
+- `raw_prompt_quality`: `こんにちは`, 3 runs
+- `simple_ja_chat_quality`: `こんにちは。あなたは誰ですか？`, 3 runs
+- `simple_ja_arithmetic_quality`: `1+1は？`, 3 runs
+- `short_ja_self_intro_quality`: `日本語で短く自己紹介してください。`, 3 runs
+- `no_hidden_template_quality`: `こんにちは`, 3 runs
+
 ## Suspected Causes
 
 Primary suspects:
 
-- prompt wrapper or hidden template mismatch
+- decode start offset / first-token boundary mismatch
+- tokenizer output boundary handling
+- special token handling around BOS/EOS or generated prefix
 - input limit / max token budget mismatch
 - prefill text handling
-- tokenizer or decode start offset issue
 - model-specific behavior with very short Japanese greeting prompts
 
 The Dispatch / CompilerPlugin / QAIRT overlay mismatch is considered the likely cause of the earlier `SIGABRT`, but not of the current template-like output.
@@ -98,10 +155,14 @@ Run:
 4. Check:
    - `final_prompt_text`
    - `prompt_wrapper_used`
+   - `prefill_input_text`
+   - `decode_first_chunk_text`
    - `first_output_chars`
    - `output_prefix_classification`
    - `output_quality_reason`
    - `output_repeats_same_across_runs`
+   - `output_leading_punctuation_count`
+   - `token_diagnostics_note`
    - run detail `output_prefix_20_chars`
    - run detail `quality_classification`
 

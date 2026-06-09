@@ -1019,6 +1019,9 @@ fun Home(
     var npuS1PersistentCustomJniProbeMode by rememberSaveable(effectiveChatId) {
         mutableStateOf(NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE)
     }
+    var npuS1PersistentCustomJniQualityPromptProfile by rememberSaveable(effectiveChatId) {
+        mutableStateOf(NpuS1PersistentCustomJniQualityPromptProfile.CURRENT_PROBE_QUALITY)
+    }
     var devUiAliveSeconds by remember(effectiveChatId) { mutableStateOf(0) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
@@ -1538,11 +1541,13 @@ fun Home(
         }
         if (npuS1PersistentCustomJniJob?.isActive == true) return
         val selectedProbeMode = npuS1PersistentCustomJniProbeMode
+        val selectedQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile
         npuS1PersistentCustomJniState = NpuS1PersistentCustomJniProbeState(
             persistentCustomJniStatus = NPU_S1_PERSISTENT_CUSTOM_JNI_STATUS_RUNNING,
-            runCountRequested = NPU_S1_PERSISTENT_CUSTOM_JNI_DEFAULT_COUNT,
+            runCountRequested = selectedQualityPromptProfile.runCount,
             startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
             selectedNativeProbeMode = selectedProbeMode.wireValue,
+            selectedQualityPromptProfile = selectedQualityPromptProfile.wireValue,
             persistentCustomJniHypothesisResult = "starting",
         )
         npuS1PersistentCustomJniJob = coroutineScope.launch {
@@ -1565,6 +1570,7 @@ fun Home(
             try {
                 runner.run(
                     mode = selectedProbeMode,
+                    qualityPromptProfile = selectedQualityPromptProfile,
                     onUpdate = { state ->
                         coroutineScope.launch {
                             npuS1PersistentCustomJniState = state
@@ -5776,10 +5782,15 @@ fun Home(
                                             onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
                                             npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                                             npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
+                                            npuS1PersistentCustomJniQualityPromptProfile =
+                                                npuS1PersistentCustomJniQualityPromptProfile,
                                             npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
                                             isInferenceRunningForPersistentCustomJni = isInferenceRunningUi,
                                             onNpuS1PersistentCustomJniProbeModeChange = {
                                                 npuS1PersistentCustomJniProbeMode = it
+                                            },
+                                            onNpuS1PersistentCustomJniQualityPromptProfileChange = {
+                                                npuS1PersistentCustomJniQualityPromptProfile = it
                                             },
                                             onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
                                             onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
@@ -5847,10 +5858,15 @@ fun Home(
                                             onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
                                             npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                                             npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
+                                            npuS1PersistentCustomJniQualityPromptProfile =
+                                                npuS1PersistentCustomJniQualityPromptProfile,
                                             npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
                                             isInferenceRunningForPersistentCustomJni = isInferenceRunningUi,
                                             onNpuS1PersistentCustomJniProbeModeChange = {
                                                 npuS1PersistentCustomJniProbeMode = it
+                                            },
+                                            onNpuS1PersistentCustomJniQualityPromptProfileChange = {
+                                                npuS1PersistentCustomJniQualityPromptProfile = it
                                             },
                                             onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
                                             onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
@@ -6081,10 +6097,14 @@ fun Home(
                     onNpuS1PersistentEngineCancel = ::cancelNpuS1PersistentEngineProbe,
                     npuS1PersistentCustomJniState = npuS1PersistentCustomJniState,
                     npuS1PersistentCustomJniProbeMode = npuS1PersistentCustomJniProbeMode,
+                    npuS1PersistentCustomJniQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
                     npuS1PersistentCustomJniInProgress = npuS1PersistentCustomJniJob?.isActive == true,
                     isInferenceRunningForPersistentCustomJni = isInferenceRunningUi,
                     onNpuS1PersistentCustomJniProbeModeChange = {
                         npuS1PersistentCustomJniProbeMode = it
+                    },
+                    onNpuS1PersistentCustomJniQualityPromptProfileChange = {
+                        npuS1PersistentCustomJniQualityPromptProfile = it
                     },
                     onNpuS1PersistentCustomJniStart = ::startNpuS1PersistentCustomJniProbe,
                     onNpuS1PersistentCustomJniCancel = ::cancelNpuS1PersistentCustomJniProbe,
@@ -9102,9 +9122,11 @@ private fun NpuS1PersistentEngineDevSection(
 private fun NpuS1PersistentCustomJniDevSection(
     state: NpuS1PersistentCustomJniProbeState,
     selectedMode: NpuS1PersistentCustomJniProbeMode,
+    selectedQualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile,
     running: Boolean,
     blockedByGeneration: Boolean,
     onModeChange: (NpuS1PersistentCustomJniProbeMode) -> Unit,
+    onQualityPromptProfileChange: (NpuS1PersistentCustomJniQualityPromptProfile) -> Unit,
     onStart: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -9129,6 +9151,19 @@ private fun NpuS1PersistentCustomJniDevSection(
                 )
             }
         }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            NpuS1PersistentCustomJniQualityPromptProfile.entries.forEach { profile ->
+                FilterChip(
+                    selected = selectedQualityPromptProfile == profile,
+                    onClick = { onQualityPromptProfileChange(profile) },
+                    enabled = !running && !blockedByGeneration,
+                    label = { Text(profile.wireValue) },
+                )
+            }
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -9150,7 +9185,7 @@ private fun NpuS1PersistentCustomJniDevSection(
             text = if (blockedByGeneration) {
                 "生成完了後に実行してください"
             } else {
-                "DEV専用PoCです。custom JNI Engine holder の到達状況だけを通常チャットと分離して確認します。"
+                "DEV専用PoCです。custom JNI Engine holder と prompt別の出力品質だけを通常チャットと分離して確認します。"
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -9200,9 +9235,13 @@ private fun InferenceStatsSheetContent(
     npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
     npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
         NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
+    npuS1PersistentCustomJniQualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile =
+        NpuS1PersistentCustomJniQualityPromptProfile.CURRENT_PROBE_QUALITY,
     npuS1PersistentCustomJniInProgress: Boolean = false,
     isInferenceRunningForPersistentCustomJni: Boolean = false,
     onNpuS1PersistentCustomJniProbeModeChange: (NpuS1PersistentCustomJniProbeMode) -> Unit = {},
+    onNpuS1PersistentCustomJniQualityPromptProfileChange:
+        (NpuS1PersistentCustomJniQualityPromptProfile) -> Unit = {},
     onNpuS1PersistentCustomJniStart: () -> Unit = {},
     onNpuS1PersistentCustomJniCancel: () -> Unit = {},
 ) {
@@ -9378,9 +9417,11 @@ private fun InferenceStatsSheetContent(
                     NpuS1PersistentCustomJniDevSection(
                         state = npuS1PersistentCustomJniState,
                         selectedMode = npuS1PersistentCustomJniProbeMode,
+                        selectedQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
                         running = npuS1PersistentCustomJniInProgress,
                         blockedByGeneration = isInferenceRunningForPersistentCustomJni,
                         onModeChange = onNpuS1PersistentCustomJniProbeModeChange,
+                        onQualityPromptProfileChange = onNpuS1PersistentCustomJniQualityPromptProfileChange,
                         onStart = onNpuS1PersistentCustomJniStart,
                         onCancel = onNpuS1PersistentCustomJniCancel,
                     )
@@ -9564,9 +9605,13 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     npuS1PersistentCustomJniState: NpuS1PersistentCustomJniProbeState = NpuS1PersistentCustomJniProbeState(),
     npuS1PersistentCustomJniProbeMode: NpuS1PersistentCustomJniProbeMode =
         NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
+    npuS1PersistentCustomJniQualityPromptProfile: NpuS1PersistentCustomJniQualityPromptProfile =
+        NpuS1PersistentCustomJniQualityPromptProfile.CURRENT_PROBE_QUALITY,
     npuS1PersistentCustomJniInProgress: Boolean = false,
     isInferenceRunningForPersistentCustomJni: Boolean = false,
     onNpuS1PersistentCustomJniProbeModeChange: ((NpuS1PersistentCustomJniProbeMode) -> Unit)? = null,
+    onNpuS1PersistentCustomJniQualityPromptProfileChange:
+        ((NpuS1PersistentCustomJniQualityPromptProfile) -> Unit)? = null,
     onNpuS1PersistentCustomJniStart: (() -> Unit)? = null,
     onNpuS1PersistentCustomJniCancel: (() -> Unit)? = null,
 ) {
@@ -9625,15 +9670,18 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                 )
                 if (
                     onNpuS1PersistentCustomJniProbeModeChange != null &&
+                    onNpuS1PersistentCustomJniQualityPromptProfileChange != null &&
                     onNpuS1PersistentCustomJniStart != null &&
                     onNpuS1PersistentCustomJniCancel != null
                 ) {
                     NpuS1PersistentCustomJniDevSection(
                         state = npuS1PersistentCustomJniState,
                         selectedMode = npuS1PersistentCustomJniProbeMode,
+                        selectedQualityPromptProfile = npuS1PersistentCustomJniQualityPromptProfile,
                         running = npuS1PersistentCustomJniInProgress,
                         blockedByGeneration = isInferenceRunningForPersistentCustomJni,
                         onModeChange = onNpuS1PersistentCustomJniProbeModeChange,
+                        onQualityPromptProfileChange = onNpuS1PersistentCustomJniQualityPromptProfileChange,
                         onStart = onNpuS1PersistentCustomJniStart,
                         onCancel = onNpuS1PersistentCustomJniCancel,
                     )

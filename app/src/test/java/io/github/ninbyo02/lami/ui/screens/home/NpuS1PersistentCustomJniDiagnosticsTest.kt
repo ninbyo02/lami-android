@@ -38,6 +38,7 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(quality.startsWithPunctuation)
         assertEquals(NPU_S1_OUTPUT_QUALITY_PUNCTUATION_START, quality.qualityClassification)
         assertTrue(quality.reason.contains("starts_with_punctuation"))
+        assertTrue(quality.reason.contains("first_token_boundary_suspect"))
     }
 
     @Test
@@ -63,11 +64,45 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
     }
 
     @Test
+    fun `output quality flags repeated template output`() {
+        val quality = classifyNpuS1PersistentCustomJniOutputQuality(
+            output = "。お元気ですか。いつもお世話になっております。[あなたの名前]です。",
+            outputEqualsAcrossRuns = true,
+        )
+
+        assertEquals(NPU_S1_OUTPUT_QUALITY_REPEATED_TEMPLATE_OUTPUT, quality.qualityClassification)
+        assertTrue(quality.reason.contains("repeated_template_output"))
+    }
+
+    @Test
+    fun `output quality flags prompt ignored for greeting placeholder leak`() {
+        val quality = classifyNpuS1PersistentCustomJniOutputQuality(
+            output = "。お元気ですか。いつもお世話になっております。[あなたの名前]です。",
+            prompt = "こんにちは",
+        )
+
+        assertEquals(NPU_S1_OUTPUT_QUALITY_PROMPT_IGNORED_SUSPECT, quality.qualityClassification)
+        assertTrue(quality.reason.contains("prompt_ignored_suspect"))
+    }
+
+    @Test
+    fun `token boundary diagnostics derive text spans without token ids`() {
+        val diagnostics = buildNpuS1PersistentCustomJniTokenBoundaryDiagnostics("。\n\nお元気ですか。")
+
+        assertEquals("。", diagnostics.outputFirst1Char)
+        assertEquals("。\n\nお元", diagnostics.outputFirst5Chars)
+        assertEquals("。\n\nお元気ですか。", diagnostics.outputFirst20Chars)
+        assertEquals("1", diagnostics.outputLeadingPunctuationCount)
+        assertEquals("2", diagnostics.outputNewlineCount)
+        assertEquals("。\n\nお元気ですか。", diagnostics.outputAfterLstripFirstChars)
+    }
+
+    @Test
     fun `full 20 success with suspect quality keeps normal chat blocked`() {
         val state = full20SuccessState(
             records = successRecords(
                 rawOutput = "。お元気ですか。いつもお世話になっております。[あなたの名前]です。",
-                qualityClassification = NPU_S1_OUTPUT_QUALITY_PLACEHOLDER_LEAK,
+                qualityClassification = NPU_S1_OUTPUT_QUALITY_PROMPT_IGNORED_SUSPECT,
             ),
         )
 
@@ -177,6 +212,7 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             outputLooksBusinessTemplate = "false",
             outputStartsWithPunctuation = "true",
             outputContainsPlaceholder = "false",
+            outputEqualsAcrossRuns = "false",
         )
 
         val text = formatNpuS1PersistentCustomJniDiagnosticsForDev(state)
@@ -193,6 +229,8 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("holder_key_engine_config_version=persistent_custom_jni_holder_poc_v1"))
         assertTrue(text.contains("native_holder_entrypoint_available=false"))
         assertTrue(text.contains("selected_native_probe_mode=before_engine_create"))
+        assertTrue(text.contains("selected_quality_prompt_profile=current_probe_quality"))
+        assertTrue(text.contains("quality_comparison_prompt_set=current_probe_quality,raw_prompt_quality"))
         assertTrue(text.contains("last_native_stage=before_engine_create"))
         assertTrue(text.contains("native_entrypoint_reached=true"))
         assertTrue(text.contains("model_assets_create_reached=true"))
@@ -235,9 +273,14 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("output_prefix_classification=punctuation_start"))
         assertTrue(text.contains("output_quality_reason=starts_with_punctuation"))
         assertTrue(text.contains("output_repeats_same_across_runs=false"))
+        assertTrue(text.contains("output_equals_across_runs=false"))
         assertTrue(text.contains("output_looks_business_template=false"))
         assertTrue(text.contains("output_starts_with_punctuation=true"))
         assertTrue(text.contains("output_contains_placeholder=false"))
+        assertTrue(text.contains("prefill_token_count=unavailable"))
+        assertTrue(text.contains("decode_token_count=unavailable"))
+        assertTrue(text.contains("first_output_token_id=unavailable"))
+        assertTrue(text.contains("token_diagnostics_note=token_ids_not_exposed_by_current_custom_jni_probe_without_native_rebuild"))
     }
 
     @Test
@@ -255,13 +298,29 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
                     prefillFinished = "true",
                     decodeStarted = "true",
                     decodeFinished = "false",
+                    prefillInputText = "こんにちは",
+                    prefillInputChars = "5",
+                    decodeFirstChunkText = "。お元気ですか。いつもお世話になっております。",
+                    decodeFirstChunkChars = "24",
+                    decodeFirstNonEmptyChunkText = "。お元気ですか。いつもお世話になっております。",
+                    decodeFirstNonEmptyChunkChars = "24",
                     rawOutput = "。お元気ですか。いつもお世話になっております。[あなたの名前]です。",
                     sanitizedOutput = "。お元気ですか。いつもお世話になっております。[あなたの名前]です。",
                     outputPrefix20Chars = "。お元気ですか。いつもお世話に",
+                    outputFirst1Char = "。",
+                    outputFirst5Chars = "。お元気",
+                    outputFirst20Chars = "。お元気ですか。いつもお世話に",
+                    outputLast20Chars = "っております。[あなたの名前]です。",
+                    outputLengthChars = "35",
+                    outputNewlineCount = "0",
+                    outputLeadingPunctuationCount = "1",
+                    outputTrimmedFirstChars = "。お元気ですか。いつもお世話に",
+                    outputAfterLstripFirstChars = "。お元気ですか。いつもお世話に",
+                    outputEqualsAcrossRuns = "true",
                     startsWithPunctuation = "true",
                     containsBusinessPhrase = "true",
                     containsPlaceholder = "true",
-                    qualityClassification = NPU_S1_OUTPUT_QUALITY_PLACEHOLDER_LEAK,
+                    qualityClassification = NPU_S1_OUTPUT_QUALITY_PROMPT_IGNORED_SUSPECT,
                     prefillMs = 42,
                     cleanupMs = 3,
                     failureStage = "decode",
@@ -282,11 +341,31 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("prefill_finished=true"))
         assertTrue(text.contains("decode_started=true"))
         assertTrue(text.contains("decode_finished=false"))
+        assertTrue(text.contains("prefill_input_text=こんにちは"))
+        assertTrue(text.contains("prefill_input_chars=5"))
+        assertTrue(text.contains("decode_first_chunk_text=。お元気ですか。いつもお世話になっております。"))
+        assertTrue(text.contains("decode_first_non_empty_chunk_text=。お元気ですか。いつもお世話になっております。"))
         assertTrue(text.contains("output_prefix_20_chars=。お元気ですか。いつもお世話に"))
+        assertTrue(text.contains("output_first_1_char=。"))
+        assertTrue(text.contains("output_first_5_chars=。お元気"))
+        assertTrue(text.contains("output_first_20_chars=。お元気ですか。いつもお世話に"))
+        assertTrue(text.contains("output_last_20_chars=っております。[あなたの名前]です。"))
+        assertTrue(text.contains("output_length_chars=35"))
+        assertTrue(text.contains("output_newline_count=0"))
+        assertTrue(text.contains("output_leading_punctuation_count=1"))
+        assertTrue(text.contains("output_trimmed_first_chars=。お元気ですか。いつもお世話に"))
+        assertTrue(text.contains("output_after_lstrip_first_chars=。お元気ですか。いつもお世話に"))
+        assertTrue(text.contains("output_equals_across_runs=true"))
         assertTrue(text.contains("starts_with_punctuation=true"))
         assertTrue(text.contains("contains_business_phrase=true"))
         assertTrue(text.contains("contains_placeholder=true"))
-        assertTrue(text.contains("quality_classification=placeholder_leak"))
+        assertTrue(text.contains("prefill_token_count=unavailable"))
+        assertTrue(text.contains("decode_token_count=unavailable"))
+        assertTrue(text.contains("first_output_token_id=unavailable"))
+        assertTrue(text.contains("first_5_output_token_ids=unavailable"))
+        assertTrue(text.contains("eos_seen=unavailable"))
+        assertTrue(text.contains("special_token_seen_in_output=unavailable"))
+        assertTrue(text.contains("quality_classification=prompt_ignored_suspect"))
         assertTrue(text.contains("prefill_ms=42"))
         assertTrue(text.contains("cleanup_ms=3"))
         assertTrue(text.contains("failure_stage=decode"))
@@ -325,6 +404,11 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("output_prefix_classification=unavailable"))
         assertTrue(text.contains("output_repeats_same_across_runs=unavailable"))
         assertTrue(text.contains("output_contains_placeholder=unavailable"))
+        assertTrue(text.contains("prefill_token_count=unavailable"))
+        assertTrue(text.contains("decode_token_count=unavailable"))
+        assertTrue(text.contains("first_output_token_id=unavailable"))
+        assertTrue(text.contains("special_token_seen_in_output=unavailable"))
+        assertTrue(text.contains("token_diagnostics_note=token_ids_not_exposed_by_current_custom_jni_probe_without_native_rebuild"))
         assertTrue(text.contains("records=empty"))
     }
 
