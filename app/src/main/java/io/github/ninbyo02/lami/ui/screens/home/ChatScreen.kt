@@ -9131,6 +9131,11 @@ private fun NpuS1PersistentCustomJniDevSection(
     onCancel: () -> Unit,
 ) {
     InferenceStatsSection(title = "NPU S1 persistent custom JNI") {
+        Text(
+            text = "クラッシュ切り分け用",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -9151,6 +9156,11 @@ private fun NpuS1PersistentCustomJniDevSection(
                 )
             }
         }
+        Text(
+            text = "品質比較用",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),

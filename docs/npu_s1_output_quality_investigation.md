@@ -123,6 +123,82 @@ The DEV UI can also run shorter prompt comparison profiles without a native rebu
 - `short_ja_self_intro_quality`: `日本語で短く自己紹介してください。`, 3 runs
 - `no_hidden_template_quality`: `こんにちは`, 3 runs
 
+## Current Prompt Comparison Result
+
+Observed so far:
+
+- `current_probe_quality`, `raw_prompt_quality`, `no_hidden_template_quality`
+  - `prompt=こんにちは`
+  - repeated template-like output
+  - starts with punctuation
+  - contains `いつもお世話になっております`
+  - contains `[あなたの名前]`
+- `simple_ja_chat_quality`
+  - `prompt=こんにちは。あなたは誰ですか？`
+  - empty output
+- `simple_ja_arithmetic_quality`
+  - `prompt=1+1は？`
+  - newline-only output
+- `short_ja_self_intro_quality`
+  - `prompt=日本語で短く自己紹介してください。`
+  - Japanese text appears, but still looks close to repeated template output
+
+This means the next comparison should focus on prompt wrappers and decode start anchoring rather than crash safety.
+
+## Prompt Wrapper Profiles
+
+New DEV-only wrapper profiles are Kotlin-side prompt strings. They do not require a native rebuild.
+
+- `gemma_it_user_model`
+  - Uses `<start_of_turn>user ... <end_of_turn>` and `<start_of_turn>model`.
+  - Checks whether Gemma instruction-turn boundaries align generation.
+- `gemma_it_start_turn`
+  - Uses start-turn markers without the user end-turn boundary.
+  - Checks whether a shorter turn prefix changes decode start behavior.
+- `ai_edge_gallery_like`
+  - Uses a Gallery-like Gemma turn wrapper.
+  - Checks whether Gallery-style prompt shape improves quality.
+- `user_colon_assistant_colon`
+  - Uses `User:` / `Assistant:` text roles.
+  - Checks whether plain text role anchors reduce template leakage.
+- `assistant_prefix_only`
+  - Uses the raw prompt followed by `Assistant:`.
+  - Checks whether only the answer prefix is enough.
+- `japanese_instruction_with_answer_prefix`
+  - Uses Japanese instruction, question, and `回答:`.
+  - Checks whether a Japanese answer anchor improves output.
+- `no_bos_no_eos`
+  - Keeps the raw prompt with no special markers.
+  - Baseline for explicit no-special-token behavior.
+- `bos_eos_like_if_supported_by_existing_code`
+  - Uses textual `<bos>` / `<eos>` markers only.
+  - This is not real token-id insertion; native support would require a separate patch.
+
+Each wrapper profile runs `run_count=3` for quick comparison. `current_probe_quality` keeps `run_count=20` for stability confirmation.
+
+## Success Criteria
+
+At least one profile must satisfy:
+
+- output is not empty
+- output is not newline-only
+- no placeholder leak
+- no business template leak
+- output broadly responds to the prompt
+- `output_equals_across_runs` is not always fixed, or fixed output is a natural short sentence
+
+Normal chat must remain blocked until a separate output quality gate passes.
+
+## Normal Chat Return Conditions
+
+Before native NPU can return to normal chat:
+
+1. Crash-safety gate remains pass.
+2. A prompt wrapper profile produces natural Japanese output.
+3. The output does not contain placeholders or business template leakage.
+4. The output is not empty or newline-only for simple prompts.
+5. The route is promoted through an explicit code change; `NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED=false` must not be changed by diagnostics work.
+
 ## Suspected Causes
 
 Primary suspects:

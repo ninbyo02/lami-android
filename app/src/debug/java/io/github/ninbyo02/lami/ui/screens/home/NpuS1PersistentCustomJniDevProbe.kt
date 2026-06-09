@@ -65,6 +65,8 @@ internal class NpuS1PersistentCustomJniDevProbe(
             systemTemplateUsed = promptDiagnostics.systemTemplateUsed,
             hiddenTemplateUsed = promptDiagnostics.hiddenTemplateUsed,
             promptWrapperUsed = promptDiagnostics.promptWrapperUsed,
+            promptWrapperFamily = promptDiagnostics.promptWrapperFamily,
+            promptProfileHypothesis = promptDiagnostics.promptProfileHypothesis,
             prefillTextOrTokenNote = promptDiagnostics.prefillTextOrTokenNote,
         )
         fun update(next: NpuS1PersistentCustomJniProbeState) {
@@ -201,6 +203,8 @@ private fun parsePersistentCustomJniProbeResult(
             startsWithPunctuation = quality.startsWithPunctuation.toString(),
             containsBusinessPhrase = quality.containsBusinessPhrase.toString(),
             containsPlaceholder = quality.containsPlaceholder.toString(),
+            outputOnlyNewline = quality.outputOnlyNewline.toString(),
+            outputEmpty = quality.outputEmpty.toString(),
             prefillInputText = fallbackState.finalPromptText,
             prefillInputChars = fallbackState.finalPromptLengthChars,
             decodeFirstChunkText = boundary.decodeFirstChunkText,
@@ -305,6 +309,8 @@ private fun parsePersistentCustomJniProbeResult(
         systemTemplateUsed = summary["system_template_used"] ?: fallbackState.systemTemplateUsed,
         hiddenTemplateUsed = summary["hidden_template_used"] ?: fallbackState.hiddenTemplateUsed,
         promptWrapperUsed = summary["prompt_wrapper_used"] ?: fallbackState.promptWrapperUsed,
+        promptWrapperFamily = summary["prompt_wrapper_family"] ?: fallbackState.promptWrapperFamily,
+        promptProfileHypothesis = summary["prompt_profile_hypothesis"] ?: fallbackState.promptProfileHypothesis,
         prefillTextOrTokenNote = summary["prefill_text_or_token_note"] ?: fallbackState.prefillTextOrTokenNote,
         firstOutputChars = qualitySummary.firstOutputChars,
         outputPrefixClassification = qualitySummary.outputPrefixClassification,
@@ -313,6 +319,8 @@ private fun parsePersistentCustomJniProbeResult(
         outputLooksBusinessTemplate = qualitySummary.outputLooksBusinessTemplate,
         outputStartsWithPunctuation = qualitySummary.outputStartsWithPunctuation,
         outputContainsPlaceholder = qualitySummary.outputContainsPlaceholder,
+        outputOnlyNewline = qualitySummary.outputOnlyNewline,
+        outputEmpty = qualitySummary.outputEmpty,
         outputEqualsAcrossRuns = qualitySummary.outputRepeatsSameAcrossRuns,
         tokenDiagnosticsNote = NPU_S1_TOKEN_DIAGNOSTICS_UNAVAILABLE_NOTE,
         records = records,
@@ -327,6 +335,8 @@ private data class PersistentCustomJniPromptDiagnostics(
     val systemTemplateUsed: String,
     val hiddenTemplateUsed: String,
     val promptWrapperUsed: String,
+    val promptWrapperFamily: String,
+    val promptProfileHypothesis: String,
     val prefillTextOrTokenNote: String,
 )
 
@@ -357,7 +367,9 @@ private fun buildPersistentCustomJniPromptDiagnostics(
         finalPromptTailPreview = validation.normalizedPrompt.takeLast(PROMPT_TAIL_PREVIEW_CHARS),
         systemTemplateUsed = "false",
         hiddenTemplateUsed = "false",
-        promptWrapperUsed = "none",
+        promptWrapperUsed = qualityPromptProfile.promptWrapperUsed,
+        promptWrapperFamily = qualityPromptProfile.promptWrapperFamily,
+        promptProfileHypothesis = qualityPromptProfile.promptProfileHypothesis,
         prefillTextOrTokenNote = "native_RunPrefill_receives_final_prompt_text",
     )
 }
@@ -370,6 +382,8 @@ private data class PersistentCustomJniQualitySummary(
     val outputLooksBusinessTemplate: String,
     val outputStartsWithPunctuation: String,
     val outputContainsPlaceholder: String,
+    val outputOnlyNewline: String,
+    val outputEmpty: String,
 )
 
 private fun buildPersistentCustomJniQualitySummary(
@@ -384,6 +398,8 @@ private fun buildPersistentCustomJniQualitySummary(
             outputLooksBusinessTemplate = "unavailable",
             outputStartsWithPunctuation = "unavailable",
             outputContainsPlaceholder = "unavailable",
+            outputOnlyNewline = "unavailable",
+            outputEmpty = "unavailable",
         )
     }
     val outputs = records.map { it.rawOutput.ifBlank { it.sanitizedOutput } }
@@ -396,6 +412,8 @@ private fun buildPersistentCustomJniQualitySummary(
     val hasBusinessTemplate = records.any { it.containsBusinessPhrase == "true" }
     val startsWithPunctuation = records.any { it.startsWithPunctuation == "true" }
     val containsPlaceholder = records.any { it.containsPlaceholder == "true" }
+    val outputOnlyNewline = records.any { it.outputOnlyNewline == "true" }
+    val outputEmpty = records.any { it.outputEmpty == "true" }
     val reasons = buildList {
         if (startsWithPunctuation) add("starts_with_punctuation")
         if (startsWithPunctuation) add("first_token_boundary_suspect")
@@ -404,6 +422,8 @@ private fun buildPersistentCustomJniQualitySummary(
         if (containsPlaceholder) add("prompt_ignored_suspect")
         if (repeatedOutput) add("repeated_template_output")
         if (startsWithPunctuation && containsPlaceholder) add("decode_offset_suspect")
+        if (outputOnlyNewline) add("newline_only")
+        if (outputEmpty) add("empty_output")
     }.ifEmpty { listOf(firstQuality.reason) }
     return PersistentCustomJniQualitySummary(
         firstOutputChars = outputs.firstOrNull().orEmpty().take(40),
@@ -413,6 +433,8 @@ private fun buildPersistentCustomJniQualitySummary(
         outputLooksBusinessTemplate = hasBusinessTemplate.toString(),
         outputStartsWithPunctuation = startsWithPunctuation.toString(),
         outputContainsPlaceholder = containsPlaceholder.toString(),
+        outputOnlyNewline = outputOnlyNewline.toString(),
+        outputEmpty = outputEmpty.toString(),
     )
 }
 

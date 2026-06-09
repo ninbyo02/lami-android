@@ -58,6 +58,9 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
     val runCount: Int,
     val promptValidationMode: String,
     val unsafeDevBypassPromptLengthGate: Boolean,
+    val promptWrapperUsed: String,
+    val promptWrapperFamily: String,
+    val promptProfileHypothesis: String,
 ) {
     CURRENT_PROBE_QUALITY(
         wireValue = "current_probe_quality",
@@ -66,6 +69,9 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
         runCount = NPU_S1_PERSISTENT_CUSTOM_JNI_DEFAULT_COUNT,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
         unsafeDevBypassPromptLengthGate = true,
+        promptWrapperUsed = "none",
+        promptWrapperFamily = "none",
+        promptProfileHypothesis = "baseline_current_probe_prompt",
     ),
     RAW_PROMPT_QUALITY(
         wireValue = "raw_prompt_quality",
@@ -74,6 +80,9 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
         unsafeDevBypassPromptLengthGate = false,
+        promptWrapperUsed = "none",
+        promptWrapperFamily = "none",
+        promptProfileHypothesis = "raw_greeting_without_wrapper",
     ),
     SIMPLE_JA_CHAT_QUALITY(
         wireValue = "simple_ja_chat_quality",
@@ -82,6 +91,9 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
         unsafeDevBypassPromptLengthGate = true,
+        promptWrapperUsed = "none",
+        promptWrapperFamily = "none",
+        promptProfileHypothesis = "longer_japanese_greeting_question",
     ),
     SIMPLE_JA_ARITHMETIC_QUALITY(
         wireValue = "simple_ja_arithmetic_quality",
@@ -90,6 +102,9 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
         unsafeDevBypassPromptLengthGate = false,
+        promptWrapperUsed = "none",
+        promptWrapperFamily = "none",
+        promptProfileHypothesis = "short_arithmetic_prompt_response_check",
     ),
     SHORT_JA_SELF_INTRO_QUALITY(
         wireValue = "short_ja_self_intro_quality",
@@ -98,6 +113,9 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
         unsafeDevBypassPromptLengthGate = true,
+        promptWrapperUsed = "none",
+        promptWrapperFamily = "none",
+        promptProfileHypothesis = "instruction_prompt_response_check",
     ),
     NO_HIDDEN_TEMPLATE_QUALITY(
         wireValue = "no_hidden_template_quality",
@@ -106,6 +124,97 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
         unsafeDevBypassPromptLengthGate = false,
+        promptWrapperUsed = "none",
+        promptWrapperFamily = "none",
+        promptProfileHypothesis = "greeting_without_hidden_template_mode",
+    ),
+    GEMMA_IT_USER_MODEL(
+        wireValue = "gemma_it_user_model",
+        displayLabel = "Gemma user/model",
+        prompt = "<start_of_turn>user\nこんにちは<end_of_turn>\n<start_of_turn>model\n",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
+        unsafeDevBypassPromptLengthGate = true,
+        promptWrapperUsed = "gemma_it_user_model",
+        promptWrapperFamily = "gemma_it",
+        promptProfileHypothesis = "gemma_instruction_turn_format_may_align_decode_start",
+    ),
+    GEMMA_IT_START_TURN(
+        wireValue = "gemma_it_start_turn",
+        displayLabel = "Gemma start",
+        prompt = "<start_of_turn>user\nこんにちは\n<start_of_turn>model\n",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
+        unsafeDevBypassPromptLengthGate = true,
+        promptWrapperUsed = "gemma_it_start_turn",
+        promptWrapperFamily = "gemma_it",
+        promptProfileHypothesis = "start_turn_without_end_turn_boundary_check",
+    ),
+    AI_EDGE_GALLERY_LIKE(
+        wireValue = "ai_edge_gallery_like",
+        displayLabel = "Gallery-like",
+        prompt = "<start_of_turn>user\nこんにちは<end_of_turn>\n<start_of_turn>model\n",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
+        unsafeDevBypassPromptLengthGate = true,
+        promptWrapperUsed = "ai_edge_gallery_like",
+        promptWrapperFamily = "ai_edge_gallery_like",
+        promptProfileHypothesis = "gallery_like_turn_wrapper_quality_check",
+    ),
+    USER_COLON_ASSISTANT_COLON(
+        wireValue = "user_colon_assistant_colon",
+        displayLabel = "User/Assistant",
+        prompt = "User: こんにちは\nAssistant:",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
+        unsafeDevBypassPromptLengthGate = true,
+        promptWrapperUsed = "user_colon_assistant_colon",
+        promptWrapperFamily = "plain_role_colon",
+        promptProfileHypothesis = "plain_role_prefix_may_anchor_assistant_answer",
+    ),
+    ASSISTANT_PREFIX_ONLY(
+        wireValue = "assistant_prefix_only",
+        displayLabel = "Assistant only",
+        prompt = "こんにちは\nAssistant:",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
+        unsafeDevBypassPromptLengthGate = true,
+        promptWrapperUsed = "assistant_prefix_only",
+        promptWrapperFamily = "plain_role_colon",
+        promptProfileHypothesis = "assistant_prefix_without_user_role_check",
+    ),
+    JAPANESE_INSTRUCTION_WITH_ANSWER_PREFIX(
+        wireValue = "japanese_instruction_with_answer_prefix",
+        displayLabel = "JA answer",
+        prompt = "以下に短く自然な日本語で答えてください。\n質問: こんにちは\n回答:",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
+        unsafeDevBypassPromptLengthGate = true,
+        promptWrapperUsed = "japanese_instruction_with_answer_prefix",
+        promptWrapperFamily = "japanese_instruction",
+        promptProfileHypothesis = "japanese_answer_prefix_may_reduce_template_leak",
+    ),
+    NO_BOS_NO_EOS(
+        wireValue = "no_bos_no_eos",
+        displayLabel = "No BOS/EOS",
+        prompt = "こんにちは",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
+        unsafeDevBypassPromptLengthGate = false,
+        promptWrapperUsed = "no_bos_no_eos",
+        promptWrapperFamily = "none",
+        promptProfileHypothesis = "explicit_no_special_marker_baseline",
+    ),
+    BOS_EOS_LIKE_IF_SUPPORTED_BY_EXISTING_CODE(
+        wireValue = "bos_eos_like_if_supported_by_existing_code",
+        displayLabel = "BOS/EOS-like",
+        prompt = "<bos>こんにちは<eos>",
+        runCount = 3,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
+        unsafeDevBypassPromptLengthGate = true,
+        promptWrapperUsed = "bos_eos_like_if_supported_by_existing_code",
+        promptWrapperFamily = "textual_special_marker",
+        promptProfileHypothesis = "textual_bos_eos_marker_only_no_token_id_support_without_native_rebuild",
     ),
 }
 
@@ -163,6 +272,8 @@ internal data class NpuS1PersistentCustomJniRunRecord(
     val startsWithPunctuation: String = "unavailable",
     val containsBusinessPhrase: String = "unavailable",
     val containsPlaceholder: String = "unavailable",
+    val outputOnlyNewline: String = "unavailable",
+    val outputEmpty: String = "unavailable",
     val prefillInputText: String = "unavailable",
     val prefillInputChars: String = "unavailable",
     val decodeFirstChunkText: String = "unavailable",
@@ -267,6 +378,8 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val systemTemplateUsed: String = "unavailable",
     val hiddenTemplateUsed: String = "unavailable",
     val promptWrapperUsed: String = "unavailable",
+    val promptWrapperFamily: String = "unavailable",
+    val promptProfileHypothesis: String = "unavailable",
     val prefillTextOrTokenNote: String = "unavailable",
     val firstOutputChars: String = "unavailable",
     val outputPrefixClassification: String = "unavailable",
@@ -275,6 +388,8 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val outputLooksBusinessTemplate: String = "unavailable",
     val outputStartsWithPunctuation: String = "unavailable",
     val outputContainsPlaceholder: String = "unavailable",
+    val outputOnlyNewline: String = "unavailable",
+    val outputEmpty: String = "unavailable",
     val outputEqualsAcrossRuns: String = "unavailable",
     val tokenDiagnosticsNote: String = NPU_S1_TOKEN_DIAGNOSTICS_UNAVAILABLE_NOTE,
     val prefillTokenCount: String = "unavailable",
@@ -286,8 +401,8 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val eosSeen: String = "unavailable",
     val bosSeenInOutput: String = "unavailable",
     val specialTokenSeenInOutput: String = "unavailable",
-    val qualityComparisonPromptSet: String = "current_probe_quality,raw_prompt_quality,simple_ja_chat_quality," +
-        "simple_ja_arithmetic_quality,short_ja_self_intro_quality,no_hidden_template_quality",
+    val qualityComparisonPromptSet: String =
+        NpuS1PersistentCustomJniQualityPromptProfile.entries.joinToString(",") { it.wireValue },
     val promotionGateFreshCrash: String = "false",
     val promotionGateTimeout: String = "false",
     val promotionGateFallback: String = "false",
@@ -319,6 +434,8 @@ internal data class NpuS1PersistentCustomJniOutputQualityDiagnostics(
     val startsWithPunctuation: Boolean,
     val containsBusinessPhrase: Boolean,
     val containsPlaceholder: Boolean,
+    val outputOnlyNewline: Boolean,
+    val outputEmpty: Boolean,
     val qualityClassification: String,
     val reason: String,
 )
@@ -352,10 +469,13 @@ internal fun classifyNpuS1PersistentCustomJniOutputQuality(
         "よろしくお願いいたします",
     ).any(output::contains)
     val containsPlaceholder = Regex("""\[[^\]]+\]""").containsMatchIn(output)
+    val outputEmpty = output.isEmpty()
+    val outputOnlyNewline = output.isNotEmpty() && output.all { it == '\n' || it == '\r' }
     val promptIgnoredSuspect = prompt.isNotBlank() &&
         prompt.length <= 16 &&
         containsPlaceholder
     val classification = when {
+        outputEmpty || outputOnlyNewline -> NPU_S1_OUTPUT_QUALITY_UNKNOWN
         outputEqualsAcrossRuns && (containsPlaceholder || containsBusinessPhrase) ->
             NPU_S1_OUTPUT_QUALITY_REPEATED_TEMPLATE_OUTPUT
         promptIgnoredSuspect -> NPU_S1_OUTPUT_QUALITY_PROMPT_IGNORED_SUSPECT
@@ -373,13 +493,16 @@ internal fun classifyNpuS1PersistentCustomJniOutputQuality(
         if (promptIgnoredSuspect) add("prompt_ignored_suspect")
         if (outputEqualsAcrossRuns) add("repeated_template_output")
         if (startsWithPunctuation && containsPlaceholder) add("decode_offset_suspect")
-        if (output.isBlank()) add("empty_output")
+        if (outputOnlyNewline) add("newline_only")
+        if (outputEmpty) add("empty_output")
     }
     return NpuS1PersistentCustomJniOutputQualityDiagnostics(
         outputPrefix20Chars = output.take(20),
         startsWithPunctuation = startsWithPunctuation,
         containsBusinessPhrase = containsBusinessPhrase,
         containsPlaceholder = containsPlaceholder,
+        outputOnlyNewline = outputOnlyNewline,
+        outputEmpty = outputEmpty,
         qualityClassification = classification,
         reason = reasons.ifEmpty { listOf("no_quality_issue_detected") }.joinToString("+"),
     )
@@ -538,6 +661,8 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("system_template_used=${state.systemTemplateUsed}")
     appendLine("hidden_template_used=${state.hiddenTemplateUsed}")
     appendLine("prompt_wrapper_used=${state.promptWrapperUsed}")
+    appendLine("prompt_wrapper_family=${state.promptWrapperFamily}")
+    appendLine("prompt_profile_hypothesis=${state.promptProfileHypothesis}")
     appendLine("prefill_text_or_token_note=${escapePersistentCustomJniCopyValue(state.prefillTextOrTokenNote)}")
     appendLine("first_output_chars=${escapePersistentCustomJniCopyValue(state.firstOutputChars)}")
     appendLine("output_prefix_classification=${state.outputPrefixClassification}")
@@ -547,6 +672,8 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("output_looks_business_template=${state.outputLooksBusinessTemplate}")
     appendLine("output_starts_with_punctuation=${state.outputStartsWithPunctuation}")
     appendLine("output_contains_placeholder=${state.outputContainsPlaceholder}")
+    appendLine("output_only_newline=${state.outputOnlyNewline}")
+    appendLine("output_empty=${state.outputEmpty}")
     appendLine("prefill_token_count=${state.prefillTokenCount}")
     appendLine("decode_token_count=${state.decodeTokenCount}")
     appendLine("first_output_token_id=${state.firstOutputTokenId}")
@@ -623,6 +750,8 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
             appendLine("starts_with_punctuation=${record.startsWithPunctuation}")
             appendLine("contains_business_phrase=${record.containsBusinessPhrase}")
             appendLine("contains_placeholder=${record.containsPlaceholder}")
+            appendLine("output_only_newline=${record.outputOnlyNewline}")
+            appendLine("output_empty=${record.outputEmpty}")
             appendLine("prefill_token_count=${record.prefillTokenCount}")
             appendLine("decode_token_count=${record.decodeTokenCount}")
             appendLine("first_output_token_id=${record.firstOutputTokenId}")
