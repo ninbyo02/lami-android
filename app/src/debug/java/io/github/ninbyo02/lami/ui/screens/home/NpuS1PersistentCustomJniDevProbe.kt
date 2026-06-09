@@ -322,6 +322,14 @@ private fun parsePersistentCustomJniProbeResult(
         outputOnlyNewline = qualitySummary.outputOnlyNewline,
         outputEmpty = qualitySummary.outputEmpty,
         outputEqualsAcrossRuns = qualitySummary.outputRepeatsSameAcrossRuns,
+        outputQualityCandidateStatus = qualitySummary.outputQualityCandidateStatus,
+        outputQualityCandidateReason = qualitySummary.outputQualityCandidateReason,
+        outputQualityCandidatePreparedOutput = qualitySummary.outputQualityCandidatePreparedOutput,
+        outputQualityCandidateLeadingGreaterThanRemoved =
+            qualitySummary.outputQualityCandidateLeadingGreaterThanRemoved,
+        outputQualityCandidateEndOfTurnRemoved = qualitySummary.outputQualityCandidateEndOfTurnRemoved,
+        outputQualityCandidateAssistantRepetition = qualitySummary.outputQualityCandidateAssistantRepetition,
+        outputQualityCandidateQaContinuation = qualitySummary.outputQualityCandidateQaContinuation,
         tokenDiagnosticsNote = NPU_S1_TOKEN_DIAGNOSTICS_UNAVAILABLE_NOTE,
         records = records,
     )
@@ -384,6 +392,13 @@ private data class PersistentCustomJniQualitySummary(
     val outputContainsPlaceholder: String,
     val outputOnlyNewline: String,
     val outputEmpty: String,
+    val outputQualityCandidateStatus: String,
+    val outputQualityCandidateReason: String,
+    val outputQualityCandidatePreparedOutput: String,
+    val outputQualityCandidateLeadingGreaterThanRemoved: String,
+    val outputQualityCandidateEndOfTurnRemoved: String,
+    val outputQualityCandidateAssistantRepetition: String,
+    val outputQualityCandidateQaContinuation: String,
 )
 
 private fun buildPersistentCustomJniQualitySummary(
@@ -400,6 +415,13 @@ private fun buildPersistentCustomJniQualitySummary(
             outputContainsPlaceholder = "unavailable",
             outputOnlyNewline = "unavailable",
             outputEmpty = "unavailable",
+            outputQualityCandidateStatus = "unavailable",
+            outputQualityCandidateReason = "unavailable",
+            outputQualityCandidatePreparedOutput = "unavailable",
+            outputQualityCandidateLeadingGreaterThanRemoved = "unavailable",
+            outputQualityCandidateEndOfTurnRemoved = "unavailable",
+            outputQualityCandidateAssistantRepetition = "unavailable",
+            outputQualityCandidateQaContinuation = "unavailable",
         )
     }
     val outputs = records.map { it.rawOutput.ifBlank { it.sanitizedOutput } }
@@ -414,6 +436,11 @@ private fun buildPersistentCustomJniQualitySummary(
     val containsPlaceholder = records.any { it.containsPlaceholder == "true" }
     val outputOnlyNewline = records.any { it.outputOnlyNewline == "true" }
     val outputEmpty = records.any { it.outputEmpty == "true" }
+    val firstRecord = records.first()
+    val candidate = evaluateNpuS1PersistentCustomJniQualityCandidate(
+        rawOutput = firstRecord.rawOutput,
+        sanitizedOutput = firstRecord.sanitizedOutput,
+    )
     val reasons = buildList {
         if (startsWithPunctuation) add("starts_with_punctuation")
         if (startsWithPunctuation) add("first_token_boundary_suspect")
@@ -435,6 +462,13 @@ private fun buildPersistentCustomJniQualitySummary(
         outputContainsPlaceholder = containsPlaceholder.toString(),
         outputOnlyNewline = outputOnlyNewline.toString(),
         outputEmpty = outputEmpty.toString(),
+        outputQualityCandidateStatus = candidate.status,
+        outputQualityCandidateReason = candidate.reason,
+        outputQualityCandidatePreparedOutput = candidate.preparedOutput,
+        outputQualityCandidateLeadingGreaterThanRemoved = candidate.leadingGreaterThanRemoved.toString(),
+        outputQualityCandidateEndOfTurnRemoved = candidate.endOfTurnRemoved.toString(),
+        outputQualityCandidateAssistantRepetition = candidate.assistantRepetition.toString(),
+        outputQualityCandidateQaContinuation = candidate.qaContinuation.toString(),
     )
 }
 

@@ -127,6 +127,15 @@ The DEV UI can also run shorter prompt comparison profiles without a native rebu
 
 Observed so far:
 
+- `gemma_it_user_model`
+  - `final_prompt_text=<start_of_turn>user\nこんにちは<end_of_turn>\n<start_of_turn>model`
+  - `raw_output=>こんにちは！何かお手伝いできることはありますか？<end_of_turn>`
+  - `sanitized_output=こんにちは！何かお手伝いできることはありますか？`
+  - 3/3 success, no crash
+  - current recommended candidate profile
+- `ai_edge_gallery_like`
+  - currently the same prompt shape as `gemma_it_user_model`
+  - treat as an alias / duplicate until the Gallery prompt path diverges
 - `current_probe_quality`, `raw_prompt_quality`, `no_hidden_template_quality`
   - `prompt=こんにちは`
   - repeated template-like output
@@ -173,6 +182,7 @@ New DEV-only wrapper profiles are Kotlin-side prompt strings. They do not requir
 - `bos_eos_like_if_supported_by_existing_code`
   - Uses textual `<bos>` / `<eos>` markers only.
   - This is not real token-id insertion; native support would require a separate patch.
+  - Observed `engine_create_failed`; treat as unsafe / not recommended.
 
 Each wrapper profile runs `run_count=3` for quick comparison. `current_probe_quality` keeps `run_count=20` for stability confirmation.
 
@@ -189,6 +199,15 @@ At least one profile must satisfy:
 
 Normal chat must remain blocked until a separate output quality gate passes.
 
+Current candidate gate preparation:
+
+- `gemma_it_user_model` is the recommended candidate.
+- Leading `>` before a natural answer is considered safely removable in DEV gate preparation.
+- `<end_of_turn>` is considered safely removable in DEV gate preparation.
+- The prepared output must still be non-empty natural Japanese after those two removals.
+- `ai_edge_gallery_like` is currently a duplicate of `gemma_it_user_model`.
+- `bos_eos_like_if_supported_by_existing_code` is not recommended because it failed at engine create.
+
 ## Normal Chat Return Conditions
 
 Before native NPU can return to normal chat:
@@ -198,6 +217,18 @@ Before native NPU can return to normal chat:
 3. The output does not contain placeholders or business template leakage.
 4. The output is not empty or newline-only for simple prompts.
 5. The route is promoted through an explicit code change; `NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED=false` must not be changed by diagnostics work.
+
+Do not restore normal chat native NPU until:
+
+- `gemma_it_user_model` or a successor profile repeatedly passes the quality candidate gate.
+- The candidate gate rejects the known bad profiles:
+  - `current_probe_quality`
+  - `no_bos_no_eos`
+  - `user_colon_assistant_colon`
+  - `assistant_prefix_only`
+  - `japanese_instruction_with_answer_prefix`
+  - `bos_eos_like_if_supported_by_existing_code`
+- The route has a dedicated production sanitizer / stop-sequence plan reviewed separately.
 
 ## Suspected Causes
 

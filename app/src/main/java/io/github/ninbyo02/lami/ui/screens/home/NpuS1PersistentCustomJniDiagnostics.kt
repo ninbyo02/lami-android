@@ -30,9 +30,17 @@ internal const val NPU_S1_OUTPUT_QUALITY_DECODE_OFFSET_SUSPECT = "decode_offset_
 internal const val NPU_S1_OUTPUT_QUALITY_FIRST_TOKEN_BOUNDARY_SUSPECT = "first_token_boundary_suspect"
 internal const val NPU_S1_OUTPUT_QUALITY_SPECIAL_TOKEN_SUSPECT = "special_token_suspect"
 internal const val NPU_S1_OUTPUT_QUALITY_PROMPT_IGNORED_SUSPECT = "prompt_ignored_suspect"
+internal const val NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS = "quality_candidate_pass"
 internal const val NPU_S1_OUTPUT_QUALITY_UNKNOWN = "unknown"
 internal const val NPU_S1_TOKEN_DIAGNOSTICS_UNAVAILABLE_NOTE =
     "token_ids_not_exposed_by_current_custom_jni_probe_without_native_rebuild"
+internal const val NPU_S1_RECOMMENDED_PROMPT_PROFILE = "gemma_it_user_model"
+internal const val NPU_S1_RECOMMENDED_PROMPT_PROFILE_REASON =
+    "gemma_it_user_model_produced_natural_japanese_after_end_of_turn_and_leading_gt_sanitization"
+internal const val NPU_S1_PROMPT_PROFILE_ALIAS_NOTE =
+    "ai_edge_gallery_like_is_currently_duplicate_of_gemma_it_user_model"
+internal const val NPU_S1_UNSAFE_PROMPT_PROFILE_NOTE =
+    "bos_eos_like_if_supported_by_existing_code_is_unsafe_not_recommended_engine_create_failed"
 
 internal enum class NpuS1PersistentCustomJniProbeMode(
     val wireValue: String,
@@ -403,6 +411,17 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val specialTokenSeenInOutput: String = "unavailable",
     val qualityComparisonPromptSet: String =
         NpuS1PersistentCustomJniQualityPromptProfile.entries.joinToString(",") { it.wireValue },
+    val recommendedPromptProfile: String = NPU_S1_RECOMMENDED_PROMPT_PROFILE,
+    val recommendedPromptProfileReason: String = NPU_S1_RECOMMENDED_PROMPT_PROFILE_REASON,
+    val promptProfileAliasNote: String = NPU_S1_PROMPT_PROFILE_ALIAS_NOTE,
+    val unsafePromptProfileNote: String = NPU_S1_UNSAFE_PROMPT_PROFILE_NOTE,
+    val outputQualityCandidateStatus: String = "unavailable",
+    val outputQualityCandidateReason: String = "unavailable",
+    val outputQualityCandidatePreparedOutput: String = "unavailable",
+    val outputQualityCandidateLeadingGreaterThanRemoved: String = "unavailable",
+    val outputQualityCandidateEndOfTurnRemoved: String = "unavailable",
+    val outputQualityCandidateAssistantRepetition: String = "unavailable",
+    val outputQualityCandidateQaContinuation: String = "unavailable",
     val promotionGateFreshCrash: String = "false",
     val promotionGateTimeout: String = "false",
     val promotionGateFallback: String = "false",
@@ -438,6 +457,20 @@ internal data class NpuS1PersistentCustomJniOutputQualityDiagnostics(
     val outputEmpty: Boolean,
     val qualityClassification: String,
     val reason: String,
+)
+
+internal data class NpuS1PersistentCustomJniQualityCandidateResult(
+    val status: String,
+    val reason: String,
+    val preparedOutput: String,
+    val leadingGreaterThanRemoved: Boolean,
+    val endOfTurnRemoved: Boolean,
+    val placeholderLeak: Boolean,
+    val businessTemplateLeak: Boolean,
+    val assistantRepetition: Boolean,
+    val qaContinuation: Boolean,
+    val outputEmpty: Boolean,
+    val outputOnlyNewline: Boolean,
 )
 
 internal data class NpuS1PersistentCustomJniTokenBoundaryDiagnostics(
@@ -505,6 +538,55 @@ internal fun classifyNpuS1PersistentCustomJniOutputQuality(
         outputEmpty = outputEmpty,
         qualityClassification = classification,
         reason = reasons.ifEmpty { listOf("no_quality_issue_detected") }.joinToString("+"),
+    )
+}
+
+internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
+    rawOutput: String,
+    sanitizedOutput: String,
+): NpuS1PersistentCustomJniQualityCandidateResult {
+    val source = sanitizedOutput.ifBlank { rawOutput }
+    val withoutEndTurn = source.replace("<end_of_turn>", "")
+    val trimmedStart = withoutEndTurn.trimStart()
+    val prepared = trimmedStart.removePrefix(">").trimStart().trimEnd()
+    val rawWithoutEndTurn = rawOutput.replace("<end_of_turn>", "")
+    val leadingGreaterThanRemoved = rawWithoutEndTurn.trimStart().startsWith(">") || trimmedStart.startsWith(">")
+    val endOfTurnRemoved = rawOutput.contains("<end_of_turn>") || source.contains("<end_of_turn>")
+    val placeholderLeak = Regex("""\[[^\]]+\]""").containsMatchIn(prepared)
+    val businessTemplateLeak = listOf(
+        "いつもお世話になっております",
+        "お世話になっております",
+        "よろしくお願いいたします",
+    ).any(prepared::contains)
+    val assistantRepetition = Regex("""(?i)(Assistant\s*:.*){2,}""").containsMatchIn(prepared) ||
+        prepared.contains("Assistant: Assistant:", ignoreCase = true)
+    val qaContinuation = listOf("質問:", "回答:", "Q:", "A:").count(prepared::contains) >= 2
+    val outputEmpty = prepared.isEmpty()
+    val outputOnlyNewline = source.isNotEmpty() && source.all { it == '\n' || it == '\r' }
+    val failedReasons = buildList {
+        if (rawOutput.isBlank()) add("raw_output_empty")
+        if (sanitizedOutput.isBlank()) add("sanitized_output_empty")
+        if (outputEmpty) add("prepared_output_empty")
+        if (outputOnlyNewline) add("output_only_newline")
+        if (placeholderLeak) add("placeholder_leak")
+        if (businessTemplateLeak) add("business_template_leak")
+        if (assistantRepetition) add("assistant_repetition")
+        if (qaContinuation) add("qa_continuation")
+    }
+    return NpuS1PersistentCustomJniQualityCandidateResult(
+        status = if (failedReasons.isEmpty()) NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS else "quality_candidate_fail",
+        reason = failedReasons.ifEmpty {
+            listOf("natural_japanese_after_safe_leading_gt_and_end_of_turn_cleanup")
+        }.joinToString("+"),
+        preparedOutput = prepared,
+        leadingGreaterThanRemoved = leadingGreaterThanRemoved,
+        endOfTurnRemoved = endOfTurnRemoved,
+        placeholderLeak = placeholderLeak,
+        businessTemplateLeak = businessTemplateLeak,
+        assistantRepetition = assistantRepetition,
+        qaContinuation = qaContinuation,
+        outputEmpty = outputEmpty,
+        outputOnlyNewline = outputOnlyNewline,
     )
 }
 
@@ -615,6 +697,13 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("selected_native_probe_mode=${state.selectedNativeProbeMode}")
     appendLine("selected_quality_prompt_profile=${state.selectedQualityPromptProfile}")
     appendLine("quality_comparison_prompt_set=${state.qualityComparisonPromptSet}")
+    appendLine("npu_s1_recommended_prompt_profile=${state.recommendedPromptProfile}")
+    appendLine(
+        "npu_s1_recommended_prompt_profile_reason=" +
+            escapePersistentCustomJniCopyValue(state.recommendedPromptProfileReason),
+    )
+    appendLine("npu_s1_prompt_profile_alias_note=${escapePersistentCustomJniCopyValue(state.promptProfileAliasNote)}")
+    appendLine("npu_s1_unsafe_prompt_profile_note=${escapePersistentCustomJniCopyValue(state.unsafePromptProfileNote)}")
     appendLine("last_native_stage=${state.lastNativeStage}")
     appendLine("native_entrypoint_reached=${state.nativeEntrypointReached}")
     appendLine("model_assets_create_reached=${state.modelAssetsCreateReached}")
@@ -674,6 +763,19 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("output_contains_placeholder=${state.outputContainsPlaceholder}")
     appendLine("output_only_newline=${state.outputOnlyNewline}")
     appendLine("output_empty=${state.outputEmpty}")
+    appendLine("output_quality_candidate_status=${state.outputQualityCandidateStatus}")
+    appendLine("output_quality_candidate_reason=${state.outputQualityCandidateReason}")
+    appendLine(
+        "output_quality_candidate_prepared_output=" +
+            escapePersistentCustomJniCopyValue(state.outputQualityCandidatePreparedOutput),
+    )
+    appendLine(
+        "output_quality_candidate_leading_greater_than_removed=" +
+            state.outputQualityCandidateLeadingGreaterThanRemoved,
+    )
+    appendLine("output_quality_candidate_end_of_turn_removed=${state.outputQualityCandidateEndOfTurnRemoved}")
+    appendLine("output_quality_candidate_assistant_repetition=${state.outputQualityCandidateAssistantRepetition}")
+    appendLine("output_quality_candidate_qa_continuation=${state.outputQualityCandidateQaContinuation}")
     appendLine("prefill_token_count=${state.prefillTokenCount}")
     appendLine("decode_token_count=${state.decodeTokenCount}")
     appendLine("first_output_token_id=${state.firstOutputTokenId}")

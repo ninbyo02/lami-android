@@ -121,6 +121,59 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
     }
 
     @Test
+    fun `quality candidate passes gemma user model observed output`() {
+        val result = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = ">こんにちは！何かお手伝いできることはありますか？<end_of_turn>",
+            sanitizedOutput = "こんにちは！何かお手伝いできることはありますか？",
+        )
+
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS, result.status)
+        assertEquals("こんにちは！何かお手伝いできることはありますか？", result.preparedOutput)
+        assertFalse(result.placeholderLeak)
+        assertFalse(result.businessTemplateLeak)
+        assertFalse(result.assistantRepetition)
+        assertFalse(result.qaContinuation)
+        assertTrue(result.leadingGreaterThanRemoved)
+        assertTrue(result.endOfTurnRemoved)
+    }
+
+    @Test
+    fun `quality candidate fails known bad profile outputs`() {
+        val repeatedTemplate = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "。いつもお世話になっております。[あなたの名前]です。",
+            sanitizedOutput = "。いつもお世話になっております。[あなたの名前]です。",
+        )
+        val assistantRepetition = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "Assistant: Assistant: こんにちは",
+            sanitizedOutput = "Assistant: Assistant: こんにちは",
+        )
+        val qaContinuation = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "質問: こんにちは\n回答: こんにちは\n質問:",
+            sanitizedOutput = "質問: こんにちは\n回答: こんにちは\n質問:",
+        )
+        val newlineOnly = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "\n",
+            sanitizedOutput = "\n",
+        )
+        val empty = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "",
+            sanitizedOutput = "",
+        )
+
+        assertEquals("quality_candidate_fail", repeatedTemplate.status)
+        assertTrue(repeatedTemplate.reason.contains("placeholder_leak"))
+        assertTrue(repeatedTemplate.reason.contains("business_template_leak"))
+        assertEquals("quality_candidate_fail", assistantRepetition.status)
+        assertTrue(assistantRepetition.reason.contains("assistant_repetition"))
+        assertEquals("quality_candidate_fail", qaContinuation.status)
+        assertTrue(qaContinuation.reason.contains("qa_continuation"))
+        assertEquals("quality_candidate_fail", newlineOnly.status)
+        assertTrue(newlineOnly.reason.contains("output_only_newline"))
+        assertEquals("quality_candidate_fail", empty.status)
+        assertTrue(empty.reason.contains("raw_output_empty"))
+    }
+
+    @Test
     fun `full 20 success with suspect quality keeps normal chat blocked`() {
         val state = full20SuccessState(
             records = successRecords(
@@ -258,6 +311,10 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("selected_native_probe_mode=before_engine_create"))
         assertTrue(text.contains("selected_quality_prompt_profile=current_probe_quality"))
         assertTrue(text.contains("quality_comparison_prompt_set=current_probe_quality,raw_prompt_quality"))
+        assertTrue(text.contains("npu_s1_recommended_prompt_profile=gemma_it_user_model"))
+        assertTrue(text.contains("npu_s1_recommended_prompt_profile_reason=gemma_it_user_model_produced"))
+        assertTrue(text.contains("npu_s1_prompt_profile_alias_note=ai_edge_gallery_like_is_currently_duplicate"))
+        assertTrue(text.contains("npu_s1_unsafe_prompt_profile_note=bos_eos_like_if_supported_by_existing_code"))
         assertTrue(text.contains("last_native_stage=before_engine_create"))
         assertTrue(text.contains("native_entrypoint_reached=true"))
         assertTrue(text.contains("model_assets_create_reached=true"))
@@ -308,6 +365,8 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("output_contains_placeholder=false"))
         assertTrue(text.contains("output_only_newline=false"))
         assertTrue(text.contains("output_empty=false"))
+        assertTrue(text.contains("output_quality_candidate_status=unavailable"))
+        assertTrue(text.contains("output_quality_candidate_reason=unavailable"))
         assertTrue(text.contains("prefill_token_count=unavailable"))
         assertTrue(text.contains("decode_token_count=unavailable"))
         assertTrue(text.contains("first_output_token_id=unavailable"))
