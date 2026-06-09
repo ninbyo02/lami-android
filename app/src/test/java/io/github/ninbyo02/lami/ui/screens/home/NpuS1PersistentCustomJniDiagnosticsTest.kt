@@ -51,6 +51,8 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             engineCreateMatchesEditablePromptSettings = "true",
             editablePromptEngineCreateSignature = "model_path=/model;backend=NPU",
             persistentEngineCreateSignature = "model_path=/model;backend=NPU",
+            engineCreateMinimalPath = "true",
+            persistentHolderUsed = "false",
             persistentCustomJniHypothesisResult = "native_holder_entrypoint_not_available",
         )
 
@@ -95,6 +97,8 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("engine_create_matches_editable_prompt_settings=true"))
         assertTrue(text.contains("editable_prompt_engine_create_signature=model_path=/model;backend=NPU"))
         assertTrue(text.contains("persistent_engine_create_signature=model_path=/model;backend=NPU"))
+        assertTrue(text.contains("engine_create_minimal_path=true"))
+        assertTrue(text.contains("persistent_holder_used=false"))
         assertTrue(text.contains("persistent_custom_jni_hypothesis_result=native_holder_entrypoint_not_available"))
     }
 
@@ -164,6 +168,8 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("engine_create_matches_editable_prompt_settings=unavailable"))
         assertTrue(text.contains("editable_prompt_engine_create_signature=unavailable"))
         assertTrue(text.contains("persistent_engine_create_signature=unavailable"))
+        assertTrue(text.contains("engine_create_minimal_path=unavailable"))
+        assertTrue(text.contains("persistent_holder_used=unavailable"))
         assertTrue(text.contains("records=empty"))
     }
 

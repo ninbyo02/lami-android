@@ -9117,6 +9117,7 @@ private fun NpuS1PersistentCustomJniDevSection(
                 NpuS1PersistentCustomJniProbeMode.ENTRYPOINT_ONLY,
                 NpuS1PersistentCustomJniProbeMode.BEFORE_ENGINE_CREATE,
                 NpuS1PersistentCustomJniProbeMode.EDITABLE_ENGINE_CREATE_ONLY,
+                NpuS1PersistentCustomJniProbeMode.EDITABLE_ENGINE_CREATE_ONLY_MINIMAL,
                 NpuS1PersistentCustomJniProbeMode.ENGINE_CREATE_ONLY,
                 NpuS1PersistentCustomJniProbeMode.FULL_20,
             ).forEach { mode ->

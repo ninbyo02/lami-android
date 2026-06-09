@@ -24,6 +24,10 @@ internal enum class NpuS1PersistentCustomJniProbeMode(
     BEFORE_ENGINE_CREATE("before_engine_create", "Before engine create"),
     ENGINE_CREATE_ONLY("engine_create_only", "Engine create only"),
     EDITABLE_ENGINE_CREATE_ONLY("editable_engine_create_only", "Editable engine create only"),
+    EDITABLE_ENGINE_CREATE_ONLY_MINIMAL(
+        "editable_engine_create_only_minimal",
+        "Editable engine create only minimal",
+    ),
     FULL_20("full_20", "Full 20"),
 }
 
@@ -133,6 +137,8 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val engineCreateMatchesEditablePromptSettings: String = "unavailable",
     val editablePromptEngineCreateSignature: String = "unavailable",
     val persistentEngineCreateSignature: String = "unavailable",
+    val engineCreateMinimalPath: String = "unavailable",
+    val persistentHolderUsed: String = "unavailable",
     val firstFailureRunIndex: Int? = null,
     val firstFailureStage: String = "unavailable",
     val firstFailureReason: String = "unavailable",
@@ -211,6 +217,8 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("engine_create_matches_editable_prompt_settings=${state.engineCreateMatchesEditablePromptSettings}")
     appendLine("editable_prompt_engine_create_signature=${escapePersistentCustomJniCopyValue(state.editablePromptEngineCreateSignature)}")
     appendLine("persistent_engine_create_signature=${escapePersistentCustomJniCopyValue(state.persistentEngineCreateSignature)}")
+    appendLine("engine_create_minimal_path=${state.engineCreateMinimalPath}")
+    appendLine("persistent_holder_used=${state.persistentHolderUsed}")
     appendLine("first_failure_run_index=${formatPersistentCustomJniValue(state.firstFailureRunIndex)}")
     appendLine("first_failure_stage=${state.firstFailureStage}")
     appendLine("first_failure_reason=${escapePersistentCustomJniCopyValue(state.firstFailureReason)}")

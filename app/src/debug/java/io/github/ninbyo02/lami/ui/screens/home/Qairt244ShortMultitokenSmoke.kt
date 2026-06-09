@@ -160,19 +160,32 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             resultFile.delete()
             diagFile.delete()
             val nativeResult = runCatching {
-                nativeRunPersistentProbe(
-                    modelPath = modelPath,
-                    nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir,
-                    cacheDir = appContext.cacheDir.absolutePath,
-                    resultPath = resultFile.absolutePath,
-                    diagPath = diagFile.absolutePath,
-                    prompt = validation.normalizedPrompt,
-                    promptInputLimitMode = nativePromptInputLimitMode,
-                    maxOutputTokens = maxOutputTokens,
-                    runCount = runCount,
-                    holderKey = holderKey,
-                    nativeProbeMode = nativeProbeMode,
-                )
+                if (nativeProbeMode == "editable_engine_create_only_minimal") {
+                    nativeRunEditableEngineCreateOnlyMinimal(
+                        modelPath = modelPath,
+                        nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir,
+                        cacheDir = appContext.cacheDir.absolutePath,
+                        resultPath = resultFile.absolutePath,
+                        diagPath = diagFile.absolutePath,
+                        prompt = validation.normalizedPrompt,
+                        promptInputLimitMode = nativePromptInputLimitMode,
+                        maxOutputTokens = maxOutputTokens,
+                    )
+                } else {
+                    nativeRunPersistentProbe(
+                        modelPath = modelPath,
+                        nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir,
+                        cacheDir = appContext.cacheDir.absolutePath,
+                        resultPath = resultFile.absolutePath,
+                        diagPath = diagFile.absolutePath,
+                        prompt = validation.normalizedPrompt,
+                        promptInputLimitMode = nativePromptInputLimitMode,
+                        maxOutputTokens = maxOutputTokens,
+                        runCount = runCount,
+                        holderKey = holderKey,
+                        nativeProbeMode = nativeProbeMode,
+                    )
+                }
             }
             val throwable = nativeResult.exceptionOrNull()
             return Qairt244PersistentProbeResult(
@@ -235,6 +248,18 @@ internal class Qairt244ShortMultitokenSmoke private constructor() {
             runCount: Int,
             holderKey: String,
             nativeProbeMode: String,
+        ): String
+
+        @JvmStatic
+        private external fun nativeRunEditableEngineCreateOnlyMinimal(
+            modelPath: String,
+            nativeLibraryDir: String,
+            cacheDir: String,
+            resultPath: String,
+            diagPath: String,
+            prompt: String,
+            promptInputLimitMode: String,
+            maxOutputTokens: Int,
         ): String
     }
 }

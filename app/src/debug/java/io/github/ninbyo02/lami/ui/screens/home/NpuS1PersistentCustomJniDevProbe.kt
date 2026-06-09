@@ -218,6 +218,8 @@ private fun parsePersistentCustomJniProbeResult(
             summary["engine_create_matches_editable_prompt_settings"].orUnavailable(),
         editablePromptEngineCreateSignature = summary["editable_prompt_engine_create_signature"].orUnavailable(),
         persistentEngineCreateSignature = summary["persistent_engine_create_signature"].orUnavailable(),
+        engineCreateMinimalPath = summary["engine_create_minimal_path"].orUnavailable(),
+        persistentHolderUsed = summary["persistent_holder_used"].orUnavailable(),
         firstFailureRunIndex = summary["first_failure_run_index"]?.toIntOrNull(),
         firstFailureStage = summary["first_failure_stage"].orUnavailable(),
         firstFailureReason = summary["first_failure_reason"].orUnavailable(),
