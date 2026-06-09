@@ -129,6 +129,26 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `provider selector keeps normal chat blocked even when promotion gate passes`() {
+        val promotionGate = NpuS1PromotionGateResult(
+            status = NPU_S1_PROMOTION_GATE_STATUS_PASS,
+            reason = NPU_S1_PROMOTION_GATE_REASON_READY_BUT_NORMAL_CHAT_BLOCKED,
+        )
+        val raw = NpuStandardRouteS1ProviderSelector.defaultProviderWithPromotionGate(
+            s1GateEnabled = true,
+            promotionGate = promotionGate,
+        ).invoke(
+            userPrompt = userPrompt,
+            maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
+            trace = {},
+        )
+
+        assertFalse(NpuStandardRouteS1ProviderSelector.normalChatNativeRouteUnblockAllowed(promotionGate))
+        assertEquals("failure", raw.status)
+        assertEquals(NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT, raw.reason)
+    }
+
+    @Test
     fun `dev diagnostic provider keeps real native provider path available`() {
         val raw = NpuStandardRouteS1ProviderSelector.devDiagnosticProviderForMode(NpuStandardRouteMode.S1_ONLY).invoke(
             userPrompt = userPrompt,

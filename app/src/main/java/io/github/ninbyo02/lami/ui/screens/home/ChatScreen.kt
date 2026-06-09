@@ -10576,6 +10576,8 @@ internal fun shouldPrepareNpuStandardRouteS5Tts(
 
 internal const val NPU_STANDARD_ROUTE_S1_EMPTY_AFTER_SANITIZE_FALLBACK_TEXT =
     "すみません、応答を生成できませんでした。"
+internal const val NPU_STANDARD_ROUTE_S1_NORMAL_CHAT_BLOCKED_USER_MESSAGE =
+    "NPU推論は安全確認中のため、通常チャットでは一時的に無効化されています。"
 
 internal data class NpuStandardRouteS1TransientFallback(
     val text: String,
@@ -10606,6 +10608,9 @@ internal fun resolveNpuStandardRouteFailureAssistantMessage(
     transientFallback: NpuStandardRouteS1TransientFallback?,
 ): String? {
     if (result.successCriteriaMet) return null
+    if (result.reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT) {
+        return NPU_STANDARD_ROUTE_S1_NORMAL_CHAT_BLOCKED_USER_MESSAGE
+    }
     if (result.reason == NpuStandardRouteS1Contract.REASON_MODEL_NOT_NPU_COMPATIBLE) {
         return NpuStandardRouteS1Contract.MODEL_NOT_NPU_COMPATIBLE_MESSAGE
     }

@@ -1787,6 +1787,18 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 transientFallback = null,
             ),
         )
+        val blockedResult = s1NativeRouteBlockedFailureResult()
+        assertEquals(
+            NPU_STANDARD_ROUTE_S1_NORMAL_CHAT_BLOCKED_USER_MESSAGE,
+            resolveNpuStandardRouteFailureAssistantMessage(
+                result = blockedResult,
+                transientFallback = null,
+            ),
+        )
+        assertEquals(
+            NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT,
+            blockedResult.reason,
+        )
         assertNull(
             resolveNpuStandardRouteFailureAssistantMessage(
                 result = s1SuccessResult(),
@@ -1807,6 +1819,26 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 qualityClassification = "natural_japanese",
                 runDecodeReached = true,
                 npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 32,
+                effectiveMaxOutputTokens = 32,
+            ),
+        )
+
+    private fun s1NativeRouteBlockedFailureResult(): NpuStandardRouteS1Result =
+        NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "failure",
+                result = "failure",
+                success = false,
+                reason = NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT,
+                rawOutput = "",
+                sanitizedOutput = "",
+                qualityClassification = "unknown",
+                runDecodeReached = false,
+                npuBackendEvidence = "",
                 fallbackUsed = false,
                 timeout = false,
                 freshCrash = false,
