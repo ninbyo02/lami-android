@@ -1,5 +1,5 @@
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-index 421c3036..f4b9451c 100644
+index 421c3036..7f3f2a2e 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 @@ -21,6 +21,7 @@
@@ -94,7 +94,7 @@ index 421c3036..f4b9451c 100644
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
        env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
-@@ -2275,6 +2346,953 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
+@@ -2275,6 +2346,950 @@ Java_io_github_ninbyo02_lami_ui_screens_home_Qairt244ShortMultitokenSmoke_native
    return NewStringStandardUTF(env, output);
  }
 
@@ -311,13 +311,8 @@ index 421c3036..f4b9451c 100644
 +  }
 +  effective_max_output_tokens = requested_max_output_tokens;
 +
-+  engine_create_signature = Qairt244EngineCreateSignature(
-+      model_path_str, native_library_dir_str, cache_dir_str, "NPU",
-+      prompt_input_limit_mode_str, requested_max_output_tokens,
-+      effective_max_output_tokens, effective_max_output_tokens,
-+      "editable_prompt_minimal:ModelAssets::Create(model_path)",
-+      "editable_prompt_minimal:EngineSettings::CreateDefault(model_assets,NPU)"
-+      "+SetCacheDir(cache_dir)+SetLitertDispatchLibDir(native_library_dir)");
++  engine_create_signature =
++      "editable_prompt_minimal_direct_shape_no_precreate_signature";
 +
 +  if (model_path_str.empty() || native_library_dir_str.empty() ||
 +      result_path_str.empty()) {
@@ -388,8 +383,10 @@ index 421c3036..f4b9451c 100644
 +
 +  engine_create_reached = "true";
 +  last_native_stage = "before_engine_create";
-+  append_stage_diag("before EngineFactory::CreateDefault signature=" +
-+                    engine_create_signature);
++  AppendQairt244Diag(diag_path_str.c_str(),
++                     "%s before EngineFactory::CreateDefault",
++                     kQairt244EditablePromptMarker);
++  native_diag_flush_count += 1;
 +  write_result();
 +  auto engine = EngineFactory::CreateDefault(*settings);
 +  engine_create_count = 1;
