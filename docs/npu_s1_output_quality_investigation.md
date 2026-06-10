@@ -300,6 +300,51 @@ Before native NPU can return to normal chat:
 5. The route is promoted through an explicit code change; `NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED=false` must not be changed by diagnostics work.
 6. `Gemma recommended x20` reports `npu_s1_quality_gate_status=pass`.
 
+## Current Return Candidate Status
+
+The latest device result confirmed the return-candidate quality profile:
+
+- `selected_quality_prompt_profile=gemma_it_user_model_full_20_quality`
+- `run_count_requested=20`
+- `run_count_completed=20`
+- `success_count=20`
+- `failure_count=0`
+- `decode_attempt_count=20`
+- `decode_success_count=20`
+- `engine_close_reached=true`
+- `engine_close_success=true`
+- `npu_s1_quality_gate_status=pass`
+- `npu_s1_quality_gate_20_run_status=pass`
+- `failed_quality_run_count=0`
+- `output_quality_candidate_prepared_output=こんにちは！何かお手伝いできることはありますか？`
+- `backend_evidence=QNN_HTP_V79_FastRPC_native_diag_persistent_holder`
+
+This means `gemma_it_user_model` is the current normal-chat return candidate prompt family.
+It does not mean normal chat has been restored.
+
+- `ai_edge_gallery_like` remains an alias / duplicate for comparison and is not a gate-pass profile.
+- `bos_eos_like_if_supported_by_existing_code` remains unsafe / not recommended.
+- Normal chat native NPU route remains intentionally blocked by policy.
+
+Final readiness diagnostics:
+
+- `npu_s1_normal_chat_unblock_readiness_status`
+- `npu_s1_normal_chat_unblock_readiness_reason`
+- `npu_s1_normal_chat_unblock_required_profile`
+- `npu_s1_normal_chat_unblock_required_20_run_gate`
+- `npu_s1_normal_chat_unblock_policy_allowed`
+
+While `NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED=false`, a fully passing crash + quality gate must report
+`npu_s1_normal_chat_unblock_readiness_status=ready_but_blocked_by_policy`.
+
+Next steps before any route restoration:
+
+1. Manually compare the latest probe time with tombstone / dropbox and confirm no new native crash.
+2. Run `Gemma recommended x20` once more on device and confirm the same pass keys.
+3. Review the production prompt, sanitizer, stop sequence, and kill-switch plan separately.
+4. Only in a separate commit, consider `NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED=true`.
+5. Any restoration must retain a feature flag / kill switch.
+
 Do not restore normal chat native NPU until:
 
 - `gemma_it_user_model_full_20_quality` or a successor profile repeatedly passes the 20-run quality candidate gate.

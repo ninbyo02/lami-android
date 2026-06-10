@@ -9162,7 +9162,7 @@ private fun NpuS1PersistentCustomJniDevSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = "recommended: gemma_it_user_model / alias: ai_edge_gallery_like / legacy・unsafe候補は復帰判定から除外",
+            text = "Gemma x20 quality passed only prepares return review; normal chat still blocked by policy",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

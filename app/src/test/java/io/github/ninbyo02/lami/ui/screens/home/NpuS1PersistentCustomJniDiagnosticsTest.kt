@@ -224,6 +224,54 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("npu_s1_quality_gate_all_runs_passed=true"))
         assertTrue(text.contains("npu_s1_quality_gate_20_run_status=pass"))
         assertTrue(text.contains("failed_quality_run_count=0"))
+        assertTrue(text.contains("npu_s1_normal_chat_unblock_readiness_status=ready_but_blocked_by_policy"))
+        assertTrue(
+            text.contains(
+                "npu_s1_normal_chat_unblock_readiness_reason=" +
+                    "final_gates_pass_but_normal_chat_native_route_unblock_policy_false",
+            ),
+        )
+        assertTrue(text.contains("npu_s1_normal_chat_unblock_required_profile=gemma_it_user_model_full_20_quality"))
+        assertTrue(text.contains("npu_s1_normal_chat_unblock_required_20_run_gate=true"))
+        assertTrue(text.contains("npu_s1_normal_chat_unblock_policy_allowed=false"))
+    }
+
+    @Test
+    fun `normal chat route remains blocked when final readiness is ready but policy false`() {
+        val state = full20SuccessState().copy(
+            selectedQualityPromptProfile =
+                NpuS1PersistentCustomJniQualityPromptProfile.GEMMA_IT_USER_MODEL_FULL_20_QUALITY.wireValue,
+            outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS,
+            outputEmpty = "false",
+            outputOnlyNewline = "false",
+            outputContainsPlaceholder = "false",
+            outputLooksBusinessTemplate = "false",
+            outputQualityCandidateAssistantRepetition = "false",
+            outputQualityCandidateQaContinuation = "false",
+            failedQualityRunCount = "0",
+            qualityGateAllRunsPassed = "true",
+        )
+        val promotionGate = evaluateNpuS1PromotionGate(state)
+        val qualityGate = evaluateNpuS1QualityGate(state)
+        val readiness = evaluateNpuS1NormalChatUnblockReadiness(
+            promotionGate = promotionGate,
+            qualityGate = qualityGate,
+        )
+        val provider = NpuStandardRouteS1ProviderSelector.defaultProviderWithPromotionGate(
+            s1GateEnabled = true,
+            promotionGate = promotionGate,
+        )
+        val result = provider.invoke(
+            userPrompt = "こんにちは",
+            maxOutputTokens = 32,
+            trace = {},
+        )
+
+        assertEquals(NPU_S1_NORMAL_CHAT_UNBLOCK_READINESS_READY_BUT_BLOCKED_BY_POLICY, readiness.status)
+        assertFalse(readiness.policyAllowed)
+        assertFalse(NpuStandardRouteS1ProviderSelector.NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED)
+        assertEquals(NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT, result.reason)
+        assertEquals("failure", result.status)
     }
 
     @Test
@@ -248,6 +296,13 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertEquals(NPU_S1_QUALITY_GATE_STATUS_FAIL, gate.status)
         assertTrue(gate.reason.contains("prompt_profile_not_gemma_it_user_model_full_20_quality"))
         assertTrue(gate.reason.contains("run_count_completed_not_20"))
+
+        val readiness = evaluateNpuS1NormalChatUnblockReadiness(
+            promotionGate = evaluateNpuS1PromotionGate(state),
+            qualityGate = gate,
+        )
+        assertEquals(NPU_S1_NORMAL_CHAT_UNBLOCK_READINESS_NOT_READY, readiness.status)
+        assertTrue(readiness.reason.contains("quality_gate_not_pass"))
     }
 
     @Test
@@ -312,6 +367,13 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("first_quality_failure_reason=self_intro_template_leak"))
         assertTrue(text.contains("failed_quality_run_count=1"))
         assertTrue(text.contains("npu_s1_quality_gate_20_run_status=fail"))
+
+        val readiness = evaluateNpuS1NormalChatUnblockReadiness(
+            promotionGate = evaluateNpuS1PromotionGate(state),
+            qualityGate = gate,
+        )
+        assertEquals(NPU_S1_NORMAL_CHAT_UNBLOCK_READINESS_NOT_READY, readiness.status)
+        assertTrue(readiness.reason.contains("quality_gate_not_pass"))
     }
 
     @Test
@@ -333,6 +395,13 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
 
         assertEquals(NPU_S1_QUALITY_GATE_STATUS_FAIL, gate.status)
         assertTrue(gate.reason.contains("prompt_profile_not_gemma_it_user_model_full_20_quality"))
+
+        val readiness = evaluateNpuS1NormalChatUnblockReadiness(
+            promotionGate = evaluateNpuS1PromotionGate(state),
+            qualityGate = gate,
+        )
+        assertEquals(NPU_S1_NORMAL_CHAT_UNBLOCK_READINESS_NOT_READY, readiness.status)
+        assertTrue(readiness.reason.contains("required_profile_not_gemma_it_user_model_full_20_quality"))
     }
 
     @Test

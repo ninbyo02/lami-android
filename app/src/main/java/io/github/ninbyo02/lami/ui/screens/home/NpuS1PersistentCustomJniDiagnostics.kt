@@ -37,6 +37,9 @@ internal const val NPU_S1_OUTPUT_QUALITY_UNKNOWN = "unknown"
 internal const val NPU_S1_QUALITY_GATE_STATUS_PASS = "pass"
 internal const val NPU_S1_QUALITY_GATE_STATUS_FAIL = "fail"
 internal const val NPU_S1_QUALITY_GATE_STATUS_UNKNOWN = "unknown"
+internal const val NPU_S1_NORMAL_CHAT_UNBLOCK_READINESS_READY_BUT_BLOCKED_BY_POLICY =
+    "ready_but_blocked_by_policy"
+internal const val NPU_S1_NORMAL_CHAT_UNBLOCK_READINESS_NOT_READY = "not_ready"
 internal const val NPU_S1_TOKEN_DIAGNOSTICS_UNAVAILABLE_NOTE =
     "token_ids_not_exposed_by_current_custom_jni_probe_without_native_rebuild"
 internal const val NPU_S1_RECOMMENDED_PROMPT_PROFILE = "gemma_it_user_model"
@@ -484,6 +487,15 @@ internal data class NpuS1QualityGateResult(
     val failedQualityRunCount: String = "unavailable",
 )
 
+internal data class NpuS1NormalChatUnblockReadinessResult(
+    val status: String,
+    val reason: String,
+    val requiredProfile: String =
+        NpuS1PersistentCustomJniQualityPromptProfile.GEMMA_IT_USER_MODEL_FULL_20_QUALITY.wireValue,
+    val required20RunGate: Boolean = true,
+    val policyAllowed: Boolean = NpuStandardRouteS1ProviderSelector.NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED,
+)
+
 internal data class NpuS1PersistentCustomJniOutputQualityDiagnostics(
     val outputPrefix20Chars: String,
     val startsWithPunctuation: Boolean,
@@ -793,11 +805,55 @@ internal fun evaluateNpuS1QualityGate(
     }
 }
 
+internal fun evaluateNpuS1NormalChatUnblockReadiness(
+    promotionGate: NpuS1PromotionGateResult,
+    qualityGate: NpuS1QualityGateResult,
+): NpuS1NormalChatUnblockReadinessResult {
+    val failedReasons = buildList {
+        if (promotionGate.status != NPU_S1_PROMOTION_GATE_STATUS_PASS) {
+            add("promotion_gate_not_pass")
+        }
+        if (qualityGate.status != NPU_S1_QUALITY_GATE_STATUS_PASS) {
+            add("quality_gate_not_pass")
+        }
+        if (
+            qualityGate.promptProfile !=
+            NpuS1PersistentCustomJniQualityPromptProfile.GEMMA_IT_USER_MODEL_FULL_20_QUALITY.wireValue
+        ) {
+            add("required_profile_not_gemma_it_user_model_full_20_quality")
+        }
+        if (qualityGate.twentyRunStatus != "pass") {
+            add("quality_20_run_status_not_pass")
+        }
+    }
+    if (failedReasons.isNotEmpty()) {
+        return NpuS1NormalChatUnblockReadinessResult(
+            status = NPU_S1_NORMAL_CHAT_UNBLOCK_READINESS_NOT_READY,
+            reason = failedReasons.joinToString("+"),
+        )
+    }
+    return if (NpuStandardRouteS1ProviderSelector.NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED) {
+        NpuS1NormalChatUnblockReadinessResult(
+            status = "ready_and_policy_allowed",
+            reason = "final_gates_pass_and_policy_allows_unblock",
+        )
+    } else {
+        NpuS1NormalChatUnblockReadinessResult(
+            status = NPU_S1_NORMAL_CHAT_UNBLOCK_READINESS_READY_BUT_BLOCKED_BY_POLICY,
+            reason = "final_gates_pass_but_normal_chat_native_route_unblock_policy_false",
+        )
+    }
+}
+
 internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     state: NpuS1PersistentCustomJniProbeState,
 ): String = buildString {
     val promotionGate = evaluateNpuS1PromotionGate(state)
     val qualityGate = evaluateNpuS1QualityGate(state)
+    val normalChatUnblockReadiness = evaluateNpuS1NormalChatUnblockReadiness(
+        promotionGate = promotionGate,
+        qualityGate = qualityGate,
+    )
     appendLine("[DEV診断: NPU S1 persistent custom JNI summary]")
     appendLine("persistent_custom_jni_status=${state.persistentCustomJniStatus}")
     appendLine("run_count_requested=${state.runCountRequested}")
@@ -843,6 +899,11 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("first_quality_failure_run_index=${qualityGate.firstQualityFailureRunIndex}")
     appendLine("first_quality_failure_reason=${escapePersistentCustomJniCopyValue(qualityGate.firstQualityFailureReason)}")
     appendLine("failed_quality_run_count=${qualityGate.failedQualityRunCount}")
+    appendLine("npu_s1_normal_chat_unblock_readiness_status=${normalChatUnblockReadiness.status}")
+    appendLine("npu_s1_normal_chat_unblock_readiness_reason=${normalChatUnblockReadiness.reason}")
+    appendLine("npu_s1_normal_chat_unblock_required_profile=${normalChatUnblockReadiness.requiredProfile}")
+    appendLine("npu_s1_normal_chat_unblock_required_20_run_gate=${normalChatUnblockReadiness.required20RunGate}")
+    appendLine("npu_s1_normal_chat_unblock_policy_allowed=${normalChatUnblockReadiness.policyAllowed}")
     appendLine("last_native_stage=${state.lastNativeStage}")
     appendLine("native_entrypoint_reached=${state.nativeEntrypointReached}")
     appendLine("model_assets_create_reached=${state.modelAssetsCreateReached}")
