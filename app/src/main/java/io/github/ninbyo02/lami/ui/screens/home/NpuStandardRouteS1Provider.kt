@@ -211,6 +211,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
         buildNpuStandardRouteS1CompactDiagnosticCopyText(
             input = input,
             result = result,
+            appHistoryText = appHistoryText,
         ),
     )
     buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
@@ -225,6 +226,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
 internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
     input: String,
     result: NpuStandardRouteS1Result,
+    appHistoryText: String = "",
 ): String {
     val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
     return listOf(
@@ -247,6 +249,11 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         "status=${result.status}",
         "reason=${result.reason}",
         "quality_classification=${result.qualityClassification}",
+        "npu_s1_failure_kind=${npuStandardRouteS1FailureKind(result)}",
+        "engine_create_failure_count=${extractNpuStandardRouteS1HistoryValue(appHistoryText, "engine_create_failure_count")}",
+        "failure_after_successful_npu_s1_request_count=" +
+            extractNpuStandardRouteS1HistoryValue(appHistoryText, "failure_after_successful_npu_s1_request_count"),
+        "native_crash_risk_hint=${npuStandardRouteS1NativeCrashRiskHint(result)}",
         "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
         "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
         "npu_s1_output_tokens=${result.timing.outputTokens?.toString() ?: "n/a"}",
@@ -283,6 +290,9 @@ internal fun buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
         add("native_error_message=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeErrorMessage)}")
         add("native_error_stage=${result.nativeDiagnostics.nativeErrorStage}")
         add("native_error_source=${result.nativeDiagnostics.nativeErrorSource}")
+        add("npu_s1_failure_kind=${npuStandardRouteS1FailureKind(result)}")
+        add("npu_s1_failure_layer=${npuStandardRouteS1FailureLayer(result)}")
+        add("npu_s1_failure_recovery_hint=${npuStandardRouteS1FailureRecoveryHint(result)}")
         add("final_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText)}")
         add("rewritten_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText)}")
         add("rewritten_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText.takeLast(200))}")
@@ -322,6 +332,10 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "status=${result.status}",
             "reason=${result.reason}",
             "quality_classification=${result.qualityClassification}",
+            "npu_s1_failure_kind=${npuStandardRouteS1FailureKind(result)}",
+            "npu_s1_failure_layer=${npuStandardRouteS1FailureLayer(result)}",
+            "npu_s1_failure_recovery_hint=${npuStandardRouteS1FailureRecoveryHint(result)}",
+            "native_crash_risk_hint=${npuStandardRouteS1NativeCrashRiskHint(result)}",
             "output_quality_candidate_status=${result.outputQualityCandidateStatus}",
             "output_quality_candidate_reason=${result.outputQualityCandidateReason}",
             "output_quality_candidate_prepared_output=${npuStandardRouteS1EscapeCopyValue(result.preparedOutput)}",
@@ -392,6 +406,12 @@ private fun extractNpuStandardRouteS1FailureHistoryLines(appHistoryText: String)
         "last_successful_npu_s1_prompt",
         "last_failed_npu_s1_prompt",
         "successful_npu_s1_request_count",
+        "last_engine_create_failure_at_elapsed_realtime_ms",
+        "failure_after_successful_npu_s1_request_count",
+        "failure_after_last_success_elapsed_ms",
+        "engine_create_failure_count",
+        "last_failure_was_engine_create_failed",
+        "native_crash_risk_hint",
     )
     return appHistoryText
         .lineSequence()
@@ -401,6 +421,20 @@ private fun extractNpuStandardRouteS1FailureHistoryLines(appHistoryText: String)
             key in allowedKeys
         }
         .toList()
+}
+
+private fun extractNpuStandardRouteS1HistoryValue(
+    appHistoryText: String,
+    key: String,
+): String {
+    if (appHistoryText.isBlank()) return "unavailable"
+    return appHistoryText
+        .lineSequence()
+        .map { it.trim() }
+        .firstOrNull { it.substringBefore("=", missingDelimiterValue = "") == key }
+        ?.substringAfter("=", missingDelimiterValue = "unavailable")
+        ?.ifBlank { "unavailable" }
+        ?: "unavailable"
 }
 
 private fun String.isAvailableDevValue(): Boolean =
@@ -451,5 +485,49 @@ internal fun npuStandardRouteS1FailureStage(result: NpuStandardRouteS1Result): S
             runDecodeReached = result.runDecodeReached,
             timeout = result.timeout,
         )
+
+internal fun npuStandardRouteS1FailureKind(result: NpuStandardRouteS1Result): String =
+    if (isNpuStandardRouteS1EngineCreateFailed(result)) {
+        NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED
+    } else {
+        "unavailable"
+    }
+
+internal fun npuStandardRouteS1FailureLayer(result: NpuStandardRouteS1Result): String =
+    if (isNpuStandardRouteS1EngineCreateFailed(result)) {
+        "litert_npu_compiled_model_executor"
+    } else {
+        "unavailable"
+    }
+
+internal fun npuStandardRouteS1FailureRecoveryHint(result: NpuStandardRouteS1Result): String =
+    if (isNpuStandardRouteS1EngineCreateFailed(result)) {
+        "recreate_app_or_wait_before_retry"
+    } else {
+        "unavailable"
+    }
+
+internal fun npuStandardRouteS1NativeCrashRiskHint(result: NpuStandardRouteS1Result): String =
+    if (isNpuStandardRouteS1EngineCreateFailed(result)) {
+        "engine_create_failed_near_litert_compiled_model_dispatch_delegate_check_tombstone_dropbox"
+    } else {
+        "unavailable"
+    }
+
+internal fun isNpuStandardRouteS1EngineCreateFailed(result: NpuStandardRouteS1Result): Boolean {
+    val exceptionClass = npuStandardRouteS1FailureExceptionClass(result)
+    val hasLiteRtException = exceptionClass == "LiteRtLmJniException" ||
+        result.reason.contains("LiteRtLmJniException", ignoreCase = true)
+    if (!hasLiteRtException) return false
+    return listOf(
+        result.nativeDiagnostics.nativeErrorMessage,
+        npuStandardRouteS1FailureExceptionMessage(result),
+        result.reason,
+    ).any { message ->
+        message.contains("engine-create-failed", ignoreCase = true)
+    }
+}
+
+internal const val NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED = "engine_create_failed"
 
 private const val NPU_STANDARD_ROUTE_S1_DEV_PREVIEW_LIMIT = 32

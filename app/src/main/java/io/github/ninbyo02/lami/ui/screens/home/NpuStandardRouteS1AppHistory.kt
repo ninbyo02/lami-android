@@ -6,6 +6,9 @@ import android.os.SystemClock
 internal object NpuStandardRouteS1AppHistory {
     private const val PREFS_NAME = "npu_s1_normal_chat_history"
     private const val KEY_SUCCESSFUL_REQUEST_COUNT = "successful_request_count"
+    private const val KEY_ENGINE_CREATE_FAILURE_COUNT = "engine_create_failure_count"
+    private const val KEY_LAST_SUCCESS_FINISHED_AT = "last_successful_npu_s1_request_finished_at_elapsed_realtime_ms"
+    private const val KEY_LAST_ENGINE_CREATE_FAILURE_AT = "last_engine_create_failure_at_elapsed_realtime_ms"
 
     fun recordStarted(
         context: Context,
@@ -35,18 +38,29 @@ internal object NpuStandardRouteS1AppHistory {
     ) {
         val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val successCount = prefs.getInt(KEY_SUCCESSFUL_REQUEST_COUNT, 0)
-        val nextSuccessCount = if (result.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) {
+        val finishedAt = SystemClock.elapsedRealtime()
+        val nextSuccessCount = if (result.successCriteriaMet) {
             successCount + 1
         } else {
             successCount
         }
+        val engineCreateFailed = isNpuStandardRouteS1EngineCreateFailed(result)
+        val lastSuccessFinishedAt = prefs.getLong(KEY_LAST_SUCCESS_FINISHED_AT, -1L)
+        val failureAfterLastSuccessElapsedMs = if (!result.successCriteriaMet && lastSuccessFinishedAt >= 0L) {
+            (finishedAt - lastSuccessFinishedAt).coerceAtLeast(0L)
+        } else {
+            -1L
+        }
         val editor = prefs.edit()
-            .putLong("last_npu_s1_request_finished_at_elapsed_realtime_ms", SystemClock.elapsedRealtime())
+            .putLong("last_npu_s1_request_finished_at_elapsed_realtime_ms", finishedAt)
             .putString("last_npu_s1_stage", npuStandardRouteS1FailureStage(result))
             .putString("last_npu_s1_status", result.status)
             .putString("last_npu_s1_reason", result.reason)
             .putString("last_npu_s1_exception_class", npuStandardRouteS1FailureExceptionClass(result))
             .putString("last_npu_s1_exception_message", npuStandardRouteS1FailureExceptionMessage(result))
+            .putString("npu_s1_failure_kind", npuStandardRouteS1FailureKind(result))
+            .putString("npu_s1_failure_layer", npuStandardRouteS1FailureLayer(result))
+            .putString("npu_s1_failure_recovery_hint", npuStandardRouteS1FailureRecoveryHint(result))
             .putString("last_npu_s1_backend_evidence", result.npuBackendEvidence)
             .putString("last_npu_s1_run_decode_reached", result.runDecodeReached.toString())
             .putString("last_npu_s1_native_stage", result.nativeDiagnostics.nativeStage)
@@ -56,10 +70,24 @@ internal object NpuStandardRouteS1AppHistory {
             .putString("last_npu_s1_native_decode_started", result.nativeDiagnostics.nativeDecodeStarted)
             .putString("last_npu_s1_native_decode_finished", result.nativeDiagnostics.nativeDecodeFinished)
             .putInt(KEY_SUCCESSFUL_REQUEST_COUNT, nextSuccessCount)
-        if (result.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) {
+        if (result.successCriteriaMet) {
             editor.putString("last_successful_npu_s1_prompt", result.inputPrompt)
+                .putLong(KEY_LAST_SUCCESS_FINISHED_AT, finishedAt)
         } else {
             editor.putString("last_failed_npu_s1_prompt", result.inputPrompt)
+        }
+        if (!result.successCriteriaMet) {
+            editor.putInt("failure_after_successful_npu_s1_request_count", successCount)
+                .putLong("failure_after_last_success_elapsed_ms", failureAfterLastSuccessElapsedMs)
+                .putBoolean("last_failure_was_engine_create_failed", engineCreateFailed)
+                .putString("native_crash_risk_hint", npuStandardRouteS1NativeCrashRiskHint(result))
+            if (engineCreateFailed) {
+                editor.putInt(
+                    KEY_ENGINE_CREATE_FAILURE_COUNT,
+                    prefs.getInt(KEY_ENGINE_CREATE_FAILURE_COUNT, 0) + 1,
+                )
+                    .putLong(KEY_LAST_ENGINE_CREATE_FAILURE_AT, finishedAt)
+            }
         }
         editor.apply()
     }
@@ -69,9 +97,18 @@ internal object NpuStandardRouteS1AppHistory {
         prompt: String,
         throwable: Throwable,
     ) {
-        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putLong("last_npu_s1_request_finished_at_elapsed_realtime_ms", SystemClock.elapsedRealtime())
+        val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val finishedAt = SystemClock.elapsedRealtime()
+        val engineCreateFailed = throwable.javaClass.simpleName == "LiteRtLmJniException" &&
+            throwable.message.orEmpty().contains("engine-create-failed", ignoreCase = true)
+        val lastSuccessFinishedAt = prefs.getLong(KEY_LAST_SUCCESS_FINISHED_AT, -1L)
+        val failureAfterLastSuccessElapsedMs = if (lastSuccessFinishedAt >= 0L) {
+            (finishedAt - lastSuccessFinishedAt).coerceAtLeast(0L)
+        } else {
+            -1L
+        }
+        val editor = prefs.edit()
+            .putLong("last_npu_s1_request_finished_at_elapsed_realtime_ms", finishedAt)
             .putString("last_npu_s1_prompt", prompt)
             .putString("last_failed_npu_s1_prompt", prompt)
             .putString("last_npu_s1_stage", "kotlin_exception")
@@ -79,7 +116,37 @@ internal object NpuStandardRouteS1AppHistory {
             .putString("last_npu_s1_reason", throwable.message.orEmpty().ifBlank { throwable.javaClass.simpleName })
             .putString("last_npu_s1_exception_class", throwable.javaClass.simpleName)
             .putString("last_npu_s1_exception_message", throwable.message.orEmpty().ifBlank { "unavailable" })
-            .apply()
+            .putString(
+                "npu_s1_failure_kind",
+                if (engineCreateFailed) NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED else "unavailable",
+            )
+            .putString(
+                "npu_s1_failure_layer",
+                if (engineCreateFailed) "litert_npu_compiled_model_executor" else "unavailable",
+            )
+            .putString(
+                "npu_s1_failure_recovery_hint",
+                if (engineCreateFailed) "recreate_app_or_wait_before_retry" else "unavailable",
+            )
+            .putInt("failure_after_successful_npu_s1_request_count", prefs.getInt(KEY_SUCCESSFUL_REQUEST_COUNT, 0))
+            .putLong("failure_after_last_success_elapsed_ms", failureAfterLastSuccessElapsedMs)
+            .putBoolean("last_failure_was_engine_create_failed", engineCreateFailed)
+            .putString(
+                "native_crash_risk_hint",
+                if (engineCreateFailed) {
+                    "engine_create_failed_near_litert_compiled_model_dispatch_delegate_check_tombstone_dropbox"
+                } else {
+                    "unavailable"
+                },
+            )
+        if (engineCreateFailed) {
+            editor.putInt(
+                KEY_ENGINE_CREATE_FAILURE_COUNT,
+                prefs.getInt(KEY_ENGINE_CREATE_FAILURE_COUNT, 0) + 1,
+            )
+                .putLong(KEY_LAST_ENGINE_CREATE_FAILURE_AT, finishedAt)
+        }
+        editor.apply()
     }
 
     fun formatForDev(context: Context): String {
@@ -97,6 +164,9 @@ internal object NpuStandardRouteS1AppHistory {
             "last_npu_s1_reason=${prefs.getString("last_npu_s1_reason", "unavailable")}",
             "last_npu_s1_exception_class=${prefs.getString("last_npu_s1_exception_class", "unavailable")}",
             "last_npu_s1_exception_message=${prefs.copyValue("last_npu_s1_exception_message")}",
+            "npu_s1_failure_kind=${prefs.getString("npu_s1_failure_kind", "unavailable")}",
+            "npu_s1_failure_layer=${prefs.getString("npu_s1_failure_layer", "unavailable")}",
+            "npu_s1_failure_recovery_hint=${prefs.getString("npu_s1_failure_recovery_hint", "unavailable")}",
             "last_npu_s1_backend_evidence=${prefs.getString("last_npu_s1_backend_evidence", "unavailable")}",
             "last_npu_s1_run_decode_reached=${prefs.getString("last_npu_s1_run_decode_reached", "unavailable")}",
             "last_npu_s1_native_stage=${prefs.getString("last_npu_s1_native_stage", "unavailable")}",
@@ -109,6 +179,12 @@ internal object NpuStandardRouteS1AppHistory {
             "last_failed_npu_s1_prompt=${prefs.copyValue("last_failed_npu_s1_prompt")}",
             "last_npu_s1_previous_successful_request_count=${prefs.getInt("last_npu_s1_previous_successful_request_count", 0)}",
             "successful_npu_s1_request_count=${prefs.getInt(KEY_SUCCESSFUL_REQUEST_COUNT, 0)}",
+            "engine_create_failure_count=${prefs.getInt(KEY_ENGINE_CREATE_FAILURE_COUNT, 0)}",
+            "last_engine_create_failure_at_elapsed_realtime_ms=${prefs.getLong(KEY_LAST_ENGINE_CREATE_FAILURE_AT, -1L).toUnavailableIfNegative()}",
+            "failure_after_successful_npu_s1_request_count=${prefs.getInt("failure_after_successful_npu_s1_request_count", 0)}",
+            "failure_after_last_success_elapsed_ms=${prefs.getLong("failure_after_last_success_elapsed_ms", -1L).toUnavailableIfNegative()}",
+            "last_failure_was_engine_create_failed=${prefs.getBoolean("last_failure_was_engine_create_failed", false)}",
+            "native_crash_risk_hint=${prefs.getString("native_crash_risk_hint", "unavailable")}",
         ).joinToString("\n")
     }
 

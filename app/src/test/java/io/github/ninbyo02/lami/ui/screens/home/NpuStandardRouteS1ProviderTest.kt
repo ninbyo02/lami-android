@@ -597,6 +597,12 @@ class NpuStandardRouteS1ProviderTest {
                 "last_successful_npu_s1_prompt=こんにちは",
                 "last_failed_npu_s1_prompt=あなたは誰ですか",
                 "successful_npu_s1_request_count=3",
+                "engine_create_failure_count=1",
+                "last_engine_create_failure_at_elapsed_realtime_ms=789",
+                "failure_after_successful_npu_s1_request_count=3",
+                "failure_after_last_success_elapsed_ms=333",
+                "last_failure_was_engine_create_failed=true",
+                "native_crash_risk_hint=engine_create_failed_near_litert_compiled_model_dispatch_delegate_check_tombstone_dropbox",
             ).joinToString("\n"),
         )
 
@@ -607,16 +613,66 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("selected_prompt_profile=gemma_it_user_model"))
         assertTrue(copyText.contains("failure_exception_class=LiteRtLmJniException"))
         assertTrue(copyText.contains("failure_exception_message=engine-create-failed:INTERNAL"))
+        assertTrue(copyText.contains("npu_s1_failure_kind=engine_create_failed"))
+        assertTrue(copyText.contains("npu_s1_failure_layer=litert_npu_compiled_model_executor"))
+        assertTrue(copyText.contains("npu_s1_failure_recovery_hint=recreate_app_or_wait_before_retry"))
         assertTrue(copyText.contains("failure_stage=native_call"))
         assertTrue(copyText.contains("native_stage=native_call"))
         assertTrue(copyText.contains("native_call_reached=true"))
         assertTrue(copyText.contains("native_call_returned=false"))
         assertTrue(copyText.contains("native_decode_started=false"))
         assertTrue(copyText.contains("native_decode_finished=false"))
+        assertTrue(copyText.contains("engine_create_failure_count=1"))
+        assertTrue(copyText.contains("failure_after_successful_npu_s1_request_count=3"))
+        assertTrue(
+            copyText.contains(
+                "native_crash_risk_hint=" +
+                    "engine_create_failed_near_litert_compiled_model_dispatch_delegate_check_tombstone_dropbox",
+            ),
+        )
         assertTrue(copyText.contains("last_npu_s1_request_started_at_elapsed_realtime_ms=123"))
         assertTrue(copyText.contains("last_npu_s1_prompt=あなたは誰ですか"))
         assertTrue(copyText.contains("last_npu_s1_native_stage_history=provider_start>native_call"))
         assertTrue(copyText.contains("successful_npu_s1_request_count=3"))
+        assertTrue(copyText.contains("last_engine_create_failure_at_elapsed_realtime_ms=789"))
         assertFalse(copyText.contains("last_npu_s1_model_path=hidden_from_failure_details"))
+    }
+
+    @Test
+    fun `S1 quality failure diagnostics do not classify as engine create failed`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "<start_of_turn>user\n1+1は？",
+                sanitizedOutput = "<start_of_turn>user\n1+1は？",
+                qualityClassification = "role_contamination",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                inputPrompt = "1+1は？",
+            ),
+        )
+
+        val copyText = buildNpuStandardRouteS1DiagnosticCopyText(
+            input = "1+1は？",
+            result = result,
+            appHistoryText = listOf(
+                "[DEV診断: NPU S1 normal chat app history]",
+                "engine_create_failure_count=0",
+                "failure_after_successful_npu_s1_request_count=4",
+                "native_crash_risk_hint=unavailable",
+            ).joinToString("\n"),
+        )
+
+        assertTrue(copyText.contains("output_quality_candidate_status=quality_candidate_fail"))
+        assertTrue(copyText.contains("npu_s1_failure_kind=unavailable"))
+        assertTrue(copyText.contains("engine_create_failure_count=0"))
+        assertTrue(copyText.contains("failure_after_successful_npu_s1_request_count=4"))
+        assertFalse(copyText.contains("npu_s1_failure_kind=engine_create_failed"))
     }
 }
