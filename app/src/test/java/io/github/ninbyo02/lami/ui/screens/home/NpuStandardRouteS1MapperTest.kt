@@ -96,6 +96,31 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
+    fun `arithmetic answer passes but prompt repetition fails quality candidate`() {
+        val answered = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "１＋１は２です",
+                sanitizedOutput = "１＋１は２です",
+                inputPrompt = "１＋１は？",
+            ),
+        )
+        val echoed = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "１＋１は？",
+                sanitizedOutput = "１＋１は？",
+                inputPrompt = "１＋１は？",
+            ),
+        )
+
+        assertTrue(answered.successCriteriaMet)
+        assertEquals("quality_candidate_pass", answered.outputQualityCandidateStatus)
+        assertFalse(echoed.successCriteriaMet)
+        assertEquals("quality_candidate_fail", echoed.outputQualityCandidateStatus)
+        assertTrue(echoed.outputQualityCandidateReason.contains("prompt_repetition_only"))
+        assertTrue(echoed.outputQualityCandidateReason.contains("arithmetic_answer_missing"))
+    }
+
+    @Test
     fun `raw role contamination is classified as failure even with natural sanitized output`() {
         val result = NpuStandardRouteS1Mapper.map(
             successRaw(
@@ -139,6 +164,7 @@ class NpuStandardRouteS1MapperTest {
         fallbackUsed: Boolean = false,
         timeout: Boolean = false,
         freshCrash: Boolean = false,
+        inputPrompt: String = "",
     ): NpuStandardRouteS1RawResult = NpuStandardRouteS1RawResult(
         status = status,
         result = result,
@@ -154,5 +180,6 @@ class NpuStandardRouteS1MapperTest {
         freshCrash = freshCrash,
         requestedMaxOutputTokens = 32,
         effectiveMaxOutputTokens = 32,
+        inputPrompt = inputPrompt,
     )
 }

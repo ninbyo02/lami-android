@@ -115,6 +115,8 @@ internal fun buildNpuStandardRouteS1DevTraceText(
         "input_hash=${npuRealPromptHash(input)}",
         "input_prompt=${npuStandardRouteS1DevPreview(input)}",
         "input_preview=${npuStandardRouteS1DevPreview(input)}",
+        "final_prompt_tail=${npuStandardRouteS1DevPreview(NpuStandardRouteS1Contract.finalPromptTail(input))}",
+        "selected_prompt_profile=${NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED}",
         "input_length=${input.length}",
         "input_code_points=${input.codePointCount(0, input.length)}",
         "selected_model_name=${result.selectedModelName.ifBlank { "unknown" }}",
@@ -132,6 +134,18 @@ internal fun buildNpuStandardRouteS1DevTraceText(
         "reason=${result.reason}",
         "normal_chat_native_route_blocked=${result.reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT}",
         "quality_classification=${result.qualityClassification}",
+        "output_quality_candidate_status=${result.outputQualityCandidateStatus}",
+        "output_quality_candidate_reason=${result.outputQualityCandidateReason}",
+        "output_quality_candidate_prepared_output=${npuStandardRouteS1DevPreview(result.preparedOutput)}",
+        "failure_exception_class=${npuStandardRouteS1FailureExceptionClass(result)}",
+        "failure_exception_message=${npuStandardRouteS1DevPreview(npuStandardRouteS1FailureExceptionMessage(result))}",
+        "failure_stage=${npuStandardRouteS1FailureStage(result)}",
+        "native_stage=${result.nativeDiagnostics.nativeStage}",
+        "native_stage_history=${result.nativeDiagnostics.nativeStageHistory}",
+        "native_call_reached=${result.nativeDiagnostics.nativeCallReached}",
+        "native_call_returned=${result.nativeDiagnostics.nativeCallReturned}",
+        "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
+        "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
         "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
         "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
         "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
@@ -165,6 +179,10 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
 ): String = appendNpuS1ShortOutputTelemetryForDev(
     text = listOf(
         "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
+        "final_prompt_text=${npuStandardRouteS1EscapeCopyValue(NpuStandardRouteS1Contract.buildPromptWrapperText(input))}",
+        "final_prompt_tail=${npuStandardRouteS1EscapeCopyValue(NpuStandardRouteS1Contract.finalPromptTail(input))}",
+        "selected_prompt_profile=${NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED}",
+        "prompt_wrapper_used=${NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED}",
         "max_output_tokens=$maxOutputTokens",
         "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
         "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
@@ -174,6 +192,24 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
         "status=${result.status}",
         "reason=${result.reason}",
         "quality_classification=${result.qualityClassification}",
+        "output_quality_candidate_status=${result.outputQualityCandidateStatus}",
+        "output_quality_candidate_reason=${result.outputQualityCandidateReason}",
+        "output_quality_candidate_prepared_output=${npuStandardRouteS1EscapeCopyValue(result.preparedOutput)}",
+        "failure_exception_class=${npuStandardRouteS1FailureExceptionClass(result)}",
+        "failure_exception_message=${npuStandardRouteS1EscapeCopyValue(npuStandardRouteS1FailureExceptionMessage(result))}",
+        "failure_stage=${npuStandardRouteS1FailureStage(result)}",
+        "native_stage=${result.nativeDiagnostics.nativeStage}",
+        "native_stage_history=${result.nativeDiagnostics.nativeStageHistory}",
+        "native_call_reached=${result.nativeDiagnostics.nativeCallReached}",
+        "native_call_returned=${result.nativeDiagnostics.nativeCallReturned}",
+        "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
+        "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
+        "native_cleanup_reached=${result.nativeDiagnostics.nativeCleanupReached}",
+        "native_session_destroy_reached=${result.nativeDiagnostics.nativeSessionDestroyReached}",
+        "native_error_class=${result.nativeDiagnostics.nativeErrorClass}",
+        "native_error_message=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeErrorMessage)}",
+        "native_error_stage=${result.nativeDiagnostics.nativeErrorStage}",
+        "native_error_source=${result.nativeDiagnostics.nativeErrorSource}",
         "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
         "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
         "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
@@ -217,5 +253,22 @@ internal fun npuStandardRouteS1DevPreview(text: String): String {
 
 internal fun npuStandardRouteS1EscapeCopyValue(text: String): String =
     text.replace("\\", "\\\\").replace("\n", "\\n")
+
+internal fun npuStandardRouteS1FailureExceptionClass(result: NpuStandardRouteS1Result): String =
+    result.nativeDiagnostics.nativeErrorClass.takeUnless { it == "unavailable" || it.isBlank() }
+        ?: inferNpuS1FailureExceptionClass(result.reason)
+
+internal fun npuStandardRouteS1FailureExceptionMessage(result: NpuStandardRouteS1Result): String =
+    result.nativeDiagnostics.nativeErrorMessage.takeUnless { it == "unavailable" || it.isBlank() }
+        ?: result.reason
+
+internal fun npuStandardRouteS1FailureStage(result: NpuStandardRouteS1Result): String =
+    result.nativeDiagnostics.nativeErrorStage.takeUnless { it == "unavailable" || it.isBlank() }
+        ?: inferNpuS1FailureStage(
+            status = result.status,
+            reason = result.reason,
+            runDecodeReached = result.runDecodeReached,
+            timeout = result.timeout,
+        )
 
 private const val NPU_STANDARD_ROUTE_S1_DEV_PREVIEW_LIMIT = 32

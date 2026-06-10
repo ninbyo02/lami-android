@@ -592,6 +592,7 @@ internal fun classifyNpuS1PersistentCustomJniOutputQuality(
 internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
     rawOutput: String,
     sanitizedOutput: String,
+    inputPrompt: String = "",
 ): NpuS1PersistentCustomJniQualityCandidateResult {
     val source = sanitizedOutput.ifBlank { rawOutput }
     val withoutEndTurn = source.replace("<end_of_turn>", "")
@@ -601,6 +602,7 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
     val leadingGreaterThanRemoved = rawWithoutEndTurn.trimStart().startsWith(">") || trimmedStart.startsWith(">")
     val endOfTurnRemoved = rawOutput.contains("<end_of_turn>") || source.contains("<end_of_turn>")
     val qualityCheckText = listOf(rawOutput, sanitizedOutput, prepared).joinToString("\n")
+    val visibleOutputCheckText = listOf(sanitizedOutput, prepared).joinToString("\n")
     val placeholderLeak = Regex("""\[[^\]]+\]""").containsMatchIn(qualityCheckText)
     val businessTemplateLeak = listOf(
         "いつもお世話になっております",
@@ -615,6 +617,17 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
         "---",
         "**自己紹介",
     ).any(qualityCheckText::contains)
+    val specialTokenLeak = containsNpuS1SpecialTurnMarker(visibleOutputCheckText)
+    val rawUnclosedSpecialToken = containsNpuS1UnclosedSpecialTurnMarker(rawOutput)
+    val rawUnexpectedStartTurn = rawOutput.contains("<start_of_turn", ignoreCase = true) ||
+        rawOutput.contains("< start_of_turn", ignoreCase = true)
+    val userTurnLeak = containsNpuS1UserTurnLeak(qualityCheckText)
+    val promptRepetitionOnly = isNpuS1PromptRepetitionOnly(
+        prompt = inputPrompt,
+        output = prepared,
+    )
+    val arithmeticPrompt = isNpuS1ArithmeticPrompt(inputPrompt)
+    val arithmeticAnswerMissing = arithmeticPrompt && !containsNpuS1ArithmeticAnswerTwo(prepared)
     val outputEmpty = prepared.isEmpty()
     val outputOnlyNewline = source.isNotEmpty() && source.all { it == '\n' || it == '\r' }
     val preparedBlank = prepared.isBlank()
@@ -631,6 +644,12 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
         if (assistantRepetition) add("assistant_repetition")
         if (qaContinuation) add("qa_continuation")
         if (selfIntroTemplateLeak) add("self_intro_template_leak")
+        if (specialTokenLeak) add("special_token_leak")
+        if (rawUnclosedSpecialToken) add("raw_unclosed_special_token")
+        if (rawUnexpectedStartTurn) add("raw_unexpected_start_turn")
+        if (userTurnLeak) add("user_turn_leak")
+        if (promptRepetitionOnly) add("prompt_repetition_only")
+        if (arithmeticAnswerMissing) add("arithmetic_answer_missing")
     }
     return NpuS1PersistentCustomJniQualityCandidateResult(
         status = if (failedReasons.isEmpty()) {
@@ -652,6 +671,52 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
         outputOnlyNewline = outputOnlyNewline,
     )
 }
+
+private fun containsNpuS1SpecialTurnMarker(text: String): Boolean =
+    Regex("""<\s*(?:start|end)_of_turn>?""", RegexOption.IGNORE_CASE).containsMatchIn(text)
+
+private fun containsNpuS1UnclosedSpecialTurnMarker(text: String): Boolean =
+    Regex("""<\s*(?:start|end)_of_turn(?!>)""", RegexOption.IGNORE_CASE).containsMatchIn(text)
+
+private fun containsNpuS1UserTurnLeak(text: String): Boolean =
+    Regex("""<\s*start_of_turn\s*>\s*user""", RegexOption.IGNORE_CASE).containsMatchIn(text) ||
+        text.contains("ユーザー:", ignoreCase = true) ||
+        text.contains("ユーザー：", ignoreCase = true)
+
+private fun isNpuS1PromptRepetitionOnly(
+    prompt: String,
+    output: String,
+): Boolean {
+    val normalizedPrompt = normalizeNpuS1QualityComparisonText(prompt)
+    val normalizedOutput = normalizeNpuS1QualityComparisonText(output)
+    return normalizedPrompt.isNotBlank() &&
+        normalizedOutput.isNotBlank() &&
+        normalizedOutput == normalizedPrompt
+}
+
+private fun isNpuS1ArithmeticPrompt(prompt: String): Boolean =
+    normalizeNpuS1ArithmeticText(prompt) in setOf(
+        "1+1",
+        "1+1?",
+        "1+1は",
+        "1+1は?",
+    )
+
+private fun containsNpuS1ArithmeticAnswerTwo(output: String): Boolean =
+    output.any { it == '2' || it == '２' }
+
+private fun normalizeNpuS1QualityComparisonText(text: String): String =
+    normalizeNpuS1ArithmeticText(text)
+        .replace("。", "")
+        .replace(".", "")
+
+private fun normalizeNpuS1ArithmeticText(text: String): String =
+    text
+        .filterNot { it.isWhitespace() }
+        .replace('１', '1')
+        .replace('２', '2')
+        .replace('＋', '+')
+        .replace('？', '?')
 
 internal fun buildNpuS1PersistentCustomJniTokenBoundaryDiagnostics(
     output: String,

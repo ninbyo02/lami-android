@@ -72,6 +72,7 @@ internal data class NpuStandardRouteS1Result(
     val s2DbReason: String = "",
     val s5TtsDiagnostics: NpuStandardRouteS5TtsDiagnostics? = null,
     val nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
+    val inputPrompt: String = "",
     val displayText: String = NpuStandardRouteS1Contract.displayText(
         selection = selection,
         status = status,
@@ -90,12 +91,14 @@ internal data class NpuStandardRouteS1Result(
         timing = timing,
         s2DbReason = s2DbReason,
         s5TtsDiagnostics = s5TtsDiagnostics,
+        inputPrompt = inputPrompt,
     ),
 ) {
     val outputQualityCandidate: NpuS1PersistentCustomJniQualityCandidateResult
         get() = evaluateNpuS1PersistentCustomJniQualityCandidate(
             rawOutput = rawOutput,
             sanitizedOutput = sanitizedOutput,
+            inputPrompt = inputPrompt,
         )
 
     val outputQualityCandidateStatus: String
@@ -123,6 +126,7 @@ internal data class NpuStandardRouteS1Result(
             !freshCrash &&
             displayText.isNotBlank() &&
             sanitizedOutput.isNotBlank() &&
+            outputQualityCandidateStatus != NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL &&
             (
                 qualityClassification == NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE ||
                     (
@@ -152,6 +156,7 @@ internal data class NpuStandardRouteS1Result(
                 timing = timing,
                 s2DbReason = s2DbReason,
                 s5TtsDiagnostics = s5TtsDiagnostics,
+                inputPrompt = inputPrompt,
             ),
         )
 }
@@ -185,6 +190,12 @@ internal object NpuStandardRouteS1Contract {
     const val MODEL_NOT_NPU_COMPATIBLE_MESSAGE =
         "このモデルはNPU専用モデルではありません。NPU検証には Qualcomm / sm8750 版のモデルを選択してください。Generic版はCPU/GPU経路で実行してください。"
 
+    fun buildPromptWrapperText(userPrompt: String): String =
+        "<start_of_turn>user\n${userPrompt.trim()}<end_of_turn>\n<start_of_turn>model"
+
+    fun finalPromptTail(userPrompt: String): String =
+        buildPromptWrapperText(userPrompt).takeLast(200)
+
     fun displayText(
         selection: NpuStandardRouteS1Selection,
         status: String,
@@ -203,11 +214,13 @@ internal object NpuStandardRouteS1Contract {
         timing: NpuStandardRouteS1Timing = NpuStandardRouteS1Timing(),
         s2DbReason: String = "",
         s5TtsDiagnostics: NpuStandardRouteS5TtsDiagnostics? = null,
+        inputPrompt: String = "",
     ): String {
         val sideEffects = selection.sideEffects
         val outputQualityCandidate = evaluateNpuS1PersistentCustomJniQualityCandidate(
             rawOutput = rawOutput,
             sanitizedOutput = sanitizedOutput,
+            inputPrompt = inputPrompt,
         )
         return listOfNotNull(
             "NPU STANDARD ROUTE S1",

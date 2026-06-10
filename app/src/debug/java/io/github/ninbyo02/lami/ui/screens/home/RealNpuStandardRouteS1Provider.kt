@@ -114,6 +114,7 @@ internal class RealNpuStandardRouteS1Provider(
                 reason = reason,
                 maxOutputTokens = sanitizedMaxOutputTokens,
             ).copy(
+                inputPrompt = userPrompt,
                 nativeDiagnostics = NpuS1NativeStageDiagnostics(
                     nativeStage = NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE,
                     nativeStageHistory = "$NPU_S1_NATIVE_STAGE_PROVIDER_START>$NPU_S1_NATIVE_STAGE_PROVIDER_FAILURE",

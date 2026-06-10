@@ -1818,6 +1818,20 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 transientFallback = null,
             ),
         )
+        val brokenArithmetic = s1BrokenArithmeticTurnLeakResult()
+        val brokenArithmeticMessage = resolveNpuStandardRouteFailureAssistantMessage(
+            result = brokenArithmetic,
+            transientFallback = null,
+        )
+        assertEquals(
+            "NPU推論の応答生成に失敗しました: " +
+                "special_token_leak+raw_unclosed_special_token+raw_unexpected_start_turn+" +
+                "user_turn_leak+arithmetic_answer_missing",
+            brokenArithmeticMessage,
+        )
+        assertFalse(brokenArithmetic.successCriteriaMet)
+        assertFalse(brokenArithmeticMessage.orEmpty().contains("<start_of_turn>user"))
+        assertFalse(brokenArithmeticMessage.orEmpty().contains("<end_of_turn"))
     }
 
     private fun s1SuccessResult(
@@ -1873,6 +1887,25 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 freshCrash = false,
                 requestedMaxOutputTokens = 32,
                 effectiveMaxOutputTokens = 32,
+            ),
+        )
+
+    private fun s1BrokenArithmeticTurnLeakResult(): NpuStandardRouteS1Result =
+        NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                reason = "success",
+                rawOutput = "１＋１は？<end_of_turn>\n<start_of_turn>user１＋１は？<end_of_turn",
+                sanitizedOutput = "１＋１は？\n１＋１は？<end_of_turn",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 32,
+                effectiveMaxOutputTokens = 32,
+                inputPrompt = "１＋１は？",
             ),
         )
 

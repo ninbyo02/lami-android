@@ -416,4 +416,57 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(trace.contains("fallback=safe_greeting_fallback"))
         assertTrue(copyText.contains("fallback=safe_greeting_fallback"))
     }
+
+    @Test
+    fun `S1 diagnostic copy includes LiteRtLmJniException failure keys`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "failure",
+                result = "failure",
+                success = false,
+                reason = "adapter_failure:LiteRtLmJniException",
+                rawOutput = "",
+                sanitizedOutput = "",
+                qualityClassification = "unknown",
+                runDecodeReached = false,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 32,
+                effectiveMaxOutputTokens = 32,
+                nativeDiagnostics = NpuS1NativeStageDiagnostics(
+                    nativeStage = NPU_S1_NATIVE_STAGE_NATIVE_CALL,
+                    nativeStageHistory = "provider_start>adapter_start>before_native_call>native_call>adapter_failure",
+                    nativeCallReached = "true",
+                    nativeCallReturned = "false",
+                    nativeDecodeStarted = "false",
+                    nativeDecodeFinished = "false",
+                    nativeErrorClass = "LiteRtLmJniException",
+                    nativeErrorMessage = "engine-create-failed:INTERNAL",
+                    nativeErrorStage = NPU_S1_NATIVE_STAGE_NATIVE_CALL,
+                    nativeErrorSource = "throwable",
+                ),
+                inputPrompt = "あなたは誰ですか",
+            ),
+        )
+
+        val copyText = buildNpuStandardRouteS1DiagnosticCopyText(
+            input = "あなたは誰ですか",
+            result = result,
+            maxOutputTokens = 32,
+        )
+
+        assertTrue(copyText.contains("input_prompt=あなたは誰ですか"))
+        assertTrue(copyText.contains("final_prompt_text=<start_of_turn>user\\nあなたは誰ですか<end_of_turn>\\n<start_of_turn>model"))
+        assertTrue(copyText.contains("selected_prompt_profile=gemma_it_user_model"))
+        assertTrue(copyText.contains("failure_exception_class=LiteRtLmJniException"))
+        assertTrue(copyText.contains("failure_exception_message=engine-create-failed:INTERNAL"))
+        assertTrue(copyText.contains("failure_stage=native_call"))
+        assertTrue(copyText.contains("native_stage=native_call"))
+        assertTrue(copyText.contains("native_call_reached=true"))
+        assertTrue(copyText.contains("native_call_returned=false"))
+        assertTrue(copyText.contains("native_decode_started=false"))
+        assertTrue(copyText.contains("native_decode_finished=false"))
+    }
 }

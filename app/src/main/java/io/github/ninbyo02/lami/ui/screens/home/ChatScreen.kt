@@ -3355,15 +3355,22 @@ fun Home(
                                                                                 eligibility = npuModelEligibility,
                                                                                 maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                             )
-                                                                        } else withContext(Dispatchers.Default) {
-                                                                            NpuStandardRouteS1Bridge(
-                                                                                mode = npuStandardRouteMode,
-                                                                                trace = npuRealPromptTrace,
+                                                                        } else {
+                                                                            NpuStandardRouteS1AppHistory.recordStarted(
+                                                                                context = context.applicationContext,
+                                                                                prompt = requestPrompt,
+                                                                                selectedModelFile = localBaseModelFilePath,
                                                                             )
-                                                                                .run(
-                                                                                    userPrompt = requestPrompt,
-                                                                                    maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                            withContext(Dispatchers.Default) {
+                                                                                NpuStandardRouteS1Bridge(
+                                                                                    mode = npuStandardRouteMode,
+                                                                                    trace = npuRealPromptTrace,
                                                                                 )
+                                                                                    .run(
+                                                                                        userPrompt = requestPrompt,
+                                                                                        maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                                    )
+                                                                            }
                                                                         }
                                                                     },
                                                                 )
@@ -3375,6 +3382,12 @@ fun Home(
                                                                         decodeStartedAtMs = npuS1DecodeStartedAtMs,
                                                                     ),
                                                                 )
+                                                                if (npuModelEligibility.npuModelEligible) {
+                                                                    NpuStandardRouteS1AppHistory.recordFinished(
+                                                                        context = context.applicationContext,
+                                                                        result = s1Result,
+                                                                    )
+                                                                }
                                                                 recordNpuS1MemorySnapshot(
                                                                     if (s1Result.status == NpuStandardRouteS1Contract.STATUS_SUCCESS) {
                                                                         MEMORY_STAGE_GENERATION_FINISHED
@@ -3462,7 +3475,7 @@ fun Home(
                                                                 result = s1Result,
                                                                 maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                 transientFallback = s1Fallback?.kind,
-                                                            )
+                                                            ) + "\n" + NpuStandardRouteS1AppHistory.formatForDev(context.applicationContext)
                                                         } else {
                                                             null
                                                         }
@@ -3806,6 +3819,11 @@ fun Home(
                                                                 if (!localStopRequested) throw exception
                                                             } catch (exception: Exception) {
                                                                 Log.e("ChatScreen", "NPU standard route execution failed", exception)
+                                                                NpuStandardRouteS1AppHistory.recordException(
+                                                                    context = context.applicationContext,
+                                                                    prompt = requestPrompt,
+                                                                    throwable = exception,
+                                                                )
                                                                 val failureChatId = resolvedNpuChatId
                                                                 if (!localStopRequested && failureChatId != null) {
                                                                     withContext(Dispatchers.IO) {
@@ -10692,10 +10710,13 @@ internal fun resolveNpuStandardRouteFailureAssistantMessage(
         result.status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
         result.reason == NpuStandardRouteS1Contract.REASON_SUCCESS
     ) {
+        val qualityReason = if (result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL) {
+            result.outputQualityCandidateReason
+        } else {
+            result.qualityClassification
+        }
         return transientFallback?.text
-            ?: "NPU推論の応答生成に失敗しました: ${
-                result.qualityClassification.ifBlank { "quality_check_failed" }
-            }"
+            ?: "NPU推論の応答生成に失敗しました: ${qualityReason.ifBlank { "quality_check_failed" }}"
     }
     if (result.reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT) {
         return NPU_STANDARD_ROUTE_S1_NORMAL_CHAT_BLOCKED_USER_MESSAGE

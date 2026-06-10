@@ -417,6 +417,43 @@ DEV diagnostics still keep `raw_output`, `sanitized_output`, `quality_classifica
 `output_quality_candidate_status`, `output_quality_candidate_reason`, and
 `output_quality_candidate_prepared_output` so raw artifacts remain inspectable.
 
+## Normal Chat Quality Hardening After Unblock
+
+After normal chat was restored to the native S1 route, device checks showed:
+
+- `こんにちは` displays successfully.
+- `あなたは誰ですか` can succeed, but can also return `adapter_failure:LiteRtLmJniException`.
+- `１＋１は` succeeds with `１＋１は２です`.
+- `１＋１は？` can leak turn markers and repeat the prompt:
+  - `raw_output=１＋１は？<end_of_turn>\n<start_of_turn>user１＋１は？<end_of_turn`
+  - `sanitized_output=１＋１は？\n１＋１は？<end_of_turn`
+- One app crash was observed during the `１＋１は？` diagnostic pass.
+
+Because device logcat is not reliable for this investigation, the next step is app-internal diagnostics rather than
+logcat-based analysis. Normal chat S1 now records a lightweight in-app history around each native request:
+
+- `last_npu_s1_request_started_at_elapsed_realtime_ms`
+- `last_npu_s1_request_finished_at_elapsed_realtime_ms`
+- `last_npu_s1_prompt`
+- `last_npu_s1_final_prompt_tail`
+- `last_npu_s1_stage`
+- `last_npu_s1_status`
+- `last_npu_s1_reason`
+- `last_npu_s1_exception_class`
+- `last_npu_s1_exception_message`
+- `last_successful_npu_s1_prompt`
+- `last_failed_npu_s1_prompt`
+
+The quality candidate gate now fails normal-chat output when sanitized or prepared output still contains special turn
+markers, when raw output contains broken turn markers, when a user turn leaks into output, when the prompt is only
+repeated, or when the limited arithmetic prompts (`1+1`, `1+1は？`, `１＋１`, `１＋１は？`) do not contain `2` / `２`.
+
+If quality fails, the broken raw / sanitized output is not used as the normal chat assistant body. It remains available in
+DEV diagnostics alongside the prepared output and fail reason.
+
+No automatic NPU pause / guard for consecutive failures or recent crashes is implemented in this step. That remains a
+separate follow-up after the app-internal history has enough evidence.
+
 ## Next Device Check
 
 Run:

@@ -192,6 +192,59 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
     }
 
     @Test
+    fun `quality candidate fails special token and user turn leaks`() {
+        val startTurn = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "<start_of_turn>user\n１＋１は？",
+            sanitizedOutput = "<start_of_turn>user\n１＋１は？",
+            inputPrompt = "１＋１は？",
+        )
+        val unclosedEndTurn = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "１＋１は？<end_of_turn",
+            sanitizedOutput = "１＋１は？<end_of_turn",
+            inputPrompt = "１＋１は？",
+        )
+        val spacedEndTurn = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "１＋１は？< end_of_turn>",
+            sanitizedOutput = "１＋１は？< end_of_turn>",
+            inputPrompt = "１＋１は？",
+        )
+
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, startTurn.status)
+        assertTrue(startTurn.reason.contains("special_token_leak"))
+        assertTrue(startTurn.reason.contains("user_turn_leak"))
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, unclosedEndTurn.status)
+        assertTrue(unclosedEndTurn.reason.contains("special_token_leak"))
+        assertTrue(unclosedEndTurn.reason.contains("raw_unclosed_special_token"))
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, spacedEndTurn.status)
+        assertTrue(spacedEndTurn.reason.contains("special_token_leak"))
+    }
+
+    @Test
+    fun `quality candidate handles minimal arithmetic prompts`() {
+        val echoedQuestion = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "１＋１は？",
+            sanitizedOutput = "１＋１は？",
+            inputPrompt = "１＋１は？",
+        )
+        val answeredQuestion = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "１＋１は２です",
+            sanitizedOutput = "１＋１は２です",
+            inputPrompt = "１＋１は？",
+        )
+        val answeredNoQuestion = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "2です",
+            sanitizedOutput = "2です",
+            inputPrompt = "1+1",
+        )
+
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, echoedQuestion.status)
+        assertTrue(echoedQuestion.reason.contains("prompt_repetition_only"))
+        assertTrue(echoedQuestion.reason.contains("arithmetic_answer_missing"))
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS, answeredQuestion.status)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS, answeredNoQuestion.status)
+    }
+
+    @Test
     fun `quality gate passes for gemma user model x20 candidate output`() {
         val state = full20SuccessState().copy(
             selectedQualityPromptProfile =

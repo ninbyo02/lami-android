@@ -19,6 +19,7 @@ internal data class NpuStandardRouteS1RawResult(
     val npuS1OutputTokens: Int? = null,
     val npuS1TokenCountMode: String = NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_UNAVAILABLE,
     val nativeDiagnostics: NpuS1NativeStageDiagnostics = NpuS1NativeStageDiagnostics(),
+    val inputPrompt: String = "",
 )
 
 internal object NpuStandardRouteS1Mapper {
@@ -39,6 +40,7 @@ internal object NpuStandardRouteS1Mapper {
         val qualityCandidate = evaluateNpuS1PersistentCustomJniQualityCandidate(
             rawOutput = raw.rawOutput,
             sanitizedOutput = sanitizedOutput,
+            inputPrompt = raw.inputPrompt,
         )
         val displayText = sanitizedOutput
             .ifBlank { qualityCandidate.preparedOutput }
@@ -97,6 +99,7 @@ internal object NpuStandardRouteS1Mapper {
             timing = timing,
             displayText = displayText,
             nativeDiagnostics = raw.nativeDiagnostics,
+            inputPrompt = raw.inputPrompt,
         )
     }
 
