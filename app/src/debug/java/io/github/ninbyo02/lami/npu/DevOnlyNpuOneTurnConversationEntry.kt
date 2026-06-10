@@ -84,6 +84,7 @@ object DevOnlyNpuOneTurnConversationContract {
     const val RAW_DIALOG_TAIL_VARIANT_A = "raw_dialog_tail_variant_a"
     const val RAW_DIALOG_TAIL_VARIANT_B = "raw_dialog_tail_variant_b"
     const val RAW_DIALOG_TAIL_VARIANT_C = "raw_dialog_tail_variant_c"
+    const val GEMMA_IT_USER_MODEL_VARIANT = "gemma_it_user_model"
     const val DEFAULT_PROMPT_TAIL_VARIANT = RAW_DIALOG_TAIL_VARIANT_B
     const val PROMPT_TRANSPORT = "base64"
     const val ROUTE_TYPE = "dev_only_one_turn_conversation"
@@ -137,6 +138,7 @@ object DevOnlyNpuOneTurnConversationContract {
             RAW_DIALOG_TAIL_VARIANT_A -> RAW_DIALOG_TAIL_VARIANT_A
             RAW_DIALOG_TAIL_VARIANT_B -> RAW_DIALOG_TAIL_VARIANT_B
             RAW_DIALOG_TAIL_VARIANT_C -> RAW_DIALOG_TAIL_VARIANT_C
+            GEMMA_IT_USER_MODEL_VARIANT -> GEMMA_IT_USER_MODEL_VARIANT
             else -> DEFAULT_PROMPT_TAIL_VARIANT
         }
 
@@ -147,6 +149,9 @@ object DevOnlyNpuOneTurnConversationContract {
     ): String {
         val normalizedContext = contextText.trim()
         val normalizedUserPrompt = userPrompt.trim()
+        if (sanitizePromptTailVariant(promptTailVariant) == GEMMA_IT_USER_MODEL_VARIANT) {
+            return "<start_of_turn>user\n$normalizedUserPrompt<end_of_turn>\n<start_of_turn>model"
+        }
         val head = if (normalizedContext.isBlank()) {
             ""
         } else {

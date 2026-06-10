@@ -6,7 +6,7 @@ internal object NpuStandardRouteS1ProviderSelector {
     const val REASON_REAL_PROVIDER_UNAVAILABLE = "real_provider_unavailable_for_variant"
     const val REASON_REAL_PROVIDER_INVALID_TYPE = "real_provider_invalid_type"
     const val REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT = "npu_s1_native_route_blocked_for_normal_chat"
-    const val NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED = false
+    const val NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED = true
 
     fun defaultProvider(): NpuStandardRouteS1Provider =
         defaultProvider(s1GateEnabled = NpuStandardRouteS1GateConfig.enabled)
@@ -16,7 +16,11 @@ internal object NpuStandardRouteS1ProviderSelector {
 
     fun defaultProvider(s1GateEnabled: Boolean): NpuStandardRouteS1Provider =
         if (s1GateEnabled) {
-            FailureNpuStandardRouteS1Provider(reason = REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT)
+            if (NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED) {
+                realProvider()
+            } else {
+                FailureNpuStandardRouteS1Provider(reason = REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT)
+            }
         } else {
             FixedNpuStandardRouteS1Provider()
         }
@@ -27,6 +31,8 @@ internal object NpuStandardRouteS1ProviderSelector {
     ): NpuStandardRouteS1Provider =
         if (s1GateEnabled && !normalChatNativeRouteUnblockAllowed(promotionGate)) {
             FailureNpuStandardRouteS1Provider(reason = REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT)
+        } else if (s1GateEnabled) {
+            realProvider()
         } else {
             FixedNpuStandardRouteS1Provider()
         }

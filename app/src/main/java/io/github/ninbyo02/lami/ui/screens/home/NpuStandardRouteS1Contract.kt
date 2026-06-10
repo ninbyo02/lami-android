@@ -134,7 +134,8 @@ internal object NpuStandardRouteS1Contract {
     const val ROUTE_TYPE = "standard_chat_screen_s1_npu_display_only"
     const val ROUTE_TYPE_S2_DB_SAVE = "standard_chat_screen_s2_npu_db_save"
     const val ROUTE_TYPE_S3_MARKDOWN = "standard_chat_screen_s3_markdown"
-    const val PROMPT_TAIL_VARIANT = "raw_dialog_tail_variant_c"
+    const val PROMPT_TAIL_VARIANT = "gemma_it_user_model"
+    const val PROMPT_WRAPPER_USED = "gemma_it_user_model"
     const val MAX_OUTPUT_TOKENS = 32
     const val NPU_BACKEND_EVIDENCE = "QNN_HTP_V79_FastRPC_native_diag"
     const val QUALITY_NATURAL_JAPANESE = "natural_japanese"
@@ -196,6 +197,7 @@ internal object NpuStandardRouteS1Contract {
             "reason=$reason",
             "normal_chat_native_route_blocked=${reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT}",
             "prompt_tail_variant=${selection.promptTailVariant}",
+            "prompt_wrapper_used=$PROMPT_WRAPPER_USED",
             "requested_max_output_tokens=${selection.requestedMaxOutputTokens}",
             "effective_max_output_tokens=${selection.effectiveMaxOutputTokens}",
             "max_output_tokens=${selection.effectiveMaxOutputTokens}",

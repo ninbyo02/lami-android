@@ -18,7 +18,7 @@ internal const val NPU_S1_PROMOTION_GATE_STATUS_FAIL = "fail"
 internal const val NPU_S1_PROMOTION_GATE_STATUS_NOT_RUN = "not_run"
 internal const val NPU_S1_PROMOTION_GATE_REASON_FULL_20_NOT_RUN = "full_20_not_run"
 internal const val NPU_S1_PROMOTION_GATE_REASON_READY_BUT_NORMAL_CHAT_BLOCKED =
-    "crash_safety_ready_but_normal_chat_unblock_blocked_by_policy"
+    "crash_safety_ready_policy_unblock_allowed"
 internal const val NPU_S1_PROMOTION_GATE_TOMBSTONE_COMPARE_HINT =
     "manually_compare_probe_wall_time_with_dumpsys_dropbox_and_data_tombstones"
 internal const val NPU_S1_OUTPUT_QUALITY_NATURAL_JAPANESE = "natural_japanese"
@@ -719,6 +719,7 @@ internal fun evaluateNpuS1PromotionGate(
         NpuS1PromotionGateResult(
             status = NPU_S1_PROMOTION_GATE_STATUS_PASS,
             reason = NPU_S1_PROMOTION_GATE_REASON_READY_BUT_NORMAL_CHAT_BLOCKED,
+            normalChatUnblockAllowed = true,
         )
     } else {
         NpuS1PromotionGateResult(
@@ -1008,7 +1009,14 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
         } ?: "npu_s1_promotion_gate_crash_safety=fail",
     )
     appendLine("npu_s1_promotion_gate_output_quality=suspect")
-    appendLine("npu_s1_promotion_gate_normal_chat_unblock=blocked_by_policy")
+    appendLine(
+        "npu_s1_promotion_gate_normal_chat_unblock=" +
+            if (NpuStandardRouteS1ProviderSelector.NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED) {
+                "policy_allowed"
+            } else {
+                "blocked_by_policy"
+            },
+    )
     appendLine()
     appendLine("[DEV診断: NPU S1 persistent custom JNI details]")
     if (state.records.isEmpty()) {

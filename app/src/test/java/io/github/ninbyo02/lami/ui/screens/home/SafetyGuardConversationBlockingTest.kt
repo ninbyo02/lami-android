@@ -160,7 +160,7 @@ class SafetyGuardConversationBlockingTest {
         )
 
         assertEquals(32, NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS)
-        assertEquals("raw_dialog_tail_variant_c", NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT)
+        assertEquals("gemma_it_user_model", NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT)
         assertEquals("safe_greeting_fallback", NpuStandardRouteS1Contract.FALLBACK_SAFE_GREETING)
         assertEquals(128, NpuDiagnosticPromptValidator.HIDDEN_TEMPLATE_MAX_LENGTH)
         assertEquals("short_prompt_guard", NpuDiagnosticPromptValidator.DEFAULT_INPUT_LIMIT_MODE)

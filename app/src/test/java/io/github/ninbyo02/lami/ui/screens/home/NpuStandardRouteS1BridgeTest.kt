@@ -114,21 +114,18 @@ class NpuStandardRouteS1BridgeTest {
     }
 
     @Test
-    fun `normal chat mode bridge blocks custom JNI native route`() {
+    fun `normal chat mode bridge reaches native route provider after policy unblock`() {
         val result = NpuStandardRouteS1Bridge(mode = NpuStandardRouteMode.S1_ONLY)
             .run(userPrompt = "こんにちは")
 
         assertFalse(result.successCriteriaMet)
         assertEquals("failure", result.status)
-        assertEquals(
-            NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT,
-            result.reason,
-        )
+        assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, result.reason)
         assertFalse(result.runDecodeReached)
         assertTrue(
             result.withTiming(NpuStandardRouteS1Timing(totalMs = 0L))
                 .displayText
-                .contains("normal_chat_native_route_blocked=true"),
+                .contains("normal_chat_native_route_blocked=false"),
         )
     }
 }

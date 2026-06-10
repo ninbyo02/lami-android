@@ -63,10 +63,7 @@ class NpuStandardRouteS1ProviderTest {
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertFalse(mapped.successCriteriaMet)
-            assertEquals(
-                NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT,
-                mapped.reason,
-            )
+            assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, mapped.reason)
         } else {
             assertTrue(mapped.successCriteriaMet)
             assertEquals("こんにちは。", mapped.displayText)
@@ -86,7 +83,7 @@ class NpuStandardRouteS1ProviderTest {
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertFalse(mapped.successCriteriaMet)
             assertEquals("failure", raw.status)
-            assertEquals(NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT, raw.reason)
+            assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, raw.reason)
         } else {
             assertTrue(mapped.successCriteriaMet)
             assertEquals("success", raw.status)
@@ -110,7 +107,7 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `provider selector blocks native route for normal chat when S1 gate is enabled`() {
+    fun `provider selector unblocks native route for normal chat when S1 gate is enabled`() {
         val raw = NpuStandardRouteS1ProviderSelector.defaultProvider(s1GateEnabled = true).invoke(
             userPrompt = userPrompt,
             maxOutputTokens = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
@@ -120,19 +117,20 @@ class NpuStandardRouteS1ProviderTest {
 
         assertFalse(mapped.successCriteriaMet)
         assertEquals("failure", raw.status)
-        assertEquals(NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT, raw.reason)
+        assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, raw.reason)
         assertTrue(
             mapped.withTiming(NpuStandardRouteS1Timing(totalMs = 0L))
                 .displayText
-                .contains("normal_chat_native_route_blocked=true"),
+                .contains("normal_chat_native_route_blocked=false"),
         )
     }
 
     @Test
-    fun `provider selector keeps normal chat blocked even when promotion gate passes`() {
+    fun `provider selector allows normal chat native route when promotion gate passes`() {
         val promotionGate = NpuS1PromotionGateResult(
             status = NPU_S1_PROMOTION_GATE_STATUS_PASS,
             reason = NPU_S1_PROMOTION_GATE_REASON_READY_BUT_NORMAL_CHAT_BLOCKED,
+            normalChatUnblockAllowed = true,
         )
         val raw = NpuStandardRouteS1ProviderSelector.defaultProviderWithPromotionGate(
             s1GateEnabled = true,
@@ -143,9 +141,9 @@ class NpuStandardRouteS1ProviderTest {
             trace = {},
         )
 
-        assertFalse(NpuStandardRouteS1ProviderSelector.normalChatNativeRouteUnblockAllowed(promotionGate))
+        assertTrue(NpuStandardRouteS1ProviderSelector.normalChatNativeRouteUnblockAllowed(promotionGate))
         assertEquals("failure", raw.status)
-        assertEquals(NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT, raw.reason)
+        assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, raw.reason)
     }
 
     @Test
@@ -189,13 +187,13 @@ class NpuStandardRouteS1ProviderTest {
 
         if (BuildConfig.CUSTOM_BUILD_EXPERIMENT) {
             assertEquals("failure", offRaw.status)
-            assertEquals(NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT, offRaw.reason)
+            assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, offRaw.reason)
         } else {
             assertEquals("success", offRaw.status)
             assertEquals("こんにちは。", offRaw.sanitizedOutput)
         }
         assertEquals("failure", s1Raw.status)
-        assertEquals(NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT, s1Raw.reason)
+        assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, s1Raw.reason)
     }
 
     @Test
@@ -226,11 +224,11 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `standard route uses safe raw dialog tail variant C without user assistant labels`() {
+    fun `standard route uses Gemma IT user model wrapper`() {
         val contractClass = Class.forName("io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract")
         val contract = contractClass.getField("INSTANCE").get(null)
-        val variantC = contractClass.getField("RAW_DIALOG_TAIL_VARIANT_C").get(null) as String
-        assertEquals("raw_dialog_tail_variant_c", NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT)
+        val gemmaVariant = contractClass.getField("GEMMA_IT_USER_MODEL_VARIANT").get(null) as String
+        assertEquals("gemma_it_user_model", NpuStandardRouteS1Contract.PROMPT_TAIL_VARIANT)
         listOf(
             "こんにちは",
             "あなたは誰ですか？",
@@ -243,22 +241,21 @@ class NpuStandardRouteS1ProviderTest {
                     String::class.java,
                     String::class.java,
                 )
-                .invoke(contract, "", userPrompt, variantC) as String
+                .invoke(contract, "", userPrompt, gemmaVariant) as String
             val request = RealNpuStandardRouteS1Provider.request(
                 userPrompt = userPrompt,
                 maxOutputTokens = 32,
             )
 
-            assertEquals("raw_dialog_tail_variant_c", request.promptTailVariant)
-            assertTrue(prompt.contains("あなたは日本語だけで短く答えるアシスタントです。"))
-            assertTrue(prompt.contains("ユーザーの文を繰り返さず、回答だけを返してください。"))
-            assertTrue(prompt.contains("役割ラベルと会話の続きを書かない"))
-            assertTrue(prompt.contains("箇条書き要求以外は1〜2文"))
-            assertTrue(prompt.contains("入力文: $userPrompt"))
-            assertTrue(prompt.endsWith("回答:"))
-            assertFalse(prompt.contains("\nユーザー: $userPrompt"))
-            assertFalse(prompt.endsWith("アシスタント:"))
-            assertFalse(prompt.endsWith("アシスタント: はい、"))
+            assertEquals("gemma_it_user_model", request.promptTailVariant)
+            assertTrue(
+                RealNpuStandardRouteS1Provider.buildNpuRealPromptRequestTrace(request)
+                    .contains("prompt_wrapper_used=gemma_it_user_model"),
+            )
+            assertEquals(
+                "<start_of_turn>user\n$userPrompt<end_of_turn>\n<start_of_turn>model",
+                prompt,
+            )
         }
     }
 

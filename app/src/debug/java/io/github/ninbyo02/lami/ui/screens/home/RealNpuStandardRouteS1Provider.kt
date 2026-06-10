@@ -167,6 +167,8 @@ internal class RealNpuStandardRouteS1Provider(
                 append(finalInput.codePointCount(0, finalInput.length))
                 append(" prompt_tail_variant=")
                 append(request.promptTailVariant)
+                append(" prompt_wrapper_used=")
+                append(NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED)
                 append(" max_output_tokens=")
                 append(request.maxOutputTokens)
             }

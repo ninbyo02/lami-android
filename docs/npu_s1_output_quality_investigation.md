@@ -60,7 +60,7 @@ The Kotlin validator does not add a system prompt or assistant/user wrapper. The
 - `prompt_wrapper_used`
 - `prefill_text_or_token_note`
 
-Normal chat is still intentionally blocked and is not using this native route.
+Normal chat was later policy-unblocked after `Gemma recommended x20` passed and tombstone / dropbox checks were reviewed.
 
 ## Quality Diagnostics
 
@@ -200,7 +200,7 @@ At least one profile must satisfy:
 - output broadly responds to the prompt
 - `output_equals_across_runs` is not always fixed, or fixed output is a natural short sentence
 
-Normal chat must remain blocked until a separate output quality gate passes.
+Normal chat remained blocked until the separate output quality gate passed.
 
 Current candidate gate preparation:
 
@@ -297,7 +297,7 @@ Before native NPU can return to normal chat:
 2. A prompt wrapper profile produces natural Japanese output.
 3. The output does not contain placeholders or business template leakage.
 4. The output is not empty or newline-only for simple prompts.
-5. The route is promoted through an explicit code change; `NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED=false` must not be changed by diagnostics work.
+5. The route is promoted through an explicit policy-unblock code change.
 6. `Gemma recommended x20` reports `npu_s1_quality_gate_status=pass`.
 
 ## Current Return Candidate Status
@@ -320,11 +320,12 @@ The latest device result confirmed the return-candidate quality profile:
 - `backend_evidence=QNN_HTP_V79_FastRPC_native_diag_persistent_holder`
 
 This means `gemma_it_user_model` is the current normal-chat return candidate prompt family.
-It does not mean normal chat has been restored.
+After tombstone / dropbox manual confirmation and a repeated `Gemma recommended x20` pass, the minimal policy-unblock
+commit changed `NpuStandardRouteS1ProviderSelector.NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED` to `true`.
 
 - `ai_edge_gallery_like` remains an alias / duplicate for comparison and is not a gate-pass profile.
 - `bos_eos_like_if_supported_by_existing_code` remains unsafe / not recommended.
-- Normal chat native NPU route remains intentionally blocked by policy.
+- Normal chat native NPU route is no longer policy-blocked, but native / JNI / QAIRT / fallback / TTS / DB / streaming / markdown / sanitizer were not changed.
 
 Final readiness diagnostics:
 
@@ -334,18 +335,20 @@ Final readiness diagnostics:
 - `npu_s1_normal_chat_unblock_required_20_run_gate`
 - `npu_s1_normal_chat_unblock_policy_allowed`
 
-While `NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED=false`, a fully passing crash + quality gate must report
-`npu_s1_normal_chat_unblock_readiness_status=ready_but_blocked_by_policy`.
+With `NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED=true`, a fully passing crash + quality gate should report
+`npu_s1_normal_chat_unblock_readiness_status=ready_and_policy_allowed`.
 
-Next steps before any route restoration:
+Next steps after the minimal policy unblock:
 
-1. Manually compare the latest probe time with tombstone / dropbox and confirm no new native crash.
-2. Run `Gemma recommended x20` once more on device and confirm the same pass keys.
-3. Review the production prompt, sanitizer, stop sequence, and kill-switch plan separately.
-4. Only in a separate commit, consider `NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED=true`.
-5. Any restoration must retain a feature flag / kill switch.
+1. Send a simple normal-chat prompt such as `こんにちは`.
+2. Confirm `reason=npu_s1_native_route_blocked_for_normal_chat` is gone.
+3. Confirm `prompt_wrapper_used=gemma_it_user_model` or the equivalent Gemma IT final prompt:
+   `<start_of_turn>user\n{user_prompt}<end_of_turn>\n<start_of_turn>model`.
+4. Confirm `status`, `reason`, `run_decode_reached`, `fallback`, `fresh_crash`, `timeout`, `backend_evidence`, `raw_output`, and `sanitized_output`.
+5. Manually compare the run time with tombstone / dropbox and confirm no new native crash.
+6. Keep a feature flag / kill switch plan for any follow-up hardening.
 
-Do not restore normal chat native NPU until:
+The normal-chat policy unblock was allowed only after:
 
 - `gemma_it_user_model_full_20_quality` or a successor profile repeatedly passes the 20-run quality candidate gate.
 - The candidate gate rejects the known bad profiles:
@@ -355,7 +358,7 @@ Do not restore normal chat native NPU until:
   - `assistant_prefix_only`
   - `japanese_instruction_with_answer_prefix`
   - `bos_eos_like_if_supported_by_existing_code`
-- The route has a dedicated production sanitizer / stop-sequence plan reviewed separately.
+- The route retained the existing production sanitizer / stop-sequence behavior without native or fallback changes.
 
 ## Suspected Causes
 
@@ -372,12 +375,12 @@ The Dispatch / CompilerPlugin / QAIRT overlay mismatch is considered the likely 
 
 ## Release Policy
 
-Normal chat remains blocked by policy:
+Normal chat policy unblock state:
 
-- `NpuStandardRouteS1ProviderSelector.NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED=false`
-- `reason=npu_s1_native_route_blocked_for_normal_chat`
+- `NpuStandardRouteS1ProviderSelector.NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED=true`
+- `reason=npu_s1_native_route_blocked_for_normal_chat` should no longer appear for the normal S1 native route.
 
-Crash-safety pass is not enough to unblock normal chat. A separate output quality gate is required before any native NPU route is restored to normal conversation.
+Crash-safety pass alone is not enough to unblock normal chat. The separate output quality gate and manual tombstone / dropbox checks were required before this policy unblock.
 
 ## Next Device Check
 

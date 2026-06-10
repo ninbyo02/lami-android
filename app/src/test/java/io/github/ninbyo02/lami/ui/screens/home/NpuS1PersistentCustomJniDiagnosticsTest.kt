@@ -18,16 +18,16 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             NPU_S1_PROMOTION_GATE_REASON_READY_BUT_NORMAL_CHAT_BLOCKED,
             gate.reason,
         )
-        assertFalse(gate.normalChatUnblockAllowed)
+        assertTrue(gate.normalChatUnblockAllowed)
         assertTrue(text.contains("npu_s1_promotion_gate_status=pass"))
         assertTrue(text.contains("npu_s1_promotion_gate_full_20_required=true"))
         assertTrue(text.contains("npu_s1_promotion_gate_quality_required=false"))
-        assertTrue(text.contains("npu_s1_promotion_gate_normal_chat_unblock_allowed=false"))
+        assertTrue(text.contains("npu_s1_promotion_gate_normal_chat_unblock_allowed=true"))
         assertTrue(text.contains("npu_s1_promotion_gate_engine_create=pass"))
         assertTrue(text.contains("npu_s1_promotion_gate_decode_20=pass"))
         assertTrue(text.contains("npu_s1_promotion_gate_crash_safety=pass"))
         assertTrue(text.contains("npu_s1_promotion_gate_output_quality=suspect"))
-        assertTrue(text.contains("npu_s1_promotion_gate_normal_chat_unblock=blocked_by_policy"))
+        assertTrue(text.contains("npu_s1_promotion_gate_normal_chat_unblock=policy_allowed"))
         assertTrue(text.contains("npu_s1_promotion_gate_tombstone_manual_check=required"))
     }
 
@@ -224,20 +224,20 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("npu_s1_quality_gate_all_runs_passed=true"))
         assertTrue(text.contains("npu_s1_quality_gate_20_run_status=pass"))
         assertTrue(text.contains("failed_quality_run_count=0"))
-        assertTrue(text.contains("npu_s1_normal_chat_unblock_readiness_status=ready_but_blocked_by_policy"))
+        assertTrue(text.contains("npu_s1_normal_chat_unblock_readiness_status=ready_and_policy_allowed"))
         assertTrue(
             text.contains(
                 "npu_s1_normal_chat_unblock_readiness_reason=" +
-                    "final_gates_pass_but_normal_chat_native_route_unblock_policy_false",
+                    "final_gates_pass_and_policy_allows_unblock",
             ),
         )
         assertTrue(text.contains("npu_s1_normal_chat_unblock_required_profile=gemma_it_user_model_full_20_quality"))
         assertTrue(text.contains("npu_s1_normal_chat_unblock_required_20_run_gate=true"))
-        assertTrue(text.contains("npu_s1_normal_chat_unblock_policy_allowed=false"))
+        assertTrue(text.contains("npu_s1_normal_chat_unblock_policy_allowed=true"))
     }
 
     @Test
-    fun `normal chat route remains blocked when final readiness is ready but policy false`() {
+    fun `normal chat route reaches native provider when final readiness is ready and policy true`() {
         val state = full20SuccessState().copy(
             selectedQualityPromptProfile =
                 NpuS1PersistentCustomJniQualityPromptProfile.GEMMA_IT_USER_MODEL_FULL_20_QUALITY.wireValue,
@@ -267,10 +267,10 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             trace = {},
         )
 
-        assertEquals(NPU_S1_NORMAL_CHAT_UNBLOCK_READINESS_READY_BUT_BLOCKED_BY_POLICY, readiness.status)
-        assertFalse(readiness.policyAllowed)
-        assertFalse(NpuStandardRouteS1ProviderSelector.NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED)
-        assertEquals(NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT, result.reason)
+        assertEquals("ready_and_policy_allowed", readiness.status)
+        assertTrue(readiness.policyAllowed)
+        assertTrue(NpuStandardRouteS1ProviderSelector.NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED)
+        assertEquals(RealNpuStandardRouteS1Provider.REASON_DEV_ONLY_ENTRY_UNAVAILABLE, result.reason)
         assertEquals("failure", result.status)
     }
 
@@ -405,7 +405,7 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
     }
 
     @Test
-    fun `full 20 success with suspect quality keeps normal chat blocked`() {
+    fun `full 20 crash safety success with suspect quality does not pass quality readiness`() {
         val state = full20SuccessState(
             records = successRecords(
                 rawOutput = "。お元気ですか。いつもお世話になっております。[あなたの名前]です。",
@@ -417,9 +417,9 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         val text = formatNpuS1PersistentCustomJniDiagnosticsForDev(state)
 
         assertEquals(NPU_S1_PROMOTION_GATE_STATUS_PASS, gate.status)
-        assertFalse(gate.normalChatUnblockAllowed)
+        assertTrue(gate.normalChatUnblockAllowed)
         assertTrue(text.contains("npu_s1_promotion_gate_output_quality=suspect"))
-        assertTrue(text.contains("npu_s1_promotion_gate_normal_chat_unblock=blocked_by_policy"))
+        assertTrue(text.contains("npu_s1_promotion_gate_normal_chat_unblock=policy_allowed"))
     }
 
     @Test

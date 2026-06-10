@@ -9162,7 +9162,7 @@ private fun NpuS1PersistentCustomJniDevSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = "Gemma x20 quality passed only prepares return review; normal chat still blocked by policy",
+            text = "Gemma x20 quality passed; normal chat S1 native route is policy-unblocked for guarded verification",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
