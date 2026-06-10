@@ -161,6 +161,9 @@ New DEV-only wrapper profiles are Kotlin-side prompt strings. They do not requir
 - `gemma_it_user_model`
   - Uses `<start_of_turn>user ... <end_of_turn>` and `<start_of_turn>model`.
   - Checks whether Gemma instruction-turn boundaries align generation.
+- `gemma_it_user_model_full_20_quality`
+  - Uses the same prompt as `gemma_it_user_model`.
+  - Runs 20 times and is the only current quality-gate pass profile for normal-chat return decisions.
 - `gemma_it_start_turn`
   - Uses start-turn markers without the user end-turn boundary.
   - Checks whether a shorter turn prefix changes decode start behavior.
@@ -202,6 +205,8 @@ Normal chat must remain blocked until a separate output quality gate passes.
 Current candidate gate preparation:
 
 - `gemma_it_user_model` is the recommended candidate.
+- `gemma_it_user_model` 3-run quality comparison has passed on device, but that is not enough for return decisions.
+- Use `gemma_it_user_model_full_20_quality` / `Gemma recommended x20` before considering normal-chat return.
 - Leading `>` before a natural answer is considered safely removable in DEV gate preparation.
 - `<end_of_turn>` is considered safely removable in DEV gate preparation.
 - The prepared output must still be non-empty natural Japanese after those two removals.
@@ -228,7 +233,13 @@ This is still diagnostics-only; it does not unblock normal chat.
 
 The Gemma candidate quality gate passes only when:
 
-- `selected_quality_prompt_profile=gemma_it_user_model`
+- `selected_quality_prompt_profile=gemma_it_user_model_full_20_quality`
+- `run_count_completed=20`
+- `success_count=20`
+- `failure_count=0`
+- `decode_success_count=20`
+- `engine_close_reached=true`
+- `engine_close_success=true`
 - `output_quality_candidate_status=quality_candidate_pass`
 - `output_empty=false`
 - `output_only_newline=false`
@@ -246,6 +257,13 @@ The DEV copy keys are:
 - `npu_s1_quality_gate_status`
 - `npu_s1_quality_gate_reason`
 - `npu_s1_quality_gate_prompt_profile`
+- `npu_s1_quality_gate_run_count_required`
+- `npu_s1_quality_gate_run_count_completed`
+- `npu_s1_quality_gate_all_runs_passed`
+- `npu_s1_quality_gate_20_run_status`
+- `first_quality_failure_run_index`
+- `first_quality_failure_reason`
+- `failed_quality_run_count`
 
 Known bad profile handling:
 
@@ -280,10 +298,11 @@ Before native NPU can return to normal chat:
 3. The output does not contain placeholders or business template leakage.
 4. The output is not empty or newline-only for simple prompts.
 5. The route is promoted through an explicit code change; `NORMAL_CHAT_NATIVE_ROUTE_UNBLOCK_ALLOWED=false` must not be changed by diagnostics work.
+6. `Gemma recommended x20` reports `npu_s1_quality_gate_status=pass`.
 
 Do not restore normal chat native NPU until:
 
-- `gemma_it_user_model` or a successor profile repeatedly passes the quality candidate gate.
+- `gemma_it_user_model_full_20_quality` or a successor profile repeatedly passes the 20-run quality candidate gate.
 - The candidate gate rejects the known bad profiles:
   - `current_probe_quality`
   - `no_bos_no_eos`

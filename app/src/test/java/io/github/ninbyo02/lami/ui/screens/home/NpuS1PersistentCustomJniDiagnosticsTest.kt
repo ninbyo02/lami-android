@@ -192,9 +192,10 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
     }
 
     @Test
-    fun `quality gate passes for gemma user model candidate output`() {
+    fun `quality gate passes for gemma user model x20 candidate output`() {
         val state = full20SuccessState().copy(
-            selectedQualityPromptProfile = NpuS1PersistentCustomJniQualityPromptProfile.GEMMA_IT_USER_MODEL.wireValue,
+            selectedQualityPromptProfile =
+                NpuS1PersistentCustomJniQualityPromptProfile.GEMMA_IT_USER_MODEL_FULL_20_QUALITY.wireValue,
             outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS,
             outputQualityCandidateReason = "natural_japanese_after_safe_leading_gt_and_end_of_turn_cleanup",
             outputEmpty = "false",
@@ -203,17 +204,50 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             outputLooksBusinessTemplate = "false",
             outputQualityCandidateAssistantRepetition = "false",
             outputQualityCandidateQaContinuation = "false",
+            firstQualityFailureRunIndex = "unavailable",
+            firstQualityFailureReason = "unavailable",
+            failedQualityRunCount = "0",
+            qualityGateAllRunsPassed = "true",
         )
 
         val gate = evaluateNpuS1QualityGate(state)
         val text = formatNpuS1PersistentCustomJniDiagnosticsForDev(state)
 
         assertEquals(NPU_S1_QUALITY_GATE_STATUS_PASS, gate.status)
-        assertEquals("gemma_it_user_model_quality_candidate_pass", gate.reason)
-        assertEquals("gemma_it_user_model", gate.promptProfile)
+        assertEquals("gemma_it_user_model_full_20_quality_candidate_pass", gate.reason)
+        assertEquals("gemma_it_user_model_full_20_quality", gate.promptProfile)
         assertTrue(text.contains("npu_s1_quality_gate_status=pass"))
-        assertTrue(text.contains("npu_s1_quality_gate_reason=gemma_it_user_model_quality_candidate_pass"))
-        assertTrue(text.contains("npu_s1_quality_gate_prompt_profile=gemma_it_user_model"))
+        assertTrue(text.contains("npu_s1_quality_gate_reason=gemma_it_user_model_full_20_quality_candidate_pass"))
+        assertTrue(text.contains("npu_s1_quality_gate_prompt_profile=gemma_it_user_model_full_20_quality"))
+        assertTrue(text.contains("npu_s1_quality_gate_run_count_required=20"))
+        assertTrue(text.contains("npu_s1_quality_gate_run_count_completed=20"))
+        assertTrue(text.contains("npu_s1_quality_gate_all_runs_passed=true"))
+        assertTrue(text.contains("npu_s1_quality_gate_20_run_status=pass"))
+        assertTrue(text.contains("failed_quality_run_count=0"))
+    }
+
+    @Test
+    fun `quality gate fails for gemma user model short comparison even when candidate passes`() {
+        val state = full20SuccessState(records = successRecords(count = 3)).copy(
+            runCountRequested = 3,
+            runCountCompletedOverride = 3,
+            selectedQualityPromptProfile = NpuS1PersistentCustomJniQualityPromptProfile.GEMMA_IT_USER_MODEL.wireValue,
+            outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS,
+            outputEmpty = "false",
+            outputOnlyNewline = "false",
+            outputContainsPlaceholder = "false",
+            outputLooksBusinessTemplate = "false",
+            outputQualityCandidateAssistantRepetition = "false",
+            outputQualityCandidateQaContinuation = "false",
+            failedQualityRunCount = "0",
+            qualityGateAllRunsPassed = "true",
+        )
+
+        val gate = evaluateNpuS1QualityGate(state)
+
+        assertEquals(NPU_S1_QUALITY_GATE_STATUS_FAIL, gate.status)
+        assertTrue(gate.reason.contains("prompt_profile_not_gemma_it_user_model_full_20_quality"))
+        assertTrue(gate.reason.contains("run_count_completed_not_20"))
     }
 
     @Test
@@ -235,15 +269,49 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             outputLooksBusinessTemplate = "true",
             outputQualityCandidateAssistantRepetition = "false",
             outputQualityCandidateQaContinuation = "false",
+            failedQualityRunCount = "1",
+            qualityGateAllRunsPassed = "false",
         )
 
         val gate = evaluateNpuS1QualityGate(state)
 
         assertEquals(NPU_S1_QUALITY_GATE_STATUS_FAIL, gate.status)
         assertTrue(gate.reason.contains("prompt_profile_not_gemma_it_user_model"))
+        assertTrue(gate.reason.contains("quality_gate_all_runs_not_passed"))
         assertTrue(gate.reason.contains("quality_candidate_not_pass"))
         assertTrue(gate.reason.contains("output_contains_placeholder_not_false"))
         assertTrue(gate.reason.contains("output_looks_business_template_not_false"))
+    }
+
+    @Test
+    fun `quality gate fails when one of twenty quality runs fails`() {
+        val state = full20SuccessState().copy(
+            selectedQualityPromptProfile =
+                NpuS1PersistentCustomJniQualityPromptProfile.GEMMA_IT_USER_MODEL_FULL_20_QUALITY.wireValue,
+            outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL,
+            outputEmpty = "false",
+            outputOnlyNewline = "false",
+            outputContainsPlaceholder = "false",
+            outputLooksBusinessTemplate = "false",
+            outputQualityCandidateAssistantRepetition = "false",
+            outputQualityCandidateQaContinuation = "false",
+            firstQualityFailureRunIndex = "17",
+            firstQualityFailureReason = "self_intro_template_leak",
+            failedQualityRunCount = "1",
+            qualityGateAllRunsPassed = "false",
+        )
+
+        val gate = evaluateNpuS1QualityGate(state)
+        val text = formatNpuS1PersistentCustomJniDiagnosticsForDev(state)
+
+        assertEquals(NPU_S1_QUALITY_GATE_STATUS_FAIL, gate.status)
+        assertTrue(gate.reason.contains("quality_candidate_not_pass"))
+        assertTrue(gate.reason.contains("quality_gate_all_runs_not_passed"))
+        assertTrue(gate.reason.contains("failed_quality_run_count_not_zero"))
+        assertTrue(text.contains("first_quality_failure_run_index=17"))
+        assertTrue(text.contains("first_quality_failure_reason=self_intro_template_leak"))
+        assertTrue(text.contains("failed_quality_run_count=1"))
+        assertTrue(text.contains("npu_s1_quality_gate_20_run_status=fail"))
     }
 
     @Test
@@ -257,12 +325,14 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             outputLooksBusinessTemplate = "false",
             outputQualityCandidateAssistantRepetition = "false",
             outputQualityCandidateQaContinuation = "false",
+            failedQualityRunCount = "0",
+            qualityGateAllRunsPassed = "true",
         )
 
         val gate = evaluateNpuS1QualityGate(state)
 
         assertEquals(NPU_S1_QUALITY_GATE_STATUS_FAIL, gate.status)
-        assertTrue(gate.reason.contains("prompt_profile_not_gemma_it_user_model"))
+        assertTrue(gate.reason.contains("prompt_profile_not_gemma_it_user_model_full_20_quality"))
     }
 
     @Test

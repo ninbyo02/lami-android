@@ -181,6 +181,10 @@ private fun parsePersistentCustomJniProbeResult(
             outputEqualsAcrossRuns = repeatedOutput,
         )
         val boundary = buildNpuS1PersistentCustomJniTokenBoundaryDiagnostics(outputForDiagnostics)
+        val candidate = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = rawOutput,
+            sanitizedOutput = sanitized,
+        )
         val nativeQuality = values["quality_classification"].orUnavailable()
         val qualityClassification = if (quality.qualityClassification != NPU_S1_OUTPUT_QUALITY_NATURAL_JAPANESE) {
             quality.qualityClassification
@@ -205,6 +209,8 @@ private fun parsePersistentCustomJniProbeResult(
             containsPlaceholder = quality.containsPlaceholder.toString(),
             outputOnlyNewline = quality.outputOnlyNewline.toString(),
             outputEmpty = quality.outputEmpty.toString(),
+            outputQualityCandidateStatus = candidate.status,
+            outputQualityCandidateReason = candidate.reason,
             prefillInputText = fallbackState.finalPromptText,
             prefillInputChars = fallbackState.finalPromptLengthChars,
             decodeFirstChunkText = boundary.decodeFirstChunkText,
@@ -330,6 +336,10 @@ private fun parsePersistentCustomJniProbeResult(
         outputQualityCandidateEndOfTurnRemoved = qualitySummary.outputQualityCandidateEndOfTurnRemoved,
         outputQualityCandidateAssistantRepetition = qualitySummary.outputQualityCandidateAssistantRepetition,
         outputQualityCandidateQaContinuation = qualitySummary.outputQualityCandidateQaContinuation,
+        firstQualityFailureRunIndex = qualitySummary.firstQualityFailureRunIndex,
+        firstQualityFailureReason = qualitySummary.firstQualityFailureReason,
+        failedQualityRunCount = qualitySummary.failedQualityRunCount,
+        qualityGateAllRunsPassed = qualitySummary.qualityGateAllRunsPassed,
         tokenDiagnosticsNote = NPU_S1_TOKEN_DIAGNOSTICS_UNAVAILABLE_NOTE,
         records = records,
     )
@@ -399,6 +409,10 @@ private data class PersistentCustomJniQualitySummary(
     val outputQualityCandidateEndOfTurnRemoved: String,
     val outputQualityCandidateAssistantRepetition: String,
     val outputQualityCandidateQaContinuation: String,
+    val firstQualityFailureRunIndex: String,
+    val firstQualityFailureReason: String,
+    val failedQualityRunCount: String,
+    val qualityGateAllRunsPassed: String,
 )
 
 private fun buildPersistentCustomJniQualitySummary(
@@ -422,6 +436,10 @@ private fun buildPersistentCustomJniQualitySummary(
             outputQualityCandidateEndOfTurnRemoved = "unavailable",
             outputQualityCandidateAssistantRepetition = "unavailable",
             outputQualityCandidateQaContinuation = "unavailable",
+            firstQualityFailureRunIndex = "unavailable",
+            firstQualityFailureReason = "unavailable",
+            failedQualityRunCount = "unavailable",
+            qualityGateAllRunsPassed = "unavailable",
         )
     }
     val outputs = records.map { it.rawOutput.ifBlank { it.sanitizedOutput } }
@@ -436,11 +454,23 @@ private fun buildPersistentCustomJniQualitySummary(
     val containsPlaceholder = records.any { it.containsPlaceholder == "true" }
     val outputOnlyNewline = records.any { it.outputOnlyNewline == "true" }
     val outputEmpty = records.any { it.outputEmpty == "true" }
-    val firstRecord = records.first()
-    val candidate = evaluateNpuS1PersistentCustomJniQualityCandidate(
-        rawOutput = firstRecord.rawOutput,
-        sanitizedOutput = firstRecord.sanitizedOutput,
-    )
+    val candidateResults = records.map { record ->
+        record.runIndex to evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = record.rawOutput,
+            sanitizedOutput = record.sanitizedOutput,
+        )
+    }
+    val failedCandidates = candidateResults.filter { (_, candidate) ->
+        candidate.status != NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
+    }
+    val firstCandidate = candidateResults.first().second
+    val outputQualityCandidateStatus = if (failedCandidates.isEmpty()) {
+        NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
+    } else {
+        NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL
+    }
+    val firstQualityFailureRunIndex = failedCandidates.firstOrNull()?.first?.toString() ?: "unavailable"
+    val firstQualityFailureReason = failedCandidates.firstOrNull()?.second?.reason ?: "unavailable"
     val reasons = buildList {
         if (startsWithPunctuation) add("starts_with_punctuation")
         if (startsWithPunctuation) add("first_token_boundary_suspect")
@@ -462,13 +492,21 @@ private fun buildPersistentCustomJniQualitySummary(
         outputContainsPlaceholder = containsPlaceholder.toString(),
         outputOnlyNewline = outputOnlyNewline.toString(),
         outputEmpty = outputEmpty.toString(),
-        outputQualityCandidateStatus = candidate.status,
-        outputQualityCandidateReason = candidate.reason,
-        outputQualityCandidatePreparedOutput = candidate.preparedOutput,
-        outputQualityCandidateLeadingGreaterThanRemoved = candidate.leadingGreaterThanRemoved.toString(),
-        outputQualityCandidateEndOfTurnRemoved = candidate.endOfTurnRemoved.toString(),
-        outputQualityCandidateAssistantRepetition = candidate.assistantRepetition.toString(),
-        outputQualityCandidateQaContinuation = candidate.qaContinuation.toString(),
+        outputQualityCandidateStatus = outputQualityCandidateStatus,
+        outputQualityCandidateReason = if (failedCandidates.isEmpty()) {
+            firstCandidate.reason
+        } else {
+            firstQualityFailureReason
+        },
+        outputQualityCandidatePreparedOutput = firstCandidate.preparedOutput,
+        outputQualityCandidateLeadingGreaterThanRemoved = firstCandidate.leadingGreaterThanRemoved.toString(),
+        outputQualityCandidateEndOfTurnRemoved = firstCandidate.endOfTurnRemoved.toString(),
+        outputQualityCandidateAssistantRepetition = firstCandidate.assistantRepetition.toString(),
+        outputQualityCandidateQaContinuation = firstCandidate.qaContinuation.toString(),
+        firstQualityFailureRunIndex = firstQualityFailureRunIndex,
+        firstQualityFailureReason = firstQualityFailureReason,
+        failedQualityRunCount = failedCandidates.size.toString(),
+        qualityGateAllRunsPassed = failedCandidates.isEmpty().toString(),
     )
 }
 

@@ -46,6 +46,7 @@ internal const val NPU_S1_PROMPT_PROFILE_ALIAS_NOTE =
     "ai_edge_gallery_like_is_currently_duplicate_of_gemma_it_user_model"
 internal const val NPU_S1_UNSAFE_PROMPT_PROFILE_NOTE =
     "bos_eos_like_if_supported_by_existing_code_is_unsafe_not_recommended_engine_create_failed"
+internal const val NPU_S1_QUALITY_GATE_REQUIRED_RUN_COUNT = 20
 
 internal enum class NpuS1PersistentCustomJniProbeMode(
     val wireValue: String,
@@ -151,6 +152,17 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
         promptWrapperUsed = "gemma_it_user_model",
         promptWrapperFamily = "gemma_it",
         promptProfileHypothesis = "gemma_instruction_turn_format_may_align_decode_start",
+    ),
+    GEMMA_IT_USER_MODEL_FULL_20_QUALITY(
+        wireValue = "gemma_it_user_model_full_20_quality",
+        displayLabel = "Gemma recommended x20",
+        prompt = "<start_of_turn>user\nこんにちは<end_of_turn>\n<start_of_turn>model\n",
+        runCount = NPU_S1_QUALITY_GATE_REQUIRED_RUN_COUNT,
+        promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
+        unsafeDevBypassPromptLengthGate = true,
+        promptWrapperUsed = "gemma_it_user_model",
+        promptWrapperFamily = "gemma_it",
+        promptProfileHypothesis = "gemma_instruction_turn_format_20_run_quality_gate",
     ),
     GEMMA_IT_START_TURN(
         wireValue = "gemma_it_start_turn",
@@ -287,6 +299,8 @@ internal data class NpuS1PersistentCustomJniRunRecord(
     val containsPlaceholder: String = "unavailable",
     val outputOnlyNewline: String = "unavailable",
     val outputEmpty: String = "unavailable",
+    val outputQualityCandidateStatus: String = "unavailable",
+    val outputQualityCandidateReason: String = "unavailable",
     val prefillInputText: String = "unavailable",
     val prefillInputChars: String = "unavailable",
     val decodeFirstChunkText: String = "unavailable",
@@ -427,6 +441,10 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val outputQualityCandidateEndOfTurnRemoved: String = "unavailable",
     val outputQualityCandidateAssistantRepetition: String = "unavailable",
     val outputQualityCandidateQaContinuation: String = "unavailable",
+    val firstQualityFailureRunIndex: String = "unavailable",
+    val firstQualityFailureReason: String = "unavailable",
+    val failedQualityRunCount: String = "unavailable",
+    val qualityGateAllRunsPassed: String = "unavailable",
     val promotionGateFreshCrash: String = "false",
     val promotionGateTimeout: String = "false",
     val promotionGateFallback: String = "false",
@@ -457,6 +475,13 @@ internal data class NpuS1QualityGateResult(
     val status: String,
     val reason: String,
     val promptProfile: String,
+    val runCountRequired: Int = NPU_S1_QUALITY_GATE_REQUIRED_RUN_COUNT,
+    val runCountCompleted: Int = 0,
+    val allRunsPassed: Boolean = false,
+    val twentyRunStatus: String = "not_run",
+    val firstQualityFailureRunIndex: String = "unavailable",
+    val firstQualityFailureReason: String = "unavailable",
+    val failedQualityRunCount: String = "unavailable",
 )
 
 internal data class NpuS1PersistentCustomJniOutputQualityDiagnostics(
@@ -702,16 +727,33 @@ internal fun evaluateNpuS1QualityGate(
             status = NPU_S1_QUALITY_GATE_STATUS_UNKNOWN,
             reason = "quality_candidate_not_run",
             promptProfile = state.selectedQualityPromptProfile,
+            runCountCompleted = state.runCountCompleted,
+            firstQualityFailureRunIndex = state.firstQualityFailureRunIndex,
+            firstQualityFailureReason = state.firstQualityFailureReason,
+            failedQualityRunCount = state.failedQualityRunCount,
         )
     }
 
     val failedReasons = buildList {
-        if (state.selectedQualityPromptProfile != NPU_S1_RECOMMENDED_PROMPT_PROFILE) {
-            add("prompt_profile_not_gemma_it_user_model")
+        if (
+            state.selectedQualityPromptProfile !=
+            NpuS1PersistentCustomJniQualityPromptProfile.GEMMA_IT_USER_MODEL_FULL_20_QUALITY.wireValue
+        ) {
+            add("prompt_profile_not_gemma_it_user_model_full_20_quality")
         }
+        if (state.runCountCompleted != NPU_S1_QUALITY_GATE_REQUIRED_RUN_COUNT) add("run_count_completed_not_20")
+        if (state.successCount != NPU_S1_QUALITY_GATE_REQUIRED_RUN_COUNT) add("success_count_not_20")
+        if (state.failureCount != 0) add("failure_count_not_zero")
+        if (state.decodeSuccessCount != NPU_S1_QUALITY_GATE_REQUIRED_RUN_COUNT.toString()) {
+            add("decode_success_count_not_20")
+        }
+        if (state.engineCloseReached != "true") add("engine_close_reached_not_true")
+        if (state.engineCloseSuccess != "true") add("engine_close_success_not_true")
         if (state.outputQualityCandidateStatus != NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS) {
             add("quality_candidate_not_pass")
         }
+        if (state.qualityGateAllRunsPassed != "true") add("quality_gate_all_runs_not_passed")
+        if (state.failedQualityRunCount != "0") add("failed_quality_run_count_not_zero")
         if (state.outputEmpty != "false") add("output_empty_not_false")
         if (state.outputOnlyNewline != "false") add("output_only_newline_not_false")
         if (state.outputContainsPlaceholder != "false") add("output_contains_placeholder_not_false")
@@ -727,14 +769,26 @@ internal fun evaluateNpuS1QualityGate(
     return if (failedReasons.isEmpty()) {
         NpuS1QualityGateResult(
             status = NPU_S1_QUALITY_GATE_STATUS_PASS,
-            reason = "gemma_it_user_model_quality_candidate_pass",
+            reason = "gemma_it_user_model_full_20_quality_candidate_pass",
             promptProfile = state.selectedQualityPromptProfile,
+            runCountCompleted = state.runCountCompleted,
+            allRunsPassed = true,
+            twentyRunStatus = "pass",
+            firstQualityFailureRunIndex = state.firstQualityFailureRunIndex,
+            firstQualityFailureReason = state.firstQualityFailureReason,
+            failedQualityRunCount = state.failedQualityRunCount,
         )
     } else {
         NpuS1QualityGateResult(
             status = NPU_S1_QUALITY_GATE_STATUS_FAIL,
             reason = failedReasons.joinToString("+"),
             promptProfile = state.selectedQualityPromptProfile,
+            runCountCompleted = state.runCountCompleted,
+            allRunsPassed = state.qualityGateAllRunsPassed == "true",
+            twentyRunStatus = "fail",
+            firstQualityFailureRunIndex = state.firstQualityFailureRunIndex,
+            firstQualityFailureReason = state.firstQualityFailureReason,
+            failedQualityRunCount = state.failedQualityRunCount,
         )
     }
 }
@@ -782,6 +836,13 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     appendLine("npu_s1_quality_gate_status=${qualityGate.status}")
     appendLine("npu_s1_quality_gate_reason=${qualityGate.reason}")
     appendLine("npu_s1_quality_gate_prompt_profile=${qualityGate.promptProfile}")
+    appendLine("npu_s1_quality_gate_run_count_required=${qualityGate.runCountRequired}")
+    appendLine("npu_s1_quality_gate_run_count_completed=${qualityGate.runCountCompleted}")
+    appendLine("npu_s1_quality_gate_all_runs_passed=${qualityGate.allRunsPassed}")
+    appendLine("npu_s1_quality_gate_20_run_status=${qualityGate.twentyRunStatus}")
+    appendLine("first_quality_failure_run_index=${qualityGate.firstQualityFailureRunIndex}")
+    appendLine("first_quality_failure_reason=${escapePersistentCustomJniCopyValue(qualityGate.firstQualityFailureReason)}")
+    appendLine("failed_quality_run_count=${qualityGate.failedQualityRunCount}")
     appendLine("last_native_stage=${state.lastNativeStage}")
     appendLine("native_entrypoint_reached=${state.nativeEntrypointReached}")
     appendLine("model_assets_create_reached=${state.modelAssetsCreateReached}")
@@ -932,6 +993,8 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
             appendLine("contains_placeholder=${record.containsPlaceholder}")
             appendLine("output_only_newline=${record.outputOnlyNewline}")
             appendLine("output_empty=${record.outputEmpty}")
+            appendLine("output_quality_candidate_status=${record.outputQualityCandidateStatus}")
+            appendLine("output_quality_candidate_reason=${record.outputQualityCandidateReason}")
             appendLine("prefill_token_count=${record.prefillTokenCount}")
             appendLine("decode_token_count=${record.decodeTokenCount}")
             appendLine("first_output_token_id=${record.firstOutputTokenId}")

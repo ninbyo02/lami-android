@@ -9179,6 +9179,14 @@ private fun NpuS1PersistentCustomJniDevSection(
                 )
             }
         }
+        val startButtonLabel = if (
+            selectedQualityPromptProfile ==
+            NpuS1PersistentCustomJniQualityPromptProfile.GEMMA_IT_USER_MODEL_FULL_20_QUALITY
+        ) {
+            "Gemma recommended x20"
+        } else {
+            "NPU S1 persistent custom JNI ${selectedMode.wireValue}"
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -9187,7 +9195,7 @@ private fun NpuS1PersistentCustomJniDevSection(
                 onClick = onStart,
                 enabled = !running && !blockedByGeneration,
             ) {
-                Text("NPU S1 persistent custom JNI ${selectedMode.wireValue}")
+                Text(startButtonLabel)
             }
             TextButton(
                 onClick = onCancel,
