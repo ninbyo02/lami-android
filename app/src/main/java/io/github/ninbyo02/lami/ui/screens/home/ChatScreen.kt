@@ -3622,7 +3622,7 @@ fun Home(
                                                                     val s5TtsMapping = NpuStandardRouteS5TtsBridge()
                                                                         .prepareTtsCandidate(
                                                                             s1Result = s1Result,
-                                                                            finalAssistantText = s1Result.actualDisplayText,
+                                                                            finalAssistantText = s1Result.ttsText,
                                                                             ttsEnabled = ttsEnabled,
                                                                             streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                             sanitizeForTts = ::sanitizeTextForTts,
@@ -3630,7 +3630,7 @@ fun Home(
                                                                     logStreamTrace(
                                                                         buildNpuStandardRouteS5TtsCandidateTrace(
                                                                             mapping = s5TtsMapping,
-                                                                            finalTextLength = s1Result.actualDisplayText.length,
+                                                                            finalTextLength = s1Result.ttsText.length,
                                                                             ttsEnabled = ttsEnabled,
                                                                             streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                             assistantId = assistantId,
@@ -3662,9 +3662,9 @@ fun Home(
                                                                                 ttsController.speak(ttsCandidate.speakText)
                                                                                 buildNpuStandardRouteS5TtsSavedResult(
                                                                                     s1Result = s1Result,
-                                                                                    finalAssistantText = s1Result.actualDisplayText,
+                                                                                    finalAssistantText = s1Result.ttsText,
                                                                                     ttsDiagnostics = NpuStandardRouteS5TtsContract.successDiagnostics(
-                                                                                        s1Result.actualDisplayText,
+                                                                                        s1Result.ttsText,
                                                                                     ),
                                                                                 )
                                                                             } catch (exception: Exception) {
@@ -3678,9 +3678,9 @@ fun Home(
                                                                                 }
                                                                                 buildNpuStandardRouteS5TtsSavedResult(
                                                                                     s1Result = s1Result,
-                                                                                    finalAssistantText = s1Result.actualDisplayText,
+                                                                                    finalAssistantText = s1Result.ttsText,
                                                                                     ttsDiagnostics = NpuStandardRouteS5TtsContract.exceptionDiagnostics(
-                                                                                        sanitizedOutput = s1Result.actualDisplayText,
+                                                                                        sanitizedOutput = s1Result.ttsText,
                                                                                         throwable = exception,
                                                                                     ),
                                                                                 )
@@ -3736,12 +3736,12 @@ fun Home(
                                                                 )
                                                             }
                                                         }
-                                                        val s4DisplayOnlyCandidate =
+                                                                val s4DisplayOnlyCandidate =
                                                             if (npuStandardRouteS4aPseudoStreamingEnabled) {
                                                                 val s4DisplayOnlyMapping = NpuStandardRouteS4PseudoStreamingBridge()
                                                                     .preparePseudoStreamingCandidate(
                                                                         s1Result = s1Result,
-                                                                        finalText = s1Result.displayText,
+                                                                        finalText = s1Result.actualDisplayText,
                                                                         sourceDisplayText = s1Result.displayText,
                                                                     )
                                                                 s4DisplayOnlyMapping
@@ -3778,7 +3778,7 @@ fun Home(
                                                                     val s5TtsMapping = NpuStandardRouteS5TtsBridge()
                                                                         .prepareTtsCandidate(
                                                                             s1Result = s1Result,
-                                                                            finalAssistantText = s1Result.actualDisplayText,
+                                                                            finalAssistantText = s1Result.ttsText,
                                                                             ttsEnabled = ttsEnabled,
                                                                             streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                             sanitizeForTts = ::sanitizeTextForTts,
@@ -3786,7 +3786,7 @@ fun Home(
                                                                     logStreamTrace(
                                                                         buildNpuStandardRouteS5TtsCandidateTrace(
                                                                             mapping = s5TtsMapping,
-                                                                            finalTextLength = s1Result.actualDisplayText.length,
+                                                                            finalTextLength = s1Result.ttsText.length,
                                                                             ttsEnabled = ttsEnabled,
                                                                             streamingActive = npuStandardRouteS4PseudoStreamingActive,
                                                                             assistantId = null,

@@ -12,7 +12,7 @@ internal object NpuStandardRouteS3MarkdownMapper {
             )
         }
 
-        val sanitizedInput = s1Result.sanitizedOutput.trim()
+        val sanitizedInput = s1Result.actualDisplayText.trim()
         val sourceDisplayText = s1Result.displayText.trim()
         if (sanitizedInput.isBlank() || sourceDisplayText.isBlank()) {
             return NpuStandardRouteS3MarkdownMapping(

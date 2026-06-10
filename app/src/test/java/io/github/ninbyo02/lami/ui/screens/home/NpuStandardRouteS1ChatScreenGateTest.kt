@@ -1123,6 +1123,41 @@ class NpuStandardRouteS1ChatScreenGateTest {
     }
 
     @Test
+    fun `S2 arithmetic tail leak flow saves actual display text as assistant message`() = runTest {
+        val events = mutableListOf<String>()
+        val run = runNpuInferenceAfterImmediateUserMessage(
+            requestPrompt = "1+1は？",
+            currentChatId = 42,
+            createChat = {
+                events += "create_chat"
+                42
+            },
+            onChatCreated = { chatId ->
+                events += "chat_created:$chatId"
+            },
+            insertUserMessage = { chatId, promptText ->
+                events += "insert_user:$chatId:$promptText"
+            },
+            runInference = {
+                s1SafeArithmeticTailLeakResult()
+            },
+        )
+        val mapping = NpuStandardRouteS2DbBridge().prepareSaveCandidate(
+            userPrompt = "1+1は？",
+            s1Result = run.result,
+        )
+        if (shouldPersistNpuStandardRouteS2Db(enabled = true, mapping = mapping)) {
+            events += "insert_assistant:${run.chatId}:${requireNotNull(mapping.saveCandidate).assistantMessage.text}"
+        }
+
+        assertEquals("2", run.result.actualDisplayText)
+        assertEquals(1, events.count { it.startsWith("insert_user:") })
+        assertTrue(events.contains("insert_assistant:42:2"))
+        assertFalse(events.any { it.contains("<start_of_turn>") })
+        assertFalse(events.any { it.contains("次の計算") })
+    }
+
+    @Test
     fun `S3 successful flow saves finalized markdown text with S3 diagnostics`() = runTest {
         val events = mutableListOf<String>()
         val run = runNpuInferenceAfterImmediateUserMessage(
