@@ -10701,7 +10701,6 @@ internal fun resolveNpuStandardRouteFailureAssistantMessage(
         result.status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
         result.reason == NpuStandardRouteS1Contract.REASON_SUCCESS &&
         result.usableDisplayOutput.isNotBlank() &&
-        result.qualityClassification == NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT &&
         result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
     ) {
         return null

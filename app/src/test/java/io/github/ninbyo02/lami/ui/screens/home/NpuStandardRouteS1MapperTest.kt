@@ -60,8 +60,7 @@ class NpuStandardRouteS1MapperTest {
         assertFalse(NpuStandardRouteS1Mapper.map(successRaw(freshCrash = true)).successCriteriaMet)
         assertFalse(NpuStandardRouteS1Mapper.map(successRaw(runDecodeReached = false)).successCriteriaMet)
         assertFalse(NpuStandardRouteS1Mapper.map(successRaw(npuBackendEvidence = "")).successCriteriaMet)
-        assertFalse(NpuStandardRouteS1Mapper.map(successRaw(sanitizedOutput = "")).successCriteriaMet)
-        assertFalse(NpuStandardRouteS1Mapper.map(successRaw(qualityClassification = "mixed_language")).successCriteriaMet)
+        assertFalse(NpuStandardRouteS1Mapper.map(successRaw(rawOutput = "", sanitizedOutput = "")).successCriteriaMet)
         assertFalse(NpuStandardRouteS1Mapper.map(successRaw(status = "failure", result = "failure", success = false)).successCriteriaMet)
     }
 
@@ -82,7 +81,7 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
-    fun `template artifact raw output still fails when sanitized output is empty`() {
+    fun `safe end turn artifact raw output can pass even when sanitized output is empty`() {
         val result = NpuStandardRouteS1Mapper.map(
             successRaw(
                 rawOutput = ">こんにちは！<end_of_turn>",
@@ -91,8 +90,42 @@ class NpuStandardRouteS1MapperTest {
             ),
         )
 
-        assertFalse(result.successCriteriaMet)
-        assertEquals("quality_candidate_fail", result.outputQualityCandidateStatus)
+        assertTrue(result.successCriteriaMet)
+        assertEquals("こんにちは！", result.displayText)
+        assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
+    }
+
+    @Test
+    fun `mixed language classification does not fail when quality candidate passes`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "私はLamiです。よろしくお願いします。",
+                sanitizedOutput = "私はLamiです。よろしくお願いします。",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_MIXED_LANGUAGE,
+            ),
+        )
+
+        assertTrue(result.successCriteriaMet)
+        assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
+        assertEquals("私はLamiです。よろしくお願いします。", result.displayText)
+    }
+
+    @Test
+    fun `arithmetic answer with safe spaced end turn token passes quality candidate`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">\n2\n< end_of_turn>",
+                sanitizedOutput = "2\n< end_of_turn>",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "１＋１は？",
+            ),
+        )
+
+        assertTrue(result.successCriteriaMet)
+        assertEquals("2", result.displayText)
+        assertEquals("2", result.preparedOutput)
+        assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
+        assertFalse(result.outputQualityCandidateReason.contains("special_token_leak"))
     }
 
     @Test

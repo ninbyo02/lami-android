@@ -1811,13 +1811,19 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 transientFallback = null,
             ),
         )
-        assertEquals(
-            "NPU推論の応答生成に失敗しました: mixed_language",
+        assertNull(
             resolveNpuStandardRouteFailureAssistantMessage(
                 result = s1SuccessResultWithQuality(NpuStandardRouteS1Contract.QUALITY_MIXED_LANGUAGE),
                 transientFallback = null,
             ),
         )
+        assertNull(
+            resolveNpuStandardRouteFailureAssistantMessage(
+                result = s1SafeArithmeticEndTurnVariantResult(),
+                transientFallback = null,
+            ),
+        )
+        assertEquals("2", s1SafeArithmeticEndTurnVariantResult().displayText)
         val brokenArithmetic = s1BrokenArithmeticTurnLeakResult()
         val brokenArithmeticMessage = resolveNpuStandardRouteFailureAssistantMessage(
             result = brokenArithmetic,
@@ -1825,8 +1831,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
         )
         assertEquals(
             "NPU推論の応答生成に失敗しました: " +
-                "special_token_leak+raw_unclosed_special_token+raw_unexpected_start_turn+" +
-                "user_turn_leak+arithmetic_answer_missing",
+                "raw_unexpected_start_turn+user_turn_leak+arithmetic_answer_missing",
             brokenArithmeticMessage,
         )
         assertFalse(brokenArithmetic.successCriteriaMet)
@@ -1898,6 +1903,25 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 rawOutput = "１＋１は？<end_of_turn>\n<start_of_turn>user１＋１は？<end_of_turn",
                 sanitizedOutput = "１＋１は？\n１＋１は？<end_of_turn",
                 qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 32,
+                effectiveMaxOutputTokens = 32,
+                inputPrompt = "１＋１は？",
+            ),
+        )
+
+    private fun s1SafeArithmeticEndTurnVariantResult(): NpuStandardRouteS1Result =
+        NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                reason = "success",
+                rawOutput = ">\n2\n< end_of_turn>",
+                sanitizedOutput = "2\n< end_of_turn>",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_MIXED_LANGUAGE,
                 runDecodeReached = true,
                 npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
                 fallbackUsed = false,

@@ -88,13 +88,25 @@ class NpuStandardRouteS1ContractTest {
         assertFalse(successResult(freshCrash = true).successCriteriaMet)
         assertFalse(successResult(runDecodeReached = false).successCriteriaMet)
         assertFalse(successResult(npuBackendEvidence = "").successCriteriaMet)
-        assertFalse(successResult(sanitizedOutput = "").successCriteriaMet)
-        assertFalse(successResult(qualityClassification = "mixed_language").successCriteriaMet)
+        assertFalse(successResult(rawOutput = "", sanitizedOutput = "").successCriteriaMet)
         assertFalse(successResult(selection = NpuStandardRouteS1Selection(enabled = false)).successCriteriaMet)
+    }
+
+    @Test
+    fun `mixed language classification can pass when quality candidate is safe`() {
+        val result = successResult(
+            rawOutput = "私はLamiです。よろしくお願いします。",
+            sanitizedOutput = "私はLamiです。よろしくお願いします。",
+            qualityClassification = NpuStandardRouteS1Contract.QUALITY_MIXED_LANGUAGE,
+        )
+
+        assertTrue(result.successCriteriaMet)
+        assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
     }
 
     private fun successResult(
         selection: NpuStandardRouteS1Selection = NpuStandardRouteS1Selection(enabled = true),
+        rawOutput: String = "こんにちは。",
         sanitizedOutput: String = "こんにちは。",
         qualityClassification: String = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
         runDecodeReached: Boolean = true,
@@ -106,7 +118,7 @@ class NpuStandardRouteS1ContractTest {
         selection = selection,
         status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
         reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
-        rawOutput = "こんにちは。",
+        rawOutput = rawOutput,
         sanitizedOutput = sanitizedOutput,
         qualityClassification = qualityClassification,
         runDecodeReached = runDecodeReached,

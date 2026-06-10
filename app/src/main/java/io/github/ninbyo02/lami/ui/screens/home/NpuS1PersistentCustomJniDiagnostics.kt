@@ -595,14 +595,18 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
     inputPrompt: String = "",
 ): NpuS1PersistentCustomJniQualityCandidateResult {
     val source = sanitizedOutput.ifBlank { rawOutput }
-    val withoutEndTurn = source.replace("<end_of_turn>", "")
-    val trimmedStart = withoutEndTurn.trimStart()
+    val cleanupSource = removeSafeNpuS1EndOfTurnVariants(source)
+    val cleanupRaw = removeSafeNpuS1EndOfTurnVariants(rawOutput)
+    val cleanupSanitized = removeSafeNpuS1EndOfTurnVariants(sanitizedOutput)
+    val trimmedStart = cleanupSource.trimStart()
     val prepared = trimmedStart.removePrefix(">").trimStart().trimEnd()
-    val rawWithoutEndTurn = rawOutput.replace("<end_of_turn>", "")
-    val leadingGreaterThanRemoved = rawWithoutEndTurn.trimStart().startsWith(">") || trimmedStart.startsWith(">")
-    val endOfTurnRemoved = rawOutput.contains("<end_of_turn>") || source.contains("<end_of_turn>")
+    val leadingGreaterThanRemoved = cleanupRaw.trimStart().startsWith(">") || trimmedStart.startsWith(">")
+    val endOfTurnRemoved = hasSafeNpuS1EndOfTurnVariant(rawOutput) ||
+        hasSafeNpuS1EndOfTurnVariant(source) ||
+        hasSafeNpuS1EndOfTurnVariant(sanitizedOutput)
     val qualityCheckText = listOf(rawOutput, sanitizedOutput, prepared).joinToString("\n")
-    val visibleOutputCheckText = listOf(sanitizedOutput, prepared).joinToString("\n")
+    val visibleOutputCheckText = listOf(cleanupSanitized, prepared).joinToString("\n")
+    val unsafeRawCheckText = cleanupRaw
     val placeholderLeak = Regex("""\[[^\]]+\]""").containsMatchIn(qualityCheckText)
     val businessTemplateLeak = listOf(
         "いつもお世話になっております",
@@ -618,9 +622,9 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
         "**自己紹介",
     ).any(qualityCheckText::contains)
     val specialTokenLeak = containsNpuS1SpecialTurnMarker(visibleOutputCheckText)
-    val rawUnclosedSpecialToken = containsNpuS1UnclosedSpecialTurnMarker(rawOutput)
-    val rawUnexpectedStartTurn = rawOutput.contains("<start_of_turn", ignoreCase = true) ||
-        rawOutput.contains("< start_of_turn", ignoreCase = true)
+    val rawUnclosedSpecialToken = containsNpuS1UnclosedSpecialTurnMarker(unsafeRawCheckText)
+    val rawUnexpectedStartTurn = unsafeRawCheckText.contains("<start_of_turn", ignoreCase = true) ||
+        unsafeRawCheckText.contains("< start_of_turn", ignoreCase = true)
     val userTurnLeak = containsNpuS1UserTurnLeak(qualityCheckText)
     val promptRepetitionOnly = isNpuS1PromptRepetitionOnly(
         prompt = inputPrompt,
@@ -634,7 +638,7 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
     val preparedLiteralNewlineOnly = prepared == "\\n"
     val failedReasons = buildList {
         if (rawOutput.isBlank()) add("raw_output_empty")
-        if (sanitizedOutput.isBlank()) add("sanitized_output_empty")
+        if (sanitizedOutput.isBlank() && prepared.isBlank()) add("sanitized_output_empty")
         if (outputEmpty) add("prepared_output_empty")
         if (preparedBlank && !outputEmpty) add("prepared_output_blank")
         if (outputOnlyNewline) add("output_only_newline")
@@ -671,6 +675,29 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
         outputOnlyNewline = outputOnlyNewline,
     )
 }
+
+private fun removeSafeNpuS1EndOfTurnVariants(text: String): String {
+    if (!hasSafeNpuS1EndOfTurnVariant(text)) return text
+    val withoutTokenLines = text
+        .lines()
+        .filterNot { line -> NPU_S1_SAFE_END_OF_TURN_LINE_PATTERN.matches(line.trim()) }
+        .joinToString("\n")
+    return NPU_S1_SAFE_END_OF_TURN_TRAILING_PATTERN
+        .replace(withoutTokenLines, "")
+        .trimEnd()
+}
+
+private fun hasSafeNpuS1EndOfTurnVariant(text: String): Boolean =
+    NPU_S1_SAFE_END_OF_TURN_ANY_PATTERN.containsMatchIn(text)
+
+private val NPU_S1_SAFE_END_OF_TURN_ANY_PATTERN =
+    Regex("""<\s*end_of_turn\s*>?""", RegexOption.IGNORE_CASE)
+
+private val NPU_S1_SAFE_END_OF_TURN_LINE_PATTERN =
+    Regex("""<\s*end_of_turn\s*>?""", RegexOption.IGNORE_CASE)
+
+private val NPU_S1_SAFE_END_OF_TURN_TRAILING_PATTERN =
+    Regex("""(?:\s*<\s*end_of_turn\s*>?\s*)+$""", RegexOption.IGNORE_CASE)
 
 private fun containsNpuS1SpecialTurnMarker(text: String): Boolean =
     Regex("""<\s*(?:start|end)_of_turn>?""", RegexOption.IGNORE_CASE).containsMatchIn(text)

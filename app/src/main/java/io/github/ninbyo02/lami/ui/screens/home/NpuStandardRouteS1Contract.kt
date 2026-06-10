@@ -121,29 +121,29 @@ internal data class NpuStandardRouteS1Result(
         get() = outputQualityCandidate.preparedOutput
 
     val usableDisplayOutput: String
-        get() = sanitizedOutput
-            .ifBlank { preparedOutput }
+        get() = preparedOutput
+            .ifBlank { sanitizedOutput }
             .ifBlank { rawOutput.trim() }
 
     val successCriteriaMet: Boolean
-        get() = selection.selectable &&
-            status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
-            reason == NpuStandardRouteS1Contract.REASON_SUCCESS &&
-            runDecodeReached &&
-            npuBackendEvidence == NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE &&
-            !fallbackUsed &&
-            !timeout &&
-            !freshCrash &&
-            displayText.isNotBlank() &&
-            sanitizedOutput.isNotBlank() &&
-            outputQualityCandidateStatus != NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL &&
-            (
-                qualityClassification == NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE ||
-                    (
-                        qualityClassification == NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT &&
-                            outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
-                        )
-                )
+        get() {
+            val candidatePassed = outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
+            return selection.selectable &&
+                status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
+                reason == NpuStandardRouteS1Contract.REASON_SUCCESS &&
+                runDecodeReached &&
+                npuBackendEvidence == NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE &&
+                !fallbackUsed &&
+                !timeout &&
+                !freshCrash &&
+                displayText.isNotBlank() &&
+                usableDisplayOutput.isNotBlank() &&
+                outputQualityCandidateStatus != NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL &&
+                (
+                    qualityClassification == NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE ||
+                        candidatePassed
+                    )
+        }
 
     fun withTiming(timing: NpuStandardRouteS1Timing): NpuStandardRouteS1Result =
         copy(

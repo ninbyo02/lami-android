@@ -42,8 +42,8 @@ internal object NpuStandardRouteS1Mapper {
             sanitizedOutput = sanitizedOutput,
             inputPrompt = raw.inputPrompt,
         )
-        val displayText = sanitizedOutput
-            .ifBlank { qualityCandidate.preparedOutput }
+        val displayText = qualityCandidate.preparedOutput
+            .ifBlank { sanitizedOutput }
             .ifBlank { raw.rawOutput.trim() }
         val selection = NpuStandardRouteS1Selection(
             enabled = true,
@@ -67,7 +67,7 @@ internal object NpuStandardRouteS1Mapper {
             raw.qualityClassification
         }
         val outputTokens = raw.npuS1OutputTokens
-            ?: NpuStandardRouteS1Contract.estimateOutputTokensFromText(sanitizedOutput)
+            ?: NpuStandardRouteS1Contract.estimateOutputTokensFromText(displayText)
         val tokenCountMode = when {
             raw.npuS1OutputTokens != null && raw.npuS1TokenCountMode.isNotBlank() -> raw.npuS1TokenCountMode
             outputTokens != null -> NpuStandardRouteS1Contract.TOKEN_COUNT_MODE_ESTIMATED_CODE_POINTS

@@ -203,9 +203,9 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             sanitizedOutput = "１＋１は？<end_of_turn",
             inputPrompt = "１＋１は？",
         )
-        val spacedEndTurn = evaluateNpuS1PersistentCustomJniQualityCandidate(
-            rawOutput = "１＋１は？< end_of_turn>",
-            sanitizedOutput = "１＋１は？< end_of_turn>",
+        val spacedEndTurnAnswer = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = ">\n2\n< end_of_turn>",
+            sanitizedOutput = "2\n< end_of_turn>",
             inputPrompt = "１＋１は？",
         )
 
@@ -213,10 +213,12 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(startTurn.reason.contains("special_token_leak"))
         assertTrue(startTurn.reason.contains("user_turn_leak"))
         assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, unclosedEndTurn.status)
-        assertTrue(unclosedEndTurn.reason.contains("special_token_leak"))
-        assertTrue(unclosedEndTurn.reason.contains("raw_unclosed_special_token"))
-        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, spacedEndTurn.status)
-        assertTrue(spacedEndTurn.reason.contains("special_token_leak"))
+        assertFalse(unclosedEndTurn.reason.contains("special_token_leak"))
+        assertTrue(unclosedEndTurn.reason.contains("prompt_repetition_only"))
+        assertTrue(unclosedEndTurn.reason.contains("arithmetic_answer_missing"))
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS, spacedEndTurnAnswer.status)
+        assertEquals("2", spacedEndTurnAnswer.preparedOutput)
+        assertTrue(spacedEndTurnAnswer.endOfTurnRemoved)
     }
 
     @Test
