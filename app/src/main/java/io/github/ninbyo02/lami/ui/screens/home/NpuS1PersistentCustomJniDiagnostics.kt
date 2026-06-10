@@ -738,21 +738,28 @@ private fun containsNpuS1ArithmeticAnswerTwo(output: String): Boolean =
     output.any { it == '2' || it == '２' }
 
 private fun extractNpuS1ArithmeticPreparedAnswer(output: String): String {
-    val lines = output
+    val answerMatch = NPU_S1_ARITHMETIC_ANSWER_PREFIX_PATTERN
+        .findAll(output)
+        .lastOrNull()
+    val candidate = answerMatch
+        ?.let { match -> output.substring(match.range.last + 1) }
+        ?: output
+    val firstAnswerLine = candidate
         .lines()
         .map { it.trim() }
-        .filter { it.isNotEmpty() }
-    val answerLine = lines.lastOrNull { line ->
-        NPU_S1_ARITHMETIC_ANSWER_PREFIX_PATTERN.containsMatchIn(line)
-    }
-    val candidate = answerLine
-        ?.let { line -> NPU_S1_ARITHMETIC_ANSWER_PREFIX_PATTERN.replace(line, "").trim() }
-        ?: output.trim()
-    return candidate.trim()
+        .firstOrNull { it.isNotEmpty() }
+        ?: ""
+    return NPU_S1_ARITHMETIC_ANSWER_TWO_PATTERN
+        .find(firstAnswerLine)
+        ?.value
+        ?: firstAnswerLine
 }
 
 private val NPU_S1_ARITHMETIC_ANSWER_PREFIX_PATTERN =
-    Regex("""^(?:答え|回答|Answer)\s*[:：]\s*""", RegexOption.IGNORE_CASE)
+    Regex("""(?:^|\n)\s*(?:答え|回答|Answer)\s*[:：]\s*""", RegexOption.IGNORE_CASE)
+
+private val NPU_S1_ARITHMETIC_ANSWER_TWO_PATTERN =
+    Regex("""[2２]""")
 
 private fun normalizeNpuS1QualityComparisonText(text: String): String =
     normalizeNpuS1ArithmeticText(text)

@@ -470,6 +470,24 @@ Expected diagnostics for `１＋１は？` after the rewrite:
 If quality fails, the broken raw / sanitized output is not used as the normal chat assistant body. It remains available in
 DEV diagnostics alongside the prepared output and fail reason.
 
+Follow-up device checks showed that ASCII arithmetic prompts can still include the repeated problem before the answer:
+
+- `raw_output=>1+1は\n答え:2</end_of_turn>`
+- `sanitized_output=1+1は\n答え:2`
+
+For arithmetic prompts only, the quality candidate extractor now treats the final `答え:` / `答え：` line as the answer
+boundary and prepares the shortest `2` / `２` answer. This keeps general chat untouched while normalizing:
+
+- `1+1は` -> final display `2`
+- `1+1は?` -> final display `2`
+- `１＋１は` -> final display `２`
+- `１＋１は？` -> final display `２`
+- `問題: 1+1は\n答え:2` -> final display `2`
+
+The extractor is paired with the existing safe `end_of_turn` cleanup, including closing-tag variants such as
+`</end_of_turn>` and `</ end_of_turn>`. It does not relax the failure rules for `<start_of_turn>` leaks, user-turn leaks,
+unremovable special tokens, or arithmetic outputs that do not contain `2` / `２`.
+
 No automatic NPU pause / guard for consecutive failures or recent crashes is implemented in this step. That remains a
 separate follow-up after the app-internal history has enough evidence.
 
@@ -495,6 +513,12 @@ count.
 fields such as selected-model unknown values, `finish_reason=unavailable`, tokenizer/model-reported unavailable values,
 stop-sequence fields, and short-output telemetry. Normal chat does not append this full dump to the ordinary copy by
 default.
+
+The ordinary normal-chat `診断コピー` action uses the compact/failure copy. Repeated-run, persistent Engine, persistent
+custom JNI, memory recovery, and full-dump sections remain available through their dedicated DEV UI sections or formatter
+helpers, but they are not appended to the normal chat copy by default. This change is Kotlin diagnostics only; native
+JNI, QAIRT overlays, fallback behavior, TTS, DB, streaming, markdown, logcat handling, and automatic NPU pause guards are
+unchanged.
 
 ## Next Device Check
 

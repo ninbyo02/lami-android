@@ -1831,7 +1831,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
         )
         assertEquals(
             "NPU推論の応答生成に失敗しました: " +
-                "raw_unexpected_start_turn+user_turn_leak+arithmetic_answer_missing",
+                "raw_unexpected_start_turn+user_turn_leak+prompt_repetition_only+arithmetic_answer_missing",
             brokenArithmeticMessage,
         )
         assertFalse(brokenArithmetic.successCriteriaMet)

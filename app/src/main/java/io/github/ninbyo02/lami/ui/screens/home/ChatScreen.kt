@@ -5766,20 +5766,8 @@ fun Home(
                                             onCopyDiagnostic = {
                                                 clipboardManager.setText(
                                                     AnnotatedString(
-                                                        appendMemoryRecoveryCheckForDev(
-                                                            text = appendNpuS1PersistentCustomJniDiagnosticsForDev(
-                                                                text = appendNpuS1PersistentEngineDiagnosticsForDev(
-                                                                    text = appendNpuS1RepeatedRunDiagnosticsForDev(
-                                                                        text = npuStandardRouteS1DevDiagnosticCopyText
-                                                                            ?: s1DevTraceText.orEmpty(),
-                                                                        state = npuS1RepeatedRunState,
-                                                                    ),
-                                                                    state = npuS1PersistentEngineState,
-                                                                ),
-                                                                state = npuS1PersistentCustomJniState,
-                                                            ),
-                                                            state = memoryRecoveryCheckState,
-                                                        ),
+                                                        npuStandardRouteS1DevDiagnosticCopyText
+                                                            ?: s1DevTraceText.orEmpty(),
                                                     ),
                                                 )
                                             },

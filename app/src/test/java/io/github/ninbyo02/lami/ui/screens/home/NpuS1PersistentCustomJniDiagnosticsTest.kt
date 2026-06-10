@@ -213,6 +213,11 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             sanitizedOutput = "答え:2</end_of_turn>",
             inputPrompt = "１＋１は",
         )
+        val problemAnswer = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = ">問題: 1+1は\n答え:2</end_of_turn>",
+            sanitizedOutput = "問題: 1+1は\n答え:2</end_of_turn>",
+            inputPrompt = "1+1は",
+        )
 
         assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, startTurn.status)
         assertTrue(startTurn.reason.contains("special_token_leak"))
@@ -227,6 +232,8 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS, closingEndTurnAnswer.status)
         assertEquals("2", closingEndTurnAnswer.preparedOutput)
         assertTrue(closingEndTurnAnswer.endOfTurnRemoved)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS, problemAnswer.status)
+        assertEquals("2", problemAnswer.preparedOutput)
     }
 
     @Test

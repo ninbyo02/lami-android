@@ -146,12 +146,36 @@ class NpuStandardRouteS1MapperTest {
                 inputPrompt = "1+1は",
             ),
         )
+        val asciiQuestion = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">1+1は?\n答え:2</end_of_turn>",
+                sanitizedOutput = "1+1は?\n答え:2</end_of_turn>",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "1+1は?",
+            ),
+        )
         val fullWidthAnswer = NpuStandardRouteS1Mapper.map(
             successRaw(
                 rawOutput = ">１＋１は\n答え:２</end_of_turn>",
                 sanitizedOutput = "１＋１は\n答え:２</end_of_turn>",
                 qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
                 inputPrompt = "１＋１は",
+            ),
+        )
+        val fullWidthQuestionAnswer = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">１＋１は？\n答え:２</end_of_turn>",
+                sanitizedOutput = "１＋１は？\n答え:２</end_of_turn>",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "１＋１は？",
+            ),
+        )
+        val problemAnswer = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">問題: 1+1は\n答え:2</end_of_turn>",
+                sanitizedOutput = "問題: 1+1は\n答え:2</end_of_turn>",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "1+1は",
             ),
         )
         val unclosedClosing = NpuStandardRouteS1Mapper.map(
@@ -163,14 +187,25 @@ class NpuStandardRouteS1MapperTest {
             ),
         )
 
-        listOf(fullWidth, ascii, fullWidthAnswer, unclosedClosing).forEach { result ->
+        listOf(
+            fullWidth,
+            ascii,
+            asciiQuestion,
+            fullWidthAnswer,
+            fullWidthQuestionAnswer,
+            problemAnswer,
+            unclosedClosing,
+        ).forEach { result ->
             assertTrue(result.successCriteriaMet)
             assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
             assertFalse(result.displayText.contains("end_of_turn"))
         }
         assertEquals("2", fullWidth.displayText)
         assertEquals("2", ascii.displayText)
+        assertEquals("2", asciiQuestion.displayText)
         assertEquals("２", fullWidthAnswer.displayText)
+        assertEquals("２", fullWidthQuestionAnswer.displayText)
+        assertEquals("2", problemAnswer.displayText)
         assertEquals("2", unclosedClosing.displayText)
     }
 
