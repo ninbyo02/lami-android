@@ -448,6 +448,25 @@ The quality candidate gate now fails normal-chat output when sanitized or prepar
 markers, when raw output contains broken turn markers, when a user turn leaks into output, when the prompt is only
 repeated, or when the limited arithmetic prompts (`1+1`, `1+1は？`, `１＋１`, `１＋１は？`) do not contain `2` / `２`.
 
+For short arithmetic prompts, normal chat keeps the Gemma IT wrapper but rewrites the user turn before native execution:
+
+```text
+<start_of_turn>user
+次の計算に日本語で答えてください。答えだけ簡潔に書いてください。
+問題: １＋１は？
+答え:<end_of_turn>
+<start_of_turn>model
+```
+
+Expected diagnostics for `１＋１は？` after the rewrite:
+
+- `selected_prompt_profile=gemma_it_user_model`
+- `prompt_wrapper_used=gemma_it_user_model`
+- `arithmetic_prompt_detected=true`
+- `short_prompt_rewrite_applied=true`
+- `rewritten_prompt_tail=...問題: １＋１は？...答え:`
+- `final_prompt_tail=...<start_of_turn>model`
+
 If quality fails, the broken raw / sanitized output is not used as the normal chat assistant body. It remains available in
 DEV diagnostics alongside the prepared output and fail reason.
 

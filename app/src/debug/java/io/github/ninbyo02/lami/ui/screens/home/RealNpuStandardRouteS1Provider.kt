@@ -147,6 +147,7 @@ internal class RealNpuStandardRouteS1Provider(
         fun buildNpuRealPromptRequestTrace(
             request: DevOnlyNpuOneTurnConversationRequest,
         ): String {
+            val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(request.userPrompt)
             val finalInput = DevOnlyNpuOneTurnConversationContract.buildRawDialogTailPrompt(
                 contextText = request.contextText,
                 userPrompt = request.userPrompt,
@@ -170,6 +171,12 @@ internal class RealNpuStandardRouteS1Provider(
                 append(request.promptTailVariant)
                 append(" prompt_wrapper_used=")
                 append(NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED)
+                append(" arithmetic_prompt_detected=")
+                append(promptRewrite.arithmeticPromptDetected)
+                append(" short_prompt_rewrite_applied=")
+                append(promptRewrite.shortPromptRewriteApplied)
+                append(" rewritten_prompt_tail=")
+                append(npuRealPromptPreview(promptRewrite.rewrittenPromptText.takeLast(120)))
                 append(" max_output_tokens=")
                 append(request.maxOutputTokens)
             }

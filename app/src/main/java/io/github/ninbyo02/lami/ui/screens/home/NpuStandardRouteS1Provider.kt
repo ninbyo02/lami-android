@@ -48,6 +48,7 @@ internal fun buildNpuRealPromptResultTrace(
     npuModelEligible: Boolean? = null,
     timing: NpuStandardRouteS1Timing = NpuStandardRouteS1Timing(),
 ): String = buildString {
+    val outputQualityCandidate = evaluateNpuS1PersistentCustomJniQualityCandidate(rawOutput, sanitizedOutput)
     append("NPU_REAL_PROMPT status=")
     append(status)
     append(" reason=")
@@ -80,6 +81,10 @@ internal fun buildNpuRealPromptResultTrace(
     append(npuRealPromptPreview(sanitizedOutput))
     append(" quality_classification=")
     append(qualityClassification)
+    append(" output_quality_candidate_status=")
+    append(outputQualityCandidate.status)
+    append(" output_quality_candidate_reason=")
+    append(outputQualityCandidate.reason)
     append(" run_decode_reached=")
     append(runDecodeReached)
     append(" fallback_used=")
@@ -110,6 +115,7 @@ internal fun buildNpuStandardRouteS1DevTraceText(
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
 ): String {
+    val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
     val lines = mutableListOf(
         "max_output_tokens=$maxOutputTokens",
         "input_hash=${npuRealPromptHash(input)}",
@@ -117,6 +123,9 @@ internal fun buildNpuStandardRouteS1DevTraceText(
         "input_preview=${npuStandardRouteS1DevPreview(input)}",
         "final_prompt_tail=${npuStandardRouteS1DevPreview(NpuStandardRouteS1Contract.finalPromptTail(input))}",
         "selected_prompt_profile=${NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED}",
+        "arithmetic_prompt_detected=${promptRewrite.arithmeticPromptDetected}",
+        "short_prompt_rewrite_applied=${promptRewrite.shortPromptRewriteApplied}",
+        "rewritten_prompt_tail=${npuStandardRouteS1DevPreview(promptRewrite.rewrittenPromptText.takeLast(160))}",
         "input_length=${input.length}",
         "input_code_points=${input.codePointCount(0, input.length)}",
         "selected_model_name=${result.selectedModelName.ifBlank { "unknown" }}",
@@ -177,12 +186,18 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
 ): String = appendNpuS1ShortOutputTelemetryForDev(
-    text = listOf(
+    text = run {
+        val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
+        listOf(
         "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
-        "final_prompt_text=${npuStandardRouteS1EscapeCopyValue(NpuStandardRouteS1Contract.buildPromptWrapperText(input))}",
-        "final_prompt_tail=${npuStandardRouteS1EscapeCopyValue(NpuStandardRouteS1Contract.finalPromptTail(input))}",
-        "selected_prompt_profile=${NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED}",
-        "prompt_wrapper_used=${NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED}",
+        "final_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText)}",
+        "final_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText.takeLast(200))}",
+        "selected_prompt_profile=${promptRewrite.selectedPromptProfile}",
+        "prompt_wrapper_used=${promptRewrite.promptWrapperUsed}",
+        "arithmetic_prompt_detected=${promptRewrite.arithmeticPromptDetected}",
+        "short_prompt_rewrite_applied=${promptRewrite.shortPromptRewriteApplied}",
+        "rewritten_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText)}",
+        "rewritten_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText.takeLast(200))}",
         "max_output_tokens=$maxOutputTokens",
         "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
         "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
@@ -220,7 +235,8 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
         "timeout=${result.timeout}",
         "fallback=${transientFallback ?: result.fallbackUsed}",
         "fresh_crash=${result.freshCrash}",
-    ).joinToString("\n"),
+        ).joinToString("\n")
+    },
     input = input,
     result = result,
 )

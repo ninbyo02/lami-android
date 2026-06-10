@@ -36,6 +36,16 @@ internal data class NpuStandardRouteS1SideEffects(
             !conversationHistorySaved
 }
 
+internal data class NpuStandardRouteS1PromptRewrite(
+    val originalPrompt: String,
+    val finalPromptText: String,
+    val arithmeticPromptDetected: Boolean,
+    val shortPromptRewriteApplied: Boolean,
+    val rewrittenPromptText: String,
+    val promptWrapperUsed: String = NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED,
+    val selectedPromptProfile: String = NpuStandardRouteS1Contract.PROMPT_WRAPPER_USED,
+)
+
 internal data class NpuStandardRouteS1Selection(
     val enabled: Boolean = false,
     val routeType: String = NpuStandardRouteS1Contract.ROUTE_TYPE,
@@ -190,11 +200,44 @@ internal object NpuStandardRouteS1Contract {
     const val MODEL_NOT_NPU_COMPATIBLE_MESSAGE =
         "このモデルはNPU専用モデルではありません。NPU検証には Qualcomm / sm8750 版のモデルを選択してください。Generic版はCPU/GPU経路で実行してください。"
 
+    fun rewritePromptForNative(userPrompt: String): NpuStandardRouteS1PromptRewrite {
+        val normalizedPrompt = userPrompt.trim()
+        val arithmeticPromptDetected = isShortArithmeticPrompt(normalizedPrompt)
+        val rewrittenPrompt = if (arithmeticPromptDetected) {
+            "次の計算に日本語で答えてください。答えだけ簡潔に書いてください。\n" +
+                "問題: $normalizedPrompt\n" +
+                "答え:"
+        } else {
+            normalizedPrompt
+        }
+        return NpuStandardRouteS1PromptRewrite(
+            originalPrompt = normalizedPrompt,
+            finalPromptText = "<start_of_turn>user\n$rewrittenPrompt<end_of_turn>\n<start_of_turn>model",
+            arithmeticPromptDetected = arithmeticPromptDetected,
+            shortPromptRewriteApplied = arithmeticPromptDetected,
+            rewrittenPromptText = rewrittenPrompt,
+        )
+    }
+
     fun buildPromptWrapperText(userPrompt: String): String =
-        "<start_of_turn>user\n${userPrompt.trim()}<end_of_turn>\n<start_of_turn>model"
+        rewritePromptForNative(userPrompt).finalPromptText
 
     fun finalPromptTail(userPrompt: String): String =
         buildPromptWrapperText(userPrompt).takeLast(200)
+
+    private fun isShortArithmeticPrompt(prompt: String): Boolean =
+        normalizeArithmeticPrompt(prompt) in setOf(
+            "1+1",
+            "1+1は",
+            "1+1は?",
+        )
+
+    private fun normalizeArithmeticPrompt(prompt: String): String =
+        prompt
+            .filterNot { it.isWhitespace() }
+            .replace('１', '1')
+            .replace('＋', '+')
+            .replace('？', '?')
 
     fun displayText(
         selection: NpuStandardRouteS1Selection,
@@ -217,6 +260,7 @@ internal object NpuStandardRouteS1Contract {
         inputPrompt: String = "",
     ): String {
         val sideEffects = selection.sideEffects
+        val promptRewrite = rewritePromptForNative(inputPrompt)
         val outputQualityCandidate = evaluateNpuS1PersistentCustomJniQualityCandidate(
             rawOutput = rawOutput,
             sanitizedOutput = sanitizedOutput,
@@ -242,6 +286,11 @@ internal object NpuStandardRouteS1Contract {
             "normal_chat_native_route_blocked=${reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT}",
             "prompt_tail_variant=${selection.promptTailVariant}",
             "prompt_wrapper_used=$PROMPT_WRAPPER_USED",
+            "selected_prompt_profile=${promptRewrite.selectedPromptProfile}",
+            "arithmetic_prompt_detected=${promptRewrite.arithmeticPromptDetected}",
+            "short_prompt_rewrite_applied=${promptRewrite.shortPromptRewriteApplied}",
+            "rewritten_prompt_tail=${promptRewrite.rewrittenPromptText.takeLast(120)}",
+            "final_prompt_tail=${promptRewrite.finalPromptText.takeLast(160)}",
             "requested_max_output_tokens=${selection.requestedMaxOutputTokens}",
             "effective_max_output_tokens=${selection.effectiveMaxOutputTokens}",
             "max_output_tokens=${selection.effectiveMaxOutputTokens}",

@@ -104,6 +104,13 @@ class NpuStandardRouteS1MapperTest {
                 inputPrompt = "１＋１は？",
             ),
         )
+        val answeredWithoutQuestionMark = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "１＋１は２です",
+                sanitizedOutput = "１＋１は２です",
+                inputPrompt = "１＋１は",
+            ),
+        )
         val echoed = NpuStandardRouteS1Mapper.map(
             successRaw(
                 rawOutput = "１＋１は？",
@@ -114,6 +121,8 @@ class NpuStandardRouteS1MapperTest {
 
         assertTrue(answered.successCriteriaMet)
         assertEquals("quality_candidate_pass", answered.outputQualityCandidateStatus)
+        assertTrue(answeredWithoutQuestionMark.successCriteriaMet)
+        assertEquals("quality_candidate_pass", answeredWithoutQuestionMark.outputQualityCandidateStatus)
         assertFalse(echoed.successCriteriaMet)
         assertEquals("quality_candidate_fail", echoed.outputQualityCandidateStatus)
         assertTrue(echoed.outputQualityCandidateReason.contains("prompt_repetition_only"))

@@ -260,6 +260,37 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `standard route rewrites short arithmetic prompts inside Gemma IT wrapper`() {
+        val contractClass = Class.forName("io.github.ninbyo02.lami.npu.DevOnlyNpuOneTurnConversationContract")
+        val contract = contractClass.getField("INSTANCE").get(null)
+        val gemmaVariant = contractClass.getField("GEMMA_IT_USER_MODEL_VARIANT").get(null) as String
+        val prompt = contractClass
+            .getMethod(
+                "buildRawDialogTailPrompt",
+                String::class.java,
+                String::class.java,
+                String::class.java,
+            )
+            .invoke(contract, "", "１＋１は？", gemmaVariant) as String
+        val request = RealNpuStandardRouteS1Provider.request(
+            userPrompt = "１＋１は？",
+            maxOutputTokens = 32,
+        )
+        val trace = RealNpuStandardRouteS1Provider.buildNpuRealPromptRequestTrace(request)
+
+        assertEquals(
+            "<start_of_turn>user\n" +
+                "次の計算に日本語で答えてください。答えだけ簡潔に書いてください。\n" +
+                "問題: １＋１は？\n" +
+                "答え:<end_of_turn>\n" +
+                "<start_of_turn>model",
+            prompt,
+        )
+        assertTrue(trace.contains("arithmetic_prompt_detected=true"))
+        assertTrue(trace.contains("short_prompt_rewrite_applied=true"))
+    }
+
+    @Test
     fun `invoker accepts provider interface without ChatScreen dependency`() {
         val invoker = NpuStandardRouteS1Invoker(
             provider = FailureNpuStandardRouteS1Provider(
@@ -368,6 +399,8 @@ class NpuStandardRouteS1ProviderTest {
         )
 
         assertTrue(copyText.contains("input_prompt=こんばんは"))
+        assertTrue(copyText.contains("arithmetic_prompt_detected=false"))
+        assertTrue(copyText.contains("short_prompt_rewrite_applied=false"))
         assertTrue(copyText.contains("max_output_tokens=256"))
         assertTrue(copyText.contains("raw_output=raw\\noutput"))
         assertTrue(copyText.contains("sanitized_output=こんばんは。"))

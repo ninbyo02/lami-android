@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Base64
 import io.github.ninbyo02.lami.ui.screens.home.NpuS1NativeStageDiagnostics
 import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
+import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRouteS1Contract
 import io.github.ninbyo02.lami.ui.screens.settings.HiddenQairt244PromptTemplateMode
 import java.io.File
 
@@ -150,7 +151,7 @@ object DevOnlyNpuOneTurnConversationContract {
         val normalizedContext = contextText.trim()
         val normalizedUserPrompt = userPrompt.trim()
         if (sanitizePromptTailVariant(promptTailVariant) == GEMMA_IT_USER_MODEL_VARIANT) {
-            return "<start_of_turn>user\n$normalizedUserPrompt<end_of_turn>\n<start_of_turn>model"
+            return NpuStandardRouteS1Contract.buildPromptWrapperText(normalizedUserPrompt)
         }
         val head = if (normalizedContext.isBlank()) {
             ""
