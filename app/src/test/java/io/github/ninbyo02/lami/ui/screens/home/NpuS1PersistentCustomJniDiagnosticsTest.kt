@@ -208,6 +208,11 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             sanitizedOutput = "2\n< end_of_turn>",
             inputPrompt = "１＋１は？",
         )
+        val closingEndTurnAnswer = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = ">答え:2</end_of_turn>",
+            sanitizedOutput = "答え:2</end_of_turn>",
+            inputPrompt = "１＋１は",
+        )
 
         assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, startTurn.status)
         assertTrue(startTurn.reason.contains("special_token_leak"))
@@ -219,6 +224,22 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS, spacedEndTurnAnswer.status)
         assertEquals("2", spacedEndTurnAnswer.preparedOutput)
         assertTrue(spacedEndTurnAnswer.endOfTurnRemoved)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS, closingEndTurnAnswer.status)
+        assertEquals("2", closingEndTurnAnswer.preparedOutput)
+        assertTrue(closingEndTurnAnswer.endOfTurnRemoved)
+    }
+
+    @Test
+    fun `quality candidate keeps answer prefix for non arithmetic prompts`() {
+        val result = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = ">答え: 私はLamiです。</end_of_turn>",
+            sanitizedOutput = "答え: 私はLamiです。</end_of_turn>",
+            inputPrompt = "あなたは誰ですか？",
+        )
+
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS, result.status)
+        assertEquals("答え: 私はLamiです。", result.preparedOutput)
+        assertTrue(result.endOfTurnRemoved)
     }
 
     @Test

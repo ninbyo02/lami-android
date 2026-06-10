@@ -473,6 +473,29 @@ DEV diagnostics alongside the prepared output and fail reason.
 No automatic NPU pause / guard for consecutive failures or recent crashes is implemented in this step. That remains a
 separate follow-up after the app-internal history has enough evidence.
 
+## Normal Chat S1 DEV Diagnostic Copy Layout
+
+The normal-chat S1 diagnostic copy is split into three scopes so successful chat runs remain easy to copy while failure
+cases still preserve enough evidence for investigation.
+
+`[DEV診断: NPU S1 compact]` is always emitted. It keeps the prompt tail/profile, arithmetic rewrite flags, raw and
+sanitized output, prepared output, quality candidate status/reason, status/reason, timing, decode/fallback/crash flags,
+exception class/message, and native stage history. It intentionally omits fields that are usually `unknown`,
+`unavailable`, or not useful for a successful one-shot chat copy, such as model unknown fields, tokenizer unavailable
+fields, stop/finish/eos unavailable fields, repeated-run summaries, and persistent engine summaries.
+
+`[DEV診断: NPU S1 failure details]` is emitted only when S1 does not meet success criteria, quality candidate fails,
+adapter failure appears, timeout/fresh crash/fallback happens, special-token leak is detected, or native error fields are
+available. This section carries full prompt text, rewritten prompt text/tail, native error details, failure stage, quality
+reason/prepared output, native stage history, and selected app-internal history keys such as the last started/finished
+elapsed time, last prompt, last final prompt tail, last native stage, last successful/failed prompt, and successful request
+count.
+
+`[DEV診断: NPU S1 full dump]` remains available as a separate formatter for the verbose legacy dump. It is the place for
+fields such as selected-model unknown values, `finish_reason=unavailable`, tokenizer/model-reported unavailable values,
+stop-sequence fields, and short-output telemetry. Normal chat does not append this full dump to the ordinary copy by
+default.
+
 ## Next Device Check
 
 Run:

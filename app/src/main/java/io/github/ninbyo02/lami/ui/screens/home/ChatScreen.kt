@@ -3475,7 +3475,8 @@ fun Home(
                                                                 result = s1Result,
                                                                 maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                 transientFallback = s1Fallback?.kind,
-                                                            ) + "\n" + NpuStandardRouteS1AppHistory.formatForDev(context.applicationContext)
+                                                                appHistoryText = NpuStandardRouteS1AppHistory.formatForDev(context.applicationContext),
+                                                            )
                                                         } else {
                                                             null
                                                         }

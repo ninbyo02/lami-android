@@ -598,8 +598,14 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
     val cleanupSource = removeSafeNpuS1EndOfTurnVariants(source)
     val cleanupRaw = removeSafeNpuS1EndOfTurnVariants(rawOutput)
     val cleanupSanitized = removeSafeNpuS1EndOfTurnVariants(sanitizedOutput)
+    val arithmeticPrompt = isNpuS1ArithmeticPrompt(inputPrompt)
     val trimmedStart = cleanupSource.trimStart()
-    val prepared = trimmedStart.removePrefix(">").trimStart().trimEnd()
+    val preparedBase = trimmedStart.removePrefix(">").trimStart().trimEnd()
+    val prepared = if (arithmeticPrompt) {
+        extractNpuS1ArithmeticPreparedAnswer(preparedBase)
+    } else {
+        preparedBase
+    }
     val leadingGreaterThanRemoved = cleanupRaw.trimStart().startsWith(">") || trimmedStart.startsWith(">")
     val endOfTurnRemoved = hasSafeNpuS1EndOfTurnVariant(rawOutput) ||
         hasSafeNpuS1EndOfTurnVariant(source) ||
@@ -630,7 +636,6 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
         prompt = inputPrompt,
         output = prepared,
     )
-    val arithmeticPrompt = isNpuS1ArithmeticPrompt(inputPrompt)
     val arithmeticAnswerMissing = arithmeticPrompt && !containsNpuS1ArithmeticAnswerTwo(prepared)
     val outputEmpty = prepared.isEmpty()
     val outputOnlyNewline = source.isNotEmpty() && source.all { it == '\n' || it == '\r' }
@@ -691,19 +696,19 @@ private fun hasSafeNpuS1EndOfTurnVariant(text: String): Boolean =
     NPU_S1_SAFE_END_OF_TURN_ANY_PATTERN.containsMatchIn(text)
 
 private val NPU_S1_SAFE_END_OF_TURN_ANY_PATTERN =
-    Regex("""<\s*end_of_turn\s*>?""", RegexOption.IGNORE_CASE)
+    Regex("""</?\s*end_of_turn\s*>?""", RegexOption.IGNORE_CASE)
 
 private val NPU_S1_SAFE_END_OF_TURN_LINE_PATTERN =
-    Regex("""<\s*end_of_turn\s*>?""", RegexOption.IGNORE_CASE)
+    Regex("""</?\s*end_of_turn\s*>?""", RegexOption.IGNORE_CASE)
 
 private val NPU_S1_SAFE_END_OF_TURN_TRAILING_PATTERN =
-    Regex("""(?:\s*<\s*end_of_turn\s*>?\s*)+$""", RegexOption.IGNORE_CASE)
+    Regex("""(?:\s*</?\s*end_of_turn\s*>?\s*)+$""", RegexOption.IGNORE_CASE)
 
 private fun containsNpuS1SpecialTurnMarker(text: String): Boolean =
-    Regex("""<\s*(?:start|end)_of_turn>?""", RegexOption.IGNORE_CASE).containsMatchIn(text)
+    Regex("""</?\s*(?:start|end)_of_turn>?""", RegexOption.IGNORE_CASE).containsMatchIn(text)
 
 private fun containsNpuS1UnclosedSpecialTurnMarker(text: String): Boolean =
-    Regex("""<\s*(?:start|end)_of_turn(?!>)""", RegexOption.IGNORE_CASE).containsMatchIn(text)
+    Regex("""</?\s*(?:start|end)_of_turn(?!>)""", RegexOption.IGNORE_CASE).containsMatchIn(text)
 
 private fun containsNpuS1UserTurnLeak(text: String): Boolean =
     Regex("""<\s*start_of_turn\s*>\s*user""", RegexOption.IGNORE_CASE).containsMatchIn(text) ||
@@ -731,6 +736,23 @@ private fun isNpuS1ArithmeticPrompt(prompt: String): Boolean =
 
 private fun containsNpuS1ArithmeticAnswerTwo(output: String): Boolean =
     output.any { it == '2' || it == '２' }
+
+private fun extractNpuS1ArithmeticPreparedAnswer(output: String): String {
+    val lines = output
+        .lines()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+    val answerLine = lines.lastOrNull { line ->
+        NPU_S1_ARITHMETIC_ANSWER_PREFIX_PATTERN.containsMatchIn(line)
+    }
+    val candidate = answerLine
+        ?.let { line -> NPU_S1_ARITHMETIC_ANSWER_PREFIX_PATTERN.replace(line, "").trim() }
+        ?: output.trim()
+    return candidate.trim()
+}
+
+private val NPU_S1_ARITHMETIC_ANSWER_PREFIX_PATTERN =
+    Regex("""^(?:答え|回答|Answer)\s*[:：]\s*""", RegexOption.IGNORE_CASE)
 
 private fun normalizeNpuS1QualityComparisonText(text: String): String =
     normalizeNpuS1ArithmeticText(text)

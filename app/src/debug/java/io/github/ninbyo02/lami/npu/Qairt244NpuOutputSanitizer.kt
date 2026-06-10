@@ -5,6 +5,7 @@ internal object Qairt244NpuOutputSanitizer {
         Regex("<start_of_turn>\\s*(?:user|model)?", RegexOption.IGNORE_CASE),
         Regex("<end_of_turn>", RegexOption.IGNORE_CASE),
         Regex("<\\s*end_of_turn\\s*>?", RegexOption.IGNORE_CASE),
+        Regex("</\\s*end_of_turn\\s*>?", RegexOption.IGNORE_CASE),
         Regex("<end\\b[^\\n>]*(?:>|$)", RegexOption.IGNORE_CASE),
     )
     private val roleLinePattern = Regex("^(?:user|model|assistant|ユーザー|アシスタント)\\s*:?\\s*$", RegexOption.IGNORE_CASE)

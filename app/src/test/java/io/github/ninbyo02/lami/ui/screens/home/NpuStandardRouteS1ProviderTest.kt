@@ -369,7 +369,7 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
-    fun `S1 diagnostic copy keeps full input and output values`() {
+    fun `S1 diagnostic copy uses compact section for successful results`() {
         val input = "こんばんは"
         val rawOutput = "raw\noutput"
         val sanitizedOutput = "こんばんは。"
@@ -398,10 +398,16 @@ class NpuStandardRouteS1ProviderTest {
             maxOutputTokens = 256,
         )
 
+        assertTrue(copyText.contains("[DEV診断: NPU S1 compact]"))
+        assertFalse(copyText.contains("[DEV診断: NPU S1 failure details]"))
+        assertFalse(copyText.contains("[DEV診断: NPU S1 full dump]"))
         assertTrue(copyText.contains("input_prompt=こんばんは"))
         assertTrue(copyText.contains("arithmetic_prompt_detected=false"))
         assertTrue(copyText.contains("short_prompt_rewrite_applied=false"))
-        assertTrue(copyText.contains("max_output_tokens=256"))
+        assertFalse(copyText.contains("max_output_tokens=256"))
+        assertFalse(copyText.contains("selected_model_name=unknown"))
+        assertFalse(copyText.contains("finish_reason="))
+        assertFalse(copyText.contains("tokenizer_output_tokens="))
         assertTrue(copyText.contains("raw_output=raw\\noutput"))
         assertTrue(copyText.contains("sanitized_output=こんばんは。"))
         assertTrue(copyText.contains("status=success"))
@@ -411,6 +417,41 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("timeout=false"))
         assertTrue(copyText.contains("fallback=false"))
         assertTrue(copyText.contains("fresh_crash=false"))
+    }
+
+    @Test
+    fun `S1 full dump keeps verbose values outside compact copy`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "raw",
+                sanitizedOutput = "こんばんは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 256,
+                effectiveMaxOutputTokens = 256,
+            ),
+        )
+
+        val dump = buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
+            input = "こんばんは",
+            result = result,
+            maxOutputTokens = 256,
+        )
+
+        assertTrue(dump.contains("[DEV診断: NPU S1 full dump]"))
+        assertTrue(dump.contains("max_output_tokens=256"))
+        assertTrue(dump.contains("selected_model_name=unknown"))
+        assertTrue(dump.contains("[DEV診断: NPU S1 short output telemetry]"))
+        assertTrue(dump.contains("finish_reason=unavailable"))
+        assertTrue(dump.contains("tokenizer_output_tokens=unavailable"))
     }
 
     @Test
@@ -447,6 +488,8 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(trace.contains("original_reason=empty_after_sanitize"))
         assertTrue(trace.contains("original_quality_classification=mixed_language"))
         assertTrue(trace.contains("fallback=safe_greeting_fallback"))
+        assertTrue(copyText.contains("[DEV診断: NPU S1 compact]"))
+        assertTrue(copyText.contains("[DEV診断: NPU S1 failure details]"))
         assertTrue(copyText.contains("fallback=safe_greeting_fallback"))
     }
 
@@ -488,8 +531,28 @@ class NpuStandardRouteS1ProviderTest {
             input = "あなたは誰ですか",
             result = result,
             maxOutputTokens = 32,
+            appHistoryText = listOf(
+                "[DEV診断: NPU S1 normal chat app history]",
+                "last_npu_s1_request_started_at_elapsed_realtime_ms=123",
+                "last_npu_s1_request_finished_at_elapsed_realtime_ms=456",
+                "last_npu_s1_prompt=あなたは誰ですか",
+                "last_npu_s1_final_prompt_tail=<start_of_turn>model",
+                "last_npu_s1_prompt_profile=gemma_it_user_model",
+                "last_npu_s1_model_path=hidden_from_failure_details",
+                "last_npu_s1_status=failure",
+                "last_npu_s1_reason=adapter_failure:LiteRtLmJniException",
+                "last_npu_s1_exception_class=LiteRtLmJniException",
+                "last_npu_s1_exception_message=engine-create-failed:INTERNAL",
+                "last_npu_s1_native_stage=native_call",
+                "last_npu_s1_native_stage_history=provider_start>native_call",
+                "last_successful_npu_s1_prompt=こんにちは",
+                "last_failed_npu_s1_prompt=あなたは誰ですか",
+                "successful_npu_s1_request_count=3",
+            ).joinToString("\n"),
         )
 
+        assertTrue(copyText.contains("[DEV診断: NPU S1 compact]"))
+        assertTrue(copyText.contains("[DEV診断: NPU S1 failure details]"))
         assertTrue(copyText.contains("input_prompt=あなたは誰ですか"))
         assertTrue(copyText.contains("final_prompt_text=<start_of_turn>user\\nあなたは誰ですか<end_of_turn>\\n<start_of_turn>model"))
         assertTrue(copyText.contains("selected_prompt_profile=gemma_it_user_model"))
@@ -501,5 +564,10 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("native_call_returned=false"))
         assertTrue(copyText.contains("native_decode_started=false"))
         assertTrue(copyText.contains("native_decode_finished=false"))
+        assertTrue(copyText.contains("last_npu_s1_request_started_at_elapsed_realtime_ms=123"))
+        assertTrue(copyText.contains("last_npu_s1_prompt=あなたは誰ですか"))
+        assertTrue(copyText.contains("last_npu_s1_native_stage_history=provider_start>native_call"))
+        assertTrue(copyText.contains("successful_npu_s1_request_count=3"))
+        assertFalse(copyText.contains("last_npu_s1_model_path=hidden_from_failure_details"))
     }
 }

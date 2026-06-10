@@ -185,34 +185,75 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     result: NpuStandardRouteS1Result,
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
-): String = appendNpuS1ShortOutputTelemetryForDev(
-    text = run {
-        val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
-        listOf(
+) : String {
+    val sections = mutableListOf(
+        buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = input,
+            result = result,
+        ),
+    )
+    buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
+        input = input,
+        result = result,
+        transientFallback = transientFallback,
+    )?.let { sections += it }
+    return sections.joinToString("\n\n")
+}
+
+internal fun buildNpuStandardRouteS1DiagnosticCopyText(
+    input: String,
+    result: NpuStandardRouteS1Result,
+    maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
+    transientFallback: String? = null,
+    appHistoryText: String,
+): String {
+    val sections = mutableListOf(
+        buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = input,
+            result = result,
+        ),
+    )
+    buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
+        input = input,
+        result = result,
+        transientFallback = transientFallback,
+        appHistoryText = appHistoryText,
+    )?.let { sections += it }
+    return sections.joinToString("\n\n")
+}
+
+internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
+    input: String,
+    result: NpuStandardRouteS1Result,
+): String {
+    val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
+    return listOf(
+        "[DEV診断: NPU S1 compact]",
         "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
-        "final_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText)}",
         "final_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText.takeLast(200))}",
         "selected_prompt_profile=${promptRewrite.selectedPromptProfile}",
         "prompt_wrapper_used=${promptRewrite.promptWrapperUsed}",
         "arithmetic_prompt_detected=${promptRewrite.arithmeticPromptDetected}",
         "short_prompt_rewrite_applied=${promptRewrite.shortPromptRewriteApplied}",
-        "rewritten_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText)}",
-        "rewritten_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText.takeLast(200))}",
-        "max_output_tokens=$maxOutputTokens",
-        "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
-        "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
-        "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
         "raw_output=${npuStandardRouteS1EscapeCopyValue(result.rawOutput)}",
         "sanitized_output=${npuStandardRouteS1EscapeCopyValue(result.sanitizedOutput)}",
-        "status=${result.status}",
-        "reason=${result.reason}",
-        "quality_classification=${result.qualityClassification}",
         "output_quality_candidate_status=${result.outputQualityCandidateStatus}",
         "output_quality_candidate_reason=${result.outputQualityCandidateReason}",
         "output_quality_candidate_prepared_output=${npuStandardRouteS1EscapeCopyValue(result.preparedOutput)}",
+        "status=${result.status}",
+        "reason=${result.reason}",
+        "quality_classification=${result.qualityClassification}",
+        "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
+        "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
+        "npu_s1_output_tokens=${result.timing.outputTokens?.toString() ?: "n/a"}",
+        "npu_s1_token_count_mode=${result.timing.tokenCountMode}",
+        "npu_s1_tokens_per_second=${NpuStandardRouteS1Contract.formatTokensPerSecond(result.timing.tokensPerSecond)}",
+        "run_decode_reached=${result.runDecodeReached}",
+        "timeout=${result.timeout}",
+        "fallback=${result.fallbackUsed}",
+        "fresh_crash=${result.freshCrash}",
         "failure_exception_class=${npuStandardRouteS1FailureExceptionClass(result)}",
         "failure_exception_message=${npuStandardRouteS1EscapeCopyValue(npuStandardRouteS1FailureExceptionMessage(result))}",
-        "failure_stage=${npuStandardRouteS1FailureStage(result)}",
         "native_stage=${result.nativeDiagnostics.nativeStage}",
         "native_stage_history=${result.nativeDiagnostics.nativeStageHistory}",
         "native_call_reached=${result.nativeDiagnostics.nativeCallReached}",
@@ -220,26 +261,142 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
         "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
         "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
         "native_cleanup_reached=${result.nativeDiagnostics.nativeCleanupReached}",
-        "native_session_destroy_reached=${result.nativeDiagnostics.nativeSessionDestroyReached}",
-        "native_error_class=${result.nativeDiagnostics.nativeErrorClass}",
-        "native_error_message=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeErrorMessage)}",
-        "native_error_stage=${result.nativeDiagnostics.nativeErrorStage}",
-        "native_error_source=${result.nativeDiagnostics.nativeErrorSource}",
-        "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
-        "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
-        "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
-        "npu_s1_output_tokens=${result.timing.outputTokens?.toString() ?: "n/a"}",
-        "npu_s1_token_count_mode=${result.timing.tokenCountMode}",
-        "npu_s1_tokens_per_second=${NpuStandardRouteS1Contract.formatTokensPerSecond(result.timing.tokensPerSecond)}",
-        "run_decode_reached=${result.runDecodeReached}",
-        "timeout=${result.timeout}",
-        "fallback=${transientFallback ?: result.fallbackUsed}",
-        "fresh_crash=${result.freshCrash}",
+    ).joinToString("\n")
+}
+
+internal fun buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
+    input: String,
+    result: NpuStandardRouteS1Result,
+    transientFallback: String? = null,
+    appHistoryText: String = "",
+): String? {
+    if (!shouldShowNpuStandardRouteS1FailureDetails(result, transientFallback)) return null
+    val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
+    return buildList {
+        add("[DEV診断: NPU S1 failure details]")
+        add("failure_stage=${npuStandardRouteS1FailureStage(result)}")
+        add("native_error_class=${result.nativeDiagnostics.nativeErrorClass}")
+        add("native_error_message=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeErrorMessage)}")
+        add("native_error_stage=${result.nativeDiagnostics.nativeErrorStage}")
+        add("native_error_source=${result.nativeDiagnostics.nativeErrorSource}")
+        add("final_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText)}")
+        add("rewritten_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText)}")
+        add("rewritten_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText.takeLast(200))}")
+        add("output_quality_candidate_prepared_output=${npuStandardRouteS1EscapeCopyValue(result.preparedOutput)}")
+        add("output_quality_candidate_reason=${result.outputQualityCandidateReason}")
+        add("native_stage_history=${result.nativeDiagnostics.nativeStageHistory}")
+        add("fallback=${transientFallback ?: result.fallbackUsed}")
+        addAll(extractNpuStandardRouteS1FailureHistoryLines(appHistoryText))
+    }.joinToString("\n")
+}
+
+internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
+    input: String,
+    result: NpuStandardRouteS1Result,
+    maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
+    transientFallback: String? = null,
+): String = appendNpuS1ShortOutputTelemetryForDev(
+    text = run {
+        val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
+        listOf(
+            "[DEV診断: NPU S1 full dump]",
+            "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
+            "final_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText)}",
+            "final_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.finalPromptText.takeLast(200))}",
+            "selected_prompt_profile=${promptRewrite.selectedPromptProfile}",
+            "prompt_wrapper_used=${promptRewrite.promptWrapperUsed}",
+            "arithmetic_prompt_detected=${promptRewrite.arithmeticPromptDetected}",
+            "short_prompt_rewrite_applied=${promptRewrite.shortPromptRewriteApplied}",
+            "rewritten_prompt_text=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText)}",
+            "rewritten_prompt_tail=${npuStandardRouteS1EscapeCopyValue(promptRewrite.rewrittenPromptText.takeLast(200))}",
+            "max_output_tokens=$maxOutputTokens",
+            "selected_model_name=${npuStandardRouteS1EscapeCopyValue(result.selectedModelName.ifBlank { "unknown" })}",
+            "selected_model_file=${npuStandardRouteS1EscapeCopyValue(result.selectedModelFile.ifBlank { "unknown" })}",
+            "npu_model_eligible=${result.npuModelEligible ?: "unknown"}",
+            "raw_output=${npuStandardRouteS1EscapeCopyValue(result.rawOutput)}",
+            "sanitized_output=${npuStandardRouteS1EscapeCopyValue(result.sanitizedOutput)}",
+            "status=${result.status}",
+            "reason=${result.reason}",
+            "quality_classification=${result.qualityClassification}",
+            "output_quality_candidate_status=${result.outputQualityCandidateStatus}",
+            "output_quality_candidate_reason=${result.outputQualityCandidateReason}",
+            "output_quality_candidate_prepared_output=${npuStandardRouteS1EscapeCopyValue(result.preparedOutput)}",
+            "failure_exception_class=${npuStandardRouteS1FailureExceptionClass(result)}",
+            "failure_exception_message=${npuStandardRouteS1EscapeCopyValue(npuStandardRouteS1FailureExceptionMessage(result))}",
+            "failure_stage=${npuStandardRouteS1FailureStage(result)}",
+            "native_stage=${result.nativeDiagnostics.nativeStage}",
+            "native_stage_history=${result.nativeDiagnostics.nativeStageHistory}",
+            "native_call_reached=${result.nativeDiagnostics.nativeCallReached}",
+            "native_call_returned=${result.nativeDiagnostics.nativeCallReturned}",
+            "native_decode_started=${result.nativeDiagnostics.nativeDecodeStarted}",
+            "native_decode_finished=${result.nativeDiagnostics.nativeDecodeFinished}",
+            "native_cleanup_reached=${result.nativeDiagnostics.nativeCleanupReached}",
+            "native_session_destroy_reached=${result.nativeDiagnostics.nativeSessionDestroyReached}",
+            "native_error_class=${result.nativeDiagnostics.nativeErrorClass}",
+            "native_error_message=${npuStandardRouteS1EscapeCopyValue(result.nativeDiagnostics.nativeErrorMessage)}",
+            "native_error_stage=${result.nativeDiagnostics.nativeErrorStage}",
+            "native_error_source=${result.nativeDiagnostics.nativeErrorSource}",
+            "npu_s1_total_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.totalMs)}",
+            "npu_s1_decode_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.decodeMs)}",
+            "npu_s1_ttft_ms=${NpuStandardRouteS1Contract.formatTimingMs(result.timing.ttftMs)}",
+            "npu_s1_output_tokens=${result.timing.outputTokens?.toString() ?: "n/a"}",
+            "npu_s1_token_count_mode=${result.timing.tokenCountMode}",
+            "npu_s1_tokens_per_second=${NpuStandardRouteS1Contract.formatTokensPerSecond(result.timing.tokensPerSecond)}",
+            "run_decode_reached=${result.runDecodeReached}",
+            "timeout=${result.timeout}",
+            "fallback=${transientFallback ?: result.fallbackUsed}",
+            "fresh_crash=${result.freshCrash}",
         ).joinToString("\n")
     },
     input = input,
     result = result,
 )
+
+internal fun shouldShowNpuStandardRouteS1FailureDetails(
+    result: NpuStandardRouteS1Result,
+    transientFallback: String? = null,
+): Boolean =
+    !result.successCriteriaMet ||
+        result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL ||
+        result.outputQualityCandidateReason.contains("special_token_leak") ||
+        result.reason.contains("adapter_failure", ignoreCase = true) ||
+        result.timeout ||
+        result.freshCrash ||
+        result.fallbackUsed ||
+        transientFallback != null ||
+        result.nativeDiagnostics.nativeErrorClass.isAvailableDevValue() ||
+        result.nativeDiagnostics.nativeErrorMessage.isAvailableDevValue()
+
+private fun extractNpuStandardRouteS1FailureHistoryLines(appHistoryText: String): List<String> {
+    if (appHistoryText.isBlank()) return emptyList()
+    val allowedKeys = setOf(
+        "last_npu_s1_request_started_at_elapsed_realtime_ms",
+        "last_npu_s1_request_finished_at_elapsed_realtime_ms",
+        "last_npu_s1_prompt",
+        "last_npu_s1_final_prompt_tail",
+        "last_npu_s1_prompt_profile",
+        "last_npu_s1_status",
+        "last_npu_s1_reason",
+        "last_npu_s1_exception_class",
+        "last_npu_s1_exception_message",
+        "last_npu_s1_native_stage",
+        "last_npu_s1_native_stage_history",
+        "last_successful_npu_s1_prompt",
+        "last_failed_npu_s1_prompt",
+        "successful_npu_s1_request_count",
+    )
+    return appHistoryText
+        .lineSequence()
+        .map { it.trim() }
+        .filter { line ->
+            val key = line.substringBefore("=", missingDelimiterValue = "")
+            key in allowedKeys
+        }
+        .toList()
+}
+
+private fun String.isAvailableDevValue(): Boolean =
+    isNotBlank() && this != "unavailable" && this != "unknown" && this != "none"
 
 internal fun npuRealPromptHash(text: String): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))

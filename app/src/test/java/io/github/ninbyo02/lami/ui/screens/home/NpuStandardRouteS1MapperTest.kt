@@ -129,6 +129,52 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
+    fun `arithmetic answer prefix and closing end turn variants are prepared as answer only`() {
+        val fullWidth = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">答え:2</end_of_turn>",
+                sanitizedOutput = "答え:2</end_of_turn>",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "１＋１は",
+            ),
+        )
+        val ascii = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">1+1は\n答え:2</end_of_turn>",
+                sanitizedOutput = "1+1は\n答え:2</end_of_turn>",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "1+1は",
+            ),
+        )
+        val fullWidthAnswer = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">１＋１は\n答え:２</end_of_turn>",
+                sanitizedOutput = "１＋１は\n答え:２</end_of_turn>",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "１＋１は",
+            ),
+        )
+        val unclosedClosing = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">答え:2</ end_of_turn",
+                sanitizedOutput = "答え:2</ end_of_turn",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "１＋１は？",
+            ),
+        )
+
+        listOf(fullWidth, ascii, fullWidthAnswer, unclosedClosing).forEach { result ->
+            assertTrue(result.successCriteriaMet)
+            assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
+            assertFalse(result.displayText.contains("end_of_turn"))
+        }
+        assertEquals("2", fullWidth.displayText)
+        assertEquals("2", ascii.displayText)
+        assertEquals("２", fullWidthAnswer.displayText)
+        assertEquals("2", unclosedClosing.displayText)
+    }
+
+    @Test
     fun `arithmetic answer passes but prompt repetition fails quality candidate`() {
         val answered = NpuStandardRouteS1Mapper.map(
             successRaw(
