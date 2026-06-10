@@ -10679,6 +10679,24 @@ internal fun resolveNpuStandardRouteFailureAssistantMessage(
     transientFallback: NpuStandardRouteS1TransientFallback?,
 ): String? {
     if (result.successCriteriaMet) return null
+    if (
+        result.status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
+        result.reason == NpuStandardRouteS1Contract.REASON_SUCCESS &&
+        result.usableDisplayOutput.isNotBlank() &&
+        result.qualityClassification == NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT &&
+        result.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
+    ) {
+        return null
+    }
+    if (
+        result.status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
+        result.reason == NpuStandardRouteS1Contract.REASON_SUCCESS
+    ) {
+        return transientFallback?.text
+            ?: "NPU推論の応答生成に失敗しました: ${
+                result.qualityClassification.ifBlank { "quality_check_failed" }
+            }"
+    }
     if (result.reason == NpuStandardRouteS1ProviderSelector.REASON_NATIVE_ROUTE_BLOCKED_FOR_NORMAL_CHAT) {
         return NPU_STANDARD_ROUTE_S1_NORMAL_CHAT_BLOCKED_USER_MESSAGE
     }

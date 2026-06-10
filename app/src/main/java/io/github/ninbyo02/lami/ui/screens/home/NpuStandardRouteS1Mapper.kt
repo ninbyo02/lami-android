@@ -36,7 +36,13 @@ internal object NpuStandardRouteS1Mapper {
                 successLikeRaw
                 )
         val sanitizedOutput = raw.sanitizedOutput.trim()
+        val qualityCandidate = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = raw.rawOutput,
+            sanitizedOutput = sanitizedOutput,
+        )
         val displayText = sanitizedOutput
+            .ifBlank { qualityCandidate.preparedOutput }
+            .ifBlank { raw.rawOutput.trim() }
         val selection = NpuStandardRouteS1Selection(
             enabled = true,
             requestedMaxOutputTokens = raw.requestedMaxOutputTokens,

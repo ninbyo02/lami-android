@@ -382,6 +382,41 @@ Normal chat policy unblock state:
 
 Crash-safety pass alone is not enough to unblock normal chat. The separate output quality gate and manual tombstone / dropbox checks were required before this policy unblock.
 
+## Normal Chat Success Display Fix
+
+Post-unblock device verification showed normal chat reaching the native S1 route and decoding successfully:
+
+- `status=success`
+- `reason=success`
+- `raw_output=>こんにちは！何かお手伝いできることはありますか？<end_of_turn>`
+- `sanitized_output=こんにちは！何かお手伝いできることはありますか？`
+- `run_decode_reached=true`
+- `fallback=false`
+- `fresh_crash=false`
+- `timeout=false`
+
+The remaining UI issue was a false failure message:
+`NPU推論の応答生成に失敗しました: success`.
+The cause was that the raw output still contained safe template artifacts (`>` and `<end_of_turn>`), so
+`quality_classification=template_artifact` could make `successCriteriaMet=false` even though the sanitized output was natural.
+
+The normal-chat UI now treats this narrow case as success when all of the following are true:
+
+- `status=success`
+- `reason=success`
+- `run_decode_reached=true`
+- `fallback=false`
+- `fresh_crash=false`
+- `timeout=false`
+- `sanitized_output` is non-empty
+- `quality_classification=template_artifact`
+- `output_quality_candidate_status=quality_candidate_pass`
+
+The assistant text shown in normal chat uses `sanitized_output` first, then prepared output, then raw output as a final fallback.
+DEV diagnostics still keep `raw_output`, `sanitized_output`, `quality_classification`,
+`output_quality_candidate_status`, `output_quality_candidate_reason`, and
+`output_quality_candidate_prepared_output` so raw artifacts remain inspectable.
+
 ## Next Device Check
 
 Run:

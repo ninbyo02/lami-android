@@ -71,6 +71,8 @@ class NpuStandardRouteS1ContractTest {
         assertTrue(result.displayText.contains("raw_output=こんにちは。"))
         assertTrue(result.displayText.contains("sanitized_output=こんにちは。"))
         assertTrue(result.displayText.contains("quality_classification=natural_japanese"))
+        assertTrue(result.displayText.contains("output_quality_candidate_status=quality_candidate_pass"))
+        assertTrue(result.displayText.contains("output_quality_candidate_prepared_output=こんにちは。"))
         assertTrue(result.displayText.contains("db=false"))
         assertTrue(result.displayText.contains("tts=false"))
         assertTrue(result.displayText.contains("markdown=false"))

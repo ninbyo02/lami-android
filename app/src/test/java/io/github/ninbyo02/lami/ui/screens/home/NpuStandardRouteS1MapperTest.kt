@@ -66,6 +66,36 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
+    fun `template artifact raw output can pass when sanitized output is a quality candidate`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">こんにちは！何かお手伝いできることはありますか？<end_of_turn>",
+                sanitizedOutput = "こんにちは！何かお手伝いできることはありますか？",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+            ),
+        )
+
+        assertTrue(result.successCriteriaMet)
+        assertEquals("こんにちは！何かお手伝いできることはありますか？", result.displayText)
+        assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
+        assertTrue(result.outputQualityCandidateReason.contains("natural_japanese_after_safe_leading_gt"))
+    }
+
+    @Test
+    fun `template artifact raw output still fails when sanitized output is empty`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">こんにちは！<end_of_turn>",
+                sanitizedOutput = "",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals("quality_candidate_fail", result.outputQualityCandidateStatus)
+    }
+
+    @Test
     fun `raw role contamination is classified as failure even with natural sanitized output`() {
         val result = NpuStandardRouteS1Mapper.map(
             successRaw(

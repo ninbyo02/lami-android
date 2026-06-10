@@ -1805,6 +1805,19 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 transientFallback = null,
             ),
         )
+        assertNull(
+            resolveNpuStandardRouteFailureAssistantMessage(
+                result = s1TemplateArtifactSanitizedSuccessResult(),
+                transientFallback = null,
+            ),
+        )
+        assertEquals(
+            "NPU推論の応答生成に失敗しました: mixed_language",
+            resolveNpuStandardRouteFailureAssistantMessage(
+                result = s1SuccessResultWithQuality(NpuStandardRouteS1Contract.QUALITY_MIXED_LANGUAGE),
+                transientFallback = null,
+            ),
+        )
     }
 
     private fun s1SuccessResult(
@@ -1817,6 +1830,42 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 rawOutput = sanitizedOutput,
                 sanitizedOutput = sanitizedOutput,
                 qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 32,
+                effectiveMaxOutputTokens = 32,
+            ),
+        )
+
+    private fun s1TemplateArtifactSanitizedSuccessResult(): NpuStandardRouteS1Result =
+        NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                reason = "success",
+                rawOutput = ">こんにちは！何かお手伝いできることはありますか？<end_of_turn>",
+                sanitizedOutput = "こんにちは！何かお手伝いできることはありますか？",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 32,
+                effectiveMaxOutputTokens = 32,
+            ),
+        )
+
+    private fun s1SuccessResultWithQuality(qualityClassification: String): NpuStandardRouteS1Result =
+        NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = qualityClassification,
                 runDecodeReached = true,
                 npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
                 fallbackUsed = false,

@@ -92,6 +92,26 @@ internal data class NpuStandardRouteS1Result(
         s5TtsDiagnostics = s5TtsDiagnostics,
     ),
 ) {
+    val outputQualityCandidate: NpuS1PersistentCustomJniQualityCandidateResult
+        get() = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = rawOutput,
+            sanitizedOutput = sanitizedOutput,
+        )
+
+    val outputQualityCandidateStatus: String
+        get() = outputQualityCandidate.status
+
+    val outputQualityCandidateReason: String
+        get() = outputQualityCandidate.reason
+
+    val preparedOutput: String
+        get() = outputQualityCandidate.preparedOutput
+
+    val usableDisplayOutput: String
+        get() = sanitizedOutput
+            .ifBlank { preparedOutput }
+            .ifBlank { rawOutput.trim() }
+
     val successCriteriaMet: Boolean
         get() = selection.selectable &&
             status == NpuStandardRouteS1Contract.STATUS_SUCCESS &&
@@ -103,7 +123,13 @@ internal data class NpuStandardRouteS1Result(
             !freshCrash &&
             displayText.isNotBlank() &&
             sanitizedOutput.isNotBlank() &&
-            qualityClassification == NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE
+            (
+                qualityClassification == NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE ||
+                    (
+                        qualityClassification == NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT &&
+                            outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
+                        )
+                )
 
     fun withTiming(timing: NpuStandardRouteS1Timing): NpuStandardRouteS1Result =
         copy(
@@ -143,6 +169,7 @@ internal object NpuStandardRouteS1Contract {
     const val QUALITY_QUESTION_ECHO = "question_echo"
     const val QUALITY_ASSISTANT_STUB = "assistant_stub"
     const val QUALITY_ROLE_CONTAMINATION = "role_contamination"
+    const val QUALITY_TEMPLATE_ARTIFACT = "template_artifact"
     const val STATUS_SUCCESS = "success"
     const val REASON_SUCCESS = "success"
     const val REASON_EMPTY_AFTER_SANITIZE = "empty_after_sanitize"
@@ -178,6 +205,10 @@ internal object NpuStandardRouteS1Contract {
         s5TtsDiagnostics: NpuStandardRouteS5TtsDiagnostics? = null,
     ): String {
         val sideEffects = selection.sideEffects
+        val outputQualityCandidate = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = rawOutput,
+            sanitizedOutput = sanitizedOutput,
+        )
         return listOfNotNull(
             "NPU STANDARD ROUTE S1",
             "[DEV診断: NPU Standard Route S1 Timing]".takeIf { timing.hasAnyValue },
@@ -209,6 +240,9 @@ internal object NpuStandardRouteS1Contract {
             "raw_output=$rawOutput",
             "sanitized_output=$sanitizedOutput",
             "quality_classification=$qualityClassification",
+            "output_quality_candidate_status=${outputQualityCandidate.status}",
+            "output_quality_candidate_reason=${outputQualityCandidate.reason}",
+            "output_quality_candidate_prepared_output=${outputQualityCandidate.preparedOutput}",
             s5TtsDiagnostics?.let { "s5_tts_reason=${it.reason}" },
             s5TtsDiagnostics?.let { "tts_requested=${it.requested}" },
             s5TtsDiagnostics?.let { "tts_started=${it.started}" },
