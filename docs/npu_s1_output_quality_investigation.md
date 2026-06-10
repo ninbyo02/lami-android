@@ -237,6 +237,10 @@ The Gemma candidate quality gate passes only when:
 - `output_quality_candidate_assistant_repetition=false`
 - `output_quality_candidate_qa_continuation=false`
 
+`ai_edge_gallery_like` remains an alias / duplicate for comparison, but it is not a gate-pass profile.
+Even if its output is currently equivalent to `gemma_it_user_model`, `npu_s1_quality_gate_status` must remain fail
+until a separate production prompt path decision promotes it explicitly.
+
 The DEV copy keys are:
 
 - `npu_s1_quality_gate_status`
@@ -247,11 +251,25 @@ Known bad profile handling:
 
 - `current_probe_quality`: legacy / failing; repeated template output, punctuation start, placeholder/business template leak.
 - `raw_prompt_quality`: legacy / failing until proven otherwise.
+- `simple_ja_arithmetic_quality`: failing if output is empty, newline-only, or literal `\n`.
+- `short_ja_self_intro_quality`: failing if output contains self-introduction template markers such as `〇〇`, `---`, or `**自己紹介`.
 - `no_bos_no_eos`: legacy / failing; same no-wrapper failure class as the raw prompt path.
 - `user_colon_assistant_colon`: legacy / failing; `Assistant:` repetition.
 - `assistant_prefix_only`: legacy / failing; `Assistant:` repetition.
 - `japanese_instruction_with_answer_prefix`: legacy / failing so far; Q/A continuation risk.
 - `bos_eos_like_if_supported_by_existing_code`: unsafe / not recommended; observed engine create failure with `LiteRtLmJniException`.
+
+The candidate helper rejects these patterns across `raw_output`, `sanitized_output`, and prepared output:
+
+- empty, whitespace-only, newline-only, or literal `\n` only output
+- `〇〇`
+- `---`
+- `**自己紹介`
+- `質問:`
+- `回答:`
+- `Assistant: Assistant:`
+
+Normal chat native NPU route restoration remains prohibited in this phase.
 
 ## Normal Chat Return Conditions
 

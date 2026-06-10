@@ -159,6 +159,18 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             rawOutput = "",
             sanitizedOutput = "",
         )
+        val literalNewline = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "\\n",
+            sanitizedOutput = "\\n",
+        )
+        val whitespaceOnly = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "   ",
+            sanitizedOutput = "   ",
+        )
+        val selfIntroTemplate = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = "〇〇、---\n**自己紹介（日本語）**",
+            sanitizedOutput = "〇〇、---\n**自己紹介（日本語）**",
+        )
 
         assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, repeatedTemplate.status)
         assertTrue(repeatedTemplate.reason.contains("placeholder_leak"))
@@ -171,6 +183,12 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(newlineOnly.reason.contains("output_only_newline"))
         assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, empty.status)
         assertTrue(empty.reason.contains("raw_output_empty"))
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, literalNewline.status)
+        assertTrue(literalNewline.reason.contains("prepared_output_literal_newline_only"))
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, whitespaceOnly.status)
+        assertTrue(whitespaceOnly.reason.contains("prepared_output_empty"))
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, selfIntroTemplate.status)
+        assertTrue(selfIntroTemplate.reason.contains("self_intro_template_leak"))
     }
 
     @Test
@@ -226,6 +244,25 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(gate.reason.contains("quality_candidate_not_pass"))
         assertTrue(gate.reason.contains("output_contains_placeholder_not_false"))
         assertTrue(gate.reason.contains("output_looks_business_template_not_false"))
+    }
+
+    @Test
+    fun `quality gate fails alias profile even when candidate output passes`() {
+        val state = full20SuccessState().copy(
+            selectedQualityPromptProfile = NpuS1PersistentCustomJniQualityPromptProfile.AI_EDGE_GALLERY_LIKE.wireValue,
+            outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS,
+            outputEmpty = "false",
+            outputOnlyNewline = "false",
+            outputContainsPlaceholder = "false",
+            outputLooksBusinessTemplate = "false",
+            outputQualityCandidateAssistantRepetition = "false",
+            outputQualityCandidateQaContinuation = "false",
+        )
+
+        val gate = evaluateNpuS1QualityGate(state)
+
+        assertEquals(NPU_S1_QUALITY_GATE_STATUS_FAIL, gate.status)
+        assertTrue(gate.reason.contains("prompt_profile_not_gemma_it_user_model"))
     }
 
     @Test

@@ -563,26 +563,37 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
     val rawWithoutEndTurn = rawOutput.replace("<end_of_turn>", "")
     val leadingGreaterThanRemoved = rawWithoutEndTurn.trimStart().startsWith(">") || trimmedStart.startsWith(">")
     val endOfTurnRemoved = rawOutput.contains("<end_of_turn>") || source.contains("<end_of_turn>")
-    val placeholderLeak = Regex("""\[[^\]]+\]""").containsMatchIn(prepared)
+    val qualityCheckText = listOf(rawOutput, sanitizedOutput, prepared).joinToString("\n")
+    val placeholderLeak = Regex("""\[[^\]]+\]""").containsMatchIn(qualityCheckText)
     val businessTemplateLeak = listOf(
         "いつもお世話になっております",
         "お世話になっております",
         "よろしくお願いいたします",
-    ).any(prepared::contains)
-    val assistantRepetition = Regex("""(?i)(Assistant\s*:.*){2,}""").containsMatchIn(prepared) ||
-        prepared.contains("Assistant: Assistant:", ignoreCase = true)
-    val qaContinuation = listOf("質問:", "回答:", "Q:", "A:").count(prepared::contains) >= 2
+    ).any(qualityCheckText::contains)
+    val assistantRepetition = Regex("""(?i)(Assistant\s*:.*){2,}""").containsMatchIn(qualityCheckText) ||
+        qualityCheckText.contains("Assistant: Assistant:", ignoreCase = true)
+    val qaContinuation = listOf("質問:", "回答:", "Q:", "A:").any(qualityCheckText::contains)
+    val selfIntroTemplateLeak = listOf(
+        "〇〇",
+        "---",
+        "**自己紹介",
+    ).any(qualityCheckText::contains)
     val outputEmpty = prepared.isEmpty()
     val outputOnlyNewline = source.isNotEmpty() && source.all { it == '\n' || it == '\r' }
+    val preparedBlank = prepared.isBlank()
+    val preparedLiteralNewlineOnly = prepared == "\\n"
     val failedReasons = buildList {
         if (rawOutput.isBlank()) add("raw_output_empty")
         if (sanitizedOutput.isBlank()) add("sanitized_output_empty")
         if (outputEmpty) add("prepared_output_empty")
+        if (preparedBlank && !outputEmpty) add("prepared_output_blank")
         if (outputOnlyNewline) add("output_only_newline")
+        if (preparedLiteralNewlineOnly) add("prepared_output_literal_newline_only")
         if (placeholderLeak) add("placeholder_leak")
         if (businessTemplateLeak) add("business_template_leak")
         if (assistantRepetition) add("assistant_repetition")
         if (qaContinuation) add("qa_continuation")
+        if (selfIntroTemplateLeak) add("self_intro_template_leak")
     }
     return NpuS1PersistentCustomJniQualityCandidateResult(
         status = if (failedReasons.isEmpty()) {
