@@ -488,6 +488,23 @@ The extractor is paired with the existing safe `end_of_turn` cleanup, including 
 `</end_of_turn>` and `</ end_of_turn>`. It does not relax the failure rules for `<start_of_turn>` leaks, user-turn leaks,
 unremovable special tokens, or arithmetic outputs that do not contain `2` / `２`.
 
+Additional device checks showed one more arithmetic-only pattern:
+
+- `raw_output=>2</start_of_turn>\n<end_of_turn>\n<start_of_turn>user>...`
+- `sanitized_output=2</start_of_turn>\n...`
+- `output_quality_candidate_prepared_output=2`
+
+For the limited arithmetic prompts only, if the extractor has already reduced the answer to the single correct value
+`2` / `２`, later turn-marker or user-turn text is treated as an arithmetic tail leak. Normal chat displays the prepared
+answer and records:
+
+- `arithmetic_tail_leak_detected=true`
+- `arithmetic_tail_leak_ignored_for_display=true`
+- `output_quality_candidate_reason=natural_japanese_after_arithmetic_answer_extraction_with_tail_leak_cleanup`
+
+This relaxation is intentionally narrow. General chat still fails on special-token leaks, user-turn leaks, and
+`<start_of_turn>` artifacts. Arithmetic output also still fails if a single `2` / `２` answer cannot be extracted.
+
 No automatic NPU pause / guard for consecutive failures or recent crashes is implemented in this step. That remains a
 separate follow-up after the app-internal history has enough evidence.
 

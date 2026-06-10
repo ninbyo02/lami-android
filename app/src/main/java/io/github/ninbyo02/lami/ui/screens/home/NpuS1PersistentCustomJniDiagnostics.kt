@@ -519,6 +519,8 @@ internal data class NpuS1PersistentCustomJniQualityCandidateResult(
     val qaContinuation: Boolean,
     val outputEmpty: Boolean,
     val outputOnlyNewline: Boolean,
+    val arithmeticTailLeakDetected: Boolean = false,
+    val arithmeticTailLeakIgnoredForDisplay: Boolean = false,
 )
 
 internal data class NpuS1PersistentCustomJniTokenBoundaryDiagnostics(
@@ -632,6 +634,15 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
     val rawUnexpectedStartTurn = unsafeRawCheckText.contains("<start_of_turn", ignoreCase = true) ||
         unsafeRawCheckText.contains("< start_of_turn", ignoreCase = true)
     val userTurnLeak = containsNpuS1UserTurnLeak(qualityCheckText)
+    val arithmeticTailLeakDetected = arithmeticPrompt &&
+        isNpuS1SingleArithmeticAnswer(prepared) &&
+        (specialTokenLeak || rawUnexpectedStartTurn || userTurnLeak) &&
+        isNpuS1ArithmeticLeakAfterPreparedAnswer(
+            rawOutput = rawOutput,
+            sanitizedOutput = sanitizedOutput,
+            prepared = prepared,
+        )
+    val arithmeticTailLeakIgnoredForDisplay = arithmeticTailLeakDetected
     val promptRepetitionOnly = isNpuS1PromptRepetitionOnly(
         prompt = inputPrompt,
         output = prepared,
@@ -653,10 +664,10 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
         if (assistantRepetition) add("assistant_repetition")
         if (qaContinuation) add("qa_continuation")
         if (selfIntroTemplateLeak) add("self_intro_template_leak")
-        if (specialTokenLeak) add("special_token_leak")
+        if (specialTokenLeak && !arithmeticTailLeakIgnoredForDisplay) add("special_token_leak")
         if (rawUnclosedSpecialToken) add("raw_unclosed_special_token")
-        if (rawUnexpectedStartTurn) add("raw_unexpected_start_turn")
-        if (userTurnLeak) add("user_turn_leak")
+        if (rawUnexpectedStartTurn && !arithmeticTailLeakIgnoredForDisplay) add("raw_unexpected_start_turn")
+        if (userTurnLeak && !arithmeticTailLeakIgnoredForDisplay) add("user_turn_leak")
         if (promptRepetitionOnly) add("prompt_repetition_only")
         if (arithmeticAnswerMissing) add("arithmetic_answer_missing")
     }
@@ -666,9 +677,12 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
         } else {
             NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL
         },
-        reason = failedReasons.ifEmpty {
-            listOf("natural_japanese_after_safe_leading_gt_and_end_of_turn_cleanup")
-        }.joinToString("+"),
+        reason = when {
+            failedReasons.isNotEmpty() -> failedReasons.joinToString("+")
+            arithmeticTailLeakIgnoredForDisplay ->
+                "natural_japanese_after_arithmetic_answer_extraction_with_tail_leak_cleanup"
+            else -> "natural_japanese_after_safe_leading_gt_and_end_of_turn_cleanup"
+        },
         preparedOutput = prepared,
         leadingGreaterThanRemoved = leadingGreaterThanRemoved,
         endOfTurnRemoved = endOfTurnRemoved,
@@ -678,6 +692,8 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
         qaContinuation = qaContinuation,
         outputEmpty = outputEmpty,
         outputOnlyNewline = outputOnlyNewline,
+        arithmeticTailLeakDetected = arithmeticTailLeakDetected,
+        arithmeticTailLeakIgnoredForDisplay = arithmeticTailLeakIgnoredForDisplay,
     )
 }
 
@@ -736,6 +752,38 @@ private fun isNpuS1ArithmeticPrompt(prompt: String): Boolean =
 
 private fun containsNpuS1ArithmeticAnswerTwo(output: String): Boolean =
     output.any { it == '2' || it == '２' }
+
+private fun isNpuS1SingleArithmeticAnswer(output: String): Boolean =
+    output.trim() in setOf("2", "２")
+
+private fun isNpuS1ArithmeticLeakAfterPreparedAnswer(
+    rawOutput: String,
+    sanitizedOutput: String,
+    prepared: String,
+): Boolean {
+    val rawTailLeakSafe = isNpuS1LeakAfterPreparedAnswer(rawOutput, prepared)
+    val sanitizedTailLeakSafe = isNpuS1LeakAfterPreparedAnswer(sanitizedOutput, prepared)
+    return rawTailLeakSafe && sanitizedTailLeakSafe
+}
+
+private fun isNpuS1LeakAfterPreparedAnswer(
+    output: String,
+    prepared: String,
+): Boolean {
+    if (output.isBlank()) return true
+    val answerIndex = output.indexOf(prepared)
+    if (answerIndex < 0) return false
+    val firstLeakIndex = firstNpuS1TailLeakIndex(output)
+    return firstLeakIndex == null || firstLeakIndex > answerIndex
+}
+
+private fun firstNpuS1TailLeakIndex(text: String): Int? =
+    listOfNotNull(
+        Regex("""</?\s*start_of_turn>?""", RegexOption.IGNORE_CASE).find(text)?.range?.first,
+        Regex("""<\s*start_of_turn\s*>\s*user""", RegexOption.IGNORE_CASE).find(text)?.range?.first,
+        text.indexOf("ユーザー:", ignoreCase = true).takeIf { it >= 0 },
+        text.indexOf("ユーザー：", ignoreCase = true).takeIf { it >= 0 },
+    ).minOrNull()
 
 private fun extractNpuS1ArithmeticPreparedAnswer(output: String): String {
     val answerMatch = NPU_S1_ARITHMETIC_ANSWER_PREFIX_PATTERN

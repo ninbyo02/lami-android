@@ -407,6 +407,8 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("input_prompt=こんばんは"))
         assertTrue(copyText.contains("arithmetic_prompt_detected=false"))
         assertTrue(copyText.contains("short_prompt_rewrite_applied=false"))
+        assertTrue(copyText.contains("arithmetic_tail_leak_detected=false"))
+        assertTrue(copyText.contains("arithmetic_tail_leak_ignored_for_display=false"))
         assertFalse(copyText.contains("max_output_tokens=256"))
         assertFalse(copyText.contains("selected_model_name=unknown"))
         assertFalse(copyText.contains("finish_reason="))
@@ -420,6 +422,46 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("timeout=false"))
         assertTrue(copyText.contains("fallback=false"))
         assertTrue(copyText.contains("fresh_crash=false"))
+    }
+
+    @Test
+    fun `S1 compact diagnostic records arithmetic tail leak ignored for display`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = ">2</start_of_turn>\n<end_of_turn>\n<start_of_turn>user>次の計算に日本語で",
+                sanitizedOutput = "2</start_of_turn>\n\n次の計算に日本語で",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                inputPrompt = "1+1は？",
+            ),
+        )
+
+        val copyText = buildNpuStandardRouteS1DiagnosticCopyText(
+            input = "1+1は？",
+            result = result,
+        )
+
+        assertTrue(result.successCriteriaMet)
+        assertTrue(copyText.contains("[DEV診断: NPU S1 compact]"))
+        assertFalse(copyText.contains("[DEV診断: NPU S1 failure details]"))
+        assertTrue(copyText.contains("output_quality_candidate_status=quality_candidate_pass"))
+        assertTrue(copyText.contains("output_quality_candidate_prepared_output=2"))
+        assertTrue(copyText.contains("arithmetic_tail_leak_detected=true"))
+        assertTrue(copyText.contains("arithmetic_tail_leak_ignored_for_display=true"))
+        assertTrue(
+            copyText.contains(
+                "output_quality_candidate_reason=" +
+                    "natural_japanese_after_arithmetic_answer_extraction_with_tail_leak_cleanup",
+            ),
+        )
     }
 
     @Test

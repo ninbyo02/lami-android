@@ -237,6 +237,33 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
     }
 
     @Test
+    fun `quality candidate allows arithmetic answer before tail turn leak`() {
+        val arithmeticTailLeak = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = ">2</start_of_turn>\n<end_of_turn>\n<start_of_turn>user>次の計算に日本語で",
+            sanitizedOutput = "2</start_of_turn>\n\n次の計算に日本語で",
+            inputPrompt = "1+1は？",
+        )
+        val nonArithmeticTailLeak = evaluateNpuS1PersistentCustomJniQualityCandidate(
+            rawOutput = ">こんにちは</start_of_turn>\n<start_of_turn>user>こんにちは",
+            sanitizedOutput = "こんにちは</start_of_turn>\nこんにちは",
+            inputPrompt = "こんにちは",
+        )
+
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS, arithmeticTailLeak.status)
+        assertEquals("2", arithmeticTailLeak.preparedOutput)
+        assertEquals(
+            "natural_japanese_after_arithmetic_answer_extraction_with_tail_leak_cleanup",
+            arithmeticTailLeak.reason,
+        )
+        assertTrue(arithmeticTailLeak.arithmeticTailLeakDetected)
+        assertTrue(arithmeticTailLeak.arithmeticTailLeakIgnoredForDisplay)
+
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, nonArithmeticTailLeak.status)
+        assertTrue(nonArithmeticTailLeak.reason.contains("special_token_leak"))
+        assertFalse(nonArithmeticTailLeak.arithmeticTailLeakIgnoredForDisplay)
+    }
+
+    @Test
     fun `quality candidate keeps answer prefix for non arithmetic prompts`() {
         val result = evaluateNpuS1PersistentCustomJniQualityCandidate(
             rawOutput = ">答え: 私はLamiです。</end_of_turn>",

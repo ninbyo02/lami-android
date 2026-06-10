@@ -210,6 +210,63 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
+    fun `arithmetic answer before tail turn leak passes with prepared display`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">2</start_of_turn>\n<end_of_turn>\n<start_of_turn>user>次の計算に日本語で",
+                sanitizedOutput = "2</start_of_turn>\n\n次の計算に日本語で",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "1+1は？",
+            ),
+        )
+
+        assertTrue(result.successCriteriaMet)
+        assertEquals("2", result.displayText)
+        assertEquals("2", result.preparedOutput)
+        assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
+        assertEquals(
+            "natural_japanese_after_arithmetic_answer_extraction_with_tail_leak_cleanup",
+            result.outputQualityCandidateReason,
+        )
+        assertTrue(result.outputQualityCandidate.arithmeticTailLeakDetected)
+        assertTrue(result.outputQualityCandidate.arithmeticTailLeakIgnoredForDisplay)
+    }
+
+    @Test
+    fun `non arithmetic tail turn leak remains quality failure`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">こんにちは</start_of_turn>\n<start_of_turn>user>こんにちは",
+                sanitizedOutput = "こんにちは</start_of_turn>\nこんにちは",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "こんにちは",
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals("quality_candidate_fail", result.outputQualityCandidateStatus)
+        assertTrue(result.outputQualityCandidateReason.contains("special_token_leak"))
+        assertFalse(result.outputQualityCandidate.arithmeticTailLeakIgnoredForDisplay)
+    }
+
+    @Test
+    fun `arithmetic tail leak without answer remains quality failure`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = ">答え:三</start_of_turn>\n<start_of_turn>user>次の計算",
+                sanitizedOutput = "答え:三</start_of_turn>\n次の計算",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                inputPrompt = "1+1は？",
+            ),
+        )
+
+        assertFalse(result.successCriteriaMet)
+        assertEquals("quality_candidate_fail", result.outputQualityCandidateStatus)
+        assertTrue(result.outputQualityCandidateReason.contains("arithmetic_answer_missing"))
+        assertFalse(result.outputQualityCandidate.arithmeticTailLeakIgnoredForDisplay)
+    }
+
+    @Test
     fun `arithmetic answer passes but prompt repetition fails quality candidate`() {
         val answered = NpuStandardRouteS1Mapper.map(
             successRaw(
