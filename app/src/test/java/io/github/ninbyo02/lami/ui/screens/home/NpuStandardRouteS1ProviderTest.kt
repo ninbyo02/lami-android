@@ -409,6 +409,8 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("short_prompt_rewrite_applied=false"))
         assertTrue(copyText.contains("arithmetic_tail_leak_detected=false"))
         assertTrue(copyText.contains("arithmetic_tail_leak_ignored_for_display=false"))
+        assertTrue(copyText.contains("actual_display_text=こんばんは。"))
+        assertTrue(copyText.contains("tts_text=こんばんは。"))
         assertFalse(copyText.contains("max_output_tokens=256"))
         assertFalse(copyText.contains("selected_model_name=unknown"))
         assertFalse(copyText.contains("finish_reason="))
@@ -456,6 +458,8 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("output_quality_candidate_prepared_output=2"))
         assertTrue(copyText.contains("arithmetic_tail_leak_detected=true"))
         assertTrue(copyText.contains("arithmetic_tail_leak_ignored_for_display=true"))
+        assertTrue(copyText.contains("actual_display_text=2"))
+        assertTrue(copyText.contains("tts_text=2"))
         assertTrue(
             copyText.contains(
                 "output_quality_candidate_reason=" +

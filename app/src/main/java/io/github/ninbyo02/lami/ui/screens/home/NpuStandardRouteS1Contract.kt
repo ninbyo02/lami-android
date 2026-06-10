@@ -125,6 +125,12 @@ internal data class NpuStandardRouteS1Result(
             .ifBlank { sanitizedOutput }
             .ifBlank { rawOutput.trim() }
 
+    val actualDisplayText: String
+        get() = usableDisplayOutput
+
+    val ttsText: String
+        get() = actualDisplayText
+
     val successCriteriaMet: Boolean
         get() {
             val candidatePassed = outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS

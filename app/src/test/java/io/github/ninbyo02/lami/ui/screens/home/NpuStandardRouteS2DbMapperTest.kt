@@ -50,6 +50,39 @@ class NpuStandardRouteS2DbMapperTest {
     }
 
     @Test
+    fun `assistant candidate uses prepared output when quality candidate passes`() {
+        val s1Result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                result = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                success = true,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = ">2</start_of_turn>\n<end_of_turn>\n<start_of_turn>user>次の計算に日本語で",
+                sanitizedOutput = "2</start_of_turn>\n\n次の計算に日本語で",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                inputPrompt = "1+1は？",
+            ),
+        )
+
+        val assistant = requireNotNull(
+            NpuStandardRouteS2DbMapper.map(
+                userPrompt = "1+1は？",
+                s1Result = s1Result,
+            ).saveCandidate,
+        ).assistantMessage
+
+        assertEquals("2", assistant.text)
+        assertEquals("2", s1Result.actualDisplayText)
+        assertFalse(assistant.text.contains("<start_of_turn>"))
+        assertFalse(assistant.text.contains("次の計算"))
+    }
+
+    @Test
     fun `failed S1 result creates no DB save candidate`() {
         val mapping = NpuStandardRouteS2DbMapper.map(
             userPrompt = "こんにちは",

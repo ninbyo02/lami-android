@@ -9,7 +9,7 @@ internal object NpuStandardRouteS5TtsMapper {
         streamingActive: Boolean = false,
         sanitizeForTts: (String) -> String = { it.trim() },
     ): NpuStandardRouteS5TtsMapping {
-        val normalizedFinalText = s1Result.sanitizedOutput.trim()
+        val normalizedFinalText = finalAssistantText.trim()
         if (
             hasNpuStandardRouteRawRoleContamination(s1Result.rawOutput) ||
             s1Result.qualityClassification == NpuStandardRouteS1Contract.QUALITY_ROLE_CONTAMINATION ||
@@ -67,7 +67,7 @@ internal fun buildNpuStandardRouteS5TtsSavedResult(
     s1Result: NpuStandardRouteS1Result,
     finalAssistantText: String,
     ttsDiagnostics: NpuStandardRouteS5TtsDiagnostics =
-        NpuStandardRouteS5TtsContract.successDiagnostics(s1Result.sanitizedOutput.trim()),
+        NpuStandardRouteS5TtsContract.successDiagnostics(finalAssistantText.trim()),
 ): NpuStandardRouteS1Result {
     val s5Selection = s1Result.selection.copy(
         routeType = NpuStandardRouteS5TtsContract.ROUTE_TYPE,
@@ -79,7 +79,7 @@ internal fun buildNpuStandardRouteS5TtsSavedResult(
             tts = ttsDiagnostics.completed,
         ),
     )
-    val normalizedFinalText = s1Result.sanitizedOutput.trim()
+    val normalizedFinalText = finalAssistantText.trim()
     return s1Result.copy(
         selection = s5Selection,
         sanitizedOutput = normalizedFinalText.ifBlank { s1Result.sanitizedOutput },

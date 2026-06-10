@@ -8,10 +8,10 @@ import org.junit.Test
 
 class NpuStandardRouteS5TtsMapperTest {
     @Test
-    fun `successful S1 result creates TTS candidate from sanitized output`() {
+    fun `successful S1 result creates TTS candidate from final assistant text`() {
         val mapping = NpuStandardRouteS5TtsMapper.map(
             s1Result = successResult(),
-            finalAssistantText = "  RAW text must not be used  ",
+            finalAssistantText = "  こんにちは。  ",
             ttsEnabled = true,
         )
         val candidate = requireNotNull(mapping.ttsCandidate)
@@ -29,7 +29,7 @@ class NpuStandardRouteS5TtsMapperTest {
     fun `injected sanitizer creates speak text`() {
         val mapping = NpuStandardRouteS5TtsMapper.map(
             s1Result = successResult(sanitizedOutput = "# 見出し\n\n- 項目1\n- 項目2"),
-            finalAssistantText = "raw output must not be used",
+            finalAssistantText = "# 見出し\n\n- 項目1\n- 項目2",
             ttsEnabled = true,
             sanitizeForTts = { text ->
                 text.lineSequence()
@@ -85,10 +85,10 @@ class NpuStandardRouteS5TtsMapperTest {
     }
 
     @Test
-    fun `empty sanitized output creates no candidate`() {
+    fun `empty final assistant text creates no candidate`() {
         val mapping = NpuStandardRouteS5TtsMapper.map(
             s1Result = successResult(sanitizedOutput = "   "),
-            finalAssistantText = "こんにちは。",
+            finalAssistantText = "   ",
             ttsEnabled = true,
         )
 
@@ -101,7 +101,7 @@ class NpuStandardRouteS5TtsMapperTest {
     fun `punctuation only output creates no candidate after sanitizer`() {
         val mapping = NpuStandardRouteS5TtsMapper.map(
             s1Result = successResult(sanitizedOutput = "。"),
-            finalAssistantText = "こんにちは。",
+            finalAssistantText = "。",
             ttsEnabled = true,
             sanitizeForTts = { text ->
                 if (text.all { !it.isLetterOrDigit() }) "" else text
@@ -141,10 +141,10 @@ class NpuStandardRouteS5TtsMapperTest {
     }
 
     @Test
-    fun `saved S5 success diagnostics use sanitized output source`() {
+    fun `saved S5 success diagnostics use final assistant text`() {
         val result = buildNpuStandardRouteS5TtsSavedResult(
             s1Result = successResult(sanitizedOutput = "こんにちは。"),
-            finalAssistantText = "raw output must not be used",
+            finalAssistantText = "こんにちは。",
         )
 
         assertTrue(result.displayText.contains("route_type=standard_chat_screen_s5_npu_tts"))
@@ -161,7 +161,6 @@ class NpuStandardRouteS5TtsMapperTest {
         assertTrue(result.displayText.contains("tts_text_length=6"))
         assertTrue(result.displayText.contains("tts_input_source=sanitized_output"))
         assertTrue(result.displayText.contains("sanitized_output=こんにちは。"))
-        assertFalse(result.displayText.contains("sanitized_output=raw output must not be used"))
     }
 
     @Test

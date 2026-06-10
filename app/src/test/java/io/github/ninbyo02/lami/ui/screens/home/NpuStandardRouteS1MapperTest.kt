@@ -123,6 +123,8 @@ class NpuStandardRouteS1MapperTest {
 
         assertTrue(result.successCriteriaMet)
         assertEquals("2", result.displayText)
+        assertEquals("2", result.actualDisplayText)
+        assertEquals("2", result.ttsText)
         assertEquals("2", result.preparedOutput)
         assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
         assertFalse(result.outputQualityCandidateReason.contains("special_token_leak"))

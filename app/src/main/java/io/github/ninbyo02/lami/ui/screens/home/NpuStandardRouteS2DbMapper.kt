@@ -31,7 +31,7 @@ internal object NpuStandardRouteS2DbMapper {
                     text = userText,
                 ),
                 assistantMessage = NpuStandardRouteS2DbAssistantMessageCandidate(
-                    text = s1Result.sanitizedOutput.trim(),
+                    text = s1Result.actualDisplayText.trim(),
                     sourceDisplayText = s1Result.displayText,
                 ),
             ),

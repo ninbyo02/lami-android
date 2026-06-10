@@ -227,7 +227,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertNull(s4Mapping.pseudoStreamingCandidate)
         assertFalse(shouldPrepareNpuStandardRouteS5Tts(enabled = true, mapping = s5Mapping))
         assertNull(s5Mapping.ttsCandidate)
-        assertEquals(NpuStandardRouteS5TtsContract.FAILURE_EMPTY_TEXT, s5Mapping.failureReason)
+        assertEquals(NpuStandardRouteS5TtsContract.FAILURE_S1_NOT_SUCCESS, s5Mapping.failureReason)
     }
 
     @Test
@@ -627,7 +627,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertTrue(s5Result.displayText.contains("tts_started=true"))
         assertTrue(s5Result.displayText.contains("tts_completed=true"))
         assertTrue(s5Result.displayText.contains("tts_skipped=false"))
-        assertTrue(s5Result.displayText.contains("tts_text_length=6"))
+        assertTrue(s5Result.displayText.contains("tts_text_length=${"こんにちは。読み上げます。".length}"))
         assertTrue(s5Result.displayText.contains("tts_input_source=sanitized_output"))
         assertTrue(
             shouldSpeakNpuStandardRouteS5Tts(
@@ -1824,6 +1824,13 @@ class NpuStandardRouteS1ChatScreenGateTest {
             ),
         )
         assertEquals("2", s1SafeArithmeticEndTurnVariantResult().displayText)
+        assertNull(
+            resolveNpuStandardRouteFailureAssistantMessage(
+                result = s1SafeArithmeticTailLeakResult(),
+                transientFallback = null,
+            ),
+        )
+        assertEquals("2", s1SafeArithmeticTailLeakResult().displayText)
         val brokenArithmetic = s1BrokenArithmeticTurnLeakResult()
         val brokenArithmeticMessage = resolveNpuStandardRouteFailureAssistantMessage(
             result = brokenArithmetic,
@@ -1930,6 +1937,25 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 requestedMaxOutputTokens = 32,
                 effectiveMaxOutputTokens = 32,
                 inputPrompt = "１＋１は？",
+            ),
+        )
+
+    private fun s1SafeArithmeticTailLeakResult(): NpuStandardRouteS1Result =
+        NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                reason = "success",
+                rawOutput = ">2</start_of_turn>\n<end_of_turn>\n<start_of_turn>user>次の計算に日本語で",
+                sanitizedOutput = "2</start_of_turn>\n\n次の計算に日本語で",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 32,
+                effectiveMaxOutputTokens = 32,
+                inputPrompt = "1+1は？",
             ),
         )
 
