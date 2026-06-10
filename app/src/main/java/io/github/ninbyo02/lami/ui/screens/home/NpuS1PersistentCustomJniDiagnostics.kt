@@ -31,7 +31,12 @@ internal const val NPU_S1_OUTPUT_QUALITY_FIRST_TOKEN_BOUNDARY_SUSPECT = "first_t
 internal const val NPU_S1_OUTPUT_QUALITY_SPECIAL_TOKEN_SUSPECT = "special_token_suspect"
 internal const val NPU_S1_OUTPUT_QUALITY_PROMPT_IGNORED_SUSPECT = "prompt_ignored_suspect"
 internal const val NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS = "quality_candidate_pass"
+internal const val NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL = "quality_candidate_fail"
+internal const val NPU_S1_OUTPUT_QUALITY_CANDIDATE_UNKNOWN = "quality_candidate_unknown"
 internal const val NPU_S1_OUTPUT_QUALITY_UNKNOWN = "unknown"
+internal const val NPU_S1_QUALITY_GATE_STATUS_PASS = "pass"
+internal const val NPU_S1_QUALITY_GATE_STATUS_FAIL = "fail"
+internal const val NPU_S1_QUALITY_GATE_STATUS_UNKNOWN = "unknown"
 internal const val NPU_S1_TOKEN_DIAGNOSTICS_UNAVAILABLE_NOTE =
     "token_ids_not_exposed_by_current_custom_jni_probe_without_native_rebuild"
 internal const val NPU_S1_RECOMMENDED_PROMPT_PROFILE = "gemma_it_user_model"
@@ -72,7 +77,7 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
 ) {
     CURRENT_PROBE_QUALITY(
         wireValue = "current_probe_quality",
-        displayLabel = "Current",
+        displayLabel = "Current legacy/failing",
         prompt = "こんにちは",
         runCount = NPU_S1_PERSISTENT_CUSTOM_JNI_DEFAULT_COUNT,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
@@ -83,7 +88,7 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
     ),
     RAW_PROMPT_QUALITY(
         wireValue = "raw_prompt_quality",
-        displayLabel = "Raw",
+        displayLabel = "Raw legacy/failing",
         prompt = "こんにちは",
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
@@ -127,7 +132,7 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
     ),
     NO_HIDDEN_TEMPLATE_QUALITY(
         wireValue = "no_hidden_template_quality",
-        displayLabel = "No wrapper",
+        displayLabel = "No wrapper legacy/failing",
         prompt = "こんにちは",
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
@@ -138,7 +143,7 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
     ),
     GEMMA_IT_USER_MODEL(
         wireValue = "gemma_it_user_model",
-        displayLabel = "Gemma user/model",
+        displayLabel = "Gemma user/model recommended",
         prompt = "<start_of_turn>user\nこんにちは<end_of_turn>\n<start_of_turn>model\n",
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
@@ -160,7 +165,7 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
     ),
     AI_EDGE_GALLERY_LIKE(
         wireValue = "ai_edge_gallery_like",
-        displayLabel = "Gallery-like",
+        displayLabel = "Gallery-like alias",
         prompt = "<start_of_turn>user\nこんにちは<end_of_turn>\n<start_of_turn>model\n",
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
@@ -171,7 +176,7 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
     ),
     USER_COLON_ASSISTANT_COLON(
         wireValue = "user_colon_assistant_colon",
-        displayLabel = "User/Assistant",
+        displayLabel = "User/Assistant legacy/failing",
         prompt = "User: こんにちは\nAssistant:",
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
@@ -182,7 +187,7 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
     ),
     ASSISTANT_PREFIX_ONLY(
         wireValue = "assistant_prefix_only",
-        displayLabel = "Assistant only",
+        displayLabel = "Assistant only legacy/failing",
         prompt = "こんにちは\nAssistant:",
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
@@ -204,7 +209,7 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
     ),
     NO_BOS_NO_EOS(
         wireValue = "no_bos_no_eos",
-        displayLabel = "No BOS/EOS",
+        displayLabel = "No BOS/EOS legacy/failing",
         prompt = "こんにちは",
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_INTERNAL_INTENT_MODE,
@@ -215,7 +220,7 @@ internal enum class NpuS1PersistentCustomJniQualityPromptProfile(
     ),
     BOS_EOS_LIKE_IF_SUPPORTED_BY_EXISTING_CODE(
         wireValue = "bos_eos_like_if_supported_by_existing_code",
-        displayLabel = "BOS/EOS-like",
+        displayLabel = "BOS/EOS-like unsafe",
         prompt = "<bos>こんにちは<eos>",
         runCount = 3,
         promptValidationMode = NpuDiagnosticPromptValidator.UTF8_HIDDEN_TEMPLATE_EXPERIMENT_MODE,
@@ -415,7 +420,7 @@ internal data class NpuS1PersistentCustomJniProbeState(
     val recommendedPromptProfileReason: String = NPU_S1_RECOMMENDED_PROMPT_PROFILE_REASON,
     val promptProfileAliasNote: String = NPU_S1_PROMPT_PROFILE_ALIAS_NOTE,
     val unsafePromptProfileNote: String = NPU_S1_UNSAFE_PROMPT_PROFILE_NOTE,
-    val outputQualityCandidateStatus: String = "unavailable",
+    val outputQualityCandidateStatus: String = NPU_S1_OUTPUT_QUALITY_CANDIDATE_UNKNOWN,
     val outputQualityCandidateReason: String = "unavailable",
     val outputQualityCandidatePreparedOutput: String = "unavailable",
     val outputQualityCandidateLeadingGreaterThanRemoved: String = "unavailable",
@@ -446,6 +451,12 @@ internal data class NpuS1PromotionGateResult(
     val normalChatUnblockAllowed: Boolean = false,
     val tombstoneManualCheckRequired: Boolean = true,
     val tombstoneCompareHint: String = NPU_S1_PROMOTION_GATE_TOMBSTONE_COMPARE_HINT,
+)
+
+internal data class NpuS1QualityGateResult(
+    val status: String,
+    val reason: String,
+    val promptProfile: String,
 )
 
 internal data class NpuS1PersistentCustomJniOutputQualityDiagnostics(
@@ -574,7 +585,11 @@ internal fun evaluateNpuS1PersistentCustomJniQualityCandidate(
         if (qaContinuation) add("qa_continuation")
     }
     return NpuS1PersistentCustomJniQualityCandidateResult(
-        status = if (failedReasons.isEmpty()) NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS else "quality_candidate_fail",
+        status = if (failedReasons.isEmpty()) {
+            NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS
+        } else {
+            NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL
+        },
         reason = failedReasons.ifEmpty {
             listOf("natural_japanese_after_safe_leading_gt_and_end_of_turn_cleanup")
         }.joinToString("+"),
@@ -665,10 +680,59 @@ internal fun evaluateNpuS1PromotionGate(
     }
 }
 
+internal fun evaluateNpuS1QualityGate(
+    state: NpuS1PersistentCustomJniProbeState,
+): NpuS1QualityGateResult {
+    if (
+        state.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_UNKNOWN ||
+        state.outputQualityCandidateStatus == "unavailable"
+    ) {
+        return NpuS1QualityGateResult(
+            status = NPU_S1_QUALITY_GATE_STATUS_UNKNOWN,
+            reason = "quality_candidate_not_run",
+            promptProfile = state.selectedQualityPromptProfile,
+        )
+    }
+
+    val failedReasons = buildList {
+        if (state.selectedQualityPromptProfile != NPU_S1_RECOMMENDED_PROMPT_PROFILE) {
+            add("prompt_profile_not_gemma_it_user_model")
+        }
+        if (state.outputQualityCandidateStatus != NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS) {
+            add("quality_candidate_not_pass")
+        }
+        if (state.outputEmpty != "false") add("output_empty_not_false")
+        if (state.outputOnlyNewline != "false") add("output_only_newline_not_false")
+        if (state.outputContainsPlaceholder != "false") add("output_contains_placeholder_not_false")
+        if (state.outputLooksBusinessTemplate != "false") add("output_looks_business_template_not_false")
+        if (state.outputQualityCandidateAssistantRepetition != "false") {
+            add("assistant_repetition_not_false")
+        }
+        if (state.outputQualityCandidateQaContinuation != "false") {
+            add("qa_continuation_not_false")
+        }
+    }
+
+    return if (failedReasons.isEmpty()) {
+        NpuS1QualityGateResult(
+            status = NPU_S1_QUALITY_GATE_STATUS_PASS,
+            reason = "gemma_it_user_model_quality_candidate_pass",
+            promptProfile = state.selectedQualityPromptProfile,
+        )
+    } else {
+        NpuS1QualityGateResult(
+            status = NPU_S1_QUALITY_GATE_STATUS_FAIL,
+            reason = failedReasons.joinToString("+"),
+            promptProfile = state.selectedQualityPromptProfile,
+        )
+    }
+}
+
 internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     state: NpuS1PersistentCustomJniProbeState,
 ): String = buildString {
     val promotionGate = evaluateNpuS1PromotionGate(state)
+    val qualityGate = evaluateNpuS1QualityGate(state)
     appendLine("[DEV診断: NPU S1 persistent custom JNI summary]")
     appendLine("persistent_custom_jni_status=${state.persistentCustomJniStatus}")
     appendLine("run_count_requested=${state.runCountRequested}")
@@ -704,6 +768,9 @@ internal fun formatNpuS1PersistentCustomJniDiagnosticsForDev(
     )
     appendLine("npu_s1_prompt_profile_alias_note=${escapePersistentCustomJniCopyValue(state.promptProfileAliasNote)}")
     appendLine("npu_s1_unsafe_prompt_profile_note=${escapePersistentCustomJniCopyValue(state.unsafePromptProfileNote)}")
+    appendLine("npu_s1_quality_gate_status=${qualityGate.status}")
+    appendLine("npu_s1_quality_gate_reason=${qualityGate.reason}")
+    appendLine("npu_s1_quality_gate_prompt_profile=${qualityGate.promptProfile}")
     appendLine("last_native_stage=${state.lastNativeStage}")
     appendLine("native_entrypoint_reached=${state.nativeEntrypointReached}")
     appendLine("model_assets_create_reached=${state.modelAssetsCreateReached}")

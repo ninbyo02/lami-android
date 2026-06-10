@@ -415,7 +415,7 @@ private fun buildPersistentCustomJniQualitySummary(
             outputContainsPlaceholder = "unavailable",
             outputOnlyNewline = "unavailable",
             outputEmpty = "unavailable",
-            outputQualityCandidateStatus = "unavailable",
+            outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_UNKNOWN,
             outputQualityCandidateReason = "unavailable",
             outputQualityCandidatePreparedOutput = "unavailable",
             outputQualityCandidateLeadingGreaterThanRemoved = "unavailable",

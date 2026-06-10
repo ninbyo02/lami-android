@@ -208,6 +208,51 @@ Current candidate gate preparation:
 - `ai_edge_gallery_like` is currently a duplicate of `gemma_it_user_model`.
 - `bos_eos_like_if_supported_by_existing_code` is not recommended because it failed at engine create.
 
+## Quality Gate Status
+
+The DEV diagnostics now separate the quality candidate result from the crash-safety promotion gate.
+This is still diagnostics-only; it does not unblock normal chat.
+
+- `quality_candidate_pass`
+  - `raw_output` and `sanitized_output` are non-empty.
+  - The prepared output remains non-empty after safe leading `>` and `<end_of_turn>` cleanup.
+  - No square-bracket placeholder leak is detected.
+  - No business-template phrase is detected.
+  - No `Assistant:` repetition is detected.
+  - No Q/A continuation pattern is detected.
+- `quality_candidate_fail`
+  - At least one required condition fails.
+  - This includes empty output, newline-only output, placeholder leak, business-template leak, `Assistant:` repetition, or Q/A continuation.
+- `quality_candidate_unknown`
+  - The candidate output has not been collected yet.
+
+The Gemma candidate quality gate passes only when:
+
+- `selected_quality_prompt_profile=gemma_it_user_model`
+- `output_quality_candidate_status=quality_candidate_pass`
+- `output_empty=false`
+- `output_only_newline=false`
+- `output_contains_placeholder=false`
+- `output_looks_business_template=false`
+- `output_quality_candidate_assistant_repetition=false`
+- `output_quality_candidate_qa_continuation=false`
+
+The DEV copy keys are:
+
+- `npu_s1_quality_gate_status`
+- `npu_s1_quality_gate_reason`
+- `npu_s1_quality_gate_prompt_profile`
+
+Known bad profile handling:
+
+- `current_probe_quality`: legacy / failing; repeated template output, punctuation start, placeholder/business template leak.
+- `raw_prompt_quality`: legacy / failing until proven otherwise.
+- `no_bos_no_eos`: legacy / failing; same no-wrapper failure class as the raw prompt path.
+- `user_colon_assistant_colon`: legacy / failing; `Assistant:` repetition.
+- `assistant_prefix_only`: legacy / failing; `Assistant:` repetition.
+- `japanese_instruction_with_answer_prefix`: legacy / failing so far; Q/A continuation risk.
+- `bos_eos_like_if_supported_by_existing_code`: unsafe / not recommended; observed engine create failure with `LiteRtLmJniException`.
+
 ## Normal Chat Return Conditions
 
 Before native NPU can return to normal chat:

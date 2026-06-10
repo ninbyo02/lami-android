@@ -9162,7 +9162,7 @@ private fun NpuS1PersistentCustomJniDevSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = "recommended candidate: gemma_it_user_model / ai_edge_gallery_like は現状同一候補",
+            text = "recommended: gemma_it_user_model / alias: ai_edge_gallery_like / legacy・unsafe候補は復帰判定から除外",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -9175,7 +9175,7 @@ private fun NpuS1PersistentCustomJniDevSection(
                     selected = selectedQualityPromptProfile == profile,
                     onClick = { onQualityPromptProfileChange(profile) },
                     enabled = !running && !blockedByGeneration,
-                    label = { Text(profile.wireValue) },
+                    label = { Text(profile.displayLabel) },
                 )
             }
         }

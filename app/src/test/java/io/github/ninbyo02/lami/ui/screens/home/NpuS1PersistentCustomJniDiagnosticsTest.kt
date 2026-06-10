@@ -160,17 +160,72 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
             sanitizedOutput = "",
         )
 
-        assertEquals("quality_candidate_fail", repeatedTemplate.status)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, repeatedTemplate.status)
         assertTrue(repeatedTemplate.reason.contains("placeholder_leak"))
         assertTrue(repeatedTemplate.reason.contains("business_template_leak"))
-        assertEquals("quality_candidate_fail", assistantRepetition.status)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, assistantRepetition.status)
         assertTrue(assistantRepetition.reason.contains("assistant_repetition"))
-        assertEquals("quality_candidate_fail", qaContinuation.status)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, qaContinuation.status)
         assertTrue(qaContinuation.reason.contains("qa_continuation"))
-        assertEquals("quality_candidate_fail", newlineOnly.status)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, newlineOnly.status)
         assertTrue(newlineOnly.reason.contains("output_only_newline"))
-        assertEquals("quality_candidate_fail", empty.status)
+        assertEquals(NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL, empty.status)
         assertTrue(empty.reason.contains("raw_output_empty"))
+    }
+
+    @Test
+    fun `quality gate passes for gemma user model candidate output`() {
+        val state = full20SuccessState().copy(
+            selectedQualityPromptProfile = NpuS1PersistentCustomJniQualityPromptProfile.GEMMA_IT_USER_MODEL.wireValue,
+            outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS,
+            outputQualityCandidateReason = "natural_japanese_after_safe_leading_gt_and_end_of_turn_cleanup",
+            outputEmpty = "false",
+            outputOnlyNewline = "false",
+            outputContainsPlaceholder = "false",
+            outputLooksBusinessTemplate = "false",
+            outputQualityCandidateAssistantRepetition = "false",
+            outputQualityCandidateQaContinuation = "false",
+        )
+
+        val gate = evaluateNpuS1QualityGate(state)
+        val text = formatNpuS1PersistentCustomJniDiagnosticsForDev(state)
+
+        assertEquals(NPU_S1_QUALITY_GATE_STATUS_PASS, gate.status)
+        assertEquals("gemma_it_user_model_quality_candidate_pass", gate.reason)
+        assertEquals("gemma_it_user_model", gate.promptProfile)
+        assertTrue(text.contains("npu_s1_quality_gate_status=pass"))
+        assertTrue(text.contains("npu_s1_quality_gate_reason=gemma_it_user_model_quality_candidate_pass"))
+        assertTrue(text.contains("npu_s1_quality_gate_prompt_profile=gemma_it_user_model"))
+    }
+
+    @Test
+    fun `quality gate is unknown before quality candidate evidence exists`() {
+        val gate = evaluateNpuS1QualityGate(NpuS1PersistentCustomJniProbeState())
+
+        assertEquals(NPU_S1_QUALITY_GATE_STATUS_UNKNOWN, gate.status)
+        assertEquals("quality_candidate_not_run", gate.reason)
+    }
+
+    @Test
+    fun `quality gate fails known bad prompt profile candidate outputs`() {
+        val state = full20SuccessState().copy(
+            selectedQualityPromptProfile = NpuS1PersistentCustomJniQualityPromptProfile.NO_BOS_NO_EOS.wireValue,
+            outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL,
+            outputEmpty = "false",
+            outputOnlyNewline = "false",
+            outputContainsPlaceholder = "true",
+            outputLooksBusinessTemplate = "true",
+            outputQualityCandidateAssistantRepetition = "false",
+            outputQualityCandidateQaContinuation = "false",
+        )
+
+        val gate = evaluateNpuS1QualityGate(state)
+
+        assertEquals(NPU_S1_QUALITY_GATE_STATUS_FAIL, gate.status)
+        assertTrue(gate.reason.contains("prompt_profile_not_gemma_it_user_model"))
+        assertTrue(gate.reason.contains("quality_candidate_not_pass"))
+        assertTrue(gate.reason.contains("output_contains_placeholder_not_false"))
+        assertTrue(gate.reason.contains("output_looks_business_template_not_false"))
     }
 
     @Test
@@ -365,7 +420,10 @@ class NpuS1PersistentCustomJniDiagnosticsTest {
         assertTrue(text.contains("output_contains_placeholder=false"))
         assertTrue(text.contains("output_only_newline=false"))
         assertTrue(text.contains("output_empty=false"))
-        assertTrue(text.contains("output_quality_candidate_status=unavailable"))
+        assertTrue(text.contains("npu_s1_quality_gate_status=unknown"))
+        assertTrue(text.contains("npu_s1_quality_gate_reason=quality_candidate_not_run"))
+        assertTrue(text.contains("npu_s1_quality_gate_prompt_profile=current_probe_quality"))
+        assertTrue(text.contains("output_quality_candidate_status=quality_candidate_unknown"))
         assertTrue(text.contains("output_quality_candidate_reason=unavailable"))
         assertTrue(text.contains("prefill_token_count=unavailable"))
         assertTrue(text.contains("decode_token_count=unavailable"))
