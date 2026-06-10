@@ -16,6 +16,15 @@ class Qairt244NpuOutputSanitizerTest {
     }
 
     @Test
+    fun `removes spaced end of turn variant after answer`() {
+        val result = Qairt244NpuOutputSanitizer.sanitize(">\n2\n< end_of_turn>", "１＋１は？")
+
+        assertEquals("2", result.sanitizedOutput)
+        assertTrue(result.sanitizerApplied)
+        assertTrue(result.removedTemplateTokenCount >= 1)
+    }
+
+    @Test
     fun `removes start of turn user token`() {
         val result = Qairt244NpuOutputSanitizer.sanitize("<start_of_turn>user\nこんにちは！", "こんにちは")
 
