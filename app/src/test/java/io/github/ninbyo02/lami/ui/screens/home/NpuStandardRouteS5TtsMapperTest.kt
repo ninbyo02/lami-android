@@ -45,6 +45,39 @@ class NpuStandardRouteS5TtsMapperTest {
     }
 
     @Test
+    fun `arithmetic S1 result provides naturalized TTS text`() {
+        val s1Result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                result = NpuStandardRouteS1Contract.STATUS_SUCCESS,
+                success = true,
+                reason = NpuStandardRouteS1Contract.REASON_SUCCESS,
+                rawOutput = ">2</start_of_turn>\n<end_of_turn>\n<start_of_turn>user>次の計算に日本語で",
+                sanitizedOutput = "2</start_of_turn>\n\n次の計算に日本語で",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_TEMPLATE_ARTIFACT,
+                runDecodeReached = true,
+                npuBackendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                inputPrompt = "1+1は？",
+            ),
+        )
+
+        val mapping = NpuStandardRouteS5TtsMapper.map(
+            s1Result = s1Result,
+            finalAssistantText = s1Result.ttsText,
+            ttsEnabled = true,
+        )
+        val candidate = requireNotNull(mapping.ttsCandidate)
+
+        assertEquals("2", s1Result.actualDisplayText)
+        assertEquals("2です。", s1Result.ttsText)
+        assertEquals("2です。", candidate.finalAssistantText)
+        assertEquals("2です。", candidate.speakText)
+    }
+
+    @Test
     fun `failure S1 result creates no candidate`() {
         val mapping = NpuStandardRouteS5TtsMapper.map(
             s1Result = successResult(fallbackUsed = true),

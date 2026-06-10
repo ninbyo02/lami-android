@@ -459,7 +459,7 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copyText.contains("arithmetic_tail_leak_detected=true"))
         assertTrue(copyText.contains("arithmetic_tail_leak_ignored_for_display=true"))
         assertTrue(copyText.contains("actual_display_text=2"))
-        assertTrue(copyText.contains("tts_text=2"))
+        assertTrue(copyText.contains("tts_text=2です。"))
         assertTrue(
             copyText.contains(
                 "output_quality_candidate_reason=" +

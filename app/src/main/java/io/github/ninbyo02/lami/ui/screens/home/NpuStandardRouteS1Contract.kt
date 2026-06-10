@@ -129,7 +129,10 @@ internal data class NpuStandardRouteS1Result(
         get() = usableDisplayOutput
 
     val ttsText: String
-        get() = actualDisplayText
+        get() = NpuStandardRouteS1Contract.ttsTextForOutput(
+            userPrompt = inputPrompt,
+            actualDisplayText = actualDisplayText,
+        )
 
     val successCriteriaMet: Boolean
         get() {
@@ -230,6 +233,21 @@ internal object NpuStandardRouteS1Contract {
 
     fun finalPromptTail(userPrompt: String): String =
         buildPromptWrapperText(userPrompt).takeLast(200)
+
+    fun ttsTextForOutput(
+        userPrompt: String,
+        actualDisplayText: String,
+    ): String {
+        val normalizedDisplayText = actualDisplayText.trim()
+        return if (
+            isShortArithmeticPrompt(userPrompt.trim()) &&
+            normalizedDisplayText in setOf("2", "２")
+        ) {
+            "${normalizedDisplayText}です。"
+        } else {
+            actualDisplayText
+        }
+    }
 
     private fun isShortArithmeticPrompt(prompt: String): Boolean =
         normalizeArithmeticPrompt(prompt) in setOf(

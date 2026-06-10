@@ -111,6 +111,22 @@ class NpuStandardRouteS1MapperTest {
     }
 
     @Test
+    fun `non arithmetic prompt keeps TTS text equal to actual display text`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            successRaw(
+                rawOutput = "私はLamiです。よろしくお願いします。",
+                sanitizedOutput = "私はLamiです。よろしくお願いします。",
+                qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+                inputPrompt = "あなたは誰ですか？",
+            ),
+        )
+
+        assertTrue(result.successCriteriaMet)
+        assertEquals("私はLamiです。よろしくお願いします。", result.actualDisplayText)
+        assertEquals(result.actualDisplayText, result.ttsText)
+    }
+
+    @Test
     fun `arithmetic answer with safe spaced end turn token passes quality candidate`() {
         val result = NpuStandardRouteS1Mapper.map(
             successRaw(
@@ -124,7 +140,7 @@ class NpuStandardRouteS1MapperTest {
         assertTrue(result.successCriteriaMet)
         assertEquals("2", result.displayText)
         assertEquals("2", result.actualDisplayText)
-        assertEquals("2", result.ttsText)
+        assertEquals("2です。", result.ttsText)
         assertEquals("2", result.preparedOutput)
         assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
         assertFalse(result.outputQualityCandidateReason.contains("special_token_leak"))
@@ -209,6 +225,8 @@ class NpuStandardRouteS1MapperTest {
         assertEquals("２", fullWidthQuestionAnswer.displayText)
         assertEquals("2", problemAnswer.displayText)
         assertEquals("2", unclosedClosing.displayText)
+        assertEquals("2です。", asciiQuestion.ttsText)
+        assertEquals("２です。", fullWidthQuestionAnswer.ttsText)
     }
 
     @Test
@@ -224,6 +242,8 @@ class NpuStandardRouteS1MapperTest {
 
         assertTrue(result.successCriteriaMet)
         assertEquals("2", result.displayText)
+        assertEquals("2", result.actualDisplayText)
+        assertEquals("2です。", result.ttsText)
         assertEquals("2", result.preparedOutput)
         assertEquals("quality_candidate_pass", result.outputQualityCandidateStatus)
         assertEquals(

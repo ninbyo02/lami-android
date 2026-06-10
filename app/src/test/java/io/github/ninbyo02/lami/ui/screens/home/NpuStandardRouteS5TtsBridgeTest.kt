@@ -61,13 +61,13 @@ class NpuStandardRouteS5TtsBridgeTest {
 
         val mapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
             s1Result = s1Result,
-            finalAssistantText = s1Result.actualDisplayText,
+            finalAssistantText = s1Result.ttsText,
             ttsEnabled = true,
         )
         val candidate = requireNotNull(mapping.ttsCandidate)
 
-        assertEquals("2", candidate.finalAssistantText)
-        assertEquals("2", candidate.speakText)
+        assertEquals("2です。", candidate.finalAssistantText)
+        assertEquals("2です。", candidate.speakText)
         assertFalse(candidate.speakText.contains("<start_of_turn>"))
         assertFalse(candidate.speakText.contains("次の計算"))
     }

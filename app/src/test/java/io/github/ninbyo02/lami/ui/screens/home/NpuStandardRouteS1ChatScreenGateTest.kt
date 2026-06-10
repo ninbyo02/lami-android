@@ -1151,6 +1151,13 @@ class NpuStandardRouteS1ChatScreenGateTest {
         }
 
         assertEquals("2", run.result.actualDisplayText)
+        assertEquals("2です。", run.result.ttsText)
+        val ttsMapping = NpuStandardRouteS5TtsBridge().prepareTtsCandidate(
+            s1Result = run.result,
+            finalAssistantText = run.result.ttsText,
+            ttsEnabled = true,
+        )
+        assertEquals("2です。", requireNotNull(ttsMapping.ttsCandidate).speakText)
         assertEquals(1, events.count { it.startsWith("insert_user:") })
         assertTrue(events.contains("insert_assistant:42:2"))
         assertFalse(events.any { it.contains("<start_of_turn>") })
