@@ -5208,13 +5208,60 @@ fun Home(
                                                             )
                                                             val timeoutFailureRunResult = runResultWithUiTrace
                                                                 ?.takeIf { shouldInsertLocalFailureAssistantMessage(it) }
-                                                            if (timeoutFailureRunResult != null && !localStopRequested) {
+                                                            val localFailureReason = when {
+                                                                recheckedTimedOut -> "local_inference_timeout"
+                                                                resolvedState == LocalInferenceEngineState.UNINITIALIZED -> "local_model_uninitialized"
+                                                                resolvedState == LocalInferenceEngineState.READY -> "local_response_blank"
+                                                                else -> "local_inference_failure"
+                                                            }
+                                                            val localFailureCompactText = buildLocalInferenceFailureCompactDiagnosticsText(
+                                                                buildLocalInferenceFailureCompactInputFromTrace(
+                                                                    inputPrompt = requestPrompt,
+                                                                    preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                    npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                    trace = runResultWithUiTrace?.trace,
+                                                                    reason = localFailureReason,
+                                                                    failureStage = if (recheckedTimedOut) "timeout" else null,
+                                                                    routeContext = localRouteDiagnosticContext,
+                                                                    timeout = recheckedTimedOut || timeoutFailureRunResult != null,
+                                                                    modelName = localBaseModelDisplayName ?: selectedModel,
+                                                                    modelFile = mediaPipeProbeModelPathForRun ?: localBaseModelFilePath,
+                                                                    ttsRequested = ttsEnabled || effectiveStreamingSentenceTtsEnabled,
+                                                                    dbRequested = false,
+                                                                    markdownRequested = true,
+                                                                    streamingRequested = true,
+                                                                    processPid = runCatching { android.os.Process.myPid().toString() }
+                                                                        .getOrDefault("unavailable"),
+                                                                ),
+                                                            )
+                                                            devDebugText = localFailureCompactText
+                                                            latestLocalTraceForDev = runResultWithUiTrace?.trace?.copy(
+                                                                localFailureDiagnosticsText = localFailureCompactText,
+                                                            ) ?: latestLocalTraceForDev
+                                                            if (!localStopRequested) {
+                                                                val failureAssistantText = timeoutFailureRunResult?.response
+                                                                    ?.takeIf { it.isNotBlank() }
+                                                                    ?: when (resolvedState) {
+                                                                        null -> "ローカル推論エンジンの確認がタイムアウトしました"
+                                                                        LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
+                                                                        else -> "ローカル推論の応答取得に失敗しました"
+                                                                    }
+                                                                val failureStats = InferenceStats(
+                                                                    modelName = localBaseModelDisplayName ?: selectedModel,
+                                                                    generationTimeMs = localGenerationTimeMs,
+                                                                    finishReason = localFailureReason,
+                                                                    localSourceSummary = localFailureCompactText,
+                                                                    model = localBaseModelDisplayName ?: selectedModel,
+                                                                    modelLabel = localBaseModelDisplayName ?: selectedModel,
+                                                                    responseCharCount = failureAssistantText.length,
+                                                                )
                                                                 withContext(Dispatchers.IO) {
                                                                     viewModel.insertAssistantMessageAndReturnId(
                                                                         createAssistantMessage(
                                                                             chatId = currentChatId,
-                                                                            response = timeoutFailureRunResult.response.orEmpty(),
-                                                                            localSourceSummary = timeoutFailureRunResult.trace.localFailureDiagnosticsText,
+                                                                            response = failureAssistantText,
+                                                                            latestInferenceStats = failureStats,
+                                                                            localSourceSummary = localFailureCompactText,
                                                                             generationTimeMs = localGenerationTimeMs,
                                                                         ),
                                                                     )
@@ -5241,6 +5288,31 @@ fun Home(
                                                             )
                                                             dismissJob.cancel()
                                                         } catch (exception: Exception) {
+                                                            val localGenerationTimeMs =
+                                                                (SystemClock.elapsedRealtime() - localRunStartedAtMs).coerceAtLeast(0L)
+                                                            val localFailureCompactText = buildLocalInferenceFailureCompactDiagnosticsText(
+                                                                buildLocalInferenceFailureCompactInputFromTrace(
+                                                                    inputPrompt = requestPrompt,
+                                                                    preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                    npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                    trace = null,
+                                                                    reason = "local_inference_exception",
+                                                                    failureStage = "ui_exception",
+                                                                    exceptionClass = exception.javaClass.name,
+                                                                    exceptionMessage = exception.message ?: "unavailable",
+                                                                    routeContext = localRouteDiagnosticContext,
+                                                                    timeout = false,
+                                                                    modelName = localBaseModelDisplayName ?: selectedModel,
+                                                                    modelFile = localBaseModelFilePath,
+                                                                    ttsRequested = ttsEnabled || effectiveStreamingSentenceTtsEnabled,
+                                                                    dbRequested = false,
+                                                                    markdownRequested = true,
+                                                                    streamingRequested = true,
+                                                                    processPid = runCatching { android.os.Process.myPid().toString() }
+                                                                        .getOrDefault("unavailable"),
+                                                                ),
+                                                            )
+                                                            devDebugText = localFailureCompactText
                                                             localStreamingResponseText = null
                                                             showDelayedLocalRespondingPlaceholder = false
                                                             resetStreamingSpeechState()
@@ -5259,6 +5331,31 @@ fun Home(
                                                                 "LOCAL inference execution failed",
                                                                 exception,
                                                             )
+                                                            effectiveChatId?.let { chatId ->
+                                                                if (!localStopRequested) {
+                                                                    val failureText = "ローカル推論の応答取得に失敗しました"
+                                                                    val failureStats = InferenceStats(
+                                                                        modelName = localBaseModelDisplayName ?: selectedModel,
+                                                                        generationTimeMs = localGenerationTimeMs,
+                                                                        finishReason = "local_inference_exception",
+                                                                        localSourceSummary = localFailureCompactText,
+                                                                        model = localBaseModelDisplayName ?: selectedModel,
+                                                                        modelLabel = localBaseModelDisplayName ?: selectedModel,
+                                                                        responseCharCount = failureText.length,
+                                                                    )
+                                                                    withContext(Dispatchers.IO) {
+                                                                        viewModel.insertAssistantMessageAndReturnId(
+                                                                            createAssistantMessage(
+                                                                                chatId = chatId,
+                                                                                response = failureText,
+                                                                                latestInferenceStats = failureStats,
+                                                                                localSourceSummary = localFailureCompactText,
+                                                                                generationTimeMs = localGenerationTimeMs,
+                                                                            ),
+                                                                        )
+                                                                    }
+                                                                }
+                                                            }
                                                             snackbarHostState.currentSnackbarData?.dismiss()
                                                             snackbarHostState.showSnackbar(
                                                                 message = "ローカル推論の応答取得に失敗しました",
