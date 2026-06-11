@@ -156,8 +156,8 @@ internal fun npuStandardRouteModeDisplayLabel(mode: NpuStandardRouteMode): Strin
         NpuStandardRouteMode.S1_ONLY -> "S1 応答表示"
         NpuStandardRouteMode.S2_DB -> "S2 DB保存"
         NpuStandardRouteMode.S3_MARKDOWN -> "S3 Markdown"
-        NpuStandardRouteMode.S4A_PSEUDO_STREAMING -> "S4-A 擬似Streaming"
-        NpuStandardRouteMode.FULL -> "FULL TTSまで"
+        NpuStandardRouteMode.S4A_PSEUDO_STREAMING -> "S4 Streaming"
+        NpuStandardRouteMode.FULL -> "S5 TTS"
     }
 
 internal fun npuStandardRouteModeDescription(mode: NpuStandardRouteMode): String =
@@ -622,96 +622,76 @@ fun Settings(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
-                                text = "MediaPipe preferredBackend（実験）",
+                                text = "推論バックエンド",
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "DEBUGビルド限定の実験機能です。LiteRT-LM EngineConfig に DEFAULT / CPU / GPU を指定します。Generic LiteRT-LMモデルではCPUが安定推奨です。GPUは端末・モデル相性により読み込みで停止する場合があるため実験扱いです。NPUはvendor FastRPC namespace制約のため本線では無効化しています。変更後はローカルエンジン再作成が必要です。",
+                                text = "現在ローカル推論で使う backend を選択します。\nAutomatic は LiteRT-LM の標準挙動です。\nNPU S1〜S5 は開発者向け NPU標準ルートです。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            val currentDryRun = settingsData.preferredBackendDryRunSetting
-                            PreferredBackendDryRunSetting.selectableEntries.forEach { setting ->
+                            val currentBackendSelection = settingsData.inferenceBackendSelection
+                            InferenceBackendSelection.localEntries.forEach { selection ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
                                             scope.launch {
-                                                settingsPreferences.savePreferredBackendDryRunSetting(setting)
+                                                settingsPreferences.saveInferenceBackendSelection(selection)
                                             }
                                         }
                                         .padding(vertical = 2.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     RadioButton(
-                                        selected = currentDryRun == setting,
+                                        selected = currentBackendSelection == selection,
                                         onClick = {
                                             scope.launch {
-                                                settingsPreferences.savePreferredBackendDryRunSetting(setting)
+                                                settingsPreferences.saveInferenceBackendSelection(selection)
                                             }
                                         },
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(text = setting.name, style = MaterialTheme.typography.bodyMedium)
+                                    Text(text = selection.displayLabel, style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
+                            Text(
+                                text = "────────────",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            InferenceBackendSelection.npuEntries.forEach { selection ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            scope.launch {
+                                                settingsPreferences.saveInferenceBackendSelection(selection)
+                                            }
+                                        }
+                                        .padding(vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = currentBackendSelection == selection,
+                                        onClick = {
+                                            scope.launch {
+                                                settingsPreferences.saveInferenceBackendSelection(selection)
+                                            }
+                                        },
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(text = selection.displayLabel, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                            Text(
+                                text = "注意: NPU S1〜S5 は developer 向け実験機能です。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
                         }
                     }
                     if (settingsData.developerAccessEnabled) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Card {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(
-                                    text = "NPU標準ルート",
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                                Text(
-                                    text = "developer向け設定です。S1〜S5 NPU標準ルートの段階を選択します。既定はOFFです。",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                val currentNpuStandardRouteMode = settingsData.npuStandardRouteMode
-                                NpuStandardRouteMode.entries.forEach { mode ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                scope.launch {
-                                                    settingsPreferences.saveNpuStandardRouteMode(mode)
-                                                }
-                                            }
-                                            .padding(vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        RadioButton(
-                                            selected = currentNpuStandardRouteMode == mode,
-                                            onClick = {
-                                                scope.launch {
-                                                    settingsPreferences.saveNpuStandardRouteMode(mode)
-                                                }
-                                            },
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Column {
-                                            Text(
-                                                text = npuStandardRouteModeDisplayLabel(mode),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                            )
-                                            Text(
-                                                text = npuStandardRouteModeDescription(mode),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
                         Spacer(modifier = Modifier.height(2.dp))
                         Card {
                             Column(

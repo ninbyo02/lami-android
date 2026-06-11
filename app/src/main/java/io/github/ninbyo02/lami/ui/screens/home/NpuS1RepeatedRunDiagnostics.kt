@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Process
 import android.util.Log
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.screens.settings.InferenceBackendSelection
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
@@ -47,13 +48,25 @@ internal const val NPU_S1_COUNTER_NOTE =
 internal const val NPU_S1_ENGINE_CREATE_VISIBILITY = "not_exposed"
 internal const val NPU_S1_ENGINE_CREATE_SOURCE = "not_exposed"
 internal const val NPU_S1_BACKEND_NPU = "NPU"
+internal const val NPU_S1_BACKEND_AUTOMATIC = "Automatic"
+internal const val NPU_S1_BACKEND_NPU_S1 = "NPU_S1"
+internal const val NPU_S1_BACKEND_NPU_S2 = "NPU_S2"
+internal const val NPU_S1_BACKEND_NPU_S3 = "NPU_S3"
+internal const val NPU_S1_BACKEND_NPU_S4 = "NPU_S4"
+internal const val NPU_S1_BACKEND_NPU_S5 = "NPU_S5"
 internal const val NPU_S1_BACKEND_GPU = "GPU"
 internal const val NPU_S1_BACKEND_CPU = "CPU"
 internal const val NPU_S1_BACKEND_UNAVAILABLE = "unavailable"
 internal const val NPU_S1_ROUTE_FAMILY_NPU_S1 = "npu_s1"
+internal const val NPU_S1_ROUTE_FAMILY_NPU_S2 = "npu_s2"
+internal const val NPU_S1_ROUTE_FAMILY_NPU_S3 = "npu_s3"
+internal const val NPU_S1_ROUTE_FAMILY_NPU_S4 = "npu_s4"
+internal const val NPU_S1_ROUTE_FAMILY_NPU_S5 = "npu_s5"
+internal const val NPU_S1_ROUTE_FAMILY_LOCAL_DEFAULT = "local_default"
 internal const val NPU_S1_ROUTE_FAMILY_LOCAL_CPU = "local_cpu"
 internal const val NPU_S1_ROUTE_FAMILY_LOCAL_GPU = "local_gpu"
 internal const val NPU_S1_ROUTE_FAMILY_UNAVAILABLE = "unavailable"
+internal const val NPU_S1_BACKEND_EVIDENCE_LOCAL_DEFAULT = "local_default"
 internal const val NPU_S1_BACKEND_EVIDENCE_CPU_ROUTE = "cpu_route"
 internal const val NPU_S1_BACKEND_EVIDENCE_GPU_ROUTE = "gpu_route"
 internal const val NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE = "unavailable"
@@ -172,51 +185,97 @@ internal fun npuS1RepeatedRunLifecyclePlan(mode: NpuS1RepeatedRunMode): NpuS1Rep
 
 internal data class NpuS1BackendDiagnostics(
     val selectedBackend: String = NPU_S1_BACKEND_UNAVAILABLE,
-    val requestedBackend: String = NPU_S1_BACKEND_NPU,
+    val requestedBackend: String = NPU_S1_BACKEND_UNAVAILABLE,
     val effectiveBackend: String = NPU_S1_BACKEND_UNAVAILABLE,
     val backendEvidence: String = NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE,
     val routeFamily: String = NPU_S1_ROUTE_FAMILY_UNAVAILABLE,
+    val blockedReason: String = "none",
+    val guardRecommendation: String = "unavailable",
 )
 
-internal fun npuS1BackendFromPreferredSetting(setting: PreferredBackendDryRunSetting): String = when (setting) {
-    PreferredBackendDryRunSetting.CPU -> NPU_S1_BACKEND_CPU
-    PreferredBackendDryRunSetting.GPU -> NPU_S1_BACKEND_GPU
-    PreferredBackendDryRunSetting.DEFAULT,
-    PreferredBackendDryRunSetting.NPU,
-    PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> NPU_S1_BACKEND_NPU
-}
+internal fun npuS1BackendFromPreferredSetting(
+    setting: PreferredBackendDryRunSetting,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
+): String = npuS1SelectedBackendForSettings(setting, npuStandardRouteMode)
+
+internal fun npuS1SelectedBackendForSettings(
+    preferredBackendSetting: PreferredBackendDryRunSetting,
+    npuStandardRouteMode: NpuStandardRouteMode,
+): String =
+    when (
+        InferenceBackendSelection.fromSettings(
+            preferredBackend = preferredBackendSetting,
+            npuStandardRouteMode = npuStandardRouteMode,
+        )
+    ) {
+        InferenceBackendSelection.AUTOMATIC -> NPU_S1_BACKEND_AUTOMATIC
+        InferenceBackendSelection.CPU -> NPU_S1_BACKEND_CPU
+        InferenceBackendSelection.GPU -> NPU_S1_BACKEND_GPU
+        InferenceBackendSelection.NPU_S1 -> NPU_S1_BACKEND_NPU_S1
+        InferenceBackendSelection.NPU_S2 -> NPU_S1_BACKEND_NPU_S2
+        InferenceBackendSelection.NPU_S3 -> NPU_S1_BACKEND_NPU_S3
+        InferenceBackendSelection.NPU_S4 -> NPU_S1_BACKEND_NPU_S4
+        InferenceBackendSelection.NPU_S5 -> NPU_S1_BACKEND_NPU_S5
+    }
 
 internal fun npuS1BackendDiagnosticsForPreferredSetting(
     setting: PreferredBackendDryRunSetting,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
     backendEvidence: String = NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE,
 ): NpuS1BackendDiagnostics {
-    val selectedBackend = npuS1BackendFromPreferredSetting(setting)
-    val resolvedEvidence = backendEvidence
-        .takeIf { it.isNotBlank() && it != NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE }
-        ?: when (selectedBackend) {
-            NPU_S1_BACKEND_CPU -> NPU_S1_BACKEND_EVIDENCE_CPU_ROUTE
-            NPU_S1_BACKEND_GPU -> NPU_S1_BACKEND_EVIDENCE_GPU_ROUTE
-            else -> NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE
-        }
+    val selection = InferenceBackendSelection.fromSettings(
+        preferredBackend = setting,
+        npuStandardRouteMode = npuStandardRouteMode,
+    )
+    val selectedBackend = npuS1BackendFromPreferredSetting(setting, npuStandardRouteMode)
+    val requestedBackend = when (selection) {
+        InferenceBackendSelection.AUTOMATIC -> NPU_S1_BACKEND_AUTOMATIC
+        InferenceBackendSelection.CPU -> NPU_S1_BACKEND_CPU
+        InferenceBackendSelection.GPU -> NPU_S1_BACKEND_GPU
+        InferenceBackendSelection.NPU_S1,
+        InferenceBackendSelection.NPU_S2,
+        InferenceBackendSelection.NPU_S3,
+        InferenceBackendSelection.NPU_S4,
+        InferenceBackendSelection.NPU_S5 -> NPU_S1_BACKEND_NPU
+    }
+    val resolvedEvidence = when (selection) {
+        InferenceBackendSelection.AUTOMATIC -> NPU_S1_BACKEND_EVIDENCE_LOCAL_DEFAULT
+        InferenceBackendSelection.CPU -> NPU_S1_BACKEND_EVIDENCE_CPU_ROUTE
+        InferenceBackendSelection.GPU -> NPU_S1_BACKEND_EVIDENCE_GPU_ROUTE
+        InferenceBackendSelection.NPU_S1,
+        InferenceBackendSelection.NPU_S2,
+        InferenceBackendSelection.NPU_S3,
+        InferenceBackendSelection.NPU_S4,
+        InferenceBackendSelection.NPU_S5 -> backendEvidence
+            .takeIf { it.isNotBlank() && it != NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE }
+            ?: NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE
+    }
     val hasNpuEvidence = backendEvidence == NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE ||
         backendEvidence.contains("QNN_HTP", ignoreCase = true) ||
         backendEvidence.contains("FastRPC", ignoreCase = true)
     return NpuS1BackendDiagnostics(
         selectedBackend = selectedBackend,
-        requestedBackend = NPU_S1_BACKEND_NPU,
-        effectiveBackend = when {
-            resolvedEvidence == NPU_S1_BACKEND_EVIDENCE_CPU_ROUTE -> NPU_S1_BACKEND_CPU
-            resolvedEvidence == NPU_S1_BACKEND_EVIDENCE_GPU_ROUTE -> NPU_S1_BACKEND_GPU
-            hasNpuEvidence -> NPU_S1_BACKEND_NPU
-            else -> NPU_S1_BACKEND_UNAVAILABLE
+        requestedBackend = requestedBackend,
+        effectiveBackend = when (selection) {
+            InferenceBackendSelection.AUTOMATIC -> NPU_S1_BACKEND_AUTOMATIC
+            InferenceBackendSelection.CPU -> NPU_S1_BACKEND_CPU
+            InferenceBackendSelection.GPU -> NPU_S1_BACKEND_GPU
+            InferenceBackendSelection.NPU_S1,
+            InferenceBackendSelection.NPU_S2,
+            InferenceBackendSelection.NPU_S3,
+            InferenceBackendSelection.NPU_S4,
+            InferenceBackendSelection.NPU_S5 -> if (hasNpuEvidence) NPU_S1_BACKEND_NPU else NPU_S1_BACKEND_UNAVAILABLE
         },
         backendEvidence = resolvedEvidence,
-        routeFamily = when {
-            hasNpuEvidence -> NPU_S1_ROUTE_FAMILY_NPU_S1
-            selectedBackend == NPU_S1_BACKEND_CPU -> NPU_S1_ROUTE_FAMILY_LOCAL_CPU
-            selectedBackend == NPU_S1_BACKEND_GPU -> NPU_S1_ROUTE_FAMILY_LOCAL_GPU
-            selectedBackend == NPU_S1_BACKEND_NPU -> NPU_S1_ROUTE_FAMILY_NPU_S1
-            else -> NPU_S1_ROUTE_FAMILY_UNAVAILABLE
+        routeFamily = when (selection) {
+            InferenceBackendSelection.AUTOMATIC -> NPU_S1_ROUTE_FAMILY_LOCAL_DEFAULT
+            InferenceBackendSelection.CPU -> NPU_S1_ROUTE_FAMILY_LOCAL_CPU
+            InferenceBackendSelection.GPU -> NPU_S1_ROUTE_FAMILY_LOCAL_GPU
+            InferenceBackendSelection.NPU_S1 -> NPU_S1_ROUTE_FAMILY_NPU_S1
+            InferenceBackendSelection.NPU_S2 -> NPU_S1_ROUTE_FAMILY_NPU_S2
+            InferenceBackendSelection.NPU_S3 -> NPU_S1_ROUTE_FAMILY_NPU_S3
+            InferenceBackendSelection.NPU_S4 -> NPU_S1_ROUTE_FAMILY_NPU_S4
+            InferenceBackendSelection.NPU_S5 -> NPU_S1_ROUTE_FAMILY_NPU_S5
         },
     )
 }
@@ -224,9 +283,11 @@ internal fun npuS1BackendDiagnosticsForPreferredSetting(
 internal fun npuS1BackendDiagnosticsForResult(
     result: NpuStandardRouteS1Result,
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
 ): NpuS1BackendDiagnostics =
     npuS1BackendDiagnosticsForPreferredSetting(
         setting = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
         backendEvidence = result.npuBackendEvidence.ifBlank { NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE },
     )
 
@@ -237,11 +298,12 @@ internal data class NpuS1RepeatedRunStartGate(
 
 internal fun npuS1RepeatedRunStartGate(
     preferredBackendSetting: PreferredBackendDryRunSetting,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
     mode: NpuS1RepeatedRunMode,
     runCount: Int,
     waitMs: Long,
 ): NpuS1RepeatedRunStartGate = when {
-    npuS1BackendFromPreferredSetting(preferredBackendSetting) != NPU_S1_BACKEND_NPU ->
+    npuS1BackendFromPreferredSetting(preferredBackendSetting, npuStandardRouteMode) != NPU_S1_BACKEND_NPU_S1 ->
         NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU)
     mode == NpuS1RepeatedRunMode.REUSE ->
         NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_REUSE_DISABLED)
@@ -1095,6 +1157,16 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
                 appendLine("effective_backend=${record.effectiveBackend}")
                 appendLine("backend_evidence=${record.backendEvidence}")
                 appendLine("route_family=${record.routeFamily}")
+                appendLine("blocked_reason=none")
+                appendLine(
+                    "guard_recommendation=${
+                        if (record.isEngineCreateFailed()) {
+                            NPU_S1_REPEATED_RUN_GUARD_RECOMMENDATION_ENGINE_CREATE_FAILED
+                        } else {
+                            "unavailable"
+                        }
+                    }",
+                )
                 appendLine("npu_s1_total_ms=${formatNullableLong(record.totalMs)}")
                 appendLine("npu_s1_decode_ms=${formatNullableLong(record.decodeMs)}")
                 appendLine("npu_s1_output_tokens=${record.outputTokens?.toString() ?: "unavailable"}")

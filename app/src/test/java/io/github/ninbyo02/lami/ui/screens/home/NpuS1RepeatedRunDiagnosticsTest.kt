@@ -550,7 +550,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
     fun `Copy Repeated Summary uses repeated summary formatter without compact body`() {
         val state = NpuS1RepeatedRunState(
             requestedRunCount = 50,
-            selectedBackend = NPU_S1_BACKEND_NPU,
+            selectedBackend = NPU_S1_BACKEND_NPU_S1,
             requestedBackend = NPU_S1_BACKEND_NPU,
             effectiveBackend = NPU_S1_BACKEND_NPU,
             backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
@@ -587,7 +587,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(copy.contains("failure_count=2"))
         assertTrue(copy.contains("engine_create_failed_count=1"))
         assertTrue(copy.contains("quality_fail_count=1"))
-        assertTrue(copy.contains("selected_backend=NPU"))
+        assertTrue(copy.contains("selected_backend=NPU_S1"))
         assertTrue(copy.contains("requested_backend=NPU"))
         assertTrue(copy.contains("effective_backend=NPU"))
         assertTrue(copy.contains("backend_evidence=QNN_HTP_V79_FastRPC_native_diag"))
@@ -604,31 +604,26 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(
             npuS1RepeatedRunStartGate(
                 preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
                 mode = NpuS1RepeatedRunMode.RECREATE,
                 runCount = 20,
                 waitMs = 500L,
-            ).allowed,
-        )
-        assertTrue(
-            npuS1RepeatedRunStartGate(
-                preferredBackendSetting = PreferredBackendDryRunSetting.NPU,
-                mode = NpuS1RepeatedRunMode.RECREATE,
-                runCount = 20,
-                waitMs = 500L,
-            ).allowed,
-        )
-        assertTrue(
-            npuS1RepeatedRunStartGate(
-                preferredBackendSetting = PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU,
-                mode = NpuS1RepeatedRunMode.RECREATE,
-                runCount = 20,
-                waitMs = 2_000L,
             ).allowed,
         )
         assertEquals(
             NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU,
             npuS1RepeatedRunStartGate(
+                preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                mode = NpuS1RepeatedRunMode.RECREATE,
+                runCount = 20,
+                waitMs = 500L,
+            ).blockedReason,
+        )
+        assertEquals(
+            NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU,
+            npuS1RepeatedRunStartGate(
                 preferredBackendSetting = PreferredBackendDryRunSetting.CPU,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
                 mode = NpuS1RepeatedRunMode.RECREATE,
                 runCount = 20,
                 waitMs = 500L,
@@ -638,15 +633,34 @@ class NpuS1RepeatedRunDiagnosticsTest {
             NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU,
             npuS1RepeatedRunStartGate(
                 preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
                 mode = NpuS1RepeatedRunMode.RECREATE,
                 runCount = 20,
                 waitMs = 500L,
             ).blockedReason,
         )
+        listOf(
+            NpuStandardRouteMode.S2_DB,
+            NpuStandardRouteMode.S3_MARKDOWN,
+            NpuStandardRouteMode.S4A_PSEUDO_STREAMING,
+            NpuStandardRouteMode.FULL,
+        ).forEach { mode ->
+            assertEquals(
+                NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU,
+                npuS1RepeatedRunStartGate(
+                    preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                    npuStandardRouteMode = mode,
+                    mode = NpuS1RepeatedRunMode.RECREATE,
+                    runCount = 20,
+                    waitMs = 500L,
+                ).blockedReason,
+            )
+        }
         assertEquals(
             NPU_S1_REPEATED_RUN_BLOCKED_REUSE_DISABLED,
             npuS1RepeatedRunStartGate(
                 preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
                 mode = NpuS1RepeatedRunMode.REUSE,
                 runCount = 20,
                 waitMs = 500L,
@@ -656,6 +670,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
             NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_RUN_COUNT,
             npuS1RepeatedRunStartGate(
                 preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
                 mode = NpuS1RepeatedRunMode.RECREATE,
                 runCount = 50,
                 waitMs = 500L,
@@ -665,6 +680,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
             NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_RUN_COUNT,
             npuS1RepeatedRunStartGate(
                 preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
                 mode = NpuS1RepeatedRunMode.RECREATE,
                 runCount = 100,
                 waitMs = 500L,
@@ -674,6 +690,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
             NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_WAIT_MS,
             npuS1RepeatedRunStartGate(
                 preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
                 mode = NpuS1RepeatedRunMode.RECREATE,
                 runCount = 20,
                 waitMs = 0L,
@@ -725,6 +742,50 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("guard_recommendation=disable_npu_until_app_restart_or_cooldown"))
     }
 
+    @Test
+    fun `backend diagnostics keep local backend effective unless NPU S1 is selected`() {
+        val automatic = npuS1BackendDiagnosticsForPreferredSetting(
+            setting = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.OFF,
+        )
+        assertEquals("Automatic", automatic.selectedBackend)
+        assertEquals("Automatic", automatic.requestedBackend)
+        assertEquals("Automatic", automatic.effectiveBackend)
+        assertEquals("local_default", automatic.routeFamily)
+
+        val cpuWithNpuEvidence = npuS1BackendDiagnosticsForPreferredSetting(
+            setting = PreferredBackendDryRunSetting.CPU,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+        )
+        assertEquals("CPU", cpuWithNpuEvidence.selectedBackend)
+        assertEquals("CPU", cpuWithNpuEvidence.requestedBackend)
+        assertEquals("CPU", cpuWithNpuEvidence.effectiveBackend)
+        assertEquals("cpu_route", cpuWithNpuEvidence.backendEvidence)
+        assertEquals("local_cpu", cpuWithNpuEvidence.routeFamily)
+
+        val gpuWithNpuEvidence = npuS1BackendDiagnosticsForPreferredSetting(
+            setting = PreferredBackendDryRunSetting.GPU,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+        )
+        assertEquals("GPU", gpuWithNpuEvidence.selectedBackend)
+        assertEquals("GPU", gpuWithNpuEvidence.requestedBackend)
+        assertEquals("GPU", gpuWithNpuEvidence.effectiveBackend)
+        assertEquals("gpu_route", gpuWithNpuEvidence.backendEvidence)
+        assertEquals("local_gpu", gpuWithNpuEvidence.routeFamily)
+
+        val npuS1 = npuS1BackendDiagnosticsForPreferredSetting(
+            setting = PreferredBackendDryRunSetting.DEFAULT,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+        )
+        assertEquals("NPU_S1", npuS1.selectedBackend)
+        assertEquals("NPU", npuS1.requestedBackend)
+        assertEquals("NPU", npuS1.effectiveBackend)
+        assertEquals("npu_s1", npuS1.routeFamily)
+    }
+
     private fun record(
         runIndex: Int = 1,
         totalMs: Long? = 100L,
@@ -759,7 +820,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
         ttsText: String = actualDisplayText,
         npuS1FailureKind: String = "unavailable",
         nativeCrashRiskHint: String = "unavailable",
-        selectedBackend: String = NPU_S1_BACKEND_NPU,
+        selectedBackend: String = NPU_S1_BACKEND_NPU_S1,
         requestedBackend: String = NPU_S1_BACKEND_NPU,
         effectiveBackend: String = NPU_S1_BACKEND_NPU,
         backendEvidence: String = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,

@@ -15,10 +15,78 @@ class SettingsNpuRouteUiTest {
         assertEquals("S2 DB保存", npuStandardRouteModeDisplayLabel(NpuStandardRouteMode.S2_DB))
         assertEquals("S3 Markdown", npuStandardRouteModeDisplayLabel(NpuStandardRouteMode.S3_MARKDOWN))
         assertEquals(
-            "S4-A 擬似Streaming",
+            "S4 Streaming",
             npuStandardRouteModeDisplayLabel(NpuStandardRouteMode.S4A_PSEUDO_STREAMING),
         )
-        assertEquals("FULL TTSまで", npuStandardRouteModeDisplayLabel(NpuStandardRouteMode.FULL))
+        assertEquals("S5 TTS", npuStandardRouteModeDisplayLabel(NpuStandardRouteMode.FULL))
+    }
+
+    @Test
+    fun `unified inference backend selection maps local choices to NPU route off`() {
+        assertEquals(
+            InferenceBackendSelection.AUTOMATIC,
+            InferenceBackendSelection.fromSettings(
+                preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+            ),
+        )
+        assertEquals(
+            NpuStandardRouteMode.OFF,
+            effectiveNpuStandardRouteModeForBackendSelection(
+                preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+            ),
+        )
+        assertEquals(
+            NpuStandardRouteMode.OFF,
+            effectiveNpuStandardRouteModeForBackendSelection(
+                preferredBackend = PreferredBackendDryRunSetting.CPU,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            ),
+        )
+        assertEquals(
+            NpuStandardRouteMode.OFF,
+            effectiveNpuStandardRouteModeForBackendSelection(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            ),
+        )
+    }
+
+    @Test
+    fun `unified inference backend selection maps NPU choices to standard route phases`() {
+        assertEquals(
+            listOf(
+                InferenceBackendSelection.AUTOMATIC,
+                InferenceBackendSelection.CPU,
+                InferenceBackendSelection.GPU,
+            ),
+            InferenceBackendSelection.localEntries,
+        )
+        assertEquals(
+            listOf(
+                InferenceBackendSelection.NPU_S1,
+                InferenceBackendSelection.NPU_S2,
+                InferenceBackendSelection.NPU_S3,
+                InferenceBackendSelection.NPU_S4,
+                InferenceBackendSelection.NPU_S5,
+            ),
+            InferenceBackendSelection.npuEntries,
+        )
+        assertEquals(
+            NpuStandardRouteMode.S1_ONLY,
+            effectiveNpuStandardRouteModeForBackendSelection(
+                preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            ),
+        )
+        assertEquals(
+            NpuStandardRouteMode.FULL,
+            effectiveNpuStandardRouteModeForBackendSelection(
+                preferredBackend = PreferredBackendDryRunSetting.DEFAULT,
+                npuStandardRouteMode = NpuStandardRouteMode.FULL,
+            ),
+        )
     }
 
     @Test

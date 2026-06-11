@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -525,21 +526,25 @@ class NpuStandardRouteS1ProviderTest {
         val copy = buildNpuStandardRouteS1CompactExplicitCopyText(
             input = "こんばんは",
             result = result,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
         )
 
         assertEquals(
             buildNpuStandardRouteS1DiagnosticCopyText(
                 input = "こんばんは",
                 result = result,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
             ),
             copy,
         )
         assertTrue(copy.contains("[DEV診断: NPU S1 compact]"))
-        assertTrue(copy.contains("selected_backend=NPU"))
+        assertTrue(copy.contains("selected_backend=NPU_S1"))
         assertTrue(copy.contains("requested_backend=NPU"))
         assertTrue(copy.contains("effective_backend=NPU"))
         assertTrue(copy.contains("backend_evidence=QNN_HTP_V79_FastRPC_native_diag"))
         assertTrue(copy.contains("route_family=npu_s1"))
+        assertTrue(copy.contains("blocked_reason=none"))
+        assertTrue(copy.contains("guard_recommendation=unavailable"))
         assertFalse(copy.contains("[DEV診断: NPU S1 repeated run summary]"))
         assertFalse(copy.contains("[DEV診断: NPU S1 full dump]"))
     }
@@ -569,6 +574,7 @@ class NpuStandardRouteS1ProviderTest {
             input = "こんばんは",
             result = result,
             maxOutputTokens = 256,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
         )
 
         assertEquals(
@@ -576,6 +582,7 @@ class NpuStandardRouteS1ProviderTest {
                 input = "こんばんは",
                 result = result,
                 maxOutputTokens = 256,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
             ),
             copy,
         )
@@ -583,12 +590,56 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copy.contains("[DEV診断: NPU S1 short output telemetry]"))
         assertTrue(copy.contains("status=success"))
         assertTrue(copy.contains("reason=success"))
-        assertTrue(copy.contains("selected_backend=NPU"))
+        assertTrue(copy.contains("selected_backend=NPU_S1"))
         assertTrue(copy.contains("requested_backend=NPU"))
         assertTrue(copy.contains("effective_backend=NPU"))
         assertTrue(copy.contains("backend_evidence=QNN_HTP_V79_FastRPC_native_diag"))
         assertTrue(copy.contains("route_family=npu_s1"))
+        assertTrue(copy.contains("blocked_reason=none"))
+        assertTrue(copy.contains("guard_recommendation=unavailable"))
         assertFalse(copy.contains("[DEV診断: NPU S1 repeated run summary]"))
+    }
+
+    @Test
+    fun `compact backend diagnostics do not report CPU or GPU as effective NPU`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "raw",
+                sanitizedOutput = "こんばんは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val cpuCopy = buildNpuStandardRouteS1CompactExplicitCopyText(
+            input = "こんばんは",
+            result = result,
+            preferredBackendSetting = PreferredBackendDryRunSetting.CPU,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+        )
+        val gpuCopy = buildNpuStandardRouteS1CompactExplicitCopyText(
+            input = "こんばんは",
+            result = result,
+            preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+            npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+        )
+
+        assertTrue(cpuCopy.contains("selected_backend=CPU"))
+        assertTrue(cpuCopy.contains("requested_backend=CPU"))
+        assertTrue(cpuCopy.contains("effective_backend=CPU"))
+        assertFalse(cpuCopy.contains("selected_backend=CPU\nrequested_backend=NPU\neffective_backend=NPU"))
+        assertTrue(gpuCopy.contains("selected_backend=GPU"))
+        assertTrue(gpuCopy.contains("requested_backend=GPU"))
+        assertTrue(gpuCopy.contains("effective_backend=GPU"))
+        assertFalse(gpuCopy.contains("selected_backend=GPU\nrequested_backend=NPU\neffective_backend=NPU"))
     }
 
     @Test

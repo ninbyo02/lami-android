@@ -45,4 +45,10 @@ data class SettingsData(
     val npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
     val npuStandardRouteMaxOutputTokens: Int = 128,
     val hiddenQairt244PromptTemplateMode: HiddenQairt244PromptTemplateMode = HiddenQairt244PromptTemplateMode.RAW,
-)
+) {
+    val inferenceBackendSelection: InferenceBackendSelection
+        get() = InferenceBackendSelection.fromSettings(
+            preferredBackend = preferredBackendDryRunSetting,
+            npuStandardRouteMode = npuStandardRouteMode,
+        )
+}

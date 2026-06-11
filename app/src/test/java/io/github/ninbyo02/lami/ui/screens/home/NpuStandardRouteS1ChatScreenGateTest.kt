@@ -1,6 +1,8 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.components.InferenceTarget
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import io.github.ninbyo02.lami.ui.screens.settings.effectiveNpuStandardRouteModeForBackendSelection
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -55,6 +57,43 @@ class NpuStandardRouteS1ChatScreenGateTest {
                 requestPrompt = "",
             ),
         )
+    }
+
+    @Test
+    fun `CPU and GPU backend selections block stale NPU standard route mode for normal chat`() {
+        listOf(PreferredBackendDryRunSetting.CPU, PreferredBackendDryRunSetting.GPU).forEach { backend ->
+            val effectiveMode = effectiveNpuStandardRouteModeForBackendSelection(
+                preferredBackend = backend,
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY,
+            )
+            val rawNpuRequested = NpuStandardRouteS1GateConfig.isEnabledForMode(NpuStandardRouteMode.S1_ONLY)
+            val effectiveNpuRequested = NpuStandardRouteS1GateConfig.isEnabledForMode(effectiveMode)
+            val shouldEnterNpuS1 = shouldEnterNpuStandardRouteS1(
+                enabled = effectiveNpuRequested,
+                selectedInferenceTarget = InferenceTarget.LOCAL,
+                hasImageInput = false,
+                requestPrompt = "こんにちは",
+            )
+            val trace = buildLocalRouteDiagnosticTrace(
+                stage = "route_decision",
+                context = buildLocalRouteDiagnosticContext(
+                    selectedModelName = "gemma",
+                    selectedModelFile = "/models/gemma.litertlm",
+                    preferredBackend = backend.name,
+                    npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+                    effectiveNpuStandardRouteMode = effectiveMode.name,
+                    shouldEnterNpuS1 = shouldEnterNpuS1,
+                    localRouteEntered = true,
+                    normalChatNativeRouteBlocked = rawNpuRequested && !effectiveNpuRequested,
+                    blockedReason = NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU,
+                ),
+            )
+
+            assertEquals(NpuStandardRouteMode.OFF, effectiveMode)
+            assertFalse(shouldEnterNpuS1)
+            assertTrue(trace.contains("normal_chat_native_route_blocked=true"))
+            assertTrue(trace.contains("blocked_reason=selected_backend_not_npu"))
+        }
     }
 
     @Test

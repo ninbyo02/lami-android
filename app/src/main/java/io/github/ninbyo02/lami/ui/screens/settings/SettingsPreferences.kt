@@ -826,6 +826,13 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    suspend fun saveInferenceBackendSelection(selection: InferenceBackendSelection) {
+        context.dataStore.edit { preferences ->
+            preferences[preferredBackendDryRunKey] = selection.preferredBackend.name
+            preferences[NpuStandardRoutePreferences.npuStandardRouteModeKey] = selection.npuStandardRouteMode.name
+        }
+    }
+
     suspend fun saveMarkdownStreamingMode(mode: MarkdownStreamingMode) {
         context.dataStore.edit { preferences ->
             preferences[markdownStreamingModeKey] = mode.storageValue

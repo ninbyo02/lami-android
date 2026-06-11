@@ -187,12 +187,14 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
 ) : String {
     val sections = mutableListOf(
         buildNpuStandardRouteS1CompactDiagnosticCopyText(
             input = input,
             result = result,
             preferredBackendSetting = preferredBackendSetting,
+            npuStandardRouteMode = npuStandardRouteMode,
         ),
     )
     buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
@@ -210,6 +212,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     transientFallback: String? = null,
     appHistoryText: String,
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
 ): String {
     val sections = mutableListOf(
         buildNpuStandardRouteS1CompactDiagnosticCopyText(
@@ -217,6 +220,7 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
             result = result,
             appHistoryText = appHistoryText,
             preferredBackendSetting = preferredBackendSetting,
+            npuStandardRouteMode = npuStandardRouteMode,
         ),
     )
     buildNpuStandardRouteS1FailureDetailsDiagnosticCopyText(
@@ -235,6 +239,7 @@ internal fun buildNpuStandardRouteS1CompactExplicitCopyText(
     transientFallback: String? = null,
     appHistoryText: String = "",
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
 ): String = buildNpuStandardRouteS1DiagnosticCopyText(
     input = input,
     result = result,
@@ -242,6 +247,7 @@ internal fun buildNpuStandardRouteS1CompactExplicitCopyText(
     transientFallback = transientFallback,
     appHistoryText = appHistoryText,
     preferredBackendSetting = preferredBackendSetting,
+    npuStandardRouteMode = npuStandardRouteMode,
 )
 
 internal fun buildNpuStandardRouteS1FullDumpExplicitCopyText(
@@ -250,12 +256,14 @@ internal fun buildNpuStandardRouteS1FullDumpExplicitCopyText(
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
 ): String = buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
     input = input,
     result = result,
     maxOutputTokens = maxOutputTokens,
     transientFallback = transientFallback,
     preferredBackendSetting = preferredBackendSetting,
+    npuStandardRouteMode = npuStandardRouteMode,
 )
 
 internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
@@ -263,9 +271,14 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
     result: NpuStandardRouteS1Result,
     appHistoryText: String = "",
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
 ): String {
     val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
-    val backendDiagnostics = npuS1BackendDiagnosticsForResult(result, preferredBackendSetting)
+    val backendDiagnostics = npuS1BackendDiagnosticsForResult(
+        result = result,
+        preferredBackendSetting = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+    )
     return listOf(
         "[DEV診断: NPU S1 compact]",
         "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
@@ -291,6 +304,8 @@ internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
         "effective_backend=${backendDiagnostics.effectiveBackend}",
         "backend_evidence=${backendDiagnostics.backendEvidence}",
         "route_family=${backendDiagnostics.routeFamily}",
+        "blocked_reason=${backendDiagnostics.blockedReason}",
+        "guard_recommendation=${backendDiagnostics.guardRecommendation}",
         "npu_s1_failure_kind=${npuStandardRouteS1FailureKind(result)}",
         "engine_create_failure_count=${extractNpuStandardRouteS1HistoryValue(appHistoryText, "engine_create_failure_count")}",
         "failure_after_successful_npu_s1_request_count=" +
@@ -352,10 +367,15 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
     maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
     transientFallback: String? = null,
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
 ): String = appendNpuS1ShortOutputTelemetryForDev(
     text = run {
         val promptRewrite = NpuStandardRouteS1Contract.rewritePromptForNative(input)
-        val backendDiagnostics = npuS1BackendDiagnosticsForResult(result, preferredBackendSetting)
+        val backendDiagnostics = npuS1BackendDiagnosticsForResult(
+            result = result,
+            preferredBackendSetting = preferredBackendSetting,
+            npuStandardRouteMode = npuStandardRouteMode,
+        )
         listOf(
             "[DEV診断: NPU S1 full dump]",
             "input_prompt=${npuStandardRouteS1EscapeCopyValue(input)}",
@@ -381,6 +401,8 @@ internal fun buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
             "effective_backend=${backendDiagnostics.effectiveBackend}",
             "backend_evidence=${backendDiagnostics.backendEvidence}",
             "route_family=${backendDiagnostics.routeFamily}",
+            "blocked_reason=${backendDiagnostics.blockedReason}",
+            "guard_recommendation=${backendDiagnostics.guardRecommendation}",
             "npu_s1_failure_kind=${npuStandardRouteS1FailureKind(result)}",
             "npu_s1_failure_layer=${npuStandardRouteS1FailureLayer(result)}",
             "npu_s1_failure_recovery_hint=${npuStandardRouteS1FailureRecoveryHint(result)}",

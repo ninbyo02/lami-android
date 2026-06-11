@@ -162,6 +162,7 @@ import io.github.ninbyo02.lami.ui.components.LocalInferenceEngineState
 import io.github.ninbyo02.lami.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.InferenceStatsDisplayMode
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import io.github.ninbyo02.lami.ui.screens.settings.effectiveNpuStandardRouteModeForBackendSelection
 import io.github.ninbyo02.lami.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
@@ -750,13 +751,17 @@ fun Home(
     val npuStandardRouteMode by settingsPreferences.npuStandardRouteModeFlow.collectAsState(
         initial = NpuStandardRouteMode.OFF,
     )
+    val effectiveNpuStandardRouteMode = effectiveNpuStandardRouteModeForBackendSelection(
+        preferredBackend = preferredBackendDryRunSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+    )
     val npuStandardRouteMaxOutputTokens by settingsPreferences.npuStandardRouteMaxOutputTokensFlow.collectAsState(
         initial = NpuStandardRoutePreferences.DEFAULT_MAX_OUTPUT_TOKENS,
     )
-    val npuStandardRouteS2DbEnabled = npuStandardRouteMode.isS2Enabled()
-    val npuStandardRouteS3MarkdownEnabled = npuStandardRouteMode.isS3Enabled()
-    val npuStandardRouteS4aPseudoStreamingEnabled = npuStandardRouteMode.isS4AEnabled()
-    val npuStandardRouteS5TtsEnabled = npuStandardRouteMode.isS5Enabled()
+    val npuStandardRouteS2DbEnabled = effectiveNpuStandardRouteMode.isS2Enabled()
+    val npuStandardRouteS3MarkdownEnabled = effectiveNpuStandardRouteMode.isS3Enabled()
+    val npuStandardRouteS4aPseudoStreamingEnabled = effectiveNpuStandardRouteMode.isS4AEnabled()
+    val npuStandardRouteS5TtsEnabled = effectiveNpuStandardRouteMode.isS5Enabled()
     val developerAccessEnabled by settingsPreferences.developerAccessEnabledFlow.collectAsState(
         initial = false,
     )
@@ -1124,7 +1129,13 @@ fun Home(
         val runMode = npuS1RepeatedRunMode
         val selectedBackendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
             setting = preferredBackendDryRunSetting,
-            backendEvidence = if (npuS1BackendFromPreferredSetting(preferredBackendDryRunSetting) == NPU_S1_BACKEND_NPU) {
+            npuStandardRouteMode = effectiveNpuStandardRouteMode,
+            backendEvidence = if (
+                npuS1BackendFromPreferredSetting(
+                    setting = preferredBackendDryRunSetting,
+                    npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                ) == NPU_S1_BACKEND_NPU_S1
+            ) {
                 NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE
             } else {
                 NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE
@@ -1132,6 +1143,7 @@ fun Home(
         )
         val startGate = npuS1RepeatedRunStartGate(
             preferredBackendSetting = preferredBackendDryRunSetting,
+            npuStandardRouteMode = effectiveNpuStandardRouteMode,
             mode = runMode,
             runCount = requestedRunCount,
             waitMs = npuS1RepeatedRunWaitMs,
@@ -1197,7 +1209,7 @@ fun Home(
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(
                     message = if (startGate.blockedReason == NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU) {
-                        "NPU S1 repeated run はNPU選択時のみ実行可能"
+                        "NPU S1 repeated run は NPU S1 選択時のみ実行可能"
                     } else {
                         "NPU S1 repeated run safety policy により実行できません"
                     },
@@ -1274,7 +1286,7 @@ fun Home(
                     )
                     val rawResult = withContext(Dispatchers.Default) {
                         NpuStandardRouteS1Bridge(
-                            mode = npuStandardRouteMode,
+                            mode = effectiveNpuStandardRouteMode,
                             trace = {},
                             allowDevNativeRoute = true,
                         ).run(
@@ -1293,6 +1305,7 @@ fun Home(
                     val runBackendDiagnostics = npuS1BackendDiagnosticsForResult(
                         result = result,
                         preferredBackendSetting = preferredBackendDryRunSetting,
+                        npuStandardRouteMode = effectiveNpuStandardRouteMode,
                     )
                     val memoryAfter = withContext(Dispatchers.Default) {
                         captureLocalMemorySnapshot(
@@ -3341,8 +3354,20 @@ fun Home(
                                                         ).joinToString("\n")
                                                         return@IconButton
                                                     }
+                                                    val rawNpuStandardRouteRequested =
+                                                        NpuStandardRouteS1GateConfig.isEnabledForMode(npuStandardRouteMode)
+                                                    val effectiveNpuStandardRouteRequested =
+                                                        NpuStandardRouteS1GateConfig.isEnabledForMode(effectiveNpuStandardRouteMode)
+                                                    val normalChatNativeRouteBlocked =
+                                                        rawNpuStandardRouteRequested && !effectiveNpuStandardRouteRequested
+                                                    val normalChatNativeRouteBlockedReason =
+                                                        if (normalChatNativeRouteBlocked) {
+                                                            NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU
+                                                        } else {
+                                                            "none"
+                                                        }
                                                     val shouldEnterNpuS1ForRequest = shouldEnterNpuStandardRouteS1(
-                                                        enabled = NpuStandardRouteS1GateConfig.isEnabledForMode(npuStandardRouteMode),
+                                                        enabled = effectiveNpuStandardRouteRequested,
                                                         selectedInferenceTarget = selectedInferenceTarget,
                                                         hasImageInput = selectedImageUriStrings.isNotEmpty(),
                                                         requestPrompt = requestPrompt,
@@ -3358,8 +3383,11 @@ fun Home(
                                                         selectedModelFile = localBaseModelFilePath,
                                                         preferredBackend = preferredBackendDryRunSetting.name,
                                                         npuStandardRouteMode = npuStandardRouteMode.name,
+                                                        effectiveNpuStandardRouteMode = effectiveNpuStandardRouteMode.name,
                                                         shouldEnterNpuS1 = shouldEnterNpuS1ForRequest,
                                                         localRouteEntered = localRouteEnteredAfterNpuDecision,
+                                                        normalChatNativeRouteBlocked = normalChatNativeRouteBlocked,
+                                                        blockedReason = normalChatNativeRouteBlockedReason,
                                                     )
                                                     appendLocalReflectionTrace(
                                                         context = context.applicationContext,
@@ -3466,7 +3494,7 @@ fun Home(
                                                                             )
                                                                             withContext(Dispatchers.Default) {
                                                                                 NpuStandardRouteS1Bridge(
-                                                                                    mode = npuStandardRouteMode,
+                                                                                    mode = effectiveNpuStandardRouteMode,
                                                                                     trace = npuRealPromptTrace,
                                                                                 )
                                                                                     .run(
@@ -3580,6 +3608,7 @@ fun Home(
                                                                 transientFallback = s1Fallback?.kind,
                                                                 appHistoryText = NpuStandardRouteS1AppHistory.formatForDev(context.applicationContext),
                                                                 preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                npuStandardRouteMode = effectiveNpuStandardRouteMode,
                                                             )
                                                         } else {
                                                             null
@@ -3594,6 +3623,7 @@ fun Home(
                                                                 maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                 transientFallback = s1Fallback?.kind,
                                                                 preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                npuStandardRouteMode = effectiveNpuStandardRouteMode,
                                                             )
                                                         } else {
                                                             null
@@ -5848,6 +5878,7 @@ fun Home(
                                         NpuStandardRouteDevDiagnosticsBlock(
                                             expanded = npuStandardRouteDevDiagnosticsExpanded,
                                             preferredBackendSetting = preferredBackendDryRunSetting,
+                                            npuStandardRouteMode = effectiveNpuStandardRouteMode,
                                             onToggleExpanded = {
                                                 npuStandardRouteDevDiagnosticsExpanded =
                                                     !npuStandardRouteDevDiagnosticsExpanded
@@ -5968,6 +5999,7 @@ fun Home(
                                         NpuStandardRouteDevDiagnosticsBlock(
                                             expanded = npuStandardRouteDevDiagnosticsExpanded,
                                             preferredBackendSetting = preferredBackendDryRunSetting,
+                                            npuStandardRouteMode = effectiveNpuStandardRouteMode,
                                             onToggleExpanded = {
                                                 npuStandardRouteDevDiagnosticsExpanded =
                                                     !npuStandardRouteDevDiagnosticsExpanded
@@ -6227,6 +6259,7 @@ fun Home(
                     devCloseLifecycleText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devCloseLifecycleText else null,
                     devDebugText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devDebugText else null,
                     preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                    npuStandardRouteMode = effectiveNpuStandardRouteMode,
                     markdownStreamingMode = markdownStreamingMode,
                     showDevManualEngineRecreate = BuildConfig.DEBUG,
                     manualEngineRecreateBusy = preferredBackendManualRecreateInProgress,
@@ -9174,6 +9207,7 @@ private fun MemoryRecoveryCheckDevSection(
 private fun NpuS1RepeatedRunDevSection(
     state: NpuS1RepeatedRunState,
     preferredBackendSetting: PreferredBackendDryRunSetting,
+    npuStandardRouteMode: NpuStandardRouteMode,
     selectedMode: NpuS1RepeatedRunMode,
     selectedPrompt: String,
     selectedRunCount: Int,
@@ -9189,23 +9223,27 @@ private fun NpuS1RepeatedRunDevSection(
 ) {
     val startGate = npuS1RepeatedRunStartGate(
         preferredBackendSetting = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
         mode = selectedMode,
         runCount = selectedRunCount,
         waitMs = selectedWaitMs,
     )
-    val backendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(preferredBackendSetting)
+    val backendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
+        setting = preferredBackendSetting,
+        npuStandardRouteMode = npuStandardRouteMode,
+    )
     val blockedByBackend = startGate.blockedReason == NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU
     val controlsEnabled = !running && !blockedByGeneration
     val startEnabled = controlsEnabled && startGate.allowed
     InferenceStatsSection(title = "NPU S1 repeated run") {
         Text(
-            text = "selected_backend=${backendDiagnostics.selectedBackend} requested_backend=NPU",
+            text = "selected_backend=${backendDiagnostics.selectedBackend} requested_backend=${backendDiagnostics.requestedBackend}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (blockedByBackend) {
             Text(
-                text = "NPU S1 repeated run はNPU選択時のみ実行可能",
+                text = "NPU S1 repeated run は NPU S1 選択時のみ実行可能",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -9476,6 +9514,7 @@ private fun InferenceStatsSheetContent(
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
     markdownStreamingMode: MarkdownStreamingMode = MarkdownStreamingMode.DEFAULT,
     showDevManualEngineRecreate: Boolean = false,
     manualEngineRecreateEnabled: Boolean = false,
@@ -9673,6 +9712,7 @@ private fun InferenceStatsSheetContent(
                 NpuS1RepeatedRunDevSection(
                     state = npuS1RepeatedRunState,
                     preferredBackendSetting = preferredBackendDryRunSetting,
+                    npuStandardRouteMode = npuStandardRouteMode,
                     selectedMode = npuS1RepeatedRunMode,
                     selectedPrompt = npuS1RepeatedRunPrompt,
                     selectedRunCount = npuS1RepeatedRunCount,
@@ -9856,6 +9896,7 @@ internal fun npuStandardRouteDevDiagnosticsToggleLabel(expanded: Boolean): Strin
 private fun NpuStandardRouteDevDiagnosticsBlock(
     expanded: Boolean,
     preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+    npuStandardRouteMode: NpuStandardRouteMode = NpuStandardRouteMode.OFF,
     onToggleExpanded: () -> Unit,
     routeText: String? = null,
     routeTitle: String? = null,
@@ -9941,6 +9982,7 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                 NpuS1RepeatedRunDevSection(
                     state = npuS1RepeatedRunState,
                     preferredBackendSetting = preferredBackendSetting,
+                    npuStandardRouteMode = npuStandardRouteMode,
                     selectedMode = npuS1RepeatedRunMode,
                     selectedPrompt = npuS1RepeatedRunPrompt,
                     selectedRunCount = npuS1RepeatedRunCount,
