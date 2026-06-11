@@ -845,7 +845,8 @@ fun Home(
     var npuStandardRouteS1DevTraceText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DevInputText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1DevOutputText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
-    var npuStandardRouteS1DevDiagnosticCopyText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DevCompactCopyText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var npuStandardRouteS1DevFullDumpCopyText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS1FallbackText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var npuStandardRouteS4PseudoStreamingActive by remember(effectiveChatId) { mutableStateOf(false) }
@@ -3485,16 +3486,29 @@ fun Home(
                                                         } else {
                                                             null
                                                         }
-                                                        npuStandardRouteS1DevDiagnosticCopyText = if (
+                                                        npuStandardRouteS1DevCompactCopyText = if (
                                                             BuildConfig.DEBUG &&
                                                             developerAccessEnabled
                                                         ) {
-                                                            buildNpuStandardRouteS1DiagnosticCopyText(
+                                                            buildNpuStandardRouteS1CompactExplicitCopyText(
                                                                 input = requestPrompt,
                                                                 result = s1Result,
                                                                 maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                 transientFallback = s1Fallback?.kind,
                                                                 appHistoryText = NpuStandardRouteS1AppHistory.formatForDev(context.applicationContext),
+                                                            )
+                                                        } else {
+                                                            null
+                                                        }
+                                                        npuStandardRouteS1DevFullDumpCopyText = if (
+                                                            BuildConfig.DEBUG &&
+                                                            developerAccessEnabled
+                                                        ) {
+                                                            buildNpuStandardRouteS1FullDumpExplicitCopyText(
+                                                                input = requestPrompt,
+                                                                result = s1Result,
+                                                                maxOutputTokens = npuStandardRouteMaxOutputTokens,
+                                                                transientFallback = s1Fallback?.kind,
                                                             )
                                                         } else {
                                                             null
@@ -5782,10 +5796,25 @@ fun Home(
                                                     AnnotatedString(npuStandardRouteS1DevOutputText.orEmpty()),
                                                 )
                                             },
-                                            onCopyDiagnostic = {
+                                            onCopyCompact = {
                                                 clipboardManager.setText(
                                                     AnnotatedString(
-                                                        npuStandardRouteS1DevDiagnosticCopyText
+                                                        npuStandardRouteS1DevCompactCopyText
+                                                            ?: s1DevTraceText.orEmpty(),
+                                                    ),
+                                                )
+                                            },
+                                            onCopyRepeatedSummary = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        buildNpuS1RepeatedRunSummaryCopyText(npuS1RepeatedRunState),
+                                                    ),
+                                                )
+                                            },
+                                            onCopyFullDump = {
+                                                clipboardManager.setText(
+                                                    AnnotatedString(
+                                                        npuStandardRouteS1DevFullDumpCopyText
                                                             ?: s1DevTraceText.orEmpty(),
                                                     ),
                                                 )
@@ -9716,7 +9745,9 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     devTraceText: String? = null,
     onCopyInput: (() -> Unit)? = null,
     onCopyOutput: (() -> Unit)? = null,
-    onCopyDiagnostic: (() -> Unit)? = null,
+    onCopyCompact: (() -> Unit)? = null,
+    onCopyRepeatedSummary: (() -> Unit)? = null,
+    onCopyFullDump: (() -> Unit)? = null,
     s4Text: String? = null,
     s4Title: String? = null,
     onCopyS4: (() -> Unit)? = null,
@@ -9847,13 +9878,17 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
                 !devTraceText.isNullOrBlank() &&
                 onCopyInput != null &&
                 onCopyOutput != null &&
-                onCopyDiagnostic != null
+                onCopyCompact != null &&
+                onCopyRepeatedSummary != null &&
+                onCopyFullDump != null
             ) {
                 NpuStandardRouteS1DevTraceBlock(
                     text = devTraceText,
                     onCopyInput = onCopyInput,
                     onCopyOutput = onCopyOutput,
-                    onCopyDiagnostic = onCopyDiagnostic,
+                    onCopyCompact = onCopyCompact,
+                    onCopyRepeatedSummary = onCopyRepeatedSummary,
+                    onCopyFullDump = onCopyFullDump,
                 )
             }
             if (!s4Text.isNullOrBlank() && onCopyS4 != null) {
@@ -9867,12 +9902,15 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NpuStandardRouteS1DevTraceBlock(
     text: String,
     onCopyInput: () -> Unit,
     onCopyOutput: () -> Unit,
-    onCopyDiagnostic: () -> Unit,
+    onCopyCompact: () -> Unit,
+    onCopyRepeatedSummary: () -> Unit,
+    onCopyFullDump: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -9884,9 +9922,9 @@ private fun NpuStandardRouteS1DevTraceBlock(
             style = MaterialTheme.typography.labelSmall,
             color = Color.Red,
         )
-        Row(
+        FlowRow(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             TextButton(onClick = onCopyInput) {
                 Text(text = "入力コピー", color = Color.Red)
@@ -9894,8 +9932,14 @@ private fun NpuStandardRouteS1DevTraceBlock(
             TextButton(onClick = onCopyOutput) {
                 Text(text = "出力コピー", color = Color.Red)
             }
-            TextButton(onClick = onCopyDiagnostic) {
-                Text(text = "診断コピー", color = Color.Red)
+            TextButton(onClick = onCopyCompact) {
+                Text(text = "Copy Compact", color = Color.Red)
+            }
+            TextButton(onClick = onCopyRepeatedSummary) {
+                Text(text = "Copy Repeated Summary", color = Color.Red)
+            }
+            TextButton(onClick = onCopyFullDump) {
+                Text(text = "Copy Full Dump", color = Color.Red)
             }
         }
     }

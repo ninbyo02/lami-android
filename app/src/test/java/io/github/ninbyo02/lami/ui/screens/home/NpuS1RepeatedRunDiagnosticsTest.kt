@@ -545,6 +545,49 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("first_engine_create_failure_run_index=2"))
     }
 
+    @Test
+    fun `Copy Repeated Summary uses repeated summary formatter without compact body`() {
+        val state = NpuS1RepeatedRunState(
+            requestedRunCount = 50,
+            records = listOf(
+                record(runIndex = 1),
+                record(
+                    runIndex = 2,
+                    status = "failure",
+                    reason = "quality_candidate_fail",
+                    outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL,
+                ),
+                record(
+                    runIndex = 3,
+                    status = "failure",
+                    reason = "adapter_failure:LiteRtLmJniException: engine-create-failed",
+                    runDecodeReached = false,
+                    npuS1FailureKind = NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED,
+                    failureExceptionClass = "LiteRtLmJniException",
+                    failureExceptionMessage = "engine-create-failed",
+                ),
+            ),
+            stopped = true,
+            stopReason = "adapter_failure",
+        )
+
+        val copy = buildNpuS1RepeatedRunSummaryCopyText(state)
+
+        assertEquals(formatNpuS1RepeatedRunDiagnosticsForDev(state), copy)
+        assertTrue(copy.contains("[DEV診断: NPU S1 repeated run summary]"))
+        assertTrue(copy.contains("run_count_requested=50"))
+        assertTrue(copy.contains("run_count_completed=3"))
+        assertTrue(copy.contains("success_count=1"))
+        assertTrue(copy.contains("failure_count=2"))
+        assertTrue(copy.contains("engine_create_failed_count=1"))
+        assertTrue(copy.contains("quality_fail_count=1"))
+        assertTrue(copy.contains("first_failure_run_index=2"))
+        assertTrue(copy.contains("last_failure_run_index=3"))
+        assertTrue(copy.contains("stop_reason=adapter_failure"))
+        assertFalse(copy.contains("[DEV診断: NPU S1 compact]"))
+        assertFalse(copy.contains("[DEV診断: NPU S1 full dump]"))
+    }
+
     private fun record(
         runIndex: Int = 1,
         totalMs: Long? = 100L,

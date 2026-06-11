@@ -312,6 +312,7 @@ internal data class NpuS1RepeatedRunSummary(
     val repeatedRunFinishedAtWallTimeMs: Long?,
     val repeatedRunFinishedAtElapsedRealtimeMs: Long?,
     val firstFailureRunIndex: Int?,
+    val lastFailureRunIndex: Int?,
     val firstEngineCreateFailureRunIndex: Int?,
     val firstFailureWallTimeMs: Long?,
     val firstFailureElapsedRealtimeMs: Long?,
@@ -661,6 +662,7 @@ internal fun buildNpuS1RepeatedRunSummary(
     val first = records.firstOrNull()
     val last = records.lastOrNull()
     val firstFailure = records.firstOrNull { it.status != NpuStandardRouteS1Contract.STATUS_SUCCESS }
+    val lastFailure = records.lastOrNull { it.status != NpuStandardRouteS1Contract.STATUS_SUCCESS }
     val firstEngineCreateFailure = records.firstOrNull { it.isEngineCreateFailed() }
     val counterSnapshot = buildNpuS1RepeatedRunCounterSnapshot(records)
     val firstFailureRecords = firstFailure?.let { failure ->
@@ -726,6 +728,7 @@ internal fun buildNpuS1RepeatedRunSummary(
         repeatedRunFinishedAtWallTimeMs = state.finishedAtMs ?: last?.runFinishedAtWallTimeMs,
         repeatedRunFinishedAtElapsedRealtimeMs = state.finishedAtElapsedRealtimeMs ?: last?.runFinishedAtElapsedRealtimeMs,
         firstFailureRunIndex = firstFailure?.runIndex,
+        lastFailureRunIndex = lastFailure?.runIndex,
         firstEngineCreateFailureRunIndex = firstEngineCreateFailure?.runIndex,
         firstFailureWallTimeMs = firstFailure?.failureDetectedAtWallTimeMs ?: firstFailure?.runFinishedAtWallTimeMs,
         firstFailureElapsedRealtimeMs = firstFailure?.failureDetectedAtElapsedRealtimeMs ?: firstFailure?.runFinishedAtElapsedRealtimeMs,
@@ -847,6 +850,7 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("repeated_run_finished_at_wall_time_ms=${formatNullableLong(summary.repeatedRunFinishedAtWallTimeMs)}")
         appendLine("repeated_run_finished_at_elapsed_realtime_ms=${formatNullableLong(summary.repeatedRunFinishedAtElapsedRealtimeMs)}")
         appendLine("first_failure_run_index=${summary.firstFailureRunIndex?.toString() ?: "unavailable"}")
+        appendLine("last_failure_run_index=${summary.lastFailureRunIndex?.toString() ?: "unavailable"}")
         appendLine("first_engine_create_failure_run_index=${summary.firstEngineCreateFailureRunIndex?.toString() ?: "unavailable"}")
         appendLine("first_failure_wall_time_ms=${formatNullableLong(summary.firstFailureWallTimeMs)}")
         appendLine("first_failure_elapsed_realtime_ms=${formatNullableLong(summary.firstFailureElapsedRealtimeMs)}")
@@ -1028,6 +1032,10 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         }
     }.trimEnd()
 }
+
+internal fun buildNpuS1RepeatedRunSummaryCopyText(
+    state: NpuS1RepeatedRunState,
+): String = formatNpuS1RepeatedRunDiagnosticsForDev(state)
 
 internal fun appendNpuS1RepeatedRunDiagnosticsForDev(
     text: String,

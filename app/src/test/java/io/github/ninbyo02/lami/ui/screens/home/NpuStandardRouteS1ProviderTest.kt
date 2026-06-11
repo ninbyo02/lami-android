@@ -504,6 +504,84 @@ class NpuStandardRouteS1ProviderTest {
     }
 
     @Test
+    fun `Copy Compact uses compact formatter explicitly`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "raw",
+                sanitizedOutput = "こんばんは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+            ),
+        )
+
+        val copy = buildNpuStandardRouteS1CompactExplicitCopyText(
+            input = "こんばんは",
+            result = result,
+        )
+
+        assertEquals(
+            buildNpuStandardRouteS1DiagnosticCopyText(
+                input = "こんばんは",
+                result = result,
+            ),
+            copy,
+        )
+        assertTrue(copy.contains("[DEV診断: NPU S1 compact]"))
+        assertFalse(copy.contains("[DEV診断: NPU S1 repeated run summary]"))
+        assertFalse(copy.contains("[DEV診断: NPU S1 full dump]"))
+    }
+
+    @Test
+    fun `Copy Full Dump uses full dump formatter explicitly and keeps full dump summary sections`() {
+        val result = NpuStandardRouteS1Mapper.map(
+            NpuStandardRouteS1RawResult(
+                status = "success",
+                result = "success",
+                success = true,
+                reason = "success",
+                rawOutput = "raw",
+                sanitizedOutput = "こんばんは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                requestedMaxOutputTokens = 256,
+                effectiveMaxOutputTokens = 256,
+            ),
+        )
+
+        val copy = buildNpuStandardRouteS1FullDumpExplicitCopyText(
+            input = "こんばんは",
+            result = result,
+            maxOutputTokens = 256,
+        )
+
+        assertEquals(
+            buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
+                input = "こんばんは",
+                result = result,
+                maxOutputTokens = 256,
+            ),
+            copy,
+        )
+        assertTrue(copy.contains("[DEV診断: NPU S1 full dump]"))
+        assertTrue(copy.contains("[DEV診断: NPU S1 short output telemetry]"))
+        assertTrue(copy.contains("status=success"))
+        assertTrue(copy.contains("reason=success"))
+        assertFalse(copy.contains("[DEV診断: NPU S1 repeated run summary]"))
+    }
+
+    @Test
     fun `S1 dev trace records original failure when safe greeting fallback is applied`() {
         val result = NpuStandardRouteS1Mapper.map(
             NpuStandardRouteS1RawResult(

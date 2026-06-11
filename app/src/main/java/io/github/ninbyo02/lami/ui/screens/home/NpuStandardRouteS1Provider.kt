@@ -223,6 +223,32 @@ internal fun buildNpuStandardRouteS1DiagnosticCopyText(
     return sections.joinToString("\n\n")
 }
 
+internal fun buildNpuStandardRouteS1CompactExplicitCopyText(
+    input: String,
+    result: NpuStandardRouteS1Result,
+    maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
+    transientFallback: String? = null,
+    appHistoryText: String = "",
+): String = buildNpuStandardRouteS1DiagnosticCopyText(
+    input = input,
+    result = result,
+    maxOutputTokens = maxOutputTokens,
+    transientFallback = transientFallback,
+    appHistoryText = appHistoryText,
+)
+
+internal fun buildNpuStandardRouteS1FullDumpExplicitCopyText(
+    input: String,
+    result: NpuStandardRouteS1Result,
+    maxOutputTokens: Int = result.selection.effectiveMaxOutputTokens,
+    transientFallback: String? = null,
+): String = buildNpuStandardRouteS1FullDumpDiagnosticCopyText(
+    input = input,
+    result = result,
+    maxOutputTokens = maxOutputTokens,
+    transientFallback = transientFallback,
+)
+
 internal fun buildNpuStandardRouteS1CompactDiagnosticCopyText(
     input: String,
     result: NpuStandardRouteS1Result,
