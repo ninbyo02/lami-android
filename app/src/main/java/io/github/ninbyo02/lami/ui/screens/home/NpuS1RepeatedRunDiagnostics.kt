@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Process
 import android.util.Log
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -17,6 +18,9 @@ internal const val NPU_S1_REPEATED_RUN_STATUS_CANCELLED = "cancelled"
 internal const val NPU_S1_REPEATED_RUN_STATUS_STOPPED = "stopped"
 internal const val NPU_S1_REPEATED_RUN_DEFAULT_PROMPT = "こんにちは"
 internal const val NPU_S1_REPEATED_RUN_DEFAULT_COUNT = 20
+internal const val NPU_S1_REPEATED_RUN_SAFE_COUNT = 20
+internal const val NPU_S1_REPEATED_RUN_SAFE_WAIT_MS = 500L
+internal val NPU_S1_REPEATED_RUN_SAFE_MODE = NpuS1RepeatedRunMode.RECREATE
 internal val NPU_S1_REPEATED_RUN_PROMPT_OPTIONS = listOf(
     "1+1は？",
     "１＋１は？",
@@ -25,6 +29,9 @@ internal val NPU_S1_REPEATED_RUN_PROMPT_OPTIONS = listOf(
 )
 internal val NPU_S1_REPEATED_RUN_COUNT_OPTIONS = listOf(20, 50, 100)
 internal val NPU_S1_REPEATED_RUN_WAIT_MS_OPTIONS = listOf(0L, 500L, 2_000L)
+internal val NPU_S1_REPEATED_RUN_SAFE_COUNT_OPTIONS = listOf(NPU_S1_REPEATED_RUN_SAFE_COUNT)
+internal val NPU_S1_REPEATED_RUN_SAFE_WAIT_MS_OPTIONS = listOf(NPU_S1_REPEATED_RUN_SAFE_WAIT_MS, 2_000L)
+internal val NPU_S1_REPEATED_RUN_SAFE_MODE_OPTIONS = listOf(NPU_S1_REPEATED_RUN_SAFE_MODE)
 internal const val NPU_S1_REPEATED_RUN_ABNORMAL_TOTAL_MS = 30_000L
 internal const val NPU_S1_REPEATED_RUN_RECREATE_NOTE =
     "s1_direct_runner_engine_session_dispose_not_exposed_uses_safe_holder_recreate_api"
@@ -39,6 +46,26 @@ internal const val NPU_S1_COUNTER_NOTE =
     "counters_are_app_layer_attempts_engine_create_may_be_unavailable_if_not_exposed"
 internal const val NPU_S1_ENGINE_CREATE_VISIBILITY = "not_exposed"
 internal const val NPU_S1_ENGINE_CREATE_SOURCE = "not_exposed"
+internal const val NPU_S1_BACKEND_NPU = "NPU"
+internal const val NPU_S1_BACKEND_GPU = "GPU"
+internal const val NPU_S1_BACKEND_CPU = "CPU"
+internal const val NPU_S1_BACKEND_UNAVAILABLE = "unavailable"
+internal const val NPU_S1_ROUTE_FAMILY_NPU_S1 = "npu_s1"
+internal const val NPU_S1_ROUTE_FAMILY_LOCAL_CPU = "local_cpu"
+internal const val NPU_S1_ROUTE_FAMILY_LOCAL_GPU = "local_gpu"
+internal const val NPU_S1_ROUTE_FAMILY_UNAVAILABLE = "unavailable"
+internal const val NPU_S1_BACKEND_EVIDENCE_CPU_ROUTE = "cpu_route"
+internal const val NPU_S1_BACKEND_EVIDENCE_GPU_ROUTE = "gpu_route"
+internal const val NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE = "unavailable"
+internal const val NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU = "selected_backend_not_npu"
+internal const val NPU_S1_REPEATED_RUN_BLOCKED_REUSE_DISABLED = "reuse_disabled_for_safety"
+internal const val NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_RUN_COUNT = "unsafe_run_count"
+internal const val NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_WAIT_MS = "unsafe_wait_ms"
+internal const val NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_MODE = "unsafe_repeated_run_mode"
+internal const val NPU_S1_REPEATED_RUN_SAFETY_POLICY_STOP_ON_ENGINE_CREATE_FAILED =
+    "stop_on_first_engine_create_failed"
+internal const val NPU_S1_REPEATED_RUN_GUARD_RECOMMENDATION_ENGINE_CREATE_FAILED =
+    "disable_npu_until_app_restart_or_cooldown"
 internal const val NPU_S1_NATIVE_STAGE_ADAPTER_START = "adapter_start"
 internal const val NPU_S1_NATIVE_STAGE_PROVIDER_START = "provider_start"
 internal const val NPU_S1_NATIVE_STAGE_BEFORE_NATIVE_CALL = "before_native_call"
@@ -143,6 +170,90 @@ internal fun npuS1RepeatedRunLifecyclePlan(mode: NpuS1RepeatedRunMode): NpuS1Rep
         waitAfterRunMs = mode.waitAfterRunMs,
     )
 
+internal data class NpuS1BackendDiagnostics(
+    val selectedBackend: String = NPU_S1_BACKEND_UNAVAILABLE,
+    val requestedBackend: String = NPU_S1_BACKEND_NPU,
+    val effectiveBackend: String = NPU_S1_BACKEND_UNAVAILABLE,
+    val backendEvidence: String = NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE,
+    val routeFamily: String = NPU_S1_ROUTE_FAMILY_UNAVAILABLE,
+)
+
+internal fun npuS1BackendFromPreferredSetting(setting: PreferredBackendDryRunSetting): String = when (setting) {
+    PreferredBackendDryRunSetting.CPU -> NPU_S1_BACKEND_CPU
+    PreferredBackendDryRunSetting.GPU -> NPU_S1_BACKEND_GPU
+    PreferredBackendDryRunSetting.DEFAULT,
+    PreferredBackendDryRunSetting.NPU,
+    PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> NPU_S1_BACKEND_NPU
+}
+
+internal fun npuS1BackendDiagnosticsForPreferredSetting(
+    setting: PreferredBackendDryRunSetting,
+    backendEvidence: String = NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE,
+): NpuS1BackendDiagnostics {
+    val selectedBackend = npuS1BackendFromPreferredSetting(setting)
+    val resolvedEvidence = backendEvidence
+        .takeIf { it.isNotBlank() && it != NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE }
+        ?: when (selectedBackend) {
+            NPU_S1_BACKEND_CPU -> NPU_S1_BACKEND_EVIDENCE_CPU_ROUTE
+            NPU_S1_BACKEND_GPU -> NPU_S1_BACKEND_EVIDENCE_GPU_ROUTE
+            else -> NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE
+        }
+    val hasNpuEvidence = backendEvidence == NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE ||
+        backendEvidence.contains("QNN_HTP", ignoreCase = true) ||
+        backendEvidence.contains("FastRPC", ignoreCase = true)
+    return NpuS1BackendDiagnostics(
+        selectedBackend = selectedBackend,
+        requestedBackend = NPU_S1_BACKEND_NPU,
+        effectiveBackend = when {
+            resolvedEvidence == NPU_S1_BACKEND_EVIDENCE_CPU_ROUTE -> NPU_S1_BACKEND_CPU
+            resolvedEvidence == NPU_S1_BACKEND_EVIDENCE_GPU_ROUTE -> NPU_S1_BACKEND_GPU
+            hasNpuEvidence -> NPU_S1_BACKEND_NPU
+            else -> NPU_S1_BACKEND_UNAVAILABLE
+        },
+        backendEvidence = resolvedEvidence,
+        routeFamily = when {
+            hasNpuEvidence -> NPU_S1_ROUTE_FAMILY_NPU_S1
+            selectedBackend == NPU_S1_BACKEND_CPU -> NPU_S1_ROUTE_FAMILY_LOCAL_CPU
+            selectedBackend == NPU_S1_BACKEND_GPU -> NPU_S1_ROUTE_FAMILY_LOCAL_GPU
+            selectedBackend == NPU_S1_BACKEND_NPU -> NPU_S1_ROUTE_FAMILY_NPU_S1
+            else -> NPU_S1_ROUTE_FAMILY_UNAVAILABLE
+        },
+    )
+}
+
+internal fun npuS1BackendDiagnosticsForResult(
+    result: NpuStandardRouteS1Result,
+    preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
+): NpuS1BackendDiagnostics =
+    npuS1BackendDiagnosticsForPreferredSetting(
+        setting = preferredBackendSetting,
+        backendEvidence = result.npuBackendEvidence.ifBlank { NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE },
+    )
+
+internal data class NpuS1RepeatedRunStartGate(
+    val allowed: Boolean,
+    val blockedReason: String = "none",
+)
+
+internal fun npuS1RepeatedRunStartGate(
+    preferredBackendSetting: PreferredBackendDryRunSetting,
+    mode: NpuS1RepeatedRunMode,
+    runCount: Int,
+    waitMs: Long,
+): NpuS1RepeatedRunStartGate = when {
+    npuS1BackendFromPreferredSetting(preferredBackendSetting) != NPU_S1_BACKEND_NPU ->
+        NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU)
+    mode == NpuS1RepeatedRunMode.REUSE ->
+        NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_REUSE_DISABLED)
+    mode !in NPU_S1_REPEATED_RUN_SAFE_MODE_OPTIONS ->
+        NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_MODE)
+    runCount !in NPU_S1_REPEATED_RUN_SAFE_COUNT_OPTIONS ->
+        NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_RUN_COUNT)
+    waitMs < NPU_S1_REPEATED_RUN_SAFE_WAIT_MS ->
+        NpuS1RepeatedRunStartGate(false, NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_WAIT_MS)
+    else -> NpuS1RepeatedRunStartGate(true)
+}
+
 internal data class NpuS1ShortOutputTelemetry(
     val finishReason: String = "unavailable",
     val stopReason: String = "unavailable",
@@ -188,6 +299,11 @@ internal data class NpuS1RepeatedRunRecord(
     val ttsText: String = actualDisplayText,
     val npuS1FailureKind: String = "unavailable",
     val nativeCrashRiskHint: String = "unavailable",
+    val selectedBackend: String = NPU_S1_BACKEND_UNAVAILABLE,
+    val requestedBackend: String = NPU_S1_BACKEND_NPU,
+    val effectiveBackend: String = NPU_S1_BACKEND_UNAVAILABLE,
+    val backendEvidence: String = NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE,
+    val routeFamily: String = NPU_S1_ROUTE_FAMILY_UNAVAILABLE,
     val totalMs: Long?,
     val decodeMs: Long?,
     val outputTokens: Int?,
@@ -260,6 +376,12 @@ internal data class NpuS1RepeatedRunState(
     val maxOutputTokens: Int = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
     val repeatedRunMode: NpuS1RepeatedRunMode = NpuS1RepeatedRunMode.REUSE,
     val repeatedRunWaitMs: Long = 0L,
+    val selectedBackend: String = NPU_S1_BACKEND_UNAVAILABLE,
+    val requestedBackend: String = NPU_S1_BACKEND_NPU,
+    val effectiveBackend: String = NPU_S1_BACKEND_UNAVAILABLE,
+    val backendEvidence: String = NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE,
+    val routeFamily: String = NPU_S1_ROUTE_FAMILY_UNAVAILABLE,
+    val blockedReason: String = "none",
     val records: List<NpuS1RepeatedRunRecord> = emptyList(),
     val stopped: Boolean = false,
     val stopReason: String = "none",
@@ -274,6 +396,12 @@ internal data class NpuS1RepeatedRunSummary(
     val repeatedRunMode: NpuS1RepeatedRunMode,
     val stopped: Boolean,
     val stopReason: String,
+    val selectedBackend: String,
+    val requestedBackend: String,
+    val effectiveBackend: String,
+    val backendEvidence: String,
+    val routeFamily: String,
+    val blockedReason: String,
     val successCount: Int,
     val failureCount: Int,
     val engineCreateFailedCount: Int,
@@ -281,6 +409,8 @@ internal data class NpuS1RepeatedRunSummary(
     val freshCrashCount: Int,
     val timeoutCount: Int,
     val nativeCrashRiskHint: String,
+    val guardRecommendation: String,
+    val repeatedRunSafetyPolicy: String,
     val safetyGuardCount: Int,
     val qualityFailCount: Int,
     val arithmeticTailLeakCount: Int,
@@ -664,6 +794,7 @@ internal fun buildNpuS1RepeatedRunSummary(
     val firstFailure = records.firstOrNull { it.status != NpuStandardRouteS1Contract.STATUS_SUCCESS }
     val lastFailure = records.lastOrNull { it.status != NpuStandardRouteS1Contract.STATUS_SUCCESS }
     val firstEngineCreateFailure = records.firstOrNull { it.isEngineCreateFailed() }
+    val engineCreateFailedCount = records.count { it.isEngineCreateFailed() }
     val counterSnapshot = buildNpuS1RepeatedRunCounterSnapshot(records)
     val firstFailureRecords = firstFailure?.let { failure ->
         records.takeWhile { it !== failure } + failure
@@ -689,14 +820,36 @@ internal fun buildNpuS1RepeatedRunSummary(
         repeatedRunMode = state.repeatedRunMode,
         stopped = state.stopped,
         stopReason = state.stopReason,
+        selectedBackend = state.selectedBackend.takeUnless { it == NPU_S1_BACKEND_UNAVAILABLE }
+            ?: first?.selectedBackend
+            ?: NPU_S1_BACKEND_UNAVAILABLE,
+        requestedBackend = state.requestedBackend.takeUnless { it == NPU_S1_BACKEND_UNAVAILABLE }
+            ?: first?.requestedBackend
+            ?: NPU_S1_BACKEND_NPU,
+        effectiveBackend = state.effectiveBackend.takeUnless { it == NPU_S1_BACKEND_UNAVAILABLE }
+            ?: first?.effectiveBackend
+            ?: NPU_S1_BACKEND_UNAVAILABLE,
+        backendEvidence = state.backendEvidence.takeUnless { it == NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE }
+            ?: first?.backendEvidence
+            ?: NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE,
+        routeFamily = state.routeFamily.takeUnless { it == NPU_S1_ROUTE_FAMILY_UNAVAILABLE }
+            ?: first?.routeFamily
+            ?: NPU_S1_ROUTE_FAMILY_UNAVAILABLE,
+        blockedReason = state.blockedReason,
         successCount = records.count { it.status == NpuStandardRouteS1Contract.STATUS_SUCCESS },
         failureCount = records.count { it.status != NpuStandardRouteS1Contract.STATUS_SUCCESS },
-        engineCreateFailedCount = records.count { it.isEngineCreateFailed() },
+        engineCreateFailedCount = engineCreateFailedCount,
         fallbackCount = records.count { it.fallbackUsed },
         freshCrashCount = records.count { it.freshCrash },
         timeoutCount = records.count { it.timeout },
         nativeCrashRiskHint = records.firstOrNull { it.nativeCrashRiskHint != "unavailable" }?.nativeCrashRiskHint
             ?: if (records.any { it.freshCrash }) "fresh_crash_detected_stop_before_release" else "unavailable",
+        guardRecommendation = if (engineCreateFailedCount > 0) {
+            NPU_S1_REPEATED_RUN_GUARD_RECOMMENDATION_ENGINE_CREATE_FAILED
+        } else {
+            "unavailable"
+        },
+        repeatedRunSafetyPolicy = NPU_S1_REPEATED_RUN_SAFETY_POLICY_STOP_ON_ENGINE_CREATE_FAILED,
         safetyGuardCount = records.count { it.safetyGuardTriggered },
         qualityFailCount = records.count { it.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL },
         arithmeticTailLeakCount = records.count { it.arithmeticTailLeakDetected },
@@ -777,6 +930,7 @@ internal fun repeatedRunSafetyStopReason(record: NpuS1RepeatedRunRecord): String
     record.timeout -> "timeout"
     record.safetyGuardTriggered -> "safety_guard_triggered"
     record.recreateResultAfterRun.startsWith("failed") -> "engine_recreate_failure"
+    record.isEngineCreateFailed() -> NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED
     record.reason.startsWith("adapter_failure") -> "adapter_failure"
     record.reason.contains("LiteRtLmJniException") -> "adapter_failure"
     !record.runDecodeReached -> "run_decode_reached_false"
@@ -812,6 +966,12 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("recreate_api_note=$NPU_S1_REPEATED_RUN_RECREATE_NOTE")
         appendLine("stopped=${summary.stopped}")
         appendLine("stop_reason=${summary.stopReason}")
+        appendLine("blocked_reason=${summary.blockedReason}")
+        appendLine("selected_backend=${summary.selectedBackend}")
+        appendLine("requested_backend=${summary.requestedBackend}")
+        appendLine("effective_backend=${summary.effectiveBackend}")
+        appendLine("backend_evidence=${summary.backendEvidence}")
+        appendLine("route_family=${summary.routeFamily}")
         appendLine("success_count=${summary.successCount}")
         appendLine("failure_count=${summary.failureCount}")
         appendLine("engine_create_failed_count=${summary.engineCreateFailedCount}")
@@ -819,6 +979,8 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("fresh_crash_count=${summary.freshCrashCount}")
         appendLine("timeout_count=${summary.timeoutCount}")
         appendLine("native_crash_risk_hint=${summary.nativeCrashRiskHint}")
+        appendLine("guard_recommendation=${summary.guardRecommendation}")
+        appendLine("repeated_run_safety_policy=${summary.repeatedRunSafetyPolicy}")
         appendLine("safety_guard_count=${summary.safetyGuardCount}")
         appendLine("quality_fail_count=${summary.qualityFailCount}")
         appendLine("arithmetic_tail_leak_count=${summary.arithmeticTailLeakCount}")
@@ -928,6 +1090,11 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
                 appendLine("tts_text=${record.ttsText}")
                 appendLine("npu_s1_failure_kind=${record.npuS1FailureKind}")
                 appendLine("native_crash_risk_hint=${record.nativeCrashRiskHint}")
+                appendLine("selected_backend=${record.selectedBackend}")
+                appendLine("requested_backend=${record.requestedBackend}")
+                appendLine("effective_backend=${record.effectiveBackend}")
+                appendLine("backend_evidence=${record.backendEvidence}")
+                appendLine("route_family=${record.routeFamily}")
                 appendLine("npu_s1_total_ms=${formatNullableLong(record.totalMs)}")
                 appendLine("npu_s1_decode_ms=${formatNullableLong(record.decodeMs)}")
                 appendLine("npu_s1_output_tokens=${record.outputTokens?.toString() ?: "unavailable"}")

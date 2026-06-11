@@ -535,6 +535,11 @@ class NpuStandardRouteS1ProviderTest {
             copy,
         )
         assertTrue(copy.contains("[DEV診断: NPU S1 compact]"))
+        assertTrue(copy.contains("selected_backend=NPU"))
+        assertTrue(copy.contains("requested_backend=NPU"))
+        assertTrue(copy.contains("effective_backend=NPU"))
+        assertTrue(copy.contains("backend_evidence=QNN_HTP_V79_FastRPC_native_diag"))
+        assertTrue(copy.contains("route_family=npu_s1"))
         assertFalse(copy.contains("[DEV診断: NPU S1 repeated run summary]"))
         assertFalse(copy.contains("[DEV診断: NPU S1 full dump]"))
     }
@@ -578,6 +583,11 @@ class NpuStandardRouteS1ProviderTest {
         assertTrue(copy.contains("[DEV診断: NPU S1 short output telemetry]"))
         assertTrue(copy.contains("status=success"))
         assertTrue(copy.contains("reason=success"))
+        assertTrue(copy.contains("selected_backend=NPU"))
+        assertTrue(copy.contains("requested_backend=NPU"))
+        assertTrue(copy.contains("effective_backend=NPU"))
+        assertTrue(copy.contains("backend_evidence=QNN_HTP_V79_FastRPC_native_diag"))
+        assertTrue(copy.contains("route_family=npu_s1"))
         assertFalse(copy.contains("[DEV診断: NPU S1 repeated run summary]"))
     }
 

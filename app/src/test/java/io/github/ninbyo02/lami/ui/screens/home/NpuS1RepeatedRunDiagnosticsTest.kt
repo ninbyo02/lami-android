@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.npu.Qairt244NpuOutputSanitizer
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -549,6 +550,11 @@ class NpuS1RepeatedRunDiagnosticsTest {
     fun `Copy Repeated Summary uses repeated summary formatter without compact body`() {
         val state = NpuS1RepeatedRunState(
             requestedRunCount = 50,
+            selectedBackend = NPU_S1_BACKEND_NPU,
+            requestedBackend = NPU_S1_BACKEND_NPU,
+            effectiveBackend = NPU_S1_BACKEND_NPU,
+            backendEvidence = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+            routeFamily = NPU_S1_ROUTE_FAMILY_NPU_S1,
             records = listOf(
                 record(runIndex = 1),
                 record(
@@ -581,11 +587,142 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(copy.contains("failure_count=2"))
         assertTrue(copy.contains("engine_create_failed_count=1"))
         assertTrue(copy.contains("quality_fail_count=1"))
+        assertTrue(copy.contains("selected_backend=NPU"))
+        assertTrue(copy.contains("requested_backend=NPU"))
+        assertTrue(copy.contains("effective_backend=NPU"))
+        assertTrue(copy.contains("backend_evidence=QNN_HTP_V79_FastRPC_native_diag"))
+        assertTrue(copy.contains("route_family=npu_s1"))
         assertTrue(copy.contains("first_failure_run_index=2"))
         assertTrue(copy.contains("last_failure_run_index=3"))
         assertTrue(copy.contains("stop_reason=adapter_failure"))
         assertFalse(copy.contains("[DEV診断: NPU S1 compact]"))
         assertFalse(copy.contains("[DEV診断: NPU S1 full dump]"))
+    }
+
+    @Test
+    fun `repeated run start gate only allows NPU recreate twenty runs with wait`() {
+        assertTrue(
+            npuS1RepeatedRunStartGate(
+                preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                mode = NpuS1RepeatedRunMode.RECREATE,
+                runCount = 20,
+                waitMs = 500L,
+            ).allowed,
+        )
+        assertTrue(
+            npuS1RepeatedRunStartGate(
+                preferredBackendSetting = PreferredBackendDryRunSetting.NPU,
+                mode = NpuS1RepeatedRunMode.RECREATE,
+                runCount = 20,
+                waitMs = 500L,
+            ).allowed,
+        )
+        assertTrue(
+            npuS1RepeatedRunStartGate(
+                preferredBackendSetting = PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU,
+                mode = NpuS1RepeatedRunMode.RECREATE,
+                runCount = 20,
+                waitMs = 2_000L,
+            ).allowed,
+        )
+        assertEquals(
+            NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU,
+            npuS1RepeatedRunStartGate(
+                preferredBackendSetting = PreferredBackendDryRunSetting.CPU,
+                mode = NpuS1RepeatedRunMode.RECREATE,
+                runCount = 20,
+                waitMs = 500L,
+            ).blockedReason,
+        )
+        assertEquals(
+            NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU,
+            npuS1RepeatedRunStartGate(
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                mode = NpuS1RepeatedRunMode.RECREATE,
+                runCount = 20,
+                waitMs = 500L,
+            ).blockedReason,
+        )
+        assertEquals(
+            NPU_S1_REPEATED_RUN_BLOCKED_REUSE_DISABLED,
+            npuS1RepeatedRunStartGate(
+                preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                mode = NpuS1RepeatedRunMode.REUSE,
+                runCount = 20,
+                waitMs = 500L,
+            ).blockedReason,
+        )
+        assertEquals(
+            NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_RUN_COUNT,
+            npuS1RepeatedRunStartGate(
+                preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                mode = NpuS1RepeatedRunMode.RECREATE,
+                runCount = 50,
+                waitMs = 500L,
+            ).blockedReason,
+        )
+        assertEquals(
+            NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_RUN_COUNT,
+            npuS1RepeatedRunStartGate(
+                preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                mode = NpuS1RepeatedRunMode.RECREATE,
+                runCount = 100,
+                waitMs = 500L,
+            ).blockedReason,
+        )
+        assertEquals(
+            NPU_S1_REPEATED_RUN_BLOCKED_UNSAFE_WAIT_MS,
+            npuS1RepeatedRunStartGate(
+                preferredBackendSetting = PreferredBackendDryRunSetting.DEFAULT,
+                mode = NpuS1RepeatedRunMode.RECREATE,
+                runCount = 20,
+                waitMs = 0L,
+            ).blockedReason,
+        )
+    }
+
+    @Test
+    fun `blocked repeated run summary records selected backend not npu`() {
+        val state = NpuS1RepeatedRunState(
+            status = NPU_S1_REPEATED_RUN_STATUS_STOPPED,
+            selectedBackend = NPU_S1_BACKEND_GPU,
+            requestedBackend = NPU_S1_BACKEND_NPU,
+            effectiveBackend = NPU_S1_BACKEND_GPU,
+            backendEvidence = NPU_S1_BACKEND_EVIDENCE_GPU_ROUTE,
+            routeFamily = NPU_S1_ROUTE_FAMILY_LOCAL_GPU,
+            blockedReason = NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU,
+            stopped = true,
+            stopReason = "blocked",
+        )
+        val text = formatNpuS1RepeatedRunDiagnosticsForDev(state)
+
+        assertTrue(text.contains("selected_backend=GPU"))
+        assertTrue(text.contains("requested_backend=NPU"))
+        assertTrue(text.contains("effective_backend=GPU"))
+        assertTrue(text.contains("backend_evidence=gpu_route"))
+        assertTrue(text.contains("route_family=local_gpu"))
+        assertTrue(text.contains("blocked_reason=selected_backend_not_npu"))
+    }
+
+    @Test
+    fun `engine create failed summary records safety policy and guard recommendation`() {
+        val text = formatNpuS1RepeatedRunDiagnosticsForDev(
+            NpuS1RepeatedRunState(
+                records = listOf(
+                    record(
+                        status = "failure",
+                        reason = "adapter_failure:LiteRtLmJniException: engine-create-failed",
+                        runDecodeReached = false,
+                        npuS1FailureKind = NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED,
+                        failureExceptionClass = "LiteRtLmJniException",
+                        failureExceptionMessage = "engine-create-failed",
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(text.contains("repeated_run_safety_policy=stop_on_first_engine_create_failed"))
+        assertTrue(text.contains("guard_recommendation=disable_npu_until_app_restart_or_cooldown"))
     }
 
     private fun record(
@@ -622,6 +759,11 @@ class NpuS1RepeatedRunDiagnosticsTest {
         ttsText: String = actualDisplayText,
         npuS1FailureKind: String = "unavailable",
         nativeCrashRiskHint: String = "unavailable",
+        selectedBackend: String = NPU_S1_BACKEND_NPU,
+        requestedBackend: String = NPU_S1_BACKEND_NPU,
+        effectiveBackend: String = NPU_S1_BACKEND_NPU,
+        backendEvidence: String = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE,
+        routeFamily: String = NPU_S1_ROUTE_FAMILY_NPU_S1,
         failureExceptionClass: String = "unavailable",
         failureExceptionMessage: String = "unavailable",
         failureDetectedAtElapsedRealtimeMs: Long? = null,
@@ -650,6 +792,11 @@ class NpuS1RepeatedRunDiagnosticsTest {
         ttsText = ttsText,
         npuS1FailureKind = npuS1FailureKind,
         nativeCrashRiskHint = nativeCrashRiskHint,
+        selectedBackend = selectedBackend,
+        requestedBackend = requestedBackend,
+        effectiveBackend = effectiveBackend,
+        backendEvidence = backendEvidence,
+        routeFamily = routeFamily,
         totalMs = totalMs,
         decodeMs = totalMs?.minus(1L),
         outputTokens = 6,

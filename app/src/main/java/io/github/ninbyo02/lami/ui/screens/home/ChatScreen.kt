@@ -1008,10 +1008,10 @@ fun Home(
     var memoryRecoveryCheckRunId by remember(effectiveChatId) { mutableStateOf(0L) }
     var npuS1RepeatedRunState by remember(effectiveChatId) { mutableStateOf(NpuS1RepeatedRunState()) }
     var npuS1RepeatedRunJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
-    var npuS1RepeatedRunMode by rememberSaveable(effectiveChatId) { mutableStateOf(NpuS1RepeatedRunMode.REUSE) }
+    var npuS1RepeatedRunMode by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_SAFE_MODE) }
     var npuS1RepeatedRunPrompt by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_DEFAULT_PROMPT) }
-    var npuS1RepeatedRunCount by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_DEFAULT_COUNT) }
-    var npuS1RepeatedRunWaitMs by rememberSaveable(effectiveChatId) { mutableStateOf(0L) }
+    var npuS1RepeatedRunCount by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_SAFE_COUNT) }
+    var npuS1RepeatedRunWaitMs by rememberSaveable(effectiveChatId) { mutableStateOf(NPU_S1_REPEATED_RUN_SAFE_WAIT_MS) }
     var npuS1PersistentEngineState by remember(effectiveChatId) {
         mutableStateOf(NpuS1PersistentEngineProbeState())
     }
@@ -1121,6 +1121,21 @@ fun Home(
     fun startNpuS1RepeatedRun() {
         val requestedRunCount = npuS1RepeatedRunCount
         val promptForRun = npuS1RepeatedRunPrompt
+        val runMode = npuS1RepeatedRunMode
+        val selectedBackendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(
+            setting = preferredBackendDryRunSetting,
+            backendEvidence = if (npuS1BackendFromPreferredSetting(preferredBackendDryRunSetting) == NPU_S1_BACKEND_NPU) {
+                NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE
+            } else {
+                NPU_S1_BACKEND_EVIDENCE_UNAVAILABLE
+            },
+        )
+        val startGate = npuS1RepeatedRunStartGate(
+            preferredBackendSetting = preferredBackendDryRunSetting,
+            mode = runMode,
+            runCount = requestedRunCount,
+            waitMs = npuS1RepeatedRunWaitMs,
+        )
         if (BuildConfig.DEBUG) {
             runCatching {
                 android.util.Log.i(
@@ -1128,10 +1143,16 @@ fun Home(
                     listOf(
                         "event=repeated_run_button_clicked_or_start_invoked",
                         "source=ChatScreen",
-                        "selected_repeated_run_mode=${npuS1RepeatedRunMode.wireValue}",
+                        "selected_repeated_run_mode=${runMode.wireValue}",
                         "prompt_length=${promptForRun.length}",
                         "run_count_requested=$requestedRunCount",
                         "repeated_run_wait_ms=$npuS1RepeatedRunWaitMs",
+                        "selected_backend=${selectedBackendDiagnostics.selectedBackend}",
+                        "requested_backend=${selectedBackendDiagnostics.requestedBackend}",
+                        "effective_backend=${selectedBackendDiagnostics.effectiveBackend}",
+                        "backend_evidence=${selectedBackendDiagnostics.backendEvidence}",
+                        "route_family=${selectedBackendDiagnostics.routeFamily}",
+                        "blocked_reason=${startGate.blockedReason}",
                         "max_output_tokens=${NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS}",
                         "build_debug=${BuildConfig.DEBUG}",
                         "pid=${runCatching { android.os.Process.myPid().toString() }.getOrDefault("unavailable")}",
@@ -1151,8 +1172,41 @@ fun Home(
             return
         }
         if (npuS1RepeatedRunJob?.isActive == true) return
+        if (!startGate.allowed) {
+            npuS1RepeatedRunState = NpuS1RepeatedRunState(
+                status = NPU_S1_REPEATED_RUN_STATUS_STOPPED,
+                startedAtMs = System.currentTimeMillis(),
+                startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                finishedAtMs = System.currentTimeMillis(),
+                finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                prompt = promptForRun,
+                requestedRunCount = requestedRunCount,
+                maxOutputTokens = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
+                repeatedRunMode = runMode,
+                repeatedRunWaitMs = npuS1RepeatedRunWaitMs,
+                selectedBackend = selectedBackendDiagnostics.selectedBackend,
+                requestedBackend = selectedBackendDiagnostics.requestedBackend,
+                effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+                backendEvidence = selectedBackendDiagnostics.backendEvidence,
+                routeFamily = selectedBackendDiagnostics.routeFamily,
+                blockedReason = startGate.blockedReason,
+                stopped = true,
+                stopReason = "blocked",
+            )
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = if (startGate.blockedReason == NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU) {
+                        "NPU S1 repeated run はNPU選択時のみ実行可能"
+                    } else {
+                        "NPU S1 repeated run safety policy により実行できません"
+                    },
+                    duration = SnackbarDuration.Short,
+                )
+            }
+            return
+        }
         val maxTokensForRun = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS
-        val runMode = npuS1RepeatedRunMode
         val lifecyclePlan = npuS1RepeatedRunLifecyclePlan(runMode)
             .copy(waitAfterRunMs = npuS1RepeatedRunWaitMs)
         val startedAtMs = System.currentTimeMillis()
@@ -1166,6 +1220,11 @@ fun Home(
             maxOutputTokens = maxTokensForRun,
             repeatedRunMode = runMode,
             repeatedRunWaitMs = lifecyclePlan.waitAfterRunMs,
+            selectedBackend = selectedBackendDiagnostics.selectedBackend,
+            requestedBackend = selectedBackendDiagnostics.requestedBackend,
+            effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+            backendEvidence = selectedBackendDiagnostics.backendEvidence,
+            routeFamily = selectedBackendDiagnostics.routeFamily,
         )
         npuS1RepeatedRunJob = coroutineScope.launch {
             logNpuS1RepeatedRunnerEnteredDirectProbe(
@@ -1230,6 +1289,10 @@ fun Home(
                             result = rawResult,
                             decodeStartedAtMs = decodeStartedAtMs,
                         ),
+                    )
+                    val runBackendDiagnostics = npuS1BackendDiagnosticsForResult(
+                        result = result,
+                        preferredBackendSetting = preferredBackendDryRunSetting,
                     )
                     val memoryAfter = withContext(Dispatchers.Default) {
                         captureLocalMemorySnapshot(
@@ -1329,6 +1392,11 @@ fun Home(
                         ttsText = result.ttsText,
                         npuS1FailureKind = npuStandardRouteS1FailureKind(result),
                         nativeCrashRiskHint = npuStandardRouteS1NativeCrashRiskHint(result),
+                        selectedBackend = runBackendDiagnostics.selectedBackend,
+                        requestedBackend = runBackendDiagnostics.requestedBackend,
+                        effectiveBackend = runBackendDiagnostics.effectiveBackend,
+                        backendEvidence = runBackendDiagnostics.backendEvidence,
+                        routeFamily = runBackendDiagnostics.routeFamily,
                         totalMs = result.timing.totalMs,
                         decodeMs = result.timing.decodeMs,
                         outputTokens = result.timing.outputTokens,
@@ -1434,6 +1502,11 @@ fun Home(
                             maxOutputTokens = maxTokensForRun,
                             repeatedRunMode = runMode,
                             repeatedRunWaitMs = lifecyclePlan.waitAfterRunMs,
+                            selectedBackend = selectedBackendDiagnostics.selectedBackend,
+                            requestedBackend = selectedBackendDiagnostics.requestedBackend,
+                            effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+                            backendEvidence = selectedBackendDiagnostics.backendEvidence,
+                            routeFamily = selectedBackendDiagnostics.routeFamily,
                             records = records.toList(),
                             stopped = true,
                             stopReason = stopReason,
@@ -1452,6 +1525,11 @@ fun Home(
                         maxOutputTokens = maxTokensForRun,
                         repeatedRunMode = runMode,
                         repeatedRunWaitMs = lifecyclePlan.waitAfterRunMs,
+                        selectedBackend = selectedBackendDiagnostics.selectedBackend,
+                        requestedBackend = selectedBackendDiagnostics.requestedBackend,
+                        effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+                        backendEvidence = selectedBackendDiagnostics.backendEvidence,
+                        routeFamily = selectedBackendDiagnostics.routeFamily,
                         records = records.toList(),
                     )
                     NpuS1LogcatDiagnostics.clearContext(logcatContext)
@@ -1467,6 +1545,11 @@ fun Home(
                     maxOutputTokens = maxTokensForRun,
                     repeatedRunMode = runMode,
                     repeatedRunWaitMs = lifecyclePlan.waitAfterRunMs,
+                    selectedBackend = selectedBackendDiagnostics.selectedBackend,
+                    requestedBackend = selectedBackendDiagnostics.requestedBackend,
+                    effectiveBackend = selectedBackendDiagnostics.effectiveBackend,
+                    backendEvidence = selectedBackendDiagnostics.backendEvidence,
+                    routeFamily = selectedBackendDiagnostics.routeFamily,
                     records = records.toList(),
                 )
             } catch (exception: CancellationException) {
@@ -3496,6 +3579,7 @@ fun Home(
                                                                 maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                 transientFallback = s1Fallback?.kind,
                                                                 appHistoryText = NpuStandardRouteS1AppHistory.formatForDev(context.applicationContext),
+                                                                preferredBackendSetting = preferredBackendDryRunSetting,
                                                             )
                                                         } else {
                                                             null
@@ -3509,6 +3593,7 @@ fun Home(
                                                                 result = s1Result,
                                                                 maxOutputTokens = npuStandardRouteMaxOutputTokens,
                                                                 transientFallback = s1Fallback?.kind,
+                                                                preferredBackendSetting = preferredBackendDryRunSetting,
                                                             )
                                                         } else {
                                                             null
@@ -5762,6 +5847,7 @@ fun Home(
                                         }
                                         NpuStandardRouteDevDiagnosticsBlock(
                                             expanded = npuStandardRouteDevDiagnosticsExpanded,
+                                            preferredBackendSetting = preferredBackendDryRunSetting,
                                             onToggleExpanded = {
                                                 npuStandardRouteDevDiagnosticsExpanded =
                                                     !npuStandardRouteDevDiagnosticsExpanded
@@ -5881,6 +5967,7 @@ fun Home(
                                         val s4Text = npuStandardRouteS4PseudoStreamingText!!
                                         NpuStandardRouteDevDiagnosticsBlock(
                                             expanded = npuStandardRouteDevDiagnosticsExpanded,
+                                            preferredBackendSetting = preferredBackendDryRunSetting,
                                             onToggleExpanded = {
                                                 npuStandardRouteDevDiagnosticsExpanded =
                                                     !npuStandardRouteDevDiagnosticsExpanded
@@ -9086,6 +9173,7 @@ private fun MemoryRecoveryCheckDevSection(
 @Composable
 private fun NpuS1RepeatedRunDevSection(
     state: NpuS1RepeatedRunState,
+    preferredBackendSetting: PreferredBackendDryRunSetting,
     selectedMode: NpuS1RepeatedRunMode,
     selectedPrompt: String,
     selectedRunCount: Int,
@@ -9099,7 +9187,35 @@ private fun NpuS1RepeatedRunDevSection(
     onStart: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    val startGate = npuS1RepeatedRunStartGate(
+        preferredBackendSetting = preferredBackendSetting,
+        mode = selectedMode,
+        runCount = selectedRunCount,
+        waitMs = selectedWaitMs,
+    )
+    val backendDiagnostics = npuS1BackendDiagnosticsForPreferredSetting(preferredBackendSetting)
+    val blockedByBackend = startGate.blockedReason == NPU_S1_REPEATED_RUN_BLOCKED_SELECTED_BACKEND_NOT_NPU
+    val controlsEnabled = !running && !blockedByGeneration
+    val startEnabled = controlsEnabled && startGate.allowed
     InferenceStatsSection(title = "NPU S1 repeated run") {
+        Text(
+            text = "selected_backend=${backendDiagnostics.selectedBackend} requested_backend=NPU",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (blockedByBackend) {
+            Text(
+                text = "NPU S1 repeated run はNPU選択時のみ実行可能",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        } else if (!startGate.allowed) {
+            Text(
+                text = "Safety policy: Recreate / 20 runs / wait 500ms以上のみ実行可能",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         Text(
             text = "prompt:",
             style = MaterialTheme.typography.bodySmall,
@@ -9110,7 +9226,7 @@ private fun NpuS1RepeatedRunDevSection(
                 RadioButton(
                     selected = selectedPrompt == prompt,
                     onClick = { onPromptChange(prompt) },
-                    enabled = !running && !blockedByGeneration,
+                    enabled = controlsEnabled,
                 )
                 Text(
                     text = prompt,
@@ -9130,7 +9246,7 @@ private fun NpuS1RepeatedRunDevSection(
                     selected = selectedRunCount == count,
                     onClick = { onRunCountChange(count) },
                     label = { Text(count.toString()) },
-                    enabled = !running && !blockedByGeneration,
+                    enabled = controlsEnabled && count in NPU_S1_REPEATED_RUN_SAFE_COUNT_OPTIONS,
                 )
             }
         }
@@ -9145,7 +9261,7 @@ private fun NpuS1RepeatedRunDevSection(
                     selected = selectedWaitMs == waitMs,
                     onClick = { onWaitMsChange(waitMs) },
                     label = { Text("${waitMs}ms") },
-                    enabled = !running && !blockedByGeneration,
+                    enabled = controlsEnabled && waitMs in NPU_S1_REPEATED_RUN_SAFE_WAIT_MS_OPTIONS,
                 )
             }
         }
@@ -9161,7 +9277,7 @@ private fun NpuS1RepeatedRunDevSection(
                 RadioButton(
                     selected = selectedMode == mode,
                     onClick = { onModeChange(mode) },
-                    enabled = !running && !blockedByGeneration,
+                    enabled = controlsEnabled && mode in NPU_S1_REPEATED_RUN_SAFE_MODE_OPTIONS,
                 )
                 Text(
                     text = mode.displayLabel,
@@ -9176,7 +9292,7 @@ private fun NpuS1RepeatedRunDevSection(
         ) {
             Button(
                 onClick = onStart,
-                enabled = !running && !blockedByGeneration,
+                enabled = startEnabled,
             ) {
                 Text("NPU S1 repeated run 開始")
             }
@@ -9372,10 +9488,10 @@ private fun InferenceStatsSheetContent(
     isInferenceRunningForMemoryRecovery: Boolean = false,
     onMemoryRecoveryCheck: () -> Unit = {},
     npuS1RepeatedRunState: NpuS1RepeatedRunState = NpuS1RepeatedRunState(),
-    npuS1RepeatedRunMode: NpuS1RepeatedRunMode = NpuS1RepeatedRunMode.REUSE,
+    npuS1RepeatedRunMode: NpuS1RepeatedRunMode = NPU_S1_REPEATED_RUN_SAFE_MODE,
     npuS1RepeatedRunPrompt: String = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
-    npuS1RepeatedRunCount: Int = NPU_S1_REPEATED_RUN_DEFAULT_COUNT,
-    npuS1RepeatedRunWaitMs: Long = 0L,
+    npuS1RepeatedRunCount: Int = NPU_S1_REPEATED_RUN_SAFE_COUNT,
+    npuS1RepeatedRunWaitMs: Long = NPU_S1_REPEATED_RUN_SAFE_WAIT_MS,
     npuS1RepeatedRunInProgress: Boolean = false,
     isInferenceRunningForRepeatedRun: Boolean = false,
     onNpuS1RepeatedRunModeChange: (NpuS1RepeatedRunMode) -> Unit = {},
@@ -9556,6 +9672,7 @@ private fun InferenceStatsSheetContent(
                 )
                 NpuS1RepeatedRunDevSection(
                     state = npuS1RepeatedRunState,
+                    preferredBackendSetting = preferredBackendDryRunSetting,
                     selectedMode = npuS1RepeatedRunMode,
                     selectedPrompt = npuS1RepeatedRunPrompt,
                     selectedRunCount = npuS1RepeatedRunCount,
@@ -9738,6 +9855,7 @@ internal fun npuStandardRouteDevDiagnosticsToggleLabel(expanded: Boolean): Strin
 @Composable
 private fun NpuStandardRouteDevDiagnosticsBlock(
     expanded: Boolean,
+    preferredBackendSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     onToggleExpanded: () -> Unit,
     routeText: String? = null,
     routeTitle: String? = null,
@@ -9756,10 +9874,10 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
     isInferenceRunningForMemoryRecovery: Boolean = false,
     onMemoryRecoveryCheck: (() -> Unit)? = null,
     npuS1RepeatedRunState: NpuS1RepeatedRunState = NpuS1RepeatedRunState(),
-    npuS1RepeatedRunMode: NpuS1RepeatedRunMode = NpuS1RepeatedRunMode.REUSE,
+    npuS1RepeatedRunMode: NpuS1RepeatedRunMode = NPU_S1_REPEATED_RUN_SAFE_MODE,
     npuS1RepeatedRunPrompt: String = NPU_S1_REPEATED_RUN_DEFAULT_PROMPT,
-    npuS1RepeatedRunCount: Int = NPU_S1_REPEATED_RUN_DEFAULT_COUNT,
-    npuS1RepeatedRunWaitMs: Long = 0L,
+    npuS1RepeatedRunCount: Int = NPU_S1_REPEATED_RUN_SAFE_COUNT,
+    npuS1RepeatedRunWaitMs: Long = NPU_S1_REPEATED_RUN_SAFE_WAIT_MS,
     npuS1RepeatedRunInProgress: Boolean = false,
     isInferenceRunningForRepeatedRun: Boolean = false,
     onNpuS1RepeatedRunModeChange: ((NpuS1RepeatedRunMode) -> Unit)? = null,
@@ -9822,6 +9940,7 @@ private fun NpuStandardRouteDevDiagnosticsBlock(
             ) {
                 NpuS1RepeatedRunDevSection(
                     state = npuS1RepeatedRunState,
+                    preferredBackendSetting = preferredBackendSetting,
                     selectedMode = npuS1RepeatedRunMode,
                     selectedPrompt = npuS1RepeatedRunPrompt,
                     selectedRunCount = npuS1RepeatedRunCount,
