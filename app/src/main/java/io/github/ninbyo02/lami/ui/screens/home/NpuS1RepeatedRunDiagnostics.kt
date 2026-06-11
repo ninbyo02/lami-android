@@ -17,6 +17,14 @@ internal const val NPU_S1_REPEATED_RUN_STATUS_CANCELLED = "cancelled"
 internal const val NPU_S1_REPEATED_RUN_STATUS_STOPPED = "stopped"
 internal const val NPU_S1_REPEATED_RUN_DEFAULT_PROMPT = "こんにちは"
 internal const val NPU_S1_REPEATED_RUN_DEFAULT_COUNT = 20
+internal val NPU_S1_REPEATED_RUN_PROMPT_OPTIONS = listOf(
+    "1+1は？",
+    "１＋１は？",
+    "こんにちは",
+    "あなたは誰ですか？",
+)
+internal val NPU_S1_REPEATED_RUN_COUNT_OPTIONS = listOf(20, 50, 100)
+internal val NPU_S1_REPEATED_RUN_WAIT_MS_OPTIONS = listOf(0L, 500L, 2_000L)
 internal const val NPU_S1_REPEATED_RUN_ABNORMAL_TOTAL_MS = 30_000L
 internal const val NPU_S1_REPEATED_RUN_RECREATE_NOTE =
     "s1_direct_runner_engine_session_dispose_not_exposed_uses_safe_holder_recreate_api"
@@ -171,6 +179,15 @@ internal data class NpuS1RepeatedRunRecord(
     val rawOutput: String,
     val sanitizedOutput: String,
     val qualityClassification: String,
+    val outputQualityCandidateStatus: String = "unavailable",
+    val outputQualityCandidateReason: String = "unavailable",
+    val outputQualityCandidatePreparedOutput: String = "",
+    val arithmeticTailLeakDetected: Boolean = false,
+    val arithmeticTailLeakIgnoredForDisplay: Boolean = false,
+    val actualDisplayText: String = sanitizedOutput.ifBlank { rawOutput.trim() },
+    val ttsText: String = actualDisplayText,
+    val npuS1FailureKind: String = "unavailable",
+    val nativeCrashRiskHint: String = "unavailable",
     val totalMs: Long?,
     val decodeMs: Long?,
     val outputTokens: Int?,
@@ -242,6 +259,7 @@ internal data class NpuS1RepeatedRunState(
     val requestedRunCount: Int = NPU_S1_REPEATED_RUN_DEFAULT_COUNT,
     val maxOutputTokens: Int = NpuStandardRouteS1Contract.MAX_OUTPUT_TOKENS,
     val repeatedRunMode: NpuS1RepeatedRunMode = NpuS1RepeatedRunMode.REUSE,
+    val repeatedRunWaitMs: Long = 0L,
     val records: List<NpuS1RepeatedRunRecord> = emptyList(),
     val stopped: Boolean = false,
     val stopReason: String = "none",
@@ -257,18 +275,27 @@ internal data class NpuS1RepeatedRunSummary(
     val stopped: Boolean,
     val stopReason: String,
     val successCount: Int,
+    val failureCount: Int,
+    val engineCreateFailedCount: Int,
     val fallbackCount: Int,
     val freshCrashCount: Int,
     val timeoutCount: Int,
+    val nativeCrashRiskHint: String,
     val safetyGuardCount: Int,
+    val qualityFailCount: Int,
+    val arithmeticTailLeakCount: Int,
     val minTotalMs: Long?,
     val maxTotalMs: Long?,
     val avgTotalMs: Long?,
+    val minDecodeMs: Long?,
+    val maxDecodeMs: Long?,
+    val avgDecodeMs: Long?,
     val minTokensPerSecond: Double?,
     val maxTokensPerSecond: Double?,
     val avgTokensPerSecond: Double?,
     val uniqueOutputsCount: Int,
-    val mostCommonOutput: String,
+    val mostCommonActualDisplayText: String,
+    val mostCommonTtsText: String,
     val allOutputsSame: Boolean,
     val first5sTotalPssMb: Long?,
     val last5sTotalPssMb: Long?,
@@ -285,6 +312,7 @@ internal data class NpuS1RepeatedRunSummary(
     val repeatedRunFinishedAtWallTimeMs: Long?,
     val repeatedRunFinishedAtElapsedRealtimeMs: Long?,
     val firstFailureRunIndex: Int?,
+    val firstEngineCreateFailureRunIndex: Int?,
     val firstFailureWallTimeMs: Long?,
     val firstFailureElapsedRealtimeMs: Long?,
     val firstFailureStage: String,
@@ -296,6 +324,7 @@ internal data class NpuS1RepeatedRunSummary(
     val firstFailureCounterSnapshot: String,
     val counterNote: String,
     val failureAfterNSuccesses: Int?,
+    val failureAfterLastSuccessElapsedMs: Long?,
     val failureAfterNAdapterCalls: Int?,
     val failureAfterNDecodeSuccesses: Int?,
     val failureAfterTotalWaitMs: Long?,
@@ -615,16 +644,24 @@ internal fun buildNpuS1RepeatedRunSummary(
 ): NpuS1RepeatedRunSummary {
     val records = state.records
     val totalMsValues = records.mapNotNull { it.totalMs }
+    val decodeMsValues = records.mapNotNull { it.decodeMs }
     val tokenSpeedValues = records.mapNotNull { it.tokensPerSecond }
     val outputCounts = records
-        .groupingBy { it.sanitizedOutput.ifBlank { it.rawOutput } }
+        .groupingBy { it.actualDisplayText.ifBlank { it.sanitizedOutput.ifBlank { it.rawOutput } } }
         .eachCount()
-    val mostCommonOutput = outputCounts.maxWithOrNull(
+    val mostCommonActualDisplayText = outputCounts.maxWithOrNull(
+        compareBy<Map.Entry<String, Int>> { it.value }.thenBy { it.key },
+    )?.key.orEmpty()
+    val ttsCounts = records
+        .groupingBy { it.ttsText }
+        .eachCount()
+    val mostCommonTtsText = ttsCounts.maxWithOrNull(
         compareBy<Map.Entry<String, Int>> { it.value }.thenBy { it.key },
     )?.key.orEmpty()
     val first = records.firstOrNull()
     val last = records.lastOrNull()
     val firstFailure = records.firstOrNull { it.status != NpuStandardRouteS1Contract.STATUS_SUCCESS }
+    val firstEngineCreateFailure = records.firstOrNull { it.isEngineCreateFailed() }
     val counterSnapshot = buildNpuS1RepeatedRunCounterSnapshot(records)
     val firstFailureRecords = firstFailure?.let { failure ->
         records.takeWhile { it !== failure } + failure
@@ -651,18 +688,28 @@ internal fun buildNpuS1RepeatedRunSummary(
         stopped = state.stopped,
         stopReason = state.stopReason,
         successCount = records.count { it.status == NpuStandardRouteS1Contract.STATUS_SUCCESS },
+        failureCount = records.count { it.status != NpuStandardRouteS1Contract.STATUS_SUCCESS },
+        engineCreateFailedCount = records.count { it.isEngineCreateFailed() },
         fallbackCount = records.count { it.fallbackUsed },
         freshCrashCount = records.count { it.freshCrash },
         timeoutCount = records.count { it.timeout },
+        nativeCrashRiskHint = records.firstOrNull { it.nativeCrashRiskHint != "unavailable" }?.nativeCrashRiskHint
+            ?: if (records.any { it.freshCrash }) "fresh_crash_detected_stop_before_release" else "unavailable",
         safetyGuardCount = records.count { it.safetyGuardTriggered },
+        qualityFailCount = records.count { it.outputQualityCandidateStatus == NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL },
+        arithmeticTailLeakCount = records.count { it.arithmeticTailLeakDetected },
         minTotalMs = totalMsValues.minOrNull(),
         maxTotalMs = totalMsValues.maxOrNull(),
         avgTotalMs = totalMsValues.takeIf { it.isNotEmpty() }?.average()?.toLong(),
+        minDecodeMs = decodeMsValues.minOrNull(),
+        maxDecodeMs = decodeMsValues.maxOrNull(),
+        avgDecodeMs = decodeMsValues.takeIf { it.isNotEmpty() }?.average()?.toLong(),
         minTokensPerSecond = tokenSpeedValues.minOrNull(),
         maxTokensPerSecond = tokenSpeedValues.maxOrNull(),
         avgTokensPerSecond = tokenSpeedValues.takeIf { it.isNotEmpty() }?.average(),
         uniqueOutputsCount = outputCounts.size,
-        mostCommonOutput = mostCommonOutput,
+        mostCommonActualDisplayText = mostCommonActualDisplayText,
+        mostCommonTtsText = mostCommonTtsText,
         allOutputsSame = records.isNotEmpty() && outputCounts.size == 1,
         first5sTotalPssMb = first?.memoryRecovery5sTotalPssMb,
         last5sTotalPssMb = last?.memoryRecovery5sTotalPssMb,
@@ -679,6 +726,7 @@ internal fun buildNpuS1RepeatedRunSummary(
         repeatedRunFinishedAtWallTimeMs = state.finishedAtMs ?: last?.runFinishedAtWallTimeMs,
         repeatedRunFinishedAtElapsedRealtimeMs = state.finishedAtElapsedRealtimeMs ?: last?.runFinishedAtElapsedRealtimeMs,
         firstFailureRunIndex = firstFailure?.runIndex,
+        firstEngineCreateFailureRunIndex = firstEngineCreateFailure?.runIndex,
         firstFailureWallTimeMs = firstFailure?.failureDetectedAtWallTimeMs ?: firstFailure?.runFinishedAtWallTimeMs,
         firstFailureElapsedRealtimeMs = firstFailure?.failureDetectedAtElapsedRealtimeMs ?: firstFailure?.runFinishedAtElapsedRealtimeMs,
         firstFailureStage = firstFailure?.failureStage ?: NPU_S1_FAILURE_STAGE_UNKNOWN,
@@ -692,11 +740,21 @@ internal fun buildNpuS1RepeatedRunSummary(
         failureAfterNSuccesses = firstFailure?.let {
             recordsBeforeFirstFailure.count { record -> record.status == NpuStandardRouteS1Contract.STATUS_SUCCESS }
         },
+        failureAfterLastSuccessElapsedMs = firstFailure?.let { failure ->
+            recordsBeforeFirstFailure
+                .lastOrNull { record -> record.status == NpuStandardRouteS1Contract.STATUS_SUCCESS }
+                ?.runFinishedAtElapsedRealtimeMs
+                ?.let { lastSuccessFinishedAt ->
+                    (failure.failureDetectedAtElapsedRealtimeMs ?: failure.runFinishedAtElapsedRealtimeMs)
+                        ?.minus(lastSuccessFinishedAt)
+                        ?.coerceAtLeast(0L)
+                }
+        },
         failureAfterNAdapterCalls = firstFailureSnapshot?.adapterCallCount,
         failureAfterNDecodeSuccesses = firstFailureSnapshot?.decodeSuccessCount,
         failureAfterTotalWaitMs = firstFailure?.let { recordsBeforeFirstFailure.sumOf { record -> record.waitAfterRunMs } },
         failurePatternHint = buildNpuS1FailurePatternHint(firstFailure, firstFailureSnapshot),
-        repeatedRunWaitMs = state.repeatedRunMode.waitAfterRunMs,
+        repeatedRunWaitMs = state.repeatedRunWaitMs.takeIf { it > 0L } ?: state.repeatedRunMode.waitAfterRunMs,
         totalWaitTimeMs = records.sumOf { it.waitAfterRunMs },
         firstFailureNativeStage = firstFailure?.nativeDiagnostics?.nativeStage ?: "unavailable",
         firstFailureNativeErrorStage = firstFailure?.nativeDiagnostics?.nativeErrorStage ?: "unavailable",
@@ -752,18 +810,27 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("stopped=${summary.stopped}")
         appendLine("stop_reason=${summary.stopReason}")
         appendLine("success_count=${summary.successCount}")
+        appendLine("failure_count=${summary.failureCount}")
+        appendLine("engine_create_failed_count=${summary.engineCreateFailedCount}")
         appendLine("fallback_count=${summary.fallbackCount}")
         appendLine("fresh_crash_count=${summary.freshCrashCount}")
         appendLine("timeout_count=${summary.timeoutCount}")
+        appendLine("native_crash_risk_hint=${summary.nativeCrashRiskHint}")
         appendLine("safety_guard_count=${summary.safetyGuardCount}")
+        appendLine("quality_fail_count=${summary.qualityFailCount}")
+        appendLine("arithmetic_tail_leak_count=${summary.arithmeticTailLeakCount}")
         appendLine("min_total_ms=${formatNullableLong(summary.minTotalMs)}")
         appendLine("max_total_ms=${formatNullableLong(summary.maxTotalMs)}")
         appendLine("avg_total_ms=${formatNullableLong(summary.avgTotalMs)}")
+        appendLine("min_decode_ms=${formatNullableLong(summary.minDecodeMs)}")
+        appendLine("max_decode_ms=${formatNullableLong(summary.maxDecodeMs)}")
+        appendLine("avg_decode_ms=${formatNullableLong(summary.avgDecodeMs)}")
         appendLine("min_tokens_per_second=${formatNullableDouble(summary.minTokensPerSecond)}")
         appendLine("max_tokens_per_second=${formatNullableDouble(summary.maxTokensPerSecond)}")
         appendLine("avg_tokens_per_second=${formatNullableDouble(summary.avgTokensPerSecond)}")
         appendLine("unique_outputs_count=${summary.uniqueOutputsCount}")
-        appendLine("most_common_output=${summary.mostCommonOutput.ifBlank { "unavailable" }}")
+        appendLine("most_common_actual_display_text=${summary.mostCommonActualDisplayText.ifBlank { "unavailable" }}")
+        appendLine("most_common_tts_text=${summary.mostCommonTtsText.ifBlank { "unavailable" }}")
         appendLine("all_outputs_same=${summary.allOutputsSame}")
         appendLine("first_5s_total_pss_mb=${formatNullableLong(summary.first5sTotalPssMb)}")
         appendLine("last_5s_total_pss_mb=${formatNullableLong(summary.last5sTotalPssMb)}")
@@ -780,6 +847,7 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("repeated_run_finished_at_wall_time_ms=${formatNullableLong(summary.repeatedRunFinishedAtWallTimeMs)}")
         appendLine("repeated_run_finished_at_elapsed_realtime_ms=${formatNullableLong(summary.repeatedRunFinishedAtElapsedRealtimeMs)}")
         appendLine("first_failure_run_index=${summary.firstFailureRunIndex?.toString() ?: "unavailable"}")
+        appendLine("first_engine_create_failure_run_index=${summary.firstEngineCreateFailureRunIndex?.toString() ?: "unavailable"}")
         appendLine("first_failure_wall_time_ms=${formatNullableLong(summary.firstFailureWallTimeMs)}")
         appendLine("first_failure_elapsed_realtime_ms=${formatNullableLong(summary.firstFailureElapsedRealtimeMs)}")
         appendLine("first_failure_stage=${summary.firstFailureStage}")
@@ -804,6 +872,7 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("first_failure_counter_snapshot=${summary.firstFailureCounterSnapshot}")
         appendLine("counter_note=${summary.counterNote}")
         appendLine("failure_after_n_successes=${summary.failureAfterNSuccesses?.toString() ?: "unavailable"}")
+        appendLine("failure_after_last_success_elapsed_ms=${summary.failureAfterLastSuccessElapsedMs?.toString() ?: "unavailable"}")
         appendLine("failure_after_n_adapter_calls=${summary.failureAfterNAdapterCalls?.toString() ?: "unavailable"}")
         appendLine("failure_after_n_decode_successes=${summary.failureAfterNDecodeSuccesses?.toString() ?: "unavailable"}")
         appendLine("failure_after_total_wait_ms=${summary.failureAfterTotalWaitMs?.toString() ?: "unavailable"}")
@@ -814,10 +883,19 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
         appendLine("first_failure_native_error_source=${summary.firstFailureNativeErrorSource}")
         appendLine("first_failure_native_stage_history=${summary.firstFailureNativeStageHistory}")
         appendLine("first_failure_native_diag_tail=${summary.firstFailureNativeDiagTail}")
-        if (state.records.isNotEmpty()) {
+        val detailRecords = state.records
+            .filter { it.status != NpuStandardRouteS1Contract.STATUS_SUCCESS }
+            .let { failures ->
+                listOfNotNull(failures.firstOrNull(), failures.lastOrNull())
+                    .distinctBy { it.runIndex }
+            }
+        if (detailRecords.isNotEmpty()) {
             appendLine("[DEV診断: NPU S1 repeated run details]")
-            state.records.forEachIndexed { index, record ->
-                val counterSnapshotAtRun = buildNpuS1RepeatedRunCounterSnapshot(state.records.take(index + 1))
+            detailRecords.forEach { record ->
+                val index = state.records.indexOfFirst { it === record }.takeIf { it >= 0 }
+                    ?: state.records.indexOfFirst { it.runIndex == record.runIndex }
+                val recordsThroughRun = state.records.take(index + 1)
+                val counterSnapshotAtRun = buildNpuS1RepeatedRunCounterSnapshot(recordsThroughRun)
                 val failureCounterSnapshot = if (record.status != NpuStandardRouteS1Contract.STATUS_SUCCESS) {
                     formatNpuS1CounterSnapshot(counterSnapshotAtRun)
                 } else {
@@ -837,6 +915,15 @@ internal fun formatNpuS1RepeatedRunDiagnosticsForDev(
                 appendLine("raw_output=${record.rawOutput}")
                 appendLine("sanitized_output=${record.sanitizedOutput}")
                 appendLine("quality_classification=${record.qualityClassification}")
+                appendLine("output_quality_candidate_status=${record.outputQualityCandidateStatus}")
+                appendLine("output_quality_candidate_reason=${record.outputQualityCandidateReason}")
+                appendLine("output_quality_candidate_prepared_output=${record.outputQualityCandidatePreparedOutput}")
+                appendLine("arithmetic_tail_leak_detected=${record.arithmeticTailLeakDetected}")
+                appendLine("arithmetic_tail_leak_ignored_for_display=${record.arithmeticTailLeakIgnoredForDisplay}")
+                appendLine("actual_display_text=${record.actualDisplayText}")
+                appendLine("tts_text=${record.ttsText}")
+                appendLine("npu_s1_failure_kind=${record.npuS1FailureKind}")
+                appendLine("native_crash_risk_hint=${record.nativeCrashRiskHint}")
                 appendLine("npu_s1_total_ms=${formatNullableLong(record.totalMs)}")
                 appendLine("npu_s1_decode_ms=${formatNullableLong(record.decodeMs)}")
                 appendLine("npu_s1_output_tokens=${record.outputTokens?.toString() ?: "unavailable"}")
@@ -999,6 +1086,20 @@ internal fun buildNpuS1FailurePatternHint(
 
 private fun NpuS1RepeatedRunRecord.isAdapterFailure(): Boolean =
     reason.startsWith("adapter_failure") || reason.contains("LiteRtLmJniException")
+
+private fun NpuS1RepeatedRunRecord.isEngineCreateFailed(): Boolean {
+    if (npuS1FailureKind == NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED) return true
+    val hasLiteRtException = failureExceptionClass == "LiteRtLmJniException" ||
+        reason.contains("LiteRtLmJniException", ignoreCase = true) ||
+        nativeDiagnostics.nativeErrorClass == "LiteRtLmJniException"
+    if (!hasLiteRtException) return false
+    return listOf(
+        reason,
+        failureExceptionMessage,
+        nativeDiagnostics.nativeErrorMessage,
+        nativeDiagnostics.nativeDiagTail,
+    ).any { it.contains("engine-create-failed", ignoreCase = true) }
+}
 
 internal fun inferNpuS1FailureStage(
     status: String,

@@ -99,12 +99,12 @@ class NpuS1RepeatedRunDiagnosticsTest {
         )
 
         assertEquals(1, summary.uniqueOutputsCount)
-        assertEquals("こんにちは。", summary.mostCommonOutput)
+        assertEquals("こんにちは。", summary.mostCommonActualDisplayText)
         assertTrue(summary.allOutputsSame)
     }
 
     @Test
-    fun `copy formatter includes repeated run summary details memory and unavailable finish reasons`() {
+    fun `copy formatter keeps successful repeated run compact without per-run details`() {
         val state = NpuS1RepeatedRunState(
             status = NPU_S1_REPEATED_RUN_STATUS_COMPLETED,
             startedAtMs = 1_000L,
@@ -120,22 +120,13 @@ class NpuS1RepeatedRunDiagnosticsTest {
 
         assertTrue(text.contains("base=true"))
         assertTrue(text.contains("[DEV診断: NPU S1 repeated run summary]"))
-        assertTrue(text.contains("[DEV診断: NPU S1 repeated run details]"))
+        assertFalse(text.contains("[DEV診断: NPU S1 repeated run details]"))
         assertTrue(text.contains("repeated_run_status=completed"))
         assertTrue(text.contains("repeated_run_mode=reuse"))
         assertTrue(text.contains("repeated_run_wait_ms=0"))
         assertTrue(text.contains("total_wait_time_ms=0"))
-        assertTrue(text.indexOf("run_index=1") < text.lastIndexOf("repeated_run_mode=reuse"))
         assertTrue(text.contains("recreate_api_note=s1_direct_runner_engine_session_dispose_not_exposed_uses_safe_holder_recreate_api"))
-        assertTrue(text.contains("run_index=1"))
-        assertTrue(text.contains("finish_reason=unavailable"))
-        assertTrue(text.contains("stop_reason=unavailable"))
-        assertTrue(text.contains("memory_recovery_5s_total_pss_mb=250"))
-        assertTrue(text.contains("memory_recovery_5s_native_heap_pss_mb=70"))
-        assertTrue(text.contains("memory_recovery_5s_native_heap_alloc_mb=24"))
-        assertTrue(text.contains("memory_recovery_5s_system_available_memory_mb=1000"))
-        assertTrue(text.contains("memory_before_low_memory=false"))
-        assertTrue(text.contains("memory_after_low_memory=false"))
+        assertFalse(text.contains("run_index=1"))
         assertTrue(text.contains("peak_5s_total_pss_mb=250"))
         assertTrue(text.contains("peak_5s_native_heap_pss_mb=70"))
         assertTrue(text.contains("process_pid="))
@@ -159,24 +150,11 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("decode_failure_count=0"))
         assertTrue(text.contains("first_failure_counter_snapshot=unavailable"))
         assertTrue(text.contains("counter_note=counters_are_app_layer_attempts_engine_create_may_be_unavailable_if_not_exposed"))
-        assertTrue(text.contains("run_started_at_wall_time_ms=unavailable"))
-        assertTrue(text.contains("run_finished_at_wall_time_ms=unavailable"))
-        assertTrue(text.contains("engine_request_count_at_run=1"))
-        assertTrue(text.contains("adapter_call_count_at_run=1"))
-        assertTrue(text.contains("decode_success_count_at_run=1"))
-        assertTrue(text.contains("failure_counter_snapshot=unavailable"))
-        assertTrue(text.contains("native_stage_history=unavailable"))
-        assertTrue(text.contains("native_error_class=unavailable"))
-        assertTrue(text.contains("native_call_reached=unavailable"))
-        assertTrue(text.contains("native_cleanup_reached=unavailable"))
-        assertTrue(text.contains("recreate_requested_after_run=false"))
-        assertTrue(text.contains("recreate_result_after_run=not_requested"))
-        assertTrue(text.contains("recreate_delay_after_run_ms=0"))
-        assertTrue(text.contains("wait_after_run_ms=0"))
-        assertTrue(text.contains("wait_started_at_elapsed_realtime_ms=unavailable"))
-        assertTrue(text.contains("wait_finished_at_elapsed_realtime_ms=unavailable"))
-        assertTrue(text.contains("output_token_count_source=estimated_code_points_not_tokenizer"))
-        assertTrue(text.contains("prompt_token_count_source=code_points"))
+        assertTrue(text.contains("failure_count=0"))
+        assertTrue(text.contains("engine_create_failed_count=0"))
+        assertTrue(text.contains("quality_fail_count=0"))
+        assertTrue(text.contains("most_common_actual_display_text=こんにちは。"))
+        assertTrue(text.contains("most_common_tts_text=こんにちは。"))
         assertFalse(text.contains("NPU memory"))
     }
 
@@ -302,9 +280,9 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(text.contains("repeated_run_wait_ms=10000"))
         assertTrue(text.contains("total_wait_time_ms=60000"))
         assertTrue(text.contains("failure_after_total_wait_ms=60000"))
-        assertTrue(text.contains("wait_after_run_ms=10000"))
-        assertTrue(text.contains("wait_started_at_elapsed_realtime_ms=300001"))
-        assertTrue(text.contains("wait_finished_at_elapsed_realtime_ms=310001"))
+        assertTrue(text.contains("wait_after_run_ms=0"))
+        assertFalse(text.contains("wait_started_at_elapsed_realtime_ms=300001"))
+        assertFalse(text.contains("wait_finished_at_elapsed_realtime_ms=310001"))
     }
 
     @Test
@@ -394,7 +372,7 @@ class NpuS1RepeatedRunDiagnosticsTest {
         )
 
         assertTrue(copy.contains("[DEV診断: NPU S1 repeated run summary]"))
-        assertTrue(copy.contains("[DEV診断: NPU S1 repeated run details]"))
+        assertFalse(copy.contains("[DEV診断: NPU S1 repeated run details]"))
     }
 
     @Test
@@ -452,6 +430,121 @@ class NpuS1RepeatedRunDiagnosticsTest {
         assertTrue(sanitized.sanitizerApplied)
     }
 
+    @Test
+    fun `repeated summary counts engine create failed and records first index after successes`() {
+        val failure = record(
+            runIndex = 3,
+            status = "failure",
+            reason = "adapter_failure:LiteRtLmJniException: engine-create-failed:INTERNAL",
+            runDecodeReached = false,
+            npuS1FailureKind = NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED,
+            nativeCrashRiskHint = "engine_create_failed_near_litert_compiled_model_dispatch_delegate_check_tombstone_dropbox",
+            failureExceptionClass = "LiteRtLmJniException",
+            failureExceptionMessage = "engine-create-failed:INTERNAL",
+            failureDetectedAtElapsedRealtimeMs = 3_500L,
+            nativeDiagnostics = NpuS1NativeStageDiagnostics(
+                nativeStageHistory = "provider_start>adapter_start>before_native_call>native_call>adapter_failure>provider_failure",
+            ),
+        )
+        val state = NpuS1RepeatedRunState(
+            requestedRunCount = 20,
+            records = listOf(
+                record(runIndex = 1, runFinishedAtElapsedRealtimeMs = 1_000L),
+                record(runIndex = 2, runFinishedAtElapsedRealtimeMs = 2_000L),
+                failure,
+            ),
+        )
+        val text = formatNpuS1RepeatedRunDiagnosticsForDev(state)
+
+        assertTrue(text.contains("engine_create_failed_count=1"))
+        assertTrue(text.contains("first_failure_run_index=3"))
+        assertTrue(text.contains("first_engine_create_failure_run_index=3"))
+        assertTrue(text.contains("failure_after_n_successes=2"))
+        assertTrue(text.contains("failure_after_last_success_elapsed_ms=1500"))
+        assertTrue(text.contains("npu_s1_failure_kind=engine_create_failed"))
+        assertTrue(text.contains("first_failure_native_stage_history=provider_start>adapter_start>before_native_call>native_call>adapter_failure>provider_failure"))
+    }
+
+    @Test
+    fun `repeated summary supports requested counts and configured wait ms`() {
+        listOf(20, 50, 100).forEach { count ->
+            val text = formatNpuS1RepeatedRunDiagnosticsForDev(
+                NpuS1RepeatedRunState(
+                    requestedRunCount = count,
+                    repeatedRunWaitMs = 500L,
+                    records = listOf(record(runCount = count, waitAfterRunMs = 500L)),
+                ),
+            )
+
+            assertTrue(text.contains("run_count_requested=$count"))
+            assertTrue(text.contains("repeated_run_wait_ms=500"))
+        }
+    }
+
+    @Test
+    fun `arithmetic prompt records normal chat display and tts candidates in compact summary`() {
+        val text = formatNpuS1RepeatedRunDiagnosticsForDev(
+            NpuS1RepeatedRunState(
+                prompt = "1+1は？",
+                records = listOf(
+                    record(
+                        prompt = "1+1は？",
+                        outputQualityCandidatePreparedOutput = "2",
+                        arithmeticTailLeakDetected = true,
+                        arithmeticTailLeakIgnoredForDisplay = true,
+                        actualDisplayText = "2",
+                        ttsText = "2です。",
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(text.contains("most_common_actual_display_text=2"))
+        assertTrue(text.contains("most_common_tts_text=2です。"))
+        assertTrue(text.contains("arithmetic_tail_leak_count=1"))
+    }
+
+    @Test
+    fun `compact summary omits full repeated records and persistent details`() {
+        val text = formatNpuS1RepeatedRunDiagnosticsForDev(
+            NpuS1RepeatedRunState(records = (1..20).map { record(runIndex = it) }),
+        )
+
+        assertFalse(text.contains("[DEV診断: NPU S1 repeated run details]"))
+        assertFalse(text.contains("run_index=20"))
+        assertFalse(text.contains("persistent"))
+        assertFalse(text.contains("full dump"))
+    }
+
+    @Test
+    fun `quality fail and engine create failed are counted separately`() {
+        val text = formatNpuS1RepeatedRunDiagnosticsForDev(
+            NpuS1RepeatedRunState(
+                records = listOf(
+                    record(
+                        runIndex = 1,
+                        status = "failure",
+                        reason = "quality_candidate_fail",
+                        outputQualityCandidateStatus = NPU_S1_OUTPUT_QUALITY_CANDIDATE_FAIL,
+                    ),
+                    record(
+                        runIndex = 2,
+                        status = "failure",
+                        reason = "adapter_failure:LiteRtLmJniException: engine-create-failed",
+                        runDecodeReached = false,
+                        npuS1FailureKind = NPU_STANDARD_ROUTE_S1_FAILURE_KIND_ENGINE_CREATE_FAILED,
+                        failureExceptionClass = "LiteRtLmJniException",
+                        failureExceptionMessage = "engine-create-failed",
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(text.contains("quality_fail_count=1"))
+        assertTrue(text.contains("engine_create_failed_count=1"))
+        assertTrue(text.contains("first_engine_create_failure_run_index=2"))
+    }
+
     private fun record(
         runIndex: Int = 1,
         totalMs: Long? = 100L,
@@ -475,11 +568,26 @@ class NpuS1RepeatedRunDiagnosticsTest {
         waitAfterRunMs: Long = 0L,
         waitStartedAtElapsedRealtimeMs: Long? = null,
         waitFinishedAtElapsedRealtimeMs: Long? = null,
+        runCount: Int = 20,
+        prompt: String = "こんにちは",
+        outputQualityCandidateStatus: String = NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS,
+        outputQualityCandidateReason: String = "natural_japanese",
+        outputQualityCandidatePreparedOutput: String = "こんにちは。",
+        arithmeticTailLeakDetected: Boolean = false,
+        arithmeticTailLeakIgnoredForDisplay: Boolean = false,
+        actualDisplayText: String = "こんにちは。",
+        ttsText: String = actualDisplayText,
+        npuS1FailureKind: String = "unavailable",
+        nativeCrashRiskHint: String = "unavailable",
+        failureExceptionClass: String = "unavailable",
+        failureExceptionMessage: String = "unavailable",
+        failureDetectedAtElapsedRealtimeMs: Long? = null,
+        runFinishedAtElapsedRealtimeMs: Long? = null,
     ): NpuS1RepeatedRunRecord = NpuS1RepeatedRunRecord(
         runIndex = runIndex,
-        runCount = 20,
+        runCount = runCount,
         repeatedRunMode = repeatedRunMode,
-        prompt = "こんにちは",
+        prompt = prompt,
         requestedMaxOutputTokens = 32,
         effectiveMaxOutputTokens = 32,
         status = status,
@@ -490,6 +598,15 @@ class NpuS1RepeatedRunDiagnosticsTest {
         rawOutput = " こんにちは。",
         sanitizedOutput = "こんにちは。",
         qualityClassification = NpuStandardRouteS1Contract.QUALITY_NATURAL_JAPANESE,
+        outputQualityCandidateStatus = outputQualityCandidateStatus,
+        outputQualityCandidateReason = outputQualityCandidateReason,
+        outputQualityCandidatePreparedOutput = outputQualityCandidatePreparedOutput,
+        arithmeticTailLeakDetected = arithmeticTailLeakDetected,
+        arithmeticTailLeakIgnoredForDisplay = arithmeticTailLeakIgnoredForDisplay,
+        actualDisplayText = actualDisplayText,
+        ttsText = ttsText,
+        npuS1FailureKind = npuS1FailureKind,
+        nativeCrashRiskHint = nativeCrashRiskHint,
         totalMs = totalMs,
         decodeMs = totalMs?.minus(1L),
         outputTokens = 6,
@@ -522,6 +639,10 @@ class NpuS1RepeatedRunDiagnosticsTest {
         outputTokenCountSource = "estimated_code_points_not_tokenizer",
         promptTokenCountSource = "code_points",
         maxOutputTokensReached = false,
+        runFinishedAtElapsedRealtimeMs = runFinishedAtElapsedRealtimeMs,
+        failureDetectedAtElapsedRealtimeMs = failureDetectedAtElapsedRealtimeMs,
+        failureExceptionClass = failureExceptionClass,
+        failureExceptionMessage = failureExceptionMessage,
         nativeDiagnostics = nativeDiagnostics,
     )
 

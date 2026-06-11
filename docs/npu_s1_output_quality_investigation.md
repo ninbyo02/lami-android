@@ -508,6 +508,103 @@ This relaxation is intentionally narrow. General chat still fails on special-tok
 No automatic NPU pause / guard for consecutive failures or recent crashes is implemented in this step. That remains a
 separate follow-up after the app-internal history has enough evidence.
 
+## DEV Repeated Runner For Engine-Create-Failed
+
+Purpose: the DEV NPU S1 repeated runner is used to reproduce and summarize intermittent
+`engine-create-failed` / native-crash-risk behavior without manual repeated chat sends. It is a DEV diagnostic runner
+only; it does not implement any automatic NPU pause guard for consecutive failures or recent crashes.
+
+The runner reuses the existing S1 bridge path:
+
+- `NpuStandardRouteS1Bridge.run()`
+- `NpuStandardRouteS1Invoker`
+- selected S1 provider
+- `NpuStandardRouteS1Mapper`
+- prompt rewrite / prompt wrapper
+- arithmetic answer extraction
+- arithmetic tail-leak cleanup
+- output quality candidate evaluation
+- `actualDisplayText`
+- `ttsText`
+- `npu_s1_failure_kind`
+- `native_stage_history`
+
+It intentionally does not execute normal-chat side effects:
+
+- no TTS playback
+- no DB write
+- no Markdown render path
+- no streaming path
+
+The copied candidate text is the text that would be handed to those later stages in normal chat. This keeps the repeated
+runner comparable to normal chat S1 while avoiding TTS / DB / Markdown / streaming side effects.
+
+Current configurable DEV inputs:
+
+- prompt: `1+1は？`, `１＋１は？`, `こんにちは`, `あなたは誰ですか？`
+- count: `20`, `50`, `100`
+- wait between successful runs: `0ms`, `500ms`, `2000ms`
+- mode: `reuse`, `recreate`
+
+`recreate` uses the existing safe holder recreate API. Direct native Engine/session dispose is not exposed through this
+runner.
+
+Compact summary keys for normal-chat S1 observation include:
+
+- `repeated_run_status`
+- `prompt`
+- `run_count_requested`
+- `run_count_completed`
+- `repeated_run_wait_ms`
+- `repeated_run_mode`
+- `success_count`
+- `failure_count`
+- `engine_create_failed_count`
+- `first_failure_run_index`
+- `first_engine_create_failure_run_index`
+- `failure_after_n_successes`
+- `failure_after_last_success_elapsed_ms`
+- `min_total_ms`
+- `max_total_ms`
+- `avg_total_ms`
+- `min_decode_ms`
+- `max_decode_ms`
+- `avg_decode_ms`
+- `min_tokens_per_second`
+- `max_tokens_per_second`
+- `avg_tokens_per_second`
+- `unique_outputs_count`
+- `most_common_actual_display_text`
+- `most_common_tts_text`
+- `quality_fail_count`
+- `arithmetic_tail_leak_count`
+- `fallback_count`
+- `timeout_count`
+- `fresh_crash_count`
+- `native_crash_risk_hint`
+- `first_failure_exception_class`
+- `first_failure_exception_message`
+- `first_failure_native_stage_history`
+
+Normal copy keeps the compact summary small. Repeated run details are limited to the first failure and last failure.
+Successful per-run records are not appended to the normal DEV diagnostic copy, and persistent/full-dump sections are not
+implicitly concatenated into normal chat S1 compact copies.
+
+Recommended verification:
+
+1. `prompt=1+1は？ count=20 wait=0`
+2. `prompt=1+1は？ count=50 wait=500`
+3. `prompt=1+1は？ count=100 wait=2000`
+4. `prompt=あなたは誰ですか？ count=20 wait=500`
+
+Judgement:
+
+- `engine_create_failed_count=0` means stable-leaning for this runner/device combination.
+- `engine_create_failed_count>0` means inspect the first failed run index and the elapsed time after the previous
+  success.
+- `quality_fail_count>0` means the output-quality path is failing separately from engine creation.
+- `fresh_crash_count>0` or a strong `native_crash_risk_hint` should block normal release until manually reviewed.
+
 ## Normal Chat S1 DEV Diagnostic Copy Layout
 
 The normal-chat S1 diagnostic copy is split into three scopes so successful chat runs remain easy to copy while failure
