@@ -686,6 +686,44 @@ tasks.matching { it.name == "packageStandardDebug" }.configureEach {
     dependsOn("overlayQairt244StandardDebugStrippedNativeLibs")
 }
 
+tasks.register("dumpStandardDebugApkNativeLibs") {
+    group = "verification"
+    description = "Dumps final standardDebug APK arm64-v8a native libraries with size, sha256, and likely source."
+    dependsOn("assembleStandardDebug")
+
+    doLast {
+        exec {
+            commandLine(
+                "bash",
+                rootProject.file("scripts/dump_standard_debug_apk_native_libs.sh").absolutePath,
+                layout.buildDirectory.file("outputs/apk/standard/debug/app-standard-debug.apk").get().asFile.absolutePath,
+            )
+        }
+    }
+}
+
+tasks.register("compareStandardDebugApkNativeLibsWithEdgeGallery") {
+    group = "verification"
+    description = "Compares Edge Gallery APK arm64-v8a native libraries with LAMI standardDebug."
+    dependsOn("assembleStandardDebug")
+
+    doLast {
+        val edgeGalleryApk = providers.gradleProperty("edgeGalleryApk").orNull
+            ?: System.getenv("EDGE_GALLERY_APK")?.trim()
+        require(!edgeGalleryApk.isNullOrBlank()) {
+            "Set -PedgeGalleryApk=/path/to/gallery.apk or EDGE_GALLERY_APK=/path/to/gallery.apk"
+        }
+        exec {
+            commandLine(
+                "bash",
+                rootProject.file("scripts/compare_edge_gallery_lami_apk_native_libs.sh").absolutePath,
+                edgeGalleryApk,
+                layout.buildDirectory.file("outputs/apk/standard/debug/app-standard-debug.apk").get().asFile.absolutePath,
+            )
+        }
+    }
+}
+
 afterEvaluate {
     if (tasks.findByName("compileDebugKotlin") == null && tasks.findByName("compileStandardDebugKotlin") != null) {
         tasks.register("compileDebugKotlin") {

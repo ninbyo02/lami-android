@@ -159,3 +159,72 @@ LAMI では GPU を Settings 上で `Experimental / 非推奨` と明示し、GP
 - まだ timeout する場合は、Gallery と同じ external files dir 配下へ model file を配置して model path / mmap 差分を潰す。
 - まだ timeout する場合は、Gallery の TFLite GPU dependency 差分を standardDebug だけで追加検証する。
 - GPU 初回 engine create を 60秒超で放置した場合に native callback が遅れて戻るか、現在の stale callback 診断で観察する。
+
+## APK native library diagnostics
+
+`gemma-4-E2B-it.litertlm` が CPU では成功し、GPU だけ `Engine.initialize` 前後の `engine_create` で 60秒 timeout する場合は、モデル/Tokenizer/生成処理より先に GPU backend 初期化または native library 整合性を疑う。まず standardDebug APK に最終的に入った `lib/arm64-v8a` の実体を確認する。
+
+追加した診断:
+
+- `scripts/dump_standard_debug_apk_native_libs.sh`
+- `scripts/compare_edge_gallery_lami_apk_native_libs.sh`
+- Gradle task: `:app:dumpStandardDebugApkNativeLibs`
+- Gradle task: `:app:compareStandardDebugApkNativeLibsWithEdgeGallery`
+
+standardDebug APK の最終 native lib dump:
+
+```bash
+./gradlew :app:assembleStandardDebug
+scripts/dump_standard_debug_apk_native_libs.sh
+```
+
+または Gradle task として:
+
+```bash
+./gradlew :app:dumpStandardDebugApkNativeLibs
+```
+
+Edge Gallery APK と LAMI standardDebug APK の比較:
+
+```bash
+./gradlew :app:assembleStandardDebug
+scripts/compare_edge_gallery_lami_apk_native_libs.sh /path/to/edge-gallery.apk
+```
+
+または:
+
+```bash
+./gradlew :app:compareStandardDebugApkNativeLibsWithEdgeGallery -PedgeGalleryApk=/path/to/edge-gallery.apk
+```
+
+`dump_standard_debug_apk_native_libs.sh` は以下を出力する。
+
+- APK 内 `lib/arm64-v8a/*.so` の一覧
+- 重点確認対象 `.so` の有無、size、sha256、build id、NEEDED
+- final APK entry と SHA が一致する source candidate
+- `origin_bucket`
+
+重点確認対象:
+
+- `libLiteRt.so`
+- `liblitertlm_jni.so`
+- `libLiteRtDispatch_Qualcomm.so`
+- `libLiteRtCompilerPlugin_Qualcomm.so`
+- `libQnnSystem.so`
+- `libQnnGpu.so`
+- `libQnnHtp.so`
+- `libQnnHtpPrepare.so`
+- `libQnnHtpV79Stub.so`
+- `libQnnHtpV79Skel.so`
+- `libQnnDsp.so`
+- `libGemmaModelConstraintProvider.so`
+
+`origin_bucket` の読み方:
+
+- `qairt244_standard_debug_overlay`: `standardDebug` hidden experiment の overlay 入力または `src/customBuildExperimentDebug/jniLibs` と final APK が SHA 一致。Gradle の重複 native lib 警告があっても、この APK entry は overlay 側が勝っている。
+- `aar_dependency`: Gradle cache 内の AAR payload と final APK が SHA 一致。AAR 側が最終APKに入っている。
+- `app_main_jniLibs`: `app/src/main/jniLibs` と SHA 一致。
+- `intermediate_only`: merged/stripped intermediate には一致するが、入力候補を特定できない。
+- `unknown`: local candidate / AAR candidate と SHA 一致しない。cache が未展開、別 source set、または調査対象外の入力経由の可能性がある。
+
+この診断は APK の中身だけを見る。NPU S1 native 実行経路、CPU held-official-flow、fallback、GPU timeout 本体の挙動は変更しない。

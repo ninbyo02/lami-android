@@ -197,7 +197,7 @@ printf 'right arm64 dir: %s\n' "$RIGHT_DIR"
 
 LIBS="$(find "$LEFT_DIR" "$RIGHT_DIR" -maxdepth 1 -type f -name '*.so' 2>/dev/null |
   sed 's#.*/##' |
-  grep -E '^(libLiteRt\.so|liblitertlm_jni\.so|libLiteRtDispatch_Qualcomm\.so|libQnn.*\.so|libQnnHtp.*\.so|libQnnSystem\.so|libQnnTFLiteDelegate\.so)$' |
+  grep -E '^(libLiteRt\.so|liblitertlm_jni\.so|libLiteRtDispatch_Qualcomm\.so|libLiteRtCompilerPlugin_Qualcomm\.so|libGemmaModelConstraintProvider\.so|libQnn.*\.so|libQnnHtp.*\.so|libQnnSystem\.so|libQnnTFLiteDelegate\.so)$' |
   sort -u)"
 
 print_header "Per-source matrix"
