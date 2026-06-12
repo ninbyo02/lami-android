@@ -25,6 +25,7 @@ internal data class LocalInferenceFailureCompactInput(
     val engineConfigBackend: String = "unavailable",
     val normalChatNativeRouteBlocked: Boolean = false,
     val blockedReason: String = "none",
+    val guardRecommendation: String = "unavailable",
     val localRouteStarted: Boolean = true,
     val localEngineCreateStarted: Boolean = false,
     val localEngineCreateFinished: Boolean = false,
@@ -105,7 +106,7 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "npu_standard_route_setting=${input.npuStandardRouteMode.name}",
         "normal_chat_native_route_blocked=${input.normalChatNativeRouteBlocked}",
         "blocked_reason=${input.blockedReason.ifBlank { "none" }}",
-        "guard_recommendation=unavailable",
+        "guard_recommendation=${input.guardRecommendation.ifBlank { "unavailable" }}",
         "local_route_started=${input.localRouteStarted}",
         "local_engine_create_started=${input.localEngineCreateStarted}",
         "local_engine_create_finished=${input.localEngineCreateFinished}",
@@ -197,6 +198,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         failureExceptionClass = resolvedFailureExceptionClass,
         failureExceptionMessage = resolvedFailureExceptionMessage,
     )
+    val gpuEngineCreateTimeoutSuspected = parsed["gpu_engine_create_timeout_suspected"] ?: "unavailable"
     return LocalInferenceFailureCompactInput(
         inputPrompt = inputPrompt,
         preferredBackendSetting = preferredBackendSetting,
@@ -228,6 +230,12 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
             },
         normalChatNativeRouteBlocked = routeContext?.normalChatNativeRouteBlocked ?: false,
         blockedReason = routeContext?.blockedReason ?: "none",
+        guardRecommendation = parsed["guard_recommendation"]
+            ?: GPU_EXPERIMENTAL_TIMEOUT_GUARD_RECOMMENDATION.takeIf {
+                gpuEngineCreateTimeoutSuspected == "true" ||
+                    (preferredBackendSetting == PreferredBackendDryRunSetting.GPU && timeout)
+            }
+            ?: "unavailable",
         localRouteStarted = true,
         localEngineCreateStarted = trace?.localTraceStartElapsedRealtimeMs != null ||
             trace?.heldEngineCreatePath != null ||
@@ -255,7 +263,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         gpuEngineCreateDurationMs = parsed["gpu_engine_create_duration_ms"] ?: "unavailable",
         gpuEngineCreateStarted = parsed["gpu_engine_create_started"] ?: parsed["engine_create_started"] ?: "unavailable",
         gpuEngineCreateFinished = parsed["gpu_engine_create_finished"] ?: parsed["engine_create_finished"] ?: "unavailable",
-        gpuEngineCreateTimeoutSuspected = parsed["gpu_engine_create_timeout_suspected"] ?: "unavailable",
+        gpuEngineCreateTimeoutSuspected = gpuEngineCreateTimeoutSuspected,
         gpuConversationCreateStarted = parsed["gpu_conversation_create_started"] ?: parsed["conversation_create_started"] ?: "unavailable",
         gpuConversationCreateFinished = parsed["gpu_conversation_create_finished"] ?: parsed["conversation_create_finished"] ?: "unavailable",
         gpuGenerateStarted = parsed["gpu_generate_started"] ?: parsed["generate_started"] ?: "unavailable",

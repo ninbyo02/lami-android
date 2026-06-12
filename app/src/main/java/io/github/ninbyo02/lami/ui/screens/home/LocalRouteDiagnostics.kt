@@ -96,6 +96,11 @@ internal fun buildLocalRouteDiagnosticTrace(
             flags.engineCreateStarted == true &&
             flags.engineCreateFinished == false &&
             failureStage != "none"
+    val guardRecommendation = if (engineCreateTimeoutSuspected) {
+        GPU_EXPERIMENTAL_TIMEOUT_GUARD_RECOMMENDATION
+    } else {
+        "unavailable"
+    }
     return listOf(
         "LOCAL_ROUTE_DIAG",
         "stage=$stage",
@@ -111,6 +116,7 @@ internal fun buildLocalRouteDiagnosticTrace(
         "local_route_entered=${context.localRouteEntered}",
         "normal_chat_native_route_blocked=${context.normalChatNativeRouteBlocked}",
         "blocked_reason=${context.blockedReason}",
+        "guard_recommendation=$guardRecommendation",
         "held_engine_exists=${flags.heldEngineExists.toDiagnosticValue()}",
         "held_engine_reused=${flags.heldEngineReused.toDiagnosticValue()}",
         "engine_create_started=${flags.engineCreateStarted.toDiagnosticValue()}",
@@ -155,6 +161,7 @@ internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_EXTENDED_DEV_MS = 60_000L
 internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS = GPU_EXPERIMENTAL_STAGE_TIMEOUT_EXTENDED_DEV_MS
 internal const val GPU_EXPERIMENTAL_TIMEOUT_MESSAGE =
     "GPU backend の初期化または生成開始がタイムアウトしました。Generic LiteRT-LMモデルではCPU backendを選択してください。"
+internal const val GPU_EXPERIMENTAL_TIMEOUT_GUARD_RECOMMENDATION = "switch_to_cpu_or_npu"
 
 internal fun shouldApplyGpuExperimentalStageTimeout(
     context: LocalRouteDiagnosticContext,

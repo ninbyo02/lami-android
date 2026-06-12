@@ -106,6 +106,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("gpu_engine_create_started=true"))
         assertTrue(text.contains("gpu_engine_create_finished=false"))
         assertTrue(text.contains("gpu_engine_create_timeout_suspected=true"))
+        assertTrue(text.contains("guard_recommendation=switch_to_cpu_or_npu"))
         assertTrue(text.contains("gpu_generate_started=false"))
         assertTrue(text.contains("gpu_first_token_received=false"))
         assertTrue(text.contains("gpu_stale_callback_ignored=true"))

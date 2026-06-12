@@ -18,7 +18,7 @@ enum class InferenceBackendSelection(
         npuStandardRouteMode = NpuStandardRouteMode.OFF,
     ),
     GPU(
-        displayLabel = "GPU",
+        displayLabel = "GPU（Experimental / 非推奨）",
         preferredBackend = PreferredBackendDryRunSetting.GPU,
         npuStandardRouteMode = NpuStandardRouteMode.OFF,
     ),

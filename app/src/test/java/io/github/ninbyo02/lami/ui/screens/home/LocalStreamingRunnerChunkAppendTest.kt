@@ -1,11 +1,19 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocalStreamingRunnerChunkAppendTest {
+    @Test
+    fun `Automatic backend policy uses CPU priority`() {
+        val applied = resolveLiteRtTextBackendSelection(PreferredBackendDryRunSetting.DEFAULT)
+
+        assertEquals("CPU", applied.appliedPreferredBackend)
+        assertEquals("cpu-priority-default-engine-config", applied.preferredBackendApplyResult)
+    }
 
     @Test
     fun `Hello と World の境界では最小 join を入れる`() {

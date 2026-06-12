@@ -90,6 +90,12 @@ class SettingsNpuRouteUiTest {
     }
 
     @Test
+    fun `GPU backend label marks experimental deprecated status`() {
+        assertTrue(InferenceBackendSelection.GPU.displayLabel.contains("Experimental"))
+        assertTrue(InferenceBackendSelection.GPU.displayLabel.contains("非推奨"))
+    }
+
+    @Test
     fun `NPU standard route has six selectable modes`() {
         assertEquals(6, NpuStandardRouteMode.entries.size)
     }

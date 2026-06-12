@@ -4422,7 +4422,7 @@ private fun createOfficialLiteRtLmEngineInstance(
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
 ): Any? {
     safeAppendTrace(appendTrace, "UPSTREAM official-helper start helper=createOfficialLiteRtLmEngineInstance")
-    safeAppendTrace(appendTrace, "UPSTREAM official-helper backend=text=GPU vision=GPU audio=CPU")
+    safeAppendTrace(appendTrace, "UPSTREAM official-helper backend-requested=${preferredBackendDryRunSetting.name} vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-helper cacheDirPresent=${!cacheDirPath.isNullOrBlank()}")
     var preferredBackendApplyResult: PreferredBackendApplyResult? = null
     return runCatching {
@@ -4479,46 +4479,70 @@ internal fun buildLiteRtEngineConfig(
     onPreferredBackendApplied: (PreferredBackendApplyResult) -> Unit = {},
 ): EngineConfig {
     val backendEnumCandidates = listOf("DEFAULT", "CPU", "GPU")
-    val backendApply = when (preferredBackendDryRunSetting) {
-        PreferredBackendDryRunSetting.CPU -> LiteRtBackendApply(Backend.CPU(), "CPU", "applied-engine-config")
-        PreferredBackendDryRunSetting.GPU -> LiteRtBackendApply(Backend.GPU(), "GPU", "applied-engine-config")
-        PreferredBackendDryRunSetting.DEFAULT -> LiteRtBackendApply(Backend.GPU(), "DEFAULT", "skipped-default-engine-config")
-        PreferredBackendDryRunSetting.NPU -> createDisabledNpuGpuFallback()
-        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> createDisabledNpuGpuFallback()
+    val backendPolicy = resolveLiteRtTextBackendSelection(preferredBackendDryRunSetting)
+    val backend = when (preferredBackendDryRunSetting) {
+        PreferredBackendDryRunSetting.CPU -> Backend.CPU()
+        PreferredBackendDryRunSetting.GPU -> Backend.GPU()
+        PreferredBackendDryRunSetting.DEFAULT -> Backend.CPU()
+        PreferredBackendDryRunSetting.NPU -> createDisabledNpuGpuFallback().backend
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> createDisabledNpuGpuFallback().backend
     }
     onPreferredBackendApplied(
         PreferredBackendApplyResult(
             requestedPreferredBackend = preferredBackendDryRunSetting.name,
-            appliedPreferredBackend = backendApply.appliedPreferredBackend,
-            preferredBackendApplyResult = backendApply.preferredBackendApplyResult,
+            appliedPreferredBackend = backendPolicy.appliedPreferredBackend,
+            preferredBackendApplyResult = backendPolicy.preferredBackendApplyResult,
             preferredBackendHookReached = true,
             preferredBackendHookSource = "holder-acquire-engine-config",
-            preferredBackendApplyError = backendApply.error,
+            preferredBackendApplyError = backendPolicy.error,
             preferredBackendApplyBuilderClass = "EngineConfig",
             preferredBackendApplyMethodCandidates = emptyList(),
             preferredBackendApplyBackendEnumCandidates = backendEnumCandidates,
-            preferredBackendApplyNotSupportedReason = backendApply.notSupportedReason,
+            preferredBackendApplyNotSupportedReason = backendPolicy.notSupportedReason,
         ),
     )
     safeAppendTrace(
         appendTrace,
-        "UPSTREAM preferred-backend hook-reached=true source=holder-acquire-engine-config requested=${preferredBackendDryRunSetting.name} applied=${backendApply.appliedPreferredBackend} result=${backendApply.preferredBackendApplyResult} builderClass=EngineConfig",
+        "UPSTREAM preferred-backend hook-reached=true source=holder-acquire-engine-config requested=${preferredBackendDryRunSetting.name} applied=${backendPolicy.appliedPreferredBackend} result=${backendPolicy.preferredBackendApplyResult} builderClass=EngineConfig",
     )
     if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU || preferredBackendDryRunSetting == PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU) {
         safeAppendTrace(
             appendTrace,
-            "UPSTREAM preferred-backend npu-request result=${backendApply.preferredBackendApplyResult} applied=${backendApply.appliedPreferredBackend} error=${backendApply.error ?: "none"} recommended=GPU",
+            "UPSTREAM preferred-backend npu-request result=${backendPolicy.preferredBackendApplyResult} applied=${backendPolicy.appliedPreferredBackend} error=${backendPolicy.error ?: "none"} recommended=GPU",
         )
     }
     return EngineConfig(
         modelPath = modelPath,
-        backend = backendApply.backend,
+        backend = backend,
         visionBackend = Backend.GPU(),
         audioBackend = Backend.CPU(),
         maxNumTokens = null,
         cacheDir = cacheDirPath,
     )
 }
+
+internal data class LiteRtTextBackendSelection(
+    val appliedPreferredBackend: String,
+    val preferredBackendApplyResult: String,
+    val error: String? = null,
+    val notSupportedReason: String? = null,
+)
+
+internal fun resolveLiteRtTextBackendSelection(
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+): LiteRtTextBackendSelection =
+    when (preferredBackendDryRunSetting) {
+        PreferredBackendDryRunSetting.CPU -> LiteRtTextBackendSelection("CPU", "applied-engine-config")
+        PreferredBackendDryRunSetting.GPU -> LiteRtTextBackendSelection("GPU", "applied-engine-config")
+        PreferredBackendDryRunSetting.DEFAULT -> LiteRtTextBackendSelection("CPU", "cpu-priority-default-engine-config")
+        PreferredBackendDryRunSetting.NPU,
+        PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU -> LiteRtTextBackendSelection(
+            appliedPreferredBackend = "GPU",
+            preferredBackendApplyResult = "fallback-gpu-before-npu-disabled",
+            error = "stage=npu-disabled result=vendor-fastrpc-namespace-blocked device=nubia-NX733J android=16 recommended=GPU",
+            notSupportedReason = NPU_DISABLED_NOT_SUPPORTED_REASON,
+        )
+    }
 
 private data class LiteRtBackendApply(
     val backend: Backend,

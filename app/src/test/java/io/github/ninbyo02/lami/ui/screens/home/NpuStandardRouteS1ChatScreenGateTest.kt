@@ -1555,6 +1555,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertTrue(trace.contains("gpu_engine_create_started=true"))
         assertTrue(trace.contains("gpu_engine_create_finished=false"))
         assertTrue(trace.contains("gpu_engine_create_timeout_suspected=true"))
+        assertTrue(trace.contains("guard_recommendation=switch_to_cpu_or_npu"))
         assertTrue(trace.contains("gpu_generate_started=false"))
         assertTrue(trace.contains("gpu_first_token_received=false"))
         assertTrue(trace.contains("gpu_model_kind=generic-litertlm"))
@@ -1624,6 +1625,7 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertTrue(trace.contains("gpu_watchdog_mode=standard_20s"))
         assertTrue(trace.contains("gpu_timeout_stage=engine_create"))
         assertTrue(trace.contains("gpu_engine_create_timeout_suspected=true"))
+        assertTrue(trace.contains("guard_recommendation=switch_to_cpu_or_npu"))
     }
 
     @Test

@@ -626,7 +626,7 @@ fun Settings(
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "現在ローカル推論で使う backend を選択します。\nAutomatic は LiteRT-LM の標準挙動です。\nNPU S1〜S5 は開発者向け NPU標準ルートです。",
+                                text = "現在ローカル推論で使う backend を選択します。\nAutomatic は当面 CPU 優先です。\nGPU は端末依存で Genericモデルの engine create timeout が起きる可能性があるため、DEV診断目的の Experimental / 非推奨です。\nNPU S1〜S5 は開発者向け NPU標準ルートです。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
