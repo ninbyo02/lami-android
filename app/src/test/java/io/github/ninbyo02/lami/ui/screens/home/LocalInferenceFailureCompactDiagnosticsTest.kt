@@ -74,7 +74,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 fallbackUsed = false,
                 staleCallbackIgnored = true,
             ),
-            elapsedMs = 20_001L,
+            elapsedMs = 60_001L,
         )
         val text = buildLocalInferenceFailureCompactDiagnosticsText(
             buildLocalInferenceFailureCompactInputFromTrace(
@@ -98,11 +98,14 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("[DEV診断: Local inference failure compact]"))
         assertTrue(text.contains("route_family=local_gpu"))
         assertTrue(text.contains("failure_stage=gpu_watchdog_timeout"))
-        assertTrue(text.contains("gpu_watchdog_timeout_ms=20000"))
+        assertTrue(text.contains("gpu_watchdog_timeout_ms=60000"))
+        assertTrue(text.contains("gpu_watchdog_mode=extended_dev_60s"))
         assertTrue(text.contains("gpu_timeout_stage=engine_create"))
-        assertTrue(text.contains("gpu_timeout_elapsed_ms=20001"))
+        assertTrue(text.contains("gpu_timeout_elapsed_ms=60001"))
+        assertTrue(text.contains("gpu_engine_create_duration_ms=60001"))
         assertTrue(text.contains("gpu_engine_create_started=true"))
         assertTrue(text.contains("gpu_engine_create_finished=false"))
+        assertTrue(text.contains("gpu_engine_create_timeout_suspected=true"))
         assertTrue(text.contains("gpu_generate_started=false"))
         assertTrue(text.contains("gpu_first_token_received=false"))
         assertTrue(text.contains("gpu_stale_callback_ignored=true"))

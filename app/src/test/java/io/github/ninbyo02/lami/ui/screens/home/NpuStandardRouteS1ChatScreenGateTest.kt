@@ -1546,12 +1546,15 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertTrue(trace.contains("failure_stage=engine_create_timeout"))
         assertTrue(trace.contains("fallback_used=false"))
         assertTrue(trace.contains("stale_callback_ignored=false"))
-        assertTrue(trace.contains("elapsed_ms=20000"))
-        assertTrue(trace.contains("gpu_watchdog_timeout_ms=20000"))
+        assertTrue(trace.contains("elapsed_ms=60000"))
+        assertTrue(trace.contains("gpu_watchdog_timeout_ms=60000"))
+        assertTrue(trace.contains("gpu_watchdog_mode=extended_dev_60s"))
         assertTrue(trace.contains("gpu_timeout_stage=engine_create"))
-        assertTrue(trace.contains("gpu_timeout_elapsed_ms=20000"))
+        assertTrue(trace.contains("gpu_timeout_elapsed_ms=60000"))
+        assertTrue(trace.contains("gpu_engine_create_duration_ms=60000"))
         assertTrue(trace.contains("gpu_engine_create_started=true"))
         assertTrue(trace.contains("gpu_engine_create_finished=false"))
+        assertTrue(trace.contains("gpu_engine_create_timeout_suspected=true"))
         assertTrue(trace.contains("gpu_generate_started=false"))
         assertTrue(trace.contains("gpu_first_token_received=false"))
         assertTrue(trace.contains("gpu_model_kind=generic-litertlm"))
@@ -1588,9 +1591,39 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertTrue(trace.contains("failure_stage=gpu_watchdog_timeout"))
         assertTrue(trace.contains("fallback_used=false"))
         assertTrue(trace.contains("stale_callback_ignored=true"))
-        assertTrue(trace.contains("elapsed_ms=20000"))
+        assertTrue(trace.contains("elapsed_ms=60000"))
         assertTrue(trace.contains("gpu_timeout_stage=engine_create"))
+        assertTrue(trace.contains("gpu_watchdog_timeout_ms=60000"))
+        assertTrue(trace.contains("gpu_watchdog_mode=extended_dev_60s"))
         assertTrue(trace.contains("gpu_stale_callback_ignored=true"))
+    }
+
+    @Test
+    fun `Generic GPU timeout diagnostics can report standard 20s watchdog mode`() {
+        val diagnosticContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val trace = buildLocalRouteDiagnosticTrace(
+            stage = "timeout_failure",
+            context = diagnosticContext,
+            flags = LocalRouteDiagnosticFlags(
+                engineCreateStarted = true,
+                engineCreateFinished = false,
+                failureStage = "engine_create_timeout",
+            ),
+            elapsedMs = GPU_EXPERIMENTAL_STAGE_TIMEOUT_STANDARD_MS,
+            gpuWatchdogTimeoutMs = GPU_EXPERIMENTAL_STAGE_TIMEOUT_STANDARD_MS,
+        )
+
+        assertTrue(trace.contains("gpu_watchdog_timeout_ms=20000"))
+        assertTrue(trace.contains("gpu_watchdog_mode=standard_20s"))
+        assertTrue(trace.contains("gpu_timeout_stage=engine_create"))
+        assertTrue(trace.contains("gpu_engine_create_timeout_suspected=true"))
     }
 
     @Test

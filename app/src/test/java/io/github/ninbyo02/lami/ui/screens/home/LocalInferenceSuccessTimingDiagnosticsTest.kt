@@ -20,6 +20,7 @@ class LocalInferenceSuccessTimingDiagnosticsTest {
                 bottomSheetUpdateFinishedAtElapsedMs = 1_090L,
                 tokenizerCountStartedAtElapsedMs = 970L,
                 tokenizerCountFinishedAtElapsedMs = 1_005L,
+                tokenCountMode = "mediapipe_tokenizer_recount",
             ),
         )
 
@@ -38,6 +39,11 @@ class LocalInferenceSuccessTimingDiagnosticsTest {
         assertTrue(text.contains("tokenizer_count_started_at_elapsed_ms=970"))
         assertTrue(text.contains("tokenizer_count_finished_at_elapsed_ms=1005"))
         assertTrue(text.contains("tokenizer_count_duration_ms=35"))
+        assertTrue(text.contains("stats_initial_display_used_estimated_tokens=true"))
+        assertTrue(text.contains("stats_final_display_used_tokenizer_tokens=true"))
+        assertTrue(text.contains("tokenizer_count_delayed_stats_update=true"))
+        assertTrue(text.contains("stats_token_metrics_initial_source=estimated_tokens_before_tokenizer"))
+        assertTrue(text.contains("stats_token_metrics_final_source=tokenizer_tokens"))
     }
 
     @Test

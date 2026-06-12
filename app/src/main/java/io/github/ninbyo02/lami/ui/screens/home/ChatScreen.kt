@@ -5234,6 +5234,7 @@ fun Home(
                                                                                     resolvedTrace?.measuredTokenSnapshot?.tokenizerCountFinishedAtElapsedMs,
                                                                                 tokenizerCountDurationMs =
                                                                                     resolvedTrace?.measuredTokenSnapshot?.tokenizerCountDurationMs,
+                                                                                tokenCountMode = localStats.tokenCountMode,
                                                                             ),
                                                                         )
                                                                         val finalLocalSourceSummary = listOfNotNull(

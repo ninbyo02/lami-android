@@ -22,6 +22,7 @@ internal data class LocalRouteDiagnosticFlags(
     val heldEngineReused: Boolean? = null,
     val engineCreateStarted: Boolean? = null,
     val engineCreateFinished: Boolean? = null,
+    val engineCreateDurationMs: Long? = null,
     val conversationCreateStarted: Boolean? = null,
     val conversationCreateFinished: Boolean? = null,
     val generateStarted: Boolean? = null,
@@ -80,9 +81,21 @@ internal fun buildLocalRouteDiagnosticTrace(
     context: LocalRouteDiagnosticContext,
     flags: LocalRouteDiagnosticFlags = LocalRouteDiagnosticFlags(),
     elapsedMs: Long = 0L,
+    gpuWatchdogTimeoutMs: Long = GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS,
 ): String {
     val normalizedElapsedMs = elapsedMs.coerceAtLeast(0L)
     val failureStage = flags.failureStage?.takeIf { it.isNotBlank() } ?: "none"
+    val gpuTimeoutStage = resolveGpuExperimentalTimeoutStage(failureStage)
+    val engineCreateDurationMs = flags.engineCreateDurationMs
+        ?: normalizedElapsedMs.takeIf {
+            flags.engineCreateStarted == true &&
+                (flags.engineCreateFinished == false || flags.engineCreateFinished == true)
+        }
+    val engineCreateTimeoutSuspected =
+        gpuTimeoutStage == "engine_create" &&
+            flags.engineCreateStarted == true &&
+            flags.engineCreateFinished == false &&
+            failureStage != "none"
     return listOf(
         "LOCAL_ROUTE_DIAG",
         "stage=$stage",
@@ -110,11 +123,14 @@ internal fun buildLocalRouteDiagnosticTrace(
         "fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
         "stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
         "elapsed_ms=$normalizedElapsedMs",
-        "gpu_watchdog_timeout_ms=$GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS",
-        "gpu_timeout_stage=${resolveGpuExperimentalTimeoutStage(failureStage)}",
+        "gpu_watchdog_timeout_ms=$gpuWatchdogTimeoutMs",
+        "gpu_watchdog_mode=${resolveGpuExperimentalWatchdogMode(gpuWatchdogTimeoutMs)}",
+        "gpu_timeout_stage=$gpuTimeoutStage",
         "gpu_timeout_elapsed_ms=$normalizedElapsedMs",
+        "gpu_engine_create_duration_ms=${engineCreateDurationMs?.coerceAtLeast(0L)?.toString() ?: "unavailable"}",
         "gpu_engine_create_started=${flags.engineCreateStarted.toDiagnosticValue()}",
         "gpu_engine_create_finished=${flags.engineCreateFinished.toDiagnosticValue()}",
+        "gpu_engine_create_timeout_suspected=$engineCreateTimeoutSuspected",
         "gpu_conversation_create_started=${flags.conversationCreateStarted.toDiagnosticValue()}",
         "gpu_conversation_create_finished=${flags.conversationCreateFinished.toDiagnosticValue()}",
         "gpu_generate_started=${flags.generateStarted.toDiagnosticValue()}",
@@ -134,7 +150,9 @@ internal fun buildLocalRouteDiagnosticTrace(
 
 private fun Boolean?.toDiagnosticValue(): String = this?.toString() ?: "unknown"
 
-internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS = 20_000L
+internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_STANDARD_MS = 20_000L
+internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_EXTENDED_DEV_MS = 60_000L
+internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS = GPU_EXPERIMENTAL_STAGE_TIMEOUT_EXTENDED_DEV_MS
 internal const val GPU_EXPERIMENTAL_TIMEOUT_MESSAGE =
     "GPU backend の初期化または生成開始がタイムアウトしました。Generic LiteRT-LMモデルではCPU backendを選択してください。"
 
@@ -164,6 +182,15 @@ internal fun resolveGpuExperimentalTimeoutStage(
         "conversation_create_timeout" -> "engine_create"
         "engine_create_timeout", "gpu_watchdog_timeout" -> "engine_create"
         else -> "unavailable"
+    }
+
+internal fun resolveGpuExperimentalWatchdogMode(
+    timeoutMs: Long,
+): String =
+    when (timeoutMs) {
+        GPU_EXPERIMENTAL_STAGE_TIMEOUT_EXTENDED_DEV_MS -> "extended_dev_60s"
+        GPU_EXPERIMENTAL_STAGE_TIMEOUT_STANDARD_MS -> "standard_20s"
+        else -> "custom_${timeoutMs.coerceAtLeast(0L)}ms"
     }
 
 private fun resolveGpuLastKnownStage(flags: LocalRouteDiagnosticFlags): String =
