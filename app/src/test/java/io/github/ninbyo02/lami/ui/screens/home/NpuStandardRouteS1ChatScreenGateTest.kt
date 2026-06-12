@@ -1547,6 +1547,15 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertTrue(trace.contains("fallback_used=false"))
         assertTrue(trace.contains("stale_callback_ignored=false"))
         assertTrue(trace.contains("elapsed_ms=20000"))
+        assertTrue(trace.contains("gpu_watchdog_timeout_ms=20000"))
+        assertTrue(trace.contains("gpu_timeout_stage=engine_create"))
+        assertTrue(trace.contains("gpu_timeout_elapsed_ms=20000"))
+        assertTrue(trace.contains("gpu_engine_create_started=true"))
+        assertTrue(trace.contains("gpu_engine_create_finished=false"))
+        assertTrue(trace.contains("gpu_generate_started=false"))
+        assertTrue(trace.contains("gpu_first_token_received=false"))
+        assertTrue(trace.contains("gpu_model_kind=generic-litertlm"))
+        assertTrue(trace.contains("gpu_backend_setting=GPU"))
         assertEquals(
             "GPU backend の初期化または生成開始がタイムアウトしました。Generic LiteRT-LMモデルではCPU backendを選択してください。",
             GPU_EXPERIMENTAL_TIMEOUT_MESSAGE,
@@ -1580,6 +1589,8 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertTrue(trace.contains("fallback_used=false"))
         assertTrue(trace.contains("stale_callback_ignored=true"))
         assertTrue(trace.contains("elapsed_ms=20000"))
+        assertTrue(trace.contains("gpu_timeout_stage=engine_create"))
+        assertTrue(trace.contains("gpu_stale_callback_ignored=true"))
     }
 
     @Test
@@ -1615,6 +1626,21 @@ class NpuStandardRouteS1ChatScreenGateTest {
         assertEquals(
             "first_token_timeout",
             resolveGpuExperimentalTimeoutFailureStage("generate_started"),
+        )
+        assertTrue(
+            listOf("engine_create", "generate", "first_token_wait").contains(
+                resolveGpuExperimentalTimeoutStage("engine_create_timeout"),
+            ),
+        )
+        assertTrue(
+            listOf("engine_create", "generate", "first_token_wait").contains(
+                resolveGpuExperimentalTimeoutStage("generate_start_timeout"),
+            ),
+        )
+        assertTrue(
+            listOf("engine_create", "generate", "first_token_wait").contains(
+                resolveGpuExperimentalTimeoutStage("first_token_timeout"),
+            ),
         )
     }
 

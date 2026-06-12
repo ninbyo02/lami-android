@@ -26,6 +26,7 @@ internal data class LocalRouteDiagnosticFlags(
     val conversationCreateFinished: Boolean? = null,
     val generateStarted: Boolean? = null,
     val firstTokenReceived: Boolean? = null,
+    val firstTokenElapsedMs: Long? = null,
     val failureStage: String? = null,
     val fallbackUsed: Boolean? = null,
     val staleCallbackIgnored: Boolean? = null,
@@ -79,34 +80,57 @@ internal fun buildLocalRouteDiagnosticTrace(
     context: LocalRouteDiagnosticContext,
     flags: LocalRouteDiagnosticFlags = LocalRouteDiagnosticFlags(),
     elapsedMs: Long = 0L,
-): String = listOf(
-    "LOCAL_ROUTE_DIAG",
-    "stage=$stage",
-    "selected_model_name=${context.selectedModelName}",
-    "selected_model_file=${context.selectedModelFile}",
-    "model_kind=${context.modelKind}",
-    "preferred_backend=${context.preferredBackend}",
-    "baseline_role=${context.baselineRole}",
-    "generic_model_cpu_baseline=${context.genericModelCpuBaseline}",
-    "npu_standard_route_mode=${context.npuStandardRouteMode}",
-    "effective_npu_standard_route_mode=${context.effectiveNpuStandardRouteMode}",
-    "should_enter_npu_s1=${context.shouldEnterNpuS1}",
-    "local_route_entered=${context.localRouteEntered}",
-    "normal_chat_native_route_blocked=${context.normalChatNativeRouteBlocked}",
-    "blocked_reason=${context.blockedReason}",
-    "held_engine_exists=${flags.heldEngineExists.toDiagnosticValue()}",
-    "held_engine_reused=${flags.heldEngineReused.toDiagnosticValue()}",
-    "engine_create_started=${flags.engineCreateStarted.toDiagnosticValue()}",
-    "engine_create_finished=${flags.engineCreateFinished.toDiagnosticValue()}",
-    "conversation_create_started=${flags.conversationCreateStarted.toDiagnosticValue()}",
-    "conversation_create_finished=${flags.conversationCreateFinished.toDiagnosticValue()}",
-    "generate_started=${flags.generateStarted.toDiagnosticValue()}",
-    "first_token_received=${flags.firstTokenReceived.toDiagnosticValue()}",
-    "failure_stage=${flags.failureStage?.takeIf { it.isNotBlank() } ?: "none"}",
-    "fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
-    "stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
-    "elapsed_ms=${elapsedMs.coerceAtLeast(0L)}",
-).joinToString(" ")
+): String {
+    val normalizedElapsedMs = elapsedMs.coerceAtLeast(0L)
+    val failureStage = flags.failureStage?.takeIf { it.isNotBlank() } ?: "none"
+    return listOf(
+        "LOCAL_ROUTE_DIAG",
+        "stage=$stage",
+        "selected_model_name=${context.selectedModelName}",
+        "selected_model_file=${context.selectedModelFile}",
+        "model_kind=${context.modelKind}",
+        "preferred_backend=${context.preferredBackend}",
+        "baseline_role=${context.baselineRole}",
+        "generic_model_cpu_baseline=${context.genericModelCpuBaseline}",
+        "npu_standard_route_mode=${context.npuStandardRouteMode}",
+        "effective_npu_standard_route_mode=${context.effectiveNpuStandardRouteMode}",
+        "should_enter_npu_s1=${context.shouldEnterNpuS1}",
+        "local_route_entered=${context.localRouteEntered}",
+        "normal_chat_native_route_blocked=${context.normalChatNativeRouteBlocked}",
+        "blocked_reason=${context.blockedReason}",
+        "held_engine_exists=${flags.heldEngineExists.toDiagnosticValue()}",
+        "held_engine_reused=${flags.heldEngineReused.toDiagnosticValue()}",
+        "engine_create_started=${flags.engineCreateStarted.toDiagnosticValue()}",
+        "engine_create_finished=${flags.engineCreateFinished.toDiagnosticValue()}",
+        "conversation_create_started=${flags.conversationCreateStarted.toDiagnosticValue()}",
+        "conversation_create_finished=${flags.conversationCreateFinished.toDiagnosticValue()}",
+        "generate_started=${flags.generateStarted.toDiagnosticValue()}",
+        "first_token_received=${flags.firstTokenReceived.toDiagnosticValue()}",
+        "failure_stage=$failureStage",
+        "fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
+        "stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
+        "elapsed_ms=$normalizedElapsedMs",
+        "gpu_watchdog_timeout_ms=$GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS",
+        "gpu_timeout_stage=${resolveGpuExperimentalTimeoutStage(failureStage)}",
+        "gpu_timeout_elapsed_ms=$normalizedElapsedMs",
+        "gpu_engine_create_started=${flags.engineCreateStarted.toDiagnosticValue()}",
+        "gpu_engine_create_finished=${flags.engineCreateFinished.toDiagnosticValue()}",
+        "gpu_conversation_create_started=${flags.conversationCreateStarted.toDiagnosticValue()}",
+        "gpu_conversation_create_finished=${flags.conversationCreateFinished.toDiagnosticValue()}",
+        "gpu_generate_started=${flags.generateStarted.toDiagnosticValue()}",
+        "gpu_first_token_received=${flags.firstTokenReceived.toDiagnosticValue()}",
+        "gpu_first_token_elapsed_ms=${flags.firstTokenElapsedMs?.coerceAtLeast(0L)?.toString() ?: "unavailable"}",
+        "gpu_last_known_stage=${resolveGpuLastKnownStage(flags)}",
+        "gpu_held_engine_exists=${flags.heldEngineExists.toDiagnosticValue()}",
+        "gpu_held_engine_reused=${flags.heldEngineReused.toDiagnosticValue()}",
+        "gpu_model_kind=${context.modelKind}",
+        "gpu_selected_model_name=${context.selectedModelName}",
+        "gpu_selected_model_file=${context.selectedModelFile}",
+        "gpu_backend_setting=${context.preferredBackend}",
+        "gpu_fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
+        "gpu_stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
+    ).joinToString(" ")
+}
 
 private fun Boolean?.toDiagnosticValue(): String = this?.toString() ?: "unknown"
 
@@ -129,4 +153,26 @@ internal fun resolveGpuExperimentalTimeoutFailureStage(
         "conversation_create_finished" -> "generate_start_timeout"
         "generate_started" -> "first_token_timeout"
         else -> "engine_create_timeout"
+    }
+
+internal fun resolveGpuExperimentalTimeoutStage(
+    failureStage: String?,
+): String =
+    when (failureStage) {
+        "first_token_timeout" -> "first_token_wait"
+        "generate_start_timeout" -> "generate"
+        "conversation_create_timeout" -> "engine_create"
+        "engine_create_timeout", "gpu_watchdog_timeout" -> "engine_create"
+        else -> "unavailable"
+    }
+
+private fun resolveGpuLastKnownStage(flags: LocalRouteDiagnosticFlags): String =
+    when {
+        flags.firstTokenReceived == true -> "first_token_received"
+        flags.generateStarted == true -> "generate_started"
+        flags.conversationCreateFinished == true -> "conversation_create_finished"
+        flags.conversationCreateStarted == true -> "conversation_create_started"
+        flags.engineCreateFinished == true -> "engine_create_finished"
+        flags.engineCreateStarted == true -> "engine_create_started"
+        else -> "unavailable"
     }

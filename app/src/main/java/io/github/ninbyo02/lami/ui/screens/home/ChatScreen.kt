@@ -5014,6 +5014,16 @@ fun Home(
                                                                 "LOCAL compare recheck: effectiveChatId=$effectiveChatId, recheckedState=$resolvedState, recheckedTimedOut=$recheckedTimedOut, recheckedResponseBlank=$recheckedResponseBlank, recheckedResponseLength=$recheckedResponseLength, recheckedTracePresent=$recheckedTracePresent, resolvedAssistantBlank=$resolvedAssistantBlank, streamingUiLength=$streamingUiLength",
                                                             )
                                                             if (resolvedState == LocalInferenceEngineState.READY && resolvedAssistantResponse.isNotBlank()) {
+                                                                    val generationFinishedAtElapsedMs =
+                                                                        runResultWithUiTrace?.trace?.localTraceCompletedElapsedRealtimeMs
+                                                                            ?: SystemClock.elapsedRealtime()
+                                                                    var statsBuildStartedAtElapsedMs: Long? = null
+                                                                    var statsBuildFinishedAtElapsedMs: Long? = null
+                                                                    var bottomSheetUpdateStartedAtElapsedMs: Long? = null
+                                                                    var bottomSheetUpdateFinishedAtElapsedMs: Long? = null
+                                                                    var ttsRequestedAtElapsedMs: Long? = null
+                                                                    var ttsStartedAtElapsedMs: Long? = null
+                                                                    var ttsCompletedAtElapsedMs: Long? = null
                                                                     val resolvedRunResult = runResultWithUiTrace
                                                                     var resolvedTrace = resolvedRunResult?.trace
                                                                     var localStats = if (resolvedTrace != null) {
@@ -5117,13 +5127,16 @@ fun Home(
                                                                         ?.withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot())
                                                                     latestLocalTraceForDev = resolvedTrace
                                                                     localStats = if (resolvedTrace != null) {
+                                                                        statsBuildStartedAtElapsedMs = SystemClock.elapsedRealtime()
                                                                         buildLocalInferenceStatsFromTrace(
                                                                             trace = resolvedTrace,
                                                                             generationTimeMs = localGenerationTimeMs,
                                                                             responseCharCount = resolvedAssistantResponse.length,
                                                                             responseText = resolvedAssistantResponse,
                                                                             fallbackTimeToFirstTokenMs = localGenerationTimeMs,
-                                                                        )
+                                                                        ).also {
+                                                                            statsBuildFinishedAtElapsedMs = SystemClock.elapsedRealtime()
+                                                                        }
                                                                     } else {
                                                                         null
                                                                     }
@@ -5157,6 +5170,7 @@ fun Home(
                                                                         return@launch
                                                                     }
                                                                     if (localRunGuardEpoch != streamingGuardEpoch) return@launch
+                                                                    bottomSheetUpdateStartedAtElapsedMs = SystemClock.elapsedRealtime()
                                                                     val assistantId = finalizeStreamingAssistantMessageSerialized(
                                                                         chatId = currentChatId,
                                                                         response = resolvedAssistantResponse,
@@ -5164,6 +5178,7 @@ fun Home(
                                                                         localSourceSummary = localSourceSummary,
                                                                         generationTimeMs = localGenerationTimeMs,
                                                                     )
+                                                                    bottomSheetUpdateFinishedAtElapsedMs = SystemClock.elapsedRealtime()
                                                                     latestLocalTraceForDev = resolvedTrace
                                                                         ?.withStreamingUiMetrics(localStreamingUiMetricsForDev.snapshot())
                                                                         ?: latestLocalTraceForDev
@@ -5176,6 +5191,8 @@ fun Home(
                                                                     isLocalInferenceRunning = false
                                                                     yield()
                                                                     if (effectiveStreamingSentenceTtsEnabled && !localStopRequested) {
+                                                                        ttsRequestedAtElapsedMs = SystemClock.elapsedRealtime()
+                                                                        ttsStartedAtElapsedMs = ttsRequestedAtElapsedMs
                                                                         maybeReleaseHeldEngineForTtsPlayback()
                                                                         speakStreamingTailIfNeeded(resolvedAssistantResponse)
                                                                         resetStreamingSpeechState(clearPlaybackFlag = false)
@@ -5187,6 +5204,8 @@ fun Home(
                                                                         !ttsController.isInCooldown()
                                                                     ) {
                                                                         sanitizeTextForTts(resolvedAssistantResponse).takeIf { it.isNotEmpty() }?.let { speechText ->
+                                                                            ttsRequestedAtElapsedMs = SystemClock.elapsedRealtime()
+                                                                            ttsStartedAtElapsedMs = ttsRequestedAtElapsedMs
                                                                             currentSpeakingAssistantMessageId = assistantId
                                                                             if (!isTtsSuppressedForAssistant(assistantId)) {
                                                                                 stopButtonOwnerAssistantMessageId = assistantId
@@ -5194,6 +5213,41 @@ fun Home(
                                                                             }
                                                                             maybeReleaseHeldEngineForTtsPlayback()
                                                                             ttsController.speak(speechText)
+                                                                        }
+                                                                    }
+                                                                    if (assistantId != null && localStats != null) {
+                                                                        val timingSummary = buildLocalInferenceSuccessTimingDiagnosticsText(
+                                                                            LocalInferenceSuccessTimingDiagnosticsInput(
+                                                                                preferredBackendSetting = preferredBackendDryRunSetting,
+                                                                                npuStandardRouteMode = effectiveNpuStandardRouteMode,
+                                                                                generationFinishedAtElapsedMs = generationFinishedAtElapsedMs,
+                                                                                ttsRequestedAtElapsedMs = ttsRequestedAtElapsedMs,
+                                                                                ttsStartedAtElapsedMs = ttsStartedAtElapsedMs,
+                                                                                ttsCompletedAtElapsedMs = ttsCompletedAtElapsedMs,
+                                                                                statsBuildStartedAtElapsedMs = statsBuildStartedAtElapsedMs,
+                                                                                statsBuildFinishedAtElapsedMs = statsBuildFinishedAtElapsedMs,
+                                                                                bottomSheetUpdateStartedAtElapsedMs = bottomSheetUpdateStartedAtElapsedMs,
+                                                                                bottomSheetUpdateFinishedAtElapsedMs = bottomSheetUpdateFinishedAtElapsedMs,
+                                                                                tokenizerCountStartedAtElapsedMs =
+                                                                                    resolvedTrace?.measuredTokenSnapshot?.tokenizerCountStartedAtElapsedMs,
+                                                                                tokenizerCountFinishedAtElapsedMs =
+                                                                                    resolvedTrace?.measuredTokenSnapshot?.tokenizerCountFinishedAtElapsedMs,
+                                                                                tokenizerCountDurationMs =
+                                                                                    resolvedTrace?.measuredTokenSnapshot?.tokenizerCountDurationMs,
+                                                                            ),
+                                                                        )
+                                                                        val finalLocalSourceSummary = listOfNotNull(
+                                                                            localSourceSummary?.takeIf { it.isNotBlank() }?.let { "source_summary=$it" },
+                                                                            timingSummary,
+                                                                        ).joinToString("\n")
+                                                                        val finalStats = localStats.copy(localSourceSummary = finalLocalSourceSummary)
+                                                                        immediateInferenceStatsByMessageId[assistantId] = finalStats
+                                                                        withContext(Dispatchers.IO) {
+                                                                            viewModel.getMessageById(assistantId)?.let { message ->
+                                                                                viewModel.updateMessage(
+                                                                                    message.copy(localSourceSummary = finalLocalSourceSummary),
+                                                                                )
+                                                                            }
                                                                         }
                                                                     }
                                                                     return@launch
@@ -7126,6 +7180,7 @@ private fun buildGpuExperimentalTimeoutDiagnosticsText(
     staleCallbackIgnored: Boolean = false,
 ): String {
     val watchdogTimeout = failureStage == "gpu_watchdog_timeout"
+    val engineCreateStarted = true
     val engineCreateFinished = !watchdogTimeout && failureStage != "engine_create_timeout"
     val conversationCreateStarted = !watchdogTimeout && failureStage != "engine_create_timeout"
     val conversationCreateFinished =
@@ -7138,6 +7193,7 @@ private fun buildGpuExperimentalTimeoutDiagnosticsText(
         flags = LocalRouteDiagnosticFlags(
             heldEngineExists = engineCreateFinished,
             heldEngineReused = false,
+            engineCreateStarted = engineCreateStarted,
             engineCreateFinished = engineCreateFinished,
             conversationCreateStarted = conversationCreateStarted,
             conversationCreateFinished = conversationCreateFinished,

@@ -50,6 +50,9 @@ internal data class LocalInferenceMeasuredTokenSnapshot(
     val rawDecodeTokensPerSecond: String? = null,
     val rawTimeToFirstTokenMs: String? = null,
     val rawModelInitMs: String? = null,
+    val tokenizerCountStartedAtElapsedMs: Long? = null,
+    val tokenizerCountFinishedAtElapsedMs: Long? = null,
+    val tokenizerCountDurationMs: Long? = null,
 )
 
 internal fun extractLocalInferenceTokenMetrics(

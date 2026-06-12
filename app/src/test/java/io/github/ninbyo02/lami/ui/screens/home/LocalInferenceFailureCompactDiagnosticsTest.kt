@@ -49,6 +49,66 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `GPU watchdog timeout details are copied into local failure compact`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "timeout_failure",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = false,
+                heldEngineReused = false,
+                engineCreateStarted = true,
+                engineCreateFinished = false,
+                conversationCreateStarted = false,
+                conversationCreateFinished = false,
+                generateStarted = false,
+                firstTokenReceived = false,
+                failureStage = "gpu_watchdog_timeout",
+                fallbackUsed = false,
+                staleCallbackIgnored = true,
+            ),
+            elapsedMs = 20_001L,
+        )
+        val text = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    localModelDisplayName = "gemma-4-E2B-it",
+                    mediaPipeProbeModelPath = "/models/gemma-4-E2B-it.litertlm",
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "timeout",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                reason = "gpu_watchdog_timeout",
+                routeContext = routeContext,
+                timeout = true,
+            ),
+        )
+
+        assertTrue(text.contains("[DEV診断: Local inference failure compact]"))
+        assertTrue(text.contains("route_family=local_gpu"))
+        assertTrue(text.contains("failure_stage=gpu_watchdog_timeout"))
+        assertTrue(text.contains("gpu_watchdog_timeout_ms=20000"))
+        assertTrue(text.contains("gpu_timeout_stage=engine_create"))
+        assertTrue(text.contains("gpu_timeout_elapsed_ms=20001"))
+        assertTrue(text.contains("gpu_engine_create_started=true"))
+        assertTrue(text.contains("gpu_engine_create_finished=false"))
+        assertTrue(text.contains("gpu_generate_started=false"))
+        assertTrue(text.contains("gpu_first_token_received=false"))
+        assertTrue(text.contains("gpu_stale_callback_ignored=true"))
+    }
+
+    @Test
     fun `InvocationTargetException target and root cause are expanded`() {
         val root = IllegalArgumentException("backend enum mismatch")
         val target = IllegalStateException("engine create failed", root)

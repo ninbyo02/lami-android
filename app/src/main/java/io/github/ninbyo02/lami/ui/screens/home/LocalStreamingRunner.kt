@@ -865,6 +865,12 @@ private fun mergeTokenizerRecountSnapshot(
             ttftMs = tokenizerSnapshot.ttftMs ?: base.ttftMs,
             decodeDurationMs = tokenizerSnapshot.decodeDurationMs ?: base.decodeDurationMs,
             totalDurationMs = tokenizerSnapshot.totalDurationMs ?: base.totalDurationMs,
+            tokenizerCountStartedAtElapsedMs = tokenizerSnapshot.tokenizerCountStartedAtElapsedMs
+                ?: base.tokenizerCountStartedAtElapsedMs,
+            tokenizerCountFinishedAtElapsedMs = tokenizerSnapshot.tokenizerCountFinishedAtElapsedMs
+                ?: base.tokenizerCountFinishedAtElapsedMs,
+            tokenizerCountDurationMs = tokenizerSnapshot.tokenizerCountDurationMs
+                ?: base.tokenizerCountDurationMs,
         )
     }
 }
@@ -898,6 +904,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
             null
         }?.takeIf { it.isFinite() }
 
+        val tokenizerCountStartedAtElapsedMs = SystemClock.elapsedRealtime()
         val tokenizerRecountOutcome = tryReadTokenizerRecountViaReflection(
             conversation = conversation,
             tokenizerSessionSource = tokenizerSessionSource,
@@ -912,6 +919,9 @@ private fun readTokenizerRecountSnapshotFromConversation(
             promptText = promptText,
             fullResponseText = fullResponseText,
         )
+        val tokenizerCountFinishedAtElapsedMs = SystemClock.elapsedRealtime()
+        val tokenizerCountDurationMs =
+            (tokenizerCountFinishedAtElapsedMs - tokenizerCountStartedAtElapsedMs).coerceAtLeast(0L)
         val tokenizerRecount = tokenizerRecountOutcome.result
 
         val inputTokenCount = mediaPipeProbeOutcome.promptTokens ?: tokenizerRecount?.promptTokens
@@ -963,6 +973,9 @@ private fun readTokenizerRecountSnapshotFromConversation(
             ttftMs = ttftMs,
             decodeDurationMs = decodeDurationMs,
             totalDurationMs = totalDurationMs,
+            tokenizerCountStartedAtElapsedMs = tokenizerCountStartedAtElapsedMs,
+            tokenizerCountFinishedAtElapsedMs = tokenizerCountFinishedAtElapsedMs,
+            tokenizerCountDurationMs = tokenizerCountDurationMs,
         )
     }.onFailure { throwable ->
         safeAppendTrace(
