@@ -16,6 +16,30 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `GPU edge gallery compatibility uses null cache dir for app model path`() {
+        assertEquals(
+            null,
+            resolveLiteRtEngineConfigCacheDir(
+                modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+                edgeGalleryLike = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU edge gallery compatibility keeps cache dir for data local tmp model path`() {
+        assertEquals(
+            "/data/user/0/io.github.ninbyo02.lami/cache",
+            resolveLiteRtEngineConfigCacheDir(
+                modelPath = "/data/local/tmp/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+                edgeGalleryLike = true,
+            ),
+        )
+    }
+
+    @Test
     fun `Hello と World の境界では最小 join を入れる`() {
         val builder = StringBuilder("Hello")
 

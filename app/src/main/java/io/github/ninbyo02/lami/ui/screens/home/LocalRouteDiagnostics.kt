@@ -149,6 +149,21 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_selected_model_name=${context.selectedModelName}",
         "gpu_selected_model_file=${context.selectedModelFile}",
         "gpu_backend_setting=${context.preferredBackend}",
+        "gpu_compatibility_mode=${resolveGpuCompatibilityModeForBackend(context.preferredBackend)}",
+        "gpu_engine_config_profile=${resolveGpuEngineConfigProfileForBackend(context.preferredBackend)}",
+        "gpu_cache_dir_mode=${resolveGpuCacheDirModeForBackend(context.preferredBackend)}",
+        "gpu_model_path_mode=${resolveGpuModelPathModeForBackend(context.preferredBackend)}",
+        "gpu_sampler_config_profile=${resolveGpuSamplerConfigProfileForBackend(context.preferredBackend)}",
+        "gpu_conversation_config_profile=${resolveGpuConversationConfigProfileForBackend(context.preferredBackend)}",
+        "gpu_thinking_enabled=false",
+        "gpu_speculative_decoding_enabled=false",
+        "gpu_max_tokens=${resolveGpuMaxTokensForBackend(context.preferredBackend)}",
+        "gpu_top_k=${resolveGpuTopKForBackend(context.preferredBackend)}",
+        "gpu_top_p=${resolveGpuTopPForBackend(context.preferredBackend)}",
+        "gpu_temperature=${resolveGpuTemperatureForBackend(context.preferredBackend)}",
+        "gpu_dispatcher=Dispatchers.IO",
+        "gpu_engine_initialize_api=Engine.initialize",
+        "gpu_edge_gallery_diff_applied=${shouldApplyEdgeGalleryLikeGpuCompatibilityMode(context.preferredBackend)}",
         "gpu_fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
         "gpu_stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
     ).joinToString(" ")
@@ -162,6 +177,89 @@ internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS = GPU_EXPERIMENTAL_STAGE_TI
 internal const val GPU_EXPERIMENTAL_TIMEOUT_MESSAGE =
     "GPU backend の初期化または生成開始がタイムアウトしました。Generic LiteRT-LMモデルではCPU backendを選択してください。"
 internal const val GPU_EXPERIMENTAL_TIMEOUT_GUARD_RECOMMENDATION = "switch_to_cpu_or_npu"
+internal const val GPU_COMPATIBILITY_MODE_EDGE_GALLERY_LIKE = "edge_gallery_like"
+internal const val GPU_ENGINE_CONFIG_PROFILE_EDGE_GALLERY_LIKE = "edge_gallery_like_text_only"
+internal const val GPU_CACHE_DIR_MODE_EDGE_GALLERY_LIKE = "gallery_like_null_for_app_model_path"
+internal const val GPU_MODEL_PATH_MODE_SELECTED_FILE = "selected_litertlm_file"
+internal const val GPU_SAMPLER_CONFIG_PROFILE_EDGE_GALLERY_LIKE = "gallery_defaults_64_0.95_1.0"
+internal const val GPU_CONVERSATION_CONFIG_PROFILE_EDGE_GALLERY_LIKE = "gallery_like_sampler_config_non_npu"
+internal const val GPU_EDGE_GALLERY_LIKE_MAX_TOKENS = 1024
+internal const val GPU_EDGE_GALLERY_LIKE_TOP_K = 64
+internal const val GPU_EDGE_GALLERY_LIKE_TOP_P = "0.95"
+internal const val GPU_EDGE_GALLERY_LIKE_TEMPERATURE = "1.0"
+
+internal fun shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend: String): Boolean =
+    preferredBackend.equals("GPU", ignoreCase = true)
+
+internal fun resolveGpuCompatibilityModeForBackend(preferredBackend: String): String =
+    if (shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) {
+        GPU_COMPATIBILITY_MODE_EDGE_GALLERY_LIKE
+    } else {
+        "unavailable"
+    }
+
+internal fun resolveGpuEngineConfigProfileForBackend(preferredBackend: String): String =
+    if (shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) {
+        GPU_ENGINE_CONFIG_PROFILE_EDGE_GALLERY_LIKE
+    } else {
+        "unavailable"
+    }
+
+internal fun resolveGpuCacheDirModeForBackend(preferredBackend: String): String =
+    if (shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) {
+        GPU_CACHE_DIR_MODE_EDGE_GALLERY_LIKE
+    } else {
+        "unavailable"
+    }
+
+internal fun resolveGpuModelPathModeForBackend(preferredBackend: String): String =
+    if (shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) {
+        GPU_MODEL_PATH_MODE_SELECTED_FILE
+    } else {
+        "unavailable"
+    }
+
+internal fun resolveGpuSamplerConfigProfileForBackend(preferredBackend: String): String =
+    if (shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) {
+        GPU_SAMPLER_CONFIG_PROFILE_EDGE_GALLERY_LIKE
+    } else {
+        "unavailable"
+    }
+
+internal fun resolveGpuConversationConfigProfileForBackend(preferredBackend: String): String =
+    if (shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) {
+        GPU_CONVERSATION_CONFIG_PROFILE_EDGE_GALLERY_LIKE
+    } else {
+        "unavailable"
+    }
+
+internal fun resolveGpuMaxTokensForBackend(preferredBackend: String): String =
+    if (shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) {
+        GPU_EDGE_GALLERY_LIKE_MAX_TOKENS.toString()
+    } else {
+        "unavailable"
+    }
+
+internal fun resolveGpuTopKForBackend(preferredBackend: String): String =
+    if (shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) {
+        GPU_EDGE_GALLERY_LIKE_TOP_K.toString()
+    } else {
+        "unavailable"
+    }
+
+internal fun resolveGpuTopPForBackend(preferredBackend: String): String =
+    if (shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) {
+        GPU_EDGE_GALLERY_LIKE_TOP_P
+    } else {
+        "unavailable"
+    }
+
+internal fun resolveGpuTemperatureForBackend(preferredBackend: String): String =
+    if (shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend)) {
+        GPU_EDGE_GALLERY_LIKE_TEMPERATURE
+    } else {
+        "unavailable"
+    }
 
 internal fun shouldApplyGpuExperimentalStageTimeout(
     context: LocalRouteDiagnosticContext,

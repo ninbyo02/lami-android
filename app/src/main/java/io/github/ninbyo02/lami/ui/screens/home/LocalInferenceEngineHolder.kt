@@ -20,6 +20,7 @@ internal data class HeldLocalEngine(
     val createdAtElapsedMs: Long,
     var lastUsedAtElapsedMs: Long,
     var useCount: Int,
+    val preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     val closeEngine: (((String) -> Unit)?) -> Unit,
 )
 

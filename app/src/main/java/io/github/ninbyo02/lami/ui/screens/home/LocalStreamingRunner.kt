@@ -5,9 +5,11 @@ import android.os.SystemClock
 import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
+import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
+import com.google.ai.edge.litertlm.SamplerConfig
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.local.buildLocalInferenceFailureDiagnosticsText
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
@@ -267,6 +269,7 @@ internal suspend fun runWithHeldEngine(
         runWithConversation(
             engine = heldEngine.engineInstance,
             namespace = namespace,
+            preferredBackendDryRunSetting = heldEngine.preferredBackendDryRunSetting,
             appendTrace = appendTrace,
             routeDiagnosticContext = routeDiagnosticContext,
             routeRunStartedAtMs = routeRunStartedAtMs,
@@ -3253,6 +3256,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             createdAtElapsedMs = createdAt,
             lastUsedAtElapsedMs = createdAt,
             useCount = 0,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             closeEngine = { trace -> closeQuietly(officialEngine, trace) },
         )
         stage = "held-engine-store"
@@ -3290,6 +3294,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
 private suspend fun <T> runWithConversation(
     engine: Any,
     namespace: String?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     appendTrace: (String) -> Unit,
     closeSummaryPath: String? = null,
     routeDiagnosticContext: LocalRouteDiagnosticContext? = null,
@@ -3319,7 +3324,12 @@ private suspend fun <T> runWithConversation(
                 ),
             )
         }
-        conversation = createConversationForHeldEngine(engine = engine, namespace = namespace, appendTrace = appendTrace)
+        conversation = createConversationForHeldEngine(
+            engine = engine,
+            namespace = namespace,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+            appendTrace = appendTrace,
+        )
         if (conversation == null) {
             onRouteDiagnosticStage("conversation_create_started")
             routeDiagnosticContext?.let { diagnosticContext ->
@@ -3383,6 +3393,7 @@ private suspend fun <T> runWithConversation(
 private fun createConversationForHeldEngine(
     engine: Any,
     namespace: String?,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     appendTrace: (String) -> Unit,
 ): Any? {
     safeAppendTrace(
@@ -3393,6 +3404,7 @@ private fun createConversationForHeldEngine(
         createOfficialLiteRtLmConversation(
             engine = engine,
             engineClass = engine.javaClass,
+            preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             appendTrace = appendTrace,
         )
     } else {
@@ -4480,6 +4492,7 @@ internal fun buildLiteRtEngineConfig(
 ): EngineConfig {
     val backendEnumCandidates = listOf("DEFAULT", "CPU", "GPU")
     val backendPolicy = resolveLiteRtTextBackendSelection(preferredBackendDryRunSetting)
+    val edgeGalleryLike = shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name)
     val backend = when (preferredBackendDryRunSetting) {
         PreferredBackendDryRunSetting.CPU -> Backend.CPU()
         PreferredBackendDryRunSetting.GPU -> Backend.GPU()
@@ -4505,6 +4518,10 @@ internal fun buildLiteRtEngineConfig(
         appendTrace,
         "UPSTREAM preferred-backend hook-reached=true source=holder-acquire-engine-config requested=${preferredBackendDryRunSetting.name} applied=${backendPolicy.appliedPreferredBackend} result=${backendPolicy.preferredBackendApplyResult} builderClass=EngineConfig",
     )
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM gpu-compatibility mode=${resolveGpuCompatibilityModeForBackend(preferredBackendDryRunSetting.name)} engineConfigProfile=${resolveGpuEngineConfigProfileForBackend(preferredBackendDryRunSetting.name)} cacheDirMode=${resolveGpuCacheDirModeForBackend(preferredBackendDryRunSetting.name)} maxTokens=${resolveGpuMaxTokensForBackend(preferredBackendDryRunSetting.name)}",
+    )
     if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU || preferredBackendDryRunSetting == PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU) {
         safeAppendTrace(
             appendTrace,
@@ -4514,12 +4531,29 @@ internal fun buildLiteRtEngineConfig(
     return EngineConfig(
         modelPath = modelPath,
         backend = backend,
-        visionBackend = Backend.GPU(),
-        audioBackend = Backend.CPU(),
-        maxNumTokens = null,
-        cacheDir = cacheDirPath,
+        visionBackend = if (edgeGalleryLike) null else Backend.GPU(),
+        audioBackend = if (edgeGalleryLike) null else Backend.CPU(),
+        maxNumTokens = if (edgeGalleryLike) GPU_EDGE_GALLERY_LIKE_MAX_TOKENS else null,
+        cacheDir = resolveLiteRtEngineConfigCacheDir(
+            modelPath = modelPath,
+            cacheDirPath = cacheDirPath,
+            edgeGalleryLike = edgeGalleryLike,
+        ),
     )
 }
+
+internal fun resolveLiteRtEngineConfigCacheDir(
+    modelPath: String,
+    cacheDirPath: String?,
+    edgeGalleryLike: Boolean,
+): String? =
+    if (!edgeGalleryLike) {
+        cacheDirPath
+    } else if (modelPath.startsWith("/data/local/tmp")) {
+        cacheDirPath
+    } else {
+        null
+    }
 
 internal data class LiteRtTextBackendSelection(
     val appliedPreferredBackend: String,
@@ -4816,13 +4850,14 @@ private fun applyPreferredBackendIfRequested(
 private fun createOfficialLiteRtLmConversation(
     engine: Any,
     engineClass: Class<*>,
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting = PreferredBackendDryRunSetting.DEFAULT,
     appendTrace: (String) -> Unit,
 ): Any? {
     val configClassName = "com.google.ai.edge.litertlm.ConversationConfig"
     safeAppendTrace(appendTrace, "UPSTREAM official-conversation configClass=$configClassName")
     return runCatching {
         val configClass = Class.forName(configClassName)
-        val config = configClass.getDeclaredConstructor().newInstance()
+        val config = buildOfficialLiteRtLmConversationConfig(preferredBackendDryRunSetting)
         safeAppendTrace(appendTrace, "UPSTREAM official-conversation configCreated class=${config.javaClass.name}")
         val createConversationMethod = engineClass.methods.first { method ->
             method.name == "createConversation" &&
@@ -4837,6 +4872,21 @@ private fun createOfficialLiteRtLmConversation(
         null
     }
 }
+
+private fun buildOfficialLiteRtLmConversationConfig(
+    preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
+): ConversationConfig =
+    if (shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name)) {
+        ConversationConfig(
+            samplerConfig = SamplerConfig(
+                topK = GPU_EDGE_GALLERY_LIKE_TOP_K,
+                topP = GPU_EDGE_GALLERY_LIKE_TOP_P.toDouble(),
+                temperature = GPU_EDGE_GALLERY_LIKE_TEMPERATURE.toDouble(),
+            ),
+        )
+    } else {
+        ConversationConfig()
+    }
 
 private fun createOfficialConversation(
     engine: Any,
