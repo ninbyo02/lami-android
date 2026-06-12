@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import java.io.File
+import java.lang.reflect.InvocationTargetException
 
 internal data class LocalInferenceFailureCompactInput(
     val inputPrompt: String,
@@ -12,6 +13,15 @@ internal data class LocalInferenceFailureCompactInput(
     val failureStage: String = "unknown",
     val failureExceptionClass: String = "unavailable",
     val failureExceptionMessage: String = "unavailable",
+    val failureCauseClass: String = "unavailable",
+    val failureCauseMessage: String = "unavailable",
+    val failureRootCauseClass: String = "unavailable",
+    val failureRootCauseMessage: String = "unavailable",
+    val reflectionTargetExceptionClass: String = "unavailable",
+    val reflectionTargetExceptionMessage: String = "unavailable",
+    val reflectionTargetExceptionRootCauseClass: String = "unavailable",
+    val reflectionTargetExceptionRootCauseMessage: String = "unavailable",
+    val exceptionChain: String = "unavailable",
     val engineConfigBackend: String = "unavailable",
     val normalChatNativeRouteBlocked: Boolean = false,
     val blockedReason: String = "none",
@@ -59,6 +69,15 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "failure_stage=${input.failureStage.ifBlank { "unknown" }}",
         "failure_exception_class=${input.failureExceptionClass.ifBlank { "unavailable" }}",
         "failure_exception_message=${escapeLocalInferenceFailureValue(input.failureExceptionMessage.ifBlank { "unavailable" })}",
+        "failure_cause_class=${input.failureCauseClass.ifBlank { "unavailable" }}",
+        "failure_cause_message=${escapeLocalInferenceFailureValue(input.failureCauseMessage.ifBlank { "unavailable" })}",
+        "failure_root_cause_class=${input.failureRootCauseClass.ifBlank { "unavailable" }}",
+        "failure_root_cause_message=${escapeLocalInferenceFailureValue(input.failureRootCauseMessage.ifBlank { "unavailable" })}",
+        "reflection_target_exception_class=${input.reflectionTargetExceptionClass.ifBlank { "unavailable" }}",
+        "reflection_target_exception_message=${escapeLocalInferenceFailureValue(input.reflectionTargetExceptionMessage.ifBlank { "unavailable" })}",
+        "reflection_target_exception_root_cause_class=${input.reflectionTargetExceptionRootCauseClass.ifBlank { "unavailable" }}",
+        "reflection_target_exception_root_cause_message=${escapeLocalInferenceFailureValue(input.reflectionTargetExceptionRootCauseMessage.ifBlank { "unavailable" })}",
+        "exception_chain=${escapeLocalInferenceFailureValue(input.exceptionChain.ifBlank { "unavailable" })}",
         "engine_config_backend=${input.engineConfigBackend.ifBlank { "unavailable" }}",
         "preferred_backend_setting=${input.preferredBackendSetting.name}",
         "npu_standard_route_setting=${input.npuStandardRouteMode.name}",
@@ -101,6 +120,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
     failureStage: String? = null,
     exceptionClass: String? = null,
     exceptionMessage: String? = null,
+    throwable: Throwable? = null,
     routeContext: LocalRouteDiagnosticContext? = null,
     timeout: Boolean = false,
     modelName: String? = null,
@@ -115,6 +135,24 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
     val snapshots = trace?.memorySnapshots.orEmpty()
     val before = snapshots.firstOrNull { it.stage == MEMORY_STAGE_BEFORE_GENERATE } ?: snapshots.firstOrNull()
     val after = snapshots.lastOrNull { it.stage == MEMORY_STAGE_GENERATION_FAILED } ?: snapshots.lastOrNull()
+    val resolvedFailureExceptionClass = exceptionClass
+        ?: parsed["failure_exception_class"]
+        ?: parsed["exception class"]
+        ?: trace?.sessionAsyncPocErrorClassName
+        ?: trace?.sessionTokenProbeErrorClassName
+        ?: "unavailable"
+    val resolvedFailureExceptionMessage = exceptionMessage
+        ?: parsed["failure_exception_message"]
+        ?: parsed["exception message"]
+        ?: trace?.sessionAsyncPocErrorMessage
+        ?: trace?.preferredBackendApplyError
+        ?: "unavailable"
+    val exceptionExpansion = buildLocalFailureExceptionExpansion(
+        throwable = throwable,
+        parsed = parsed,
+        failureExceptionClass = resolvedFailureExceptionClass,
+        failureExceptionMessage = resolvedFailureExceptionMessage,
+    )
     return LocalInferenceFailureCompactInput(
         inputPrompt = inputPrompt,
         preferredBackendSetting = preferredBackendSetting,
@@ -127,18 +165,17 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
             ?: trace?.sessionAsyncPocErrorStage
             ?: trace?.sessionTokenProbeErrorStage
             ?: if (timeout) "timeout" else "unknown",
-        failureExceptionClass = exceptionClass
-            ?: parsed["failure_exception_class"]
-            ?: parsed["exception class"]
-            ?: trace?.sessionAsyncPocErrorClassName
-            ?: trace?.sessionTokenProbeErrorClassName
-            ?: "unavailable",
-        failureExceptionMessage = exceptionMessage
-            ?: parsed["failure_exception_message"]
-            ?: parsed["exception message"]
-            ?: trace?.sessionAsyncPocErrorMessage
-            ?: trace?.preferredBackendApplyError
-            ?: "unavailable",
+        failureExceptionClass = resolvedFailureExceptionClass,
+        failureExceptionMessage = resolvedFailureExceptionMessage,
+        failureCauseClass = exceptionExpansion.failureCauseClass,
+        failureCauseMessage = exceptionExpansion.failureCauseMessage,
+        failureRootCauseClass = exceptionExpansion.failureRootCauseClass,
+        failureRootCauseMessage = exceptionExpansion.failureRootCauseMessage,
+        reflectionTargetExceptionClass = exceptionExpansion.reflectionTargetExceptionClass,
+        reflectionTargetExceptionMessage = exceptionExpansion.reflectionTargetExceptionMessage,
+        reflectionTargetExceptionRootCauseClass = exceptionExpansion.reflectionTargetExceptionRootCauseClass,
+        reflectionTargetExceptionRootCauseMessage = exceptionExpansion.reflectionTargetExceptionRootCauseMessage,
+        exceptionChain = exceptionExpansion.exceptionChain,
         engineConfigBackend = trace?.appliedPreferredBackend
             ?: trace?.requestedPreferredBackend
             ?: when (preferredBackendSetting) {
@@ -178,6 +215,110 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
     )
 }
 
+private data class LocalFailureExceptionExpansion(
+    val failureCauseClass: String = "unavailable",
+    val failureCauseMessage: String = "unavailable",
+    val failureRootCauseClass: String = "unavailable",
+    val failureRootCauseMessage: String = "unavailable",
+    val reflectionTargetExceptionClass: String = "unavailable",
+    val reflectionTargetExceptionMessage: String = "unavailable",
+    val reflectionTargetExceptionRootCauseClass: String = "unavailable",
+    val reflectionTargetExceptionRootCauseMessage: String = "unavailable",
+    val exceptionChain: String = "unavailable",
+)
+
+private fun buildLocalFailureExceptionExpansion(
+    throwable: Throwable?,
+    parsed: Map<String, String>,
+    failureExceptionClass: String,
+    failureExceptionMessage: String,
+): LocalFailureExceptionExpansion =
+    throwable?.let(::buildLocalFailureExceptionExpansionFromThrowable)
+        ?: buildLocalFailureExceptionExpansionFromParsed(
+            parsed = parsed,
+            failureExceptionClass = failureExceptionClass,
+            failureExceptionMessage = failureExceptionMessage,
+        )
+
+private fun buildLocalFailureExceptionExpansionFromThrowable(
+    throwable: Throwable,
+): LocalFailureExceptionExpansion {
+    val chain = localFailureThrowableChain(throwable)
+    val root = chain.lastOrNull() ?: throwable
+    val target = (throwable as? InvocationTargetException)?.targetException
+    val targetChain = target?.let(::localFailureThrowableChain).orEmpty()
+    val targetRoot = targetChain.lastOrNull() ?: target
+    val failureCause = target ?: throwable.cause
+    return LocalFailureExceptionExpansion(
+        failureCauseClass = failureCause.localFailureClassNameOrNone(),
+        failureCauseMessage = failureCause.localFailureMessageOrNone(),
+        failureRootCauseClass = root.javaClass.name,
+        failureRootCauseMessage = root.localFailureMessageOrNone(),
+        reflectionTargetExceptionClass = target.localFailureClassNameOrNone(),
+        reflectionTargetExceptionMessage = target.localFailureMessageOrNone(),
+        reflectionTargetExceptionRootCauseClass = targetRoot.localFailureClassNameOrNone(),
+        reflectionTargetExceptionRootCauseMessage = targetRoot.localFailureMessageOrNone(),
+        exceptionChain = chain.joinToString(" -> ") { cause ->
+            "${cause.javaClass.name}:${cause.localFailureMessageOrNone()}"
+        }.ifBlank { "none" },
+    )
+}
+
+private fun buildLocalFailureExceptionExpansionFromParsed(
+    parsed: Map<String, String>,
+    failureExceptionClass: String,
+    failureExceptionMessage: String,
+): LocalFailureExceptionExpansion {
+    val rootCauseClass = parsed["failure_root_cause_class"]
+        ?: parsed["root cause class"]
+        ?: parsed["root-cause"]
+    val rootCauseMessage = parsed["failure_root_cause_message"]
+        ?: parsed["root cause message"]
+        ?: parsed["root-cause-message"]
+    val parsedTargetClass = parsed["reflection_target_exception_class"]
+        ?: parsed["target-exception"]
+        ?: parsed["MediaPipe target-exception"]
+    val parsedTargetMessage = parsed["reflection_target_exception_message"]
+        ?: parsed["target-exception-message"]
+        ?: parsed["MediaPipe target-exception-message"]
+    val inferredTargetClass = parsedTargetClass
+        ?: rootCauseClass.takeIf { failureExceptionClass.endsWith("InvocationTargetException") }
+    val inferredTargetMessage = parsedTargetMessage
+        ?: rootCauseMessage.takeIf { failureExceptionClass.endsWith("InvocationTargetException") }
+    val chain = parsed["exception_chain"]
+        ?: parsed["cause chain summary"]
+        ?: listOf(failureExceptionClass, failureExceptionMessage)
+            .takeIf { failureExceptionClass != "unavailable" }
+            ?.joinToString(":")
+    return LocalFailureExceptionExpansion(
+        failureCauseClass = inferredTargetClass ?: parsed["failure_cause_class"] ?: parsed["cause class"] ?: "unavailable",
+        failureCauseMessage = normalizeLocalFailureMessage(
+            inferredTargetMessage ?: parsed["failure_cause_message"] ?: parsed["cause message"] ?: "unavailable",
+        ),
+        failureRootCauseClass = rootCauseClass ?: "unavailable",
+        failureRootCauseMessage = normalizeLocalFailureMessage(rootCauseMessage ?: "unavailable"),
+        reflectionTargetExceptionClass = inferredTargetClass ?: "none",
+        reflectionTargetExceptionMessage = normalizeLocalFailureMessage(inferredTargetMessage ?: "none"),
+        reflectionTargetExceptionRootCauseClass = rootCauseClass ?: inferredTargetClass ?: "none",
+        reflectionTargetExceptionRootCauseMessage = normalizeLocalFailureMessage(rootCauseMessage ?: inferredTargetMessage ?: "none"),
+        exceptionChain = chain ?: "unavailable",
+    )
+}
+
+private fun localFailureThrowableChain(throwable: Throwable): List<Throwable> {
+    val chain = mutableListOf<Throwable>()
+    var current: Throwable? = throwable
+    while (current != null && chain.size < LOCAL_FAILURE_EXCEPTION_CHAIN_MAX_DEPTH && current !in chain) {
+        chain += current
+        current = if (current is InvocationTargetException && current.targetException != null) {
+            current.targetException
+        } else {
+            current.cause
+        }
+    }
+    return chain
+}
+
 private fun parseLocalInferenceFailureDiagnosticsText(text: String?): Map<String, String> =
     text
         ?.lineSequence()
@@ -191,9 +332,19 @@ private fun parseLocalInferenceFailureDiagnosticsText(text: String?): Map<String
         ?.toMap()
         .orEmpty()
 
+private fun Throwable?.localFailureClassNameOrNone(): String = this?.javaClass?.name ?: "none"
+
+private fun Throwable?.localFailureMessageOrNone(): String =
+    normalizeLocalFailureMessage(this?.message ?: "none")
+
+private fun normalizeLocalFailureMessage(value: String): String =
+    value.ifBlank { "none" }
+
 private fun escapeLocalInferenceFailureValue(value: String): String =
     value
         .replace("\r", "\\r")
         .replace("\n", "\\n")
 
 private fun formatLocalFailureNullableLong(value: Long?): String = value?.toString() ?: "unavailable"
+
+private const val LOCAL_FAILURE_EXCEPTION_CHAIN_MAX_DEPTH = 5

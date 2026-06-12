@@ -4,6 +4,7 @@ import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.lang.reflect.InvocationTargetException
 
 class LocalInferenceFailureCompactDiagnosticsTest {
     @Test
@@ -47,7 +48,87 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("backend_evidence=local_default"))
     }
 
-    private fun buildFailureText(setting: PreferredBackendDryRunSetting): String =
+    @Test
+    fun `InvocationTargetException target and root cause are expanded`() {
+        val root = IllegalArgumentException("backend enum mismatch")
+        val target = IllegalStateException("engine create failed", root)
+        val wrapper = InvocationTargetException(target)
+        val text = buildFailureText(
+            setting = PreferredBackendDryRunSetting.CPU,
+            throwable = wrapper,
+            exceptionClass = wrapper.javaClass.name,
+            exceptionMessage = wrapper.message ?: "none",
+        )
+
+        assertTrue(text.contains("failure_exception_class=java.lang.reflect.InvocationTargetException"))
+        assertTrue(text.contains("failure_exception_message=none"))
+        assertTrue(text.contains("failure_cause_class=java.lang.IllegalStateException"))
+        assertTrue(text.contains("failure_cause_message=engine create failed"))
+        assertTrue(text.contains("failure_root_cause_class=java.lang.IllegalArgumentException"))
+        assertTrue(text.contains("failure_root_cause_message=backend enum mismatch"))
+        assertTrue(text.contains("reflection_target_exception_class=java.lang.IllegalStateException"))
+        assertTrue(text.contains("reflection_target_exception_message=engine create failed"))
+        assertTrue(text.contains("reflection_target_exception_root_cause_class=java.lang.IllegalArgumentException"))
+        assertTrue(text.contains("reflection_target_exception_root_cause_message=backend enum mismatch"))
+        assertTrue(text.contains("exception_chain=java.lang.reflect.InvocationTargetException:none -> java.lang.IllegalStateException:engine create failed -> java.lang.IllegalArgumentException:backend enum mismatch"))
+    }
+
+    @Test
+    fun `null exception messages are rendered as none in chain`() {
+        val root = IllegalStateException()
+        val wrapper = InvocationTargetException(root)
+        val text = buildFailureText(
+            setting = PreferredBackendDryRunSetting.GPU,
+            throwable = wrapper,
+            exceptionClass = wrapper.javaClass.name,
+            exceptionMessage = wrapper.message ?: "none",
+        )
+
+        assertTrue(text.contains("failure_exception_message=none"))
+        assertTrue(text.contains("failure_cause_message=none"))
+        assertTrue(text.contains("failure_root_cause_message=none"))
+        assertTrue(text.contains("reflection_target_exception_message=none"))
+        assertTrue(text.contains("exception_chain=java.lang.reflect.InvocationTargetException:none -> java.lang.IllegalStateException:none"))
+    }
+
+    @Test
+    fun `local compact reflection keys do not change NPU S1 compact header`() {
+        val localText = buildFailureText(
+            setting = PreferredBackendDryRunSetting.DEFAULT,
+            throwable = InvocationTargetException(IllegalStateException("local failure")),
+            exceptionClass = InvocationTargetException::class.java.name,
+            exceptionMessage = "none",
+        )
+        val npuText = buildNpuStandardRouteS1CompactDiagnosticCopyText(
+            input = "こんにちは",
+            result = NpuStandardRouteS1Result(
+                status = "success",
+                reason = "success",
+                rawOutput = "こんにちは。",
+                sanitizedOutput = "こんにちは。",
+                qualityClassification = "natural_japanese",
+                runDecodeReached = true,
+                npuBackendEvidence = "QNN_HTP_V79_FastRPC_native_diag",
+                fallbackUsed = false,
+                timeout = false,
+                freshCrash = false,
+                inputPrompt = "こんにちは",
+            ),
+        )
+
+        assertTrue(localText.contains("[DEV診断: Local inference failure compact]"))
+        assertFalse(localText.contains("[DEV診断: NPU S1 compact]"))
+        assertTrue(npuText.contains("[DEV診断: NPU S1 compact]"))
+        assertFalse(npuText.contains("[DEV診断: Local inference failure compact]"))
+        assertFalse(npuText.contains("reflection_target_exception_class="))
+    }
+
+    private fun buildFailureText(
+        setting: PreferredBackendDryRunSetting,
+        throwable: Throwable? = null,
+        exceptionClass: String? = null,
+        exceptionMessage: String? = null,
+    ): String =
         buildLocalInferenceFailureCompactDiagnosticsText(
             buildLocalInferenceFailureCompactInputFromTrace(
                 inputPrompt = "こんにちは",
@@ -73,6 +154,9 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                     """.trimIndent(),
                 ),
                 reason = "local_inference_failure",
+                exceptionClass = exceptionClass,
+                exceptionMessage = exceptionMessage,
+                throwable = throwable,
                 routeContext = buildLocalRouteDiagnosticContext(
                     selectedModelName = "gemma-local",
                     selectedModelFile = "/tmp/gemma-local.litertlm",
