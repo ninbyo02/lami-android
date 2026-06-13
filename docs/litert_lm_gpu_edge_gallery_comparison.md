@@ -290,6 +290,70 @@ CPU 側が同じ prompt/model で callback を返し、GPU 側だけ Status Code
 - public `Backend.GPU` と Edge Gallery 内部の `GPU_ARTISAN` / executor selection 差分。
 - `libLiteRt.so` / `liblitertlm_jni.so` を含む runtime stack 差分。
 
+## GPU Phase 5: Runtime stack alignment
+
+Phase 5 では、GPU 失敗を runtime stack / executor selection / compiled model invoke requirement の差分として整理する。
+CPU route は同一 model で成功しており、UI callback、watchdog、prompt language、TopK sampler、sampler 無効化、cache dir、max tokens、model corruption は主因候補から下がっている。
+
+追加 artifact:
+
+- `artifacts/edge_gallery_static/runtime_alignment_summary.md`
+- `artifacts/edge_gallery_static/runtime_stack_diff.md`
+
+Edge Gallery 静的抽出で確認した executor / runtime evidence:
+
+- `LlmGpuArtisanExecutor`
+- `LlmLiteRtCompiledModelExecutor`
+- `LlmLiteRtCompiledModelExecutorDynamic`
+- `GPU_ARTISAN`
+- `CPU_ARTISAN`
+- `GOOGLE_TENSOR_ARTISAN`
+- `Artisan model detected. Switching backend from GPU to GPU_ARTISAN.`
+- `backend constraint mismatch. Model requires one of [`
+- `Preferred engine types: [`
+- `LiteRtRegisterGpuAccelerator`
+- `LiteRtGpuEnvironmentCreate`
+- `Statically linked GPU accelerator registered.`
+- `tflite_gpu_kv_cache`
+- `tflite_opencl_kv_cache`
+
+LAMI 側の現時点の public API reflection:
+
+- public backend candidates は `CPU,GPU,NPU`。
+- `GPU_ARTISAN` / `CPU_ARTISAN` / `GOOGLE_TENSOR_ARTISAN` は public `Backend` 候補として見えていない。
+- `RuntimeConfig` / `BackendConstraint` / `PreferredEngineType` / executor selection は追加 reflection key で継続確認する。
+
+Phase 5 で compact / LOCAL_ROUTE_DIAG / DEV 推論統計に追加する key:
+
+- `litert_runtime_executor_candidates`
+- `litert_runtime_executor_selection_hint`
+- `litert_runtime_backend_constraint_hint`
+- `litert_runtime_compiled_model_executor_hint`
+- `litert_runtime_gpu_executor_hint`
+- `litert_runtime_artisan_evidence`
+- `litert_compiled_model_executor_failure_category`
+
+`runtime/executor/llm_litert_compiled_model_executor.cc:735` の現在の分類:
+
+- `litert_lm_error_kind=compiled_model_invoke_failed`
+- `litert_compiled_model_executor_failure_category=compiled_model_invoke`
+- `litert_lm_error_recoverability_hint=try_gpu_runtime_stack_alignment`
+
+解釈:
+
+- Edge Gallery と LAMI の `libLiteRt.so` / `liblitertlm_jni.so` は SHA / build ID / size が一致していない。
+- Edge Gallery には artisan executor と backend constraint / preferred engine type の静的 evidence がある。
+- LAMI の public `Backend.GPU` route は、Edge Gallery が実際に使っている可能性のある `GPU_ARTISAN` / internal executor selection と同一とは限らない。
+- 現在の LAMI 失敗は、public compiled model executor path での generate invoke failure として扱うのが妥当。
+- `libLiteRt.so` / `liblitertlm_jni.so` の単体差し替えは禁止。検証する場合は別 flavor で runtime stack 全体を隔離する。
+
+次の推奨実験:
+
+1. `debug.lami.compare_cpu_gpu_callback=true` を維持し、CPU callback success / GPU Status Code 13 を同一 prompt で再確認する。
+2. `litert_runtime_*` key で public API に executor selection / backend constraint surface が見えるか確認する。
+3. Edge Gallery 実 model file の同一性を確認する。
+4. public API から `GPU_ARTISAN` 相当へ到達できない場合は、通常 route へ雑に適用せず、別 flavor で Edge Gallery 同等 runtime/API stack を隔離検証する。
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

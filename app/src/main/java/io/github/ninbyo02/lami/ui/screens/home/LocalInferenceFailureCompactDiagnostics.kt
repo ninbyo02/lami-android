@@ -168,6 +168,7 @@ internal data class LocalInferenceFailureCompactInput(
     val liteRtLmErrorSecondaryFile: String = "unavailable",
     val liteRtLmErrorSecondaryLine: String = "unavailable",
     val liteRtLmErrorRecoverabilityHint: String = "unavailable",
+    val liteRtCompiledModelExecutorFailureCategory: String = "unavailable",
     val cpuCompareStarted: String = "unavailable",
     val cpuCompareEngineInitializeFinished: String = "unavailable",
     val cpuCompareConversationCreateFinished: String = "unavailable",
@@ -196,6 +197,12 @@ internal data class LocalInferenceFailureCompactInput(
     val selectedModelBackendConstraintHint: String = "unavailable",
     val selectedModelArtisanHint: String = "unavailable",
     val edgeGalleryArtisanStaticEvidence: String = "unavailable",
+    val liteRtRuntimeExecutorCandidates: String = "unavailable",
+    val liteRtRuntimeExecutorSelectionHint: String = "unavailable",
+    val liteRtRuntimeBackendConstraintHint: String = "unavailable",
+    val liteRtRuntimeCompiledModelExecutorHint: String = "unavailable",
+    val liteRtRuntimeGpuExecutorHint: String = "unavailable",
+    val liteRtRuntimeArtisanEvidence: String = "unavailable",
     val gpuFallbackUsed: String = "unavailable",
     val gpuStaleCallbackIgnored: String = "unavailable",
     val modelName: String = "unavailable",
@@ -395,6 +402,7 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "litert_lm_error_secondary_file=${input.liteRtLmErrorSecondaryFile}",
         "litert_lm_error_secondary_line=${input.liteRtLmErrorSecondaryLine}",
         "litert_lm_error_recoverability_hint=${input.liteRtLmErrorRecoverabilityHint}",
+        "litert_compiled_model_executor_failure_category=${input.liteRtCompiledModelExecutorFailureCategory}",
         "cpu_compare_started=${input.cpuCompareStarted}",
         "cpu_compare_engine_initialize_finished=${input.cpuCompareEngineInitializeFinished}",
         "cpu_compare_conversation_create_finished=${input.cpuCompareConversationCreateFinished}",
@@ -423,6 +431,12 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "selected_model_backend_constraint_hint=${input.selectedModelBackendConstraintHint}",
         "selected_model_artisan_hint=${input.selectedModelArtisanHint}",
         "edge_gallery_artisan_static_evidence=${input.edgeGalleryArtisanStaticEvidence}",
+        "litert_runtime_executor_candidates=${escapeLocalInferenceFailureValue(input.liteRtRuntimeExecutorCandidates)}",
+        "litert_runtime_executor_selection_hint=${input.liteRtRuntimeExecutorSelectionHint}",
+        "litert_runtime_backend_constraint_hint=${input.liteRtRuntimeBackendConstraintHint}",
+        "litert_runtime_compiled_model_executor_hint=${input.liteRtRuntimeCompiledModelExecutorHint}",
+        "litert_runtime_gpu_executor_hint=${input.liteRtRuntimeGpuExecutorHint}",
+        "litert_runtime_artisan_evidence=${input.liteRtRuntimeArtisanEvidence}",
         "gpu_fallback_used=${input.gpuFallbackUsed}",
         "gpu_stale_callback_ignored=${input.gpuStaleCallbackIgnored}",
         "stale_callback_ignored=${input.gpuStaleCallbackIgnored}",
@@ -514,6 +528,27 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
             (parsed["gpu_engine_initialize_finished"] ?: parsed["engine_initialize_finished"])?.toBooleanStrictOrNull(),
         conversationCreateFinished =
             (parsed["gpu_conversation_create_finished"] ?: parsed["conversation_create_finished"])?.toBooleanStrictOrNull(),
+    )
+    val liteRtLmErrorMessageForCompact = parsed["gpu_generate_exception_message_raw"]
+        ?: parsed["gpu_generate_exception_message_sanitized"]
+        ?: parsed["gpu_callback_exception_message"]
+        ?: parsed["gpu_callback_exception_chain"]
+        ?: parsed["probe_exception_cause_message_raw"]
+        ?: parsed["probe_exception_cause_message"]
+        ?: parsed["probe_exception_chain"]
+        ?: exceptionExpansion.exceptionChain.takeIf { it != "unavailable" }
+        ?: resolvedFailureExceptionMessage
+    val liteRtLmErrorClassification = classifyLiteRtLmError(liteRtLmErrorMessageForCompact)
+    val effectiveLiteRtLmErrorClassification = LiteRtLmErrorClassification(
+        kind = parsed["litert_lm_error_kind"] ?: liteRtLmErrorClassification.kind,
+        statusCode = parsed["litert_lm_error_status_code"] ?: liteRtLmErrorClassification.statusCode,
+        primaryFile = parsed["litert_lm_error_primary_file"] ?: liteRtLmErrorClassification.primaryFile,
+        primaryLine = parsed["litert_lm_error_primary_line"] ?: liteRtLmErrorClassification.primaryLine,
+        secondaryFile = parsed["litert_lm_error_secondary_file"] ?: liteRtLmErrorClassification.secondaryFile,
+        secondaryLine = parsed["litert_lm_error_secondary_line"] ?: liteRtLmErrorClassification.secondaryLine,
+        recoverabilityHint = parsed["litert_lm_error_recoverability_hint"]
+            ?: liteRtLmErrorClassification.recoverabilityHint,
+        summary = parsed["gpu_generate_exception_summary"] ?: liteRtLmErrorClassification.summary,
     )
     return LocalInferenceFailureCompactInput(
         inputPrompt = inputPrompt,
@@ -714,6 +749,9 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         liteRtLmErrorSecondaryFile = parsed["litert_lm_error_secondary_file"] ?: "unavailable",
         liteRtLmErrorSecondaryLine = parsed["litert_lm_error_secondary_line"] ?: "unavailable",
         liteRtLmErrorRecoverabilityHint = parsed["litert_lm_error_recoverability_hint"] ?: "unavailable",
+        liteRtCompiledModelExecutorFailureCategory =
+            parsed["litert_compiled_model_executor_failure_category"]
+                ?: classifyLiteRtCompiledModelExecutorFailureCategory(effectiveLiteRtLmErrorClassification),
         cpuCompareStarted = parsed["cpu_compare_started"] ?: "unavailable",
         cpuCompareEngineInitializeFinished = parsed["cpu_compare_engine_initialize_finished"] ?: "unavailable",
         cpuCompareConversationCreateFinished = parsed["cpu_compare_conversation_create_finished"] ?: "unavailable",
@@ -751,6 +789,12 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         selectedModelBackendConstraintHint = parsed["selected_model_backend_constraint_hint"] ?: "unavailable",
         selectedModelArtisanHint = parsed["selected_model_artisan_hint"] ?: "unavailable",
         edgeGalleryArtisanStaticEvidence = parsed["edge_gallery_artisan_static_evidence"] ?: "unavailable",
+        liteRtRuntimeExecutorCandidates = parsed["litert_runtime_executor_candidates"] ?: "unavailable",
+        liteRtRuntimeExecutorSelectionHint = parsed["litert_runtime_executor_selection_hint"] ?: "unavailable",
+        liteRtRuntimeBackendConstraintHint = parsed["litert_runtime_backend_constraint_hint"] ?: "unavailable",
+        liteRtRuntimeCompiledModelExecutorHint = parsed["litert_runtime_compiled_model_executor_hint"] ?: "unavailable",
+        liteRtRuntimeGpuExecutorHint = parsed["litert_runtime_gpu_executor_hint"] ?: "unavailable",
+        liteRtRuntimeArtisanEvidence = parsed["litert_runtime_artisan_evidence"] ?: "unavailable",
         gpuFallbackUsed = parsed["gpu_fallback_used"] ?: parsed["fallback_used"] ?: "unavailable",
         gpuStaleCallbackIgnored = parsed["gpu_stale_callback_ignored"] ?: parsed["stale_callback_ignored"] ?: "unavailable",
         modelName = modelName

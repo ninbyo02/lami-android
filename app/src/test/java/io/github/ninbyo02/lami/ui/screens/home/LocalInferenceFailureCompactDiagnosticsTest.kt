@@ -148,6 +148,12 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("selected_model_backend_constraint_hint=not_detected_by_path"))
         assertTrue(text.contains("selected_model_artisan_hint=not_detected_by_path"))
         assertTrue(text.contains("edge_gallery_artisan_static_evidence=GPU_ARTISAN,CPU_ARTISAN,GOOGLE_TENSOR_ARTISAN,Artisan_model_detected,LlmGpuArtisanExecutor"))
+        assertTrue(text.contains("litert_runtime_executor_candidates="))
+        assertTrue(text.contains("litert_runtime_executor_selection_hint="))
+        assertTrue(text.contains("litert_runtime_backend_constraint_hint="))
+        assertTrue(text.contains("litert_runtime_compiled_model_executor_hint="))
+        assertTrue(text.contains("litert_runtime_gpu_executor_hint="))
+        assertTrue(text.contains("litert_runtime_artisan_evidence="))
         assertTrue(text.contains("gpu_generate_started=false"))
         assertTrue(text.contains("gpu_first_token_received=false"))
         assertTrue(text.contains("gpu_stale_callback_ignored=true"))
@@ -170,6 +176,41 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertEquals("path_contains_sm8750_or_qualcomm", diagnostics.selectedModelBackendConstraintHint)
         assertEquals("not_detected_by_path", diagnostics.selectedModelArtisanHint)
         assertTrue(diagnostics.edgeGalleryArtisanStaticEvidence.contains("GPU_ARTISAN"))
+        assertTrue(diagnostics.runtimeExecutorCandidates.isNotBlank())
+        assertTrue(
+            diagnostics.runtimeExecutorSelectionHint in setOf(
+                "public_api_executor_selection_surface_detected",
+                "runtime_config_public_but_no_executor_selection_surface",
+                "public_api_executor_selection_surface_unavailable",
+            ),
+        )
+        assertTrue(
+            diagnostics.runtimeBackendConstraintHint in setOf(
+                "public_api_backend_constraint_surface_detected",
+                "public_api_backend_constraint_surface_unavailable",
+            ),
+        )
+        assertTrue(
+            diagnostics.runtimeCompiledModelExecutorHint in setOf(
+                "public_api_compiled_model_executor_surface_detected",
+                "native_or_internal_compiled_model_executor_only",
+            ),
+        )
+        assertTrue(
+            diagnostics.runtimeGpuExecutorHint in setOf(
+                "public_backend_gpu_artisan_available",
+                "public_gpu_executor_surface_detected",
+                "public_backend_gpu_only",
+                "no_public_gpu_executor_surface_detected",
+            ),
+        )
+        assertTrue(
+            diagnostics.runtimeArtisanEvidence in setOf(
+                "public_api_artisan_surface_detected",
+                "edge_gallery_static_only_public_api_unavailable",
+                "none_detected",
+            ),
+        )
     }
 
     @Test
@@ -411,6 +452,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertEquals("735", error.primaryLine)
         assertEquals("failed_to_invoke_compiled_model", error.summary)
         assertEquals("try_gpu_runtime_stack_alignment", error.recoverabilityHint)
+        assertEquals("compiled_model_invoke", classifyLiteRtCompiledModelExecutorFailureCategory(error))
     }
 
     @Test
@@ -423,6 +465,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertEquals("3", error.statusCode)
         assertEquals("input_token_ids_too_long", error.summary)
         assertEquals("max_tokens_too_small", error.recoverabilityHint)
+        assertEquals("compiled_model_invoke_input_budget", classifyLiteRtCompiledModelExecutorFailureCategory(error))
     }
 
     @Test
@@ -438,6 +481,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertEquals("external/litert/litert/cc/litert_compiled_model.h", error.secondaryFile)
         assertEquals("1140", error.secondaryLine)
         assertEquals("failed_to_create_engine", error.summary)
+        assertEquals("compiled_model_load", classifyLiteRtCompiledModelExecutorFailureCategory(error))
     }
 
     @Test
@@ -520,9 +564,16 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(routeDiagnostics.contains("gpu_watchdog_bypassed_due_to_generate_exception=true"))
         assertTrue(routeDiagnostics.contains("litert_lm_error_kind=compiled_model_invoke_failed"))
         assertTrue(routeDiagnostics.contains("litert_lm_error_recoverability_hint=try_gpu_runtime_stack_alignment"))
+        assertTrue(routeDiagnostics.contains("litert_compiled_model_executor_failure_category=compiled_model_invoke"))
         assertTrue(routeDiagnostics.contains("gpu_sampler_config_enabled=false"))
         assertTrue(routeDiagnostics.contains("gpu_sampler_acceleration_policy=conversation_config_without_sampler"))
         assertTrue(routeDiagnostics.contains("gpu_failure_interpretation=compiled_model_invoke_failed_during_generate"))
+        assertTrue(routeDiagnostics.contains("litert_runtime_executor_candidates="))
+        assertTrue(routeDiagnostics.contains("litert_runtime_executor_selection_hint="))
+        assertTrue(routeDiagnostics.contains("litert_runtime_backend_constraint_hint="))
+        assertTrue(routeDiagnostics.contains("litert_runtime_compiled_model_executor_hint="))
+        assertTrue(routeDiagnostics.contains("litert_runtime_gpu_executor_hint="))
+        assertTrue(routeDiagnostics.contains("litert_runtime_artisan_evidence="))
         assertFalse(routeDiagnostics.contains("gpu_compiled_model_creation_failed=true"))
         assertTrue(compact.contains("failure_stage=gpu_generate_compiled_model_invoke_failed"))
         assertTrue(compact.contains("gpu_generate_exception_seen=true"))
@@ -535,6 +586,13 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("litert_lm_error_kind=compiled_model_invoke_failed"))
         assertTrue(compact.contains("litert_lm_error_status_code=13"))
         assertTrue(compact.contains("litert_lm_error_recoverability_hint=try_gpu_runtime_stack_alignment"))
+        assertTrue(compact.contains("litert_compiled_model_executor_failure_category=compiled_model_invoke"))
+        assertTrue(compact.contains("litert_runtime_executor_candidates="))
+        assertTrue(compact.contains("litert_runtime_executor_selection_hint="))
+        assertTrue(compact.contains("litert_runtime_backend_constraint_hint="))
+        assertTrue(compact.contains("litert_runtime_compiled_model_executor_hint="))
+        assertTrue(compact.contains("litert_runtime_gpu_executor_hint="))
+        assertTrue(compact.contains("litert_runtime_artisan_evidence="))
         assertTrue(compact.contains("gpu_generate_actual_prompt=こんにちは"))
         assertTrue(compact.contains("gpu_generate_prompt_length_chars=5"))
         assertTrue(compact.contains("gpu_generate_input_token_estimate=unavailable"))

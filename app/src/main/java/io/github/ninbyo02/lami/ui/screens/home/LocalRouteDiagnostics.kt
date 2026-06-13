@@ -163,6 +163,12 @@ internal data class LiteRtLmBackendArtisanApiDiagnostics(
     val selectedModelBackendConstraintHint: String = "unavailable",
     val selectedModelArtisanHint: String = "unavailable",
     val edgeGalleryArtisanStaticEvidence: String = EDGE_GALLERY_ARTISAN_STATIC_EVIDENCE,
+    val runtimeExecutorCandidates: String = "unavailable",
+    val runtimeExecutorSelectionHint: String = "unavailable",
+    val runtimeBackendConstraintHint: String = "unavailable",
+    val runtimeCompiledModelExecutorHint: String = "unavailable",
+    val runtimeGpuExecutorHint: String = "unavailable",
+    val runtimeArtisanEvidence: String = "unavailable",
 )
 
 internal fun buildLocalRouteDiagnosticContext(
@@ -285,6 +291,18 @@ internal fun buildLocalRouteDiagnosticTrace(
             ?: flags.gpuPrefillProbeDiagnostics["probe_exception_cause_message"]
             ?: flags.gpuPrefillProbeDiagnostics["probe_exception_chain"],
     )
+    val effectiveLiteRtLmError = LiteRtLmErrorClassification(
+        kind = flags.liteRtLmErrorKind ?: liteRtLmError.kind,
+        statusCode = flags.liteRtLmErrorStatusCode ?: liteRtLmError.statusCode,
+        primaryFile = flags.liteRtLmErrorPrimaryFile ?: liteRtLmError.primaryFile,
+        primaryLine = flags.liteRtLmErrorPrimaryLine ?: liteRtLmError.primaryLine,
+        secondaryFile = flags.liteRtLmErrorSecondaryFile ?: liteRtLmError.secondaryFile,
+        secondaryLine = flags.liteRtLmErrorSecondaryLine ?: liteRtLmError.secondaryLine,
+        recoverabilityHint = flags.liteRtLmErrorRecoverabilityHint ?: liteRtLmError.recoverabilityHint,
+        summary = flags.gpuGenerateExceptionSummary ?: liteRtLmError.summary,
+    )
+    val compiledModelExecutorFailureCategory =
+        classifyLiteRtCompiledModelExecutorFailureCategory(effectiveLiteRtLmError)
     return (
         listOf(
         "LOCAL_ROUTE_DIAG",
@@ -449,6 +467,7 @@ internal fun buildLocalRouteDiagnosticTrace(
         "litert_lm_error_secondary_file=${flags.liteRtLmErrorSecondaryFile ?: liteRtLmError.secondaryFile}",
         "litert_lm_error_secondary_line=${flags.liteRtLmErrorSecondaryLine ?: liteRtLmError.secondaryLine}",
         "litert_lm_error_recoverability_hint=${flags.liteRtLmErrorRecoverabilityHint ?: liteRtLmError.recoverabilityHint}",
+        "litert_compiled_model_executor_failure_category=$compiledModelExecutorFailureCategory",
         "cpu_compare_started=${flags.cpuCompareStarted.toDiagnosticValue()}",
         "cpu_compare_engine_initialize_finished=${flags.cpuCompareEngineInitializeFinished.toDiagnosticValue()}",
         "cpu_compare_conversation_create_finished=${flags.cpuCompareConversationCreateFinished.toDiagnosticValue()}",
@@ -477,6 +496,12 @@ internal fun buildLocalRouteDiagnosticTrace(
         "selected_model_backend_constraint_hint=${artisanApi.selectedModelBackendConstraintHint}",
         "selected_model_artisan_hint=${artisanApi.selectedModelArtisanHint}",
         "edge_gallery_artisan_static_evidence=${artisanApi.edgeGalleryArtisanStaticEvidence}",
+        "litert_runtime_executor_candidates=${artisanApi.runtimeExecutorCandidates}",
+        "litert_runtime_executor_selection_hint=${artisanApi.runtimeExecutorSelectionHint}",
+        "litert_runtime_backend_constraint_hint=${artisanApi.runtimeBackendConstraintHint}",
+        "litert_runtime_compiled_model_executor_hint=${artisanApi.runtimeCompiledModelExecutorHint}",
+        "litert_runtime_gpu_executor_hint=${artisanApi.runtimeGpuExecutorHint}",
+        "litert_runtime_artisan_evidence=${artisanApi.runtimeArtisanEvidence}",
         "gpu_fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
         "gpu_stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
         ) + buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
@@ -779,6 +804,20 @@ internal fun classifyLiteRtLmError(message: String?): LiteRtLmErrorClassificatio
     )
 }
 
+internal fun classifyLiteRtCompiledModelExecutorFailureCategory(
+    error: LiteRtLmErrorClassification,
+): String =
+    when {
+        error.primaryFile.endsWith("llm_litert_compiled_model_executor.cc") &&
+            error.primaryLine == "735" &&
+            error.kind == "compiled_model_invoke_failed" -> "compiled_model_invoke"
+        error.kind == "compiled_model_creation_failed" -> "compiled_model_load"
+        error.kind == "max_tokens_too_small" -> "compiled_model_invoke_input_budget"
+        error.primaryFile.endsWith("llm_litert_compiled_model_executor.cc") -> "compiled_model_executor"
+        error.primaryFile != "unavailable" -> "unknown_litert_native_error"
+        else -> "unknown"
+    }
+
 internal fun normalizeLiteRtLmErrorText(message: String?): String =
     message
         ?.replace('_', ' ')
@@ -844,6 +883,12 @@ internal fun buildLiteRtLmBackendArtisanApiDiagnostics(
         preferredEngineTypeApiAvailable = snapshot.preferredEngineTypeApiAvailable,
         selectedModelBackendConstraintHint = inferSelectedModelBackendConstraintHint(selectedModelPath),
         selectedModelArtisanHint = inferSelectedModelArtisanHint(selectedModelPath),
+        runtimeExecutorCandidates = snapshot.runtimeExecutorCandidates,
+        runtimeExecutorSelectionHint = snapshot.runtimeExecutorSelectionHint,
+        runtimeBackendConstraintHint = snapshot.runtimeBackendConstraintHint,
+        runtimeCompiledModelExecutorHint = snapshot.runtimeCompiledModelExecutorHint,
+        runtimeGpuExecutorHint = snapshot.runtimeGpuExecutorHint,
+        runtimeArtisanEvidence = snapshot.runtimeArtisanEvidence,
     )
 }
 
@@ -856,6 +901,12 @@ private data class LiteRtLmBackendArtisanApiReflectionSnapshot(
     val runtimeConfigAvailable: String,
     val backendConstraintApiAvailable: String,
     val preferredEngineTypeApiAvailable: String,
+    val runtimeExecutorCandidates: String,
+    val runtimeExecutorSelectionHint: String,
+    val runtimeBackendConstraintHint: String,
+    val runtimeCompiledModelExecutorHint: String,
+    val runtimeGpuExecutorHint: String,
+    val runtimeArtisanEvidence: String,
 )
 
 private val liteRtLmBackendArtisanApiReflectionSnapshot: LiteRtLmBackendArtisanApiReflectionSnapshot by lazy(
@@ -867,6 +918,16 @@ private val liteRtLmBackendArtisanApiReflectionSnapshot: LiteRtLmBackendArtisanA
         "com.google.ai.edge.litertlm.EngineConfig\$Builder",
         "com.google.ai.edge.litertlm.RuntimeConfig",
         "com.google.ai.edge.litertlm.RuntimeConfig\$Builder",
+        "com.google.ai.edge.litertlm.ExecutorConfig",
+        "com.google.ai.edge.litertlm.ExecutorConfig\$Builder",
+        "com.google.ai.edge.litertlm.ExecutorSelection",
+        "com.google.ai.edge.litertlm.ExecutorSelection\$Builder",
+        "com.google.ai.edge.litertlm.PreferredEngineType",
+        "com.google.ai.edge.litertlm.BackendConstraint",
+        "com.google.ai.edge.litertlm.BackendConstraint\$Builder",
+        "com.google.ai.edge.litertlm.CompiledModelExecutor",
+        "com.google.ai.edge.litertlm.GpuExecutor",
+        "com.google.ai.edge.litertlm.LlmGpuArtisanExecutor",
         "com.google.ai.edge.litertlm.BackendType",
         "com.google.ai.edge.litertlm.AdapterBackend",
         "com.google.ai.edge.litertlm.EncoderBackend",
@@ -881,6 +942,35 @@ private val liteRtLmBackendArtisanApiReflectionSnapshot: LiteRtLmBackendArtisanA
     val normalizedBackendCandidates = backendCandidates.map(::normalizeLiteRtLmApiTokenForMatch)
     val normalizedApiSurface = apiSurfaceNames.map(::normalizeLiteRtLmApiTokenForMatch)
     val runtimeConfigAvailable = loadedClasses.any { it.name == "com.google.ai.edge.litertlm.RuntimeConfig" }
+    val executorCandidates = collectLiteRtLmRuntimeExecutorCandidates(
+        apiSurfaceNames = apiSurfaceNames,
+        backendCandidates = backendCandidates,
+    )
+    val hasPublicArtisanSurface = normalizedBackendCandidates.any { it.contains("ARTISAN") } ||
+        normalizedApiSurface.any { it.contains("ARTISAN") }
+    val hasExecutorSelectionSurface = normalizedApiSurface.any { name ->
+        name.contains("EXECUTORSELECTION") ||
+            name.contains("EXECUTORCONFIG") ||
+            name.contains("PREFERREDENGINETYPE") ||
+            name.contains("PREFERREDENGINE") ||
+            name.contains("ENGINETYPE")
+    }
+    val hasBackendConstraintSurface = normalizedApiSurface.any { name ->
+        name.contains("BACKENDCONSTRAINT") ||
+            name.contains("CONSTRAINT") ||
+            name.contains("SUPPORTEDBACKEND") ||
+            name.contains("REQUIREDBACKEND") ||
+            name.contains("MODELREQUIRES")
+    }
+    val hasCompiledModelExecutorSurface = normalizedApiSurface.any { name ->
+        name.contains("COMPILEDMODELEXECUTOR") ||
+            name.contains("LITERTCOMPILEDMODELEXECUTOR")
+    }
+    val hasGpuExecutorSurface = normalizedApiSurface.any { name ->
+        name.contains("GPUEXECUTOR") ||
+            name.contains("LITERTGPU") ||
+            name.contains("GPUARTISAN")
+    }
     LiteRtLmBackendArtisanApiReflectionSnapshot(
         backendCandidates = backendCandidates.joinToString(",").ifBlank {
             if (backendClass == null) "Backend_class_unavailable" else "none_detected"
@@ -901,6 +991,31 @@ private val liteRtLmBackendArtisanApiReflectionSnapshot: LiteRtLmBackendArtisanA
                 name.contains("PREFERREDENGINE") ||
                 name.contains("ENGINETYPE")
         }.toString(),
+        runtimeExecutorCandidates = executorCandidates.joinToString(",").ifBlank { "none_detected" },
+        runtimeExecutorSelectionHint = when {
+            hasExecutorSelectionSurface -> "public_api_executor_selection_surface_detected"
+            runtimeConfigAvailable -> "runtime_config_public_but_no_executor_selection_surface"
+            else -> "public_api_executor_selection_surface_unavailable"
+        },
+        runtimeBackendConstraintHint = when {
+            hasBackendConstraintSurface -> "public_api_backend_constraint_surface_detected"
+            else -> "public_api_backend_constraint_surface_unavailable"
+        },
+        runtimeCompiledModelExecutorHint = when {
+            hasCompiledModelExecutorSurface -> "public_api_compiled_model_executor_surface_detected"
+            else -> "native_or_internal_compiled_model_executor_only"
+        },
+        runtimeGpuExecutorHint = when {
+            normalizedBackendCandidates.any { it.contains("GPUARTISAN") } -> "public_backend_gpu_artisan_available"
+            hasGpuExecutorSurface -> "public_gpu_executor_surface_detected"
+            normalizedBackendCandidates.any { it == "GPU" || it.contains("GPU") } -> "public_backend_gpu_only"
+            else -> "no_public_gpu_executor_surface_detected"
+        },
+        runtimeArtisanEvidence = when {
+            hasPublicArtisanSurface -> "public_api_artisan_surface_detected"
+            EDGE_GALLERY_ARTISAN_STATIC_EVIDENCE.isNotBlank() -> "edge_gallery_static_only_public_api_unavailable"
+            else -> "none_detected"
+        },
     )
 }
 
@@ -942,8 +1057,40 @@ private fun collectLiteRtLmApiSurfaceNames(
             names += "${clazz.simpleName}.${field.name}"
             names += field.type.name
         }
+        (clazz.constructors.asList() + clazz.declaredConstructors.asList()).forEach { constructor ->
+            names += "${clazz.simpleName}.<init>"
+            constructor.parameterTypes.forEach { type -> names += type.name }
+        }
     }
     return names.toList()
+}
+
+private fun collectLiteRtLmRuntimeExecutorCandidates(
+    apiSurfaceNames: List<String>,
+    backendCandidates: List<String>,
+): List<String> {
+    val tokens = linkedSetOf<String>()
+    (apiSurfaceNames + backendCandidates)
+        .map { it.replace('$', '.') }
+        .filter { value ->
+            value.contains("Executor", ignoreCase = true) ||
+                value.contains("RuntimeConfig", ignoreCase = true) ||
+                value.contains("PreferredEngine", ignoreCase = true) ||
+                value.contains("BackendConstraint", ignoreCase = true) ||
+                value.contains("Gpu", ignoreCase = true) ||
+                value.contains("Artisan", ignoreCase = true) ||
+                value.contains("CompiledModel", ignoreCase = true)
+        }
+        .map { value ->
+            value
+                .substringAfterLast("com.google.ai.edge.litertlm.")
+                .substringAfterLast("java.lang.")
+                .take(96)
+        }
+        .filter { it.isNotBlank() }
+        .sorted()
+        .forEach { tokens += it }
+    return tokens.take(40)
 }
 
 private fun normalizeLiteRtLmApiTokenForMatch(value: String): String =
