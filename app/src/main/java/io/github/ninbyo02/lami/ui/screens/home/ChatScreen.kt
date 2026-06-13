@@ -5450,7 +5450,7 @@ fun Home(
                                                                         }
                                                                     var localSourceSummary =
                                                                         resolvedTrace?.localFailureDiagnosticsText
-                                                                            ?.takeIf { it.contains("debug_lami_gpu_generate_probe_mode=callback_to_ui") }
+                                                                            ?.takeIf { isGpuCallbackStreamingDiagnosticsText(it) }
                                                                             ?: resolvedTrace?.selectedAssistantResponseSource
                                                                             ?.takeIf { it.isNotBlank() }
                                                                             ?: rawSourceSummary
@@ -5555,7 +5555,7 @@ fun Home(
                                                                         }
                                                                     localSourceSummary =
                                                                         resolvedTrace?.localFailureDiagnosticsText
-                                                                            ?.takeIf { it.contains("debug_lami_gpu_generate_probe_mode=callback_to_ui") }
+                                                                            ?.takeIf { isGpuCallbackStreamingDiagnosticsText(it) }
                                                                             ?: resolvedTrace?.selectedAssistantResponseSource
                                                                             ?.takeIf { it.isNotBlank() }
                                                                             ?: rawSourceSummary
@@ -8010,6 +8010,10 @@ private fun shouldInsertLocalFailureAssistantMessage(
         (runResult.response == GPU_EXPERIMENTAL_TIMEOUT_MESSAGE ||
             runResult.response == GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE ||
             runResult.response == GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE)
+
+private fun isGpuCallbackStreamingDiagnosticsText(text: String): Boolean =
+    text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI") ||
+        text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING")
 
 private fun ensureSuccessCloseLifecycleSummary(
     summary: RunCloseLifecycleSummary?,

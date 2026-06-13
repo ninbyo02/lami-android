@@ -530,6 +530,57 @@ Rollback:
 - Clear `debug.lami.gallery_stack_gpu_probe`.
 - Remove local staged `.so` files from `app/src/galleryStackGpuProbeDebug/jniLibs/arm64-v8a/`.
 
+## GPU Phase 9: callback streaming promotion
+
+`galleryStackGpuProbe` で `debug.lami.gpu_generate_probe_mode=callback_to_ui` を使うと、Edge Gallery E2B model の GPU callback text を LAMI の assistant UI へ promote できることを確認した。
+
+Confirmed result:
+
+- `selected_backend=GPU`
+- `route_family=local_gpu`
+- `status=success`
+- `stage=generate_streaming_completed`
+- `first_token_received=true`
+- `gpu_callback_non_empty_text_count=12`
+- `gpu_callback_text_promoted_to_ui=true`
+- `gpu_ui_append_finished=true`
+- `gpu_streaming_completion_reason=flow_completed_non_empty_response`
+- TTFT: `370 ms`
+- backend speed: `37.4 token/s`
+
+Phase 9 では `callback_to_ui` を診断 mode として残したまま、同じ内部 callback streaming path を使う候補 mode `normal_callback_streaming` を追加した。これは normal GPU route へ昇格する前の DEV opt-in mode で、GPU callback text を通常 assistant message に append し、non-empty response を success として扱う。
+
+Manual check:
+
+```bash
+adb shell setprop debug.lami.gallery_stack_gpu_probe true
+adb shell setprop debug.lami.compare_cpu_gpu_callback true
+adb shell setprop debug.lami.gpu_generate_probe_mode normal_callback_streaming
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+```
+
+Expected success diagnostics:
+
+- `debug_lami_gpu_generate_probe_mode=normal_callback_streaming`
+- `gpu_callback_to_ui_enabled=true`
+- `gpu_callback_text_promoted_to_ui=true`
+- `gpu_ui_append_finished=true`
+- `gpu_streaming_completion_reason=flow_completed_non_empty_response`
+- `failure_stage=none`
+
+Current limitation:
+
+- GPU remains explicit user/dev selection only.
+- `normal_callback_streaming` is still DEV opt-in.
+- Standard UI should not make GPU the default until repeated stability checks cover app restart, multiple prompts, longer responses, and failure cleanup.
+
+Next promotion gate:
+
+- Run repeated manual checks in `galleryStackGpuProbe` with the Edge Gallery E2B model.
+- Confirm Copy Compact / stats details preserve callback streaming diagnostics on success and failure.
+- If stable, promote the shared callback streaming implementation to the normal GPU route while keeping the older failure diagnostics intact.
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

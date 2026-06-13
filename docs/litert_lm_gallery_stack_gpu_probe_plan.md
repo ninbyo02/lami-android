@@ -162,6 +162,22 @@ adb shell setprop debug.lami.gpu_probe_use_held_engine false
 adb shell setprop debug.lami.gpu_prefill_probe false
 ```
 
+Use `callback_to_ui` when verifying that raw GPU callbacks can be promoted into the visible assistant message. Use `normal_callback_streaming` when testing the candidate normal GPU streaming path:
+
+```bash
+adb shell setprop debug.lami.gpu_generate_probe_mode normal_callback_streaming
+```
+
+Expected `normal_callback_streaming` success keys:
+
+- `status=success`
+- `debug_lami_gpu_generate_probe_mode=normal_callback_streaming`
+- `gpu_callback_to_ui_enabled=true`
+- `gpu_callback_text_promoted_to_ui=true`
+- `gpu_ui_append_finished=true`
+- `gpu_streaming_completion_reason=flow_completed_non_empty_response`
+- `failure_stage=none`
+
 Manual model selection:
 
 ```text
@@ -176,6 +192,7 @@ Run:
 Interpretation:
 
 - GPU succeeds: runtime stack/model alignment likely fixed the issue.
+- GPU succeeds only in `callback_to_ui` or `normal_callback_streaming`: callback streaming is the viable LAMI GPU path, but it remains DEV opt-in until repeated stability checks pass.
 - GPU still fails at `runtime/executor/llm_litert_compiled_model_executor.cc:735`: public `Backend.GPU` or inaccessible `GPU_ARTISAN`/internal executor remains the likely blocker.
 - GPU fails earlier at load/init: staged native stack is incompatible with this app packaging/dependency graph.
 

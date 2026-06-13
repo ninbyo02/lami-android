@@ -58,6 +58,7 @@ internal const val GPU_GENERATE_PROBE_MODE_NO_SAMPLER = "no_sampler"
 internal const val GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI = "no_streaming_ui"
 internal const val GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY = "raw_callback_only"
 internal const val GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI = "callback_to_ui"
+internal const val GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING = "normal_callback_streaming"
 private const val NPU_DISABLED_NOT_SUPPORTED_REASON = "npu-disabled-vendor-fastrpc-namespace-blocked-recommended-gpu"
 private val STREAMING_NO_JOIN_PREVIOUS_CHARS = setOf(
     '(', '[', '{', '"', '\'', '`', '/', '\\', '.', ',', ':', ';', '!', '?',
@@ -294,9 +295,22 @@ internal fun resolveGpuGenerateProbeModeForDebug(
         GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI -> GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI
         GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY -> GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
         GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI -> GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI
+        GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING -> GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING
         else -> GPU_GENERATE_PROBE_MODE_NORMAL
     }
 }
+
+internal fun usesGpuCallbackStreamingPathForDebug(probeMode: String): Boolean =
+    probeMode == GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI ||
+        probeMode == GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING
+
+private fun usesDirectGpuCallbackAppendForDebug(probeMode: String): Boolean =
+    probeMode == GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY ||
+        usesGpuCallbackStreamingPathForDebug(probeMode)
+
+private fun suppressesGpuStreamingUiForDebug(probeMode: String): Boolean =
+    probeMode == GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY ||
+        probeMode == GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI
 
 private fun resolveGpuExperimentOverrideForGenerateProbeMode(
     probeMode: String,
@@ -896,7 +910,7 @@ private class GenerateCallbackLifecycleTracker(
     private var callbackExceptionMessage: String = "none"
     private var callbackExceptionChain: String = "none"
     private var callbackExceptionStage: String = "none"
-    private val callbackToUiEnabled: Boolean = probeMode == GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI
+    private val callbackToUiEnabled: Boolean = usesGpuCallbackStreamingPathForDebug(probeMode)
     private var callbackTextPromotedToUi: Boolean = false
     private var callbackPromotedTextLength: Int = 0
     private var callbackPromotedNonEmptyCount: Int = 0
@@ -1399,10 +1413,8 @@ internal suspend fun runWithHeldEngine(
         originalPrompt = prompt,
         probeMode = generateProbeMode,
     )
-    val rawCallbackOnly = generateProbeMode == GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
-    val callbackToUi = generateProbeMode == GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI
-    val rawCallbackAppend = rawCallbackOnly || callbackToUi
-    val suppressStreamingUi = rawCallbackOnly || generateProbeMode == GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI
+    val rawCallbackAppend = usesDirectGpuCallbackAppendForDebug(generateProbeMode)
+    val suppressStreamingUi = suppressesGpuStreamingUiForDebug(generateProbeMode)
     val callbackTracker = GenerateCallbackLifecycleTracker(
         routeRunStartedAtMs = routeRunStartedAtMs,
         probeMode = generateProbeMode,
@@ -2035,7 +2047,7 @@ internal suspend fun runWithHeldEngine(
         lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
         failureDiagnosticsText = failureDiagnosticsText
             ?: latestRouteDiagnosticText.takeIf {
-                generateProbeMode == GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI ||
+                usesGpuCallbackStreamingPathForDebug(generateProbeMode) ||
                     generateProbeMode == GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
             },
         memorySnapshots = memorySnapshots,

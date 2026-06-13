@@ -522,6 +522,77 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `GPU normal callback streaming mode records success diagnostics`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it-edge-gallery.litertlm",
+            selectedModelFile = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                engineCreateFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING,
+                gpuGenerateCallEntered = true,
+                gpuGenerateCallReturned = true,
+                gpuCallbackInvokedCount = 12,
+                gpuCallbackNonEmptyTextCount = 12,
+                gpuCallbackLastTextLength = 3,
+                gpuCallbackLastTextHead = "_😊",
+                gpuCallbackToUiEnabled = true,
+                gpuCallbackTextPromotedToUi = true,
+                gpuCallbackPromotedTextLength = 16,
+                gpuCallbackPromotedNonEmptyCount = 12,
+                gpuCallbackSuccessClassification = "gpu_callback_text_promoted_to_ui",
+                gpuUiAppendStarted = true,
+                gpuUiAppendFinished = true,
+                gpuUiFirstVisibleTextElapsedMs = 370L,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+            ),
+            elapsedMs = 1_500L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "applied",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                status = "success",
+                reason = "gpu_normal_callback_streaming_success",
+                failureStage = "none",
+                routeContext = routeContext,
+                timeout = false,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("debug_lami_gpu_generate_probe_mode=normal_callback_streaming"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_to_ui_enabled=true"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_text_promoted_to_ui=true"))
+        assertTrue(routeDiagnostics.contains("gpu_ui_append_finished=true"))
+        assertTrue(routeDiagnostics.contains("gpu_streaming_completion_reason=flow_completed_non_empty_response"))
+        assertTrue(routeDiagnostics.contains("gpu_generate_stall_interpretation=gpu_callback_text_observed"))
+        assertTrue(compact.contains("status=success"))
+        assertTrue(compact.contains("failure_stage=none"))
+        assertTrue(compact.contains("debug_lami_gpu_generate_probe_mode=normal_callback_streaming"))
+        assertTrue(compact.contains("gpu_callback_text_promoted_to_ui=true"))
+        assertTrue(compact.contains("gpu_ui_append_finished=true"))
+    }
+
+    @Test
     fun `GPU callback done without text is classified`() {
         val flags = LocalRouteDiagnosticFlags(
             generateStarted = true,
@@ -774,6 +845,21 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 propertyReader = reader,
             ),
         )
+        assertEquals(
+            GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING,
+            resolveGpuGenerateProbeModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.gpu_generate_probe_mode" -> GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING
+                        else -> null
+                    }
+                },
+            ),
+        )
+        assertTrue(usesGpuCallbackStreamingPathForDebug(GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI))
+        assertTrue(usesGpuCallbackStreamingPathForDebug(GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING))
+        assertFalse(usesGpuCallbackStreamingPathForDebug(GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY))
     }
 
     @Test
