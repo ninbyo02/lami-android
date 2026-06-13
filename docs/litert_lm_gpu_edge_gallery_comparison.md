@@ -168,6 +168,7 @@ LAMI では GPU を Settings 上で `Experimental / 非推奨` と明示し、GP
 
 - `scripts/dump_standard_debug_apk_native_libs.sh`
 - `scripts/compare_edge_gallery_lami_apk_native_libs.sh`
+- `scripts/compare_litert_gpu_accelerator_strings.sh`
 - Gradle task: `:app:dumpStandardDebugApkNativeLibs`
 - Gradle task: `:app:compareStandardDebugApkNativeLibsWithEdgeGallery`
 
@@ -228,3 +229,56 @@ scripts/compare_edge_gallery_lami_apk_native_libs.sh /path/to/edge-gallery.apk
 - `unknown`: local candidate / AAR candidate と SHA 一致しない。cache が未展開、別 source set、または調査対象外の入力経由の可能性がある。
 
 この診断は APK の中身だけを見る。NPU S1 native 実行経路、CPU held-official-flow、fallback、GPU timeout 本体の挙動は変更しない。
+
+## GPU accelerator strings comparison
+
+Edge Gallery の GPU accelerator は、少なくとも観測した APK では独立した以下の `.so` としては同梱されていない。
+
+- `libLiteRtGpuAccelerator.so`
+- `libLiteRtOpenClAccelerator.so`
+- `libLiteRtVulkanAccelerator.so`
+- `libLiteRtWebGpuAccelerator.so`
+
+一方で Edge Gallery の `split_config.arm64_v8a.apk` 内の `libLiteRt.so` と `liblitertlm_jni.so` には `Statically linked GPU accelerator registered` が見える。つまり、GPU accelerator は独立 `.so` ではなく LiteRT / LiteRT-LM JNI stack に静的リンクされている可能性が高い。
+
+この前提では、LAMI standardDebug に入っている `libQnnGpu.so` は Edge Gallery GPU 成功経路の直接根拠にはならない。`libQnnGpu.so` は QNN runtime payload の一部として APK に入っているが、Generic LiteRT-LM `Backend.GPU()` の 60秒 `engine_create` timeout 調査では主対象から外し、まず `libLiteRt.so` と `liblitertlm_jni.so` の差分を主対象にする。
+
+重点比較:
+
+```bash
+./gradlew :app:assembleStandardDebug
+scripts/compare_litert_gpu_accelerator_strings.sh /path/to/split_config.arm64_v8a.apk
+```
+
+第2引数に LAMI APK または `lib/arm64-v8a` ディレクトリを渡すこともできる。
+
+```bash
+scripts/compare_litert_gpu_accelerator_strings.sh /path/to/split_config.arm64_v8a.apk /path/to/app-standard-debug.apk
+```
+
+このスクリプトは `libLiteRt.so` と `liblitertlm_jni.so` について以下を出す。
+
+- size / sha256 / build id
+- GPU accelerator 重点文字列の有無
+- GPU accelerator 重点文字列の filtered diff
+- `strings` 上の周辺行
+- `nm -D` / `readelf -Ws` ベースの GPU/OpenCL/Vulkan/WebGPU/delegate/accelerator 関連 symbol diff
+
+重点文字列:
+
+- `Statically linked GPU accelerator registered`
+- `Dynamically loaded GPU accelerator`
+- `LiteRT GpuEnvironment`
+- `OpenGL-OpenCL shared context`
+- `OpenCL`
+- `Vulkan`
+- `WebGPU`
+- `gpu_options`
+- `convert_weights_on_gpu`
+- `hint_fully_delegated_to_single_delegate`
+- `libLiteRtGpuAccelerator`
+- `libLiteRtOpenClAccelerator`
+- `libLiteRtVulkanAccelerator`
+- `libLiteRtWebGpuAccelerator`
+
+`libLiteRt.so` と `liblitertlm_jni.so` は ABI / symbol / registration / model constraint provider の結合が強い。片方だけを Edge Gallery 版へ差し替える検証は禁止する。差し替え検証を行う場合でも、まず比較結果から同一バージョン・同一依存セットとして扱えるか確認し、別 flavor または別 APK で isolated に行う。standardDebug の本経路や NPU S1 を巻き込んだ単体差し替えはしない。
