@@ -135,6 +135,8 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("gpu_options_configured=false"))
         assertTrue(text.contains("gpu_options_source=EngineConfig_backend_only_no_explicit_GpuOptions"))
         assertTrue(text.contains("gpu_edge_gallery_diff_applied=true"))
+        assertTrue(text.contains("gpu_litert_executor_error_file=unavailable"))
+        assertTrue(text.contains("gpu_failure_interpretation=unknown"))
         assertTrue(text.contains("litert_lm_backend_candidates="))
         assertTrue(text.contains("litert_lm_backend_gpu_artisan_available="))
         assertTrue(text.contains("litert_lm_backend_cpu_artisan_available="))
@@ -248,6 +250,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("gpu_sampler_config_enabled=false"))
         assertTrue(text.contains("gpu_conversation_config_sampler_present=false"))
         assertTrue(text.contains("gpu_sampler_acceleration_policy=conversation_config_without_sampler"))
+        assertTrue(text.contains("gpu_failure_interpretation=normal_route_generate_hangs_after_successful_initialize"))
     }
 
     @Test
@@ -339,6 +342,8 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("probe_timeout_stage=generate_before_first_token"))
         assertTrue(compact.contains("probe_failure_stage=gpu_prefill_probe_timeout_generate_before_first_token"))
         assertTrue(compact.contains("probe_exception_cause_class=unavailable"))
+        assertTrue(compact.contains("probe_exception_cause_message_raw=unavailable"))
+        assertTrue(compact.contains("probe_exception_cause_message_sanitized=unavailable"))
         assertTrue(compact.contains("probe_exception_root_cause_class=unavailable"))
         assertTrue(compact.contains("probe_exception_chain=unavailable"))
         assertTrue(compact.contains("probe_reflection_target_exception_class=unavailable"))
@@ -349,6 +354,63 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("probe_normal_generate_blocked_reason=probe_opt_in_runs_without_normal_generate"))
         assertTrue(compact.contains("previous_invocation_still_processing_detected=false"))
         assertTrue(compact.contains("lite_rt_lm_previous_invocation_still_processing=false"))
+    }
+
+    @Test
+    fun `compiled model initialize failure keys are included in route and compact text`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val probeDiagnostics = mapOf(
+            "probe_exception_cause_message_raw" to
+                "Failed_to_create_engine:_INTERNAL:_ERROR:_[runtime/executor/llm_litert_compiled_model_executor.cc:1546] " +
+                    "ERROR:[external/litert/litert/cc/litert_compiled_model.h:1140]",
+            "probe_failure_stage" to "gpu_prefill_probe_engine_initialize_invocation_target_exception",
+            "probe_timeout_stage" to "engine_initialize",
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "gpu_prefill_probe_completed",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                failureStage = "gpu_prefill_probe_engine_initialize_invocation_target_exception",
+                engineInitializeStarted = true,
+                engineInitializeFinished = false,
+                conversationCreateStarted = false,
+                conversationCreateFinished = false,
+                gpuPrefillProbeDiagnostics = probeDiagnostics,
+            ),
+            elapsedMs = 3_008L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "hi",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "gpu-prefill-probe-skipped-normal-generate",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                routeContext = routeContext,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("gpu_litert_executor_error_file=runtime/executor/llm_litert_compiled_model_executor.cc"))
+        assertTrue(routeDiagnostics.contains("gpu_litert_executor_error_line=1546"))
+        assertTrue(routeDiagnostics.contains("gpu_litert_compiled_model_error_file=external/litert/litert/cc/litert_compiled_model.h"))
+        assertTrue(routeDiagnostics.contains("gpu_litert_compiled_model_error_line=1140"))
+        assertTrue(routeDiagnostics.contains("gpu_engine_initialize_internal_error_detected=true"))
+        assertTrue(routeDiagnostics.contains("gpu_compiled_model_creation_failed=true"))
+        assertTrue(routeDiagnostics.contains("gpu_failure_interpretation=compiled_model_creation_failed_before_conversation"))
+        assertTrue(compact.contains("gpu_litert_executor_error_line=1546"))
+        assertTrue(compact.contains("gpu_litert_compiled_model_error_line=1140"))
+        assertTrue(compact.contains("gpu_failure_interpretation=compiled_model_creation_failed_before_conversation"))
     }
 
     @Test

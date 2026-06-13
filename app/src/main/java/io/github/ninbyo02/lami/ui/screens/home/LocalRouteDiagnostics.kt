@@ -67,6 +67,16 @@ internal data class GpuRouteConfigDiagnostics(
     val speculativeDecodingEnabled: String = "false",
 )
 
+internal data class GpuLiteRtFailureClassification(
+    val executorErrorFile: String = "unavailable",
+    val executorErrorLine: String = "unavailable",
+    val compiledModelErrorFile: String = "unavailable",
+    val compiledModelErrorLine: String = "unavailable",
+    val engineInitializeInternalErrorDetected: Boolean = false,
+    val compiledModelCreationFailed: Boolean = false,
+    val interpretation: String = "unknown",
+)
+
 internal data class LiteRtLmBackendArtisanApiDiagnostics(
     val backendCandidates: String = "unavailable",
     val gpuArtisanAvailable: String = "unavailable",
@@ -167,6 +177,18 @@ internal fun buildLocalRouteDiagnosticTrace(
         )
     val artisanApi = buildLiteRtLmBackendArtisanApiDiagnostics(
         selectedModelPath = context.selectedModelPath,
+    )
+    val gpuFailureClassification = classifyGpuLiteRtFailure(
+        message = flags.gpuPrefillProbeDiagnostics["probe_exception_cause_message_raw"]
+            ?: flags.gpuPrefillProbeDiagnostics["probe_exception_cause_message"]
+            ?: flags.gpuPrefillProbeDiagnostics["probe_exception_root_cause_message"]
+            ?: flags.gpuPrefillProbeDiagnostics["probe_exception_chain"],
+        failureStage = failureStage,
+        timeoutStage = gpuTimeoutStage,
+        generateStarted = flags.generateStarted,
+        firstTokenReceived = flags.firstTokenReceived,
+        engineInitializeFinished = flags.engineInitializeFinished,
+        conversationCreateFinished = flags.conversationCreateFinished,
     )
     return (
         listOf(
@@ -271,6 +293,13 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_dispatcher=Dispatchers.IO",
         "gpu_engine_initialize_api=Engine.initialize",
         "gpu_edge_gallery_diff_applied=${shouldApplyEdgeGalleryLikeGpuCompatibilityMode(context.preferredBackend)}",
+        "gpu_litert_executor_error_file=${gpuFailureClassification.executorErrorFile}",
+        "gpu_litert_executor_error_line=${gpuFailureClassification.executorErrorLine}",
+        "gpu_litert_compiled_model_error_file=${gpuFailureClassification.compiledModelErrorFile}",
+        "gpu_litert_compiled_model_error_line=${gpuFailureClassification.compiledModelErrorLine}",
+        "gpu_engine_initialize_internal_error_detected=${gpuFailureClassification.engineInitializeInternalErrorDetected}",
+        "gpu_compiled_model_creation_failed=${gpuFailureClassification.compiledModelCreationFailed}",
+        "gpu_failure_interpretation=${gpuFailureClassification.interpretation}",
         "litert_lm_backend_candidates=${artisanApi.backendCandidates}",
         "litert_lm_backend_gpu_artisan_available=${artisanApi.gpuArtisanAvailable}",
         "litert_lm_backend_cpu_artisan_available=${artisanApi.cpuArtisanAvailable}",
@@ -319,6 +348,8 @@ internal val GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS = listOf(
     "probe_exception_message",
     "probe_exception_cause_class",
     "probe_exception_cause_message",
+    "probe_exception_cause_message_raw",
+    "probe_exception_cause_message_sanitized",
     "probe_exception_root_cause_class",
     "probe_exception_root_cause_message",
     "probe_exception_chain",
@@ -337,12 +368,25 @@ internal val GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS = listOf(
     "probe_start_blocked_reason",
     "probe_normal_generate_blocked_reason",
     "previous_invocation_still_processing_detected",
+    "probe_use_held_engine_requested",
     "probe_used_held_engine",
     "probe_held_engine_present_before",
+    "probe_held_engine_acquire_result",
+    "probe_held_engine_generate_started",
+    "probe_held_engine_first_token_received",
+    "probe_held_engine_failure_stage",
+    "probe_held_engine_timeout_stage",
     "probe_held_engine_invalidated_after",
     "normal_gpu_last_known_stage",
     "normal_gpu_can_initialize_with_held_engine_hint",
     "isolated_gpu_engine_initialize_failed_hint",
+    "gpu_litert_executor_error_file",
+    "gpu_litert_executor_error_line",
+    "gpu_litert_compiled_model_error_file",
+    "gpu_litert_compiled_model_error_line",
+    "gpu_engine_initialize_internal_error_detected",
+    "gpu_compiled_model_creation_failed",
+    "gpu_failure_interpretation",
 )
 
 internal fun parseDiagnosticKeyValueText(text: String?): Map<String, String> =
@@ -381,6 +425,68 @@ internal fun buildGpuPrefillProbeDiagnosticLines(
     return GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS.map { key ->
         "$key=${diagnostics[key]?.replace(Regex("\\s+"), "_") ?: "unavailable"}"
     }
+}
+
+internal fun classifyGpuLiteRtFailure(
+    message: String?,
+    failureStage: String? = null,
+    timeoutStage: String? = null,
+    generateStarted: Boolean? = null,
+    firstTokenReceived: Boolean? = null,
+    engineInitializeFinished: Boolean? = null,
+    conversationCreateFinished: Boolean? = null,
+): GpuLiteRtFailureClassification {
+    val normalizedMessage = message.orEmpty()
+    val fileLines = extractGpuLiteRtFileLines(normalizedMessage)
+    val executor = fileLines.firstOrNull { it.first.endsWith("llm_litert_compiled_model_executor.cc") }
+    val compiledModel = fileLines.firstOrNull { it.first.endsWith("litert_compiled_model.h") }
+    val internalErrorDetected = normalizedMessage.contains("INTERNAL", ignoreCase = true) ||
+        normalizedMessage.contains("_INTERNAL_", ignoreCase = true)
+    val compiledModelCreationFailed = normalizedMessage.contains("Failed_to_create_engine", ignoreCase = true) ||
+        normalizedMessage.contains("Failed to create engine", ignoreCase = true) ||
+        executor != null ||
+        compiledModel != null
+    val generatedWithoutFirstToken =
+        generateStarted == true &&
+            firstTokenReceived == false &&
+            (engineInitializeFinished == true || conversationCreateFinished == true)
+    val beforeConversation =
+        timeoutStage == "engine_initialize" ||
+            failureStage?.contains("engine_initialize", ignoreCase = true) == true ||
+            conversationCreateFinished == false
+    val interpretation = when {
+        compiledModelCreationFailed && beforeConversation -> "compiled_model_creation_failed_before_conversation"
+        generatedWithoutFirstToken -> "normal_route_generate_hangs_after_successful_initialize"
+        failureStage?.contains("gpu_prefill_probe", ignoreCase = true) == true ->
+            "isolated_probe_differs_from_held_engine_lifecycle"
+        else -> "unknown"
+    }
+    return GpuLiteRtFailureClassification(
+        executorErrorFile = executor?.first ?: "unavailable",
+        executorErrorLine = executor?.second ?: "unavailable",
+        compiledModelErrorFile = compiledModel?.first ?: "unavailable",
+        compiledModelErrorLine = compiledModel?.second ?: "unavailable",
+        engineInitializeInternalErrorDetected = internalErrorDetected,
+        compiledModelCreationFailed = compiledModelCreationFailed,
+        interpretation = interpretation,
+    )
+}
+
+internal fun sanitizeGpuLiteRtFailureMessage(value: String?): String =
+    value
+        ?.replace('\n', ' ')
+        ?.replace('\r', ' ')
+        ?.trim()
+        ?.replace(Regex("\\s+"), "_")
+        ?.ifBlank { "none" }
+        ?: "none"
+
+private fun extractGpuLiteRtFileLines(message: String): List<Pair<String, String>> {
+    val regex = Regex("""([A-Za-z0-9_./-]+(?:\.cc|\.h)):(\d+)""")
+    return regex.findAll(message)
+        .map { match -> match.groupValues[1] to match.groupValues[2] }
+        .distinct()
+        .toList()
 }
 
 internal fun buildLiteRtLmBackendArtisanApiDiagnostics(

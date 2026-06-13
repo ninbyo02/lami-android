@@ -943,7 +943,102 @@ scripts/pull_lami_selected_model_for_static_hints.sh --pull \
 - `artifacts/lami_model_static/model_keyword_presence.tsv`
 - `artifacts/lami_model_static/all_model_backend_hints.txt`
 - `artifacts/lami_model_static/strings/*.backend_hints.txt`
+- `artifacts/lami_model_static/context/*.context.txt`
+- `artifacts/lami_model_static/graphs/*.graph_names.txt`
+- `artifacts/lami_model_static/metadata/*.possible_metadata_blocks.txt`
 - `artifacts/lami_model_static/device_pull_instructions.md`
+
+`.litertlm` が 100MB 未満の場合は、pull 失敗時の 89 bytes / 156 bytes 程度の error text を model と誤認しないため、
+`suspicious_model_file=true` / `analysis_status=failed_suspicious_small_litertlm_file` として扱う。
+`scripts/pull_lami_selected_model_for_static_hints.sh --pull` 実行時は、`selected_model_pull_summary.txt` に
+`device_reported_size_bytes`、`pc_output_size_bytes`、`device_pc_size_match` を出し、実機 reported size と PC output size を照合する。
+
+短い `gpu` / `npu` / `artisan` 断片は binary strings 上のノイズになりやすい。判断時は
+`model_keyword_presence.tsv` だけでなく、`context/`、`graphs/`、`metadata/` の周辺文字列を優先して読む。
+
+## GPU initialize failure classification
+
+isolated GPU prefill probe の `InvocationTargetException` は wrapper なので、診断では target / cause / root cause に加えて
+LiteRT-LM native error の file/line を専用 key として出す。
+
+追加 key:
+
+- `probe_exception_cause_message_raw`
+- `probe_exception_cause_message_sanitized`
+- `gpu_litert_executor_error_file`
+- `gpu_litert_executor_error_line`
+- `gpu_litert_compiled_model_error_file`
+- `gpu_litert_compiled_model_error_line`
+- `gpu_engine_initialize_internal_error_detected`
+- `gpu_compiled_model_creation_failed`
+- `gpu_failure_interpretation`
+
+現在の isolated probe 例では以下を期待する。
+
+```text
+gpu_litert_executor_error_file=runtime/executor/llm_litert_compiled_model_executor.cc
+gpu_litert_executor_error_line=1546
+gpu_litert_compiled_model_error_file=external/litert/litert/cc/litert_compiled_model.h
+gpu_litert_compiled_model_error_line=1140
+gpu_failure_interpretation=compiled_model_creation_failed_before_conversation
+```
+
+通常 held GPU route が `Engine.initialize` / `Conversation.create` 後に first token 前で止まる場合は、
+`gpu_failure_interpretation=normal_route_generate_hangs_after_successful_initialize` として、isolated initialize failure と分けて扱う。
+
+## Held-engine prefill probe
+
+isolated engine probe は initialize で落ちるため、通常 route との差分を見るために held engine 前提の DEV-only probe を追加した。
+production default、CPU held-official-flow、NPU S1、fallback 本体には入れない。
+
+起動 property:
+
+```bash
+adb shell setprop debug.lami.gpu_probe_use_held_engine true
+adb shell setprop debug.lami.gpu_prefill_probe_prompt hi
+adb shell setprop debug.lami.gpu_prefill_probe_max_tokens 1
+adb shell setprop debug.lami.gpu_prefill_probe_sampler none
+adb shell setprop debug.lami.gpu_prefill_probe_cache_dir null
+```
+
+運用:
+
+1. Settings で GPU を選ぶ。
+2. 先に通常 GPU route を 1 回試し、held engine が作られるか確認する。
+3. 上記 property を有効にして再度入力する。
+4. probe 有効時は通常 generate を必ず skip し、probe 結果のみを compact / LOCAL_ROUTE_DIAG / UI 詳細へ出す。
+5. timeout または held engine 使用後は engine recreate を要求する。続けて通常 GPU generate を走らせない。
+
+追加 key:
+
+- `probe_use_held_engine_requested`
+- `probe_used_held_engine`
+- `probe_held_engine_present_before`
+- `probe_held_engine_acquire_result`
+- `probe_held_engine_generate_started`
+- `probe_held_engine_first_token_received`
+- `probe_held_engine_failure_stage`
+- `probe_held_engine_timeout_stage`
+- `probe_held_engine_invalidated_after`
+
+`probe_start_blocked_reason=no_held_engine` の場合は、held engine がないため probe は開始していない。これは失敗ではなく、
+通常 route との差分を見るための前提が満たされていない状態として扱う。
+
+## Manifest and packaging notes
+
+LAMI の manifest は Edge Gallery と同じく GPU/OpenCL native library を optional 宣言する方針を取る。
+今回の調査では Manifest / Gradle / native packaging は変更しない。
+
+確認観点:
+
+- `uses-native-library` の optional OpenCL / vendor support 宣言
+- `extractNativeLibs` / `useLegacyPackaging` の warning
+- duplicate native lib warning で、app overlay と AAR のどちらが最終 APK に入るか
+- strip unable warning
+- `libLiteRt.so` / `liblitertlm_jni.so` の SHA/build id 差分
+
+Edge Gallery で GPU が動く根拠は `libQnnGpu.so` ではなく、`libLiteRt.so` / `liblitertlm_jni.so` 内の LiteRT GPU stack と
+executor selection の可能性が高い。`libLiteRt.so` / `liblitertlm_jni.so` はセット依存が強いため、単体差し替えは禁止する。
 
 ## Edge Gallery app data model inventory
 

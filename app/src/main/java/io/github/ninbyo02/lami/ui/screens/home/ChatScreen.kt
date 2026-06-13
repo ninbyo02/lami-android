@@ -4441,6 +4441,127 @@ fun Home(
                                                                         preferredBackend = preferredBackendDryRunSetting.name,
                                                                     ),
                                                                 )
+                                                                resolveGpuHeldEnginePrefillProbeRequestForDebug(
+                                                                    preferredBackend = preferredBackendDryRunSetting,
+                                                                    modelPath = resolvedModelPath,
+                                                                    cacheDirPath = modelResolution.cacheDirPath,
+                                                                )?.let { heldProbeRequest ->
+                                                                    val heldSnapshotBeforeProbe =
+                                                                        localInferenceEngineHolder.getDevDiagnosticSnapshot()
+                                                                    val reusableHeldEngineBeforeProbe =
+                                                                        localInferenceEngineHolder.hasReusableHeldEngineForKey(modelResolution.engineKey)
+                                                                    val probeText = if (!reusableHeldEngineBeforeProbe) {
+                                                                        buildGpuPrefillProbeStartBlockedDiagnosticsText(
+                                                                            reason = "no_held_engine",
+                                                                            useHeldEngineRequested = true,
+                                                                            heldEnginePresentBefore =
+                                                                                heldSnapshotBeforeProbe.heldEngineHash != null,
+                                                                            heldEngineAcquireResult = "blocked_no_held_engine",
+                                                                        )
+                                                                    } else {
+                                                                        val diagnosticResult =
+                                                                            localInferenceEngineHolder.acquireWithDiagnostic(
+                                                                                engineKey = modelResolution.engineKey,
+                                                                                preferredBackendDryRunSetting = preferredBackendDryRunSetting,
+                                                                                appendTrace = { message ->
+                                                                                    gpuRouteProgressTracker.recordTrace(message)
+                                                                                    appendLocalReflectionTrace(
+                                                                                        context = context.applicationContext,
+                                                                                        message = message,
+                                                                                    )
+                                                                                },
+                                                                            )
+                                                                        val heldEngine = diagnosticResult.engine
+                                                                        if (heldEngine == null) {
+                                                                            buildGpuPrefillProbeStartBlockedDiagnosticsText(
+                                                                                reason = diagnosticResult.failureStage
+                                                                                    ?: "held_engine_acquire_failed",
+                                                                                useHeldEngineRequested = true,
+                                                                                heldEnginePresentBefore =
+                                                                                    heldSnapshotBeforeProbe.heldEngineHash != null,
+                                                                                heldEngineAcquireResult = "failed",
+                                                                            )
+                                                                        } else {
+                                                                            runGpuHeldEnginePrefillProbe(
+                                                                                heldEngine = heldEngine,
+                                                                                request = heldProbeRequest.copy(
+                                                                                    heldEnginePresentBefore =
+                                                                                        heldSnapshotBeforeProbe.heldEngineHash != null,
+                                                                                    normalGpuLastKnownStage =
+                                                                                        "held_engine_probe_normal_generate_skipped_before_start",
+                                                                                ),
+                                                                                appendTrace = { message ->
+                                                                                    appendLocalReflectionTrace(
+                                                                                        context = context.applicationContext,
+                                                                                        message = message,
+                                                                                    )
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    }
+                                                                    val probeDiagnostics = extractGpuPrefillProbeDiagnostics(probeText)
+                                                                    val probeTimedOut = probeDiagnostics["probe_run_timed_out"] == "true"
+                                                                    val combinedProbeText = buildLocalRouteDiagnosticTrace(
+                                                                        stage = "gpu_held_engine_prefill_probe_completed",
+                                                                        context = localRouteDiagnosticContext,
+                                                                        flags = LocalRouteDiagnosticFlags(
+                                                                            failureStage = if (probeTimedOut) {
+                                                                                "timeout"
+                                                                            } else {
+                                                                                probeDiagnostics["probe_failure_stage"]
+                                                                                    ?: "gpu_held_engine_prefill_probe_completed"
+                                                                            },
+                                                                            fallbackUsed = false,
+                                                                            heldEngineExists =
+                                                                                heldSnapshotBeforeProbe.heldEngineHash != null,
+                                                                            heldEngineReused = reusableHeldEngineBeforeProbe,
+                                                                            staleCallbackIgnored =
+                                                                                probeDiagnostics["probe_stale_callback_ignored"]
+                                                                                    ?.toBooleanStrictOrNull(),
+                                                                            gpuConfigDiagnostics = gpuRouteProgressTracker.configSnapshot(),
+                                                                            gpuPrefillProbeDiagnostics = probeDiagnostics,
+                                                                        ),
+                                                                        elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
+                                                                    ) + "\n" + probeText
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = combinedProbeText,
+                                                                    )
+                                                                    writeGpuPrefillProbeDiagnosticsFile(
+                                                                        context = context.applicationContext,
+                                                                        text = combinedProbeText,
+                                                                    )
+                                                                    val invalidateHeldEngine =
+                                                                        probeDiagnostics["probe_used_held_engine"] == "true" ||
+                                                                            probeTimedOut ||
+                                                                            probeDiagnostics["probe_held_engine_acquire_result"] == "failed"
+                                                                    if (invalidateHeldEngine) {
+                                                                        localInferenceEngineHolder.requestRecreateForDev(
+                                                                            reason = "gpu_held_engine_prefill_probe_completed_normal_generate_skipped",
+                                                                            appendTrace = { message ->
+                                                                                appendLocalReflectionTrace(
+                                                                                    context = context.applicationContext,
+                                                                                    message = message,
+                                                                                )
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                    return@withContext LocalInferenceRunResult(
+                                                                        state = LocalInferenceEngineState.ERROR,
+                                                                        response = GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE,
+                                                                        trace = LocalInferenceTrace(
+                                                                            localModelDisplayName = modelResolution.displayName,
+                                                                            mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                            requestedPreferredBackend = "GPU",
+                                                                            appliedPreferredBackend = "GPU",
+                                                                            preferredBackendApplyResult =
+                                                                                "gpu-held-engine-prefill-probe-skipped-normal-generate",
+                                                                            preferredBackendHookReached = true,
+                                                                            preferredBackendHookSource = "gpu-held-engine-prefill-probe",
+                                                                            localFailureDiagnosticsText = combinedProbeText,
+                                                                        ),
+                                                                    )
+                                                                }
                                                                 resolveGpuPrefillProbeRequestForDebug(
                                                                     preferredBackend = preferredBackendDryRunSetting,
                                                                     modelPath = resolvedModelPath,

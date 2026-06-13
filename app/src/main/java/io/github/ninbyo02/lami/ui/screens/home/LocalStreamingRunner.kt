@@ -164,6 +164,40 @@ internal fun resolveGpuPrefillProbeRequestForDebug(
     if (!BuildConfig.DEBUG) return null
     if (preferredBackend != PreferredBackendDryRunSetting.GPU) return null
     if (!isGpuPrefillProbeRequestedForDebug(preferredBackend, propertyReader)) return null
+    return buildGpuPrefillProbeRequestFromDebugProperties(
+        modelPath = modelPath,
+        cacheDirPath = cacheDirPath,
+        propertyReader = propertyReader,
+    )
+}
+
+internal fun resolveGpuHeldEnginePrefillProbeRequestForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    modelPath: String,
+    cacheDirPath: String?,
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+): GpuPrefillProbeRequest? {
+    if (!BuildConfig.DEBUG) return null
+    if (preferredBackend != PreferredBackendDryRunSetting.GPU) return null
+    if (!isGpuHeldEnginePrefillProbeRequestedForDebug(preferredBackend, propertyReader)) return null
+    return buildGpuPrefillProbeRequestFromDebugProperties(
+        modelPath = modelPath,
+        cacheDirPath = cacheDirPath,
+        propertyReader = propertyReader,
+    ).copy(
+        isolatedEngineUsed = false,
+        sharedEngineUsed = true,
+        usedHeldEngine = true,
+        invalidatesHeldEngine = true,
+        normalGpuLastKnownStage = "held_engine_probe_normal_generate_skipped_before_start",
+    )
+}
+
+private fun buildGpuPrefillProbeRequestFromDebugProperties(
+    modelPath: String,
+    cacheDirPath: String?,
+    propertyReader: (String) -> String?,
+): GpuPrefillProbeRequest {
     val prompt = propertyReader("debug.lami.gpu_prefill_probe_prompt")
         ?: propertyReader("lami.gpu_prefill_probe_prompt")
         ?: GPU_PREFILL_PROBE_DEFAULT_PROMPT
@@ -208,6 +242,18 @@ internal fun isGpuPrefillProbeRequestedForDebug(
     if (preferredBackend != PreferredBackendDryRunSetting.GPU) return false
     val enabled = propertyReader("debug.lami.gpu_prefill_probe")
         ?: propertyReader("lami.gpu_prefill_probe")
+        ?: return false
+    return enabled.equals("true", ignoreCase = true) || enabled == "1"
+}
+
+internal fun isGpuHeldEnginePrefillProbeRequestedForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+): Boolean {
+    if (!BuildConfig.DEBUG) return false
+    if (preferredBackend != PreferredBackendDryRunSetting.GPU) return false
+    val enabled = propertyReader("debug.lami.gpu_probe_use_held_engine")
+        ?: propertyReader("lami.gpu_probe_use_held_engine")
         ?: return false
     return enabled.equals("true", ignoreCase = true) || enabled == "1"
 }
@@ -295,6 +341,87 @@ internal suspend fun runGpuPrefillProbe(
             state.runTimedOut.set(true)
             state.cleanupStarted.set(true)
             state.cleanupResult.set("cancel_requested_native_generate_may_still_be_processing")
+            deferred.cancel()
+            break
+        }
+        delay(100L)
+    }
+    if (deferred.isCompleted) {
+        runCatching { deferred.await() }
+    }
+    val text = buildGpuPrefillProbeDiagnosticsText(state)
+    safeAppendTrace(appendTrace, text)
+    return text
+}
+
+internal suspend fun runGpuHeldEnginePrefillProbe(
+    heldEngine: HeldLocalEngine,
+    request: GpuPrefillProbeRequest,
+    appendTrace: (String) -> Unit = {},
+): String {
+    val heldRequest = request.copy(
+        isolatedEngineUsed = false,
+        sharedEngineUsed = true,
+        usedHeldEngine = true,
+        invalidatesHeldEngine = true,
+    )
+    val state = GpuPrefillProbeState(request = heldRequest)
+    val deferred = CoroutineScope(Dispatchers.IO).async {
+        var conversation: Any? = null
+        try {
+            state.runStarted.set(true)
+            state.engineConfigStarted.set(true)
+            state.engineConfigFinished.set(true)
+            state.engineInitializeStarted.set(true)
+            state.engineInitializeFinished.set(true)
+            state.conversationCreateStarted.set(true)
+            conversation = createGpuPrefillProbeConversation(heldEngine.engineInstance, heldRequest)
+            state.conversationCreateFinished.set(conversation != null)
+            if (conversation == null) {
+                state.exceptionClass.set("ConversationCreateReturnedNull")
+                state.exceptionMessage.set("createConversation returned null")
+                return@async
+            }
+            state.generateStarted.set(true)
+            state.generateStartedAtMs.set(state.elapsedMs())
+            runGpuPrefillProbeGenerate(
+                conversation = conversation,
+                request = heldRequest,
+                state = state,
+            )
+        } catch (throwable: Throwable) {
+            val exceptionClass = throwable.javaClass.name
+            val exceptionMessage = throwable.message ?: "none"
+            state.exceptionClass.set(exceptionClass)
+            state.exceptionMessage.set(exceptionMessage)
+            state.exceptionExpansion.set(
+                buildLocalFailureExceptionExpansion(
+                    throwable = throwable,
+                    parsed = emptyMap(),
+                    failureExceptionClass = exceptionClass,
+                    failureExceptionMessage = exceptionMessage,
+                ),
+            )
+        } finally {
+            state.cleanupStarted.set(true)
+            val conversationOutcome = runCatching { closeQuietly(conversation, appendTrace) }
+            state.cleanupResult.set(
+                if (conversationOutcome.isSuccess) {
+                    "closed_probe_conversation_held_engine_recreate_required"
+                } else {
+                    "close_probe_conversation_failed_held_engine_recreate_required"
+                },
+            )
+            state.cleanupFinished.set(true)
+            state.runFinished.set(!state.staleCallbackIgnored.get())
+        }
+    }
+    while (!deferred.isCompleted) {
+        if (state.elapsedMs() >= heldRequest.timeoutMs) {
+            state.staleCallbackIgnored.set(true)
+            state.runTimedOut.set(true)
+            state.cleanupStarted.set(true)
+            state.cleanupResult.set("cancel_requested_held_engine_recreate_required")
             deferred.cancel()
             break
         }
@@ -423,6 +550,21 @@ internal fun buildGpuPrefillProbeDiagnosticsText(state: GpuPrefillProbeState): S
         }
     val resultText = state.resultText.get()
     val exceptionExpansion = state.exceptionExpansion.get() ?: LocalFailureExceptionExpansion()
+    val causeMessageRaw = exceptionExpansion.failureCauseMessage
+    val classification = classifyGpuLiteRtFailure(
+        message = listOf(
+            causeMessageRaw,
+            exceptionExpansion.failureRootCauseMessage,
+            exceptionExpansion.reflectionTargetExceptionMessage,
+            exceptionExpansion.exceptionChain,
+        ).joinToString(" "),
+        failureStage = failureStage,
+        timeoutStage = timeoutStage,
+        generateStarted = state.generateStarted.get(),
+        firstTokenReceived = state.firstTokenReceived.get(),
+        engineInitializeFinished = state.engineInitializeFinished.get(),
+        conversationCreateFinished = state.conversationCreateFinished.get(),
+    )
     val previousInvocationStillProcessing = state.exceptionMessage.get()
         ?.let { isLiteRtLmPreviousInvocationStillProcessing(listOf(it)) }
         ?: false
@@ -455,7 +597,9 @@ internal fun buildGpuPrefillProbeDiagnosticsText(state: GpuPrefillProbeState): S
         "probe_exception_class=${state.exceptionClass.get() ?: "none"}",
         "probe_exception_message=${escapeGpuPrefillProbeValue(state.exceptionMessage.get() ?: "none")}",
         "probe_exception_cause_class=${exceptionExpansion.failureCauseClass}",
-        "probe_exception_cause_message=${escapeGpuPrefillProbeValue(exceptionExpansion.failureCauseMessage)}",
+        "probe_exception_cause_message=${escapeGpuPrefillProbeValue(causeMessageRaw)}",
+        "probe_exception_cause_message_raw=${escapeGpuPrefillProbeValue(causeMessageRaw)}",
+        "probe_exception_cause_message_sanitized=${sanitizeGpuLiteRtFailureMessage(causeMessageRaw)}",
         "probe_exception_root_cause_class=${exceptionExpansion.failureRootCauseClass}",
         "probe_exception_root_cause_message=${escapeGpuPrefillProbeValue(exceptionExpansion.failureRootCauseMessage)}",
         "probe_exception_chain=${escapeGpuPrefillProbeValue(exceptionExpansion.exceptionChain)}",
@@ -472,12 +616,25 @@ internal fun buildGpuPrefillProbeDiagnosticsText(state: GpuPrefillProbeState): S
         "probe_invalidated_held_engine=${state.request.invalidatesHeldEngine}",
         "probe_normal_generate_blocked_reason=probe_opt_in_runs_without_normal_generate",
         "previous_invocation_still_processing_detected=$previousInvocationStillProcessing",
+        "probe_use_held_engine_requested=${state.request.usedHeldEngine}",
         "probe_used_held_engine=${state.request.usedHeldEngine}",
         "probe_held_engine_present_before=${state.request.heldEnginePresentBefore}",
+        "probe_held_engine_acquire_result=${if (state.request.usedHeldEngine) "acquired" else "not_requested"}",
+        "probe_held_engine_generate_started=${state.generateStarted.get()}",
+        "probe_held_engine_first_token_received=${state.firstTokenReceived.get()}",
+        "probe_held_engine_failure_stage=${if (state.request.usedHeldEngine) failureStage else "not_requested"}",
+        "probe_held_engine_timeout_stage=${if (state.request.usedHeldEngine) timeoutStage else "not_requested"}",
         "probe_held_engine_invalidated_after=${state.request.invalidatesHeldEngine}",
         "normal_gpu_last_known_stage=${state.request.normalGpuLastKnownStage}",
         "normal_gpu_can_initialize_with_held_engine_hint=${state.request.heldEnginePresentBefore}",
         "isolated_gpu_engine_initialize_failed_hint=${timeoutStage == "engine_initialize" && state.exceptionClass.get() != null}",
+        "gpu_litert_executor_error_file=${classification.executorErrorFile}",
+        "gpu_litert_executor_error_line=${classification.executorErrorLine}",
+        "gpu_litert_compiled_model_error_file=${classification.compiledModelErrorFile}",
+        "gpu_litert_compiled_model_error_line=${classification.compiledModelErrorLine}",
+        "gpu_engine_initialize_internal_error_detected=${classification.engineInitializeInternalErrorDetected}",
+        "gpu_compiled_model_creation_failed=${classification.compiledModelCreationFailed}",
+        "gpu_failure_interpretation=${classification.interpretation}",
         "probe_elapsed_ms=$elapsedMs",
     ).joinToString("\n")
 }
@@ -502,7 +659,12 @@ internal fun buildGpuPrefillProbeDisabledDiagnosticsText(reason: String): String
         "probe_disabled_reason=${escapeGpuPrefillProbeValue(reason)}",
     ).joinToString("\n")
 
-internal fun buildGpuPrefillProbeStartBlockedDiagnosticsText(reason: String): String =
+internal fun buildGpuPrefillProbeStartBlockedDiagnosticsText(
+    reason: String,
+    useHeldEngineRequested: Boolean = false,
+    heldEnginePresentBefore: Boolean = false,
+    heldEngineAcquireResult: String = "not_attempted",
+): String =
     listOf(
         "[DEV診断: GPU prefill probe]",
         "probe_requested=true",
@@ -521,8 +683,27 @@ internal fun buildGpuPrefillProbeStartBlockedDiagnosticsText(reason: String): St
         "probe_cleanup_result=not_started",
         "probe_invalidated_held_engine=false",
         "probe_start_blocked_reason=${escapeGpuPrefillProbeValue(reason)}",
-        "probe_normal_generate_blocked_reason=probe_start_blocked",
+        "probe_normal_generate_blocked_reason=${escapeGpuPrefillProbeValue(reason)}",
         "previous_invocation_still_processing_detected=false",
+        "probe_use_held_engine_requested=$useHeldEngineRequested",
+        "probe_used_held_engine=false",
+        "probe_held_engine_present_before=$heldEnginePresentBefore",
+        "probe_held_engine_acquire_result=${escapeGpuPrefillProbeValue(heldEngineAcquireResult)}",
+        "probe_held_engine_generate_started=false",
+        "probe_held_engine_first_token_received=false",
+        "probe_held_engine_failure_stage=gpu_prefill_probe_start_blocked",
+        "probe_held_engine_timeout_stage=unknown",
+        "probe_held_engine_invalidated_after=false",
+        "normal_gpu_last_known_stage=normal_generate_skipped_before_start",
+        "normal_gpu_can_initialize_with_held_engine_hint=$heldEnginePresentBefore",
+        "isolated_gpu_engine_initialize_failed_hint=false",
+        "gpu_litert_executor_error_file=unavailable",
+        "gpu_litert_executor_error_line=unavailable",
+        "gpu_litert_compiled_model_error_file=unavailable",
+        "gpu_litert_compiled_model_error_line=unavailable",
+        "gpu_engine_initialize_internal_error_detected=false",
+        "gpu_compiled_model_creation_failed=false",
+        "gpu_failure_interpretation=unknown",
         "probe_elapsed_ms=0",
     ).joinToString("\n")
 

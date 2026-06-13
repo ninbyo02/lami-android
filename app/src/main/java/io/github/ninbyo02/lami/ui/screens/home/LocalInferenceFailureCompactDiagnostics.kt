@@ -109,6 +109,13 @@ internal data class LocalInferenceFailureCompactInput(
     val gpuDispatcher: String = "unavailable",
     val gpuEngineInitializeApi: String = "unavailable",
     val gpuEdgeGalleryDiffApplied: String = "unavailable",
+    val gpuLiteRtExecutorErrorFile: String = "unavailable",
+    val gpuLiteRtExecutorErrorLine: String = "unavailable",
+    val gpuLiteRtCompiledModelErrorFile: String = "unavailable",
+    val gpuLiteRtCompiledModelErrorLine: String = "unavailable",
+    val gpuEngineInitializeInternalErrorDetected: String = "unavailable",
+    val gpuCompiledModelCreationFailed: String = "unavailable",
+    val gpuFailureInterpretation: String = "unavailable",
     val liteRtLmBackendCandidates: String = "unavailable",
     val liteRtLmBackendGpuArtisanAvailable: String = "unavailable",
     val liteRtLmBackendCpuArtisanAvailable: String = "unavailable",
@@ -260,6 +267,13 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "gpu_dispatcher=${input.gpuDispatcher}",
         "gpu_engine_initialize_api=${input.gpuEngineInitializeApi}",
         "gpu_edge_gallery_diff_applied=${input.gpuEdgeGalleryDiffApplied}",
+        "gpu_litert_executor_error_file=${input.gpuLiteRtExecutorErrorFile}",
+        "gpu_litert_executor_error_line=${input.gpuLiteRtExecutorErrorLine}",
+        "gpu_litert_compiled_model_error_file=${input.gpuLiteRtCompiledModelErrorFile}",
+        "gpu_litert_compiled_model_error_line=${input.gpuLiteRtCompiledModelErrorLine}",
+        "gpu_engine_initialize_internal_error_detected=${input.gpuEngineInitializeInternalErrorDetected}",
+        "gpu_compiled_model_creation_failed=${input.gpuCompiledModelCreationFailed}",
+        "gpu_failure_interpretation=${input.gpuFailureInterpretation}",
         "litert_lm_backend_candidates=${escapeLocalInferenceFailureValue(input.liteRtLmBackendCandidates)}",
         "litert_lm_backend_gpu_artisan_available=${input.liteRtLmBackendGpuArtisanAvailable}",
         "litert_lm_backend_cpu_artisan_available=${input.liteRtLmBackendCpuArtisanAvailable}",
@@ -344,6 +358,25 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         ),
     )
     val gpuEngineCreateTimeoutSuspected = parsed["gpu_engine_create_timeout_suspected"] ?: "unavailable"
+    val gpuFailureClassification = classifyGpuLiteRtFailure(
+        message = parsed["probe_exception_cause_message_raw"]
+            ?: parsed["probe_exception_cause_message"]
+            ?: parsed["failure_cause_message"]
+            ?: parsed["failure_root_cause_message"]
+            ?: parsed["exception_chain"],
+        failureStage = failureStage
+            ?: parsed["failure_stage"]
+            ?: parsed["failure stage"]
+            ?: trace?.sessionAsyncPocErrorStage
+            ?: trace?.sessionTokenProbeErrorStage,
+        timeoutStage = parsed["gpu_timeout_stage"] ?: parsed["probe_timeout_stage"],
+        generateStarted = (parsed["gpu_generate_started"] ?: parsed["generate_started"])?.toBooleanStrictOrNull(),
+        firstTokenReceived = (parsed["gpu_first_token_received"] ?: parsed["first_token_received"])?.toBooleanStrictOrNull(),
+        engineInitializeFinished =
+            (parsed["gpu_engine_initialize_finished"] ?: parsed["engine_initialize_finished"])?.toBooleanStrictOrNull(),
+        conversationCreateFinished =
+            (parsed["gpu_conversation_create_finished"] ?: parsed["conversation_create_finished"])?.toBooleanStrictOrNull(),
+    )
     return LocalInferenceFailureCompactInput(
         inputPrompt = inputPrompt,
         preferredBackendSetting = preferredBackendSetting,
@@ -473,6 +506,20 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         gpuDispatcher = parsed["gpu_dispatcher"] ?: "unavailable",
         gpuEngineInitializeApi = parsed["gpu_engine_initialize_api"] ?: "unavailable",
         gpuEdgeGalleryDiffApplied = parsed["gpu_edge_gallery_diff_applied"] ?: "unavailable",
+        gpuLiteRtExecutorErrorFile = parsed.diagnosticValueOrNull("gpu_litert_executor_error_file")
+            ?: gpuFailureClassification.executorErrorFile,
+        gpuLiteRtExecutorErrorLine = parsed.diagnosticValueOrNull("gpu_litert_executor_error_line")
+            ?: gpuFailureClassification.executorErrorLine,
+        gpuLiteRtCompiledModelErrorFile = parsed.diagnosticValueOrNull("gpu_litert_compiled_model_error_file")
+            ?: gpuFailureClassification.compiledModelErrorFile,
+        gpuLiteRtCompiledModelErrorLine = parsed.diagnosticValueOrNull("gpu_litert_compiled_model_error_line")
+            ?: gpuFailureClassification.compiledModelErrorLine,
+        gpuEngineInitializeInternalErrorDetected = parsed.diagnosticValueOrNull("gpu_engine_initialize_internal_error_detected")
+            ?: gpuFailureClassification.engineInitializeInternalErrorDetected.toString(),
+        gpuCompiledModelCreationFailed = parsed.diagnosticValueOrNull("gpu_compiled_model_creation_failed")
+            ?: gpuFailureClassification.compiledModelCreationFailed.toString(),
+        gpuFailureInterpretation = parsed.diagnosticValueOrNull("gpu_failure_interpretation")
+            ?: gpuFailureClassification.interpretation,
         liteRtLmBackendCandidates = parsed["litert_lm_backend_candidates"] ?: "unavailable",
         liteRtLmBackendGpuArtisanAvailable = parsed["litert_lm_backend_gpu_artisan_available"] ?: "unavailable",
         liteRtLmBackendCpuArtisanAvailable = parsed["litert_lm_backend_cpu_artisan_available"] ?: "unavailable",
@@ -629,6 +676,9 @@ private fun parseLocalInferenceFailureDiagnosticsText(text: String?): Map<String
                 }
             }
     }
+
+private fun Map<String, String>.diagnosticValueOrNull(key: String): String? =
+    this[key]?.takeUnless { it == "unavailable" || it.isBlank() }
 
 private fun Throwable?.localFailureClassNameOrNone(): String = this?.javaClass?.name ?: "none"
 

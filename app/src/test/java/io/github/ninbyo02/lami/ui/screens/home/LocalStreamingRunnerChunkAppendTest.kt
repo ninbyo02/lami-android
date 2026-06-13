@@ -150,6 +150,53 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `GPU held engine prefill probe request is opt in and skips normal generate`() {
+        val request = resolveGpuHeldEnginePrefillProbeRequestForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/models/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/cache",
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.gpu_probe_use_held_engine" -> "true"
+                    "debug.lami.gpu_prefill_probe_prompt" -> "hi"
+                    "debug.lami.gpu_prefill_probe_max_tokens" -> "1"
+                    else -> null
+                }
+            },
+        )
+
+        requireNotNull(request)
+        assertEquals("hi", request.prompt)
+        assertEquals(1, request.maxTokens)
+        assertFalse(request.isolatedEngineUsed)
+        assertTrue(request.sharedEngineUsed)
+        assertTrue(request.usedHeldEngine)
+        assertTrue(request.skippedNormalGenerate)
+        assertTrue(request.invalidatesHeldEngine)
+    }
+
+    @Test
+    fun `GPU held engine probe start blocked without held engine reports skip reason`() {
+        val text = buildGpuPrefillProbeStartBlockedDiagnosticsText(
+            reason = "no_held_engine",
+            useHeldEngineRequested = true,
+            heldEnginePresentBefore = false,
+            heldEngineAcquireResult = "blocked_no_held_engine",
+        )
+
+        assertTrue(text.contains("probe_requested=true"))
+        assertTrue(text.contains("probe_run_started=false"))
+        assertTrue(text.contains("probe_skipped_normal_generate=true"))
+        assertTrue(text.contains("probe_start_blocked_reason=no_held_engine"))
+        assertTrue(text.contains("probe_normal_generate_blocked_reason=no_held_engine"))
+        assertTrue(text.contains("probe_use_held_engine_requested=true"))
+        assertTrue(text.contains("probe_used_held_engine=false"))
+        assertTrue(text.contains("probe_held_engine_present_before=false"))
+        assertTrue(text.contains("probe_held_engine_acquire_result=blocked_no_held_engine"))
+        assertTrue(text.contains("probe_held_engine_generate_started=false"))
+    }
+
+    @Test
     fun `GPU prefill probe diagnostics classify generate before first token`() {
         val state = GpuPrefillProbeState(
             request = GpuPrefillProbeRequest(
@@ -252,6 +299,8 @@ class LocalStreamingRunnerChunkAppendTest {
         assertTrue(text.contains("probe_exception_message=none"))
         assertTrue(text.contains("probe_exception_cause_class=java.lang.IllegalStateException"))
         assertTrue(text.contains("probe_exception_cause_message=initialize failed"))
+        assertTrue(text.contains("probe_exception_cause_message_raw=initialize failed"))
+        assertTrue(text.contains("probe_exception_cause_message_sanitized=initialize_failed"))
         assertTrue(text.contains("probe_exception_root_cause_class=java.lang.IllegalArgumentException"))
         assertTrue(text.contains("probe_exception_root_cause_message=gpu env missing"))
         assertTrue(text.contains("probe_exception_chain=java.lang.reflect.InvocationTargetException:none -> java.lang.IllegalStateException:initialize failed -> java.lang.IllegalArgumentException:gpu env missing"))
@@ -267,6 +316,44 @@ class LocalStreamingRunnerChunkAppendTest {
         assertTrue(text.contains("normal_gpu_last_known_stage=normal_generate_skipped_before_start"))
         assertTrue(text.contains("normal_gpu_can_initialize_with_held_engine_hint=true"))
         assertTrue(text.contains("isolated_gpu_engine_initialize_failed_hint=true"))
+    }
+
+    @Test
+    fun `LiteRT compiled model failure classification extracts file lines`() {
+        val classification = classifyGpuLiteRtFailure(
+            message = "Failed_to_create_engine:_INTERNAL:_ERROR:_[runtime/executor/llm_litert_compiled_model_executor.cc:1546] " +
+                "ERROR:[external/litert/litert/cc/litert_compiled_model.h:1140]",
+            failureStage = "gpu_prefill_probe_engine_initialize_invocation_target_exception",
+            timeoutStage = "engine_initialize",
+            generateStarted = false,
+            firstTokenReceived = false,
+            engineInitializeFinished = false,
+            conversationCreateFinished = false,
+        )
+
+        assertEquals("runtime/executor/llm_litert_compiled_model_executor.cc", classification.executorErrorFile)
+        assertEquals("1546", classification.executorErrorLine)
+        assertEquals("external/litert/litert/cc/litert_compiled_model.h", classification.compiledModelErrorFile)
+        assertEquals("1140", classification.compiledModelErrorLine)
+        assertTrue(classification.engineInitializeInternalErrorDetected)
+        assertTrue(classification.compiledModelCreationFailed)
+        assertEquals("compiled_model_creation_failed_before_conversation", classification.interpretation)
+    }
+
+    @Test
+    fun `GPU normal route generate before first token is interpreted separately`() {
+        val classification = classifyGpuLiteRtFailure(
+            message = null,
+            failureStage = "gpu_watchdog_timeout_generate_before_first_token",
+            timeoutStage = "generate_before_first_token",
+            generateStarted = true,
+            firstTokenReceived = false,
+            engineInitializeFinished = true,
+            conversationCreateFinished = true,
+        )
+
+        assertEquals("normal_route_generate_hangs_after_successful_initialize", classification.interpretation)
+        assertFalse(classification.compiledModelCreationFailed)
     }
 
     @Test
