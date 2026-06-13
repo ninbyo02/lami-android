@@ -581,6 +581,56 @@ Next promotion gate:
 - Confirm Copy Compact / stats details preserve callback streaming diagnostics on success and failure.
 - If stable, promote the shared callback streaming implementation to the normal GPU route while keeping the older failure diagnostics intact.
 
+## GPU Phase 10: guarded normal route candidate
+
+`normal_callback_streaming` は短い応答と長めの応答で複数回成功した。
+
+Confirmed examples:
+
+- Short response: TTFT `259 ms`, backend speed `36.3 token/s`.
+- Longer response: `output_tokens=457`, `gpu_callback_non_empty_text_count=461`, `held_engine_reused=true`, TTFT `486 ms`, backend speed `25.5 token/s`.
+
+Phase 10 では、probe mode を `normal` のまま callback streaming 実装を使う DEV-only gate を追加した。
+
+```bash
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+```
+
+Expected guarded normal route diagnostics:
+
+- `debug_lami_gpu_generate_probe_mode=normal`
+- `gpu_normal_route_use_callback_streaming=true`
+- `gpu_callback_streaming_path_selected=true`
+- `gpu_callback_streaming_path_reason=dev_gate_normal_route`
+- `gpu_callback_streaming_success_count=1`
+- `gpu_callback_streaming_non_empty_callback_count>0`
+- `gpu_callback_streaming_done_true_seen=true`
+- `gpu_callback_streaming_reused_held_engine=true` when the holder is reused
+- `gpu_callback_streaming_completion_reason=flow_completed_non_empty_response`
+- `gpu_callback_streaming_failure_reason=none`
+- `gpu_callback_text_promoted_to_ui=true`
+- `gpu_ui_append_finished=true`
+- `failure_stage=none`
+
+Manual sequence:
+
+```bash
+adb shell setprop debug.lami.gallery_stack_gpu_probe true
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+```
+
+Test prompts:
+
+1. `こんにちは`
+2. `カレーの材料をお願いします。`
+3. `さっぱり系で`
+
+This is still not a production promotion. GPU remains explicit user/dev selection, and the callback streaming route remains behind the DEV property until repeated stability checks pass on `galleryStackGpuProbe` and the standardDebug model/runtime comparison is resolved.
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

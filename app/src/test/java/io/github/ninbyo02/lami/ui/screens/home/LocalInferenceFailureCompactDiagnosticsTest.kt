@@ -593,6 +593,99 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `GPU guarded normal route callback streaming records success diagnostics`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it-edge-gallery.litertlm",
+            selectedModelFile = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                firstTokenElapsedMs = 486L,
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                gpuGenerateCallEntered = true,
+                gpuGenerateCallReturned = true,
+                gpuCallbackInvokedCount = 461,
+                gpuCallbackNonEmptyTextCount = 461,
+                gpuCallbackLastTextLength = 24,
+                gpuCallbackLastTextHead = "材料リスト",
+                gpuCallbackDoneTrueSeen = true,
+                gpuCallbackToUiEnabled = true,
+                gpuCallbackTextPromotedToUi = true,
+                gpuCallbackPromotedTextLength = 1_200,
+                gpuCallbackPromotedNonEmptyCount = 461,
+                gpuCallbackSuccessClassification = "gpu_callback_text_promoted_to_ui",
+                gpuUiAppendStarted = true,
+                gpuUiAppendFinished = true,
+                gpuUiFirstVisibleTextElapsedMs = 486L,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuNormalRouteUseCallbackStreaming = true,
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackStreamingPathReason = "dev_gate_normal_route",
+                gpuCallbackStreamingSuccessCount = 1,
+                gpuCallbackStreamingEmptyCallbackCount = 0,
+                gpuCallbackStreamingNonEmptyCallbackCount = 461,
+                gpuCallbackStreamingDoneTrueSeen = true,
+                gpuCallbackStreamingFinalTextLength = 1_200,
+                gpuCallbackStreamingReusedHeldEngine = true,
+                gpuCallbackStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuCallbackStreamingFailureReason = "none",
+            ),
+            elapsedMs = 18_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "カレーの材料をお願いします。",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "applied",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                status = "success",
+                reason = "gpu_guarded_callback_streaming_success",
+                failureStage = "none",
+                routeContext = routeContext,
+                timeout = false,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("debug_lami_gpu_generate_probe_mode=normal"))
+        assertTrue(routeDiagnostics.contains("gpu_normal_route_use_callback_streaming=true"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_streaming_path_selected=true"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_streaming_path_reason=dev_gate_normal_route"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_streaming_success_count=1"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_streaming_non_empty_callback_count=461"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_streaming_done_true_seen=true"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_streaming_final_text_length=1200"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_streaming_reused_held_engine=true"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_streaming_completion_reason=flow_completed_non_empty_response"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_streaming_failure_reason=none"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_text_promoted_to_ui=true"))
+        assertTrue(routeDiagnostics.contains("gpu_ui_append_finished=true"))
+        assertTrue(routeDiagnostics.contains("gpu_streaming_completion_reason=flow_completed_non_empty_response"))
+        assertTrue(compact.contains("status=success"))
+        assertTrue(compact.contains("failure_stage=none"))
+        assertTrue(compact.contains("gpu_normal_route_use_callback_streaming=true"))
+        assertTrue(compact.contains("gpu_callback_streaming_path_selected=true"))
+        assertTrue(compact.contains("gpu_callback_streaming_failure_reason=none"))
+    }
+
+    @Test
     fun `GPU callback done without text is classified`() {
         val flags = LocalRouteDiagnosticFlags(
             generateStarted = true,
@@ -860,6 +953,36 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(usesGpuCallbackStreamingPathForDebug(GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI))
         assertTrue(usesGpuCallbackStreamingPathForDebug(GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING))
         assertFalse(usesGpuCallbackStreamingPathForDebug(GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY))
+        assertTrue(
+            isGpuNormalRouteUseCallbackStreamingRequestedForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.gpu_normal_route_use_callback_streaming" -> "true"
+                        else -> null
+                    }
+                },
+            ),
+        )
+        assertFalse(
+            isGpuNormalRouteUseCallbackStreamingRequestedForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.CPU,
+                propertyReader = { "true" },
+            ),
+        )
+        assertTrue(
+            isGpuCallbackStreamingPathSelectedForDebug(
+                probeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                normalRouteUseCallbackStreaming = true,
+            ),
+        )
+        assertEquals(
+            "dev_gate_normal_route",
+            resolveGpuCallbackStreamingPathReasonForDebug(
+                probeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                normalRouteUseCallbackStreaming = true,
+            ),
+        )
     }
 
     @Test

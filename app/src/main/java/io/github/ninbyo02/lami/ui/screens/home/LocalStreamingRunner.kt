@@ -300,13 +300,49 @@ internal fun resolveGpuGenerateProbeModeForDebug(
     }
 }
 
+internal fun isGpuNormalRouteUseCallbackStreamingRequestedForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+): Boolean {
+    if (!BuildConfig.DEBUG) return false
+    if (preferredBackend != PreferredBackendDryRunSetting.GPU) return false
+    val enabled = propertyReader("debug.lami.gpu_normal_route_use_callback_streaming")
+        ?: propertyReader("lami.gpu_normal_route_use_callback_streaming")
+        ?: return false
+    return enabled.equals("true", ignoreCase = true) || enabled == "1"
+}
+
 internal fun usesGpuCallbackStreamingPathForDebug(probeMode: String): Boolean =
     probeMode == GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI ||
         probeMode == GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING
 
-private fun usesDirectGpuCallbackAppendForDebug(probeMode: String): Boolean =
+internal fun isGpuCallbackStreamingPathSelectedForDebug(
+    probeMode: String,
+    normalRouteUseCallbackStreaming: Boolean,
+): Boolean =
+    usesGpuCallbackStreamingPathForDebug(probeMode) ||
+        (probeMode == GPU_GENERATE_PROBE_MODE_NORMAL && normalRouteUseCallbackStreaming)
+
+internal fun resolveGpuCallbackStreamingPathReasonForDebug(
+    probeMode: String,
+    normalRouteUseCallbackStreaming: Boolean,
+): String =
+    when {
+        probeMode == GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI -> "probe_callback_to_ui"
+        probeMode == GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING -> "probe_normal_callback_streaming"
+        probeMode == GPU_GENERATE_PROBE_MODE_NORMAL && normalRouteUseCallbackStreaming -> "dev_gate_normal_route"
+        else -> "not_selected"
+    }
+
+private fun usesDirectGpuCallbackAppendForDebug(
+    probeMode: String,
+    normalRouteUseCallbackStreaming: Boolean,
+): Boolean =
     probeMode == GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY ||
-        usesGpuCallbackStreamingPathForDebug(probeMode)
+        isGpuCallbackStreamingPathSelectedForDebug(
+            probeMode = probeMode,
+            normalRouteUseCallbackStreaming = normalRouteUseCallbackStreaming,
+        )
 
 private fun suppressesGpuStreamingUiForDebug(probeMode: String): Boolean =
     probeMode == GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY ||
@@ -891,6 +927,10 @@ internal data class RunCloseLifecycleSummary(
 private class GenerateCallbackLifecycleTracker(
     private val routeRunStartedAtMs: Long,
     private val probeMode: String,
+    private val normalRouteUseCallbackStreaming: Boolean,
+    private val callbackStreamingPathSelected: Boolean,
+    private val callbackStreamingPathReason: String,
+    private val heldEngineReused: Boolean?,
 ) {
     private var generateCallEntered: Boolean = false
     private var generateCallReturned: Boolean = false
@@ -910,7 +950,7 @@ private class GenerateCallbackLifecycleTracker(
     private var callbackExceptionMessage: String = "none"
     private var callbackExceptionChain: String = "none"
     private var callbackExceptionStage: String = "none"
-    private val callbackToUiEnabled: Boolean = usesGpuCallbackStreamingPathForDebug(probeMode)
+    private val callbackToUiEnabled: Boolean = callbackStreamingPathSelected
     private var callbackTextPromotedToUi: Boolean = false
     private var callbackPromotedTextLength: Int = 0
     private var callbackPromotedNonEmptyCount: Int = 0
@@ -918,6 +958,7 @@ private class GenerateCallbackLifecycleTracker(
     private var uiAppendFinished: Boolean = false
     private var uiFirstVisibleTextElapsedMs: Long? = null
     private var streamingCompletionReason: String = "unavailable"
+    private var streamingFinalTextLength: Int? = null
 
     fun markGenerateCallEntered() {
         generateCallEntered = true
@@ -987,6 +1028,7 @@ private class GenerateCallbackLifecycleTracker(
     }
 
     fun markStreamingCompleted(responseText: String?) {
+        streamingFinalTextLength = responseText?.length
         streamingCompletionReason = if (responseText.isNullOrBlank()) {
             "flow_completed_blank_response"
         } else {
@@ -1039,6 +1081,17 @@ private class GenerateCallbackLifecycleTracker(
             gpuUiAppendFinished = uiAppendFinished,
             gpuUiFirstVisibleTextElapsedMs = uiFirstVisibleTextElapsedMs,
             gpuStreamingCompletionReason = streamingCompletionReason,
+            gpuNormalRouteUseCallbackStreaming = normalRouteUseCallbackStreaming,
+            gpuCallbackStreamingPathSelected = callbackStreamingPathSelected,
+            gpuCallbackStreamingPathReason = callbackStreamingPathReason,
+            gpuCallbackStreamingSuccessCount = resolveGpuCallbackStreamingSuccessCount(),
+            gpuCallbackStreamingEmptyCallbackCount = callbackEmptyTextCount.takeIf { callbackStreamingPathSelected },
+            gpuCallbackStreamingNonEmptyCallbackCount = callbackNonEmptyTextCount.takeIf { callbackStreamingPathSelected },
+            gpuCallbackStreamingDoneTrueSeen = callbackDoneTrueSeen.takeIf { callbackStreamingPathSelected },
+            gpuCallbackStreamingFinalTextLength = streamingFinalTextLength.takeIf { callbackStreamingPathSelected },
+            gpuCallbackStreamingReusedHeldEngine = heldEngineReused.takeIf { callbackStreamingPathSelected },
+            gpuCallbackStreamingCompletionReason = streamingCompletionReason.takeIf { callbackStreamingPathSelected },
+            gpuCallbackStreamingFailureReason = resolveGpuCallbackStreamingFailureReason(),
             gpuGenerateCallEntered = generateCallEntered,
             gpuGenerateCallReturned = generateCallReturned,
             gpuCallbackInvokedCount = callbackInvokedCount,
@@ -1071,6 +1124,31 @@ private class GenerateCallbackLifecycleTracker(
                 ),
             ),
         )
+
+    private fun resolveGpuCallbackStreamingSuccessCount(): Int? {
+        if (!callbackStreamingPathSelected) return null
+        return if (
+            callbackTextPromotedToUi &&
+            streamingCompletionReason == "flow_completed_non_empty_response" &&
+            callbackExceptionClass == "none"
+        ) {
+            1
+        } else {
+            0
+        }
+    }
+
+    private fun resolveGpuCallbackStreamingFailureReason(): String? {
+        if (!callbackStreamingPathSelected) return null
+        return when {
+            callbackExceptionClass != "none" -> callbackExceptionStage
+            streamingCompletionReason == "flow_completed_blank_response" -> "blank_response"
+            streamingCompletionReason == "flow_completed_non_empty_response" && !callbackTextPromotedToUi ->
+                "non_empty_response_not_promoted"
+            streamingCompletionReason == "flow_completed_non_empty_response" -> "none"
+            else -> "in_progress"
+        }
+    }
 
     private fun resolveGpuCallbackSuccessClassification(): String =
         when {
@@ -1409,15 +1487,33 @@ internal suspend fun runWithHeldEngine(
     var generateStartedElapsedMs: Long? = null
     var firstTokenElapsedMs: Long? = null
     val generateProbeMode = resolveGpuGenerateProbeModeForDebug(heldEngine.preferredBackendDryRunSetting)
+    val normalRouteUseCallbackStreaming = isGpuNormalRouteUseCallbackStreamingRequestedForDebug(
+        preferredBackend = heldEngine.preferredBackendDryRunSetting,
+    )
+    val callbackStreamingPathSelected = isGpuCallbackStreamingPathSelectedForDebug(
+        probeMode = generateProbeMode,
+        normalRouteUseCallbackStreaming = normalRouteUseCallbackStreaming,
+    )
+    val callbackStreamingPathReason = resolveGpuCallbackStreamingPathReasonForDebug(
+        probeMode = generateProbeMode,
+        normalRouteUseCallbackStreaming = normalRouteUseCallbackStreaming,
+    )
     val effectivePrompt = resolveGpuGenerateProbePromptForDebug(
         originalPrompt = prompt,
         probeMode = generateProbeMode,
     )
-    val rawCallbackAppend = usesDirectGpuCallbackAppendForDebug(generateProbeMode)
+    val rawCallbackAppend = usesDirectGpuCallbackAppendForDebug(
+        probeMode = generateProbeMode,
+        normalRouteUseCallbackStreaming = normalRouteUseCallbackStreaming,
+    )
     val suppressStreamingUi = suppressesGpuStreamingUiForDebug(generateProbeMode)
     val callbackTracker = GenerateCallbackLifecycleTracker(
         routeRunStartedAtMs = routeRunStartedAtMs,
         probeMode = generateProbeMode,
+        normalRouteUseCallbackStreaming = normalRouteUseCallbackStreaming,
+        callbackStreamingPathSelected = callbackStreamingPathSelected,
+        callbackStreamingPathReason = callbackStreamingPathReason,
+        heldEngineReused = heldEngineReused,
     )
 
     fun recordMemorySnapshot(stage: String) {
@@ -2047,7 +2143,7 @@ internal suspend fun runWithHeldEngine(
         lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
         failureDiagnosticsText = failureDiagnosticsText
             ?: latestRouteDiagnosticText.takeIf {
-                usesGpuCallbackStreamingPathForDebug(generateProbeMode) ||
+                callbackStreamingPathSelected ||
                     generateProbeMode == GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
             },
         memorySnapshots = memorySnapshots,

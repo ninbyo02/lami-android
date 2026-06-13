@@ -7705,6 +7705,29 @@ private fun mergeGpuTimeoutProgressFlags(
         gpuCallbackExceptionStage = progress.gpuCallbackExceptionStage ?: fallbackFlags.gpuCallbackExceptionStage,
         gpuGenerateStallInterpretation =
             progress.gpuGenerateStallInterpretation ?: fallbackFlags.gpuGenerateStallInterpretation,
+        gpuNormalRouteUseCallbackStreaming =
+            progress.gpuNormalRouteUseCallbackStreaming ?: fallbackFlags.gpuNormalRouteUseCallbackStreaming,
+        gpuCallbackStreamingPathSelected =
+            progress.gpuCallbackStreamingPathSelected ?: fallbackFlags.gpuCallbackStreamingPathSelected,
+        gpuCallbackStreamingPathReason =
+            progress.gpuCallbackStreamingPathReason ?: fallbackFlags.gpuCallbackStreamingPathReason,
+        gpuCallbackStreamingSuccessCount =
+            progress.gpuCallbackStreamingSuccessCount ?: fallbackFlags.gpuCallbackStreamingSuccessCount,
+        gpuCallbackStreamingEmptyCallbackCount =
+            progress.gpuCallbackStreamingEmptyCallbackCount ?: fallbackFlags.gpuCallbackStreamingEmptyCallbackCount,
+        gpuCallbackStreamingNonEmptyCallbackCount =
+            progress.gpuCallbackStreamingNonEmptyCallbackCount
+                ?: fallbackFlags.gpuCallbackStreamingNonEmptyCallbackCount,
+        gpuCallbackStreamingDoneTrueSeen =
+            progress.gpuCallbackStreamingDoneTrueSeen ?: fallbackFlags.gpuCallbackStreamingDoneTrueSeen,
+        gpuCallbackStreamingFinalTextLength =
+            progress.gpuCallbackStreamingFinalTextLength ?: fallbackFlags.gpuCallbackStreamingFinalTextLength,
+        gpuCallbackStreamingReusedHeldEngine =
+            progress.gpuCallbackStreamingReusedHeldEngine ?: fallbackFlags.gpuCallbackStreamingReusedHeldEngine,
+        gpuCallbackStreamingCompletionReason =
+            progress.gpuCallbackStreamingCompletionReason ?: fallbackFlags.gpuCallbackStreamingCompletionReason,
+        gpuCallbackStreamingFailureReason =
+            progress.gpuCallbackStreamingFailureReason ?: fallbackFlags.gpuCallbackStreamingFailureReason,
     )
 }
 
@@ -7795,6 +7818,17 @@ private class GpuRouteProgressTracker(
     private val gpuUiAppendFinished = AtomicReference<Boolean?>(null)
     private val gpuUiFirstVisibleTextElapsedMs = AtomicReference<Long?>(null)
     private val gpuStreamingCompletionReason = AtomicReference<String?>(null)
+    private val gpuNormalRouteUseCallbackStreaming = AtomicReference<Boolean?>(null)
+    private val gpuCallbackStreamingPathSelected = AtomicReference<Boolean?>(null)
+    private val gpuCallbackStreamingPathReason = AtomicReference<String?>(null)
+    private val gpuCallbackStreamingSuccessCount = AtomicReference<Int?>(null)
+    private val gpuCallbackStreamingEmptyCallbackCount = AtomicReference<Int?>(null)
+    private val gpuCallbackStreamingNonEmptyCallbackCount = AtomicReference<Int?>(null)
+    private val gpuCallbackStreamingDoneTrueSeen = AtomicReference<Boolean?>(null)
+    private val gpuCallbackStreamingFinalTextLength = AtomicReference<Int?>(null)
+    private val gpuCallbackStreamingReusedHeldEngine = AtomicReference<Boolean?>(null)
+    private val gpuCallbackStreamingCompletionReason = AtomicReference<String?>(null)
+    private val gpuCallbackStreamingFailureReason = AtomicReference<String?>(null)
 
     fun setConfig(configDiagnostics: GpuRouteConfigDiagnostics) {
         config.set(configDiagnostics)
@@ -7947,6 +7981,17 @@ private class GpuRouteProgressTracker(
             gpuUiAppendFinished = gpuUiAppendFinished.get(),
             gpuUiFirstVisibleTextElapsedMs = gpuUiFirstVisibleTextElapsedMs.get(),
             gpuStreamingCompletionReason = gpuStreamingCompletionReason.get(),
+            gpuNormalRouteUseCallbackStreaming = gpuNormalRouteUseCallbackStreaming.get(),
+            gpuCallbackStreamingPathSelected = gpuCallbackStreamingPathSelected.get(),
+            gpuCallbackStreamingPathReason = gpuCallbackStreamingPathReason.get(),
+            gpuCallbackStreamingSuccessCount = gpuCallbackStreamingSuccessCount.get(),
+            gpuCallbackStreamingEmptyCallbackCount = gpuCallbackStreamingEmptyCallbackCount.get(),
+            gpuCallbackStreamingNonEmptyCallbackCount = gpuCallbackStreamingNonEmptyCallbackCount.get(),
+            gpuCallbackStreamingDoneTrueSeen = gpuCallbackStreamingDoneTrueSeen.get(),
+            gpuCallbackStreamingFinalTextLength = gpuCallbackStreamingFinalTextLength.get(),
+            gpuCallbackStreamingReusedHeldEngine = gpuCallbackStreamingReusedHeldEngine.get(),
+            gpuCallbackStreamingCompletionReason = gpuCallbackStreamingCompletionReason.get(),
+            gpuCallbackStreamingFailureReason = gpuCallbackStreamingFailureReason.get(),
         )
 
     private fun recordCallbackDiagnosticsFromRoute(message: String) {
@@ -7981,6 +8026,28 @@ private class GpuRouteProgressTracker(
         parsed.diagnosticBoolean("gpu_ui_append_finished")?.let(gpuUiAppendFinished::set)
         parsed.diagnosticLong("gpu_ui_first_visible_text_elapsed_ms")?.let(gpuUiFirstVisibleTextElapsedMs::set)
         parsed.diagnosticString("gpu_streaming_completion_reason")?.let(gpuStreamingCompletionReason::set)
+        parsed.diagnosticBoolean("gpu_normal_route_use_callback_streaming")
+            ?.let(gpuNormalRouteUseCallbackStreaming::set)
+        parsed.diagnosticBoolean("gpu_callback_streaming_path_selected")
+            ?.let(gpuCallbackStreamingPathSelected::set)
+        parsed.diagnosticString("gpu_callback_streaming_path_reason")
+            ?.let(gpuCallbackStreamingPathReason::set)
+        parsed.diagnosticInt("gpu_callback_streaming_success_count")
+            ?.let(gpuCallbackStreamingSuccessCount::set)
+        parsed.diagnosticInt("gpu_callback_streaming_empty_callback_count")
+            ?.let(gpuCallbackStreamingEmptyCallbackCount::set)
+        parsed.diagnosticInt("gpu_callback_streaming_non_empty_callback_count")
+            ?.let(gpuCallbackStreamingNonEmptyCallbackCount::set)
+        parsed.diagnosticBoolean("gpu_callback_streaming_done_true_seen")
+            ?.let(gpuCallbackStreamingDoneTrueSeen::set)
+        parsed.diagnosticInt("gpu_callback_streaming_final_text_length")
+            ?.let(gpuCallbackStreamingFinalTextLength::set)
+        parsed.diagnosticBoolean("gpu_callback_streaming_reused_held_engine")
+            ?.let(gpuCallbackStreamingReusedHeldEngine::set)
+        parsed.diagnosticString("gpu_callback_streaming_completion_reason")
+            ?.let(gpuCallbackStreamingCompletionReason::set)
+        parsed.diagnosticString("gpu_callback_streaming_failure_reason")
+            ?.let(gpuCallbackStreamingFailureReason::set)
     }
 
     private fun recordElapsedOnce(target: AtomicLong) {
@@ -8013,7 +8080,8 @@ private fun shouldInsertLocalFailureAssistantMessage(
 
 private fun isGpuCallbackStreamingDiagnosticsText(text: String): Boolean =
     text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI") ||
-        text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING")
+        text.contains("debug_lami_gpu_generate_probe_mode=$GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING") ||
+        text.contains("gpu_callback_streaming_path_selected=true")
 
 private fun ensureSuccessCloseLifecycleSummary(
     summary: RunCloseLifecycleSummary?,

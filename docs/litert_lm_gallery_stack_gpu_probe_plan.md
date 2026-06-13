@@ -178,6 +178,27 @@ Expected `normal_callback_streaming` success keys:
 - `gpu_streaming_completion_reason=flow_completed_non_empty_response`
 - `failure_stage=none`
 
+For the guarded normal GPU route candidate, keep the probe mode as `normal` and enable the callback streaming gate:
+
+```bash
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+```
+
+Expected guarded normal route keys:
+
+- `status=success`
+- `debug_lami_gpu_generate_probe_mode=normal`
+- `gpu_normal_route_use_callback_streaming=true`
+- `gpu_callback_streaming_path_selected=true`
+- `gpu_callback_streaming_path_reason=dev_gate_normal_route`
+- `gpu_callback_streaming_success_count=1`
+- `gpu_callback_streaming_completion_reason=flow_completed_non_empty_response`
+- `gpu_callback_streaming_failure_reason=none`
+- `gpu_callback_text_promoted_to_ui=true`
+- `gpu_ui_append_finished=true`
+- `failure_stage=none`
+
 Manual model selection:
 
 ```text
@@ -193,6 +214,7 @@ Interpretation:
 
 - GPU succeeds: runtime stack/model alignment likely fixed the issue.
 - GPU succeeds only in `callback_to_ui` or `normal_callback_streaming`: callback streaming is the viable LAMI GPU path, but it remains DEV opt-in until repeated stability checks pass.
+- GPU succeeds with `gpu_normal_route_use_callback_streaming=true`: the callback streaming implementation is viable as the guarded normal route candidate, but GPU remains disabled as a production default.
 - GPU still fails at `runtime/executor/llm_litert_compiled_model_executor.cc:735`: public `Backend.GPU` or inaccessible `GPU_ARTISAN`/internal executor remains the likely blocker.
 - GPU fails earlier at load/init: staged native stack is incompatible with this app packaging/dependency graph.
 
