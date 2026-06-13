@@ -41,6 +41,19 @@ internal data class LocalRouteDiagnosticFlags(
     val engineInitializeFinished: Boolean? = null,
     val gpuConfigDiagnostics: GpuRouteConfigDiagnostics? = null,
     val gpuPrefillProbeDiagnostics: Map<String, String> = emptyMap(),
+    val holderCreated: Boolean? = null,
+    val holderAcquired: Boolean? = null,
+    val holderReused: Boolean? = null,
+    val holderInvalidated: Boolean? = null,
+    val holderClosed: Boolean? = null,
+    val holderTimeoutCleanup: Boolean? = null,
+    val holderFailureCleanup: Boolean? = null,
+    val holderProcessRestart: Boolean? = null,
+    val heldEngineLifecycleHistory: String? = null,
+    val heldEngineDestroyReason: String? = null,
+    val heldEngineLastOwner: String? = null,
+    val heldEngineLastFailureStage: String? = null,
+    val heldEngineSnapshotBeforeDestroy: String? = null,
 )
 
 internal data class GpuRouteConfigDiagnostics(
@@ -210,6 +223,19 @@ internal fun buildLocalRouteDiagnosticTrace(
         "guard_recommendation=$guardRecommendation",
         "held_engine_exists=${flags.heldEngineExists.toDiagnosticValue()}",
         "held_engine_reused=${flags.heldEngineReused.toDiagnosticValue()}",
+        "holder_created=${flags.holderCreated.toDiagnosticValue()}",
+        "holder_acquired=${flags.holderAcquired.toDiagnosticValue()}",
+        "holder_reused=${flags.holderReused.toDiagnosticValue()}",
+        "holder_invalidated=${flags.holderInvalidated.toDiagnosticValue()}",
+        "holder_closed=${flags.holderClosed.toDiagnosticValue()}",
+        "holder_timeout_cleanup=${flags.holderTimeoutCleanup.toDiagnosticValue()}",
+        "holder_failure_cleanup=${flags.holderFailureCleanup.toDiagnosticValue()}",
+        "holder_process_restart=${flags.holderProcessRestart.toDiagnosticValue()}",
+        "held_engine_lifecycle_history=${flags.heldEngineLifecycleHistory.toDiagnosticValue()}",
+        "held_engine_destroy_reason=${flags.heldEngineDestroyReason.toDiagnosticValue()}",
+        "held_engine_last_owner=${flags.heldEngineLastOwner.toDiagnosticValue()}",
+        "held_engine_last_failure_stage=${flags.heldEngineLastFailureStage.toDiagnosticValue()}",
+        "held_engine_snapshot_before_destroy=${flags.heldEngineSnapshotBeforeDestroy.toDiagnosticValue()}",
         "engine_create_started=${flags.engineCreateStarted.toDiagnosticValue()}",
         "engine_create_finished=${flags.engineCreateFinished.toDiagnosticValue()}",
         "engine_config_build_started=${flags.engineConfigBuildStarted.toDiagnosticValue()}",
@@ -293,6 +319,7 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_dispatcher=Dispatchers.IO",
         "gpu_engine_initialize_api=Engine.initialize",
         "gpu_edge_gallery_diff_applied=${shouldApplyEdgeGalleryLikeGpuCompatibilityMode(context.preferredBackend)}",
+        "gpu_route_divergence_point=${resolveGpuRouteDivergencePoint(flags, gpuTimeoutStage)}",
         "gpu_litert_executor_error_file=${gpuFailureClassification.executorErrorFile}",
         "gpu_litert_executor_error_line=${gpuFailureClassification.executorErrorLine}",
         "gpu_litert_compiled_model_error_file=${gpuFailureClassification.compiledModelErrorFile}",
@@ -318,6 +345,35 @@ internal fun buildLocalRouteDiagnosticTrace(
 }
 
 private fun Boolean?.toDiagnosticValue(): String = this?.toString() ?: "unknown"
+
+private fun String?.toDiagnosticValue(): String =
+    this
+        ?.replace('\n', ' ')
+        ?.replace('\r', ' ')
+        ?.replace(Regex("\\s+"), "_")
+        ?.ifBlank { "unavailable" }
+        ?: "unavailable"
+
+internal fun LocalRouteDiagnosticFlags.withHeldEngineSnapshot(
+    snapshot: HeldEngineDevDiagnosticSnapshot?,
+): LocalRouteDiagnosticFlags {
+    if (snapshot == null) return this
+    return copy(
+        holderCreated = snapshot.holderCreated,
+        holderAcquired = snapshot.holderAcquired,
+        holderReused = snapshot.holderReused,
+        holderInvalidated = snapshot.holderInvalidated,
+        holderClosed = snapshot.holderClosed,
+        holderTimeoutCleanup = snapshot.holderTimeoutCleanup,
+        holderFailureCleanup = snapshot.holderFailureCleanup,
+        holderProcessRestart = snapshot.holderProcessRestart,
+        heldEngineLifecycleHistory = snapshot.heldEngineLifecycleHistory,
+        heldEngineDestroyReason = snapshot.heldEngineDestroyReason,
+        heldEngineLastOwner = snapshot.heldEngineLastOwner,
+        heldEngineLastFailureStage = snapshot.heldEngineLastFailureStage,
+        heldEngineSnapshotBeforeDestroy = snapshot.heldEngineSnapshotBeforeDestroy,
+    )
+}
 
 internal val GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS = listOf(
     "probe_requested",
@@ -480,6 +536,28 @@ internal fun sanitizeGpuLiteRtFailureMessage(value: String?): String =
         ?.replace(Regex("\\s+"), "_")
         ?.ifBlank { "none" }
         ?: "none"
+
+internal fun resolveGpuRouteDivergencePoint(
+    flags: LocalRouteDiagnosticFlags,
+    gpuTimeoutStage: String,
+): String {
+    val probeStage = flags.gpuPrefillProbeDiagnostics["probe_timeout_stage"]
+    val probeFailure = flags.gpuPrefillProbeDiagnostics["probe_failure_stage"].orEmpty()
+    val startBlocked = flags.gpuPrefillProbeDiagnostics["probe_start_blocked_reason"]
+    return when {
+        startBlocked == "no_held_engine" -> "held_engine_probe_blocked_no_held_engine"
+        probeStage == "engine_initialize" && probeFailure.contains("engine_initialize") ->
+            "isolated_probe_engine_initialize_failed_before_conversation"
+        flags.engineInitializeFinished == true &&
+            flags.conversationCreateFinished == true &&
+            flags.generateStarted == true &&
+            flags.firstTokenReceived == false ->
+            "normal_route_generate_started_before_first_token_timeout"
+        gpuTimeoutStage == "generate_before_first_token" ->
+            "normal_route_generate_before_first_token"
+        else -> "unknown"
+    }
+}
 
 private fun extractGpuLiteRtFileLines(message: String): List<Pair<String, String>> {
     val regex = Regex("""([A-Za-z0-9_./-]+(?:\.cc|\.h)):(\d+)""")

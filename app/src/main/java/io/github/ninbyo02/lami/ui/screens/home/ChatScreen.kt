@@ -498,6 +498,11 @@ internal data class LocalInferenceTrace(
     val holderLastRecreateReason: String? = null,
     val holderHasHeldEngineBeforeRecreate: Boolean? = null,
     val holderHasHeldEngineAfterRecreate: Boolean? = null,
+    val heldEngineLifecycleHistory: String? = null,
+    val heldEngineDestroyReason: String? = null,
+    val heldEngineLastOwner: String? = null,
+    val heldEngineLastFailureStage: String? = null,
+    val heldEngineSnapshotBeforeDestroy: String? = null,
     val lastHeldEngineCreateReason: String? = null,
     val lastHeldEngineCreateSource: String? = null,
     val lastHeldEngineCreateAtElapsedMs: Long? = null,
@@ -2000,12 +2005,15 @@ fun Home(
 
             timedOut.set(true)
             val elapsedMs = SystemClock.elapsedRealtime() - runStartedAtMs
+            val holderSnapshotBeforeTimeoutCleanup = withContext(Dispatchers.IO) {
+                localInferenceEngineHolder.getDevDiagnosticSnapshot()
+            }
             val diagnosticsText = buildGpuExperimentalTimeoutDiagnosticsText(
                 context = diagnosticContext,
                 failureStage = "gpu_watchdog_timeout",
                 elapsedMs = elapsedMs,
                 staleCallbackIgnored = true,
-                progressFlags = progressFlagsProvider(),
+                progressFlags = progressFlagsProvider().withHeldEngineSnapshot(holderSnapshotBeforeTimeoutCleanup),
             )
             appendLocalReflectionTrace(
                 context = context.applicationContext,
@@ -2045,12 +2053,51 @@ fun Home(
                     chatId = currentChatId,
                     reason = "gpu_watchdog_timeout",
                 )
-                localInferenceEngineHolder.clear { message ->
-                    appendLocalReflectionTrace(
-                        context = context.applicationContext,
-                        message = message,
-                    )
-                }
+                localInferenceEngineHolder.clear(
+                    reason = "gpu_watchdog_timeout_holder_clear",
+                    failureStage = "gpu_watchdog_timeout",
+                    owner = "ChatScreen.gpuExperimentalWatchdog",
+                    appendTrace = { message ->
+                        appendLocalReflectionTrace(
+                            context = context.applicationContext,
+                            message = message,
+                        )
+                    },
+                )
+                val holderSnapshotAfterTimeoutCleanup = localInferenceEngineHolder.getDevDiagnosticSnapshot()
+                val cleanupDiagnosticsText = buildLocalRouteDiagnosticTrace(
+                    stage = "gpu_watchdog_holder_cleanup_finished",
+                    context = diagnosticContext,
+                    flags = progressFlagsProvider()
+                        .copy(
+                            failureStage = "gpu_watchdog_timeout",
+                            staleCallbackIgnored = true,
+                        )
+                        .withHeldEngineSnapshot(holderSnapshotAfterTimeoutCleanup),
+                    elapsedMs = SystemClock.elapsedRealtime() - runStartedAtMs,
+                )
+                appendLocalReflectionTrace(
+                    context = context.applicationContext,
+                    message = cleanupDiagnosticsText,
+                )
+                latestLocalTraceForDev = latestLocalTraceForDev?.copy(
+                    localFailureDiagnosticsText = diagnosticsText + "\n" + cleanupDiagnosticsText,
+                    holderInstanceHash = holderSnapshotAfterTimeoutCleanup.holderInstanceHash,
+                    heldEngineHash = holderSnapshotAfterTimeoutCleanup.heldEngineHash,
+                    holderLastAcquireAction = holderSnapshotAfterTimeoutCleanup.lastAcquireAction,
+                    holderLastLifecycleEventReason = holderSnapshotAfterTimeoutCleanup.lastLifecycleEventReason,
+                    holderLastLifecycleDecisionAction = holderSnapshotAfterTimeoutCleanup.lastLifecycleDecisionAction,
+                    heldEngineRecreateRequestCount = holderSnapshotAfterTimeoutCleanup.recreateRequestCount,
+                    holderLastRecreateResult = holderSnapshotAfterTimeoutCleanup.lastRecreateResult,
+                    holderLastRecreateReason = holderSnapshotAfterTimeoutCleanup.lastRecreateReason,
+                    holderHasHeldEngineBeforeRecreate = holderSnapshotAfterTimeoutCleanup.hasHeldEngineBeforeRecreate,
+                    holderHasHeldEngineAfterRecreate = holderSnapshotAfterTimeoutCleanup.hasHeldEngineAfterRecreate,
+                    heldEngineLifecycleHistory = holderSnapshotAfterTimeoutCleanup.heldEngineLifecycleHistory,
+                    heldEngineDestroyReason = holderSnapshotAfterTimeoutCleanup.heldEngineDestroyReason,
+                    heldEngineLastOwner = holderSnapshotAfterTimeoutCleanup.heldEngineLastOwner,
+                    heldEngineLastFailureStage = holderSnapshotAfterTimeoutCleanup.heldEngineLastFailureStage,
+                    heldEngineSnapshotBeforeDestroy = holderSnapshotAfterTimeoutCleanup.heldEngineSnapshotBeforeDestroy,
+                )
             }
         }
     }
@@ -4392,6 +4439,8 @@ fun Home(
                                                                                 failureStage = "gpu_prefill_probe_start_blocked",
                                                                                 fallbackUsed = false,
                                                                                 gpuPrefillProbeDiagnostics = probeDiagnostics,
+                                                                            ).withHeldEngineSnapshot(
+                                                                                localInferenceEngineHolder.getDevDiagnosticSnapshot(),
                                                                             ),
                                                                             elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
                                                                         ) + "\n" + probeText
@@ -4520,7 +4569,7 @@ fun Home(
                                                                                     ?.toBooleanStrictOrNull(),
                                                                             gpuConfigDiagnostics = gpuRouteProgressTracker.configSnapshot(),
                                                                             gpuPrefillProbeDiagnostics = probeDiagnostics,
-                                                                        ),
+                                                                        ).withHeldEngineSnapshot(heldSnapshotBeforeProbe),
                                                                         elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
                                                                     ) + "\n" + probeText
                                                                     appendLocalReflectionTrace(
@@ -4599,7 +4648,7 @@ fun Home(
                                                                                 probeDiagnostics["probe_stale_callback_ignored"]?.toBooleanStrictOrNull(),
                                                                             gpuConfigDiagnostics = gpuRouteProgressTracker.configSnapshot(),
                                                                             gpuPrefillProbeDiagnostics = probeDiagnostics,
-                                                                        ),
+                                                                        ).withHeldEngineSnapshot(heldSnapshotBeforeProbe),
                                                                         elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
                                                                     ) + "\n" + probeText
                                                                     appendLocalReflectionTrace(
@@ -4755,12 +4804,17 @@ fun Home(
                                                                             ),
                                                                         )
                                                                         coroutineScope.launch(Dispatchers.IO) {
-                                                                            localInferenceEngineHolder.clear { message ->
-                                                                                appendLocalReflectionTrace(
-                                                                                    context = context.applicationContext,
-                                                                                    message = message,
-                                                                                )
-                                                                            }
+                                                                            localInferenceEngineHolder.clear(
+                                                                                reason = "engine_create_timeout_holder_clear",
+                                                                                failureStage = "engine_create_timeout",
+                                                                                owner = "ChatScreen.engineCreateTimeout",
+                                                                                appendTrace = { message ->
+                                                                                    appendLocalReflectionTrace(
+                                                                                        context = context.applicationContext,
+                                                                                        message = message,
+                                                                                    )
+                                                                                },
+                                                                            )
                                                                         }
                                                                         return@withContext buildGpuExperimentalTimeoutRunResult(
                                                                             context = localRouteDiagnosticContext,
@@ -4948,12 +5002,17 @@ fun Home(
                                                                                     chatId = currentChatId,
                                                                                     reason = failureStage,
                                                                                 )
-                                                                                localInferenceEngineHolder.clear { message ->
-                                                                                    appendLocalReflectionTrace(
-                                                                                        context = context.applicationContext,
-                                                                                        message = message,
-                                                                                    )
-                                                                                }
+                                                                                localInferenceEngineHolder.clear(
+                                                                                    reason = "${failureStage}_holder_clear",
+                                                                                    failureStage = failureStage,
+                                                                                    owner = "ChatScreen.gpuExperimentalOperationTimeout",
+                                                                                    appendTrace = { message ->
+                                                                                        appendLocalReflectionTrace(
+                                                                                            context = context.applicationContext,
+                                                                                            message = message,
+                                                                                        )
+                                                                                    },
+                                                                                )
                                                                             }
                                                                             return@withContext buildGpuExperimentalTimeoutRunResult(
                                                                                 context = localRouteDiagnosticContext,
@@ -7522,6 +7581,20 @@ private fun mergeGpuTimeoutProgressFlags(
         engineInitializeStarted = progress.engineInitializeStarted ?: fallbackFlags.engineInitializeStarted,
         engineInitializeFinished = progress.engineInitializeFinished ?: fallbackFlags.engineInitializeFinished,
         gpuConfigDiagnostics = progress.gpuConfigDiagnostics ?: fallbackFlags.gpuConfigDiagnostics,
+        holderCreated = progress.holderCreated ?: fallbackFlags.holderCreated,
+        holderAcquired = progress.holderAcquired ?: fallbackFlags.holderAcquired,
+        holderReused = progress.holderReused ?: fallbackFlags.holderReused,
+        holderInvalidated = progress.holderInvalidated ?: fallbackFlags.holderInvalidated,
+        holderClosed = progress.holderClosed ?: fallbackFlags.holderClosed,
+        holderTimeoutCleanup = progress.holderTimeoutCleanup ?: fallbackFlags.holderTimeoutCleanup,
+        holderFailureCleanup = progress.holderFailureCleanup ?: fallbackFlags.holderFailureCleanup,
+        holderProcessRestart = progress.holderProcessRestart ?: fallbackFlags.holderProcessRestart,
+        heldEngineLifecycleHistory = progress.heldEngineLifecycleHistory ?: fallbackFlags.heldEngineLifecycleHistory,
+        heldEngineDestroyReason = progress.heldEngineDestroyReason ?: fallbackFlags.heldEngineDestroyReason,
+        heldEngineLastOwner = progress.heldEngineLastOwner ?: fallbackFlags.heldEngineLastOwner,
+        heldEngineLastFailureStage = progress.heldEngineLastFailureStage ?: fallbackFlags.heldEngineLastFailureStage,
+        heldEngineSnapshotBeforeDestroy =
+            progress.heldEngineSnapshotBeforeDestroy ?: fallbackFlags.heldEngineSnapshotBeforeDestroy,
     )
 }
 
@@ -9257,6 +9330,11 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         holderLastRecreateReason = holderLastRecreateReason ?: probe.holderLastRecreateReason,
         holderHasHeldEngineBeforeRecreate = holderHasHeldEngineBeforeRecreate ?: probe.holderHasHeldEngineBeforeRecreate,
         holderHasHeldEngineAfterRecreate = holderHasHeldEngineAfterRecreate ?: probe.holderHasHeldEngineAfterRecreate,
+        heldEngineLifecycleHistory = heldEngineLifecycleHistory ?: probe.heldEngineLifecycleHistory,
+        heldEngineDestroyReason = heldEngineDestroyReason ?: probe.heldEngineDestroyReason,
+        heldEngineLastOwner = heldEngineLastOwner ?: probe.heldEngineLastOwner,
+        heldEngineLastFailureStage = heldEngineLastFailureStage ?: probe.heldEngineLastFailureStage,
+        heldEngineSnapshotBeforeDestroy = heldEngineSnapshotBeforeDestroy ?: probe.heldEngineSnapshotBeforeDestroy,
         lastHeldEngineCreateReason = lastHeldEngineCreateReason ?: probe.lastHeldEngineCreateReason,
         lastHeldEngineCreateSource = lastHeldEngineCreateSource ?: probe.lastHeldEngineCreateSource,
         lastHeldEngineCreateAtElapsedMs = lastHeldEngineCreateAtElapsedMs ?: probe.lastHeldEngineCreateAtElapsedMs,

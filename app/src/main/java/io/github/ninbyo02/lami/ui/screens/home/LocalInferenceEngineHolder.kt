@@ -11,6 +11,7 @@ private const val MAX_HELD_ENGINE_REUSE_COUNT = 3
 private const val ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT = false
 private const val HELD_ENGINE_BACKGROUND_TIMEOUT_MS = 5 * 60 * 1000L
 private const val HELD_ENGINE_IDLE_TIMEOUT_MS = 10 * 60 * 1000L
+private const val HELD_ENGINE_LIFECYCLE_HISTORY_MAX = 24
 
 internal data class HeldLocalEngine(
     val engineKey: HeldEngineKey,
@@ -61,6 +62,19 @@ internal data class HeldEngineDevDiagnosticSnapshot(
     val lastHeldEngineCreatePreferredBackendHookSource: String?,
     val lastHeldEngineCreatePreferredBackendApplyBuilderClass: String?,
     val lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates: List<String>,
+    val holderCreated: Boolean = false,
+    val holderAcquired: Boolean = false,
+    val holderReused: Boolean = false,
+    val holderInvalidated: Boolean = false,
+    val holderClosed: Boolean = false,
+    val holderTimeoutCleanup: Boolean = false,
+    val holderFailureCleanup: Boolean = false,
+    val holderProcessRestart: Boolean = false,
+    val heldEngineLifecycleHistory: String = "unavailable",
+    val heldEngineDestroyReason: String? = null,
+    val heldEngineLastOwner: String? = null,
+    val heldEngineLastFailureStage: String? = null,
+    val heldEngineSnapshotBeforeDestroy: String? = null,
 )
 
 internal class LocalInferenceEngineHolder(
@@ -138,6 +152,29 @@ internal class LocalInferenceEngineHolder(
     private var lastHeldEngineCreatePreferredBackendHookSource: String? = null
     private var lastHeldEngineCreatePreferredBackendApplyBuilderClass: String? = null
     private var lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates: List<String> = emptyList()
+    private val heldEngineLifecycleHistory = ArrayDeque<String>()
+    private val heldEngineLifecycleEvents = linkedSetOf<String>()
+    private var heldEngineDestroyReason: String? = null
+    private var heldEngineLastOwner: String? = null
+    private var heldEngineLastFailureStage: String? = null
+    private var heldEngineSnapshotBeforeDestroy: String? = null
+
+    init {
+        recordHeldEngineLifecycleEventLocked(
+            event = "holder_process_restart",
+            reason = "holder_init",
+            owner = "LocalInferenceEngineHolder.init",
+            failureStage = "none",
+            target = null,
+        )
+        recordHeldEngineLifecycleEventLocked(
+            event = "holder_created",
+            reason = "holder_init",
+            owner = "LocalInferenceEngineHolder.init",
+            failureStage = "none",
+            target = null,
+        )
+    }
 
     suspend fun acquire(
         engineKey: HeldEngineKey,
@@ -159,6 +196,20 @@ internal class LocalInferenceEngineHolder(
             current.useCount += 1
             current.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
             lastAcquireAction = "reused"
+            recordHeldEngineLifecycleEventLocked(
+                event = "holder_reused",
+                reason = "acquire-reuse",
+                owner = "LocalInferenceEngineHolder.acquire",
+                failureStage = "none",
+                target = current,
+            )
+            recordHeldEngineLifecycleEventLocked(
+                event = "holder_acquired",
+                reason = "acquire-reuse",
+                owner = "LocalInferenceEngineHolder.acquire",
+                failureStage = "none",
+                target = current,
+            )
             appendTrace?.invoke(
                 "UPSTREAM held-engine reuse-hit modelPathTail=${modelPath.substringAfterLast('/')} useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
             )
@@ -191,6 +242,20 @@ internal class LocalInferenceEngineHolder(
             requestedPreferredBackend = preferredBackendDryRunSetting.name,
             preferredBackendApplyResult = createdDiagnostic.preferredBackendApplyResult,
         )
+        recordHeldEngineLifecycleEventLocked(
+            event = "held_engine_created",
+            reason = "acquire-create",
+            owner = "LocalInferenceEngineHolder.acquire",
+            failureStage = "none",
+            target = created,
+        )
+        recordHeldEngineLifecycleEventLocked(
+            event = "holder_acquired",
+            reason = "acquire-create",
+            owner = "LocalInferenceEngineHolder.acquire",
+            failureStage = "none",
+            target = created,
+        )
         created
     }
 
@@ -221,6 +286,20 @@ internal class LocalInferenceEngineHolder(
                 current.useCount += 1
                 current.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
                 lastAcquireAction = "reused"
+                recordHeldEngineLifecycleEventLocked(
+                    event = "holder_reused",
+                    reason = "acquire-with-diagnostic-reuse",
+                    owner = "LocalInferenceEngineHolder.acquireWithDiagnostic",
+                    failureStage = "none",
+                    target = current,
+                )
+                recordHeldEngineLifecycleEventLocked(
+                    event = "holder_acquired",
+                    reason = "acquire-with-diagnostic-reuse",
+                    owner = "LocalInferenceEngineHolder.acquireWithDiagnostic",
+                    failureStage = "none",
+                    target = current,
+                )
                 appendTrace?.invoke(
                     "UPSTREAM held-engine reuse-hit modelPathTail=$modelPathTail useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
                 )
@@ -279,6 +358,20 @@ internal class LocalInferenceEngineHolder(
                 requestedPreferredBackend = preferredBackendDryRunSetting.name,
                 preferredBackendApplyResult = createdDiagnostic.preferredBackendApplyResult,
             )
+            recordHeldEngineLifecycleEventLocked(
+                event = "held_engine_created",
+                reason = "acquire-with-diagnostic-create",
+                owner = "LocalInferenceEngineHolder.acquireWithDiagnostic",
+                failureStage = "none",
+                target = created,
+            )
+            recordHeldEngineLifecycleEventLocked(
+                event = "holder_acquired",
+                reason = "acquire-with-diagnostic-create",
+                owner = "LocalInferenceEngineHolder.acquireWithDiagnostic",
+                failureStage = "none",
+                target = created,
+            )
             appendTrace?.invoke(
                 "UPSTREAM held-acquire-diagnostic success heldHash=${created.hashCode()} useCount=${created.useCount}",
             )
@@ -293,6 +386,13 @@ internal class LocalInferenceEngineHolder(
             val failureClassName = e::class.java.simpleName.ifBlank { e::class.java.name }
             val failureMessage = (e.message ?: "no message").take(200)
             lastAcquireAction = "failed:$resolvedStage"
+            recordHeldEngineLifecycleEventLocked(
+                event = "holder_failure_cleanup",
+                reason = "acquire-with-diagnostic-failed",
+                owner = "LocalInferenceEngineHolder.acquireWithDiagnostic",
+                failureStage = resolvedStage,
+                target = held,
+            )
             appendTrace?.invoke(
                 "UPSTREAM held-acquire-diagnostic fail stage=$resolvedStage class=$failureClassName message=$failureMessage",
             )
@@ -312,15 +412,22 @@ internal class LocalInferenceEngineHolder(
         }
     }
 
-    suspend fun clear(appendTrace: ((String) -> Unit)? = null) {
+    suspend fun clear(
+        reason: String = "clear",
+        failureStage: String? = null,
+        owner: String = "LocalInferenceEngineHolder.clear",
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
         mutex.withLock {
             applyLifecycleDecisionLocked(
                 current = held,
                 decision = HeldEngineLifecycleDecision(
                     reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
                     action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-                    clearReason = "clear",
+                    clearReason = reason,
                 ),
+                owner = owner,
+                failureStage = failureStage,
                 appendTrace = appendTrace,
             )
         }
@@ -328,6 +435,8 @@ internal class LocalInferenceEngineHolder(
 
     suspend fun requestRecreateForDev(
         reason: String,
+        failureStage: String? = null,
+        owner: String = "LocalInferenceEngineHolder.requestRecreateForDev",
         appendTrace: ((String) -> Unit)? = null,
     ): Boolean = mutex.withLock {
         runCatching {
@@ -346,6 +455,8 @@ internal class LocalInferenceEngineHolder(
                     action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
                     clearReason = "dev-manual-recreate:$reason",
                 ),
+                owner = owner,
+                failureStage = failureStage,
                 appendTrace = appendTrace,
             )
             val after = held
@@ -392,6 +503,19 @@ internal class LocalInferenceEngineHolder(
             lastHeldEngineCreatePreferredBackendHookSource = lastHeldEngineCreatePreferredBackendHookSource,
             lastHeldEngineCreatePreferredBackendApplyBuilderClass = lastHeldEngineCreatePreferredBackendApplyBuilderClass,
             lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates = lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
+            holderCreated = "holder_created" in heldEngineLifecycleEvents,
+            holderAcquired = "holder_acquired" in heldEngineLifecycleEvents,
+            holderReused = "holder_reused" in heldEngineLifecycleEvents,
+            holderInvalidated = "holder_invalidated" in heldEngineLifecycleEvents,
+            holderClosed = "holder_closed" in heldEngineLifecycleEvents,
+            holderTimeoutCleanup = "holder_timeout_cleanup" in heldEngineLifecycleEvents,
+            holderFailureCleanup = "holder_failure_cleanup" in heldEngineLifecycleEvents,
+            holderProcessRestart = "holder_process_restart" in heldEngineLifecycleEvents,
+            heldEngineLifecycleHistory = heldEngineLifecycleHistory.joinToString("|").ifBlank { "unavailable" },
+            heldEngineDestroyReason = heldEngineDestroyReason,
+            heldEngineLastOwner = heldEngineLastOwner,
+            heldEngineLastFailureStage = heldEngineLastFailureStage,
+            heldEngineSnapshotBeforeDestroy = heldEngineSnapshotBeforeDestroy,
         )
     }
 
@@ -670,6 +794,8 @@ internal class LocalInferenceEngineHolder(
         current: HeldLocalEngine?,
         decision: HeldEngineLifecycleDecision,
         chatId: Int? = null,
+        owner: String = detectHeldEngineLifecycleOwner(),
+        failureStage: String? = null,
         appendTrace: ((String) -> Unit)? = null,
     ) {
         when (decision.action) {
@@ -677,10 +803,57 @@ internal class LocalInferenceEngineHolder(
             HeldEngineLifecycleAction.CLOSE_AND_RECREATE -> {
                 val target = current ?: return
                 val engineClassName = target.engineInstance.javaClass.name
+                val resolvedFailureStage = failureStage ?: resolveHeldEngineFailureStage(decision.clearReason)
+                heldEngineDestroyReason = decision.clearReason
+                heldEngineLastOwner = owner
+                heldEngineLastFailureStage = resolvedFailureStage
+                heldEngineSnapshotBeforeDestroy = buildHeldEngineSnapshotBeforeDestroyLocked(
+                    target = target,
+                    reason = decision.clearReason,
+                    owner = owner,
+                    failureStage = resolvedFailureStage,
+                )
+                recordHeldEngineLifecycleEventLocked(
+                    event = "holder_invalidated",
+                    reason = decision.clearReason,
+                    owner = owner,
+                    failureStage = resolvedFailureStage,
+                    target = target,
+                )
+                if (decision.clearReason.contains("timeout", ignoreCase = true)) {
+                    recordHeldEngineLifecycleEventLocked(
+                        event = "holder_timeout_cleanup",
+                        reason = decision.clearReason,
+                        owner = owner,
+                        failureStage = resolvedFailureStage,
+                        target = target,
+                    )
+                }
+                if (
+                    decision.reason == HeldEngineLifecycleReason.FATAL_ERROR ||
+                    decision.clearReason.contains("failure", ignoreCase = true) ||
+                    decision.clearReason.contains("failed", ignoreCase = true) ||
+                    decision.clearReason.contains("error", ignoreCase = true)
+                ) {
+                    recordHeldEngineLifecycleEventLocked(
+                        event = "holder_failure_cleanup",
+                        reason = decision.clearReason,
+                        owner = owner,
+                        failureStage = resolvedFailureStage,
+                        target = target,
+                    )
+                }
                 appendTrace?.invoke(
                     "UPSTREAM held-engine close-start reason=${decision.clearReason} class=$engineClassName modelPathTail=${target.modelPath.substringAfterLast('/')}",
                 )
                 runCatching { target.closeEngine(appendTrace) }
+                recordHeldEngineLifecycleEventLocked(
+                    event = "holder_closed",
+                    reason = decision.clearReason,
+                    owner = owner,
+                    failureStage = resolvedFailureStage,
+                    target = target,
+                )
                 held = null
                 appBackgroundedAtElapsedMs = null
                 clearAllConversationsLocked(reason = decision.clearReason, appendTrace = appendTrace)
@@ -722,6 +895,14 @@ internal class LocalInferenceEngineHolder(
         appendTrace: ((String) -> Unit)? = null,
     ) {
         val session = heldConversationsByChatId.remove(chatId) ?: return
+        recordHeldEngineLifecycleEventLocked(
+            event = "conversation_closed",
+            reason = reason,
+            owner = "LocalInferenceEngineHolder.closeConversationLocked",
+            failureStage = resolveHeldEngineFailureStage(reason),
+            target = held,
+            extra = "chatId=$chatId",
+        )
         appendTrace?.invoke("UPSTREAM held-conversation close-start chatId=$chatId reason=$reason class=${session.conversation.javaClass.name}")
         closeTargetQuietly(session.conversation)
         appendTrace?.invoke("UPSTREAM held-conversation cleared chatId=$chatId reason=$reason")
@@ -738,4 +919,86 @@ internal class LocalInferenceEngineHolder(
             closeMethod?.invoke(target)
         }
     }
+
+    private fun recordHeldEngineLifecycleEventLocked(
+        event: String,
+        reason: String,
+        owner: String,
+        failureStage: String?,
+        target: HeldLocalEngine?,
+        extra: String? = null,
+    ) {
+        heldEngineLifecycleEvents += event
+        val entry = buildString {
+            append(event)
+            append("@elapsed_ms=").append(SystemClock.elapsedRealtime())
+            append(":reason=").append(reason.toHeldEngineDiagnosticValue())
+            append(":owner=").append(owner.toHeldEngineDiagnosticValue())
+            append(":heldHash=").append(target?.hashCode() ?: -1)
+            append(":backend=").append(target?.preferredBackendDryRunSetting?.name ?: "none")
+            append(":model=").append(target?.modelPath?.substringAfterLast('/') ?: "none")
+            append(":failureStage=").append((failureStage ?: "none").toHeldEngineDiagnosticValue())
+            extra?.takeIf { it.isNotBlank() }?.let {
+                append(":extra=").append(it.toHeldEngineDiagnosticValue())
+            }
+        }
+        heldEngineLifecycleHistory += entry
+        while (heldEngineLifecycleHistory.size > HELD_ENGINE_LIFECYCLE_HISTORY_MAX) {
+            heldEngineLifecycleHistory.removeFirst()
+        }
+    }
+
+    private fun buildHeldEngineSnapshotBeforeDestroyLocked(
+        target: HeldLocalEngine,
+        reason: String,
+        owner: String,
+        failureStage: String?,
+    ): String =
+        listOf(
+            "holder_hash=${this@LocalInferenceEngineHolder.hashCode()}",
+            "engine_hash=${target.hashCode()}",
+            "backend=${target.preferredBackendDryRunSetting.name}",
+            "model_path=${target.modelPath}",
+            "model_path_tail=${target.modelPath.substringAfterLast('/')}",
+            "created_at_elapsed_ms=${target.createdAtElapsedMs}",
+            "last_used_at_elapsed_ms=${target.lastUsedAtElapsedMs}",
+            "use_count=${target.useCount}",
+            "namespace=${target.namespace ?: "none"}",
+            "destroy_reason=$reason",
+            "destroy_owner=$owner",
+            "last_failure_stage=${failureStage ?: "none"}",
+            "initialize_state=see_gpu_engine_initialize_finished",
+            "conversation_state=see_gpu_conversation_create_finished",
+            "generate_state=see_gpu_generate_started",
+        ).joinToString(";") { it.toHeldEngineDiagnosticValue() }
+
+    private fun resolveHeldEngineFailureStage(reason: String): String =
+        when {
+            reason.contains("gpu_watchdog_timeout", ignoreCase = true) -> "gpu_watchdog_timeout"
+            reason.contains("engine_create_timeout", ignoreCase = true) -> "engine_create_timeout"
+            reason.contains("timeout", ignoreCase = true) -> reason
+            reason.contains("fatal", ignoreCase = true) -> "fatal-error"
+            reason.contains("failure", ignoreCase = true) -> reason
+            reason.contains("failed", ignoreCase = true) -> reason
+            reason.contains("error", ignoreCase = true) -> reason
+            else -> "none"
+        }
+
+    private fun detectHeldEngineLifecycleOwner(): String =
+        Throwable().stackTrace
+            .firstOrNull { frame ->
+                frame.className.contains("ChatScreen") ||
+                    frame.className.contains("LocalInferenceEngineHolder") ||
+                    frame.className.contains("LocalStreamingRunner")
+            }
+            ?.let { frame -> "${frame.className.substringAfterLast('.')}.${frame.methodName}:${frame.lineNumber}" }
+            ?: "unknown"
+
+    private fun String.toHeldEngineDiagnosticValue(): String =
+        replace('\n', ' ')
+            .replace('\r', ' ')
+            .replace('|', '/')
+            .replace(';', ',')
+            .trim()
+            .ifBlank { "none" }
 }

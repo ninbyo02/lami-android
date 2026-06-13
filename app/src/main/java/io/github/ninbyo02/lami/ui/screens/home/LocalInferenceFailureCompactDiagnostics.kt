@@ -62,6 +62,19 @@ internal data class LocalInferenceFailureCompactInput(
     val gpuLastKnownStage: String = "unavailable",
     val gpuHeldEngineExists: String = "unavailable",
     val gpuHeldEngineReused: String = "unavailable",
+    val holderCreated: String = "unavailable",
+    val holderAcquired: String = "unavailable",
+    val holderReused: String = "unavailable",
+    val holderInvalidated: String = "unavailable",
+    val holderClosed: String = "unavailable",
+    val holderTimeoutCleanup: String = "unavailable",
+    val holderFailureCleanup: String = "unavailable",
+    val holderProcessRestart: String = "unavailable",
+    val heldEngineLifecycleHistory: String = "unavailable",
+    val heldEngineDestroyReason: String = "unavailable",
+    val heldEngineLastOwner: String = "unavailable",
+    val heldEngineLastFailureStage: String = "unavailable",
+    val heldEngineSnapshotBeforeDestroy: String = "unavailable",
     val gpuModelKind: String = "unavailable",
     val gpuSelectedModelName: String = "unavailable",
     val gpuSelectedModelFile: String = "unavailable",
@@ -109,6 +122,7 @@ internal data class LocalInferenceFailureCompactInput(
     val gpuDispatcher: String = "unavailable",
     val gpuEngineInitializeApi: String = "unavailable",
     val gpuEdgeGalleryDiffApplied: String = "unavailable",
+    val gpuRouteDivergencePoint: String = "unavailable",
     val gpuLiteRtExecutorErrorFile: String = "unavailable",
     val gpuLiteRtExecutorErrorLine: String = "unavailable",
     val gpuLiteRtCompiledModelErrorFile: String = "unavailable",
@@ -219,6 +233,19 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "gpu_held_engine_reused=${input.gpuHeldEngineReused}",
         "held_engine_exists=${input.gpuHeldEngineExists}",
         "held_engine_reused=${input.gpuHeldEngineReused}",
+        "holder_created=${input.holderCreated}",
+        "holder_acquired=${input.holderAcquired}",
+        "holder_reused=${input.holderReused}",
+        "holder_invalidated=${input.holderInvalidated}",
+        "holder_closed=${input.holderClosed}",
+        "holder_timeout_cleanup=${input.holderTimeoutCleanup}",
+        "holder_failure_cleanup=${input.holderFailureCleanup}",
+        "holder_process_restart=${input.holderProcessRestart}",
+        "held_engine_lifecycle_history=${escapeLocalInferenceFailureValue(input.heldEngineLifecycleHistory)}",
+        "held_engine_destroy_reason=${input.heldEngineDestroyReason}",
+        "held_engine_last_owner=${input.heldEngineLastOwner}",
+        "held_engine_last_failure_stage=${input.heldEngineLastFailureStage}",
+        "held_engine_snapshot_before_destroy=${escapeLocalInferenceFailureValue(input.heldEngineSnapshotBeforeDestroy)}",
         "gpu_model_kind=${input.gpuModelKind}",
         "gpu_selected_model_name=${escapeLocalInferenceFailureValue(input.gpuSelectedModelName)}",
         "gpu_selected_model_file=${escapeLocalInferenceFailureValue(input.gpuSelectedModelFile)}",
@@ -267,6 +294,7 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "gpu_dispatcher=${input.gpuDispatcher}",
         "gpu_engine_initialize_api=${input.gpuEngineInitializeApi}",
         "gpu_edge_gallery_diff_applied=${input.gpuEdgeGalleryDiffApplied}",
+        "gpu_route_divergence_point=${input.gpuRouteDivergencePoint}",
         "gpu_litert_executor_error_file=${input.gpuLiteRtExecutorErrorFile}",
         "gpu_litert_executor_error_line=${input.gpuLiteRtExecutorErrorLine}",
         "gpu_litert_compiled_model_error_file=${input.gpuLiteRtCompiledModelErrorFile}",
@@ -459,6 +487,29 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         gpuLastKnownStage = parsed["gpu_last_known_stage"] ?: "unavailable",
         gpuHeldEngineExists = parsed["gpu_held_engine_exists"] ?: parsed["held_engine_exists"] ?: "unavailable",
         gpuHeldEngineReused = parsed["gpu_held_engine_reused"] ?: parsed["held_engine_reused"] ?: "unavailable",
+        holderCreated = parsed["holder_created"] ?: "unavailable",
+        holderAcquired = parsed["holder_acquired"] ?: "unavailable",
+        holderReused = parsed["holder_reused"] ?: "unavailable",
+        holderInvalidated = parsed["holder_invalidated"] ?: "unavailable",
+        holderClosed = parsed["holder_closed"] ?: "unavailable",
+        holderTimeoutCleanup = parsed["holder_timeout_cleanup"] ?: "unavailable",
+        holderFailureCleanup = parsed["holder_failure_cleanup"] ?: "unavailable",
+        holderProcessRestart = parsed["holder_process_restart"] ?: "unavailable",
+        heldEngineLifecycleHistory = parsed["held_engine_lifecycle_history"]
+            ?: trace?.heldEngineLifecycleHistory
+            ?: "unavailable",
+        heldEngineDestroyReason = parsed["held_engine_destroy_reason"]
+            ?: trace?.heldEngineDestroyReason
+            ?: "unavailable",
+        heldEngineLastOwner = parsed["held_engine_last_owner"]
+            ?: trace?.heldEngineLastOwner
+            ?: "unavailable",
+        heldEngineLastFailureStage = parsed["held_engine_last_failure_stage"]
+            ?: trace?.heldEngineLastFailureStage
+            ?: "unavailable",
+        heldEngineSnapshotBeforeDestroy = parsed["held_engine_snapshot_before_destroy"]
+            ?: trace?.heldEngineSnapshotBeforeDestroy
+            ?: "unavailable",
         gpuModelKind = parsed["gpu_model_kind"] ?: parsed["model_kind"] ?: "unavailable",
         gpuSelectedModelName = parsed["gpu_selected_model_name"] ?: parsed["selected_model_name"] ?: "unavailable",
         gpuSelectedModelFile = parsed["gpu_selected_model_file"] ?: parsed["selected_model_file"] ?: "unavailable",
@@ -506,6 +557,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         gpuDispatcher = parsed["gpu_dispatcher"] ?: "unavailable",
         gpuEngineInitializeApi = parsed["gpu_engine_initialize_api"] ?: "unavailable",
         gpuEdgeGalleryDiffApplied = parsed["gpu_edge_gallery_diff_applied"] ?: "unavailable",
+        gpuRouteDivergencePoint = parsed["gpu_route_divergence_point"] ?: "unavailable",
         gpuLiteRtExecutorErrorFile = parsed.diagnosticValueOrNull("gpu_litert_executor_error_file")
             ?: gpuFailureClassification.executorErrorFile,
         gpuLiteRtExecutorErrorLine = parsed.diagnosticValueOrNull("gpu_litert_executor_error_line")

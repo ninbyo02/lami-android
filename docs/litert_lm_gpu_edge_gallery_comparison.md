@@ -1075,3 +1075,77 @@ run_as_failure=<exact shell message>
 3. LAMI public `Backend.GPU()` で動かす余地があるか再評価する。
 4. public API では無理そうなら、別 flavor で Edge Gallery 同等 runtime / API stack を隔離検証する設計に進む。
 5. NPU は別フェーズで `gemma-4-E2B-it_qualcomm_sm8750.litertlm` に戻る。
+
+## GPU investigation Phase 2: held engine lifecycle
+
+Confirmed:
+
+- normal GPU route reaches `Engine.initialize` finished.
+- normal GPU route reaches `Conversation.create` finished.
+- normal GPU route reaches `generate_started=true`.
+- normal GPU route still times out before first token:
+  `gpu_watchdog_timeout_generate_before_first_token`.
+- isolated GPU prefill probe fails earlier, during `Engine.initialize`, with compiled model creation failure:
+  `llm_litert_compiled_model_executor.cc:1546` and `litert_compiled_model.h:1140`.
+- held-engine probe can report `probe_start_blocked_reason=no_held_engine` even after a previous timeout run reported
+  `held_engine_exists=true`.
+
+The code path now records the holder lifecycle so that this mismatch is explicit. The GPU watchdog path performs:
+
+1. build timeout diagnostics from the progress tracker
+2. insert timeout assistant message
+3. `resetConversation(reason=gpu_watchdog_timeout)`
+4. `clear(reason=gpu_watchdog_timeout_holder_clear, failureStage=gpu_watchdog_timeout)`
+
+Therefore the strongest current explanation for `held_engine_exists=true` during the timeout but
+`probe_held_engine_present_before=false` on the next probe is:
+
+```text
+normal timeout run held engine existed at timeout checkpoint
+watchdog cleanup then explicitly cleared the holder
+next held-engine probe correctly found no held engine
+```
+
+New diagnostics:
+
+- `holder_created`
+- `holder_acquired`
+- `holder_reused`
+- `holder_invalidated`
+- `holder_closed`
+- `holder_timeout_cleanup`
+- `holder_failure_cleanup`
+- `holder_process_restart`
+- `held_engine_lifecycle_history`
+- `held_engine_destroy_reason`
+- `held_engine_last_owner`
+- `held_engine_last_failure_stage`
+- `held_engine_snapshot_before_destroy`
+- `gpu_route_divergence_point`
+
+`held_engine_snapshot_before_destroy` includes holder hash, engine hash, backend, model path, use count, namespace,
+destroy reason, owner, and links to the GPU initialize/conversation/generate state keys in the same diagnostic.
+
+Open questions:
+
+- why isolated GPU engine compiled model creation fails in `Engine.initialize`
+- why the held normal route can initialize and create conversation but hangs before first token
+- whether Edge Gallery reaches a different executor selection path, such as an internal artisan executor
+
+Next device check:
+
+1. Run normal GPU once until timeout.
+2. Copy Local inference failure compact and check:
+   `held_engine_destroy_reason=gpu_watchdog_timeout_holder_clear`.
+3. Enable held-engine probe:
+
+```bash
+adb shell setprop debug.lami.gpu_probe_use_held_engine true
+adb shell setprop debug.lami.gpu_prefill_probe_prompt hi
+adb shell setprop debug.lami.gpu_prefill_probe_max_tokens 1
+adb shell setprop debug.lami.gpu_prefill_probe_sampler none
+adb shell setprop debug.lami.gpu_prefill_probe_cache_dir null
+```
+
+4. If `probe_start_blocked_reason=no_held_engine`, compare `held_engine_lifecycle_history` and
+   `held_engine_snapshot_before_destroy` from the same compact copy before attempting another normal GPU run.

@@ -251,6 +251,81 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("gpu_conversation_config_sampler_present=false"))
         assertTrue(text.contains("gpu_sampler_acceleration_policy=conversation_config_without_sampler"))
         assertTrue(text.contains("gpu_failure_interpretation=normal_route_generate_hangs_after_successful_initialize"))
+        assertTrue(text.contains("gpu_route_divergence_point=normal_route_generate_started_before_first_token_timeout"))
+    }
+
+    @Test
+    fun `GPU timeout compact includes held engine lifecycle destroy diagnostics`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "gpu_watchdog_holder_cleanup_finished",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = false,
+                heldEngineReused = false,
+                engineInitializeFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = false,
+                failureStage = "gpu_watchdog_timeout",
+                fallbackUsed = false,
+                staleCallbackIgnored = true,
+                holderCreated = true,
+                holderAcquired = true,
+                holderReused = false,
+                holderInvalidated = true,
+                holderClosed = true,
+                holderTimeoutCleanup = true,
+                holderFailureCleanup = false,
+                holderProcessRestart = true,
+                heldEngineLifecycleHistory =
+                    "holder_acquired@elapsed_ms=1:reason=acquire:heldHash=123|" +
+                        "holder_timeout_cleanup@elapsed_ms=2:reason=gpu_watchdog_timeout_holder_clear:heldHash=123|" +
+                        "holder_closed@elapsed_ms=3:reason=gpu_watchdog_timeout_holder_clear:heldHash=123",
+                heldEngineDestroyReason = "gpu_watchdog_timeout_holder_clear",
+                heldEngineLastOwner = "ChatScreen.gpuExperimentalWatchdog",
+                heldEngineLastFailureStage = "gpu_watchdog_timeout",
+                heldEngineSnapshotBeforeDestroy =
+                    "holder_hash=7;engine_hash=123;backend=GPU;model_path=/models/gemma-4-E2B-it.litertlm;" +
+                        "initialize_state=see_gpu_engine_initialize_finished;conversation_state=see_gpu_conversation_create_finished;generate_state=see_gpu_generate_started",
+            ),
+            elapsedMs = 60_002L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "timeout",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                reason = "gpu_watchdog_timeout",
+                routeContext = routeContext,
+                timeout = true,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("holder_timeout_cleanup=true"))
+        assertTrue(routeDiagnostics.contains("held_engine_destroy_reason=gpu_watchdog_timeout_holder_clear"))
+        assertTrue(routeDiagnostics.contains("held_engine_last_owner=ChatScreen.gpuExperimentalWatchdog"))
+        assertTrue(routeDiagnostics.contains("held_engine_last_failure_stage=gpu_watchdog_timeout"))
+        assertTrue(routeDiagnostics.contains("held_engine_snapshot_before_destroy=holder_hash=7"))
+        assertTrue(compact.contains("holder_invalidated=true"))
+        assertTrue(compact.contains("holder_closed=true"))
+        assertTrue(compact.contains("holder_timeout_cleanup=true"))
+        assertTrue(compact.contains("held_engine_destroy_reason=gpu_watchdog_timeout_holder_clear"))
+        assertTrue(compact.contains("held_engine_lifecycle_history=holder_acquired@elapsed_ms=1"))
+        assertTrue(compact.contains("held_engine_snapshot_before_destroy=holder_hash=7"))
     }
 
     @Test
@@ -411,6 +486,36 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("gpu_litert_executor_error_line=1546"))
         assertTrue(compact.contains("gpu_litert_compiled_model_error_line=1140"))
         assertTrue(compact.contains("gpu_failure_interpretation=compiled_model_creation_failed_before_conversation"))
+    }
+
+    @Test
+    fun `held engine probe blocked route reports divergence point`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val probeText = buildGpuPrefillProbeStartBlockedDiagnosticsText(
+            reason = "no_held_engine",
+            useHeldEngineRequested = true,
+            heldEnginePresentBefore = false,
+            heldEngineAcquireResult = "blocked_no_held_engine",
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "gpu_held_engine_prefill_probe_completed",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                failureStage = "gpu_prefill_probe_start_blocked",
+                gpuPrefillProbeDiagnostics = extractGpuPrefillProbeDiagnostics(probeText),
+            ),
+            elapsedMs = 10L,
+        )
+
+        assertTrue(routeDiagnostics.contains("probe_start_blocked_reason=no_held_engine"))
+        assertTrue(routeDiagnostics.contains("gpu_route_divergence_point=held_engine_probe_blocked_no_held_engine"))
     }
 
     @Test
