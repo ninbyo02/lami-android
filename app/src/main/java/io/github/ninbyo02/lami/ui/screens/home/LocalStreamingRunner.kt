@@ -17,8 +17,11 @@ import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.processEdgeGalleryCompatibleMarkdown
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -34,6 +37,13 @@ private const val TOKENIZER_COUNT_UNAVAILABLE_NOTE =
 private const val MEDIAPIPE_TOKEN_COUNT_MODE = "mediapipe_tokenizer_recount"
 private const val LITERT_TOKEN_COUNT_MODE = "tokenizer_recount"
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
+private const val GPU_PREFILL_PROBE_DEFAULT_TIMEOUT_MS = 15_000L
+private const val GPU_PREFILL_PROBE_DEFAULT_PROMPT = "こんにちは"
+private const val GPU_PREFILL_PROBE_DEFAULT_MAX_TOKENS = 1
+private const val GPU_PREFILL_PROBE_CACHE_DIR_NULL = "null"
+private const val GPU_PREFILL_PROBE_CACHE_DIR_APP_CACHE = "app_cache"
+private const val GPU_PREFILL_PROBE_SAMPLER_NONE = "no_sampler"
+private const val GPU_PREFILL_PROBE_SAMPLER_GALLERY_DEFAULT = "gallery_default_sampler"
 private const val NPU_DISABLED_NOT_SUPPORTED_REASON = "npu-disabled-vendor-fastrpc-namespace-blocked-recommended-gpu"
 private val STREAMING_NO_JOIN_PREVIOUS_CHARS = setOf(
     '(', '[', '{', '"', '\'', '`', '/', '\\', '.', ',', ':', ';', '!', '?',
@@ -98,6 +108,337 @@ internal data class ReusableLocalEngineCreateDiagnostic(
     val preferredBackendApplyResult: PreferredBackendApplyResult? = null,
     val failureDiagnosticsText: String? = null,
 )
+
+internal data class GpuPrefillProbeRequest(
+    val modelPath: String,
+    val cacheDirPath: String?,
+    val prompt: String = GPU_PREFILL_PROBE_DEFAULT_PROMPT,
+    val maxTokens: Int = GPU_PREFILL_PROBE_DEFAULT_MAX_TOKENS,
+    val samplerEnabled: Boolean = false,
+    val cacheDirMode: String = GPU_PREFILL_PROBE_CACHE_DIR_NULL,
+    val timeoutMs: Long = GPU_PREFILL_PROBE_DEFAULT_TIMEOUT_MS,
+)
+
+internal data class GpuPrefillProbeState(
+    val request: GpuPrefillProbeRequest,
+    val startedAtMs: Long = SystemClock.elapsedRealtime(),
+    val elapsedOverrideMs: Long? = null,
+    val engineConfigStarted: AtomicReference<Boolean> = AtomicReference(false),
+    val engineConfigFinished: AtomicReference<Boolean> = AtomicReference(false),
+    val engineInitializeStarted: AtomicReference<Boolean> = AtomicReference(false),
+    val engineInitializeFinished: AtomicReference<Boolean> = AtomicReference(false),
+    val conversationCreateStarted: AtomicReference<Boolean> = AtomicReference(false),
+    val conversationCreateFinished: AtomicReference<Boolean> = AtomicReference(false),
+    val generateStarted: AtomicReference<Boolean> = AtomicReference(false),
+    val firstTokenReceived: AtomicReference<Boolean> = AtomicReference(false),
+    val generateStartedAtMs: AtomicReference<Long?> = AtomicReference(null),
+    val firstTokenReceivedAtMs: AtomicReference<Long?> = AtomicReference(null),
+    val exceptionClass: AtomicReference<String?> = AtomicReference(null),
+    val exceptionMessage: AtomicReference<String?> = AtomicReference(null),
+    val resultText: AtomicReference<String> = AtomicReference(""),
+    val staleCallbackIgnored: AtomicReference<Boolean> = AtomicReference(false),
+) {
+    fun elapsedMs(): Long = elapsedOverrideMs ?: (SystemClock.elapsedRealtime() - startedAtMs).coerceAtLeast(0L)
+}
+
+internal fun resolveGpuPrefillProbeRequestForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    modelPath: String,
+    cacheDirPath: String?,
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+): GpuPrefillProbeRequest? {
+    if (!BuildConfig.DEBUG) return null
+    if (preferredBackend != PreferredBackendDryRunSetting.GPU) return null
+    val enabled = propertyReader("debug.lami.gpu_prefill_probe")
+        ?: propertyReader("lami.gpu_prefill_probe")
+        ?: return null
+    if (!enabled.equals("true", ignoreCase = true) && enabled != "1") return null
+    val prompt = propertyReader("debug.lami.gpu_prefill_probe_prompt")
+        ?: propertyReader("lami.gpu_prefill_probe_prompt")
+        ?: GPU_PREFILL_PROBE_DEFAULT_PROMPT
+    val maxTokens = (propertyReader("debug.lami.gpu_prefill_probe_max_tokens")
+        ?: propertyReader("lami.gpu_prefill_probe_max_tokens"))
+        ?.toIntOrNull()
+        ?.coerceIn(1, 32)
+        ?: GPU_PREFILL_PROBE_DEFAULT_MAX_TOKENS
+    val samplerValue = propertyReader("debug.lami.gpu_prefill_probe_sampler")
+        ?: propertyReader("lami.gpu_prefill_probe_sampler")
+        ?: GPU_PREFILL_PROBE_SAMPLER_NONE
+    val cacheDirMode = (propertyReader("debug.lami.gpu_prefill_probe_cache_dir")
+        ?: propertyReader("lami.gpu_prefill_probe_cache_dir")
+        ?: GPU_PREFILL_PROBE_CACHE_DIR_NULL)
+        .lowercase(Locale.US)
+    val timeoutMs = (propertyReader("debug.lami.gpu_prefill_probe_timeout_ms")
+        ?: propertyReader("lami.gpu_prefill_probe_timeout_ms"))
+        ?.toLongOrNull()
+        ?.coerceIn(5_000L, 30_000L)
+        ?: GPU_PREFILL_PROBE_DEFAULT_TIMEOUT_MS
+    return GpuPrefillProbeRequest(
+        modelPath = modelPath,
+        cacheDirPath = cacheDirPath,
+        prompt = prompt,
+        maxTokens = maxTokens,
+        samplerEnabled = samplerValue.equals("gallery", ignoreCase = true) ||
+            samplerValue.equals(GPU_PREFILL_PROBE_SAMPLER_GALLERY_DEFAULT, ignoreCase = true) ||
+            samplerValue.equals("true", ignoreCase = true),
+        cacheDirMode = when (cacheDirMode) {
+            GPU_PREFILL_PROBE_CACHE_DIR_APP_CACHE, "app_files", "app" -> GPU_PREFILL_PROBE_CACHE_DIR_APP_CACHE
+            else -> GPU_PREFILL_PROBE_CACHE_DIR_NULL
+        },
+        timeoutMs = timeoutMs,
+    )
+}
+
+private fun readGpuPrefillProbeDebugProperty(key: String): String? {
+    val jvmProperty = runCatching {
+        System.getProperty(key)?.trim()?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+    if (jvmProperty != null) return jvmProperty
+    return runCatching {
+        val clazz = Class.forName("android.os.SystemProperties")
+        val method = clazz.getMethod("get", String::class.java, String::class.java)
+        (method.invoke(null, key, "") as? String)?.trim()?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+}
+
+internal suspend fun runGpuPrefillProbe(
+    request: GpuPrefillProbeRequest,
+    appendTrace: (String) -> Unit = {},
+): String {
+    val state = GpuPrefillProbeState(request = request)
+    val deferred = CoroutineScope(Dispatchers.IO).async {
+        var engine: Any? = null
+        var conversation: Any? = null
+        try {
+            state.engineConfigStarted.set(true)
+            val engineConfig = EngineConfig(
+                modelPath = request.modelPath,
+                backend = Backend.GPU(),
+                visionBackend = null,
+                audioBackend = null,
+                maxNumTokens = request.maxTokens,
+                cacheDir = resolveGpuPrefillProbeCacheDir(request),
+            )
+            state.engineConfigFinished.set(true)
+            val createdEngine = Engine(engineConfig)
+            engine = createdEngine
+            state.engineInitializeStarted.set(true)
+            createdEngine.javaClass.methods.firstOrNull { method ->
+                method.name == "initialize" && method.parameterTypes.isEmpty()
+            }?.invoke(createdEngine)
+            state.engineInitializeFinished.set(true)
+            state.conversationCreateStarted.set(true)
+            conversation = createGpuPrefillProbeConversation(createdEngine, request)
+            state.conversationCreateFinished.set(conversation != null)
+            if (conversation == null) return@async
+            state.generateStarted.set(true)
+            state.generateStartedAtMs.set(state.elapsedMs())
+            runGpuPrefillProbeGenerate(
+                conversation = conversation,
+                request = request,
+                state = state,
+            )
+        } catch (throwable: Throwable) {
+            state.exceptionClass.set(throwable.javaClass.name)
+            state.exceptionMessage.set(throwable.message ?: "none")
+        } finally {
+            if (state.firstTokenReceived.get() || state.exceptionClass.get() != null) {
+                closeQuietly(conversation, appendTrace)
+                closeQuietly(engine, appendTrace)
+            }
+        }
+    }
+    while (!deferred.isCompleted) {
+        if (state.elapsedMs() >= request.timeoutMs) {
+            state.staleCallbackIgnored.set(true)
+            deferred.cancel()
+            break
+        }
+        delay(100L)
+    }
+    if (deferred.isCompleted) {
+        runCatching { deferred.await() }
+    }
+    val text = buildGpuPrefillProbeDiagnosticsText(state)
+    safeAppendTrace(appendTrace, text)
+    return text
+}
+
+private class GpuPrefillProbeFirstToken : RuntimeException()
+
+private suspend fun runGpuPrefillProbeGenerate(
+    conversation: Any,
+    request: GpuPrefillProbeRequest,
+    state: GpuPrefillProbeState,
+) {
+    val sendMessageAsync = findSendMessageAsyncMethod(
+        conversationClass = conversation.javaClass,
+        namespace = "com.google.ai.edge.litertlm",
+    )
+    if (sendMessageAsync != null) {
+        val flowValue = invokeSendMessageAsync(
+            conversation = conversation,
+            method = sendMessageAsync,
+            namespace = "com.google.ai.edge.litertlm",
+            prompt = request.prompt,
+        )
+        val flow = flowValue as? Flow<*> ?: return
+        try {
+            flow.collect { message ->
+                if (!currentCoroutineContext().isActive) return@collect
+                val text = extractOfficialMessageTextWithTrace(
+                    path = "gpu-prefill-probe",
+                    value = message,
+                    appendTrace = {},
+                )?.trim().orEmpty()
+                if (text.isBlank()) return@collect
+                state.firstTokenReceived.set(true)
+                state.firstTokenReceivedAtMs.set(state.elapsedMs())
+                state.resultText.set(text)
+                throw GpuPrefillProbeFirstToken()
+            }
+        } catch (_: GpuPrefillProbeFirstToken) {
+            return
+        }
+        return
+    }
+    val blocking = findBlockingSendMethod(
+        conversationClass = conversation.javaClass,
+        namespace = "com.google.ai.edge.litertlm",
+    ) ?: return
+    val value = invokeBlockingSend(
+        conversation = conversation,
+        method = blocking,
+        namespace = "com.google.ai.edge.litertlm",
+        prompt = request.prompt,
+    ) ?: return
+    val text = extractOfficialMessageTextWithTrace(
+        path = "gpu-prefill-probe-blocking",
+        value = value,
+        appendTrace = {},
+    )?.trim().orEmpty()
+    if (text.isNotBlank()) {
+        state.firstTokenReceived.set(true)
+        state.firstTokenReceivedAtMs.set(state.elapsedMs())
+        state.resultText.set(text)
+    }
+}
+
+private fun createGpuPrefillProbeConversation(
+    engine: Any,
+    request: GpuPrefillProbeRequest,
+): Any? {
+    val config = if (request.samplerEnabled) {
+        ConversationConfig(
+            samplerConfig = SamplerConfig(
+                topK = GPU_EDGE_GALLERY_LIKE_TOP_K,
+                topP = GPU_EDGE_GALLERY_LIKE_TOP_P.toDouble(),
+                temperature = GPU_EDGE_GALLERY_LIKE_TEMPERATURE.toDouble(),
+            ),
+        )
+    } else {
+        ConversationConfig()
+    }
+    val createConversationMethod = engine.javaClass.methods.firstOrNull { method ->
+        method.name == "createConversation" &&
+            method.parameterTypes.size == 1 &&
+            method.parameterTypes[0].name == "com.google.ai.edge.litertlm.ConversationConfig"
+    } ?: return null
+    return createConversationMethod.invoke(engine, config)
+}
+
+private fun resolveGpuPrefillProbeCacheDir(request: GpuPrefillProbeRequest): String? =
+    if (request.cacheDirMode == GPU_PREFILL_PROBE_CACHE_DIR_APP_CACHE) request.cacheDirPath else null
+
+internal fun buildGpuPrefillProbeDiagnosticsText(state: GpuPrefillProbeState): String {
+    val elapsedMs = state.elapsedMs()
+    val timeoutStage = resolveGpuPrefillProbeTimeoutStage(
+        engineConfigStarted = state.engineConfigStarted.get(),
+        engineConfigFinished = state.engineConfigFinished.get(),
+        engineInitializeStarted = state.engineInitializeStarted.get(),
+        engineInitializeFinished = state.engineInitializeFinished.get(),
+        conversationCreateStarted = state.conversationCreateStarted.get(),
+        conversationCreateFinished = state.conversationCreateFinished.get(),
+        generateStarted = state.generateStarted.get(),
+        firstTokenReceived = state.firstTokenReceived.get(),
+    )
+    val timedOut = state.staleCallbackIgnored.get() && !state.firstTokenReceived.get() && state.exceptionClass.get() == null
+    val failureStage = when {
+        state.exceptionClass.get() != null -> "gpu_prefill_probe_exception"
+        timedOut -> "gpu_prefill_probe_timeout_$timeoutStage"
+        else -> "none"
+    }
+    val generateBeforeFirstTokenElapsedMs =
+        if (state.generateStarted.get() && !state.firstTokenReceived.get()) {
+            state.generateStartedAtMs.get()?.let { (elapsedMs - it).coerceAtLeast(0L).toString() } ?: "unavailable"
+        } else {
+            "unavailable"
+        }
+    val resultText = state.resultText.get()
+    return listOf(
+        "[DEV診断: GPU prefill probe]",
+        "probe_enabled=true",
+        "probe_prompt_variant=${resolveGpuPrefillProbePromptVariant(state.request.prompt)}",
+        "probe_prompt_length_chars=${state.request.prompt.length}",
+        "probe_max_tokens=${state.request.maxTokens}",
+        "probe_sampler_enabled=${state.request.samplerEnabled}",
+        "probe_cache_dir_mode=${state.request.cacheDirMode}",
+        "probe_engine_config_started=${state.engineConfigStarted.get()}",
+        "probe_engine_config_finished=${state.engineConfigFinished.get()}",
+        "probe_engine_initialize_started=${state.engineInitializeStarted.get()}",
+        "probe_engine_initialize_finished=${state.engineInitializeFinished.get()}",
+        "probe_conversation_create_started=${state.conversationCreateStarted.get()}",
+        "probe_conversation_create_finished=${state.conversationCreateFinished.get()}",
+        "probe_generate_started=${state.generateStarted.get()}",
+        "probe_first_token_received=${state.firstTokenReceived.get()}",
+        "probe_generate_before_first_token_elapsed_ms=$generateBeforeFirstTokenElapsedMs",
+        "probe_timeout_stage=$timeoutStage",
+        "probe_failure_stage=$failureStage",
+        "probe_exception_class=${state.exceptionClass.get() ?: "none"}",
+        "probe_exception_message=${escapeGpuPrefillProbeValue(state.exceptionMessage.get() ?: "none")}",
+        "probe_result_text_length=${resultText.length}",
+        "probe_result_text_head=${escapeGpuPrefillProbeValue(resultText.take(80).ifBlank { "none" })}",
+        "probe_stale_callback_ignored=${state.staleCallbackIgnored.get()}",
+        "probe_elapsed_ms=$elapsedMs",
+    ).joinToString("\n")
+}
+
+internal fun buildGpuPrefillProbeDisabledDiagnosticsText(reason: String): String =
+    listOf(
+        "[DEV診断: GPU prefill probe]",
+        "probe_enabled=false",
+        "probe_disabled_reason=${escapeGpuPrefillProbeValue(reason)}",
+    ).joinToString("\n")
+
+internal fun resolveGpuPrefillProbeTimeoutStage(
+    engineConfigStarted: Boolean,
+    engineConfigFinished: Boolean,
+    engineInitializeStarted: Boolean,
+    engineInitializeFinished: Boolean,
+    conversationCreateStarted: Boolean,
+    conversationCreateFinished: Boolean,
+    generateStarted: Boolean,
+    firstTokenReceived: Boolean,
+): String =
+    when {
+        engineConfigStarted && !engineConfigFinished -> "engine_config_build"
+        engineConfigFinished && !engineInitializeStarted -> "engine_constructor"
+        engineInitializeStarted && !engineInitializeFinished -> "engine_initialize"
+        conversationCreateStarted && !conversationCreateFinished -> "conversation_create"
+        generateStarted && !firstTokenReceived -> "generate_before_first_token"
+        generateStarted && firstTokenReceived -> "generate_after_first_token"
+        else -> "unknown"
+    }
+
+private fun resolveGpuPrefillProbePromptVariant(prompt: String): String =
+    when (prompt) {
+        "hi" -> "single_ascii"
+        "." -> "single_token_like"
+        else -> "empty_or_minimal"
+    }
+
+private fun escapeGpuPrefillProbeValue(value: String): String =
+    value.replace('\n', ' ').replace('\r', ' ').trim().ifBlank { "none" }
 
 internal data class HeldEngineRunResult(
     val responseText: String,

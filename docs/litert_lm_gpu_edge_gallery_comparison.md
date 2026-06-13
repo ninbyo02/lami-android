@@ -341,10 +341,9 @@ LAMI の `Local inference failure compact` / `LOCAL_ROUTE_DIAG` には、GPU tim
 60 秒 watchdog timeout になった。つまり現時点の主観測は `Engine.initialize` 停止ではなく、
 `generate_before_first_token` 停止である。
 
-同結果では `gpu_sampler_config_enabled=false`、`gpu_conversation_config_sampler_present=false`、
-`gpu_sampler_acceleration_policy=conversation_config_without_sampler` でも timeout しているため、
-TopK / GPU sampler 初期化だけが主因である可能性は下がる。引き続き、生成開始後 first token 前に
-GPU runtime / compiled model / cache / max token 条件で停止している可能性を比較する。
+`gpu_no_sampling_acceleration`, `gpu_cache_dir_app_files`, `gpu_max_tokens_32` はいずれも NG。
+sampler / cache dir / max tokens 単独原因説は弱くなった。次の焦点は、generate 内部の
+prefill / first token 前 GPU graph execution / compiled graph / LiteRT-LM GPU delegate 内部である。
 
 first token 前 timeout の比較用 key:
 
@@ -394,6 +393,61 @@ adb shell setprop debug.lami.gpu_experiment_mode ""
 3. `gpu_cache_dir_null`
    - 目的: `edge_gallery_like` の null cache と明示 null cache で診断 key が一致するか確認する。
    - `gpu_cache_dir_app_files` と対で比較する。
+
+## DEV-only GPU prefill probe
+
+通常チャットの 60 秒 watchdog を毎回待たずに、明示 opt-in の短い probe で GPU prefill / first token 前停止を切り分ける。
+production 既定挙動、CPU held-official-flow、NPU S1、fallback には入れない。
+
+有効化:
+
+```bash
+adb shell setprop debug.lami.gpu_prefill_probe true
+adb shell setprop debug.lami.gpu_prefill_probe_prompt hi
+adb shell setprop debug.lami.gpu_prefill_probe_max_tokens 1
+adb shell setprop debug.lami.gpu_prefill_probe_sampler none
+adb shell setprop debug.lami.gpu_prefill_probe_cache_dir null
+```
+
+比較候補:
+
+- prompt: `こんにちは`, `hi`, `.`
+- max tokens: `1`, `4`, `32`
+- sampler: `none`, `gallery`
+- cache dir: `null`, `app_cache`
+
+probe は GPU 明示選択時だけ、現在選択中の `.litertlm` model path で実行する。既定 timeout は 15 秒。
+結果は DEV trace と `files/dev_diagnostics/gpu_prefill_probe_latest.txt` に残る。
+
+出力 key:
+
+- `probe_enabled`
+- `probe_prompt_variant`
+- `probe_prompt_length_chars`
+- `probe_max_tokens`
+- `probe_sampler_enabled`
+- `probe_cache_dir_mode`
+- `probe_engine_config_started`, `probe_engine_config_finished`
+- `probe_engine_initialize_started`, `probe_engine_initialize_finished`
+- `probe_conversation_create_started`, `probe_conversation_create_finished`
+- `probe_generate_started`
+- `probe_first_token_received`
+- `probe_generate_before_first_token_elapsed_ms`
+- `probe_timeout_stage`
+- `probe_failure_stage`
+- `probe_exception_class`, `probe_exception_message`
+- `probe_result_text_length`, `probe_result_text_head`
+- `probe_stale_callback_ignored`
+- `probe_elapsed_ms`
+
+読み方:
+
+- `probe_generate_started=true` かつ `probe_first_token_received=false`、`probe_timeout_stage=generate_before_first_token`:
+  最小入力でも first token 前で止まる。prompt 長・通常チャット UI ではなく GPU prefill / graph execution 側を疑う。
+- `probe_first_token_received=true`:
+  最小入力では GPU first token が返る。通常チャットとの差分として prompt 長、conversation state、UI側の 60秒 watchdog 条件を比較する。
+- `probe_exception_class` が `none` 以外:
+  timeout ではなく Java/Kotlin 例外経路。InvocationTargetException の場合は root cause も通常の Local inference failure compact と合わせて見る。
 
 各モードの目的:
 

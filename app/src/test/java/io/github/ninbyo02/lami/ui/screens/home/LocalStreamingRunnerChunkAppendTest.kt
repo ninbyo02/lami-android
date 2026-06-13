@@ -98,6 +98,93 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `GPU prefill probe is disabled by default and for non GPU backend`() {
+        assertEquals(
+            null,
+            resolveGpuPrefillProbeRequestForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                modelPath = "/models/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/cache",
+                propertyReader = { null },
+            ),
+        )
+        assertEquals(
+            null,
+            resolveGpuPrefillProbeRequestForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.CPU,
+                modelPath = "/models/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/cache",
+                propertyReader = { key -> if (key == "debug.lami.gpu_prefill_probe") "true" else null },
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU prefill probe request reads debug properties`() {
+        val request = resolveGpuPrefillProbeRequestForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/models/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/cache",
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.gpu_prefill_probe" -> "true"
+                    "debug.lami.gpu_prefill_probe_prompt" -> "hi"
+                    "debug.lami.gpu_prefill_probe_max_tokens" -> "1"
+                    "debug.lami.gpu_prefill_probe_sampler" -> "gallery"
+                    "debug.lami.gpu_prefill_probe_cache_dir" -> "app_cache"
+                    else -> null
+                }
+            },
+        )
+
+        requireNotNull(request)
+        assertEquals("hi", request.prompt)
+        assertEquals(1, request.maxTokens)
+        assertTrue(request.samplerEnabled)
+        assertEquals("app_cache", request.cacheDirMode)
+    }
+
+    @Test
+    fun `GPU prefill probe diagnostics classify generate before first token`() {
+        val state = GpuPrefillProbeState(
+            request = GpuPrefillProbeRequest(
+                modelPath = "/models/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/cache",
+                prompt = "hi",
+                maxTokens = 1,
+                samplerEnabled = false,
+                cacheDirMode = "null",
+            ),
+            startedAtMs = 0L,
+            elapsedOverrideMs = 15_000L,
+        )
+        state.engineConfigStarted.set(true)
+        state.engineConfigFinished.set(true)
+        state.engineInitializeStarted.set(true)
+        state.engineInitializeFinished.set(true)
+        state.conversationCreateStarted.set(true)
+        state.conversationCreateFinished.set(true)
+        state.generateStarted.set(true)
+        state.generateStartedAtMs.set(100L)
+        state.firstTokenReceived.set(false)
+        state.staleCallbackIgnored.set(true)
+
+        val text = buildGpuPrefillProbeDiagnosticsText(state)
+
+        assertTrue(text.contains("[DEV診断: GPU prefill probe]"))
+        assertTrue(text.contains("probe_enabled=true"))
+        assertTrue(text.contains("probe_prompt_variant=single_ascii"))
+        assertTrue(text.contains("probe_max_tokens=1"))
+        assertTrue(text.contains("probe_sampler_enabled=false"))
+        assertTrue(text.contains("probe_cache_dir_mode=null"))
+        assertTrue(text.contains("probe_generate_started=true"))
+        assertTrue(text.contains("probe_first_token_received=false"))
+        assertTrue(text.contains("probe_timeout_stage=generate_before_first_token"))
+        assertTrue(text.contains("probe_failure_stage=gpu_prefill_probe_timeout_generate_before_first_token"))
+        assertTrue(text.contains("probe_stale_callback_ignored=true"))
+    }
+
+    @Test
     fun `Hello と World の境界では最小 join を入れる`() {
         val builder = StringBuilder("Hello")
 

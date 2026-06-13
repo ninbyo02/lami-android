@@ -4403,6 +4403,25 @@ fun Home(
                                                                         preferredBackend = preferredBackendDryRunSetting.name,
                                                                     ),
                                                                 )
+                                                                resolveGpuPrefillProbeRequestForDebug(
+                                                                    preferredBackend = preferredBackendDryRunSetting,
+                                                                    modelPath = resolvedModelPath,
+                                                                    cacheDirPath = modelResolution.cacheDirPath,
+                                                                )?.let { probeRequest ->
+                                                                    val probeText = runGpuPrefillProbe(
+                                                                        request = probeRequest,
+                                                                        appendTrace = { message ->
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = message,
+                                                                            )
+                                                                        },
+                                                                    )
+                                                                    writeGpuPrefillProbeDiagnosticsFile(
+                                                                        context = context.applicationContext,
+                                                                        text = probeText,
+                                                                    )
+                                                                }
                                                                 val lastRouteDiagnosticStage =
                                                                     AtomicReference<String?>("engine_create_started")
                                                                 val heldSnapshotBeforeAcquire = localInferenceEngineHolder.getDevDiagnosticSnapshot()
@@ -7321,6 +7340,18 @@ private fun buildGpuExperimentalTimeoutRunResult(
             localFailureDiagnosticsText = diagnosticsText,
         ),
     )
+}
+
+private fun writeGpuPrefillProbeDiagnosticsFile(
+    context: Context,
+    text: String,
+) {
+    if (!BuildConfig.DEBUG) return
+    runCatching {
+        val dir = File(context.filesDir, "dev_diagnostics")
+        dir.mkdirs()
+        File(dir, "gpu_prefill_probe_latest.txt").writeText(text)
+    }
 }
 
 private class GpuRouteProgressTracker(
