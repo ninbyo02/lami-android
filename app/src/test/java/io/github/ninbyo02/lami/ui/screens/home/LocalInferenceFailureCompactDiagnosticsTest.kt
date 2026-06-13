@@ -255,6 +255,175 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `GPU timeout compact includes generate callback lifecycle diagnostics`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "timeout_failure",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                engineCreateStarted = true,
+                engineCreateFinished = true,
+                engineInitializeStarted = true,
+                engineInitializeFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                generateStartedElapsedMs = 1_000L,
+                firstTokenReceived = false,
+                failureStage = "gpu_watchdog_timeout",
+                staleCallbackIgnored = false,
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY,
+                gpuGenerateCallEntered = true,
+                gpuGenerateCallReturned = true,
+                gpuCallbackInvokedCount = 0,
+                gpuCallbackEmptyTextCount = 0,
+                gpuCallbackNonEmptyTextCount = 0,
+                gpuCallbackDoneTrueSeen = false,
+                gpuCallbackErrorSeen = false,
+                gpuCallbackExceptionClass = "none",
+                gpuCallbackExceptionMessage = "none",
+                gpuCallbackExceptionChain = "none",
+                gpuCallbackExceptionStage = "none",
+            ),
+            elapsedMs = 60_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "timeout",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                routeContext = routeContext,
+                timeout = true,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("debug_lami_gpu_generate_probe_mode=raw_callback_only"))
+        assertTrue(routeDiagnostics.contains("gpu_generate_call_entered=true"))
+        assertTrue(routeDiagnostics.contains("gpu_generate_call_returned=true"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_invoked_count=0"))
+        assertTrue(routeDiagnostics.contains("gpu_generate_stall_interpretation=native_generate_no_callback"))
+        assertTrue(routeDiagnostics.contains("callback_route_diff=gpu_generate_entered_no_callback"))
+        assertTrue(compact.contains("debug_lami_gpu_generate_probe_mode=raw_callback_only"))
+        assertTrue(compact.contains("gpu_generate_call_entered=true"))
+        assertTrue(compact.contains("gpu_generate_call_returned=true"))
+        assertTrue(compact.contains("gpu_callback_invoked_count=0"))
+        assertTrue(compact.contains("gpu_done_true_seen=false"))
+        assertTrue(compact.contains("gpu_callback_exception_class=none"))
+        assertTrue(compact.contains("gpu_generate_stall_interpretation=native_generate_no_callback"))
+        assertTrue(compact.contains("callback_route_diff=gpu_generate_entered_no_callback"))
+    }
+
+    @Test
+    fun `GPU callback done without text is classified`() {
+        val flags = LocalRouteDiagnosticFlags(
+            generateStarted = true,
+            firstTokenReceived = false,
+            gpuGenerateCallEntered = true,
+            gpuGenerateCallReturned = true,
+            gpuCallbackInvokedCount = 1,
+            gpuCallbackEmptyTextCount = 1,
+            gpuCallbackNonEmptyTextCount = 0,
+            gpuCallbackDoneTrueSeen = true,
+            gpuCallbackExceptionClass = "none",
+        )
+
+        assertEquals("callback_done_without_text", resolveGpuGenerateStallInterpretation(flags))
+    }
+
+    @Test
+    fun `GPU callback exception before first token is copied into compact`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_callback_exception",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                engineInitializeFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = false,
+                failureStage = "generate-callback-exception",
+                gpuGenerateCallEntered = true,
+                gpuGenerateCallReturned = true,
+                gpuCallbackInvokedCount = 0,
+                gpuCallbackErrorSeen = true,
+                gpuCallbackExceptionClass = "java.lang.IllegalStateException",
+                gpuCallbackExceptionMessage = "callback failed",
+                gpuCallbackExceptionChain = "java.lang.IllegalStateException:callback failed",
+                gpuCallbackExceptionStage = "flow_collect_callback",
+            ),
+            elapsedMs = 1_500L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "failed",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                routeContext = routeContext,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("gpu_callback_exception_class=java.lang.IllegalStateException"))
+        assertTrue(routeDiagnostics.contains("gpu_generate_stall_interpretation=callback_exception_before_first_token"))
+        assertTrue(compact.contains("gpu_callback_exception_class=java.lang.IllegalStateException"))
+        assertTrue(compact.contains("gpu_callback_exception_message=callback_failed"))
+        assertTrue(compact.contains("gpu_callback_exception_chain=java.lang.IllegalStateException:callback_failed"))
+        assertTrue(compact.contains("gpu_callback_exception_stage=flow_collect_callback"))
+        assertTrue(compact.contains("gpu_generate_stall_interpretation=callback_exception_before_first_token"))
+    }
+
+    @Test
+    fun `GPU generate probe mode resolves only for GPU debug route`() {
+        val reader = { key: String ->
+            when (key) {
+                "debug.lami.gpu_generate_probe_mode" -> GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
+                else -> null
+            }
+        }
+
+        assertEquals(
+            GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY,
+            resolveGpuGenerateProbeModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = reader,
+            ),
+        )
+        assertEquals(
+            GPU_GENERATE_PROBE_MODE_NORMAL,
+            resolveGpuGenerateProbeModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.CPU,
+                propertyReader = reader,
+            ),
+        )
+    }
+
+    @Test
     fun `GPU timeout compact includes held engine lifecycle destroy diagnostics`() {
         val routeContext = buildLocalRouteDiagnosticContext(
             selectedModelName = "gemma-4-E2B-it",

@@ -54,6 +54,26 @@ internal data class LocalRouteDiagnosticFlags(
     val heldEngineLastOwner: String? = null,
     val heldEngineLastFailureStage: String? = null,
     val heldEngineSnapshotBeforeDestroy: String? = null,
+    val gpuGenerateProbeMode: String? = null,
+    val gpuGenerateCallEntered: Boolean? = null,
+    val gpuGenerateCallReturned: Boolean? = null,
+    val gpuCallbackInvokedCount: Int? = null,
+    val gpuCallbackFirstInvokedAtElapsedMs: Long? = null,
+    val gpuCallbackLastInvokedAtElapsedMs: Long? = null,
+    val gpuCallbackThreadName: String? = null,
+    val gpuCallbackDoneTrueSeen: Boolean? = null,
+    val gpuCallbackErrorSeen: Boolean? = null,
+    val gpuCallbackEmptyTextCount: Int? = null,
+    val gpuCallbackNonEmptyTextCount: Int? = null,
+    val gpuCallbackLastTextLength: Int? = null,
+    val gpuCallbackLastTextHead: String? = null,
+    val gpuFirstNonEmptyTextElapsedMs: Long? = null,
+    val gpuFirstTokenClassificationReason: String? = null,
+    val gpuCallbackExceptionClass: String? = null,
+    val gpuCallbackExceptionMessage: String? = null,
+    val gpuCallbackExceptionChain: String? = null,
+    val gpuCallbackExceptionStage: String? = null,
+    val gpuGenerateStallInterpretation: String? = null,
 )
 
 internal data class GpuRouteConfigDiagnostics(
@@ -320,6 +340,33 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_engine_initialize_api=Engine.initialize",
         "gpu_edge_gallery_diff_applied=${shouldApplyEdgeGalleryLikeGpuCompatibilityMode(context.preferredBackend)}",
         "gpu_route_divergence_point=${resolveGpuRouteDivergencePoint(flags, gpuTimeoutStage)}",
+        "debug_lami_gpu_generate_probe_mode=${flags.gpuGenerateProbeMode.toDiagnosticValue()}",
+        "gpu_generate_call_entered=${flags.gpuGenerateCallEntered.toDiagnosticValue()}",
+        "gpu_generate_call_returned=${flags.gpuGenerateCallReturned.toDiagnosticValue()}",
+        "gpu_callback_invoked_count=${flags.gpuCallbackInvokedCount?.toString() ?: "unavailable"}",
+        "gpu_callback_first_invoked_at_elapsed_ms=${flags.gpuCallbackFirstInvokedAtElapsedMs?.toString() ?: "unavailable"}",
+        "gpu_callback_last_invoked_at_elapsed_ms=${flags.gpuCallbackLastInvokedAtElapsedMs?.toString() ?: "unavailable"}",
+        "gpu_callback_thread_name=${flags.gpuCallbackThreadName.toDiagnosticValue()}",
+        "gpu_callback_done_true_seen=${flags.gpuCallbackDoneTrueSeen.toDiagnosticValue()}",
+        "gpu_done_true_seen=${flags.gpuCallbackDoneTrueSeen.toDiagnosticValue()}",
+        "gpu_callback_error_seen=${flags.gpuCallbackErrorSeen.toDiagnosticValue()}",
+        "gpu_callback_empty_text_count=${flags.gpuCallbackEmptyTextCount?.toString() ?: "unavailable"}",
+        "gpu_callback_non_empty_text_count=${flags.gpuCallbackNonEmptyTextCount?.toString() ?: "unavailable"}",
+        "gpu_callback_last_text_length=${flags.gpuCallbackLastTextLength?.toString() ?: "unavailable"}",
+        "gpu_callback_last_text_head=${flags.gpuCallbackLastTextHead.toDiagnosticValue()}",
+        "gpu_first_non_empty_text_elapsed_ms=${flags.gpuFirstNonEmptyTextElapsedMs?.toString() ?: "unavailable"}",
+        "gpu_first_token_classification_reason=${flags.gpuFirstTokenClassificationReason.toDiagnosticValue()}",
+        "gpu_callback_exception_class=${flags.gpuCallbackExceptionClass.toDiagnosticValue()}",
+        "gpu_callback_exception_message=${flags.gpuCallbackExceptionMessage.toDiagnosticValue()}",
+        "gpu_callback_exception_chain=${flags.gpuCallbackExceptionChain.toDiagnosticValue()}",
+        "gpu_callback_exception_stage=${flags.gpuCallbackExceptionStage.toDiagnosticValue()}",
+        "gpu_generate_stall_interpretation=${flags.gpuGenerateStallInterpretation ?: resolveGpuGenerateStallInterpretation(flags)}",
+        "cpu_callback_invoked_count=${resolveCpuCallbackValue(context, flags.gpuCallbackInvokedCount?.toString())}",
+        "cpu_done_true_seen=${resolveCpuCallbackValue(context, flags.gpuCallbackDoneTrueSeen?.toString())}",
+        "cpu_first_non_empty_text_elapsed_ms=${resolveCpuCallbackValue(context, flags.gpuFirstNonEmptyTextElapsedMs?.toString())}",
+        "gpu_done_true_seen_compare=${resolveGpuCallbackValue(context, flags.gpuCallbackDoneTrueSeen?.toString())}",
+        "gpu_first_non_empty_text_elapsed_ms_compare=${resolveGpuCallbackValue(context, flags.gpuFirstNonEmptyTextElapsedMs?.toString())}",
+        "callback_route_diff=${resolveCallbackRouteDiff(context, flags)}",
         "gpu_litert_executor_error_file=${gpuFailureClassification.executorErrorFile}",
         "gpu_litert_executor_error_line=${gpuFailureClassification.executorErrorLine}",
         "gpu_litert_compiled_model_error_file=${gpuFailureClassification.compiledModelErrorFile}",
@@ -374,6 +421,64 @@ internal fun LocalRouteDiagnosticFlags.withHeldEngineSnapshot(
         heldEngineSnapshotBeforeDestroy = snapshot.heldEngineSnapshotBeforeDestroy,
     )
 }
+
+internal fun resolveGpuGenerateStallInterpretation(flags: LocalRouteDiagnosticFlags): String =
+    when {
+        flags.gpuCallbackExceptionClass?.takeIf { it.isNotBlank() && it != "none" && it != "unavailable" } != null ->
+            "callback_exception_before_first_token"
+        flags.gpuGenerateCallEntered == true &&
+            flags.gpuCallbackInvokedCount == 0 &&
+            flags.firstTokenReceived == false ->
+            "native_generate_no_callback"
+        (flags.gpuCallbackInvokedCount ?: 0) > 0 &&
+            (flags.gpuCallbackNonEmptyTextCount ?: 0) == 0 &&
+            flags.gpuCallbackDoneTrueSeen == true ->
+            "callback_done_without_text"
+        (flags.gpuCallbackInvokedCount ?: 0) > 0 &&
+            (flags.gpuCallbackNonEmptyTextCount ?: 0) == 0 ->
+            "callback_empty_until_timeout"
+        (flags.gpuCallbackNonEmptyTextCount ?: 0) > 0 &&
+            flags.firstTokenReceived == false ->
+            "ui_first_token_detection_missed"
+        else -> "unknown"
+    }
+
+private fun resolveCpuCallbackValue(
+    context: LocalRouteDiagnosticContext,
+    value: String?,
+): String =
+    if (context.preferredBackend.equals("CPU", ignoreCase = true)) {
+        value ?: "unavailable"
+    } else {
+        "unavailable"
+    }
+
+private fun resolveGpuCallbackValue(
+    context: LocalRouteDiagnosticContext,
+    value: String?,
+): String =
+    if (context.preferredBackend.equals("GPU", ignoreCase = true)) {
+        value ?: "unavailable"
+    } else {
+        "unavailable"
+    }
+
+private fun resolveCallbackRouteDiff(
+    context: LocalRouteDiagnosticContext,
+    flags: LocalRouteDiagnosticFlags,
+): String =
+    when {
+        context.preferredBackend.equals("CPU", ignoreCase = true) &&
+            (flags.gpuCallbackInvokedCount ?: 0) > 0 -> "cpu_callback_observed"
+        context.preferredBackend.equals("GPU", ignoreCase = true) &&
+            flags.gpuGenerateCallEntered == true &&
+            (flags.gpuCallbackInvokedCount ?: 0) == 0 -> "gpu_generate_entered_no_callback"
+        context.preferredBackend.equals("GPU", ignoreCase = true) &&
+            (flags.gpuCallbackNonEmptyTextCount ?: 0) > 0 -> "gpu_callback_non_empty_observed"
+        context.preferredBackend.equals("GPU", ignoreCase = true) &&
+            (flags.gpuCallbackInvokedCount ?: 0) > 0 -> "gpu_callback_only_empty_or_done_observed"
+        else -> "unavailable_single_route"
+    }
 
 internal val GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS = listOf(
     "probe_requested",
@@ -952,7 +1057,12 @@ internal fun resolveGpuExperimentalTimeoutFailureStage(
         "engine_initialize_finished" -> "conversation_create_timeout"
         "conversation_create_started" -> "conversation_create_timeout"
         "conversation_create_finished" -> "generate_start_timeout"
-        "generate_started" -> "first_token_timeout"
+        "generate_started",
+        "generate_call_entered",
+        "generate_call_returned",
+        "generate_call_returned_null",
+        "generate_callback_invoked",
+        "generate_callback_exception" -> "first_token_timeout"
         else -> "engine_create_timeout"
     }
 

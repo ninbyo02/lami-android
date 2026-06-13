@@ -154,6 +154,68 @@ LAMI では GPU を Settings 上で `Experimental / 非推奨` と明示し、GP
 - GPU timeout 時は `gpu_watchdog_timeout_ms`, `gpu_watchdog_mode`, `gpu_timeout_stage`, `gpu_watchdog_failure_stage`, `gpu_timeout_checkpoint`, `generate_call_started_at_elapsed_ms`, `generate_before_first_token_elapsed_ms`, `gpu_generate_before_first_token_timeout_suspected`, `gpu_compatibility_mode`, `gpu_engine_config_profile`, `gpu_cache_dir_mode`, `gpu_edge_gallery_diff_applied`, `guard_recommendation=switch_to_cpu_or_npu` を確認する。
 - NPU S1 native / JNI / QAIRT overlay は今回の調査対象外であり、変更しない。
 
+## GPU Phase 3: generate callback / first token stall
+
+現在の確認済み状態:
+
+- Generic `gemma-4-E2B-it.litertlm` の CPU route は成功済み。
+- 通常 GPU route は `Engine.initialize` と conversation 作成まで成功する。
+- 通常 GPU route は `generate_started=true` 後、`first_token_received=false` のまま 60秒 timeout する。
+- held engine は timeout cleanup で holder clear されるため、次回 probe の `no_held_engine` は期待される。
+- isolated prefill probe は `Engine.initialize` で compiled model 作成エラーになり、通常 held route とは失敗地点が異なる。
+
+Phase 3 の焦点は、generate 開始後 first token 前の停止が native generate hang なのか、callback / UI handling の見落としなのかを分けること。`LOCAL_ROUTE_DIAG` と Local inference failure compact に以下を追加して観測する。
+
+- `gpu_generate_call_entered`
+- `gpu_generate_call_returned`
+- `gpu_callback_invoked_count`
+- `gpu_callback_first_invoked_at_elapsed_ms`
+- `gpu_callback_last_invoked_at_elapsed_ms`
+- `gpu_callback_thread_name`
+- `gpu_callback_done_true_seen`
+- `gpu_callback_error_seen`
+- `gpu_callback_empty_text_count`
+- `gpu_callback_non_empty_text_count`
+- `gpu_callback_last_text_length`
+- `gpu_callback_last_text_head`
+- `gpu_first_non_empty_text_elapsed_ms`
+- `gpu_first_token_classification_reason`
+- `gpu_callback_exception_class`
+- `gpu_callback_exception_message`
+- `gpu_callback_exception_chain`
+- `gpu_callback_exception_stage`
+- `gpu_generate_stall_interpretation`
+- `callback_route_diff`
+
+`gpu_generate_stall_interpretation` の読み方:
+
+- `native_generate_no_callback`: `generate` 呼び出し後、callback が一度も来ていない。
+- `callback_empty_until_timeout`: callback は来ているが空 text のみ。
+- `callback_done_without_text`: `done=true` は来たが text が空。
+- `callback_exception_before_first_token`: first token 前に callback 内例外を検出。
+- `ui_first_token_detection_missed`: non-empty text は観測したが UI 側 first-token 判定が立っていない。
+
+DEV opt-in の追加 mode:
+
+```sh
+adb shell setprop debug.lami.gpu_generate_probe_mode raw_callback_only
+```
+
+`raw_callback_only` は GPU 明示選択時だけ有効で、generate callback を記録しつつ streaming UI 更新を抑える。通常 route の TTS/DB/Markdown/NPU/native library には手を入れない。比較用に `ascii_prompt`, `max_tokens_1`, `no_sampler`, `no_streaming_ui` も mode 名として受け付けるが、既定値は `normal` のまま。
+
+次の実機確認:
+
+1. `adb shell setprop debug.lami.gpu_generate_probe_mode raw_callback_only`
+2. Settings で GPU を明示選択。
+3. prompt=`こんにちは` で通常チャットを1回実行。
+4. Copy Compact または LOCAL_ROUTE_DIAG で `gpu_callback_invoked_count` と `gpu_generate_stall_interpretation` を確認。
+
+判断:
+
+- `gpu_callback_invoked_count=0` なら native generate が first callback 前で止まっている可能性が強い。
+- callback が来て text が空なら callback payload / done handling を追加確認する。
+- non-empty text があるのに first token 判定がない場合は UI first-token detection の問題を疑う。
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。
