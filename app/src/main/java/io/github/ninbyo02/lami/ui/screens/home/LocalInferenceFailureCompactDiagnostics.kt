@@ -200,6 +200,14 @@ internal data class LocalInferenceFailureCompactInput(
     val gpuCallbackStreamingReusedHeldEngine: String = "unavailable",
     val gpuCallbackStreamingCompletionReason: String = "unavailable",
     val gpuCallbackStreamingFailureReason: String = "unavailable",
+    val standardGpuProbeExpectedEdgeGalleryE2b: String = "unavailable",
+    val standardGpuProbeModelSizeBytes: String = "unavailable",
+    val standardGpuProbeModelSha256Expected: String = "unavailable",
+    val standardGpuProbeModelSha256Actual: String = "unavailable",
+    val standardGpuProbeModelIdentityHint: String = "unavailable",
+    val standardGpuProbeRuntimeStack: String = "unavailable",
+    val standardGpuProbeCallbackStreamingGate: String = "unavailable",
+    val standardGpuProbeResultCandidate: String = "unavailable",
     val gpuLiteRtExecutorErrorFile: String = "unavailable",
     val gpuLiteRtExecutorErrorLine: String = "unavailable",
     val gpuLiteRtCompiledModelErrorFile: String = "unavailable",
@@ -456,6 +464,14 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "gpu_callback_streaming_reused_held_engine=${input.gpuCallbackStreamingReusedHeldEngine}",
         "gpu_callback_streaming_completion_reason=${input.gpuCallbackStreamingCompletionReason}",
         "gpu_callback_streaming_failure_reason=${input.gpuCallbackStreamingFailureReason}",
+        "standard_gpu_probe_expected_edge_gallery_e2b=${input.standardGpuProbeExpectedEdgeGalleryE2b}",
+        "standard_gpu_probe_model_size_bytes=${input.standardGpuProbeModelSizeBytes}",
+        "standard_gpu_probe_model_sha256_expected=${input.standardGpuProbeModelSha256Expected}",
+        "standard_gpu_probe_model_sha256_actual=${input.standardGpuProbeModelSha256Actual}",
+        "standard_gpu_probe_model_identity_hint=${input.standardGpuProbeModelIdentityHint}",
+        "standard_gpu_probe_runtime_stack=${input.standardGpuProbeRuntimeStack}",
+        "standard_gpu_probe_callback_streaming_gate=${input.standardGpuProbeCallbackStreamingGate}",
+        "standard_gpu_probe_result_candidate=${input.standardGpuProbeResultCandidate}",
         "gpu_litert_executor_error_file=${input.gpuLiteRtExecutorErrorFile}",
         "gpu_litert_executor_error_line=${input.gpuLiteRtExecutorErrorLine}",
         "gpu_litert_compiled_model_error_file=${input.gpuLiteRtCompiledModelErrorFile}",
@@ -871,6 +887,22 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         gpuCallbackStreamingCompletionReason =
             parsed["gpu_callback_streaming_completion_reason"] ?: "unavailable",
         gpuCallbackStreamingFailureReason = parsed["gpu_callback_streaming_failure_reason"] ?: "unavailable",
+        standardGpuProbeExpectedEdgeGalleryE2b =
+            parsed["standard_gpu_probe_expected_edge_gallery_e2b"] ?: "unavailable",
+        standardGpuProbeModelSizeBytes =
+            parsed["standard_gpu_probe_model_size_bytes"] ?: "unavailable",
+        standardGpuProbeModelSha256Expected =
+            parsed["standard_gpu_probe_model_sha256_expected"] ?: "unavailable",
+        standardGpuProbeModelSha256Actual =
+            parsed["standard_gpu_probe_model_sha256_actual"] ?: "unavailable",
+        standardGpuProbeModelIdentityHint =
+            parsed["standard_gpu_probe_model_identity_hint"] ?: "unavailable",
+        standardGpuProbeRuntimeStack =
+            parsed["standard_gpu_probe_runtime_stack"] ?: "unavailable",
+        standardGpuProbeCallbackStreamingGate =
+            parsed["standard_gpu_probe_callback_streaming_gate"] ?: "unavailable",
+        standardGpuProbeResultCandidate =
+            parsed["standard_gpu_probe_result_candidate"] ?: "unavailable",
         gpuLiteRtExecutorErrorFile = parsed.diagnosticValueOrNull("gpu_litert_executor_error_file")
             ?: gpuFailureClassification.executorErrorFile,
         gpuLiteRtExecutorErrorLine = parsed.diagnosticValueOrNull("gpu_litert_executor_error_line")

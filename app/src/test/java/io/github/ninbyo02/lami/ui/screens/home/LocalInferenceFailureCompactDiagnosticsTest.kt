@@ -675,6 +675,18 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(routeDiagnostics.contains("gpu_callback_streaming_reused_held_engine=true"))
         assertTrue(routeDiagnostics.contains("gpu_callback_streaming_completion_reason=flow_completed_non_empty_response"))
         assertTrue(routeDiagnostics.contains("gpu_callback_streaming_failure_reason=none"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_probe_expected_edge_gallery_e2b=true"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_probe_model_size_bytes=2588147712"))
+        assertTrue(
+            routeDiagnostics.contains(
+                "standard_gpu_probe_model_sha256_expected=181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+            ),
+        )
+        assertTrue(routeDiagnostics.contains("standard_gpu_probe_model_sha256_actual=device_unavailable"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_probe_model_identity_hint=edge_gallery_e2b_expected"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_probe_runtime_stack=standardDebug"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_probe_callback_streaming_gate=true"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_probe_result_candidate=success"))
         assertTrue(routeDiagnostics.contains("gpu_callback_text_promoted_to_ui=true"))
         assertTrue(routeDiagnostics.contains("gpu_ui_append_finished=true"))
         assertTrue(routeDiagnostics.contains("gpu_streaming_completion_reason=flow_completed_non_empty_response"))
@@ -683,6 +695,77 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("gpu_normal_route_use_callback_streaming=true"))
         assertTrue(compact.contains("gpu_callback_streaming_path_selected=true"))
         assertTrue(compact.contains("gpu_callback_streaming_failure_reason=none"))
+        assertTrue(compact.contains("standard_gpu_probe_expected_edge_gallery_e2b=true"))
+        assertTrue(compact.contains("standard_gpu_probe_result_candidate=success"))
+    }
+
+    @Test
+    fun `Standard GPU probe classifies Edge Gallery E2B callback streaming failure`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it-edge-gallery.litertlm",
+            selectedModelFile = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_exception",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = false,
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                gpuGenerateCallEntered = true,
+                gpuGenerateCallReturned = true,
+                gpuGenerateExceptionSeen = true,
+                gpuGenerateExceptionStatusCode = "13",
+                gpuGenerateExceptionErrorFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                gpuGenerateExceptionErrorLine = "735",
+                gpuGenerateExceptionSummary = "failed_to_invoke_compiled_model",
+                liteRtLmErrorStatusCode = "13",
+                liteRtLmErrorPrimaryFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                liteRtLmErrorPrimaryLine = "735",
+                gpuNormalRouteUseCallbackStreaming = true,
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackStreamingPathReason = "dev_gate_normal_route",
+                gpuCallbackStreamingSuccessCount = 0,
+                gpuCallbackStreamingFailureReason = "flow_response",
+            ),
+            elapsedMs = 2_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "applied",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                status = "failure",
+                reason = "local_inference_failure",
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                routeContext = routeContext,
+                timeout = false,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("standard_gpu_probe_expected_edge_gallery_e2b=true"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_probe_callback_streaming_gate=true"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_probe_result_candidate=failure"))
+        assertTrue(routeDiagnostics.contains("gpu_generate_exception_error_line=735"))
+        assertTrue(compact.contains("standard_gpu_probe_expected_edge_gallery_e2b=true"))
+        assertTrue(compact.contains("standard_gpu_probe_result_candidate=failure"))
+        assertTrue(compact.contains("litert_lm_error_status_code=13"))
     }
 
     @Test

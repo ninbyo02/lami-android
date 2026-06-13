@@ -631,6 +631,65 @@ Test prompts:
 
 This is still not a production promotion. GPU remains explicit user/dev selection, and the callback streaming route remains behind the DEV property until repeated stability checks pass on `galleryStackGpuProbe` and the standardDebug model/runtime comparison is resolved.
 
+## StandardDebug Edge Gallery E2B model probe
+
+Phase 11 compares model identity and runtime stack separately. The successful `galleryStackGpuProbe` path used the Edge Gallery E2B model:
+
+- file: `gemma-4-E2B-it.litertlm`
+- staged manual name: `gemma-4-E2B-it-edge-gallery.litertlm`
+- size: `2588147712`
+- sha256: `181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`
+- commit: `6e5c4f1e395deb959c494953478fa5cec4b8008f`
+- modelId: `litert-community/gemma-4-E2B-it-litert-lm`
+
+Use the helper script to verify and stage the model to shared storage:
+
+```bash
+scripts/stage_edge_gallery_e2b_model_to_lami_standard.sh --dry-run
+scripts/stage_edge_gallery_e2b_model_to_lami_standard.sh
+```
+
+Manual fallback:
+
+```bash
+adb push \
+  artifacts/edge_gallery_model/Gemma_4_E2B_it/gemma-4-E2B-it.litertlm \
+  /sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm
+```
+
+Install and run standardDebug:
+
+```bash
+./gradlew :app:installStandardDebug
+adb shell monkey -p io.github.ninbyo02.lami 1
+```
+
+Enable the guarded callback streaming route:
+
+```bash
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+```
+
+Expected standardDebug probe keys:
+
+- `standard_gpu_probe_expected_edge_gallery_e2b=true`
+- `standard_gpu_probe_model_size_bytes=2588147712`
+- `standard_gpu_probe_model_sha256_expected=181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`
+- `standard_gpu_probe_model_sha256_actual=device_unavailable`
+- `standard_gpu_probe_model_identity_hint=edge_gallery_e2b_expected`
+- `standard_gpu_probe_runtime_stack=standardDebug`
+- `standard_gpu_probe_callback_streaming_gate=true`
+- `standard_gpu_probe_result_candidate=success` or `failure`
+
+Outcome interpretation:
+
+1. `standardDebug + Edge Gallery E2B model + callback streaming` succeeds: model identity was the main blocker.
+2. It fails with `runtime/executor/llm_litert_compiled_model_executor.cc:735`: runtime/native stack difference remains the main blocker.
+3. It succeeds only in `galleryStackGpuProbe`: keep the isolated runtime stack as the promotion candidate and do not promote the standard route yet.
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

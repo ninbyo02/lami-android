@@ -192,6 +192,22 @@ internal data class LiteRtLmBackendArtisanApiDiagnostics(
     val runtimeArtisanEvidence: String = "unavailable",
 )
 
+internal const val STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES = 2_588_147_712L
+internal const val STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SHA256 =
+    "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+
+internal data class StandardGpuProbeDiagnostics(
+    val emit: Boolean = false,
+    val expectedEdgeGalleryE2b: String = "false",
+    val modelSizeBytes: String = "unavailable",
+    val modelSha256Expected: String = STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SHA256,
+    val modelSha256Actual: String = "device_unavailable",
+    val modelIdentityHint: String = "unavailable",
+    val runtimeStack: String = "unavailable",
+    val callbackStreamingGate: String = "unavailable",
+    val resultCandidate: String = "unknown",
+)
+
 internal fun buildLocalRouteDiagnosticContext(
     selectedModelName: String?,
     selectedModelFile: String?,
@@ -237,6 +253,64 @@ internal fun buildLocalRouteDiagnosticContext(
         ),
     )
 }
+
+internal fun buildStandardGpuProbeDiagnostics(
+    context: LocalRouteDiagnosticContext,
+    flags: LocalRouteDiagnosticFlags,
+    failureStage: String,
+): StandardGpuProbeDiagnostics {
+    val selectedText = listOf(
+        context.selectedModelName,
+        context.selectedModelFile,
+        context.selectedModelPath,
+    ).joinToString(" ").lowercase()
+    val modelFile = context.selectedModelPath
+        .takeIf { it.isNotBlank() && it != "unknown" && it != "unavailable" }
+        ?.let(::File)
+    val actualSize = modelFile?.takeIf { it.isFile }?.length()
+    val edgeGalleryNameHint =
+        selectedText.contains("gemma-4-e2b-it-edge-gallery.litertlm") ||
+            selectedText.contains("gemma_4_e2b_it") ||
+            selectedText.contains("litert-community/gemma-4-e2b-it-litert-lm")
+    val genericE2bNameHint = selectedText.contains("gemma-4-e2b-it.litertlm")
+    val expectedEdgeGalleryE2b =
+        edgeGalleryNameHint ||
+            (genericE2bNameHint && actualSize == STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+    val standardGpuProbe =
+        BuildConfig.CURRENT_FLAVOR == "standard" &&
+            context.preferredBackend.equals("GPU", ignoreCase = true) &&
+            expectedEdgeGalleryE2b
+    if (!standardGpuProbe) return StandardGpuProbeDiagnostics()
+    val resultCandidate = resolveStandardGpuProbeResultCandidate(
+        flags = flags,
+        failureStage = failureStage,
+    )
+    return StandardGpuProbeDiagnostics(
+        emit = true,
+        expectedEdgeGalleryE2b = "true",
+        modelSizeBytes = actualSize?.toString() ?: STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES.toString(),
+        modelIdentityHint = "edge_gallery_e2b_expected",
+        runtimeStack = "standardDebug",
+        callbackStreamingGate = flags.gpuNormalRouteUseCallbackStreaming?.toString() ?: "unavailable",
+        resultCandidate = resultCandidate,
+    )
+}
+
+private fun resolveStandardGpuProbeResultCandidate(
+    flags: LocalRouteDiagnosticFlags,
+    failureStage: String,
+): String =
+    when {
+        flags.gpuCallbackStreamingPathSelected == true &&
+            flags.gpuCallbackTextPromotedToUi == true &&
+            flags.gpuUiAppendFinished == true &&
+            flags.gpuStreamingCompletionReason == "flow_completed_non_empty_response" &&
+            (failureStage == "none" || failureStage == "unavailable") -> "success"
+        flags.gpuGenerateExceptionSeen == true ||
+            flags.gpuCallbackExceptionClass?.takeIf { it != "none" && it != "unavailable" } != null ||
+            (failureStage != "none" && failureStage != "unavailable") -> "failure"
+        else -> "unknown"
+    }
 
 internal fun buildLocalRouteDiagnosticTrace(
     stage: String,
@@ -327,6 +401,11 @@ internal fun buildLocalRouteDiagnosticTrace(
     val galleryStackGpuProbe = buildGalleryStackGpuProbeRuntimeDiagnostics(
         selectedModelPath = context.selectedModelPath,
         preferredBackend = context.preferredBackend,
+    )
+    val standardGpuProbe = buildStandardGpuProbeDiagnostics(
+        context = context,
+        flags = flags,
+        failureStage = failureStage,
     )
     return (
         listOf(
@@ -552,6 +631,7 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
         ) +
             buildGalleryStackGpuProbeRouteDiagnosticLines(galleryStackGpuProbe) +
+            buildStandardGpuProbeRouteDiagnosticLines(standardGpuProbe) +
             buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
         ).joinToString(" ")
 }
@@ -584,6 +664,22 @@ private fun buildGalleryStackGpuProbeRouteDiagnosticLines(
         "gallery_stack_probe_allowlist_temperature=${diagnostics.allowlistTemperature}",
         "gallery_stack_probe_allowlist_max_tokens=${diagnostics.allowlistMaxTokens}",
         "gallery_stack_probe_allowlist_max_context_length=${diagnostics.allowlistMaxContextLength}",
+    )
+}
+
+private fun buildStandardGpuProbeRouteDiagnosticLines(
+    diagnostics: StandardGpuProbeDiagnostics,
+): List<String> {
+    if (!diagnostics.emit) return emptyList()
+    return listOf(
+        "standard_gpu_probe_expected_edge_gallery_e2b=${diagnostics.expectedEdgeGalleryE2b}",
+        "standard_gpu_probe_model_size_bytes=${diagnostics.modelSizeBytes}",
+        "standard_gpu_probe_model_sha256_expected=${diagnostics.modelSha256Expected}",
+        "standard_gpu_probe_model_sha256_actual=${diagnostics.modelSha256Actual}",
+        "standard_gpu_probe_model_identity_hint=${diagnostics.modelIdentityHint}",
+        "standard_gpu_probe_runtime_stack=${diagnostics.runtimeStack}",
+        "standard_gpu_probe_callback_streaming_gate=${diagnostics.callbackStreamingGate}",
+        "standard_gpu_probe_result_candidate=${diagnostics.resultCandidate}",
     )
 }
 

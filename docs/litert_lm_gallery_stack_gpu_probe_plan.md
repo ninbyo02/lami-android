@@ -199,6 +199,48 @@ Expected guarded normal route keys:
 - `gpu_ui_append_finished=true`
 - `failure_stage=none`
 
+## StandardDebug Edge Gallery E2B Model Probe
+
+After `galleryStackGpuProbe` succeeds, test whether the same model works in `standardDebug` with the existing standard runtime stack:
+
+```bash
+scripts/stage_edge_gallery_e2b_model_to_lami_standard.sh --dry-run
+scripts/stage_edge_gallery_e2b_model_to_lami_standard.sh
+./gradlew :app:installStandardDebug
+adb shell monkey -p io.github.ninbyo02.lami 1
+```
+
+Select or import:
+
+```text
+/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm
+```
+
+Then set:
+
+```bash
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+```
+
+Expected model identity keys:
+
+- `standard_gpu_probe_expected_edge_gallery_e2b=true`
+- `standard_gpu_probe_model_size_bytes=2588147712`
+- `standard_gpu_probe_model_sha256_expected=181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`
+- `standard_gpu_probe_model_sha256_actual=device_unavailable`
+- `standard_gpu_probe_runtime_stack=standardDebug`
+- `standard_gpu_probe_callback_streaming_gate=true`
+- `standard_gpu_probe_result_candidate=success` or `failure`
+
+Interpretation:
+
+- `success`: model identity was likely the main blocker for standardDebug GPU.
+- `failure` with `cc:735`: runtime/native stack difference remains likely.
+- success only in `galleryStackGpuProbe`: keep isolated runtime stack promotion separate from standardDebug.
+
 Manual model selection:
 
 ```text
