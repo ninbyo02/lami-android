@@ -6,7 +6,7 @@ OUTPUT_DIR="$ROOT_DIR/artifacts/lami_model_static"
 DRY_RUN=0
 INPUTS=()
 
-MODEL_PATTERN='GPU_ARTISAN|CPU_ARTISAN|GOOGLE_TENSOR_ARTISAN|backend|constraint|sm8750|SM8750|qualcomm|Qualcomm|artisan|Artisan|gpu|GPU|npu|NPU|litert|LiteRT|executor|RuntimeConfig|EngineConfig|tflite_gpu_kv_cache|tflite_opencl_kv_cache'
+MODEL_PATTERN='GPU_ARTISAN|CPU_ARTISAN|GOOGLE_TENSOR_ARTISAN|backend|constraint|requires one of|requires_one_of|sm8750|SM8750|qualcomm|Qualcomm|artisan|Artisan|gpu|GPU|npu|NPU|litert|LiteRT|executor|RuntimeConfig|EngineConfig|tflite_gpu_kv_cache|tflite_opencl_kv_cache'
 DEFAULT_DEVICE_MODEL_PATH='/data/user/0/io.github.ninbyo02.lami/files/local_models/1781265409941_gemma-4-E2B-it.litertlm'
 DEFAULT_PACKAGE='io.github.ninbyo02.lami'
 
@@ -60,6 +60,39 @@ size_for() {
   else
     printf '0'
   fi
+}
+
+write_keyword_presence_header() {
+  local out="$1"
+  printf 'model_file\tkeyword\tpresent\n' >"$out"
+}
+
+append_keyword_presence() {
+  local model_file="$1"
+  local hint_file="$2"
+  local out="$3"
+  while IFS= read -r keyword; do
+    [ -z "$keyword" ] && continue
+    if grep -Fqi "$keyword" "$hint_file" 2>/dev/null; then
+      printf '%s\t%s\tyes\n' "$model_file" "$keyword" >>"$out"
+    else
+      printf '%s\t%s\tno\n' "$model_file" "$keyword" >>"$out"
+    fi
+  done <<'EOF'
+GPU_ARTISAN
+CPU_ARTISAN
+GOOGLE_TENSOR_ARTISAN
+backend
+constraint
+requires one of
+sm8750
+qualcomm
+gpu
+npu
+artisan
+tflite_gpu_kv_cache
+tflite_opencl_kv_cache
+EOF
 }
 
 collect_input_files() {
@@ -120,7 +153,7 @@ printf 'lami_model_static_output=%s\n' "$OUTPUT_DIR"
 
 if [ "$DRY_RUN" = "1" ]; then
   printf 'dry_run=true\n'
-  printf 'planned_outputs=summary.txt,model_inventory.tsv,strings/*.backend_hints.txt,all_model_backend_hints.txt,device_pull_instructions.md\n'
+  printf 'planned_outputs=summary.txt,model_inventory.tsv,model_keyword_presence.tsv,strings/*.backend_hints.txt,all_model_backend_hints.txt,device_pull_instructions.md\n'
   if [ "${#INPUTS[@]}" -gt 0 ]; then
     printf 'planned_inputs=%s\n' "${INPUTS[*]}"
   else
@@ -134,10 +167,12 @@ mkdir -p "$OUTPUT_DIR/input"
 
 SUMMARY="$OUTPUT_DIR/summary.txt"
 INVENTORY="$OUTPUT_DIR/model_inventory.tsv"
+KEYWORD_PRESENCE="$OUTPUT_DIR/model_keyword_presence.tsv"
 ALL_HINTS="$OUTPUT_DIR/all_model_backend_hints.txt"
 
 : >"$ALL_HINTS"
 printf 'model_file\tsize_bytes\tsha256\tbackend_hint_file\n' >"$INVENTORY"
+write_keyword_presence_header "$KEYWORD_PRESENCE"
 
 {
   printf 'generated_at_utc=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || printf 'unavailable')"
@@ -157,6 +192,7 @@ else
       grep -Ea "$MODEL_PATTERN" |
       sort -u >"$out" || true
     cat "$out" >>"$ALL_HINTS"
+    append_keyword_presence "$file" "$out" "$KEYWORD_PRESENCE"
     printf '%s\t%s\t%s\t%s\n' "$file" "$(size_for "$file")" "$(sha_for "$file")" "$out" >>"$INVENTORY"
   done <<EOF
 $FILES
@@ -168,6 +204,7 @@ write_device_instructions "$OUTPUT_DIR/device_pull_instructions.md"
 
 {
   printf 'model_inventory=%s\n' "$INVENTORY"
+  printf 'model_keyword_presence=%s\n' "$KEYWORD_PRESENCE"
   printf 'all_model_backend_hints=%s\n' "$ALL_HINTS"
   printf 'device_pull_instructions=%s\n' "$OUTPUT_DIR/device_pull_instructions.md"
 } >>"$SUMMARY"

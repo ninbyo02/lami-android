@@ -794,3 +794,189 @@ scripts/extract_lami_model_static_hints.sh --input artifacts/lami_model_static/i
    - Edge Gallery APK からの無断 runtime 移植は禁止。
    - `libLiteRt.so` / `liblitertlm_jni.so` の単体差し替えは禁止。
    - 検証する場合も依存セット全体、model、backend/executor selection、lifecycle を揃える。
+
+## Goal matrix and next GPU phase
+
+LAMI の最終目標は、Generic E2B の CPU/GPU と SM8750 専用 E2B の NPU を混ぜずに扱うこと。
+
+| 経路 | Model | Backend | 現状 | 方針 |
+| --- | --- | --- | --- | --- |
+| Generic E2B CPU | `gemma-4-E2B-it.litertlm` | CPU | working | 安定 baseline として維持する。 |
+| Generic E2B GPU | `gemma-4-E2B-it.litertlm` | GPU | investigating | Edge Gallery との差分を詰め、LAMI で動かす現実的条件を探す。 |
+| SM8750 E2B NPU | `gemma-4-E2B-it_qualcomm_sm8750.litertlm` | Qualcomm SM8750 / NPU | target, gated | NPU S1 safety gate 内で別フェーズとして扱う。今回の GPU 調査では本体挙動を変えない。 |
+
+### Current GPU failure map
+
+通常 GPU route:
+
+- `EngineConfig` build: success
+- `Engine` constructor: success
+- `Engine.initialize`: success
+- Conversation create: success
+- `generate_started=true`
+- `first_token_received=false`
+- `gpu_timeout_stage=generate_before_first_token`
+- `gpu_watchdog_failure_stage=gpu_watchdog_timeout_generate_before_first_token`
+
+既に試した GPU experiments:
+
+- `gpu_no_sampling_acceleration`: NG
+- `gpu_cache_dir_app_files`: NG
+- `gpu_max_tokens_32`: NG
+- いずれも `generate_before_first_token` timeout。
+- sampler / cacheDir / max tokens 単独原因説は低くなっている。
+
+isolated GPU prefill probe:
+
+- `prompt=hi`
+- `max_tokens=1`
+- `sampler=none`
+- `cache_dir=null`
+- isolated engine
+- `EngineConfig` build: success
+- `Engine.initialize`: failure
+- `failure_stage=gpu_prefill_probe_engine_initialize_invocation_target_exception`
+- root cause: `com.google.ai.edge.litertlm.LiteRtLmJniException`
+- native message: `Failed_to_create_engine:INTERNAL:ERROR:[runtime/executor/llm_litert_compiled_model_executor.cc:1546]└ERROR:[external/litert/litert/cc/litert_compiled_model.h:1140]`
+
+解釈:
+
+- 通常 route は held engine 経由で `generate_started` まで進む。
+- isolated engine は `Engine.initialize` で compiled model executor 作成に失敗する。
+- prompt / sampler / cache / max tokens より、runtime stack、backend executor selection、lifecycle 差分が濃い。
+
+### Edge Gallery comparison update
+
+Edge Gallery 静的抽出では以下が見えている。
+
+- `GPU_ARTISAN`
+- `CPU_ARTISAN`
+- `GOOGLE_TENSOR_ARTISAN`
+- `Artisan model detected. Switching backend from GPU to GPU_ARTISAN.`
+- `LlmGpuArtisanExecutor`
+- `backend constraint mismatch. Model requires one of [`
+- `Supported backends are: [CPU, GPU, NPU, GPU_ARTISAN, CPU_ARTISAN, GOOGLE_TENSOR_ARTISAN]`
+- `GPU sampler unavailable. Falling back to CPU sampling.`
+
+LAMI runtime reflection の現状:
+
+- `litert_lm_backend_candidates=CPU,GPU,NPU`
+- `litert_lm_backend_gpu_artisan_available=false`
+- `litert_lm_backend_cpu_artisan_available=false`
+- `litert_lm_backend_google_tensor_artisan_available=false`
+- `litert_lm_engine_config_artisan_api_available=false`
+- `litert_lm_runtime_config_available=false`
+- `litert_lm_backend_constraint_api_available=false`
+- `litert_lm_preferred_engine_type_api_available=false`
+
+この結果から、LAMI が利用している LiteRT-LM public API では `GPU_ARTISAN` 経路へ到達できない可能性が高い。ただし「不可能」とは断定しない。Edge Gallery 内部専用 API、model metadata による runtime 内部切替、または LAMI と異なる runtime stack が関係している可能性が残る。
+
+重要なのは、Edge Gallery が GPU で動く場合でも、その route が LAMI の public `Backend.GPU()` route と同じとは限らない点である。
+
+### Working hypotheses ranked
+
+1. backend / executor selection mismatch
+   - Edge Gallery は model constraint / artisan 判定で `GPU_ARTISAN` executor へ切り替えている可能性がある。
+   - LAMI public API からは現在 `CPU,GPU,NPU` しか見えていない。
+2. runtime stack mismatch
+   - Edge Gallery と LAMI の `libLiteRt.so` / `liblitertlm_jni.so` は SHA/build id が一致していない。
+   - 単体差し替えは禁止。比較は別 flavor / isolated APK の将来案に限定する。
+3. lifecycle / held engine difference
+   - LAMI 通常 route は held engine で generate まで進む。
+   - isolated probe は initialize で失敗するため、GPU environment / resource state / lifecycle 差分がある。
+4. model metadata / backend constraint difference
+   - Edge Gallery が実際に使用している model file と LAMI の `gemma-4-E2B-it.litertlm` が同一か未確定。
+   - model 内 metadata に backend constraint / artisan hint があるか確認が必要。
+5. sampler / cacheDir / max tokens
+   - 既存実験では単独原因説は低い。
+   - ただし他差分と組み合わさる可能性は残る。
+
+### Safety policy
+
+- CPU held-official-flow は stable default として維持する。
+- GPU は experimental / not recommended のまま扱う。GPU失敗時は CPU への切替を推奨する。
+- 今回は UX 変更しない。standard UI で GPU を experimental / not recommended と明示する案は次フェーズの提案に留める。
+- NPU は SM8750 専用 model の gated route として別フェーズで扱う。
+- NPU S1 本体、fallback、production default は変更しない。
+- native lib 差し替えは禁止。
+- `libLiteRt.so` / `liblitertlm_jni.so` の単体差し替えは禁止。
+- Edge Gallery APK から runtime を無断移植しない。
+- `GPU_ARTISAN` が見えても通常チャットに即適用しない。
+
+## Selected model static metadata helpers
+
+LAMI の selected model file が PC に pull 済みの場合:
+
+```bash
+scripts/extract_lami_model_static_hints.sh --input artifacts/lami_model_static/input
+```
+
+selected model path を実機から pull する場合は、明示 opt-in で行う。
+
+```bash
+scripts/pull_lami_selected_model_for_static_hints.sh --dry-run
+scripts/pull_lami_selected_model_for_static_hints.sh
+scripts/pull_lami_selected_model_for_static_hints.sh --pull \
+  --device-path /data/user/0/io.github.ninbyo02.lami/files/local_models/1781265409941_gemma-4-E2B-it.litertlm
+```
+
+`--pull` なしの通常実行は device へ接続せず、`artifacts/lami_model_static/selected_model_pull_summary.txt` に手順だけを書く。実機が必要な pull は `--pull` 付きでのみ実行する。
+
+静的確認 keyword:
+
+- `GPU_ARTISAN`
+- `CPU_ARTISAN`
+- `GOOGLE_TENSOR_ARTISAN`
+- `backend`
+- `constraint`
+- `requires one of`
+- `sm8750`
+- `qualcomm`
+- `gpu`
+- `npu`
+- `artisan`
+
+出力:
+
+- `artifacts/lami_model_static/summary.txt`
+- `artifacts/lami_model_static/model_inventory.tsv`
+- `artifacts/lami_model_static/model_keyword_presence.tsv`
+- `artifacts/lami_model_static/all_model_backend_hints.txt`
+- `artifacts/lami_model_static/strings/*.backend_hints.txt`
+- `artifacts/lami_model_static/device_pull_instructions.md`
+
+## Edge Gallery app data model inventory
+
+Edge Gallery が実際に使っている model 名、file 名、size、保存先を確認する。logcat は使わない。
+
+```bash
+adb shell pm list packages | grep -i 'gallery\|edge\|google'
+adb shell run-as <edge_gallery_package> ls -la
+adb shell run-as <edge_gallery_package> find shared_prefs files databases -maxdepth 4 -print
+```
+
+確認したいもの:
+
+- model 表示名
+- 実 file 名
+- file size
+- 保存先 path
+- accelerator / backend 設定の shared_prefs
+- model metadata / manifest らしき file
+
+`run-as` が不可の場合は、以下のように記録する。
+
+```text
+run_as_available=false
+run_as_failure=<exact shell message>
+```
+
+`adb backup` などの危険または不要な手法は使わない。
+
+## GPU next phase priority
+
+1. selected generic model の metadata / backend constraint を静的確認する。
+2. Edge Gallery 実 model の同一性を確認する。
+3. LAMI public `Backend.GPU()` で動かす余地があるか再評価する。
+4. public API では無理そうなら、別 flavor で Edge Gallery 同等 runtime / API stack を隔離検証する設計に進む。
+5. NPU は別フェーズで `gemma-4-E2B-it_qualcomm_sm8750.litertlm` に戻る。
