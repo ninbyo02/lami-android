@@ -5698,7 +5698,7 @@ fun Home(
                                                             latestLocalTraceForDev = runResultWithUiTrace?.trace?.copy(
                                                                 localFailureDiagnosticsText = localFailureCompactText,
                                                             ) ?: latestLocalTraceForDev
-                                                            if (!localStopRequested && rawCallbackProbeRunResult == null) {
+                                                            if (!localStopRequested) {
                                                                 val failureAssistantText = timeoutFailureRunResult?.response
                                                                     ?.takeIf { it.isNotBlank() }
                                                                     ?: when (resolvedState) {

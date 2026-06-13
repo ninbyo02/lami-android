@@ -945,6 +945,70 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `failure compact includes gallery stack probe diagnostics when provided`() {
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            LocalInferenceFailureCompactInput(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                status = "failure",
+                reason = "local_inference_failure",
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                failureExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                failureExceptionMessage = "Status Code: 13. Failed to invoke the compiled model",
+                gpuGenerateExceptionSummary = "failed_to_invoke_compiled_model",
+                gpuGenerateExceptionErrorFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                gpuGenerateExceptionErrorLine = "735",
+                liteRtCompiledModelExecutorFailureCategory = "compiled_model_invoke",
+                cpuGpuGenerateDiff = "cpu_callback_ok_gpu_compiled_model_invoke_failed",
+                modelName = "gemma-4-E2B-it-edge-gallery.litertlm",
+                modelFile = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+                galleryStackProbeDiagnostics = GalleryStackGpuProbeRuntimeDiagnostics(
+                    flavor = true,
+                    enabled = true,
+                    applicationId = "io.github.ninbyo02.lami.gallerystackgpu",
+                    nativeStackSource = "not_staged",
+                    libLiteRtSha256 = "unavailable",
+                    libLiteRtLmJniSha256 = "unavailable",
+                    libsManifestPresent = "artifact_only_not_packaged",
+                    edgeGalleryModelExpected = "modelId=litert-community/gemma-4-E2B-it-litert-lm;size=2588147712",
+                    modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+                    modelExists = "true",
+                    modelSizeBytes = "2588147712",
+                    modelSha256IfAvailable = "script_only_not_computed_on_device",
+                    allowlistConfigApplied = "true",
+                    runtimeStackAlignmentLevel = "model_only",
+                    thinkingApiAvailable = "false",
+                    speculativeDecodingApiAvailable = "false",
+                    allowlistAccelerators = "gpu,cpu",
+                    allowlistVisionAccelerator = "gpu",
+                    allowlistTopK = "64",
+                    allowlistTopP = "0.95",
+                    allowlistTemperature = "1.0",
+                    allowlistMaxTokens = "4000",
+                    allowlistMaxContextLength = "32000",
+                ),
+            ),
+        )
+
+        assertTrue(compact.contains("selected_backend=GPU"))
+        assertTrue(compact.contains("route_family=local_gpu"))
+        assertTrue(compact.contains("status=failure"))
+        assertTrue(compact.contains("reason=local_inference_failure"))
+        assertTrue(compact.contains("failure_stage=gpu_generate_compiled_model_invoke_failed"))
+        assertTrue(compact.contains("gallery_stack_probe_enabled=true"))
+        assertTrue(compact.contains("gallery_stack_probe_application_id=io.github.ninbyo02.lami.gallerystackgpu"))
+        assertTrue(compact.contains("gallery_stack_probe_native_stack_source=not_staged"))
+        assertTrue(compact.contains("gallery_stack_probe_liblitert_sha256=unavailable"))
+        assertTrue(compact.contains("gallery_stack_probe_liblitertlm_jni_sha256=unavailable"))
+        assertTrue(compact.contains("gallery_stack_probe_runtime_stack_alignment_level=model_only"))
+        assertTrue(compact.contains("gallery_stack_probe_allowlist_config_applied=true"))
+        assertTrue(compact.contains("litert_compiled_model_executor_failure_category=compiled_model_invoke"))
+        assertTrue(compact.contains("gpu_generate_exception_error_file=runtime/executor/llm_litert_compiled_model_executor.cc"))
+        assertTrue(compact.contains("gpu_generate_exception_error_line=735"))
+        assertTrue(compact.contains("cpu_gpu_generate_diff=cpu_callback_ok_gpu_compiled_model_invoke_failed"))
+    }
+
+    @Test
     fun `LiteRT-LM previous invocation still processing is classified`() {
         val target = IllegalStateException("Previous invocation still processing. Wait for done=true.")
         val wrapper = InvocationTargetException(target)
