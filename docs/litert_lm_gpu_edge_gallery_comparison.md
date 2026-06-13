@@ -354,6 +354,69 @@ Phase 5 で compact / LOCAL_ROUTE_DIAG / DEV 推論統計に追加する key:
 3. Edge Gallery 実 model file の同一性を確認する。
 4. public API から `GPU_ARTISAN` 相当へ到達できない場合は、通常 route へ雑に適用せず、別 flavor で Edge Gallery 同等 runtime/API stack を隔離検証する。
 
+## GPU Phase 6: model identity and runtime stack isolation
+
+Phase 6 の目的は、Edge Gallery で GPU が動いているように見える条件と、LAMI の public `Backend.GPU` が `Status Code 13` / compiled model invoke failure になる条件を、モデル同一性・runtime stack・executor selection の3点で分離すること。
+
+現時点の goal matrix:
+
+| Target | Model | Backend | Status |
+| --- | --- | --- | --- |
+| Generic E2B CPU | `gemma-4-E2B-it.litertlm` | CPU | working |
+| Generic E2B GPU | `gemma-4-E2B-it.litertlm` | GPU | investigating |
+| SM8750 E2B NPU | `gemma-4-E2B-it_qualcomm_sm8750.litertlm` | Qualcomm / NPU | target, gated |
+
+Current GPU finding:
+
+- CPU callback comparison succeeds: `cpu_gpu_generate_diff=cpu_callback_ok_gpu_compiled_model_invoke_failed`。
+- GPU route fails as `failure_stage=gpu_generate_compiled_model_invoke_failed`。
+- Parsed failure is `Status Code 13` at `runtime/executor/llm_litert_compiled_model_executor.cc:735` with `gpu_generate_exception_summary=failed_to_invoke_compiled_model`。
+- `litert_compiled_model_executor_failure_category=compiled_model_invoke`。
+- UI callback handling、watchdog、prompt language、sampler / TopK、cache dir、model corruption、CPU route は主因候補から下がっている。
+
+追加 artifact:
+
+- `artifacts/edge_gallery_static/model_identity_report.md`
+- `artifacts/edge_gallery_static/full_native_runtime_diff.md`
+- `artifacts/edge_gallery_static/gpu_artisan_access_path.md`
+- `docs/litert_lm_gallery_stack_gpu_probe_plan.md`
+
+生成:
+
+```bash
+scripts/inspect_edge_gallery_model_identity.sh --dry-run
+scripts/inspect_edge_gallery_model_identity.sh
+```
+
+Edge Gallery model identity:
+
+- APK/split の静的 strings には `Gemma 4`、`E2B`、`E4B`、`.litertlm`、`https://huggingface.co/litert-community` などの手掛かりがある。
+- APK/split の entry list には packaged `.litertlm` model binary は見つかっていない。
+- ただし APK/split 静的情報だけでは、Edge Gallery が実機で使った model file の exact filename / size / SHA-256 / source URL は確定できない。
+- したがって `same_model_claim=not_supported_by_static_apk` と扱う。LAMI の `1781343249464_gemma-4-E2B-it.litertlm` と同一モデルだとは、size/hash/source evidence なしに断定しない。
+
+GPU_ARTISAN access path:
+
+- Edge Gallery static evidence には `GPU_ARTISAN`、`CPU_ARTISAN`、`GOOGLE_TENSOR_ARTISAN`、`LlmGpuArtisanExecutor`、`Artisan model detected. Switching backend from GPU to GPU_ARTISAN.` がある。
+- LAMI runtime reflection では public backend candidates は `CPU,GPU,NPU` のみ。
+- 現時点では `GPU_ARTISAN` は LAMI public API から到達できる経路として確認できていない。
+- 静的 evidence は、Edge Gallery runtime 内部または model metadata/backend constraint による executor selection の可能性を示すが、通常チャットへ `GPU_ARTISAN` を即適用する根拠にはしない。
+
+Runtime stack isolation:
+
+- LiteRT-LM が Android GPU execution を持つことは静的 evidence と Edge Gallery 観察から plausible。
+- 一方、LAMI の current public `Backend.GPU` path は compiled model invoke で失敗している。
+- 次の安全な道筋は、`libLiteRt.so` / `liblitertlm_jni.so` の単体差し替えではなく、model identity 確認と full runtime stack isolation。
+- 将来検証する場合は `galleryStackGpuProbe` のような DEV-only 別 flavor / 別 applicationId / 別 native lib source dir / 別 model directory で行い、`standardDebug` と production route には触れない。
+
+Phase 6 の次アクション:
+
+1. Edge Gallery app data または公式 download source から、実 model file の size / SHA-256 / filename を確認する。
+2. LAMI selected model と Edge Gallery model が同一か判定する。
+3. 同一モデルであれば、full runtime stack isolation flavor の設計に進む。
+4. モデルが違う場合は、GPU成否を runtime差分と判断する前にモデル差分を潰す。
+5. public API で `GPU_ARTISAN` へ到達できない場合は、Edge Gallery 同等 runtime/API stack を隔離 flavor でのみ検証する。
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。
