@@ -40,6 +40,64 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `GPU diagnostic experiment modes resolve config variants without changing default`() {
+        val defaultConfig = buildGpuRouteConfigDiagnostics(
+            modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+            preferredBackend = "GPU",
+        )
+        val maxTokens32 = buildGpuRouteConfigDiagnostics(
+            modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+            preferredBackend = "GPU",
+            experimentMode = GPU_EXPERIMENT_MODE_MAX_TOKENS_32,
+        )
+        val noSampler = buildGpuRouteConfigDiagnostics(
+            modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+            preferredBackend = "GPU",
+            experimentMode = GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION,
+        )
+        val appCache = buildGpuRouteConfigDiagnostics(
+            modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+            cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+            preferredBackend = "GPU",
+            experimentMode = GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
+        )
+
+        assertEquals(GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE, defaultConfig.experimentMode)
+        assertEquals("1024", defaultConfig.maxTokens)
+        assertEquals("true", defaultConfig.samplerConfigEnabled)
+        assertEquals("null", defaultConfig.cacheDir)
+        assertEquals("32", maxTokens32.maxTokens)
+        assertEquals("false", noSampler.samplerConfigEnabled)
+        assertEquals("conversation_config_without_sampler", noSampler.samplerAccelerationPolicy)
+        assertEquals("/data/user/0/io.github.ninbyo02.lami/cache", appCache.cacheDir)
+    }
+
+    @Test
+    fun `GPU diagnostic cache dir resolver supports forced experiment modes`() {
+        assertEquals(
+            null,
+            resolveLiteRtEngineConfigCacheDir(
+                modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+                edgeGalleryLike = true,
+                gpuExperimentMode = GPU_EXPERIMENT_MODE_CACHE_DIR_NULL,
+            ),
+        )
+        assertEquals(
+            "/data/user/0/io.github.ninbyo02.lami/cache",
+            resolveLiteRtEngineConfigCacheDir(
+                modelPath = "/data/user/0/io.github.ninbyo02.lami/files/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+                edgeGalleryLike = true,
+                gpuExperimentMode = GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
+            ),
+        )
+    }
+
+    @Test
     fun `Hello と World の境界では最小 join を入れる`() {
         val builder = StringBuilder("Hello")
 

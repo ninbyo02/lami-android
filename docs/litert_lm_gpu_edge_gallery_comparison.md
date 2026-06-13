@@ -282,3 +282,90 @@ scripts/compare_litert_gpu_accelerator_strings.sh /path/to/split_config.arm64_v8
 - `libLiteRtWebGpuAccelerator`
 
 `libLiteRt.so` と `liblitertlm_jni.so` は ABI / symbol / registration / model constraint provider の結合が強い。片方だけを Edge Gallery 版へ差し替える検証は禁止する。差し替え検証を行う場合でも、まず比較結果から同一バージョン・同一依存セットとして扱えるか確認し、別 flavor または別 APK で isolated に行う。standardDebug の本経路や NPU S1 を巻き込んだ単体差し替えはしない。
+
+## GPU initialize diagnostics
+
+Edge Gallery と LAMI の両方で以下の GPU accelerator 関連文字列 / symbol が確認できる場合、LAMI 側の timeout は「GPU accelerator が欠落している」問題ではなく、LiteRT / LiteRT-LM JNI stack の初期化条件、EngineConfig、ConversationConfig、SamplerConfig、cacheDir、compiled model / delegate 初期化差分として扱う。
+
+確認済みの代表例:
+
+- `Statically linked GPU accelerator registered`
+- `Dynamically loaded GPU accelerator`
+- `Created LiteRT GpuEnvironment`
+- `Created default OpenGL-OpenCL shared context`
+- `libLiteRtGpuAccelerator.so`
+- `libLiteRtOpenClAccelerator.so`
+- `libLiteRtVulkanAccelerator.so`
+- `libLiteRtWebGpuAccelerator.so`
+- `LiteRtStaticLinkedAcceleratorGpuDef`
+
+LAMI の `Local inference failure compact` / `LOCAL_ROUTE_DIAG` には、GPU timeout 直前の状態を追うために以下を追加する。
+
+- `gpu_experiment_mode`
+- `gpu_experiment_modes_available`
+- `gpu_engine_config_model_path`
+- `gpu_engine_config_cache_dir`
+- `gpu_engine_config_backend`
+- `gpu_engine_config_vision_backend`
+- `gpu_engine_config_audio_backend`
+- `gpu_engine_config_max_tokens`
+- `gpu_engine_config_build_started`
+- `gpu_engine_config_build_finished`
+- `gpu_engine_constructor_started`
+- `gpu_engine_constructor_finished`
+- `gpu_engine_initialize_started`
+- `gpu_engine_initialize_finished`
+- `gpu_engine_initialize_call_state`
+- `gpu_timeout_checkpoint`
+- `gpu_sampler_config_enabled`
+- `gpu_sampler_config_top_k`
+- `gpu_sampler_config_top_p`
+- `gpu_sampler_config_temperature`
+- `gpu_sampler_acceleration_policy`
+- `gpu_conversation_config_sampler_present`
+- `gpu_options_configured`
+- `gpu_options_source`
+
+`gpu_timeout_checkpoint` の読み方:
+
+- `engine_config_build`: `EngineConfig` 生成中。
+- `engine_constructor`: `Engine(engineConfig)` 作成中。
+- `engine_initialize`: `Engine.initialize()` 呼び出し中。
+- `conversation_create`: `createConversation` 中。
+- `generate_started`: 生成開始後。
+
+## DEV-only GPU experiment modes
+
+デフォルトは引き続き `edge_gallery_like`。明示しない限り production / 通常挙動は変えない。
+
+standardDebug の DEV 検証だけで、Android system property または JVM property / env から以下を選べる。
+
+- `edge_gallery_like`
+- `gpu_sampler_only_minimal`
+- `gpu_no_sampling_acceleration`
+- `gpu_disable_topk_gpu_sampler_candidate`
+- `gpu_cache_dir_null`
+- `gpu_cache_dir_app_files`
+- `gpu_max_tokens_32`
+
+Android 実機での指定例:
+
+```bash
+adb shell setprop debug.lami.gpu_experiment_mode gpu_no_sampling_acceleration
+```
+
+検証後は未指定へ戻す。
+
+```bash
+adb shell setprop debug.lami.gpu_experiment_mode ""
+```
+
+各モードの目的:
+
+- `gpu_no_sampling_acceleration`: `ConversationConfig` に `SamplerConfig` を渡さず、TopK/OpenCL/WebGPU sampler 周辺を避ける。
+- `gpu_disable_topk_gpu_sampler_candidate`: 現APIで明示的に TopK GPU sampler だけを切る direct option はないため、診断上は no sampler config として扱う。
+- `gpu_cache_dir_null`: cacheDir を強制 `null` にして Gallery 通常 model path 寄せを明示する。
+- `gpu_cache_dir_app_files`: app cache dir を渡し、cacheDir 差分の影響を見る。
+- `gpu_max_tokens_32`: `maxNumTokens=32` で compiled model / delegate 初期化負荷の影響を見る。
+
+これらは GPU 明示選択時だけ有効。CPU held-official-flow、Automatic CPU priority、NPU S1、fallback 本挙動は変更しない。

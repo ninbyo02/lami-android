@@ -1986,6 +1986,7 @@ fun Home(
         runGuardEpoch: Long,
         runStartedAtMs: Long,
         timedOut: AtomicBoolean,
+        progressFlagsProvider: () -> LocalRouteDiagnosticFlags = { LocalRouteDiagnosticFlags() },
     ): Job? {
         if (!shouldApplyGpuExperimentalStageTimeout(diagnosticContext)) return null
         return coroutineScope.launch {
@@ -2001,6 +2002,7 @@ fun Home(
                 failureStage = "gpu_watchdog_timeout",
                 elapsedMs = elapsedMs,
                 staleCallbackIgnored = true,
+                progressFlags = progressFlagsProvider(),
             )
             appendLocalReflectionTrace(
                 context = context.applicationContext,
@@ -2008,7 +2010,7 @@ fun Home(
             )
             latestLocalTraceForDev = LocalInferenceTrace(
                 localModelDisplayName = diagnosticContext.selectedModelName,
-                mediaPipeProbeModelPath = diagnosticContext.selectedModelFile,
+                mediaPipeProbeModelPath = diagnosticContext.selectedModelPath,
                 requestedPreferredBackend = "GPU",
                 appliedPreferredBackend = "GPU",
                 preferredBackendApplyResult = "timeout",
@@ -4320,6 +4322,7 @@ fun Home(
                                                         val localRunStartedAtMs = SystemClock.elapsedRealtime()
                                                         val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
                                                         val localRouteTimedOut = AtomicBoolean(false)
+                                                        val gpuRouteProgressTracker = GpuRouteProgressTracker()
                                                         var localGpuWatchdogForRun: Job? = null
                                                         try {
                                                             localInferenceEngineState = resolveLocalPreparingUiState()
@@ -4342,6 +4345,12 @@ fun Home(
                                                                 runGuardEpoch = localRunGuardEpoch,
                                                                 runStartedAtMs = localRunStartedAtMs,
                                                                 timedOut = localRouteTimedOut,
+                                                                progressFlagsProvider = {
+                                                                    gpuRouteProgressTracker.snapshot(
+                                                                        failureStage = "gpu_watchdog_timeout",
+                                                                        staleCallbackIgnored = true,
+                                                                    )
+                                                                },
                                                             )
                                                             localGpuWatchdogJob = localGpuWatchdogForRun
                                                             appendLocalReflectionTrace(
@@ -4384,6 +4393,13 @@ fun Home(
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
                                                                 val applyGpuExperimentalTimeout =
                                                                     shouldApplyGpuExperimentalStageTimeout(localRouteDiagnosticContext)
+                                                                gpuRouteProgressTracker.setConfig(
+                                                                    buildGpuRouteConfigDiagnostics(
+                                                                        modelPath = resolvedModelPath,
+                                                                        cacheDirPath = modelResolution.cacheDirPath,
+                                                                        preferredBackend = preferredBackendDryRunSetting.name,
+                                                                    ),
+                                                                )
                                                                 val lastRouteDiagnosticStage =
                                                                     AtomicReference<String?>("engine_create_started")
                                                                 val heldSnapshotBeforeAcquire = localInferenceEngineHolder.getDevDiagnosticSnapshot()
@@ -4391,6 +4407,7 @@ fun Home(
                                                                     localInferenceEngineHolder.hasReusableHeldEngineForKey(modelResolution.engineKey)
                                                                 val engineCreateStarted = !reusableHeldEngineBeforeAcquire
                                                                 lastRouteDiagnosticStage.set("engine_create_started")
+                                                                gpuRouteProgressTracker.recordStage("engine_create_started")
                                                                 appendLocalReflectionTrace(
                                                                     context = context.applicationContext,
                                                                     message = buildLocalRouteDiagnosticTrace(
@@ -4401,6 +4418,9 @@ fun Home(
                                                                             heldEngineReused = false,
                                                                             engineCreateStarted = engineCreateStarted,
                                                                             engineCreateFinished = false,
+                                                                            engineConfigBuildStarted = if (engineCreateStarted) true else null,
+                                                                            engineConfigBuildFinished = false.takeIf { engineCreateStarted },
+                                                                            gpuConfigDiagnostics = gpuRouteProgressTracker.configSnapshot(),
                                                                         ),
                                                                         elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
                                                                     ),
@@ -4421,6 +4441,7 @@ fun Home(
                                                                             engineKey = modelResolution.engineKey,
                                                                             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                                                                             appendTrace = { message ->
+                                                                                gpuRouteProgressTracker.recordTrace(message)
                                                                                 if (message.startsWith("UPSTREAM official-helper") || message.startsWith("UPSTREAM held-create")) {
                                                                                     heldOfficialHelperProgress = message
                                                                                 }
@@ -4449,6 +4470,7 @@ fun Home(
                                                                                 context = context.applicationContext,
                                                                                 preferredBackendDryRunSetting = preferredBackendDryRunSetting,
                                                                                 appendTrace = { message ->
+                                                                                    gpuRouteProgressTracker.recordTrace(message)
                                                                                     appendLocalReflectionTrace(
                                                                                         context = context.applicationContext,
                                                                                         message = message,
@@ -4492,6 +4514,10 @@ fun Home(
                                                                                 context = localRouteDiagnosticContext,
                                                                                 failureStage = failureStage,
                                                                                 elapsedMs = elapsedMs,
+                                                                                progressFlags = gpuRouteProgressTracker.snapshot(
+                                                                                    failureStage = failureStage,
+                                                                                    staleCallbackIgnored = false,
+                                                                                ),
                                                                             ),
                                                                         )
                                                                         coroutineScope.launch(Dispatchers.IO) {
@@ -4507,6 +4533,10 @@ fun Home(
                                                                             modelResolution = modelResolution,
                                                                             failureStage = failureStage,
                                                                             elapsedMs = elapsedMs,
+                                                                            progressFlags = gpuRouteProgressTracker.snapshot(
+                                                                                failureStage = failureStage,
+                                                                                staleCallbackIgnored = false,
+                                                                            ),
                                                                         )
                                                                     }
                                                                     acquireResult.value
@@ -4525,7 +4555,12 @@ fun Home(
                                                                             heldEngineReused = heldEngineReused,
                                                                             engineCreateStarted = engineCreateStarted,
                                                                             engineCreateFinished = if (engineCreateStarted) heldEngine != null else false,
+                                                                            engineConfigBuildStarted = gpuRouteProgressTracker.snapshot().engineConfigBuildStarted,
+                                                                            engineConfigBuildFinished = gpuRouteProgressTracker.snapshot().engineConfigBuildFinished,
+                                                                            engineInitializeStarted = gpuRouteProgressTracker.snapshot().engineInitializeStarted,
+                                                                            engineInitializeFinished = gpuRouteProgressTracker.snapshot().engineInitializeFinished,
                                                                             failureStage = if (heldEngine == null) heldAcquireFailureStage ?: "holder-acquire" else null,
+                                                                            gpuConfigDiagnostics = gpuRouteProgressTracker.configSnapshot(),
                                                                         ),
                                                                         elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
                                                                     ),
@@ -4590,6 +4625,7 @@ fun Home(
                                                                         heldEngineReused = heldEngineReused,
                                                                         onRouteDiagnosticStage = { stage ->
                                                                             lastRouteDiagnosticStage.set(stage)
+                                                                            gpuRouteProgressTracker.recordStage(stage)
                                                                         },
                                                                         onPartial = { partial ->
                                                                             if (localRouteTimedOut.get() || localStopRequested) return@runWithHeldEngine
@@ -4640,6 +4676,7 @@ fun Home(
                                                                             }
                                                                         },
                                                                         appendTrace = { message ->
+                                                                            gpuRouteProgressTracker.recordTrace(message)
                                                                             appendLocalReflectionTrace(
                                                                                 context = context.applicationContext,
                                                                                 message = message,
@@ -4666,6 +4703,10 @@ fun Home(
                                                                                     context = localRouteDiagnosticContext,
                                                                                     failureStage = failureStage,
                                                                                     elapsedMs = elapsedMs,
+                                                                                    progressFlags = gpuRouteProgressTracker.snapshot(
+                                                                                        failureStage = failureStage,
+                                                                                        staleCallbackIgnored = false,
+                                                                                    ),
                                                                                 ),
                                                                             )
                                                                             coroutineScope.launch(Dispatchers.IO) {
@@ -4685,6 +4726,10 @@ fun Home(
                                                                                 modelResolution = modelResolution,
                                                                                 failureStage = failureStage,
                                                                                 elapsedMs = elapsedMs,
+                                                                                progressFlags = gpuRouteProgressTracker.snapshot(
+                                                                                    failureStage = failureStage,
+                                                                                    staleCallbackIgnored = false,
+                                                                                ),
                                                                             )
                                                                         }
                                                                         runOperation.value
@@ -7179,6 +7224,7 @@ private fun buildGpuExperimentalTimeoutDiagnosticsText(
     failureStage: String,
     elapsedMs: Long,
     staleCallbackIgnored: Boolean = false,
+    progressFlags: LocalRouteDiagnosticFlags? = null,
 ): String {
     val watchdogTimeout = failureStage == "gpu_watchdog_timeout"
     val engineCreateStarted = true
@@ -7188,23 +7234,59 @@ private fun buildGpuExperimentalTimeoutDiagnosticsText(
         !watchdogTimeout &&
             (failureStage == "generate_start_timeout" || failureStage == "first_token_timeout")
     val generateStarted = !watchdogTimeout && failureStage == "first_token_timeout"
+    val fallbackFlags = LocalRouteDiagnosticFlags(
+        heldEngineExists = engineCreateFinished,
+        heldEngineReused = false,
+        engineCreateStarted = engineCreateStarted,
+        engineCreateFinished = engineCreateFinished,
+        conversationCreateStarted = conversationCreateStarted,
+        conversationCreateFinished = conversationCreateFinished,
+        generateStarted = generateStarted,
+        firstTokenReceived = false,
+        failureStage = failureStage,
+        fallbackUsed = false,
+        staleCallbackIgnored = staleCallbackIgnored,
+    )
+    val flags = mergeGpuTimeoutProgressFlags(
+        progressFlags = progressFlags,
+        fallbackFlags = fallbackFlags,
+        failureStage = failureStage,
+        staleCallbackIgnored = staleCallbackIgnored,
+    )
     return buildLocalRouteDiagnosticTrace(
         stage = "timeout_failure",
         context = context,
-        flags = LocalRouteDiagnosticFlags(
-            heldEngineExists = engineCreateFinished,
-            heldEngineReused = false,
-            engineCreateStarted = engineCreateStarted,
-            engineCreateFinished = engineCreateFinished,
-            conversationCreateStarted = conversationCreateStarted,
-            conversationCreateFinished = conversationCreateFinished,
-            generateStarted = generateStarted,
-            firstTokenReceived = false,
-            failureStage = failureStage,
-            fallbackUsed = false,
-            staleCallbackIgnored = staleCallbackIgnored,
-        ),
+        flags = flags,
         elapsedMs = elapsedMs,
+    )
+}
+
+private fun mergeGpuTimeoutProgressFlags(
+    progressFlags: LocalRouteDiagnosticFlags?,
+    fallbackFlags: LocalRouteDiagnosticFlags,
+    failureStage: String,
+    staleCallbackIgnored: Boolean,
+): LocalRouteDiagnosticFlags {
+    val progress = progressFlags ?: return fallbackFlags
+    return fallbackFlags.copy(
+        heldEngineExists = progress.heldEngineExists ?: fallbackFlags.heldEngineExists,
+        heldEngineReused = progress.heldEngineReused ?: fallbackFlags.heldEngineReused,
+        engineCreateStarted = progress.engineCreateStarted ?: fallbackFlags.engineCreateStarted,
+        engineCreateFinished = progress.engineCreateFinished ?: fallbackFlags.engineCreateFinished,
+        engineCreateDurationMs = progress.engineCreateDurationMs ?: fallbackFlags.engineCreateDurationMs,
+        conversationCreateStarted = progress.conversationCreateStarted ?: fallbackFlags.conversationCreateStarted,
+        conversationCreateFinished = progress.conversationCreateFinished ?: fallbackFlags.conversationCreateFinished,
+        generateStarted = progress.generateStarted ?: fallbackFlags.generateStarted,
+        firstTokenReceived = progress.firstTokenReceived ?: fallbackFlags.firstTokenReceived,
+        firstTokenElapsedMs = progress.firstTokenElapsedMs ?: fallbackFlags.firstTokenElapsedMs,
+        failureStage = failureStage,
+        fallbackUsed = progress.fallbackUsed ?: fallbackFlags.fallbackUsed,
+        staleCallbackIgnored = staleCallbackIgnored,
+        engineConfigBuildStarted = progress.engineConfigBuildStarted ?: fallbackFlags.engineConfigBuildStarted,
+        engineConfigBuildFinished = progress.engineConfigBuildFinished ?: fallbackFlags.engineConfigBuildFinished,
+        engineInitializeStarted = progress.engineInitializeStarted ?: fallbackFlags.engineInitializeStarted,
+        engineInitializeFinished = progress.engineInitializeFinished ?: fallbackFlags.engineInitializeFinished,
+        gpuConfigDiagnostics = progress.gpuConfigDiagnostics ?: fallbackFlags.gpuConfigDiagnostics,
     )
 }
 
@@ -7213,11 +7295,13 @@ private fun buildGpuExperimentalTimeoutRunResult(
     modelResolution: LocalModelResolution,
     failureStage: String,
     elapsedMs: Long,
+    progressFlags: LocalRouteDiagnosticFlags? = null,
 ): LocalInferenceRunResult {
     val diagnosticsText = buildGpuExperimentalTimeoutDiagnosticsText(
         context = context,
         failureStage = failureStage,
         elapsedMs = elapsedMs,
+        progressFlags = progressFlags,
     )
     return LocalInferenceRunResult(
         state = LocalInferenceEngineState.ERROR,
@@ -7233,6 +7317,111 @@ private fun buildGpuExperimentalTimeoutRunResult(
             localFailureDiagnosticsText = diagnosticsText,
         ),
     )
+}
+
+private class GpuRouteProgressTracker {
+    private val engineConfigBuildStarted = AtomicBoolean(false)
+    private val engineConfigBuildFinished = AtomicBoolean(false)
+    private val engineConstructorStarted = AtomicBoolean(false)
+    private val engineConstructorFinished = AtomicBoolean(false)
+    private val engineInitializeStarted = AtomicBoolean(false)
+    private val engineInitializeFinished = AtomicBoolean(false)
+    private val conversationCreateStarted = AtomicBoolean(false)
+    private val conversationCreateFinished = AtomicBoolean(false)
+    private val generateStarted = AtomicBoolean(false)
+    private val firstTokenReceived = AtomicBoolean(false)
+    private val config = AtomicReference<GpuRouteConfigDiagnostics?>(null)
+
+    fun setConfig(configDiagnostics: GpuRouteConfigDiagnostics) {
+        config.set(configDiagnostics)
+    }
+
+    fun configSnapshot(): GpuRouteConfigDiagnostics? = config.get()
+
+    fun recordStage(stage: String?) {
+        when (stage) {
+            "engine_config_build_started" -> engineConfigBuildStarted.set(true)
+            "engine_config_build_finished" -> {
+                engineConfigBuildStarted.set(true)
+                engineConfigBuildFinished.set(true)
+                engineConstructorStarted.set(true)
+            }
+            "engine_create_started" -> engineConstructorStarted.set(true)
+            "engine_create_finished" -> {
+                engineConstructorStarted.set(true)
+                engineConstructorFinished.set(true)
+            }
+            "engine_initialize_started" -> {
+                engineConstructorStarted.set(true)
+                engineConstructorFinished.set(true)
+                engineInitializeStarted.set(true)
+            }
+            "engine_initialize_finished" -> {
+                engineConstructorStarted.set(true)
+                engineConstructorFinished.set(true)
+                engineInitializeStarted.set(true)
+                engineInitializeFinished.set(true)
+            }
+            "conversation_create_started" -> {
+                engineInitializeStarted.set(true)
+                engineInitializeFinished.set(true)
+                conversationCreateStarted.set(true)
+            }
+            "conversation_create_finished" -> {
+                conversationCreateStarted.set(true)
+                conversationCreateFinished.set(true)
+            }
+            "generate_started" -> generateStarted.set(true)
+            "first_token_received" -> firstTokenReceived.set(true)
+        }
+    }
+
+    fun recordTrace(message: String) {
+        when {
+            message.contains("engine-config-create-start") -> recordStage("engine_config_build_started")
+            message.contains("engineConfig-created") ||
+                message.contains("engine-config-created") ||
+                message.contains("engine-config-created non-null") ||
+                message.contains("engineConfig-created") -> recordStage("engine_config_build_finished")
+            message.contains("engine-new-instance-result") ||
+                message.contains("engine-created") ||
+                message.contains("engineCreated") -> recordStage("engine_create_finished")
+            message.contains("engine-initialize-start") -> recordStage("engine_initialize_started")
+            message.contains("engine-initialize-success") ||
+                message.contains("engineInitialized") -> recordStage("engine_initialize_finished")
+            message.contains("conversation-create-start") -> recordStage("conversation_create_started")
+            message.contains("conversation-create-success") ||
+                message.contains("conversationCreated") ||
+                message.contains("official-conversation created") -> recordStage("conversation_create_finished")
+            message.contains("sendMessage") ||
+                message.contains("official-flow invoke") -> recordStage("generate_started")
+            message.contains("first-token") ||
+                message.contains("first partial") -> recordStage("first_token_received")
+        }
+    }
+
+    fun snapshot(
+        failureStage: String? = null,
+        staleCallbackIgnored: Boolean? = null,
+    ): LocalRouteDiagnosticFlags =
+        LocalRouteDiagnosticFlags(
+            heldEngineExists = engineConstructorFinished.get(),
+            heldEngineReused = false,
+            engineCreateStarted = engineConstructorStarted.get(),
+            engineCreateFinished = engineConstructorFinished.get(),
+            conversationCreateStarted = conversationCreateStarted.get(),
+            conversationCreateFinished = conversationCreateFinished.get(),
+            generateStarted = generateStarted.get(),
+            firstTokenReceived = firstTokenReceived.get(),
+            failureStage = failureStage,
+            fallbackUsed = false,
+            staleCallbackIgnored = staleCallbackIgnored,
+            engineConfigBuildStarted = engineConfigBuildStarted.get(),
+            engineConfigBuildFinished = engineConfigBuildFinished.get(),
+            engineInitializeStarted = engineInitializeStarted.get(),
+            engineInitializeFinished = engineInitializeFinished.get(),
+            gpuConfigDiagnostics = config.get(),
+        )
 }
 
 private fun shouldInsertLocalFailureAssistantMessage(

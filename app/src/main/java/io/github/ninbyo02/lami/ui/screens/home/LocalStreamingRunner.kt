@@ -4493,6 +4493,13 @@ internal fun buildLiteRtEngineConfig(
     val backendEnumCandidates = listOf("DEFAULT", "CPU", "GPU")
     val backendPolicy = resolveLiteRtTextBackendSelection(preferredBackendDryRunSetting)
     val edgeGalleryLike = shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name)
+    val gpuExperimentMode = resolveGpuDiagnosticExperimentModeForBackend(preferredBackendDryRunSetting.name)
+    val gpuConfigDiagnostics = buildGpuRouteConfigDiagnostics(
+        modelPath = modelPath,
+        cacheDirPath = cacheDirPath,
+        preferredBackend = preferredBackendDryRunSetting.name,
+        experimentMode = gpuExperimentMode,
+    )
     val backend = when (preferredBackendDryRunSetting) {
         PreferredBackendDryRunSetting.CPU -> Backend.CPU()
         PreferredBackendDryRunSetting.GPU -> Backend.GPU()
@@ -4520,7 +4527,11 @@ internal fun buildLiteRtEngineConfig(
     )
     safeAppendTrace(
         appendTrace,
-        "UPSTREAM gpu-compatibility mode=${resolveGpuCompatibilityModeForBackend(preferredBackendDryRunSetting.name)} engineConfigProfile=${resolveGpuEngineConfigProfileForBackend(preferredBackendDryRunSetting.name)} cacheDirMode=${resolveGpuCacheDirModeForBackend(preferredBackendDryRunSetting.name)} maxTokens=${resolveGpuMaxTokensForBackend(preferredBackendDryRunSetting.name)}",
+        "UPSTREAM gpu-compatibility mode=${resolveGpuCompatibilityModeForBackend(preferredBackendDryRunSetting.name)} experimentMode=${gpuConfigDiagnostics.experimentMode} engineConfigProfile=${resolveGpuEngineConfigProfileForBackend(preferredBackendDryRunSetting.name)} cacheDirMode=${resolveGpuCacheDirModeForBackend(preferredBackendDryRunSetting.name, gpuExperimentMode)} maxTokens=${gpuConfigDiagnostics.maxTokens}",
+    )
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM gpu-engine-config modelPathTail=${gpuConfigDiagnostics.modelPathTail} cacheDir=${gpuConfigDiagnostics.cacheDir} backend=${gpuConfigDiagnostics.backend} visionBackend=${gpuConfigDiagnostics.visionBackend} audioBackend=${gpuConfigDiagnostics.audioBackend} maxTokens=${gpuConfigDiagnostics.maxTokens} samplerEnabled=${gpuConfigDiagnostics.samplerConfigEnabled} samplerPolicy=${gpuConfigDiagnostics.samplerAccelerationPolicy} gpuOptionsConfigured=${gpuConfigDiagnostics.gpuOptionsConfigured}",
     )
     if (preferredBackendDryRunSetting == PreferredBackendDryRunSetting.NPU || preferredBackendDryRunSetting == PreferredBackendDryRunSetting.QUALCOMM_QNN_NPU) {
         safeAppendTrace(
@@ -4533,11 +4544,12 @@ internal fun buildLiteRtEngineConfig(
         backend = backend,
         visionBackend = if (edgeGalleryLike) null else Backend.GPU(),
         audioBackend = if (edgeGalleryLike) null else Backend.CPU(),
-        maxNumTokens = if (edgeGalleryLike) GPU_EDGE_GALLERY_LIKE_MAX_TOKENS else null,
+        maxNumTokens = if (edgeGalleryLike) gpuConfigDiagnostics.maxTokens.toIntOrNull() else null,
         cacheDir = resolveLiteRtEngineConfigCacheDir(
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
             edgeGalleryLike = edgeGalleryLike,
+            gpuExperimentMode = gpuExperimentMode,
         ),
     )
 }
@@ -4546,13 +4558,16 @@ internal fun resolveLiteRtEngineConfigCacheDir(
     modelPath: String,
     cacheDirPath: String?,
     edgeGalleryLike: Boolean,
+    gpuExperimentMode: String = GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE,
 ): String? =
     if (!edgeGalleryLike) {
         cacheDirPath
-    } else if (modelPath.startsWith("/data/local/tmp")) {
-        cacheDirPath
     } else {
-        null
+        resolveGpuExperimentCacheDirForDiagnostics(
+            modelPath = modelPath,
+            cacheDirPath = cacheDirPath,
+            experimentMode = gpuExperimentMode,
+        )
     }
 
 internal data class LiteRtTextBackendSelection(
@@ -4875,8 +4890,12 @@ private fun createOfficialLiteRtLmConversation(
 
 private fun buildOfficialLiteRtLmConversationConfig(
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
-): ConversationConfig =
-    if (shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name)) {
+): ConversationConfig {
+    val gpuExperimentMode = resolveGpuDiagnosticExperimentModeForBackend(preferredBackendDryRunSetting.name)
+    return if (
+        shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name) &&
+        shouldUseGpuDiagnosticSamplerConfig(gpuExperimentMode)
+    ) {
         ConversationConfig(
             samplerConfig = SamplerConfig(
                 topK = GPU_EDGE_GALLERY_LIKE_TOP_K,
@@ -4887,6 +4906,7 @@ private fun buildOfficialLiteRtLmConversationConfig(
     } else {
         ConversationConfig()
     }
+}
 
 private fun createOfficialConversation(
     engine: Any,
