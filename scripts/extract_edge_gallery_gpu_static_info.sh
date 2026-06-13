@@ -6,8 +6,8 @@ INPUT_DIR="$ROOT_DIR/artifacts/external/edge_gallery_apks"
 OUTPUT_DIR="$ROOT_DIR/artifacts/edge_gallery_static"
 DRY_RUN=0
 
-FOCUS_PATTERN='model|accelerator|gpu|backend|delegate|sampler|cache|litert|gemma|sm8750|qualcomm|opencl|vulkan|webgpu|qnn|npu|tpu|conversation|engineconfig|engine|maxtoken|max_tokens|topk|top_k|topp|top_p|temperature|speculative|thinking'
-ARTISAN_PATTERN='GPU_ARTISAN|CPU_ARTISAN|GOOGLE_TENSOR_ARTISAN|Artisan model detected|Switching backend from GPU to GPU_ARTISAN|LlmGpuArtisanExecutor|LlmLiteRtCompiledModelExecutor|LlmLiteRtCompiledModelExecutorDynamic|backend constraint mismatch|Model requires one of|Supported backends are|No preferred engine types defined|preferred engine types|RuntimeConfig|EngineConfig|BackendType|AdapterBackend|EncoderBackend|SamplerBackend|tflite_gpu_kv_cache|tflite_opencl_kv_cache|GPU sampler unavailable|Falling back to CPU sampling'
+FOCUS_PATTERN='model|accelerator|gpu|backend|delegate|sampler|cache|litert|gemma|sm8750|qualcomm|opencl|vulkan|webgpu|qnn|npu|tpu|conversation|engineconfig|engine|maxtoken|max_tokens|topk|top_k|topp|top_p|temperature|speculative|thinking|prefill|decode|kv_cache|compiled_model_executor|compiled model'
+ARTISAN_PATTERN='GPU_ARTISAN|CPU_ARTISAN|GOOGLE_TENSOR_ARTISAN|Artisan model detected|Switching backend from GPU to GPU_ARTISAN|LlmGpuArtisanExecutor|LlmLiteRtCompiledModelExecutor|LlmLiteRtCompiledModelExecutorDynamic|backend constraint is matched|backend constraint mismatch|Model requires one of|Supported backends are|No preferred engine types defined|preferred engine types|RuntimeConfig|EngineConfig|BackendType|AdapterBackend|EncoderBackend|SamplerBackend|tflite_gpu_kv_cache|tflite_opencl_kv_cache|GPU sampler unavailable|Falling back to CPU sampling|llm_litert_compiled_model_executor.cc|Failed to invoke the compiled model|prefill|decode|kv_cache'
 
 usage() {
   printf 'usage: %s [--input <edge-gallery-apk-dir>] [--output <out-dir>] [--dry-run]\n' "$0"
@@ -99,6 +99,23 @@ filter_artisan_strings() {
   strings -a "$source" 2>/dev/null |
     grep -Ea "$ARTISAN_PATTERN" |
     sort -u >"$out" || true
+}
+
+write_context_report() {
+  local out="$1"
+  local pattern="$2"
+  shift 2
+  : >"$out"
+  while [ "$#" -gt 0 ]; do
+    local source="$1"
+    shift
+    [ -f "$source" ] || continue
+    {
+      printf '===== %s =====\n' "$source"
+      grep -Ein -C 4 "$pattern" "$source" 2>/dev/null || true
+      printf '\n'
+    } >>"$out"
+  done
 }
 
 write_artisan_keyword_presence_header() {
@@ -224,7 +241,7 @@ printf 'apk_count=%s\n' "$(printf '%s\n' "$APK_LIST" | grep -c '\.apk$')"
 if [ "$DRY_RUN" = "1" ]; then
   printf 'dry_run=true\n'
   printf '%s\n' "$APK_LIST"
-  printf 'planned_outputs=summary.txt,apk_inventory.tsv,native_lib_inventory.tsv,apk_entries/,native_libs/,strings/,backend_artisan_analysis/,app_data_static_check_instructions.md\n'
+  printf 'planned_outputs=summary.txt,apk_inventory.tsv,native_lib_inventory.tsv,apk_entries/,native_libs/,strings/,backend_artisan_analysis/,compiled_model_executor_context.txt,gpu_artisan_executor_context.txt,kv_cache_context.txt,backend_constraint_context.txt,app_data_static_check_instructions.md\n'
   exit 0
 fi
 
@@ -339,6 +356,23 @@ sort -u "$ALL_LITERTLM" -o "$ALL_LITERTLM"
 sort -u "$ALL_FOCUS" -o "$ALL_FOCUS"
 sort -u "$ARTISAN_ALL_HITS" -o "$ARTISAN_ALL_HITS"
 
+write_context_report \
+  "$OUTPUT_DIR/compiled_model_executor_context.txt" \
+  'llm_litert_compiled_model_executor\.cc|Failed to invoke the compiled model|compiled model' \
+  "$ALL_FOCUS" "$ALL_LITERT" "$ALL_LITERTLM" "$ARTISAN_ALL_HITS"
+write_context_report \
+  "$OUTPUT_DIR/gpu_artisan_executor_context.txt" \
+  'GPU_ARTISAN|LlmGpuArtisanExecutor|Artisan model detected|LiteRtRegisterGpuAccelerator|LiteRtGpuEnvironmentCreate|Statically linked GPU accelerator registered' \
+  "$ALL_FOCUS" "$ALL_LITERT" "$ALL_LITERTLM" "$ARTISAN_ALL_HITS"
+write_context_report \
+  "$OUTPUT_DIR/kv_cache_context.txt" \
+  'tflite_gpu_kv_cache|tflite_opencl_kv_cache|kv_cache|prefill|decode' \
+  "$ALL_FOCUS" "$ALL_LITERT" "$ALL_LITERTLM" "$ARTISAN_ALL_HITS"
+write_context_report \
+  "$OUTPUT_DIR/backend_constraint_context.txt" \
+  'backend constraint is matched|backend constraint mismatch|Model requires one of|Supported backends are|preferred engine types|RuntimeConfig|EngineConfig' \
+  "$ALL_FOCUS" "$ALL_LITERT" "$ALL_LITERTLM" "$ARTISAN_ALL_HITS"
+
 if command -v jadx >/dev/null 2>&1; then
   JADX_DIR="$ARTISAN_DIR/jadx_sources"
   mkdir -p "$JADX_DIR"
@@ -369,6 +403,10 @@ write_app_data_instructions "$OUTPUT_DIR/app_data_static_check_instructions.md"
   printf 'backend_artisan_analysis=%s\n' "$ARTISAN_DIR"
   printf 'backend_artisan_keyword_presence=%s\n' "$ARTISAN_KEYWORD_PRESENCE"
   printf 'backend_artisan_all_hits=%s\n' "$ARTISAN_ALL_HITS"
+  printf 'compiled_model_executor_context=%s\n' "$OUTPUT_DIR/compiled_model_executor_context.txt"
+  printf 'gpu_artisan_executor_context=%s\n' "$OUTPUT_DIR/gpu_artisan_executor_context.txt"
+  printf 'kv_cache_context=%s\n' "$OUTPUT_DIR/kv_cache_context.txt"
+  printf 'backend_constraint_context=%s\n' "$OUTPUT_DIR/backend_constraint_context.txt"
   printf 'app_data_instructions=%s\n' "$OUTPUT_DIR/app_data_static_check_instructions.md"
 } >>"$SUMMARY"
 

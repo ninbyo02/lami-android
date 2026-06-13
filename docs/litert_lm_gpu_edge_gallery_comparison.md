@@ -216,6 +216,80 @@ adb shell setprop debug.lami.gpu_generate_probe_mode raw_callback_only
 - callback が来て text が空なら callback payload / done handling を追加確認する。
 - non-empty text があるのに first token 判定がない場合は UI first-token detection の問題を疑う。
 
+## GPU Phase 4: compiled model invoke failure
+
+Phase 3 の実機結果で、通常 GPU route は engine / conversation 生成ではなく generate phase で失敗していることが分かった。
+
+確認済み:
+
+- `Engine.initialize` は成功する。
+- `Conversation.create` は成功する。
+- `generateResponse` / `sendMessageAsync` 呼び出しは戻る。
+- `raw_callback_only` では `gpu_generate_call_entered=true`、`gpu_generate_call_returned=true`。
+- `gpu_callback_invoked_count=0` のまま、LiteRT-LM から `LiteRtLmJniException` が出る。
+- 例外は `Status Code: 13` / `Failed to invoke the compiled model` / `runtime/executor/llm_litert_compiled_model_executor.cc:735`。
+- `no_sampler` でも同じ Status Code 13 になるため、TopK sampler 単独原因の優先度は下がる。
+- `max_tokens_1` は `Status Code: 3` / `Input token ids are too long` になる。LiteRT-LM では max token が入力 token 長または total budget に効くように見えるため、GPU root cause 判定には使わない。
+
+Phase 4 では、Status Code 13 を 60秒 watchdog timeout まで待たず、即時の generate failure として扱う。compact / LOCAL_ROUTE_DIAG には以下を追加する。
+
+- `gpu_generate_exception_seen`
+- `gpu_generate_exception_class`
+- `gpu_generate_exception_message_raw`
+- `gpu_generate_exception_message_sanitized`
+- `gpu_generate_exception_status_code`
+- `gpu_generate_exception_error_file`
+- `gpu_generate_exception_error_line`
+- `gpu_generate_exception_summary`
+- `gpu_generate_failed_before_first_token`
+- `gpu_watchdog_bypassed_due_to_generate_exception`
+- `litert_lm_error_kind`
+- `litert_lm_error_status_code`
+- `litert_lm_error_primary_file`
+- `litert_lm_error_primary_line`
+- `litert_lm_error_secondary_file`
+- `litert_lm_error_secondary_line`
+- `litert_lm_error_recoverability_hint`
+
+現在の Status Code 13 の期待分類:
+
+- `failure_stage=gpu_generate_compiled_model_invoke_failed`
+- `gpu_generate_exception_status_code=13`
+- `gpu_generate_exception_error_file=runtime/executor/llm_litert_compiled_model_executor.cc`
+- `gpu_generate_exception_error_line=735`
+- `gpu_generate_exception_summary=failed_to_invoke_compiled_model`
+- `litert_lm_error_kind=compiled_model_invoke_failed`
+- `litert_lm_error_recoverability_hint=try_gpu_runtime_stack_alignment`
+- `gpu_watchdog_bypassed_due_to_generate_exception=true`
+
+DEV probe mode:
+
+```sh
+adb shell setprop debug.lami.gpu_generate_probe_mode raw_callback_only
+adb shell setprop debug.lami.gpu_generate_probe_mode no_sampler
+adb shell setprop debug.lami.gpu_generate_probe_mode ascii_prompt_no_sampler
+adb shell setprop debug.lami.gpu_generate_probe_mode max_tokens_16
+adb shell setprop debug.lami.gpu_generate_probe_mode max_tokens_32
+adb shell setprop debug.lami.gpu_generate_probe_mode cache_dir_app_files_no_sampler
+adb shell setprop debug.lami.gpu_generate_probe_mode cache_dir_null_no_sampler
+```
+
+`max_tokens_1` は残すが、Status Code 3 の token budget 確認用であり、主実験には使わない。`max_tokens_16` を `hi` / `こんにちは` 向けの最小寄り budget として使う。
+
+CPU/GPU callback 比較は opt-in のみ:
+
+```sh
+adb shell setprop debug.lami.compare_cpu_gpu_callback true
+```
+
+CPU 側が同じ prompt/model で callback を返し、GPU 側だけ Status Code 13 の場合は `cpu_gpu_generate_diff=cpu_callback_ok_gpu_compiled_model_invoke_failed` として扱う。
+
+現在の root split:
+
+- GPU compiled model invoke / prefill / decode / KV cache / delegate 実行の問題。
+- public `Backend.GPU` と Edge Gallery 内部の `GPU_ARTISAN` / executor selection 差分。
+- `libLiteRt.so` / `liblitertlm_jni.so` を含む runtime stack 差分。
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

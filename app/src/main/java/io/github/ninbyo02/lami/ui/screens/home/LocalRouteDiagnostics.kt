@@ -74,6 +74,36 @@ internal data class LocalRouteDiagnosticFlags(
     val gpuCallbackExceptionChain: String? = null,
     val gpuCallbackExceptionStage: String? = null,
     val gpuGenerateStallInterpretation: String? = null,
+    val gpuGeneratePrompt: String? = null,
+    val gpuGeneratePromptLengthChars: Int? = null,
+    val gpuGenerateInputTokenEstimate: String? = null,
+    val gpuGenerateExceptionSeen: Boolean? = null,
+    val gpuGenerateExceptionClass: String? = null,
+    val gpuGenerateExceptionMessageRaw: String? = null,
+    val gpuGenerateExceptionMessageSanitized: String? = null,
+    val gpuGenerateExceptionStatusCode: String? = null,
+    val gpuGenerateExceptionErrorFile: String? = null,
+    val gpuGenerateExceptionErrorLine: String? = null,
+    val gpuGenerateExceptionSummary: String? = null,
+    val gpuGenerateFailedBeforeFirstToken: Boolean? = null,
+    val gpuWatchdogBypassedDueToGenerateException: Boolean? = null,
+    val liteRtLmErrorKind: String? = null,
+    val liteRtLmErrorStatusCode: String? = null,
+    val liteRtLmErrorPrimaryFile: String? = null,
+    val liteRtLmErrorPrimaryLine: String? = null,
+    val liteRtLmErrorSecondaryFile: String? = null,
+    val liteRtLmErrorSecondaryLine: String? = null,
+    val liteRtLmErrorRecoverabilityHint: String? = null,
+    val cpuCompareStarted: Boolean? = null,
+    val cpuCompareEngineInitializeFinished: Boolean? = null,
+    val cpuCompareConversationCreateFinished: Boolean? = null,
+    val cpuCompareGenerateStarted: Boolean? = null,
+    val cpuCompareCallbackInvokedCount: Int? = null,
+    val cpuCompareFirstNonEmptyTextElapsedMs: Long? = null,
+    val cpuCompareDoneTrueSeen: Boolean? = null,
+    val cpuCompareExceptionClass: String? = null,
+    val cpuCompareExceptionMessage: String? = null,
+    val cpuGpuGenerateDiff: String? = null,
 )
 
 internal data class GpuRouteConfigDiagnostics(
@@ -108,6 +138,17 @@ internal data class GpuLiteRtFailureClassification(
     val engineInitializeInternalErrorDetected: Boolean = false,
     val compiledModelCreationFailed: Boolean = false,
     val interpretation: String = "unknown",
+)
+
+internal data class LiteRtLmErrorClassification(
+    val kind: String = "unknown",
+    val statusCode: String = "unavailable",
+    val primaryFile: String = "unavailable",
+    val primaryLine: String = "unavailable",
+    val secondaryFile: String = "unavailable",
+    val secondaryLine: String = "unavailable",
+    val recoverabilityHint: String = "unknown",
+    val summary: String = "unknown",
 )
 
 internal data class LiteRtLmBackendArtisanApiDiagnostics(
@@ -197,7 +238,15 @@ internal fun buildLocalRouteDiagnosticTrace(
         gpuTimeoutStage == "generate_before_first_token" && failureStage != "none"
     val gpuTimeoutFailure = failureStage.contains("timeout") &&
         context.baselineRole == LITERT_LM_BASELINE_GPU_EXPERIMENTAL
-    val guardRecommendation = if (engineCreateTimeoutSuspected || gpuInitializationTimeoutSuspected || gpuTimeoutFailure) {
+    val gpuGenerateExceptionFailure =
+        flags.gpuGenerateExceptionSeen == true &&
+            context.baselineRole == LITERT_LM_BASELINE_GPU_EXPERIMENTAL
+    val guardRecommendation = if (
+        engineCreateTimeoutSuspected ||
+        gpuInitializationTimeoutSuspected ||
+        gpuTimeoutFailure ||
+        gpuGenerateExceptionFailure
+    ) {
         GPU_EXPERIMENTAL_TIMEOUT_GUARD_RECOMMENDATION
     } else {
         "unavailable"
@@ -215,13 +264,26 @@ internal fun buildLocalRouteDiagnosticTrace(
         message = flags.gpuPrefillProbeDiagnostics["probe_exception_cause_message_raw"]
             ?: flags.gpuPrefillProbeDiagnostics["probe_exception_cause_message"]
             ?: flags.gpuPrefillProbeDiagnostics["probe_exception_root_cause_message"]
-            ?: flags.gpuPrefillProbeDiagnostics["probe_exception_chain"],
+            ?: flags.gpuPrefillProbeDiagnostics["probe_exception_chain"]
+            ?: flags.gpuGenerateExceptionMessageRaw
+            ?: flags.gpuGenerateExceptionMessageSanitized
+            ?: flags.gpuCallbackExceptionMessage
+            ?: flags.gpuCallbackExceptionChain,
         failureStage = failureStage,
         timeoutStage = gpuTimeoutStage,
         generateStarted = flags.generateStarted,
         firstTokenReceived = flags.firstTokenReceived,
         engineInitializeFinished = flags.engineInitializeFinished,
         conversationCreateFinished = flags.conversationCreateFinished,
+    )
+    val liteRtLmError = classifyLiteRtLmError(
+        message = flags.gpuGenerateExceptionMessageRaw
+            ?: flags.gpuGenerateExceptionMessageSanitized
+            ?: flags.gpuCallbackExceptionMessage
+            ?: flags.gpuCallbackExceptionChain
+            ?: flags.gpuPrefillProbeDiagnostics["probe_exception_cause_message_raw"]
+            ?: flags.gpuPrefillProbeDiagnostics["probe_exception_cause_message"]
+            ?: flags.gpuPrefillProbeDiagnostics["probe_exception_chain"],
     )
     return (
         listOf(
@@ -367,6 +429,36 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_done_true_seen_compare=${resolveGpuCallbackValue(context, flags.gpuCallbackDoneTrueSeen?.toString())}",
         "gpu_first_non_empty_text_elapsed_ms_compare=${resolveGpuCallbackValue(context, flags.gpuFirstNonEmptyTextElapsedMs?.toString())}",
         "callback_route_diff=${resolveCallbackRouteDiff(context, flags)}",
+        "gpu_generate_actual_prompt=${flags.gpuGeneratePrompt.toDiagnosticValue()}",
+        "gpu_generate_prompt_length_chars=${flags.gpuGeneratePromptLengthChars?.toString() ?: "unavailable"}",
+        "gpu_generate_input_token_estimate=${flags.gpuGenerateInputTokenEstimate.toDiagnosticValue()}",
+        "gpu_generate_exception_seen=${flags.gpuGenerateExceptionSeen.toDiagnosticValue()}",
+        "gpu_generate_exception_class=${flags.gpuGenerateExceptionClass.toDiagnosticValue()}",
+        "gpu_generate_exception_message_raw=${flags.gpuGenerateExceptionMessageRaw.toDiagnosticValue()}",
+        "gpu_generate_exception_message_sanitized=${flags.gpuGenerateExceptionMessageSanitized.toDiagnosticValue()}",
+        "gpu_generate_exception_status_code=${flags.gpuGenerateExceptionStatusCode ?: liteRtLmError.statusCode}",
+        "gpu_generate_exception_error_file=${flags.gpuGenerateExceptionErrorFile ?: liteRtLmError.primaryFile}",
+        "gpu_generate_exception_error_line=${flags.gpuGenerateExceptionErrorLine ?: liteRtLmError.primaryLine}",
+        "gpu_generate_exception_summary=${flags.gpuGenerateExceptionSummary ?: liteRtLmError.summary}",
+        "gpu_generate_failed_before_first_token=${flags.gpuGenerateFailedBeforeFirstToken.toDiagnosticValue()}",
+        "gpu_watchdog_bypassed_due_to_generate_exception=${flags.gpuWatchdogBypassedDueToGenerateException.toDiagnosticValue()}",
+        "litert_lm_error_kind=${flags.liteRtLmErrorKind ?: liteRtLmError.kind}",
+        "litert_lm_error_status_code=${flags.liteRtLmErrorStatusCode ?: liteRtLmError.statusCode}",
+        "litert_lm_error_primary_file=${flags.liteRtLmErrorPrimaryFile ?: liteRtLmError.primaryFile}",
+        "litert_lm_error_primary_line=${flags.liteRtLmErrorPrimaryLine ?: liteRtLmError.primaryLine}",
+        "litert_lm_error_secondary_file=${flags.liteRtLmErrorSecondaryFile ?: liteRtLmError.secondaryFile}",
+        "litert_lm_error_secondary_line=${flags.liteRtLmErrorSecondaryLine ?: liteRtLmError.secondaryLine}",
+        "litert_lm_error_recoverability_hint=${flags.liteRtLmErrorRecoverabilityHint ?: liteRtLmError.recoverabilityHint}",
+        "cpu_compare_started=${flags.cpuCompareStarted.toDiagnosticValue()}",
+        "cpu_compare_engine_initialize_finished=${flags.cpuCompareEngineInitializeFinished.toDiagnosticValue()}",
+        "cpu_compare_conversation_create_finished=${flags.cpuCompareConversationCreateFinished.toDiagnosticValue()}",
+        "cpu_compare_generate_started=${flags.cpuCompareGenerateStarted.toDiagnosticValue()}",
+        "cpu_compare_callback_invoked_count=${flags.cpuCompareCallbackInvokedCount?.toString() ?: "unavailable"}",
+        "cpu_compare_first_non_empty_text_elapsed_ms=${flags.cpuCompareFirstNonEmptyTextElapsedMs?.toString() ?: "unavailable"}",
+        "cpu_compare_done_true_seen=${flags.cpuCompareDoneTrueSeen.toDiagnosticValue()}",
+        "cpu_compare_exception_class=${flags.cpuCompareExceptionClass.toDiagnosticValue()}",
+        "cpu_compare_exception_message=${flags.cpuCompareExceptionMessage.toDiagnosticValue()}",
+        "cpu_gpu_generate_diff=${flags.cpuGpuGenerateDiff.toDiagnosticValue()}",
         "gpu_litert_executor_error_file=${gpuFailureClassification.executorErrorFile}",
         "gpu_litert_executor_error_line=${gpuFailureClassification.executorErrorLine}",
         "gpu_litert_compiled_model_error_file=${gpuFailureClassification.compiledModelErrorFile}",
@@ -603,10 +695,14 @@ internal fun classifyGpuLiteRtFailure(
     val compiledModel = fileLines.firstOrNull { it.first.endsWith("litert_compiled_model.h") }
     val internalErrorDetected = normalizedMessage.contains("INTERNAL", ignoreCase = true) ||
         normalizedMessage.contains("_INTERNAL_", ignoreCase = true)
-    val compiledModelCreationFailed = normalizedMessage.contains("Failed_to_create_engine", ignoreCase = true) ||
-        normalizedMessage.contains("Failed to create engine", ignoreCase = true) ||
-        executor != null ||
-        compiledModel != null
+    val compiledModelInvokeFailed = normalizedMessage.contains("Failed_to_invoke_the_compiled_model", ignoreCase = true) ||
+        normalizedMessage.contains("Failed to invoke the compiled model", ignoreCase = true)
+    val compiledModelCreationFailed = !compiledModelInvokeFailed && (
+        normalizedMessage.contains("Failed_to_create_engine", ignoreCase = true) ||
+            normalizedMessage.contains("Failed to create engine", ignoreCase = true) ||
+            executor?.second == "1546" ||
+            compiledModel != null
+        )
     val generatedWithoutFirstToken =
         generateStarted == true &&
             firstTokenReceived == false &&
@@ -616,6 +712,7 @@ internal fun classifyGpuLiteRtFailure(
             failureStage?.contains("engine_initialize", ignoreCase = true) == true ||
             conversationCreateFinished == false
     val interpretation = when {
+        compiledModelInvokeFailed && generateStarted == true -> "compiled_model_invoke_failed_during_generate"
         compiledModelCreationFailed && beforeConversation -> "compiled_model_creation_failed_before_conversation"
         generatedWithoutFirstToken -> "normal_route_generate_hangs_after_successful_initialize"
         failureStage?.contains("gpu_prefill_probe", ignoreCase = true) == true ->
@@ -632,6 +729,64 @@ internal fun classifyGpuLiteRtFailure(
         interpretation = interpretation,
     )
 }
+
+internal fun classifyLiteRtLmError(message: String?): LiteRtLmErrorClassification {
+    val raw = message.orEmpty()
+    val wordNormalized = normalizeLiteRtLmErrorText(raw)
+    val statusCode = Regex("""Status[\s_]*Code[\s_:]*([0-9]+)""", RegexOption.IGNORE_CASE)
+        .find(raw)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?: "unavailable"
+    val fileLines = extractGpuLiteRtFileLines(raw)
+    val primary = fileLines.firstOrNull()
+    val secondary = fileLines.drop(1).firstOrNull()
+    val failedInvoke = wordNormalized.contains("Failed to invoke the compiled model", ignoreCase = true)
+    val inputTooLong = wordNormalized.contains("Input token ids are too long", ignoreCase = true)
+    val createEngineFailed = wordNormalized.contains("Failed to create engine", ignoreCase = true) ||
+        wordNormalized.contains("Failed create engine", ignoreCase = true)
+    val compiledModelCreation = createEngineFailed ||
+        fileLines.any { it.first.endsWith("llm_litert_compiled_model_executor.cc") && it.second == "1546" } ||
+        fileLines.any { it.first.endsWith("litert_compiled_model.h") && it.second == "1140" }
+    val kind = when {
+        statusCode == "13" && failedInvoke -> "compiled_model_invoke_failed"
+        statusCode == "3" && inputTooLong -> "max_tokens_too_small"
+        compiledModelCreation -> "compiled_model_creation_failed"
+        statusCode != "unavailable" -> "status_code_$statusCode"
+        else -> "unknown"
+    }
+    val summary = when (kind) {
+        "compiled_model_invoke_failed" -> "failed_to_invoke_compiled_model"
+        "max_tokens_too_small" -> "input_token_ids_too_long"
+        "compiled_model_creation_failed" -> "failed_to_create_engine"
+        else -> "unknown"
+    }
+    val recoverabilityHint = when (kind) {
+        "compiled_model_invoke_failed" -> "try_gpu_runtime_stack_alignment"
+        "max_tokens_too_small" -> "max_tokens_too_small"
+        "compiled_model_creation_failed" -> "try_different_gpu_backend_config"
+        else -> "unknown"
+    }
+    return LiteRtLmErrorClassification(
+        kind = kind,
+        statusCode = statusCode,
+        primaryFile = primary?.first ?: "unavailable",
+        primaryLine = primary?.second ?: "unavailable",
+        secondaryFile = secondary?.first ?: "unavailable",
+        secondaryLine = secondary?.second ?: "unavailable",
+        recoverabilityHint = recoverabilityHint,
+        summary = summary,
+    )
+}
+
+internal fun normalizeLiteRtLmErrorText(message: String?): String =
+    message
+        ?.replace('_', ' ')
+        ?.replace('\n', ' ')
+        ?.replace('\r', ' ')
+        ?.replace(Regex("\\s+"), " ")
+        ?.trim()
+        .orEmpty()
 
 internal fun sanitizeGpuLiteRtFailureMessage(value: String?): String =
     value
@@ -653,6 +808,8 @@ internal fun resolveGpuRouteDivergencePoint(
         startBlocked == "no_held_engine" -> "held_engine_probe_blocked_no_held_engine"
         probeStage == "engine_initialize" && probeFailure.contains("engine_initialize") ->
             "isolated_probe_engine_initialize_failed_before_conversation"
+        flags.gpuGenerateExceptionSeen == true && flags.firstTokenReceived != true ->
+            "normal_route_generate_exception_before_first_token"
         flags.engineInitializeFinished == true &&
             flags.conversationCreateFinished == true &&
             flags.generateStarted == true &&
@@ -840,6 +997,8 @@ internal const val GPU_EXPERIMENT_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE = "gpu
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_NULL = "gpu_cache_dir_null"
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES = "gpu_cache_dir_app_files"
 internal const val GPU_EXPERIMENT_MODE_MAX_TOKENS_32 = "gpu_max_tokens_32"
+internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER = "gpu_cache_dir_app_files_no_sampler"
+internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER = "gpu_cache_dir_null_no_sampler"
 internal const val EDGE_GALLERY_ARTISAN_STATIC_EVIDENCE =
     "GPU_ARTISAN,CPU_ARTISAN,GOOGLE_TENSOR_ARTISAN,Artisan_model_detected,LlmGpuArtisanExecutor"
 internal val GPU_DIAGNOSTIC_EXPERIMENT_MODES = listOf(
@@ -850,6 +1009,8 @@ internal val GPU_DIAGNOSTIC_EXPERIMENT_MODES = listOf(
     GPU_EXPERIMENT_MODE_CACHE_DIR_NULL,
     GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
     GPU_EXPERIMENT_MODE_MAX_TOKENS_32,
+    GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER,
+    GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER,
 )
 
 internal fun shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackend: String): Boolean =
@@ -910,8 +1071,10 @@ internal fun resolveGpuCacheDirModeForBackend(
         "unavailable"
     } else {
         when (experimentMode) {
-            GPU_EXPERIMENT_MODE_CACHE_DIR_NULL -> "forced_null"
-            GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES -> "forced_app_cache_dir"
+            GPU_EXPERIMENT_MODE_CACHE_DIR_NULL,
+            GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER -> "forced_null"
+            GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
+            GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER -> "forced_app_cache_dir"
             else -> GPU_CACHE_DIR_MODE_EDGE_GALLERY_LIKE
         }
     }
@@ -984,6 +1147,8 @@ internal fun buildGpuRouteConfigDiagnostics(
     val samplerPolicy = when (experimentMode) {
         GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION -> "conversation_config_without_sampler"
         GPU_EXPERIMENT_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE -> "topk_gpu_sampler_candidate_disabled_by_no_sampler_config"
+        GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER,
+        GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER -> "cache_dir_probe_without_sampler"
         GPU_EXPERIMENT_MODE_SAMPLER_ONLY_MINIMAL -> "gallery_sampler_only_minimal"
         else -> "gallery_sampler_config"
     }
@@ -1005,7 +1170,9 @@ internal fun buildGpuRouteConfigDiagnostics(
         samplerAccelerationPolicy = samplerPolicy,
         conversationConfigProfile = when (experimentMode) {
             GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION,
-            GPU_EXPERIMENT_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE -> "no_sampler_config"
+            GPU_EXPERIMENT_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE,
+            GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER,
+            GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER -> "no_sampler_config"
             GPU_EXPERIMENT_MODE_SAMPLER_ONLY_MINIMAL -> "sampler_only_minimal"
             else -> GPU_CONVERSATION_CONFIG_PROFILE_EDGE_GALLERY_LIKE
         },
@@ -1026,7 +1193,9 @@ internal fun resolveGpuMaxTokensForExperiment(experimentMode: String): String =
 
 internal fun shouldUseGpuDiagnosticSamplerConfig(experimentMode: String): Boolean =
     experimentMode != GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION &&
-        experimentMode != GPU_EXPERIMENT_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE
+        experimentMode != GPU_EXPERIMENT_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE &&
+        experimentMode != GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER &&
+        experimentMode != GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER
 
 internal fun resolveGpuExperimentCacheDirForDiagnostics(
     modelPath: String,
@@ -1034,8 +1203,10 @@ internal fun resolveGpuExperimentCacheDirForDiagnostics(
     experimentMode: String,
 ): String? =
     when (experimentMode) {
-        GPU_EXPERIMENT_MODE_CACHE_DIR_NULL -> null
-        GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES -> cacheDirPath
+        GPU_EXPERIMENT_MODE_CACHE_DIR_NULL,
+        GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER -> null
+        GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
+        GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER -> cacheDirPath
         else -> if (modelPath.startsWith("/data/local/tmp")) cacheDirPath else null
     }
 

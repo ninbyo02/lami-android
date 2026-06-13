@@ -4492,21 +4492,27 @@ fun Home(
                                                                     overrideValue = when (gpuGenerateProbeModeForRun) {
                                                                         GPU_GENERATE_PROBE_MODE_NO_SAMPLER ->
                                                                             GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION
+                                                                        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_NO_SAMPLER ->
+                                                                            GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION
+                                                                        GPU_GENERATE_PROBE_MODE_MAX_TOKENS_32,
+                                                                        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_MAX_TOKENS_32 ->
+                                                                            GPU_EXPERIMENT_MODE_MAX_TOKENS_32
+                                                                        GPU_GENERATE_PROBE_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER ->
+                                                                            GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER
+                                                                        GPU_GENERATE_PROBE_MODE_CACHE_DIR_NULL_NO_SAMPLER ->
+                                                                            GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER
                                                                         else -> null
                                                                     },
                                                                 )
-                                                                val gpuConfigDiagnosticsForRun = buildGpuRouteConfigDiagnostics(
-                                                                    modelPath = resolvedModelPath,
-                                                                    cacheDirPath = modelResolution.cacheDirPath,
-                                                                    preferredBackend = preferredBackendDryRunSetting.name,
-                                                                    experimentMode = gpuExperimentModeForRun,
-                                                                ).let { diagnostics ->
-                                                                    if (gpuGenerateProbeModeForRun == GPU_GENERATE_PROBE_MODE_MAX_TOKENS_1) {
-                                                                        diagnostics.copy(maxTokens = "1")
-                                                                    } else {
-                                                                        diagnostics
-                                                                    }
-                                                                }
+                                                                val gpuConfigDiagnosticsForRun = overrideGpuConfigForGenerateProbeMode(
+                                                                    diagnostics = buildGpuRouteConfigDiagnostics(
+                                                                        modelPath = resolvedModelPath,
+                                                                        cacheDirPath = modelResolution.cacheDirPath,
+                                                                        preferredBackend = preferredBackendDryRunSetting.name,
+                                                                        experimentMode = gpuExperimentModeForRun,
+                                                                    ),
+                                                                    probeMode = gpuGenerateProbeModeForRun,
+                                                                )
                                                                 gpuRouteProgressTracker.setConfig(
                                                                     gpuConfigDiagnosticsForRun,
                                                                 )
@@ -5061,6 +5067,7 @@ fun Home(
                                                                         )
                                                                         val heldLocalRunResult = heldRunResult.toLocalInferenceRunResult()
                                                                         if (
+                                                                            heldLocalRunResult.state == LocalInferenceEngineState.READY &&
                                                                             resolveGpuGenerateProbeModeForDebug(preferredBackendDryRunSetting) ==
                                                                             GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
                                                                         ) {

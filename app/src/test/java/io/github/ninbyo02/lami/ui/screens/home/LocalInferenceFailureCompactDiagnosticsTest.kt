@@ -399,6 +399,148 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `LiteRT LM status code 13 invoke failure is parsed`() {
+        val error = classifyLiteRtLmError(
+            "Status Code: 13. Message: ERROR: [runtime/executor/llm_litert_compiled_model_executor.cc:735] " +
+                "Failed to invoke the compiled model",
+        )
+
+        assertEquals("compiled_model_invoke_failed", error.kind)
+        assertEquals("13", error.statusCode)
+        assertEquals("runtime/executor/llm_litert_compiled_model_executor.cc", error.primaryFile)
+        assertEquals("735", error.primaryLine)
+        assertEquals("failed_to_invoke_compiled_model", error.summary)
+        assertEquals("try_gpu_runtime_stack_alignment", error.recoverabilityHint)
+    }
+
+    @Test
+    fun `LiteRT LM status code 3 max token budget is parsed`() {
+        val error = classifyLiteRtLmError(
+            "Status_Code:_3._Message:_Input_token_ids_are_too_long._10_>=_1",
+        )
+
+        assertEquals("max_tokens_too_small", error.kind)
+        assertEquals("3", error.statusCode)
+        assertEquals("input_token_ids_too_long", error.summary)
+        assertEquals("max_tokens_too_small", error.recoverabilityHint)
+    }
+
+    @Test
+    fun `LiteRT LM create engine file lines are parsed`() {
+        val error = classifyLiteRtLmError(
+            "Failed_to_create_engine:_INTERNAL:_ERROR:_[runtime/executor/llm_litert_compiled_model_executor.cc:1546] " +
+                "ERROR:[external/litert/litert/cc/litert_compiled_model.h:1140]",
+        )
+
+        assertEquals("compiled_model_creation_failed", error.kind)
+        assertEquals("runtime/executor/llm_litert_compiled_model_executor.cc", error.primaryFile)
+        assertEquals("1546", error.primaryLine)
+        assertEquals("external/litert/litert/cc/litert_compiled_model.h", error.secondaryFile)
+        assertEquals("1140", error.secondaryLine)
+        assertEquals("failed_to_create_engine", error.summary)
+    }
+
+    @Test
+    fun `GPU generate compiled model invoke failure bypasses watchdog in compact`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_exception",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                engineInitializeFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = false,
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                gpuConfigDiagnostics = buildGpuRouteConfigDiagnostics(
+                    modelPath = "/models/gemma-4-E2B-it.litertlm",
+                    cacheDirPath = "/cache",
+                    preferredBackend = "GPU",
+                    experimentMode = GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION,
+                ),
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NO_SAMPLER,
+                gpuGeneratePrompt = "こんにちは",
+                gpuGeneratePromptLengthChars = 5,
+                gpuGenerateInputTokenEstimate = "unavailable",
+                gpuGenerateCallEntered = true,
+                gpuGenerateCallReturned = true,
+                gpuCallbackInvokedCount = 0,
+                gpuCallbackErrorSeen = true,
+                gpuCallbackExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                gpuCallbackExceptionMessage =
+                    "Status_Code:_13._Message:_ERROR:_[runtime/executor/llm_litert_compiled_model_executor.cc:735]_Failed_to_invoke_the_compiled_model",
+                gpuCallbackExceptionStage = "flow_response",
+                gpuGenerateExceptionSeen = true,
+                gpuGenerateExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                gpuGenerateExceptionMessageRaw =
+                    "com.google.ai.edge.litertlm.LiteRtLmJniException:Status Code: 13. Message: ERROR: " +
+                        "[runtime/executor/llm_litert_compiled_model_executor.cc:735] Failed to invoke the compiled model",
+                gpuGenerateExceptionMessageSanitized =
+                    "com.google.ai.edge.litertlm.LiteRtLmJniException:Status_Code:_13._Message:_ERROR:_[runtime/executor/llm_litert_compiled_model_executor.cc:735]_Failed_to_invoke_the_compiled_model",
+                gpuGenerateExceptionStatusCode = "13",
+                gpuGenerateExceptionErrorFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                gpuGenerateExceptionErrorLine = "735",
+                gpuGenerateExceptionSummary = "failed_to_invoke_compiled_model",
+                gpuGenerateFailedBeforeFirstToken = true,
+                gpuWatchdogBypassedDueToGenerateException = true,
+                liteRtLmErrorKind = "compiled_model_invoke_failed",
+                liteRtLmErrorStatusCode = "13",
+                liteRtLmErrorPrimaryFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                liteRtLmErrorPrimaryLine = "735",
+                liteRtLmErrorRecoverabilityHint = "try_gpu_runtime_stack_alignment",
+            ),
+            elapsedMs = 3_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "failed",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                routeContext = routeContext,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("failure_stage=gpu_generate_compiled_model_invoke_failed"))
+        assertTrue(routeDiagnostics.contains("gpu_generate_exception_status_code=13"))
+        assertTrue(routeDiagnostics.contains("gpu_generate_exception_error_line=735"))
+        assertTrue(routeDiagnostics.contains("gpu_generate_exception_summary=failed_to_invoke_compiled_model"))
+        assertTrue(routeDiagnostics.contains("gpu_watchdog_bypassed_due_to_generate_exception=true"))
+        assertTrue(routeDiagnostics.contains("litert_lm_error_kind=compiled_model_invoke_failed"))
+        assertTrue(routeDiagnostics.contains("litert_lm_error_recoverability_hint=try_gpu_runtime_stack_alignment"))
+        assertTrue(routeDiagnostics.contains("gpu_sampler_config_enabled=false"))
+        assertTrue(routeDiagnostics.contains("gpu_sampler_acceleration_policy=conversation_config_without_sampler"))
+        assertTrue(routeDiagnostics.contains("gpu_failure_interpretation=compiled_model_invoke_failed_during_generate"))
+        assertFalse(routeDiagnostics.contains("gpu_compiled_model_creation_failed=true"))
+        assertTrue(compact.contains("failure_stage=gpu_generate_compiled_model_invoke_failed"))
+        assertTrue(compact.contains("gpu_generate_exception_seen=true"))
+        assertTrue(compact.contains("gpu_generate_exception_status_code=13"))
+        assertTrue(compact.contains("gpu_generate_exception_error_file=runtime/executor/llm_litert_compiled_model_executor.cc"))
+        assertTrue(compact.contains("gpu_generate_exception_error_line=735"))
+        assertTrue(compact.contains("gpu_generate_exception_summary=failed_to_invoke_compiled_model"))
+        assertTrue(compact.contains("gpu_generate_failed_before_first_token=true"))
+        assertTrue(compact.contains("gpu_watchdog_bypassed_due_to_generate_exception=true"))
+        assertTrue(compact.contains("litert_lm_error_kind=compiled_model_invoke_failed"))
+        assertTrue(compact.contains("litert_lm_error_status_code=13"))
+        assertTrue(compact.contains("litert_lm_error_recoverability_hint=try_gpu_runtime_stack_alignment"))
+        assertTrue(compact.contains("gpu_generate_actual_prompt=こんにちは"))
+        assertTrue(compact.contains("gpu_generate_prompt_length_chars=5"))
+        assertTrue(compact.contains("gpu_generate_input_token_estimate=unavailable"))
+    }
+
+    @Test
     fun `GPU generate probe mode resolves only for GPU debug route`() {
         val reader = { key: String ->
             when (key) {

@@ -48,6 +48,12 @@ private const val GPU_PREFILL_PROBE_SAMPLER_GALLERY_DEFAULT = "gallery_default_s
 internal const val GPU_GENERATE_PROBE_MODE_NORMAL = "normal"
 internal const val GPU_GENERATE_PROBE_MODE_ASCII_PROMPT = "ascii_prompt"
 internal const val GPU_GENERATE_PROBE_MODE_MAX_TOKENS_1 = "max_tokens_1"
+internal const val GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_MAX_TOKENS_32 = "ascii_prompt_max_tokens_32"
+internal const val GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_NO_SAMPLER = "ascii_prompt_no_sampler"
+internal const val GPU_GENERATE_PROBE_MODE_MAX_TOKENS_16 = "max_tokens_16"
+internal const val GPU_GENERATE_PROBE_MODE_MAX_TOKENS_32 = "max_tokens_32"
+internal const val GPU_GENERATE_PROBE_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER = "cache_dir_app_files_no_sampler"
+internal const val GPU_GENERATE_PROBE_MODE_CACHE_DIR_NULL_NO_SAMPLER = "cache_dir_null_no_sampler"
 internal const val GPU_GENERATE_PROBE_MODE_NO_SAMPLER = "no_sampler"
 internal const val GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI = "no_streaming_ui"
 internal const val GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY = "raw_callback_only"
@@ -277,6 +283,12 @@ internal fun resolveGpuGenerateProbeModeForDebug(
     return when (requested.trim().lowercase(Locale.US)) {
         GPU_GENERATE_PROBE_MODE_ASCII_PROMPT -> GPU_GENERATE_PROBE_MODE_ASCII_PROMPT
         GPU_GENERATE_PROBE_MODE_MAX_TOKENS_1 -> GPU_GENERATE_PROBE_MODE_MAX_TOKENS_1
+        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_MAX_TOKENS_32 -> GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_MAX_TOKENS_32
+        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_NO_SAMPLER -> GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_NO_SAMPLER
+        GPU_GENERATE_PROBE_MODE_MAX_TOKENS_16 -> GPU_GENERATE_PROBE_MODE_MAX_TOKENS_16
+        GPU_GENERATE_PROBE_MODE_MAX_TOKENS_32 -> GPU_GENERATE_PROBE_MODE_MAX_TOKENS_32
+        GPU_GENERATE_PROBE_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER -> GPU_GENERATE_PROBE_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER
+        GPU_GENERATE_PROBE_MODE_CACHE_DIR_NULL_NO_SAMPLER -> GPU_GENERATE_PROBE_MODE_CACHE_DIR_NULL_NO_SAMPLER
         GPU_GENERATE_PROBE_MODE_NO_SAMPLER -> GPU_GENERATE_PROBE_MODE_NO_SAMPLER
         GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI -> GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI
         GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY -> GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
@@ -288,8 +300,36 @@ private fun resolveGpuExperimentOverrideForGenerateProbeMode(
     probeMode: String,
 ): String? =
     when (probeMode) {
-        GPU_GENERATE_PROBE_MODE_NO_SAMPLER -> GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION
+        GPU_GENERATE_PROBE_MODE_NO_SAMPLER,
+        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_NO_SAMPLER -> GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION
+        GPU_GENERATE_PROBE_MODE_MAX_TOKENS_32,
+        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_MAX_TOKENS_32 -> GPU_EXPERIMENT_MODE_MAX_TOKENS_32
+        GPU_GENERATE_PROBE_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER -> GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER
+        GPU_GENERATE_PROBE_MODE_CACHE_DIR_NULL_NO_SAMPLER -> GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER
         else -> null
+    }
+
+internal fun resolveGpuGenerateProbePromptForDebug(
+    originalPrompt: String,
+    probeMode: String,
+): String =
+    when (probeMode) {
+        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT,
+        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_MAX_TOKENS_32,
+        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_NO_SAMPLER -> "hi"
+        else -> originalPrompt
+    }
+
+internal fun overrideGpuConfigForGenerateProbeMode(
+    diagnostics: GpuRouteConfigDiagnostics,
+    probeMode: String,
+): GpuRouteConfigDiagnostics =
+    when (probeMode) {
+        GPU_GENERATE_PROBE_MODE_MAX_TOKENS_1 -> diagnostics.copy(maxTokens = "1")
+        GPU_GENERATE_PROBE_MODE_MAX_TOKENS_16 -> diagnostics.copy(maxTokens = "16")
+        GPU_GENERATE_PROBE_MODE_MAX_TOKENS_32,
+        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_MAX_TOKENS_32 -> diagnostics.copy(maxTokens = "32")
+        else -> diagnostics
     }
 
 private fun readGpuPrefillProbeDebugProperty(key: String): String? {
@@ -908,6 +948,36 @@ private class GenerateCallbackLifecycleTracker(
     ): LocalRouteDiagnosticFlags =
         base.copy(
             gpuGenerateProbeMode = probeMode,
+            gpuGeneratePrompt = base.gpuGeneratePrompt,
+            gpuGeneratePromptLengthChars = base.gpuGeneratePromptLengthChars,
+            gpuGenerateInputTokenEstimate = base.gpuGenerateInputTokenEstimate,
+            gpuGenerateExceptionSeen = base.gpuGenerateExceptionSeen,
+            gpuGenerateExceptionClass = base.gpuGenerateExceptionClass,
+            gpuGenerateExceptionMessageRaw = base.gpuGenerateExceptionMessageRaw,
+            gpuGenerateExceptionMessageSanitized = base.gpuGenerateExceptionMessageSanitized,
+            gpuGenerateExceptionStatusCode = base.gpuGenerateExceptionStatusCode,
+            gpuGenerateExceptionErrorFile = base.gpuGenerateExceptionErrorFile,
+            gpuGenerateExceptionErrorLine = base.gpuGenerateExceptionErrorLine,
+            gpuGenerateExceptionSummary = base.gpuGenerateExceptionSummary,
+            gpuGenerateFailedBeforeFirstToken = base.gpuGenerateFailedBeforeFirstToken,
+            gpuWatchdogBypassedDueToGenerateException = base.gpuWatchdogBypassedDueToGenerateException,
+            liteRtLmErrorKind = base.liteRtLmErrorKind,
+            liteRtLmErrorStatusCode = base.liteRtLmErrorStatusCode,
+            liteRtLmErrorPrimaryFile = base.liteRtLmErrorPrimaryFile,
+            liteRtLmErrorPrimaryLine = base.liteRtLmErrorPrimaryLine,
+            liteRtLmErrorSecondaryFile = base.liteRtLmErrorSecondaryFile,
+            liteRtLmErrorSecondaryLine = base.liteRtLmErrorSecondaryLine,
+            liteRtLmErrorRecoverabilityHint = base.liteRtLmErrorRecoverabilityHint,
+            cpuCompareStarted = base.cpuCompareStarted,
+            cpuCompareEngineInitializeFinished = base.cpuCompareEngineInitializeFinished,
+            cpuCompareConversationCreateFinished = base.cpuCompareConversationCreateFinished,
+            cpuCompareGenerateStarted = base.cpuCompareGenerateStarted,
+            cpuCompareCallbackInvokedCount = base.cpuCompareCallbackInvokedCount,
+            cpuCompareFirstNonEmptyTextElapsedMs = base.cpuCompareFirstNonEmptyTextElapsedMs,
+            cpuCompareDoneTrueSeen = base.cpuCompareDoneTrueSeen,
+            cpuCompareExceptionClass = base.cpuCompareExceptionClass,
+            cpuCompareExceptionMessage = base.cpuCompareExceptionMessage,
+            cpuGpuGenerateDiff = base.cpuGpuGenerateDiff,
             gpuGenerateCallEntered = generateCallEntered,
             gpuGenerateCallReturned = generateCallReturned,
             gpuCallbackInvokedCount = callbackInvokedCount,
@@ -1007,6 +1077,215 @@ private fun generateCallbackExceptionChain(throwable: Throwable): String {
     return parts.joinToString(" -> ").ifBlank { "none" }
 }
 
+private data class GpuGenerateExceptionDiagnostic(
+    val failureStage: String,
+    val flags: LocalRouteDiagnosticFlags,
+)
+
+private data class CpuGpuCallbackCompareResult(
+    val started: Boolean = false,
+    val engineInitializeFinished: Boolean = false,
+    val conversationCreateFinished: Boolean = false,
+    val generateStarted: Boolean = false,
+    val callbackInvokedCount: Int = 0,
+    val firstNonEmptyTextElapsedMs: Long? = null,
+    val doneTrueSeen: Boolean = false,
+    val exceptionClass: String = "none",
+    val exceptionMessage: String = "none",
+)
+
+internal fun isCpuGpuCallbackCompareRequestedForDebug(
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+): Boolean {
+    if (!BuildConfig.DEBUG) return false
+    val enabled = propertyReader("debug.lami.compare_cpu_gpu_callback")
+        ?: propertyReader("lami.compare_cpu_gpu_callback")
+        ?: return false
+    return enabled.equals("true", ignoreCase = true) || enabled == "1"
+}
+
+private fun buildGpuGenerateExceptionDiagnostic(
+    throwable: Throwable,
+    baseFlags: LocalRouteDiagnosticFlags,
+): GpuGenerateExceptionDiagnostic {
+    val rawMessage = generateCallbackExceptionChain(throwable)
+    val sanitizedMessage = sanitizeGpuLiteRtFailureMessage(rawMessage)
+    val error = classifyLiteRtLmError(rawMessage)
+    val failureStage = when (error.kind) {
+        "compiled_model_invoke_failed" -> "gpu_generate_compiled_model_invoke_failed"
+        "max_tokens_too_small" -> "gpu_generate_input_token_budget_failed"
+        else -> "gpu_generate_exception"
+    }
+    return GpuGenerateExceptionDiagnostic(
+        failureStage = failureStage,
+        flags = baseFlags.copy(
+            failureStage = failureStage,
+            gpuGenerateExceptionSeen = true,
+            gpuGenerateExceptionClass = throwable.javaClass.name,
+            gpuGenerateExceptionMessageRaw = rawMessage,
+            gpuGenerateExceptionMessageSanitized = sanitizedMessage,
+            gpuGenerateExceptionStatusCode = error.statusCode,
+            gpuGenerateExceptionErrorFile = error.primaryFile,
+            gpuGenerateExceptionErrorLine = error.primaryLine,
+            gpuGenerateExceptionSummary = error.summary,
+            gpuGenerateFailedBeforeFirstToken = baseFlags.firstTokenReceived != true,
+            gpuWatchdogBypassedDueToGenerateException = true,
+            liteRtLmErrorKind = error.kind,
+            liteRtLmErrorStatusCode = error.statusCode,
+            liteRtLmErrorPrimaryFile = error.primaryFile,
+            liteRtLmErrorPrimaryLine = error.primaryLine,
+            liteRtLmErrorSecondaryFile = error.secondaryFile,
+            liteRtLmErrorSecondaryLine = error.secondaryLine,
+            liteRtLmErrorRecoverabilityHint = error.recoverabilityHint,
+        ),
+    )
+}
+
+private fun LocalRouteDiagnosticFlags.withCpuGpuCompare(
+    compare: CpuGpuCallbackCompareResult?,
+    gpuError: LiteRtLmErrorClassification,
+): LocalRouteDiagnosticFlags {
+    if (compare == null) return this
+    val diff = when {
+        compare.firstNonEmptyTextElapsedMs != null && gpuError.kind == "compiled_model_invoke_failed" ->
+            "cpu_callback_ok_gpu_compiled_model_invoke_failed"
+        compare.exceptionClass != "none" && gpuError.kind == "compiled_model_invoke_failed" ->
+            "cpu_and_gpu_generate_failed_gpu_compiled_model_invoke_failed"
+        compare.callbackInvokedCount == 0 && compare.exceptionClass == "none" -> "cpu_compare_no_callback"
+        else -> "cpu_gpu_compare_recorded"
+    }
+    return copy(
+        cpuCompareStarted = compare.started,
+        cpuCompareEngineInitializeFinished = compare.engineInitializeFinished,
+        cpuCompareConversationCreateFinished = compare.conversationCreateFinished,
+        cpuCompareGenerateStarted = compare.generateStarted,
+        cpuCompareCallbackInvokedCount = compare.callbackInvokedCount,
+        cpuCompareFirstNonEmptyTextElapsedMs = compare.firstNonEmptyTextElapsedMs,
+        cpuCompareDoneTrueSeen = compare.doneTrueSeen,
+        cpuCompareExceptionClass = compare.exceptionClass,
+        cpuCompareExceptionMessage = compare.exceptionMessage,
+        cpuGpuGenerateDiff = diff,
+    )
+}
+
+private suspend fun runCpuGpuCallbackCompareForDebug(
+    modelPath: String,
+    cacheDirPath: String,
+    prompt: String,
+    appendTrace: (String) -> Unit,
+): CpuGpuCallbackCompareResult {
+    if (!isCpuGpuCallbackCompareRequestedForDebug()) return CpuGpuCallbackCompareResult()
+    return withContext(Dispatchers.IO) {
+        withTimeoutOrNull(15_000L) {
+            var engine: Any? = null
+            var conversation: Any? = null
+            var engineInitialized = false
+            var conversationCreated = false
+            var generateStarted = false
+            var callbackCount = 0
+            var firstNonEmptyMs: Long? = null
+            var doneSeen = false
+            val startedAt = SystemClock.elapsedRealtime()
+            try {
+                val engineConfig = EngineConfig(
+                    modelPath = modelPath,
+                    backend = Backend.CPU(),
+                    visionBackend = null,
+                    audioBackend = null,
+                    maxNumTokens = GPU_EDGE_GALLERY_LIKE_MAX_TOKENS,
+                    cacheDir = cacheDirPath,
+                )
+                val createdEngine = Engine(engineConfig)
+                engine = createdEngine
+                createdEngine.javaClass.methods.firstOrNull { method ->
+                    method.name == "initialize" && method.parameterTypes.isEmpty()
+                }?.invoke(createdEngine)
+                engineInitialized = true
+                conversation = createOfficialLiteRtLmConversation(
+                    engine = createdEngine,
+                    engineClass = createdEngine.javaClass,
+                    preferredBackendDryRunSetting = PreferredBackendDryRunSetting.CPU,
+                    appendTrace = appendTrace,
+                )
+                conversationCreated = conversation != null
+                val activeConversation = conversation ?: return@withTimeoutOrNull CpuGpuCallbackCompareResult(
+                    started = true,
+                    engineInitializeFinished = engineInitialized,
+                    conversationCreateFinished = false,
+                    exceptionClass = "ConversationUnavailable",
+                    exceptionMessage = "createConversation returned null",
+                )
+                val method = findSendMessageAsyncMethod(
+                    conversationClass = activeConversation.javaClass,
+                    namespace = "com.google.ai.edge.litertlm",
+                ) ?: return@withTimeoutOrNull CpuGpuCallbackCompareResult(
+                    started = true,
+                    engineInitializeFinished = engineInitialized,
+                    conversationCreateFinished = conversationCreated,
+                    exceptionClass = "SendMessageAsyncUnavailable",
+                    exceptionMessage = "sendMessageAsync unavailable",
+                )
+                generateStarted = true
+                val flowValue = invokeSendMessageAsync(
+                    conversation = activeConversation,
+                    method = method,
+                    namespace = "com.google.ai.edge.litertlm",
+                    prompt = prompt,
+                )
+                val flow = flowValue as? Flow<*> ?: return@withTimeoutOrNull CpuGpuCallbackCompareResult(
+                    started = true,
+                    engineInitializeFinished = engineInitialized,
+                    conversationCreateFinished = conversationCreated,
+                    generateStarted = true,
+                    exceptionClass = "FlowUnavailable",
+                    exceptionMessage = "sendMessageAsync did not return Flow",
+                )
+                flow.collect { message ->
+                    callbackCount += 1
+                    doneSeen = doneSeen || detectLiteRtLmDoneTrue(message)
+                    val text = extractOfficialMessageTextWithTrace(
+                        path = "cpu-gpu-callback-compare",
+                        value = message,
+                        appendTrace = appendTrace,
+                    ).orEmpty()
+                    if (text.isNotBlank() && firstNonEmptyMs == null) {
+                        firstNonEmptyMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L)
+                    }
+                }
+                CpuGpuCallbackCompareResult(
+                    started = true,
+                    engineInitializeFinished = engineInitialized,
+                    conversationCreateFinished = conversationCreated,
+                    generateStarted = generateStarted,
+                    callbackInvokedCount = callbackCount,
+                    firstNonEmptyTextElapsedMs = firstNonEmptyMs,
+                    doneTrueSeen = doneSeen,
+                )
+            } catch (throwable: Throwable) {
+                if (throwable is CancellationException) throw throwable
+                CpuGpuCallbackCompareResult(
+                    started = true,
+                    engineInitializeFinished = engineInitialized,
+                    conversationCreateFinished = conversationCreated,
+                    generateStarted = generateStarted,
+                    callbackInvokedCount = callbackCount,
+                    firstNonEmptyTextElapsedMs = firstNonEmptyMs,
+                    doneTrueSeen = doneSeen,
+                    exceptionClass = throwable.javaClass.name,
+                    exceptionMessage = sanitizeGpuLiteRtFailureMessage(throwable.message ?: "none"),
+                )
+            } finally {
+                closeQuietly(conversation, appendTrace)
+                closeQuietly(engine, appendTrace)
+            }
+        } ?: CpuGpuCallbackCompareResult(
+            started = true,
+            exceptionClass = "Timeout",
+            exceptionMessage = "cpu_gpu_callback_compare_timeout",
+        )
+    }
+}
+
 internal suspend fun runWithHeldEngine(
     heldEngine: HeldLocalEngine,
     engineHolder: LocalInferenceEngineHolder,
@@ -1044,7 +1323,10 @@ internal suspend fun runWithHeldEngine(
     var generateStartedElapsedMs: Long? = null
     var firstTokenElapsedMs: Long? = null
     val generateProbeMode = resolveGpuGenerateProbeModeForDebug(heldEngine.preferredBackendDryRunSetting)
-    val effectivePrompt = if (generateProbeMode == GPU_GENERATE_PROBE_MODE_ASCII_PROMPT) "hi" else prompt
+    val effectivePrompt = resolveGpuGenerateProbePromptForDebug(
+        originalPrompt = prompt,
+        probeMode = generateProbeMode,
+    )
     val rawCallbackOnly = generateProbeMode == GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
     val suppressStreamingUi = rawCallbackOnly || generateProbeMode == GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI
     val callbackTracker = GenerateCallbackLifecycleTracker(
@@ -1062,20 +1344,44 @@ internal suspend fun runWithHeldEngine(
     recordMemorySnapshot(MEMORY_STAGE_BEFORE_GENERATE)
     recordMemorySnapshot(MEMORY_STAGE_AFTER_PROMPT_BUILD)
 
+    fun buildRouteStageText(
+        stage: String,
+        flags: LocalRouteDiagnosticFlags,
+    ): String? {
+        val diagnosticContext = routeDiagnosticContext ?: return null
+        return buildLocalRouteDiagnosticTrace(
+            stage = stage,
+            context = diagnosticContext,
+            flags = callbackTracker.toFlags(flags),
+            elapsedMs = SystemClock.elapsedRealtime() - routeRunStartedAtMs,
+        )
+    }
+
     fun appendRouteStage(
         stage: String,
         flags: LocalRouteDiagnosticFlags,
     ) {
         onRouteDiagnosticStage(stage)
-        val diagnosticContext = routeDiagnosticContext ?: return
+        buildRouteStageText(
+            stage = stage,
+            flags = flags,
+        )?.let { text ->
+            safeAppendTrace(
+                appendTrace,
+                text,
+            )
+        }
+    }
+
+    fun appendBuiltRouteStage(
+        stage: String,
+        text: String?,
+    ) {
+        onRouteDiagnosticStage(stage)
+        text ?: return
         safeAppendTrace(
             appendTrace,
-            buildLocalRouteDiagnosticTrace(
-                stage = stage,
-                context = diagnosticContext,
-                flags = callbackTracker.toFlags(flags),
-                elapsedMs = SystemClock.elapsedRealtime() - routeRunStartedAtMs,
-            ),
+            text,
         )
     }
 
@@ -1134,6 +1440,9 @@ internal suspend fun runWithHeldEngine(
             firstTokenElapsedMs = firstTokenElapsedMs,
             failureStage = failureStage,
             fallbackUsed = false,
+            gpuGeneratePrompt = effectivePrompt,
+            gpuGeneratePromptLengthChars = effectivePrompt.length,
+            gpuGenerateInputTokenEstimate = "unavailable",
         )
 
     fun appendRunnerWhitespaceStage(
@@ -1156,6 +1465,7 @@ internal suspend fun runWithHeldEngine(
             onRouteDiagnosticStage = onRouteDiagnosticStage,
             onConversationClosed = { outcome -> conversationOutcome = outcome },
         ) { conversation ->
+            var generateImmediateFailure = false
             val flowResponse = runCatching {
                 val sendMessageAsyncMethod = findSendMessageAsyncMethod(
                     conversationClass = conversation.javaClass,
@@ -1279,26 +1589,57 @@ internal suspend fun runWithHeldEngine(
                     stage = "flow_response",
                     throwable = throwable,
                 )
-                appendRouteStage(
-                    stage = "generate_callback_exception",
-                    flags = currentGenerateCallbackFlags(failureStage = "streaming-callback"),
+                val generateExceptionDiagnostic = buildGpuGenerateExceptionDiagnostic(
+                    throwable = throwable,
+                    baseFlags = currentGenerateCallbackFlags(),
                 )
-                failureDiagnosticsText = mediaPipeProbeContext?.let {
+                val cpuCompare = if (isCpuGpuCallbackCompareRequestedForDebug()) {
+                    runCpuGpuCallbackCompareForDebug(
+                        modelPath = heldEngine.modelPath,
+                        cacheDirPath = heldEngine.engineKey.cacheDirPath,
+                        prompt = effectivePrompt,
+                        appendTrace = appendTrace,
+                    )
+                } else {
+                    null
+                }
+                val generateExceptionFlags = generateExceptionDiagnostic.flags.withCpuGpuCompare(
+                    compare = cpuCompare,
+                    gpuError = classifyLiteRtLmError(generateExceptionDiagnostic.flags.gpuGenerateExceptionMessageRaw),
+                )
+                val routeText = buildRouteStageText(
+                    stage = "generate_exception",
+                    flags = generateExceptionFlags,
+                )
+                appendBuiltRouteStage(
+                    stage = "generate_exception",
+                    text = routeText,
+                )
+                generateImmediateFailure = true
+                val localFailureText = mediaPipeProbeContext?.let {
                     buildLocalInferenceFailureDiagnosticsText(
                         context = it,
-                        stage = "streaming-callback",
+                        stage = generateExceptionDiagnostic.failureStage,
                         throwable = throwable,
                         selectedModelName = mediaPipeProbeModelPath ?: heldEngine.modelPath,
                         selectedFallbackPath = "gpu",
                     )
                 }
+                failureDiagnosticsText = listOfNotNull(routeText, localFailureText)
+                    .joinToString("\n")
+                    .ifBlank { null }
                 safeAppendTrace(
                     appendTrace,
-                    "UPSTREAM held-run flow-error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
+                    "UPSTREAM held-run flow-error-immediate chatId=$chatId stage=${generateExceptionDiagnostic.failureStage} class=${throwable.javaClass.simpleName} message=${throwable.message}",
                 )
-                null
+                ""
             }
             if (flowResponse != null) {
+                if (generateImmediateFailure) {
+                    officialFlowUsed = true
+                    closeSummaryPath = "held-official-flow-generate-failure"
+                    return@runWithConversation flowResponse
+                }
                 officialFlowUsed = true
                 closeSummaryPath = "held-official-flow"
                 val measuredCollector = MeasuredTokenTimingCollector(
@@ -1392,26 +1733,57 @@ internal suspend fun runWithHeldEngine(
                     stage = "blocking_response",
                     throwable = throwable,
                 )
-                appendRouteStage(
-                    stage = "generate_callback_exception",
-                    flags = currentGenerateCallbackFlags(failureStage = "generate-response"),
+                val generateExceptionDiagnostic = buildGpuGenerateExceptionDiagnostic(
+                    throwable = throwable,
+                    baseFlags = currentGenerateCallbackFlags(),
                 )
-                failureDiagnosticsText = mediaPipeProbeContext?.let {
+                val cpuCompare = if (isCpuGpuCallbackCompareRequestedForDebug()) {
+                    runCpuGpuCallbackCompareForDebug(
+                        modelPath = heldEngine.modelPath,
+                        cacheDirPath = heldEngine.engineKey.cacheDirPath,
+                        prompt = effectivePrompt,
+                        appendTrace = appendTrace,
+                    )
+                } else {
+                    null
+                }
+                val generateExceptionFlags = generateExceptionDiagnostic.flags.withCpuGpuCompare(
+                    compare = cpuCompare,
+                    gpuError = classifyLiteRtLmError(generateExceptionDiagnostic.flags.gpuGenerateExceptionMessageRaw),
+                )
+                val routeText = buildRouteStageText(
+                    stage = "generate_exception",
+                    flags = generateExceptionFlags,
+                )
+                appendBuiltRouteStage(
+                    stage = "generate_exception",
+                    text = routeText,
+                )
+                generateImmediateFailure = true
+                val localFailureText = mediaPipeProbeContext?.let {
                     buildLocalInferenceFailureDiagnosticsText(
                         context = it,
-                        stage = "generate-response",
+                        stage = generateExceptionDiagnostic.failureStage,
                         throwable = throwable,
                         selectedModelName = mediaPipeProbeModelPath ?: heldEngine.modelPath,
                         selectedFallbackPath = "gpu",
                     )
                 }
+                failureDiagnosticsText = listOfNotNull(routeText, localFailureText)
+                    .joinToString("\n")
+                    .ifBlank { null }
                 safeAppendTrace(
                     appendTrace,
-                    "UPSTREAM held-run blocking-error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
+                    "UPSTREAM held-run blocking-error-immediate chatId=$chatId stage=${generateExceptionDiagnostic.failureStage} class=${throwable.javaClass.simpleName} message=${throwable.message}",
                 )
-                null
+                ""
             }
             if (blockingResponse != null) {
+                if (generateImmediateFailure) {
+                    officialFlowUsed = false
+                    closeSummaryPath = "held-official-blocking-generate-failure"
+                    return@runWithConversation blockingResponse
+                }
                 appendFirstTokenReceived()
                 officialFlowUsed = false
                 closeSummaryPath = "held-official-blocking"
@@ -5473,11 +5845,10 @@ internal fun buildLiteRtEngineConfig(
         preferredBackend = preferredBackendDryRunSetting.name,
         experimentMode = gpuExperimentMode,
     )
-    val gpuConfigDiagnostics = if (gpuGenerateProbeMode == GPU_GENERATE_PROBE_MODE_MAX_TOKENS_1) {
-        baseGpuConfigDiagnostics.copy(maxTokens = "1")
-    } else {
-        baseGpuConfigDiagnostics
-    }
+    val gpuConfigDiagnostics = overrideGpuConfigForGenerateProbeMode(
+        diagnostics = baseGpuConfigDiagnostics,
+        probeMode = gpuGenerateProbeMode,
+    )
     val backend = when (preferredBackendDryRunSetting) {
         PreferredBackendDryRunSetting.CPU -> Backend.CPU()
         PreferredBackendDryRunSetting.GPU -> Backend.GPU()
