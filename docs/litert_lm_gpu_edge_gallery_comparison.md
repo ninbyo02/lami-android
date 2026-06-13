@@ -2,15 +2,15 @@
 
 ## 目的
 
-Genericモデル `gemma-4-E2B-it.litertlm` を LAMI の GPU backend で実行したとき、生成開始ではなく `engine_create` が 60秒以内に完了しない原因を、Google AI Edge Gallery の Android 実装と比較して切り分ける。
+Genericモデル `gemma-4-E2B-it.litertlm` を LAMI の GPU backend で実行したとき、60秒 watchdog timeout になる原因を、Google AI Edge Gallery の Android 実装と比較して切り分ける。最新診断では `Engine.initialize` / conversation 作成 / generate 開始までは到達しており、現在の主観測は generate 開始後 first token 前 timeout である。
 
 ## LAMI の実機症状
 
 - CPU: `selected_backend=CPU`, `route_family=local_cpu`, Genericモデルで成功。
 - Automatic: 当面 CPU 優先で成功。
 - GPU: `selected_backend=GPU`, `route_family=local_gpu`, `failure_stage=gpu_watchdog_timeout`。
-- GPU timeout 時は `gpu_watchdog_timeout_ms=60000`、`gpu_watchdog_mode=extended_dev_60s`、`gpu_timeout_stage=engine_create`、`gpu_engine_create_started=true`、`gpu_engine_create_finished=false`、`gpu_engine_create_duration_ms=60008`、`gpu_generate_started=false`、`gpu_first_token_received=false`。
-- 60秒待っても `Engine` 作成が終わらないため、token生成が遅い問題ではなく、GPU backend の初期化またはモデルロード段階の問題として扱う。
+- 初期診断では `engine_create` 停止に見えたが、追加診断後の `gpu_no_sampling_acceleration` 実機結果では `engine_initialize_finished=true`、`conversation_create_finished=true`、`generate_started=true`、`first_token_received=false`。
+- 現在は `gpu_timeout_stage=generate_before_first_token` として分類し、token生成が遅いだけなのか、generate 開始後 first token 前で GPU runtime / compiled model 側が停止しているのかを切り分ける。
 - 同一端末の Edge Gallery 観察では `Gemma-4-E2B-it` + `Accelerator: GPU` で "Model on GPU" 表示、`こんにちは` に約1.6秒で応答しており、LAMI 固有差分の可能性が高い。
 
 ## Edge Gallery 側の確認結果
@@ -121,7 +121,7 @@ Gallery はモデルが `/data/local/tmp` のときだけ外部 files dir を ca
 
 Gallery 側の helper では `Engine` / `Conversation` 作成例外を `onDone(error)` に返すが、GPU非対応端末の明示 allowlist / denylist や自動 CPU fallback は確認できなかった。
 
-LAMI では GPU を Settings 上で `Experimental / 非推奨` と明示し、GPU engine_create timeout 時に `guard_recommendation=switch_to_cpu_or_npu` を出す。今回さらに、GPU 明示選択時だけ `edge_gallery_like` EngineConfig / ConversationConfig profile を適用する。
+LAMI では GPU を Settings 上で `Experimental / 非推奨` と明示し、GPU watchdog timeout 時に `guard_recommendation=switch_to_cpu_or_npu` を出す。今回さらに、GPU 明示選択時だけ `edge_gallery_like` EngineConfig / ConversationConfig profile を適用する。
 
 ## 原因候補ランキング
 
@@ -136,11 +136,12 @@ LAMI では GPU を Settings 上で `Experimental / 非推奨` と明示し、GP
    - Gallery は TFLite GPU dependency も持つ。LAMI は LiteRT-LM dependency が中心。
    - ただし LAMI の timeout は LiteRT-LM `Backend.GPU()` の `Engine` 作成中なので、dependency 追加だけで直る根拠はまだ弱い。
 4. ConversationConfig/SamplerConfig 差分。
-   - engine_create 後の差分なので timeout の直接原因ではなさそうだが、成功後の挙動差分を減らすため `edge_gallery_like` では Gallery default に寄せた。
+   - 最新診断では `gpu_no_sampling_acceleration` でも `generate_before_first_token` で timeout しているため、TopK / GPU sampler 初期化だけが主因である可能性は下がる。
+   - ただし first token 前の generate path に sampler 設定が影響する可能性は残るため、診断 key は維持する。
 5. 端末の GPU/OpenCL 実装と LiteRT-LM GPU backend の相性問題。
    - `libOpenCL.so` は見えている前提でも、SM8750 / Android 16 / vendor GPU driver の組み合わせで `Engine` 作成が長時間戻らない可能性がある。
-6. Generic `gemma-4-E2B-it.litertlm` の GPU 初期化コストまたは GPU delegate 初期化が 60秒を超える。
-   - `generate_started=false` なので生成速度問題ではない。
+6. Generic `gemma-4-E2B-it.litertlm` の GPU generate first token 前処理が 60秒を超える、または戻らない。
+   - 最新診断では `generate_started=true` かつ `first_token_received=false` なので、Engine 初期化だけでなく compiled model / GPU runtime の first token 前処理を疑う。
 7. Manifest 差分。
    - OpenCL/vndksupport は LAMI に既にあるため、優先度は低い。
 
@@ -150,19 +151,20 @@ LAMI では GPU を Settings 上で `Experimental / 非推奨` と明示し、GP
 - Automatic は当面 CPU 優先として扱う。
 - GPU は DEV診断目的の Experimental / 非推奨として残す。
 - GPU 明示選択時は `edge_gallery_like` compatibility mode を試す。
-- GPU timeout 時は `gpu_watchdog_timeout_ms`, `gpu_watchdog_mode`, `gpu_timeout_stage`, `gpu_engine_create_duration_ms`, `gpu_engine_create_timeout_suspected`, `gpu_compatibility_mode`, `gpu_engine_config_profile`, `gpu_cache_dir_mode`, `gpu_edge_gallery_diff_applied`, `guard_recommendation=switch_to_cpu_or_npu` を確認する。
+- GPU timeout 時は `gpu_watchdog_timeout_ms`, `gpu_watchdog_mode`, `gpu_timeout_stage`, `gpu_watchdog_failure_stage`, `gpu_timeout_checkpoint`, `generate_call_started_at_elapsed_ms`, `generate_before_first_token_elapsed_ms`, `gpu_generate_before_first_token_timeout_suspected`, `gpu_compatibility_mode`, `gpu_engine_config_profile`, `gpu_cache_dir_mode`, `gpu_edge_gallery_diff_applied`, `guard_recommendation=switch_to_cpu_or_npu` を確認する。
 - NPU S1 native / JNI / QAIRT overlay は今回の調査対象外であり、変更しない。
 
 ## 次の調査候補
 
-- `edge_gallery_like` 適用後の実機 GPU で、`Engine` 作成が完了するか確認する。
+- `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。
+- `gpu_cache_dir_app_files` と `gpu_cache_dir_null` で compiled model / cache dir 条件差分を比較する。
 - まだ timeout する場合は、Gallery と同じ external files dir 配下へ model file を配置して model path / mmap 差分を潰す。
 - まだ timeout する場合は、Gallery の TFLite GPU dependency 差分を standardDebug だけで追加検証する。
-- GPU 初回 engine create を 60秒超で放置した場合に native callback が遅れて戻るか、現在の stale callback 診断で観察する。
+- GPU watchdog timeout 後に native callback が遅れて戻るか、現在の stale callback 診断で観察する。
 
 ## APK native library diagnostics
 
-`gemma-4-E2B-it.litertlm` が CPU では成功し、GPU だけ `Engine.initialize` 前後の `engine_create` で 60秒 timeout する場合は、モデル/Tokenizer/生成処理より先に GPU backend 初期化または native library 整合性を疑う。まず standardDebug APK に最終的に入った `lib/arm64-v8a` の実体を確認する。
+`gemma-4-E2B-it.litertlm` が CPU では成功し、GPU だけ 60秒 timeout する場合は、まず standardDebug APK に最終的に入った `lib/arm64-v8a` の実体を確認する。最新診断では generate 開始後 first token 前まで進むため、native library 整合性に加えて compiled model / GPU runtime の first token 前処理も比較対象にする。
 
 追加した診断:
 
@@ -332,7 +334,28 @@ LAMI の `Local inference failure compact` / `LOCAL_ROUTE_DIAG` には、GPU tim
 - `engine_constructor`: `Engine(engineConfig)` 作成中。
 - `engine_initialize`: `Engine.initialize()` 呼び出し中。
 - `conversation_create`: `createConversation` 中。
-- `generate_started`: 生成開始後。
+- `generate_started`: 生成開始後。`first_token_received=false` の場合は `gpu_timeout_stage=generate_before_first_token` として扱う。
+
+最新の `gpu_no_sampling_acceleration` 実機結果では、`engine_initialize_finished=true`、
+`conversation_create_finished=true`、`generate_started=true` まで到達し、`first_token_received=false` のまま
+60 秒 watchdog timeout になった。つまり現時点の主観測は `Engine.initialize` 停止ではなく、
+`generate_before_first_token` 停止である。
+
+同結果では `gpu_sampler_config_enabled=false`、`gpu_conversation_config_sampler_present=false`、
+`gpu_sampler_acceleration_policy=conversation_config_without_sampler` でも timeout しているため、
+TopK / GPU sampler 初期化だけが主因である可能性は下がる。引き続き、生成開始後 first token 前に
+GPU runtime / compiled model / cache / max token 条件で停止している可能性を比較する。
+
+first token 前 timeout の比較用 key:
+
+- `gpu_timeout_stage`
+- `gpu_watchdog_failure_stage`
+- `generate_call_started_at_elapsed_ms`
+- `first_token_received_at_elapsed_ms`
+- `generate_before_first_token_elapsed_ms`
+- `gpu_generate_before_first_token_timeout_suspected`
+- `gpu_last_known_stage`
+- `gpu_timeout_checkpoint`
 
 ## DEV-only GPU experiment modes
 
@@ -359,6 +382,18 @@ adb shell setprop debug.lami.gpu_experiment_mode gpu_no_sampling_acceleration
 ```bash
 adb shell setprop debug.lami.gpu_experiment_mode ""
 ```
+
+次の優先実験:
+
+1. `gpu_max_tokens_32`
+   - 目的: `maxNumTokens=1024` が first token 前 timeout に関係するかを切り分ける。
+   - 期待する比較点: `gpu_engine_config_max_tokens=32`、`gpu_timeout_stage`、`generate_before_first_token_elapsed_ms`。
+2. `gpu_cache_dir_app_files`
+   - 目的: `cacheDir=null` が compiled model / GPU runtime の初期化または生成開始後挙動に悪影響を出していないか確認する。
+   - 期待する比較点: `gpu_engine_config_cache_dir_present=true`、`gpu_cache_dir_mode=forced_app_cache_dir`。
+3. `gpu_cache_dir_null`
+   - 目的: `edge_gallery_like` の null cache と明示 null cache で診断 key が一致するか確認する。
+   - `gpu_cache_dir_app_files` と対で比較する。
 
 各モードの目的:
 

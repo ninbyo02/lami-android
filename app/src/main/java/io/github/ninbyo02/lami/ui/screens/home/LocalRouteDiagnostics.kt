@@ -28,6 +28,7 @@ internal data class LocalRouteDiagnosticFlags(
     val conversationCreateStarted: Boolean? = null,
     val conversationCreateFinished: Boolean? = null,
     val generateStarted: Boolean? = null,
+    val generateStartedElapsedMs: Long? = null,
     val firstTokenReceived: Boolean? = null,
     val firstTokenElapsedMs: Long? = null,
     val failureStage: String? = null,
@@ -119,21 +120,25 @@ internal fun buildLocalRouteDiagnosticTrace(
 ): String {
     val normalizedElapsedMs = elapsedMs.coerceAtLeast(0L)
     val failureStage = flags.failureStage?.takeIf { it.isNotBlank() } ?: "none"
-    val gpuTimeoutStage = resolveGpuExperimentalTimeoutStage(failureStage)
+    val gpuTimeoutStage = resolveGpuExperimentalTimeoutStage(failureStage, flags)
     val engineCreateDurationMs = flags.engineCreateDurationMs
         ?: normalizedElapsedMs.takeIf {
             flags.engineCreateStarted == true &&
                 (flags.engineCreateFinished == false || flags.engineCreateFinished == true)
         }
     val engineCreateTimeoutSuspected =
-        gpuTimeoutStage == "engine_create" &&
+        gpuTimeoutStage == "engine_constructor" &&
             flags.engineCreateStarted == true &&
             flags.engineCreateFinished == false &&
             failureStage != "none"
     val gpuInitializationTimeoutSuspected =
-        gpuTimeoutStage in setOf("engine_config_build", "engine_create", "engine_initialize", "conversation_create") &&
+        gpuTimeoutStage in setOf("engine_config_build", "engine_constructor", "engine_initialize", "conversation_create") &&
             failureStage != "none"
-    val guardRecommendation = if (engineCreateTimeoutSuspected || gpuInitializationTimeoutSuspected) {
+    val gpuGenerateBeforeFirstTokenTimeoutSuspected =
+        gpuTimeoutStage == "generate_before_first_token" && failureStage != "none"
+    val gpuTimeoutFailure = failureStage.contains("timeout") &&
+        context.baselineRole == LITERT_LM_BASELINE_GPU_EXPERIMENTAL
+    val guardRecommendation = if (engineCreateTimeoutSuspected || gpuInitializationTimeoutSuspected || gpuTimeoutFailure) {
         GPU_EXPERIMENTAL_TIMEOUT_GUARD_RECOMMENDATION
     } else {
         "unavailable"
@@ -174,6 +179,7 @@ internal fun buildLocalRouteDiagnosticTrace(
         "generate_started=${flags.generateStarted.toDiagnosticValue()}",
         "first_token_received=${flags.firstTokenReceived.toDiagnosticValue()}",
         "failure_stage=$failureStage",
+        "gpu_watchdog_failure_stage=${resolveGpuWatchdogFailureStage(failureStage, flags)}",
         "fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
         "stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
         "elapsed_ms=$normalizedElapsedMs",
@@ -190,6 +196,10 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_generate_started=${flags.generateStarted.toDiagnosticValue()}",
         "gpu_first_token_received=${flags.firstTokenReceived.toDiagnosticValue()}",
         "gpu_first_token_elapsed_ms=${flags.firstTokenElapsedMs?.coerceAtLeast(0L)?.toString() ?: "unavailable"}",
+        "generate_call_started_at_elapsed_ms=${flags.generateStartedElapsedMs?.coerceAtLeast(0L)?.toString() ?: "unavailable"}",
+        "first_token_received_at_elapsed_ms=${flags.firstTokenElapsedMs?.coerceAtLeast(0L)?.toString() ?: "unavailable"}",
+        "generate_before_first_token_elapsed_ms=${resolveGenerateBeforeFirstTokenElapsedMs(flags, normalizedElapsedMs)}",
+        "gpu_generate_before_first_token_timeout_suspected=$gpuGenerateBeforeFirstTokenTimeoutSuspected",
         "gpu_last_known_stage=${resolveGpuLastKnownStage(flags)}",
         "gpu_held_engine_exists=${flags.heldEngineExists.toDiagnosticValue()}",
         "gpu_held_engine_reused=${flags.heldEngineReused.toDiagnosticValue()}",
@@ -202,6 +212,7 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_compatibility_mode=${resolveGpuCompatibilityModeForBackend(context.preferredBackend)}",
         "gpu_engine_config_profile=${resolveGpuEngineConfigProfileForBackend(context.preferredBackend)}",
         "gpu_experiment_mode=${gpuConfig.experimentMode}",
+        "experiment_mode=${gpuConfig.experimentMode}",
         "gpu_experiment_modes_available=${gpuConfig.availableExperimentModes}",
         "gpu_cache_dir_mode=${resolveGpuCacheDirModeForBackend(context.preferredBackend, gpuConfig.experimentMode)}",
         "gpu_engine_config_model_path=${gpuConfig.modelPath}",
@@ -491,15 +502,47 @@ internal fun resolveGpuExperimentalTimeoutFailureStage(
 
 internal fun resolveGpuExperimentalTimeoutStage(
     failureStage: String?,
-): String =
-    when (failureStage) {
-        "first_token_timeout" -> "first_token_wait"
-        "generate_start_timeout" -> "generate"
+    flags: LocalRouteDiagnosticFlags? = null,
+): String {
+    if (flags != null && failureStage != null && failureStage.contains("timeout")) {
+        val stageFromFlags = resolveGpuExperimentalTimeoutStageFromFlags(flags)
+        if (stageFromFlags != "unknown") return stageFromFlags
+    }
+    return when (failureStage) {
+        "gpu_watchdog_timeout_generate_before_first_token",
+        "first_token_timeout" -> "generate_before_first_token"
+        "gpu_watchdog_timeout_generate_after_first_token" -> "generate_after_first_token"
+        "generate_start_timeout" -> "generate_start"
         "conversation_create_timeout" -> "conversation_create"
         "engine_initialize_timeout" -> "engine_initialize"
         "engine_config_build_timeout" -> "engine_config_build"
-        "engine_create_timeout", "gpu_watchdog_timeout" -> "engine_create"
-        else -> "unavailable"
+        "engine_create_timeout", "gpu_watchdog_timeout" -> "engine_constructor"
+        else -> "unknown"
+    }
+}
+
+internal fun resolveGpuExperimentalTimeoutStageFromFlags(
+    flags: LocalRouteDiagnosticFlags,
+): String =
+    when {
+        flags.engineConfigBuildStarted == true && flags.engineConfigBuildFinished != true -> "engine_config_build"
+        flags.engineCreateStarted == true && flags.engineCreateFinished != true -> "engine_constructor"
+        flags.engineInitializeStarted == true && flags.engineInitializeFinished != true -> "engine_initialize"
+        flags.conversationCreateStarted == true && flags.conversationCreateFinished != true -> "conversation_create"
+        flags.generateStarted == true && flags.firstTokenReceived == true -> "generate_after_first_token"
+        flags.generateStarted == true -> "generate_before_first_token"
+        flags.conversationCreateFinished == true -> "generate_start"
+        else -> "unknown"
+    }
+
+internal fun resolveGpuWatchdogFailureStage(
+    failureStage: String?,
+    flags: LocalRouteDiagnosticFlags,
+): String =
+    if (failureStage == "gpu_watchdog_timeout") {
+        "gpu_watchdog_timeout_${resolveGpuExperimentalTimeoutStageFromFlags(flags)}"
+    } else {
+        failureStage?.takeIf { it.isNotBlank() } ?: "none"
     }
 
 internal fun resolveGpuExperimentalWatchdogMode(
@@ -547,3 +590,12 @@ private fun resolveGpuTimeoutCheckpoint(flags: LocalRouteDiagnosticFlags): Strin
         flags.engineConfigBuildStarted == true && flags.engineConfigBuildFinished != true -> "engine_config_build"
         else -> resolveGpuLastKnownStage(flags)
     }
+
+private fun resolveGenerateBeforeFirstTokenElapsedMs(
+    flags: LocalRouteDiagnosticFlags,
+    elapsedMs: Long,
+): String {
+    if (flags.generateStarted != true || flags.firstTokenReceived == true) return "unavailable"
+    val generateStartedAtMs = flags.generateStartedElapsedMs ?: return "unavailable"
+    return (elapsedMs - generateStartedAtMs).coerceAtLeast(0L).toString()
+}

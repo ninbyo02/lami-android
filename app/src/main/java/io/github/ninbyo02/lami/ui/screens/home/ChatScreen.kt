@@ -205,6 +205,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -4322,7 +4323,9 @@ fun Home(
                                                         val localRunStartedAtMs = SystemClock.elapsedRealtime()
                                                         val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
                                                         val localRouteTimedOut = AtomicBoolean(false)
-                                                        val gpuRouteProgressTracker = GpuRouteProgressTracker()
+                                                        val gpuRouteProgressTracker = GpuRouteProgressTracker(
+                                                            runStartedAtMs = localRunStartedAtMs,
+                                                        )
                                                         var localGpuWatchdogForRun: Job? = null
                                                         try {
                                                             localInferenceEngineState = resolveLocalPreparingUiState()
@@ -7277,6 +7280,7 @@ private fun mergeGpuTimeoutProgressFlags(
         conversationCreateStarted = progress.conversationCreateStarted ?: fallbackFlags.conversationCreateStarted,
         conversationCreateFinished = progress.conversationCreateFinished ?: fallbackFlags.conversationCreateFinished,
         generateStarted = progress.generateStarted ?: fallbackFlags.generateStarted,
+        generateStartedElapsedMs = progress.generateStartedElapsedMs ?: fallbackFlags.generateStartedElapsedMs,
         firstTokenReceived = progress.firstTokenReceived ?: fallbackFlags.firstTokenReceived,
         firstTokenElapsedMs = progress.firstTokenElapsedMs ?: fallbackFlags.firstTokenElapsedMs,
         failureStage = failureStage,
@@ -7319,7 +7323,9 @@ private fun buildGpuExperimentalTimeoutRunResult(
     )
 }
 
-private class GpuRouteProgressTracker {
+private class GpuRouteProgressTracker(
+    private val runStartedAtMs: Long,
+) {
     private val engineConfigBuildStarted = AtomicBoolean(false)
     private val engineConfigBuildFinished = AtomicBoolean(false)
     private val engineConstructorStarted = AtomicBoolean(false)
@@ -7330,6 +7336,8 @@ private class GpuRouteProgressTracker {
     private val conversationCreateFinished = AtomicBoolean(false)
     private val generateStarted = AtomicBoolean(false)
     private val firstTokenReceived = AtomicBoolean(false)
+    private val generateStartedElapsedMs = AtomicLong(-1L)
+    private val firstTokenReceivedElapsedMs = AtomicLong(-1L)
     private val config = AtomicReference<GpuRouteConfigDiagnostics?>(null)
 
     fun setConfig(configDiagnostics: GpuRouteConfigDiagnostics) {
@@ -7371,8 +7379,14 @@ private class GpuRouteProgressTracker {
                 conversationCreateStarted.set(true)
                 conversationCreateFinished.set(true)
             }
-            "generate_started" -> generateStarted.set(true)
-            "first_token_received" -> firstTokenReceived.set(true)
+            "generate_started" -> {
+                generateStarted.set(true)
+                recordElapsedOnce(generateStartedElapsedMs)
+            }
+            "first_token_received" -> {
+                firstTokenReceived.set(true)
+                recordElapsedOnce(firstTokenReceivedElapsedMs)
+            }
         }
     }
 
@@ -7412,7 +7426,9 @@ private class GpuRouteProgressTracker {
             conversationCreateStarted = conversationCreateStarted.get(),
             conversationCreateFinished = conversationCreateFinished.get(),
             generateStarted = generateStarted.get(),
+            generateStartedElapsedMs = generateStartedElapsedMs.get().takeIf { it >= 0L },
             firstTokenReceived = firstTokenReceived.get(),
+            firstTokenElapsedMs = firstTokenReceivedElapsedMs.get().takeIf { it >= 0L },
             failureStage = failureStage,
             fallbackUsed = false,
             staleCallbackIgnored = staleCallbackIgnored,
@@ -7422,6 +7438,11 @@ private class GpuRouteProgressTracker {
             engineInitializeFinished = engineInitializeFinished.get(),
             gpuConfigDiagnostics = config.get(),
         )
+
+    private fun recordElapsedOnce(target: AtomicLong) {
+        val elapsedMs = (SystemClock.elapsedRealtime() - runStartedAtMs).coerceAtLeast(0L)
+        target.compareAndSet(-1L, elapsedMs)
+    }
 }
 
 private fun shouldInsertLocalFailureAssistantMessage(

@@ -100,7 +100,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("failure_stage=gpu_watchdog_timeout"))
         assertTrue(text.contains("gpu_watchdog_timeout_ms=60000"))
         assertTrue(text.contains("gpu_watchdog_mode=extended_dev_60s"))
-        assertTrue(text.contains("gpu_timeout_stage=engine_create"))
+        assertTrue(text.contains("gpu_timeout_stage=engine_constructor"))
         assertTrue(text.contains("gpu_timeout_elapsed_ms=60001"))
         assertTrue(text.contains("gpu_engine_create_duration_ms=60001"))
         assertTrue(text.contains("gpu_engine_create_started=true"))
@@ -121,6 +121,10 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("gpu_engine_config_max_tokens=1024"))
         assertTrue(text.contains("gpu_engine_initialize_call_state=not_reached_engine_constructor_pending"))
         assertTrue(text.contains("gpu_timeout_checkpoint=engine_constructor"))
+        assertTrue(text.contains("generate_call_started_at_elapsed_ms=unavailable"))
+        assertTrue(text.contains("first_token_received_at_elapsed_ms=unavailable"))
+        assertTrue(text.contains("generate_before_first_token_elapsed_ms=unavailable"))
+        assertTrue(text.contains("gpu_generate_before_first_token_timeout_suspected=false"))
         assertTrue(text.contains("gpu_sampler_config_enabled=true"))
         assertTrue(text.contains("gpu_sampler_config_top_k=64"))
         assertTrue(text.contains("gpu_sampler_config_top_p=0.95"))
@@ -133,6 +137,86 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("gpu_generate_started=false"))
         assertTrue(text.contains("gpu_first_token_received=false"))
         assertTrue(text.contains("gpu_stale_callback_ignored=true"))
+    }
+
+    @Test
+    fun `GPU watchdog compact classifies generate before first token timeout`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "timeout_failure",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = false,
+                engineConfigBuildStarted = true,
+                engineConfigBuildFinished = true,
+                engineCreateStarted = true,
+                engineCreateFinished = true,
+                engineInitializeStarted = true,
+                engineInitializeFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                generateStartedElapsedMs = 1_234L,
+                firstTokenReceived = false,
+                failureStage = "gpu_watchdog_timeout",
+                fallbackUsed = false,
+                staleCallbackIgnored = true,
+                gpuConfigDiagnostics = buildGpuRouteConfigDiagnostics(
+                    modelPath = "/models/gemma-4-E2B-it.litertlm",
+                    cacheDirPath = "/data/user/0/io.github.ninbyo02.lami/cache",
+                    preferredBackend = "GPU",
+                    experimentMode = GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION,
+                ),
+            ),
+            elapsedMs = 60_001L,
+        )
+        val text = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    localModelDisplayName = "gemma-4-E2B-it",
+                    mediaPipeProbeModelPath = "/models/gemma-4-E2B-it.litertlm",
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "timeout",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                reason = "gpu_watchdog_timeout",
+                routeContext = routeContext,
+                timeout = true,
+            ),
+        )
+
+        assertTrue(text.contains("failure_stage=gpu_watchdog_timeout"))
+        assertTrue(text.contains("gpu_watchdog_failure_stage=gpu_watchdog_timeout_generate_before_first_token"))
+        assertTrue(text.contains("gpu_timeout_stage=generate_before_first_token"))
+        assertTrue(text.contains("engine_initialize_finished=true"))
+        assertTrue(text.contains("conversation_create_finished=true"))
+        assertTrue(text.contains("generate_started=true"))
+        assertTrue(text.contains("first_token_received=false"))
+        assertTrue(text.contains("gpu_last_known_stage=generate_started"))
+        assertTrue(text.contains("gpu_timeout_checkpoint=generate_started"))
+        assertTrue(text.contains("generate_call_started_at_elapsed_ms=1234"))
+        assertTrue(text.contains("first_token_received_at_elapsed_ms=unavailable"))
+        assertTrue(text.contains("generate_before_first_token_elapsed_ms=58767"))
+        assertTrue(text.contains("gpu_generate_before_first_token_timeout_suspected=true"))
+        assertTrue(text.contains("stale_callback_ignored=true"))
+        assertTrue(text.contains("held_engine_exists=true"))
+        assertTrue(text.contains("held_engine_reused=false"))
+        assertTrue(text.contains("experiment_mode=gpu_no_sampling_acceleration"))
+        assertTrue(text.contains("gpu_sampler_config_enabled=false"))
+        assertTrue(text.contains("gpu_conversation_config_sampler_present=false"))
+        assertTrue(text.contains("gpu_sampler_acceleration_policy=conversation_config_without_sampler"))
     }
 
     @Test
