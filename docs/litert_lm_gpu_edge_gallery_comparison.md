@@ -417,6 +417,119 @@ Phase 6 の次アクション:
 4. モデルが違う場合は、GPU成否を runtime差分と判断する前にモデル差分を潰す。
 5. public API で `GPU_ARTISAN` へ到達できない場合は、Edge Gallery 同等 runtime/API stack を隔離 flavor でのみ検証する。
 
+## GPU Phase 7: galleryStackGpuProbe implementation
+
+Phase 7 では DEV-only の isolated flavor `galleryStackGpuProbe` を追加する。目的は、Edge Gallery model identity が確認できた後も LAMI standard public `Backend.GPU` path が `cc:735` compiled model invoke failure になるため、standardDebug を触らず runtime stack isolation を試せる APK を作ること。
+
+確認済み model identity:
+
+- Edge Gallery model path: `/sdcard/Android/data/com.google.ai.edge.gallery/files/Gemma_4_E2B_it/6e5c4f1e395deb959c494953478fa5cec4b8008f/gemma-4-E2B-it.litertlm`
+- `modelId=litert-community/gemma-4-E2B-it-litert-lm`
+- `commitHash=6e5c4f1e395deb959c494953478fa5cec4b8008f`
+- `sizeInBytes=2588147712`
+- `accelerators=gpu,cpu`
+- `visionAccelerator=gpu`
+- `topK=64`
+- `topP=0.95`
+- `temperature=1.0`
+- `maxTokens=4000`
+- `maxContextLength=32000`
+- `capabilities=llm_thinking,speculative_decoding`
+
+Model-only test result:
+
+- Edge Gallery E2B model works in LAMI CPU route.
+- Same model still fails in LAMI GPU route with `failure_stage=gpu_generate_compiled_model_invoke_failed` and `gpu_generate_exception_status_code=13`.
+- Therefore model corruption or model identity mismatch is no longer enough to explain the GPU failure.
+
+Added flavor:
+
+- Flavor: `galleryStackGpuProbe`
+- Debug task: `./gradlew :app:assembleGalleryStackGpuProbeDebug`
+- Install task: `./gradlew :app:installGalleryStackGpuProbeDebug`
+- Application id suffix: `.gallerystackgpu`
+- Version suffix: `-galleryStackGpuProbe`
+- Native source set: `app/src/galleryStackGpuProbeDebug/jniLibs/arm64-v8a/`
+- Release variant disabled.
+
+Native staging:
+
+```bash
+scripts/stage_gallery_stack_gpu_probe_native_libs.sh
+scripts/stage_gallery_stack_gpu_probe_native_libs.sh --stage
+```
+
+The default mode is report-only. `--stage` extracts `lib/arm64-v8a/*.so` from `artifacts/external/edge_gallery_apks/` into the probe flavor source set and writes:
+
+```text
+artifacts/gallery_stack_gpu_probe/native_lib_manifest.tsv
+```
+
+The script refuses to stage into standard/shared source sets. Staged `.so` files under `app/src/galleryStackGpuProbeDebug/jniLibs/arm64-v8a/` are gitignored and intentionally not committed.
+
+DEV opt-in property:
+
+```bash
+adb shell setprop debug.lami.gallery_stack_gpu_probe true
+```
+
+When false, the flavor runs safely and does not force GPU. When true and backend is GPU, LAMI applies the Edge Gallery allowlist profile that is safe through the current public API:
+
+- `topK=64`
+- `topP=0.95`
+- `temperature=1.0`
+- `maxTokens=4000`
+
+The flavor does not fake unsupported APIs:
+
+- `gallery_stack_probe_thinking_api_available=false`
+- `gallery_stack_probe_speculative_decoding_api_available=false`
+
+Diagnostics added to compact diagnostics, `LOCAL_ROUTE_DIAG`, and developer inference stats:
+
+- `gallery_stack_probe_enabled`
+- `gallery_stack_probe_application_id`
+- `gallery_stack_probe_native_stack_source`
+- `gallery_stack_probe_liblitert_sha256`
+- `gallery_stack_probe_liblitertlm_jni_sha256`
+- `gallery_stack_probe_libs_manifest_present`
+- `gallery_stack_probe_edge_gallery_model_expected`
+- `gallery_stack_probe_model_path`
+- `gallery_stack_probe_model_exists`
+- `gallery_stack_probe_model_size_bytes`
+- `gallery_stack_probe_model_sha256_if_available`
+- `gallery_stack_probe_allowlist_config_applied`
+- `gallery_stack_probe_runtime_stack_alignment_level`
+
+Suggested test flow:
+
+```bash
+./gradlew :app:installGalleryStackGpuProbeDebug
+adb shell setprop debug.lami.gallery_stack_gpu_probe true
+adb shell setprop debug.lami.compare_cpu_gpu_callback true
+adb shell setprop debug.lami.gpu_generate_probe_mode raw_callback_only
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+```
+
+Manual model selection:
+
+```text
+/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm
+```
+
+Expected interpretation:
+
+- GPU succeeds: model/runtime stack alignment likely fixed the issue.
+- GPU still fails at `cc:735`: public `Backend.GPU` or inaccessible `GPU_ARTISAN`/internal executor remains the blocker.
+- GPU fails earlier at load/init: staged native stack is incompatible with current app packaging or dependency graph.
+
+Rollback:
+
+- Uninstall `io.github.ninbyo02.lami.gallerystackgpu`.
+- Clear `debug.lami.gallery_stack_gpu_probe`.
+- Remove local staged `.so` files from `app/src/galleryStackGpuProbeDebug/jniLibs/arm64-v8a/`.
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

@@ -203,6 +203,7 @@ internal data class LocalInferenceFailureCompactInput(
     val liteRtRuntimeCompiledModelExecutorHint: String = "unavailable",
     val liteRtRuntimeGpuExecutorHint: String = "unavailable",
     val liteRtRuntimeArtisanEvidence: String = "unavailable",
+    val galleryStackProbeDiagnostics: GalleryStackGpuProbeRuntimeDiagnostics? = null,
     val gpuFallbackUsed: String = "unavailable",
     val gpuStaleCallbackIgnored: String = "unavailable",
     val modelName: String = "unavailable",
@@ -450,8 +451,41 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "memory_after_total_pss_mb=${formatLocalFailureNullableLong(input.memoryAfter?.totalPssMb)}",
         "java_heap_used_mb=${formatLocalFailureNullableLong(input.javaHeapUsedMb)}",
         "native_heap_alloc_mb=${formatLocalFailureNullableLong(input.nativeHeapAllocMb)}",
-        ) + buildGpuPrefillProbeDiagnosticLines(input.gpuPrefillProbeDiagnostics)
+        ) +
+            buildGalleryStackGpuProbeCompactDiagnosticLines(input.galleryStackProbeDiagnostics) +
+            buildGpuPrefillProbeDiagnosticLines(input.gpuPrefillProbeDiagnostics)
         ).joinToString("\n")
+}
+
+private fun buildGalleryStackGpuProbeCompactDiagnosticLines(
+    diagnostics: GalleryStackGpuProbeRuntimeDiagnostics?,
+): List<String> {
+    if (diagnostics?.flavor != true) return emptyList()
+    return listOf(
+        "gallery_stack_probe_flavor=${diagnostics.flavor}",
+        "gallery_stack_probe_enabled=${diagnostics.enabled}",
+        "gallery_stack_probe_application_id=${diagnostics.applicationId}",
+        "gallery_stack_probe_native_stack_source=${escapeLocalInferenceFailureValue(diagnostics.nativeStackSource)}",
+        "gallery_stack_probe_liblitert_sha256=${diagnostics.libLiteRtSha256}",
+        "gallery_stack_probe_liblitertlm_jni_sha256=${diagnostics.libLiteRtLmJniSha256}",
+        "gallery_stack_probe_libs_manifest_present=${diagnostics.libsManifestPresent}",
+        "gallery_stack_probe_edge_gallery_model_expected=${escapeLocalInferenceFailureValue(diagnostics.edgeGalleryModelExpected)}",
+        "gallery_stack_probe_model_path=${escapeLocalInferenceFailureValue(diagnostics.modelPath)}",
+        "gallery_stack_probe_model_exists=${diagnostics.modelExists}",
+        "gallery_stack_probe_model_size_bytes=${diagnostics.modelSizeBytes}",
+        "gallery_stack_probe_model_sha256_if_available=${diagnostics.modelSha256IfAvailable}",
+        "gallery_stack_probe_allowlist_config_applied=${diagnostics.allowlistConfigApplied}",
+        "gallery_stack_probe_runtime_stack_alignment_level=${diagnostics.runtimeStackAlignmentLevel}",
+        "gallery_stack_probe_thinking_api_available=${diagnostics.thinkingApiAvailable}",
+        "gallery_stack_probe_speculative_decoding_api_available=${diagnostics.speculativeDecodingApiAvailable}",
+        "gallery_stack_probe_allowlist_accelerators=${diagnostics.allowlistAccelerators}",
+        "gallery_stack_probe_allowlist_vision_accelerator=${diagnostics.allowlistVisionAccelerator}",
+        "gallery_stack_probe_allowlist_top_k=${diagnostics.allowlistTopK}",
+        "gallery_stack_probe_allowlist_top_p=${diagnostics.allowlistTopP}",
+        "gallery_stack_probe_allowlist_temperature=${diagnostics.allowlistTemperature}",
+        "gallery_stack_probe_allowlist_max_tokens=${diagnostics.allowlistMaxTokens}",
+        "gallery_stack_probe_allowlist_max_context_length=${diagnostics.allowlistMaxContextLength}",
+    )
 }
 
 internal fun buildLocalInferenceFailureCompactInputFromTrace(
@@ -549,6 +583,13 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         recoverabilityHint = parsed["litert_lm_error_recoverability_hint"]
             ?: liteRtLmErrorClassification.recoverabilityHint,
         summary = parsed["gpu_generate_exception_summary"] ?: liteRtLmErrorClassification.summary,
+    )
+    val galleryStackProbe = buildGalleryStackGpuProbeRuntimeDiagnostics(
+        selectedModelPath = parsed["gallery_stack_probe_model_path"]
+            ?: parsed["selected_model_path"]
+            ?: routeContext?.selectedModelPath
+            ?: modelFile,
+        preferredBackend = parsed["preferred_backend"] ?: preferredBackendSetting.name,
     )
     return LocalInferenceFailureCompactInput(
         inputPrompt = inputPrompt,
@@ -795,6 +836,9 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         liteRtRuntimeCompiledModelExecutorHint = parsed["litert_runtime_compiled_model_executor_hint"] ?: "unavailable",
         liteRtRuntimeGpuExecutorHint = parsed["litert_runtime_gpu_executor_hint"] ?: "unavailable",
         liteRtRuntimeArtisanEvidence = parsed["litert_runtime_artisan_evidence"] ?: "unavailable",
+        galleryStackProbeDiagnostics = galleryStackProbe.takeIf {
+            it.flavor || parsed["gallery_stack_probe_flavor"] == "true"
+        },
         gpuFallbackUsed = parsed["gpu_fallback_used"] ?: parsed["fallback_used"] ?: "unavailable",
         gpuStaleCallbackIgnored = parsed["gpu_stale_callback_ignored"] ?: parsed["stale_callback_ignored"] ?: "unavailable",
         modelName = modelName

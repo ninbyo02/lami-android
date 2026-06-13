@@ -62,6 +62,7 @@ _debug/
 # local NPU/QNN runtime drops (licensed vendor binaries; do not commit)
 /app/src/main/jniLibs/arm64-v8a/*.so
 /app/src/debug/jniLibs/arm64-v8a/*.so
+/app/src/galleryStackGpuProbeDebug/jniLibs/arm64-v8a/*.so
 /third_party/qairt/
 
 # Emulator local config

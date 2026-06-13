@@ -41,6 +41,7 @@ val liteRtLmAndroidReleaseVersion = "0.10.0"
 val liteRtLmAndroidDebugVersion = "0.11.0"
 val liteRtLmAndroidNpuExperimentDebugVersion = "0.10.0"
 val liteRtLmAndroidGalleryStackExperimentDebugVersion = "0.11.0"
+val liteRtLmAndroidGalleryStackGpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 
@@ -68,6 +69,7 @@ android {
         buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
         buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
         buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+        buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
         buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
     }
 
@@ -80,6 +82,7 @@ android {
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"none\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("npuExperiment") {
@@ -91,6 +94,7 @@ android {
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"gallery-sm8750 detection-only staged in app/src/npuExperimentDebug/jniLibs/arm64-v8a\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryStackExperiment") {
@@ -102,6 +106,19 @@ android {
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"gallery-sm8750 full native stack staged in app/src/galleryStackExperimentDebug/jniLibs/arm64-v8a\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "true")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("galleryStackGpuProbe") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".gallerystackgpu"
+            versionNameSuffix = "-galleryStackGpuProbe"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"galleryStackGpuProbe\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"dev-only Edge Gallery GPU stack probe staged in app/src/galleryStackGpuProbeDebug/jniLibs/arm64-v8a\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "true")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryAlignedNpuProbe") {
@@ -113,6 +130,7 @@ android {
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"debug-only Gallery-aligned SM8750 native stack staged in app/src/galleryAlignedNpuProbeDebug/jniLibs/arm64-v8a\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "true")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("customBuildExperiment") {
@@ -124,6 +142,7 @@ android {
             buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"custom LiteRT-LM v0.11.0 pinned-source native stack staged in app/src/customBuildExperimentDebug/jniLibs/arm64-v8a\"")
             buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "true")
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "true")
         }
     }
@@ -167,6 +186,9 @@ android {
             manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
             jniLibs.srcDir("src/galleryStackExperimentDebug/jniLibs")
         }
+        create("galleryStackGpuProbeDebug") {
+            jniLibs.srcDir("src/galleryStackGpuProbeDebug/jniLibs")
+        }
         create("galleryAlignedNpuProbeDebug") {
             java.srcDir("src/npuExperimentDebug/java")
             manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
@@ -183,7 +205,7 @@ android {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) { variantBuilder ->
-        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "galleryAlignedNpuProbe" || it.second == "customBuildExperiment") }) {
+        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "galleryStackGpuProbe" || it.second == "galleryAlignedNpuProbe" || it.second == "customBuildExperiment") }) {
             variantBuilder.enable = false
         }
     }
@@ -192,6 +214,7 @@ androidComponents {
         val liteRtLmVersion = when {
             variant.buildType == "debug" && flavor == "customBuildExperiment" -> liteRtLmAndroidCustomBuildExperimentDebugVersion
             variant.buildType == "debug" && flavor == "galleryAlignedNpuProbe" -> liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion
+            variant.buildType == "debug" && flavor == "galleryStackGpuProbe" -> liteRtLmAndroidGalleryStackGpuProbeDebugVersion
             variant.buildType == "debug" && flavor == "galleryStackExperiment" -> liteRtLmAndroidGalleryStackExperimentDebugVersion
             variant.buildType == "debug" && flavor == "npuExperiment" -> liteRtLmAndroidNpuExperimentDebugVersion
             variant.buildType == "debug" -> liteRtLmAndroidDebugVersion
@@ -830,6 +853,7 @@ dependencies {
     add("standardImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
     add("npuExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidNpuExperimentDebugVersion")
     add("galleryStackExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryStackExperimentDebugVersion")
+    add("galleryStackGpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryStackGpuProbeDebugVersion")
     add("galleryAlignedNpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion")
     add("customBuildExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidCustomBuildExperimentDebugVersion")
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")

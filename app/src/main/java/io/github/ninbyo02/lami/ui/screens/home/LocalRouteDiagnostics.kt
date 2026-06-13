@@ -303,6 +303,10 @@ internal fun buildLocalRouteDiagnosticTrace(
     )
     val compiledModelExecutorFailureCategory =
         classifyLiteRtCompiledModelExecutorFailureCategory(effectiveLiteRtLmError)
+    val galleryStackGpuProbe = buildGalleryStackGpuProbeRuntimeDiagnostics(
+        selectedModelPath = context.selectedModelPath,
+        preferredBackend = context.preferredBackend,
+    )
     return (
         listOf(
         "LOCAL_ROUTE_DIAG",
@@ -504,8 +508,41 @@ internal fun buildLocalRouteDiagnosticTrace(
         "litert_runtime_artisan_evidence=${artisanApi.runtimeArtisanEvidence}",
         "gpu_fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
         "gpu_stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
-        ) + buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
+        ) +
+            buildGalleryStackGpuProbeRouteDiagnosticLines(galleryStackGpuProbe) +
+            buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
         ).joinToString(" ")
+}
+
+private fun buildGalleryStackGpuProbeRouteDiagnosticLines(
+    diagnostics: GalleryStackGpuProbeRuntimeDiagnostics,
+): List<String> {
+    if (!diagnostics.flavor) return emptyList()
+    return listOf(
+        "gallery_stack_probe_flavor=${diagnostics.flavor}",
+        "gallery_stack_probe_enabled=${diagnostics.enabled}",
+        "gallery_stack_probe_application_id=${diagnostics.applicationId}",
+        "gallery_stack_probe_native_stack_source=${diagnostics.nativeStackSource.toDiagnosticValue()}",
+        "gallery_stack_probe_liblitert_sha256=${diagnostics.libLiteRtSha256}",
+        "gallery_stack_probe_liblitertlm_jni_sha256=${diagnostics.libLiteRtLmJniSha256}",
+        "gallery_stack_probe_libs_manifest_present=${diagnostics.libsManifestPresent}",
+        "gallery_stack_probe_edge_gallery_model_expected=${diagnostics.edgeGalleryModelExpected.toDiagnosticValue()}",
+        "gallery_stack_probe_model_path=${diagnostics.modelPath.toDiagnosticValue()}",
+        "gallery_stack_probe_model_exists=${diagnostics.modelExists}",
+        "gallery_stack_probe_model_size_bytes=${diagnostics.modelSizeBytes}",
+        "gallery_stack_probe_model_sha256_if_available=${diagnostics.modelSha256IfAvailable}",
+        "gallery_stack_probe_allowlist_config_applied=${diagnostics.allowlistConfigApplied}",
+        "gallery_stack_probe_runtime_stack_alignment_level=${diagnostics.runtimeStackAlignmentLevel}",
+        "gallery_stack_probe_thinking_api_available=${diagnostics.thinkingApiAvailable}",
+        "gallery_stack_probe_speculative_decoding_api_available=${diagnostics.speculativeDecodingApiAvailable}",
+        "gallery_stack_probe_allowlist_accelerators=${diagnostics.allowlistAccelerators}",
+        "gallery_stack_probe_allowlist_vision_accelerator=${diagnostics.allowlistVisionAccelerator}",
+        "gallery_stack_probe_allowlist_top_k=${diagnostics.allowlistTopK}",
+        "gallery_stack_probe_allowlist_top_p=${diagnostics.allowlistTopP}",
+        "gallery_stack_probe_allowlist_temperature=${diagnostics.allowlistTemperature}",
+        "gallery_stack_probe_allowlist_max_tokens=${diagnostics.allowlistMaxTokens}",
+        "gallery_stack_probe_allowlist_max_context_length=${diagnostics.allowlistMaxContextLength}",
+    )
 }
 
 private fun Boolean?.toDiagnosticValue(): String = this?.toString() ?: "unknown"
@@ -1309,7 +1346,11 @@ internal fun buildGpuRouteConfigDiagnostics(
         backend = "GPU",
         visionBackend = "null",
         audioBackend = "null",
-        maxTokens = resolveGpuMaxTokensForExperiment(experimentMode),
+        maxTokens = if (shouldApplyGalleryStackGpuProbeAllowlistConfig(preferredBackend)) {
+            GALLERY_STACK_GPU_PROBE_ALLOWLIST_MAX_TOKENS.toString()
+        } else {
+            resolveGpuMaxTokensForExperiment(experimentMode)
+        },
         samplerConfigEnabled = samplerEnabled.toString(),
         samplerTopK = if (samplerEnabled) GPU_EDGE_GALLERY_LIKE_TOP_K.toString() else "unavailable",
         samplerTopP = if (samplerEnabled) GPU_EDGE_GALLERY_LIKE_TOP_P else "unavailable",

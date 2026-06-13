@@ -594,6 +594,14 @@ internal fun buildInferenceDetailSections(
                 )
             },
         acceleratorProbeSnapshot
+            ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.currentFlavor == "galleryStackGpuProbe" }
+            ?.let { probe ->
+                InferenceStatsSectionUi(
+                    title = "DEV診断: Gallery Stack GPU Probe",
+                    items = buildGalleryStackGpuProbeItems(probe),
+                )
+            },
+        acceleratorProbeSnapshot
             ?.takeIf { displayMode == InferenceStatsDisplayMode.DEVELOPER && it.currentFlavor == "customBuildExperiment" }
             ?.let { probe ->
                 InferenceStatsSectionUi(
@@ -1710,6 +1718,37 @@ private fun buildGalleryStackJavaNativeApiCompatibilityItems(
         InferenceStatItemUi(label = "libLiteRt.so build id", value = probe.liteRtBuildId?.ifBlank { "unknown" } ?: "unknown"),
         InferenceStatItemUi(label = "libLiteRtDispatch_Qualcomm.so build id", value = probe.dispatchRuntimeBuildId?.ifBlank { "unknown" } ?: "unknown"),
         InferenceStatItemUi(label = "note", value = probe.galleryStackJavaNativeApiCompatibilityNote?.ifBlank { "unknown" } ?: "unknown"),
+    )
+}
+
+private fun buildGalleryStackGpuProbeItems(
+    probe: AcceleratorProbeSnapshot,
+): List<InferenceStatItemUi> {
+    val diagnostics = probe.galleryStackGpuProbeDiagnostics
+    return listOf(
+        InferenceStatItemUi(label = "current flavor", value = probe.currentFlavor?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "applicationId", value = probe.applicationId?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "probe enabled", value = diagnostics?.enabled?.toString() ?: "unknown"),
+        InferenceStatItemUi(label = "native stack source", value = diagnostics?.nativeStackSource?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libLiteRt.so sha256", value = diagnostics?.libLiteRtSha256?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "liblitertlm_jni.so sha256", value = diagnostics?.libLiteRtLmJniSha256?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "libs manifest present", value = diagnostics?.libsManifestPresent?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "expected model", value = diagnostics?.edgeGalleryModelExpected?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "model path", value = diagnostics?.modelPath?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "model exists", value = diagnostics?.modelExists ?: "unknown"),
+        InferenceStatItemUi(label = "model size bytes", value = diagnostics?.modelSizeBytes ?: "unknown"),
+        InferenceStatItemUi(label = "model sha256", value = diagnostics?.modelSha256IfAvailable?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist config applied", value = diagnostics?.allowlistConfigApplied ?: "unknown"),
+        InferenceStatItemUi(label = "alignment level", value = diagnostics?.runtimeStackAlignmentLevel?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "thinking API available", value = diagnostics?.thinkingApiAvailable ?: "unknown"),
+        InferenceStatItemUi(label = "speculative decoding API available", value = diagnostics?.speculativeDecodingApiAvailable ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist accelerators", value = diagnostics?.allowlistAccelerators?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist vision accelerator", value = diagnostics?.allowlistVisionAccelerator?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist topK", value = diagnostics?.allowlistTopK?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist topP", value = diagnostics?.allowlistTopP?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist temperature", value = diagnostics?.allowlistTemperature?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist maxTokens", value = diagnostics?.allowlistMaxTokens?.ifBlank { "unknown" } ?: "unknown"),
+        InferenceStatItemUi(label = "allowlist maxContextLength", value = diagnostics?.allowlistMaxContextLength?.ifBlank { "unknown" } ?: "unknown"),
     )
 }
 
