@@ -255,6 +255,8 @@ private const val DEV_STREAMING_RENDER_TAIL_LIMIT_CHARS = 4000
 private const val DEV_USE_HELD_PATH_ONLY = false
 private const val LOCAL_UI_APPEND_DEBOUNCE_MS = 0L
 private const val LOCAL_STREAMING_WHITESPACE_LOG_TAG = "LocalWsTrace"
+private const val GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE =
+    "GPU prefill probe を実行しました。通常GPU生成は競合回避のためスキップしました。"
 
 private enum class LocalExecutionPath(
     val sourceLabel: String,
@@ -4421,6 +4423,29 @@ fun Home(
                                                                         context = context.applicationContext,
                                                                         text = probeText,
                                                                     )
+                                                                    localInferenceEngineHolder.requestRecreateForDev(
+                                                                        reason = "gpu_prefill_probe_completed_normal_generate_skipped",
+                                                                        appendTrace = { message ->
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = message,
+                                                                            )
+                                                                        },
+                                                                    )
+                                                                    return@withContext LocalInferenceRunResult(
+                                                                        state = LocalInferenceEngineState.ERROR,
+                                                                        response = GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE,
+                                                                        trace = LocalInferenceTrace(
+                                                                            localModelDisplayName = modelResolution.displayName,
+                                                                            mediaPipeProbeModelPath = modelResolution.modelPath,
+                                                                            requestedPreferredBackend = "GPU",
+                                                                            appliedPreferredBackend = "GPU",
+                                                                            preferredBackendApplyResult = "gpu-prefill-probe-skipped-normal-generate",
+                                                                            preferredBackendHookReached = true,
+                                                                            preferredBackendHookSource = "gpu-prefill-probe",
+                                                                            localFailureDiagnosticsText = probeText,
+                                                                        ),
+                                                                    )
                                                                 }
                                                                 val lastRouteDiagnosticStage =
                                                                     AtomicReference<String?>("engine_create_started")
@@ -7480,7 +7505,8 @@ private fun shouldInsertLocalFailureAssistantMessage(
     runResult: LocalInferenceRunResult?,
 ): Boolean =
     runResult?.state == LocalInferenceEngineState.ERROR &&
-        runResult.response == GPU_EXPERIMENTAL_TIMEOUT_MESSAGE
+        (runResult.response == GPU_EXPERIMENTAL_TIMEOUT_MESSAGE ||
+            runResult.response == GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE)
 
 private fun ensureSuccessCloseLifecycleSummary(
     summary: RunCloseLifecycleSummary?,

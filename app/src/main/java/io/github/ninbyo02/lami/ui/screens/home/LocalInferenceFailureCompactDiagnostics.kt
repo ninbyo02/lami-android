@@ -22,6 +22,8 @@ internal data class LocalInferenceFailureCompactInput(
     val reflectionTargetExceptionRootCauseClass: String = "unavailable",
     val reflectionTargetExceptionRootCauseMessage: String = "unavailable",
     val exceptionChain: String = "unavailable",
+    val liteRtLmPreviousInvocationStillProcessing: Boolean = false,
+    val generateConcurrencyViolationSuspected: Boolean = false,
     val engineConfigBackend: String = "unavailable",
     val normalChatNativeRouteBlocked: Boolean = false,
     val blockedReason: String = "none",
@@ -127,6 +129,11 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
     )
     val modelFile = input.modelFile.takeIf { it.isNotBlank() && it != "unavailable" }
     val model = modelFile?.let(::File)
+    val guardRecommendation = if (input.generateConcurrencyViolationSuspected) {
+        "reset_gpu_engine_or_force_cpu"
+    } else {
+        input.guardRecommendation.ifBlank { "unavailable" }
+    }
     return listOf(
         "[DEV診断: Local inference failure compact]",
         "input_prompt=${escapeLocalInferenceFailureValue(input.inputPrompt)}",
@@ -149,12 +156,14 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "reflection_target_exception_root_cause_class=${input.reflectionTargetExceptionRootCauseClass.ifBlank { "unavailable" }}",
         "reflection_target_exception_root_cause_message=${escapeLocalInferenceFailureValue(input.reflectionTargetExceptionRootCauseMessage.ifBlank { "unavailable" })}",
         "exception_chain=${escapeLocalInferenceFailureValue(input.exceptionChain.ifBlank { "unavailable" })}",
+        "lite_rt_lm_previous_invocation_still_processing=${input.liteRtLmPreviousInvocationStillProcessing}",
+        "generate_concurrency_violation_suspected=${input.generateConcurrencyViolationSuspected}",
         "engine_config_backend=${input.engineConfigBackend.ifBlank { "unavailable" }}",
         "preferred_backend_setting=${input.preferredBackendSetting.name}",
         "npu_standard_route_setting=${input.npuStandardRouteMode.name}",
         "normal_chat_native_route_blocked=${input.normalChatNativeRouteBlocked}",
         "blocked_reason=${input.blockedReason.ifBlank { "none" }}",
-        "guard_recommendation=${input.guardRecommendation.ifBlank { "unavailable" }}",
+        "guard_recommendation=$guardRecommendation",
         "local_route_started=${input.localRouteStarted}",
         "local_engine_create_started=${input.localEngineCreateStarted}",
         "local_engine_create_finished=${input.localEngineCreateFinished}",
@@ -298,6 +307,16 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         failureExceptionClass = resolvedFailureExceptionClass,
         failureExceptionMessage = resolvedFailureExceptionMessage,
     )
+    val previousInvocationStillProcessing = isLiteRtLmPreviousInvocationStillProcessing(
+        listOf(
+            resolvedFailureExceptionMessage,
+            exceptionExpansion.failureCauseMessage,
+            exceptionExpansion.failureRootCauseMessage,
+            exceptionExpansion.reflectionTargetExceptionMessage,
+            exceptionExpansion.reflectionTargetExceptionRootCauseMessage,
+            exceptionExpansion.exceptionChain,
+        ),
+    )
     val gpuEngineCreateTimeoutSuspected = parsed["gpu_engine_create_timeout_suspected"] ?: "unavailable"
     return LocalInferenceFailureCompactInput(
         inputPrompt = inputPrompt,
@@ -322,6 +341,8 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         reflectionTargetExceptionRootCauseClass = exceptionExpansion.reflectionTargetExceptionRootCauseClass,
         reflectionTargetExceptionRootCauseMessage = exceptionExpansion.reflectionTargetExceptionRootCauseMessage,
         exceptionChain = exceptionExpansion.exceptionChain,
+        liteRtLmPreviousInvocationStillProcessing = previousInvocationStillProcessing,
+        generateConcurrencyViolationSuspected = previousInvocationStillProcessing,
         engineConfigBackend = trace?.appliedPreferredBackend
             ?: trace?.requestedPreferredBackend
             ?: when (preferredBackendSetting) {
@@ -576,6 +597,13 @@ private fun Throwable?.localFailureMessageOrNone(): String =
 
 private fun normalizeLocalFailureMessage(value: String): String =
     value.ifBlank { "none" }
+
+internal fun isLiteRtLmPreviousInvocationStillProcessing(values: List<String?>): Boolean =
+    values.any { value ->
+        val normalized = value.orEmpty()
+        normalized.contains("Previous invocation still processing", ignoreCase = true) &&
+            normalized.contains("done=true", ignoreCase = true)
+    }
 
 private fun escapeLocalInferenceFailureValue(value: String): String =
     value

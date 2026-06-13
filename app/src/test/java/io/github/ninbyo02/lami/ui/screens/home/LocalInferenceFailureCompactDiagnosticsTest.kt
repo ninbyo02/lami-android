@@ -263,6 +263,25 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `LiteRT-LM previous invocation still processing is classified`() {
+        val target = IllegalStateException("Previous invocation still processing. Wait for done=true.")
+        val wrapper = InvocationTargetException(target)
+        val text = buildFailureText(
+            setting = PreferredBackendDryRunSetting.GPU,
+            throwable = wrapper,
+            exceptionClass = wrapper.javaClass.name,
+            exceptionMessage = wrapper.message ?: "none",
+        )
+
+        assertTrue(text.contains("failure_stage=engine-create"))
+        assertTrue(text.contains("failure_cause_class=java.lang.IllegalStateException"))
+        assertTrue(text.contains("failure_cause_message=Previous invocation still processing. Wait for done=true."))
+        assertTrue(text.contains("lite_rt_lm_previous_invocation_still_processing=true"))
+        assertTrue(text.contains("generate_concurrency_violation_suspected=true"))
+        assertTrue(text.contains("guard_recommendation=reset_gpu_engine_or_force_cpu"))
+    }
+
+    @Test
     fun `local compact reflection keys do not change NPU S1 compact header`() {
         val localText = buildFailureText(
             setting = PreferredBackendDryRunSetting.DEFAULT,

@@ -117,6 +117,10 @@ internal data class GpuPrefillProbeRequest(
     val samplerEnabled: Boolean = false,
     val cacheDirMode: String = GPU_PREFILL_PROBE_CACHE_DIR_NULL,
     val timeoutMs: Long = GPU_PREFILL_PROBE_DEFAULT_TIMEOUT_MS,
+    val skippedNormalGenerate: Boolean = true,
+    val isolatedEngineUsed: Boolean = true,
+    val sharedEngineUsed: Boolean = false,
+    val invalidatesHeldEngine: Boolean = true,
 )
 
 internal data class GpuPrefillProbeState(
@@ -137,6 +141,12 @@ internal data class GpuPrefillProbeState(
     val exceptionMessage: AtomicReference<String?> = AtomicReference(null),
     val resultText: AtomicReference<String> = AtomicReference(""),
     val staleCallbackIgnored: AtomicReference<Boolean> = AtomicReference(false),
+    val runStarted: AtomicReference<Boolean> = AtomicReference(false),
+    val runFinished: AtomicReference<Boolean> = AtomicReference(false),
+    val runTimedOut: AtomicReference<Boolean> = AtomicReference(false),
+    val cleanupStarted: AtomicReference<Boolean> = AtomicReference(false),
+    val cleanupFinished: AtomicReference<Boolean> = AtomicReference(false),
+    val cleanupResult: AtomicReference<String> = AtomicReference("not_started"),
 ) {
     fun elapsedMs(): Long = elapsedOverrideMs ?: (SystemClock.elapsedRealtime() - startedAtMs).coerceAtLeast(0L)
 }
@@ -210,6 +220,7 @@ internal suspend fun runGpuPrefillProbe(
         var engine: Any? = null
         var conversation: Any? = null
         try {
+            state.runStarted.set(true)
             state.engineConfigStarted.set(true)
             val engineConfig = EngineConfig(
                 modelPath = request.modelPath,
@@ -242,15 +253,25 @@ internal suspend fun runGpuPrefillProbe(
             state.exceptionClass.set(throwable.javaClass.name)
             state.exceptionMessage.set(throwable.message ?: "none")
         } finally {
-            if (state.firstTokenReceived.get() || state.exceptionClass.get() != null) {
-                closeQuietly(conversation, appendTrace)
-                closeQuietly(engine, appendTrace)
-            }
+            state.cleanupStarted.set(true)
+            val conversationOutcome = runCatching { closeQuietly(conversation, appendTrace) }
+            val engineOutcome = runCatching { closeQuietly(engine, appendTrace) }
+            state.cleanupResult.set(
+                when {
+                    conversationOutcome.isSuccess && engineOutcome.isSuccess -> "closed_probe_conversation_and_engine"
+                    else -> "close_attempt_failed"
+                },
+            )
+            state.cleanupFinished.set(true)
+            state.runFinished.set(!state.staleCallbackIgnored.get())
         }
     }
     while (!deferred.isCompleted) {
         if (state.elapsedMs() >= request.timeoutMs) {
             state.staleCallbackIgnored.set(true)
+            state.runTimedOut.set(true)
+            state.cleanupStarted.set(true)
+            state.cleanupResult.set("cancel_requested_native_generate_may_still_be_processing")
             deferred.cancel()
             break
         }
@@ -375,9 +396,18 @@ internal fun buildGpuPrefillProbeDiagnosticsText(state: GpuPrefillProbeState): S
             "unavailable"
         }
     val resultText = state.resultText.get()
+    val previousInvocationStillProcessing = state.exceptionMessage.get()
+        ?.let { isLiteRtLmPreviousInvocationStillProcessing(listOf(it)) }
+        ?: false
     return listOf(
         "[DEV診断: GPU prefill probe]",
         "probe_enabled=true",
+        "probe_run_started=${state.runStarted.get()}",
+        "probe_run_finished=${state.runFinished.get()}",
+        "probe_run_timed_out=${state.runTimedOut.get()}",
+        "probe_skipped_normal_generate=${state.request.skippedNormalGenerate}",
+        "probe_isolated_engine_used=${state.request.isolatedEngineUsed}",
+        "probe_shared_engine_used=${state.request.sharedEngineUsed}",
         "probe_prompt_variant=${resolveGpuPrefillProbePromptVariant(state.request.prompt)}",
         "probe_prompt_length_chars=${state.request.prompt.length}",
         "probe_max_tokens=${state.request.maxTokens}",
@@ -399,6 +429,12 @@ internal fun buildGpuPrefillProbeDiagnosticsText(state: GpuPrefillProbeState): S
         "probe_result_text_length=${resultText.length}",
         "probe_result_text_head=${escapeGpuPrefillProbeValue(resultText.take(80).ifBlank { "none" })}",
         "probe_stale_callback_ignored=${state.staleCallbackIgnored.get()}",
+        "probe_cleanup_started=${state.cleanupStarted.get()}",
+        "probe_cleanup_finished=${state.cleanupFinished.get()}",
+        "probe_cleanup_result=${state.cleanupResult.get()}",
+        "probe_invalidated_held_engine=${state.request.invalidatesHeldEngine}",
+        "probe_normal_generate_blocked_reason=probe_opt_in_runs_without_normal_generate",
+        "previous_invocation_still_processing_detected=$previousInvocationStillProcessing",
         "probe_elapsed_ms=$elapsedMs",
     ).joinToString("\n")
 }

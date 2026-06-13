@@ -419,9 +419,16 @@ adb shell setprop debug.lami.gpu_prefill_probe_cache_dir null
 probe は GPU 明示選択時だけ、現在選択中の `.litertlm` model path で実行する。既定 timeout は 15 秒。
 結果は DEV trace と `files/dev_diagnostics/gpu_prefill_probe_latest.txt` に残る。
 
+重要: probe は診断専用で、通常チャット generate と競合させない。`debug.lami.gpu_prefill_probe=true`
+のときは probe 専用 Engine/Conversation で短い generate を試し、その turn の通常 GPU generate はスキップする。
+probe timeout 後は held engine を recreate 要求し、続けて同じ turn で通常 GPU 生成しない。
+
 出力 key:
 
 - `probe_enabled`
+- `probe_run_started`, `probe_run_finished`, `probe_run_timed_out`
+- `probe_skipped_normal_generate`
+- `probe_isolated_engine_used`, `probe_shared_engine_used`
 - `probe_prompt_variant`
 - `probe_prompt_length_chars`
 - `probe_max_tokens`
@@ -438,6 +445,10 @@ probe は GPU 明示選択時だけ、現在選択中の `.litertlm` model path 
 - `probe_exception_class`, `probe_exception_message`
 - `probe_result_text_length`, `probe_result_text_head`
 - `probe_stale_callback_ignored`
+- `probe_cleanup_started`, `probe_cleanup_finished`, `probe_cleanup_result`
+- `probe_invalidated_held_engine`
+- `probe_normal_generate_blocked_reason`
+- `previous_invocation_still_processing_detected`
 - `probe_elapsed_ms`
 
 読み方:
@@ -448,6 +459,17 @@ probe は GPU 明示選択時だけ、現在選択中の `.litertlm` model path 
   最小入力では GPU first token が返る。通常チャットとの差分として prompt 長、conversation state、UI側の 60秒 watchdog 条件を比較する。
 - `probe_exception_class` が `none` 以外:
   timeout ではなく Java/Kotlin 例外経路。InvocationTargetException の場合は root cause も通常の Local inference failure compact と合わせて見る。
+- `failure_cause_message=Previous invocation still processing. Wait for done=true.`:
+  LiteRT-LM の同時 generate 呼び出し疑い。compact では `lite_rt_lm_previous_invocation_still_processing=true`,
+  `generate_concurrency_violation_suspected=true`, `guard_recommendation=reset_gpu_engine_or_force_cpu` として扱う。
+
+推奨運用:
+
+- probe 有効時は probe だけ実行する。
+- timeout 時はアプリまたは GPU engine を再作成する。
+- probe timeout 直後に同じ turn で通常 GPU 生成を続けない。
+- `hi` / `max_tokens=1` / no sampler / cache=null でも first token 前 timeout なら、GPU backend の generate 内部問題が濃い。
+- probe が通るなら、通常チャット prompt/config/conversation state 差分を疑う。
 
 各モードの目的:
 

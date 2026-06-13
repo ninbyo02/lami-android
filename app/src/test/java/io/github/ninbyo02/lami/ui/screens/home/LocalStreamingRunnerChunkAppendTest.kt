@@ -142,6 +142,10 @@ class LocalStreamingRunnerChunkAppendTest {
         assertEquals(1, request.maxTokens)
         assertTrue(request.samplerEnabled)
         assertEquals("app_cache", request.cacheDirMode)
+        assertTrue(request.skippedNormalGenerate)
+        assertTrue(request.isolatedEngineUsed)
+        assertFalse(request.sharedEngineUsed)
+        assertTrue(request.invalidatesHeldEngine)
     }
 
     @Test
@@ -164,15 +168,25 @@ class LocalStreamingRunnerChunkAppendTest {
         state.engineInitializeFinished.set(true)
         state.conversationCreateStarted.set(true)
         state.conversationCreateFinished.set(true)
+        state.runStarted.set(true)
+        state.runTimedOut.set(true)
         state.generateStarted.set(true)
         state.generateStartedAtMs.set(100L)
         state.firstTokenReceived.set(false)
         state.staleCallbackIgnored.set(true)
+        state.cleanupStarted.set(true)
+        state.cleanupResult.set("cancel_requested_native_generate_may_still_be_processing")
 
         val text = buildGpuPrefillProbeDiagnosticsText(state)
 
         assertTrue(text.contains("[DEV診断: GPU prefill probe]"))
         assertTrue(text.contains("probe_enabled=true"))
+        assertTrue(text.contains("probe_run_started=true"))
+        assertTrue(text.contains("probe_run_finished=false"))
+        assertTrue(text.contains("probe_run_timed_out=true"))
+        assertTrue(text.contains("probe_skipped_normal_generate=true"))
+        assertTrue(text.contains("probe_isolated_engine_used=true"))
+        assertTrue(text.contains("probe_shared_engine_used=false"))
         assertTrue(text.contains("probe_prompt_variant=single_ascii"))
         assertTrue(text.contains("probe_max_tokens=1"))
         assertTrue(text.contains("probe_sampler_enabled=false"))
@@ -182,6 +196,12 @@ class LocalStreamingRunnerChunkAppendTest {
         assertTrue(text.contains("probe_timeout_stage=generate_before_first_token"))
         assertTrue(text.contains("probe_failure_stage=gpu_prefill_probe_timeout_generate_before_first_token"))
         assertTrue(text.contains("probe_stale_callback_ignored=true"))
+        assertTrue(text.contains("probe_cleanup_started=true"))
+        assertTrue(text.contains("probe_cleanup_finished=false"))
+        assertTrue(text.contains("probe_cleanup_result=cancel_requested_native_generate_may_still_be_processing"))
+        assertTrue(text.contains("probe_invalidated_held_engine=true"))
+        assertTrue(text.contains("probe_normal_generate_blocked_reason=probe_opt_in_runs_without_normal_generate"))
+        assertTrue(text.contains("previous_invocation_still_processing_detected=false"))
     }
 
     @Test
