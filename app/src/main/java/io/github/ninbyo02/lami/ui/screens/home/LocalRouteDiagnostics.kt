@@ -39,6 +39,7 @@ internal data class LocalRouteDiagnosticFlags(
     val engineInitializeStarted: Boolean? = null,
     val engineInitializeFinished: Boolean? = null,
     val gpuConfigDiagnostics: GpuRouteConfigDiagnostics? = null,
+    val gpuPrefillProbeDiagnostics: Map<String, String> = emptyMap(),
 )
 
 internal data class GpuRouteConfigDiagnostics(
@@ -149,7 +150,8 @@ internal fun buildLocalRouteDiagnosticTrace(
             cacheDirPath = null,
             preferredBackend = context.preferredBackend,
         )
-    return listOf(
+    return (
+        listOf(
         "LOCAL_ROUTE_DIAG",
         "stage=$stage",
         "selected_model_name=${context.selectedModelName}",
@@ -253,10 +255,89 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_edge_gallery_diff_applied=${shouldApplyEdgeGalleryLikeGpuCompatibilityMode(context.preferredBackend)}",
         "gpu_fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
         "gpu_stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
-    ).joinToString(" ")
+        ) + buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
+        ).joinToString(" ")
 }
 
 private fun Boolean?.toDiagnosticValue(): String = this?.toString() ?: "unknown"
+
+internal val GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS = listOf(
+    "probe_requested",
+    "probe_enabled",
+    "probe_run_started",
+    "probe_run_finished",
+    "probe_run_timed_out",
+    "probe_skipped_normal_generate",
+    "probe_isolated_engine_used",
+    "probe_shared_engine_used",
+    "probe_prompt_variant",
+    "probe_prompt_length_chars",
+    "probe_max_tokens",
+    "probe_sampler_enabled",
+    "probe_cache_dir_mode",
+    "probe_engine_config_started",
+    "probe_engine_config_finished",
+    "probe_engine_initialize_started",
+    "probe_engine_initialize_finished",
+    "probe_conversation_create_started",
+    "probe_conversation_create_finished",
+    "probe_generate_started",
+    "probe_first_token_received",
+    "probe_generate_before_first_token_elapsed_ms",
+    "probe_timeout_stage",
+    "probe_failure_stage",
+    "probe_exception_class",
+    "probe_exception_message",
+    "probe_result_text_length",
+    "probe_result_text_head",
+    "probe_stale_callback_ignored",
+    "probe_elapsed_ms",
+    "probe_cleanup_started",
+    "probe_cleanup_finished",
+    "probe_cleanup_result",
+    "probe_invalidated_held_engine",
+    "probe_start_blocked_reason",
+    "probe_normal_generate_blocked_reason",
+    "previous_invocation_still_processing_detected",
+)
+
+internal fun parseDiagnosticKeyValueText(text: String?): Map<String, String> =
+    buildMap {
+        text
+            ?.lineSequence()
+            ?.forEach { line ->
+                val trimmed = line.trim()
+                if (trimmed.startsWith("LOCAL_ROUTE_DIAG ")) {
+                    trimmed.split(' ')
+                        .asSequence()
+                        .drop(1)
+                        .forEach { token ->
+                            val separatorIndex = token.indexOf('=')
+                            if (separatorIndex > 0) {
+                                put(token.substring(0, separatorIndex).trim(), token.substring(separatorIndex + 1).trim())
+                            }
+                        }
+                } else {
+                    val separatorIndex = trimmed.indexOf('=').takeIf { it > 0 }
+                        ?: trimmed.indexOf(':').takeIf { it > 0 }
+                    separatorIndex?.let { index ->
+                        put(trimmed.substring(0, index).trim(), trimmed.substring(index + 1).trim())
+                    }
+                }
+            }
+    }
+
+internal fun extractGpuPrefillProbeDiagnostics(text: String?): Map<String, String> =
+    parseDiagnosticKeyValueText(text).filterKeys { key -> key in GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS }
+
+internal fun buildGpuPrefillProbeDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.isEmpty()) return emptyList()
+    return GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.replace(Regex("\\s+"), "_") ?: "unavailable"}"
+    }
+}
 
 internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_STANDARD_MS = 20_000L
 internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_EXTENDED_DEV_MS = 60_000L

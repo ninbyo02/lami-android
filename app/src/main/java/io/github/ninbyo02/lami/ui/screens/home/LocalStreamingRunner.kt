@@ -159,10 +159,7 @@ internal fun resolveGpuPrefillProbeRequestForDebug(
 ): GpuPrefillProbeRequest? {
     if (!BuildConfig.DEBUG) return null
     if (preferredBackend != PreferredBackendDryRunSetting.GPU) return null
-    val enabled = propertyReader("debug.lami.gpu_prefill_probe")
-        ?: propertyReader("lami.gpu_prefill_probe")
-        ?: return null
-    if (!enabled.equals("true", ignoreCase = true) && enabled != "1") return null
+    if (!isGpuPrefillProbeRequestedForDebug(preferredBackend, propertyReader)) return null
     val prompt = propertyReader("debug.lami.gpu_prefill_probe_prompt")
         ?: propertyReader("lami.gpu_prefill_probe_prompt")
         ?: GPU_PREFILL_PROBE_DEFAULT_PROMPT
@@ -197,6 +194,18 @@ internal fun resolveGpuPrefillProbeRequestForDebug(
         },
         timeoutMs = timeoutMs,
     )
+}
+
+internal fun isGpuPrefillProbeRequestedForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+): Boolean {
+    if (!BuildConfig.DEBUG) return false
+    if (preferredBackend != PreferredBackendDryRunSetting.GPU) return false
+    val enabled = propertyReader("debug.lami.gpu_prefill_probe")
+        ?: propertyReader("lami.gpu_prefill_probe")
+        ?: return false
+    return enabled.equals("true", ignoreCase = true) || enabled == "1"
 }
 
 private fun readGpuPrefillProbeDebugProperty(key: String): String? {
@@ -401,6 +410,7 @@ internal fun buildGpuPrefillProbeDiagnosticsText(state: GpuPrefillProbeState): S
         ?: false
     return listOf(
         "[DEV診断: GPU prefill probe]",
+        "probe_requested=true",
         "probe_enabled=true",
         "probe_run_started=${state.runStarted.get()}",
         "probe_run_finished=${state.runFinished.get()}",
@@ -442,8 +452,33 @@ internal fun buildGpuPrefillProbeDiagnosticsText(state: GpuPrefillProbeState): S
 internal fun buildGpuPrefillProbeDisabledDiagnosticsText(reason: String): String =
     listOf(
         "[DEV診断: GPU prefill probe]",
+        "probe_requested=false",
         "probe_enabled=false",
         "probe_disabled_reason=${escapeGpuPrefillProbeValue(reason)}",
+    ).joinToString("\n")
+
+internal fun buildGpuPrefillProbeStartBlockedDiagnosticsText(reason: String): String =
+    listOf(
+        "[DEV診断: GPU prefill probe]",
+        "probe_requested=true",
+        "probe_enabled=true",
+        "probe_run_started=false",
+        "probe_run_finished=false",
+        "probe_run_timed_out=false",
+        "probe_skipped_normal_generate=true",
+        "probe_isolated_engine_used=false",
+        "probe_shared_engine_used=false",
+        "probe_timeout_stage=unknown",
+        "probe_failure_stage=gpu_prefill_probe_start_blocked",
+        "probe_stale_callback_ignored=false",
+        "probe_cleanup_started=false",
+        "probe_cleanup_finished=false",
+        "probe_cleanup_result=not_started",
+        "probe_invalidated_held_engine=false",
+        "probe_start_blocked_reason=${escapeGpuPrefillProbeValue(reason)}",
+        "probe_normal_generate_blocked_reason=probe_start_blocked",
+        "previous_invocation_still_processing_detected=false",
+        "probe_elapsed_ms=0",
     ).joinToString("\n")
 
 internal fun resolveGpuPrefillProbeTimeoutStage(

@@ -180,6 +180,7 @@ class LocalStreamingRunnerChunkAppendTest {
         val text = buildGpuPrefillProbeDiagnosticsText(state)
 
         assertTrue(text.contains("[DEV診断: GPU prefill probe]"))
+        assertTrue(text.contains("probe_requested=true"))
         assertTrue(text.contains("probe_enabled=true"))
         assertTrue(text.contains("probe_run_started=true"))
         assertTrue(text.contains("probe_run_finished=false"))

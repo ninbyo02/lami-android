@@ -24,6 +24,7 @@ internal data class LocalInferenceFailureCompactInput(
     val exceptionChain: String = "unavailable",
     val liteRtLmPreviousInvocationStillProcessing: Boolean = false,
     val generateConcurrencyViolationSuspected: Boolean = false,
+    val gpuPrefillProbeDiagnostics: Map<String, String> = emptyMap(),
     val engineConfigBackend: String = "unavailable",
     val normalChatNativeRouteBlocked: Boolean = false,
     val blockedReason: String = "none",
@@ -134,7 +135,8 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
     } else {
         input.guardRecommendation.ifBlank { "unavailable" }
     }
-    return listOf(
+    return (
+        listOf(
         "[DEV診断: Local inference failure compact]",
         "input_prompt=${escapeLocalInferenceFailureValue(input.inputPrompt)}",
         "selected_backend=${backendDiagnostics.selectedBackend}",
@@ -260,7 +262,8 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         "memory_after_total_pss_mb=${formatLocalFailureNullableLong(input.memoryAfter?.totalPssMb)}",
         "java_heap_used_mb=${formatLocalFailureNullableLong(input.javaHeapUsedMb)}",
         "native_heap_alloc_mb=${formatLocalFailureNullableLong(input.nativeHeapAllocMb)}",
-    ).joinToString("\n")
+        ) + buildGpuPrefillProbeDiagnosticLines(input.gpuPrefillProbeDiagnostics)
+        ).joinToString("\n")
 }
 
 internal fun buildLocalInferenceFailureCompactInputFromTrace(
@@ -286,6 +289,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
     processPid: String = "unavailable",
 ): LocalInferenceFailureCompactInput {
     val parsed = parseLocalInferenceFailureDiagnosticsText(failureDiagnosticsText)
+    val probeDiagnostics = extractGpuPrefillProbeDiagnostics(failureDiagnosticsText)
     val snapshots = trace?.memorySnapshots.orEmpty()
     val before = snapshots.firstOrNull { it.stage == MEMORY_STAGE_BEFORE_GENERATE } ?: snapshots.firstOrNull()
     val after = snapshots.lastOrNull { it.stage == MEMORY_STAGE_GENERATION_FAILED } ?: snapshots.lastOrNull()
@@ -343,6 +347,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         exceptionChain = exceptionExpansion.exceptionChain,
         liteRtLmPreviousInvocationStillProcessing = previousInvocationStillProcessing,
         generateConcurrencyViolationSuspected = previousInvocationStillProcessing,
+        gpuPrefillProbeDiagnostics = probeDiagnostics,
         engineConfigBackend = trace?.appliedPreferredBackend
             ?: trace?.requestedPreferredBackend
             ?: when (preferredBackendSetting) {

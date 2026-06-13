@@ -220,6 +220,102 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `GPU prefill probe timeout diagnostics are included in route and compact text`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it",
+            selectedModelFile = "/models/gemma-4-E2B-it.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val probeState = GpuPrefillProbeState(
+            request = GpuPrefillProbeRequest(
+                modelPath = "/models/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/cache",
+                prompt = "hi",
+                maxTokens = 1,
+                samplerEnabled = false,
+                cacheDirMode = "null",
+            ),
+            startedAtMs = 0L,
+            elapsedOverrideMs = 15_000L,
+        )
+        probeState.runStarted.set(true)
+        probeState.runTimedOut.set(true)
+        probeState.engineConfigStarted.set(true)
+        probeState.engineConfigFinished.set(true)
+        probeState.engineInitializeStarted.set(true)
+        probeState.engineInitializeFinished.set(true)
+        probeState.conversationCreateStarted.set(true)
+        probeState.conversationCreateFinished.set(true)
+        probeState.generateStarted.set(true)
+        probeState.generateStartedAtMs.set(100L)
+        probeState.firstTokenReceived.set(false)
+        probeState.staleCallbackIgnored.set(true)
+        probeState.cleanupStarted.set(true)
+        probeState.cleanupResult.set("cancel_requested_native_generate_may_still_be_processing")
+        val probeText = buildGpuPrefillProbeDiagnosticsText(probeState)
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "gpu_prefill_probe_completed",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                failureStage = "timeout",
+                fallbackUsed = false,
+                gpuPrefillProbeDiagnostics = extractGpuPrefillProbeDiagnostics(probeText),
+            ),
+            elapsedMs = 15_000L,
+        )
+        val combined = "$routeDiagnostics\n$probeText"
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "gpu-prefill-probe-skipped-normal-generate",
+                    localFailureDiagnosticsText = combined,
+                ),
+                reason = "local_inference_failure",
+                routeContext = routeContext,
+                timeout = true,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.startsWith("LOCAL_ROUTE_DIAG "))
+        assertTrue(routeDiagnostics.contains("probe_enabled=true"))
+        assertTrue(routeDiagnostics.contains("probe_run_timed_out=true"))
+        assertTrue(routeDiagnostics.contains("probe_timeout_stage=generate_before_first_token"))
+        assertTrue(routeDiagnostics.contains("probe_skipped_normal_generate=true"))
+        assertTrue(compact.contains("probe_requested=true"))
+        assertTrue(compact.contains("probe_enabled=true"))
+        assertTrue(compact.contains("probe_run_started=true"))
+        assertTrue(compact.contains("probe_run_timed_out=true"))
+        assertTrue(compact.contains("probe_skipped_normal_generate=true"))
+        assertTrue(compact.contains("probe_prompt_variant=single_ascii"))
+        assertTrue(compact.contains("probe_prompt_length_chars=2"))
+        assertTrue(compact.contains("probe_max_tokens=1"))
+        assertTrue(compact.contains("probe_sampler_enabled=false"))
+        assertTrue(compact.contains("probe_cache_dir_mode=null"))
+        assertTrue(compact.contains("probe_engine_config_started=true"))
+        assertTrue(compact.contains("probe_engine_initialize_finished=true"))
+        assertTrue(compact.contains("probe_conversation_create_finished=true"))
+        assertTrue(compact.contains("probe_generate_started=true"))
+        assertTrue(compact.contains("probe_first_token_received=false"))
+        assertTrue(compact.contains("probe_timeout_stage=generate_before_first_token"))
+        assertTrue(compact.contains("probe_failure_stage=gpu_prefill_probe_timeout_generate_before_first_token"))
+        assertTrue(compact.contains("probe_generate_before_first_token_elapsed_ms=14900"))
+        assertTrue(compact.contains("probe_cleanup_started=true"))
+        assertTrue(compact.contains("probe_cleanup_result=cancel_requested_native_generate_may_still_be_processing"))
+        assertTrue(compact.contains("probe_invalidated_held_engine=true"))
+        assertTrue(compact.contains("probe_normal_generate_blocked_reason=probe_opt_in_runs_without_normal_generate"))
+        assertTrue(compact.contains("previous_invocation_still_processing_detected=false"))
+        assertTrue(compact.contains("lite_rt_lm_previous_invocation_still_processing=false"))
+    }
+
+    @Test
     fun `InvocationTargetException target and root cause are expanded`() {
         val root = IllegalArgumentException("backend enum mismatch")
         val target = IllegalStateException("engine create failed", root)
@@ -260,6 +356,20 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("failure_root_cause_message=none"))
         assertTrue(text.contains("reflection_target_exception_message=none"))
         assertTrue(text.contains("exception_chain=java.lang.reflect.InvocationTargetException:none -> java.lang.IllegalStateException:none"))
+    }
+
+    @Test
+    fun `probe disabled compact does not include probe diagnostics`() {
+        val text = buildFailureText(
+            setting = PreferredBackendDryRunSetting.GPU,
+            throwable = IllegalStateException("create failed"),
+            exceptionClass = IllegalStateException::class.java.name,
+            exceptionMessage = "create failed",
+        )
+
+        assertFalse(text.contains("probe_enabled="))
+        assertFalse(text.contains("probe_run_started="))
+        assertTrue(text.contains("lite_rt_lm_previous_invocation_still_processing=false"))
     }
 
     @Test

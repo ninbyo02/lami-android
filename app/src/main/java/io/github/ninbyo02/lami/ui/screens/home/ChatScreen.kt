@@ -4380,6 +4380,42 @@ fun Home(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-skip reason=model-path-unresolved",
                                                                     )
+                                                                    if (isGpuPrefillProbeRequestedForDebug(preferredBackendDryRunSetting)) {
+                                                                        val probeText = buildGpuPrefillProbeStartBlockedDiagnosticsText(
+                                                                            reason = "model_path_unresolved",
+                                                                        )
+                                                                        val probeDiagnostics = extractGpuPrefillProbeDiagnostics(probeText)
+                                                                        val combinedProbeText = buildLocalRouteDiagnosticTrace(
+                                                                            stage = "gpu_prefill_probe_start_blocked",
+                                                                            context = localRouteDiagnosticContext,
+                                                                            flags = LocalRouteDiagnosticFlags(
+                                                                                failureStage = "gpu_prefill_probe_start_blocked",
+                                                                                fallbackUsed = false,
+                                                                                gpuPrefillProbeDiagnostics = probeDiagnostics,
+                                                                            ),
+                                                                            elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
+                                                                        ) + "\n" + probeText
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = combinedProbeText,
+                                                                        )
+                                                                        writeGpuPrefillProbeDiagnosticsFile(
+                                                                            context = context.applicationContext,
+                                                                            text = combinedProbeText,
+                                                                        )
+                                                                        return@withContext LocalInferenceRunResult(
+                                                                            state = LocalInferenceEngineState.ERROR,
+                                                                            response = GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE,
+                                                                            trace = LocalInferenceTrace(
+                                                                                requestedPreferredBackend = "GPU",
+                                                                                appliedPreferredBackend = "GPU",
+                                                                                preferredBackendApplyResult = "gpu-prefill-probe-start-blocked",
+                                                                                preferredBackendHookReached = true,
+                                                                                preferredBackendHookSource = "gpu-prefill-probe",
+                                                                                localFailureDiagnosticsText = combinedProbeText,
+                                                                            ),
+                                                                        )
+                                                                    }
                                                                     if (useHeldPathOnlyForDev) {
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
@@ -4419,9 +4455,32 @@ fun Home(
                                                                             )
                                                                         },
                                                                     )
+                                                                    val probeDiagnostics = extractGpuPrefillProbeDiagnostics(probeText)
+                                                                    val probeTimedOut = probeDiagnostics["probe_run_timed_out"] == "true"
+                                                                    val combinedProbeText = buildLocalRouteDiagnosticTrace(
+                                                                        stage = "gpu_prefill_probe_completed",
+                                                                        context = localRouteDiagnosticContext,
+                                                                        flags = LocalRouteDiagnosticFlags(
+                                                                            failureStage = if (probeTimedOut) {
+                                                                                "timeout"
+                                                                            } else {
+                                                                                probeDiagnostics["probe_failure_stage"] ?: "gpu_prefill_probe_completed"
+                                                                            },
+                                                                            fallbackUsed = false,
+                                                                            staleCallbackIgnored =
+                                                                                probeDiagnostics["probe_stale_callback_ignored"]?.toBooleanStrictOrNull(),
+                                                                            gpuConfigDiagnostics = gpuRouteProgressTracker.configSnapshot(),
+                                                                            gpuPrefillProbeDiagnostics = probeDiagnostics,
+                                                                        ),
+                                                                        elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
+                                                                    ) + "\n" + probeText
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = combinedProbeText,
+                                                                    )
                                                                     writeGpuPrefillProbeDiagnosticsFile(
                                                                         context = context.applicationContext,
-                                                                        text = probeText,
+                                                                        text = combinedProbeText,
                                                                     )
                                                                     localInferenceEngineHolder.requestRecreateForDev(
                                                                         reason = "gpu_prefill_probe_completed_normal_generate_skipped",
@@ -4443,7 +4502,7 @@ fun Home(
                                                                             preferredBackendApplyResult = "gpu-prefill-probe-skipped-normal-generate",
                                                                             preferredBackendHookReached = true,
                                                                             preferredBackendHookSource = "gpu-prefill-probe",
-                                                                            localFailureDiagnosticsText = probeText,
+                                                                            localFailureDiagnosticsText = combinedProbeText,
                                                                         ),
                                                                     )
                                                                 }
