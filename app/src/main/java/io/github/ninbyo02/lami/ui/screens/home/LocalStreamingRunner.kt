@@ -57,6 +57,7 @@ internal const val GPU_GENERATE_PROBE_MODE_CACHE_DIR_NULL_NO_SAMPLER = "cache_di
 internal const val GPU_GENERATE_PROBE_MODE_NO_SAMPLER = "no_sampler"
 internal const val GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI = "no_streaming_ui"
 internal const val GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY = "raw_callback_only"
+internal const val GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI = "callback_to_ui"
 private const val NPU_DISABLED_NOT_SUPPORTED_REASON = "npu-disabled-vendor-fastrpc-namespace-blocked-recommended-gpu"
 private val STREAMING_NO_JOIN_PREVIOUS_CHARS = setOf(
     '(', '[', '{', '"', '\'', '`', '/', '\\', '.', ',', ':', ';', '!', '?',
@@ -292,6 +293,7 @@ internal fun resolveGpuGenerateProbeModeForDebug(
         GPU_GENERATE_PROBE_MODE_NO_SAMPLER -> GPU_GENERATE_PROBE_MODE_NO_SAMPLER
         GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI -> GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI
         GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY -> GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
+        GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI -> GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI
         else -> GPU_GENERATE_PROBE_MODE_NORMAL
     }
 }
@@ -894,6 +896,14 @@ private class GenerateCallbackLifecycleTracker(
     private var callbackExceptionMessage: String = "none"
     private var callbackExceptionChain: String = "none"
     private var callbackExceptionStage: String = "none"
+    private val callbackToUiEnabled: Boolean = probeMode == GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI
+    private var callbackTextPromotedToUi: Boolean = false
+    private var callbackPromotedTextLength: Int = 0
+    private var callbackPromotedNonEmptyCount: Int = 0
+    private var uiAppendStarted: Boolean = false
+    private var uiAppendFinished: Boolean = false
+    private var uiFirstVisibleTextElapsedMs: Long? = null
+    private var streamingCompletionReason: String = "unavailable"
 
     fun markGenerateCallEntered() {
         generateCallEntered = true
@@ -943,6 +953,33 @@ private class GenerateCallbackLifecycleTracker(
         firstTokenClassificationReason = "callback_exception_before_first_token"
     }
 
+    fun markUiAppendStarted(text: String) {
+        uiAppendStarted = true
+        if (text.isNotBlank() && uiFirstVisibleTextElapsedMs == null) {
+            uiFirstVisibleTextElapsedMs = elapsedMs()
+        }
+    }
+
+    fun markUiAppendFinished(text: String) {
+        uiAppendFinished = true
+        callbackPromotedTextLength = text.length
+        if (text.isNotBlank()) {
+            callbackTextPromotedToUi = true
+            callbackPromotedNonEmptyCount += 1
+            if (uiFirstVisibleTextElapsedMs == null) {
+                uiFirstVisibleTextElapsedMs = elapsedMs()
+            }
+        }
+    }
+
+    fun markStreamingCompleted(responseText: String?) {
+        streamingCompletionReason = if (responseText.isNullOrBlank()) {
+            "flow_completed_blank_response"
+        } else {
+            "flow_completed_non_empty_response"
+        }
+    }
+
     fun toFlags(
         base: LocalRouteDiagnosticFlags,
     ): LocalRouteDiagnosticFlags =
@@ -978,6 +1015,16 @@ private class GenerateCallbackLifecycleTracker(
             cpuCompareExceptionClass = base.cpuCompareExceptionClass,
             cpuCompareExceptionMessage = base.cpuCompareExceptionMessage,
             cpuGpuGenerateDiff = base.cpuGpuGenerateDiff,
+            gpuCallbackToUiEnabled = callbackToUiEnabled,
+            gpuCallbackTextPromotedToUi = callbackTextPromotedToUi,
+            gpuCallbackPromotedTextLength = callbackPromotedTextLength,
+            gpuCallbackPromotedNonEmptyCount = callbackPromotedNonEmptyCount,
+            gpuCallbackSuccessClassification = resolveGpuCallbackSuccessClassification(),
+            gpuRawCallbackProbeStatus = resolveGpuRawCallbackProbeStatus(),
+            gpuUiAppendStarted = uiAppendStarted,
+            gpuUiAppendFinished = uiAppendFinished,
+            gpuUiFirstVisibleTextElapsedMs = uiFirstVisibleTextElapsedMs,
+            gpuStreamingCompletionReason = streamingCompletionReason,
             gpuGenerateCallEntered = generateCallEntered,
             gpuGenerateCallReturned = generateCallReturned,
             gpuCallbackInvokedCount = callbackInvokedCount,
@@ -999,6 +1046,9 @@ private class GenerateCallbackLifecycleTracker(
             gpuGenerateStallInterpretation = resolveGpuGenerateStallInterpretation(
                 base.copy(
                     gpuGenerateCallEntered = generateCallEntered,
+                    gpuGenerateProbeMode = probeMode,
+                    gpuCallbackToUiEnabled = callbackToUiEnabled,
+                    gpuCallbackTextPromotedToUi = callbackTextPromotedToUi,
                     gpuCallbackInvokedCount = callbackInvokedCount,
                     gpuCallbackNonEmptyTextCount = callbackNonEmptyTextCount,
                     gpuCallbackDoneTrueSeen = callbackDoneTrueSeen,
@@ -1007,6 +1057,27 @@ private class GenerateCallbackLifecycleTracker(
                 ),
             ),
         )
+
+    private fun resolveGpuCallbackSuccessClassification(): String =
+        when {
+            callbackExceptionClass != "none" -> "callback_exception"
+            callbackTextPromotedToUi -> "gpu_callback_text_promoted_to_ui"
+            callbackNonEmptyTextCount > 0 -> "gpu_callback_text_observed"
+            callbackInvokedCount > 0 -> "gpu_callback_without_text"
+            else -> "unavailable"
+        }
+
+    private fun resolveGpuRawCallbackProbeStatus(): String =
+        if (probeMode != GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY) {
+            "not_raw_callback_probe"
+        } else {
+            when {
+                callbackExceptionClass != "none" -> "exception"
+                callbackNonEmptyTextCount > 0 -> "success"
+                callbackInvokedCount > 0 -> "no_text"
+                else -> "no_callback"
+            }
+        }
 
     fun traceLine(stage: String): String =
         buildLocalRouteDiagnosticTrace(
@@ -1318,6 +1389,7 @@ internal suspend fun runWithHeldEngine(
     val runnerWhitespaceTraceEntries = mutableListOf<Pair<String, String?>>()
     val memorySnapshots = mutableListOf<MemorySnapshot>()
     var failureDiagnosticsText: String? = null
+    var latestRouteDiagnosticText: String? = null
     var generateStarted = false
     var firstTokenReceived = false
     var generateStartedElapsedMs: Long? = null
@@ -1328,6 +1400,8 @@ internal suspend fun runWithHeldEngine(
         probeMode = generateProbeMode,
     )
     val rawCallbackOnly = generateProbeMode == GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
+    val callbackToUi = generateProbeMode == GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI
+    val rawCallbackAppend = rawCallbackOnly || callbackToUi
     val suppressStreamingUi = rawCallbackOnly || generateProbeMode == GPU_GENERATE_PROBE_MODE_NO_STREAMING_UI
     val callbackTracker = GenerateCallbackLifecycleTracker(
         routeRunStartedAtMs = routeRunStartedAtMs,
@@ -1366,6 +1440,7 @@ internal suspend fun runWithHeldEngine(
             stage = stage,
             flags = flags,
         )?.let { text ->
+            latestRouteDiagnosticText = text
             safeAppendTrace(
                 appendTrace,
                 text,
@@ -1379,6 +1454,7 @@ internal suspend fun runWithHeldEngine(
     ) {
         onRouteDiagnosticStage(stage)
         text ?: return
+        latestRouteDiagnosticText = text
         safeAppendTrace(
             appendTrace,
             text,
@@ -1540,9 +1616,9 @@ internal suspend fun runWithHeldEngine(
                         heldFlowLastChunkElapsedRealtimeMs = SystemClock.elapsedRealtime()
                         appendRunnerWhitespaceStage("append.boundary.before", builder.toString().takeLast(64))
                         appendRunnerWhitespaceStage("append.boundary.extracted", extracted)
-                        val joinApplied = if (rawCallbackOnly) {
+                        val joinApplied = if (rawCallbackAppend) {
                             builder.append(extracted)
-                            "raw_callback_only"
+                            generateProbeMode
                         } else {
                             appendMarkdownStreamingChunk(
                                 builder = builder,
@@ -1556,7 +1632,18 @@ internal suspend fun runWithHeldEngine(
                         appendRunnerWhitespaceStage("append.boundary.join", joinApplied)
                         appendRunnerWhitespaceStage("append.boundary.after", builder.toString().takeLast(64))
                         if (!suppressStreamingUi) {
-                            onPartial(builder.toString())
+                            val promotedText = builder.toString()
+                            callbackTracker.markUiAppendStarted(promotedText)
+                            appendRouteStage(
+                                stage = "generate_ui_append_started",
+                                flags = currentGenerateCallbackFlags(),
+                            )
+                            onPartial(promotedText)
+                            callbackTracker.markUiAppendFinished(promotedText)
+                            appendRouteStage(
+                                stage = "generate_ui_append_finished",
+                                flags = currentGenerateCallbackFlags(),
+                            )
                         }
                     } catch (throwable: Throwable) {
                         if (throwable is CancellationException) throw throwable
@@ -1581,6 +1668,11 @@ internal suspend fun runWithHeldEngine(
                     stage = "LocalStreamingRunner#held.flow.builder",
                     raw = built,
                     normalized = trimmedBuilt,
+                )
+                callbackTracker.markStreamingCompleted(trimmedBuilt)
+                appendRouteStage(
+                    stage = "generate_streaming_completed",
+                    flags = currentGenerateCallbackFlags(),
                 )
                 trimmedBuilt.takeIf { it.isNotBlank() }
             }.getOrElse { throwable ->
@@ -1821,8 +1913,23 @@ internal suspend fun runWithHeldEngine(
                 )
                 measuredCollector.emitAdoptedTrace()
                 if (!suppressStreamingUi) {
+                    callbackTracker.markUiAppendStarted(blockingResponse)
+                    appendRouteStage(
+                        stage = "generate_ui_append_started",
+                        flags = currentGenerateCallbackFlags(),
+                    )
                     onPartial(blockingResponse)
+                    callbackTracker.markUiAppendFinished(blockingResponse)
+                    appendRouteStage(
+                        stage = "generate_ui_append_finished",
+                        flags = currentGenerateCallbackFlags(),
+                    )
                 }
+                callbackTracker.markStreamingCompleted(blockingResponse)
+                appendRouteStage(
+                    stage = "generate_streaming_completed",
+                    flags = currentGenerateCallbackFlags(),
+                )
             }
             blockingResponse
         }
@@ -1926,7 +2033,11 @@ internal suspend fun runWithHeldEngine(
         lastHeldEngineCreatePreferredBackendHookSource = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendHookSource,
         lastHeldEngineCreatePreferredBackendApplyBuilderClass = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyBuilderClass,
         lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates = holderSnapshotAtRunStart.lastHeldEngineCreatePreferredBackendApplyBackendEnumCandidates,
-        failureDiagnosticsText = failureDiagnosticsText,
+        failureDiagnosticsText = failureDiagnosticsText
+            ?: latestRouteDiagnosticText.takeIf {
+                generateProbeMode == GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI ||
+                    generateProbeMode == GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
+            },
         memorySnapshots = memorySnapshots,
     )
 }

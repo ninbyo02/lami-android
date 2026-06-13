@@ -5075,10 +5075,10 @@ fun Home(
                                                                                 (SystemClock.elapsedRealtime() - localRunStartedAtMs)
                                                                                     .coerceAtLeast(0L)
                                                                             val rawCallbackDiagnosticsText = buildLocalRouteDiagnosticTrace(
-                                                                                stage = "gpu_raw_callback_probe_completed",
+                                                                                stage = "gpu_raw_callback_probe_success",
                                                                                 context = localRouteDiagnosticContext,
                                                                                 flags = gpuRouteProgressTracker.snapshot(
-                                                                                    failureStage = "gpu_raw_callback_probe_completed",
+                                                                                    failureStage = "gpu_raw_callback_probe_success",
                                                                                     staleCallbackIgnored = false,
                                                                                 ),
                                                                                 elapsedMs = elapsedMs,
@@ -5093,7 +5093,7 @@ fun Home(
                                                                                 trace = heldLocalRunResult.trace.copy(
                                                                                     requestedPreferredBackend = "GPU",
                                                                                     appliedPreferredBackend = "GPU",
-                                                                                    preferredBackendApplyResult = "gpu-raw-callback-probe-skipped-post-processing",
+                                                                                    preferredBackendApplyResult = "gpu-raw-callback-probe-success-skipped-post-processing",
                                                                                     preferredBackendHookReached = true,
                                                                                     preferredBackendHookSource = "gpu-raw-callback-probe",
                                                                                     localFailureDiagnosticsText = rawCallbackDiagnosticsText,
@@ -5449,7 +5449,9 @@ fun Home(
                                                                             null
                                                                         }
                                                                     var localSourceSummary =
-                                                                        resolvedTrace?.selectedAssistantResponseSource
+                                                                        resolvedTrace?.localFailureDiagnosticsText
+                                                                            ?.takeIf { it.contains("debug_lami_gpu_generate_probe_mode=callback_to_ui") }
+                                                                            ?: resolvedTrace?.selectedAssistantResponseSource
                                                                             ?.takeIf { it.isNotBlank() }
                                                                             ?: rawSourceSummary
                                                                     Log.i(
@@ -5552,7 +5554,9 @@ fun Home(
                                                                             null
                                                                         }
                                                                     localSourceSummary =
-                                                                        resolvedTrace?.selectedAssistantResponseSource
+                                                                        resolvedTrace?.localFailureDiagnosticsText
+                                                                            ?.takeIf { it.contains("debug_lami_gpu_generate_probe_mode=callback_to_ui") }
+                                                                            ?: resolvedTrace?.selectedAssistantResponseSource
                                                                             ?.takeIf { it.isNotBlank() }
                                                                             ?: rawSourceSummary
                                                                     if (localStopRequested) {
@@ -5667,7 +5671,14 @@ fun Home(
                                                                 ?.takeIf { it.response == GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE }
                                                             val timeoutFailureRunResult = runResultWithUiTrace
                                                                 ?.takeIf { shouldInsertLocalFailureAssistantMessage(it) }
+                                                            val rawCallbackProbeSucceeded = rawCallbackProbeRunResult != null
+                                                            val localFailureStatus = if (rawCallbackProbeSucceeded) {
+                                                                "diagnostic_success"
+                                                            } else {
+                                                                "failure"
+                                                            }
                                                             val localFailureReason = when {
+                                                                rawCallbackProbeSucceeded -> "gpu_raw_callback_probe_success"
                                                                 recheckedTimedOut -> "local_inference_timeout"
                                                                 resolvedState == LocalInferenceEngineState.UNINITIALIZED -> "local_model_uninitialized"
                                                                 resolvedState == LocalInferenceEngineState.READY -> "local_response_blank"
@@ -5679,10 +5690,16 @@ fun Home(
                                                                     preferredBackendSetting = preferredBackendDryRunSetting,
                                                                     npuStandardRouteMode = effectiveNpuStandardRouteMode,
                                                                     trace = runResultWithUiTrace?.trace,
+                                                                    status = localFailureStatus,
                                                                     reason = localFailureReason,
-                                                                    failureStage = if (recheckedTimedOut) "timeout" else null,
+                                                                    failureStage = when {
+                                                                        rawCallbackProbeSucceeded -> "gpu_raw_callback_probe_success"
+                                                                        recheckedTimedOut -> "timeout"
+                                                                        else -> null
+                                                                    },
                                                                     routeContext = localRouteDiagnosticContext,
-                                                                    timeout = recheckedTimedOut || timeoutFailureRunResult != null,
+                                                                    timeout = !rawCallbackProbeSucceeded &&
+                                                                        (recheckedTimedOut || timeoutFailureRunResult != null),
                                                                     modelName = localBaseModelDisplayName ?: selectedModel,
                                                                     modelFile = mediaPipeProbeModelPathForRun ?: localBaseModelFilePath,
                                                                     ttsRequested = rawCallbackProbeRunResult == null &&
@@ -7768,6 +7785,16 @@ private class GpuRouteProgressTracker(
     private val gpuCallbackExceptionChain = AtomicReference<String?>(null)
     private val gpuCallbackExceptionStage = AtomicReference<String?>(null)
     private val gpuGenerateStallInterpretation = AtomicReference<String?>(null)
+    private val gpuCallbackToUiEnabled = AtomicReference<Boolean?>(null)
+    private val gpuCallbackTextPromotedToUi = AtomicReference<Boolean?>(null)
+    private val gpuCallbackPromotedTextLength = AtomicReference<Int?>(null)
+    private val gpuCallbackPromotedNonEmptyCount = AtomicReference<Int?>(null)
+    private val gpuCallbackSuccessClassification = AtomicReference<String?>(null)
+    private val gpuRawCallbackProbeStatus = AtomicReference<String?>(null)
+    private val gpuUiAppendStarted = AtomicReference<Boolean?>(null)
+    private val gpuUiAppendFinished = AtomicReference<Boolean?>(null)
+    private val gpuUiFirstVisibleTextElapsedMs = AtomicReference<Long?>(null)
+    private val gpuStreamingCompletionReason = AtomicReference<String?>(null)
 
     fun setConfig(configDiagnostics: GpuRouteConfigDiagnostics) {
         config.set(configDiagnostics)
@@ -7910,6 +7937,16 @@ private class GpuRouteProgressTracker(
             gpuCallbackExceptionChain = gpuCallbackExceptionChain.get(),
             gpuCallbackExceptionStage = gpuCallbackExceptionStage.get(),
             gpuGenerateStallInterpretation = gpuGenerateStallInterpretation.get(),
+            gpuCallbackToUiEnabled = gpuCallbackToUiEnabled.get(),
+            gpuCallbackTextPromotedToUi = gpuCallbackTextPromotedToUi.get(),
+            gpuCallbackPromotedTextLength = gpuCallbackPromotedTextLength.get(),
+            gpuCallbackPromotedNonEmptyCount = gpuCallbackPromotedNonEmptyCount.get(),
+            gpuCallbackSuccessClassification = gpuCallbackSuccessClassification.get(),
+            gpuRawCallbackProbeStatus = gpuRawCallbackProbeStatus.get(),
+            gpuUiAppendStarted = gpuUiAppendStarted.get(),
+            gpuUiAppendFinished = gpuUiAppendFinished.get(),
+            gpuUiFirstVisibleTextElapsedMs = gpuUiFirstVisibleTextElapsedMs.get(),
+            gpuStreamingCompletionReason = gpuStreamingCompletionReason.get(),
         )
 
     private fun recordCallbackDiagnosticsFromRoute(message: String) {
@@ -7934,6 +7971,16 @@ private class GpuRouteProgressTracker(
         parsed.diagnosticString("gpu_callback_exception_chain")?.let(gpuCallbackExceptionChain::set)
         parsed.diagnosticString("gpu_callback_exception_stage")?.let(gpuCallbackExceptionStage::set)
         parsed.diagnosticString("gpu_generate_stall_interpretation")?.let(gpuGenerateStallInterpretation::set)
+        parsed.diagnosticBoolean("gpu_callback_to_ui_enabled")?.let(gpuCallbackToUiEnabled::set)
+        parsed.diagnosticBoolean("gpu_callback_text_promoted_to_ui")?.let(gpuCallbackTextPromotedToUi::set)
+        parsed.diagnosticInt("gpu_callback_promoted_text_length")?.let(gpuCallbackPromotedTextLength::set)
+        parsed.diagnosticInt("gpu_callback_promoted_non_empty_count")?.let(gpuCallbackPromotedNonEmptyCount::set)
+        parsed.diagnosticString("gpu_callback_success_classification")?.let(gpuCallbackSuccessClassification::set)
+        parsed.diagnosticString("gpu_raw_callback_probe_status")?.let(gpuRawCallbackProbeStatus::set)
+        parsed.diagnosticBoolean("gpu_ui_append_started")?.let(gpuUiAppendStarted::set)
+        parsed.diagnosticBoolean("gpu_ui_append_finished")?.let(gpuUiAppendFinished::set)
+        parsed.diagnosticLong("gpu_ui_first_visible_text_elapsed_ms")?.let(gpuUiFirstVisibleTextElapsedMs::set)
+        parsed.diagnosticString("gpu_streaming_completion_reason")?.let(gpuStreamingCompletionReason::set)
     }
 
     private fun recordElapsedOnce(target: AtomicLong) {
@@ -7961,7 +8008,8 @@ private fun shouldInsertLocalFailureAssistantMessage(
 ): Boolean =
     runResult?.state == LocalInferenceEngineState.ERROR &&
         (runResult.response == GPU_EXPERIMENTAL_TIMEOUT_MESSAGE ||
-            runResult.response == GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE)
+            runResult.response == GPU_PREFILL_PROBE_DIAGNOSTIC_MESSAGE ||
+            runResult.response == GPU_RAW_CALLBACK_PROBE_DIAGNOSTIC_MESSAGE)
 
 private fun ensureSuccessCloseLifecycleSummary(
     summary: RunCloseLifecycleSummary?,

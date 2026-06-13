@@ -369,6 +369,159 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `GPU raw callback non-empty text is diagnostic success not compiled model failure`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it-edge-gallery.litertlm",
+            selectedModelFile = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "gpu_raw_callback_probe_success",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                engineCreateStarted = true,
+                engineCreateFinished = true,
+                engineInitializeStarted = true,
+                engineInitializeFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                generateStartedElapsedMs = 1_000L,
+                firstTokenReceived = true,
+                firstTokenElapsedMs = 1_200L,
+                failureStage = "gpu_raw_callback_probe_success",
+                staleCallbackIgnored = false,
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY,
+                gpuGenerateCallEntered = true,
+                gpuGenerateCallReturned = true,
+                gpuCallbackInvokedCount = 12,
+                gpuCallbackEmptyTextCount = 0,
+                gpuCallbackNonEmptyTextCount = 12,
+                gpuCallbackLastTextLength = 3,
+                gpuCallbackLastTextHead = "_😊",
+                gpuCallbackDoneTrueSeen = true,
+                gpuCallbackErrorSeen = false,
+                gpuCallbackExceptionClass = "none",
+                gpuCallbackExceptionMessage = "none",
+                gpuCallbackExceptionChain = "none",
+                gpuCallbackExceptionStage = "none",
+            ),
+            elapsedMs = 1_500L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "gpu-raw-callback-probe-success-skipped-post-processing",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                status = "diagnostic_success",
+                reason = "gpu_raw_callback_probe_success",
+                failureStage = "gpu_raw_callback_probe_success",
+                routeContext = routeContext,
+                timeout = false,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("failure_stage=gpu_raw_callback_probe_success"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_non_empty_text_count=12"))
+        assertTrue(routeDiagnostics.contains("gpu_generate_stall_interpretation=gpu_callback_text_observed"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_success_classification=gpu_callback_text_observed"))
+        assertTrue(routeDiagnostics.contains("gpu_raw_callback_probe_status=success"))
+        assertTrue(routeDiagnostics.contains("gpu_failure_interpretation=gpu_raw_callback_success_ui_path_needs_promotion"))
+        assertTrue(routeDiagnostics.contains("litert_compiled_model_executor_failure_category=unknown"))
+        assertTrue(compact.contains("status=diagnostic_success"))
+        assertTrue(compact.contains("reason=gpu_raw_callback_probe_success"))
+        assertTrue(compact.contains("failure_stage=gpu_raw_callback_probe_success"))
+        assertTrue(compact.contains("gpu_raw_callback_probe_status=success"))
+        assertTrue(compact.contains("gpu_failure_interpretation=gpu_raw_callback_success_ui_path_needs_promotion"))
+        assertTrue(compact.contains("litert_compiled_model_executor_failure_category=unknown"))
+        assertFalse(compact.contains("gpu_generate_exception_summary=failed_to_invoke_compiled_model"))
+    }
+
+    @Test
+    fun `GPU callback to UI mode records promoted callback text diagnostics`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it-edge-gallery.litertlm",
+            selectedModelFile = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_ui_append_finished",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                engineCreateFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI,
+                gpuGenerateCallEntered = true,
+                gpuGenerateCallReturned = true,
+                gpuCallbackInvokedCount = 3,
+                gpuCallbackNonEmptyTextCount = 3,
+                gpuCallbackLastTextLength = 7,
+                gpuCallbackLastTextHead = "こんにちは",
+                gpuCallbackToUiEnabled = true,
+                gpuCallbackTextPromotedToUi = true,
+                gpuCallbackPromotedTextLength = 7,
+                gpuCallbackPromotedNonEmptyCount = 3,
+                gpuCallbackSuccessClassification = "gpu_callback_text_promoted_to_ui",
+                gpuUiAppendStarted = true,
+                gpuUiAppendFinished = true,
+                gpuUiFirstVisibleTextElapsedMs = 1_111L,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+            ),
+            elapsedMs = 1_400L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "applied",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                status = "success",
+                reason = "gpu_callback_to_ui_success",
+                failureStage = "none",
+                routeContext = routeContext,
+                timeout = false,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("debug_lami_gpu_generate_probe_mode=callback_to_ui"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_to_ui_enabled=true"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_text_promoted_to_ui=true"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_promoted_text_length=7"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_promoted_non_empty_count=3"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_success_classification=gpu_callback_text_promoted_to_ui"))
+        assertTrue(routeDiagnostics.contains("gpu_ui_append_started=true"))
+        assertTrue(routeDiagnostics.contains("gpu_ui_append_finished=true"))
+        assertTrue(routeDiagnostics.contains("gpu_ui_first_visible_text_elapsed_ms=1111"))
+        assertTrue(routeDiagnostics.contains("gpu_streaming_completion_reason=flow_completed_non_empty_response"))
+        assertTrue(compact.contains("status=success"))
+        assertTrue(compact.contains("gpu_callback_to_ui_enabled=true"))
+        assertTrue(compact.contains("gpu_callback_text_promoted_to_ui=true"))
+        assertTrue(compact.contains("gpu_callback_success_classification=gpu_callback_text_promoted_to_ui"))
+    }
+
+    @Test
     fun `GPU callback done without text is classified`() {
         val flags = LocalRouteDiagnosticFlags(
             generateStarted = true,
@@ -602,13 +755,13 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     fun `GPU generate probe mode resolves only for GPU debug route`() {
         val reader = { key: String ->
             when (key) {
-                "debug.lami.gpu_generate_probe_mode" -> GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY
+                "debug.lami.gpu_generate_probe_mode" -> GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI
                 else -> null
             }
         }
 
         assertEquals(
-            GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY,
+            GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI,
             resolveGpuGenerateProbeModeForDebug(
                 preferredBackend = PreferredBackendDryRunSetting.GPU,
                 propertyReader = reader,
