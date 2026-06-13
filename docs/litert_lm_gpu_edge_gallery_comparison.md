@@ -504,3 +504,191 @@ probe timeout 後は held engine を recreate 要求し、続けて同じ turn �
 - `gpu_max_tokens_32`: `maxNumTokens=32` で compiled model / delegate 初期化負荷の影響を見る。
 
 これらは GPU 明示選択時だけ有効。CPU held-official-flow、Automatic CPU priority、NPU S1、fallback 本挙動は変更しない。
+
+## 最新の失敗地点整理
+
+Edge Gallery が同一端末上で `Gemma-4-E2B-it` + GPU 応答できているように見える一方、LAMI では通常GPU route と isolated GPU prefill probe で失敗地点が異なる。
+
+通常GPU route:
+
+- `engine_config_build_finished=true`
+- `engine_constructor_finished=true`
+- `engine_initialize_finished=true`
+- `conversation_create_finished=true`
+- `generate_started=true`
+- `first_token_received=false`
+- `gpu_timeout_stage=generate_before_first_token`
+- `gpu_watchdog_failure_stage=gpu_watchdog_timeout_generate_before_first_token`
+
+GPU experiment:
+
+- `gpu_no_sampling_acceleration`: NG
+- `gpu_cache_dir_app_files`: NG
+- `gpu_max_tokens_32`: NG
+- いずれも `generate_before_first_token` timeout。
+- sampler / cacheDir / max tokens 単独原因説は弱い。
+
+isolated GPU prefill probe:
+
+- `prompt=hi`
+- `max_tokens=1`
+- `sampler=none`
+- `cache_dir=null`
+- `probe_isolated_engine_used=true`
+- `probe_engine_config_finished=true`
+- `probe_engine_initialize_started=true`
+- `probe_engine_initialize_finished=false`
+- `probe_timeout_stage=engine_initialize`
+- `probe_failure_stage=gpu_prefill_probe_engine_initialize_invocation_target_exception`
+- `probe_exception_cause_class=com.google.ai.edge.litertlm.LiteRtLmJniException`
+- `probe_exception_cause_message=Failed_to_create_engine:INTERNAL:ERROR:[runtime/executor/llm_litert_compiled_model_executor.cc:1546]└ERROR:[external/litert/litert/cc/litert_compiled_model.h:1140]`
+
+この差分から、通常 route の held engine lifecycle では `generate_started` まで進むが、probe の isolated engine は `Engine.initialize` で失敗する。次は prompt / sampler / cacheDir / max tokens ではなく、runtime stack、model 実体、API 呼び出し条件、engine lifecycle の一致度を詰める。
+
+## 三軸比較
+
+### Runtime stack
+
+| 項目 | Edge Gallery | LAMI standardDebug | 状態 |
+| --- | --- | --- | --- |
+| `libLiteRt.so` | `split_config.arm64_v8a.apk` に存在。GPU accelerator 関連文字列あり。 | APK に存在。GPU accelerator 関連文字列あり。 | 機能欠落ではなさそう。ただし SHA / build id は不一致。 |
+| `liblitertlm_jni.so` | `split_config.arm64_v8a.apk` に存在。GPU accelerator 関連文字列あり。 | APK に存在。GPU accelerator 関連文字列あり。 | 機能欠落ではなさそう。ただし SHA / build id は不一致。 |
+| `libLiteRtDispatch_Qualcomm.so` | split により存在する場合あり。NPU/Qualcomm dispatch 側の比較対象。 | standardDebug に存在。 | Generic GPU 直接原因かは未確定。 |
+| `libLiteRtGpuAccelerator.so` など独立 GPU accelerator `.so` | APK 内に見えていない。 | APK 内に見えていない。 | 両者とも LiteRT / JNI 側へ静的リンクされている可能性が高い。 |
+| GPU accelerator strings/symbols | `Statically linked GPU accelerator registered` などを確認。 | 同系統の strings/symbols を確認。 | 一致済み。ただし実装バイナリは一致していない。 |
+| `libQnnGpu.so` | Edge Gallery GPU 成功根拠としては見えていない。 | QNN payload として存在する場合がある。 | Generic GPU timeout の主対象から外す。 |
+| 単体差し替え | 禁止。 | 禁止。 | `libLiteRt.so` / `liblitertlm_jni.so` はセット依存が強く、片方だけの差し替えはしない。 |
+
+### Model
+
+| 項目 | Edge Gallery | LAMI | 状態 |
+| --- | --- | --- | --- |
+| 表示モデル名 | 実機観察では `Gemma-4-E2B-it`。 | `gemma-4-E2B-it.litertlm`。 | 表示名は近いが、同一ファイルとは未確認。 |
+| ファイル名 | app data / model config 抽出が必要。 | `gemma-4-E2B-it.litertlm`。 | 未確認。 |
+| 保存先 | Gallery の model manager 配下、または app external files 配下の可能性。 | LAMI の user selected file path。 | path / mmap / storage 条件差分が残る。 |
+| 拡張子 | `.litertlm` と想定するが静的情報だけでは確定しない。 | `.litertlm`。 | 未確認。 |
+| サイズ | app data または APK config から確認が必要。 | selected file の診断 key で確認可能。 | 未確認。 |
+| soc-specific / SM8750 版 | Gallery が端末別 model / accelerator config を選んでいる可能性あり。 | Generic `gemma-4-E2B-it.litertlm` と `gemma-4-E2B-it_qualcomm_sm8750.litertlm` の比較余地あり。 | 追加検証が必要。 |
+
+Edge Gallery が本当に LAMI と同一 `.litertlm` を GPU で走らせているかは、model file name、size、sha256、保存先、accelerator config を揃えるまで確定しない。`Gemma-4-E2B-it` 表示だけで「同一 model」とは扱わない。
+
+### API 呼び出し条件
+
+| 項目 | Edge Gallery | LAMI `edge_gallery_like` | 状態 |
+| --- | --- | --- | --- |
+| text backend | `Backend.GPU()` | `Backend.GPU()` | 一致寄せ済み。 |
+| `EngineConfig.modelPath` | `model.getPath(context)` | selected model path | path / storage 条件は未一致。 |
+| `EngineConfig.cacheDir` | 通常 model path では `null`。`/data/local/tmp` model だけ external files dir。 | `edge_gallery_like` では通常 path で `null`。実験で app files も可。 | 単独原因説は弱いが比較継続。 |
+| `maxNumTokens` | 既定 1024。 | 1024。実験で 32。 | 単独原因説は弱い。 |
+| sampler | 非NPUでは `SamplerConfig(64, 0.95, 1.0)`。 | Gallery defaults または no sampler 実験。 | no sampler でも NG。 |
+| ConversationConfig | 非NPUでは sampler あり。 | sampler あり / なしを診断。 | sampler 単独原因説は弱い。 |
+| thinking | default false。 | false として診断。 | 一致寄せ済み。 |
+| speculative decoding | default false unless enabled by model/user config。 | false として診断。 | 一致寄せ済み。 |
+| vision/audio backend | capability に応じて設定。text-only は null 寄せ。 | `edge_gallery_like_text_only` で null。 | 一致寄せ済み。 |
+| held engine reuse | Gallery helper は task/model lifecycle で engine を保持。 | 通常 GPU route は held engine 経由で generate まで進む。 | isolated probe との差が大きい。 |
+| isolated engine | Gallery の通常 UI では未確認。 | prefill probe で `Engine.initialize` 例外。 | engine lifecycle / GPU environment 差分の主観測。 |
+| initialize timing | helper 内で constructor 後に明示 initialize。 | constructor 後に明示 initialize。 | 呼び出し順は一致寄せ済み。 |
+
+## Edge Gallery static extraction
+
+Edge Gallery split APK 群から、logcat に依存せず静的情報を抽出する。
+
+```bash
+scripts/extract_edge_gallery_gpu_static_info.sh --dry-run
+scripts/extract_edge_gallery_gpu_static_info.sh
+```
+
+既定入力:
+
+- `artifacts/external/edge_gallery_apks/`
+
+既定出力:
+
+- `artifacts/edge_gallery_static/summary.txt`
+- `artifacts/edge_gallery_static/apk_inventory.tsv`
+- `artifacts/edge_gallery_static/native_lib_inventory.tsv`
+- `artifacts/edge_gallery_static/apk_entries/*.entries.txt`
+- `artifacts/edge_gallery_static/native_libs/<apk>/`
+- `artifacts/edge_gallery_static/strings/all_classes_dex.filtered.txt`
+- `artifacts/edge_gallery_static/strings/all_libLiteRt_so.filtered.txt`
+- `artifacts/edge_gallery_static/strings/all_liblitertlm_jni_so.filtered.txt`
+- `artifacts/edge_gallery_static/strings/all_edge_gallery_gpu_focus.filtered.txt`
+- `artifacts/edge_gallery_static/app_data_static_check_instructions.md`
+
+抽出する focus strings:
+
+- model
+- accelerator
+- gpu
+- backend
+- delegate
+- sampler
+- cache
+- litert
+- gemma
+- sm8750
+- qualcomm
+- opencl / vulkan / webgpu
+- qnn / npu / tpu
+- conversation / engine / EngineConfig
+- max tokens / topK / topP / temperature
+- speculative / thinking
+
+app data 静的確認は debuggable build の場合だけ `run-as` で行う。
+
+```bash
+adb shell pm list packages | grep -i 'gallery\|edge\|google'
+adb shell run-as <edge_gallery_package> find shared_prefs files databases -maxdepth 4 -print
+```
+
+`run-as` が不可の場合は、その旨を記録する。logcat は使わない。Edge Gallery APK から native runtime を LAMI へコピーしない。
+
+## Edge Gallery alignment checklist
+
+| 項目 | 状態 | 判定 |
+| --- | --- | --- |
+| `Backend.GPU()` 使用 | Edge Gallery / LAMI で一致寄せ済み | 一致済み |
+| text-only `visionBackend` / `audioBackend` | LAMI `edge_gallery_like_text_only` で null 寄せ済み | 一致済み |
+| `maxNumTokens=1024` | LAMI default profile で寄せ済み | 一致済み |
+| `SamplerConfig(64, 0.95, 1.0)` | LAMI default profile で寄せ済み | 一致済み |
+| thinking / speculative decoding disabled | LAMI 診断上 false | 一致済み |
+| GPU accelerator strings/symbols | 両者に存在 | 一致済み |
+| `libLiteRt.so` SHA / build id | Edge Gallery と LAMI で不一致 | 不一致 |
+| `liblitertlm_jni.so` SHA / build id | Edge Gallery と LAMI で不一致 | 不一致 |
+| Edge Gallery 実 model file | file name / size / sha256 / path 未確認 | 未確認 |
+| model path / storage / mmap 条件 | Gallery model path と LAMI selected path が未一致 | 未確認 |
+| held engine lifecycle | 通常 LAMI route は held engine で generate まで進む。isolated probe は initialize 例外 | 追加検証が必要 |
+| `libQnnGpu.so` | Edge Gallery GPU 成功根拠がない | 主対象外 |
+| `libLiteRt.so` / `liblitertlm_jni.so` 単体差し替え | ABI / JNI / registration 結合が強い | 禁止 |
+| Edge Gallery runtime 移植 | ライセンス / 依存整合 / ABI risk がある | 無断移植禁止 |
+| 同一 runtime stack の検証 | 別 flavor / isolated APK でのみ検討 | 追加検証が必要 |
+
+GPU を標準 UI で推奨扱いに戻す条件は、少なくとも同一 model、同一 runtime stack、同一 API 条件の三点が揃った状態で GPU success が確認できること。それまでは GPU は Experimental / 非推奨のまま扱う。
+
+## 次の実験案
+
+実装変更は DEV / diagnostic 限定にする。
+
+1. held engine reuse 前提の prefill probe
+   - isolated engine ではなく、通常 route と同じ held engine lifecycle に寄せる。
+   - 通常 generate と競合させない。
+   - probe 実行中は通常チャット generate を skip し、probe 結果だけを診断へ出す。
+
+2. 通常 held engine に対する軽量 probe
+   - `Engine.initialize` 直後、conversation 作成直後、generate 直前のどこで health check が可能か調査する。
+   - LiteRT-LM API に安全な no-op / minimal call がない場合は実装しない。
+
+3. model 種類別比較
+   - `gemma-4-E2B-it.litertlm`
+   - `gemma-4-E2B-it_qualcomm_sm8750.litertlm` が存在する場合
+   - E4B 系 model
+   - CPU で同一 model が成功することを前提に、GPU だけの failure stage / root cause / timeout stage を比較する。
+
+4. Edge Gallery model 実体確認
+   - app data から model file name / size / sha256 / path / accelerator preference を確認する。
+   - LAMI の selected model と一致しない場合は、まず model 差分を原因候補として扱う。
+
+5. 別 flavor での同一 runtime stack 隔離検証
+   - 将来案として、Edge Gallery と同一 LiteRT-LM runtime stack を別 flavor / 別 APK に隔離して検証する。
+   - standardDebug の本経路、NPU S1、CPU held-official-flow、fallback には混ぜない。
+   - `libLiteRt.so` / `liblitertlm_jni.so` の単体差し替えではなく、依存セット全体として検証する。
