@@ -692,3 +692,105 @@ GPU を標準 UI で推奨扱いに戻す条件は、少なくとも同一 model
    - 将来案として、Edge Gallery と同一 LiteRT-LM runtime stack を別 flavor / 別 APK に隔離して検証する。
    - standardDebug の本経路、NPU S1、CPU held-official-flow、fallback には混ぜない。
    - `libLiteRt.so` / `liblitertlm_jni.so` の単体差し替えではなく、依存セット全体として検証する。
+
+## Backend / executor selection hypothesis
+
+Edge Gallery 静的抽出では、単純な `Backend.GPU()` 以外に artisan executor 系の分岐が存在することを示す文字列が見えている。
+
+代表的な静的証拠:
+
+- `Supported backends are: [CPU, GPU, NPU, GPU_ARTISAN, CPU_ARTISAN, GOOGLE_TENSOR_ARTISAN]`
+- `Artisan model detected. Switching backend from GPU to GPU_ARTISAN.`
+- `LlmGpuArtisanExecutor`
+- `LlmGpuArtisanExecutor::Create`
+- `LlmGpuArtisanExecutor::Prefill`
+- `LlmLiteRtCompiledModelExecutor`
+- `LlmLiteRtCompiledModelExecutorDynamic`
+- `backend constraint mismatch. Model requires one of [`
+- `LlmLiteRtCompiledModelExecutorDynamic only supports CPU backend.`
+- `GPU sampler unavailable. Falling back to CPU sampling.`
+- `LiteRtTopKOpenClSampler`
+- `LiteRtTopKWebGpuSampler`
+- `tflite_gpu_kv_cache`
+- `tflite_opencl_kv_cache`
+
+このため、Edge Gallery が GPU で応答できているとしても、その実行経路が LAMI の単純な `EngineConfig.backend=Backend.GPU()` と同じとは限らない。モデル metadata / backend constraint / artisan model 判定により、Gallery または LiteRT-LM runtime 内部で `GPU_ARTISAN` executor へ切り替わっている可能性がある。
+
+LAMI の現在の観測:
+
+- 通常 GPU route は held engine lifecycle で `Engine.initialize` と conversation 作成を完了し、`generate_started=true` まで進むが、first token 前で timeout する。
+- isolated GPU prefill probe は `Engine.initialize` 中に `LiteRtLmJniException` で失敗する。
+- root cause は `llm_litert_compiled_model_executor.cc:1546` と `litert_compiled_model.h:1140` 付近で、compiled model executor / backend constraint / runtime selection 差分を疑う材料になる。
+
+したがって次の焦点は runtime 差分だけではなく、backend / executor selection 差分である。GPU 成功条件は「同じ GPU を指定」では足りず、少なくとも以下の一致が必要になる。
+
+- same model file / same metadata
+- same LiteRT / LiteRT-LM runtime stack
+- same backend / executor selection
+- same EngineConfig / RuntimeConfig / ConversationConfig
+- same held engine lifecycle
+
+`scripts/extract_edge_gallery_gpu_static_info.sh` は `artifacts/edge_gallery_static/backend_artisan_analysis/` を出力し、dex / native strings / optional jadx hits から artisan executor 分岐の手掛かりを集める。
+
+```bash
+scripts/extract_edge_gallery_gpu_static_info.sh --dry-run
+scripts/extract_edge_gallery_gpu_static_info.sh
+```
+
+LAMI 側の DEV 診断には、runtime reflection による public API inventory として以下を追加する。
+
+- `litert_lm_backend_candidates`
+- `litert_lm_backend_gpu_artisan_available`
+- `litert_lm_backend_cpu_artisan_available`
+- `litert_lm_backend_google_tensor_artisan_available`
+- `litert_lm_engine_config_artisan_api_available`
+- `litert_lm_runtime_config_available`
+- `litert_lm_backend_constraint_api_available`
+- `litert_lm_preferred_engine_type_api_available`
+- `selected_model_backend_constraint_hint`
+- `selected_model_artisan_hint`
+- `edge_gallery_artisan_static_evidence`
+
+この reflection 診断は class / method / field 名を列挙するだけで、`GPU_ARTISAN` を生成せず、EngineConfig に渡さず、通常チャットの route も変更しない。
+
+モデルファイル側は `scripts/extract_lami_model_static_hints.sh` で pull 済み `.litertlm` を静的確認する。
+
+```bash
+scripts/extract_lami_model_static_hints.sh --dry-run
+scripts/extract_lami_model_static_hints.sh --input artifacts/lami_model_static/input
+```
+
+確認対象:
+
+- `GPU_ARTISAN`
+- `backend`
+- `constraint`
+- `sm8750`
+- `qualcomm`
+- `artisan`
+- `gpu`
+- `npu`
+- `RuntimeConfig`
+- `EngineConfig`
+- `tflite_gpu_kv_cache`
+- `tflite_opencl_kv_cache`
+
+## Artisan follow-up experiments
+
+実装する場合も DEV / explicit opt-in probe に限定する。
+
+1. `GPU_ARTISAN` API が LAMI runtime から見える場合
+   - まず isolated config-only probe で `Backend` object を作れるか確認する。
+   - 次に `EngineConfig` dry-build だけを行う。
+   - Engine.initialize / Conversation / generate へ進むのは別の明示 opt-in phase に分ける。
+   - 通常チャットには適用しない。
+
+2. `GPU_ARTISAN` API が public API から見えない場合
+   - LAMI が利用中の LiteRT-LM public API では Edge Gallery と同等の artisan GPU executor へ到達できない可能性を記録する。
+   - この場合は runtime stack 差分と model metadata 差分を引き続き比較し、public API で選べる範囲を明確にする。
+
+3. 同一 runtime stack 隔離検証
+   - 将来案として、Edge Gallery と同一 runtime stack を別 flavor / 別 applicationId で隔離して検証する。
+   - Edge Gallery APK からの無断 runtime 移植は禁止。
+   - `libLiteRt.so` / `liblitertlm_jni.so` の単体差し替えは禁止。
+   - 検証する場合も依存セット全体、model、backend/executor selection、lifecycle を揃える。

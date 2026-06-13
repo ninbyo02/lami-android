@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -134,9 +135,39 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(text.contains("gpu_options_configured=false"))
         assertTrue(text.contains("gpu_options_source=EngineConfig_backend_only_no_explicit_GpuOptions"))
         assertTrue(text.contains("gpu_edge_gallery_diff_applied=true"))
+        assertTrue(text.contains("litert_lm_backend_candidates="))
+        assertTrue(text.contains("litert_lm_backend_gpu_artisan_available="))
+        assertTrue(text.contains("litert_lm_backend_cpu_artisan_available="))
+        assertTrue(text.contains("litert_lm_backend_google_tensor_artisan_available="))
+        assertTrue(text.contains("litert_lm_engine_config_artisan_api_available="))
+        assertTrue(text.contains("litert_lm_runtime_config_available="))
+        assertTrue(text.contains("litert_lm_backend_constraint_api_available="))
+        assertTrue(text.contains("litert_lm_preferred_engine_type_api_available="))
+        assertTrue(text.contains("selected_model_backend_constraint_hint=not_detected_by_path"))
+        assertTrue(text.contains("selected_model_artisan_hint=not_detected_by_path"))
+        assertTrue(text.contains("edge_gallery_artisan_static_evidence=GPU_ARTISAN,CPU_ARTISAN,GOOGLE_TENSOR_ARTISAN,Artisan_model_detected,LlmGpuArtisanExecutor"))
         assertTrue(text.contains("gpu_generate_started=false"))
         assertTrue(text.contains("gpu_first_token_received=false"))
         assertTrue(text.contains("gpu_stale_callback_ignored=true"))
+    }
+
+    @Test
+    fun `LiteRT LM artisan API diagnostics provide model path hints without creating engine`() {
+        val diagnostics = buildLiteRtLmBackendArtisanApiDiagnostics(
+            selectedModelPath = "/models/gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+        )
+
+        assertTrue(diagnostics.backendCandidates.isNotBlank())
+        assertTrue(diagnostics.gpuArtisanAvailable in setOf("true", "false"))
+        assertTrue(diagnostics.cpuArtisanAvailable in setOf("true", "false"))
+        assertTrue(diagnostics.googleTensorArtisanAvailable in setOf("true", "false"))
+        assertTrue(diagnostics.engineConfigArtisanApiAvailable in setOf("true", "false"))
+        assertTrue(diagnostics.runtimeConfigAvailable in setOf("true", "false"))
+        assertTrue(diagnostics.backendConstraintApiAvailable in setOf("true", "false"))
+        assertTrue(diagnostics.preferredEngineTypeApiAvailable in setOf("true", "false"))
+        assertEquals("path_contains_sm8750_or_qualcomm", diagnostics.selectedModelBackendConstraintHint)
+        assertEquals("not_detected_by_path", diagnostics.selectedModelArtisanHint)
+        assertTrue(diagnostics.edgeGalleryArtisanStaticEvidence.contains("GPU_ARTISAN"))
     }
 
     @Test

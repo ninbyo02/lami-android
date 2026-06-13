@@ -7,6 +7,7 @@ OUTPUT_DIR="$ROOT_DIR/artifacts/edge_gallery_static"
 DRY_RUN=0
 
 FOCUS_PATTERN='model|accelerator|gpu|backend|delegate|sampler|cache|litert|gemma|sm8750|qualcomm|opencl|vulkan|webgpu|qnn|npu|tpu|conversation|engineconfig|engine|maxtoken|max_tokens|topk|top_k|topp|top_p|temperature|speculative|thinking'
+ARTISAN_PATTERN='GPU_ARTISAN|CPU_ARTISAN|GOOGLE_TENSOR_ARTISAN|Artisan model detected|Switching backend from GPU to GPU_ARTISAN|LlmGpuArtisanExecutor|LlmLiteRtCompiledModelExecutor|LlmLiteRtCompiledModelExecutorDynamic|backend constraint mismatch|Model requires one of|Supported backends are|No preferred engine types defined|preferred engine types|RuntimeConfig|EngineConfig|BackendType|AdapterBackend|EncoderBackend|SamplerBackend|tflite_gpu_kv_cache|tflite_opencl_kv_cache|GPU sampler unavailable|Falling back to CPU sampling'
 
 usage() {
   printf 'usage: %s [--input <edge-gallery-apk-dir>] [--output <out-dir>] [--dry-run]\n' "$0"
@@ -92,6 +93,85 @@ filter_entry_strings() {
     sort -u >"$out" || true
 }
 
+filter_artisan_strings() {
+  local source="$1"
+  local out="$2"
+  strings -a "$source" 2>/dev/null |
+    grep -Ea "$ARTISAN_PATTERN" |
+    sort -u >"$out" || true
+}
+
+write_artisan_keyword_presence_header() {
+  local out="$1"
+  printf 'source\tkeyword\tpresent\n' >"$out"
+}
+
+append_artisan_keyword_presence() {
+  local label="$1"
+  local strings_file="$2"
+  local out="$3"
+  while IFS= read -r keyword; do
+    [ -z "$keyword" ] && continue
+    if grep -Fq "$keyword" "$strings_file" 2>/dev/null; then
+      printf '%s\t%s\tyes\n' "$label" "$keyword" >>"$out"
+    else
+      printf '%s\t%s\tno\n' "$label" "$keyword" >>"$out"
+    fi
+  done <<'EOF'
+GPU_ARTISAN
+CPU_ARTISAN
+GOOGLE_TENSOR_ARTISAN
+Artisan model detected
+Switching backend from GPU to GPU_ARTISAN
+LlmGpuArtisanExecutor
+LlmLiteRtCompiledModelExecutor
+LlmLiteRtCompiledModelExecutorDynamic
+backend constraint mismatch
+Model requires one of
+Supported backends are
+No preferred engine types defined
+preferred engine types
+RuntimeConfig
+EngineConfig
+BackendType
+AdapterBackend
+EncoderBackend
+SamplerBackend
+tflite_gpu_kv_cache
+tflite_opencl_kv_cache
+GPU sampler unavailable
+Falling back to CPU sampling
+EOF
+}
+
+write_artisan_analysis_readme() {
+  local out="$1"
+  cat >"$out" <<'EOF'
+# Edge Gallery backend / artisan static analysis
+
+This directory is static-only. It does not use logcat and does not run Edge
+Gallery or LAMI inference.
+
+Files:
+
+- `keyword_presence.tsv`: exact keyword presence by APK entry.
+- `all_backend_artisan_hits.txt`: merged unique strings for backend/artisan/executor clues.
+- `dex/*.txt`: filtered strings from `classes.dex`, `classes2.dex`, ...
+- `native/*.txt`: filtered strings from `libLiteRt.so` and `liblitertlm_jni.so`.
+- `jadx_hits.txt`: optional source hits when `jadx` is installed.
+
+Interpretation:
+
+- `GPU_ARTISAN` / `LlmGpuArtisanExecutor` hits show that the runtime stack has
+  an artisan executor path, but they do not prove that Edge Gallery selected it
+  for the observed model.
+- `Artisan model detected. Switching backend from GPU to GPU_ARTISAN.` is a
+  strong clue that model metadata/backend constraints can rewrite a simple GPU
+  request.
+- Do not copy Edge Gallery native libraries into LAMI from these artifacts.
+EOF
+}
+
 write_app_data_instructions() {
   local out="$1"
   cat >"$out" <<'EOF'
@@ -144,7 +224,7 @@ printf 'apk_count=%s\n' "$(printf '%s\n' "$APK_LIST" | grep -c '\.apk$')"
 if [ "$DRY_RUN" = "1" ]; then
   printf 'dry_run=true\n'
   printf '%s\n' "$APK_LIST"
-  printf 'planned_outputs=summary.txt,apk_inventory.tsv,native_lib_inventory.tsv,apk_entries/,native_libs/,strings/,app_data_static_check_instructions.md\n'
+  printf 'planned_outputs=summary.txt,apk_inventory.tsv,native_lib_inventory.tsv,apk_entries/,native_libs/,strings/,backend_artisan_analysis/,app_data_static_check_instructions.md\n'
   exit 0
 fi
 
@@ -152,10 +232,15 @@ mkdir -p "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR/apk_entries"
 mkdir -p "$OUTPUT_DIR/native_libs"
 mkdir -p "$OUTPUT_DIR/strings"
+mkdir -p "$OUTPUT_DIR/backend_artisan_analysis/dex"
+mkdir -p "$OUTPUT_DIR/backend_artisan_analysis/native"
 
 SUMMARY="$OUTPUT_DIR/summary.txt"
 APK_INVENTORY="$OUTPUT_DIR/apk_inventory.tsv"
 NATIVE_INVENTORY="$OUTPUT_DIR/native_lib_inventory.tsv"
+ARTISAN_DIR="$OUTPUT_DIR/backend_artisan_analysis"
+ARTISAN_KEYWORD_PRESENCE="$ARTISAN_DIR/keyword_presence.tsv"
+ARTISAN_ALL_HITS="$ARTISAN_DIR/all_backend_artisan_hits.txt"
 ALL_CLASSES="$OUTPUT_DIR/strings/all_classes_dex.filtered.txt"
 ALL_LITERT="$OUTPUT_DIR/strings/all_libLiteRt_so.filtered.txt"
 ALL_LITERTLM="$OUTPUT_DIR/strings/all_liblitertlm_jni_so.filtered.txt"
@@ -165,6 +250,9 @@ ALL_FOCUS="$OUTPUT_DIR/strings/all_edge_gallery_gpu_focus.filtered.txt"
 : >"$ALL_LITERT"
 : >"$ALL_LITERTLM"
 : >"$ALL_FOCUS"
+: >"$ARTISAN_ALL_HITS"
+write_artisan_keyword_presence_header "$ARTISAN_KEYWORD_PRESENCE"
+write_artisan_analysis_readme "$ARTISAN_DIR/README.md"
 
 {
   printf 'generated_at_utc=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || printf 'unavailable')"
@@ -193,6 +281,13 @@ while IFS= read -r apk; do
     filter_entry_strings "$apk" "$entry" "$entry_out"
     cat "$entry_out" >>"$ALL_CLASSES"
     cat "$entry_out" >>"$ALL_FOCUS"
+    artisan_out="$ARTISAN_DIR/dex/${apk_base}__$(entry_safe_name "$entry").backend_artisan.txt"
+    unzip -p "$apk" "$entry" 2>/dev/null |
+      strings -a 2>/dev/null |
+      grep -Ea "$ARTISAN_PATTERN" |
+      sort -u >"$artisan_out" || true
+    cat "$artisan_out" >>"$ARTISAN_ALL_HITS"
+    append_artisan_keyword_presence "$apk_base:$entry" "$artisan_out" "$ARTISAN_KEYWORD_PRESENCE"
   done <<EOF
 $(grep -E '^classes([0-9]+)?\.dex$' "$apk_entries_file" || true)
 EOF
@@ -216,6 +311,10 @@ EOF
           strings -a "$extracted" 2>/dev/null |
             grep -Eai "$FOCUS_PATTERN" |
             sort -u >"$lib_out" || true
+          artisan_lib_out="$ARTISAN_DIR/native/${apk_base}__${lib_name}.backend_artisan.txt"
+          filter_artisan_strings "$extracted" "$artisan_lib_out"
+          cat "$artisan_lib_out" >>"$ARTISAN_ALL_HITS"
+          append_artisan_keyword_presence "$apk_base:$entry" "$artisan_lib_out" "$ARTISAN_KEYWORD_PRESENCE"
           if [ "$lib_name" = "libLiteRt.so" ]; then
             cat "$lib_out" >>"$ALL_LITERT"
           else
@@ -238,6 +337,25 @@ sort -u "$ALL_CLASSES" -o "$ALL_CLASSES"
 sort -u "$ALL_LITERT" -o "$ALL_LITERT"
 sort -u "$ALL_LITERTLM" -o "$ALL_LITERTLM"
 sort -u "$ALL_FOCUS" -o "$ALL_FOCUS"
+sort -u "$ARTISAN_ALL_HITS" -o "$ARTISAN_ALL_HITS"
+
+if command -v jadx >/dev/null 2>&1; then
+  JADX_DIR="$ARTISAN_DIR/jadx_sources"
+  mkdir -p "$JADX_DIR"
+  while IFS= read -r apk; do
+    [ -z "$apk" ] && continue
+    jadx -q -d "$JADX_DIR/$(safe_name "$apk")" "$apk" >/dev/null 2>&1 || true
+  done <<EOF
+$APK_LIST
+EOF
+  if command -v rg >/dev/null 2>&1; then
+    rg -n "$ARTISAN_PATTERN" "$JADX_DIR" >"$ARTISAN_DIR/jadx_hits.txt" 2>/dev/null || true
+  else
+    grep -RInE "$ARTISAN_PATTERN" "$JADX_DIR" >"$ARTISAN_DIR/jadx_hits.txt" 2>/dev/null || true
+  fi
+else
+  printf 'jadx_unavailable=true\n' >"$ARTISAN_DIR/jadx_hits.txt"
+fi
 
 write_app_data_instructions "$OUTPUT_DIR/app_data_static_check_instructions.md"
 
@@ -248,6 +366,9 @@ write_app_data_instructions "$OUTPUT_DIR/app_data_static_check_instructions.md"
   printf 'libLiteRt_filtered=%s\n' "$ALL_LITERT"
   printf 'liblitertlm_jni_filtered=%s\n' "$ALL_LITERTLM"
   printf 'all_focus_filtered=%s\n' "$ALL_FOCUS"
+  printf 'backend_artisan_analysis=%s\n' "$ARTISAN_DIR"
+  printf 'backend_artisan_keyword_presence=%s\n' "$ARTISAN_KEYWORD_PRESENCE"
+  printf 'backend_artisan_all_hits=%s\n' "$ARTISAN_ALL_HITS"
   printf 'app_data_instructions=%s\n' "$OUTPUT_DIR/app_data_static_check_instructions.md"
 } >>"$SUMMARY"
 

@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.BuildConfig
 import java.io.File
+import java.lang.reflect.Modifier
 
 internal data class LocalRouteDiagnosticContext(
     val selectedModelName: String,
@@ -64,6 +65,20 @@ internal data class GpuRouteConfigDiagnostics(
     val gpuOptionsSource: String = "unavailable",
     val thinkingEnabled: String = "false",
     val speculativeDecodingEnabled: String = "false",
+)
+
+internal data class LiteRtLmBackendArtisanApiDiagnostics(
+    val backendCandidates: String = "unavailable",
+    val gpuArtisanAvailable: String = "unavailable",
+    val cpuArtisanAvailable: String = "unavailable",
+    val googleTensorArtisanAvailable: String = "unavailable",
+    val engineConfigArtisanApiAvailable: String = "unavailable",
+    val runtimeConfigAvailable: String = "unavailable",
+    val backendConstraintApiAvailable: String = "unavailable",
+    val preferredEngineTypeApiAvailable: String = "unavailable",
+    val selectedModelBackendConstraintHint: String = "unavailable",
+    val selectedModelArtisanHint: String = "unavailable",
+    val edgeGalleryArtisanStaticEvidence: String = EDGE_GALLERY_ARTISAN_STATIC_EVIDENCE,
 )
 
 internal fun buildLocalRouteDiagnosticContext(
@@ -150,6 +165,9 @@ internal fun buildLocalRouteDiagnosticTrace(
             cacheDirPath = null,
             preferredBackend = context.preferredBackend,
         )
+    val artisanApi = buildLiteRtLmBackendArtisanApiDiagnostics(
+        selectedModelPath = context.selectedModelPath,
+    )
     return (
         listOf(
         "LOCAL_ROUTE_DIAG",
@@ -253,6 +271,17 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_dispatcher=Dispatchers.IO",
         "gpu_engine_initialize_api=Engine.initialize",
         "gpu_edge_gallery_diff_applied=${shouldApplyEdgeGalleryLikeGpuCompatibilityMode(context.preferredBackend)}",
+        "litert_lm_backend_candidates=${artisanApi.backendCandidates}",
+        "litert_lm_backend_gpu_artisan_available=${artisanApi.gpuArtisanAvailable}",
+        "litert_lm_backend_cpu_artisan_available=${artisanApi.cpuArtisanAvailable}",
+        "litert_lm_backend_google_tensor_artisan_available=${artisanApi.googleTensorArtisanAvailable}",
+        "litert_lm_engine_config_artisan_api_available=${artisanApi.engineConfigArtisanApiAvailable}",
+        "litert_lm_runtime_config_available=${artisanApi.runtimeConfigAvailable}",
+        "litert_lm_backend_constraint_api_available=${artisanApi.backendConstraintApiAvailable}",
+        "litert_lm_preferred_engine_type_api_available=${artisanApi.preferredEngineTypeApiAvailable}",
+        "selected_model_backend_constraint_hint=${artisanApi.selectedModelBackendConstraintHint}",
+        "selected_model_artisan_hint=${artisanApi.selectedModelArtisanHint}",
+        "edge_gallery_artisan_static_evidence=${artisanApi.edgeGalleryArtisanStaticEvidence}",
         "gpu_fallback_used=${flags.fallbackUsed.toDiagnosticValue()}",
         "gpu_stale_callback_ignored=${flags.staleCallbackIgnored.toDiagnosticValue()}",
         ) + buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
@@ -354,6 +383,151 @@ internal fun buildGpuPrefillProbeDiagnosticLines(
     }
 }
 
+internal fun buildLiteRtLmBackendArtisanApiDiagnostics(
+    selectedModelPath: String?,
+): LiteRtLmBackendArtisanApiDiagnostics {
+    val snapshot = liteRtLmBackendArtisanApiReflectionSnapshot
+    return LiteRtLmBackendArtisanApiDiagnostics(
+        backendCandidates = snapshot.backendCandidates,
+        gpuArtisanAvailable = snapshot.gpuArtisanAvailable,
+        cpuArtisanAvailable = snapshot.cpuArtisanAvailable,
+        googleTensorArtisanAvailable = snapshot.googleTensorArtisanAvailable,
+        engineConfigArtisanApiAvailable = snapshot.engineConfigArtisanApiAvailable,
+        runtimeConfigAvailable = snapshot.runtimeConfigAvailable,
+        backendConstraintApiAvailable = snapshot.backendConstraintApiAvailable,
+        preferredEngineTypeApiAvailable = snapshot.preferredEngineTypeApiAvailable,
+        selectedModelBackendConstraintHint = inferSelectedModelBackendConstraintHint(selectedModelPath),
+        selectedModelArtisanHint = inferSelectedModelArtisanHint(selectedModelPath),
+    )
+}
+
+private data class LiteRtLmBackendArtisanApiReflectionSnapshot(
+    val backendCandidates: String,
+    val gpuArtisanAvailable: String,
+    val cpuArtisanAvailable: String,
+    val googleTensorArtisanAvailable: String,
+    val engineConfigArtisanApiAvailable: String,
+    val runtimeConfigAvailable: String,
+    val backendConstraintApiAvailable: String,
+    val preferredEngineTypeApiAvailable: String,
+)
+
+private val liteRtLmBackendArtisanApiReflectionSnapshot: LiteRtLmBackendArtisanApiReflectionSnapshot by lazy(
+    LazyThreadSafetyMode.PUBLICATION,
+) {
+    val apiClasses = listOf(
+        "com.google.ai.edge.litertlm.Backend",
+        "com.google.ai.edge.litertlm.EngineConfig",
+        "com.google.ai.edge.litertlm.EngineConfig\$Builder",
+        "com.google.ai.edge.litertlm.RuntimeConfig",
+        "com.google.ai.edge.litertlm.RuntimeConfig\$Builder",
+        "com.google.ai.edge.litertlm.BackendType",
+        "com.google.ai.edge.litertlm.AdapterBackend",
+        "com.google.ai.edge.litertlm.EncoderBackend",
+        "com.google.ai.edge.litertlm.SamplerBackend",
+    )
+    val loadedClasses = apiClasses.mapNotNull { className ->
+        runCatching { Class.forName(className) }.getOrNull()
+    }
+    val backendClass = loadedClasses.firstOrNull { it.name == "com.google.ai.edge.litertlm.Backend" }
+    val backendCandidates = collectLiteRtLmBackendCandidates(backendClass)
+    val apiSurfaceNames = collectLiteRtLmApiSurfaceNames(loadedClasses)
+    val normalizedBackendCandidates = backendCandidates.map(::normalizeLiteRtLmApiTokenForMatch)
+    val normalizedApiSurface = apiSurfaceNames.map(::normalizeLiteRtLmApiTokenForMatch)
+    val runtimeConfigAvailable = loadedClasses.any { it.name == "com.google.ai.edge.litertlm.RuntimeConfig" }
+    LiteRtLmBackendArtisanApiReflectionSnapshot(
+        backendCandidates = backendCandidates.joinToString(",").ifBlank {
+            if (backendClass == null) "Backend_class_unavailable" else "none_detected"
+        },
+        gpuArtisanAvailable = normalizedBackendCandidates.any { it.contains("GPUARTISAN") }.toString(),
+        cpuArtisanAvailable = normalizedBackendCandidates.any { it.contains("CPUARTISAN") }.toString(),
+        googleTensorArtisanAvailable = normalizedBackendCandidates.any { it.contains("GOOGLETENSORARTISAN") }.toString(),
+        engineConfigArtisanApiAvailable = normalizedApiSurface.any { it.contains("ARTISAN") }.toString(),
+        runtimeConfigAvailable = runtimeConfigAvailable.toString(),
+        backendConstraintApiAvailable = normalizedApiSurface.any { name ->
+            name.contains("CONSTRAINT") ||
+                name.contains("SUPPORTEDBACKEND") ||
+                name.contains("REQUIREDBACKEND") ||
+                name.contains("MODELREQUIRES")
+        }.toString(),
+        preferredEngineTypeApiAvailable = normalizedApiSurface.any { name ->
+            name.contains("PREFERREDENGINETYPE") ||
+                name.contains("PREFERREDENGINE") ||
+                name.contains("ENGINETYPE")
+        }.toString(),
+    )
+}
+
+private fun collectLiteRtLmBackendCandidates(
+    backendClass: Class<*>?,
+): List<String> {
+    if (backendClass == null) return emptyList()
+    val candidates = linkedSetOf<String>()
+    (backendClass.declaredClasses.asList() + backendClass.classes.asList())
+        .forEach { clazz -> candidates += clazz.simpleName.ifBlank { clazz.name.substringAfterLast('.') } }
+    (backendClass.methods.asList() + backendClass.declaredMethods.asList())
+        .filter { method -> method.parameterTypes.isEmpty() && Modifier.isStatic(method.modifiers) }
+        .filter { method -> backendClass.isAssignableFrom(method.returnType) || method.name.contains("backend", ignoreCase = true) }
+        .forEach { method -> candidates += method.name }
+    (backendClass.fields.asList() + backendClass.declaredFields.asList())
+        .filter { field -> Modifier.isStatic(field.modifiers) }
+        .forEach { field -> candidates += field.name }
+    return candidates
+        .map { it.replace('$', '.') }
+        .filter { it.isNotBlank() }
+        .sorted()
+}
+
+private fun collectLiteRtLmApiSurfaceNames(
+    classes: List<Class<*>>,
+): List<String> {
+    val names = linkedSetOf<String>()
+    classes.forEach { clazz ->
+        names += clazz.name
+        (clazz.declaredClasses.asList() + clazz.classes.asList()).forEach { nested ->
+            names += nested.name
+        }
+        (clazz.methods.asList() + clazz.declaredMethods.asList()).forEach { method ->
+            names += "${clazz.simpleName}.${method.name}"
+            method.parameterTypes.forEach { type -> names += type.name }
+            names += method.returnType.name
+        }
+        (clazz.fields.asList() + clazz.declaredFields.asList()).forEach { field ->
+            names += "${clazz.simpleName}.${field.name}"
+            names += field.type.name
+        }
+    }
+    return names.toList()
+}
+
+private fun normalizeLiteRtLmApiTokenForMatch(value: String): String =
+    value
+        .uppercase()
+        .filter { it in 'A'..'Z' || it in '0'..'9' }
+
+private fun inferSelectedModelBackendConstraintHint(selectedModelPath: String?): String {
+    val normalized = selectedModelPath.orEmpty().lowercase()
+    return when {
+        normalized.isBlank() || normalized == "unknown" -> "unavailable"
+        "gpu_artisan" in normalized -> "path_contains_gpu_artisan"
+        "cpu_artisan" in normalized -> "path_contains_cpu_artisan"
+        "artisan" in normalized -> "path_contains_artisan"
+        "sm8750" in normalized || "qualcomm" in normalized -> "path_contains_sm8750_or_qualcomm"
+        "gpu" in normalized -> "path_contains_gpu"
+        "npu" in normalized -> "path_contains_npu"
+        else -> "not_detected_by_path"
+    }
+}
+
+private fun inferSelectedModelArtisanHint(selectedModelPath: String?): String {
+    val normalized = selectedModelPath.orEmpty().lowercase()
+    return when {
+        normalized.isBlank() || normalized == "unknown" -> "unavailable"
+        "artisan" in normalized -> "path_contains_artisan"
+        else -> "not_detected_by_path"
+    }
+}
+
 internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_STANDARD_MS = 20_000L
 internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_EXTENDED_DEV_MS = 60_000L
 internal const val GPU_EXPERIMENTAL_STAGE_TIMEOUT_MS = GPU_EXPERIMENTAL_STAGE_TIMEOUT_EXTENDED_DEV_MS
@@ -377,6 +551,8 @@ internal const val GPU_EXPERIMENT_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE = "gpu
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_NULL = "gpu_cache_dir_null"
 internal const val GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES = "gpu_cache_dir_app_files"
 internal const val GPU_EXPERIMENT_MODE_MAX_TOKENS_32 = "gpu_max_tokens_32"
+internal const val EDGE_GALLERY_ARTISAN_STATIC_EVIDENCE =
+    "GPU_ARTISAN,CPU_ARTISAN,GOOGLE_TENSOR_ARTISAN,Artisan_model_detected,LlmGpuArtisanExecutor"
 internal val GPU_DIAGNOSTIC_EXPERIMENT_MODES = listOf(
     GPU_EXPERIMENT_MODE_EDGE_GALLERY_LIKE,
     GPU_EXPERIMENT_MODE_SAMPLER_ONLY_MINIMAL,
