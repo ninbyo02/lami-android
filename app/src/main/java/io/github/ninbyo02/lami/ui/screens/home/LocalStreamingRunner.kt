@@ -121,6 +121,9 @@ internal data class GpuPrefillProbeRequest(
     val isolatedEngineUsed: Boolean = true,
     val sharedEngineUsed: Boolean = false,
     val invalidatesHeldEngine: Boolean = true,
+    val usedHeldEngine: Boolean = false,
+    val heldEnginePresentBefore: Boolean = false,
+    val normalGpuLastKnownStage: String = "normal_generate_skipped_before_start",
 )
 
 internal data class GpuPrefillProbeState(
@@ -139,6 +142,7 @@ internal data class GpuPrefillProbeState(
     val firstTokenReceivedAtMs: AtomicReference<Long?> = AtomicReference(null),
     val exceptionClass: AtomicReference<String?> = AtomicReference(null),
     val exceptionMessage: AtomicReference<String?> = AtomicReference(null),
+    val exceptionExpansion: AtomicReference<LocalFailureExceptionExpansion?> = AtomicReference(null),
     val resultText: AtomicReference<String> = AtomicReference(""),
     val staleCallbackIgnored: AtomicReference<Boolean> = AtomicReference(false),
     val runStarted: AtomicReference<Boolean> = AtomicReference(false),
@@ -259,8 +263,18 @@ internal suspend fun runGpuPrefillProbe(
                 state = state,
             )
         } catch (throwable: Throwable) {
-            state.exceptionClass.set(throwable.javaClass.name)
-            state.exceptionMessage.set(throwable.message ?: "none")
+            val exceptionClass = throwable.javaClass.name
+            val exceptionMessage = throwable.message ?: "none"
+            state.exceptionClass.set(exceptionClass)
+            state.exceptionMessage.set(exceptionMessage)
+            state.exceptionExpansion.set(
+                buildLocalFailureExceptionExpansion(
+                    throwable = throwable,
+                    parsed = emptyMap(),
+                    failureExceptionClass = exceptionClass,
+                    failureExceptionMessage = exceptionMessage,
+                ),
+            )
         } finally {
             state.cleanupStarted.set(true)
             val conversationOutcome = runCatching { closeQuietly(conversation, appendTrace) }
@@ -394,7 +408,10 @@ internal fun buildGpuPrefillProbeDiagnosticsText(state: GpuPrefillProbeState): S
     )
     val timedOut = state.staleCallbackIgnored.get() && !state.firstTokenReceived.get() && state.exceptionClass.get() == null
     val failureStage = when {
-        state.exceptionClass.get() != null -> "gpu_prefill_probe_exception"
+        state.exceptionClass.get() != null -> resolveGpuPrefillProbeExceptionFailureStage(
+            timeoutStage = timeoutStage,
+            exceptionClass = state.exceptionClass.get(),
+        )
         timedOut -> "gpu_prefill_probe_timeout_$timeoutStage"
         else -> "none"
     }
@@ -405,6 +422,7 @@ internal fun buildGpuPrefillProbeDiagnosticsText(state: GpuPrefillProbeState): S
             "unavailable"
         }
     val resultText = state.resultText.get()
+    val exceptionExpansion = state.exceptionExpansion.get() ?: LocalFailureExceptionExpansion()
     val previousInvocationStillProcessing = state.exceptionMessage.get()
         ?.let { isLiteRtLmPreviousInvocationStillProcessing(listOf(it)) }
         ?: false
@@ -436,6 +454,15 @@ internal fun buildGpuPrefillProbeDiagnosticsText(state: GpuPrefillProbeState): S
         "probe_failure_stage=$failureStage",
         "probe_exception_class=${state.exceptionClass.get() ?: "none"}",
         "probe_exception_message=${escapeGpuPrefillProbeValue(state.exceptionMessage.get() ?: "none")}",
+        "probe_exception_cause_class=${exceptionExpansion.failureCauseClass}",
+        "probe_exception_cause_message=${escapeGpuPrefillProbeValue(exceptionExpansion.failureCauseMessage)}",
+        "probe_exception_root_cause_class=${exceptionExpansion.failureRootCauseClass}",
+        "probe_exception_root_cause_message=${escapeGpuPrefillProbeValue(exceptionExpansion.failureRootCauseMessage)}",
+        "probe_exception_chain=${escapeGpuPrefillProbeValue(exceptionExpansion.exceptionChain)}",
+        "probe_reflection_target_exception_class=${exceptionExpansion.reflectionTargetExceptionClass}",
+        "probe_reflection_target_exception_message=${escapeGpuPrefillProbeValue(exceptionExpansion.reflectionTargetExceptionMessage)}",
+        "probe_reflection_target_exception_root_cause_class=${exceptionExpansion.reflectionTargetExceptionRootCauseClass}",
+        "probe_reflection_target_exception_root_cause_message=${escapeGpuPrefillProbeValue(exceptionExpansion.reflectionTargetExceptionRootCauseMessage)}",
         "probe_result_text_length=${resultText.length}",
         "probe_result_text_head=${escapeGpuPrefillProbeValue(resultText.take(80).ifBlank { "none" })}",
         "probe_stale_callback_ignored=${state.staleCallbackIgnored.get()}",
@@ -445,9 +472,27 @@ internal fun buildGpuPrefillProbeDiagnosticsText(state: GpuPrefillProbeState): S
         "probe_invalidated_held_engine=${state.request.invalidatesHeldEngine}",
         "probe_normal_generate_blocked_reason=probe_opt_in_runs_without_normal_generate",
         "previous_invocation_still_processing_detected=$previousInvocationStillProcessing",
+        "probe_used_held_engine=${state.request.usedHeldEngine}",
+        "probe_held_engine_present_before=${state.request.heldEnginePresentBefore}",
+        "probe_held_engine_invalidated_after=${state.request.invalidatesHeldEngine}",
+        "normal_gpu_last_known_stage=${state.request.normalGpuLastKnownStage}",
+        "normal_gpu_can_initialize_with_held_engine_hint=${state.request.heldEnginePresentBefore}",
+        "isolated_gpu_engine_initialize_failed_hint=${timeoutStage == "engine_initialize" && state.exceptionClass.get() != null}",
         "probe_elapsed_ms=$elapsedMs",
     ).joinToString("\n")
 }
+
+internal fun resolveGpuPrefillProbeExceptionFailureStage(
+    timeoutStage: String,
+    exceptionClass: String?,
+): String =
+    when {
+        timeoutStage == "engine_initialize" &&
+            exceptionClass == "java.lang.reflect.InvocationTargetException" ->
+            "gpu_prefill_probe_engine_initialize_invocation_target_exception"
+        timeoutStage == "engine_initialize" -> "gpu_prefill_probe_engine_initialize_exception"
+        else -> "gpu_prefill_probe_exception"
+    }
 
 internal fun buildGpuPrefillProbeDisabledDiagnosticsText(reason: String): String =
     listOf(

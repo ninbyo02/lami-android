@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
+import java.lang.reflect.InvocationTargetException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -203,6 +204,105 @@ class LocalStreamingRunnerChunkAppendTest {
         assertTrue(text.contains("probe_invalidated_held_engine=true"))
         assertTrue(text.contains("probe_normal_generate_blocked_reason=probe_opt_in_runs_without_normal_generate"))
         assertTrue(text.contains("previous_invocation_still_processing_detected=false"))
+    }
+
+    @Test
+    fun `GPU prefill probe expands invocation target exception at engine initialize`() {
+        val root = IllegalArgumentException("gpu env missing")
+        val target = IllegalStateException("initialize failed", root)
+        val wrapper = InvocationTargetException(target)
+        val state = GpuPrefillProbeState(
+            request = GpuPrefillProbeRequest(
+                modelPath = "/models/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/cache",
+                prompt = "hi",
+                maxTokens = 1,
+                samplerEnabled = false,
+                cacheDirMode = "null",
+                heldEnginePresentBefore = true,
+            ),
+            startedAtMs = 0L,
+            elapsedOverrideMs = 3_008L,
+        )
+        state.runStarted.set(true)
+        state.runFinished.set(true)
+        state.engineConfigStarted.set(true)
+        state.engineConfigFinished.set(true)
+        state.engineInitializeStarted.set(true)
+        state.engineInitializeFinished.set(false)
+        state.exceptionClass.set(wrapper.javaClass.name)
+        state.exceptionMessage.set(wrapper.message ?: "none")
+        state.exceptionExpansion.set(
+            buildLocalFailureExceptionExpansion(
+                throwable = wrapper,
+                parsed = emptyMap(),
+                failureExceptionClass = wrapper.javaClass.name,
+                failureExceptionMessage = wrapper.message ?: "none",
+            ),
+        )
+        state.cleanupStarted.set(true)
+        state.cleanupFinished.set(true)
+        state.cleanupResult.set("closed_probe_conversation_and_engine")
+
+        val text = buildGpuPrefillProbeDiagnosticsText(state)
+
+        assertTrue(text.contains("probe_timeout_stage=engine_initialize"))
+        assertTrue(text.contains("probe_failure_stage=gpu_prefill_probe_engine_initialize_invocation_target_exception"))
+        assertTrue(text.contains("probe_exception_class=java.lang.reflect.InvocationTargetException"))
+        assertTrue(text.contains("probe_exception_message=none"))
+        assertTrue(text.contains("probe_exception_cause_class=java.lang.IllegalStateException"))
+        assertTrue(text.contains("probe_exception_cause_message=initialize failed"))
+        assertTrue(text.contains("probe_exception_root_cause_class=java.lang.IllegalArgumentException"))
+        assertTrue(text.contains("probe_exception_root_cause_message=gpu env missing"))
+        assertTrue(text.contains("probe_exception_chain=java.lang.reflect.InvocationTargetException:none -> java.lang.IllegalStateException:initialize failed -> java.lang.IllegalArgumentException:gpu env missing"))
+        assertTrue(text.contains("probe_reflection_target_exception_class=java.lang.IllegalStateException"))
+        assertTrue(text.contains("probe_reflection_target_exception_message=initialize failed"))
+        assertTrue(text.contains("probe_reflection_target_exception_root_cause_class=java.lang.IllegalArgumentException"))
+        assertTrue(text.contains("probe_reflection_target_exception_root_cause_message=gpu env missing"))
+        assertTrue(text.contains("probe_isolated_engine_used=true"))
+        assertTrue(text.contains("probe_shared_engine_used=false"))
+        assertTrue(text.contains("probe_used_held_engine=false"))
+        assertTrue(text.contains("probe_held_engine_present_before=true"))
+        assertTrue(text.contains("probe_held_engine_invalidated_after=true"))
+        assertTrue(text.contains("normal_gpu_last_known_stage=normal_generate_skipped_before_start"))
+        assertTrue(text.contains("normal_gpu_can_initialize_with_held_engine_hint=true"))
+        assertTrue(text.contains("isolated_gpu_engine_initialize_failed_hint=true"))
+    }
+
+    @Test
+    fun `GPU prefill probe exception with null message keeps class chain`() {
+        val wrapper = InvocationTargetException(IllegalStateException())
+        val state = GpuPrefillProbeState(
+            request = GpuPrefillProbeRequest(
+                modelPath = "/models/gemma-4-E2B-it.litertlm",
+                cacheDirPath = "/cache",
+            ),
+            startedAtMs = 0L,
+            elapsedOverrideMs = 1_000L,
+        )
+        state.runStarted.set(true)
+        state.runFinished.set(true)
+        state.engineConfigStarted.set(true)
+        state.engineConfigFinished.set(true)
+        state.engineInitializeStarted.set(true)
+        state.exceptionClass.set(wrapper.javaClass.name)
+        state.exceptionMessage.set(wrapper.message ?: "none")
+        state.exceptionExpansion.set(
+            buildLocalFailureExceptionExpansion(
+                throwable = wrapper,
+                parsed = emptyMap(),
+                failureExceptionClass = wrapper.javaClass.name,
+                failureExceptionMessage = wrapper.message ?: "none",
+            ),
+        )
+
+        val text = buildGpuPrefillProbeDiagnosticsText(state)
+
+        assertTrue(text.contains("probe_exception_class=java.lang.reflect.InvocationTargetException"))
+        assertTrue(text.contains("probe_exception_message=none"))
+        assertTrue(text.contains("probe_exception_cause_class=java.lang.IllegalStateException"))
+        assertTrue(text.contains("probe_exception_cause_message=none"))
+        assertTrue(text.contains("probe_exception_chain=java.lang.reflect.InvocationTargetException:none -> java.lang.IllegalStateException:none"))
     }
 
     @Test

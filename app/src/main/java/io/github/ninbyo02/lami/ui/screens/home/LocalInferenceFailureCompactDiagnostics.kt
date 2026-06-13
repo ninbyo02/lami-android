@@ -465,7 +465,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
     )
 }
 
-private data class LocalFailureExceptionExpansion(
+internal data class LocalFailureExceptionExpansion(
     val failureCauseClass: String = "unavailable",
     val failureCauseMessage: String = "unavailable",
     val failureRootCauseClass: String = "unavailable",
@@ -477,7 +477,7 @@ private data class LocalFailureExceptionExpansion(
     val exceptionChain: String = "unavailable",
 )
 
-private fun buildLocalFailureExceptionExpansion(
+internal fun buildLocalFailureExceptionExpansion(
     throwable: Throwable?,
     parsed: Map<String, String>,
     failureExceptionClass: String,

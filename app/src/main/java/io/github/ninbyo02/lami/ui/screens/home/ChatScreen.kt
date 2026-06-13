@@ -4446,8 +4446,15 @@ fun Home(
                                                                     modelPath = resolvedModelPath,
                                                                     cacheDirPath = modelResolution.cacheDirPath,
                                                                 )?.let { probeRequest ->
+                                                                    val heldSnapshotBeforeProbe =
+                                                                        localInferenceEngineHolder.getDevDiagnosticSnapshot()
                                                                     val probeText = runGpuPrefillProbe(
-                                                                        request = probeRequest,
+                                                                        request = probeRequest.copy(
+                                                                            heldEnginePresentBefore =
+                                                                                heldSnapshotBeforeProbe.heldEngineHash != null,
+                                                                            normalGpuLastKnownStage =
+                                                                                "normal_generate_skipped_before_start",
+                                                                        ),
                                                                         appendTrace = { message ->
                                                                             appendLocalReflectionTrace(
                                                                                 context = context.applicationContext,

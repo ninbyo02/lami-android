@@ -443,12 +443,23 @@ probe timeout 後は held engine を recreate 要求し、続けて同じ turn �
 - `probe_timeout_stage`
 - `probe_failure_stage`
 - `probe_exception_class`, `probe_exception_message`
+- `probe_exception_cause_class`, `probe_exception_cause_message`
+- `probe_exception_root_cause_class`, `probe_exception_root_cause_message`
+- `probe_exception_chain`
+- `probe_reflection_target_exception_class`, `probe_reflection_target_exception_message`
+- `probe_reflection_target_exception_root_cause_class`, `probe_reflection_target_exception_root_cause_message`
 - `probe_result_text_length`, `probe_result_text_head`
 - `probe_stale_callback_ignored`
 - `probe_cleanup_started`, `probe_cleanup_finished`, `probe_cleanup_result`
 - `probe_invalidated_held_engine`
 - `probe_normal_generate_blocked_reason`
 - `previous_invocation_still_processing_detected`
+- `probe_used_held_engine`
+- `probe_held_engine_present_before`
+- `probe_held_engine_invalidated_after`
+- `normal_gpu_last_known_stage`
+- `normal_gpu_can_initialize_with_held_engine_hint`
+- `isolated_gpu_engine_initialize_failed_hint`
 - `probe_elapsed_ms`
 
 読み方:
@@ -459,6 +470,10 @@ probe timeout 後は held engine を recreate 要求し、続けて同じ turn �
   最小入力では GPU first token が返る。通常チャットとの差分として prompt 長、conversation state、UI側の 60秒 watchdog 条件を比較する。
 - `probe_exception_class` が `none` 以外:
   timeout ではなく Java/Kotlin 例外経路。InvocationTargetException の場合は root cause も通常の Local inference failure compact と合わせて見る。
+- `probe_engine_initialize_started=true` かつ `probe_engine_initialize_finished=false`、
+  `probe_failure_stage=gpu_prefill_probe_engine_initialize_invocation_target_exception`:
+  isolated GPU engine の `Engine.initialize()` が反射先例外で失敗している。`probe_reflection_target_exception_*` と
+  `probe_exception_chain` を見る。
 - `failure_cause_message=Previous invocation still processing. Wait for done=true.`:
   LiteRT-LM の同時 generate 呼び出し疑い。compact では `lite_rt_lm_previous_invocation_still_processing=true`,
   `generate_concurrency_violation_suspected=true`, `guard_recommendation=reset_gpu_engine_or_force_cpu` として扱う。
@@ -470,6 +485,15 @@ probe timeout 後は held engine を recreate 要求し、続けて同じ turn �
 - probe timeout 直後に同じ turn で通常 GPU 生成を続けない。
 - `hi` / `max_tokens=1` / no sampler / cache=null でも first token 前 timeout なら、GPU backend の generate 内部問題が濃い。
 - probe が通るなら、通常チャット prompt/config/conversation state 差分を疑う。
+
+最新解釈:
+
+- 最小条件 `prompt=hi`, `max_tokens=1`, samplerなし, cache=null の prefill probe で、
+  isolated GPU engine は `Engine.initialize` 中に `InvocationTargetException` で失敗した。
+- 通常 GPU route は held engine 経由で `Engine.initialize` / conversation 作成 / `generate_started` まで進む。
+- したがって prompt / max tokens / sampler / cache dir 単独原因説はさらに弱まり、GPU Engine 初期化条件、
+  held engine lifecycle、LiteRT GPU environment、GPU resource state の差分が主対象になる。
+- 次の焦点は `InvocationTargetException` の target exception / cause / root cause / chain である。
 
 各モードの目的:
 

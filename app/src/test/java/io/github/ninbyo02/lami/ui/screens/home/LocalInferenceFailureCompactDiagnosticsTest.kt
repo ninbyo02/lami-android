@@ -255,6 +255,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         probeState.staleCallbackIgnored.set(true)
         probeState.cleanupStarted.set(true)
         probeState.cleanupResult.set("cancel_requested_native_generate_may_still_be_processing")
+        probeState.exceptionExpansion.set(LocalFailureExceptionExpansion())
         val probeText = buildGpuPrefillProbeDiagnosticsText(probeState)
         val routeDiagnostics = buildLocalRouteDiagnosticTrace(
             stage = "gpu_prefill_probe_completed",
@@ -306,6 +307,10 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("probe_first_token_received=false"))
         assertTrue(compact.contains("probe_timeout_stage=generate_before_first_token"))
         assertTrue(compact.contains("probe_failure_stage=gpu_prefill_probe_timeout_generate_before_first_token"))
+        assertTrue(compact.contains("probe_exception_cause_class=unavailable"))
+        assertTrue(compact.contains("probe_exception_root_cause_class=unavailable"))
+        assertTrue(compact.contains("probe_exception_chain=unavailable"))
+        assertTrue(compact.contains("probe_reflection_target_exception_class=unavailable"))
         assertTrue(compact.contains("probe_generate_before_first_token_elapsed_ms=14900"))
         assertTrue(compact.contains("probe_cleanup_started=true"))
         assertTrue(compact.contains("probe_cleanup_result=cancel_requested_native_generate_may_still_be_processing"))

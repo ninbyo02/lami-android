@@ -288,6 +288,15 @@ internal val GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS = listOf(
     "probe_failure_stage",
     "probe_exception_class",
     "probe_exception_message",
+    "probe_exception_cause_class",
+    "probe_exception_cause_message",
+    "probe_exception_root_cause_class",
+    "probe_exception_root_cause_message",
+    "probe_exception_chain",
+    "probe_reflection_target_exception_class",
+    "probe_reflection_target_exception_message",
+    "probe_reflection_target_exception_root_cause_class",
+    "probe_reflection_target_exception_root_cause_message",
     "probe_result_text_length",
     "probe_result_text_head",
     "probe_stale_callback_ignored",
@@ -299,6 +308,12 @@ internal val GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS = listOf(
     "probe_start_blocked_reason",
     "probe_normal_generate_blocked_reason",
     "previous_invocation_still_processing_detected",
+    "probe_used_held_engine",
+    "probe_held_engine_present_before",
+    "probe_held_engine_invalidated_after",
+    "normal_gpu_last_known_stage",
+    "normal_gpu_can_initialize_with_held_engine_hint",
+    "isolated_gpu_engine_initialize_failed_hint",
 )
 
 internal fun parseDiagnosticKeyValueText(text: String?): Map<String, String> =
