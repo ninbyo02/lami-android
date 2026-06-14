@@ -2626,3 +2626,50 @@ Compact diagnostics should summarize this as:
 - `gpu_output_quality_summary=runtime_callback_source_corruption_suspected`
 - `gpu_output_quality_gate_status=fail`
 - `gpu_output_quality_promotion_blocker=true`
+
+### Raw Callback Index Analysis
+
+The raw artifact proves the corruption is before UI append, but it is still useful to identify the first suspicious
+callback index. Use the offline analyzer:
+
+```bash
+scripts/analyze_gpu_callback_raw_stream.sh \
+  --input artifacts/gpu_callback_raw_stream
+```
+
+or:
+
+```bash
+scripts/analyze_gpu_callback_raw_stream.sh \
+  --full artifacts/gpu_callback_raw_stream/gpu_callback_raw_full.txt
+```
+
+It writes:
+
+- `artifacts/gpu_callback_raw_stream_analysis/summary.txt`
+- `artifacts/gpu_callback_raw_stream_analysis/suspicious_window.txt`
+- `artifacts/gpu_callback_raw_stream_analysis/chunk_metrics.tsv`
+
+Primary keys:
+
+- `first_suspicious_callback_index`
+- `first_suspicious_callback_text`
+- `suspicious_window_before`
+- `suspicious_window_after`
+- `corruption_phase`
+- `corruption_reason_candidates`
+- `root_cause_hint`
+
+The analyzer looks for dense 1-2 character callback windows, empty callback bursts, dense Markdown markers, numeric/unit
+fragment loss, and known ingredient-list breakage patterns such as `玉ぎ`, `じゃも`, `にじん`, `イス味料`, `スパ粉`, and
+`30～4g`. The opening 50 chunks are handled more leniently so that healthy lead-in text is not immediately flagged.
+
+Expected use:
+
+1. Run GPU with `debug.lami.gpu_callback_raw_passthrough=true`.
+2. Pull or copy `artifacts/gpu_callback_raw_stream/`.
+3. Run `scripts/analyze_gpu_callback_raw_stream.sh`.
+4. Inspect `suspicious_window.txt` around `first_suspicious_callback_index`.
+
+This is diagnostic-only. It strengthens the GPU quality blocker by locating the raw callback break point; it does not
+change runtime stack selection, callback streaming, Markdown repair, UI append, or production promotion policy.

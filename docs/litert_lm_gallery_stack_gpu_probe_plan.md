@@ -1199,3 +1199,68 @@ Promotion remains blocked when any of the following are reproducible:
 - `gpu_output_quality_candidate_result=quality_candidate_fail`
 - `callback_corruption_earliest_stage=raw_callback`
 - `gpu_sampler_root_cause_candidate=runtime_decode_fragmentation`
+
+### Raw Callback Index Analyzer
+
+Use `scripts/analyze_gpu_callback_raw_stream.sh` after pulling or copying the raw callback artifacts. The analyzer does
+not modify app behavior, model loading, runtime stack, holder lifecycle, or UI output. It only turns the captured raw
+callback stream into index-level evidence for the GPU quality blocker.
+
+```bash
+scripts/analyze_gpu_callback_raw_stream.sh \
+  --input artifacts/gpu_callback_raw_stream
+```
+
+or, when only the full sequence is available:
+
+```bash
+scripts/analyze_gpu_callback_raw_stream.sh \
+  --full artifacts/gpu_callback_raw_stream/gpu_callback_raw_full.txt
+```
+
+Generated files:
+
+- `artifacts/gpu_callback_raw_stream_analysis/summary.txt`
+- `artifacts/gpu_callback_raw_stream_analysis/suspicious_window.txt`
+- `artifacts/gpu_callback_raw_stream_analysis/chunk_metrics.tsv`
+
+Important summary keys:
+
+- `callback_count`
+- `empty_callback_count`
+- `non_empty_callback_count`
+- `avg_chunk_length`
+- `one_char_ratio`
+- `two_char_or_less_ratio`
+- `first_suspicious_callback_index`
+- `first_suspicious_callback_text`
+- `suspicious_window_before`
+- `suspicious_window_after`
+- `corruption_phase`
+- `corruption_reason_candidates`
+- `root_cause_hint`
+
+The heuristic intentionally stays conservative rather than pretending to be a full Japanese semantic validator. It marks
+the first suspicious callback when a recent 20-chunk window shows dense 1-2 character fragmentation, repeated empty
+callbacks, dense Markdown markers, numeric/unit fragments, or known broken ingredient-list fragments such as `玉ぎ`,
+`じゃも`, `にじん`, `イス味料`, `スパ粉`, or `30～4g`. The first 50 chunks are treated more leniently to avoid flagging a
+healthy introduction such as `どのようなカレーにしたいですか？😊`.
+
+`suspicious_window.txt` is the main inspection target: it prints the chunks immediately before and after
+`first_suspicious_callback_index`, with the per-chunk reasons from `chunk_metrics.tsv`. This lets the investigation say
+where the raw callback stream first stops looking like a normal response, instead of only saying that the final text is
+bad.
+
+Interpretation:
+
+- `corruption_phase=none`: the sampled raw callback stream did not trip the current heuristic.
+- `corruption_phase=early_header_ok_then_tail_corrupt`: the opening looks healthy, then the raw callback stream starts
+  fragmenting or producing broken ingredient/numeric text.
+- `corruption_phase=immediate_corruption`: the stream is suspicious from the beginning.
+- `root_cause_hint=runtime_decode_fragmentation`: raw callback source quality is the likely blocker; UI append and
+  Markdown repair are not the primary cause for this artifact.
+- `root_cause_hint=callback_transport_fragmentation`: callbacks are pathologically tiny, but more semantic evidence is
+  needed before calling decode corruption.
+
+The analyzer strengthens the quality blocker evidence only. It is not a production promotion gate by itself, and it must
+not be used to repair or rewrite GPU output.
