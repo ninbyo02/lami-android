@@ -339,6 +339,16 @@ private data class GpuOutputQualityDiagnostics(
     val callbackShortestNonEmptyChunkLength: String,
     val callbackFirstChunksArtifact: String,
     val callbackLastChunksArtifact: String,
+    val fragmentationScore: String,
+    val fragmentationPercentile: String,
+    val fragmentationTailScore: String,
+    val fragmentationMiddleScore: String,
+    val fragmentationHeadScore: String,
+    val chunkSizeDistribution: String,
+    val chunkLengthSequence: String,
+    val fragmentationClusterCount: String,
+    val fragmentationClusterMaxLength: String,
+    val fragmentationClusterAvgLength: String,
     val callbackQualityClassification: String,
     val callbackCorruptionEarliestStage: String,
     val cpuCompareRequested: String,
@@ -378,6 +388,7 @@ private data class GpuOutputQualityDiagnostics(
     val cpuGpuSamePrompt: String,
     val cpuGpuSameMaxTokens: String,
     val cpuGpuSameSamplerConfigHint: String,
+    val samplerRootCauseCandidate: String,
 )
 
 private data class GpuPerformanceDiagnostics(
@@ -1182,6 +1193,19 @@ private fun buildGpuOutputQualityDiagnostics(flags: LocalRouteDiagnosticFlags): 
         callbackShortestNonEmptyChunkLength = flags.gpuCallbackShortestNonEmptyChunkLength?.toString() ?: "unavailable",
         callbackFirstChunksArtifact = flags.gpuCallbackFirstChunksArtifact.toDiagnosticValue(),
         callbackLastChunksArtifact = flags.gpuCallbackLastChunksArtifact.toDiagnosticValue(),
+        fragmentationScore = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_score"] ?: "unavailable",
+        fragmentationPercentile = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_percentile"] ?: "unavailable",
+        fragmentationTailScore = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_tail_score"] ?: "unavailable",
+        fragmentationMiddleScore = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_middle_score"] ?: "unavailable",
+        fragmentationHeadScore = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_head_score"] ?: "unavailable",
+        chunkSizeDistribution = flags.gpuPrefillProbeDiagnostics["gpu_chunk_size_distribution"]
+            ?: flags.gpuOutputChunkLengthHistogram
+            ?: "unavailable",
+        chunkLengthSequence = flags.gpuPrefillProbeDiagnostics["gpu_chunk_length_sequence"] ?: "unavailable",
+        fragmentationClusterCount = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_cluster_count"] ?: "unavailable",
+        fragmentationClusterMaxLength = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_cluster_max_length"] ?: "unavailable",
+        fragmentationClusterAvgLength = flags.gpuPrefillProbeDiagnostics["gpu_fragmentation_cluster_avg_length"]
+            ?: "unavailable",
         callbackQualityClassification = flags.callbackQualityClassification
             ?: classifyCallbackQuality(
                 callbackCount = flags.gpuOutputCallbackChunkCount ?: flags.gpuCallbackInvokedCount,
@@ -1229,6 +1253,9 @@ private fun buildGpuOutputQualityDiagnostics(flags: LocalRouteDiagnosticFlags): 
                 cpuSuspiciousDetected = flags.cpuOutputSuspiciousFragmentDetected,
                 cpuFinished = flags.cpuCompareFinished,
                 cpuSkippedReason = flags.cpuCompareSkippedReason,
+                cpuExceptionClass = flags.cpuCompareExceptionClass,
+                cpuFailureStage = flags.cpuCompareFailureStage,
+                cpuCallbackCount = flags.cpuCompareCallbackInvokedCount,
             ),
         callbackQualityCompareReason = flags.callbackQualityCompareReason
             ?: classifyCallbackQualityCompareReason(
@@ -1267,6 +1294,23 @@ private fun buildGpuOutputQualityDiagnostics(flags: LocalRouteDiagnosticFlags): 
         cpuGpuSamePrompt = flags.cpuGpuSamePrompt.toDiagnosticValue(),
         cpuGpuSameMaxTokens = flags.cpuGpuSameMaxTokens.toDiagnosticValue(),
         cpuGpuSameSamplerConfigHint = flags.cpuGpuSameSamplerConfigHint.toDiagnosticValue(),
+        samplerRootCauseCandidate = flags.gpuPrefillProbeDiagnostics["gpu_sampler_root_cause_candidate"]
+            ?: classifyGpuSamplerRootCauseCandidate(
+                suspiciousDetected = suspiciousDetected,
+                sourceCorruptionStage = flags.gpuOutputSourceCorruptionStage
+                    ?: classifyGpuOutputSourceCorruptionStage(
+                        suspiciousReason = suspiciousReason,
+                        uiAppendChangedText = flags.gpuOutputUiAppendChangedText,
+                    ),
+                uiAppendChangedText = flags.gpuOutputUiAppendChangedText,
+                matrixMode = matrixMode,
+                callbackQualityClassification = flags.callbackQualityClassification
+                    ?: classifyCallbackQuality(
+                        callbackCount = flags.gpuOutputCallbackChunkCount ?: flags.gpuCallbackInvokedCount,
+                        twoCharOrLessRatio = flags.gpuCallbackTwoCharOrLessChunkRatio,
+                        averageChunkLength = flags.gpuCallbackAverageChunkLength,
+                    ),
+            ),
     )
 }
 
@@ -1446,10 +1490,22 @@ internal fun classifyCallbackQualityCompareResult(
     cpuSuspiciousDetected: Boolean?,
     cpuFinished: Boolean?,
     cpuSkippedReason: String?,
+    cpuExceptionClass: String? = null,
+    cpuFailureStage: String? = null,
+    cpuCallbackCount: Int? = null,
 ): String {
-    if (cpuFinished != true) return "comparison_unavailable"
-    if (!cpuSkippedReason.isNullOrBlank() && cpuSkippedReason != "none") return "comparison_unavailable"
     val gpuCorrupt = gpuCandidateResult == "quality_candidate_fail" || gpuSuspiciousDetected == true
+    if (
+        isCpuCallbackCompareUnavailable(
+            cpuFinished = cpuFinished,
+            cpuSkippedReason = cpuSkippedReason,
+            cpuExceptionClass = cpuExceptionClass,
+            cpuFailureStage = cpuFailureStage,
+            cpuCallbackCount = cpuCallbackCount,
+        )
+    ) {
+        return if (gpuCorrupt) "gpu_corrupt_cpu_unavailable" else "comparison_unavailable"
+    }
     val cpuCorrupt = cpuSuspiciousDetected == true
     return when {
         gpuCorrupt && cpuCorrupt -> "cpu_and_gpu_corrupt"
@@ -1457,6 +1513,23 @@ internal fun classifyCallbackQualityCompareResult(
         cpuCorrupt -> "cpu_only_corrupt"
         else -> "both_pass"
     }
+}
+
+private fun isCpuCallbackCompareUnavailable(
+    cpuFinished: Boolean?,
+    cpuSkippedReason: String?,
+    cpuExceptionClass: String?,
+    cpuFailureStage: String?,
+    cpuCallbackCount: Int?,
+): Boolean {
+    if (cpuFinished != true) return true
+    if (!cpuSkippedReason.isNullOrBlank() && cpuSkippedReason != "none") return true
+    if (!cpuExceptionClass.isNullOrBlank() && cpuExceptionClass !in setOf("none", "unavailable")) return true
+    if (cpuFailureStage in setOf("timeout", "engine_initialize", "conversation_create", "generate_start", "generate_collect")) {
+        return true
+    }
+    if (cpuCallbackCount == null || cpuCallbackCount <= 0) return true
+    return false
 }
 
 private fun classifyCallbackQualityCompareReason(
@@ -1540,6 +1613,29 @@ private fun classifyCpuGpuRawTextSimilarityHint(
         else -> "raw_text_not_directly_compared"
     }
 }
+
+internal fun classifyGpuSamplerRootCauseCandidate(
+    suspiciousDetected: Boolean,
+    sourceCorruptionStage: String?,
+    uiAppendChangedText: Boolean?,
+    matrixMode: String?,
+    callbackQualityClassification: String?,
+): String =
+    when {
+        !suspiciousDetected -> "unknown"
+        uiAppendChangedText == true -> "streaming_join_issue"
+        sourceCorruptionStage == "raw_callback" &&
+            matrixMode in setOf(
+                GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION,
+                GPU_OUTPUT_QUALITY_MATRIX_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE,
+            ) -> "not_sampler_related"
+        sourceCorruptionStage == "raw_callback" &&
+            callbackQualityClassification in setOf("severe_fragmentation", "pathological_single_char_stream") ->
+            "runtime_decode_fragmentation"
+        sourceCorruptionStage == "raw_callback" -> "callback_source_corruption"
+        matrixMode == GPU_OUTPUT_QUALITY_MATRIX_MODE_SAMPLER_MINIMAL -> "sampler_related"
+        else -> "unknown"
+    }
 
 private fun buildGpuPerformanceDiagnostics(flags: LocalRouteDiagnosticFlags): GpuPerformanceDiagnostics {
     val engineCreateOrReuse = flags.gpuPerfEngineCreateOrReuse ?: when (flags.heldEngineReused) {
@@ -2112,6 +2208,16 @@ internal fun buildLocalRouteDiagnosticTrace(
         "callback_last_30_chunks=${gpuOutputQuality.callbackLastChunksArtifact}",
         "callback_quality_classification=${gpuOutputQuality.callbackQualityClassification}",
         "callback_corruption_earliest_stage=${gpuOutputQuality.callbackCorruptionEarliestStage}",
+        "gpu_fragmentation_score=${gpuOutputQuality.fragmentationScore}",
+        "gpu_fragmentation_percentile=${gpuOutputQuality.fragmentationPercentile}",
+        "gpu_fragmentation_tail_score=${gpuOutputQuality.fragmentationTailScore}",
+        "gpu_fragmentation_middle_score=${gpuOutputQuality.fragmentationMiddleScore}",
+        "gpu_fragmentation_head_score=${gpuOutputQuality.fragmentationHeadScore}",
+        "gpu_chunk_size_distribution=${gpuOutputQuality.chunkSizeDistribution}",
+        "gpu_chunk_length_sequence=${gpuOutputQuality.chunkLengthSequence}",
+        "gpu_fragmentation_cluster_count=${gpuOutputQuality.fragmentationClusterCount}",
+        "gpu_fragmentation_cluster_max_length=${gpuOutputQuality.fragmentationClusterMaxLength}",
+        "gpu_fragmentation_cluster_avg_length=${gpuOutputQuality.fragmentationClusterAvgLength}",
         "gpu_output_suspicious_fragment_detected=${gpuOutputQuality.suspiciousDetected}",
         "gpu_output_suspicious_fragment_reason=${gpuOutputQuality.suspiciousReason}",
         "gpu_output_suspicious_fragment_position=${gpuOutputQuality.suspiciousPosition}",
@@ -2126,6 +2232,7 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_output_quality_candidate_result=${gpuOutputQuality.candidateResult}",
         "gpu_output_quality_failure_block_reason=${gpuOutputQuality.failureBlockReason}",
         "gpu_output_quality_recommendation=${gpuOutputQuality.recommendation}",
+        "gpu_sampler_root_cause_candidate=${gpuOutputQuality.samplerRootCauseCandidate}",
         "gpu_output_actual_ui_appended_text_length=${gpuOutputQuality.actualUiAppendedLength}",
         "gpu_output_actual_ui_appended_text_head=${gpuOutputQuality.actualUiAppendedHead}",
         "gpu_output_actual_ui_appended_text_tail=${gpuOutputQuality.actualUiAppendedTail}",

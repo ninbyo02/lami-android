@@ -2471,6 +2471,9 @@ Interpretation:
 
 - `callback_quality_compare_result=gpu_only_corrupt`: GPU raw callback quality fails while CPU passes for the same
   prompt/max-token budget. This blocks production promotion.
+- `callback_quality_compare_result=gpu_corrupt_cpu_unavailable`: GPU raw callback quality fails while CPU comparison
+  is unavailable because it skipped, timed out, threw, or received no valid callbacks. This is not a pass and also
+  blocks production promotion.
 - `callback_quality_compare_result=cpu_and_gpu_corrupt`: both routes produce suspicious raw callback output, so model /
   prompt / sampling config becomes more suspect.
 - `callback_quality_compare_result=both_pass`: raw callback shape does not currently explain the quality issue.
@@ -2488,3 +2491,28 @@ Important keys:
 - `cpu_output_source_corruption_stage`
 - `cpu_gpu_same_prompt`, `cpu_gpu_same_max_tokens`, `cpu_gpu_same_sampler_config_hint`
 - `cpu_gpu_avg_chunk_length_ratio`, `cpu_gpu_two_char_or_less_ratio_delta`, `cpu_gpu_callback_count_delta`
+
+Fragment localization:
+
+- `gpu_fragmentation_score`
+- `gpu_fragmentation_percentile`
+- `gpu_fragmentation_head_score`, `gpu_fragmentation_middle_score`, `gpu_fragmentation_tail_score`
+- `gpu_chunk_size_distribution`
+- `gpu_chunk_length_sequence`
+- `gpu_fragmentation_cluster_count`, `gpu_fragmentation_cluster_max_length`, `gpu_fragmentation_cluster_avg_length`
+
+Sampler/root-cause hint:
+
+- `gpu_sampler_root_cause_candidate=not_sampler_related`: no-sampler or top-k-disabled mode still shows raw callback
+  corruption.
+- `gpu_sampler_root_cause_candidate=runtime_decode_fragmentation`: severe/pathological tiny chunk fragmentation is
+  already present in raw GPU callbacks.
+- `gpu_sampler_root_cause_candidate=streaming_join_issue`: callback text changes during append/final commit.
+- `gpu_sampler_root_cause_candidate=callback_source_corruption`: raw callback source is suspicious but not yet enough
+  to call sampler or runtime decode.
+
+Matrix summary helper:
+
+```bash
+scripts/summarize_gpu_output_quality_matrix.sh --input artifacts/gpu_output_quality_matrix
+```

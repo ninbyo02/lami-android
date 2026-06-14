@@ -6,6 +6,7 @@ MODE="${MODE:-baseline}"
 MAX_TOKENS="${MAX_TOKENS:-0}"
 PROMPT="${PROMPT:-}"
 ADB="${ADB:-adb}"
+ARTIFACT_DIR="${ARTIFACT_DIR:-artifacts/gpu_output_quality_matrix}"
 
 usage() {
   cat <<'USAGE'
@@ -26,6 +27,11 @@ Examples:
 The script sets DEV-only GPU output-quality props and launches the selected app.
 Prompt entry is still manual in the app; when possible, the prompt is copied to
 the Android clipboard for convenience.
+
+After copying compact/details output into artifacts/gpu_output_quality_matrix/,
+run:
+
+  scripts/summarize_gpu_output_quality_matrix.sh
 USAGE
 }
 
@@ -81,6 +87,9 @@ echo "Setting GPU output quality matrix props:"
 echo "  package=$PACKAGE"
 echo "  mode=$MODE"
 echo "  max_tokens=$MAX_TOKENS"
+echo "  artifact_dir=$ARTIFACT_DIR"
+
+mkdir -p "$ARTIFACT_DIR"
 
 "$ADB" shell setprop debug.lami.gpu_generate_probe_mode normal
 "$ADB" shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
@@ -105,7 +114,16 @@ Check compact/details keys:
   gpu_output_quality_sampler_mode
   gpu_output_quality_streaming_mode
   gpu_output_quality_effective_max_tokens
+  gpu_fragmentation_score
+  gpu_fragmentation_tail_score
   gpu_output_suspicious_fragment_detected
   gpu_output_suspicious_fragment_reason
+  gpu_sampler_root_cause_candidate
   gpu_output_quality_recommendation
+
+Paste copied diagnostics into:
+  $ARTIFACT_DIR/${MODE}_${MAX_TOKENS}.txt
+
+Then summarize:
+  scripts/summarize_gpu_output_quality_matrix.sh --input "$ARTIFACT_DIR"
 EOF

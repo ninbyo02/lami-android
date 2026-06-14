@@ -1102,6 +1102,12 @@ internal data class RunCloseLifecycleSummary(
     val notes: String? = null,
 )
 
+private enum class FragmentationSegment {
+    HEAD,
+    MIDDLE,
+    TAIL,
+}
+
 private class GenerateCallbackLifecycleTracker(
     private val routeRunStartedAtMs: Long,
     private val probeMode: String,
@@ -1442,6 +1448,7 @@ private class GenerateCallbackLifecycleTracker(
             gpuCallbackLastChunksArtifact = resolveCallbackArtifact(lastChunkArtifacts).takeIf {
                 callbackStreamingPathSelected
             },
+            gpuPrefillProbeDiagnostics = base.gpuPrefillProbeDiagnostics + resolveFragmentationDiagnostics(),
             callbackQualityClassification = resolveCallbackQualityClassification().takeIf { callbackStreamingPathSelected },
             callbackCorruptionEarliestStage = resolveGpuOutputSourceCorruptionStage().takeIf {
                 callbackStreamingPathSelected
@@ -1582,6 +1589,112 @@ private class GenerateCallbackLifecycleTracker(
             twoCharOrLessRatio = resolveTwoCharOrLessChunkRatio(),
             averageChunkLength = resolveAverageChunkLength(),
         )
+
+    private fun resolveFragmentationScore(): String =
+        if (nonEmptyChunkLengths.isEmpty()) {
+            "unavailable"
+        } else {
+            val tinyRatio = oneOrTwoCharChunkCount.toDouble() / nonEmptyChunkLengths.size
+            val tailScore = resolveFragmentationSegmentScore(FragmentationSegment.TAIL).toDoubleOrNull() ?: tinyRatio
+            "%.3f".format(Locale.US, maxOf(tinyRatio, tailScore))
+        }
+
+    private fun resolveFragmentationPercentile(): String =
+        if (nonEmptyChunkLengths.isEmpty()) {
+            "unavailable"
+        } else {
+            "p50=${resolvePercentileChunkLength(0.50)};p90=${resolvePercentileChunkLength(0.90)};" +
+                "p95=${resolvePercentileChunkLength(0.95)}"
+        }
+
+    private fun resolveFragmentationSegmentScore(segment: FragmentationSegment): String {
+        if (nonEmptyChunkLengths.isEmpty()) return "unavailable"
+        val size = nonEmptyChunkLengths.size
+        val headEnd = kotlin.math.ceil(size / 3.0).toInt().coerceAtLeast(1)
+        val tailStart = (size - headEnd).coerceAtLeast(0)
+        val values = when (segment) {
+            FragmentationSegment.HEAD -> nonEmptyChunkLengths.take(headEnd)
+            FragmentationSegment.TAIL -> nonEmptyChunkLengths.drop(tailStart)
+            FragmentationSegment.MIDDLE -> {
+                val middle = nonEmptyChunkLengths.drop(headEnd).dropLast(size - tailStart)
+                middle.ifEmpty { nonEmptyChunkLengths }
+            }
+        }
+        if (values.isEmpty()) return "unavailable"
+        return "%.3f".format(Locale.US, values.count { it <= 2 }.toDouble() / values.size)
+    }
+
+    private fun resolveChunkLengthSequence(): String {
+        if (nonEmptyChunkLengths.isEmpty()) return "none"
+        val limit = 160
+        val prefix = nonEmptyChunkLengths.take(limit).joinToString(",")
+        val remaining = nonEmptyChunkLengths.size - limit
+        return if (remaining > 0) {
+            "$prefix,...(+$remaining)"
+        } else {
+            prefix
+        }
+    }
+
+    private data class FragmentationClusters(
+        val count: Int,
+        val maxLength: Int,
+        val averageLength: String,
+    )
+
+    private fun resolveFragmentationClusters(): FragmentationClusters {
+        if (nonEmptyChunkLengths.isEmpty()) {
+            return FragmentationClusters(
+                count = 0,
+                maxLength = 0,
+                averageLength = "unavailable",
+            )
+        }
+        val clusters = mutableListOf<Int>()
+        var current = 0
+        nonEmptyChunkLengths.forEach { length ->
+            if (length <= 2) {
+                current += 1
+            } else if (current > 0) {
+                clusters += current
+                current = 0
+            }
+        }
+        if (current > 0) clusters += current
+        return FragmentationClusters(
+            count = clusters.size,
+            maxLength = clusters.maxOrNull() ?: 0,
+            averageLength = if (clusters.isEmpty()) {
+                "0.00"
+            } else {
+                "%.2f".format(Locale.US, clusters.average())
+            },
+        )
+    }
+
+    private fun resolveFragmentationDiagnostics(): Map<String, String> {
+        if (!callbackStreamingPathSelected) return emptyMap()
+        val clusters = resolveFragmentationClusters()
+        return mapOf(
+            "gpu_fragmentation_score" to resolveFragmentationScore(),
+            "gpu_fragmentation_percentile" to resolveFragmentationPercentile(),
+            "gpu_fragmentation_tail_score" to resolveFragmentationSegmentScore(FragmentationSegment.TAIL),
+            "gpu_fragmentation_middle_score" to resolveFragmentationSegmentScore(FragmentationSegment.MIDDLE),
+            "gpu_fragmentation_head_score" to resolveFragmentationSegmentScore(FragmentationSegment.HEAD),
+            "gpu_chunk_size_distribution" to resolveChunkLengthHistogram(),
+            "gpu_chunk_length_sequence" to resolveChunkLengthSequence(),
+            "gpu_fragmentation_cluster_count" to clusters.count.toString(),
+            "gpu_fragmentation_cluster_max_length" to clusters.maxLength.toString(),
+            "gpu_fragmentation_cluster_avg_length" to clusters.averageLength,
+            "gpu_sampler_root_cause_candidate" to classifyGpuSamplerRootCauseCandidate(
+                suspiciousDetected = resolveGpuOutputSuspiciousReason() != "none",
+                sourceCorruptionStage = resolveGpuOutputSourceCorruptionStage(),
+                uiAppendChangedText = resolveUiAppendChangedText(),
+                matrixMode = outputQualityMatrixMode,
+                callbackQualityClassification = resolveCallbackQualityClassification(),
+            ),
+        )
+    }
 
     private fun resolveCallbackArtifact(items: Collection<String>): String =
         items.joinToString("|").ifBlank { "none" }
@@ -2040,16 +2153,16 @@ private fun LocalRouteDiagnosticFlags.withCpuGpuCompare(
         cpuOutputSuspiciousFragmentDetected = compare.outputSuspiciousFragmentDetected,
         cpuOutputSuspiciousFragmentReason = compare.outputSuspiciousFragmentReason,
         cpuOutputSourceCorruptionStage = compare.outputSourceCorruptionStage,
-        callbackQualityCompareResult = when {
-            !compare.enabled || !compare.finished -> "comparison_unavailable"
-            compare.outputSuspiciousFragmentDetected &&
-                (gpuOutputQualityCandidateResult == "quality_candidate_fail" || gpuOutputSuspiciousFragmentDetected == true) ->
-                "cpu_and_gpu_corrupt"
-            compare.outputSuspiciousFragmentDetected -> "cpu_only_corrupt"
-            gpuOutputQualityCandidateResult == "quality_candidate_fail" || gpuOutputSuspiciousFragmentDetected == true ->
-                "gpu_only_corrupt"
-            else -> "both_pass"
-        },
+        callbackQualityCompareResult = classifyCallbackQualityCompareResult(
+            gpuCandidateResult = gpuOutputQualityCandidateResult,
+            gpuSuspiciousDetected = gpuOutputSuspiciousFragmentDetected,
+            cpuSuspiciousDetected = compare.outputSuspiciousFragmentDetected,
+            cpuFinished = compare.finished,
+            cpuSkippedReason = compare.skippedReason,
+            cpuExceptionClass = compare.exceptionClass,
+            cpuFailureStage = compare.failureStage,
+            cpuCallbackCount = compare.callbackInvokedCount,
+        ),
         callbackQualityCompareReason = when {
             !compare.enabled -> "cpu_compare_skipped:${compare.skippedReason}"
             compare.exceptionClass != "none" -> "cpu_compare_exception:${compare.exceptionClass}"

@@ -1074,13 +1074,49 @@ The summary keys are:
 `callback_quality_compare_result` uses:
 
 - `gpu_only_corrupt`
+- `gpu_corrupt_cpu_unavailable`
 - `cpu_and_gpu_corrupt`
 - `cpu_only_corrupt`
 - `both_pass`
 - `comparison_unavailable`
 
-If `callback_quality_compare_result=gpu_only_corrupt`, especially with
+If CPU comparison throws, times out, is skipped, or receives no callbacks, it must not be treated as `both_pass`.
+Use:
+
+- `gpu_corrupt_cpu_unavailable`: GPU output is suspicious but CPU comparison is unavailable.
+- `comparison_unavailable`: GPU output is not currently suspicious, but CPU comparison did not produce valid data.
+
+If `callback_quality_compare_result=gpu_only_corrupt` or `gpu_corrupt_cpu_unavailable`, especially with
 `gpu_output_source_corruption_stage=raw_callback`, the current strongest suspect is the LiteRT-LM GPU callback / decode
 stream source rather than ChatScreen append, markdown rendering, or final UI commit. Production promotion remains
 blocked while `gpu_output_quality_candidate_result=quality_candidate_fail` or
-`callback_quality_compare_result=gpu_only_corrupt` is reproducible.
+`callback_quality_compare_result=gpu_only_corrupt` / `gpu_corrupt_cpu_unavailable` is reproducible.
+
+Fragment localization keys:
+
+- `gpu_fragmentation_score`
+- `gpu_fragmentation_percentile`
+- `gpu_fragmentation_head_score`
+- `gpu_fragmentation_middle_score`
+- `gpu_fragmentation_tail_score`
+- `gpu_chunk_size_distribution`
+- `gpu_chunk_length_sequence`
+- `gpu_fragmentation_cluster_count`
+- `gpu_fragmentation_cluster_max_length`
+- `gpu_fragmentation_cluster_avg_length`
+
+Sampler/root-cause hint:
+
+- `gpu_sampler_root_cause_candidate=streaming_join_issue`: UI append/final commit changed the callback text.
+- `gpu_sampler_root_cause_candidate=not_sampler_related`: corruption remains in no-sampler/top-k-disabled modes.
+- `gpu_sampler_root_cause_candidate=runtime_decode_fragmentation`: raw callback is corrupt with severe/pathological
+  fragmentation.
+- `gpu_sampler_root_cause_candidate=callback_source_corruption`: raw callback is suspicious, but the fragmentation
+  score alone is not enough to call runtime decode fragmentation.
+- `gpu_sampler_root_cause_candidate=sampler_related`: only a sampler-specific run points toward sampler behavior.
+
+After copying compact/details output from each matrix mode into `artifacts/gpu_output_quality_matrix/`, summarize:
+
+```bash
+scripts/summarize_gpu_output_quality_matrix.sh
+```

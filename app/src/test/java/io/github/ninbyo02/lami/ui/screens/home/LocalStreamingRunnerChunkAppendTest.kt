@@ -176,6 +176,94 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `callback quality comparison marks GPU corrupt CPU exception as unavailable GPU corrupt`() {
+        assertEquals(
+            "gpu_corrupt_cpu_unavailable",
+            classifyCallbackQualityCompareResult(
+                gpuCandidateResult = "quality_candidate_fail",
+                gpuSuspiciousDetected = true,
+                cpuSuspiciousDetected = false,
+                cpuFinished = true,
+                cpuSkippedReason = "none",
+                cpuExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                cpuFailureStage = "generate_collect",
+                cpuCallbackCount = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun `callback quality comparison marks healthy GPU CPU exception unavailable`() {
+        assertEquals(
+            "comparison_unavailable",
+            classifyCallbackQualityCompareResult(
+                gpuCandidateResult = "quality_candidate_pass",
+                gpuSuspiciousDetected = false,
+                cpuSuspiciousDetected = false,
+                cpuFinished = true,
+                cpuSkippedReason = "none",
+                cpuExceptionClass = "com.google.ai.edge.litertlm.LiteRtLmJniException",
+                cpuFailureStage = "generate_collect",
+                cpuCallbackCount = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun `callback quality comparison handles skipped and timeout CPU compare`() {
+        assertEquals(
+            "gpu_corrupt_cpu_unavailable",
+            classifyCallbackQualityCompareResult(
+                gpuCandidateResult = "quality_candidate_fail",
+                gpuSuspiciousDetected = true,
+                cpuSuspiciousDetected = false,
+                cpuFinished = false,
+                cpuSkippedReason = "not_standard_gpu_minimal_runtime_candidate_flavor",
+                cpuExceptionClass = "none",
+                cpuFailureStage = "none",
+                cpuCallbackCount = null,
+            ),
+        )
+        assertEquals(
+            "gpu_corrupt_cpu_unavailable",
+            classifyCallbackQualityCompareResult(
+                gpuCandidateResult = "quality_candidate_fail",
+                gpuSuspiciousDetected = true,
+                cpuSuspiciousDetected = false,
+                cpuFinished = true,
+                cpuSkippedReason = "none",
+                cpuExceptionClass = "Timeout",
+                cpuFailureStage = "timeout",
+                cpuCallbackCount = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU sampler root cause candidate separates no sampler from streaming join`() {
+        assertEquals(
+            "not_sampler_related",
+            classifyGpuSamplerRootCauseCandidate(
+                suspiciousDetected = true,
+                sourceCorruptionStage = "raw_callback",
+                uiAppendChangedText = false,
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION,
+                callbackQualityClassification = "severe_fragmentation",
+            ),
+        )
+        assertEquals(
+            "streaming_join_issue",
+            classifyGpuSamplerRootCauseCandidate(
+                suspiciousDetected = true,
+                sourceCorruptionStage = "ui_append_or_final_commit",
+                uiAppendChangedText = true,
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE,
+                callbackQualityClassification = "healthy_large_chunks",
+            ),
+        )
+    }
+
+    @Test
     fun `CPU GPU callback compare request is disabled by default`() {
         val request = resolveCpuGpuCallbackCompareRequestForDebug(
             preferredBackend = PreferredBackendDryRunSetting.GPU,
