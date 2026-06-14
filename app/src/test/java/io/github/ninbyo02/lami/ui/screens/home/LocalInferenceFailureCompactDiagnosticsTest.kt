@@ -1140,6 +1140,160 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("held_engine_destroy_reason=gpu_watchdog_timeout_holder_clear"))
         assertTrue(compact.contains("held_engine_lifecycle_history=holder_acquired@elapsed_ms=1"))
         assertTrue(compact.contains("held_engine_snapshot_before_destroy=holder_hash=7"))
+        assertTrue(compact.contains("gpu_alignment_holder_cleared=true"))
+        assertTrue(compact.contains("gpu_alignment_holder_clear_reason=gpu_watchdog_timeout_holder_clear"))
+        assertTrue(compact.contains("gpu_alignment_holder_reuse_block_reason=holder_cleared_after_failure"))
+    }
+
+    @Test
+    fun `runtime alignment success compact includes holder first turn diagnostics`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it-edge-gallery",
+            selectedModelFile = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = false,
+                engineCreateStarted = true,
+                engineCreateFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                fallbackUsed = false,
+                gpuCallbackTextPromotedToUi = true,
+                gpuUiAppendFinished = true,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackStreamingReusedHeldEngine = false,
+                gpuAlignmentHolderPresentBeforeAcquire = false,
+                gpuAlignmentHolderAcquireResult = "created",
+                gpuAlignmentHolderReused = false,
+                gpuAlignmentHolderCreated = true,
+                gpuAlignmentHolderCleared = false,
+                gpuAlignmentPreviousTurnSuccess = "unavailable",
+            ),
+            elapsedMs = 1_234L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "success",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                status = "success",
+                reason = "gpu_callback_streaming_success",
+                failureStage = "none",
+                routeContext = routeContext,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("gpu_alignment_holder_present_before_acquire=false"))
+        assertTrue(routeDiagnostics.contains("gpu_alignment_holder_acquire_result=created"))
+        assertTrue(routeDiagnostics.contains("gpu_alignment_holder_reused=false"))
+        assertTrue(routeDiagnostics.contains("gpu_alignment_holder_created=true"))
+        assertTrue(routeDiagnostics.contains("gpu_alignment_holder_reuse_block_reason=first_turn_no_previous_holder"))
+        assertTrue(compact.contains("gpu_alignment_holder_present_before_acquire=false"))
+        assertTrue(compact.contains("gpu_alignment_holder_acquire_result=created"))
+        assertTrue(compact.contains("gpu_alignment_holder_reuse_block_reason=first_turn_no_previous_holder"))
+        assertTrue(compact.contains("gpu_callback_streaming_reused_held_engine=false"))
+    }
+
+    @Test
+    fun `runtime alignment holder reuse is classified as reuse ok`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it-edge-gallery",
+            selectedModelFile = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateStarted = false,
+                engineCreateFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                fallbackUsed = false,
+                gpuCallbackTextPromotedToUi = true,
+                gpuUiAppendFinished = true,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackStreamingReusedHeldEngine = true,
+                gpuAlignmentHolderPresentBeforeAcquire = true,
+                gpuAlignmentHolderAcquireResult = "reused",
+                gpuAlignmentHolderReused = true,
+                gpuAlignmentHolderCreated = false,
+                gpuAlignmentPreviousTurnSuccess = "true",
+            ),
+            elapsedMs = 980L,
+        )
+
+        assertTrue(routeDiagnostics.contains("gpu_alignment_holder_reused=true"))
+        assertTrue(routeDiagnostics.contains("gpu_alignment_holder_acquire_result=reused"))
+        assertTrue(routeDiagnostics.contains("gpu_alignment_holder_reuse_block_reason=reuse_ok"))
+        assertTrue(routeDiagnostics.contains("gpu_callback_streaming_reused_held_engine=true"))
+    }
+
+    @Test
+    fun `runtime alignment holder cleanup distinguishes success cleanup`() {
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it-edge-gallery",
+            selectedModelFile = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = false,
+                heldEngineReused = false,
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                fallbackUsed = false,
+                holderInvalidated = true,
+                holderClosed = true,
+                holderFailureCleanup = false,
+                heldEngineDestroyReason = "success_cleanup",
+                gpuAlignmentHolderPresentBeforeAcquire = true,
+                gpuAlignmentHolderAcquireResult = "reused",
+                gpuAlignmentHolderReused = true,
+                gpuAlignmentHolderCleared = true,
+                gpuAlignmentHolderClearReason = "success_cleanup",
+            ),
+            elapsedMs = 1_001L,
+        )
+
+        assertTrue(routeDiagnostics.contains("gpu_alignment_holder_cleared=true"))
+        assertTrue(routeDiagnostics.contains("gpu_alignment_holder_clear_reason=success_cleanup"))
+        assertTrue(routeDiagnostics.contains("gpu_alignment_holder_reuse_block_reason=holder_cleared_after_success"))
     }
 
     @Test

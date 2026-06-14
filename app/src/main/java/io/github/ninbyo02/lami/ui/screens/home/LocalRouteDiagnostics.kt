@@ -125,6 +125,41 @@ internal data class LocalRouteDiagnosticFlags(
     val gpuCallbackStreamingReusedHeldEngine: Boolean? = null,
     val gpuCallbackStreamingCompletionReason: String? = null,
     val gpuCallbackStreamingFailureReason: String? = null,
+    val gpuAlignmentHolderPresentBeforeAcquire: Boolean? = null,
+    val gpuAlignmentHolderAcquireResult: String? = null,
+    val gpuAlignmentHolderReused: Boolean? = null,
+    val gpuAlignmentHolderCreated: Boolean? = null,
+    val gpuAlignmentHolderCleared: Boolean? = null,
+    val gpuAlignmentHolderClearReason: String? = null,
+    val gpuAlignmentHolderCloseStarted: Boolean? = null,
+    val gpuAlignmentHolderCloseFinished: Boolean? = null,
+    val gpuAlignmentHolderReuseBlockReason: String? = null,
+    val gpuAlignmentHolderModelPathChanged: Boolean? = null,
+    val gpuAlignmentHolderBackendChanged: Boolean? = null,
+    val gpuAlignmentHolderAppProcessStartMarker: String? = null,
+    val gpuAlignmentTurnIndexIfAvailable: String? = null,
+    val gpuAlignmentPreviousTurnSuccess: String? = null,
+    val gpuAlignmentPreviousTurnFailureStage: String? = null,
+)
+
+private val GPU_ALIGNMENT_APP_PROCESS_START_MARKER: String = System.currentTimeMillis().toString()
+
+private data class GpuAlignmentHolderDiagnostics(
+    val presentBeforeAcquire: String,
+    val acquireResult: String,
+    val reused: String,
+    val created: String,
+    val cleared: String,
+    val clearReason: String,
+    val closeStarted: String,
+    val closeFinished: String,
+    val reuseBlockReason: String,
+    val modelPathChanged: String,
+    val backendChanged: String,
+    val appProcessStartMarker: String,
+    val turnIndexIfAvailable: String,
+    val previousTurnSuccess: String,
+    val previousTurnFailureStage: String,
 )
 
 internal data class GpuRouteConfigDiagnostics(
@@ -312,6 +347,115 @@ private fun resolveStandardGpuProbeResultCandidate(
         else -> "unknown"
     }
 
+private fun buildGpuAlignmentHolderDiagnostics(
+    flags: LocalRouteDiagnosticFlags,
+    failureStage: String,
+): GpuAlignmentHolderDiagnostics {
+    val clearReason = flags.gpuAlignmentHolderClearReason
+        ?: flags.heldEngineDestroyReason
+        ?: "unavailable"
+    val cleared = flags.gpuAlignmentHolderCleared
+        ?: flags.holderInvalidated
+        ?: flags.holderClosed
+    val reused = flags.gpuAlignmentHolderReused
+        ?: flags.holderReused
+        ?: flags.heldEngineReused
+        ?: flags.gpuCallbackStreamingReusedHeldEngine
+    val created = flags.gpuAlignmentHolderCreated
+        ?: flags.holderCreated
+        ?: when {
+            flags.gpuAlignmentHolderAcquireResult == "created" -> true
+            flags.gpuAlignmentHolderAcquireResult == "reused" -> false
+            else -> null
+        }
+    val presentBeforeAcquire = flags.gpuAlignmentHolderPresentBeforeAcquire
+    val modelPathChanged = flags.gpuAlignmentHolderModelPathChanged
+        ?: clearReason.contains("model", ignoreCase = true).takeIf { it || clearReason != "unavailable" }
+    val backendChanged = flags.gpuAlignmentHolderBackendChanged
+        ?: clearReason.contains("backend", ignoreCase = true).takeIf { it || clearReason != "unavailable" }
+    val previousFailureStage = flags.gpuAlignmentPreviousTurnFailureStage
+        ?: flags.heldEngineLastFailureStage
+        ?: "unavailable"
+    val reuseBlockReason = flags.gpuAlignmentHolderReuseBlockReason
+        ?: classifyGpuAlignmentHolderReuseBlockReason(
+            reused = reused,
+            presentBeforeAcquire = presentBeforeAcquire,
+            created = created,
+            cleared = cleared,
+            clearReason = clearReason,
+            holderFailureCleanup = flags.holderFailureCleanup,
+            holderProcessRestart = flags.holderProcessRestart,
+            previousFailureStage = previousFailureStage,
+            failureStage = failureStage,
+        )
+    return GpuAlignmentHolderDiagnostics(
+        presentBeforeAcquire = presentBeforeAcquire.toDiagnosticValue(),
+        acquireResult = flags.gpuAlignmentHolderAcquireResult ?: deriveGpuAlignmentHolderAcquireResult(
+            reused = reused,
+            created = created,
+            holderAcquired = flags.holderAcquired,
+            failureStage = failureStage,
+        ),
+        reused = reused.toDiagnosticValue(),
+        created = created.toDiagnosticValue(),
+        cleared = cleared.toDiagnosticValue(),
+        clearReason = clearReason.toDiagnosticValue(),
+        closeStarted = (flags.gpuAlignmentHolderCloseStarted ?: flags.holderClosed).toDiagnosticValue(),
+        closeFinished = (flags.gpuAlignmentHolderCloseFinished ?: flags.holderClosed).toDiagnosticValue(),
+        reuseBlockReason = reuseBlockReason,
+        modelPathChanged = modelPathChanged.toDiagnosticValue(),
+        backendChanged = backendChanged.toDiagnosticValue(),
+        appProcessStartMarker = flags.gpuAlignmentHolderAppProcessStartMarker
+            ?: GPU_ALIGNMENT_APP_PROCESS_START_MARKER,
+        turnIndexIfAvailable = flags.gpuAlignmentTurnIndexIfAvailable ?: "unavailable",
+        previousTurnSuccess = flags.gpuAlignmentPreviousTurnSuccess ?: "unavailable",
+        previousTurnFailureStage = previousFailureStage.toDiagnosticValue(),
+    )
+}
+
+private fun deriveGpuAlignmentHolderAcquireResult(
+    reused: Boolean?,
+    created: Boolean?,
+    holderAcquired: Boolean?,
+    failureStage: String,
+): String =
+    when {
+        reused == true -> "reused"
+        created == true -> "created"
+        holderAcquired == true -> "acquired"
+        failureStage != "none" && failureStage != "unavailable" -> "failed_or_interrupted"
+        else -> "unavailable"
+    }
+
+private fun classifyGpuAlignmentHolderReuseBlockReason(
+    reused: Boolean?,
+    presentBeforeAcquire: Boolean?,
+    created: Boolean?,
+    cleared: Boolean?,
+    clearReason: String,
+    holderFailureCleanup: Boolean?,
+    holderProcessRestart: Boolean?,
+    previousFailureStage: String,
+    failureStage: String,
+): String =
+    when {
+        clearReason.contains("model", ignoreCase = true) -> "model_path_changed"
+        clearReason.contains("backend", ignoreCase = true) -> "backend_changed"
+        holderFailureCleanup == true ||
+            previousFailureStage !in setOf("unavailable", "none") ||
+            clearReason.contains("failure", ignoreCase = true) ||
+            clearReason.contains("failed", ignoreCase = true) ||
+            clearReason.contains("error", ignoreCase = true) -> "holder_cleared_after_failure"
+        cleared == true && failureStage in setOf("none", "unavailable") -> "holder_cleared_after_success"
+        reused == true -> "reuse_ok"
+        holderProcessRestart == true && presentBeforeAcquire == false -> "app_process_restarted"
+        presentBeforeAcquire == false && created == true -> "first_turn_no_previous_holder"
+        presentBeforeAcquire == false -> "first_turn_no_previous_holder"
+        clearReason.contains("debug_no_held_engine", ignoreCase = true) ||
+            clearReason.contains("no_held_engine", ignoreCase = true) -> "explicit_debug_no_held_engine"
+        else -> "unsupported_or_unknown"
+    }
+
 internal fun buildLocalRouteDiagnosticTrace(
     stage: String,
     context: LocalRouteDiagnosticContext,
@@ -417,6 +561,10 @@ internal fun buildLocalRouteDiagnosticTrace(
             flags = flags,
         ),
     )
+    val gpuAlignmentHolder = buildGpuAlignmentHolderDiagnostics(
+        flags = flags,
+        failureStage = failureStage,
+    )
     return (
         listOf(
         "LOCAL_ROUTE_DIAG",
@@ -450,6 +598,21 @@ internal fun buildLocalRouteDiagnosticTrace(
         "held_engine_last_owner=${flags.heldEngineLastOwner.toDiagnosticValue()}",
         "held_engine_last_failure_stage=${flags.heldEngineLastFailureStage.toDiagnosticValue()}",
         "held_engine_snapshot_before_destroy=${flags.heldEngineSnapshotBeforeDestroy.toDiagnosticValue()}",
+        "gpu_alignment_holder_present_before_acquire=${gpuAlignmentHolder.presentBeforeAcquire}",
+        "gpu_alignment_holder_acquire_result=${gpuAlignmentHolder.acquireResult}",
+        "gpu_alignment_holder_reused=${gpuAlignmentHolder.reused}",
+        "gpu_alignment_holder_created=${gpuAlignmentHolder.created}",
+        "gpu_alignment_holder_cleared=${gpuAlignmentHolder.cleared}",
+        "gpu_alignment_holder_clear_reason=${gpuAlignmentHolder.clearReason}",
+        "gpu_alignment_holder_close_started=${gpuAlignmentHolder.closeStarted}",
+        "gpu_alignment_holder_close_finished=${gpuAlignmentHolder.closeFinished}",
+        "gpu_alignment_holder_reuse_block_reason=${gpuAlignmentHolder.reuseBlockReason}",
+        "gpu_alignment_holder_model_path_changed=${gpuAlignmentHolder.modelPathChanged}",
+        "gpu_alignment_holder_backend_changed=${gpuAlignmentHolder.backendChanged}",
+        "gpu_alignment_holder_app_process_start_marker=${gpuAlignmentHolder.appProcessStartMarker}",
+        "gpu_alignment_turn_index_if_available=${gpuAlignmentHolder.turnIndexIfAvailable}",
+        "gpu_alignment_previous_turn_success=${gpuAlignmentHolder.previousTurnSuccess}",
+        "gpu_alignment_previous_turn_failure_stage=${gpuAlignmentHolder.previousTurnFailureStage}",
         "engine_create_started=${flags.engineCreateStarted.toDiagnosticValue()}",
         "engine_create_finished=${flags.engineCreateFinished.toDiagnosticValue()}",
         "engine_config_build_started=${flags.engineConfigBuildStarted.toDiagnosticValue()}",
@@ -757,6 +920,20 @@ internal fun LocalRouteDiagnosticFlags.withHeldEngineSnapshot(
         heldEngineLastOwner = snapshot.heldEngineLastOwner,
         heldEngineLastFailureStage = snapshot.heldEngineLastFailureStage,
         heldEngineSnapshotBeforeDestroy = snapshot.heldEngineSnapshotBeforeDestroy,
+        gpuAlignmentHolderReused = gpuAlignmentHolderReused ?: snapshot.holderReused,
+        gpuAlignmentHolderCreated = gpuAlignmentHolderCreated ?: snapshot.holderCreated,
+        gpuAlignmentHolderCleared = gpuAlignmentHolderCleared ?: (snapshot.holderInvalidated || snapshot.holderClosed),
+        gpuAlignmentHolderClearReason = gpuAlignmentHolderClearReason ?: snapshot.heldEngineDestroyReason,
+        gpuAlignmentHolderCloseStarted = gpuAlignmentHolderCloseStarted ?: snapshot.holderClosed,
+        gpuAlignmentHolderCloseFinished = gpuAlignmentHolderCloseFinished ?: snapshot.holderClosed,
+        gpuAlignmentHolderModelPathChanged = gpuAlignmentHolderModelPathChanged
+            ?: snapshot.heldEngineDestroyReason?.contains("model", ignoreCase = true),
+        gpuAlignmentHolderBackendChanged = gpuAlignmentHolderBackendChanged
+            ?: snapshot.heldEngineDestroyReason?.contains("backend", ignoreCase = true),
+        gpuAlignmentHolderAppProcessStartMarker = gpuAlignmentHolderAppProcessStartMarker
+            ?: GPU_ALIGNMENT_APP_PROCESS_START_MARKER,
+        gpuAlignmentPreviousTurnFailureStage = gpuAlignmentPreviousTurnFailureStage
+            ?: snapshot.heldEngineLastFailureStage,
     )
 }
 

@@ -4730,7 +4730,12 @@ fun Home(
                                                                             engineConfigBuildStarted = if (engineCreateStarted) true else null,
                                                                             engineConfigBuildFinished = false.takeIf { engineCreateStarted },
                                                                             gpuConfigDiagnostics = gpuRouteProgressTracker.configSnapshot(),
-                                                                        ),
+                                                                            gpuAlignmentHolderPresentBeforeAcquire =
+                                                                                heldSnapshotBeforeAcquire.heldEngineHash != null,
+                                                                            gpuAlignmentHolderAcquireResult = "pending",
+                                                                            gpuAlignmentHolderReused = false,
+                                                                            gpuAlignmentHolderCreated = false,
+                                                                        ).withHeldEngineSnapshot(heldSnapshotBeforeAcquire),
                                                                         elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
                                                                     ),
                                                                 )
@@ -4875,7 +4880,19 @@ fun Home(
                                                                             engineInitializeFinished = gpuRouteProgressTracker.snapshot().engineInitializeFinished,
                                                                             failureStage = if (heldEngine == null) heldAcquireFailureStage ?: "holder-acquire" else null,
                                                                             gpuConfigDiagnostics = gpuRouteProgressTracker.configSnapshot(),
-                                                                        ),
+                                                                            gpuAlignmentHolderPresentBeforeAcquire =
+                                                                                heldSnapshotBeforeAcquire.heldEngineHash != null,
+                                                                            gpuAlignmentHolderAcquireResult = when {
+                                                                                heldEngine == null -> "failed"
+                                                                                heldEngineReused -> "reused"
+                                                                                else -> "created"
+                                                                            },
+                                                                            gpuAlignmentHolderReused = heldEngineReused.takeIf { heldEngine != null },
+                                                                            gpuAlignmentHolderCreated =
+                                                                                (heldEngine != null && !heldEngineReused),
+                                                                            gpuAlignmentPreviousTurnSuccess =
+                                                                                if (reusableHeldEngineBeforeAcquire) "true" else "unavailable",
+                                                                        ).withHeldEngineSnapshot(heldSnapshotAfterAcquire),
                                                                         elapsedMs = SystemClock.elapsedRealtime() - localRunStartedAtMs,
                                                                     ),
                                                                 )
@@ -4937,6 +4954,18 @@ fun Home(
                                                                         routeDiagnosticContext = localRouteDiagnosticContext,
                                                                         routeRunStartedAtMs = localRunStartedAtMs,
                                                                         heldEngineReused = heldEngineReused,
+                                                                        heldEnginePresentBeforeAcquire =
+                                                                            heldSnapshotBeforeAcquire.heldEngineHash != null,
+                                                                        heldEngineAcquireResult = if (heldEngineReused) {
+                                                                            "reused"
+                                                                        } else {
+                                                                            "created"
+                                                                        },
+                                                                        previousTurnSuccess = if (reusableHeldEngineBeforeAcquire) {
+                                                                            "true"
+                                                                        } else {
+                                                                            "unavailable"
+                                                                        },
                                                                         onRouteDiagnosticStage = { stage ->
                                                                             lastRouteDiagnosticStage.set(stage)
                                                                             gpuRouteProgressTracker.recordStage(stage)
@@ -7728,6 +7757,33 @@ private fun mergeGpuTimeoutProgressFlags(
             progress.gpuCallbackStreamingCompletionReason ?: fallbackFlags.gpuCallbackStreamingCompletionReason,
         gpuCallbackStreamingFailureReason =
             progress.gpuCallbackStreamingFailureReason ?: fallbackFlags.gpuCallbackStreamingFailureReason,
+        gpuAlignmentHolderPresentBeforeAcquire =
+            progress.gpuAlignmentHolderPresentBeforeAcquire ?: fallbackFlags.gpuAlignmentHolderPresentBeforeAcquire,
+        gpuAlignmentHolderAcquireResult =
+            progress.gpuAlignmentHolderAcquireResult ?: fallbackFlags.gpuAlignmentHolderAcquireResult,
+        gpuAlignmentHolderReused = progress.gpuAlignmentHolderReused ?: fallbackFlags.gpuAlignmentHolderReused,
+        gpuAlignmentHolderCreated = progress.gpuAlignmentHolderCreated ?: fallbackFlags.gpuAlignmentHolderCreated,
+        gpuAlignmentHolderCleared = progress.gpuAlignmentHolderCleared ?: fallbackFlags.gpuAlignmentHolderCleared,
+        gpuAlignmentHolderClearReason =
+            progress.gpuAlignmentHolderClearReason ?: fallbackFlags.gpuAlignmentHolderClearReason,
+        gpuAlignmentHolderCloseStarted =
+            progress.gpuAlignmentHolderCloseStarted ?: fallbackFlags.gpuAlignmentHolderCloseStarted,
+        gpuAlignmentHolderCloseFinished =
+            progress.gpuAlignmentHolderCloseFinished ?: fallbackFlags.gpuAlignmentHolderCloseFinished,
+        gpuAlignmentHolderReuseBlockReason =
+            progress.gpuAlignmentHolderReuseBlockReason ?: fallbackFlags.gpuAlignmentHolderReuseBlockReason,
+        gpuAlignmentHolderModelPathChanged =
+            progress.gpuAlignmentHolderModelPathChanged ?: fallbackFlags.gpuAlignmentHolderModelPathChanged,
+        gpuAlignmentHolderBackendChanged =
+            progress.gpuAlignmentHolderBackendChanged ?: fallbackFlags.gpuAlignmentHolderBackendChanged,
+        gpuAlignmentHolderAppProcessStartMarker =
+            progress.gpuAlignmentHolderAppProcessStartMarker ?: fallbackFlags.gpuAlignmentHolderAppProcessStartMarker,
+        gpuAlignmentTurnIndexIfAvailable =
+            progress.gpuAlignmentTurnIndexIfAvailable ?: fallbackFlags.gpuAlignmentTurnIndexIfAvailable,
+        gpuAlignmentPreviousTurnSuccess =
+            progress.gpuAlignmentPreviousTurnSuccess ?: fallbackFlags.gpuAlignmentPreviousTurnSuccess,
+        gpuAlignmentPreviousTurnFailureStage =
+            progress.gpuAlignmentPreviousTurnFailureStage ?: fallbackFlags.gpuAlignmentPreviousTurnFailureStage,
     )
 }
 

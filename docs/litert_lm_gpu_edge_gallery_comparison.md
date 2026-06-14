@@ -839,6 +839,59 @@ Stability checklist before any standardDebug promotion:
 
 Only after repeated clean `gpuRuntimeAlignmentProbe` runs should a separate standardDebug promotion design be considered.
 
+## GPU Phase 14: runtime alignment holder reuse and cleanup diagnostics
+
+`gpuRuntimeAlignmentProbe` has already shown GPU callback streaming success across short, medium, longer, and multi-turn
+manual checks when the Edge Gallery E2B model, runtime alignment stack, callback streaming path, and allowlist-derived
+config are used. This is still a DEV-only probe result. It is not a standardDebug or production promotion.
+
+The remaining runtime-alignment questions are holder reuse, success cleanup, and promotion readiness. Phase 14 adds
+explicit holder alignment keys to `LOCAL_ROUTE_DIAG`, compact diagnostics, and inference stats detail:
+
+- `gpu_alignment_holder_present_before_acquire`
+- `gpu_alignment_holder_acquire_result`
+- `gpu_alignment_holder_reused`
+- `gpu_alignment_holder_created`
+- `gpu_alignment_holder_cleared`
+- `gpu_alignment_holder_clear_reason`
+- `gpu_alignment_holder_close_started`
+- `gpu_alignment_holder_close_finished`
+- `gpu_alignment_holder_reuse_block_reason`
+- `gpu_alignment_holder_model_path_changed`
+- `gpu_alignment_holder_backend_changed`
+- `gpu_alignment_holder_app_process_start_marker`
+- `gpu_alignment_turn_index_if_available`
+- `gpu_alignment_previous_turn_success`
+- `gpu_alignment_previous_turn_failure_stage`
+
+`gpu_alignment_holder_reuse_block_reason` is classified as:
+
+- `reuse_ok`
+- `first_turn_no_previous_holder`
+- `model_path_changed`
+- `backend_changed`
+- `holder_cleared_after_success`
+- `holder_cleared_after_failure`
+- `app_process_restarted`
+- `explicit_debug_no_held_engine`
+- `unsupported_or_unknown`
+
+Code inspection found explicit holder clear paths for timeout/failure and lifecycle transitions such as model/backend
+change, app background/idle timeout, low memory, TTS playback, and manual recreate. No normal GPU callback streaming
+success-only holder clear path was added or promoted. Success cleanup remains observable through
+`gpu_alignment_holder_cleared` and `gpu_alignment_holder_clear_reason`; failure/timeout cleanup remains preserved.
+
+Production promotion remains blocked until all of these gates are checked on device:
+
+1. App force-stop/restart then first GPU request succeeds.
+2. Same model succeeds for 3-5 continuous turns.
+3. Second and later turns show `gpu_alignment_holder_reused=true` / `reuse_ok`, or a clear non-reuse reason.
+4. Long output of 800+ tokens succeeds.
+5. Failure after a forced or natural GPU error runs holder cleanup and the next run starts safely.
+6. CPU route success is unchanged.
+7. NPU S1 remains gated and unchanged.
+8. `standardDebug` may still fail because its native runtime stack is intentionally not promoted.
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

@@ -1461,6 +1461,9 @@ internal suspend fun runWithHeldEngine(
     routeDiagnosticContext: LocalRouteDiagnosticContext? = null,
     routeRunStartedAtMs: Long = SystemClock.elapsedRealtime(),
     heldEngineReused: Boolean? = null,
+    heldEnginePresentBeforeAcquire: Boolean? = null,
+    heldEngineAcquireResult: String? = null,
+    previousTurnSuccess: String? = null,
     onRouteDiagnosticStage: (String) -> Unit = {},
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
@@ -1534,7 +1537,7 @@ internal suspend fun runWithHeldEngine(
         return buildLocalRouteDiagnosticTrace(
             stage = stage,
             context = diagnosticContext,
-            flags = callbackTracker.toFlags(flags),
+            flags = callbackTracker.toFlags(flags).withHeldEngineSnapshot(holderSnapshotAtRunStart),
             elapsedMs = SystemClock.elapsedRealtime() - routeRunStartedAtMs,
         )
     }
@@ -1585,6 +1588,11 @@ internal suspend fun runWithHeldEngine(
                 generateStarted = true,
                 generateStartedElapsedMs = generateStartedElapsedMs,
                 firstTokenReceived = false,
+                gpuAlignmentHolderPresentBeforeAcquire = heldEnginePresentBeforeAcquire,
+                gpuAlignmentHolderAcquireResult = heldEngineAcquireResult,
+                gpuAlignmentHolderReused = heldEngineReused,
+                gpuAlignmentHolderCreated = heldEngineReused?.not(),
+                gpuAlignmentPreviousTurnSuccess = previousTurnSuccess,
             ),
         )
     }
@@ -1605,6 +1613,11 @@ internal suspend fun runWithHeldEngine(
                 generateStartedElapsedMs = generateStartedElapsedMs,
                 firstTokenReceived = true,
                 firstTokenElapsedMs = firstTokenElapsedMs,
+                gpuAlignmentHolderPresentBeforeAcquire = heldEnginePresentBeforeAcquire,
+                gpuAlignmentHolderAcquireResult = heldEngineAcquireResult,
+                gpuAlignmentHolderReused = heldEngineReused,
+                gpuAlignmentHolderCreated = heldEngineReused?.not(),
+                gpuAlignmentPreviousTurnSuccess = previousTurnSuccess,
             ),
         )
     }
@@ -1627,6 +1640,11 @@ internal suspend fun runWithHeldEngine(
             gpuGeneratePrompt = effectivePrompt,
             gpuGeneratePromptLengthChars = effectivePrompt.length,
             gpuGenerateInputTokenEstimate = "unavailable",
+            gpuAlignmentHolderPresentBeforeAcquire = heldEnginePresentBeforeAcquire,
+            gpuAlignmentHolderAcquireResult = heldEngineAcquireResult,
+            gpuAlignmentHolderReused = heldEngineReused,
+            gpuAlignmentHolderCreated = heldEngineReused?.not(),
+            gpuAlignmentPreviousTurnSuccess = previousTurnSuccess,
         )
 
     fun appendRunnerWhitespaceStage(
@@ -2128,8 +2146,8 @@ internal suspend fun runWithHeldEngine(
         holderLastLifecycleEventReason = holderSnapshotAtRunStart.lastLifecycleEventReason,
         holderLastLifecycleDecisionAction = holderSnapshotAtRunStart.lastLifecycleDecisionAction,
         heldEngineRecreateRequestCount = holderSnapshotAtRunStart.recreateRequestCount,
-        heldEngineWasPresentAtRunStart = holderSnapshotAtRunStart.heldEngineHash != null,
-        heldEngineCreatedDuringRun = false,
+        heldEngineWasPresentAtRunStart = heldEnginePresentBeforeAcquire ?: (holderSnapshotAtRunStart.heldEngineHash != null),
+        heldEngineCreatedDuringRun = heldEngineAcquireResult == "created" || heldEngineReused == false,
         lastHeldEngineCreateReason = holderSnapshotAtRunStart.lastHeldEngineCreateReason,
         lastHeldEngineCreateSource = holderSnapshotAtRunStart.lastHeldEngineCreateSource,
         lastHeldEngineCreateAtElapsedMs = holderSnapshotAtRunStart.lastHeldEngineCreateAtElapsedMs,

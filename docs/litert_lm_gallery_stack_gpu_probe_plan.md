@@ -375,6 +375,55 @@ Promotion remains blocked until this flavor repeatedly reports:
 - `gpu_ui_append_finished=true`
 - `failure_stage=none`
 
+Holder reuse and cleanup diagnostics added for the runtime alignment probe:
+
+- `gpu_alignment_holder_present_before_acquire`
+- `gpu_alignment_holder_acquire_result`
+- `gpu_alignment_holder_reused`
+- `gpu_alignment_holder_created`
+- `gpu_alignment_holder_cleared`
+- `gpu_alignment_holder_clear_reason`
+- `gpu_alignment_holder_close_started`
+- `gpu_alignment_holder_close_finished`
+- `gpu_alignment_holder_reuse_block_reason`
+- `gpu_alignment_holder_model_path_changed`
+- `gpu_alignment_holder_backend_changed`
+- `gpu_alignment_holder_app_process_start_marker`
+- `gpu_alignment_turn_index_if_available`
+- `gpu_alignment_previous_turn_success`
+- `gpu_alignment_previous_turn_failure_stage`
+
+Reuse classification values:
+
+- `reuse_ok`
+- `first_turn_no_previous_holder`
+- `model_path_changed`
+- `backend_changed`
+- `holder_cleared_after_success`
+- `holder_cleared_after_failure`
+- `app_process_restarted`
+- `explicit_debug_no_held_engine`
+- `unsupported_or_unknown`
+
+Current stability memo:
+
+- `runtimeAlignmentProbe` is proven only as a DEV probe path.
+- Short, medium, longer, and multi-turn GPU callback streaming success has been observed manually.
+- The remaining questions are holder reuse, success cleanup, and standard promotion criteria.
+- The promotion candidate remains: runtime stack alignment + callback streaming + Edge Gallery E2B model + allowlist config.
+- `standardDebug` promotion remains forbidden until stability gates pass.
+
+Production promotion gates:
+
+1. App force-stop/restart then first GPU request succeeds.
+2. Same model succeeds for 3-5 continuous turns.
+3. Second and later turns show `gpu_alignment_holder_reused=true` / `reuse_ok`, or a clear non-reuse reason.
+4. Long output of 800+ tokens succeeds.
+5. Failure after a forced or natural GPU error runs holder cleanup and the next run starts safely.
+6. CPU route success is unchanged.
+7. NPU S1 remains gated and unchanged.
+8. `standardDebug` remains unpromoted and may continue to fail until native stack promotion is explicitly designed.
+
 Manual model selection:
 
 ```text
