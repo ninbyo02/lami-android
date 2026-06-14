@@ -543,10 +543,22 @@ internal fun overrideGpuConfigForGenerateProbeMode(
     probeMode: String,
 ): GpuRouteConfigDiagnostics =
     when (probeMode) {
-        GPU_GENERATE_PROBE_MODE_MAX_TOKENS_1 -> diagnostics.copy(maxTokens = "1")
-        GPU_GENERATE_PROBE_MODE_MAX_TOKENS_16 -> diagnostics.copy(maxTokens = "16")
+        GPU_GENERATE_PROBE_MODE_MAX_TOKENS_1 -> diagnostics.copy(
+            maxTokens = "1",
+            outputQualityEffectiveMaxTokens = "1",
+            outputQualityProbeEffectiveMaxTokens = "1",
+        )
+        GPU_GENERATE_PROBE_MODE_MAX_TOKENS_16 -> diagnostics.copy(
+            maxTokens = "16",
+            outputQualityEffectiveMaxTokens = "16",
+            outputQualityProbeEffectiveMaxTokens = "16",
+        )
         GPU_GENERATE_PROBE_MODE_MAX_TOKENS_32,
-        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_MAX_TOKENS_32 -> diagnostics.copy(maxTokens = "32")
+        GPU_GENERATE_PROBE_MODE_ASCII_PROMPT_MAX_TOKENS_32 -> diagnostics.copy(
+            maxTokens = "32",
+            outputQualityEffectiveMaxTokens = "32",
+            outputQualityProbeEffectiveMaxTokens = "32",
+        )
         else -> diagnostics
     }
 
@@ -1096,6 +1108,9 @@ private class GenerateCallbackLifecycleTracker(
     private val normalRouteUseCallbackStreaming: Boolean,
     private val callbackStreamingPathSelected: Boolean,
     private val callbackStreamingPathReason: String,
+    private val outputQualityMatrixMode: String,
+    private val outputQualityCollectOnlyEnabled: Boolean,
+    private val outputQualityUiIncrementalAppendEnabled: Boolean,
     private val heldEngineReused: Boolean?,
 ) {
     private class DiagnosticTextWindow(
@@ -1161,7 +1176,13 @@ private class GenerateCallbackLifecycleTracker(
     private val rawCallbackText = DiagnosticTextWindow()
     private val promotedText = DiagnosticTextWindow()
     private val finalAssistantText = DiagnosticTextWindow()
+    private val actualUiAppendedText = DiagnosticTextWindow()
     private val recentNonEmptyChunks = ArrayDeque<String>()
+    private var zeroLengthChunkCount: Int = 0
+    private var oneOrTwoCharChunkCount: Int = 0
+    private var threeToEightCharChunkCount: Int = 0
+    private var nineToThirtyTwoCharChunkCount: Int = 0
+    private var thirtyThreePlusCharChunkCount: Int = 0
 
     fun markGenerateCallEntered() {
         generateCallEntered = true
@@ -1191,6 +1212,7 @@ private class GenerateCallbackLifecycleTracker(
         callbackLastTextHead = text.take(80).ifBlank { "none" }
         rawCallbackText.append(text)
         if (text.isBlank()) {
+            zeroLengthChunkCount += 1
             callbackEmptyTextCount += 1
             firstTokenClassificationReason = if (done) {
                 "callback_done_without_text"
@@ -1200,6 +1222,7 @@ private class GenerateCallbackLifecycleTracker(
         } else {
             callbackNonEmptyTextCount += 1
             recordRecentChunkSummary(text)
+            recordChunkLengthBucket(text.length)
             if (firstNonEmptyTextElapsedMs == null) firstNonEmptyTextElapsedMs = now
             firstTokenClassificationReason = "callback_non_empty_text"
         }
@@ -1221,10 +1244,16 @@ private class GenerateCallbackLifecycleTracker(
         }
     }
 
+    fun markPromotedText(text: String) {
+        callbackPromotedTextLength = text.length
+        promotedText.replace(text)
+    }
+
     fun markUiAppendFinished(text: String) {
         uiAppendFinished = true
         callbackPromotedTextLength = text.length
         promotedText.replace(text)
+        actualUiAppendedText.replace(text)
         if (text.isNotBlank()) {
             callbackTextPromotedToUi = true
             callbackPromotedNonEmptyCount += 1
@@ -1324,12 +1353,36 @@ private class GenerateCallbackLifecycleTracker(
             gpuOutputMixedJapaneseFragmentDetected = detectMixedJapaneseFragmentForTracker().takeIf {
                 callbackStreamingPathSelected
             },
+            gpuOutputMixedLanguageFragmentDetected = detectMixedLanguageFragmentForTracker().takeIf {
+                callbackStreamingPathSelected
+            },
             gpuOutputChunkJoinStrategy = resolveGpuOutputChunkJoinStrategy().takeIf { callbackStreamingPathSelected },
             gpuOutputChunkBoundarySuspected = resolveGpuOutputChunkBoundarySuspected().takeIf {
                 callbackStreamingPathSelected
             },
             gpuOutputLastChunksSummary = recentNonEmptyChunks.joinToString("|").ifBlank { "none" }
                 .takeIf { callbackStreamingPathSelected },
+            gpuOutputChunkLengthHistogram = resolveChunkLengthHistogram().takeIf { callbackStreamingPathSelected },
+            gpuOutputQualityMatrixMode = outputQualityMatrixMode.takeIf { callbackStreamingPathSelected },
+            gpuOutputQualityStreamingMode = resolveOutputQualityStreamingMode().takeIf { callbackStreamingPathSelected },
+            gpuOutputQualityCollectOnlyEnabled = outputQualityCollectOnlyEnabled.takeIf { callbackStreamingPathSelected },
+            gpuOutputQualityUiIncrementalAppendEnabled = outputQualityUiIncrementalAppendEnabled.takeIf {
+                callbackStreamingPathSelected
+            },
+            gpuOutputQualityCandidateResult = resolveGpuOutputQualityCandidateResult().takeIf {
+                callbackStreamingPathSelected
+            },
+            gpuOutputQualityFailureBlockReason = resolveGpuOutputQualityFailureBlockReason().takeIf {
+                callbackStreamingPathSelected
+            },
+            gpuOutputQualityRecommendation = resolveGpuOutputQualityRecommendation().takeIf {
+                callbackStreamingPathSelected
+            },
+            gpuOutputActualUiAppendedTextLength = actualUiAppendedText.length.takeIf { callbackStreamingPathSelected },
+            gpuOutputActualUiAppendedTextHead = actualUiAppendedText.headText().takeIf { callbackStreamingPathSelected },
+            gpuOutputActualUiAppendedTextTail = actualUiAppendedText.tailText().takeIf { callbackStreamingPathSelected },
+            gpuOutputUiAppendChangedText = resolveUiAppendChangedText().takeIf { callbackStreamingPathSelected },
+            gpuOutputSourceCorruptionStage = resolveGpuOutputSourceCorruptionStage().takeIf { callbackStreamingPathSelected },
             gpuPerfEngineAcquireElapsedMs = base.gpuPerfEngineAcquireElapsedMs ?: base.engineCreateDurationMs,
             gpuPerfEngineCreateOrReuse = base.gpuPerfEngineCreateOrReuse ?: when (heldEngineReused) {
                 true -> "reuse"
@@ -1392,6 +1445,20 @@ private class GenerateCallbackLifecycleTracker(
             recentNonEmptyChunks.removeFirst()
         }
     }
+
+    private fun recordChunkLengthBucket(length: Int) {
+        when {
+            length <= 0 -> zeroLengthChunkCount += 1
+            length <= 2 -> oneOrTwoCharChunkCount += 1
+            length <= 8 -> threeToEightCharChunkCount += 1
+            length <= 32 -> nineToThirtyTwoCharChunkCount += 1
+            else -> thirtyThreePlusCharChunkCount += 1
+        }
+    }
+
+    private fun resolveChunkLengthHistogram(): String =
+        "0=$zeroLengthChunkCount;1_2=$oneOrTwoCharChunkCount;3_8=$threeToEightCharChunkCount;" +
+            "9_32=$nineToThirtyTwoCharChunkCount;33_plus=$thirtyThreePlusCharChunkCount"
 
     private fun resolveGpuCallbackStreamingSuccessCount(): Int? {
         if (!callbackStreamingPathSelected) return null
@@ -1474,8 +1541,23 @@ private class GenerateCallbackLifecycleTracker(
         return hasJapanese && (hasAsciiNoise || manyJapanesePunctuation)
     }
 
+    private fun detectMixedLanguageFragmentForTracker(): Boolean {
+        val combined = "${rawCallbackText.tailText()} ${promotedText.tailText()} ${finalAssistantText.tailText()}"
+        if (combined.isBlank()) return false
+        val hasJapanese = combined.any { ch ->
+            ch.code in 0x3040..0x30FF || ch.code in 0x4E00..0x9FFF
+        }
+        val hasDevanagari = combined.any { ch -> ch.code in 0x0900..0x097F }
+        val hasArabic = combined.any { ch -> ch.code in 0x0600..0x06FF }
+        val hasLatinNoiseNearJapanese =
+            Regex("[ぁ-んァ-ヶ一-龠][A-Za-z]{2,}|[A-Za-z]{2,}[ぁ-んァ-ヶ一-龠]").containsMatchIn(combined)
+        return hasJapanese && (hasDevanagari || hasArabic || hasLatinNoiseNearJapanese)
+    }
+
     private fun resolveGpuOutputChunkJoinStrategy(): String =
-        if (callbackStreamingPathSelected) {
+        if (outputQualityCollectOnlyEnabled) {
+            "raw_callback_collect_only_final_commit:$callbackStreamingPathReason"
+        } else if (callbackStreamingPathSelected) {
             "raw_callback_append:$callbackStreamingPathReason"
         } else {
             "markdown_streaming_join"
@@ -1487,6 +1569,51 @@ private class GenerateCallbackLifecycleTracker(
             "promoted_text_suspicious_after_stream_join",
             "final_text_only_suspicious_after_ui_or_markdown",
         )
+
+    private fun resolveOutputQualityStreamingMode(): String =
+        if (outputQualityCollectOnlyEnabled) "collect_only_final_commit" else "incremental_callback_streaming"
+
+    private fun resolveUiAppendChangedText(): Boolean =
+        actualUiAppendedText.length > 0 &&
+            actualUiAppendedText.tailText() != finalAssistantText.tailText()
+
+    private fun resolveGpuOutputQualityCandidateResult(): String =
+        when {
+            resolveGpuOutputSuspiciousReason() != "none" -> "quality_candidate_fail"
+            finalAssistantText.length > 0 && callbackNonEmptyTextCount > 0 -> "quality_candidate_pass"
+            else -> "quality_candidate_unknown"
+        }
+
+    private fun resolveGpuOutputQualityFailureBlockReason(): String =
+        when {
+            resolveGpuOutputSuspiciousReason() == "none" -> "none"
+            resolveUiAppendChangedText() -> "ui_append_changed_callback_text"
+            resolveGpuOutputSourceCorruptionStage() == "raw_callback" -> "callback_source_already_suspicious"
+            outputQualityCollectOnlyEnabled -> "collect_only_still_suspicious"
+            resolveGpuOutputSuspiciousReason() in setOf("many_tiny_fragments", "tail_tiny_chunk_run") ->
+                "chunk_boundary_or_sampler_fragmentation"
+            else -> resolveGpuOutputSuspiciousReason()
+        }
+
+    private fun resolveGpuOutputQualityRecommendation(): String =
+        when (resolveGpuOutputQualityFailureBlockReason()) {
+            "none" -> "none"
+            "ui_append_changed_callback_text" -> "inspect_ui_append_or_markdown_path"
+            "callback_source_already_suspicious" -> "compare_sampler_modes_and_max_tokens"
+            "collect_only_still_suspicious" -> "compare_sampler_modes_or_runtime_stack"
+            else -> "run_collect_only_and_sampler_matrix"
+        }
+
+    private fun resolveGpuOutputSourceCorruptionStage(): String =
+        when {
+            resolveGpuOutputSuspiciousReason() == "none" -> "none"
+            resolveUiAppendChangedText() -> "ui_append_or_final_commit"
+            resolveGpuOutputSuspiciousReason() == "final_text_only_suspicious_after_ui_or_markdown" ->
+                "final_assistant_text"
+            resolveGpuOutputSuspiciousReason() == "promoted_text_suspicious_after_stream_join" ->
+                "promoted_or_chunk_join"
+            else -> "raw_callback"
+        }
 
     private fun resolveGenerateToFirstTokenMs(): Long? {
         val enteredAt = generateCallEnteredAtElapsedMs ?: return null
@@ -1871,6 +1998,12 @@ internal suspend fun runWithHeldEngine(
         probeMode = generateProbeMode,
         normalRouteUseCallbackStreaming = normalRouteUseCallbackStreaming,
     )
+    val outputQualityMatrixMode = resolveGpuOutputQualityMatrixModeForDebug(
+        preferredBackend = heldEngine.preferredBackendDryRunSetting.name,
+    )
+    val outputQualityCollectOnlyEnabled = isGpuOutputQualityCollectOnlyModeForDebug(
+        preferredBackend = heldEngine.preferredBackendDryRunSetting,
+    )
     val effectivePrompt = resolveGpuGenerateProbePromptForDebug(
         originalPrompt = prompt,
         probeMode = generateProbeMode,
@@ -1879,14 +2012,34 @@ internal suspend fun runWithHeldEngine(
         probeMode = generateProbeMode,
         normalRouteUseCallbackStreaming = normalRouteUseCallbackStreaming,
     )
-    val suppressStreamingUi = suppressesGpuStreamingUiForDebug(generateProbeMode)
+    val suppressStreamingUi = suppressesGpuStreamingUiForDebug(generateProbeMode) || outputQualityCollectOnlyEnabled
+    val outputQualityUiIncrementalAppendEnabled =
+        callbackStreamingPathSelected && !suppressStreamingUi && !outputQualityCollectOnlyEnabled
     val callbackTracker = GenerateCallbackLifecycleTracker(
         routeRunStartedAtMs = routeRunStartedAtMs,
         probeMode = generateProbeMode,
         normalRouteUseCallbackStreaming = normalRouteUseCallbackStreaming,
         callbackStreamingPathSelected = callbackStreamingPathSelected,
         callbackStreamingPathReason = callbackStreamingPathReason,
+        outputQualityMatrixMode = outputQualityMatrixMode,
+        outputQualityCollectOnlyEnabled = outputQualityCollectOnlyEnabled,
+        outputQualityUiIncrementalAppendEnabled = outputQualityUiIncrementalAppendEnabled,
         heldEngineReused = heldEngineReused,
+    )
+    val gpuExperimentModeForRun = resolveGpuDiagnosticExperimentModeForBackend(
+        preferredBackend = heldEngine.preferredBackendDryRunSetting.name,
+        overrideValue = resolveGpuOutputQualityExperimentOverrideForDebug(
+            preferredBackend = heldEngine.preferredBackendDryRunSetting,
+        ) ?: resolveGpuExperimentOverrideForGenerateProbeMode(generateProbeMode),
+    )
+    val gpuConfigDiagnosticsForRun = overrideGpuConfigForGenerateProbeMode(
+        diagnostics = buildGpuRouteConfigDiagnostics(
+            modelPath = heldEngine.modelPath,
+            cacheDirPath = heldEngine.engineKey.cacheDirPath,
+            preferredBackend = heldEngine.preferredBackendDryRunSetting.name,
+            experimentMode = gpuExperimentModeForRun,
+        ),
+        probeMode = generateProbeMode,
     )
 
     fun recordMemorySnapshot(stage: String) {
@@ -1959,6 +2112,7 @@ internal suspend fun runWithHeldEngine(
                 generateStarted = true,
                 generateStartedElapsedMs = generateStartedElapsedMs,
                 firstTokenReceived = false,
+                gpuConfigDiagnostics = gpuConfigDiagnosticsForRun,
                 gpuAlignmentHolderPresentBeforeAcquire = heldEnginePresentBeforeAcquire,
                 gpuAlignmentHolderAcquireResult = heldEngineAcquireResult,
                 gpuAlignmentHolderReused = heldEngineReused,
@@ -1994,6 +2148,7 @@ internal suspend fun runWithHeldEngine(
                 generateStartedElapsedMs = generateStartedElapsedMs,
                 firstTokenReceived = true,
                 firstTokenElapsedMs = firstTokenElapsedMs,
+                gpuConfigDiagnostics = gpuConfigDiagnosticsForRun,
                 gpuAlignmentHolderPresentBeforeAcquire = heldEnginePresentBeforeAcquire,
                 gpuAlignmentHolderAcquireResult = heldEngineAcquireResult,
                 gpuAlignmentHolderReused = heldEngineReused,
@@ -2028,6 +2183,7 @@ internal suspend fun runWithHeldEngine(
             firstTokenElapsedMs = firstTokenElapsedMs,
             failureStage = failureStage,
             fallbackUsed = false,
+            gpuConfigDiagnostics = gpuConfigDiagnosticsForRun,
             gpuGeneratePrompt = effectivePrompt,
             gpuGeneratePromptLengthChars = effectivePrompt.length,
             gpuGenerateInputTokenEstimate = "unavailable",
@@ -2164,6 +2320,7 @@ internal suspend fun runWithHeldEngine(
                         appendRunnerWhitespaceStage("lane", appendContext.lane.label)
                         appendRunnerWhitespaceStage("append.boundary.join", joinApplied)
                         appendRunnerWhitespaceStage("append.boundary.after", builder.toString().takeLast(64))
+                        callbackTracker.markPromotedText(builder.toString())
                         if (!suppressStreamingUi) {
                             val promotedText = builder.toString()
                             callbackTracker.markUiAppendStarted(promotedText)
@@ -2206,6 +2363,22 @@ internal suspend fun runWithHeldEngine(
                     normalized = trimmedBuilt,
                 )
                 callbackTracker.markStreamingCompleted(trimmedBuilt)
+                if (outputQualityCollectOnlyEnabled && trimmedBuilt.isNotBlank()) {
+                    callbackTracker.markUiAppendStarted(trimmedBuilt)
+                    appendRouteStage(
+                        stage = "generate_ui_collect_only_commit_started",
+                        flags = currentGenerateCallbackFlags(),
+                    )
+                    onPartial(trimmedBuilt)
+                    callbackTracker.markUiAppendFinished(trimmedBuilt)
+                    if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+                        engineHolder.recordGpuUiAppendFinishedForDiagnostics()
+                    }
+                    appendRouteStage(
+                        stage = "generate_ui_collect_only_commit_finished",
+                        flags = currentGenerateCallbackFlags(),
+                    )
+                }
                 appendRouteStage(
                     stage = "generate_streaming_completed",
                     flags = currentGenerateCallbackFlags(),
@@ -6496,9 +6669,13 @@ internal fun buildLiteRtEngineConfig(
     val backendPolicy = resolveLiteRtTextBackendSelection(preferredBackendDryRunSetting)
     val edgeGalleryLike = shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name)
     val gpuGenerateProbeMode = resolveGpuGenerateProbeModeForDebug(preferredBackendDryRunSetting)
+    val outputQualityExperimentOverride = resolveGpuOutputQualityExperimentOverrideForDebug(
+        preferredBackend = preferredBackendDryRunSetting,
+    )
     val gpuExperimentMode = resolveGpuDiagnosticExperimentModeForBackend(
         preferredBackend = preferredBackendDryRunSetting.name,
-        overrideValue = resolveGpuExperimentOverrideForGenerateProbeMode(gpuGenerateProbeMode),
+        overrideValue = outputQualityExperimentOverride
+            ?: resolveGpuExperimentOverrideForGenerateProbeMode(gpuGenerateProbeMode),
     )
     val baseGpuConfigDiagnostics = buildGpuRouteConfigDiagnostics(
         modelPath = modelPath,
@@ -6902,9 +7079,13 @@ private fun buildOfficialLiteRtLmConversationConfig(
     preferredBackendDryRunSetting: PreferredBackendDryRunSetting,
 ): ConversationConfig {
     val gpuGenerateProbeMode = resolveGpuGenerateProbeModeForDebug(preferredBackendDryRunSetting)
+    val outputQualityExperimentOverride = resolveGpuOutputQualityExperimentOverrideForDebug(
+        preferredBackend = preferredBackendDryRunSetting,
+    )
     val gpuExperimentMode = resolveGpuDiagnosticExperimentModeForBackend(
         preferredBackend = preferredBackendDryRunSetting.name,
-        overrideValue = resolveGpuExperimentOverrideForGenerateProbeMode(gpuGenerateProbeMode),
+        overrideValue = outputQualityExperimentOverride
+            ?: resolveGpuExperimentOverrideForGenerateProbeMode(gpuGenerateProbeMode),
     )
     return if (
         shouldApplyEdgeGalleryLikeGpuCompatibilityMode(preferredBackendDryRunSetting.name) &&

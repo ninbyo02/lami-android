@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import java.io.File
 import java.lang.reflect.Modifier
 
@@ -144,9 +145,25 @@ internal data class LocalRouteDiagnosticFlags(
     val gpuOutputSuspiciousFragmentTailRatio: String? = null,
     val gpuOutputRepeatedMarkdownFragmentDetected: Boolean? = null,
     val gpuOutputMixedJapaneseFragmentDetected: Boolean? = null,
+    val gpuOutputMixedLanguageFragmentDetected: Boolean? = null,
     val gpuOutputChunkJoinStrategy: String? = null,
     val gpuOutputChunkBoundarySuspected: Boolean? = null,
     val gpuOutputLastChunksSummary: String? = null,
+    val gpuOutputChunkLengthHistogram: String? = null,
+    val gpuOutputQualityMatrixMode: String? = null,
+    val gpuOutputQualitySamplerMode: String? = null,
+    val gpuOutputQualityStreamingMode: String? = null,
+    val gpuOutputQualityEffectiveMaxTokens: String? = null,
+    val gpuOutputQualityCollectOnlyEnabled: Boolean? = null,
+    val gpuOutputQualityUiIncrementalAppendEnabled: Boolean? = null,
+    val gpuOutputQualityCandidateResult: String? = null,
+    val gpuOutputQualityFailureBlockReason: String? = null,
+    val gpuOutputQualityRecommendation: String? = null,
+    val gpuOutputActualUiAppendedTextLength: Int? = null,
+    val gpuOutputActualUiAppendedTextHead: String? = null,
+    val gpuOutputActualUiAppendedTextTail: String? = null,
+    val gpuOutputUiAppendChangedText: Boolean? = null,
+    val gpuOutputSourceCorruptionStage: String? = null,
     val gpuPerfEngineAcquireElapsedMs: Long? = null,
     val gpuPerfEngineCreateOrReuse: String? = null,
     val gpuPerfConversationCreateElapsedMs: Long? = null,
@@ -243,9 +260,25 @@ private data class GpuOutputQualityDiagnostics(
     val suspiciousTailRatio: String,
     val repeatedMarkdownFragmentDetected: String,
     val mixedJapaneseFragmentDetected: String,
+    val mixedLanguageFragmentDetected: String,
     val chunkJoinStrategy: String,
     val chunkBoundarySuspected: String,
     val lastChunksSummary: String,
+    val chunkLengthHistogram: String,
+    val matrixMode: String,
+    val samplerMode: String,
+    val streamingMode: String,
+    val effectiveMaxTokens: String,
+    val collectOnlyEnabled: String,
+    val uiIncrementalAppendEnabled: String,
+    val candidateResult: String,
+    val failureBlockReason: String,
+    val recommendation: String,
+    val actualUiAppendedLength: String,
+    val actualUiAppendedHead: String,
+    val actualUiAppendedTail: String,
+    val uiAppendChangedText: String,
+    val sourceCorruptionStage: String,
 )
 
 private data class GpuPerformanceDiagnostics(
@@ -314,6 +347,12 @@ internal data class GpuRouteConfigDiagnostics(
     val speculativeDecodingEnabled: String = "false",
     val outputQualityProbeShortMaxTokensEnabled: String = "false",
     val outputQualityProbeEffectiveMaxTokens: String = "unavailable",
+    val outputQualityMatrixMode: String = "unavailable",
+    val outputQualitySamplerMode: String = "unavailable",
+    val outputQualityStreamingMode: String = "unavailable",
+    val outputQualityEffectiveMaxTokens: String = "unavailable",
+    val outputQualityCollectOnlyEnabled: String = "false",
+    val outputQualityUiIncrementalAppendEnabled: String = "unavailable",
 )
 
 internal data class GpuLiteRtFailureClassification(
@@ -920,12 +959,47 @@ private fun buildGpuOutputQualityDiagnostics(flags: LocalRouteDiagnosticFlags): 
                 flags.gpuOutputFinalAssistantTextTail,
             ),
         )
+    val mixedLanguage = flags.gpuOutputMixedLanguageFragmentDetected
+        ?: (mixedJapanese || detectMixedLanguageFragment(
+            samples = listOf(
+                flags.gpuOutputRawCallbackTextTail,
+                flags.gpuOutputPromotedTextTail,
+                flags.gpuOutputFinalAssistantTextTail,
+            ),
+        ))
     val chunkBoundarySuspected = flags.gpuOutputChunkBoundarySuspected
         ?: (suspiciousReason in setOf(
             "many_tiny_fragments",
+            "tail_tiny_chunk_run",
+            "tail_markdown_fragment_bias",
+            "japanese_particle_or_punctuation_fragment_run",
+            "repeated_markdown_or_word_pattern",
             "promoted_text_suspicious_after_stream_join",
             "final_text_only_suspicious_after_ui_or_markdown",
         ))
+    val matrixMode = flags.gpuOutputQualityMatrixMode ?: flags.gpuConfigDiagnostics?.outputQualityMatrixMode ?: "unavailable"
+    val samplerMode = flags.gpuOutputQualitySamplerMode ?: flags.gpuConfigDiagnostics?.outputQualitySamplerMode ?: "unavailable"
+    val streamingMode = flags.gpuOutputQualityStreamingMode
+        ?: flags.gpuConfigDiagnostics?.outputQualityStreamingMode
+        ?: "unavailable"
+    val collectOnlyEnabled = flags.gpuOutputQualityCollectOnlyEnabled
+        ?: flags.gpuConfigDiagnostics?.outputQualityCollectOnlyEnabled?.toBooleanStrictOrNull()
+    val uiIncrementalAppendEnabled = flags.gpuOutputQualityUiIncrementalAppendEnabled
+        ?: flags.gpuConfigDiagnostics?.outputQualityUiIncrementalAppendEnabled?.toBooleanStrictOrNull()
+    val candidateResult = flags.gpuOutputQualityCandidateResult
+        ?: classifyGpuOutputQualityCandidateResult(
+            suspiciousDetected = suspiciousDetected,
+            finalLength = flags.gpuOutputFinalAssistantTextLength,
+            callbackNonEmptyCount = flags.gpuOutputNonEmptyChunkCount,
+        )
+    val failureBlockReason = flags.gpuOutputQualityFailureBlockReason
+        ?: classifyGpuOutputQualityFailureBlockReason(
+            suspiciousDetected = suspiciousDetected,
+            suspiciousReason = suspiciousReason,
+            collectOnlyEnabled = collectOnlyEnabled == true,
+            uiAppendChangedText = flags.gpuOutputUiAppendChangedText,
+            sourceCorruptionStage = flags.gpuOutputSourceCorruptionStage,
+        )
     return GpuOutputQualityDiagnostics(
         rawLength = flags.gpuOutputRawCallbackTextLength?.toString() ?: "unavailable",
         rawHead = flags.gpuOutputRawCallbackTextHead.toDiagnosticValue(),
@@ -965,9 +1039,37 @@ private fun buildGpuOutputQualityDiagnostics(flags: LocalRouteDiagnosticFlags): 
             ),
         repeatedMarkdownFragmentDetected = repeatedMarkdown.toString(),
         mixedJapaneseFragmentDetected = mixedJapanese.toString(),
+        mixedLanguageFragmentDetected = mixedLanguage.toString(),
         chunkJoinStrategy = flags.gpuOutputChunkJoinStrategy ?: "unavailable",
         chunkBoundarySuspected = chunkBoundarySuspected.toString(),
         lastChunksSummary = flags.gpuOutputLastChunksSummary.toDiagnosticValue(),
+        chunkLengthHistogram = flags.gpuOutputChunkLengthHistogram.toDiagnosticValue(),
+        matrixMode = matrixMode,
+        samplerMode = samplerMode,
+        streamingMode = streamingMode,
+        effectiveMaxTokens = flags.gpuOutputQualityEffectiveMaxTokens
+            ?: flags.gpuConfigDiagnostics?.outputQualityEffectiveMaxTokens
+            ?: flags.gpuConfigDiagnostics?.maxTokens
+            ?: "unavailable",
+        collectOnlyEnabled = collectOnlyEnabled.toDiagnosticValue(),
+        uiIncrementalAppendEnabled = uiIncrementalAppendEnabled.toDiagnosticValue(),
+        candidateResult = candidateResult,
+        failureBlockReason = failureBlockReason,
+        recommendation = flags.gpuOutputQualityRecommendation
+            ?: resolveGpuOutputQualityRecommendation(
+                candidateResult = candidateResult,
+                failureBlockReason = failureBlockReason,
+                collectOnlyEnabled = collectOnlyEnabled == true,
+            ),
+        actualUiAppendedLength = flags.gpuOutputActualUiAppendedTextLength?.toString() ?: "unavailable",
+        actualUiAppendedHead = flags.gpuOutputActualUiAppendedTextHead.toDiagnosticValue(),
+        actualUiAppendedTail = flags.gpuOutputActualUiAppendedTextTail.toDiagnosticValue(),
+        uiAppendChangedText = flags.gpuOutputUiAppendChangedText.toDiagnosticValue(),
+        sourceCorruptionStage = flags.gpuOutputSourceCorruptionStage
+            ?: classifyGpuOutputSourceCorruptionStage(
+                suspiciousReason = suspiciousReason,
+                uiAppendChangedText = flags.gpuOutputUiAppendChangedText,
+            ),
     )
 }
 
@@ -980,9 +1082,14 @@ internal fun classifyGpuOutputSuspiciousFragmentReason(
     nonEmptyChunkCount: Int?,
 ): String {
     val samplePattern = Regex(":\\*\\*|ml2|g）に）：：|[：:]{3,}|[)）]{4,}|[*＊]{4,}|[{}\\[\\]]{8,}")
+    val tailPattern = Regex("([：:）。、・*_＊#`\\-]){5,}|([ぁ-んァ-ヶ一-龠][：:）)]){3,}|([はがをにでとへもやの、。]){7,}")
+    val markdownTailBias = Regex("(\\*\\*|###|__|[_*＊#`\\-]).*(\\*\\*|###|__|[_*＊#`\\-])")
+    val repeatedPattern = Regex("([*＊#`_\\-]{2,}|[A-Za-z]{2,8}\\W?).*\\1.*\\1")
     val rawSuspicious = samplePattern.containsMatchIn(rawSample)
     val promotedSuspicious = samplePattern.containsMatchIn(promotedSample)
     val finalSuspicious = samplePattern.containsMatchIn(finalSample)
+    val tailSample = listOf(rawSample.takeLast(80), promotedSample.takeLast(80), finalSample.takeLast(80)).joinToString(" ")
+    val repeatedSuspicious = repeatedPattern.containsMatchIn(tailSample)
     val safeNonEmptyChunkCount = nonEmptyChunkCount ?: 0
     val averageRawChunkLength = if (safeNonEmptyChunkCount > 0 && rawLength != null) {
         rawLength.toDouble() / safeNonEmptyChunkCount
@@ -992,9 +1099,14 @@ internal fun classifyGpuOutputSuspiciousFragmentReason(
     return when {
         safeNonEmptyChunkCount >= 24 && averageRawChunkLength != null && averageRawChunkLength <= 2.0 ->
             "many_tiny_fragments"
+        safeNonEmptyChunkCount >= 16 && averageRawChunkLength != null && averageRawChunkLength <= 2.5 ->
+            "tail_tiny_chunk_run"
         finalSuspicious && !rawSuspicious && !promotedSuspicious -> "final_text_only_suspicious_after_ui_or_markdown"
         promotedSuspicious && !rawSuspicious -> "promoted_text_suspicious_after_stream_join"
         rawSuspicious -> "raw_callback_suspicious_fragment"
+        markdownTailBias.containsMatchIn(tailSample) -> "tail_markdown_fragment_bias"
+        tailPattern.containsMatchIn(tailSample) -> "japanese_particle_or_punctuation_fragment_run"
+        repeatedSuspicious -> "repeated_markdown_or_word_pattern"
         finalLength != null && rawLength != null && finalLength > rawLength * 3 && rawLength > 0 ->
             "final_text_expanded_unexpectedly"
         else -> "none"
@@ -1048,6 +1160,70 @@ private fun detectMixedJapaneseFragment(samples: List<String?>): Boolean {
     val manyJapanesePunctuation = Regex("[：）。、]{4,}").containsMatchIn(combined)
     return hasJapanese && (hasAsciiNoise || manyJapanesePunctuation)
 }
+
+private fun detectMixedLanguageFragment(samples: List<String?>): Boolean {
+    val combined = samples.joinToString(" ")
+    if (combined.isBlank()) return false
+    val hasJapanese = combined.any { ch ->
+        ch.code in 0x3040..0x30FF || ch.code in 0x4E00..0x9FFF
+    }
+    val hasDevanagari = combined.any { ch -> ch.code in 0x0900..0x097F }
+    val hasArabic = combined.any { ch -> ch.code in 0x0600..0x06FF }
+    val hasLatinNoiseNearJapanese = Regex("[ぁ-んァ-ヶ一-龠][A-Za-z]{2,}|[A-Za-z]{2,}[ぁ-んァ-ヶ一-龠]").containsMatchIn(combined)
+    return hasJapanese && (hasDevanagari || hasArabic || hasLatinNoiseNearJapanese)
+}
+
+private fun classifyGpuOutputQualityCandidateResult(
+    suspiciousDetected: Boolean,
+    finalLength: Int?,
+    callbackNonEmptyCount: Int?,
+): String =
+    when {
+        suspiciousDetected -> "quality_candidate_fail"
+        (finalLength ?: 0) > 0 && (callbackNonEmptyCount ?: 0) > 0 -> "quality_candidate_pass"
+        else -> "quality_candidate_unknown"
+    }
+
+private fun classifyGpuOutputQualityFailureBlockReason(
+    suspiciousDetected: Boolean,
+    suspiciousReason: String,
+    collectOnlyEnabled: Boolean,
+    uiAppendChangedText: Boolean?,
+    sourceCorruptionStage: String?,
+): String =
+    when {
+        !suspiciousDetected -> "none"
+        uiAppendChangedText == true -> "ui_append_changed_callback_text"
+        sourceCorruptionStage == "raw_callback" -> "callback_source_already_suspicious"
+        collectOnlyEnabled -> "collect_only_still_suspicious"
+        suspiciousReason in setOf("many_tiny_fragments", "tail_tiny_chunk_run") -> "chunk_boundary_or_sampler_fragmentation"
+        else -> suspiciousReason
+    }
+
+private fun resolveGpuOutputQualityRecommendation(
+    candidateResult: String,
+    failureBlockReason: String,
+    collectOnlyEnabled: Boolean,
+): String =
+    when {
+        candidateResult == "quality_candidate_pass" -> "none"
+        failureBlockReason == "ui_append_changed_callback_text" -> "inspect_ui_append_or_markdown_path"
+        failureBlockReason == "callback_source_already_suspicious" -> "compare_sampler_modes_and_max_tokens"
+        collectOnlyEnabled -> "compare_sampler_modes_or_runtime_stack"
+        else -> "run_collect_only_and_sampler_matrix"
+    }
+
+private fun classifyGpuOutputSourceCorruptionStage(
+    suspiciousReason: String,
+    uiAppendChangedText: Boolean?,
+): String =
+    when {
+        suspiciousReason == "none" -> "none"
+        uiAppendChangedText == true -> "ui_append_or_final_commit"
+        suspiciousReason == "final_text_only_suspicious_after_ui_or_markdown" -> "final_assistant_text"
+        suspiciousReason == "promoted_text_suspicious_after_stream_join" -> "promoted_or_chunk_join"
+        else -> "raw_callback"
+    }
 private fun buildGpuPerformanceDiagnostics(flags: LocalRouteDiagnosticFlags): GpuPerformanceDiagnostics {
     val engineCreateOrReuse = flags.gpuPerfEngineCreateOrReuse ?: when (flags.heldEngineReused) {
         true -> "reuse"
@@ -1455,6 +1631,12 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_options_source=${gpuConfig.gpuOptionsSource}",
         "gpu_thinking_enabled=${gpuConfig.thinkingEnabled}",
         "gpu_speculative_decoding_enabled=${gpuConfig.speculativeDecodingEnabled}",
+        "gpu_output_quality_matrix_mode=${gpuOutputQuality.matrixMode}",
+        "gpu_output_quality_sampler_mode=${gpuOutputQuality.samplerMode}",
+        "gpu_output_quality_streaming_mode=${gpuOutputQuality.streamingMode}",
+        "gpu_output_quality_effective_max_tokens=${gpuOutputQuality.effectiveMaxTokens}",
+        "gpu_output_quality_collect_only_enabled=${gpuOutputQuality.collectOnlyEnabled}",
+        "gpu_output_quality_ui_incremental_append_enabled=${gpuOutputQuality.uiIncrementalAppendEnabled}",
         "gpu_output_quality_probe_short_max_tokens=${gpuConfig.outputQualityProbeShortMaxTokensEnabled}",
         "gpu_output_quality_probe_effective_max_tokens=${gpuConfig.outputQualityProbeEffectiveMaxTokens}",
         "gpu_max_tokens=${gpuConfig.maxTokens}",
@@ -1562,9 +1744,19 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_output_suspicious_fragment_tail_ratio=${gpuOutputQuality.suspiciousTailRatio}",
         "gpu_output_repeated_markdown_fragment_detected=${gpuOutputQuality.repeatedMarkdownFragmentDetected}",
         "gpu_output_mixed_japanese_fragment_detected=${gpuOutputQuality.mixedJapaneseFragmentDetected}",
+        "gpu_output_mixed_language_fragment_detected=${gpuOutputQuality.mixedLanguageFragmentDetected}",
         "gpu_output_chunk_join_strategy=${gpuOutputQuality.chunkJoinStrategy}",
         "gpu_output_chunk_boundary_suspected=${gpuOutputQuality.chunkBoundarySuspected}",
         "gpu_output_last_chunks_summary=${gpuOutputQuality.lastChunksSummary}",
+        "gpu_output_chunk_length_histogram=${gpuOutputQuality.chunkLengthHistogram}",
+        "gpu_output_quality_candidate_result=${gpuOutputQuality.candidateResult}",
+        "gpu_output_quality_failure_block_reason=${gpuOutputQuality.failureBlockReason}",
+        "gpu_output_quality_recommendation=${gpuOutputQuality.recommendation}",
+        "gpu_output_actual_ui_appended_text_length=${gpuOutputQuality.actualUiAppendedLength}",
+        "gpu_output_actual_ui_appended_text_head=${gpuOutputQuality.actualUiAppendedHead}",
+        "gpu_output_actual_ui_appended_text_tail=${gpuOutputQuality.actualUiAppendedTail}",
+        "gpu_output_ui_append_changed_text=${gpuOutputQuality.uiAppendChangedText}",
+        "gpu_output_source_corruption_stage=${gpuOutputQuality.sourceCorruptionStage}",
         "gpu_perf_engine_acquire_elapsed_ms=${gpuPerformance.engineAcquireElapsedMs}",
         "gpu_perf_engine_create_or_reuse=${gpuPerformance.engineCreateOrReuse}",
         "gpu_perf_conversation_create_elapsed_ms=${gpuPerformance.conversationCreateElapsedMs}",
@@ -2691,8 +2883,11 @@ internal fun buildGpuRouteConfigDiagnostics(
         experimentMode = experimentMode,
     )
     val samplerEnabled = shouldUseGpuDiagnosticSamplerConfig(experimentMode)
+    val matrixMode = resolveGpuOutputQualityMatrixModeForDebug(preferredBackend)
     val shortMaxTokensProbeEnabled = isGpuOutputQualityProbeShortMaxTokensEnabledForDebug(preferredBackend)
+    val numericMaxTokensOverride = resolveGpuOutputQualityMaxTokensOverrideForDebug(preferredBackend)
     val resolvedMaxTokens = when {
+        numericMaxTokensOverride != null -> numericMaxTokensOverride.toString()
         shortMaxTokensProbeEnabled -> GPU_OUTPUT_QUALITY_PROBE_SHORT_MAX_TOKENS.toString()
         shouldApplyGalleryStackGpuProbeAllowlistConfig(preferredBackend) ->
             GALLERY_STACK_GPU_PROBE_ALLOWLIST_MAX_TOKENS.toString()
@@ -2737,10 +2932,137 @@ internal fun buildGpuRouteConfigDiagnostics(
         speculativeDecodingEnabled = "false",
         outputQualityProbeShortMaxTokensEnabled = shortMaxTokensProbeEnabled.toString(),
         outputQualityProbeEffectiveMaxTokens = resolvedMaxTokens,
+        outputQualityMatrixMode = matrixMode,
+        outputQualitySamplerMode = resolveGpuOutputQualitySamplerMode(experimentMode),
+        outputQualityStreamingMode = resolveGpuOutputQualityStreamingModeForDebug(
+            preferredBackend = preferredBackend,
+            matrixMode = matrixMode,
+        ),
+        outputQualityEffectiveMaxTokens = resolvedMaxTokens,
+        outputQualityCollectOnlyEnabled = isGpuOutputQualityCollectOnlyMode(
+            preferredBackend = preferredBackend,
+            matrixMode = matrixMode,
+        ).toString(),
+        outputQualityUiIncrementalAppendEnabled = (!isGpuOutputQualityCollectOnlyMode(
+            preferredBackend = preferredBackend,
+            matrixMode = matrixMode,
+        )).toString(),
     )
 }
 
 internal const val GPU_OUTPUT_QUALITY_PROBE_SHORT_MAX_TOKENS = 256
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE = "baseline"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_SAMPLER_MINIMAL = "sampler_minimal"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION = "no_sampling_acceleration"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE =
+    "disable_topk_gpu_sampler_candidate"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY = "collect_only"
+private val GPU_OUTPUT_QUALITY_ALLOWED_MAX_TOKENS = setOf(128, 256, 512, 1024, 4000)
+
+internal fun resolveGpuOutputQualityMatrixModeForDebug(
+    preferredBackend: String,
+    propertyReader: (String) -> String? = ::readLocalRouteDebugProperty,
+    standardGpuMinimalRuntimeCandidateFlavor: Boolean = BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR,
+): String {
+    if (!BuildConfig.DEBUG || !standardGpuMinimalRuntimeCandidateFlavor) return "unavailable"
+    if (!preferredBackend.equals("GPU", ignoreCase = true)) return "unavailable"
+    val requested = propertyReader("debug.lami.gpu_output_quality_matrix_mode")
+        ?: propertyReader("lami.gpu_output_quality_matrix_mode")
+        ?: return GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE
+    return when (requested.trim().lowercase(java.util.Locale.US)) {
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE,
+        "edge_gallery_like",
+        "baseline_edge_gallery_like" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_SAMPLER_MINIMAL,
+        "gpu_sampler_only_minimal",
+        "sampler_only_minimal" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_SAMPLER_MINIMAL
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION,
+        "gpu_no_sampling_acceleration",
+        "no_sampler" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE,
+        "gpu_disable_topk_gpu_sampler_candidate",
+        "disable_topk" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY,
+        "collect_then_commit",
+        "collect_only_final_commit" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY
+        else -> GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE
+    }
+}
+
+internal fun resolveGpuOutputQualityExperimentOverrideForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    propertyReader: (String) -> String? = ::readLocalRouteDebugProperty,
+    standardGpuMinimalRuntimeCandidateFlavor: Boolean = BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR,
+): String? =
+    when (
+        resolveGpuOutputQualityMatrixModeForDebug(
+            preferredBackend = preferredBackend.name,
+            propertyReader = propertyReader,
+            standardGpuMinimalRuntimeCandidateFlavor = standardGpuMinimalRuntimeCandidateFlavor,
+        )
+    ) {
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_SAMPLER_MINIMAL -> GPU_EXPERIMENT_MODE_SAMPLER_ONLY_MINIMAL
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION -> GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE ->
+            GPU_EXPERIMENT_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE
+        else -> null
+    }
+
+internal fun isGpuOutputQualityCollectOnlyModeForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    propertyReader: (String) -> String? = ::readLocalRouteDebugProperty,
+    standardGpuMinimalRuntimeCandidateFlavor: Boolean = BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR,
+): Boolean =
+    resolveGpuOutputQualityMatrixModeForDebug(
+        preferredBackend = preferredBackend.name,
+        propertyReader = propertyReader,
+        standardGpuMinimalRuntimeCandidateFlavor = standardGpuMinimalRuntimeCandidateFlavor,
+    ) == GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY
+
+private fun isGpuOutputQualityCollectOnlyMode(
+    preferredBackend: String,
+    matrixMode: String,
+): Boolean =
+    BuildConfig.DEBUG &&
+        BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR &&
+        preferredBackend.equals("GPU", ignoreCase = true) &&
+        matrixMode == GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY
+
+internal fun resolveGpuOutputQualityMaxTokensOverrideForDebug(
+    preferredBackend: String,
+    propertyReader: (String) -> String? = ::readLocalRouteDebugProperty,
+    standardGpuMinimalRuntimeCandidateFlavor: Boolean = BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR,
+): Int? {
+    if (!BuildConfig.DEBUG || !standardGpuMinimalRuntimeCandidateFlavor) return null
+    if (!preferredBackend.equals("GPU", ignoreCase = true)) return null
+    val requested = propertyReader("debug.lami.gpu_output_quality_max_tokens")
+        ?: propertyReader("lami.gpu_output_quality_max_tokens")
+        ?: return null
+    return requested.toIntOrNull()?.takeIf { it in GPU_OUTPUT_QUALITY_ALLOWED_MAX_TOKENS }
+}
+
+private fun resolveGpuOutputQualitySamplerMode(experimentMode: String): String =
+    when (experimentMode) {
+        GPU_EXPERIMENT_MODE_SAMPLER_ONLY_MINIMAL -> GPU_OUTPUT_QUALITY_MATRIX_MODE_SAMPLER_MINIMAL
+        GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION -> GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION
+        GPU_EXPERIMENT_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE ->
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE
+        GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER,
+        GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER -> "cache_dir_no_sampler"
+        else -> "edge_gallery_like"
+    }
+
+private fun resolveGpuOutputQualityStreamingModeForDebug(
+    preferredBackend: String,
+    matrixMode: String,
+): String =
+    if (isGpuOutputQualityCollectOnlyMode(preferredBackend, matrixMode)) {
+        "collect_only_final_commit"
+    } else if (preferredBackend.equals("GPU", ignoreCase = true)) {
+        "incremental_callback_streaming"
+    } else {
+        "unavailable"
+    }
 
 internal fun isGpuOutputQualityProbeShortMaxTokensEnabledForDebug(
     preferredBackend: String,

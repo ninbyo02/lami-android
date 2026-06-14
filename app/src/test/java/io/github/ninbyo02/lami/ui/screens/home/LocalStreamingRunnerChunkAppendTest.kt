@@ -79,6 +79,83 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `GPU output quality matrix properties resolve sampler and collect only modes`() {
+        assertEquals(
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_SAMPLER_MINIMAL,
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") "sampler_minimal" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            GPU_EXPERIMENT_MODE_SAMPLER_ONLY_MINIMAL,
+            resolveGpuOutputQualityExperimentOverrideForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") "sampler_minimal" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertTrue(
+            isGpuOutputQualityCollectOnlyModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") "collect_only" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            512,
+            resolveGpuOutputQualityMaxTokensOverrideForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_max_tokens") "512" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU output quality matrix ignores non candidate or non GPU route`() {
+        assertEquals(
+            "unavailable",
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") "collect_only" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = false,
+            ),
+        )
+        assertEquals(
+            "unavailable",
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "CPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") "collect_only" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            null,
+            resolveGpuOutputQualityMaxTokensOverrideForDebug(
+                preferredBackend = "CPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_max_tokens") "512" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+    }
+
+    @Test
     fun `GPU diagnostic cache dir resolver supports forced experiment modes`() {
         assertEquals(
             null,

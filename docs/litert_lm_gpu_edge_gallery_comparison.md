@@ -2390,3 +2390,51 @@ adb shell setprop debug.lami.gpu_prefill_probe_cache_dir null
 
 4. If `probe_start_blocked_reason=no_held_engine`, compare `held_engine_lifecycle_history` and
    `held_engine_snapshot_before_destroy` from the same compact copy before attempting another normal GPU run.
+
+## GPU output quality matrix
+
+The minimal runtime pair (`libLiteRt.so` + `liblitertlm_jni.so`) has made GPU generation succeed in
+`standardGpuMinimalRuntimeCandidateDebug`, while `standardDebug` remains blocked from production GPU promotion.
+The current blocker is output quality on longer answers, not basic GPU generation.
+
+Observed split:
+
+- Short answers can pass with `gpu_output_suspicious_fragment_detected=false`.
+- Longer answers can fail near the tail with `many_tiny_fragments`, repeated markdown fragments, or mixed punctuation.
+- A shorter max-token probe can still show corruption, so `maxTokens=4000` alone is not a sufficient explanation.
+
+The new DEV-only matrix separates four candidates:
+
+| Axis | Property / Mode | Question |
+| --- | --- | --- |
+| Sampler baseline | `debug.lami.gpu_output_quality_matrix_mode=baseline` | Does the Edge Gallery-like sampler produce clean tails? |
+| Minimal sampler | `sampler_minimal` | Does a smaller sampler config reduce fragmentation? |
+| No sampler acceleration | `no_sampling_acceleration` | Does removing sampler config change the failure? |
+| TopK GPU sampler candidate | `disable_topk_gpu_sampler_candidate` | Does disabling the TopK GPU sampler candidate matter? |
+| UI append / chunk join | `collect_only` | Are raw callbacks already corrupt, or does incremental UI append/join introduce the issue? |
+| Token budget | `debug.lami.gpu_output_quality_max_tokens=128/256/512/1024/4000` | Does corruption correlate with output length budget? |
+
+Use:
+
+```bash
+scripts/run_gpu_output_quality_matrix.sh --mode baseline --max-tokens 4000
+scripts/run_gpu_output_quality_matrix.sh --mode collect_only --max-tokens 512
+scripts/run_gpu_output_quality_matrix.sh --mode no_sampling_acceleration --max-tokens 1024
+```
+
+Read these keys first:
+
+- `gpu_output_quality_candidate_result`
+- `gpu_output_quality_failure_block_reason`
+- `gpu_output_quality_recommendation`
+- `gpu_output_source_corruption_stage`
+- `gpu_output_last_chunks_summary`
+- `gpu_output_chunk_length_histogram`
+- `gpu_output_suspicious_fragment_position`
+- `gpu_output_chunk_boundary_suspected`
+
+If `collect_only` is still suspicious and `gpu_output_source_corruption_stage=raw_callback`, the callback source or
+runtime/sampler path is the stronger suspect. If `collect_only` is clean while incremental streaming fails, focus on
+chunk append, markdown streaming, or UI promotion.
+
+No production GPU default or standardDebug GPU promotion is allowed until this quality matrix is stable.

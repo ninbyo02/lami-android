@@ -670,6 +670,12 @@ private fun extractGpuAlignmentHolderDiagnostics(text: String?): Map<String, Str
     parseLocalInferenceFailureDiagnosticsText(text).filterKeys { it in GPU_ALIGNMENT_HOLDER_DIAGNOSTIC_KEYS }
 
 private val GPU_OUTPUT_QUALITY_DIAGNOSTIC_KEYS = listOf(
+    "gpu_output_quality_matrix_mode",
+    "gpu_output_quality_sampler_mode",
+    "gpu_output_quality_streaming_mode",
+    "gpu_output_quality_effective_max_tokens",
+    "gpu_output_quality_collect_only_enabled",
+    "gpu_output_quality_ui_incremental_append_enabled",
     "gpu_output_raw_callback_text_length",
     "gpu_output_raw_callback_text_head",
     "gpu_output_raw_callback_text_tail",
@@ -688,9 +694,19 @@ private val GPU_OUTPUT_QUALITY_DIAGNOSTIC_KEYS = listOf(
     "gpu_output_suspicious_fragment_tail_ratio",
     "gpu_output_repeated_markdown_fragment_detected",
     "gpu_output_mixed_japanese_fragment_detected",
+    "gpu_output_mixed_language_fragment_detected",
     "gpu_output_chunk_join_strategy",
     "gpu_output_chunk_boundary_suspected",
     "gpu_output_last_chunks_summary",
+    "gpu_output_chunk_length_histogram",
+    "gpu_output_quality_candidate_result",
+    "gpu_output_quality_failure_block_reason",
+    "gpu_output_quality_recommendation",
+    "gpu_output_actual_ui_appended_text_length",
+    "gpu_output_actual_ui_appended_text_head",
+    "gpu_output_actual_ui_appended_text_tail",
+    "gpu_output_ui_append_changed_text",
+    "gpu_output_source_corruption_stage",
     "gpu_output_quality_probe_short_max_tokens",
     "gpu_output_quality_probe_effective_max_tokens",
 )

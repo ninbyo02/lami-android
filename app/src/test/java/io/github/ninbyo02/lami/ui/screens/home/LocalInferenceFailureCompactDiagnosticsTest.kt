@@ -2353,6 +2353,21 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 gpuOutputChunkJoinStrategy = "raw_callback_append:dev_gate_normal_route",
                 gpuOutputChunkBoundarySuspected = false,
                 gpuOutputLastChunksSummary = "6:こん|6:材料|6:です",
+                gpuOutputChunkLengthHistogram = "0=0;1_2=0;3_8=3;9_32=0;33_plus=0",
+                gpuOutputQualityMatrixMode = "baseline",
+                gpuOutputQualitySamplerMode = "edge_gallery_like",
+                gpuOutputQualityStreamingMode = "incremental_callback_streaming",
+                gpuOutputQualityEffectiveMaxTokens = "4000",
+                gpuOutputQualityCollectOnlyEnabled = false,
+                gpuOutputQualityUiIncrementalAppendEnabled = true,
+                gpuOutputQualityCandidateResult = "quality_candidate_pass",
+                gpuOutputQualityFailureBlockReason = "none",
+                gpuOutputQualityRecommendation = "none",
+                gpuOutputActualUiAppendedTextLength = 18,
+                gpuOutputActualUiAppendedTextHead = "こんにちは。材料です。",
+                gpuOutputActualUiAppendedTextTail = "こんにちは。材料です。",
+                gpuOutputUiAppendChangedText = false,
+                gpuOutputSourceCorruptionStage = "none",
             ),
             elapsedMs = 2_000L,
         )
@@ -2378,6 +2393,16 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("gpu_output_chunk_join_strategy=raw_callback_append:dev_gate_normal_route"))
         assertTrue(compact.contains("gpu_output_chunk_boundary_suspected=false"))
         assertTrue(compact.contains("gpu_output_last_chunks_summary=6:こん|6:材料|6:です"))
+        assertTrue(compact.contains("gpu_output_quality_matrix_mode=baseline"))
+        assertTrue(compact.contains("gpu_output_quality_sampler_mode=edge_gallery_like"))
+        assertTrue(compact.contains("gpu_output_quality_streaming_mode=incremental_callback_streaming"))
+        assertTrue(compact.contains("gpu_output_quality_effective_max_tokens=4000"))
+        assertTrue(compact.contains("gpu_output_quality_collect_only_enabled=false"))
+        assertTrue(compact.contains("gpu_output_quality_ui_incremental_append_enabled=true"))
+        assertTrue(compact.contains("gpu_output_chunk_length_histogram=0=0;1_2=0;3_8=3;9_32=0;33_plus=0"))
+        assertTrue(compact.contains("gpu_output_quality_candidate_result=quality_candidate_pass"))
+        assertTrue(compact.contains("gpu_output_quality_recommendation=none"))
+        assertTrue(compact.contains("gpu_output_actual_ui_appended_text_tail=こんにちは。材料です。"))
     }
 
     @Test
@@ -2392,6 +2417,20 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         )
 
         assertEquals("final_text_only_suspicious_after_ui_or_markdown", reason)
+    }
+
+    @Test
+    fun `GPU output suspicious fragment classifier detects tail tiny chunks`() {
+        val reason = classifyGpuOutputSuspiciousFragmentReason(
+            rawSample = "材料は普通です。 ：など易簡単いい調スパ",
+            promotedSample = "材料は普通です。 ：など易簡単いい調スパ",
+            finalSample = "材料は普通です。 ：など易簡単いい調スパ",
+            rawLength = 45,
+            finalLength = 45,
+            nonEmptyChunkCount = 22,
+        )
+
+        assertEquals("tail_tiny_chunk_run", reason)
     }
 
     @Test
@@ -2428,6 +2467,10 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 gpuOutputNonEmptyChunkCount = 30,
                 gpuOutputChunkJoinStrategy = "raw_callback_append:dev_gate_normal_route",
                 gpuOutputLastChunksSummary = "1:：|1:な|1:ど|1:易|1:簡|1:g|1:）",
+                gpuOutputChunkLengthHistogram = "0=2;1_2=25;3_8=5;9_32=0;33_plus=0",
+                gpuOutputQualityCandidateResult = "quality_candidate_fail",
+                gpuOutputQualityFailureBlockReason = "chunk_boundary_or_sampler_fragmentation",
+                gpuOutputQualityRecommendation = "run_collect_only_and_sampler_matrix",
             ),
             elapsedMs = 2_000L,
         )
@@ -2446,8 +2489,76 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("gpu_output_suspicious_fragment_detected=true"))
         assertTrue(compact.contains("gpu_output_suspicious_fragment_position=tail"))
         assertTrue(compact.contains("gpu_output_mixed_japanese_fragment_detected=true"))
+        assertTrue(compact.contains("gpu_output_mixed_language_fragment_detected="))
         assertTrue(compact.contains("gpu_output_chunk_boundary_suspected=true"))
         assertTrue(compact.contains("gpu_output_last_chunks_summary=1:：|1:な|1:ど|1:易|1:簡|1:g|1:）"))
+        assertTrue(compact.contains("gpu_output_chunk_length_histogram=0=2;1_2=25;3_8=5;9_32=0;33_plus=0"))
+        assertTrue(compact.contains("gpu_output_quality_candidate_result=quality_candidate_fail"))
+        assertTrue(compact.contains("gpu_output_quality_failure_block_reason=chunk_boundary_or_sampler_fragmentation"))
+    }
+
+    @Test
+    fun `GPU output collect only diagnostics show final commit mode`() {
+        val context = buildGpuRouteContextForNewDiagnostics()
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = context,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                gpuNormalRouteUseCallbackStreaming = true,
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackTextPromotedToUi = true,
+                gpuUiAppendFinished = true,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuOutputQualityMatrixMode = "collect_only",
+                gpuOutputQualityStreamingMode = "collect_only_final_commit",
+                gpuOutputQualityCollectOnlyEnabled = true,
+                gpuOutputQualityUiIncrementalAppendEnabled = false,
+                gpuOutputRawCallbackTextLength = 20,
+                gpuOutputRawCallbackTextHead = "材料をまとめます。",
+                gpuOutputRawCallbackTextTail = "材料をまとめます。",
+                gpuOutputPromotedTextLength = 20,
+                gpuOutputPromotedTextHead = "材料をまとめます。",
+                gpuOutputPromotedTextTail = "材料をまとめます。",
+                gpuOutputFinalAssistantTextLength = 20,
+                gpuOutputFinalAssistantTextHead = "材料をまとめます。",
+                gpuOutputFinalAssistantTextTail = "材料をまとめます。",
+                gpuOutputCallbackChunkCount = 4,
+                gpuOutputEmptyChunkCount = 0,
+                gpuOutputNonEmptyChunkCount = 4,
+                gpuOutputChunkJoinStrategy = "raw_callback_collect_only_final_commit:dev_gate_normal_route",
+                gpuOutputActualUiAppendedTextLength = 20,
+                gpuOutputActualUiAppendedTextHead = "材料をまとめます。",
+                gpuOutputActualUiAppendedTextTail = "材料をまとめます。",
+                gpuOutputUiAppendChangedText = false,
+            ),
+            elapsedMs = 2_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "カレーの材料をお願いします。",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = routeDiagnostics),
+                status = "success",
+                reason = "gpu_callback_streaming_success",
+                routeContext = context,
+            ),
+        )
+
+        assertTrue(compact.contains("gpu_output_quality_matrix_mode=collect_only"))
+        assertTrue(compact.contains("gpu_output_quality_streaming_mode=collect_only_final_commit"))
+        assertTrue(compact.contains("gpu_output_quality_collect_only_enabled=true"))
+        assertTrue(compact.contains("gpu_output_quality_ui_incremental_append_enabled=false"))
+        assertTrue(compact.contains("gpu_output_chunk_join_strategy=raw_callback_collect_only_final_commit:dev_gate_normal_route"))
+        assertTrue(compact.contains("gpu_output_ui_append_changed_text=false"))
     }
 
     @Test

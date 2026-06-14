@@ -953,3 +953,58 @@ The isolated flavor is useful only if it can answer one of these questions:
 - Edge Gallery success depends on a different model or internal executor path that current LAMI public API cannot reach.
 
 Until one of those is proven, LAMI should keep CPU as the stable generic route and keep GPU experimental.
+
+## Standard GPU Minimal Runtime Candidate: Output Quality Matrix
+
+`standardGpuMinimalRuntimeCandidateDebug` has reached GPU generate success with the minimal runtime pair
+`libLiteRt.so` + `liblitertlm_jni.so`. The remaining blocker is no longer basic GPU execution, but output quality:
+longer Japanese answers can degrade near the tail with tiny fragments, repeated markdown-like markers, or mixed
+punctuation. Short prompts such as `こんにちは` can remain clean.
+
+The current evidence also lowers `maxTokens` as the single root cause: the short max-token probe can still show tail
+fragmentation. The next split is sampler behavior, callback chunk sequence, UI append/join behavior, and max-token
+budget interactions.
+
+DEV-only matrix property:
+
+```bash
+adb shell setprop debug.lami.gpu_output_quality_matrix_mode baseline
+adb shell setprop debug.lami.gpu_output_quality_max_tokens 4000
+```
+
+Supported modes:
+
+- `baseline`: Edge Gallery-like sampler and incremental callback streaming.
+- `sampler_minimal`: minimal sampler config while keeping callback streaming.
+- `no_sampling_acceleration`: no sampler config / no sampling acceleration candidate.
+- `disable_topk_gpu_sampler_candidate`: disables the TopK GPU sampler candidate by removing sampler config.
+- `collect_only`: receives callback chunks but commits the final accumulated text once, separating callback source
+  corruption from incremental UI append behavior.
+
+Supported max-token override values are `128`, `256`, `512`, `1024`, and `4000`. The older boolean
+`debug.lami.gpu_output_quality_probe_short_max_tokens=true` remains available and maps to `256`, but the numeric
+override should be preferred for matrix runs.
+
+Helper script:
+
+```bash
+scripts/run_gpu_output_quality_matrix.sh --mode collect_only --max-tokens 512 --prompt "カレーの材料をお願いします。"
+```
+
+Key diagnostics:
+
+- `gpu_output_quality_matrix_mode`
+- `gpu_output_quality_sampler_mode`
+- `gpu_output_quality_streaming_mode`
+- `gpu_output_quality_effective_max_tokens`
+- `gpu_output_quality_collect_only_enabled`
+- `gpu_output_quality_ui_incremental_append_enabled`
+- `gpu_output_last_chunks_summary`
+- `gpu_output_chunk_length_histogram`
+- `gpu_output_quality_candidate_result`
+- `gpu_output_quality_failure_block_reason`
+- `gpu_output_quality_recommendation`
+- `gpu_output_source_corruption_stage`
+
+Promotion remains blocked until the matrix shows stable quality across short, medium, and long prompts, with holder
+reuse still working and no CPU/NPU regressions. StandardDebug default GPU remains disabled.
