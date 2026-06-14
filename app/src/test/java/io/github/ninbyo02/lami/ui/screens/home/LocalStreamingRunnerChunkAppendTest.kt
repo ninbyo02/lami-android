@@ -156,6 +156,26 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `callback quality classifier separates severe fragmentation from healthy chunks`() {
+        assertEquals(
+            "pathological_single_char_stream",
+            classifyCallbackQuality(
+                callbackCount = 40,
+                twoCharOrLessRatio = "0.900",
+                averageChunkLength = "1.20",
+            ),
+        )
+        assertEquals(
+            "healthy_large_chunks",
+            classifyCallbackQuality(
+                callbackCount = 8,
+                twoCharOrLessRatio = "0.000",
+                averageChunkLength = "12.50",
+            ),
+        )
+    }
+
+    @Test
     fun `GPU diagnostic cache dir resolver supports forced experiment modes`() {
         assertEquals(
             null,

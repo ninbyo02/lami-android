@@ -2368,6 +2368,21 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 gpuOutputActualUiAppendedTextTail = "こんにちは。材料です。",
                 gpuOutputUiAppendChangedText = false,
                 gpuOutputSourceCorruptionStage = "none",
+                gpuCallbackAverageChunkLength = "6.00",
+                gpuCallbackMedianChunkLength = "6",
+                gpuCallbackP50ChunkLength = "6",
+                gpuCallbackP90ChunkLength = "6",
+                gpuCallbackP95ChunkLength = "6",
+                gpuCallbackOneCharChunkCount = 0,
+                gpuCallbackTwoCharOrLessChunkCount = 0,
+                gpuCallbackOneCharChunkRatio = "0.000",
+                gpuCallbackTwoCharOrLessChunkRatio = "0.000",
+                gpuCallbackLongestChunkLength = 6,
+                gpuCallbackShortestNonEmptyChunkLength = 6,
+                gpuCallbackFirstChunksArtifact = "chunk_001 len=6 text=\"こん\"|chunk_002 len=6 text=\"材料\"",
+                gpuCallbackLastChunksArtifact = "chunk_002 len=6 text=\"材料\"|chunk_003 len=6 text=\"です\"",
+                callbackQualityClassification = "healthy_large_chunks",
+                callbackCorruptionEarliestStage = "none",
             ),
             elapsedMs = 2_000L,
         )
@@ -2403,6 +2418,15 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("gpu_output_quality_candidate_result=quality_candidate_pass"))
         assertTrue(compact.contains("gpu_output_quality_recommendation=none"))
         assertTrue(compact.contains("gpu_output_actual_ui_appended_text_tail=こんにちは。材料です。"))
+        assertTrue(compact.contains("average_chunk_length=6.00"))
+        assertTrue(compact.contains("median_chunk_length=6"))
+        assertTrue(compact.contains("p90_chunk_length=6"))
+        assertTrue(compact.contains("one_char_chunk_ratio=0.000"))
+        assertTrue(compact.contains("two_char_or_less_chunk_ratio=0.000"))
+        assertTrue(compact.contains("callback_first_30_chunks=chunk_001"))
+        assertTrue(compact.contains("callback_last_30_chunks=chunk_002"))
+        assertTrue(compact.contains("callback_quality_classification=healthy_large_chunks"))
+        assertTrue(compact.contains("callback_corruption_earliest_stage=none"))
     }
 
     @Test
@@ -2471,6 +2495,21 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 gpuOutputQualityCandidateResult = "quality_candidate_fail",
                 gpuOutputQualityFailureBlockReason = "chunk_boundary_or_sampler_fragmentation",
                 gpuOutputQualityRecommendation = "run_collect_only_and_sampler_matrix",
+                gpuCallbackAverageChunkLength = "1.50",
+                gpuCallbackMedianChunkLength = "1",
+                gpuCallbackP50ChunkLength = "1",
+                gpuCallbackP90ChunkLength = "2",
+                gpuCallbackP95ChunkLength = "2",
+                gpuCallbackOneCharChunkCount = 20,
+                gpuCallbackTwoCharOrLessChunkCount = 25,
+                gpuCallbackOneCharChunkRatio = "0.667",
+                gpuCallbackTwoCharOrLessChunkRatio = "0.833",
+                gpuCallbackLongestChunkLength = 2,
+                gpuCallbackShortestNonEmptyChunkLength = 1,
+                gpuCallbackFirstChunksArtifact = "chunk_001 len=1 text=\"：\"|chunk_002 len=1 text=\"な\"",
+                gpuCallbackLastChunksArtifact = "chunk_029 len=1 text=\"g\"|chunk_030 len=1 text=\"）\"",
+                callbackQualityClassification = "severe_fragmentation",
+                callbackCorruptionEarliestStage = "raw_callback",
             ),
             elapsedMs = 2_000L,
         )
@@ -2495,6 +2534,66 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("gpu_output_chunk_length_histogram=0=2;1_2=25;3_8=5;9_32=0;33_plus=0"))
         assertTrue(compact.contains("gpu_output_quality_candidate_result=quality_candidate_fail"))
         assertTrue(compact.contains("gpu_output_quality_failure_block_reason=chunk_boundary_or_sampler_fragmentation"))
+        assertTrue(compact.contains("average_chunk_length=1.50"))
+        assertTrue(compact.contains("two_char_or_less_chunk_ratio=0.833"))
+        assertTrue(compact.contains("callback_quality_classification=severe_fragmentation"))
+        assertTrue(compact.contains("callback_corruption_earliest_stage=raw_callback"))
+    }
+
+    @Test
+    fun `GPU callback quality comparison diagnostics identify smaller GPU chunks`() {
+        val context = buildGpuRouteContextForNewDiagnostics()
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = context,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                gpuNormalRouteUseCallbackStreaming = true,
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackTextPromotedToUi = true,
+                gpuUiAppendFinished = true,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuOutputFinalAssistantTextLength = 60,
+                gpuOutputCallbackChunkCount = 40,
+                gpuOutputNonEmptyChunkCount = 40,
+                gpuCallbackAverageChunkLength = "1.75",
+                gpuCallbackTwoCharOrLessChunkRatio = "0.900",
+                cpuCompareStarted = true,
+                cpuCompareEngineInitializeFinished = true,
+                cpuCompareConversationCreateFinished = true,
+                cpuCompareGenerateStarted = true,
+                cpuCompareCallbackInvokedCount = 8,
+                cpuCallbackAverageChunkLength = "12.50",
+                cpuCallbackTwoCharOrLessRatio = "0.000",
+            ),
+            elapsedMs = 2_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "カレーの材料をお願いします。",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = routeDiagnostics),
+                status = "success",
+                reason = "gpu_callback_streaming_success",
+                routeContext = context,
+            ),
+        )
+
+        assertTrue(compact.contains("cpu_avg_chunk_length=12.50"))
+        assertTrue(compact.contains("gpu_avg_chunk_length=1.75"))
+        assertTrue(compact.contains("cpu_callback_count=8"))
+        assertTrue(compact.contains("gpu_callback_count=40"))
+        assertTrue(compact.contains("cpu_two_char_or_less_ratio=0.000"))
+        assertTrue(compact.contains("gpu_two_char_or_less_ratio=0.900"))
+        assertTrue(compact.contains("callback_quality_compare_result=gpu_chunks_much_smaller_than_cpu"))
     }
 
     @Test

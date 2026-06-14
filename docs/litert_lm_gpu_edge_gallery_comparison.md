@@ -2438,3 +2438,35 @@ runtime/sampler path is the stronger suspect. If `collect_only` is clean while i
 chunk append, markdown streaming, or UI promotion.
 
 No production GPU default or standardDebug GPU promotion is allowed until this quality matrix is stable.
+
+### CPU vs GPU callback quality comparison
+
+The latest diagnostic phase focuses on whether the GPU failure is already visible in the callback source. The key
+evidence to collect is:
+
+```text
+gpu_output_ui_append_changed_text=false
+gpu_output_source_corruption_stage=raw_callback
+callback_quality_classification=severe_fragmentation | pathological_single_char_stream
+```
+
+The callback collector records chunk distribution and compact artifacts:
+
+- first 30 callback chunks: `callback_first_30_chunks`
+- last 30 callback chunks: `callback_last_30_chunks`
+- chunk-size distribution: `average_chunk_length`, `median_chunk_length`, `p90_chunk_length`, `p95_chunk_length`
+- tiny chunk pressure: `one_char_chunk_ratio`, `two_char_or_less_chunk_ratio`
+
+Enable CPU comparison only when extra diagnostic overhead is acceptable:
+
+```bash
+adb shell setprop debug.lami.compare_cpu_gpu_callback true
+```
+
+Interpretation:
+
+- `callback_quality_compare_result=gpu_chunks_much_smaller_than_cpu` means the GPU callback stream is shaped very
+  differently from CPU for the same prompt.
+- `callback_quality_compare_result=cpu_gpu_callback_chunks_similar` moves suspicion away from chunk emission shape and
+  back toward sampler/output semantics.
+- If `callback_corruption_earliest_stage=raw_callback`, UI append and final commit are not the first corruption point.

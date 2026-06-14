@@ -1008,3 +1008,50 @@ Key diagnostics:
 
 Promotion remains blocked until the matrix shows stable quality across short, medium, and long prompts, with holder
 reuse still working and no CPU/NPU regressions. StandardDebug default GPU remains disabled.
+
+## Callback Source Analysis
+
+The quality matrix can now show when corruption is already present in the raw callback stream. In that case,
+`collect_only` and incremental UI append should both report:
+
+```text
+gpu_output_ui_append_changed_text=false
+gpu_output_source_corruption_stage=raw_callback
+gpu_output_quality_failure_block_reason=callback_source_already_suspicious
+```
+
+Additional callback metrics are emitted to distinguish normal small streaming chunks from pathological fragmentation:
+
+- `callback_count`
+- `non_empty_callback_count`
+- `empty_callback_count`
+- `average_chunk_length`
+- `median_chunk_length`
+- `p50_chunk_length`
+- `p90_chunk_length`
+- `p95_chunk_length`
+- `one_char_chunk_count`
+- `two_char_or_less_chunk_count`
+- `one_char_chunk_ratio`
+- `two_char_or_less_chunk_ratio`
+- `longest_chunk_length`
+- `shortest_non_empty_chunk_length`
+- `callback_first_30_chunks`
+- `callback_last_30_chunks`
+- `callback_quality_classification`
+- `callback_corruption_earliest_stage`
+
+When `debug.lami.compare_cpu_gpu_callback=true` is enabled, the same prompt is sampled on CPU for callback-shape
+comparison. The summary keys are:
+
+- `cpu_avg_chunk_length`
+- `gpu_avg_chunk_length`
+- `cpu_callback_count`
+- `gpu_callback_count`
+- `cpu_two_char_or_less_ratio`
+- `gpu_two_char_or_less_ratio`
+- `callback_quality_compare_result`
+
+If `callback_quality_compare_result=gpu_chunks_much_smaller_than_cpu` or
+`gpu_two_char_or_less_ratio_much_higher_than_cpu`, the current strongest suspect is the LiteRT-LM GPU callback /
+decode stream source rather than ChatScreen append, markdown rendering, or final UI commit.
