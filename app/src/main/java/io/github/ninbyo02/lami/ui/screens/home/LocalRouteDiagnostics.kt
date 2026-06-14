@@ -2734,6 +2734,16 @@ internal val GPU_PREFILL_PROBE_DIAGNOSTIC_KEYS = listOf(
     "gpu_engine_initialize_internal_error_detected",
     "gpu_compiled_model_creation_failed",
     "gpu_failure_interpretation",
+    "gpu_callback_raw_artifact_enabled",
+    "gpu_callback_raw_artifact_disabled_reason",
+    "gpu_callback_raw_stream_artifact_dir",
+    "gpu_callback_raw_full_artifact_path",
+    "gpu_callback_accumulated_final_artifact_path",
+    "gpu_callback_raw_artifact_write_result",
+    "gpu_callback_raw_passthrough",
+    "gpu_callback_raw_sha256",
+    "gpu_ui_text_sha256",
+    "gpu_callback_ui_identical",
 )
 
 internal fun parseDiagnosticKeyValueText(text: String?): Map<String, String> =

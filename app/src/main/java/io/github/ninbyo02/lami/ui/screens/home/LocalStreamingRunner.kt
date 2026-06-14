@@ -29,6 +29,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
+import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -329,6 +330,19 @@ internal fun isGpuNormalRouteUseCallbackStreamingRequestedForDebug(
     if (preferredBackend != PreferredBackendDryRunSetting.GPU) return false
     val enabled = propertyReader("debug.lami.gpu_normal_route_use_callback_streaming")
         ?: propertyReader("lami.gpu_normal_route_use_callback_streaming")
+        ?: return false
+    return enabled.equals("true", ignoreCase = true) || enabled == "1"
+}
+
+internal fun isGpuCallbackRawPassthroughEnabledForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+    standardGpuMinimalRuntimeCandidateFlavor: Boolean = BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR,
+): Boolean {
+    if (!BuildConfig.DEBUG || !standardGpuMinimalRuntimeCandidateFlavor) return false
+    if (preferredBackend != PreferredBackendDryRunSetting.GPU) return false
+    val enabled = propertyReader("debug.lami.gpu_callback_raw_passthrough")
+        ?: propertyReader("lami.gpu_callback_raw_passthrough")
         ?: return false
     return enabled.equals("true", ignoreCase = true) || enabled == "1"
 }
@@ -1108,6 +1122,143 @@ private enum class FragmentationSegment {
     TAIL,
 }
 
+private class GpuCallbackRawArtifactWriter private constructor(
+    private val directory: File?,
+    private val enabled: Boolean,
+    private val disabledReason: String,
+) {
+    private val fullSequence = StringBuilder()
+    private var writeError: String? = null
+    private var fullPath: String = "unavailable"
+    private var finalPath: String = "unavailable"
+
+    fun recordCallback(
+        elapsedMs: Long,
+        chunkIndex: Int,
+        text: String,
+    ) {
+        if (!enabled || directory == null) return
+        val escaped = text.escapeCallbackArtifactPreview()
+        fullSequence
+            .append('[')
+            .append(chunkIndex.toString().padStart(4, '0'))
+            .append("] len=")
+            .append(text.length)
+            .append(" text=\"")
+            .append(escaped)
+            .append("\"\n")
+        runCatching {
+            File(directory, "callback_${chunkIndex.toString().padStart(4, '0')}.txt").writeText(
+                buildString {
+                    append("elapsed_ms=").append(elapsedMs).append('\n')
+                    append("chunk_index=").append(chunkIndex).append('\n')
+                    append("length=").append(text.length).append('\n')
+                    append("text=").append(text)
+                },
+                Charsets.UTF_8,
+            )
+        }.onFailure { throwable ->
+            writeError = throwable.javaClass.simpleName.ifBlank { "write_error" }
+        }
+    }
+
+    fun finish(accumulatedText: String) {
+        if (!enabled || directory == null) return
+        runCatching {
+            val fullFile = File(directory, "gpu_callback_raw_full.txt")
+            fullFile.writeText(fullSequence.toString(), Charsets.UTF_8)
+            fullPath = fullFile.absolutePath
+            val finalFile = File(directory, "gpu_callback_accumulated_final.txt")
+            finalFile.writeText(accumulatedText, Charsets.UTF_8)
+            finalPath = finalFile.absolutePath
+        }.onFailure { throwable ->
+            writeError = throwable.javaClass.simpleName.ifBlank { "write_error" }
+        }
+    }
+
+    fun diagnostics(
+        rawText: String,
+        uiText: String,
+        rawPassthroughEnabled: Boolean,
+    ): Map<String, String> =
+        mapOf(
+            "gpu_callback_raw_artifact_enabled" to enabled.toString(),
+            "gpu_callback_raw_artifact_disabled_reason" to disabledReason,
+            "gpu_callback_raw_stream_artifact_dir" to (directory?.absolutePath ?: "unavailable"),
+            "gpu_callback_raw_full_artifact_path" to fullPath,
+            "gpu_callback_accumulated_final_artifact_path" to finalPath,
+            "gpu_callback_raw_artifact_write_result" to (writeError ?: if (enabled) "ok" else "disabled"),
+            "gpu_callback_raw_passthrough" to rawPassthroughEnabled.toString(),
+            "gpu_callback_raw_sha256" to sha256ForGpuCallbackText(rawText),
+            "gpu_ui_text_sha256" to sha256ForGpuCallbackText(uiText),
+            "gpu_callback_ui_identical" to (rawText == uiText).toString(),
+        )
+
+    companion object {
+        fun create(
+            context: Context?,
+            preferredBackend: PreferredBackendDryRunSetting,
+            callbackStreamingPathSelected: Boolean,
+        ): GpuCallbackRawArtifactWriter {
+            val enabled = BuildConfig.DEBUG &&
+                BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR &&
+                preferredBackend == PreferredBackendDryRunSetting.GPU &&
+                callbackStreamingPathSelected
+            if (!enabled) {
+                return GpuCallbackRawArtifactWriter(
+                    directory = null,
+                    enabled = false,
+                    disabledReason = "not_debug_standard_gpu_minimal_callback_streaming",
+                )
+            }
+            val root = context?.getExternalFilesDir(null) ?: context?.filesDir
+            if (root == null) {
+                return GpuCallbackRawArtifactWriter(
+                    directory = null,
+                    enabled = false,
+                    disabledReason = "context_unavailable",
+                )
+            }
+            val directory = File(root, "artifacts/gpu_callback_raw_stream")
+            return runCatching {
+                directory.mkdirs()
+                directory.listFiles()
+                    ?.filter { file ->
+                        file.name.matches(Regex("callback_\\d{4}\\.txt")) ||
+                            file.name == "gpu_callback_raw_full.txt" ||
+                            file.name == "gpu_callback_accumulated_final.txt"
+                    }
+                    ?.forEach { file -> file.delete() }
+                GpuCallbackRawArtifactWriter(
+                    directory = directory,
+                    enabled = true,
+                    disabledReason = "none",
+                )
+            }.getOrElse { throwable ->
+                GpuCallbackRawArtifactWriter(
+                    directory = directory,
+                    enabled = false,
+                    disabledReason = throwable.javaClass.simpleName.ifBlank { "artifact_dir_create_failed" },
+                )
+            }
+        }
+    }
+}
+
+private fun sha256ForGpuCallbackText(text: String): String =
+    runCatching {
+        MessageDigest
+            .getInstance("SHA-256")
+            .digest(text.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+    }.getOrDefault("unavailable")
+
+private fun String.escapeCallbackArtifactPreview(): String =
+    replace("\\", "\\\\")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\"", "\\\"")
+
 private class GenerateCallbackLifecycleTracker(
     private val routeRunStartedAtMs: Long,
     private val probeMode: String,
@@ -1118,6 +1269,8 @@ private class GenerateCallbackLifecycleTracker(
     private val outputQualityCollectOnlyEnabled: Boolean,
     private val outputQualityUiIncrementalAppendEnabled: Boolean,
     private val heldEngineReused: Boolean?,
+    private val rawPassthroughEnabled: Boolean,
+    private val rawArtifactWriter: GpuCallbackRawArtifactWriter,
 ) {
     private class DiagnosticTextWindow(
         private val limit: Int = 120,
@@ -1179,6 +1332,8 @@ private class GenerateCallbackLifecycleTracker(
     private var uiFirstVisibleTextElapsedMs: Long? = null
     private var streamingCompletionReason: String = "unavailable"
     private var streamingFinalTextLength: Int? = null
+    private val rawCallbackFullText = StringBuilder()
+    private var actualUiFullText: String = ""
     private val rawCallbackText = DiagnosticTextWindow()
     private val promotedText = DiagnosticTextWindow()
     private val finalAssistantText = DiagnosticTextWindow()
@@ -1220,7 +1375,13 @@ private class GenerateCallbackLifecycleTracker(
         val text = extractedText.orEmpty()
         callbackLastTextLength = text.length
         callbackLastTextHead = text.take(80).ifBlank { "none" }
+        rawCallbackFullText.append(text)
         rawCallbackText.append(text)
+        rawArtifactWriter.recordCallback(
+            elapsedMs = now,
+            chunkIndex = callbackInvokedCount,
+            text = text,
+        )
         recordChunkArtifact(index = callbackInvokedCount, text = text)
         if (text.isBlank()) {
             zeroLengthChunkCount += 1
@@ -1265,6 +1426,7 @@ private class GenerateCallbackLifecycleTracker(
         uiAppendFinished = true
         callbackPromotedTextLength = text.length
         promotedText.replace(text)
+        actualUiFullText = text
         actualUiAppendedText.replace(text)
         if (text.isNotBlank()) {
             callbackTextPromotedToUi = true
@@ -1278,6 +1440,7 @@ private class GenerateCallbackLifecycleTracker(
     fun markStreamingCompleted(responseText: String?) {
         streamingFinalTextLength = responseText?.length
         finalAssistantText.replace(responseText.orEmpty())
+        rawArtifactWriter.finish(rawCallbackFullText.toString())
         streamingCompletionReason = if (responseText.isNullOrBlank()) {
             "flow_completed_blank_response"
         } else {
@@ -1448,7 +1611,17 @@ private class GenerateCallbackLifecycleTracker(
             gpuCallbackLastChunksArtifact = resolveCallbackArtifact(lastChunkArtifacts).takeIf {
                 callbackStreamingPathSelected
             },
-            gpuPrefillProbeDiagnostics = base.gpuPrefillProbeDiagnostics + resolveFragmentationDiagnostics(),
+            gpuPrefillProbeDiagnostics = base.gpuPrefillProbeDiagnostics +
+                resolveFragmentationDiagnostics() +
+                if (callbackStreamingPathSelected) {
+                    rawArtifactWriter.diagnostics(
+                        rawText = rawCallbackFullText.toString(),
+                        uiText = actualUiFullText,
+                        rawPassthroughEnabled = rawPassthroughEnabled,
+                    )
+                } else {
+                    emptyMap()
+                },
             callbackQualityClassification = resolveCallbackQualityClassification().takeIf { callbackStreamingPathSelected },
             callbackCorruptionEarliestStage = resolveGpuOutputSourceCorruptionStage().takeIf {
                 callbackStreamingPathSelected
@@ -2598,13 +2771,21 @@ internal suspend fun runWithHeldEngine(
         originalPrompt = prompt,
         probeMode = generateProbeMode,
     )
-    val rawCallbackAppend = usesDirectGpuCallbackAppendForDebug(
+    val rawPassthroughEnabled = isGpuCallbackRawPassthroughEnabledForDebug(
+        preferredBackend = heldEngine.preferredBackendDryRunSetting,
+    )
+    val rawCallbackAppend = rawPassthroughEnabled || usesDirectGpuCallbackAppendForDebug(
         probeMode = generateProbeMode,
         normalRouteUseCallbackStreaming = normalRouteUseCallbackStreaming,
     )
     val suppressStreamingUi = suppressesGpuStreamingUiForDebug(generateProbeMode) || outputQualityCollectOnlyEnabled
     val outputQualityUiIncrementalAppendEnabled =
         callbackStreamingPathSelected && !suppressStreamingUi && !outputQualityCollectOnlyEnabled
+    val rawArtifactWriter = GpuCallbackRawArtifactWriter.create(
+        context = mediaPipeProbeContext,
+        preferredBackend = heldEngine.preferredBackendDryRunSetting,
+        callbackStreamingPathSelected = callbackStreamingPathSelected,
+    )
     val callbackTracker = GenerateCallbackLifecycleTracker(
         routeRunStartedAtMs = routeRunStartedAtMs,
         probeMode = generateProbeMode,
@@ -2615,6 +2796,8 @@ internal suspend fun runWithHeldEngine(
         outputQualityCollectOnlyEnabled = outputQualityCollectOnlyEnabled,
         outputQualityUiIncrementalAppendEnabled = outputQualityUiIncrementalAppendEnabled,
         heldEngineReused = heldEngineReused,
+        rawPassthroughEnabled = rawPassthroughEnabled,
+        rawArtifactWriter = rawArtifactWriter,
     )
     val gpuExperimentModeForRun = resolveGpuDiagnosticExperimentModeForBackend(
         preferredBackend = heldEngine.preferredBackendDryRunSetting.name,
@@ -2900,8 +3083,15 @@ internal suspend fun runWithHeldEngine(
                             raw = extractedText,
                             normalized = extractedText?.trim(),
                         )
-                        if (!isViableStreamingChunk(extracted) || extracted == lastPartial) return@collect
-                        lastPartial = extracted
+                        val shouldAppendChunk = if (rawPassthroughEnabled) {
+                            extracted.isNotEmpty()
+                        } else {
+                            isViableStreamingChunk(extracted) && extracted != lastPartial
+                        }
+                        if (!shouldAppendChunk) return@collect
+                        if (!rawPassthroughEnabled) {
+                            lastPartial = extracted
+                        }
                         heldFlowPartialCount += 1
                         if (heldFlowFirstPartialElapsedRealtimeMs == null) {
                             heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
@@ -2957,7 +3147,7 @@ internal suspend fun runWithHeldEngine(
                     }
                 }
                 val built = builder.toString()
-                val trimmedBuilt = built.trim()
+                val trimmedBuilt = if (rawPassthroughEnabled) built else built.trim()
                 appendRunnerWhitespaceStage("builder.raw", built)
                 appendRunnerWhitespaceStage("builder.trimmed", trimmedBuilt)
                 appendRunnerWhitespaceStage("responseText.raw", built)

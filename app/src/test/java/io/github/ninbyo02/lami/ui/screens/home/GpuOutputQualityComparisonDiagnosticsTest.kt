@@ -135,6 +135,48 @@ class GpuOutputQualityComparisonDiagnosticsTest {
         assertTrue(compact.contains("cpu_compare_failure_stage=timeout"))
     }
 
+    @Test
+    fun `GPU callback raw artifact diagnostics are copied to compact`() {
+        val compact = compactFromFlags(
+            LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                gpuCallbackStreamingPathSelected = true,
+                gpuOutputCallbackChunkCount = 3,
+                gpuOutputSuspiciousFragmentDetected = true,
+                gpuOutputQualityCandidateResult = "quality_candidate_fail",
+                gpuPrefillProbeDiagnostics = mapOf(
+                    "gpu_callback_raw_artifact_enabled" to "true",
+                    "gpu_callback_raw_stream_artifact_dir" to
+                        "/sdcard/Android/data/io.github.ninbyo02.lami.gpustandardminimal/files/artifacts/gpu_callback_raw_stream",
+                    "gpu_callback_raw_full_artifact_path" to
+                        "/sdcard/Android/data/io.github.ninbyo02.lami.gpustandardminimal/files/artifacts/gpu_callback_raw_stream/gpu_callback_raw_full.txt",
+                    "gpu_callback_accumulated_final_artifact_path" to
+                        "/sdcard/Android/data/io.github.ninbyo02.lami.gpustandardminimal/files/artifacts/gpu_callback_raw_stream/gpu_callback_accumulated_final.txt",
+                    "gpu_callback_raw_artifact_write_result" to "ok",
+                    "gpu_callback_raw_passthrough" to "true",
+                    "gpu_callback_raw_sha256" to "raw-sha",
+                    "gpu_ui_text_sha256" to "ui-sha",
+                    "gpu_callback_ui_identical" to "false",
+                ),
+            ),
+        )
+
+        assertTrue(compact.contains("gpu_callback_raw_artifact_enabled=true"))
+        assertTrue(compact.contains("gpu_callback_raw_stream_artifact_dir="))
+        assertTrue(compact.contains("gpu_callback_raw_full_artifact_path="))
+        assertTrue(compact.contains("gpu_callback_accumulated_final_artifact_path="))
+        assertTrue(compact.contains("gpu_callback_raw_passthrough=true"))
+        assertTrue(compact.contains("gpu_callback_raw_sha256=raw-sha"))
+        assertTrue(compact.contains("gpu_ui_text_sha256=ui-sha"))
+        assertTrue(compact.contains("gpu_callback_ui_identical=false"))
+    }
+
     private fun compactFromFlags(flags: LocalRouteDiagnosticFlags): String {
         val context = buildLocalRouteDiagnosticContext(
             selectedModelName = "gemma-4-E2B-it-edge-gallery",

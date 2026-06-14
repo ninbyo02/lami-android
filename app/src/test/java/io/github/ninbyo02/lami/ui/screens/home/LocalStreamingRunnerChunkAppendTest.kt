@@ -326,6 +326,37 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `GPU callback raw passthrough is candidate flavor debug gated`() {
+        assertTrue(
+            isGpuCallbackRawPassthroughEnabledForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_callback_raw_passthrough") "true" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertFalse(
+            isGpuCallbackRawPassthroughEnabledForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_callback_raw_passthrough") "true" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = false,
+            ),
+        )
+        assertFalse(
+            isGpuCallbackRawPassthroughEnabledForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.CPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_callback_raw_passthrough") "true" else null
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+    }
+
+    @Test
     fun `GPU diagnostic cache dir resolver supports forced experiment modes`() {
         assertEquals(
             null,
