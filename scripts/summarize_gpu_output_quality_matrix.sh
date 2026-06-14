@@ -12,7 +12,10 @@ Reads copied compact/details diagnostics from DIR and prints:
 
   mode|quality|fragment_score|avg_chunk|one_char_ratio|tail_ratio
 
-The script expects plain text files containing key=value diagnostics.
+The script accepts both one-key-per-line diagnostics and copied summary lines
+that contain several key=value tokens on the same line, for example:
+
+  source_summary=... gpu_output_quality_matrix_mode=baseline gpu_fragmentation_score=0.816
 USAGE
 }
 
@@ -42,7 +45,20 @@ fi
 extract_key() {
   local file="$1"
   local key="$2"
-  awk -F= -v wanted="$key" '$1 == wanted { value=$0; sub(/^[^=]*=/, "", value); print value; exit }' "$file"
+  awk -v wanted="$key" '
+    {
+      line = $0
+      pattern = "(^|[[:space:]])" wanted "="
+      if (match(line, pattern)) {
+        value = substr(line, RSTART + RLENGTH)
+        sub(/[[:space:]].*$/, "", value)
+        sub(/\r$/, "", value)
+        sub(/,$/, "", value)
+        print value
+        exit
+      }
+    }
+  ' "$file"
 }
 
 first_non_empty() {
@@ -56,33 +72,7 @@ first_non_empty() {
   printf 'unavailable\n'
 }
 
-has_mode_failure() {
-  local mode="$1"
-  local pattern="$2"
-  local file actual_mode quality
-  for file in "$INPUT_DIR"/*; do
-    [[ -f "$file" ]] || continue
-    actual_mode="$(extract_key "$file" "gpu_output_quality_matrix_mode")"
-    quality="$(extract_key "$file" "gpu_output_quality_candidate_result")"
-    if [[ "$actual_mode" == "$mode" && "$quality" == "$pattern" ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
-has_candidate() {
-  local candidate="$1"
-  local file value
-  for file in "$INPUT_DIR"/*; do
-    [[ -f "$file" ]] || continue
-    value="$(extract_key "$file" "gpu_sampler_root_cause_candidate")"
-    if [[ "$value" == "$candidate" ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
+declare -A candidate_counts=()
 
 printf 'mode|quality|fragment_score|avg_chunk|one_char_ratio|tail_ratio\n'
 
@@ -95,7 +85,13 @@ for file in "$INPUT_DIR"/*; do
   fragment_score="$(first_non_empty "$(extract_key "$file" "gpu_fragmentation_score")")"
   avg_chunk="$(first_non_empty "$(extract_key "$file" "average_chunk_length")" "$(extract_key "$file" "gpu_avg_chunk_length")")"
   one_char_ratio="$(first_non_empty "$(extract_key "$file" "one_char_chunk_ratio")")"
-  tail_ratio="$(first_non_empty "$(extract_key "$file" "gpu_output_suspicious_fragment_tail_ratio")")"
+  tail_ratio="$(first_non_empty \
+    "$(extract_key "$file" "gpu_output_suspicious_fragment_tail_ratio")" \
+    "$(extract_key "$file" "gpu_fragmentation_tail_score")")"
+  candidate="$(first_non_empty "$(extract_key "$file" "gpu_sampler_root_cause_candidate")")"
+  if [[ "$candidate" != "unavailable" ]]; then
+    candidate_counts["$candidate"]=$(( ${candidate_counts["$candidate"]:-0} + 1 ))
+  fi
   printf '%s|%s|%s|%s|%s|%s\n' \
     "$mode" "$quality" "$fragment_score" "$avg_chunk" "$one_char_ratio" "$tail_ratio"
 done
@@ -106,15 +102,13 @@ if [[ "$found_any" != true ]]; then
 fi
 
 root_cause="unknown"
-if has_candidate "not_sampler_related" || has_candidate "runtime_decode_fragmentation"; then
-  root_cause="runtime_decode_fragmentation"
-elif has_candidate "streaming_join_issue"; then
-  root_cause="streaming_join_issue"
-elif has_mode_failure "baseline" "quality_candidate_fail" &&
-  ! has_mode_failure "no_sampling_acceleration" "quality_candidate_fail"; then
-  root_cause="sampler_related"
-elif has_candidate "callback_source_corruption"; then
-  root_cause="callback_source_corruption"
-fi
+best_count=0
+for candidate in "${!candidate_counts[@]}"; do
+  count="${candidate_counts[$candidate]}"
+  if (( count > best_count )); then
+    best_count="$count"
+    root_cause="$candidate"
+  fi
+done
 
 printf 'ROOT_CAUSE_CANDIDATE=%s\n' "$root_cause"
