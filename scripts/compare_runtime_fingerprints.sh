@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=scripts/lib_diagnostics_key_parser.sh
+source "$SCRIPT_DIR/lib_diagnostics_key_parser.sh"
+
 BASELINE=""
 PROBE=""
 
@@ -52,39 +56,11 @@ if [[ ! -f "$PROBE" ]]; then
   exit 1
 fi
 
-extract_key() {
-  local file="$1"
-  local key="$2"
-  awk -v wanted="$key" '
-    {
-      line = $0
-      pattern = "(^|[[:space:]])" wanted "="
-      if (match(line, pattern)) {
-        value = substr(line, RSTART + RLENGTH)
-        sub(/[[:space:]].*$/, "", value)
-        sub(/\r$/, "", value)
-        sub(/,$/, "", value)
-        print value
-        exit
-      }
-    }
-  ' "$file"
-}
-
-value_or_unavailable() {
-  local value="$1"
-  if [[ -n "$value" ]]; then
-    printf '%s\n' "$value"
-  else
-    printf 'unavailable\n'
-  fi
-}
-
 compare_key() {
   local key="$1"
   local baseline_value probe_value
-  baseline_value="$(value_or_unavailable "$(extract_key "$BASELINE" "$key")")"
-  probe_value="$(value_or_unavailable "$(extract_key "$PROBE" "$key")")"
+  baseline_value="$(diagnostic_get_key_or_unavailable "$BASELINE" "$key")"
+  probe_value="$(diagnostic_get_key_or_unavailable "$PROBE" "$key")"
   if [[ "$baseline_value" == "$probe_value" && "$baseline_value" != "unavailable" ]]; then
     printf '%s=same\n' "$key"
   elif [[ "$baseline_value" == "unavailable" || "$probe_value" == "unavailable" ]]; then
@@ -94,15 +70,15 @@ compare_key() {
   fi
 }
 
-baseline_stack="$(value_or_unavailable "$(extract_key "$BASELINE" "loaded_native_runtime_stack_fingerprint")")"
-probe_stack="$(value_or_unavailable "$(extract_key "$PROBE" "loaded_native_runtime_stack_fingerprint")")"
-baseline_executor="$(value_or_unavailable "$(extract_key "$BASELINE" "executor_selection_fingerprint")")"
-probe_executor="$(value_or_unavailable "$(extract_key "$PROBE" "executor_selection_fingerprint")")"
-probe_result="$(value_or_unavailable "$(extract_key "$PROBE" "edge_gallery_executor_probe_result")")"
-probe_difference="$(value_or_unavailable "$(extract_key "$PROBE" "edge_gallery_executor_difference_summary")")"
-quality="$(value_or_unavailable "$(extract_key "$PROBE" "gpu_output_quality_candidate_result")")"
-source_stage="$(value_or_unavailable "$(extract_key "$PROBE" "gpu_output_source_corruption_stage")")"
-sampler_root="$(value_or_unavailable "$(extract_key "$PROBE" "gpu_sampler_root_cause_candidate")")"
+baseline_stack="$(diagnostic_get_key_or_unavailable "$BASELINE" "loaded_native_runtime_stack_fingerprint")"
+probe_stack="$(diagnostic_get_key_or_unavailable "$PROBE" "loaded_native_runtime_stack_fingerprint")"
+baseline_executor="$(diagnostic_get_key_or_unavailable "$BASELINE" "executor_selection_fingerprint")"
+probe_executor="$(diagnostic_get_key_or_unavailable "$PROBE" "executor_selection_fingerprint")"
+probe_result="$(diagnostic_get_key_or_unavailable "$PROBE" "edge_gallery_executor_probe_result")"
+probe_difference="$(diagnostic_get_key_or_unavailable "$PROBE" "edge_gallery_executor_difference_summary")"
+quality="$(diagnostic_get_key_or_unavailable "$PROBE" "gpu_output_quality_candidate_result")"
+source_stage="$(diagnostic_get_key_or_unavailable "$PROBE" "gpu_output_source_corruption_stage")"
+sampler_root="$(diagnostic_get_key_or_unavailable "$PROBE" "gpu_sampler_root_cause_candidate")"
 
 runtime_summary="unknown"
 if [[ "$baseline_stack" != "unavailable" && "$probe_stack" != "unavailable" ]]; then
