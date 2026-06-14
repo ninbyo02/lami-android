@@ -1,0 +1,149 @@
+# GPU Executor Root Cause Next Actions
+
+Scope: investigation planning only. CPU, NPU, GPU runtime behavior, model
+loading, callback joining, and production defaults remain unchanged.
+
+## Current Static Conclusion
+
+The strongest static evidence points to an Edge Gallery internal GPU executor or
+runtime selection path that Lami's public `Backend.GPU` route cannot currently
+prove or force.
+
+The current most likely root cause is:
+
+```text
+Edge Gallery reaches a different internal LiteRT-LM GPU executor/runtime decode
+path than Lami public Backend.GPU, probably involving GPU_ARTISAN, backend
+constraints, RuntimeConfig, preferred engine selection, or GPU KV-cache decode.
+```
+
+Current confidence: **72%**.
+
+This is not yet proven at runtime. Static strings prove capability and likely
+selector logic, not actual selection in the successful Edge Gallery run.
+
+## Root Cause Ranking
+
+| Rank | Candidate | Confidence | Evidence | Counter-evidence / gap |
+| ---: | --- | ---: | --- | --- |
+| 1 | Edge Gallery selects `GPU_ARTISAN` / `LlmGpuArtisanExecutor` or another internal executor while Lami selects public compiled-model GPU. | 72% | Edge Gallery native strings include `GPU_ARTISAN`, `LlmGpuArtisanExecutor::Create`, `Prefill`, and `Artisan model detected. Switching backend from GPU to GPU_ARTISAN.` Lami public reflection exposes only `CPU,GPU,NPU`. Lami raw callback corrupts while Edge Gallery GPU does not. | Static strings do not prove the successful Edge Gallery run selected artisan. |
+| 2 | Hidden `RuntimeConfig`, backend constraint, or preferred engine type differs. | 66% | Static strings include runtime config and backend constraint matching/mismatch messages. Lami has no public setter for these. | The exact selected values are not visible statically. |
+| 3 | GPU KV-cache / decode-cache path differs. | 56% | Static strings include `tflite_gpu_kv_cache` and `tflite_opencl_kv_cache`; Lami failure signature is `runtime_decode_fragmentation`. | No direct runtime KV-cache selector has been observed in Lami public API. |
+| 4 | Native runtime stack still differs from Edge Gallery even in minimal candidate. | 46% | `standardDebug` fails invoke; minimal pair invokes but corrupts. Edge Gallery official app may ship a fuller coherent runtime stack or use app/runtime pairing differently. | Minimal pair already uses the two core libs that made GPU invoke succeed, so native stack alone is not sufficient as a simple explanation. |
+| 5 | Callback semantics / hidden aggregation layer differs. | 28% | Edge Gallery UI is normal and Lami raw callback is fragmented. | Lami final-response probe indicates last non-empty callback is delta, and accumulated raw callback is already corrupt. |
+| 6 | Sampler setting difference. | 18% | Sampler affects decode distribution and Edge Gallery has topK/topP/temp allowlist values. | Baseline, collect-only, and no-sampling-acceleration matrix runs all fail; Lami can mimic topK=64/topP=0.95/temp=1.0. |
+| 7 | maxTokens / cacheDir / public ConversationConfig mismatch. | 16% | Historically important config deltas existed. | Current parity modes cover these axes and still show raw callback corruption. |
+| 8 | Model file difference. | 8% | Model metadata can drive backend selection. | Edge Gallery model identity has been validated; Lami CPU succeeds with the same model family and Lami GPU short prompts can pass. |
+
+## Confirmed Without Device In This Pass
+
+- Edge Gallery static artifacts contain internal executor/backend evidence.
+- The most important strings are in `liblitertlm_jni.so`, not app-level code.
+- Lami current implementation uses public `EngineConfig`, `ConversationConfig`,
+  `SamplerConfig`, and `Backend.GPU`.
+- Lami diagnostics already expose fingerprint keys suitable for the next
+  runtime comparison.
+- No production or runtime behavior change is needed to continue investigation.
+
+## Next Device Actions
+
+### 1. Capture Lami executor probe diagnostics
+
+```bash
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell setprop debug.lami.gpu_output_quality_matrix_mode edge_gallery_executor_probe
+adb shell setprop debug.lami.gpu_output_quality_max_tokens 512
+adb shell monkey -p io.github.ninbyo02.lami.gpustandardminimal 1
+```
+
+Prompt:
+
+```text
+カレーの材料をお願いします。
+```
+
+Copy compact/details diagnostics and check:
+
+- `edge_gallery_executor_probe_result`
+- `edge_gallery_executor_difference_summary`
+- `executor_selection_fingerprint`
+- `runtime_backend_fingerprint`
+- `runtime_executor_fingerprint`
+- `runtime_dispatch_fingerprint`
+- `runtime_compiled_model_fingerprint`
+- `engine_config_fingerprint`
+- `conversation_config_fingerprint`
+- `sampler_config_fingerprint`
+- `loaded_native_runtime_stack_fingerprint`
+- `loaded_native_libs_sha256`
+- `gpu_output_quality_candidate_result`
+- `callback_corruption_earliest_stage`
+- `gpu_sampler_root_cause_candidate`
+
+### 2. Compare copied diagnostics
+
+```bash
+scripts/compare_runtime_fingerprints.sh --baseline <baseline-diag.txt> --probe <executor-probe-diag.txt>
+```
+
+Expected high-value outcomes:
+
+| Output | Meaning |
+| --- | --- |
+| `RUNTIME_STACK_DIFFERENCE_SUMMARY=different_runtime_stack` | Native stack mismatch remains a strong candidate. |
+| `EXECUTOR_DIFFERENCE_SUMMARY=different_executor_fingerprint` | Lami modes are reaching different executor/config fingerprints. |
+| `LIKELY_ROOT_CAUSE=runtime_decode_or_executor_selection` | Raw callback corruption still points below app-layer joining. |
+
+### 3. Refresh static trace after APK updates
+
+```bash
+scripts/static_trace_edge_gallery_executor.sh
+```
+
+Inspect:
+
+- `artifacts/static_edge_gallery_executor_trace/native_string_keyword_hits.txt`
+- `artifacts/static_edge_gallery_executor_trace/apk_dex_keyword_hits.txt`
+- `artifacts/static_edge_gallery_executor_trace/native_needed_libraries.txt`
+
+### 4. If Edge Gallery logs are available later
+
+Use non-invasive log filtering for native strings already identified statically:
+
+- `Artisan model detected`
+- `LlmGpuArtisanExecutor::Create`
+- `backend constraint is matched`
+- `GetRuntimeConfig`
+- `tflite_gpu_kv_cache`
+- `tflite_opencl_kv_cache`
+- `CompiledModelExecutor`
+
+Do not modify the Edge Gallery APK.
+
+## Promotion Blockers That Remain Active
+
+Standard GPU promotion remains blocked while any of these are true:
+
+- `gpu_output_quality_candidate_result=quality_candidate_fail`
+- `gpu_output_quality_promotion_blocker=true`
+- `callback_corruption_earliest_stage=raw_callback`
+- `gpu_output_source_corruption_stage=raw_callback`
+- `gpu_sampler_root_cause_candidate=runtime_decode_fragmentation`
+- `edge_gallery_parity_difference_summary=edge_gallery_gpu_ok_lami_gpu_raw_callback_decode_fragmentation`
+- Edge Gallery official GPU continues to produce clean long output for the same
+  prompt/model class while Lami GPU corrupts raw callback source.
+
+## Recommended Decision Path
+
+1. Keep CPU as the stable default.
+2. Keep `standardGpuMinimalRuntimeCandidateDebug` as DEV-only.
+3. Use `edge_gallery_executor_probe` and runtime fingerprints to determine if
+   Lami public GPU can ever select the same internal path.
+4. If Edge Gallery runtime selection is confirmed to be artisan/internal-only,
+   do not use reflection hacks. Design a separate isolated DEV experiment and
+   complete license/packaging review before any standard integration proposal.
+5. Do not promote a UI GPU toggle until long-output quality passes without raw
+   callback corruption.
