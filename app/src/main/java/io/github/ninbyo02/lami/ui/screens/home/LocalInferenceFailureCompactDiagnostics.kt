@@ -513,6 +513,7 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
         ) +
             buildGalleryStackGpuProbeCompactDiagnosticLines(input.galleryStackProbeDiagnostics) +
             buildRuntimeAlignmentProbeCompactDiagnosticLines(input.runtimeAlignmentProbeDiagnostics) +
+            buildMinimalRuntimeProbeCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildStandardGpuRuntimeAlignmentCandidateCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildLoadedRuntimeNativeStackCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuAlignmentHolderCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
@@ -545,6 +546,32 @@ private fun buildStandardGpuRuntimeAlignmentCandidateCompactDiagnosticLines(
 private fun extractStandardGpuRuntimeAlignmentCandidateDiagnostics(text: String?): Map<String, String> =
     parseLocalInferenceFailureDiagnosticsText(text)
         .filterKeys { it in STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_DIAGNOSTIC_KEYS }
+
+private val MINIMAL_RUNTIME_PROBE_DIAGNOSTIC_KEYS = listOf(
+    "minimal_runtime_probe_flavor",
+    "minimal_runtime_probe_liblitert_present",
+    "minimal_runtime_probe_liblitertlm_jni_present",
+    "minimal_runtime_probe_runtime_stack_source",
+    "minimal_runtime_probe_result_candidate",
+    "minimal_runtime_probe_success_gate",
+    "minimal_runtime_probe_loaded_liblitert_sha256",
+    "minimal_runtime_probe_loaded_liblitertlm_jni_sha256",
+    "minimal_runtime_probe_dispatch_present",
+    "minimal_runtime_probe_compiler_plugin_present",
+    "minimal_runtime_probe_constraint_provider_present",
+)
+
+private fun buildMinimalRuntimeProbeCompactDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.keys.none { it in MINIMAL_RUNTIME_PROBE_DIAGNOSTIC_KEYS }) return emptyList()
+    return MINIMAL_RUNTIME_PROBE_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}"
+    }
+}
+
+private fun extractMinimalRuntimeProbeDiagnostics(text: String?): Map<String, String> =
+    parseLocalInferenceFailureDiagnosticsText(text).filterKeys { it in MINIMAL_RUNTIME_PROBE_DIAGNOSTIC_KEYS }
 
 private val LOADED_RUNTIME_NATIVE_STACK_DIAGNOSTIC_KEYS = listOf(
     "runtime_stack_loaded_source_flavor",
@@ -678,6 +705,7 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
     val probeDiagnostics = extractGpuPrefillProbeDiagnostics(failureDiagnosticsText) +
         extractGpuAlignmentHolderDiagnostics(failureDiagnosticsText) +
         extractStandardGpuRuntimeAlignmentCandidateDiagnostics(failureDiagnosticsText) +
+        extractMinimalRuntimeProbeDiagnostics(failureDiagnosticsText) +
         extractLoadedRuntimeNativeStackDiagnostics(failureDiagnosticsText)
     val snapshots = trace?.memorySnapshots.orEmpty()
     val before = snapshots.firstOrNull { it.stage == MEMORY_STAGE_BEFORE_GENERATE } ?: snapshots.firstOrNull()

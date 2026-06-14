@@ -43,6 +43,7 @@ val liteRtLmAndroidNpuExperimentDebugVersion = "0.10.0"
 val liteRtLmAndroidGalleryStackExperimentDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryStackGpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidGpuRuntimeAlignmentProbeDebugVersion = "0.11.0"
+val liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 
@@ -72,6 +73,7 @@ android {
         buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
         buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
         buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+        buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
         buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
     }
 
@@ -86,6 +88,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("npuExperiment") {
@@ -99,6 +102,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryStackExperiment") {
@@ -112,6 +116,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "true")
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryStackGpuProbe") {
@@ -125,6 +130,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "true")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("gpuRuntimeAlignmentProbe") {
@@ -138,6 +144,21 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "true")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
+            buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
+        }
+        create("standardGpuRuntimeMinimalProbe") {
+            dimension = "dispatchExperiment"
+            applicationIdSuffix = ".gpuminimalprobe"
+            versionNameSuffix = "-standardGpuRuntimeMinimalProbe"
+            buildConfigField("String", "CURRENT_FLAVOR", "\"standardGpuRuntimeMinimalProbe\"")
+            buildConfigField("Boolean", "QUALCOMM_DISPATCH_EXPERIMENT", "false")
+            buildConfigField("String", "DISPATCH_RUNTIME_SOURCE", "\"dev-only minimal GPU runtime probe using LiteRT/LiteRT-LM core pair only; source set app/src/standardGpuRuntimeMinimalProbeDebug/jniLibs/arm64-v8a is marker-only\"")
+            buildConfigField("Boolean", "NPU_BACKEND_INSTANTIATE_PROBE_ALLOWED", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
+            buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
+            buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "true")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("galleryAlignedNpuProbe") {
@@ -151,6 +172,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "true")
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "false")
         }
         create("customBuildExperiment") {
@@ -164,6 +186,7 @@ android {
             buildConfigField("Boolean", "GALLERY_STACK_EXPERIMENT", "false")
             buildConfigField("Boolean", "GALLERY_STACK_GPU_PROBE", "false")
             buildConfigField("Boolean", "RUNTIME_ALIGNMENT_PROBE", "false")
+            buildConfigField("Boolean", "MINIMAL_RUNTIME_PROBE", "false")
             buildConfigField("Boolean", "CUSTOM_BUILD_EXPERIMENT", "true")
         }
     }
@@ -213,6 +236,9 @@ android {
         create("gpuRuntimeAlignmentProbeDebug") {
             jniLibs.srcDir("src/gpuRuntimeAlignmentProbeDebug/jniLibs")
         }
+        create("standardGpuRuntimeMinimalProbeDebug") {
+            jniLibs.srcDir("src/standardGpuRuntimeMinimalProbeDebug/jniLibs")
+        }
         create("galleryAlignedNpuProbeDebug") {
             java.srcDir("src/npuExperimentDebug/java")
             manifest.srcFile("src/npuExperimentDebug/AndroidManifest.xml")
@@ -229,7 +255,7 @@ android {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) { variantBuilder ->
-        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "galleryStackGpuProbe" || it.second == "gpuRuntimeAlignmentProbe" || it.second == "galleryAlignedNpuProbe" || it.second == "customBuildExperiment") }) {
+        if (variantBuilder.productFlavors.any { it.first == "dispatchExperiment" && (it.second == "npuExperiment" || it.second == "galleryStackExperiment" || it.second == "galleryStackGpuProbe" || it.second == "gpuRuntimeAlignmentProbe" || it.second == "standardGpuRuntimeMinimalProbe" || it.second == "galleryAlignedNpuProbe" || it.second == "customBuildExperiment") }) {
             variantBuilder.enable = false
         }
     }
@@ -238,6 +264,7 @@ androidComponents {
         val liteRtLmVersion = when {
             variant.buildType == "debug" && flavor == "customBuildExperiment" -> liteRtLmAndroidCustomBuildExperimentDebugVersion
             variant.buildType == "debug" && flavor == "galleryAlignedNpuProbe" -> liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion
+            variant.buildType == "debug" && flavor == "standardGpuRuntimeMinimalProbe" -> liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion
             variant.buildType == "debug" && flavor == "gpuRuntimeAlignmentProbe" -> liteRtLmAndroidGpuRuntimeAlignmentProbeDebugVersion
             variant.buildType == "debug" && flavor == "galleryStackGpuProbe" -> liteRtLmAndroidGalleryStackGpuProbeDebugVersion
             variant.buildType == "debug" && flavor == "galleryStackExperiment" -> liteRtLmAndroidGalleryStackExperimentDebugVersion
@@ -880,6 +907,7 @@ dependencies {
     add("galleryStackExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryStackExperimentDebugVersion")
     add("galleryStackGpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryStackGpuProbeDebugVersion")
     add("gpuRuntimeAlignmentProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGpuRuntimeAlignmentProbeDebugVersion")
+    add("standardGpuRuntimeMinimalProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidStandardGpuRuntimeMinimalProbeDebugVersion")
     add("galleryAlignedNpuProbeImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion")
     add("customBuildExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidCustomBuildExperimentDebugVersion")
     releaseImplementation("com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidReleaseVersion")

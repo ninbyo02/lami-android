@@ -57,6 +57,20 @@ data class RuntimeAlignmentProbeDiagnostics(
     val successGate: String,
 )
 
+data class MinimalRuntimeProbeDiagnostics(
+    val flavor: Boolean,
+    val libLiteRtPresent: String,
+    val libLiteRtLmJniPresent: String,
+    val runtimeStackSource: String,
+    val resultCandidate: String,
+    val successGate: String,
+    val loadedLibLiteRtSha256: String,
+    val loadedLibLiteRtLmJniSha256: String,
+    val dispatchPresent: String,
+    val compilerPluginPresent: String,
+    val constraintProviderPresent: String,
+)
+
 data class LoadedRuntimeNativeStackDiagnostics(
     val sourceFlavor: String,
     val nativeLibraryDir: String,
@@ -116,11 +130,13 @@ internal fun isRuntimeAlignmentProbePropertyEnabled(): Boolean {
 }
 
 internal fun isGpuRuntimeProbePropertyEnabled(): Boolean =
-    isGalleryStackGpuProbePropertyEnabled() || isRuntimeAlignmentProbePropertyEnabled()
+    isGalleryStackGpuProbePropertyEnabled() ||
+        isRuntimeAlignmentProbePropertyEnabled() ||
+        (BuildConfig.DEBUG && BuildConfig.MINIMAL_RUNTIME_PROBE)
 
 internal fun shouldApplyGalleryStackGpuProbeAllowlistConfig(preferredBackend: String): Boolean =
     BuildConfig.DEBUG &&
-        (BuildConfig.GALLERY_STACK_GPU_PROBE || BuildConfig.RUNTIME_ALIGNMENT_PROBE) &&
+        (BuildConfig.GALLERY_STACK_GPU_PROBE || BuildConfig.RUNTIME_ALIGNMENT_PROBE || BuildConfig.MINIMAL_RUNTIME_PROBE) &&
         isGpuRuntimeProbePropertyEnabled() &&
         preferredBackend.equals("GPU", ignoreCase = true)
 
@@ -215,6 +231,35 @@ internal fun buildRuntimeAlignmentProbeDiagnostics(
         gemmaConstraintProviderPresent = nativeDir.nativeLibPresentDiagnostic("libGemmaModelConstraintProvider.so"),
         resultCandidate = resultCandidate,
         successGate = successGate,
+    )
+}
+
+internal fun buildMinimalRuntimeProbeDiagnostics(
+    nativeLibraryDir: String? = null,
+    resultCandidate: String = "unavailable",
+    successGate: String = "unavailable",
+): MinimalRuntimeProbeDiagnostics {
+    val nativeDir = nativeLibraryDir
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.let(::File)
+        ?: resolveNativeLibraryDirFromJavaLibraryPath()
+    return MinimalRuntimeProbeDiagnostics(
+        flavor = BuildConfig.MINIMAL_RUNTIME_PROBE,
+        libLiteRtPresent = nativeDir.nativeLibPresentDiagnostic("libLiteRt.so"),
+        libLiteRtLmJniPresent = nativeDir.nativeLibPresentDiagnostic("liblitertlm_jni.so"),
+        runtimeStackSource = if (BuildConfig.MINIMAL_RUNTIME_PROBE) {
+            BuildConfig.DISPATCH_RUNTIME_SOURCE
+        } else {
+            "not_minimal_runtime_probe_flavor"
+        },
+        resultCandidate = resultCandidate,
+        successGate = successGate,
+        loadedLibLiteRtSha256 = nativeDir.nativeLibSha256Diagnostic("libLiteRt.so"),
+        loadedLibLiteRtLmJniSha256 = nativeDir.nativeLibSha256Diagnostic("liblitertlm_jni.so"),
+        dispatchPresent = nativeDir.nativeLibPresentDiagnostic("libLiteRtDispatch_Qualcomm.so"),
+        compilerPluginPresent = nativeDir.nativeLibPresentDiagnostic("libLiteRtCompilerPlugin_Qualcomm.so"),
+        constraintProviderPresent = nativeDir.nativeLibPresentDiagnostic("libGemmaModelConstraintProvider.so"),
     )
 }
 

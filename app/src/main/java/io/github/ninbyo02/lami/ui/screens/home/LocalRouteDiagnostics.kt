@@ -678,6 +678,18 @@ internal fun buildLocalRouteDiagnosticTrace(
             flags = flags,
         ),
     )
+    val minimalRuntimeResultCandidate = resolveMinimalRuntimeProbeResultCandidate(
+        flags = flags,
+        failureStage = failureStage,
+    )
+    val minimalRuntimeProbe = buildMinimalRuntimeProbeDiagnostics(
+        nativeLibraryDir = context.nativeLibraryDir,
+        resultCandidate = minimalRuntimeResultCandidate,
+        successGate = resolveMinimalRuntimeProbeSuccessGate(
+            context = context,
+            flags = flags,
+        ),
+    )
     val loadedRuntimeNativeStack = buildLoadedRuntimeNativeStackDiagnostics(
         nativeLibraryDir = context.nativeLibraryDir,
         standardCandidateResult = standardGpuProbe.runtimeAlignmentCandidateResult,
@@ -928,11 +940,13 @@ internal fun buildLocalRouteDiagnosticTrace(
             buildGalleryStackGpuProbeRouteDiagnosticLines(galleryStackGpuProbe) +
             buildStandardGpuProbeRouteDiagnosticLines(standardGpuProbe) +
             buildRuntimeAlignmentProbeRouteDiagnosticLines(runtimeAlignmentProbe) +
+            buildMinimalRuntimeProbeRouteDiagnosticLines(minimalRuntimeProbe) +
             buildLoadedRuntimeNativeStackRouteDiagnosticLines(
                 diagnostics = loadedRuntimeNativeStack,
                 emit = context.preferredBackend.equals("GPU", ignoreCase = true) ||
                     standardGpuProbe.emit ||
-                    runtimeAlignmentProbe.flavor,
+                    runtimeAlignmentProbe.flavor ||
+                    minimalRuntimeProbe.flavor,
             ) +
             buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
         ).joinToString(" ")
@@ -1014,6 +1028,25 @@ private fun buildRuntimeAlignmentProbeRouteDiagnosticLines(
     )
 }
 
+private fun buildMinimalRuntimeProbeRouteDiagnosticLines(
+    diagnostics: MinimalRuntimeProbeDiagnostics,
+): List<String> {
+    if (!diagnostics.flavor) return emptyList()
+    return listOf(
+        "minimal_runtime_probe_flavor=${diagnostics.flavor}",
+        "minimal_runtime_probe_liblitert_present=${diagnostics.libLiteRtPresent}",
+        "minimal_runtime_probe_liblitertlm_jni_present=${diagnostics.libLiteRtLmJniPresent}",
+        "minimal_runtime_probe_runtime_stack_source=${diagnostics.runtimeStackSource.toDiagnosticValue()}",
+        "minimal_runtime_probe_result_candidate=${diagnostics.resultCandidate}",
+        "minimal_runtime_probe_success_gate=${diagnostics.successGate}",
+        "minimal_runtime_probe_loaded_liblitert_sha256=${diagnostics.loadedLibLiteRtSha256}",
+        "minimal_runtime_probe_loaded_liblitertlm_jni_sha256=${diagnostics.loadedLibLiteRtLmJniSha256}",
+        "minimal_runtime_probe_dispatch_present=${diagnostics.dispatchPresent}",
+        "minimal_runtime_probe_compiler_plugin_present=${diagnostics.compilerPluginPresent}",
+        "minimal_runtime_probe_constraint_provider_present=${diagnostics.constraintProviderPresent}",
+    )
+}
+
 private fun buildLoadedRuntimeNativeStackRouteDiagnosticLines(
     diagnostics: LoadedRuntimeNativeStackDiagnostics,
     emit: Boolean,
@@ -1048,6 +1081,33 @@ private fun resolveRuntimeAlignmentProbeResultCandidate(
     )
 
 private fun resolveRuntimeAlignmentProbeSuccessGate(
+    context: LocalRouteDiagnosticContext,
+    flags: LocalRouteDiagnosticFlags,
+): String =
+    (
+        context.preferredBackend.equals("GPU", ignoreCase = true) &&
+            (flags.gpuNormalRouteUseCallbackStreaming == true || flags.gpuCallbackStreamingPathSelected == true)
+        ).toString()
+
+internal fun resolveMinimalRuntimeProbeResultCandidateForDebug(
+    flags: LocalRouteDiagnosticFlags,
+    failureStage: String,
+): String =
+    resolveMinimalRuntimeProbeResultCandidate(
+        flags = flags,
+        failureStage = failureStage,
+    )
+
+private fun resolveMinimalRuntimeProbeResultCandidate(
+    flags: LocalRouteDiagnosticFlags,
+    failureStage: String,
+): String =
+    resolveStandardGpuProbeResultCandidate(
+        flags = flags,
+        failureStage = failureStage,
+    )
+
+private fun resolveMinimalRuntimeProbeSuccessGate(
     context: LocalRouteDiagnosticContext,
     flags: LocalRouteDiagnosticFlags,
 ): String =

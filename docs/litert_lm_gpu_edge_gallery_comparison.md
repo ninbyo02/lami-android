@@ -258,6 +258,7 @@ Phase 4 では、Status Code 13 を 60秒 watchdog timeout まで待たず、即
 - `gpu_generate_exception_error_file=runtime/executor/llm_litert_compiled_model_executor.cc`
 - `gpu_generate_exception_error_line=735`
 - `gpu_generate_exception_summary=failed_to_invoke_compiled_model`
+
 - `litert_lm_error_kind=compiled_model_invoke_failed`
 - `litert_lm_error_recoverability_hint=try_gpu_runtime_stack_alignment`
 - `gpu_watchdog_bypassed_due_to_generate_exception=true`
@@ -1075,6 +1076,60 @@ Standard promotion risk checklist:
 - Android packaging risks include duplicate native libs, strip warnings, `extractNativeLibs` / legacy packaging behavior,
   and ABI compatibility across `libLiteRt.so`, `liblitertlm_jni.so`, dispatch/compiler plugins, and support libs.
 - `standardDebug` must remain unchanged until a separate full-stack promotion design is approved.
+
+## GPU Phase 15: standardGpuRuntimeMinimalProbe
+
+`gpuRuntimeAlignmentProbeDebug` は同一 Edge Gallery E2B model で GPU callback streaming が成功し、`standardDebug`
+は同一 model でも `cc:735` / `failed_to_invoke_compiled_model` で失敗する。したがって、現在の主仮説は
+model identity ではなく runtime/native stack 差分である。
+
+直近の実機診断では `gpuRuntimeAlignmentProbeDebug` の成功時に以下が観測されている。
+
+- `runtime_stack_loaded_liblitert_present=true`
+- `runtime_stack_loaded_liblitertlm_jni_present=true`
+- `runtime_stack_loaded_dispatch_qualcomm_present=false`
+- `runtime_stack_loaded_compiler_plugin_qualcomm_present=false`
+- `runtime_stack_loaded_gemma_constraint_provider_present=false`
+
+このため、次の DEV-only 切り分けとして `standardGpuRuntimeMinimalProbeDebug` を追加する。目的は、成功に必要な
+最小 runtime alignment 候補が `libLiteRt.so` + `liblitertlm_jni.so` の core pair だけで足りるかを確認すること。
+
+Flavor:
+
+- Gradle flavor: `standardGpuRuntimeMinimalProbe`
+- Debug APK task: `./gradlew :app:assembleStandardGpuRuntimeMinimalProbeDebug`
+- Install task: `./gradlew :app:installStandardGpuRuntimeMinimalProbeDebug`
+- Application ID: `io.github.ninbyo02.lami.gpuminimalprobe`
+
+この flavor は isolated DEV probe であり、`standardDebug`, `galleryStackGpuProbeDebug`,
+`gpuRuntimeAlignmentProbeDebug` の runtime/native stack や production default を変更しない。
+`app/src/standardGpuRuntimeMinimalProbeDebug/jniLibs/arm64-v8a/` は marker-only で、`.so` 実体は git に追加しない。
+
+Diagnostics:
+
+- `minimal_runtime_probe_flavor`
+- `minimal_runtime_probe_liblitert_present`
+- `minimal_runtime_probe_liblitertlm_jni_present`
+- `minimal_runtime_probe_runtime_stack_source`
+- `minimal_runtime_probe_result_candidate`
+- `minimal_runtime_probe_success_gate`
+- `minimal_runtime_probe_loaded_liblitert_sha256`
+- `minimal_runtime_probe_loaded_liblitertlm_jni_sha256`
+- `minimal_runtime_probe_dispatch_present`
+- `minimal_runtime_probe_compiler_plugin_present`
+- `minimal_runtime_probe_constraint_provider_present`
+
+判定:
+
+- GPU callback streaming が成功し、`failure_stage=none` かつ `gpu_callback_text_promoted_to_ui=true` なら
+  `minimal_runtime_probe_result_candidate=success`。
+- 例外、timeout、`cc:735` などで失敗した場合は `minimal_runtime_probe_result_candidate=failure`。
+
+読み方:
+
+- `minimal_runtime_probe_result_candidate=success` なら、core pair alignment が主要条件である可能性が高くなる。
+- `failure` なら、`gpuRuntimeAlignmentProbeDebug` との差分にまだ別の packaging / dependency / lifecycle 条件が残る。
+- いずれの場合も、単体 `.so` 差し替えは禁止のまま。standard への昇格は isolated flavor での安定性試験後に段階判断する。
 
 ## 次の調査候補
 

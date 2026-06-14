@@ -274,6 +274,63 @@ Latest comparison result:
 - Highest-priority matched-stack candidates: `libLiteRt.so` and `liblitertlm_jni.so`.
 - Related review candidates: `libLiteRtDispatch_Qualcomm.so`, `libLiteRtCompilerPlugin_Qualcomm.so`, and `libGemmaModelConstraintProvider.so`.
 
+## standardGpuRuntimeMinimalProbe
+
+`gpuRuntimeAlignmentProbeDebug` の最新診断では、GPU 成功時に `libLiteRt.so` と `liblitertlm_jni.so` は loaded として見えている一方、`libLiteRtDispatch_Qualcomm.so`, `libLiteRtCompilerPlugin_Qualcomm.so`, `libGemmaModelConstraintProvider.so` は absent でも GPU callback streaming が成功している。
+
+このため、`standardDebug` を変更せず、追加の DEV-only flavor `standardGpuRuntimeMinimalProbe` で core pair 最小 alignment を切り分ける。
+
+Flavor:
+
+- `standardGpuRuntimeMinimalProbe`
+- Application ID: `io.github.ninbyo02.lami.gpuminimalprobe`
+- Build: `./gradlew :app:assembleStandardGpuRuntimeMinimalProbeDebug`
+- Install: `./gradlew :app:installStandardGpuRuntimeMinimalProbeDebug`
+
+Native source set:
+
+- `app/src/standardGpuRuntimeMinimalProbeDebug/jniLibs/arm64-v8a/`
+- marker-only。`.so` 実体は置かない。
+- Qualcomm dispatch/compiler/model constraint provider overlay は含めない。
+
+Diagnostics:
+
+- `minimal_runtime_probe_flavor`
+- `minimal_runtime_probe_liblitert_present`
+- `minimal_runtime_probe_liblitertlm_jni_present`
+- `minimal_runtime_probe_runtime_stack_source`
+- `minimal_runtime_probe_result_candidate`
+- `minimal_runtime_probe_success_gate`
+- `minimal_runtime_probe_loaded_liblitert_sha256`
+- `minimal_runtime_probe_loaded_liblitertlm_jni_sha256`
+- `minimal_runtime_probe_dispatch_present`
+- `minimal_runtime_probe_compiler_plugin_present`
+- `minimal_runtime_probe_constraint_provider_present`
+
+Manual verification:
+
+```bash
+./gradlew :app:installStandardGpuRuntimeMinimalProbeDebug
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell monkey -p io.github.ninbyo02.lami.gpuminimalprobe 1
+```
+
+In the app:
+
+- Model: `/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm`
+- Backend: GPU
+- Prompt: `こんにちは`, `カレーの材料をお願いします。`, `さっぱり系でお願いします。`
+
+Expected interpretation:
+
+- `minimal_runtime_probe_result_candidate=success`: `libLiteRt.so` + `liblitertlm_jni.so` core pair alignment is likely sufficient for the observed GPU success path.
+- `minimal_runtime_probe_result_candidate=failure`: `gpuRuntimeAlignmentProbeDebug` still has another relevant runtime/packaging/lifecycle difference.
+
+This flavor is a diagnostic split only. It does not promote GPU into `standardDebug`, and it does not relax the single `.so` replacement ban.
+
 Native stack classification for the promotion decision:
 
 | Library group | Promotion meaning |

@@ -902,6 +902,36 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `minimal runtime probe classifies callback streaming success`() {
+        val result = resolveMinimalRuntimeProbeResultCandidateForDebug(
+            flags = LocalRouteDiagnosticFlags(
+                gpuCallbackTextPromotedToUi = true,
+                gpuUiAppendFinished = true,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuCallbackStreamingPathSelected = true,
+            ),
+            failureStage = "none",
+        )
+
+        assertEquals("success", result)
+    }
+
+    @Test
+    fun `minimal runtime probe classifies GPU generate failure`() {
+        val result = resolveMinimalRuntimeProbeResultCandidateForDebug(
+            flags = LocalRouteDiagnosticFlags(
+                gpuGenerateExceptionSeen = true,
+                gpuGenerateExceptionStatusCode = "13",
+                gpuGenerateExceptionErrorLine = "735",
+                gpuCallbackStreamingPathSelected = true,
+            ),
+            failureStage = "gpu_generate_compiled_model_invoke_failed",
+        )
+
+        assertEquals("failure", result)
+    }
+
+    @Test
     fun `CPU and NPU routes do not emit GPU loaded runtime stack diagnostics`() {
         val cpuDiagnostics = buildLocalRouteDiagnosticTrace(
             stage = "success",
@@ -933,6 +963,8 @@ class LocalInferenceFailureCompactDiagnosticsTest {
 
         assertFalse(cpuDiagnostics.contains("runtime_stack_loaded_source_flavor="))
         assertFalse(npuDiagnostics.contains("runtime_stack_loaded_source_flavor="))
+        assertFalse(cpuDiagnostics.contains("minimal_runtime_probe_flavor="))
+        assertFalse(npuDiagnostics.contains("minimal_runtime_probe_flavor="))
         assertFalse(cpuDiagnostics.contains("standard_gpu_runtime_stack_mismatch_summary="))
         assertFalse(npuDiagnostics.contains("standard_gpu_runtime_stack_mismatch_summary="))
     }
@@ -1899,6 +1931,58 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("failure_stage=gpu_generate_compiled_model_invoke_failed"))
         assertTrue(compact.contains("litert_lm_error_kind=compiled_model_invoke_failed"))
         assertTrue(compact.contains("gpu_litert_executor_error_line=735"))
+    }
+
+    @Test
+    fun `failure compact includes minimal runtime probe diagnostics when provided`() {
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            LocalInferenceFailureCompactInput(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                status = "success",
+                reason = "gpu_callback_streaming_success",
+                failureStage = "none",
+                gpuCallbackStreamingPathSelected = "true",
+                gpuCallbackTextPromotedToUi = "true",
+                gpuUiAppendFinished = "true",
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuPrefillProbeDiagnostics = mapOf(
+                    "minimal_runtime_probe_flavor" to "true",
+                    "minimal_runtime_probe_liblitert_present" to "true",
+                    "minimal_runtime_probe_liblitertlm_jni_present" to "true",
+                    "minimal_runtime_probe_runtime_stack_source" to "core_pair_only",
+                    "minimal_runtime_probe_result_candidate" to "success",
+                    "minimal_runtime_probe_success_gate" to "true",
+                    "minimal_runtime_probe_loaded_liblitert_sha256" to
+                        "31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24",
+                    "minimal_runtime_probe_loaded_liblitertlm_jni_sha256" to
+                        "ac97fd1a7e3755eb77127599928011a7ecd75f3170749f034f568de1e0d27b6f",
+                    "minimal_runtime_probe_dispatch_present" to "false",
+                    "minimal_runtime_probe_compiler_plugin_present" to "false",
+                    "minimal_runtime_probe_constraint_provider_present" to "false",
+                ),
+            ),
+        )
+
+        assertTrue(compact.contains("minimal_runtime_probe_flavor=true"))
+        assertTrue(compact.contains("minimal_runtime_probe_liblitert_present=true"))
+        assertTrue(compact.contains("minimal_runtime_probe_liblitertlm_jni_present=true"))
+        assertTrue(compact.contains("minimal_runtime_probe_runtime_stack_source=core_pair_only"))
+        assertTrue(compact.contains("minimal_runtime_probe_result_candidate=success"))
+        assertTrue(compact.contains("minimal_runtime_probe_success_gate=true"))
+        assertTrue(
+            compact.contains(
+                "minimal_runtime_probe_loaded_liblitert_sha256=31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24",
+            ),
+        )
+        assertTrue(
+            compact.contains(
+                "minimal_runtime_probe_loaded_liblitertlm_jni_sha256=ac97fd1a7e3755eb77127599928011a7ecd75f3170749f034f568de1e0d27b6f",
+            ),
+        )
+        assertTrue(compact.contains("minimal_runtime_probe_dispatch_present=false"))
+        assertTrue(compact.contains("minimal_runtime_probe_compiler_plugin_present=false"))
+        assertTrue(compact.contains("minimal_runtime_probe_constraint_provider_present=false"))
     }
 
     @Test
