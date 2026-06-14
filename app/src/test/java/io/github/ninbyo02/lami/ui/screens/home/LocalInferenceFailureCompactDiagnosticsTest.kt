@@ -2317,6 +2317,210 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertFalse(npuText.contains("reflection_target_exception_class="))
     }
 
+    @Test
+    fun `GPU callback streaming success compact includes output quality diagnostics`() {
+        val context = buildGpuRouteContextForNewDiagnostics()
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = context,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateFinished = true,
+                conversationCreateStarted = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                gpuNormalRouteUseCallbackStreaming = true,
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackTextPromotedToUi = true,
+                gpuUiAppendFinished = true,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuOutputRawCallbackTextLength = 18,
+                gpuOutputRawCallbackTextHead = "こんにちは。材料です。",
+                gpuOutputRawCallbackTextTail = "こんにちは。材料です。",
+                gpuOutputPromotedTextLength = 18,
+                gpuOutputPromotedTextHead = "こんにちは。材料です。",
+                gpuOutputPromotedTextTail = "こんにちは。材料です。",
+                gpuOutputFinalAssistantTextLength = 18,
+                gpuOutputFinalAssistantTextHead = "こんにちは。材料です。",
+                gpuOutputFinalAssistantTextTail = "こんにちは。材料です。",
+                gpuOutputCallbackChunkCount = 3,
+                gpuOutputEmptyChunkCount = 0,
+                gpuOutputNonEmptyChunkCount = 3,
+            ),
+            elapsedMs = 2_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = routeDiagnostics),
+                status = "success",
+                reason = "gpu_callback_streaming_success",
+                routeContext = context,
+            ),
+        )
+
+        assertTrue(compact.contains("gpu_output_raw_callback_text_length=18"))
+        assertTrue(compact.contains("gpu_output_promoted_text_head=こんにちは。材料です。"))
+        assertTrue(compact.contains("gpu_output_final_assistant_text_tail=こんにちは。材料です。"))
+        assertTrue(compact.contains("gpu_output_callback_chunk_count=3"))
+        assertTrue(compact.contains("gpu_output_suspicious_fragment_detected=false"))
+        assertTrue(compact.contains("gpu_output_suspicious_fragment_reason=none"))
+    }
+
+    @Test
+    fun `GPU output suspicious fragment classifier detects synthetic corruption`() {
+        val reason = classifyGpuOutputSuspiciousFragmentReason(
+            rawSample = "材料は普通です。",
+            promotedSample = "材料は普通です。",
+            finalSample = "材料:** ml2 g）に）：：",
+            rawLength = 8,
+            finalLength = 18,
+            nonEmptyChunkCount = 4,
+        )
+
+        assertEquals("final_text_only_suspicious_after_ui_or_markdown", reason)
+    }
+
+    @Test
+    fun `GPU perf slow path classifier separates first token and tokenizer delays`() {
+        assertEquals(
+            "slow_first_token",
+            classifyGpuPerfSlowPathReason(
+                engineCreateOrReuse = "reuse",
+                engineAcquireElapsedMs = 100,
+                generateToFirstTokenMs = 2_500,
+                callbackTotalElapsedMs = 500,
+                visibleTokensPerSecond = "35.0",
+                tokenizerCountDurationMs = 0,
+            ),
+        )
+        assertEquals(
+            "slow_tokenizer_count",
+            classifyGpuPerfSlowPathReason(
+                engineCreateOrReuse = "reuse",
+                engineAcquireElapsedMs = 100,
+                generateToFirstTokenMs = 300,
+                callbackTotalElapsedMs = 500,
+                visibleTokensPerSecond = "35.0",
+                tokenizerCountDurationMs = 1_500,
+            ),
+        )
+    }
+
+    @Test
+    fun `GPU perf and holder lifecycle diagnostics are copied into compact`() {
+        val context = buildGpuRouteContextForNewDiagnostics()
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = context,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                failureStage = "none",
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                gpuNormalRouteUseCallbackStreaming = true,
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackTextPromotedToUi = true,
+                gpuUiAppendFinished = true,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuPerfEngineAcquireElapsedMs = 42,
+                gpuPerfEngineCreateOrReuse = "reuse",
+                gpuPerfConversationCreateElapsedMs = 12,
+                gpuPerfGenerateToFirstTokenMs = 350,
+                gpuPerfFirstToLastCallbackMs = 900,
+                gpuPerfCallbackTotalElapsedMs = 980,
+                gpuPerfLamiVisibleTokensPerSecond = "24.5",
+                gpuPerfTokenizerCountDurationMs = 75,
+                gpuHolderLifecycleEventAfterSuccess = "clear_after_success",
+                gpuHolderLifecycleLastActivityState = "background",
+                gpuHolderLifecycleLastAppVisibility = "background",
+                gpuHolderLifecycleClearTriggerElapsedMs = 10_000,
+                gpuHolderLifecycleClearAfterSuccessMs = 120,
+                gpuHolderLifecycleClearDuringActiveGenerate = false,
+                gpuHolderLifecycleClearAfterUiAppend = true,
+                gpuHolderLifecycleClearReasonDetail = "app-backgrounded",
+                gpuHolderLifecycleBackgroundDetectionSource = "HeldEngineLifecycleBridge.onStop",
+            ),
+            elapsedMs = 2_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = routeDiagnostics),
+                status = "success",
+                reason = "gpu_callback_streaming_success",
+                routeContext = context,
+            ),
+        )
+
+        assertTrue(compact.contains("gpu_perf_engine_acquire_elapsed_ms=42"))
+        assertTrue(compact.contains("gpu_perf_engine_create_or_reuse=reuse"))
+        assertTrue(compact.contains("gpu_perf_slow_path_detected=false"))
+        assertTrue(compact.contains("gpu_holder_lifecycle_clear_reason_detail=app-backgrounded"))
+        assertTrue(compact.contains("gpu_holder_lifecycle_clear_after_success_ms=120"))
+        assertTrue(compact.contains("gpu_holder_lifecycle_background_detection_source=HeldEngineLifecycleBridge.onStop"))
+    }
+
+    @Test
+    fun `GPU prefill probe disabled does not report normal generate blocking`() {
+        val trace = buildLocalRouteDiagnosticTrace(
+            stage = "generate_started",
+            context = buildGpuRouteContextForNewDiagnostics(),
+            flags = LocalRouteDiagnosticFlags(
+                gpuPrefillProbeEnabled = false,
+                gpuPrefillProbeRequested = false,
+                gpuPrefillProbeBlocksNormalGenerate = false,
+            ),
+        )
+
+        assertTrue(trace.contains("gpu_prefill_probe_enabled=false"))
+        assertTrue(trace.contains("gpu_prefill_probe_requested=false"))
+        assertTrue(trace.contains("gpu_prefill_probe_blocks_normal_generate=false"))
+        assertTrue(trace.contains("gpu_prefill_probe_block_reason=none"))
+    }
+
+    @Test
+    fun `GPU prefill probe enabled without held engine exposes clear block reason`() {
+        val probeText = buildGpuPrefillProbeStartBlockedDiagnosticsText(
+            reason = "no_held_engine",
+            useHeldEngineRequested = true,
+            heldEnginePresentBefore = false,
+            heldEngineAcquireResult = "blocked_no_held_engine",
+        )
+        val trace = buildLocalRouteDiagnosticTrace(
+            stage = "gpu_prefill_probe_start_blocked",
+            context = buildGpuRouteContextForNewDiagnostics(),
+            flags = LocalRouteDiagnosticFlags(
+                failureStage = "gpu_prefill_probe_start_blocked",
+                gpuPrefillProbeDiagnostics = extractGpuPrefillProbeDiagnostics(probeText),
+            ),
+        )
+
+        assertTrue(trace.contains("gpu_prefill_probe_enabled=true"))
+        assertTrue(trace.contains("gpu_prefill_probe_requested=true"))
+        assertTrue(trace.contains("gpu_prefill_probe_blocks_normal_generate=true"))
+        assertTrue(trace.contains("gpu_prefill_probe_block_reason=no_held_engine"))
+        assertTrue(trace.contains("gpu_prefill_probe_requires_held_engine=true"))
+        assertTrue(trace.contains("gpu_prefill_probe_held_engine_present=false"))
+    }
+
+    @Test
+    fun `CPU compact does not include GPU quality and minimal runtime candidate diagnostics without route trace`() {
+        val text = buildFailureText(PreferredBackendDryRunSetting.CPU)
+
+        assertFalse(text.contains("standard_gpu_minimal_runtime_candidate_flavor="))
+        assertFalse(text.contains("gpu_output_raw_callback_text_length="))
+        assertFalse(text.contains("gpu_perf_engine_acquire_elapsed_ms="))
+    }
+
     private fun buildFailureText(
         setting: PreferredBackendDryRunSetting,
         throwable: Throwable? = null,
@@ -2401,5 +2605,16 @@ class LocalInferenceFailureCompactDiagnosticsTest {
             gemmaConstraintProviderSha256 = "unavailable",
             fullStackCandidateUnit = "libLiteRt.so+liblitertlm_jni.so",
             alignmentInterpretation = "minimal_runtime_core_pair_candidate",
+        )
+
+    private fun buildGpuRouteContextForNewDiagnostics(): LocalRouteDiagnosticContext =
+        buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it-edge-gallery",
+            selectedModelFile = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+            selectedModelPath = "/models/gemma-4-E2B-it-edge-gallery.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
         )
 }

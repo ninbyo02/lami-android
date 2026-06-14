@@ -1098,8 +1098,41 @@ private class GenerateCallbackLifecycleTracker(
     private val callbackStreamingPathReason: String,
     private val heldEngineReused: Boolean?,
 ) {
+    private class DiagnosticTextWindow(
+        private val limit: Int = 120,
+    ) {
+        private val head = StringBuilder()
+        private val tail = StringBuilder()
+        var length: Int = 0
+            private set
+
+        fun append(text: String) {
+            if (text.isEmpty()) return
+            length += text.length
+            if (head.length < limit) {
+                head.append(text.take(limit - head.length))
+            }
+            tail.append(text)
+            if (tail.length > limit) {
+                tail.delete(0, tail.length - limit)
+            }
+        }
+
+        fun replace(text: String) {
+            head.clear()
+            tail.clear()
+            length = 0
+            append(text)
+        }
+
+        fun headText(): String = head.toString().ifBlank { "none" }
+
+        fun tailText(): String = tail.toString().ifBlank { "none" }
+    }
+
     private var generateCallEntered: Boolean = false
     private var generateCallReturned: Boolean = false
+    private var generateCallEnteredAtElapsedMs: Long? = null
     private var callbackInvokedCount: Int = 0
     private var callbackFirstInvokedAtElapsedMs: Long? = null
     private var callbackLastInvokedAtElapsedMs: Long? = null
@@ -1125,9 +1158,13 @@ private class GenerateCallbackLifecycleTracker(
     private var uiFirstVisibleTextElapsedMs: Long? = null
     private var streamingCompletionReason: String = "unavailable"
     private var streamingFinalTextLength: Int? = null
+    private val rawCallbackText = DiagnosticTextWindow()
+    private val promotedText = DiagnosticTextWindow()
+    private val finalAssistantText = DiagnosticTextWindow()
 
     fun markGenerateCallEntered() {
         generateCallEntered = true
+        generateCallEnteredAtElapsedMs = elapsedMs()
         firstTokenClassificationReason = "generate_call_entered_waiting_callback"
     }
 
@@ -1151,6 +1188,7 @@ private class GenerateCallbackLifecycleTracker(
         val text = extractedText.orEmpty()
         callbackLastTextLength = text.length
         callbackLastTextHead = text.take(80).ifBlank { "none" }
+        rawCallbackText.append(text)
         if (text.isBlank()) {
             callbackEmptyTextCount += 1
             firstTokenClassificationReason = if (done) {
@@ -1184,6 +1222,7 @@ private class GenerateCallbackLifecycleTracker(
     fun markUiAppendFinished(text: String) {
         uiAppendFinished = true
         callbackPromotedTextLength = text.length
+        promotedText.replace(text)
         if (text.isNotBlank()) {
             callbackTextPromotedToUi = true
             callbackPromotedNonEmptyCount += 1
@@ -1195,6 +1234,7 @@ private class GenerateCallbackLifecycleTracker(
 
     fun markStreamingCompleted(responseText: String?) {
         streamingFinalTextLength = responseText?.length
+        finalAssistantText.replace(responseText.orEmpty())
         streamingCompletionReason = if (responseText.isNullOrBlank()) {
             "flow_completed_blank_response"
         } else {
@@ -1258,6 +1298,40 @@ private class GenerateCallbackLifecycleTracker(
             gpuCallbackStreamingReusedHeldEngine = heldEngineReused.takeIf { callbackStreamingPathSelected },
             gpuCallbackStreamingCompletionReason = streamingCompletionReason.takeIf { callbackStreamingPathSelected },
             gpuCallbackStreamingFailureReason = resolveGpuCallbackStreamingFailureReason(),
+            gpuOutputRawCallbackTextLength = rawCallbackText.length.takeIf { callbackStreamingPathSelected },
+            gpuOutputRawCallbackTextHead = rawCallbackText.headText().takeIf { callbackStreamingPathSelected },
+            gpuOutputRawCallbackTextTail = rawCallbackText.tailText().takeIf { callbackStreamingPathSelected },
+            gpuOutputPromotedTextLength = promotedText.length.takeIf { callbackStreamingPathSelected },
+            gpuOutputPromotedTextHead = promotedText.headText().takeIf { callbackStreamingPathSelected },
+            gpuOutputPromotedTextTail = promotedText.tailText().takeIf { callbackStreamingPathSelected },
+            gpuOutputFinalAssistantTextLength = finalAssistantText.length.takeIf { callbackStreamingPathSelected },
+            gpuOutputFinalAssistantTextHead = finalAssistantText.headText().takeIf { callbackStreamingPathSelected },
+            gpuOutputFinalAssistantTextTail = finalAssistantText.tailText().takeIf { callbackStreamingPathSelected },
+            gpuOutputCallbackChunkCount = callbackInvokedCount.takeIf { callbackStreamingPathSelected },
+            gpuOutputEmptyChunkCount = callbackEmptyTextCount.takeIf { callbackStreamingPathSelected },
+            gpuOutputNonEmptyChunkCount = callbackNonEmptyTextCount.takeIf { callbackStreamingPathSelected },
+            gpuOutputSuspiciousFragmentReason = resolveGpuOutputSuspiciousReason().takeIf { callbackStreamingPathSelected },
+            gpuOutputSuspiciousFragmentDetected = (resolveGpuOutputSuspiciousReason() != "none").takeIf {
+                callbackStreamingPathSelected
+            },
+            gpuPerfEngineAcquireElapsedMs = base.gpuPerfEngineAcquireElapsedMs ?: base.engineCreateDurationMs,
+            gpuPerfEngineCreateOrReuse = base.gpuPerfEngineCreateOrReuse ?: when (heldEngineReused) {
+                true -> "reuse"
+                false -> "create"
+                null -> null
+            },
+            gpuPerfConversationCreateElapsedMs = base.gpuPerfConversationCreateElapsedMs,
+            gpuPerfGenerateToFirstTokenMs = base.gpuPerfGenerateToFirstTokenMs
+                ?: resolveGenerateToFirstTokenMs(),
+            gpuPerfFirstToLastCallbackMs = base.gpuPerfFirstToLastCallbackMs
+                ?: resolveFirstToLastCallbackMs(),
+            gpuPerfCallbackTotalElapsedMs = base.gpuPerfCallbackTotalElapsedMs
+                ?: resolveCallbackTotalElapsedMs(),
+            gpuPerfBackendTokensPerSecond = base.gpuPerfBackendTokensPerSecond,
+            gpuPerfLamiVisibleTokensPerSecond = base.gpuPerfLamiVisibleTokensPerSecond,
+            gpuPerfTokenizerCountDurationMs = base.gpuPerfTokenizerCountDurationMs,
+            gpuPerfSlowPathDetected = base.gpuPerfSlowPathDetected,
+            gpuPerfSlowPathReason = base.gpuPerfSlowPathReason,
             gpuGenerateCallEntered = generateCallEntered,
             gpuGenerateCallReturned = generateCallReturned,
             gpuCallbackInvokedCount = callbackInvokedCount,
@@ -1314,6 +1388,34 @@ private class GenerateCallbackLifecycleTracker(
             streamingCompletionReason == "flow_completed_non_empty_response" -> "none"
             else -> "in_progress"
         }
+    }
+
+    private fun resolveGpuOutputSuspiciousReason(): String =
+        classifyGpuOutputSuspiciousFragmentReason(
+            rawSample = "${rawCallbackText.headText()} ${rawCallbackText.tailText()}",
+            promotedSample = "${promotedText.headText()} ${promotedText.tailText()}",
+            finalSample = "${finalAssistantText.headText()} ${finalAssistantText.tailText()}",
+            rawLength = rawCallbackText.length,
+            finalLength = finalAssistantText.length,
+            nonEmptyChunkCount = callbackNonEmptyTextCount,
+        )
+
+    private fun resolveGenerateToFirstTokenMs(): Long? {
+        val enteredAt = generateCallEnteredAtElapsedMs ?: return null
+        val firstAt = firstNonEmptyTextElapsedMs ?: return null
+        return (firstAt - enteredAt).coerceAtLeast(0L)
+    }
+
+    private fun resolveFirstToLastCallbackMs(): Long? {
+        val firstAt = callbackFirstInvokedAtElapsedMs ?: return null
+        val lastAt = callbackLastInvokedAtElapsedMs ?: return null
+        return (lastAt - firstAt).coerceAtLeast(0L)
+    }
+
+    private fun resolveCallbackTotalElapsedMs(): Long? {
+        val enteredAt = generateCallEnteredAtElapsedMs ?: return null
+        val lastAt = callbackLastInvokedAtElapsedMs ?: return null
+        return (lastAt - enteredAt).coerceAtLeast(0L)
     }
 
     private fun resolveGpuCallbackSuccessClassification(): String =
@@ -1629,6 +1731,7 @@ internal suspend fun runWithHeldEngine(
     heldEngineReused: Boolean? = null,
     heldEnginePresentBeforeAcquire: Boolean? = null,
     heldEngineAcquireResult: String? = null,
+    heldEngineAcquireElapsedMs: Long? = null,
     previousTurnSuccess: String? = null,
     onRouteDiagnosticStage: (String) -> Unit = {},
     onPartial: (String) -> Unit,
@@ -1655,6 +1758,7 @@ internal suspend fun runWithHeldEngine(
     var firstTokenReceived = false
     var generateStartedElapsedMs: Long? = null
     var firstTokenElapsedMs: Long? = null
+    var conversationCreateElapsedMs: Long? = null
     val generateProbeMode = resolveGpuGenerateProbeModeForDebug(heldEngine.preferredBackendDryRunSetting)
     val normalRouteUseCallbackStreamingRequested = isGpuNormalRouteUseCallbackStreamingRequestedForDebug(
         preferredBackend = heldEngine.preferredBackendDryRunSetting,
@@ -1761,6 +1865,7 @@ internal suspend fun runWithHeldEngine(
                 heldEngineExists = true,
                 heldEngineReused = heldEngineReused,
                 engineCreateFinished = true,
+                engineCreateDurationMs = heldEngineAcquireElapsedMs,
                 conversationCreateStarted = true,
                 conversationCreateFinished = true,
                 generateStarted = true,
@@ -1777,6 +1882,9 @@ internal suspend fun runWithHeldEngine(
                 standardGpuRuntimeAlignmentCandidateModelSizeBytes = standardCandidateEligibility.modelSizeBytes,
                 standardGpuRuntimeAlignmentCandidateModelIdentityHint = standardCandidateEligibility.modelIdentityHint,
                 standardGpuRuntimeAlignmentCandidateRuntimeStack = standardCandidateEligibility.runtimeStack,
+                gpuPerfEngineAcquireElapsedMs = heldEngineAcquireElapsedMs,
+                gpuPerfEngineCreateOrReuse = if (heldEngineReused == true) "reuse" else "create",
+                gpuPerfConversationCreateElapsedMs = conversationCreateElapsedMs,
             ),
         )
     }
@@ -1791,6 +1899,7 @@ internal suspend fun runWithHeldEngine(
                 heldEngineExists = true,
                 heldEngineReused = heldEngineReused,
                 engineCreateFinished = true,
+                engineCreateDurationMs = heldEngineAcquireElapsedMs,
                 conversationCreateStarted = true,
                 conversationCreateFinished = true,
                 generateStarted = generateStarted,
@@ -1808,6 +1917,9 @@ internal suspend fun runWithHeldEngine(
                 standardGpuRuntimeAlignmentCandidateModelSizeBytes = standardCandidateEligibility.modelSizeBytes,
                 standardGpuRuntimeAlignmentCandidateModelIdentityHint = standardCandidateEligibility.modelIdentityHint,
                 standardGpuRuntimeAlignmentCandidateRuntimeStack = standardCandidateEligibility.runtimeStack,
+                gpuPerfEngineAcquireElapsedMs = heldEngineAcquireElapsedMs,
+                gpuPerfEngineCreateOrReuse = if (heldEngineReused == true) "reuse" else "create",
+                gpuPerfConversationCreateElapsedMs = conversationCreateElapsedMs,
             ),
         )
     }
@@ -1819,6 +1931,7 @@ internal suspend fun runWithHeldEngine(
             heldEngineExists = true,
             heldEngineReused = heldEngineReused,
             engineCreateFinished = true,
+            engineCreateDurationMs = heldEngineAcquireElapsedMs,
             conversationCreateStarted = true,
             conversationCreateFinished = true,
             generateStarted = generateStarted,
@@ -1841,7 +1954,14 @@ internal suspend fun runWithHeldEngine(
             standardGpuRuntimeAlignmentCandidateModelSizeBytes = standardCandidateEligibility.modelSizeBytes,
             standardGpuRuntimeAlignmentCandidateModelIdentityHint = standardCandidateEligibility.modelIdentityHint,
             standardGpuRuntimeAlignmentCandidateRuntimeStack = standardCandidateEligibility.runtimeStack,
+            gpuPerfEngineAcquireElapsedMs = heldEngineAcquireElapsedMs,
+            gpuPerfEngineCreateOrReuse = if (heldEngineReused == true) "reuse" else "create",
+            gpuPerfConversationCreateElapsedMs = conversationCreateElapsedMs,
         )
+
+    if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+        engineHolder.recordGpuGenerationStartedForDiagnostics()
+    }
 
     fun appendRunnerWhitespaceStage(
         stage: String,
@@ -1861,6 +1981,9 @@ internal suspend fun runWithHeldEngine(
             routeRunStartedAtMs = routeRunStartedAtMs,
             heldEngineReused = heldEngineReused,
             onRouteDiagnosticStage = onRouteDiagnosticStage,
+            onConversationCreateElapsedMs = { elapsedMs ->
+                conversationCreateElapsedMs = elapsedMs
+            },
             onConversationClosed = { outcome -> conversationOutcome = outcome },
         ) { conversation ->
             var generateImmediateFailure = false
@@ -1962,6 +2085,9 @@ internal suspend fun runWithHeldEngine(
                             )
                             onPartial(promotedText)
                             callbackTracker.markUiAppendFinished(promotedText)
+                            if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+                                engineHolder.recordGpuUiAppendFinishedForDiagnostics()
+                            }
                             appendRouteStage(
                                 stage = "generate_ui_append_finished",
                                 flags = currentGenerateCallbackFlags(),
@@ -2242,6 +2368,9 @@ internal suspend fun runWithHeldEngine(
                     )
                     onPartial(blockingResponse)
                     callbackTracker.markUiAppendFinished(blockingResponse)
+                    if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+                        engineHolder.recordGpuUiAppendFinishedForDiagnostics()
+                    }
                     appendRouteStage(
                         stage = "generate_ui_append_finished",
                         flags = currentGenerateCallbackFlags(),
@@ -2270,13 +2399,18 @@ internal suspend fun runWithHeldEngine(
             "UPSTREAM held-run error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
         )
         null
-    } ?: return null.also {
+    }
+    if (response == null) {
+        if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+            engineHolder.recordGpuGenerationFinishedForDiagnostics(success = false)
+        }
         recordMemorySnapshot(MEMORY_STAGE_GENERATION_FAILED)
         recordMemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
         failureDiagnosticsText?.let { text ->
             safeAppendTrace(appendTrace, "UPSTREAM held-run failure-diagnostics\n$text")
             runCatching { onFailureDiagnostics?.invoke(text) }
         }
+        return null
     }
 
     val closeSummary = RunCloseLifecycleSummary(
@@ -2313,6 +2447,9 @@ internal suspend fun runWithHeldEngine(
     )
     recordMemorySnapshot(MEMORY_STAGE_GENERATION_FINISHED)
     recordMemorySnapshot(MEMORY_STAGE_AFTER_RUNNER_DISPOSE)
+    if (heldEngine.preferredBackendDryRunSetting == PreferredBackendDryRunSetting.GPU) {
+        engineHolder.recordGpuGenerationFinishedForDiagnostics(success = true)
+    }
     return HeldEngineRunResult(
         responseText = response,
         startElapsedRealtimeMs = startElapsedRealtimeMs,
@@ -5075,11 +5212,13 @@ private suspend fun <T> runWithConversation(
     routeRunStartedAtMs: Long = SystemClock.elapsedRealtime(),
     heldEngineReused: Boolean? = null,
     onRouteDiagnosticStage: (String) -> Unit = {},
+    onConversationCreateElapsedMs: (Long) -> Unit = {},
     onConversationClosed: ((RunCloseTargetOutcome) -> Unit)? = null,
     block: suspend (conversation: Any) -> T?,
 ): T? {
     var conversation: Any? = null
     return try {
+        val conversationCreateStartedAtMs = SystemClock.elapsedRealtime()
         onRouteDiagnosticStage("conversation_create_started")
         routeDiagnosticContext?.let { diagnosticContext ->
             safeAppendTrace(
@@ -5104,6 +5243,7 @@ private suspend fun <T> runWithConversation(
             preferredBackendDryRunSetting = preferredBackendDryRunSetting,
             appendTrace = appendTrace,
         )
+        onConversationCreateElapsedMs((SystemClock.elapsedRealtime() - conversationCreateStartedAtMs).coerceAtLeast(0L))
         if (conversation == null) {
             onRouteDiagnosticStage("conversation_create_started")
             routeDiagnosticContext?.let { diagnosticContext ->

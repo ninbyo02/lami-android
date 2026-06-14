@@ -4752,6 +4752,7 @@ fun Home(
                                                                     context = context.applicationContext,
                                                                     message = "UPSTREAM held-acquire start modelPathTail=$modelPathTail",
                                                                 )
+                                                                val heldAcquireStartedAtMs = SystemClock.elapsedRealtime()
                                                                 suspend fun acquireHeldEngineForRun(): HeldLocalEngine? =
                                                                     if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
                                                                         val diagnosticResult = localInferenceEngineHolder.acquireWithDiagnostic(
@@ -4865,6 +4866,8 @@ fun Home(
                                                                 } else {
                                                                     acquireHeldEngineForRun()
                                                                 }
+                                                                val heldAcquireElapsedMs =
+                                                                    (SystemClock.elapsedRealtime() - heldAcquireStartedAtMs).coerceAtLeast(0L)
                                                                 val heldSnapshotAfterAcquire = localInferenceEngineHolder.getDevDiagnosticSnapshot()
                                                                 val heldEngineReused = heldSnapshotAfterAcquire.lastAcquireAction == "reused"
                                                                 appendLocalReflectionTrace(
@@ -4877,6 +4880,7 @@ fun Home(
                                                                             heldEngineReused = heldEngineReused,
                                                                             engineCreateStarted = engineCreateStarted,
                                                                             engineCreateFinished = if (engineCreateStarted) heldEngine != null else false,
+                                                                            engineCreateDurationMs = heldAcquireElapsedMs,
                                                                             engineConfigBuildStarted = gpuRouteProgressTracker.snapshot().engineConfigBuildStarted,
                                                                             engineConfigBuildFinished = gpuRouteProgressTracker.snapshot().engineConfigBuildFinished,
                                                                             engineInitializeStarted = gpuRouteProgressTracker.snapshot().engineInitializeStarted,
@@ -4964,6 +4968,7 @@ fun Home(
                                                                         } else {
                                                                             "created"
                                                                         },
+                                                                        heldEngineAcquireElapsedMs = heldAcquireElapsedMs,
                                                                         previousTurnSuccess = if (reusableHeldEngineBeforeAcquire) {
                                                                             "true"
                                                                         } else {

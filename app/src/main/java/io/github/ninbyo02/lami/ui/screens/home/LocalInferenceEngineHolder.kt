@@ -75,6 +75,15 @@ internal data class HeldEngineDevDiagnosticSnapshot(
     val heldEngineLastOwner: String? = null,
     val heldEngineLastFailureStage: String? = null,
     val heldEngineSnapshotBeforeDestroy: String? = null,
+    val gpuHolderLifecycleEventAfterSuccess: String? = null,
+    val gpuHolderLifecycleLastActivityState: String? = null,
+    val gpuHolderLifecycleLastAppVisibility: String? = null,
+    val gpuHolderLifecycleClearTriggerElapsedMs: Long? = null,
+    val gpuHolderLifecycleClearAfterSuccessMs: Long? = null,
+    val gpuHolderLifecycleClearDuringActiveGenerate: Boolean? = null,
+    val gpuHolderLifecycleClearAfterUiAppend: Boolean? = null,
+    val gpuHolderLifecycleClearReasonDetail: String? = null,
+    val gpuHolderLifecycleBackgroundDetectionSource: String? = null,
 )
 
 internal class LocalInferenceEngineHolder(
@@ -158,6 +167,16 @@ internal class LocalInferenceEngineHolder(
     private var heldEngineLastOwner: String? = null
     private var heldEngineLastFailureStage: String? = null
     private var heldEngineSnapshotBeforeDestroy: String? = null
+    private var gpuGenerateActive: Boolean = false
+    private var lastGpuGenerateStartedAtElapsedMs: Long? = null
+    private var lastGpuUiAppendFinishedAtElapsedMs: Long? = null
+    private var lastGpuGenerationSuccessAtElapsedMs: Long? = null
+    private var lastGpuHolderClearTriggerElapsedMs: Long? = null
+    private var lastGpuHolderClearAfterSuccessMs: Long? = null
+    private var lastGpuHolderClearDuringActiveGenerate: Boolean? = null
+    private var lastGpuHolderClearAfterUiAppend: Boolean? = null
+    private var lastGpuHolderLifecycleEventAfterSuccess: String? = null
+    private var lastGpuHolderLifecycleBackgroundDetectionSource: String? = null
 
     init {
         recordHeldEngineLifecycleEventLocked(
@@ -516,7 +535,45 @@ internal class LocalInferenceEngineHolder(
             heldEngineLastOwner = heldEngineLastOwner,
             heldEngineLastFailureStage = heldEngineLastFailureStage,
             heldEngineSnapshotBeforeDestroy = heldEngineSnapshotBeforeDestroy,
+            gpuHolderLifecycleEventAfterSuccess = lastGpuHolderLifecycleEventAfterSuccess,
+            gpuHolderLifecycleLastActivityState = if (appInForeground) "foreground" else "background",
+            gpuHolderLifecycleLastAppVisibility = if (appInForeground) "foreground" else "background",
+            gpuHolderLifecycleClearTriggerElapsedMs = lastGpuHolderClearTriggerElapsedMs,
+            gpuHolderLifecycleClearAfterSuccessMs = lastGpuHolderClearAfterSuccessMs,
+            gpuHolderLifecycleClearDuringActiveGenerate = lastGpuHolderClearDuringActiveGenerate,
+            gpuHolderLifecycleClearAfterUiAppend = lastGpuHolderClearAfterUiAppend,
+            gpuHolderLifecycleClearReasonDetail = heldEngineDestroyReason,
+            gpuHolderLifecycleBackgroundDetectionSource = lastGpuHolderLifecycleBackgroundDetectionSource,
         )
+    }
+
+    suspend fun recordGpuGenerationStartedForDiagnostics(
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+    ) {
+        mutex.withLock {
+            gpuGenerateActive = true
+            lastGpuGenerateStartedAtElapsedMs = nowElapsedMs
+        }
+    }
+
+    suspend fun recordGpuUiAppendFinishedForDiagnostics(
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+    ) {
+        mutex.withLock {
+            lastGpuUiAppendFinishedAtElapsedMs = nowElapsedMs
+        }
+    }
+
+    suspend fun recordGpuGenerationFinishedForDiagnostics(
+        success: Boolean,
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+    ) {
+        mutex.withLock {
+            gpuGenerateActive = false
+            if (success) {
+                lastGpuGenerationSuccessAtElapsedMs = nowElapsedMs
+            }
+        }
     }
 
     suspend fun hasReusableHeldEngineForKey(engineKey: HeldEngineKey): Boolean = mutex.withLock {
@@ -630,6 +687,7 @@ internal class LocalInferenceEngineHolder(
             applyLifecycleDecisionLocked(
                 current = held,
                 decision = decision,
+                nowElapsedMs = nowElapsedMs,
             )
         }
     }
@@ -769,11 +827,12 @@ internal class LocalInferenceEngineHolder(
         if (appInForeground) return
         val current = held ?: return
         if (nowElapsedMs - current.lastUsedAtElapsedMs < HELD_ENGINE_IDLE_TIMEOUT_MS) return
-        applyLifecycleDecisionLocked(
-            current = current,
-            decision = resolveLifecycleDecision(reason = "idle-timeout"),
-            appendTrace = appendTrace,
-        )
+            applyLifecycleDecisionLocked(
+                current = current,
+                decision = resolveLifecycleDecision(reason = "idle-timeout"),
+                nowElapsedMs = nowElapsedMs,
+                appendTrace = appendTrace,
+            )
     }
 
     private fun maybeReleaseBackgroundTimedOutEngineLocked(
@@ -785,6 +844,7 @@ internal class LocalInferenceEngineHolder(
         applyLifecycleDecisionLocked(
             current = held,
             decision = resolveLifecycleDecision(reason = "background-timeout"),
+            nowElapsedMs = nowElapsedMs,
             appendTrace = appendTrace,
         )
         appBackgroundedAtElapsedMs = null
@@ -796,17 +856,39 @@ internal class LocalInferenceEngineHolder(
         chatId: Int? = null,
         owner: String = detectHeldEngineLifecycleOwner(),
         failureStage: String? = null,
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
         appendTrace: ((String) -> Unit)? = null,
     ) {
         when (decision.action) {
             HeldEngineLifecycleAction.KEEP_HELD -> Unit
             HeldEngineLifecycleAction.CLOSE_AND_RECREATE -> {
                 val target = current ?: return
+                val clearAtElapsedMs = nowElapsedMs
                 val engineClassName = target.engineInstance.javaClass.name
                 val resolvedFailureStage = failureStage ?: resolveHeldEngineFailureStage(decision.clearReason)
                 heldEngineDestroyReason = decision.clearReason
                 heldEngineLastOwner = owner
                 heldEngineLastFailureStage = resolvedFailureStage
+                lastGpuHolderClearTriggerElapsedMs = clearAtElapsedMs
+                lastGpuHolderClearAfterSuccessMs = lastGpuGenerationSuccessAtElapsedMs?.let { successAt ->
+                    (clearAtElapsedMs - successAt).coerceAtLeast(0L)
+                }
+                lastGpuHolderClearDuringActiveGenerate = gpuGenerateActive
+                lastGpuHolderClearAfterUiAppend = lastGpuUiAppendFinishedAtElapsedMs?.let { uiAt ->
+                    lastGpuGenerateStartedAtElapsedMs?.let { startedAt ->
+                        uiAt >= startedAt && uiAt <= clearAtElapsedMs
+                    } ?: (uiAt <= clearAtElapsedMs)
+                }
+                lastGpuHolderLifecycleEventAfterSuccess = when {
+                    gpuGenerateActive -> "clear_during_active_generate"
+                    lastGpuHolderClearAfterSuccessMs != null -> "clear_after_success"
+                    else -> "clear_without_recorded_success"
+                }
+                lastGpuHolderLifecycleBackgroundDetectionSource = when (decision.clearReason) {
+                    "app-backgrounded" -> "HeldEngineLifecycleBridge.onStop"
+                    "background-timeout" -> "LocalInferenceEngineHolder.maybeReleaseBackgroundTimedOutEngine"
+                    else -> owner
+                }
                 heldEngineSnapshotBeforeDestroy = buildHeldEngineSnapshotBeforeDestroyLocked(
                     target = target,
                     reason = decision.clearReason,

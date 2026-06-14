@@ -1275,6 +1275,74 @@ flavor for deciding whether the minimal pair can move to a later gated Standard
 promotion phase after restart, repeated-turn, long-output, cleanup, CPU, and NPU
 regression checks.
 
+## GPU Phase 18: quality, speed, and holder lifecycle diagnostics
+
+`standardGpuMinimalRuntimeCandidateDebug` has reached GPU generation success with the minimal runtime pair. The next
+blocker is no longer runtime bring-up itself. The remaining investigation is:
+
+- output quality drift or corruption during long responses;
+- slow runs around 2-3 token/s;
+- holder cleanup after success, especially `app-backgrounded`;
+- accidental prefill probe opt-in blocking normal generation.
+
+Phase 18 adds diagnostics only. Production/default GPU remains disabled and `standardDebug` behavior is unchanged.
+
+Output-quality split:
+
+- `gpu_output_raw_callback_text_*`: LiteRT-LM callback text window before streaming join;
+- `gpu_output_promoted_text_*`: text promoted through callback streaming into UI;
+- `gpu_output_final_assistant_text_*`: final assistant text returned by the runner;
+- `gpu_output_suspicious_fragment_detected`;
+- `gpu_output_suspicious_fragment_reason`.
+
+These keys intentionally carry only length plus head/tail windows, not full responses. Use them to distinguish raw
+callback corruption from stream join / UI / Markdown presentation issues.
+
+Speed split:
+
+- `gpu_perf_engine_acquire_elapsed_ms`;
+- `gpu_perf_engine_create_or_reuse`;
+- `gpu_perf_conversation_create_elapsed_ms`;
+- `gpu_perf_generate_to_first_token_ms`;
+- `gpu_perf_first_to_last_callback_ms`;
+- `gpu_perf_callback_total_elapsed_ms`;
+- `gpu_perf_lami_visible_tokens_per_second`;
+- `gpu_perf_tokenizer_count_duration_ms`;
+- `gpu_perf_slow_path_detected`;
+- `gpu_perf_slow_path_reason`.
+
+Initial slow-path reasons are `slow_first_token`, `slow_callback_stream`, `slow_tokenizer_count`,
+`cold_engine_load`, `runtime_or_backend_slow`, and `none`.
+
+Holder lifecycle split:
+
+- `gpu_holder_lifecycle_event_after_success`;
+- `gpu_holder_lifecycle_last_activity_state`;
+- `gpu_holder_lifecycle_last_app_visibility`;
+- `gpu_holder_lifecycle_clear_trigger_elapsed_ms`;
+- `gpu_holder_lifecycle_clear_after_success_ms`;
+- `gpu_holder_lifecycle_clear_during_active_generate`;
+- `gpu_holder_lifecycle_clear_after_ui_append`;
+- `gpu_holder_lifecycle_clear_reason_detail`;
+- `gpu_holder_lifecycle_background_detection_source`.
+
+These keys are meant to show whether `app-backgrounded` came from the real Activity `onStop` bridge, a lifecycle
+misfire around keyboard/settings/monkey, or a success cleanup path. The implementation records diagnostics only; it
+does not suppress success cleanup yet.
+
+Prefill probe note:
+
+For normal GPU generation verification, keep the probe off:
+
+```bash
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+```
+
+If it is enabled, the diagnostic keys `gpu_prefill_probe_blocks_normal_generate` and
+`gpu_prefill_probe_block_reason` explain why normal generation was skipped. With `debug.lami.gpu_prefill_probe=false`,
+the expected value is `gpu_prefill_probe_blocks_normal_generate=false`.
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

@@ -126,6 +126,31 @@ internal data class LocalRouteDiagnosticFlags(
     val gpuCallbackStreamingReusedHeldEngine: Boolean? = null,
     val gpuCallbackStreamingCompletionReason: String? = null,
     val gpuCallbackStreamingFailureReason: String? = null,
+    val gpuOutputRawCallbackTextLength: Int? = null,
+    val gpuOutputRawCallbackTextHead: String? = null,
+    val gpuOutputRawCallbackTextTail: String? = null,
+    val gpuOutputPromotedTextLength: Int? = null,
+    val gpuOutputPromotedTextHead: String? = null,
+    val gpuOutputPromotedTextTail: String? = null,
+    val gpuOutputFinalAssistantTextLength: Int? = null,
+    val gpuOutputFinalAssistantTextHead: String? = null,
+    val gpuOutputFinalAssistantTextTail: String? = null,
+    val gpuOutputCallbackChunkCount: Int? = null,
+    val gpuOutputEmptyChunkCount: Int? = null,
+    val gpuOutputNonEmptyChunkCount: Int? = null,
+    val gpuOutputSuspiciousFragmentDetected: Boolean? = null,
+    val gpuOutputSuspiciousFragmentReason: String? = null,
+    val gpuPerfEngineAcquireElapsedMs: Long? = null,
+    val gpuPerfEngineCreateOrReuse: String? = null,
+    val gpuPerfConversationCreateElapsedMs: Long? = null,
+    val gpuPerfGenerateToFirstTokenMs: Long? = null,
+    val gpuPerfFirstToLastCallbackMs: Long? = null,
+    val gpuPerfCallbackTotalElapsedMs: Long? = null,
+    val gpuPerfBackendTokensPerSecond: String? = null,
+    val gpuPerfLamiVisibleTokensPerSecond: String? = null,
+    val gpuPerfTokenizerCountDurationMs: Long? = null,
+    val gpuPerfSlowPathDetected: Boolean? = null,
+    val gpuPerfSlowPathReason: String? = null,
     val standardGpuRuntimeAlignmentCandidateEnabled: Boolean? = null,
     val standardGpuRuntimeAlignmentCandidateEligible: Boolean? = null,
     val standardGpuRuntimeAlignmentCandidateBlockReason: String? = null,
@@ -148,6 +173,22 @@ internal data class LocalRouteDiagnosticFlags(
     val gpuAlignmentTurnIndexIfAvailable: String? = null,
     val gpuAlignmentPreviousTurnSuccess: String? = null,
     val gpuAlignmentPreviousTurnFailureStage: String? = null,
+    val gpuHolderLifecycleEventAfterSuccess: String? = null,
+    val gpuHolderLifecycleLastActivityState: String? = null,
+    val gpuHolderLifecycleLastAppVisibility: String? = null,
+    val gpuHolderLifecycleClearTriggerElapsedMs: Long? = null,
+    val gpuHolderLifecycleClearAfterSuccessMs: Long? = null,
+    val gpuHolderLifecycleClearDuringActiveGenerate: Boolean? = null,
+    val gpuHolderLifecycleClearAfterUiAppend: Boolean? = null,
+    val gpuHolderLifecycleClearReasonDetail: String? = null,
+    val gpuHolderLifecycleBackgroundDetectionSource: String? = null,
+    val gpuPrefillProbeEnabled: Boolean? = null,
+    val gpuPrefillProbeRequested: Boolean? = null,
+    val gpuPrefillProbeBlocksNormalGenerate: Boolean? = null,
+    val gpuPrefillProbeBlockReason: String? = null,
+    val gpuPrefillProbeRequiresHeldEngine: Boolean? = null,
+    val gpuPrefillProbeHeldEnginePresent: Boolean? = null,
+    val gpuPrefillProbeDisableRecommendation: String? = null,
 )
 
 private val GPU_ALIGNMENT_APP_PROCESS_START_MARKER: String = System.currentTimeMillis().toString()
@@ -168,6 +209,59 @@ private data class GpuAlignmentHolderDiagnostics(
     val turnIndexIfAvailable: String,
     val previousTurnSuccess: String,
     val previousTurnFailureStage: String,
+)
+
+private data class GpuOutputQualityDiagnostics(
+    val rawLength: String,
+    val rawHead: String,
+    val rawTail: String,
+    val promotedLength: String,
+    val promotedHead: String,
+    val promotedTail: String,
+    val finalLength: String,
+    val finalHead: String,
+    val finalTail: String,
+    val chunkCount: String,
+    val emptyChunkCount: String,
+    val nonEmptyChunkCount: String,
+    val suspiciousDetected: String,
+    val suspiciousReason: String,
+)
+
+private data class GpuPerformanceDiagnostics(
+    val engineAcquireElapsedMs: String,
+    val engineCreateOrReuse: String,
+    val conversationCreateElapsedMs: String,
+    val generateToFirstTokenMs: String,
+    val firstToLastCallbackMs: String,
+    val callbackTotalElapsedMs: String,
+    val backendTokensPerSecond: String,
+    val lamiVisibleTokensPerSecond: String,
+    val tokenizerCountDurationMs: String,
+    val slowPathDetected: String,
+    val slowPathReason: String,
+)
+
+private data class GpuHolderLifecycleDiagnostics(
+    val eventAfterSuccess: String,
+    val lastActivityState: String,
+    val lastAppVisibility: String,
+    val clearTriggerElapsedMs: String,
+    val clearAfterSuccessMs: String,
+    val clearDuringActiveGenerate: String,
+    val clearAfterUiAppend: String,
+    val clearReasonDetail: String,
+    val backgroundDetectionSource: String,
+)
+
+private data class GpuPrefillProbeClarityDiagnostics(
+    val enabled: String,
+    val requested: String,
+    val blocksNormalGenerate: String,
+    val blockReason: String,
+    val requiresHeldEngine: String,
+    val heldEnginePresent: String,
+    val disableRecommendation: String,
 )
 
 internal data class GpuRouteConfigDiagnostics(
@@ -760,6 +854,207 @@ private fun classifyGpuAlignmentHolderReuseBlockReason(
         else -> "unsupported_or_unknown"
     }
 
+private fun buildGpuOutputQualityDiagnostics(flags: LocalRouteDiagnosticFlags): GpuOutputQualityDiagnostics {
+    val suspiciousReason = flags.gpuOutputSuspiciousFragmentReason
+        ?: classifyGpuOutputSuspiciousFragmentReason(
+            rawSample = listOfNotNull(flags.gpuOutputRawCallbackTextHead, flags.gpuOutputRawCallbackTextTail)
+                .joinToString(" "),
+            promotedSample = listOfNotNull(flags.gpuOutputPromotedTextHead, flags.gpuOutputPromotedTextTail)
+                .joinToString(" "),
+            finalSample = listOfNotNull(flags.gpuOutputFinalAssistantTextHead, flags.gpuOutputFinalAssistantTextTail)
+                .joinToString(" "),
+            rawLength = flags.gpuOutputRawCallbackTextLength,
+            finalLength = flags.gpuOutputFinalAssistantTextLength,
+            nonEmptyChunkCount = flags.gpuOutputNonEmptyChunkCount,
+        )
+    val suspiciousDetected = flags.gpuOutputSuspiciousFragmentDetected
+        ?: (suspiciousReason != "none" && suspiciousReason != "unavailable")
+    return GpuOutputQualityDiagnostics(
+        rawLength = flags.gpuOutputRawCallbackTextLength?.toString() ?: "unavailable",
+        rawHead = flags.gpuOutputRawCallbackTextHead.toDiagnosticValue(),
+        rawTail = flags.gpuOutputRawCallbackTextTail.toDiagnosticValue(),
+        promotedLength = flags.gpuOutputPromotedTextLength?.toString() ?: "unavailable",
+        promotedHead = flags.gpuOutputPromotedTextHead.toDiagnosticValue(),
+        promotedTail = flags.gpuOutputPromotedTextTail.toDiagnosticValue(),
+        finalLength = flags.gpuOutputFinalAssistantTextLength?.toString() ?: "unavailable",
+        finalHead = flags.gpuOutputFinalAssistantTextHead.toDiagnosticValue(),
+        finalTail = flags.gpuOutputFinalAssistantTextTail.toDiagnosticValue(),
+        chunkCount = flags.gpuOutputCallbackChunkCount?.toString() ?: "unavailable",
+        emptyChunkCount = flags.gpuOutputEmptyChunkCount?.toString() ?: "unavailable",
+        nonEmptyChunkCount = flags.gpuOutputNonEmptyChunkCount?.toString() ?: "unavailable",
+        suspiciousDetected = suspiciousDetected.toString(),
+        suspiciousReason = suspiciousReason,
+    )
+}
+
+internal fun classifyGpuOutputSuspiciousFragmentReason(
+    rawSample: String,
+    promotedSample: String,
+    finalSample: String,
+    rawLength: Int?,
+    finalLength: Int?,
+    nonEmptyChunkCount: Int?,
+): String {
+    val samplePattern = Regex(":\\*\\*|ml2|g）に）：：|[：:]{3,}|[)）]{4,}|[*＊]{4,}|[{}\\[\\]]{8,}")
+    val rawSuspicious = samplePattern.containsMatchIn(rawSample)
+    val promotedSuspicious = samplePattern.containsMatchIn(promotedSample)
+    val finalSuspicious = samplePattern.containsMatchIn(finalSample)
+    val safeNonEmptyChunkCount = nonEmptyChunkCount ?: 0
+    val averageRawChunkLength = if (safeNonEmptyChunkCount > 0 && rawLength != null) {
+        rawLength.toDouble() / safeNonEmptyChunkCount
+    } else {
+        null
+    }
+    return when {
+        safeNonEmptyChunkCount >= 24 && averageRawChunkLength != null && averageRawChunkLength <= 2.0 ->
+            "many_tiny_fragments"
+        finalSuspicious && !rawSuspicious && !promotedSuspicious -> "final_text_only_suspicious_after_ui_or_markdown"
+        promotedSuspicious && !rawSuspicious -> "promoted_text_suspicious_after_stream_join"
+        rawSuspicious -> "raw_callback_suspicious_fragment"
+        finalLength != null && rawLength != null && finalLength > rawLength * 3 && rawLength > 0 ->
+            "final_text_expanded_unexpectedly"
+        else -> "none"
+    }
+}
+
+private fun buildGpuPerformanceDiagnostics(flags: LocalRouteDiagnosticFlags): GpuPerformanceDiagnostics {
+    val engineCreateOrReuse = flags.gpuPerfEngineCreateOrReuse ?: when (flags.heldEngineReused) {
+        true -> "reuse"
+        false -> "create"
+        null -> "unavailable"
+    }
+    val visibleTps = flags.gpuPerfLamiVisibleTokensPerSecond
+        ?: estimateVisibleTokensPerSecond(
+            charLength = flags.gpuOutputPromotedTextLength ?: flags.gpuOutputFinalAssistantTextLength,
+            elapsedMs = flags.gpuPerfFirstToLastCallbackMs ?: flags.gpuPerfCallbackTotalElapsedMs,
+        )
+    val slowReason = flags.gpuPerfSlowPathReason
+        ?: classifyGpuPerfSlowPathReason(
+            engineCreateOrReuse = engineCreateOrReuse,
+            engineAcquireElapsedMs = flags.gpuPerfEngineAcquireElapsedMs,
+            generateToFirstTokenMs = flags.gpuPerfGenerateToFirstTokenMs,
+            callbackTotalElapsedMs = flags.gpuPerfCallbackTotalElapsedMs,
+            visibleTokensPerSecond = visibleTps,
+            tokenizerCountDurationMs = flags.gpuPerfTokenizerCountDurationMs,
+        )
+    val slowDetected = flags.gpuPerfSlowPathDetected
+        ?: (slowReason != "none" && slowReason != "unavailable")
+    return GpuPerformanceDiagnostics(
+        engineAcquireElapsedMs = flags.gpuPerfEngineAcquireElapsedMs?.toString() ?: "unavailable",
+        engineCreateOrReuse = engineCreateOrReuse,
+        conversationCreateElapsedMs = flags.gpuPerfConversationCreateElapsedMs?.toString() ?: "unavailable",
+        generateToFirstTokenMs = flags.gpuPerfGenerateToFirstTokenMs?.toString() ?: "unavailable",
+        firstToLastCallbackMs = flags.gpuPerfFirstToLastCallbackMs?.toString() ?: "unavailable",
+        callbackTotalElapsedMs = flags.gpuPerfCallbackTotalElapsedMs?.toString() ?: "unavailable",
+        backendTokensPerSecond = flags.gpuPerfBackendTokensPerSecond ?: "unavailable",
+        lamiVisibleTokensPerSecond = visibleTps,
+        tokenizerCountDurationMs = flags.gpuPerfTokenizerCountDurationMs?.toString() ?: "unavailable",
+        slowPathDetected = slowDetected.toString(),
+        slowPathReason = slowReason,
+    )
+}
+
+private fun estimateVisibleTokensPerSecond(
+    charLength: Int?,
+    elapsedMs: Long?,
+): String {
+    if (charLength == null || elapsedMs == null || elapsedMs <= 0L) return "unavailable"
+    val estimatedTokens = (charLength / 4.0).coerceAtLeast(1.0)
+    return "%.1f".format(java.util.Locale.US, estimatedTokens * 1000.0 / elapsedMs)
+}
+
+internal fun classifyGpuPerfSlowPathReason(
+    engineCreateOrReuse: String,
+    engineAcquireElapsedMs: Long?,
+    generateToFirstTokenMs: Long?,
+    callbackTotalElapsedMs: Long?,
+    visibleTokensPerSecond: String,
+    tokenizerCountDurationMs: Long?,
+): String {
+    val visibleTps = visibleTokensPerSecond.toDoubleOrNull()
+    return when {
+        generateToFirstTokenMs != null && generateToFirstTokenMs > 2_000L -> "slow_first_token"
+        tokenizerCountDurationMs != null && tokenizerCountDurationMs > 1_000L -> "slow_tokenizer_count"
+        engineCreateOrReuse == "create" && engineAcquireElapsedMs != null && engineAcquireElapsedMs > 2_000L ->
+            "cold_engine_load"
+        callbackTotalElapsedMs != null && visibleTps != null && visibleTps < 8.0 -> "slow_callback_stream"
+        engineCreateOrReuse == "reuse" && visibleTps != null && visibleTps < 8.0 -> "runtime_or_backend_slow"
+        else -> "none"
+    }
+}
+
+private fun buildGpuHolderLifecycleDiagnostics(flags: LocalRouteDiagnosticFlags): GpuHolderLifecycleDiagnostics {
+    val clearReason = flags.gpuHolderLifecycleClearReasonDetail
+        ?: flags.gpuAlignmentHolderClearReason
+        ?: flags.heldEngineDestroyReason
+        ?: "unavailable"
+    val eventAfterSuccess = flags.gpuHolderLifecycleEventAfterSuccess
+        ?: when {
+            flags.gpuHolderLifecycleClearAfterSuccessMs != null -> "clear_after_success"
+            flags.gpuHolderLifecycleClearDuringActiveGenerate == true -> "clear_during_active_generate"
+            clearReason != "unavailable" -> "clear_without_recorded_success"
+            else -> "none"
+        }
+    val backgroundSource = flags.gpuHolderLifecycleBackgroundDetectionSource
+        ?: when {
+            clearReason == "app-backgrounded" -> "HeldEngineLifecycleBridge.onStop"
+            clearReason == "background-timeout" -> "LocalInferenceEngineHolder.background_timeout"
+            else -> "unavailable"
+        }
+    val visibility = flags.gpuHolderLifecycleLastAppVisibility
+        ?: when (flags.gpuHolderLifecycleLastActivityState) {
+            "background" -> "background"
+            "foreground" -> "foreground"
+            else -> "unavailable"
+        }
+    return GpuHolderLifecycleDiagnostics(
+        eventAfterSuccess = eventAfterSuccess,
+        lastActivityState = flags.gpuHolderLifecycleLastActivityState ?: "unavailable",
+        lastAppVisibility = visibility,
+        clearTriggerElapsedMs = flags.gpuHolderLifecycleClearTriggerElapsedMs?.toString() ?: "unavailable",
+        clearAfterSuccessMs = flags.gpuHolderLifecycleClearAfterSuccessMs?.toString() ?: "unavailable",
+        clearDuringActiveGenerate = flags.gpuHolderLifecycleClearDuringActiveGenerate.toDiagnosticValue(),
+        clearAfterUiAppend = flags.gpuHolderLifecycleClearAfterUiAppend.toDiagnosticValue(),
+        clearReasonDetail = clearReason,
+        backgroundDetectionSource = backgroundSource,
+    )
+}
+
+private fun buildGpuPrefillProbeClarityDiagnostics(
+    flags: LocalRouteDiagnosticFlags,
+): GpuPrefillProbeClarityDiagnostics {
+    val parsed = flags.gpuPrefillProbeDiagnostics
+    val requested = flags.gpuPrefillProbeRequested
+        ?: parsed["probe_requested"]?.toBooleanStrictOrNull()
+        ?: false
+    val enabled = flags.gpuPrefillProbeEnabled
+        ?: parsed["probe_enabled"]?.toBooleanStrictOrNull()
+        ?: false
+    val blocks = flags.gpuPrefillProbeBlocksNormalGenerate
+        ?: parsed["probe_skipped_normal_generate"]?.toBooleanStrictOrNull()
+        ?: false
+    val reason = flags.gpuPrefillProbeBlockReason
+        ?: parsed["probe_start_blocked_reason"]
+        ?: parsed["probe_normal_generate_blocked_reason"]
+        ?: if (blocks) "probe_opt_in_runs_without_normal_generate" else "none"
+    val requiresHeld = flags.gpuPrefillProbeRequiresHeldEngine
+        ?: parsed["probe_use_held_engine_requested"]?.toBooleanStrictOrNull()
+        ?: false
+    val heldPresent = flags.gpuPrefillProbeHeldEnginePresent
+        ?: parsed["probe_held_engine_present_before"]?.toBooleanStrictOrNull()
+    val recommendation = flags.gpuPrefillProbeDisableRecommendation
+        ?: if (blocks) "set_debug.lami.gpu_prefill_probe_false_for_normal_generation" else "none"
+    return GpuPrefillProbeClarityDiagnostics(
+        enabled = enabled.toString(),
+        requested = requested.toString(),
+        blocksNormalGenerate = (enabled && blocks).toString(),
+        blockReason = if (enabled && blocks) reason else "none",
+        requiresHeldEngine = requiresHeld.toString(),
+        heldEnginePresent = heldPresent.toDiagnosticValue(),
+        disableRecommendation = recommendation,
+    )
+}
+
 internal fun buildLocalRouteDiagnosticTrace(
     stage: String,
     context: LocalRouteDiagnosticContext,
@@ -895,6 +1190,10 @@ internal fun buildLocalRouteDiagnosticTrace(
         flags = flags,
         failureStage = failureStage,
     )
+    val gpuOutputQuality = buildGpuOutputQualityDiagnostics(flags)
+    val gpuPerformance = buildGpuPerformanceDiagnostics(flags)
+    val gpuHolderLifecycle = buildGpuHolderLifecycleDiagnostics(flags)
+    val gpuPrefillProbe = buildGpuPrefillProbeClarityDiagnostics(flags)
     return (
         listOf(
         "LOCAL_ROUTE_DIAG",
@@ -1106,6 +1405,47 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_callback_streaming_reused_held_engine=${flags.gpuCallbackStreamingReusedHeldEngine.toDiagnosticValue()}",
         "gpu_callback_streaming_completion_reason=${flags.gpuCallbackStreamingCompletionReason.toDiagnosticValue()}",
         "gpu_callback_streaming_failure_reason=${flags.gpuCallbackStreamingFailureReason.toDiagnosticValue()}",
+        "gpu_output_raw_callback_text_length=${gpuOutputQuality.rawLength}",
+        "gpu_output_raw_callback_text_head=${gpuOutputQuality.rawHead}",
+        "gpu_output_raw_callback_text_tail=${gpuOutputQuality.rawTail}",
+        "gpu_output_promoted_text_length=${gpuOutputQuality.promotedLength}",
+        "gpu_output_promoted_text_head=${gpuOutputQuality.promotedHead}",
+        "gpu_output_promoted_text_tail=${gpuOutputQuality.promotedTail}",
+        "gpu_output_final_assistant_text_length=${gpuOutputQuality.finalLength}",
+        "gpu_output_final_assistant_text_head=${gpuOutputQuality.finalHead}",
+        "gpu_output_final_assistant_text_tail=${gpuOutputQuality.finalTail}",
+        "gpu_output_callback_chunk_count=${gpuOutputQuality.chunkCount}",
+        "gpu_output_empty_chunk_count=${gpuOutputQuality.emptyChunkCount}",
+        "gpu_output_non_empty_chunk_count=${gpuOutputQuality.nonEmptyChunkCount}",
+        "gpu_output_suspicious_fragment_detected=${gpuOutputQuality.suspiciousDetected}",
+        "gpu_output_suspicious_fragment_reason=${gpuOutputQuality.suspiciousReason}",
+        "gpu_perf_engine_acquire_elapsed_ms=${gpuPerformance.engineAcquireElapsedMs}",
+        "gpu_perf_engine_create_or_reuse=${gpuPerformance.engineCreateOrReuse}",
+        "gpu_perf_conversation_create_elapsed_ms=${gpuPerformance.conversationCreateElapsedMs}",
+        "gpu_perf_generate_to_first_token_ms=${gpuPerformance.generateToFirstTokenMs}",
+        "gpu_perf_first_to_last_callback_ms=${gpuPerformance.firstToLastCallbackMs}",
+        "gpu_perf_callback_total_elapsed_ms=${gpuPerformance.callbackTotalElapsedMs}",
+        "gpu_perf_backend_tokens_per_second=${gpuPerformance.backendTokensPerSecond}",
+        "gpu_perf_lami_visible_tokens_per_second=${gpuPerformance.lamiVisibleTokensPerSecond}",
+        "gpu_perf_tokenizer_count_duration_ms=${gpuPerformance.tokenizerCountDurationMs}",
+        "gpu_perf_slow_path_detected=${gpuPerformance.slowPathDetected}",
+        "gpu_perf_slow_path_reason=${gpuPerformance.slowPathReason}",
+        "gpu_holder_lifecycle_event_after_success=${gpuHolderLifecycle.eventAfterSuccess}",
+        "gpu_holder_lifecycle_last_activity_state=${gpuHolderLifecycle.lastActivityState}",
+        "gpu_holder_lifecycle_last_app_visibility=${gpuHolderLifecycle.lastAppVisibility}",
+        "gpu_holder_lifecycle_clear_trigger_elapsed_ms=${gpuHolderLifecycle.clearTriggerElapsedMs}",
+        "gpu_holder_lifecycle_clear_after_success_ms=${gpuHolderLifecycle.clearAfterSuccessMs}",
+        "gpu_holder_lifecycle_clear_during_active_generate=${gpuHolderLifecycle.clearDuringActiveGenerate}",
+        "gpu_holder_lifecycle_clear_after_ui_append=${gpuHolderLifecycle.clearAfterUiAppend}",
+        "gpu_holder_lifecycle_clear_reason_detail=${gpuHolderLifecycle.clearReasonDetail}",
+        "gpu_holder_lifecycle_background_detection_source=${gpuHolderLifecycle.backgroundDetectionSource}",
+        "gpu_prefill_probe_enabled=${gpuPrefillProbe.enabled}",
+        "gpu_prefill_probe_requested=${gpuPrefillProbe.requested}",
+        "gpu_prefill_probe_blocks_normal_generate=${gpuPrefillProbe.blocksNormalGenerate}",
+        "gpu_prefill_probe_block_reason=${gpuPrefillProbe.blockReason}",
+        "gpu_prefill_probe_requires_held_engine=${gpuPrefillProbe.requiresHeldEngine}",
+        "gpu_prefill_probe_held_engine_present=${gpuPrefillProbe.heldEnginePresent}",
+        "gpu_prefill_probe_disable_recommendation=${gpuPrefillProbe.disableRecommendation}",
         "gpu_litert_executor_error_file=${gpuFailureClassification.executorErrorFile}",
         "gpu_litert_executor_error_line=${gpuFailureClassification.executorErrorLine}",
         "gpu_litert_compiled_model_error_file=${gpuFailureClassification.compiledModelErrorFile}",
@@ -1381,6 +1721,24 @@ internal fun LocalRouteDiagnosticFlags.withHeldEngineSnapshot(
             ?: GPU_ALIGNMENT_APP_PROCESS_START_MARKER,
         gpuAlignmentPreviousTurnFailureStage = gpuAlignmentPreviousTurnFailureStage
             ?: snapshot.heldEngineLastFailureStage,
+        gpuHolderLifecycleEventAfterSuccess = gpuHolderLifecycleEventAfterSuccess
+            ?: snapshot.gpuHolderLifecycleEventAfterSuccess,
+        gpuHolderLifecycleLastActivityState = gpuHolderLifecycleLastActivityState
+            ?: snapshot.gpuHolderLifecycleLastActivityState,
+        gpuHolderLifecycleLastAppVisibility = gpuHolderLifecycleLastAppVisibility
+            ?: snapshot.gpuHolderLifecycleLastAppVisibility,
+        gpuHolderLifecycleClearTriggerElapsedMs = gpuHolderLifecycleClearTriggerElapsedMs
+            ?: snapshot.gpuHolderLifecycleClearTriggerElapsedMs,
+        gpuHolderLifecycleClearAfterSuccessMs = gpuHolderLifecycleClearAfterSuccessMs
+            ?: snapshot.gpuHolderLifecycleClearAfterSuccessMs,
+        gpuHolderLifecycleClearDuringActiveGenerate = gpuHolderLifecycleClearDuringActiveGenerate
+            ?: snapshot.gpuHolderLifecycleClearDuringActiveGenerate,
+        gpuHolderLifecycleClearAfterUiAppend = gpuHolderLifecycleClearAfterUiAppend
+            ?: snapshot.gpuHolderLifecycleClearAfterUiAppend,
+        gpuHolderLifecycleClearReasonDetail = gpuHolderLifecycleClearReasonDetail
+            ?: snapshot.gpuHolderLifecycleClearReasonDetail,
+        gpuHolderLifecycleBackgroundDetectionSource = gpuHolderLifecycleBackgroundDetectionSource
+            ?: snapshot.gpuHolderLifecycleBackgroundDetectionSource,
     )
 }
 

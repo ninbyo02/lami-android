@@ -518,6 +518,10 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
             buildStandardGpuMinimalRuntimeCandidateCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildLoadedRuntimeNativeStackCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuAlignmentHolderCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
+            buildGpuOutputQualityCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
+            buildGpuPerformanceCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
+            buildGpuHolderLifecycleCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
+            buildGpuPrefillProbeClarityCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuPrefillProbeDiagnosticLines(input.gpuPrefillProbeDiagnostics)
         ).joinToString("\n")
 }
@@ -665,6 +669,107 @@ private fun buildGpuAlignmentHolderCompactDiagnosticLines(
 private fun extractGpuAlignmentHolderDiagnostics(text: String?): Map<String, String> =
     parseLocalInferenceFailureDiagnosticsText(text).filterKeys { it in GPU_ALIGNMENT_HOLDER_DIAGNOSTIC_KEYS }
 
+private val GPU_OUTPUT_QUALITY_DIAGNOSTIC_KEYS = listOf(
+    "gpu_output_raw_callback_text_length",
+    "gpu_output_raw_callback_text_head",
+    "gpu_output_raw_callback_text_tail",
+    "gpu_output_promoted_text_length",
+    "gpu_output_promoted_text_head",
+    "gpu_output_promoted_text_tail",
+    "gpu_output_final_assistant_text_length",
+    "gpu_output_final_assistant_text_head",
+    "gpu_output_final_assistant_text_tail",
+    "gpu_output_callback_chunk_count",
+    "gpu_output_empty_chunk_count",
+    "gpu_output_non_empty_chunk_count",
+    "gpu_output_suspicious_fragment_detected",
+    "gpu_output_suspicious_fragment_reason",
+)
+
+private fun buildGpuOutputQualityCompactDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.keys.none { it in GPU_OUTPUT_QUALITY_DIAGNOSTIC_KEYS }) return emptyList()
+    return GPU_OUTPUT_QUALITY_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}"
+    }
+}
+
+private fun extractGpuOutputQualityDiagnostics(text: String?): Map<String, String> =
+    parseLocalInferenceFailureDiagnosticsText(text).filterKeys { it in GPU_OUTPUT_QUALITY_DIAGNOSTIC_KEYS }
+
+private val GPU_PERFORMANCE_DIAGNOSTIC_KEYS = listOf(
+    "gpu_perf_engine_acquire_elapsed_ms",
+    "gpu_perf_engine_create_or_reuse",
+    "gpu_perf_conversation_create_elapsed_ms",
+    "gpu_perf_generate_to_first_token_ms",
+    "gpu_perf_first_to_last_callback_ms",
+    "gpu_perf_callback_total_elapsed_ms",
+    "gpu_perf_backend_tokens_per_second",
+    "gpu_perf_lami_visible_tokens_per_second",
+    "gpu_perf_tokenizer_count_duration_ms",
+    "gpu_perf_slow_path_detected",
+    "gpu_perf_slow_path_reason",
+)
+
+private fun buildGpuPerformanceCompactDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.keys.none { it in GPU_PERFORMANCE_DIAGNOSTIC_KEYS }) return emptyList()
+    return GPU_PERFORMANCE_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}"
+    }
+}
+
+private fun extractGpuPerformanceDiagnostics(text: String?): Map<String, String> =
+    parseLocalInferenceFailureDiagnosticsText(text).filterKeys { it in GPU_PERFORMANCE_DIAGNOSTIC_KEYS }
+
+private val GPU_HOLDER_LIFECYCLE_DIAGNOSTIC_KEYS = listOf(
+    "gpu_holder_lifecycle_event_after_success",
+    "gpu_holder_lifecycle_last_activity_state",
+    "gpu_holder_lifecycle_last_app_visibility",
+    "gpu_holder_lifecycle_clear_trigger_elapsed_ms",
+    "gpu_holder_lifecycle_clear_after_success_ms",
+    "gpu_holder_lifecycle_clear_during_active_generate",
+    "gpu_holder_lifecycle_clear_after_ui_append",
+    "gpu_holder_lifecycle_clear_reason_detail",
+    "gpu_holder_lifecycle_background_detection_source",
+)
+
+private fun buildGpuHolderLifecycleCompactDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.keys.none { it in GPU_HOLDER_LIFECYCLE_DIAGNOSTIC_KEYS }) return emptyList()
+    return GPU_HOLDER_LIFECYCLE_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}"
+    }
+}
+
+private fun extractGpuHolderLifecycleDiagnostics(text: String?): Map<String, String> =
+    parseLocalInferenceFailureDiagnosticsText(text).filterKeys { it in GPU_HOLDER_LIFECYCLE_DIAGNOSTIC_KEYS }
+
+private val GPU_PREFILL_PROBE_CLARITY_DIAGNOSTIC_KEYS = listOf(
+    "gpu_prefill_probe_enabled",
+    "gpu_prefill_probe_requested",
+    "gpu_prefill_probe_blocks_normal_generate",
+    "gpu_prefill_probe_block_reason",
+    "gpu_prefill_probe_requires_held_engine",
+    "gpu_prefill_probe_held_engine_present",
+    "gpu_prefill_probe_disable_recommendation",
+)
+
+private fun buildGpuPrefillProbeClarityCompactDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.keys.none { it in GPU_PREFILL_PROBE_CLARITY_DIAGNOSTIC_KEYS }) return emptyList()
+    return GPU_PREFILL_PROBE_CLARITY_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}"
+    }
+}
+
+private fun extractGpuPrefillProbeClarityDiagnostics(text: String?): Map<String, String> =
+    parseLocalInferenceFailureDiagnosticsText(text).filterKeys { it in GPU_PREFILL_PROBE_CLARITY_DIAGNOSTIC_KEYS }
+
 private fun buildGalleryStackGpuProbeCompactDiagnosticLines(
     diagnostics: GalleryStackGpuProbeRuntimeDiagnostics?,
 ): List<String> {
@@ -741,7 +846,11 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
         extractStandardGpuRuntimeAlignmentCandidateDiagnostics(failureDiagnosticsText) +
         extractStandardGpuMinimalRuntimeCandidateDiagnostics(failureDiagnosticsText) +
         extractMinimalRuntimeProbeDiagnostics(failureDiagnosticsText) +
-        extractLoadedRuntimeNativeStackDiagnostics(failureDiagnosticsText)
+        extractLoadedRuntimeNativeStackDiagnostics(failureDiagnosticsText) +
+        extractGpuOutputQualityDiagnostics(failureDiagnosticsText) +
+        extractGpuPerformanceDiagnostics(failureDiagnosticsText) +
+        extractGpuHolderLifecycleDiagnostics(failureDiagnosticsText) +
+        extractGpuPrefillProbeClarityDiagnostics(failureDiagnosticsText)
     val snapshots = trace?.memorySnapshots.orEmpty()
     val before = snapshots.firstOrNull { it.stage == MEMORY_STAGE_BEFORE_GENERATE } ?: snapshots.firstOrNull()
     val after = snapshots.lastOrNull { it.stage == MEMORY_STAGE_GENERATION_FAILED } ?: snapshots.lastOrNull()

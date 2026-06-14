@@ -18,6 +18,9 @@ class LocalInferenceEngineHolderLifecycleTest {
         val holder = LocalInferenceEngineHolder(RuntimeEnvironment.getApplication())
         var closeCount = 0
         holder.setHeldForTest(createHeldEngineForTest { closeCount += 1 })
+        holder.recordGpuGenerationStartedForDiagnostics(nowElapsedMs = 1_500L)
+        holder.recordGpuUiAppendFinishedForDiagnostics(nowElapsedMs = 1_800L)
+        holder.recordGpuGenerationFinishedForDiagnostics(success = true, nowElapsedMs = 1_900L)
 
         holder.notifyAppBackgrounded(nowElapsedMs = 2_000L)
 
@@ -27,6 +30,13 @@ class LocalInferenceEngineHolderLifecycleTest {
         assertEquals("app-backgrounded", snapshot.lastLifecycleEventReason)
         assertEquals("CLOSE_AND_RECREATE", snapshot.lastLifecycleDecisionAction)
         assertEquals(1, closeCount)
+        assertEquals("clear_after_success", snapshot.gpuHolderLifecycleEventAfterSuccess)
+        assertEquals("background", snapshot.gpuHolderLifecycleLastActivityState)
+        assertEquals("app-backgrounded", snapshot.gpuHolderLifecycleClearReasonDetail)
+        assertEquals(100L, snapshot.gpuHolderLifecycleClearAfterSuccessMs)
+        assertEquals(false, snapshot.gpuHolderLifecycleClearDuringActiveGenerate)
+        assertEquals(true, snapshot.gpuHolderLifecycleClearAfterUiAppend)
+        assertEquals("HeldEngineLifecycleBridge.onStop", snapshot.gpuHolderLifecycleBackgroundDetectionSource)
     }
 
     @Test

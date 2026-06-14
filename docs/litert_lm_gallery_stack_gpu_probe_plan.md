@@ -388,6 +388,7 @@ Promotion checks before any Standard native stack change:
 5. Timeout/exception cleanup works.
 6. CPU route remains stable.
 7. NPU S1 remains gated and unchanged.
+8. Rollback property/build path is documented and tested.
 
 ## Standard-like minimal runtime candidate flavor
 
@@ -464,7 +465,59 @@ Use `/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm`, select GPU, and
 run short, medium, and multi-turn prompts. Promotion to Standard remains blocked
 until this flavor passes restart, repeated turn, long-output, failure-cleanup,
 CPU regression, and NPU S1 regression checks.
-8. Rollback property/build path is documented and tested.
+
+### Phase 18 diagnostics: quality, speed, holder lifecycle
+
+`standardGpuMinimalRuntimeCandidateDebug` has demonstrated GPU generation success with the minimal runtime pair. The
+current blocker is quality/speed/lifecycle confidence, not basic runtime startup.
+
+When checking output corruption, compare these stages:
+
+- raw callback: `gpu_output_raw_callback_text_length`, `gpu_output_raw_callback_text_head`,
+  `gpu_output_raw_callback_text_tail`;
+- promoted streaming text: `gpu_output_promoted_text_length`, `gpu_output_promoted_text_head`,
+  `gpu_output_promoted_text_tail`;
+- final assistant text: `gpu_output_final_assistant_text_length`, `gpu_output_final_assistant_text_head`,
+  `gpu_output_final_assistant_text_tail`;
+- classification: `gpu_output_suspicious_fragment_detected`,
+  `gpu_output_suspicious_fragment_reason`.
+
+When checking speed regression, compare:
+
+- `gpu_perf_engine_acquire_elapsed_ms`;
+- `gpu_perf_engine_create_or_reuse`;
+- `gpu_perf_conversation_create_elapsed_ms`;
+- `gpu_perf_generate_to_first_token_ms`;
+- `gpu_perf_first_to_last_callback_ms`;
+- `gpu_perf_callback_total_elapsed_ms`;
+- `gpu_perf_lami_visible_tokens_per_second`;
+- `gpu_perf_tokenizer_count_duration_ms`;
+- `gpu_perf_slow_path_detected`;
+- `gpu_perf_slow_path_reason`.
+
+When checking unexpected holder cleanup after success, inspect:
+
+- `gpu_holder_lifecycle_event_after_success`;
+- `gpu_holder_lifecycle_last_activity_state`;
+- `gpu_holder_lifecycle_last_app_visibility`;
+- `gpu_holder_lifecycle_clear_trigger_elapsed_ms`;
+- `gpu_holder_lifecycle_clear_after_success_ms`;
+- `gpu_holder_lifecycle_clear_during_active_generate`;
+- `gpu_holder_lifecycle_clear_after_ui_append`;
+- `gpu_holder_lifecycle_clear_reason_detail`;
+- `gpu_holder_lifecycle_background_detection_source`.
+
+For normal generation verification, keep prefill probe disabled. If prefill probe is accidentally enabled, the run may
+skip normal generation by design and report `gpu_prefill_probe_blocks_normal_generate=true`. The expected verification
+setting is:
+
+```bash
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+```
+
+Promotion remains prohibited until quality drift, slow-path classification, and holder lifecycle cleanup are understood
+across restart, 3-5 continuous turns, and a long response.
 
 Native stack classification for the promotion decision:
 
