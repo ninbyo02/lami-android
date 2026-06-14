@@ -791,10 +791,24 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_enabled=true"))
         assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_eligible=true"))
         assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_result=failure"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_stack_mismatch_summary=runtime_stack_mismatch_suspected"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_stack_single_so_swap_forbidden=true"))
+        assertTrue(
+            routeDiagnostics.contains(
+                "standard_gpu_runtime_stack_promotion_blocked_reason=standard_runtime_stack_not_aligned",
+            ),
+        )
         assertTrue(routeDiagnostics.contains("gpu_generate_exception_error_line=735"))
         assertTrue(compact.contains("standard_gpu_probe_expected_edge_gallery_e2b=true"))
         assertTrue(compact.contains("standard_gpu_probe_result_candidate=failure"))
         assertTrue(compact.contains("standard_gpu_runtime_alignment_candidate_result=failure"))
+        assertTrue(compact.contains("standard_gpu_runtime_stack_mismatch_summary=runtime_stack_mismatch_suspected"))
+        assertTrue(compact.contains("standard_gpu_runtime_stack_single_so_swap_forbidden=true"))
+        assertTrue(
+            compact.contains(
+                "standard_gpu_runtime_stack_promotion_blocked_reason=standard_runtime_stack_not_aligned",
+            ),
+        )
         assertTrue(compact.contains("litert_lm_error_status_code=13"))
     }
 
@@ -862,11 +876,17 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(routeDiagnostics.contains("runtime_stack_loaded_compiler_plugin_qualcomm_present=true"))
         assertTrue(routeDiagnostics.contains("runtime_stack_loaded_gemma_constraint_provider_present=true"))
         assertTrue(routeDiagnostics.contains("runtime_stack_alignment_interpretation=standard_runtime_stack_mismatch_candidate"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_stack_mismatch_high_priority_candidates=libLiteRt.so,liblitertlm_jni.so,libLiteRtDispatch_Qualcomm.so,libLiteRtCompilerPlugin_Qualcomm.so,libGemmaModelConstraintProvider.so"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_stack_required_alignment_unit=libLiteRt.so+liblitertlm_jni.so+libLiteRtDispatch_Qualcomm.so+libLiteRtCompilerPlugin_Qualcomm.so+libGemmaModelConstraintProvider.so"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_stack_mismatch_summary=runtime_stack_mismatch_suspected"))
+        assertTrue(routeDiagnostics.contains("standard_gpu_runtime_stack_promotion_blocked_reason=standard_runtime_stack_not_aligned"))
         assertTrue(compact.contains("runtime_stack_loaded_source_flavor=standard"))
         assertTrue(compact.contains("runtime_stack_loaded_liblitert_present=true"))
         assertTrue(compact.contains("runtime_stack_loaded_liblitertlm_jni_present=true"))
         assertTrue(compact.contains("runtime_stack_alignment_interpretation=standard_runtime_stack_mismatch_candidate"))
         assertTrue(compact.contains("standard_gpu_runtime_alignment_candidate_result=failure"))
+        assertTrue(compact.contains("standard_gpu_runtime_stack_mismatch_summary=runtime_stack_mismatch_suspected"))
+        assertTrue(compact.contains("standard_gpu_runtime_stack_promotion_blocked_reason=standard_runtime_stack_not_aligned"))
     }
 
     @Test
@@ -913,6 +933,32 @@ class LocalInferenceFailureCompactDiagnosticsTest {
 
         assertFalse(cpuDiagnostics.contains("runtime_stack_loaded_source_flavor="))
         assertFalse(npuDiagnostics.contains("runtime_stack_loaded_source_flavor="))
+        assertFalse(cpuDiagnostics.contains("standard_gpu_runtime_stack_mismatch_summary="))
+        assertFalse(npuDiagnostics.contains("standard_gpu_runtime_stack_mismatch_summary="))
+    }
+
+    @Test
+    fun `standard candidate gate off does not add standard runtime diagnostics to normal GPU model`() {
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_exception",
+            context = buildLocalRouteDiagnosticContext(
+                selectedModelName = "some-other-model.litertlm",
+                selectedModelFile = "/sdcard/Download/some-other-model.litertlm",
+                preferredBackend = "GPU",
+                npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+                shouldEnterNpuS1 = false,
+                localRouteEntered = true,
+            ),
+            flags = LocalRouteDiagnosticFlags(
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                gpuGenerateExceptionSeen = true,
+                gpuGenerateExceptionErrorLine = "735",
+                gpuNormalRouteUseCallbackStreaming = false,
+            ),
+        )
+
+        assertFalse(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_enabled="))
+        assertFalse(routeDiagnostics.contains("standard_gpu_runtime_stack_mismatch_summary="))
     }
 
     @Test

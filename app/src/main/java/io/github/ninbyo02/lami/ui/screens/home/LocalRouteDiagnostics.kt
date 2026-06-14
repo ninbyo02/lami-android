@@ -238,6 +238,10 @@ internal data class LiteRtLmBackendArtisanApiDiagnostics(
 internal const val STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES = 2_588_147_712L
 internal const val STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SHA256 =
     "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+internal const val STANDARD_GPU_RUNTIME_STACK_MISMATCH_HIGH_PRIORITY_CANDIDATES =
+    "libLiteRt.so,liblitertlm_jni.so,libLiteRtDispatch_Qualcomm.so,libLiteRtCompilerPlugin_Qualcomm.so,libGemmaModelConstraintProvider.so"
+internal const val STANDARD_GPU_RUNTIME_STACK_REQUIRED_ALIGNMENT_UNIT =
+    "libLiteRt.so+liblitertlm_jni.so+libLiteRtDispatch_Qualcomm.so+libLiteRtCompilerPlugin_Qualcomm.so+libGemmaModelConstraintProvider.so"
 
 internal data class StandardGpuProbeDiagnostics(
     val emit: Boolean = false,
@@ -256,6 +260,11 @@ internal data class StandardGpuProbeDiagnostics(
     val runtimeAlignmentCandidateModelIdentityHint: String = "unavailable",
     val runtimeAlignmentCandidateRuntimeStack: String = "unavailable",
     val runtimeAlignmentCandidateResult: String = "unknown",
+    val runtimeStackMismatchHighPriorityCandidates: String = "unavailable",
+    val runtimeStackMismatchSummary: String = "unavailable",
+    val runtimeStackRequiredAlignmentUnit: String = "unavailable",
+    val runtimeStackSingleSoSwapForbidden: String = "true",
+    val runtimeStackPromotionBlockedReason: String = "unavailable",
 )
 
 internal fun buildLocalRouteDiagnosticContext(
@@ -339,6 +348,7 @@ internal fun buildStandardGpuProbeDiagnostics(
             },
             modelPath = context.selectedModelPath,
             callbackStreamingGateEnabled = flags.gpuNormalRouteUseCallbackStreaming == true,
+            gpuGenerateProbeMode = flags.gpuGenerateProbeMode ?: GPU_GENERATE_PROBE_MODE_NORMAL,
         ).blockReason
     val candidateEligible = flags.standardGpuRuntimeAlignmentCandidateEligible
         ?: (candidateBlockReason == "none")
@@ -359,9 +369,13 @@ internal fun buildStandardGpuProbeDiagnostics(
     )
     return StandardGpuProbeDiagnostics(
         emit = true,
-        expectedEdgeGalleryE2b = "true",
+        expectedEdgeGalleryE2b = expectedEdgeGalleryE2b.toString(),
         modelSizeBytes = actualSize?.toString() ?: STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES.toString(),
-        modelIdentityHint = "edge_gallery_e2b_expected",
+        modelIdentityHint = when {
+            expectedEdgeGalleryE2b -> "edge_gallery_e2b_expected"
+            edgeGalleryNameHint || genericE2bNameHint -> "edge_gallery_e2b_unverified"
+            else -> "not_edge_gallery_e2b"
+        },
         runtimeStack = "standardDebug",
         callbackStreamingGate = flags.gpuNormalRouteUseCallbackStreaming?.toString() ?: "unavailable",
         resultCandidate = resultCandidate,
@@ -382,8 +396,54 @@ internal fun buildStandardGpuProbeDiagnostics(
             flags.standardGpuRuntimeAlignmentCandidateRuntimeStack
                 ?: STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_RUNTIME_STACK,
         runtimeAlignmentCandidateResult = candidateResult,
+        runtimeStackMismatchHighPriorityCandidates = STANDARD_GPU_RUNTIME_STACK_MISMATCH_HIGH_PRIORITY_CANDIDATES,
+        runtimeStackMismatchSummary = resolveStandardGpuRuntimeStackMismatchSummary(
+            candidateResult = candidateResult,
+            failureStage = failureStage,
+            flags = flags,
+        ),
+        runtimeStackRequiredAlignmentUnit = STANDARD_GPU_RUNTIME_STACK_REQUIRED_ALIGNMENT_UNIT,
+        runtimeStackSingleSoSwapForbidden = "true",
+        runtimeStackPromotionBlockedReason = resolveStandardGpuRuntimeStackPromotionBlockedReason(
+            candidateEnabled = candidateEnabled,
+            candidateEligible = candidateEligible,
+            candidateResult = candidateResult,
+            candidateBlockReason = candidateBlockReason,
+        ),
     )
 }
+
+private fun resolveStandardGpuRuntimeStackMismatchSummary(
+    candidateResult: String,
+    failureStage: String,
+    flags: LocalRouteDiagnosticFlags,
+): String =
+    when {
+        candidateResult == "failure" &&
+            (
+                failureStage == "gpu_generate_compiled_model_invoke_failed" ||
+                    flags.liteRtLmErrorStatusCode == "13" ||
+                    flags.gpuGenerateExceptionErrorLine == "735" ||
+                    flags.liteRtLmErrorPrimaryLine == "735"
+                ) -> "runtime_stack_mismatch_suspected"
+        candidateResult == "failure" -> "standard_gpu_candidate_failed_runtime_stack_review_required"
+        candidateResult == "success" -> "runtime_stack_candidate_success"
+        else -> "unavailable"
+    }
+
+private fun resolveStandardGpuRuntimeStackPromotionBlockedReason(
+    candidateEnabled: Boolean,
+    candidateEligible: Boolean,
+    candidateResult: String,
+    candidateBlockReason: String,
+): String =
+    when {
+        !candidateEnabled -> "candidate_gate_disabled"
+        !candidateEligible -> candidateBlockReason
+        candidateResult == "failure" -> "standard_runtime_stack_not_aligned"
+        candidateResult == "success" -> "dev_gate_success_requires_safety_soak"
+        else -> "candidate_result_unknown"
+    }
 
 private fun resolveStandardGpuProbeResultCandidate(
     flags: LocalRouteDiagnosticFlags,
@@ -929,6 +989,11 @@ private fun buildStandardGpuProbeRouteDiagnosticLines(
         "standard_gpu_runtime_alignment_candidate_model_identity_hint=${diagnostics.runtimeAlignmentCandidateModelIdentityHint}",
         "standard_gpu_runtime_alignment_candidate_runtime_stack=${diagnostics.runtimeAlignmentCandidateRuntimeStack}",
         "standard_gpu_runtime_alignment_candidate_result=${diagnostics.runtimeAlignmentCandidateResult}",
+        "standard_gpu_runtime_stack_mismatch_high_priority_candidates=${diagnostics.runtimeStackMismatchHighPriorityCandidates}",
+        "standard_gpu_runtime_stack_mismatch_summary=${diagnostics.runtimeStackMismatchSummary}",
+        "standard_gpu_runtime_stack_required_alignment_unit=${diagnostics.runtimeStackRequiredAlignmentUnit}",
+        "standard_gpu_runtime_stack_single_so_swap_forbidden=${diagnostics.runtimeStackSingleSoSwapForbidden}",
+        "standard_gpu_runtime_stack_promotion_blocked_reason=${diagnostics.runtimeStackPromotionBlockedReason}",
     )
 }
 

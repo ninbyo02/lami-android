@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import java.io.File
+import java.io.RandomAccessFile
 import java.lang.reflect.InvocationTargetException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -271,27 +272,40 @@ class LocalStreamingRunnerChunkAppendTest {
 
     @Test
     fun `standard GPU runtime alignment candidate eligible selects callback streaming path`() {
-        val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
-            preferredBackend = PreferredBackendDryRunSetting.GPU,
-            modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
-            callbackStreamingGateEnabled = true,
-            propertyReader = { key ->
-                when (key) {
-                    "debug.lami.standard_gpu_runtime_alignment_candidate" -> "true"
-                    else -> null
-                }
-            },
-        )
-        val selected = isGpuCallbackStreamingPathSelectedForDebug(
-            probeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
-            normalRouteUseCallbackStreaming = true && eligibility.eligible,
-        )
+        val tempDir = File.createTempFile("lami-gpu-model", "dir").apply {
+            delete()
+            mkdirs()
+        }
+        val model = tempDir.resolve("gemma-4-E2B-it-edge-gallery.litertlm")
+        try {
+            RandomAccessFile(model, "rw").use { file ->
+                file.setLength(STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+            }
+            val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                modelPath = model.absolutePath,
+                callbackStreamingGateEnabled = true,
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.standard_gpu_runtime_alignment_candidate" -> "true"
+                        else -> null
+                    }
+                },
+            )
+            val selected = isGpuCallbackStreamingPathSelectedForDebug(
+                probeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                normalRouteUseCallbackStreaming = true && eligibility.eligible,
+            )
 
-        assertTrue(eligibility.enabled)
-        assertTrue(eligibility.eligible)
-        assertEquals("none", eligibility.blockReason)
-        assertEquals("edge_gallery_e2b_expected_size_unavailable", eligibility.modelIdentityHint)
-        assertTrue(selected)
+            assertTrue(eligibility.enabled)
+            assertTrue(eligibility.eligible)
+            assertEquals("none", eligibility.blockReason)
+            assertEquals("edge_gallery_e2b_expected", eligibility.modelIdentityHint)
+            assertTrue(selected)
+        } finally {
+            model.delete()
+            tempDir.delete()
+        }
     }
 
     @Test
@@ -327,6 +341,39 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `standard GPU runtime alignment candidate blocks model identity mismatch`() {
+        val tempDir = File.createTempFile("lami-gpu-model", "dir").apply {
+            delete()
+            mkdirs()
+        }
+        val otherModel = tempDir.resolve("other-model.litertlm")
+        try {
+            RandomAccessFile(otherModel, "rw").use { file ->
+                file.setLength(STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+            }
+            val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                modelPath = otherModel.absolutePath,
+                callbackStreamingGateEnabled = true,
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.standard_gpu_runtime_alignment_candidate" -> "true"
+                        else -> null
+                    }
+                },
+            )
+
+            assertTrue(eligibility.enabled)
+            assertFalse(eligibility.eligible)
+            assertEquals("model_identity_not_edge_gallery_e2b", eligibility.blockReason)
+            assertEquals("not_edge_gallery_e2b", eligibility.modelIdentityHint)
+        } finally {
+            otherModel.delete()
+            tempDir.delete()
+        }
+    }
+
+    @Test
     fun `standard GPU runtime alignment candidate requires callback streaming gate`() {
         val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
             preferredBackend = PreferredBackendDryRunSetting.GPU,
@@ -343,6 +390,26 @@ class LocalStreamingRunnerChunkAppendTest {
         assertTrue(eligibility.enabled)
         assertFalse(eligibility.eligible)
         assertEquals("callback_streaming_gate_disabled", eligibility.blockReason)
+    }
+
+    @Test
+    fun `standard GPU runtime alignment candidate requires normal GPU generate probe mode`() {
+        val eligibility = resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            callbackStreamingGateEnabled = true,
+            gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY,
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.standard_gpu_runtime_alignment_candidate" -> "true"
+                    else -> null
+                }
+            },
+        )
+
+        assertTrue(eligibility.enabled)
+        assertFalse(eligibility.eligible)
+        assertEquals("unsupported_gpu_generate_probe_mode", eligibility.blockReason)
     }
 
     @Test

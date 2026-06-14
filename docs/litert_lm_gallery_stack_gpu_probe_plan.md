@@ -404,6 +404,7 @@ Outputs:
 - `artifacts/gpu_runtime_stack_compare/standard_vs_gpu_runtime_alignment_native_lib_diff.tsv`
 - `artifacts/gpu_runtime_stack_compare/standard_vs_gpu_runtime_alignment_needed_edges.tsv`
 - `artifacts/gpu_runtime_stack_compare/standard_vs_gpu_runtime_alignment_stack_classification.md`
+- `artifacts/gpu_runtime_stack_compare/standard_to_gpu_runtime_alignment_probe.md`
 
 The full-stack candidate unit is:
 
@@ -435,6 +436,8 @@ Expected Standard failure interpretation:
 
 ```text
 runtime_stack_alignment_interpretation=standard_runtime_stack_mismatch_candidate
+standard_gpu_runtime_stack_mismatch_summary=runtime_stack_mismatch_suspected
+standard_gpu_runtime_stack_promotion_blocked_reason=standard_runtime_stack_not_aligned
 ```
 
 Expected runtime alignment probe success interpretation:
@@ -468,6 +471,8 @@ Risk gates before any Standard promotion design:
   dependency graph consistency.
 - Promotion must use a full matched runtime stack in a separate DEV build first. It must not be a single `.so` swap.
 - CPU route, NPU S1, fallback, and Standard default GPU behavior must remain unchanged.
+- Phase order is fixed: Phase 1 DEV gate, Phase 2 safety soak, Phase 3 explicit Experimental GPU UI toggle, Phase 4
+  production consideration. Current state is still Phase 1 / Phase 2 diagnostic work, not promotion.
 
 Holder reuse and cleanup diagnostics added for the runtime alignment probe:
 

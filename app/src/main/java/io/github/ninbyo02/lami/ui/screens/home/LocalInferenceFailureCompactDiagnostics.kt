@@ -528,6 +528,11 @@ private val STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_DIAGNOSTIC_KEYS = listOf(
     "standard_gpu_runtime_alignment_candidate_model_identity_hint",
     "standard_gpu_runtime_alignment_candidate_runtime_stack",
     "standard_gpu_runtime_alignment_candidate_result",
+    "standard_gpu_runtime_stack_mismatch_high_priority_candidates",
+    "standard_gpu_runtime_stack_mismatch_summary",
+    "standard_gpu_runtime_stack_required_alignment_unit",
+    "standard_gpu_runtime_stack_single_so_swap_forbidden",
+    "standard_gpu_runtime_stack_promotion_blocked_reason",
 )
 
 private fun buildStandardGpuRuntimeAlignmentCandidateCompactDiagnosticLines(

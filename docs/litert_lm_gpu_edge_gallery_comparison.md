@@ -1001,6 +1001,8 @@ Expected interpretation for the Standard failure above:
 
 ```text
 runtime_stack_alignment_interpretation=standard_runtime_stack_mismatch_candidate
+standard_gpu_runtime_stack_mismatch_summary=runtime_stack_mismatch_suspected
+standard_gpu_runtime_stack_promotion_blocked_reason=standard_runtime_stack_not_aligned
 ```
 
 Expected interpretation for the successful runtime alignment probe:
@@ -1024,6 +1026,7 @@ The script writes under `artifacts/gpu_runtime_stack_compare/`:
 - `standard_vs_gpu_runtime_alignment_native_lib_diff.tsv`
 - `standard_vs_gpu_runtime_alignment_needed_edges.tsv`
 - `standard_vs_gpu_runtime_alignment_stack_classification.md`
+- `standard_to_gpu_runtime_alignment_probe.md`
 
 Latest local comparison:
 
@@ -1042,6 +1045,21 @@ libLiteRt.so + liblitertlm_jni.so + dispatch/compiler/model-constraint members
 ```
 
 Do not test or promote any individual `.so` into `standardDebug`.
+
+Standard candidate now also emits:
+
+- `standard_gpu_runtime_stack_mismatch_high_priority_candidates`
+- `standard_gpu_runtime_stack_mismatch_summary`
+- `standard_gpu_runtime_stack_required_alignment_unit`
+- `standard_gpu_runtime_stack_single_so_swap_forbidden=true`
+- `standard_gpu_runtime_stack_promotion_blocked_reason`
+
+The Standard integration order remains:
+
+1. Phase 1: DEV-gated candidate, OFF by default.
+2. Phase 2: safety soak in `gpuRuntimeAlignmentProbeDebug` and Standard candidate diagnostics.
+3. Phase 3: explicit Experimental GPU UI toggle only after clean soak.
+4. Phase 4: production consideration only after runtime/native stack provenance, packaging, and regression gates pass.
 
 Rollback remains property-only for Standard:
 

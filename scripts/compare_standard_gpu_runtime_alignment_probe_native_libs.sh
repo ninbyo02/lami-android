@@ -272,6 +272,7 @@ RUNTIME_ALIGNMENT_INVENTORY="$OUT_DIR/gpu_runtime_alignment_probe_native_libs.ts
 DIFF_OUT="$OUT_DIR/standard_vs_gpu_runtime_alignment_native_lib_diff.tsv"
 NEEDED_OUT="$OUT_DIR/standard_vs_gpu_runtime_alignment_needed_edges.tsv"
 SUMMARY_OUT="$OUT_DIR/standard_vs_gpu_runtime_alignment_stack_classification.md"
+STANDARD_TO_PROBE_REPORT_OUT="$OUT_DIR/standard_to_gpu_runtime_alignment_probe.md"
 
 write_inventory "standardDebug" "$STANDARD_DIR" "$STANDARD_INVENTORY"
 write_inventory "gpuRuntimeAlignmentProbeDebug" "$RUNTIME_ALIGNMENT_DIR" "$RUNTIME_ALIGNMENT_INVENTORY"
@@ -394,10 +395,73 @@ high_priority_count="$(awk -F '\t' 'NR > 1 && $15 ~ /highest_priority|high_prior
   printf '%s\n' '- `all_native_lib_names.txt`'
 } >"$SUMMARY_OUT"
 
+{
+  printf '# Standard to GPU Runtime Alignment Probe\n\n'
+  printf 'This report compares the packaged `lib/arm64-v8a` runtime stack in `standardDebug` with `gpuRuntimeAlignmentProbeDebug`.\n\n'
+  printf 'It is diagnostic-only. Do not copy a single `.so` from one APK/source set into another.\n\n'
+  printf '## StandardDebug failure evidence summary\n\n'
+  printf '%s\n' '- Same Edge Gallery E2B model: `gemma-4-E2B-it-edge-gallery.litertlm`.'
+  printf '%s\n' '- DEV gate path: `debug.lami.standard_gpu_runtime_alignment_candidate=true` plus callback streaming gate.'
+  printf '%s\n' '- Observed failure: `failure_stage=gpu_generate_compiled_model_invoke_failed`.'
+  printf '%s\n' '- LiteRT-LM error: `runtime/executor/llm_litert_compiled_model_executor.cc:735` / failed to invoke compiled model.'
+  printf '%s\n\n' '- Expected classification: `standard_gpu_runtime_stack_mismatch_summary=runtime_stack_mismatch_suspected`.'
+  printf '## gpuRuntimeAlignmentProbe success evidence summary\n\n'
+  printf '%s\n' '- Same Edge Gallery E2B model.'
+  printf '%s\n' '- GPU callback streaming path succeeds.'
+  printf '%s\n' '- Expected keys: `runtime_alignment_result_candidate=success`, `runtime_alignment_success_gate=true`, `failure_stage=none`.'
+  printf '%s\n\n' '- Held engine reuse has been observed in multi-turn manual checks.'
+  printf '## Required alignment unit\n\n'
+  printf '| Unit | Members | Rule |\n'
+  printf '| --- | --- | --- |\n'
+  printf '| Core LiteRT-LM GPU runtime | `libLiteRt.so`, `liblitertlm_jni.so` | Treat as a matched pair. |\n'
+  printf '| Related runtime members | `libLiteRtDispatch_Qualcomm.so`, `libLiteRtCompilerPlugin_Qualcomm.so`, `libGemmaModelConstraintProvider.so` | Review only with the matched core pair. |\n'
+  printf '| QNN libs | `libQnn*.so` | Keep visible, lower priority for generic GPU unless new evidence links them directly. |\n\n'
+  printf '## Candidate libraries\n\n'
+  printf '| Library | standardDebug | gpuRuntimeAlignmentProbeDebug | Classification | Notes |\n'
+  printf '| --- | --- | --- | --- | --- |\n'
+  for focus in \
+    libLiteRt.so \
+    liblitertlm_jni.so \
+    libLiteRtDispatch_Qualcomm.so \
+    libLiteRtCompilerPlugin_Qualcomm.so \
+    libGemmaModelConstraintProvider.so \
+    libQnnSystem.so \
+    libQnnGpu.so \
+    libQnnHtp.so \
+    libQnnHtpPrepare.so \
+    libQnnHtpV79Stub.so \
+    libQnnHtpV79Skel.so \
+    libQnnDsp.so; do
+    awk -F '\t' -v lib="$focus" '
+      NR > 1 && $1 == lib {
+        std = $2 ", size=" $6 ", sha=" substr($8, 1, 12) ", build_id=" $10
+        probe = $3 ", size=" $7 ", sha=" substr($9, 1, 12) ", build_id=" $11
+        printf("| `%s` | `%s` | `%s` | `%s` | %s |\n", $1, std, probe, $15, $16)
+      }
+    ' "$DIFF_OUT"
+  done
+  printf '\n## Do not copy single .so\n\n'
+  printf 'Single-library replacement is prohibited. `libLiteRt.so` and `liblitertlm_jni.so` are ABI/runtime-coupled, and the dispatch/compiler/model-constraint members must be evaluated as a coherent full-stack candidate.\n\n'
+  printf '## Next action checklist\n\n'
+  printf '%s\n' '1. Keep `standardDebug` unchanged except DEV diagnostics/gates.'
+  printf '%s\n' '2. Continue `gpuRuntimeAlignmentProbeDebug` stability checks with callback streaming and held engine reuse.'
+  printf '%s\n' '3. Use this report plus `standard_vs_gpu_runtime_alignment_native_lib_diff.tsv` to define a full-stack candidate.'
+  printf '%s\n' '4. Document license/provenance and Android packaging risks before any promotion design.'
+  printf '%s\n' '5. If promotion is tested, use a DEV-only build gate/flavor and a full matched runtime stack, not a single `.so` swap.'
+  printf '%s\n' '6. Keep GPU off by default and keep CPU/NPU/fallback behavior unchanged.'
+  printf '\n## Raw outputs\n\n'
+  printf '%s\n' "- \`$STANDARD_INVENTORY\`"
+  printf '%s\n' "- \`$RUNTIME_ALIGNMENT_INVENTORY\`"
+  printf '%s\n' "- \`$DIFF_OUT\`"
+  printf '%s\n' "- \`$NEEDED_OUT\`"
+  printf '%s\n' "- \`$SUMMARY_OUT\`"
+} >"$STANDARD_TO_PROBE_REPORT_OUT"
+
 printf 'wrote %s\n' "$STANDARD_INVENTORY"
 printf 'wrote %s\n' "$RUNTIME_ALIGNMENT_INVENTORY"
 printf 'wrote %s\n' "$DIFF_OUT"
 printf 'wrote %s\n' "$NEEDED_OUT"
 printf 'wrote %s\n' "$SUMMARY_OUT"
+printf 'wrote %s\n' "$STANDARD_TO_PROBE_REPORT_OUT"
 
 exit 0

@@ -337,6 +337,7 @@ internal fun resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
     preferredBackend: PreferredBackendDryRunSetting,
     modelPath: String?,
     callbackStreamingGateEnabled: Boolean,
+    gpuGenerateProbeMode: String = GPU_GENERATE_PROBE_MODE_NORMAL,
     activeGenerationAlreadyRunning: Boolean = false,
     modelOrBackendSwitchInProgress: Boolean = false,
     propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
@@ -356,7 +357,7 @@ internal fun resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
             pathText.contains("gemma_4_e2b_it") ||
             pathText.contains("litert-community/gemma-4-e2b-it-litert-lm") ||
             pathText.endsWith("gemma-4-e2b-it.litertlm")
-    val sizeMatches = sizeBytes == null || sizeBytes == STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES
+    val sizeMatches = sizeBytes == STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES
     val modelIdentityHint = when {
         !nameLooksLikeEdgeGalleryE2b -> "not_edge_gallery_e2b"
         sizeBytes == STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES -> "edge_gallery_e2b_expected"
@@ -368,9 +369,12 @@ internal fun resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
         !enabled -> "candidate_gate_disabled"
         preferredBackend != PreferredBackendDryRunSetting.GPU -> "selected_backend_not_gpu"
         !callbackStreamingGateEnabled -> "callback_streaming_gate_disabled"
+        gpuGenerateProbeMode !in STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_ALLOWED_PROBE_MODES ->
+            "unsupported_gpu_generate_probe_mode"
         activeGenerationAlreadyRunning -> "active_generation_already_running"
         modelOrBackendSwitchInProgress -> "model_or_backend_switch_in_progress"
         !nameLooksLikeEdgeGalleryE2b -> "model_identity_not_edge_gallery_e2b"
+        sizeBytes == null -> "model_size_unavailable"
         !sizeMatches -> "model_size_mismatch"
         else -> "none"
     }
@@ -382,6 +386,11 @@ internal fun resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
         modelIdentityHint = modelIdentityHint,
     )
 }
+
+internal val STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_ALLOWED_PROBE_MODES = setOf(
+    GPU_GENERATE_PROBE_MODE_NORMAL,
+    GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING,
+)
 
 internal fun usesGpuCallbackStreamingPathForDebug(probeMode: String): Boolean =
     probeMode == GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI ||
@@ -1568,6 +1577,7 @@ internal suspend fun runWithHeldEngine(
         preferredBackend = heldEngine.preferredBackendDryRunSetting,
         modelPath = heldEngine.modelPath,
         callbackStreamingGateEnabled = normalRouteUseCallbackStreamingRequested,
+        gpuGenerateProbeMode = generateProbeMode,
     )
     val normalRouteUseCallbackStreaming =
         normalRouteUseCallbackStreamingRequested &&
