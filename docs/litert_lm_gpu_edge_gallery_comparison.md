@@ -2673,3 +2673,65 @@ Expected use:
 
 This is diagnostic-only. It strengthens the GPU quality blocker by locating the raw callback break point; it does not
 change runtime stack selection, callback streaming, Markdown repair, UI append, or production promotion policy.
+
+### Edge Gallery Parity Phase
+
+Current observed matrix:
+
+| Route | Model | Long Japanese output |
+| --- | --- | --- |
+| Edge Gallery GPU | `gemma-4-E2B-it-edge-gallery.litertlm` | Normal Japanese, ingredient list intact. |
+| LAMI CPU | `gemma-4-E2B-it.litertlm` / Edge Gallery E2B | Normal after CPU/GPU holder identity separation. |
+| LAMI GPU minimal runtime candidate | Edge Gallery E2B | Short prompts pass; long output corrupts at raw callback source. |
+
+This makes the leading hypothesis a LAMI GPU route difference, not model corruption. The next comparison axis is an
+Edge Gallery parity matrix in `standardGpuMinimalRuntimeCandidateDebug`.
+
+Set the mode with:
+
+```bash
+adb shell setprop debug.lami.gpu_output_quality_matrix_mode edge_gallery_parity_minimal
+```
+
+Available parity modes:
+
+- `edge_gallery_parity_minimal`
+- `edge_gallery_parity_no_streaming`
+- `edge_gallery_parity_collect_final`
+- `edge_gallery_parity_no_holder_reuse`
+- `edge_gallery_parity_cache_app_files`
+- `edge_gallery_parity_cache_null`
+- `edge_gallery_parity_sampler_default`
+- `edge_gallery_parity_sampler_none`
+
+The existing matrix helper accepts these modes:
+
+```bash
+scripts/run_gpu_output_quality_matrix.sh \
+  --mode edge_gallery_parity_minimal \
+  --max-tokens 512 \
+  --prompt "カレーの材料をお願いします。"
+```
+
+After copying compact/details output into `artifacts/gpu_output_quality_matrix/`, summarize:
+
+```bash
+scripts/summarize_gpu_output_quality_matrix.sh --input artifacts/gpu_output_quality_matrix
+```
+
+Parity diagnostics:
+
+- `edge_gallery_parity_mode`
+- `edge_gallery_parity_engine_config_profile`
+- `edge_gallery_parity_conversation_config_profile`
+- `edge_gallery_parity_callback_mode`
+- `edge_gallery_parity_holder_reuse`
+- `edge_gallery_parity_cache_dir_mode`
+- `edge_gallery_parity_sampler_present`
+- `edge_gallery_parity_candidate_result`
+- `edge_gallery_parity_difference_summary`
+
+Promotion remains blocked when `edge_gallery_parity_candidate_result=quality_candidate_fail`,
+`gpu_output_quality_candidate_result=quality_candidate_fail`, or
+`callback_corruption_earliest_stage=raw_callback`. These modes are only for locating which LAMI GPU route difference
+matters: EngineConfig, ConversationConfig/sampler, callback streaming, holder reuse, cacheDir, or raw callback source.

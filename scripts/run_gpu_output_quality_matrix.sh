@@ -19,10 +19,19 @@ Modes:
   no_sampling_acceleration
   disable_topk_gpu_sampler_candidate
   collect_only
+  edge_gallery_parity_minimal
+  edge_gallery_parity_no_streaming
+  edge_gallery_parity_collect_final
+  edge_gallery_parity_no_holder_reuse
+  edge_gallery_parity_cache_app_files
+  edge_gallery_parity_cache_null
+  edge_gallery_parity_sampler_default
+  edge_gallery_parity_sampler_none
 
 Examples:
   scripts/run_gpu_output_quality_matrix.sh --mode baseline --max-tokens 4000
   scripts/run_gpu_output_quality_matrix.sh --mode collect_only --max-tokens 512 --prompt "カレーの材料をお願いします。"
+  scripts/run_gpu_output_quality_matrix.sh --mode edge_gallery_parity_minimal --max-tokens 512 --prompt "カレーの材料をお願いします。"
 
 The script sets DEV-only GPU output-quality props and launches the selected app.
 Prompt entry is still manual in the app; when possible, the prompt is copied to
@@ -66,7 +75,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$MODE" in
-  baseline|sampler_minimal|no_sampling_acceleration|disable_topk_gpu_sampler_candidate|collect_only)
+  baseline|sampler_minimal|no_sampling_acceleration|disable_topk_gpu_sampler_candidate|collect_only|edge_gallery_parity_minimal|edge_gallery_parity_no_streaming|edge_gallery_parity_collect_final|edge_gallery_parity_no_holder_reuse|edge_gallery_parity_cache_app_files|edge_gallery_parity_cache_null|edge_gallery_parity_sampler_default|edge_gallery_parity_sampler_none)
     ;;
   *)
     echo "Unsupported mode: $MODE" >&2
@@ -120,6 +129,9 @@ Check compact/details keys:
   gpu_output_suspicious_fragment_reason
   gpu_sampler_root_cause_candidate
   gpu_output_quality_recommendation
+  edge_gallery_parity_mode
+  edge_gallery_parity_candidate_result
+  edge_gallery_parity_difference_summary
 
 Paste copied diagnostics into:
   $ARTIFACT_DIR/${MODE}_${MAX_TOKENS}.txt

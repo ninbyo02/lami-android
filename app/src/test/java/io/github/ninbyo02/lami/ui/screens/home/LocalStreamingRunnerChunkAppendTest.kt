@@ -122,6 +122,92 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `GPU output quality matrix properties resolve Edge Gallery parity modes`() {
+        assertEquals(
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_MINIMAL,
+            resolveGpuOutputQualityMatrixModeForDebug(
+                preferredBackend = "GPU",
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_parity_minimal"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES,
+            resolveGpuOutputQualityExperimentOverrideForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_parity_cache_app_files"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            GPU_EXPERIMENT_MODE_CACHE_DIR_NULL,
+            resolveGpuOutputQualityExperimentOverrideForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_parity_cache_null"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertEquals(
+            GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION,
+            resolveGpuOutputQualityExperimentOverrideForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_parity_sampler_none"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertTrue(
+            isGpuOutputQualityCollectOnlyModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_parity_collect_final"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+        assertTrue(
+            isEdgeGalleryParityNoHolderReuseModeForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                propertyReader = { key ->
+                    if (key == "debug.lami.gpu_output_quality_matrix_mode") {
+                        "edge_gallery_parity_no_holder_reuse"
+                    } else {
+                        null
+                    }
+                },
+                standardGpuMinimalRuntimeCandidateFlavor = true,
+            ),
+        )
+    }
+
+    @Test
     fun `GPU output quality matrix ignores non candidate or non GPU route`() {
         assertEquals(
             "unavailable",

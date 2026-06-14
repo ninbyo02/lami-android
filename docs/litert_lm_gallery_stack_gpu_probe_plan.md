@@ -1264,3 +1264,63 @@ Interpretation:
 
 The analyzer strengthens the quality blocker evidence only. It is not a production promotion gate by itself, and it must
 not be used to repair or rewrite GPU output.
+
+### Edge Gallery Parity Matrix
+
+The current comparison is no longer "model is bad" versus "model is good":
+
+- Edge Gallery GPU with `gemma-4-E2B-it-edge-gallery.litertlm`: long Japanese output is natural.
+- LAMI CPU with `gemma-4-E2B-it.litertlm` and `gemma-4-E2B-it-edge-gallery.litertlm`: long Japanese output works after
+  holder identity separation.
+- LAMI `standardGpuMinimalRuntimeCandidateDebug` GPU: short prompts pass, but long output can corrupt at
+  `callback_corruption_earliest_stage=raw_callback`.
+
+Therefore the active split is Edge Gallery GPU route versus LAMI GPU route. Use
+`debug.lami.gpu_output_quality_matrix_mode` to run Edge Gallery parity probes in the dev-only
+`standardGpuMinimalRuntimeCandidateDebug` flavor:
+
+- `edge_gallery_parity_minimal`: Edge-Gallery-like baseline config and incremental callback streaming.
+- `edge_gallery_parity_no_streaming`: collect callback chunks without incremental UI append.
+- `edge_gallery_parity_collect_final`: collect-only final commit comparison.
+- `edge_gallery_parity_no_holder_reuse`: force a cold held-engine acquire before this run.
+- `edge_gallery_parity_cache_app_files`: use the app cache dir.
+- `edge_gallery_parity_cache_null`: use null cache dir.
+- `edge_gallery_parity_sampler_default`: keep the Gallery default sampler.
+- `edge_gallery_parity_sampler_none`: remove the sampler config / no sampling acceleration candidate.
+
+Manual example:
+
+```bash
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell setprop debug.lami.gpu_output_quality_matrix_mode edge_gallery_parity_minimal
+adb shell setprop debug.lami.gpu_output_quality_max_tokens 512
+adb shell monkey -p io.github.ninbyo02.lami.gpustandardminimal 1
+```
+
+Prompt:
+
+```text
+カレーの材料をお願いします。
+```
+
+New keys:
+
+- `edge_gallery_parity_mode`
+- `edge_gallery_parity_engine_config_profile`
+- `edge_gallery_parity_conversation_config_profile`
+- `edge_gallery_parity_callback_mode`
+- `edge_gallery_parity_holder_reuse`
+- `edge_gallery_parity_cache_dir_mode`
+- `edge_gallery_parity_sampler_present`
+- `edge_gallery_parity_candidate_result`
+- `edge_gallery_parity_difference_summary`
+
+Interpretation:
+
+- `edge_gallery_parity_candidate_result=quality_candidate_fail` keeps Standard GPU promotion blocked.
+- `edge_gallery_parity_difference_summary=edge_gallery_gpu_ok_lami_gpu_raw_callback_decode_fragmentation` means the
+  model and CPU route are not the leading suspects; the LAMI GPU route still differs from Edge Gallery before UI append.
+- A parity mode that flips to `quality_candidate_pass` becomes the next candidate to inspect before any wider promotion.

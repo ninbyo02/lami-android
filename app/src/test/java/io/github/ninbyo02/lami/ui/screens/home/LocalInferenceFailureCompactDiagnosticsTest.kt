@@ -2847,6 +2847,85 @@ class LocalInferenceFailureCompactDiagnosticsTest {
     }
 
     @Test
+    fun `Edge Gallery parity diagnostics expose candidate route differences`() {
+        val context = buildGpuRouteContextForNewDiagnostics()
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = context,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = false,
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                gpuNormalRouteUseCallbackStreaming = true,
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackStreamingReusedHeldEngine = false,
+                gpuCallbackTextPromotedToUi = true,
+                gpuUiAppendFinished = true,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuConfigDiagnostics = buildGpuRouteConfigDiagnostics(
+                    modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+                    cacheDirPath = "/data/user/0/io.github.ninbyo02.lami.gpustandardminimal/cache",
+                    preferredBackend = "GPU",
+                    experimentMode = GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION,
+                ),
+                gpuOutputQualityMatrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_NONE,
+                gpuOutputQualitySamplerMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION,
+                gpuOutputQualityStreamingMode = "incremental_callback_streaming",
+                gpuOutputQualityEffectiveMaxTokens = "512",
+                gpuOutputQualityCollectOnlyEnabled = false,
+                gpuOutputQualityUiIncrementalAppendEnabled = true,
+                gpuOutputQualityCandidateResult = "quality_candidate_fail",
+                gpuOutputQualityFailureBlockReason = "callback_source_already_suspicious",
+                gpuOutputQualityRecommendation = "compare_sampler_modes_and_max_tokens",
+                gpuOutputSourceCorruptionStage = "raw_callback",
+                gpuOutputCallbackChunkCount = 40,
+                gpuOutputNonEmptyChunkCount = 40,
+                gpuOutputSuspiciousFragmentDetected = true,
+                gpuOutputSuspiciousFragmentReason = "many_tiny_fragments",
+                gpuCallbackAverageChunkLength = "1.70",
+                gpuCallbackTwoCharOrLessChunkRatio = "0.900",
+                gpuPrefillProbeDiagnostics = mapOf(
+                    "gpu_sampler_root_cause_candidate" to "runtime_decode_fragmentation",
+                ),
+                callbackQualityClassification = "severe_fragmentation",
+                callbackCorruptionEarliestStage = "raw_callback",
+            ),
+            elapsedMs = 2_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "カレーの材料をお願いします。",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = routeDiagnostics),
+                status = "success",
+                reason = "gpu_callback_streaming_success",
+                routeContext = context,
+            ),
+        )
+
+        assertTrue(compact.contains("edge_gallery_parity_mode=edge_gallery_parity_sampler_none"))
+        assertTrue(compact.contains("edge_gallery_parity_engine_config_profile=edge_gallery_like_text_only"))
+        assertTrue(compact.contains("edge_gallery_parity_conversation_config_profile=no_sampler_config"))
+        assertTrue(compact.contains("edge_gallery_parity_callback_mode=incremental_callback_streaming"))
+        assertTrue(compact.contains("edge_gallery_parity_holder_reuse=false"))
+        assertTrue(compact.contains("edge_gallery_parity_cache_dir_mode=gallery_like_null_for_app_model_path"))
+        assertTrue(compact.contains("edge_gallery_parity_sampler_present=false"))
+        assertTrue(compact.contains("edge_gallery_parity_candidate_result=quality_candidate_fail"))
+        assertTrue(
+            compact.contains(
+                "edge_gallery_parity_difference_summary=edge_gallery_gpu_ok_lami_gpu_raw_callback_decode_fragmentation",
+            ),
+        )
+        assertTrue(compact.contains("gpu_output_quality_promotion_blocker=true"))
+    }
+
+    @Test
     fun `GPU perf slow path classifier separates first token and tokenizer delays`() {
         assertEquals(
             "slow_first_token",

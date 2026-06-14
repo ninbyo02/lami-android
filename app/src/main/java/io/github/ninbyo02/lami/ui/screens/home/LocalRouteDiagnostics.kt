@@ -2053,6 +2053,15 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_output_quality_ui_incremental_append_enabled=${gpuOutputQuality.uiIncrementalAppendEnabled}",
         "gpu_output_quality_probe_short_max_tokens=${gpuConfig.outputQualityProbeShortMaxTokensEnabled}",
         "gpu_output_quality_probe_effective_max_tokens=${gpuConfig.outputQualityProbeEffectiveMaxTokens}",
+        "edge_gallery_parity_mode=${resolveEdgeGalleryParityModeForMatrixMode(gpuOutputQuality.matrixMode)}",
+        "edge_gallery_parity_engine_config_profile=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) resolveGpuEngineConfigProfileForBackend(context.preferredBackend) else "unavailable"}",
+        "edge_gallery_parity_conversation_config_profile=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuConfig.conversationConfigProfile else "unavailable"}",
+        "edge_gallery_parity_callback_mode=${resolveEdgeGalleryParityCallbackModeForMatrixMode(gpuOutputQuality.matrixMode, gpuOutputQuality.streamingMode)}",
+        "edge_gallery_parity_holder_reuse=${resolveEdgeGalleryParityHolderReuseForMatrixMode(gpuOutputQuality.matrixMode, flags.gpuCallbackStreamingReusedHeldEngine ?: flags.heldEngineReused)}",
+        "edge_gallery_parity_cache_dir_mode=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) resolveGpuCacheDirModeForBackend(context.preferredBackend, gpuConfig.experimentMode) else "unavailable"}",
+        "edge_gallery_parity_sampler_present=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuConfig.conversationConfigSamplerPresent else "unavailable"}",
+        "edge_gallery_parity_candidate_result=${if (gpuOutputQuality.matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES) gpuOutputQuality.candidateResult else "unavailable"}",
+        "edge_gallery_parity_difference_summary=${resolveEdgeGalleryParityDifferenceSummary(gpuOutputQuality.matrixMode, gpuOutputQuality.sourceCorruptionStage, gpuOutputQuality.candidateResult, gpuOutputQuality.samplerRootCauseCandidate)}",
         "gpu_max_tokens=${gpuConfig.maxTokens}",
         "gpu_top_k=${gpuConfig.samplerTopK}",
         "gpu_top_p=${gpuConfig.samplerTopP}",
@@ -3535,7 +3544,29 @@ internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION = "no
 internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE =
     "disable_topk_gpu_sampler_candidate"
 internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY = "collect_only"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_MINIMAL = "edge_gallery_parity_minimal"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_STREAMING = "edge_gallery_parity_no_streaming"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_COLLECT_FINAL = "edge_gallery_parity_collect_final"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_HOLDER_REUSE =
+    "edge_gallery_parity_no_holder_reuse"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_CACHE_APP_FILES =
+    "edge_gallery_parity_cache_app_files"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_CACHE_NULL = "edge_gallery_parity_cache_null"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_DEFAULT =
+    "edge_gallery_parity_sampler_default"
+internal const val GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_NONE =
+    "edge_gallery_parity_sampler_none"
 private val GPU_OUTPUT_QUALITY_ALLOWED_MAX_TOKENS = setOf(128, 256, 512, 1024, 4000)
+internal val EDGE_GALLERY_PARITY_MATRIX_MODES = setOf(
+    GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_MINIMAL,
+    GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_STREAMING,
+    GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_COLLECT_FINAL,
+    GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_HOLDER_REUSE,
+    GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_CACHE_APP_FILES,
+    GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_CACHE_NULL,
+    GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_DEFAULT,
+    GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_NONE,
+)
 
 internal fun resolveGpuOutputQualityMatrixModeForDebug(
     preferredBackend: String,
@@ -3563,6 +3594,22 @@ internal fun resolveGpuOutputQualityMatrixModeForDebug(
         GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY,
         "collect_then_commit",
         "collect_only_final_commit" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_MINIMAL,
+        "parity_minimal" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_MINIMAL
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_STREAMING,
+        "parity_no_streaming" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_STREAMING
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_COLLECT_FINAL,
+        "parity_collect_final" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_COLLECT_FINAL
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_HOLDER_REUSE,
+        "parity_no_holder_reuse" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_HOLDER_REUSE
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_CACHE_APP_FILES,
+        "parity_cache_app_files" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_CACHE_APP_FILES
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_CACHE_NULL,
+        "parity_cache_null" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_CACHE_NULL
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_DEFAULT,
+        "parity_sampler_default" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_DEFAULT
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_NONE,
+        "parity_sampler_none" -> GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_NONE
         else -> GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE
     }
 }
@@ -3583,6 +3630,12 @@ internal fun resolveGpuOutputQualityExperimentOverrideForDebug(
         GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION -> GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION
         GPU_OUTPUT_QUALITY_MATRIX_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE ->
             GPU_EXPERIMENT_MODE_DISABLE_TOPK_GPU_SAMPLER_CANDIDATE
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_CACHE_APP_FILES ->
+            GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_CACHE_NULL ->
+            GPU_EXPERIMENT_MODE_CACHE_DIR_NULL
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_SAMPLER_NONE ->
+            GPU_EXPERIMENT_MODE_NO_SAMPLING_ACCELERATION
         else -> null
     }
 
@@ -3595,7 +3648,11 @@ internal fun isGpuOutputQualityCollectOnlyModeForDebug(
         preferredBackend = preferredBackend.name,
         propertyReader = propertyReader,
         standardGpuMinimalRuntimeCandidateFlavor = standardGpuMinimalRuntimeCandidateFlavor,
-    ) == GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY
+    ) in setOf(
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY,
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_STREAMING,
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_COLLECT_FINAL,
+    )
 
 private fun isGpuOutputQualityCollectOnlyMode(
     preferredBackend: String,
@@ -3604,7 +3661,11 @@ private fun isGpuOutputQualityCollectOnlyMode(
     BuildConfig.DEBUG &&
         BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR &&
         preferredBackend.equals("GPU", ignoreCase = true) &&
-        matrixMode == GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY
+        matrixMode in setOf(
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY,
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_STREAMING,
+            GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_COLLECT_FINAL,
+        )
 
 internal fun resolveGpuOutputQualityMaxTokensOverrideForDebug(
     preferredBackend: String,
@@ -3628,6 +3689,58 @@ private fun resolveGpuOutputQualitySamplerMode(experimentMode: String): String =
         GPU_EXPERIMENT_MODE_CACHE_DIR_APP_FILES_NO_SAMPLER,
         GPU_EXPERIMENT_MODE_CACHE_DIR_NULL_NO_SAMPLER -> "cache_dir_no_sampler"
         else -> "edge_gallery_like"
+    }
+
+internal fun isEdgeGalleryParityNoHolderReuseModeForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    propertyReader: (String) -> String? = ::readLocalRouteDebugProperty,
+    standardGpuMinimalRuntimeCandidateFlavor: Boolean = BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR,
+): Boolean =
+    resolveGpuOutputQualityMatrixModeForDebug(
+        preferredBackend = preferredBackend.name,
+        propertyReader = propertyReader,
+        standardGpuMinimalRuntimeCandidateFlavor = standardGpuMinimalRuntimeCandidateFlavor,
+    ) == GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_HOLDER_REUSE
+
+internal fun resolveEdgeGalleryParityModeForMatrixMode(matrixMode: String): String =
+    matrixMode.takeIf { it in EDGE_GALLERY_PARITY_MATRIX_MODES } ?: "unavailable"
+
+internal fun resolveEdgeGalleryParityCallbackModeForMatrixMode(
+    matrixMode: String,
+    streamingMode: String,
+): String =
+    when (matrixMode) {
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_STREAMING,
+        GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_COLLECT_FINAL -> "collect_only_final_commit"
+        in EDGE_GALLERY_PARITY_MATRIX_MODES -> streamingMode
+        else -> "unavailable"
+    }
+
+internal fun resolveEdgeGalleryParityHolderReuseForMatrixMode(
+    matrixMode: String,
+    holderReused: Boolean?,
+): String =
+    when {
+        matrixMode == GPU_OUTPUT_QUALITY_MATRIX_MODE_EDGE_GALLERY_PARITY_NO_HOLDER_REUSE -> "disabled_for_parity_probe"
+        matrixMode in EDGE_GALLERY_PARITY_MATRIX_MODES -> holderReused.toDiagnosticValue()
+        else -> "unavailable"
+    }
+
+internal fun resolveEdgeGalleryParityDifferenceSummary(
+    matrixMode: String,
+    sourceCorruptionStage: String,
+    candidateResult: String,
+    samplerRootCauseCandidate: String,
+): String =
+    when {
+        matrixMode !in EDGE_GALLERY_PARITY_MATRIX_MODES -> "unavailable"
+        candidateResult == "quality_candidate_pass" -> "lami_gpu_parity_mode_passed"
+        sourceCorruptionStage == "raw_callback" &&
+            samplerRootCauseCandidate == "runtime_decode_fragmentation" ->
+            "edge_gallery_gpu_ok_lami_gpu_raw_callback_decode_fragmentation"
+        sourceCorruptionStage == "raw_callback" -> "edge_gallery_gpu_ok_lami_gpu_raw_callback_corruption"
+        samplerRootCauseCandidate == "streaming_join_issue" -> "lami_streaming_join_diff_candidate"
+        else -> "edge_gallery_parity_difference_still_unclassified"
     }
 
 private fun resolveGpuOutputQualityStreamingModeForDebug(

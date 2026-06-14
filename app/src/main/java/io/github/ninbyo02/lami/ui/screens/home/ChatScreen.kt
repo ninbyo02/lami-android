@@ -4714,6 +4714,19 @@ fun Home(
                                                                 }
                                                                 val lastRouteDiagnosticStage =
                                                                     AtomicReference<String?>("engine_create_started")
+                                                                if (isEdgeGalleryParityNoHolderReuseModeForDebug(preferredBackendDryRunSetting)) {
+                                                                    localInferenceEngineHolder.requestRecreateForDev(
+                                                                        reason = "edge_gallery_parity_no_holder_reuse_before_acquire",
+                                                                        owner = "ChatScreen.edgeGalleryParityNoHolderReuse",
+                                                                        appendTrace = { message ->
+                                                                            gpuRouteProgressTracker.recordTrace(message)
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = message,
+                                                                            )
+                                                                        },
+                                                                    )
+                                                                }
                                                                 val heldSnapshotBeforeAcquire = localInferenceEngineHolder.getDevDiagnosticSnapshot()
                                                                 val reusableHeldEngineBeforeAcquire =
                                                                     localInferenceEngineHolder.hasReusableHeldEngineForKey(modelResolution.engineKey)

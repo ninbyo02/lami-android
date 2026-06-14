@@ -73,6 +73,7 @@ first_non_empty() {
 }
 
 declare -A candidate_counts=()
+declare -A parity_difference_counts=()
 
 printf 'mode|quality|fragment_score|avg_chunk|one_char_ratio|tail_ratio\n'
 
@@ -91,6 +92,10 @@ for file in "$INPUT_DIR"/*; do
   candidate="$(first_non_empty "$(extract_key "$file" "gpu_sampler_root_cause_candidate")")"
   if [[ "$candidate" != "unavailable" ]]; then
     candidate_counts["$candidate"]=$(( ${candidate_counts["$candidate"]:-0} + 1 ))
+  fi
+  parity_difference="$(first_non_empty "$(extract_key "$file" "edge_gallery_parity_difference_summary")")"
+  if [[ "$parity_difference" != "unavailable" ]]; then
+    parity_difference_counts["$parity_difference"]=$(( ${parity_difference_counts["$parity_difference"]:-0} + 1 ))
   fi
   printf '%s|%s|%s|%s|%s|%s\n' \
     "$mode" "$quality" "$fragment_score" "$avg_chunk" "$one_char_ratio" "$tail_ratio"
@@ -112,3 +117,15 @@ for candidate in "${!candidate_counts[@]}"; do
 done
 
 printf 'ROOT_CAUSE_CANDIDATE=%s\n' "$root_cause"
+
+parity_difference_summary="unknown"
+best_count=0
+for candidate in "${!parity_difference_counts[@]}"; do
+  count="${parity_difference_counts[$candidate]}"
+  if (( count > best_count )); then
+    best_count="$count"
+    parity_difference_summary="$candidate"
+  fi
+done
+
+printf 'EDGE_GALLERY_PARITY_DIFFERENCE_SUMMARY=%s\n' "$parity_difference_summary"
