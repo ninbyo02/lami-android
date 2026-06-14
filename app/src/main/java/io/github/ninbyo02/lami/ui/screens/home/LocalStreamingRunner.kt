@@ -1161,6 +1161,7 @@ private class GenerateCallbackLifecycleTracker(
     private val rawCallbackText = DiagnosticTextWindow()
     private val promotedText = DiagnosticTextWindow()
     private val finalAssistantText = DiagnosticTextWindow()
+    private val recentNonEmptyChunks = ArrayDeque<String>()
 
     fun markGenerateCallEntered() {
         generateCallEntered = true
@@ -1198,6 +1199,7 @@ private class GenerateCallbackLifecycleTracker(
             }
         } else {
             callbackNonEmptyTextCount += 1
+            recordRecentChunkSummary(text)
             if (firstNonEmptyTextElapsedMs == null) firstNonEmptyTextElapsedMs = now
             firstTokenClassificationReason = "callback_non_empty_text"
         }
@@ -1314,6 +1316,20 @@ private class GenerateCallbackLifecycleTracker(
             gpuOutputSuspiciousFragmentDetected = (resolveGpuOutputSuspiciousReason() != "none").takeIf {
                 callbackStreamingPathSelected
             },
+            gpuOutputSuspiciousFragmentPosition = resolveGpuOutputSuspiciousPosition().takeIf { callbackStreamingPathSelected },
+            gpuOutputSuspiciousFragmentTailRatio = resolveGpuOutputSuspiciousTailRatio().takeIf { callbackStreamingPathSelected },
+            gpuOutputRepeatedMarkdownFragmentDetected = detectRepeatedMarkdownFragmentForTracker().takeIf {
+                callbackStreamingPathSelected
+            },
+            gpuOutputMixedJapaneseFragmentDetected = detectMixedJapaneseFragmentForTracker().takeIf {
+                callbackStreamingPathSelected
+            },
+            gpuOutputChunkJoinStrategy = resolveGpuOutputChunkJoinStrategy().takeIf { callbackStreamingPathSelected },
+            gpuOutputChunkBoundarySuspected = resolveGpuOutputChunkBoundarySuspected().takeIf {
+                callbackStreamingPathSelected
+            },
+            gpuOutputLastChunksSummary = recentNonEmptyChunks.joinToString("|").ifBlank { "none" }
+                .takeIf { callbackStreamingPathSelected },
             gpuPerfEngineAcquireElapsedMs = base.gpuPerfEngineAcquireElapsedMs ?: base.engineCreateDurationMs,
             gpuPerfEngineCreateOrReuse = base.gpuPerfEngineCreateOrReuse ?: when (heldEngineReused) {
                 true -> "reuse"
@@ -1365,6 +1381,18 @@ private class GenerateCallbackLifecycleTracker(
             ),
         )
 
+    private fun recordRecentChunkSummary(text: String) {
+        val sanitizedHead = text
+            .replace('\n', ' ')
+            .replace('\r', ' ')
+            .take(3)
+            .ifBlank { "none" }
+        recentNonEmptyChunks += "${text.length}:$sanitizedHead"
+        while (recentNonEmptyChunks.size > 20) {
+            recentNonEmptyChunks.removeFirst()
+        }
+    }
+
     private fun resolveGpuCallbackStreamingSuccessCount(): Int? {
         if (!callbackStreamingPathSelected) return null
         return if (
@@ -1398,6 +1426,66 @@ private class GenerateCallbackLifecycleTracker(
             rawLength = rawCallbackText.length,
             finalLength = finalAssistantText.length,
             nonEmptyChunkCount = callbackNonEmptyTextCount,
+        )
+
+    private fun resolveGpuOutputSuspiciousPosition(): String {
+        val reason = resolveGpuOutputSuspiciousReason()
+        if (reason == "none" || reason == "unavailable") return "none"
+        val pattern = Regex(":\\*\\*|ml2|g）に）：：|[：:]{3,}|[)）]{4,}|[*＊]{4,}|[{}\\[\\]]{8,}")
+        val headSample = "${rawCallbackText.headText()} ${promotedText.headText()} ${finalAssistantText.headText()}"
+        val tailSample = "${rawCallbackText.tailText()} ${promotedText.tailText()} ${finalAssistantText.tailText()}"
+        val headSuspicious = pattern.containsMatchIn(headSample)
+        val tailSuspicious = pattern.containsMatchIn(tailSample)
+        return when {
+            tailSuspicious && !headSuspicious -> "tail"
+            headSuspicious && !tailSuspicious -> "head"
+            tailSuspicious && headSuspicious -> "middle"
+            reason == "many_tiny_fragments" -> "tail"
+            else -> "middle"
+        }
+    }
+
+    private fun resolveGpuOutputSuspiciousTailRatio(): String {
+        val tailSample = "${rawCallbackText.tailText()} ${promotedText.tailText()} ${finalAssistantText.tailText()}"
+        if (tailSample.isBlank()) return "unavailable"
+        val suspiciousChars = tailSample.count { ch ->
+            ch in listOf('*', '＊', ':', '：', ')', '）', '(', '（', '}', '{', '[', ']') ||
+                ch.isDigit() ||
+                ch.code in 0x3040..0x309F && tailSample.contains("ml", ignoreCase = true)
+        }
+        return "%.3f".format(Locale.US, suspiciousChars.toDouble() / tailSample.length.coerceAtLeast(1))
+    }
+
+    private fun detectRepeatedMarkdownFragmentForTracker(): Boolean {
+        val combined = "${rawCallbackText.tailText()} ${promotedText.tailText()} ${finalAssistantText.tailText()}"
+        if (combined.isBlank()) return false
+        return Regex("([*＊#`_\\-]{2,}).*\\1").containsMatchIn(combined) ||
+            Regex("(:\\*\\*|\\*\\*)").findAll(combined).count() >= 2
+    }
+
+    private fun detectMixedJapaneseFragmentForTracker(): Boolean {
+        val combined = "${rawCallbackText.tailText()} ${promotedText.tailText()} ${finalAssistantText.tailText()}"
+        if (combined.isBlank()) return false
+        val hasJapanese = combined.any { ch ->
+            ch.code in 0x3040..0x30FF || ch.code in 0x4E00..0x9FFF
+        }
+        val hasAsciiNoise = Regex("(ml\\d+|[a-zA-Z]\\)|[a-zA-Z]）|\\d+[ぁ-んァ-ヶ一-龠])").containsMatchIn(combined)
+        val manyJapanesePunctuation = Regex("[：）。、]{4,}").containsMatchIn(combined)
+        return hasJapanese && (hasAsciiNoise || manyJapanesePunctuation)
+    }
+
+    private fun resolveGpuOutputChunkJoinStrategy(): String =
+        if (callbackStreamingPathSelected) {
+            "raw_callback_append:$callbackStreamingPathReason"
+        } else {
+            "markdown_streaming_join"
+        }
+
+    private fun resolveGpuOutputChunkBoundarySuspected(): Boolean =
+        resolveGpuOutputSuspiciousReason() in setOf(
+            "many_tiny_fragments",
+            "promoted_text_suspicious_after_stream_join",
+            "final_text_only_suspicious_after_ui_or_markdown",
         )
 
     private fun resolveGenerateToFirstTokenMs(): Long? {

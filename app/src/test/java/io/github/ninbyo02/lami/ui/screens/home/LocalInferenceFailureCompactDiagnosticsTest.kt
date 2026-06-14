@@ -1692,7 +1692,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("held_engine_snapshot_before_destroy=holder_hash=7"))
         assertTrue(compact.contains("gpu_alignment_holder_cleared=true"))
         assertTrue(compact.contains("gpu_alignment_holder_clear_reason=gpu_watchdog_timeout_holder_clear"))
-        assertTrue(compact.contains("gpu_alignment_holder_reuse_block_reason=holder_cleared_after_failure"))
+        assertTrue(compact.contains("gpu_alignment_holder_reuse_block_reason=timeout_cleanup"))
     }
 
     @Test
@@ -1834,7 +1834,7 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 heldEngineDestroyReason = "success_cleanup",
                 gpuAlignmentHolderPresentBeforeAcquire = true,
                 gpuAlignmentHolderAcquireResult = "reused",
-                gpuAlignmentHolderReused = true,
+                gpuAlignmentHolderReused = false,
                 gpuAlignmentHolderCleared = true,
                 gpuAlignmentHolderClearReason = "success_cleanup",
             ),
@@ -2350,6 +2350,9 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 gpuOutputCallbackChunkCount = 3,
                 gpuOutputEmptyChunkCount = 0,
                 gpuOutputNonEmptyChunkCount = 3,
+                gpuOutputChunkJoinStrategy = "raw_callback_append:dev_gate_normal_route",
+                gpuOutputChunkBoundarySuspected = false,
+                gpuOutputLastChunksSummary = "6:こん|6:材料|6:です",
             ),
             elapsedMs = 2_000L,
         )
@@ -2371,6 +2374,10 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("gpu_output_callback_chunk_count=3"))
         assertTrue(compact.contains("gpu_output_suspicious_fragment_detected=false"))
         assertTrue(compact.contains("gpu_output_suspicious_fragment_reason=none"))
+        assertTrue(compact.contains("gpu_output_suspicious_fragment_position=none"))
+        assertTrue(compact.contains("gpu_output_chunk_join_strategy=raw_callback_append:dev_gate_normal_route"))
+        assertTrue(compact.contains("gpu_output_chunk_boundary_suspected=false"))
+        assertTrue(compact.contains("gpu_output_last_chunks_summary=6:こん|6:材料|6:です"))
     }
 
     @Test
@@ -2385,6 +2392,62 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         )
 
         assertEquals("final_text_only_suspicious_after_ui_or_markdown", reason)
+    }
+
+    @Test
+    fun `GPU output suspicious tail fragment diagnostics expose position and chunk boundary`() {
+        val context = buildGpuRouteContextForNewDiagnostics()
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_streaming_completed",
+            context = context,
+            flags = LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                gpuNormalRouteUseCallbackStreaming = true,
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackTextPromotedToUi = true,
+                gpuUiAppendFinished = true,
+                gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                gpuOutputRawCallbackTextLength = 44,
+                gpuOutputRawCallbackTextHead = "材料は普通です。",
+                gpuOutputRawCallbackTextTail = "：など易簡単いい調スパ ml2 g）に）：：",
+                gpuOutputPromotedTextLength = 44,
+                gpuOutputPromotedTextHead = "材料は普通です。",
+                gpuOutputPromotedTextTail = "：など易簡単いい調スパ ml2 g）に）：：",
+                gpuOutputFinalAssistantTextLength = 44,
+                gpuOutputFinalAssistantTextHead = "材料は普通です。",
+                gpuOutputFinalAssistantTextTail = "：など易簡単いい調スパ ml2 g）に）：：",
+                gpuOutputCallbackChunkCount = 30,
+                gpuOutputEmptyChunkCount = 0,
+                gpuOutputNonEmptyChunkCount = 30,
+                gpuOutputChunkJoinStrategy = "raw_callback_append:dev_gate_normal_route",
+                gpuOutputLastChunksSummary = "1:：|1:な|1:ど|1:易|1:簡|1:g|1:）",
+            ),
+            elapsedMs = 2_000L,
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "カレーの材料をお願いします。",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(localFailureDiagnosticsText = routeDiagnostics),
+                status = "success",
+                reason = "gpu_callback_streaming_success",
+                routeContext = context,
+            ),
+        )
+
+        assertTrue(compact.contains("gpu_output_suspicious_fragment_detected=true"))
+        assertTrue(compact.contains("gpu_output_suspicious_fragment_position=tail"))
+        assertTrue(compact.contains("gpu_output_mixed_japanese_fragment_detected=true"))
+        assertTrue(compact.contains("gpu_output_chunk_boundary_suspected=true"))
+        assertTrue(compact.contains("gpu_output_last_chunks_summary=1:：|1:な|1:ど|1:易|1:簡|1:g|1:）"))
     }
 
     @Test
@@ -2446,6 +2509,12 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 gpuHolderLifecycleClearAfterUiAppend = true,
                 gpuHolderLifecycleClearReasonDetail = "app-backgrounded",
                 gpuHolderLifecycleBackgroundDetectionSource = "HeldEngineLifecycleBridge.onStop",
+                gpuHolderLifecycleOnStopDeferred = true,
+                gpuHolderLifecycleOnStopDeferReason = "transient_onstop_after_success_ui_append",
+                gpuHolderLifecycleClearSuppressedAfterSuccess = true,
+                gpuHolderLifecycleClearSuppressedReason = "transient_onstop_after_success_ui_append",
+                gpuHolderLifecycleActualBackgroundConfirmed = false,
+                gpuHolderLifecycleReuseExpectedNextTurn = true,
             ),
             elapsedMs = 2_000L,
         )
@@ -2467,6 +2536,10 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("gpu_holder_lifecycle_clear_reason_detail=app-backgrounded"))
         assertTrue(compact.contains("gpu_holder_lifecycle_clear_after_success_ms=120"))
         assertTrue(compact.contains("gpu_holder_lifecycle_background_detection_source=HeldEngineLifecycleBridge.onStop"))
+        assertTrue(compact.contains("gpu_holder_lifecycle_onstop_deferred=true"))
+        assertTrue(compact.contains("gpu_holder_lifecycle_clear_suppressed_after_success=true"))
+        assertTrue(compact.contains("gpu_holder_lifecycle_actual_background_confirmed=false"))
+        assertTrue(compact.contains("gpu_holder_lifecycle_reuse_expected_next_turn=true"))
     }
 
     @Test

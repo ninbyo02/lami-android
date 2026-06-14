@@ -684,6 +684,15 @@ private val GPU_OUTPUT_QUALITY_DIAGNOSTIC_KEYS = listOf(
     "gpu_output_non_empty_chunk_count",
     "gpu_output_suspicious_fragment_detected",
     "gpu_output_suspicious_fragment_reason",
+    "gpu_output_suspicious_fragment_position",
+    "gpu_output_suspicious_fragment_tail_ratio",
+    "gpu_output_repeated_markdown_fragment_detected",
+    "gpu_output_mixed_japanese_fragment_detected",
+    "gpu_output_chunk_join_strategy",
+    "gpu_output_chunk_boundary_suspected",
+    "gpu_output_last_chunks_summary",
+    "gpu_output_quality_probe_short_max_tokens",
+    "gpu_output_quality_probe_effective_max_tokens",
 )
 
 private fun buildGpuOutputQualityCompactDiagnosticLines(
@@ -734,6 +743,12 @@ private val GPU_HOLDER_LIFECYCLE_DIAGNOSTIC_KEYS = listOf(
     "gpu_holder_lifecycle_clear_after_ui_append",
     "gpu_holder_lifecycle_clear_reason_detail",
     "gpu_holder_lifecycle_background_detection_source",
+    "gpu_holder_lifecycle_onstop_deferred",
+    "gpu_holder_lifecycle_onstop_defer_reason",
+    "gpu_holder_lifecycle_clear_suppressed_after_success",
+    "gpu_holder_lifecycle_clear_suppressed_reason",
+    "gpu_holder_lifecycle_actual_background_confirmed",
+    "gpu_holder_lifecycle_reuse_expected_next_turn",
 )
 
 private fun buildGpuHolderLifecycleCompactDiagnosticLines(

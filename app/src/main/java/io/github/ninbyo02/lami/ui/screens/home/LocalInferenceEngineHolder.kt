@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.content.Context
 import android.os.SystemClock
+import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.local.buildLocalInferenceFailureDiagnosticsText
 import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import kotlinx.coroutines.sync.Mutex
@@ -12,6 +13,7 @@ private const val ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT = false
 private const val HELD_ENGINE_BACKGROUND_TIMEOUT_MS = 5 * 60 * 1000L
 private const val HELD_ENGINE_IDLE_TIMEOUT_MS = 10 * 60 * 1000L
 private const val HELD_ENGINE_LIFECYCLE_HISTORY_MAX = 24
+private const val GPU_TRANSIENT_ONSTOP_AFTER_SUCCESS_SUPPRESS_MS = 5_000L
 
 internal data class HeldLocalEngine(
     val engineKey: HeldEngineKey,
@@ -84,10 +86,17 @@ internal data class HeldEngineDevDiagnosticSnapshot(
     val gpuHolderLifecycleClearAfterUiAppend: Boolean? = null,
     val gpuHolderLifecycleClearReasonDetail: String? = null,
     val gpuHolderLifecycleBackgroundDetectionSource: String? = null,
+    val gpuHolderLifecycleOnStopDeferred: Boolean? = null,
+    val gpuHolderLifecycleOnStopDeferReason: String? = null,
+    val gpuHolderLifecycleClearSuppressedAfterSuccess: Boolean? = null,
+    val gpuHolderLifecycleClearSuppressedReason: String? = null,
+    val gpuHolderLifecycleActualBackgroundConfirmed: Boolean? = null,
+    val gpuHolderLifecycleReuseExpectedNextTurn: Boolean? = null,
 )
 
 internal class LocalInferenceEngineHolder(
     private val appContext: Context,
+    private val gpuTransientOnStopProtectionOverrideForTest: Boolean? = null,
 ) {
     private enum class HeldEngineLifecycleReason {
         MODEL_CHANGED,
@@ -177,6 +186,12 @@ internal class LocalInferenceEngineHolder(
     private var lastGpuHolderClearAfterUiAppend: Boolean? = null
     private var lastGpuHolderLifecycleEventAfterSuccess: String? = null
     private var lastGpuHolderLifecycleBackgroundDetectionSource: String? = null
+    private var lastGpuHolderLifecycleOnStopDeferred: Boolean? = null
+    private var lastGpuHolderLifecycleOnStopDeferReason: String? = null
+    private var lastGpuHolderLifecycleClearSuppressedAfterSuccess: Boolean? = null
+    private var lastGpuHolderLifecycleClearSuppressedReason: String? = null
+    private var lastGpuHolderLifecycleActualBackgroundConfirmed: Boolean? = null
+    private var lastGpuHolderLifecycleReuseExpectedNextTurn: Boolean? = null
 
     init {
         recordHeldEngineLifecycleEventLocked(
@@ -544,6 +559,12 @@ internal class LocalInferenceEngineHolder(
             gpuHolderLifecycleClearAfterUiAppend = lastGpuHolderClearAfterUiAppend,
             gpuHolderLifecycleClearReasonDetail = heldEngineDestroyReason,
             gpuHolderLifecycleBackgroundDetectionSource = lastGpuHolderLifecycleBackgroundDetectionSource,
+            gpuHolderLifecycleOnStopDeferred = lastGpuHolderLifecycleOnStopDeferred,
+            gpuHolderLifecycleOnStopDeferReason = lastGpuHolderLifecycleOnStopDeferReason,
+            gpuHolderLifecycleClearSuppressedAfterSuccess = lastGpuHolderLifecycleClearSuppressedAfterSuccess,
+            gpuHolderLifecycleClearSuppressedReason = lastGpuHolderLifecycleClearSuppressedReason,
+            gpuHolderLifecycleActualBackgroundConfirmed = lastGpuHolderLifecycleActualBackgroundConfirmed,
+            gpuHolderLifecycleReuseExpectedNextTurn = lastGpuHolderLifecycleReuseExpectedNextTurn,
         )
     }
 
@@ -578,6 +599,61 @@ internal class LocalInferenceEngineHolder(
 
     suspend fun hasReusableHeldEngineForKey(engineKey: HeldEngineKey): Boolean = mutex.withLock {
         held?.engineKey == engineKey
+    }
+
+    private fun resolveGpuTransientOnStopDeferReasonLocked(
+        nowElapsedMs: Long,
+    ): String? {
+        if (!isGpuTransientOnStopProtectionEnabledForDebug()) return null
+        val current = held ?: return null
+        if (current.preferredBackendDryRunSetting != PreferredBackendDryRunSetting.GPU) return null
+        if (gpuGenerateActive) return "active_generate"
+        val successAt = lastGpuGenerationSuccessAtElapsedMs ?: return null
+        val clearAfterSuccessMs = (nowElapsedMs - successAt).coerceAtLeast(0L)
+        if (clearAfterSuccessMs > GPU_TRANSIENT_ONSTOP_AFTER_SUCCESS_SUPPRESS_MS) return null
+        val uiAppendFinished = lastGpuUiAppendFinishedAtElapsedMs?.let { uiAt ->
+            uiAt <= nowElapsedMs && uiAt >= (lastGpuGenerateStartedAtElapsedMs ?: 0L)
+        } == true
+        return if (uiAppendFinished) {
+            "transient_onstop_after_success_ui_append"
+        } else {
+            "transient_onstop_after_success"
+        }
+    }
+
+    private fun recordGpuOnStopDeferredLocked(
+        target: HeldLocalEngine,
+        nowElapsedMs: Long,
+        deferReason: String,
+    ) {
+        val clearAfterSuccessMs = lastGpuGenerationSuccessAtElapsedMs?.let { successAt ->
+            (nowElapsedMs - successAt).coerceAtLeast(0L)
+        }
+        lastGpuHolderClearTriggerElapsedMs = nowElapsedMs
+        lastGpuHolderClearAfterSuccessMs = clearAfterSuccessMs
+        lastGpuHolderClearDuringActiveGenerate = gpuGenerateActive
+        lastGpuHolderClearAfterUiAppend = lastGpuUiAppendFinishedAtElapsedMs?.let { uiAt ->
+            uiAt <= nowElapsedMs && uiAt >= (lastGpuGenerateStartedAtElapsedMs ?: 0L)
+        }
+        lastGpuHolderLifecycleEventAfterSuccess = if (gpuGenerateActive) {
+            "onstop_deferred_during_active_generate"
+        } else {
+            "onstop_deferred_after_success"
+        }
+        lastGpuHolderLifecycleBackgroundDetectionSource = "HeldEngineLifecycleBridge.onStop"
+        lastGpuHolderLifecycleOnStopDeferred = true
+        lastGpuHolderLifecycleOnStopDeferReason = deferReason
+        lastGpuHolderLifecycleClearSuppressedAfterSuccess = clearAfterSuccessMs != null
+        lastGpuHolderLifecycleClearSuppressedReason = deferReason
+        lastGpuHolderLifecycleActualBackgroundConfirmed = false
+        lastGpuHolderLifecycleReuseExpectedNextTurn = true
+        recordHeldEngineLifecycleEventLocked(
+            event = "holder_onstop_deferred",
+            reason = deferReason,
+            owner = "HeldEngineLifecycleBridge.onStop",
+            failureStage = "none",
+            target = target,
+        )
     }
 
     private fun recordHeldEngineCreateLocked(
@@ -684,8 +760,19 @@ internal class LocalInferenceEngineHolder(
             val decision = resolveLifecycleDecision(reason = "app-backgrounded")
             lastLifecycleEventReason = decision.clearReason
             lastLifecycleDecisionAction = decision.action.name
+            val current = held
+            val deferReason = resolveGpuTransientOnStopDeferReasonLocked(nowElapsedMs = nowElapsedMs)
+            if (current != null && deferReason != null) {
+                lastLifecycleDecisionAction = HeldEngineLifecycleAction.KEEP_HELD.name
+                recordGpuOnStopDeferredLocked(
+                    target = current,
+                    nowElapsedMs = nowElapsedMs,
+                    deferReason = deferReason,
+                )
+                return@withLock
+            }
             applyLifecycleDecisionLocked(
-                current = held,
+                current = current,
                 decision = decision,
                 nowElapsedMs = nowElapsedMs,
             )
@@ -827,6 +914,14 @@ internal class LocalInferenceEngineHolder(
         if (appInForeground) return
         val current = held ?: return
         if (nowElapsedMs - current.lastUsedAtElapsedMs < HELD_ENGINE_IDLE_TIMEOUT_MS) return
+        if (gpuGenerateActive && isGpuTransientOnStopProtectionEnabledForDebug()) {
+            recordGpuOnStopDeferredLocked(
+                target = current,
+                nowElapsedMs = nowElapsedMs,
+                deferReason = "active_generate_idle_timeout_deferred",
+            )
+            return
+        }
             applyLifecycleDecisionLocked(
                 current = current,
                 decision = resolveLifecycleDecision(reason = "idle-timeout"),
@@ -841,8 +936,17 @@ internal class LocalInferenceEngineHolder(
     ) {
         val backgroundedAt = appBackgroundedAtElapsedMs ?: return
         if (nowElapsedMs - backgroundedAt < HELD_ENGINE_BACKGROUND_TIMEOUT_MS) return
+        val current = held
+        if (current != null && gpuGenerateActive && isGpuTransientOnStopProtectionEnabledForDebug()) {
+            recordGpuOnStopDeferredLocked(
+                target = current,
+                nowElapsedMs = nowElapsedMs,
+                deferReason = "active_generate_background_timeout_deferred",
+            )
+            return
+        }
         applyLifecycleDecisionLocked(
-            current = held,
+            current = current,
             decision = resolveLifecycleDecision(reason = "background-timeout"),
             nowElapsedMs = nowElapsedMs,
             appendTrace = appendTrace,
@@ -889,6 +993,13 @@ internal class LocalInferenceEngineHolder(
                     "background-timeout" -> "LocalInferenceEngineHolder.maybeReleaseBackgroundTimedOutEngine"
                     else -> owner
                 }
+                lastGpuHolderLifecycleOnStopDeferred = false
+                lastGpuHolderLifecycleOnStopDeferReason = "none"
+                lastGpuHolderLifecycleClearSuppressedAfterSuccess = false
+                lastGpuHolderLifecycleClearSuppressedReason = "none"
+                lastGpuHolderLifecycleActualBackgroundConfirmed =
+                    decision.clearReason == "app-backgrounded" || decision.clearReason == "background-timeout"
+                lastGpuHolderLifecycleReuseExpectedNextTurn = false
                 heldEngineSnapshotBeforeDestroy = buildHeldEngineSnapshotBeforeDestroyLocked(
                     target = target,
                     reason = decision.clearReason,
@@ -1000,6 +1111,29 @@ internal class LocalInferenceEngineHolder(
             }
             closeMethod?.invoke(target)
         }
+    }
+
+    private fun isGpuTransientOnStopProtectionEnabledForDebug(): Boolean {
+        gpuTransientOnStopProtectionOverrideForTest?.let { return it }
+        if (!BuildConfig.DEBUG || !BuildConfig.STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_FLAVOR) return false
+        val explicit = readHolderDebugProperty("debug.lami.gpu_holder_lifecycle_defer_transient_onstop")
+            ?: readHolderDebugProperty("lami.gpu_holder_lifecycle_defer_transient_onstop")
+        if (explicit != null) return explicit.equals("true", ignoreCase = true) || explicit == "1"
+        val callbackStreamingGate = readHolderDebugProperty("debug.lami.gpu_normal_route_use_callback_streaming")
+            ?: readHolderDebugProperty("lami.gpu_normal_route_use_callback_streaming")
+        return callbackStreamingGate.equals("true", ignoreCase = true) || callbackStreamingGate == "1"
+    }
+
+    private fun readHolderDebugProperty(key: String): String? {
+        val jvmProperty = runCatching {
+            System.getProperty(key)?.trim()?.takeIf { it.isNotBlank() }
+        }.getOrNull()
+        if (jvmProperty != null) return jvmProperty
+        return runCatching {
+            val clazz = Class.forName("android.os.SystemProperties")
+            val method = clazz.getMethod("get", String::class.java, String::class.java)
+            (method.invoke(null, key, "") as? String)?.trim()?.takeIf { it.isNotBlank() }
+        }.getOrNull()
     }
 
     private fun recordHeldEngineLifecycleEventLocked(

@@ -519,6 +519,51 @@ adb shell setprop debug.lami.gpu_probe_use_held_engine false
 Promotion remains prohibited until quality drift, slow-path classification, and holder lifecycle cleanup are understood
 across restart, 3-5 continuous turns, and a long response.
 
+### Phase 19 transient onStop and output-tail probes
+
+`standardGpuMinimalRuntimeCandidateDebug` keeps GPU promotion DEV-only, but it now has a guarded holder protection for
+the observed success-then-`onStop` case. The protection is active only in the candidate flavor while GPU callback
+streaming is selected, or when explicitly enabled with:
+
+```bash
+adb shell setprop debug.lami.gpu_holder_lifecycle_defer_transient_onstop true
+```
+
+Unset means candidate-flavor default behavior. Set `false` to roll the protection back for comparison. The guard:
+
+- defers holder close during active GPU generate;
+- suppresses short transient `onStop` after GPU success/UI append;
+- records `gpu_holder_lifecycle_onstop_deferred`,
+  `gpu_holder_lifecycle_clear_suppressed_after_success`, and
+  `gpu_holder_lifecycle_reuse_expected_next_turn`;
+- still clears on confirmed background after the transient window, model/backend switch, failure cleanup, or timeout
+  cleanup.
+
+For output-tail corruption, compare:
+
+- `gpu_output_suspicious_fragment_position`;
+- `gpu_output_suspicious_fragment_tail_ratio`;
+- `gpu_output_repeated_markdown_fragment_detected`;
+- `gpu_output_mixed_japanese_fragment_detected`;
+- `gpu_output_chunk_join_strategy`;
+- `gpu_output_chunk_boundary_suspected`;
+- `gpu_output_last_chunks_summary`.
+
+Hypothesis ranking for tail drift:
+
+1. Long-output sampling / `maxTokens=4000` remains plausible.
+2. Raw GPU callback corruption points toward the minimal LiteRT-LM GPU runtime path or model/runtime interaction.
+3. Clean raw callback but corrupt promoted/final text points toward chunk append/join or Markdown/UI handling.
+4. Holder lifecycle primarily explains cold-load speed regression; it is not yet proven to cause output corruption.
+
+Next opt-in experiment:
+
+```bash
+adb shell setprop debug.lami.gpu_output_quality_probe_short_max_tokens true
+```
+
+This lowers the candidate flavor GPU `maxTokens` to 256. Keep it `false` for baseline runs.
+
 Native stack classification for the promotion decision:
 
 | Library group | Promotion meaning |

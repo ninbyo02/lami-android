@@ -1343,6 +1343,58 @@ If it is enabled, the diagnostic keys `gpu_prefill_probe_blocks_normal_generate`
 `gpu_prefill_probe_block_reason` explain why normal generation was skipped. With `debug.lami.gpu_prefill_probe=false`,
 the expected value is `gpu_prefill_probe_blocks_normal_generate=false`.
 
+## GPU Phase 19: transient onStop and tail-fragment probes
+
+Observed `standardGpuMinimalRuntimeCandidateDebug` runs showed GPU generation success followed by holder cleanup from
+`HeldEngineLifecycleBridge.onStop` about 1.5 seconds after UI append. That prevents the next turn from reusing the held
+engine and can force repeated cold loads. Phase 19 adds a DEV-only guard for this candidate flavor:
+
+- `debug.lami.gpu_normal_route_use_callback_streaming=true` selects the GPU callback streaming candidate path;
+- `debug.lami.gpu_holder_lifecycle_defer_transient_onstop` can explicitly enable/disable transient onStop protection;
+- if the property is unset, protection is enabled only for `standardGpuMinimalRuntimeCandidateDebug` while callback
+  streaming is enabled;
+- active generate onStop is deferred;
+- onStop within a short window after GPU success/UI append is recorded as transient and the holder is kept;
+- confirmed app background after the transient window, model switch, backend switch, failure cleanup, and timeout
+  cleanup still clear the holder.
+
+New holder keys:
+
+- `gpu_holder_lifecycle_onstop_deferred`;
+- `gpu_holder_lifecycle_onstop_defer_reason`;
+- `gpu_holder_lifecycle_clear_suppressed_after_success`;
+- `gpu_holder_lifecycle_clear_suppressed_reason`;
+- `gpu_holder_lifecycle_actual_background_confirmed`;
+- `gpu_holder_lifecycle_reuse_expected_next_turn`.
+
+Reuse classification now distinguishes `reuse_ok`, `transient_onstop_suppressed`, `app_backgrounded_confirmed`,
+`model_path_changed`, `backend_changed`, `failure_cleanup`, `timeout_cleanup`, `process_restart`, and `unknown`.
+
+Tail-fragment diagnostics add:
+
+- `gpu_output_suspicious_fragment_position`;
+- `gpu_output_suspicious_fragment_tail_ratio`;
+- `gpu_output_repeated_markdown_fragment_detected`;
+- `gpu_output_mixed_japanese_fragment_detected`;
+- `gpu_output_chunk_join_strategy`;
+- `gpu_output_chunk_boundary_suspected`;
+- `gpu_output_last_chunks_summary`.
+
+Current output-quality hypotheses:
+
+- model quality: possible, but less likely until raw callback vs final text proves the corruption starts inside the
+  model output;
+- sampler/topK/topP/temperature: plausible for long responses because the current allowlist uses `topK=64`,
+  `topP=0.95`, `temperature=1.0`;
+- `maxTokens=4000`: plausible for long-tail drift, so the next opt-in probe is
+  `debug.lami.gpu_output_quality_probe_short_max_tokens=true`, which lowers the GPU max token budget to 256 only in
+  `standardGpuMinimalRuntimeCandidateDebug`;
+- callback chunk append/join: plausible if raw callback is clean but promoted/final text or chunk-boundary diagnostics
+  become suspicious;
+- LiteRT-LM GPU minimal runtime pair: still a candidate if raw callback tail is already corrupt;
+- holder lifecycle: likely affects speed through cold loads. It is not yet proven to cause tail corruption, but the
+  new diagnostics let runs compare reuse vs cold-load quality.
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

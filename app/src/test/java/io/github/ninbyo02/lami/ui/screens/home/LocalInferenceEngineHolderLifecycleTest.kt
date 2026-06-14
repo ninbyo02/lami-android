@@ -1,9 +1,11 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -37,6 +39,76 @@ class LocalInferenceEngineHolderLifecycleTest {
         assertEquals(false, snapshot.gpuHolderLifecycleClearDuringActiveGenerate)
         assertEquals(true, snapshot.gpuHolderLifecycleClearAfterUiAppend)
         assertEquals("HeldEngineLifecycleBridge.onStop", snapshot.gpuHolderLifecycleBackgroundDetectionSource)
+    }
+
+    @Test
+    fun `transient onStop after GPU success keeps held engine for next turn`() = runTest {
+        val holder = LocalInferenceEngineHolder(
+            appContext = RuntimeEnvironment.getApplication(),
+            gpuTransientOnStopProtectionOverrideForTest = true,
+        )
+        var closeCount = 0
+        holder.setHeldForTest(createHeldEngineForTest { closeCount += 1 })
+        holder.recordGpuGenerationStartedForDiagnostics(nowElapsedMs = 1_000L)
+        holder.recordGpuUiAppendFinishedForDiagnostics(nowElapsedMs = 1_200L)
+        holder.recordGpuGenerationFinishedForDiagnostics(success = true, nowElapsedMs = 1_300L)
+
+        holder.notifyAppBackgrounded(nowElapsedMs = 2_000L)
+
+        val snapshot = holder.getDevDiagnosticSnapshot()
+        assertTrue(snapshot.heldEngineHash != null)
+        assertFalse(snapshot.appInForeground)
+        assertEquals("app-backgrounded", snapshot.lastLifecycleEventReason)
+        assertEquals("KEEP_HELD", snapshot.lastLifecycleDecisionAction)
+        assertEquals(0, closeCount)
+        assertEquals(true, snapshot.gpuHolderLifecycleOnStopDeferred)
+        assertEquals("transient_onstop_after_success_ui_append", snapshot.gpuHolderLifecycleOnStopDeferReason)
+        assertEquals(true, snapshot.gpuHolderLifecycleClearSuppressedAfterSuccess)
+        assertEquals(false, snapshot.gpuHolderLifecycleActualBackgroundConfirmed)
+        assertEquals(true, snapshot.gpuHolderLifecycleReuseExpectedNextTurn)
+    }
+
+    @Test
+    fun `confirmed background after suppress window releases held engine`() = runTest {
+        val holder = LocalInferenceEngineHolder(
+            appContext = RuntimeEnvironment.getApplication(),
+            gpuTransientOnStopProtectionOverrideForTest = true,
+        )
+        var closeCount = 0
+        holder.setHeldForTest(createHeldEngineForTest { closeCount += 1 })
+        holder.recordGpuGenerationStartedForDiagnostics(nowElapsedMs = 1_000L)
+        holder.recordGpuUiAppendFinishedForDiagnostics(nowElapsedMs = 1_200L)
+        holder.recordGpuGenerationFinishedForDiagnostics(success = true, nowElapsedMs = 1_300L)
+
+        holder.notifyAppBackgrounded(nowElapsedMs = 7_000L)
+
+        val snapshot = holder.getDevDiagnosticSnapshot()
+        assertNull(snapshot.heldEngineHash)
+        assertEquals(1, closeCount)
+        assertEquals(false, snapshot.gpuHolderLifecycleOnStopDeferred)
+        assertEquals(false, snapshot.gpuHolderLifecycleClearSuppressedAfterSuccess)
+        assertEquals(true, snapshot.gpuHolderLifecycleActualBackgroundConfirmed)
+        assertEquals(false, snapshot.gpuHolderLifecycleReuseExpectedNextTurn)
+    }
+
+    @Test
+    fun `active GPU generate defers onStop close`() = runTest {
+        val holder = LocalInferenceEngineHolder(
+            appContext = RuntimeEnvironment.getApplication(),
+            gpuTransientOnStopProtectionOverrideForTest = true,
+        )
+        var closeCount = 0
+        holder.setHeldForTest(createHeldEngineForTest { closeCount += 1 })
+        holder.recordGpuGenerationStartedForDiagnostics(nowElapsedMs = 1_000L)
+
+        holder.notifyAppBackgrounded(nowElapsedMs = 2_000L)
+
+        val snapshot = holder.getDevDiagnosticSnapshot()
+        assertTrue(snapshot.heldEngineHash != null)
+        assertEquals(0, closeCount)
+        assertEquals(true, snapshot.gpuHolderLifecycleOnStopDeferred)
+        assertEquals("active_generate", snapshot.gpuHolderLifecycleOnStopDeferReason)
+        assertEquals(true, snapshot.gpuHolderLifecycleClearDuringActiveGenerate)
     }
 
     @Test
@@ -102,6 +174,7 @@ class LocalInferenceEngineHolderLifecycleTest {
             createdAtElapsedMs = 1_000L,
             lastUsedAtElapsedMs = 1_000L,
             useCount = 1,
+            preferredBackendDryRunSetting = PreferredBackendDryRunSetting.GPU,
             closeEngine = { onClose() },
         )
     }
