@@ -60,6 +60,8 @@ internal const val GPU_GENERATE_PROBE_MODE_RAW_CALLBACK_ONLY = "raw_callback_onl
 internal const val GPU_GENERATE_PROBE_MODE_CALLBACK_TO_UI = "callback_to_ui"
 internal const val GPU_GENERATE_PROBE_MODE_NORMAL_CALLBACK_STREAMING = "normal_callback_streaming"
 internal const val STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_RUNTIME_STACK = "standardDebug_dev_gate"
+internal const val STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_RUNTIME_STACK =
+    "standardDebug_minimal_runtime_dev_gate"
 private const val NPU_DISABLED_NOT_SUPPORTED_REASON = "npu-disabled-vendor-fastrpc-namespace-blocked-recommended-gpu"
 private val STREAMING_NO_JOIN_PREVIOUS_CHARS = setOf(
     '(', '[', '{', '"', '\'', '`', '/', '\\', '.', ',', ':', ';', '!', '?',
@@ -149,6 +151,15 @@ internal data class StandardGpuRuntimeAlignmentCandidateEligibility(
     val modelSizeBytes: String,
     val modelIdentityHint: String,
     val runtimeStack: String = STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_RUNTIME_STACK,
+)
+
+internal data class StandardGpuMinimalRuntimeCandidateEligibility(
+    val enabled: Boolean,
+    val eligible: Boolean,
+    val blockReason: String,
+    val modelSizeBytes: String,
+    val modelIdentityHint: String,
+    val runtimeStack: String = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_RUNTIME_STACK,
 )
 
 internal data class GpuPrefillProbeState(
@@ -333,6 +344,17 @@ internal fun isStandardGpuRuntimeAlignmentCandidateEnabledForDebug(
     return enabled.equals("true", ignoreCase = true) || enabled == "1"
 }
 
+internal fun isStandardGpuMinimalRuntimeCandidateEnabledForDebug(
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+): Boolean {
+    if (!BuildConfig.DEBUG) return false
+    if (BuildConfig.CURRENT_FLAVOR != "standard") return false
+    val enabled = propertyReader("debug.lami.standard_gpu_minimal_runtime_candidate")
+        ?: propertyReader("lami.standard_gpu_minimal_runtime_candidate")
+        ?: return false
+    return enabled.equals("true", ignoreCase = true) || enabled == "1"
+}
+
 internal fun resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
     preferredBackend: PreferredBackendDryRunSetting,
     modelPath: String?,
@@ -379,6 +401,70 @@ internal fun resolveStandardGpuRuntimeAlignmentCandidateEligibilityForDebug(
         else -> "none"
     }
     return StandardGpuRuntimeAlignmentCandidateEligibility(
+        enabled = enabled,
+        eligible = blockReason == "none",
+        blockReason = blockReason,
+        modelSizeBytes = sizeDiagnostic,
+        modelIdentityHint = modelIdentityHint,
+    )
+}
+
+internal fun resolveStandardGpuMinimalRuntimeCandidateEligibilityForDebug(
+    preferredBackend: PreferredBackendDryRunSetting,
+    modelPath: String?,
+    callbackStreamingGateEnabled: Boolean,
+    gpuGenerateProbeMode: String = GPU_GENERATE_PROBE_MODE_NORMAL,
+    libLiteRtSha256: String = "unavailable",
+    libLiteRtLmJniSha256: String = "unavailable",
+    dispatchPresent: String = "unavailable",
+    compilerPluginPresent: String = "unavailable",
+    constraintProviderPresent: String = "unavailable",
+    propertyReader: (String) -> String? = ::readGpuPrefillProbeDebugProperty,
+): StandardGpuMinimalRuntimeCandidateEligibility {
+    val enabled = isStandardGpuMinimalRuntimeCandidateEnabledForDebug(propertyReader)
+    val modelFile = modelPath
+        ?.trim()
+        ?.takeIf { it.isNotBlank() && it != "unknown" && it != "unavailable" }
+        ?.let(::File)
+    val sizeBytes = modelFile?.takeIf { it.isFile }?.length()
+    val sizeDiagnostic = sizeBytes?.toString() ?: "unavailable"
+    val pathText = listOfNotNull(modelPath, modelFile?.name)
+        .joinToString(" ")
+        .lowercase(Locale.US)
+    val nameLooksLikeEdgeGalleryE2b =
+        pathText.contains("gemma-4-e2b-it-edge-gallery.litertlm") ||
+            pathText.contains("gemma_4_e2b_it") ||
+            pathText.contains("litert-community/gemma-4-e2b-it-litert-lm") ||
+            pathText.endsWith("gemma-4-e2b-it.litertlm")
+    val sizeMatches = sizeBytes == STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES
+    val modelIdentityHint = when {
+        !nameLooksLikeEdgeGalleryE2b -> "not_edge_gallery_e2b"
+        sizeBytes == STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES -> "edge_gallery_e2b_expected"
+        sizeBytes == null -> "edge_gallery_e2b_expected_size_unavailable"
+        else -> "edge_gallery_e2b_size_mismatch"
+    }
+    val blockReason = when {
+        BuildConfig.CURRENT_FLAVOR != "standard" -> "not_standard_flavor"
+        !enabled -> "candidate_gate_disabled"
+        preferredBackend != PreferredBackendDryRunSetting.GPU -> "selected_backend_not_gpu"
+        !callbackStreamingGateEnabled -> "callback_streaming_gate_disabled"
+        gpuGenerateProbeMode !in STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_ALLOWED_PROBE_MODES ->
+            "unsupported_gpu_generate_probe_mode"
+        !nameLooksLikeEdgeGalleryE2b -> "model_identity_not_edge_gallery_e2b"
+        sizeBytes == null -> "model_size_unavailable"
+        !sizeMatches -> "model_size_mismatch"
+        libLiteRtSha256 == "unavailable" -> "liblitert_sha_unavailable"
+        !libLiteRtSha256.equals(STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256, ignoreCase = true) ->
+            "liblitert_sha_mismatch"
+        libLiteRtLmJniSha256 == "unavailable" -> "liblitertlm_jni_sha_unavailable"
+        !libLiteRtLmJniSha256.equals(STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256, ignoreCase = true) ->
+            "liblitertlm_jni_sha_mismatch"
+        dispatchPresent == "true" -> "dispatch_qualcomm_present"
+        compilerPluginPresent == "true" -> "compiler_plugin_qualcomm_present"
+        constraintProviderPresent == "true" -> "constraint_provider_present"
+        else -> "none"
+    }
+    return StandardGpuMinimalRuntimeCandidateEligibility(
         enabled = enabled,
         eligible = blockReason == "none",
         blockReason = blockReason,

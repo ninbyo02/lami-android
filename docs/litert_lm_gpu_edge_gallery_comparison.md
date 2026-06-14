@@ -1131,6 +1131,67 @@ Diagnostics:
 - `failure` なら、`gpuRuntimeAlignmentProbeDebug` との差分にまだ別の packaging / dependency / lifecycle 条件が残る。
 - いずれの場合も、単体 `.so` 差し替えは禁止のまま。standard への昇格は isolated flavor での安定性試験後に段階判断する。
 
+## GPU Phase 16: Standard minimal runtime candidate gate
+
+`standardGpuRuntimeMinimalProbeDebug` でも Edge Gallery E2B model + GPU + callback streaming が成功したため、
+現時点の最小 runtime 整合候補は `libLiteRt.so` + `liblitertlm_jni.so` の core pair である可能性が高い。
+
+ただし Android の native library は APK packaging 時に固定されるため、実行時 property だけで `standardDebug`
+の native stack を切り替えることはしない。`standardDebug` には runtime を常時混ぜず、次の DEV property は
+「現在の standardDebug APK が最小 runtime 条件を満たしているか」を診断する gate として扱う。
+
+```bash
+adb shell setprop debug.lami.standard_gpu_minimal_runtime_candidate true
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+```
+
+New Standard diagnostics:
+
+- `standard_gpu_minimal_runtime_candidate_enabled`
+- `standard_gpu_minimal_runtime_candidate_eligible`
+- `standard_gpu_minimal_runtime_candidate_block_reason`
+- `standard_gpu_minimal_runtime_candidate_result`
+- `standard_gpu_minimal_runtime_candidate_success_gate`
+- `standard_gpu_minimal_runtime_candidate_liblitert_sha256`
+- `standard_gpu_minimal_runtime_candidate_liblitertlm_jni_sha256`
+- `standard_gpu_minimal_runtime_candidate_dispatch_present`
+- `standard_gpu_minimal_runtime_candidate_compiler_plugin_present`
+- `standard_gpu_minimal_runtime_candidate_constraint_provider_present`
+- `standard_gpu_minimal_runtime_candidate_runtime_stack`
+- `standard_gpu_minimal_runtime_candidate_interpretation`
+
+Eligibility requires:
+
+- `standardDebug`
+- selected backend `GPU`
+- Edge Gallery E2B model identity and size `2588147712`
+- `debug.lami.gpu_normal_route_use_callback_streaming=true`
+- `debug.lami.gpu_generate_probe_mode=normal` or `normal_callback_streaming`
+- loaded `libLiteRt.so` SHA `31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24`
+- loaded `liblitertlm_jni.so` SHA `ac97fd1a7e3755eb77127599928011a7ecd75f3170749f034f568de1e0d27b6f`
+- `libLiteRtDispatch_Qualcomm.so`, `libLiteRtCompilerPlugin_Qualcomm.so`, and `libGemmaModelConstraintProvider.so` absent
+
+If current `standardDebug` still packages the old standard stack, the expected result is a blocked candidate such as
+`standard_gpu_minimal_runtime_candidate_block_reason=liblitert_sha_mismatch` or a related stack mismatch reason. This is
+not a regression; it confirms that native stack promotion has not been applied to Standard.
+
+The dispatch/compiler/model constraint provider libraries and QNN libraries are no longer treated as generic GPU success
+requirements for this path. They remain visible in diagnostics but must not be mixed into Standard as individual `.so`
+files.
+
+Standard promotion remains prohibited until:
+
+1. App restart first GPU request succeeds.
+2. Holder reuse succeeds.
+3. 3-5 continuous turns succeed.
+4. Short, medium, and long prompts succeed.
+5. Timeout/exception cleanup is verified.
+6. CPU and NPU S1 routes show no regression.
+7. A rollback property/build path is documented.
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

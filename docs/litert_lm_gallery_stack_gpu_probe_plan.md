@@ -331,6 +331,65 @@ Expected interpretation:
 
 This flavor is a diagnostic split only. It does not promote GPU into `standardDebug`, and it does not relax the single `.so` replacement ban.
 
+## Standard minimal runtime candidate gate
+
+After `standardGpuRuntimeMinimalProbeDebug` succeeded, the current minimal runtime alignment hypothesis is:
+
+- required core pair: `libLiteRt.so` + `liblitertlm_jni.so`
+- not required for generic GPU success in the current evidence: `libLiteRtDispatch_Qualcomm.so`, `libLiteRtCompilerPlugin_Qualcomm.so`, `libGemmaModelConstraintProvider.so`, and QNN libraries
+
+`standardDebug` still must not receive native stack changes by default. Android cannot safely switch packaged native
+libraries with only a runtime property, so the Standard app now exposes a DEV-only diagnostic gate:
+
+```bash
+adb shell setprop debug.lami.standard_gpu_minimal_runtime_candidate true
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming true
+adb shell setprop debug.lami.gpu_probe_use_held_engine false
+adb shell setprop debug.lami.gpu_prefill_probe false
+adb shell monkey -p io.github.ninbyo02.lami 1
+```
+
+The gate emits:
+
+- `standard_gpu_minimal_runtime_candidate_enabled`
+- `standard_gpu_minimal_runtime_candidate_eligible`
+- `standard_gpu_minimal_runtime_candidate_block_reason`
+- `standard_gpu_minimal_runtime_candidate_result`
+- `standard_gpu_minimal_runtime_candidate_success_gate`
+- `standard_gpu_minimal_runtime_candidate_liblitert_sha256`
+- `standard_gpu_minimal_runtime_candidate_liblitertlm_jni_sha256`
+- `standard_gpu_minimal_runtime_candidate_dispatch_present`
+- `standard_gpu_minimal_runtime_candidate_compiler_plugin_present`
+- `standard_gpu_minimal_runtime_candidate_constraint_provider_present`
+- `standard_gpu_minimal_runtime_candidate_runtime_stack`
+- `standard_gpu_minimal_runtime_candidate_interpretation`
+
+Expected Standard behavior before native promotion:
+
+- The gate may be enabled.
+- Candidate eligibility should remain blocked unless the loaded Standard APK actually contains the minimal core pair.
+- `standardDebug` production/default behavior remains unchanged.
+
+Rollback:
+
+```bash
+adb shell setprop debug.lami.standard_gpu_minimal_runtime_candidate false
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming false
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+```
+
+Promotion checks before any Standard native stack change:
+
+1. App restart first GPU request succeeds.
+2. Holder reuse succeeds.
+3. 3-5 continuous turns succeed.
+4. Short, medium, and long prompts succeed.
+5. Timeout/exception cleanup works.
+6. CPU route remains stable.
+7. NPU S1 remains gated and unchanged.
+8. Rollback property/build path is documented and tested.
+
 Native stack classification for the promotion decision:
 
 | Library group | Promotion meaning |

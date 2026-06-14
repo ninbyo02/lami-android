@@ -242,6 +242,10 @@ internal const val STANDARD_GPU_RUNTIME_STACK_MISMATCH_HIGH_PRIORITY_CANDIDATES 
     "libLiteRt.so,liblitertlm_jni.so,libLiteRtDispatch_Qualcomm.so,libLiteRtCompilerPlugin_Qualcomm.so,libGemmaModelConstraintProvider.so"
 internal const val STANDARD_GPU_RUNTIME_STACK_REQUIRED_ALIGNMENT_UNIT =
     "libLiteRt.so+liblitertlm_jni.so+libLiteRtDispatch_Qualcomm.so+libLiteRtCompilerPlugin_Qualcomm.so+libGemmaModelConstraintProvider.so"
+internal const val STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256 =
+    "31b3c86cefaa0838a234af1bdff8831be4cff438c501afb9b9d50460fe83ed24"
+internal const val STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256 =
+    "ac97fd1a7e3755eb77127599928011a7ecd75f3170749f034f568de1e0d27b6f"
 
 internal data class StandardGpuProbeDiagnostics(
     val emit: Boolean = false,
@@ -265,6 +269,22 @@ internal data class StandardGpuProbeDiagnostics(
     val runtimeStackRequiredAlignmentUnit: String = "unavailable",
     val runtimeStackSingleSoSwapForbidden: String = "true",
     val runtimeStackPromotionBlockedReason: String = "unavailable",
+)
+
+internal data class StandardGpuMinimalRuntimeCandidateDiagnostics(
+    val emit: Boolean = false,
+    val enabled: String = "false",
+    val eligible: String = "false",
+    val blockReason: String = "unavailable",
+    val result: String = "unavailable",
+    val successGate: String = "false",
+    val libLiteRtSha256: String = "unavailable",
+    val libLiteRtLmJniSha256: String = "unavailable",
+    val dispatchPresent: String = "unavailable",
+    val compilerPluginPresent: String = "unavailable",
+    val constraintProviderPresent: String = "unavailable",
+    val runtimeStack: String = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_RUNTIME_STACK,
+    val interpretation: String = "unavailable",
 )
 
 internal fun buildLocalRouteDiagnosticContext(
@@ -314,6 +334,80 @@ internal fun buildLocalRouteDiagnosticContext(
         nativeLibraryDir = nativeLibraryDir,
     )
 }
+
+internal fun buildStandardGpuMinimalRuntimeCandidateDiagnostics(
+    context: LocalRouteDiagnosticContext,
+    flags: LocalRouteDiagnosticFlags,
+    failureStage: String,
+    loadedRuntimeNativeStack: LoadedRuntimeNativeStackDiagnostics,
+): StandardGpuMinimalRuntimeCandidateDiagnostics {
+    val enabled = isStandardGpuMinimalRuntimeCandidateEnabledForDebug()
+    val shouldEmit =
+        BuildConfig.CURRENT_FLAVOR == "standard" &&
+            context.preferredBackend.equals("GPU", ignoreCase = true) &&
+            enabled
+    if (!shouldEmit) return StandardGpuMinimalRuntimeCandidateDiagnostics()
+    val eligibility = resolveStandardGpuMinimalRuntimeCandidateEligibilityForDebug(
+        preferredBackend = io.github.ninbyo02.lami.ui.screens.settings.PreferredBackendDryRunSetting.GPU,
+        modelPath = context.selectedModelPath,
+        callbackStreamingGateEnabled = flags.gpuNormalRouteUseCallbackStreaming == true,
+        gpuGenerateProbeMode = flags.gpuGenerateProbeMode ?: GPU_GENERATE_PROBE_MODE_NORMAL,
+        libLiteRtSha256 = loadedRuntimeNativeStack.libLiteRtSha256,
+        libLiteRtLmJniSha256 = loadedRuntimeNativeStack.libLiteRtLmJniSha256,
+        dispatchPresent = loadedRuntimeNativeStack.dispatchQualcommPresent,
+        compilerPluginPresent = loadedRuntimeNativeStack.compilerPluginQualcommPresent,
+        constraintProviderPresent = loadedRuntimeNativeStack.gemmaConstraintProviderPresent,
+    )
+    val result = if (eligibility.eligible) {
+        resolveStandardGpuProbeResultCandidate(
+            flags = flags,
+            failureStage = failureStage,
+        ).takeIf { it != "unknown" } ?: "unavailable"
+    } else {
+        "unavailable"
+    }
+    return StandardGpuMinimalRuntimeCandidateDiagnostics(
+        emit = true,
+        enabled = eligibility.enabled.toString(),
+        eligible = eligibility.eligible.toString(),
+        blockReason = eligibility.blockReason,
+        result = result,
+        successGate = eligibility.eligible.toString(),
+        libLiteRtSha256 = loadedRuntimeNativeStack.libLiteRtSha256,
+        libLiteRtLmJniSha256 = loadedRuntimeNativeStack.libLiteRtLmJniSha256,
+        dispatchPresent = loadedRuntimeNativeStack.dispatchQualcommPresent,
+        compilerPluginPresent = loadedRuntimeNativeStack.compilerPluginQualcommPresent,
+        constraintProviderPresent = loadedRuntimeNativeStack.gemmaConstraintProviderPresent,
+        runtimeStack = eligibility.runtimeStack,
+        interpretation = resolveStandardGpuMinimalRuntimeCandidateInterpretation(
+            eligibility = eligibility,
+            result = result,
+            failureStage = failureStage,
+            flags = flags,
+        ),
+    )
+}
+
+private fun resolveStandardGpuMinimalRuntimeCandidateInterpretation(
+    eligibility: StandardGpuMinimalRuntimeCandidateEligibility,
+    result: String,
+    failureStage: String,
+    flags: LocalRouteDiagnosticFlags,
+): String =
+    when {
+        !eligibility.enabled -> "candidate_gate_disabled"
+        !eligibility.eligible -> "blocked:${eligibility.blockReason}"
+        result == "success" -> "minimal_runtime_core_pair_candidate_success"
+        result == "failure" &&
+            (
+                failureStage == "gpu_generate_compiled_model_invoke_failed" ||
+                    flags.liteRtLmErrorStatusCode == "13" ||
+                    flags.gpuGenerateExceptionErrorLine == "735" ||
+                    flags.liteRtLmErrorPrimaryLine == "735"
+                ) -> "minimal_runtime_core_pair_candidate_failed_cc735"
+        result == "failure" -> "minimal_runtime_core_pair_candidate_failed"
+        else -> "minimal_runtime_core_pair_candidate_pending"
+    }
 
 internal fun buildStandardGpuProbeDiagnostics(
     context: LocalRouteDiagnosticContext,
@@ -695,6 +789,12 @@ internal fun buildLocalRouteDiagnosticTrace(
         standardCandidateResult = standardGpuProbe.runtimeAlignmentCandidateResult,
         runtimeAlignmentResult = runtimeAlignmentResultCandidate,
     )
+    val standardGpuMinimalRuntimeCandidate = buildStandardGpuMinimalRuntimeCandidateDiagnostics(
+        context = context,
+        flags = flags,
+        failureStage = failureStage,
+        loadedRuntimeNativeStack = loadedRuntimeNativeStack,
+    )
     val gpuAlignmentHolder = buildGpuAlignmentHolderDiagnostics(
         flags = flags,
         failureStage = failureStage,
@@ -939,12 +1039,14 @@ internal fun buildLocalRouteDiagnosticTrace(
         ) +
             buildGalleryStackGpuProbeRouteDiagnosticLines(galleryStackGpuProbe) +
             buildStandardGpuProbeRouteDiagnosticLines(standardGpuProbe) +
+            buildStandardGpuMinimalRuntimeCandidateRouteDiagnosticLines(standardGpuMinimalRuntimeCandidate) +
             buildRuntimeAlignmentProbeRouteDiagnosticLines(runtimeAlignmentProbe) +
             buildMinimalRuntimeProbeRouteDiagnosticLines(minimalRuntimeProbe) +
             buildLoadedRuntimeNativeStackRouteDiagnosticLines(
                 diagnostics = loadedRuntimeNativeStack,
                 emit = context.preferredBackend.equals("GPU", ignoreCase = true) ||
                     standardGpuProbe.emit ||
+                    standardGpuMinimalRuntimeCandidate.emit ||
                     runtimeAlignmentProbe.flavor ||
                     minimalRuntimeProbe.flavor,
             ) +
@@ -1008,6 +1110,26 @@ private fun buildStandardGpuProbeRouteDiagnosticLines(
         "standard_gpu_runtime_stack_required_alignment_unit=${diagnostics.runtimeStackRequiredAlignmentUnit}",
         "standard_gpu_runtime_stack_single_so_swap_forbidden=${diagnostics.runtimeStackSingleSoSwapForbidden}",
         "standard_gpu_runtime_stack_promotion_blocked_reason=${diagnostics.runtimeStackPromotionBlockedReason}",
+    )
+}
+
+private fun buildStandardGpuMinimalRuntimeCandidateRouteDiagnosticLines(
+    diagnostics: StandardGpuMinimalRuntimeCandidateDiagnostics,
+): List<String> {
+    if (!diagnostics.emit) return emptyList()
+    return listOf(
+        "standard_gpu_minimal_runtime_candidate_enabled=${diagnostics.enabled}",
+        "standard_gpu_minimal_runtime_candidate_eligible=${diagnostics.eligible}",
+        "standard_gpu_minimal_runtime_candidate_block_reason=${diagnostics.blockReason}",
+        "standard_gpu_minimal_runtime_candidate_result=${diagnostics.result}",
+        "standard_gpu_minimal_runtime_candidate_success_gate=${diagnostics.successGate}",
+        "standard_gpu_minimal_runtime_candidate_liblitert_sha256=${diagnostics.libLiteRtSha256}",
+        "standard_gpu_minimal_runtime_candidate_liblitertlm_jni_sha256=${diagnostics.libLiteRtLmJniSha256}",
+        "standard_gpu_minimal_runtime_candidate_dispatch_present=${diagnostics.dispatchPresent}",
+        "standard_gpu_minimal_runtime_candidate_compiler_plugin_present=${diagnostics.compilerPluginPresent}",
+        "standard_gpu_minimal_runtime_candidate_constraint_provider_present=${diagnostics.constraintProviderPresent}",
+        "standard_gpu_minimal_runtime_candidate_runtime_stack=${diagnostics.runtimeStack}",
+        "standard_gpu_minimal_runtime_candidate_interpretation=${diagnostics.interpretation}",
     )
 }
 

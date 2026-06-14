@@ -6,6 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.io.RandomAccessFile
 import java.lang.reflect.InvocationTargetException
 import java.nio.file.Files
 
@@ -965,6 +966,8 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertFalse(npuDiagnostics.contains("runtime_stack_loaded_source_flavor="))
         assertFalse(cpuDiagnostics.contains("minimal_runtime_probe_flavor="))
         assertFalse(npuDiagnostics.contains("minimal_runtime_probe_flavor="))
+        assertFalse(cpuDiagnostics.contains("standard_gpu_minimal_runtime_candidate_enabled="))
+        assertFalse(npuDiagnostics.contains("standard_gpu_minimal_runtime_candidate_enabled="))
         assertFalse(cpuDiagnostics.contains("standard_gpu_runtime_stack_mismatch_summary="))
         assertFalse(npuDiagnostics.contains("standard_gpu_runtime_stack_mismatch_summary="))
     }
@@ -1035,6 +1038,185 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         )
         assertTrue(routeDiagnostics.contains("standard_gpu_runtime_alignment_candidate_result=failure"))
         assertTrue(routeDiagnostics.contains("gpu_generate_exception_error_line=735"))
+    }
+
+    @Test
+    fun `Standard GPU minimal runtime candidate gate emits blocked diagnostics in compact`() {
+        val tempDir = Files.createTempDirectory("lami-standard-minimal-candidate-model").toFile()
+        val model = tempDir.resolve("gemma-4-E2B-it-edge-gallery.litertlm")
+        val nativeDir = createCorePairNativeStackTestDir()
+        System.setProperty("debug.lami.standard_gpu_minimal_runtime_candidate", "true")
+        try {
+            RandomAccessFile(model, "rw").use { file ->
+                file.setLength(STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+            }
+            val routeContext = buildLocalRouteDiagnosticContext(
+                selectedModelName = model.name,
+                selectedModelFile = model.absolutePath,
+                selectedModelPath = model.absolutePath,
+                preferredBackend = "GPU",
+                npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+                shouldEnterNpuS1 = false,
+                localRouteEntered = true,
+                nativeLibraryDir = nativeDir.absolutePath,
+            )
+            val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+                stage = "generate_exception",
+                context = routeContext,
+                flags = LocalRouteDiagnosticFlags(
+                    failureStage = "gpu_generate_compiled_model_invoke_failed",
+                    gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                    gpuGenerateExceptionSeen = true,
+                    gpuGenerateExceptionStatusCode = "13",
+                    gpuGenerateExceptionErrorLine = "735",
+                    gpuNormalRouteUseCallbackStreaming = true,
+                    gpuCallbackStreamingPathSelected = true,
+                ),
+            )
+            val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+                buildLocalInferenceFailureCompactInputFromTrace(
+                    inputPrompt = "こんにちは",
+                    preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                    npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                    trace = LocalInferenceTrace(
+                        requestedPreferredBackend = "GPU",
+                        appliedPreferredBackend = "GPU",
+                        preferredBackendApplyResult = "applied",
+                        localFailureDiagnosticsText = routeDiagnostics,
+                    ),
+                    failureStage = "gpu_generate_compiled_model_invoke_failed",
+                    routeContext = routeContext,
+                ),
+            )
+
+            assertTrue(routeDiagnostics.contains("standard_gpu_minimal_runtime_candidate_enabled=true"))
+            assertTrue(routeDiagnostics.contains("standard_gpu_minimal_runtime_candidate_eligible=false"))
+            assertTrue(
+                routeDiagnostics.contains(
+                    "standard_gpu_minimal_runtime_candidate_block_reason=liblitert_sha_mismatch",
+                ),
+            )
+            assertTrue(routeDiagnostics.contains("standard_gpu_minimal_runtime_candidate_result=unavailable"))
+            assertTrue(routeDiagnostics.contains("standard_gpu_minimal_runtime_candidate_success_gate=false"))
+            assertTrue(routeDiagnostics.contains("standard_gpu_minimal_runtime_candidate_dispatch_present=false"))
+            assertTrue(routeDiagnostics.contains("standard_gpu_minimal_runtime_candidate_compiler_plugin_present=false"))
+            assertTrue(routeDiagnostics.contains("standard_gpu_minimal_runtime_candidate_constraint_provider_present=false"))
+            assertTrue(
+                routeDiagnostics.contains(
+                    "standard_gpu_minimal_runtime_candidate_runtime_stack=standardDebug_minimal_runtime_dev_gate",
+                ),
+            )
+            assertTrue(
+                routeDiagnostics.contains(
+                    "standard_gpu_minimal_runtime_candidate_interpretation=blocked:liblitert_sha_mismatch",
+                ),
+            )
+            assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_enabled=true"))
+            assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_eligible=false"))
+            assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_result=unavailable"))
+            assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_dispatch_present=false"))
+            assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_compiler_plugin_present=false"))
+            assertTrue(compact.contains("standard_gpu_minimal_runtime_candidate_constraint_provider_present=false"))
+        } finally {
+            System.clearProperty("debug.lami.standard_gpu_minimal_runtime_candidate")
+            model.delete()
+            tempDir.delete()
+            nativeDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `Standard GPU minimal runtime candidate classifies success with matching core pair`() {
+        val tempDir = Files.createTempDirectory("lami-standard-minimal-candidate-model").toFile()
+        val model = tempDir.resolve("gemma-4-E2B-it-edge-gallery.litertlm")
+        System.setProperty("debug.lami.standard_gpu_minimal_runtime_candidate", "true")
+        try {
+            RandomAccessFile(model, "rw").use { file ->
+                file.setLength(STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+            }
+            val diagnostics = buildStandardGpuMinimalRuntimeCandidateDiagnostics(
+                context = buildLocalRouteDiagnosticContext(
+                    selectedModelName = model.name,
+                    selectedModelFile = model.absolutePath,
+                    selectedModelPath = model.absolutePath,
+                    preferredBackend = "GPU",
+                    npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+                    shouldEnterNpuS1 = false,
+                    localRouteEntered = true,
+                ),
+                flags = LocalRouteDiagnosticFlags(
+                    failureStage = "none",
+                    gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                    gpuNormalRouteUseCallbackStreaming = true,
+                    gpuCallbackStreamingPathSelected = true,
+                    gpuCallbackTextPromotedToUi = true,
+                    gpuUiAppendFinished = true,
+                    gpuStreamingCompletionReason = "flow_completed_non_empty_response",
+                ),
+                failureStage = "none",
+                loadedRuntimeNativeStack = matchingMinimalLoadedRuntimeStack(),
+            )
+
+            assertTrue(diagnostics.emit)
+            assertEquals("true", diagnostics.enabled)
+            assertEquals("true", diagnostics.eligible)
+            assertEquals("none", diagnostics.blockReason)
+            assertEquals("success", diagnostics.result)
+            assertEquals("true", diagnostics.successGate)
+            assertEquals("false", diagnostics.dispatchPresent)
+            assertEquals("false", diagnostics.compilerPluginPresent)
+            assertEquals("false", diagnostics.constraintProviderPresent)
+            assertEquals("minimal_runtime_core_pair_candidate_success", diagnostics.interpretation)
+        } finally {
+            System.clearProperty("debug.lami.standard_gpu_minimal_runtime_candidate")
+            model.delete()
+            tempDir.delete()
+        }
+    }
+
+    @Test
+    fun `Standard GPU minimal runtime candidate classifies cc735 failure with matching core pair`() {
+        val tempDir = Files.createTempDirectory("lami-standard-minimal-candidate-model").toFile()
+        val model = tempDir.resolve("gemma-4-E2B-it-edge-gallery.litertlm")
+        System.setProperty("debug.lami.standard_gpu_minimal_runtime_candidate", "true")
+        try {
+            RandomAccessFile(model, "rw").use { file ->
+                file.setLength(STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+            }
+            val diagnostics = buildStandardGpuMinimalRuntimeCandidateDiagnostics(
+                context = buildLocalRouteDiagnosticContext(
+                    selectedModelName = model.name,
+                    selectedModelFile = model.absolutePath,
+                    selectedModelPath = model.absolutePath,
+                    preferredBackend = "GPU",
+                    npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+                    shouldEnterNpuS1 = false,
+                    localRouteEntered = true,
+                ),
+                flags = LocalRouteDiagnosticFlags(
+                    failureStage = "gpu_generate_compiled_model_invoke_failed",
+                    gpuGenerateProbeMode = GPU_GENERATE_PROBE_MODE_NORMAL,
+                    gpuNormalRouteUseCallbackStreaming = true,
+                    gpuCallbackStreamingPathSelected = true,
+                    gpuGenerateExceptionSeen = true,
+                    gpuGenerateExceptionStatusCode = "13",
+                    gpuGenerateExceptionErrorLine = "735",
+                    liteRtLmErrorStatusCode = "13",
+                    liteRtLmErrorPrimaryLine = "735",
+                ),
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                loadedRuntimeNativeStack = matchingMinimalLoadedRuntimeStack(),
+            )
+
+            assertTrue(diagnostics.emit)
+            assertEquals("true", diagnostics.eligible)
+            assertEquals("failure", diagnostics.result)
+            assertEquals("minimal_runtime_core_pair_candidate_failed_cc735", diagnostics.interpretation)
+        } finally {
+            System.clearProperty("debug.lami.standard_gpu_minimal_runtime_candidate")
+            model.delete()
+            tempDir.delete()
+        }
     }
 
     @Test
@@ -2095,4 +2277,30 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         dir.resolve("libGemmaModelConstraintProvider.so").writeText("constraint")
         return dir
     }
+
+    private fun createCorePairNativeStackTestDir(): File {
+        val dir = Files.createTempDirectory("lami-runtime-core-pair-test").toFile()
+        dir.resolve("libLiteRt.so").writeText("litert")
+        dir.resolve("liblitertlm_jni.so").writeText("litertlm")
+        return dir
+    }
+
+    private fun matchingMinimalLoadedRuntimeStack(): LoadedRuntimeNativeStackDiagnostics =
+        LoadedRuntimeNativeStackDiagnostics(
+            sourceFlavor = "standard",
+            nativeLibraryDir = "/data/app/lib/arm64-v8a",
+            nativeStackSource = "standardDebug_minimal_runtime_dev_gate",
+            libLiteRtPresent = "true",
+            libLiteRtSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256,
+            libLiteRtLmJniPresent = "true",
+            libLiteRtLmJniSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256,
+            dispatchQualcommPresent = "false",
+            dispatchQualcommSha256 = "unavailable",
+            compilerPluginQualcommPresent = "false",
+            compilerPluginQualcommSha256 = "unavailable",
+            gemmaConstraintProviderPresent = "false",
+            gemmaConstraintProviderSha256 = "unavailable",
+            fullStackCandidateUnit = "libLiteRt.so+liblitertlm_jni.so",
+            alignmentInterpretation = "minimal_runtime_core_pair_candidate",
+        )
 }

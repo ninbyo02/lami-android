@@ -413,6 +413,126 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `standard GPU minimal runtime candidate is disabled by default`() {
+        val eligibility = resolveStandardGpuMinimalRuntimeCandidateEligibilityForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            callbackStreamingGateEnabled = true,
+            libLiteRtSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256,
+            libLiteRtLmJniSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256,
+            dispatchPresent = "false",
+            compilerPluginPresent = "false",
+            constraintProviderPresent = "false",
+            propertyReader = { null },
+        )
+
+        assertFalse(isStandardGpuMinimalRuntimeCandidateEnabledForDebug(propertyReader = { null }))
+        assertFalse(eligibility.enabled)
+        assertFalse(eligibility.eligible)
+        assertEquals("candidate_gate_disabled", eligibility.blockReason)
+    }
+
+    @Test
+    fun `standard GPU minimal runtime candidate is eligible for matching core pair`() {
+        val tempDir = File.createTempFile("lami-gpu-minimal-model", "dir").apply {
+            delete()
+            mkdirs()
+        }
+        val model = tempDir.resolve("gemma-4-E2B-it-edge-gallery.litertlm")
+        try {
+            RandomAccessFile(model, "rw").use { file ->
+                file.setLength(STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+            }
+            val eligibility = resolveStandardGpuMinimalRuntimeCandidateEligibilityForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                modelPath = model.absolutePath,
+                callbackStreamingGateEnabled = true,
+                libLiteRtSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256,
+                libLiteRtLmJniSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256,
+                dispatchPresent = "false",
+                compilerPluginPresent = "false",
+                constraintProviderPresent = "false",
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.standard_gpu_minimal_runtime_candidate" -> "true"
+                        else -> null
+                    }
+                },
+            )
+
+            assertTrue(eligibility.enabled)
+            assertTrue(eligibility.eligible)
+            assertEquals("none", eligibility.blockReason)
+            assertEquals("edge_gallery_e2b_expected", eligibility.modelIdentityHint)
+            assertEquals("standardDebug_minimal_runtime_dev_gate", eligibility.runtimeStack)
+        } finally {
+            model.delete()
+            tempDir.delete()
+        }
+    }
+
+    @Test
+    fun `standard GPU minimal runtime candidate requires callback streaming gate`() {
+        val eligibility = resolveStandardGpuMinimalRuntimeCandidateEligibilityForDebug(
+            preferredBackend = PreferredBackendDryRunSetting.GPU,
+            modelPath = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            callbackStreamingGateEnabled = false,
+            libLiteRtSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERT_SHA256,
+            libLiteRtLmJniSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256,
+            dispatchPresent = "false",
+            compilerPluginPresent = "false",
+            constraintProviderPresent = "false",
+            propertyReader = { key ->
+                when (key) {
+                    "debug.lami.standard_gpu_minimal_runtime_candidate" -> "true"
+                    else -> null
+                }
+            },
+        )
+
+        assertTrue(eligibility.enabled)
+        assertFalse(eligibility.eligible)
+        assertEquals("callback_streaming_gate_disabled", eligibility.blockReason)
+    }
+
+    @Test
+    fun `standard GPU minimal runtime candidate blocks SHA mismatch`() {
+        val tempDir = File.createTempFile("lami-gpu-minimal-model", "dir").apply {
+            delete()
+            mkdirs()
+        }
+        val model = tempDir.resolve("gemma-4-E2B-it-edge-gallery.litertlm")
+        try {
+            RandomAccessFile(model, "rw").use { file ->
+                file.setLength(STANDARD_GPU_PROBE_EDGE_GALLERY_E2B_MODEL_SIZE_BYTES)
+            }
+            val eligibility = resolveStandardGpuMinimalRuntimeCandidateEligibilityForDebug(
+                preferredBackend = PreferredBackendDryRunSetting.GPU,
+                modelPath = model.absolutePath,
+                callbackStreamingGateEnabled = true,
+                libLiteRtSha256 = "sha-mismatch",
+                libLiteRtLmJniSha256 = STANDARD_GPU_MINIMAL_RUNTIME_CANDIDATE_LITERTLM_JNI_SHA256,
+                dispatchPresent = "false",
+                compilerPluginPresent = "false",
+                constraintProviderPresent = "false",
+                propertyReader = { key ->
+                    when (key) {
+                        "debug.lami.standard_gpu_minimal_runtime_candidate" -> "true"
+                        else -> null
+                    }
+                },
+            )
+
+            assertTrue(eligibility.enabled)
+            assertFalse(eligibility.eligible)
+            assertEquals("liblitert_sha_mismatch", eligibility.blockReason)
+        } finally {
+            model.delete()
+            tempDir.delete()
+        }
+    }
+
+    @Test
     fun `GPU prefill probe expands invocation target exception at engine initialize`() {
         val root = IllegalArgumentException("gpu env missing")
         val target = IllegalStateException("initialize failed", root)
