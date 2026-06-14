@@ -2516,3 +2516,56 @@ Matrix summary helper:
 ```bash
 scripts/summarize_gpu_output_quality_matrix.sh --input artifacts/gpu_output_quality_matrix
 ```
+
+### Raw callback artifact result
+
+The `standardGpuMinimalRuntimeCandidateDebug` raw passthrough run captured the GPU callback stream before LAMI
+Markdown repair, streaming join, sanitizer-style recovery, or UI append could alter it:
+
+- `debug.lami.gpu_callback_raw_passthrough=true`
+- artifact directory: `artifacts/gpu_callback_raw_stream/`
+- full sequence: `artifacts/gpu_callback_raw_stream/gpu_callback_raw_full.txt`
+- accumulated final: `artifacts/gpu_callback_raw_stream/gpu_callback_accumulated_final.txt`
+- per-callback files: `callback_0001.txt` through `callback_0323.txt`
+- raw full size: `8000` bytes
+- accumulated final size: `1217` bytes
+- raw full sha256: `0783f5dedad31015989ae8fa07c421a905475bf4fab48bb6b903fa854aea5752`
+- accumulated final sha256: `4fefb356c89ece6120e80ad9a57c0f914c7fd9fb2d8a9875334d7ea7b2216606`
+
+The raw callback tail itself already contains malformed Japanese fragments:
+
+```text
+肉（鶏も肉豚肉）：30～00
+玉ぎ：（40g
+がい：個（30g
+にじん2本約5g）
+イス味料
+```
+
+Representative chunks:
+
+- `callback_0100.txt`: `text=豚`
+- `callback_0200.txt`: `text=パイ`
+
+The matrix result is now:
+
+```text
+baseline|quality_candidate_fail|0.816|1.78|0.524|0.188
+collect_only|quality_candidate_fail|0.893|1.66|0.582|0.174
+no_sampling_acceleration|quality_candidate_fail|0.953|1.72|0.543|0.271
+ROOT_CAUSE_CANDIDATE=runtime_decode_fragmentation
+```
+
+Conclusion: this artifact is not primarily a ChatScreen append, Markdown repair, collect-only commit, or UI rendering
+issue. The strongest current root cause is LiteRT-LM GPU raw callback source corruption / runtime decode
+fragmentation. Standard GPU promotion remains blocked by any reproducible combination of:
+
+- `gpu_output_quality_candidate_result=quality_candidate_fail`
+- `callback_corruption_earliest_stage=raw_callback`
+- `gpu_sampler_root_cause_candidate=runtime_decode_fragmentation`
+
+Compact diagnostics should summarize this as:
+
+- `gpu_output_quality_summary=runtime_callback_source_corruption_suspected`
+- `gpu_output_quality_gate_status=fail`
+- `gpu_output_quality_promotion_blocker=true`

@@ -264,6 +264,42 @@ class LocalStreamingRunnerChunkAppendTest {
     }
 
     @Test
+    fun `GPU quality matrix all fail keeps runtime decode fragmentation candidate`() {
+        val candidates = listOf(
+            classifyGpuSamplerRootCauseCandidate(
+                suspiciousDetected = true,
+                sourceCorruptionStage = "raw_callback",
+                uiAppendChangedText = false,
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_BASELINE,
+                callbackQualityClassification = "severe_fragmentation",
+            ),
+            classifyGpuSamplerRootCauseCandidate(
+                suspiciousDetected = true,
+                sourceCorruptionStage = "raw_callback",
+                uiAppendChangedText = false,
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_COLLECT_ONLY,
+                callbackQualityClassification = "severe_fragmentation",
+            ),
+            classifyGpuSamplerRootCauseCandidate(
+                suspiciousDetected = true,
+                sourceCorruptionStage = "raw_callback",
+                uiAppendChangedText = false,
+                matrixMode = GPU_OUTPUT_QUALITY_MATRIX_MODE_NO_SAMPLING_ACCELERATION,
+                callbackQualityClassification = "severe_fragmentation",
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                "runtime_decode_fragmentation",
+                "runtime_decode_fragmentation",
+                "not_sampler_related",
+            ),
+            candidates,
+        )
+    }
+
+    @Test
     fun `CPU GPU callback compare request is disabled by default`() {
         val request = resolveCpuGpuCallbackCompareRequestForDebug(
             preferredBackend = PreferredBackendDryRunSetting.GPU,

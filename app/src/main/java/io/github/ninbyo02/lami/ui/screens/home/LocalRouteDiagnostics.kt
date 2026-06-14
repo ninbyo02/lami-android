@@ -2232,6 +2232,9 @@ internal fun buildLocalRouteDiagnosticTrace(
         "gpu_output_quality_candidate_result=${gpuOutputQuality.candidateResult}",
         "gpu_output_quality_failure_block_reason=${gpuOutputQuality.failureBlockReason}",
         "gpu_output_quality_recommendation=${gpuOutputQuality.recommendation}",
+        "gpu_output_quality_gate_status=${resolveGpuOutputQualityGateStatus(gpuOutputQuality)}",
+        "gpu_output_quality_promotion_blocker=${resolveGpuOutputQualityPromotionBlocker(gpuOutputQuality)}",
+        "gpu_output_quality_summary=${resolveGpuOutputQualitySummary(gpuOutputQuality)}",
         "gpu_sampler_root_cause_candidate=${gpuOutputQuality.samplerRootCauseCandidate}",
         "gpu_output_actual_ui_appended_text_length=${gpuOutputQuality.actualUiAppendedLength}",
         "gpu_output_actual_ui_appended_text_head=${gpuOutputQuality.actualUiAppendedHead}",
@@ -2314,6 +2317,33 @@ internal fun buildLocalRouteDiagnosticTrace(
             buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
         ).joinToString(" ")
 }
+
+private fun resolveGpuOutputQualityGateStatus(diagnostics: GpuOutputQualityDiagnostics): String =
+    when (diagnostics.candidateResult) {
+        "quality_candidate_fail" -> "fail"
+        "quality_candidate_pass" -> "pass"
+        else -> "unknown"
+    }
+
+private fun resolveGpuOutputQualityPromotionBlocker(diagnostics: GpuOutputQualityDiagnostics): String =
+    (
+        diagnostics.candidateResult == "quality_candidate_fail" ||
+            diagnostics.callbackCorruptionEarliestStage == "raw_callback" ||
+            diagnostics.samplerRootCauseCandidate == "runtime_decode_fragmentation"
+        ).toString()
+
+private fun resolveGpuOutputQualitySummary(diagnostics: GpuOutputQualityDiagnostics): String =
+    when {
+        diagnostics.candidateResult == "quality_candidate_fail" &&
+            diagnostics.callbackCorruptionEarliestStage == "raw_callback" ->
+            "runtime_callback_source_corruption_suspected"
+        diagnostics.samplerRootCauseCandidate == "runtime_decode_fragmentation" ->
+            "runtime_decode_fragmentation_suspected"
+        diagnostics.samplerRootCauseCandidate == "streaming_join_issue" ->
+            "ui_or_streaming_join_issue_suspected"
+        diagnostics.candidateResult == "quality_candidate_pass" -> "quality_gate_pass"
+        else -> "quality_gate_unknown"
+    }
 
 private fun buildGalleryStackGpuProbeRouteDiagnosticLines(
     diagnostics: GalleryStackGpuProbeRuntimeDiagnostics,

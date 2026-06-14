@@ -1120,3 +1120,55 @@ After copying compact/details output from each matrix mode into `artifacts/gpu_o
 ```bash
 scripts/summarize_gpu_output_quality_matrix.sh
 ```
+
+### Raw callback artifact conclusion
+
+The raw callback artifact pass confirms that the current long-output corruption is already present before LAMI
+Markdown repair, UI append, or collect-only final commit:
+
+- `debug.lami.gpu_callback_raw_passthrough=true`
+- raw artifact directory: `artifacts/gpu_callback_raw_stream/`
+- full sequence: `artifacts/gpu_callback_raw_stream/gpu_callback_raw_full.txt`
+- accumulated final text: `artifacts/gpu_callback_raw_stream/gpu_callback_accumulated_final.txt`
+- per-callback chunks: `callback_0001.txt` through `callback_0323.txt`
+- raw full size: `8000` bytes
+- accumulated final size: `1217` bytes
+- raw full sha256: `0783f5dedad31015989ae8fa07c421a905475bf4fab48bb6b903fa854aea5752`
+- accumulated final sha256: `4fefb356c89ece6120e80ad9a57c0f914c7fd9fb2d8a9875334d7ea7b2216606`
+
+Observed raw callback tail corruption includes fragments such as:
+
+```text
+肉（鶏も肉豚肉）：30～00
+玉ぎ：（40g
+がい：個（30g
+にじん2本約5g）
+イス味料
+```
+
+Representative callback files:
+
+- `callback_0100.txt`: `text=豚`
+- `callback_0200.txt`: `text=パイ`
+
+Matrix summary:
+
+```text
+baseline|quality_candidate_fail|0.816|1.78|0.524|0.188
+collect_only|quality_candidate_fail|0.893|1.66|0.582|0.174
+no_sampling_acceleration|quality_candidate_fail|0.953|1.72|0.543|0.271
+ROOT_CAUSE_CANDIDATE=runtime_decode_fragmentation
+```
+
+This rules down LAMI Markdown/UI joining as the primary cause for this artifact. The active blocker is LiteRT-LM GPU
+raw callback source quality, summarized in diagnostics as:
+
+- `gpu_output_quality_summary=runtime_callback_source_corruption_suspected`
+- `gpu_output_quality_gate_status=fail`
+- `gpu_output_quality_promotion_blocker=true`
+
+Promotion remains blocked when any of the following are reproducible:
+
+- `gpu_output_quality_candidate_result=quality_candidate_fail`
+- `callback_corruption_earliest_stage=raw_callback`
+- `gpu_sampler_root_cause_candidate=runtime_decode_fragmentation`

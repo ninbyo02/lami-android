@@ -177,6 +177,39 @@ class GpuOutputQualityComparisonDiagnosticsTest {
         assertTrue(compact.contains("gpu_callback_ui_identical=false"))
     }
 
+    @Test
+    fun `quality candidate fail at raw callback is compact promotion blocker`() {
+        val compact = compactFromFlags(
+            LocalRouteDiagnosticFlags(
+                heldEngineExists = true,
+                heldEngineReused = true,
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = true,
+                failureStage = "none",
+                gpuCallbackStreamingPathSelected = true,
+                gpuOutputCallbackChunkCount = 323,
+                gpuOutputSuspiciousFragmentDetected = true,
+                gpuOutputQualityCandidateResult = "quality_candidate_fail",
+                gpuOutputQualityFailureBlockReason = "callback_source_already_suspicious",
+                gpuOutputSourceCorruptionStage = "raw_callback",
+                callbackCorruptionEarliestStage = "raw_callback",
+                callbackQualityClassification = "severe_fragmentation",
+                gpuPrefillProbeDiagnostics = mapOf(
+                    "gpu_sampler_root_cause_candidate" to "runtime_decode_fragmentation",
+                ),
+            ),
+        )
+
+        assertTrue(compact.contains("gpu_output_quality_candidate_result=quality_candidate_fail"))
+        assertTrue(compact.contains("callback_corruption_earliest_stage=raw_callback"))
+        assertTrue(compact.contains("gpu_sampler_root_cause_candidate=runtime_decode_fragmentation"))
+        assertTrue(compact.contains("gpu_output_quality_gate_status=fail"))
+        assertTrue(compact.contains("gpu_output_quality_promotion_blocker=true"))
+        assertTrue(compact.contains("gpu_output_quality_summary=runtime_callback_source_corruption_suspected"))
+    }
+
     private fun compactFromFlags(flags: LocalRouteDiagnosticFlags): String {
         val context = buildLocalRouteDiagnosticContext(
             selectedModelName = "gemma-4-E2B-it-edge-gallery",
