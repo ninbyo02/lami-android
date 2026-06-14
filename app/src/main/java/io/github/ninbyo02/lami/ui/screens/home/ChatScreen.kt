@@ -3444,6 +3444,7 @@ fun Home(
                                                         localRouteEntered = localRouteEnteredAfterNpuDecision,
                                                         normalChatNativeRouteBlocked = normalChatNativeRouteBlocked,
                                                         blockedReason = normalChatNativeRouteBlockedReason,
+                                                        nativeLibraryDir = context.applicationInfo.nativeLibraryDir,
                                                     )
                                                     appendLocalReflectionTrace(
                                                         context = context.applicationContext,

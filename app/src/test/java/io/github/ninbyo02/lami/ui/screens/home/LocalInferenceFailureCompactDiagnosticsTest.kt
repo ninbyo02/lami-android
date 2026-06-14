@@ -5,7 +5,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.lang.reflect.InvocationTargetException
+import java.nio.file.Files
 
 class LocalInferenceFailureCompactDiagnosticsTest {
     @Test
@@ -794,6 +796,123 @@ class LocalInferenceFailureCompactDiagnosticsTest {
         assertTrue(compact.contains("standard_gpu_probe_result_candidate=failure"))
         assertTrue(compact.contains("standard_gpu_runtime_alignment_candidate_result=failure"))
         assertTrue(compact.contains("litert_lm_error_status_code=13"))
+    }
+
+    @Test
+    fun `Standard candidate failure remains classified as runtime stack mismatch in compact`() {
+        val nativeDir = createNativeStackTestDir()
+        val routeContext = buildLocalRouteDiagnosticContext(
+            selectedModelName = "gemma-4-E2B-it-edge-gallery.litertlm",
+            selectedModelFile = "/sdcard/Download/gemma-4-E2B-it-edge-gallery.litertlm",
+            preferredBackend = "GPU",
+            npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+            shouldEnterNpuS1 = false,
+            localRouteEntered = true,
+            nativeLibraryDir = nativeDir.absolutePath,
+        )
+        val routeDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "generate_exception",
+            context = routeContext,
+            flags = LocalRouteDiagnosticFlags(
+                engineCreateFinished = true,
+                conversationCreateFinished = true,
+                generateStarted = true,
+                firstTokenReceived = false,
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                gpuGenerateExceptionSeen = true,
+                gpuGenerateExceptionStatusCode = "13",
+                gpuGenerateExceptionErrorFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                gpuGenerateExceptionErrorLine = "735",
+                gpuGenerateExceptionSummary = "failed_to_invoke_compiled_model",
+                liteRtLmErrorStatusCode = "13",
+                liteRtLmErrorPrimaryFile = "runtime/executor/llm_litert_compiled_model_executor.cc",
+                liteRtLmErrorPrimaryLine = "735",
+                gpuNormalRouteUseCallbackStreaming = true,
+                gpuCallbackStreamingPathSelected = true,
+                gpuCallbackStreamingFailureReason = "flow_response",
+                standardGpuRuntimeAlignmentCandidateEnabled = true,
+                standardGpuRuntimeAlignmentCandidateEligible = true,
+                standardGpuRuntimeAlignmentCandidateBlockReason = "none",
+                standardGpuRuntimeAlignmentCandidateModelSizeBytes = "2588147712",
+                standardGpuRuntimeAlignmentCandidateModelIdentityHint = "edge_gallery_e2b_expected",
+                standardGpuRuntimeAlignmentCandidateRuntimeStack = "standardDebug_dev_gate",
+                standardGpuRuntimeAlignmentCandidateResult = "failure",
+            ),
+        )
+        val compact = buildLocalInferenceFailureCompactDiagnosticsText(
+            buildLocalInferenceFailureCompactInputFromTrace(
+                inputPrompt = "こんにちは",
+                preferredBackendSetting = PreferredBackendDryRunSetting.GPU,
+                npuStandardRouteMode = NpuStandardRouteMode.OFF,
+                trace = LocalInferenceTrace(
+                    requestedPreferredBackend = "GPU",
+                    appliedPreferredBackend = "GPU",
+                    preferredBackendApplyResult = "applied",
+                    localFailureDiagnosticsText = routeDiagnostics,
+                ),
+                failureStage = "gpu_generate_compiled_model_invoke_failed",
+                routeContext = routeContext,
+            ),
+        )
+
+        assertTrue(routeDiagnostics.contains("runtime_stack_loaded_source_flavor=standard"))
+        assertTrue(routeDiagnostics.contains("runtime_stack_loaded_liblitert_present=true"))
+        assertTrue(routeDiagnostics.contains("runtime_stack_loaded_liblitertlm_jni_present=true"))
+        assertTrue(routeDiagnostics.contains("runtime_stack_loaded_dispatch_qualcomm_present=true"))
+        assertTrue(routeDiagnostics.contains("runtime_stack_loaded_compiler_plugin_qualcomm_present=true"))
+        assertTrue(routeDiagnostics.contains("runtime_stack_loaded_gemma_constraint_provider_present=true"))
+        assertTrue(routeDiagnostics.contains("runtime_stack_alignment_interpretation=standard_runtime_stack_mismatch_candidate"))
+        assertTrue(compact.contains("runtime_stack_loaded_source_flavor=standard"))
+        assertTrue(compact.contains("runtime_stack_loaded_liblitert_present=true"))
+        assertTrue(compact.contains("runtime_stack_loaded_liblitertlm_jni_present=true"))
+        assertTrue(compact.contains("runtime_stack_alignment_interpretation=standard_runtime_stack_mismatch_candidate"))
+        assertTrue(compact.contains("standard_gpu_runtime_alignment_candidate_result=failure"))
+    }
+
+    @Test
+    fun `Runtime alignment probe success keeps success stack interpretation`() {
+        assertEquals(
+            "runtime_alignment_probe_stack_success",
+            resolveRuntimeNativeStackAlignmentInterpretation(
+                sourceFlavor = "gpuRuntimeAlignmentProbe",
+                standardCandidateResult = "unknown",
+                runtimeAlignmentResult = "success",
+            ),
+        )
+    }
+
+    @Test
+    fun `CPU and NPU routes do not emit GPU loaded runtime stack diagnostics`() {
+        val cpuDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "success",
+            context = buildLocalRouteDiagnosticContext(
+                selectedModelName = "gemma-4-E2B-it.litertlm",
+                selectedModelFile = "/sdcard/Download/gemma-4-E2B-it.litertlm",
+                preferredBackend = "CPU",
+                npuStandardRouteMode = NpuStandardRouteMode.OFF.name,
+                shouldEnterNpuS1 = false,
+                localRouteEntered = true,
+                nativeLibraryDir = createNativeStackTestDir().absolutePath,
+            ),
+            flags = LocalRouteDiagnosticFlags(failureStage = "none"),
+        )
+        val npuDiagnostics = buildLocalRouteDiagnosticTrace(
+            stage = "success",
+            context = buildLocalRouteDiagnosticContext(
+                selectedModelName = "gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+                selectedModelFile = "/sdcard/Download/gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+                preferredBackend = "NPU_S1",
+                npuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+                effectiveNpuStandardRouteMode = NpuStandardRouteMode.S1_ONLY.name,
+                shouldEnterNpuS1 = true,
+                localRouteEntered = false,
+                nativeLibraryDir = createNativeStackTestDir().absolutePath,
+            ),
+            flags = LocalRouteDiagnosticFlags(failureStage = "none"),
+        )
+
+        assertFalse(cpuDiagnostics.contains("runtime_stack_loaded_source_flavor="))
+        assertFalse(npuDiagnostics.contains("runtime_stack_loaded_source_flavor="))
     }
 
     @Test
@@ -1836,4 +1955,14 @@ class LocalInferenceFailureCompactDiagnosticsTest {
                 processPid = "1234",
             ),
         )
+
+    private fun createNativeStackTestDir(): File {
+        val dir = Files.createTempDirectory("lami-runtime-stack-test").toFile()
+        dir.resolve("libLiteRt.so").writeText("litert")
+        dir.resolve("liblitertlm_jni.so").writeText("litertlm")
+        dir.resolve("libLiteRtDispatch_Qualcomm.so").writeText("dispatch")
+        dir.resolve("libLiteRtCompilerPlugin_Qualcomm.so").writeText("compiler")
+        dir.resolve("libGemmaModelConstraintProvider.so").writeText("constraint")
+        return dir
+    }
 }

@@ -964,6 +964,100 @@ adb shell setprop debug.lami.gpu_generate_probe_mode normal
 This is still not production promotion. Standard GPU remains off by default; native runtime stack promotion is still
 prohibited outside an explicit full-stack alignment plan.
 
+### Standard candidate result after Phase 1
+
+Latest Standard app probe result:
+
+- `standard_gpu_runtime_alignment_candidate_enabled=true`
+- `standard_gpu_runtime_alignment_candidate_eligible=true`
+- `standard_gpu_runtime_alignment_candidate_result=failure`
+- `failure_stage=gpu_generate_compiled_model_invoke_failed`
+- `gpu_litert_executor_error_file=runtime/executor/llm_litert_compiled_model_executor.cc`
+- `gpu_litert_executor_error_line=735`
+
+The same Edge Gallery E2B model succeeds in `gpuRuntimeAlignmentProbeDebug` with callback streaming and held-engine
+reuse. This confirms the current blocker is not model identity. Treat the blocker as a runtime/native stack mismatch
+between `standardDebug` and `gpuRuntimeAlignmentProbeDebug`.
+
+New loaded runtime stack diagnostics are emitted for GPU routes:
+
+- `runtime_stack_loaded_source_flavor`
+- `runtime_stack_loaded_native_library_dir`
+- `runtime_stack_loaded_native_stack_source`
+- `runtime_stack_loaded_liblitert_present`
+- `runtime_stack_loaded_liblitert_sha256`
+- `runtime_stack_loaded_liblitertlm_jni_present`
+- `runtime_stack_loaded_liblitertlm_jni_sha256`
+- `runtime_stack_loaded_dispatch_qualcomm_present`
+- `runtime_stack_loaded_dispatch_qualcomm_sha256`
+- `runtime_stack_loaded_compiler_plugin_qualcomm_present`
+- `runtime_stack_loaded_compiler_plugin_qualcomm_sha256`
+- `runtime_stack_loaded_gemma_constraint_provider_present`
+- `runtime_stack_loaded_gemma_constraint_provider_sha256`
+- `runtime_stack_loaded_full_stack_candidate_unit`
+- `runtime_stack_alignment_interpretation`
+
+Expected interpretation for the Standard failure above:
+
+```text
+runtime_stack_alignment_interpretation=standard_runtime_stack_mismatch_candidate
+```
+
+Expected interpretation for the successful runtime alignment probe:
+
+```text
+runtime_stack_alignment_interpretation=runtime_alignment_probe_stack_success
+```
+
+Compare the final packaged Standard and runtime alignment probe native stacks with:
+
+```bash
+./gradlew :app:assembleStandardDebug
+./gradlew :app:assembleGpuRuntimeAlignmentProbeDebug
+scripts/compare_standard_gpu_runtime_alignment_probe_native_libs.sh
+```
+
+The script writes under `artifacts/gpu_runtime_stack_compare/`:
+
+- `standard_debug_native_libs.tsv`
+- `gpu_runtime_alignment_probe_native_libs.tsv`
+- `standard_vs_gpu_runtime_alignment_native_lib_diff.tsv`
+- `standard_vs_gpu_runtime_alignment_needed_edges.tsv`
+- `standard_vs_gpu_runtime_alignment_stack_classification.md`
+
+Latest local comparison:
+
+- Compared `29` arm64 native libraries.
+- Same-name SHA-256 differences: `9`.
+- Presence differences: `3`.
+- High-priority runtime candidates: `5`.
+- `libLiteRt.so`: `standardDebug` size `5405080`, build id `a03032ad1eeefda446478aea308c2ed0`; `gpuRuntimeAlignmentProbeDebug` size `5046960`, build id `80fa0688ac32301185275c903cec97bd`.
+- `liblitertlm_jni.so`: `standardDebug` size `55249224`, build id `89aac06377e25627695d408eb12ae8cd`; `gpuRuntimeAlignmentProbeDebug` size `15370288`, build id `c2c27170ba409dbd0bc01820fa738580`.
+- `libLiteRtDispatch_Qualcomm.so`, `libLiteRtCompilerPlugin_Qualcomm.so`, and `libGemmaModelConstraintProvider.so` are present in `standardDebug` and absent from `gpuRuntimeAlignmentProbeDebug`.
+
+The promotion candidate remains a full stack unit:
+
+```text
+libLiteRt.so + liblitertlm_jni.so + dispatch/compiler/model-constraint members
+```
+
+Do not test or promote any individual `.so` into `standardDebug`.
+
+Rollback remains property-only for Standard:
+
+```bash
+adb shell setprop debug.lami.standard_gpu_runtime_alignment_candidate false
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming false
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+```
+
+Standard promotion risk checklist:
+
+- License/provenance for staged LiteRT-LM/LiteRT runtime artifacts must be documented before any redistribution.
+- Android packaging risks include duplicate native libs, strip warnings, `extractNativeLibs` / legacy packaging behavior,
+  and ABI compatibility across `libLiteRt.so`, `liblitertlm_jni.so`, dispatch/compiler plugins, and support libs.
+- `standardDebug` must remain unchanged until a separate full-stack promotion design is approved.
+
 ## 次の調査候補
 
 - `gpu_max_tokens_32` で first token 前 timeout が変わるか確認する。

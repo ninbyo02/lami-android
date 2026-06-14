@@ -514,6 +514,7 @@ internal fun buildLocalInferenceFailureCompactDiagnosticsText(
             buildGalleryStackGpuProbeCompactDiagnosticLines(input.galleryStackProbeDiagnostics) +
             buildRuntimeAlignmentProbeCompactDiagnosticLines(input.runtimeAlignmentProbeDiagnostics) +
             buildStandardGpuRuntimeAlignmentCandidateCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
+            buildLoadedRuntimeNativeStackCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuAlignmentHolderCompactDiagnosticLines(input.gpuPrefillProbeDiagnostics) +
             buildGpuPrefillProbeDiagnosticLines(input.gpuPrefillProbeDiagnostics)
         ).joinToString("\n")
@@ -539,6 +540,36 @@ private fun buildStandardGpuRuntimeAlignmentCandidateCompactDiagnosticLines(
 private fun extractStandardGpuRuntimeAlignmentCandidateDiagnostics(text: String?): Map<String, String> =
     parseLocalInferenceFailureDiagnosticsText(text)
         .filterKeys { it in STANDARD_GPU_RUNTIME_ALIGNMENT_CANDIDATE_DIAGNOSTIC_KEYS }
+
+private val LOADED_RUNTIME_NATIVE_STACK_DIAGNOSTIC_KEYS = listOf(
+    "runtime_stack_loaded_source_flavor",
+    "runtime_stack_loaded_native_library_dir",
+    "runtime_stack_loaded_native_stack_source",
+    "runtime_stack_loaded_liblitert_present",
+    "runtime_stack_loaded_liblitert_sha256",
+    "runtime_stack_loaded_liblitertlm_jni_present",
+    "runtime_stack_loaded_liblitertlm_jni_sha256",
+    "runtime_stack_loaded_dispatch_qualcomm_present",
+    "runtime_stack_loaded_dispatch_qualcomm_sha256",
+    "runtime_stack_loaded_compiler_plugin_qualcomm_present",
+    "runtime_stack_loaded_compiler_plugin_qualcomm_sha256",
+    "runtime_stack_loaded_gemma_constraint_provider_present",
+    "runtime_stack_loaded_gemma_constraint_provider_sha256",
+    "runtime_stack_loaded_full_stack_candidate_unit",
+    "runtime_stack_alignment_interpretation",
+)
+
+private fun buildLoadedRuntimeNativeStackCompactDiagnosticLines(
+    diagnostics: Map<String, String>,
+): List<String> {
+    if (diagnostics.keys.none { it in LOADED_RUNTIME_NATIVE_STACK_DIAGNOSTIC_KEYS }) return emptyList()
+    return LOADED_RUNTIME_NATIVE_STACK_DIAGNOSTIC_KEYS.map { key ->
+        "$key=${diagnostics[key]?.let(::escapeLocalInferenceFailureValue) ?: "unavailable"}"
+    }
+}
+
+private fun extractLoadedRuntimeNativeStackDiagnostics(text: String?): Map<String, String> =
+    parseLocalInferenceFailureDiagnosticsText(text).filterKeys { it in LOADED_RUNTIME_NATIVE_STACK_DIAGNOSTIC_KEYS }
 
 private val GPU_ALIGNMENT_HOLDER_DIAGNOSTIC_KEYS = listOf(
     "gpu_alignment_holder_present_before_acquire",
@@ -641,7 +672,8 @@ internal fun buildLocalInferenceFailureCompactInputFromTrace(
     val parsed = parseLocalInferenceFailureDiagnosticsText(failureDiagnosticsText)
     val probeDiagnostics = extractGpuPrefillProbeDiagnostics(failureDiagnosticsText) +
         extractGpuAlignmentHolderDiagnostics(failureDiagnosticsText) +
-        extractStandardGpuRuntimeAlignmentCandidateDiagnostics(failureDiagnosticsText)
+        extractStandardGpuRuntimeAlignmentCandidateDiagnostics(failureDiagnosticsText) +
+        extractLoadedRuntimeNativeStackDiagnostics(failureDiagnosticsText)
     val snapshots = trace?.memorySnapshots.orEmpty()
     val before = snapshots.firstOrNull { it.stage == MEMORY_STAGE_BEFORE_GENERATE } ?: snapshots.firstOrNull()
     val after = snapshots.lastOrNull { it.stage == MEMORY_STAGE_GENERATION_FAILED } ?: snapshots.lastOrNull()

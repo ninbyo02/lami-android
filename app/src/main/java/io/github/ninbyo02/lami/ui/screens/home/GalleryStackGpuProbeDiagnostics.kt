@@ -57,6 +57,24 @@ data class RuntimeAlignmentProbeDiagnostics(
     val successGate: String,
 )
 
+data class LoadedRuntimeNativeStackDiagnostics(
+    val sourceFlavor: String,
+    val nativeLibraryDir: String,
+    val nativeStackSource: String,
+    val libLiteRtPresent: String,
+    val libLiteRtSha256: String,
+    val libLiteRtLmJniPresent: String,
+    val libLiteRtLmJniSha256: String,
+    val dispatchQualcommPresent: String,
+    val dispatchQualcommSha256: String,
+    val compilerPluginQualcommPresent: String,
+    val compilerPluginQualcommSha256: String,
+    val gemmaConstraintProviderPresent: String,
+    val gemmaConstraintProviderSha256: String,
+    val fullStackCandidateUnit: String,
+    val alignmentInterpretation: String,
+)
+
 internal fun isGalleryStackGpuProbePropertyEnabled(): Boolean {
     if (!BuildConfig.DEBUG || !BuildConfig.GALLERY_STACK_GPU_PROBE) return false
     val localJvm = runCatching {
@@ -200,6 +218,61 @@ internal fun buildRuntimeAlignmentProbeDiagnostics(
     )
 }
 
+internal fun buildLoadedRuntimeNativeStackDiagnostics(
+    nativeLibraryDir: String? = null,
+    standardCandidateResult: String = "unknown",
+    runtimeAlignmentResult: String = "unknown",
+): LoadedRuntimeNativeStackDiagnostics {
+    val nativeDir = nativeLibraryDir
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.let(::File)
+        ?: resolveNativeLibraryDirFromJavaLibraryPath()
+    return LoadedRuntimeNativeStackDiagnostics(
+        sourceFlavor = BuildConfig.CURRENT_FLAVOR,
+        nativeLibraryDir = nativeDir?.absolutePath ?: "unavailable",
+        nativeStackSource = BuildConfig.DISPATCH_RUNTIME_SOURCE,
+        libLiteRtPresent = nativeDir.nativeLibPresentDiagnostic("libLiteRt.so"),
+        libLiteRtSha256 = nativeDir.nativeLibSha256Diagnostic("libLiteRt.so"),
+        libLiteRtLmJniPresent = nativeDir.nativeLibPresentDiagnostic("liblitertlm_jni.so"),
+        libLiteRtLmJniSha256 = nativeDir.nativeLibSha256Diagnostic("liblitertlm_jni.so"),
+        dispatchQualcommPresent = nativeDir.nativeLibPresentDiagnostic("libLiteRtDispatch_Qualcomm.so"),
+        dispatchQualcommSha256 = nativeDir.nativeLibSha256Diagnostic("libLiteRtDispatch_Qualcomm.so"),
+        compilerPluginQualcommPresent = nativeDir.nativeLibPresentDiagnostic("libLiteRtCompilerPlugin_Qualcomm.so"),
+        compilerPluginQualcommSha256 = nativeDir.nativeLibSha256Diagnostic("libLiteRtCompilerPlugin_Qualcomm.so"),
+        gemmaConstraintProviderPresent = nativeDir.nativeLibPresentDiagnostic("libGemmaModelConstraintProvider.so"),
+        gemmaConstraintProviderSha256 = nativeDir.nativeLibSha256Diagnostic("libGemmaModelConstraintProvider.so"),
+        fullStackCandidateUnit =
+            "libLiteRt.so+liblitertlm_jni.so+dispatch/compiler/model-constraint-members",
+        alignmentInterpretation = resolveRuntimeNativeStackAlignmentInterpretation(
+            sourceFlavor = BuildConfig.CURRENT_FLAVOR,
+            standardCandidateResult = standardCandidateResult,
+            runtimeAlignmentResult = runtimeAlignmentResult,
+        ),
+    )
+}
+
+internal fun resolveRuntimeNativeStackAlignmentInterpretation(
+    sourceFlavor: String,
+    standardCandidateResult: String,
+    runtimeAlignmentResult: String,
+): String =
+    when {
+        sourceFlavor == "standard" && standardCandidateResult == "failure" ->
+            "standard_runtime_stack_mismatch_candidate"
+        sourceFlavor == "standard" && standardCandidateResult == "success" ->
+            "standard_candidate_runtime_stack_success"
+        sourceFlavor == "standard" && standardCandidateResult == "unknown" ->
+            "standard_candidate_runtime_stack_unproven"
+        sourceFlavor == "gpuRuntimeAlignmentProbe" && runtimeAlignmentResult == "success" ->
+            "runtime_alignment_probe_stack_success"
+        sourceFlavor == "gpuRuntimeAlignmentProbe" && runtimeAlignmentResult == "failure" ->
+            "runtime_alignment_probe_stack_failure"
+        sourceFlavor == "gpuRuntimeAlignmentProbe" ->
+            "runtime_alignment_probe_stack_observed"
+        else -> "runtime_stack_observed"
+    }
+
 private fun resolveNativeLibraryDirFromJavaLibraryPath(): File? =
     runCatching {
         System.getProperty("java.library.path")
@@ -219,6 +292,14 @@ private fun File?.nativeLibPresentDiagnostic(libName: String): String =
         this == null -> "unavailable"
         !isDirectory -> "unavailable"
         else -> resolve(libName).isFile.toString()
+    }
+
+private fun File?.nativeLibSha256Diagnostic(libName: String): String =
+    when {
+        this == null -> "unavailable"
+        !isDirectory -> "unavailable"
+        else -> resolve(libName).takeIf { it.isFile }?.let(::sha256ForGalleryStackProbeFileSafely)
+            ?: "unavailable"
     }
 
 private fun sha256ForGalleryStackProbeFileSafely(file: File): String =

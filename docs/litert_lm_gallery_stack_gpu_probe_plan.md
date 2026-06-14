@@ -375,6 +375,100 @@ Promotion remains blocked until this flavor repeatedly reports:
 - `gpu_ui_append_finished=true`
 - `failure_stage=none`
 
+## Standard vs gpuRuntimeAlignmentProbe Native Stack Split
+
+The Standard dev-gated candidate has now been tested with the same Edge Gallery E2B model and remains a failure:
+
+- `standard_gpu_runtime_alignment_candidate_enabled=true`
+- `standard_gpu_runtime_alignment_candidate_eligible=true`
+- `standard_gpu_runtime_alignment_candidate_result=failure`
+- `failure_stage=gpu_generate_compiled_model_invoke_failed`
+- `gpu_litert_executor_error_file=runtime/executor/llm_litert_compiled_model_executor.cc`
+- `gpu_litert_executor_error_line=735`
+
+`gpuRuntimeAlignmentProbeDebug` succeeds with the same model, callback streaming, and held-engine reuse. Model identity is
+therefore no longer the leading blocker. The remaining blocker is the Standard APK runtime/native stack.
+
+Use this comparison script after both APKs are assembled:
+
+```bash
+./gradlew :app:assembleStandardDebug
+./gradlew :app:assembleGpuRuntimeAlignmentProbeDebug
+scripts/compare_standard_gpu_runtime_alignment_probe_native_libs.sh
+```
+
+Outputs:
+
+- `artifacts/gpu_runtime_stack_compare/standard_debug_native_libs.tsv`
+- `artifacts/gpu_runtime_stack_compare/gpu_runtime_alignment_probe_native_libs.tsv`
+- `artifacts/gpu_runtime_stack_compare/standard_vs_gpu_runtime_alignment_native_lib_diff.tsv`
+- `artifacts/gpu_runtime_stack_compare/standard_vs_gpu_runtime_alignment_needed_edges.tsv`
+- `artifacts/gpu_runtime_stack_compare/standard_vs_gpu_runtime_alignment_stack_classification.md`
+
+The full-stack candidate unit is:
+
+```text
+libLiteRt.so + liblitertlm_jni.so + libLiteRtDispatch_Qualcomm.so + libLiteRtCompilerPlugin_Qualcomm.so + libGemmaModelConstraintProvider.so + directly linked support libs
+```
+
+This is a classification unit, not a staging instruction. Single `.so` replacement remains prohibited.
+
+Additional diagnostics now identify the actually loaded APK native stack for GPU routes:
+
+- `runtime_stack_loaded_source_flavor`
+- `runtime_stack_loaded_native_library_dir`
+- `runtime_stack_loaded_native_stack_source`
+- `runtime_stack_loaded_liblitert_present`
+- `runtime_stack_loaded_liblitert_sha256`
+- `runtime_stack_loaded_liblitertlm_jni_present`
+- `runtime_stack_loaded_liblitertlm_jni_sha256`
+- `runtime_stack_loaded_dispatch_qualcomm_present`
+- `runtime_stack_loaded_dispatch_qualcomm_sha256`
+- `runtime_stack_loaded_compiler_plugin_qualcomm_present`
+- `runtime_stack_loaded_compiler_plugin_qualcomm_sha256`
+- `runtime_stack_loaded_gemma_constraint_provider_present`
+- `runtime_stack_loaded_gemma_constraint_provider_sha256`
+- `runtime_stack_loaded_full_stack_candidate_unit`
+- `runtime_stack_alignment_interpretation`
+
+Expected Standard failure interpretation:
+
+```text
+runtime_stack_alignment_interpretation=standard_runtime_stack_mismatch_candidate
+```
+
+Expected runtime alignment probe success interpretation:
+
+```text
+runtime_stack_alignment_interpretation=runtime_alignment_probe_stack_success
+```
+
+Rollback plan:
+
+1. Leave `standardDebug` native stack unchanged.
+2. Disable Standard candidate properties:
+
+```bash
+adb shell setprop debug.lami.standard_gpu_runtime_alignment_candidate false
+adb shell setprop debug.lami.gpu_normal_route_use_callback_streaming false
+adb shell setprop debug.lami.gpu_generate_probe_mode normal
+```
+
+3. Uninstall only DEV probe APKs if needed:
+
+```bash
+adb uninstall io.github.ninbyo02.lami.gpualignment
+adb uninstall io.github.ninbyo02.lami.gallerystackgpu
+```
+
+Risk gates before any Standard promotion design:
+
+- License/provenance of all staged runtime artifacts must be recorded.
+- Packaging behavior must be reviewed for duplicate native libs, strip warnings, ABI splits, `extractNativeLibs`, and
+  dependency graph consistency.
+- Promotion must use a full matched runtime stack in a separate DEV build first. It must not be a single `.so` swap.
+- CPU route, NPU S1, fallback, and Standard default GPU behavior must remain unchanged.
+
 Holder reuse and cleanup diagnostics added for the runtime alignment probe:
 
 - `gpu_alignment_holder_present_before_acquire`

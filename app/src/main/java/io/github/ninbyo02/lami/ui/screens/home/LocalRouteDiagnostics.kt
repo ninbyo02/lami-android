@@ -18,6 +18,7 @@ internal data class LocalRouteDiagnosticContext(
     val modelKind: String,
     val baselineRole: String,
     val genericModelCpuBaseline: Boolean,
+    val nativeLibraryDir: String? = null,
 )
 
 internal data class LocalRouteDiagnosticFlags(
@@ -268,6 +269,7 @@ internal fun buildLocalRouteDiagnosticContext(
     localRouteEntered: Boolean,
     normalChatNativeRouteBlocked: Boolean = false,
     blockedReason: String = "none",
+    nativeLibraryDir: String? = null,
 ): LocalRouteDiagnosticContext {
     val modelName = selectedModelName?.trim()?.takeIf { it.isNotBlank() } ?: "unknown"
     val modelFile = selectedModelFile
@@ -300,6 +302,7 @@ internal fun buildLocalRouteDiagnosticContext(
             modelKind = modelKind,
             baselineRole = baselineRole,
         ),
+        nativeLibraryDir = nativeLibraryDir,
     )
 }
 
@@ -595,6 +598,7 @@ internal fun buildLocalRouteDiagnosticTrace(
         classifyLiteRtCompiledModelExecutorFailureCategory(effectiveLiteRtLmError)
     val galleryStackGpuProbe = buildGalleryStackGpuProbeRuntimeDiagnostics(
         selectedModelPath = context.selectedModelPath,
+        nativeLibraryDir = context.nativeLibraryDir,
         preferredBackend = context.preferredBackend,
     )
     val standardGpuProbe = buildStandardGpuProbeDiagnostics(
@@ -602,15 +606,22 @@ internal fun buildLocalRouteDiagnosticTrace(
         flags = flags,
         failureStage = failureStage,
     )
+    val runtimeAlignmentResultCandidate = resolveRuntimeAlignmentProbeResultCandidate(
+        flags = flags,
+        failureStage = failureStage,
+    )
     val runtimeAlignmentProbe = buildRuntimeAlignmentProbeDiagnostics(
-        resultCandidate = resolveRuntimeAlignmentProbeResultCandidate(
-            flags = flags,
-            failureStage = failureStage,
-        ),
+        nativeLibraryDir = context.nativeLibraryDir,
+        resultCandidate = runtimeAlignmentResultCandidate,
         successGate = resolveRuntimeAlignmentProbeSuccessGate(
             context = context,
             flags = flags,
         ),
+    )
+    val loadedRuntimeNativeStack = buildLoadedRuntimeNativeStackDiagnostics(
+        nativeLibraryDir = context.nativeLibraryDir,
+        standardCandidateResult = standardGpuProbe.runtimeAlignmentCandidateResult,
+        runtimeAlignmentResult = runtimeAlignmentResultCandidate,
     )
     val gpuAlignmentHolder = buildGpuAlignmentHolderDiagnostics(
         flags = flags,
@@ -857,6 +868,12 @@ internal fun buildLocalRouteDiagnosticTrace(
             buildGalleryStackGpuProbeRouteDiagnosticLines(galleryStackGpuProbe) +
             buildStandardGpuProbeRouteDiagnosticLines(standardGpuProbe) +
             buildRuntimeAlignmentProbeRouteDiagnosticLines(runtimeAlignmentProbe) +
+            buildLoadedRuntimeNativeStackRouteDiagnosticLines(
+                diagnostics = loadedRuntimeNativeStack,
+                emit = context.preferredBackend.equals("GPU", ignoreCase = true) ||
+                    standardGpuProbe.emit ||
+                    runtimeAlignmentProbe.flavor,
+            ) +
             buildGpuPrefillProbeDiagnosticLines(flags.gpuPrefillProbeDiagnostics)
         ).joinToString(" ")
 }
@@ -929,6 +946,30 @@ private fun buildRuntimeAlignmentProbeRouteDiagnosticLines(
         "runtime_alignment_gemma_constraint_provider_present=${diagnostics.gemmaConstraintProviderPresent}",
         "runtime_alignment_result_candidate=${diagnostics.resultCandidate}",
         "runtime_alignment_success_gate=${diagnostics.successGate}",
+    )
+}
+
+private fun buildLoadedRuntimeNativeStackRouteDiagnosticLines(
+    diagnostics: LoadedRuntimeNativeStackDiagnostics,
+    emit: Boolean,
+): List<String> {
+    if (!emit) return emptyList()
+    return listOf(
+        "runtime_stack_loaded_source_flavor=${diagnostics.sourceFlavor}",
+        "runtime_stack_loaded_native_library_dir=${diagnostics.nativeLibraryDir.toDiagnosticValue()}",
+        "runtime_stack_loaded_native_stack_source=${diagnostics.nativeStackSource.toDiagnosticValue()}",
+        "runtime_stack_loaded_liblitert_present=${diagnostics.libLiteRtPresent}",
+        "runtime_stack_loaded_liblitert_sha256=${diagnostics.libLiteRtSha256}",
+        "runtime_stack_loaded_liblitertlm_jni_present=${diagnostics.libLiteRtLmJniPresent}",
+        "runtime_stack_loaded_liblitertlm_jni_sha256=${diagnostics.libLiteRtLmJniSha256}",
+        "runtime_stack_loaded_dispatch_qualcomm_present=${diagnostics.dispatchQualcommPresent}",
+        "runtime_stack_loaded_dispatch_qualcomm_sha256=${diagnostics.dispatchQualcommSha256}",
+        "runtime_stack_loaded_compiler_plugin_qualcomm_present=${diagnostics.compilerPluginQualcommPresent}",
+        "runtime_stack_loaded_compiler_plugin_qualcomm_sha256=${diagnostics.compilerPluginQualcommSha256}",
+        "runtime_stack_loaded_gemma_constraint_provider_present=${diagnostics.gemmaConstraintProviderPresent}",
+        "runtime_stack_loaded_gemma_constraint_provider_sha256=${diagnostics.gemmaConstraintProviderSha256}",
+        "runtime_stack_loaded_full_stack_candidate_unit=${diagnostics.fullStackCandidateUnit.toDiagnosticValue()}",
+        "runtime_stack_alignment_interpretation=${diagnostics.alignmentInterpretation}",
     )
 }
 
